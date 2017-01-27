@@ -1,0 +1,12 @@
+// comment
+
+// comment
+
+def qeval(x):
+  // comment in function
+	y =	x**3
+  //b = x**5
+  //z = x + 3 - y + 7
+  //a = z * y + 3 * y
+  return y + x + 5
+// comment after function

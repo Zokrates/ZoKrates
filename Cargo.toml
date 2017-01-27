@@ -1,0 +1,7 @@
+[package]
+name = "code_to_r1cs"
+version = "0.1.0"
+authors = ["Dennis Kuhnert <mail@kyroy.com>"]
+
+[dependencies]
+regex = "0.2"
