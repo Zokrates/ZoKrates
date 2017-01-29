@@ -1,9 +1,34 @@
 use std::fmt;
+use std::collections::HashMap;
 
 pub struct Prog {
     pub id: String,
     pub args: Vec<Parameter>,
     pub defs: Vec<Definition>,
+}
+impl Prog {
+    pub fn get_witness(&self, inputs: Vec<i32>) -> HashMap<String, i32> {
+        assert!(self.args.len() == inputs.len());
+        let mut witness = HashMap::new();
+        witness.insert("~one".to_string(), 1);
+        for i in 0..self.args.len() {
+            witness.insert(self.args[i].id.to_string(), inputs[i]);
+        }
+        for def in &self.defs {
+            match *def {
+                Definition::Return(ref expr) => {
+                    let s = expr.solve(&witness);
+                    witness.insert("~out".to_string(), s);
+                },
+                Definition::Definition(ref id, ref expr) => {
+                    let s = expr.solve(&witness);
+                    witness.insert(id.to_string(), s);
+                },
+                Definition::IfElse(_, _, _) => unimplemented!(),
+            }
+        }
+        witness
+    }
 }
 impl fmt::Display for Prog {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -50,6 +75,20 @@ pub enum Expression {
     IfElse(Box<Expression>, Box<Expression>, Option<Box<Expression>>),
     NumberLiteral(i32),
     VariableReference(String),
+}
+impl Expression {
+    fn solve(&self, inputs: &HashMap<String, i32>) -> i32 {
+        match *self {
+            Expression::Add(ref x, ref y) => x.solve(inputs) + y.solve(inputs),
+            Expression::Sub(ref x, ref y) => x.solve(inputs) - y.solve(inputs),
+            Expression::Mult(ref x, ref y) => x.solve(inputs) * y.solve(inputs),
+            Expression::Div(ref x, ref y) => x.solve(inputs) / y.solve(inputs),
+            Expression::Pow(ref x, ref y) => x.solve(inputs).pow(y.solve(inputs) as u32),
+            Expression::NumberLiteral(x) => x,
+            Expression::VariableReference(ref var) => inputs[var],
+            Expression::IfElse(_, _, _) => unimplemented!(),
+        }
+    }
 }
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

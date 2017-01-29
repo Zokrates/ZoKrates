@@ -40,7 +40,7 @@ fn parse_expression_rhs(text: String) -> Expression {
                 "*" => Expression::Mult(lhs, rhs),
                 "/" => Expression::Div(lhs, rhs),
                 "**" if number_regex.is_match(&x["rhs"]) => Expression::Pow(lhs, rhs),
-                _ => panic!("Not implemented yet")
+                _ => unimplemented!(),
             }
         },
         None => panic!("Could not parse rhs of expression: {:?}", text),
@@ -245,7 +245,7 @@ fn flatten_program(prog: Prog) -> Prog {
                 let rhs = flatten_rhs(&mut defs_flattened, &mut num_variables, expr);
                 defs_flattened.push(Definition::Definition(id, rhs));
             },
-            Definition::IfElse(_, _, _) => panic!("Not implemented yet"),
+            Definition::IfElse(_, _, _) => unimplemented!(),
         }
     }
     Prog { id: prog.id, args: prog.args, defs: defs_flattened }
@@ -313,32 +313,32 @@ fn r1cs_expression(idx: usize, expr: Expression, variables: &mut Vec<String>, a_
                 _ => panic!("Not flattened!"),
             };
         },
-        _ => panic!("Not implemented yet or forbidden!"),
+        _ => unimplemented!(),
     }
 }
 
-fn r1cs_program(prog: Prog) -> (Vec<String>, Vec<Vec<(usize, i32)>>, Vec<Vec<(usize, i32)>>, Vec<Vec<(usize, i32)>>){
+fn r1cs_program(prog: &Prog) -> (Vec<String>, Vec<Vec<(usize, i32)>>, Vec<Vec<(usize, i32)>>, Vec<Vec<(usize, i32)>>){
     let mut variables: Vec<String> = Vec::new();
     variables.push("~one".to_string());
     let mut a: Vec<Vec<(usize, i32)>> = Vec::new();
     let mut b: Vec<Vec<(usize, i32)>> = Vec::new();
     let mut c: Vec<Vec<(usize, i32)>> = Vec::new();
     variables.extend(prog.args.iter().map(|x| format!("{}", x)));
-    for def in prog.defs {
+    for def in &prog.defs {
         let mut a_row: Vec<(usize, i32)> = Vec::new();
         let mut b_row: Vec<(usize, i32)> = Vec::new();
         let mut c_row: Vec<(usize, i32)> = Vec::new();
         let idx = variables.len();
-        match def { // get all variables
-            Definition::Return(expr) => {
+        match *def { // get all variables
+            Definition::Return(ref expr) => {
                 variables.push("~out".to_string());
-                r1cs_expression(idx, expr, &mut variables, &mut a_row, &mut b_row, &mut c_row);
+                r1cs_expression(idx, expr.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row);
             },
-            Definition::Definition(id, expr) => {
-                variables.push(id);
-                r1cs_expression(idx, expr, &mut variables, &mut a_row, &mut b_row, &mut c_row);
+            Definition::Definition(ref id, ref expr) => {
+                variables.push(id.to_string());
+                r1cs_expression(idx, expr.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row);
             },
-            Definition::IfElse(_, _, _) => panic!("Not implemented yet"),
+            Definition::IfElse(_, _, _) => unimplemented!(),
         }
         a.push(a_row);
         b.push(b_row);
@@ -349,7 +349,7 @@ fn r1cs_program(prog: Prog) -> (Vec<String>, Vec<Vec<(usize, i32)>>, Vec<Vec<(us
 
 fn main() {
     let args: Vec<_> = std::env::args().collect();
-    assert!(args.len() == 2);
+    assert!(args.len() == 2|3);
 
     let path = Path::new(&args[1]);
     let file = match File::open(&path) {
@@ -361,7 +361,7 @@ fn main() {
     println!("program:\n{}", program_ast);
     let program_flattened = flatten_program(program_ast);
     println!("flattened:\n{}", program_flattened);
-    let (variables, a, b, c) = r1cs_program(program_flattened);
+    let (variables, a, b, c) = r1cs_program(&program_flattened);
     println!("variables {:?}", variables);
     println!("A");
     for x in &a {
@@ -376,5 +376,17 @@ fn main() {
         println!("{:?}", x);
     }
 
-    println!("run_libsnark = {:?}", run_libsnark(variables, a, b, c));
+    // calculate witness if wanted
+    if args.len() < 3 {
+        std::process::exit(1);
+    }
+    let inputs: Vec<i32> = args[2].split_whitespace().flat_map(|x| x.parse::<i32>()).collect();
+    assert!(inputs.len() == program_flattened.args.len());
+    println!("inputs {:?}", inputs);
+    let witness_map = program_flattened.get_witness(inputs);
+    println!("witness_map {:?}", witness_map);
+    let witness: Vec<_> = variables.iter().map(|x| witness_map[x]).collect();
+    println!("witness {:?}", witness);
+
+    println!("run_libsnark = {:?}", run_libsnark(variables, a, b, c, witness));
 }

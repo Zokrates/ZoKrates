@@ -13,7 +13,7 @@
 using namespace std;
 using namespace libsnark;
 
-bool _run_libsnark(const int* A, const int* B, const int* C, int constraints, int variables){
+bool _run_libsnark(const int* A, const int* B, const int* C, const int* witness, int constraints, int variables){
   r1cs_constraint_system<Fr<default_r1cs_ppzksnark_pp> > cs;
   cs.primary_input_size = variables - 1;
   cs.auxiliary_input_size = 0;
@@ -48,19 +48,28 @@ bool _run_libsnark(const int* A, const int* B, const int* C, int constraints, in
   }
 
   r1cs_variable_assignment<Fr<default_r1cs_ppzksnark_pp> > full_variable_assignment;
-  cout << "run_libsnark: Pushing " << variables - 1 << " zeroes into variable assignment" << endl;
   for (int i = 1; i < variables; i++) {
-    full_variable_assignment.push_back(0);
+    full_variable_assignment.push_back(witness[i]);
   }
 
   r1cs_primary_input<Fr<default_r1cs_ppzksnark_pp> > primary_input(full_variable_assignment.begin(), full_variable_assignment.begin() + variables - 1);
   r1cs_primary_input<Fr<default_r1cs_ppzksnark_pp> > auxiliary_input(full_variable_assignment.begin() + variables - 1, full_variable_assignment.end());
 
-  return cs.is_satisfied(primary_input, auxiliary_input);
+  // return cs.is_satisfied(primary_input, auxiliary_input);
 
-  // print_header("(enter) Profile R1CS ppzkSNARK");
-  // const bool test_serialization = true;
-  // run_r1cs_ppzksnark<default_r1cs_ppzksnark_pp>(example, test_serialization);
-  // print_header("(leave) Profile R1CS ppzkSNARK");
-  // return false;
+  /* sanity checks */
+  assert(cs.num_variables() == full_variable_assignment.size());
+  assert(cs.num_variables() >= variables - 1);
+  assert(cs.num_inputs() == variables - 1);
+  assert(cs.num_constraints() == constraints);
+  assert(cs.is_satisfied(primary_input, auxiliary_input));
+  r1cs_example<Fr<default_r1cs_ppzksnark_pp> > example = r1cs_example<Fr<default_r1cs_ppzksnark_pp> >(std::move(cs), std::move(primary_input), std::move(auxiliary_input));
+
+  print_header("(enter) Profile R1CS ppzkSNARK");
+  default_r1cs_ppzksnark_pp::init_public_params();
+  const bool test_serialization = true;
+  bool result = run_r1cs_ppzksnark<default_r1cs_ppzksnark_pp>(example, test_serialization);
+  print_header("(leave) Profile R1CS ppzkSNARK");
+
+  return result;
 }

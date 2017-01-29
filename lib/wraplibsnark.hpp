@@ -7,6 +7,7 @@ extern "C" {
 bool _run_libsnark(const int* A,
                   const int* B,
                   const int* C,
+                  const int* witness,
                   int constraints,
                   int variables);
 
