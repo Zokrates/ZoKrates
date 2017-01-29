@@ -8,5 +8,5 @@ def qeval(x):
   //b = x**5
   //z = x + 3 - y + 7
   //a = z * y + 3 * y
-  return y + x + 5
+  return y + x + y
 // comment after function

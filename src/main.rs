@@ -1,14 +1,17 @@
 #![feature(box_patterns, box_syntax)]
 
-mod ast;
 extern crate regex;
 
-use ast::*;
+mod ast;
+mod libsnark;
+
 use regex::Regex;
 use std::path::Path;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::prelude::*;
+use ast::*;
+use libsnark::run_libsnark;
 
 fn parse_expression_rhs(text: String) -> Expression {
     let op_regex = Regex::new(r"^(?P<lhs>[[:alnum:]]+)(?P<op>(\*\*|[\+\-\*/]))(?P<rhs>.*)$").unwrap();
@@ -314,7 +317,7 @@ fn r1cs_expression(idx: usize, expr: Expression, variables: &mut Vec<String>, a_
     }
 }
 
-fn r1cs_program(prog: Prog) {
+fn r1cs_program(prog: Prog) -> (Vec<String>, Vec<Vec<(usize, i32)>>, Vec<Vec<(usize, i32)>>, Vec<Vec<(usize, i32)>>){
     let mut variables: Vec<String> = Vec::new();
     variables.push("~one".to_string());
     let mut a: Vec<Vec<(usize, i32)>> = Vec::new();
@@ -341,19 +344,7 @@ fn r1cs_program(prog: Prog) {
         b.push(b_row);
         c.push(c_row);
     }
-    println!("variables {:?}", variables);
-    println!("A");
-    for x in a {
-        println!("{:?}", x);
-    }
-    println!("B");
-    for x in b {
-        println!("{:?}", x);
-    }
-    println!("C");
-    for x in c {
-        println!("{:?}", x);
-    }
+    (variables, a, b, c)
 }
 
 fn main() {
@@ -370,5 +361,20 @@ fn main() {
     println!("program:\n{}", program_ast);
     let program_flattened = flatten_program(program_ast);
     println!("flattened:\n{}", program_flattened);
-    r1cs_program(program_flattened);
+    let (variables, a, b, c) = r1cs_program(program_flattened);
+    println!("variables {:?}", variables);
+    println!("A");
+    for x in &a {
+        println!("{:?}", x);
+    }
+    println!("B");
+    for x in &b {
+        println!("{:?}", x);
+    }
+    println!("C");
+    for x in &c {
+        println!("{:?}", x);
+    }
+
+    println!("run_libsnark = {:?}", run_libsnark(variables, a, b, c));
 }
