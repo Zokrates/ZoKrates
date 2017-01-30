@@ -71,7 +71,7 @@ fn parse_program(file: File) -> Prog {
                 };
                 break;
             },
-            Some(Ok(ref x)) if x.starts_with("//") || x == "" => {},
+            Some(Ok(ref x)) if x.trim().starts_with("//") || x == "" => {},
             None => panic!("End of file reached without function def"),
             Some(x) => panic!("Found '{:?}' outside of function", x),
         }
@@ -343,7 +343,7 @@ fn r1cs_program(prog: &Prog) -> (Vec<String>, Vec<Vec<(usize, i32)>>, Vec<Vec<(u
 
 fn main() {
     let args: Vec<_> = std::env::args().collect();
-    assert!(args.len() == 2|3);
+    assert!(args.len() == 2 || args.len() == 3);
 
     let path = Path::new(&args[1]);
     let file = match File::open(&path) {

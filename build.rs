@@ -8,7 +8,6 @@ fn main() {
         .include("lib/libsnark/include/libsnark")
         .flag("-std=c++11")
         .define("CURVE_BN128", None)
-        // .define("DEBUG", None)
         .file("lib/wraplibsnark.cpp")
         .compile("libwraplibsnark.a");
 }
