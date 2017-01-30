@@ -59,22 +59,16 @@ fn parse_program(file: File) -> Prog {
         match lines.next() {
             Some(Ok(ref x)) if x.starts_with("def") => {
                 // assert!(def_regex.is_match(x));
-                match def_regex.captures(x) {
-                    Some(x) => {
-                        // println!("def_regex {:?}", x);
-                        id = x["id"].to_string();
-                    },
+                id = match def_regex.captures(x) {
+                    Some(x) => x["id"].to_string(),
                     None => panic!("Wrong definition of function"),
-                }
-                match args_regex.captures(x) {
-                    Some(x) => {
-                        // println!("args_regex {:?}", x);
-                        args = x["args"].replace(" ", "").replace("\t", "").split(",")
-                            .map(|p| Parameter { id: p.to_string() })
-                            .collect::<Vec<_>>();
-                    },
+                };
+                args = match args_regex.captures(x) {
+                    Some(x) => x["args"].replace(" ", "").replace("\t", "").split(",")
+                                        .map(|p| Parameter { id: p.to_string() })
+                                        .collect::<Vec<_>>(),
                     None => panic!("Wrong argument definition in function: {}", id),
-                }
+                };
                 break;
             },
             Some(Ok(ref x)) if x.starts_with("//") || x == "" => {},
@@ -101,7 +95,7 @@ fn parse_program(file: File) -> Prog {
                     None => panic!("Wrong expression in function '{}':\n{}", id, line),
                 }
             },
-            None => { break },
+            None => break,
             Some(Err(e)) => panic!("Error while reading Definitions: {}", e),
         }
     }
@@ -146,14 +140,14 @@ fn flatten_rhs(defs_flattened: &mut Vec<Definition>, num_variables: &mut i32, rh
                             box Expression::NumberLiteral(var),
                             box Expression::NumberLiteral(var)
                         ),
-                        _ => panic!("Pow only allowed for numbers and variables")
+                        _ => panic!("Only variables and numbers allowed in pow base")
                     }
                 }
-                _ => panic!("No Number as exponent"),
+                _ => panic!("Expected number as pow exponent"),
             }
         },
         Expression::Add(left, right) => {
-            // TODO currently assuming that left is always Number of Variable
+            // TODO currently assuming that left is always Number or Variable
             let new_right = match right {
                 box Expression::NumberLiteral(x) => Expression::NumberLiteral(x),
                 box Expression::VariableReference(ref x) => Expression::VariableReference(x.to_string()),
@@ -172,7 +166,7 @@ fn flatten_rhs(defs_flattened: &mut Vec<Definition>, num_variables: &mut i32, rh
             Expression::Add(left, Box::new(new_right))
         },
         Expression::Sub(left, right) => {
-            // TODO currently assuming that left is always Number of Variable
+            // TODO currently assuming that left is always Number or Variable
             let new_right = match right {
                 box Expression::NumberLiteral(x) => Expression::NumberLiteral(x),
                 box Expression::VariableReference(ref x) => Expression::VariableReference(x.to_string()),
@@ -191,7 +185,7 @@ fn flatten_rhs(defs_flattened: &mut Vec<Definition>, num_variables: &mut i32, rh
             Expression::Sub(left, Box::new(new_right))
         },
         Expression::Mult(left, right) => {
-            // TODO currently assuming that left is always Number of Variable
+            // TODO currently assuming that left is always Number or Variable
             let new_right = match right {
                 box Expression::NumberLiteral(x) => Expression::NumberLiteral(x),
                 box Expression::VariableReference(ref x) => Expression::VariableReference(x.to_string()),
@@ -210,7 +204,7 @@ fn flatten_rhs(defs_flattened: &mut Vec<Definition>, num_variables: &mut i32, rh
             Expression::Mult(left, Box::new(new_right))
         },
         Expression::Div(left, right) => {
-            // TODO currently assuming that left is always Number of Variable
+            // TODO currently assuming that left is always Number or Variable
             let new_right = match right {
                 box Expression::NumberLiteral(x) => Expression::NumberLiteral(x),
                 box Expression::VariableReference(ref x) => Expression::VariableReference(x.to_string()),
@@ -228,7 +222,7 @@ fn flatten_rhs(defs_flattened: &mut Vec<Definition>, num_variables: &mut i32, rh
             };
             Expression::Div(left, Box::new(new_right))
         },
-        _ => Expression::NumberLiteral(0),
+        _ => panic!("Already flattened or not implemented"),
     }
 }
 
@@ -329,7 +323,7 @@ fn r1cs_program(prog: &Prog) -> (Vec<String>, Vec<Vec<(usize, i32)>>, Vec<Vec<(u
         let mut b_row: Vec<(usize, i32)> = Vec::new();
         let mut c_row: Vec<(usize, i32)> = Vec::new();
         let idx = variables.len();
-        match *def { // get all variables
+        match *def {
             Definition::Return(ref expr) => {
                 variables.push("~out".to_string());
                 r1cs_expression(idx, expr.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row);

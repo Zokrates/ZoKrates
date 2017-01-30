@@ -72,7 +72,7 @@ pub enum Expression {
     Div(Box<Expression>, Box<Expression>),
     Pow(Box<Expression>, Box<Expression>),
     #[allow(dead_code)]
-    IfElse(Box<Expression>, Box<Expression>, Option<Box<Expression>>),
+    IfElse(Box<Expression>, Box<Expression>, Box<Expression>),
     NumberLiteral(i32),
     VariableReference(String),
 }
