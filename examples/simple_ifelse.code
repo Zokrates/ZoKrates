@@ -1,0 +1,4 @@
+// simple ifelse example
+def qeval(x):
+  y = x < 3 ? 1 : 5
+  return x + y

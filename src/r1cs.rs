@@ -62,7 +62,18 @@ pub fn r1cs_expression(idx: usize, expr: Expression, variables: &mut Vec<String>
                 _ => panic!("Not flattened!"),
             };
         },
-        _ => unimplemented!(),
+        Expression::Pow(_, _) => panic!("Pow not flattened"),
+        Expression::IfElse(_, _, _) => panic!("IfElse not flattened"),
+        Expression::VariableReference(var) => {
+            a_row.push((variables.iter().position(|r| r == &var).unwrap(), 1));
+            b_row.push((0, 1));
+            c_row.push((idx, 1));
+        },
+        Expression::NumberLiteral(x) => {
+            a_row.push((0, x));
+            b_row.push((0, 1));
+            c_row.push((idx, 1));
+        },
     }
 }
 
@@ -87,7 +98,6 @@ pub fn r1cs_program(prog: &Prog) -> (Vec<String>, Vec<Vec<(usize, i32)>>, Vec<Ve
                 variables.push(id.to_string());
                 r1cs_expression(idx, expr.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row);
             },
-            Definition::IfElse(_, _, _) => unimplemented!(),
         }
         a.push(a_row);
         b.push(b_row);

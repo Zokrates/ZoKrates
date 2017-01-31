@@ -42,7 +42,7 @@ fn main() {
 
     // calculate witness if wanted
     if args.len() < 3 {
-        std::process::exit(1);
+        std::process::exit(0);
     }
     let inputs: Vec<i32> = args[2].split_whitespace().flat_map(|x| x.parse::<i32>()).collect();
     assert!(inputs.len() == program_flattened.args.len());

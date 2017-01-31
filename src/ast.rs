@@ -24,7 +24,6 @@ impl Prog {
                     let s = expr.solve(&witness);
                     witness.insert(id.to_string(), s);
                 },
-                Definition::IfElse(_, _, _) => unimplemented!(),
             }
         }
         witness
@@ -39,15 +38,12 @@ impl fmt::Display for Prog {
 pub enum Definition {
   Return(Expression),
   Definition(String, Expression),
-  #[allow(dead_code)]
-  IfElse(Expression, Expression, Option<Expression>),
 }
 impl fmt::Display for Definition {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Definition::Return(ref expr) => write!(f, "return {}", expr),
             Definition::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
-            Definition::IfElse(_, _, _) => write!(f, "IfElse not implemented yet!"),
         }
     }
 }
@@ -71,8 +67,7 @@ pub enum Expression {
     Mult(Box<Expression>, Box<Expression>),
     Div(Box<Expression>, Box<Expression>),
     Pow(Box<Expression>, Box<Expression>),
-    #[allow(dead_code)]
-    IfElse(Box<Expression>, Box<Expression>, Box<Expression>),
+    IfElse(Box<Condition>, Box<Expression>, Box<Expression>),
     NumberLiteral(i32),
     VariableReference(String),
 }
@@ -98,9 +93,26 @@ impl fmt::Display for Expression {
             Expression::Mult(ref lhs, ref rhs) => write!(f, "{} * {}", lhs, rhs),
             Expression::Div(ref lhs, ref rhs) => write!(f, "{} / {}", lhs, rhs),
             Expression::Pow(ref lhs, ref rhs) => write!(f, "{}**{}", lhs, rhs),
-            Expression::IfElse(_, _, _) => write!(f, "ifelse"),
+            Expression::IfElse(ref condition, ref consequent, ref alternative) => write!(f, "{} ? {} : {}", condition, consequent, alternative),
             Expression::NumberLiteral(ref i) => write!(f, "{}", i),
             Expression::VariableReference(ref var) => write!(f, "{}", var),
         }
+    }
+}
+
+#[derive(Clone)]
+pub enum Condition {
+    Lt(Expression, Expression),
+}
+impl fmt::Display for Condition {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Condition::Lt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
+        }
+    }
+}
+impl fmt::Debug for Condition {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self)
     }
 }
