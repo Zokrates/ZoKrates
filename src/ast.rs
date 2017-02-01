@@ -120,10 +120,10 @@ impl fmt::Display for Expression {
         match *self {
             Expression::NumberLiteral(ref i) => write!(f, "{}", i),
             Expression::VariableReference(ref var) => write!(f, "{}", var),
-            Expression::Add(ref lhs, ref rhs) => write!(f, "{} + {}", lhs, rhs),
-            Expression::Sub(ref lhs, ref rhs) => write!(f, "{} - {}", lhs, rhs),
-            Expression::Mult(ref lhs, ref rhs) => write!(f, "{} * {}", lhs, rhs),
-            Expression::Div(ref lhs, ref rhs) => write!(f, "{} / {}", lhs, rhs),
+            Expression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
+            Expression::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
+            Expression::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
+            Expression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
             Expression::Pow(ref lhs, ref rhs) => write!(f, "{}**{}", lhs, rhs),
             Expression::IfElse(ref condition, ref consequent, ref alternative) => write!(f, "{} ? {} : {}", condition, consequent, alternative),
         }

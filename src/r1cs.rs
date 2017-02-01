@@ -1,17 +1,20 @@
 use ast::*;
+use ast::Expression::*;
 use std::collections::HashMap;
 
 fn count_variables_add(expr: Expression) -> HashMap<String, i32> {
     let mut count = HashMap::new();
     match expr {
-        Expression::Add(box lhs, box rhs) => {
+        NumberLiteral(x) => { count.insert("~one".to_string(), x); },
+        VariableReference(var) => { count.insert(var, 1); },
+        Add(box lhs, box rhs) => {
             match (lhs, rhs) {
-                (Expression::NumberLiteral(x), Expression::NumberLiteral(y)) => {
+                (NumberLiteral(x), NumberLiteral(y)) => {
                     let num = count.entry("~one".to_string()).or_insert(0);
                     *num += x + y;
                 },
-                (Expression::VariableReference(v), Expression::NumberLiteral(x)) |
-                (Expression::NumberLiteral(x), Expression::VariableReference(v)) => {
+                (VariableReference(v), NumberLiteral(x)) |
+                (NumberLiteral(x), VariableReference(v)) => {
                     {
                         let num = count.entry("~one".to_string()).or_insert(0);
                         *num += x;
@@ -19,7 +22,7 @@ fn count_variables_add(expr: Expression) -> HashMap<String, i32> {
                     let var = count.entry(v).or_insert(0);
                     *var += 1;
                 },
-                (Expression::VariableReference(v1), Expression::VariableReference(v2)) => {
+                (VariableReference(v1), VariableReference(v2)) => {
                     {
                         let var1 = count.entry(v1).or_insert(0);
                         *var1 += 1;
@@ -27,8 +30,8 @@ fn count_variables_add(expr: Expression) -> HashMap<String, i32> {
                     let var2 = count.entry(v2).or_insert(0);
                     *var2 += 1;
                 },
-                (Expression::NumberLiteral(x), e @ Expression::Add(..)) |
-                (e @ Expression::Add(..), Expression::NumberLiteral(x)) => {
+                (NumberLiteral(x), e @ Add(..)) |
+                (e @ Add(..), NumberLiteral(x)) => {
                     {
                         let num = count.entry("~one".to_string()).or_insert(0);
                         *num += x;
@@ -39,8 +42,8 @@ fn count_variables_add(expr: Expression) -> HashMap<String, i32> {
                         *val += *value;
                     }
                 },
-                (Expression::VariableReference(v), e @ Expression::Add(..)) |
-                (e @ Expression::Add(..), Expression::VariableReference(v)) => {
+                (VariableReference(v), e @ Add(..)) |
+                (e @ Add(..), VariableReference(v)) => {
                     {
                         let var = count.entry(v).or_insert(0);
                         *var += 1;
@@ -51,10 +54,10 @@ fn count_variables_add(expr: Expression) -> HashMap<String, i32> {
                         *val += *value;
                     }
                 },
-                (Expression::NumberLiteral(x), Expression::Mult(box Expression::NumberLiteral(n), box Expression::VariableReference(v))) |
-                (Expression::NumberLiteral(x), Expression::Mult(box Expression::VariableReference(v), box Expression::NumberLiteral(n))) |
-                (Expression::Mult(box Expression::NumberLiteral(n), box Expression::VariableReference(v)), Expression::NumberLiteral(x)) |
-                (Expression::Mult(box Expression::VariableReference(v), box Expression::NumberLiteral(n)), Expression::NumberLiteral(x)) => {
+                (NumberLiteral(x), Mult(box NumberLiteral(n), box VariableReference(v))) |
+                (NumberLiteral(x), Mult(box VariableReference(v), box NumberLiteral(n))) |
+                (Mult(box NumberLiteral(n), box VariableReference(v)), NumberLiteral(x)) |
+                (Mult(box VariableReference(v), box NumberLiteral(n)), NumberLiteral(x)) => {
                     {
                         let num = count.entry("~one".to_string()).or_insert(0);
                         *num += x;
@@ -70,78 +73,79 @@ fn count_variables_add(expr: Expression) -> HashMap<String, i32> {
     count
 }
 
+// lhs = rhy
+fn swap_sub(lhs: &Expression, rhs: &Expression) -> (Expression, Expression) {
+    match (lhs.clone(), rhs.clone()) {
+        // TODO need all cases? need more?
+        (v1 @ NumberLiteral(_), v2 @ NumberLiteral(_)) |
+        (v1 @ VariableReference(_), v2 @ NumberLiteral(_)) |
+        (v1 @ NumberLiteral(_), v2 @ VariableReference(_)) |
+        (v1 @ VariableReference(_), v2 @ VariableReference(_)) => (v1, v2),
+        (var @ VariableReference(_), Add(left, box right)) => {
+            let (l, r) = swap_sub(&var, &right);
+            (l, Add(left, box r))
+        },
+        (var @ VariableReference(_), Sub(box left, box right)) => {
+            let (l, r) = swap_sub(&left, &right);
+            (Add(box var, box r), l)
+        }
+        e @ _ => panic!("Unexpected input: {} = {}", e.0, e.1),
+    }
+}
+
 pub fn r1cs_expression(idx: usize, expr: Expression, variables: &mut Vec<String>, a_row: &mut Vec<(usize, i32)>, b_row: &mut Vec<(usize, i32)>, c_row: &mut Vec<(usize, i32)>) {
     match expr {
-        e @ Expression::Add(..) => {
-            for (key, value) in count_variables_add(e) {
+        e @ Add(..) |
+        e @ Sub(..) => { // a - b = c --> b + c = a
+            let (lhs, rhs) = swap_sub(&VariableReference(variables[idx].to_string()), &e);
+            for (key, value) in count_variables_add(rhs) {
                 a_row.push((variables.iter().position(|r| r == &key).unwrap(), value));
             }
             b_row.push((0, 1));
-            c_row.push((idx, 1));
-        },
-        Expression::Sub(lhs, rhs) => { // a - b = c --> b + c = a
-            for (key, value) in count_variables_add(Expression::Add(rhs, box Expression::VariableReference(variables[idx].to_string()))) {
-                a_row.push((variables.iter().position(|r| r == &key).unwrap(), value));
+            for (key, value) in count_variables_add(lhs) {
+                c_row.push((variables.iter().position(|r| r == &key).unwrap(), value));
             }
-            b_row.push((0, 1));
-            match lhs {
-                box Expression::NumberLiteral(x) => c_row.push((0, x)),
-                box Expression::VariableReference(x) => c_row.push((variables.iter().position(|r| r == &x).unwrap(), 1)),
-                e @ _ => panic!("unimplemented: {}", e),
-            };
-
-            // a_row.push((idx, 1));
-            // match lhs {
-            //     box Expression::NumberLiteral(x) => c_row.push((0, x)),
-            //     box Expression::VariableReference(x) => c_row.push((variables.iter().position(|r| r == &x).unwrap(), 1)),
-            //     _ => panic!("Not flattened!"),
-            // };
-            // match rhs {
-            //     box Expression::NumberLiteral(x) => b_row.push((0, x)),
-            //     box Expression::VariableReference(x) => b_row.push((variables.iter().position(|r| r == &x).unwrap(), 1)),
-            //     _ => panic!("Not flattened!"),
-            // };
         },
-        Expression::Mult(lhs, rhs) => {
+        Mult(lhs, rhs) => {
             c_row.push((idx, 1));
             match lhs {
-                box Expression::NumberLiteral(x) => a_row.push((0, x)),
-                box Expression::VariableReference(x) => a_row.push((variables.iter().position(|r| r == &x).unwrap(), 1)),
-                box e @ Expression::Add(..) => for (key, value) in count_variables_add(e) {
+                box NumberLiteral(x) => a_row.push((0, x)),
+                box VariableReference(x) => a_row.push((variables.iter().position(|r| r == &x).unwrap(), 1)),
+                box e @ Add(..) => for (key, value) in count_variables_add(e) {
                     a_row.push((variables.iter().position(|r| r == &key).unwrap(), value));
                 },
                 e @ _ => panic!("Not flattened: {}", e),
             };
             match rhs {
-                box Expression::NumberLiteral(x) => b_row.push((0, x)),
-                box Expression::VariableReference(x) => b_row.push((variables.iter().position(|r| r == &x).unwrap(), 1)),
-                box e @ Expression::Add(..) => for (key, value) in count_variables_add(e) {
+                box NumberLiteral(x) => b_row.push((0, x)),
+                box VariableReference(x) => b_row.push((variables.iter().position(|r| r == &x).unwrap(), 1)),
+                box e @ Add(..) => for (key, value) in count_variables_add(e) {
                     b_row.push((variables.iter().position(|r| r == &key).unwrap(), value));
                 },
                 e @ _ => panic!("Not flattened: {}", e),
             };
         },
-        Expression::Div(lhs, rhs) => { // a / b = c --> c * b = a
+        Div(lhs, rhs) => { // a / b = c --> c * b = a
             a_row.push((idx, 1));
             match lhs {
-                box Expression::NumberLiteral(x) => c_row.push((0, x)),
-                box Expression::VariableReference(x) => c_row.push((variables.iter().position(|r| r == &x).unwrap(), 1)),
-                _ => panic!("Not flattened!"),
+                box NumberLiteral(x) => c_row.push((0, x)),
+                box VariableReference(x) => c_row.push((variables.iter().position(|r| r == &x).unwrap(), 1)),
+                _ => unimplemented!(),
             };
             match rhs {
-                box Expression::NumberLiteral(x) => b_row.push((0, x)),
-                box Expression::VariableReference(x) => b_row.push((variables.iter().position(|r| r == &x).unwrap(), 1)),
-                _ => panic!("Not flattened!"),
+                box NumberLiteral(x) => b_row.push((0, x)),
+                box VariableReference(x) => b_row.push((variables.iter().position(|r| r == &x).unwrap(), 1)),
+                _ => unimplemented!(),
             };
         },
-        Expression::Pow(_, _) => panic!("Pow not flattened"),
-        Expression::IfElse(_, _, _) => panic!("IfElse not flattened"),
-        Expression::VariableReference(var) => {
+        Pow(_, _) => panic!("Pow not flattened"),
+        IfElse(_, _, _) => panic!("IfElse not flattened"),
+        VariableReference(var) => {
             a_row.push((variables.iter().position(|r| r == &var).unwrap(), 1));
             b_row.push((0, 1));
             c_row.push((idx, 1));
         },
-        Expression::NumberLiteral(x) => {
+        NumberLiteral(x) => {
             a_row.push((0, x));
             b_row.push((0, 1));
             c_row.push((idx, 1));

@@ -5,6 +5,7 @@ use std::io::prelude::*;
 use std::fs::File;
 use self::regex::Regex;
 use ast::*;
+use ast::Expression::*;
 
 fn parse_expression_rhs(text: String) -> Expression {
     let op_regex = Regex::new(r"^((?P<lhs>[[:alnum:]]+)(?P<op>(\*\*|[\+\-\*/]))(?P<rhs>.+)|(?P<var>[[:alpha:]][[:alnum:]]*)|(?P<num>\d+))$").unwrap();
@@ -15,30 +16,30 @@ fn parse_expression_rhs(text: String) -> Expression {
     match op_regex.captures(&line) {
         Some(x) => {
             if let Some(var) = x.name("var") {
-                Expression::VariableReference(var.as_str().to_string())
+                VariableReference(var.as_str().to_string())
             } else if let Some(num) = x.name("num") {
-                Expression::NumberLiteral(num.as_str().parse::<i32>().unwrap())
+                NumberLiteral(num.as_str().parse::<i32>().unwrap())
             } else {
                 let lhs = if variable_regex.is_match(&x["lhs"]) {
-                    Box::new(Expression::VariableReference(x["lhs"].to_string()))
+                    box VariableReference(x["lhs"].to_string())
                 } else if number_regex.is_match(&x["lhs"]) {
-                    Box::new(Expression::NumberLiteral(x["lhs"].parse::<i32>().unwrap()))
+                    box NumberLiteral(x["lhs"].parse::<i32>().unwrap())
                 } else {
                     panic!("Could not read lhs: {:?}", &x["lhs"])
                 };
                 let rhs = if variable_regex.is_match(&x["rhs"]) {
-                    Box::new(Expression::VariableReference(x["rhs"].to_string()))
+                    box VariableReference(x["rhs"].to_string())
                 } else if number_regex.is_match(&x["rhs"])  {
-                    Box::new(Expression::NumberLiteral(x["rhs"].parse::<i32>().unwrap()))
+                    Box::new(NumberLiteral(x["rhs"].parse::<i32>().unwrap()))
                 } else {
-                    Box::new(parse_expression_rhs(x["rhs"].to_string()))
+                    box parse_expression_rhs(x["rhs"].to_string())
                 };
                 match &x["op"] {
-                    "+" => Expression::Add(lhs, rhs),
-                    "-" => Expression::Sub(lhs, rhs),
-                    "*" => Expression::Mult(lhs, rhs),
-                    "/" => Expression::Div(lhs, rhs),
-                    "**" if number_regex.is_match(&x["rhs"]) => Expression::Pow(lhs, rhs),
+                    "+" => Add(lhs, rhs),
+                    "-" => Sub(lhs, rhs),
+                    "*" => Mult(lhs, rhs),
+                    "/" => Div(lhs, rhs),
+                    "**" if number_regex.is_match(&x["rhs"]) => Pow(lhs, rhs),
                     _ => unimplemented!(),
                 }
             }
@@ -50,7 +51,7 @@ fn parse_expression_rhs(text: String) -> Expression {
                     "<" => Condition::Lt(parse_expression_rhs(x["condlhs"].to_string()), parse_expression_rhs(x["condrhs"].to_string())),
                     _ => unimplemented!(),
                 };
-                Expression::IfElse(box condition, box parse_expression_rhs(x["consequent"].to_string()), box parse_expression_rhs(x["alternative"].to_string()))
+                IfElse(box condition, box parse_expression_rhs(x["consequent"].to_string()), box parse_expression_rhs(x["alternative"].to_string()))
             },
             None => panic!("Could not parse rhs of expression: {:?}", text),
         },
@@ -119,13 +120,13 @@ pub fn parse_program(file: File) -> Prog {
 
 fn flatten_expression(defs_flattened: &mut Vec<Definition>, num_variables: &mut i32, expr: Expression) -> Expression {
     match expr {
-        x @ Expression::NumberLiteral(_) |
-        x @ Expression::VariableReference(_) => x,
-        ref x @ Expression::Add(..) |
-        ref x @ Expression::Sub(..) |
-        ref x @ Expression::Mult(..) |
-        ref x @ Expression::Div(..) if x.is_flattened() => x.clone(),
-        Expression::Add(box left, box right) => {
+        x @ NumberLiteral(_) |
+        x @ VariableReference(_) => x,
+        ref x @ Add(..) |
+        ref x @ Sub(..) |
+        ref x @ Mult(..) |
+        ref x @ Div(..) if x.is_flattened() => x.clone(),
+        Add(box left, box right) => {
             let left_flattened = flatten_expression(defs_flattened, num_variables, left);
             let right_flattened = flatten_expression(defs_flattened, num_variables, right);
             let new_left = if left_flattened.is_linear() {
@@ -134,7 +135,7 @@ fn flatten_expression(defs_flattened: &mut Vec<Definition>, num_variables: &mut 
                 let new_name = format!("sym_{}", num_variables);
                 *num_variables += 1;
                 defs_flattened.push(Definition::Definition(new_name.to_string(), left_flattened));
-                Expression::VariableReference(new_name)
+                VariableReference(new_name)
             };
             let new_right = if right_flattened.is_linear() {
                 right_flattened
@@ -142,11 +143,11 @@ fn flatten_expression(defs_flattened: &mut Vec<Definition>, num_variables: &mut 
                 let new_name = format!("sym_{}", num_variables);
                 *num_variables += 1;
                 defs_flattened.push(Definition::Definition(new_name.to_string(), right_flattened));
-                Expression::VariableReference(new_name)
+                VariableReference(new_name)
             };
-            Expression::Add(box new_left, box new_right)
+            Add(box new_left, box new_right)
         },
-        Expression::Sub(box left, box right) => {
+        Sub(box left, box right) => {
             let left_flattened = flatten_expression(defs_flattened, num_variables, left);
             let right_flattened = flatten_expression(defs_flattened, num_variables, right);
             let new_left = if left_flattened.is_linear() {
@@ -155,7 +156,7 @@ fn flatten_expression(defs_flattened: &mut Vec<Definition>, num_variables: &mut 
                 let new_name = format!("sym_{}", num_variables);
                 *num_variables += 1;
                 defs_flattened.push(Definition::Definition(new_name.to_string(), left_flattened));
-                Expression::VariableReference(new_name)
+                VariableReference(new_name)
             };
             let new_right = if right_flattened.is_linear() {
                 right_flattened
@@ -163,11 +164,11 @@ fn flatten_expression(defs_flattened: &mut Vec<Definition>, num_variables: &mut 
                 let new_name = format!("sym_{}", num_variables);
                 *num_variables += 1;
                 defs_flattened.push(Definition::Definition(new_name.to_string(), right_flattened));
-                Expression::VariableReference(new_name)
+                VariableReference(new_name)
             };
-            Expression::Sub(box new_left, box new_right)
+            Sub(box new_left, box new_right)
         },
-        Expression::Mult(box left, box right) => {
+        Mult(box left, box right) => {
             let left_flattened = flatten_expression(defs_flattened, num_variables, left);
             let right_flattened = flatten_expression(defs_flattened, num_variables, right);
             let new_left = if left_flattened.is_linear() {
@@ -176,7 +177,7 @@ fn flatten_expression(defs_flattened: &mut Vec<Definition>, num_variables: &mut 
                 let new_name = format!("sym_{}", num_variables);
                 *num_variables += 1;
                 defs_flattened.push(Definition::Definition(new_name.to_string(), left_flattened));
-                Expression::VariableReference(new_name)
+                VariableReference(new_name)
             };
             let new_right = if right_flattened.is_linear() {
                 right_flattened
@@ -184,11 +185,11 @@ fn flatten_expression(defs_flattened: &mut Vec<Definition>, num_variables: &mut 
                 let new_name = format!("sym_{}", num_variables);
                 *num_variables += 1;
                 defs_flattened.push(Definition::Definition(new_name.to_string(), right_flattened));
-                Expression::VariableReference(new_name)
+                VariableReference(new_name)
             };
-            Expression::Mult(box new_left, box new_right)
+            Mult(box new_left, box new_right)
         },
-        Expression::Div(box left, box right) => {
+        Div(box left, box right) => {
             let left_flattened = flatten_expression(defs_flattened, num_variables, left);
             let right_flattened = flatten_expression(defs_flattened, num_variables, right);
             let new_left = if left_flattened.is_linear() {
@@ -197,7 +198,7 @@ fn flatten_expression(defs_flattened: &mut Vec<Definition>, num_variables: &mut 
                 let new_name = format!("sym_{}", num_variables);
                 *num_variables += 1;
                 defs_flattened.push(Definition::Definition(new_name.to_string(), left_flattened));
-                Expression::VariableReference(new_name)
+                VariableReference(new_name)
             };
             let new_right = if right_flattened.is_linear() {
                 right_flattened
@@ -205,23 +206,23 @@ fn flatten_expression(defs_flattened: &mut Vec<Definition>, num_variables: &mut 
                 let new_name = format!("sym_{}", num_variables);
                 *num_variables += 1;
                 defs_flattened.push(Definition::Definition(new_name.to_string(), right_flattened));
-                Expression::VariableReference(new_name)
+                VariableReference(new_name)
             };
-            Expression::Div(box new_left, box new_right)
+            Div(box new_left, box new_right)
         },
-        Expression::Pow(base, exponent) => {
+        Pow(base, exponent) => {
             // TODO currently assuming that base is number or variable
             match exponent {
-                box Expression::NumberLiteral(x) if x > 1 => {
+                box NumberLiteral(x) if x > 1 => {
                     match base {
-                        box Expression::VariableReference(ref var) => {
+                        box VariableReference(ref var) => {
                             let id = if x > 2 {
                                 let tmp_expression = flatten_expression(
                                     defs_flattened,
                                     num_variables,
-                                    Expression::Pow(
-                                        box Expression::VariableReference(var.to_string()),
-                                        box Expression::NumberLiteral(x - 1)
+                                    Pow(
+                                        box VariableReference(var.to_string()),
+                                        box NumberLiteral(x - 1)
                                     )
                                 );
                                 let new_name = format!("sym_{}", num_variables);
@@ -231,14 +232,14 @@ fn flatten_expression(defs_flattened: &mut Vec<Definition>, num_variables: &mut 
                             } else {
                                 var.to_string()
                             };
-                            Expression::Mult(
-                                box Expression::VariableReference(id.to_string()),
-                                box Expression::VariableReference(var.to_string())
+                            Mult(
+                                box VariableReference(id.to_string()),
+                                box VariableReference(var.to_string())
                             )
                         },
-                        box Expression::NumberLiteral(var) => Expression::Mult(
-                            box Expression::NumberLiteral(var),
-                            box Expression::NumberLiteral(var)
+                        box NumberLiteral(var) => Mult(
+                            box NumberLiteral(var),
+                            box NumberLiteral(var)
                         ),
                         _ => panic!("Only variables and numbers allowed in pow base")
                     }
@@ -246,17 +247,17 @@ fn flatten_expression(defs_flattened: &mut Vec<Definition>, num_variables: &mut 
                 _ => panic!("Expected number > 1 as pow exponent"),
             }
         },
-        Expression::IfElse(box condition, consequent, alternative) => {
+        IfElse(box condition, consequent, alternative) => {
             let condition_true = flatten_condition(defs_flattened, num_variables, condition);
             // condition_false = 1 - condition_true
             // (condition_true * consequent) + (condition_false * alternatuve)
             flatten_expression(
                 defs_flattened,
                 num_variables,
-                Expression::Add(
-                    box Expression::Mult(box condition_true.clone(), consequent),
-                    box Expression::Mult(
-                        box Expression::Sub(box Expression::NumberLiteral(1), box condition_true),
+                Add(
+                    box Mult(box condition_true.clone(), consequent),
+                    box Mult(
+                        box Sub(box NumberLiteral(1), box condition_true),
                         alternative
                     )
                 )
@@ -282,9 +283,9 @@ fn flatten_condition(defs_flattened: &mut Vec<Definition>, num_variables: &mut i
             *num_variables += 1;
             defs_flattened.push(Definition::Definition(
                 cond_result.to_string(),
-                Expression::Sub(
-                    box Expression::VariableReference(lhs_name.to_string()),
-                    box Expression::VariableReference(rhs_name.to_string())
+                Sub(
+                    box VariableReference(lhs_name.to_string()),
+                    box VariableReference(rhs_name.to_string())
                 )
             ));
             let bits = 8;
@@ -292,18 +293,18 @@ fn flatten_condition(defs_flattened: &mut Vec<Definition>, num_variables: &mut i
                 let new_name = format!("{}_b{}", &cond_result, i);
                 defs_flattened.push(Definition::Definition(
                     new_name.to_string(),
-                    Expression::Mult(
-                        box Expression::VariableReference(new_name.to_string()),
-                        box Expression::VariableReference(new_name.to_string())
+                    Mult(
+                        box VariableReference(new_name.to_string()),
+                        box VariableReference(new_name.to_string())
                     )
                 ));
             }
-            let mut expr = Expression::VariableReference(format!("{}_b0", &cond_result)); // * 2^0
+            let mut expr = VariableReference(format!("{}_b0", &cond_result)); // * 2^0
             for i in 1..bits {
-                expr = Expression::Add(
-                    box Expression::Mult(
-                        box Expression::VariableReference(format!("{}_b{}", &cond_result, i)),
-                        box Expression::NumberLiteral(2i32.pow(i))
+                expr = Add(
+                    box Mult(
+                        box VariableReference(format!("{}_b{}", &cond_result, i)),
+                        box NumberLiteral(2i32.pow(i))
                     ),
                     box expr
                 );
@@ -311,7 +312,7 @@ fn flatten_condition(defs_flattened: &mut Vec<Definition>, num_variables: &mut i
             defs_flattened.push(Definition::Definition(cond_result.to_string(), expr));
 
             let cond_true = format!("{}_b{}", &cond_result, bits - 1);
-            Expression::VariableReference(cond_true)
+            VariableReference(cond_true)
         }
     }
 }
