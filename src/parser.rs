@@ -121,87 +121,96 @@ fn flatten_expression(defs_flattened: &mut Vec<Definition>, num_variables: &mut 
     match expr {
         x @ Expression::NumberLiteral(_) |
         x @ Expression::VariableReference(_) => x,
-        // ref x @ Expression::Add(..) |
-        // ref x @ Expression::Sub(..) |
-        // ref x @ Expression::Mult(..) |
-        // ref x @ Expression::Div(..) if x.is_flattened() => x.clone(),
-        Expression::Add(left, right) => {
-            // TODO currently assuming that left is always Number or Variable
-            let new_right = match right {
-                box Expression::NumberLiteral(x) => Expression::NumberLiteral(x),
-                box Expression::VariableReference(ref x) => Expression::VariableReference(x.to_string()),
-                box expr => {
-                    let tmp_expression = flatten_expression(
-                        defs_flattened,
-                        num_variables,
-                        expr
-                    );
-                    let new_name = format!("sym_{}", num_variables);
-                    *num_variables += 1;
-                    defs_flattened.push(Definition::Definition(new_name.to_string(), tmp_expression));
-                    Expression::VariableReference(new_name)
-                },
+        ref x @ Expression::Add(..) |
+        ref x @ Expression::Sub(..) |
+        ref x @ Expression::Mult(..) |
+        ref x @ Expression::Div(..) if x.is_flattened() => x.clone(),
+        Expression::Add(box left, box right) => {
+            let left_flattened = flatten_expression(defs_flattened, num_variables, left);
+            let right_flattened = flatten_expression(defs_flattened, num_variables, right);
+            let new_left = if left_flattened.is_linear() {
+                left_flattened
+            } else {
+                let new_name = format!("sym_{}", num_variables);
+                *num_variables += 1;
+                defs_flattened.push(Definition::Definition(new_name.to_string(), left_flattened));
+                Expression::VariableReference(new_name)
             };
-            Expression::Add(left, box new_right)
+            let new_right = if right_flattened.is_linear() {
+                right_flattened
+            } else {
+                let new_name = format!("sym_{}", num_variables);
+                *num_variables += 1;
+                defs_flattened.push(Definition::Definition(new_name.to_string(), right_flattened));
+                Expression::VariableReference(new_name)
+            };
+            Expression::Add(box new_left, box new_right)
         },
-        Expression::Sub(left, right) => {
-            // TODO currently assuming that left is always Number or Variable
-            let new_right = match right {
-                box Expression::NumberLiteral(x) => Expression::NumberLiteral(x),
-                box Expression::VariableReference(ref x) => Expression::VariableReference(x.to_string()),
-                box expr => {
-                    let tmp_expression = flatten_expression(
-                        defs_flattened,
-                        num_variables,
-                        expr
-                    );
-                    let new_name = format!("sym_{}", num_variables);
-                    *num_variables += 1;
-                    defs_flattened.push(Definition::Definition(new_name.to_string(), tmp_expression));
-                    Expression::VariableReference(new_name)
-                },
+        Expression::Sub(box left, box right) => {
+            let left_flattened = flatten_expression(defs_flattened, num_variables, left);
+            let right_flattened = flatten_expression(defs_flattened, num_variables, right);
+            let new_left = if left_flattened.is_linear() {
+                left_flattened
+            } else {
+                let new_name = format!("sym_{}", num_variables);
+                *num_variables += 1;
+                defs_flattened.push(Definition::Definition(new_name.to_string(), left_flattened));
+                Expression::VariableReference(new_name)
             };
-            Expression::Sub(left, box new_right)
+            let new_right = if right_flattened.is_linear() {
+                right_flattened
+            } else {
+                let new_name = format!("sym_{}", num_variables);
+                *num_variables += 1;
+                defs_flattened.push(Definition::Definition(new_name.to_string(), right_flattened));
+                Expression::VariableReference(new_name)
+            };
+            Expression::Sub(box new_left, box new_right)
         },
-        Expression::Mult(left, right) => {
-            // TODO currently assuming that left is always Number or Variable
-            let new_right = match right {
-                box Expression::NumberLiteral(x) => Expression::NumberLiteral(x),
-                box Expression::VariableReference(ref x) => Expression::VariableReference(x.to_string()),
-                box expr => {
-                    let tmp_expression = flatten_expression(
-                        defs_flattened,
-                        num_variables,
-                        expr
-                    );
-                    let new_name = format!("sym_{}", num_variables);
-                    *num_variables += 1;
-                    defs_flattened.push(Definition::Definition(new_name.to_string(), tmp_expression));
-                    Expression::VariableReference(new_name)
-                },
+        Expression::Mult(box left, box right) => {
+            let left_flattened = flatten_expression(defs_flattened, num_variables, left);
+            let right_flattened = flatten_expression(defs_flattened, num_variables, right);
+            let new_left = if left_flattened.is_linear() {
+                left_flattened
+            } else {
+                let new_name = format!("sym_{}", num_variables);
+                *num_variables += 1;
+                defs_flattened.push(Definition::Definition(new_name.to_string(), left_flattened));
+                Expression::VariableReference(new_name)
             };
-            Expression::Mult(left, box new_right)
+            let new_right = if right_flattened.is_linear() {
+                right_flattened
+            } else {
+                let new_name = format!("sym_{}", num_variables);
+                *num_variables += 1;
+                defs_flattened.push(Definition::Definition(new_name.to_string(), right_flattened));
+                Expression::VariableReference(new_name)
+            };
+            Expression::Mult(box new_left, box new_right)
         },
-        Expression::Div(left, right) => {
-            // TODO currently assuming that left is always Number or Variable
-            let new_right = match right {
-                box Expression::NumberLiteral(x) => Expression::NumberLiteral(x),
-                box Expression::VariableReference(ref x) => Expression::VariableReference(x.to_string()),
-                box expr => {
-                    let tmp_expression = flatten_expression(
-                        defs_flattened,
-                        num_variables,
-                        expr
-                    );
-                    let new_name = format!("sym_{}", num_variables);
-                    *num_variables += 1;
-                    defs_flattened.push(Definition::Definition(new_name.to_string(), tmp_expression));
-                    Expression::VariableReference(new_name)
-                },
+        Expression::Div(box left, box right) => {
+            let left_flattened = flatten_expression(defs_flattened, num_variables, left);
+            let right_flattened = flatten_expression(defs_flattened, num_variables, right);
+            let new_left = if left_flattened.is_linear() {
+                left_flattened
+            } else {
+                let new_name = format!("sym_{}", num_variables);
+                *num_variables += 1;
+                defs_flattened.push(Definition::Definition(new_name.to_string(), left_flattened));
+                Expression::VariableReference(new_name)
             };
-            Expression::Div(left, box new_right)
+            let new_right = if right_flattened.is_linear() {
+                right_flattened
+            } else {
+                let new_name = format!("sym_{}", num_variables);
+                *num_variables += 1;
+                defs_flattened.push(Definition::Definition(new_name.to_string(), right_flattened));
+                Expression::VariableReference(new_name)
+            };
+            Expression::Div(box new_left, box new_right)
         },
         Expression::Pow(base, exponent) => {
+            // TODO currently assuming that base is number or variable
             match exponent {
                 box Expression::NumberLiteral(x) if x > 1 => {
                     match base {
@@ -234,7 +243,7 @@ fn flatten_expression(defs_flattened: &mut Vec<Definition>, num_variables: &mut 
                         _ => panic!("Only variables and numbers allowed in pow base")
                     }
                 }
-                _ => panic!("Expected number as pow exponent"),
+                _ => panic!("Expected number > 1 as pow exponent"),
             }
         },
         Expression::IfElse(box condition, consequent, alternative) => {

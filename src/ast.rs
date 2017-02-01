@@ -86,7 +86,7 @@ impl Expression {
         }
     }
 
-    fn is_linear(&self) -> bool {
+    pub fn is_linear(&self) -> bool {
         match *self {
             Expression::NumberLiteral(_) |
             Expression::VariableReference(_) => true,
@@ -108,7 +108,7 @@ impl Expression {
             Expression::NumberLiteral(_) |
             Expression::VariableReference(_) => true,
             Expression::Add(ref x, ref y) |
-            Expression::Sub(ref x, ref y) => x.is_flattened() && y.is_flattened(),
+            Expression::Sub(ref x, ref y) => x.is_linear() && y.is_linear(),
             Expression::Mult(ref x, ref y) |
             Expression::Div(ref x, ref y) => x.is_linear() && y.is_linear(),
             _ => false,

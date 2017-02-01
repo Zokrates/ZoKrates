@@ -1,0 +1,6 @@
+// only using sub, no need to flatten
+def qeval(a):
+  b = a - 5
+  c = b + a + b
+  d = b - a - 3 - a
+  return d + c
