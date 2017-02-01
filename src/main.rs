@@ -3,12 +3,14 @@
 mod ast;
 mod parser;
 mod r1cs;
+#[cfg(not(feature="nolibsnark"))]
 mod libsnark;
 
 use std::fs::File;
 use std::path::Path;
 use parser::*;
 use r1cs::*;
+#[cfg(not(feature="nolibsnark"))]
 use libsnark::run_libsnark;
 
 fn main() {
@@ -51,6 +53,6 @@ fn main() {
     println!("witness_map {:?}", witness_map);
     let witness: Vec<_> = variables.iter().map(|x| witness_map[x]).collect();
     println!("witness {:?}", witness);
-
+    #[cfg(not(feature="nolibsnark"))]
     println!("run_libsnark = {:?}", run_libsnark(variables, a, b, c, witness));
 }

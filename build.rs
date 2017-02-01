@@ -1,8 +1,11 @@
+#[cfg(not(feature="nolibsnark"))]
 extern crate gcc;
 
 fn main() {
-    println!("cargo:rustc-link-search=/usr/local/lib");
-    gcc::Config::new()
+    #[cfg(not(feature="nolibsnark"))]
+    {
+        println!("cargo:rustc-link-search=/usr/local/lib");
+        gcc::Config::new()
         .cpp(true)
         .include("/usr/local/include")
         .include("/usr/local/include/libsnark")
@@ -10,4 +13,5 @@ fn main() {
         .define("CURVE_ALT_BN128", None)
         .file("lib/wraplibsnark.cpp")
         .compile("libwraplibsnark.a");
+    }
 }

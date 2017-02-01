@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["Dennis Kuhnert <mail@kyroy.com>"]
 build = "build.rs"
 
+[features]
+nolibsnark = []
+
 [dependencies]
 regex = "0.2"
 libc = "0.2.0"
