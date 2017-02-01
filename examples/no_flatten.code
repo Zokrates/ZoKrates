@@ -1,0 +1,7 @@
+// this code does not need to be flattened
+def qeval(a):
+  b = a + 5
+  c = b + 5 * a
+  // following line b * (..)
+  d = b * c + 5 + a
+  return c + b + c

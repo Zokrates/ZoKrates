@@ -62,40 +62,70 @@ impl fmt::Display for Parameter {
 
 #[derive(Clone)]
 pub enum Expression {
+    NumberLiteral(i32),
+    VariableReference(String),
     Add(Box<Expression>, Box<Expression>),
     Sub(Box<Expression>, Box<Expression>),
     Mult(Box<Expression>, Box<Expression>),
     Div(Box<Expression>, Box<Expression>),
     Pow(Box<Expression>, Box<Expression>),
     IfElse(Box<Condition>, Box<Expression>, Box<Expression>),
-    NumberLiteral(i32),
-    VariableReference(String),
 }
 impl Expression {
     fn solve(&self, inputs: &HashMap<String, i32>) -> i32 {
         match *self {
+            Expression::NumberLiteral(x) => x,
+            Expression::VariableReference(ref var) => inputs[var],
             Expression::Add(ref x, ref y) => x.solve(inputs) + y.solve(inputs),
             Expression::Sub(ref x, ref y) => x.solve(inputs) - y.solve(inputs),
             Expression::Mult(ref x, ref y) => x.solve(inputs) * y.solve(inputs),
             Expression::Div(ref x, ref y) => x.solve(inputs) / y.solve(inputs),
             Expression::Pow(ref x, ref y) => x.solve(inputs).pow(y.solve(inputs) as u32),
-            Expression::NumberLiteral(x) => x,
-            Expression::VariableReference(ref var) => inputs[var],
-            Expression::IfElse(_, _, _) => unimplemented!(),
+            Expression::IfElse(ref condition, ref consequent, ref alternative)
+                => if condition.solve(inputs) { consequent.solve(inputs) } else { alternative.solve(inputs) },
+        }
+    }
+
+    fn is_linear(&self) -> bool {
+        match *self {
+            Expression::NumberLiteral(_) |
+            Expression::VariableReference(_) => true,
+            Expression::Add(ref x, ref y) |
+            Expression::Sub(ref x, ref y) => x.is_linear() && y.is_linear(),
+            Expression::Mult(ref x, ref y) |
+            Expression::Div(ref x, ref y) => match (x.clone(), y.clone()) {
+                (box Expression::NumberLiteral(_), box Expression::NumberLiteral(_)) |
+                (box Expression::NumberLiteral(_), box Expression::VariableReference(_)) |
+                (box Expression::VariableReference(_), box Expression::NumberLiteral(_)) => true,
+                _ => false,
+            },
+            _ => false,
+        }
+    }
+
+    pub fn is_flattened(&self) -> bool {
+        match *self {
+            Expression::NumberLiteral(_) |
+            Expression::VariableReference(_) => true,
+            Expression::Add(ref x, ref y) |
+            Expression::Sub(ref x, ref y) => x.is_flattened() && y.is_flattened(),
+            Expression::Mult(ref x, ref y) |
+            Expression::Div(ref x, ref y) => x.is_linear() && y.is_linear(),
+            _ => false,
         }
     }
 }
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Expression::NumberLiteral(ref i) => write!(f, "{}", i),
+            Expression::VariableReference(ref var) => write!(f, "{}", var),
             Expression::Add(ref lhs, ref rhs) => write!(f, "{} + {}", lhs, rhs),
             Expression::Sub(ref lhs, ref rhs) => write!(f, "{} - {}", lhs, rhs),
             Expression::Mult(ref lhs, ref rhs) => write!(f, "{} * {}", lhs, rhs),
             Expression::Div(ref lhs, ref rhs) => write!(f, "{} / {}", lhs, rhs),
             Expression::Pow(ref lhs, ref rhs) => write!(f, "{}**{}", lhs, rhs),
             Expression::IfElse(ref condition, ref consequent, ref alternative) => write!(f, "{} ? {} : {}", condition, consequent, alternative),
-            Expression::NumberLiteral(ref i) => write!(f, "{}", i),
-            Expression::VariableReference(ref var) => write!(f, "{}", var),
         }
     }
 }
@@ -103,6 +133,13 @@ impl fmt::Display for Expression {
 #[derive(Clone)]
 pub enum Condition {
     Lt(Expression, Expression),
+}
+impl Condition {
+    fn solve(&self, inputs: &HashMap<String, i32>) -> bool {
+        match *self {
+            Condition::Lt(ref lhs, ref rhs) => lhs.solve(inputs) < rhs.solve(inputs),
+        }
+    }
 }
 impl fmt::Display for Condition {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
