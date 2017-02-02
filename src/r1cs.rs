@@ -65,6 +65,39 @@ fn count_variables_add(expr: Expression) -> HashMap<String, i32> {
                     let var = count.entry(v).or_insert(0);
                     *var += n;
                 },
+                (VariableReference(v1), Mult(box NumberLiteral(n), box VariableReference(v2))) |
+                (VariableReference(v1), Mult(box VariableReference(v2), box NumberLiteral(n))) |
+                (Mult(box NumberLiteral(n), box VariableReference(v2)), VariableReference(v1)) |
+                (Mult(box VariableReference(v2), box NumberLiteral(n)), VariableReference(v1)) => {
+                    {
+                        let var = count.entry(v1).or_insert(0);
+                        *var += 1;
+                    }
+                    let var = count.entry(v2).or_insert(0);
+                    *var += n;
+                },
+                (e @ Add(..), Mult(box NumberLiteral(n), box VariableReference(v))) |
+                (e @ Add(..), Mult(box VariableReference(v), box NumberLiteral(n))) |
+                (Mult(box NumberLiteral(n), box VariableReference(v)), e @ Add(..)) |
+                (Mult(box VariableReference(v), box NumberLiteral(n)), e @ Add(..)) => {
+                    {
+                        let var = count.entry(v).or_insert(0);
+                        *var += n;
+                    }
+                    let vars = count_variables_add(e);
+                    for (key, value) in &vars {
+                        let val = count.entry(key.to_string()).or_insert(0);
+                        *val += *value;
+                    }
+                },
+                (Mult(box VariableReference(v1), box NumberLiteral(n1)), Mult(box VariableReference(v2), box NumberLiteral(n2))) => {
+                    {
+                        let var = count.entry(v1).or_insert(0);
+                        *var += n1;
+                    }
+                    let var = count.entry(v2).or_insert(0);
+                    *var += n2;
+                },
                 e @ _ => panic!("Error: Add({}, {})", e.0, e.1),
             }
         },
@@ -80,7 +113,9 @@ fn swap_sub(lhs: &Expression, rhs: &Expression) -> (Expression, Expression) {
         (v1 @ NumberLiteral(_), v2 @ NumberLiteral(_)) |
         (v1 @ VariableReference(_), v2 @ NumberLiteral(_)) |
         (v1 @ NumberLiteral(_), v2 @ VariableReference(_)) |
-        (v1 @ VariableReference(_), v2 @ VariableReference(_)) => (v1, v2),
+        (v1 @ VariableReference(_), v2 @ VariableReference(_)) |
+        (v1 @ VariableReference(_), v2 @ Mult(..)) |
+        (v1 @ Mult(..), v2 @ VariableReference(_)) => (v1, v2),
         (var @ VariableReference(_), Add(left, box right)) => {
             let (l, r) = swap_sub(&var, &right);
             (l, Add(left, box r))

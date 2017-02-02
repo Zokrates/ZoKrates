@@ -17,11 +17,11 @@ impl Prog {
         for def in &self.defs {
             match *def {
                 Definition::Return(ref expr) => {
-                    let s = expr.solve(&witness);
+                    let s = expr.solve(&mut witness);
                     witness.insert("~out".to_string(), s);
                 },
                 Definition::Definition(ref id, ref expr) => {
-                    let s = expr.solve(&witness);
+                    let s = expr.solve(&mut witness);
                     witness.insert(id.to_string(), s);
                 },
             }
@@ -72,10 +72,31 @@ pub enum Expression {
     IfElse(Box<Condition>, Box<Expression>, Box<Expression>),
 }
 impl Expression {
-    fn solve(&self, inputs: &HashMap<String, i32>) -> i32 {
+    fn solve(&self, inputs: &mut HashMap<String, i32>) -> i32 {
         match *self {
             Expression::NumberLiteral(x) => x,
-            Expression::VariableReference(ref var) => inputs[var],
+            Expression::VariableReference(ref var) => {
+                if let None = inputs.get(var) {
+                    if var.contains("_b") {
+                        let var_name = var.split("_b").collect::<Vec<_>>()[0];
+                        let mut num = inputs[var_name];
+                        assert!(num >= 0, format!("num < 0: {}", num));
+                        // TODO support negative numbers with two's complement!?
+                        for i in (0..8).rev() {
+                            if 2i32.pow(i) <= num {
+                                num -= 2i32.pow(i);
+                                inputs.insert(format!("{}_b{}", &var_name, i), 1);
+                            } else {
+                                inputs.insert(format!("{}_b{}", &var_name, i), 0);
+                            }
+                        }
+                        assert_eq!(num, 0);
+                    } else {
+                        panic!("Variable not found in inputs: {}", var);
+                    }
+                }
+                inputs[var]
+            },
             Expression::Add(ref x, ref y) => x.solve(inputs) + y.solve(inputs),
             Expression::Sub(ref x, ref y) => x.solve(inputs) - y.solve(inputs),
             Expression::Mult(ref x, ref y) => x.solve(inputs) * y.solve(inputs),
@@ -135,7 +156,7 @@ pub enum Condition {
     Lt(Expression, Expression),
 }
 impl Condition {
-    fn solve(&self, inputs: &HashMap<String, i32>) -> bool {
+    fn solve(&self, inputs: &mut HashMap<String, i32>) -> bool {
         match *self {
             Condition::Lt(ref lhs, ref rhs) => lhs.solve(inputs) < rhs.solve(inputs),
         }

@@ -118,6 +118,57 @@ pub fn parse_program(file: File) -> Prog {
     Prog { id: id, args: args, defs: defs }
 }
 
+fn flatten_condition(defs_flattened: &mut Vec<Definition>, num_variables: &mut i32, condition: Condition) -> Expression {
+    match condition {
+        Condition::Lt(lhs, rhs) => {
+            let lhs_flattened = flatten_expression(defs_flattened, num_variables, lhs);
+            let rhs_flattened = flatten_expression(defs_flattened, num_variables, rhs);
+
+            let lhs_name = format!("sym_{}", num_variables);
+            *num_variables += 1;
+            defs_flattened.push(Definition::Definition(lhs_name.to_string(), lhs_flattened));
+            let rhs_name = format!("sym_{}", num_variables);
+            *num_variables += 1;
+            defs_flattened.push(Definition::Definition(rhs_name.to_string(), rhs_flattened));
+
+            let cond_result = format!("sym_{}", num_variables);
+            *num_variables += 1;
+            defs_flattened.push(Definition::Definition(
+                cond_result.to_string(),
+                Sub(
+                    box VariableReference(lhs_name.to_string()),
+                    box VariableReference(rhs_name.to_string())
+                )
+            ));
+            let bits = 8;
+            for i in 0..bits {
+                let new_name = format!("{}_b{}", &cond_result, i);
+                defs_flattened.push(Definition::Definition(
+                    new_name.to_string(),
+                    Mult(
+                        box VariableReference(new_name.to_string()),
+                        box VariableReference(new_name.to_string())
+                    )
+                ));
+            }
+            let mut expr = VariableReference(format!("{}_b0", &cond_result)); // * 2^0
+            for i in 1..bits {
+                expr = Add(
+                    box Mult(
+                        box VariableReference(format!("{}_b{}", &cond_result, i)),
+                        box NumberLiteral(2i32.pow(i))
+                    ),
+                    box expr
+                );
+            }
+            defs_flattened.push(Definition::Definition(cond_result.to_string(), expr));
+
+            let cond_true = format!("{}_b{}", &cond_result, bits - 1);
+            VariableReference(cond_true)
+        }
+    }
+}
+
 fn flatten_expression(defs_flattened: &mut Vec<Definition>, num_variables: &mut i32, expr: Expression) -> Expression {
     match expr {
         x @ NumberLiteral(_) |
@@ -249,71 +300,21 @@ fn flatten_expression(defs_flattened: &mut Vec<Definition>, num_variables: &mut 
         },
         IfElse(box condition, consequent, alternative) => {
             let condition_true = flatten_condition(defs_flattened, num_variables, condition);
+            let new_name = format!("sym_{}", num_variables);
+            *num_variables += 1;
             // condition_false = 1 - condition_true
+            defs_flattened.push(Definition::Definition(new_name.to_string(), Sub(box NumberLiteral(1), box condition_true.clone())));
+            let condition_false = VariableReference(new_name);
             // (condition_true * consequent) + (condition_false * alternatuve)
             flatten_expression(
                 defs_flattened,
                 num_variables,
                 Add(
-                    box Mult(box condition_true.clone(), consequent),
-                    box Mult(
-                        box Sub(box NumberLiteral(1), box condition_true),
-                        alternative
-                    )
+                    box Mult(box condition_true, consequent),
+                    box Mult(box condition_false, alternative)
                 )
             )
         },
-    }
-}
-
-fn flatten_condition(defs_flattened: &mut Vec<Definition>, num_variables: &mut i32, condition: Condition) -> Expression {
-    match condition {
-        Condition::Lt(lhs, rhs) => {
-            let lhs_flattened = flatten_expression(defs_flattened, num_variables, lhs);
-            let rhs_flattened = flatten_expression(defs_flattened, num_variables, rhs);
-
-            let lhs_name = format!("sym_{}", num_variables);
-            *num_variables += 1;
-            defs_flattened.push(Definition::Definition(lhs_name.to_string(), lhs_flattened));
-            let rhs_name = format!("sym_{}", num_variables);
-            *num_variables += 1;
-            defs_flattened.push(Definition::Definition(rhs_name.to_string(), rhs_flattened));
-
-            let cond_result = format!("sym_{}", num_variables);
-            *num_variables += 1;
-            defs_flattened.push(Definition::Definition(
-                cond_result.to_string(),
-                Sub(
-                    box VariableReference(lhs_name.to_string()),
-                    box VariableReference(rhs_name.to_string())
-                )
-            ));
-            let bits = 8;
-            for i in 0..bits {
-                let new_name = format!("{}_b{}", &cond_result, i);
-                defs_flattened.push(Definition::Definition(
-                    new_name.to_string(),
-                    Mult(
-                        box VariableReference(new_name.to_string()),
-                        box VariableReference(new_name.to_string())
-                    )
-                ));
-            }
-            let mut expr = VariableReference(format!("{}_b0", &cond_result)); // * 2^0
-            for i in 1..bits {
-                expr = Add(
-                    box Mult(
-                        box VariableReference(format!("{}_b{}", &cond_result, i)),
-                        box NumberLiteral(2i32.pow(i))
-                    ),
-                    box expr
-                );
-            }
-            defs_flattened.push(Definition::Definition(cond_result.to_string(), expr));
-
-            let cond_true = format!("{}_b{}", &cond_result, bits - 1);
-            VariableReference(cond_true)
-        }
     }
 }
 
