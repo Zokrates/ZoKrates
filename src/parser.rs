@@ -164,14 +164,6 @@ fn parse_factor(input: String, pos: Position) -> Result<(Expression, String, Pos
     }
 }
 
-fn parse_term(input: String, pos: Position) -> Result<(Expression, String, Position), String> {
-    println!("parse_term ({}, {})", &input, &pos);
-    match parse_factor(input, pos) {
-        Ok((e @ _, s1 @ _, p1 @ _)) => parse_term1(e, s1, p1),
-        e @ Err(_) => e,
-    }
-}
-
 fn parse_term1(expr: Expression, input: String, pos: Position) -> Result<(Expression, String, Position), String> {
     println!("parse_term1 ({}, {}, {})", expr, &input, &pos);
     match next_token(&input, pos.clone()) {
@@ -191,20 +183,28 @@ fn parse_term1(expr: Expression, input: String, pos: Position) -> Result<(Expres
     }
 }
 
+fn parse_term(input: String, pos: Position) -> Result<(Expression, String, Position), String> {
+    println!("parse_term ({}, {})", &input, &pos);
+    match parse_factor(input, pos) {
+        Ok((e @ _, s1 @ _, p1 @ _)) => parse_term1(e, s1, p1),
+        e @ Err(_) => e,
+    }
+}
+
 fn parse_expr1(expr: Expression, input: String, pos: Position) -> Result<(Expression, String, Position), String> {
     println!("parse_expr1 ({}, {}, {})", expr, &input, &pos);
     match next_token(&input, pos.clone()) {
         Some((Token::Add, s1 @ _, p1 @ _)) => {
-            // match parse_term(s1, p1) {
-            match parse_expr(s1, p1) {
-                Ok((e @ _, s2 @ _, p2 @ _)) => Ok((Expression::Add(box expr, box e), s2, p2)),
+            // match parse_expr(s1, p1) {
+            match parse_term(s1, p1) {
+                Ok((e @ _, s2 @ _, p2 @ _)) => parse_expr1(Expression::Add(box expr, box e), s2, p2),
                 Err(why) => Err(why),
             }
         },
         Some((Token::Sub, s1 @ _, p1 @ _)) => {
-            // match parse_term(s1, p1) {
-            match parse_expr(s1, p1) {
-                Ok((e @ _, s2 @ _, p2 @ _)) => Ok((Expression::Sub(box expr, box e), s2, p2)),
+            // match parse_expr(s1, p1) {
+            match parse_term(s1, p1) {
+                Ok((e @ _, s2 @ _, p2 @ _)) => parse_expr1(Expression::Sub(box expr, box e), s2, p2),
                 Err(why) => Err(why),
             }
         },
@@ -230,13 +230,13 @@ fn parse_expr(input: String, pos: Position) -> Result<(Expression, String, Posit
         },
         Some((Token::Ide(x), s1 @ _, p1 @ _)) => {
             match parse_term1(Expression::VariableReference(x), s1, p1) {
-                Ok((e @ _, s2 @ _, p2 @ _)) => parse_expr1(e, s2, p2),
+                Ok((e2 @ _, s2 @ _, p2 @ _)) => parse_expr1(e2, s2, p2),
                 Err(why) => Err(why),
             }
         }
         Some((Token::Num(x), s1 @ _, p1 @ _)) => {
             match parse_term1(Expression::NumberLiteral(x), s1, p1) {
-                Ok((e @ _, s2 @ _, p2 @ _)) => parse_expr1(e, s2, p2),
+                Ok((e2 @ _, s2 @ _, p2 @ _)) => parse_expr1(e2, s2, p2),
                 Err(why) => Err(why),
             }
         },
@@ -271,7 +271,7 @@ fn parse_statement(input: &String, pos: Position) -> Result<(Statement, String, 
 }
 
 pub fn parse_program(file: File) -> Result<Prog, String> {
-    let mut current_line = 0;
+    let mut current_line = 1;
     let reader = BufReader::new(file);
     let mut lines = reader.lines();
 
