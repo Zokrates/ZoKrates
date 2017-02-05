@@ -1,14 +1,17 @@
 #![feature(box_patterns, box_syntax)]
 
-mod ast;
+// mod ast;
+mod absy;
 mod parser;
+mod flatten;
 mod r1cs;
 #[cfg(not(feature="nolibsnark"))]
 mod libsnark;
 
 use std::fs::File;
 use std::path::Path;
-use parser::*;
+use parser::parse_program;
+use flatten::flatten_program;
 use r1cs::*;
 #[cfg(not(feature="nolibsnark"))]
 use libsnark::run_libsnark;
@@ -23,7 +26,10 @@ fn main() {
         Err(why) => panic!("couldn't open {}: {}", path.display(), why),
     };
 
-    let program_ast = parse_program(file);
+    let program_ast = match parse_program(file) {
+        Ok(x) => x,
+        Err(why) => panic!("Got Err: {}", why),
+    };
     println!("program:\n{}", program_ast);
     let program_flattened = flatten_program(program_ast);
     println!("flattened:\n{}", program_flattened);
@@ -47,7 +53,7 @@ fn main() {
         std::process::exit(0);
     }
     let inputs: Vec<i32> = args[2].split_whitespace().flat_map(|x| x.parse::<i32>()).collect();
-    assert!(inputs.len() == program_flattened.args.len());
+    assert!(inputs.len() == program_flattened.arguments.len());
     println!("inputs {:?}", inputs);
     let witness_map = program_flattened.get_witness(inputs);
     println!("witness_map {:?}", witness_map);

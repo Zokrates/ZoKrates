@@ -1,5 +1,5 @@
-use ast::*;
-use ast::Expression::*;
+use absy::*;
+use absy::Expression::*;
 use std::collections::HashMap;
 
 fn count_variables_add(expr: Expression) -> HashMap<String, i32> {
@@ -101,7 +101,7 @@ fn count_variables_add(expr: Expression) -> HashMap<String, i32> {
                 e @ _ => panic!("Error: Add({}, {})", e.0, e.1),
             }
         },
-        e @ _ => panic!("Definition::Add expected, got: {}", e),
+        e @ _ => panic!("Statement::Add expected, got: {}", e),
     }
     count
 }
@@ -194,18 +194,18 @@ pub fn r1cs_program(prog: &Prog) -> (Vec<String>, Vec<Vec<(usize, i32)>>, Vec<Ve
     let mut a: Vec<Vec<(usize, i32)>> = Vec::new();
     let mut b: Vec<Vec<(usize, i32)>> = Vec::new();
     let mut c: Vec<Vec<(usize, i32)>> = Vec::new();
-    variables.extend(prog.args.iter().map(|x| format!("{}", x)));
-    for def in &prog.defs {
+    variables.extend(prog.arguments.iter().map(|x| format!("{}", x)));
+    for def in &prog.statements {
         let mut a_row: Vec<(usize, i32)> = Vec::new();
         let mut b_row: Vec<(usize, i32)> = Vec::new();
         let mut c_row: Vec<(usize, i32)> = Vec::new();
         let idx = variables.len();
         match *def {
-            Definition::Return(ref expr) => {
+            Statement::Return(ref expr) => {
                 variables.push("~out".to_string());
                 r1cs_expression(idx, expr.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row);
             },
-            Definition::Definition(ref id, ref expr) => {
+            Statement::Definition(ref id, ref expr) => {
                 variables.push(id.to_string());
                 r1cs_expression(idx, expr.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row);
             },
