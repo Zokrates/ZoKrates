@@ -116,14 +116,18 @@ fn swap_sub(lhs: &Expression, rhs: &Expression) -> (Expression, Expression) {
         (v1 @ VariableReference(_), v2 @ VariableReference(_)) |
         (v1 @ VariableReference(_), v2 @ Mult(..)) |
         (v1 @ Mult(..), v2 @ VariableReference(_)) => (v1, v2),
-        (var @ VariableReference(_), Add(left, box right)) => {
+        (Add(left, box right), var @ VariableReference(_)) |
+        (var @ VariableReference(_), Add(left, box right)) => { // var = left + right
             let (l, r) = swap_sub(&var, &right);
             (l, Add(left, box r))
         },
-        (var @ VariableReference(_), Sub(box left, box right)) => {
+        (Sub(box left, box right), v @ VariableReference(_)) |
+        (v @ VariableReference(_), Sub(box left, box right)) |
+        (Sub(box left, box right), v @ NumberLiteral(_)) |
+        (v @ NumberLiteral(_), Sub(box left, box right)) => {
             let (l, r) = swap_sub(&left, &right);
-            (Add(box var, box r), l)
-        }
+            (Add(box v, box r), l)
+        },
         e @ _ => panic!("Unexpected input: {} = {}", e.0, e.1),
     }
 }

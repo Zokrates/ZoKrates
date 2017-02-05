@@ -1,6 +1,6 @@
 // simple ifelse example
 // e.g.: x = 5
 def qeval(x):
-  y = x < 3 ? 1 : 5
-  z = y < x ? x**3 : y**3
+  y = if x < 3 then 1 else 5 fi
+  z = if y < x then x**3 else y**3 fi
   return x + y + z
