@@ -35,7 +35,7 @@ fn flatten_condition(statements_flattened: &mut Vec<Statement>, num_variables: &
                 ));
             }
             let mut expr = VariableReference(format!("{}_b0", &cond_result)); // * 2^0
-            for i in 1..bits {
+            for i in 1..bits - 1 {
                 expr = Add(
                     box Mult(
                         box VariableReference(format!("{}_b{}", &cond_result, i)),
@@ -44,6 +44,13 @@ fn flatten_condition(statements_flattened: &mut Vec<Statement>, num_variables: &
                     box expr
                 );
             }
+            expr = Add(
+                box Mult(
+                    box VariableReference(format!("{}_b{}", &cond_result, bits - 1)),
+                    box NumberLiteral(-2i32.pow(bits - 1))
+                ),
+                box expr
+            );
             statements_flattened.push(Statement::Definition(cond_result.to_string(), expr));
 
             let cond_true = format!("{}_b{}", &cond_result, bits - 1);

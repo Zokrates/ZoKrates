@@ -93,9 +93,14 @@ impl Expression {
                     if var.contains("_b") {
                         let var_name = var.split("_b").collect::<Vec<_>>()[0];
                         let mut num = inputs[var_name];
-                        assert!(num >= 0, format!("num < 0: {}", num));
-                        // TODO support negative numbers with two's complement!?
-                        for i in (0..8).rev() {
+                        let bits = 8;
+                        if num < 0 {
+                            num += 2i32.pow(bits - 1);
+                            inputs.insert(format!("{}_b{}", &var_name, bits - 1), 1);
+                        } else {
+                            inputs.insert(format!("{}_b{}", &var_name, bits - 1), 0);
+                        }
+                        for i in (0..bits - 1).rev() {
                             if 2i32.pow(i) <= num {
                                 num -= 2i32.pow(i);
                                 inputs.insert(format!("{}_b{}", &var_name, i), 1);
