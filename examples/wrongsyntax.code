@@ -3,6 +3,8 @@ def qeval(a):
   //c = if x < 6 then b ele 5 fi + 2
   //c = 5 + 2 * b + 5 b * 8 + a
   //c = 5 + 2 * b + 5 \ a
+  //c = 5 + 2 *+ b + 5 \ a
+  //c *= 1
   //c =
   //c = 7 + a +
   /// comment with one /
