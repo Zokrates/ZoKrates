@@ -357,7 +357,13 @@ fn parse_statement(input: &String, pos: &Position) -> Result<(Statement, String,
         (Token::Ide(x), s1, p1) => {
             match next_token(&s1, &p1) {
                 (Token::Eq, s2, p2) => match parse_expr(&s2, &p2) {
-                    Ok((expr, s3, p3)) => Ok((Statement::Definition(x, expr), s3, p3)),
+                    Ok((expr, s3, p3)) => match next_token(&s3, &p3) {
+                        (Token::Unknown(ref t4), ref s4, _) if t4 == "" => {
+                            assert_eq!(s4, "");
+                            Ok((Statement::Definition(x, expr), s3, p3))
+                        },
+                        (t4, _, p4) => Err(Error { expected: vec![Token::Add, Token::Sub, Token::Pow, Token::Unknown("".to_string())], got: t4 , pos: p4 }),
+                    },
                     Err(e) => Err(e),
                 },
                 (t2, _, p2) => Err(Error { expected: vec![Token::Eq], got: t2 , pos: p2 }),
@@ -365,9 +371,12 @@ fn parse_statement(input: &String, pos: &Position) -> Result<(Statement, String,
         },
         (Token::Return, s1, p1) => {
             match parse_expr(&s1, &p1) {
-                Ok((expr, s, p)) => {
-                    assert_eq!(s, "");
-                    Ok((Statement::Return(expr), s, p))
+                Ok((expr, s2, p2)) => match next_token(&s2, &p2) {
+                    (Token::Unknown(ref t3), ref s3, _) if t3 == "" => {
+                        assert_eq!(s3, "");
+                        Ok((Statement::Return(expr), s2, p2))
+                    },
+                    (t4, _, p4) => Err(Error { expected: vec![Token::Add, Token::Sub, Token::Pow, Token::Unknown("".to_string())], got: t4 , pos: p4 }),
                 },
                 Err(e) => Err(e),
             }
@@ -410,10 +419,19 @@ pub fn parse_program(file: File) -> Result<Prog, Error> {
     current_line += 1;
 
     let mut defs = Vec::new();
+    let mut got_return = false;
     loop {
         match lines.next() {
             Some(Ok(ref x)) if x.trim().starts_with("//") => {}, // skip
             Some(Ok(ref x)) => match parse_statement(x, &Position { line: current_line, col: 1 }) {
+                Ok((statement @ Statement::Return(_), ..)) => {
+                    if !got_return {
+                        got_return = true;
+                        defs.push(statement)
+                    } else {
+                        return Err(Error { expected: vec![], got: Token::Return , pos: Position { line: current_line, col: 1 + skip_whitespaces(x) + Token::Return.to_string().len() } })
+                    }
+                },
                 Ok((statement, ..)) => defs.push(statement),
                 Err(e) => return Err(e),
             },
