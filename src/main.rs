@@ -28,7 +28,10 @@ fn main() {
 
     let program_ast = match parse_program(file) {
         Ok(x) => x,
-        Err(why) => panic!("Got Err: {}", why),
+        Err(why) => {
+            println!("{:?}", why);
+            std::process::exit(1);
+        },
     };
     println!("program:\n{}", program_ast);
     let program_flattened = flatten_program(program_ast);
