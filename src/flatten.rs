@@ -1,3 +1,9 @@
+/**
+ * @file flatten.rs
+ * @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
+ * @date 2017
+ */
+
 use absy::*;
 use absy::Expression::*;
 

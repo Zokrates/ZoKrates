@@ -1,3 +1,9 @@
+/**
+ * @file wraplibsnark.hpp
+ * @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
+ * @date 2017
+ */
+
 #ifdef __cplusplus
 extern "C" {
 #endif

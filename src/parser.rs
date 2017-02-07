@@ -1,44 +1,48 @@
-/*
+/**
+ * @file parser.rs
+ * @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
+ * @date 2017
+ */
 
-Grammar:
-
-<statement> ::= <ide> `=' <expr> `\\n' 1
-
-<return> ::= `return' <expr> `\\n' 2
-
-<expr> ::= `if' <expr> <comparator> <expr> `then' <expr> `else' <expr> `fi' 3 <expr'>
-	\alt `(' <expr> `)' 11 <term'> 6 <expr'>
-	\alt <ide> 12 <term'> 6 <expr'>
-	\alt <num> 13 <term'> 6 <expr'>
-
-<expr'> ::= `+' <term> 4 <expr'>
-	\alt `-' <term> 5 <expr'>
-	\alt `**' <num> 10 <term'> 6 <expr'>
-	\alt $\varepsilon$
-
-<term> ::= <factor> <term'>
-
-<term'> ::= `*' <term> 7
-	\alt `/' <term> 8
-	\alt $\varepsilon$ 9
-
-<factor> ::= `if' <expr> <comparator> <expr> `then' <expr> `else' <expr> `fi' 3 <expr'> `**' <num> 10
-	\alt `(' <expr> `)' 11 <factor'>
-	\alt <ide> 12 <factor'>
-	\alt <num> 13 <factor'>
-
-<factor'> ::= <term'> 6 <expr'> `**' <num> 10
-	\alt $\varepsilon$
-
-<comparator> ::= `<' | `<=' | `==' | `>=' | `>'
-
-<num> ::= `d' <num> | `d' 14
-
-<ide> ::= `l' <trail> | `l' 15
-
-<trail> ::= `d' <trail> | `l' <trail> | `d' 16 | `l' 17
-
-*/
+// Grammar:
+//
+// <statement> ::= <ide> `=' <expr> `\\n' 1
+//
+// <return> ::= `return' <expr> `\\n' 2
+//
+// <expr> ::= `if' <expr> <comparator> <expr> `then' <expr> `else' <expr> `fi' 3 <expr'>
+//         | `(' <expr> `)' 11 <term'> 6 <expr'>
+//         | <ide> 12 <term'> 6 <expr'>
+//         | <num> 13 <term'> 6 <expr'>
+//
+// <expr'> ::= `+' <term> 4 <expr'>
+//         | `-' <term> 5 <expr'>
+//         | `**' <num> 10 <term'> 6 <expr'>
+//         | $\varepsilon$
+//
+// <term> ::= <factor> <term'>
+//
+// <term'> ::= `*' <term> 7
+//         | `/' <term> 8
+//         | $\varepsilon$ 9
+//
+// <factor> ::= `if' <expr> <comparator> <expr> `then' <expr> `else' <expr> `fi' 3 <expr'> `**' <num> 10
+//         | `(' <expr> `)' 11 <factor'>
+//         | <ide> 12 <factor'>
+//         | <num> 13 <factor'>
+//
+// <factor'> ::= <term'> 6 <expr'> `**' <num> 10
+//         | $\varepsilon$
+//
+// <comparator> ::= `<' | `<=' | `==' | `>=' | `>'
+//
+// <num> ::= `d' <num> | `d' 14
+//
+// <ide> ::= `l' <trail> | `l' 15
+//
+// <trail> ::= `d' <trail> | `l' <trail> | `d' 16 | `l' 17
+//
+// (Numbers 1 - 17 are production rules)
 
 extern crate regex;
 

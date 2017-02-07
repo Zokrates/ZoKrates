@@ -2,7 +2,7 @@
 
 ## Using VerifiableStatementCompiler
 
-Set include the libsnark library path in `LD_LIBRARY_PATH`
+Set the libsnark library path in `LD_LIBRARY_PATH`
 ```
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 ```
