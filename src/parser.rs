@@ -362,7 +362,7 @@ fn parse_statement(input: &String, pos: &Position) -> Result<(Statement, String,
                             assert_eq!(s4, "");
                             Ok((Statement::Definition(x, expr), s3, p3))
                         },
-                        (t4, _, p4) => Err(Error { expected: vec![Token::Add, Token::Sub, Token::Pow, Token::Unknown("".to_string())], got: t4 , pos: p4 }),
+                        (t4, _, p4) => Err(Error { expected: vec![Token::Add, Token::Sub, Token::Pow, Token::Mult, Token::Div, Token::Unknown("".to_string())], got: t4 , pos: p4 }),
                     },
                     Err(e) => Err(e),
                 },
@@ -376,7 +376,7 @@ fn parse_statement(input: &String, pos: &Position) -> Result<(Statement, String,
                         assert_eq!(s3, "");
                         Ok((Statement::Return(expr), s2, p2))
                     },
-                    (t4, _, p4) => Err(Error { expected: vec![Token::Add, Token::Sub, Token::Pow, Token::Unknown("".to_string())], got: t4 , pos: p4 }),
+                    (t4, _, p4) => Err(Error { expected: vec![Token::Add, Token::Sub, Token::Pow, Token::Mult, Token::Div, Token::Unknown("".to_string())], got: t4 , pos: p4 }),
                 },
                 Err(e) => Err(e),
             }
