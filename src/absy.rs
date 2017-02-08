@@ -1,8 +1,7 @@
-/**
- * @file absy.rs
- * @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
- * @date 2017
- */
+//
+// @file absy.rs
+// @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
+// @date 2017
 
 use std::fmt;
 use std::collections::HashMap;
@@ -79,7 +78,7 @@ impl fmt::Debug for Parameter {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone,PartialEq)]
 pub enum Expression {
     NumberLiteral(i32),
     VariableReference(String),
@@ -189,7 +188,7 @@ impl fmt::Debug for Expression {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone,PartialEq)]
 pub enum Condition {
     Lt(Expression, Expression),
 }

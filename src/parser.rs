@@ -1,8 +1,7 @@
-/**
- * @file parser.rs
- * @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
- * @date 2017
- */
+//
+// @file parser.rs
+// @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
+// @date 2017
 
 // Grammar:
 //
@@ -53,7 +52,7 @@ use std::fs::File;
 use self::regex::Regex;
 use absy::*;
 
-#[derive(Clone)]
+#[derive(Clone,PartialEq)]
 struct Position {
     line: usize,
     col: usize,
@@ -76,6 +75,7 @@ impl fmt::Debug for Position {
     }
 }
 
+#[derive(PartialEq)]
 pub struct Error {
     expected: Vec<Token>,
     got: Token,
@@ -92,6 +92,7 @@ impl fmt::Debug for Error {
     }
 }
 
+#[derive(PartialEq)]
 enum Token {
     Open, Close, Eq, Return,
     If, Then, Else, Fi,
@@ -451,4 +452,88 @@ pub fn parse_program(file: File) -> Result<Prog, Error> {
         None => panic!("Error while checking last definition"),
     }
     Ok(Prog { id: id, arguments: args, statements: defs })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Position.col()
+    #[test]
+    fn position_col() {
+        let pos = Position { line: 100, col: 258 };
+        assert_eq!(pos.col(26), Position { line: 100, col: 284 });
+        assert_eq!(pos.col(-23), Position { line: 100, col: 235 });
+    }
+
+    // parse_num
+    #[test]
+    fn parse_num_single() {
+        let pos = Position { line: 45, col: 121 };
+        assert_eq!(
+            (Token::Num(12234), String::from(""),pos.col(5)),
+            parse_num(&"12234".to_string(), &pos)
+        );
+    }
+
+    #[test]
+    fn parse_num_add() {
+        let pos = Position { line: 45, col: 121 };
+        assert_eq!(
+            (Token::Num(354), String::from("+879"),pos.col(3)),
+            parse_num(&"354+879".to_string(), &pos)
+        );
+    }
+
+    #[test]
+    fn parse_num_space_after() {
+        let pos = Position { line: 45, col: 121 };
+        assert_eq!(
+            (Token::Num(354), String::from(" "),pos.col(3)),
+            parse_num(&"354 ".to_string(), &pos)
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn parse_num_space_before() {
+        let pos = Position { line: 45, col: 121 };
+        parse_num(&" 354".to_string(), &pos);
+    }
+
+    #[test]
+    #[should_panic]
+    fn parse_num_fail_2() {
+        let pos = Position { line: 45, col: 121 };
+        parse_num(&"x324312".to_string(), &pos);
+    }
+
+    // parse_ide
+    // skip_whitespaces
+    // next_token
+    // parse_if_then_else
+    #[test]
+    fn parse_if_then_else_ok() {
+        let pos = Position { line: 45, col: 121 };
+        let string = String::from("if a < b then c else d fi");
+        let expr = Expression::IfElse(
+            box Condition::Lt(Expression::VariableReference(String::from("a")), Expression::VariableReference(String::from("b"))),
+            box Expression::VariableReference(String::from("c")),
+            box Expression::VariableReference(String::from("d"))
+        );
+        assert_eq!(
+            Ok((expr, String::from(""), pos.col(string.len() as isize))),
+            parse_if_then_else(&string, &pos)
+        );
+    }
+
+    // parse_factor1
+    // parse_factor
+    // parse_term1
+    // parse_term
+    // parse_expr1
+    // parse_expr
+    // parse_statement
+    // parse_program
+    // #[should_panic(expected = "assertion failed")]
 }
