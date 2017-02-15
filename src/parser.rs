@@ -519,46 +519,50 @@ mod tests {
         assert_eq!(pos.col(-23), Position { line: 100, col: 235 });
     }
 
-    // parse_num
-    #[test]
-    fn parse_num_single() {
-        let pos = Position { line: 45, col: 121 };
-        assert_eq!(
-            (Token::Num(12234), String::from(""),pos.col(5)),
-            parse_num(&"12234".to_string(), &pos)
-        );
-    }
+    #[cfg(test)]
+    mod parse_num {
+        use super::*;
 
-    #[test]
-    fn parse_num_add() {
-        let pos = Position { line: 45, col: 121 };
-        assert_eq!(
-            (Token::Num(354), String::from("+879"),pos.col(3)),
-            parse_num(&"354+879".to_string(), &pos)
-        );
-    }
+        #[test]
+        fn single() {
+            let pos = Position { line: 45, col: 121 };
+            assert_eq!(
+                (Token::Num(12234), String::from(""),pos.col(5)),
+                parse_num(&"12234".to_string(), &pos)
+            );
+        }
 
-    #[test]
-    fn parse_num_space_after() {
-        let pos = Position { line: 45, col: 121 };
-        assert_eq!(
-            (Token::Num(354), String::from(" "),pos.col(3)),
-            parse_num(&"354 ".to_string(), &pos)
-        );
-    }
+        #[test]
+        fn add() {
+            let pos = Position { line: 45, col: 121 };
+            assert_eq!(
+                (Token::Num(354), String::from("+879"),pos.col(3)),
+                parse_num(&"354+879".to_string(), &pos)
+            );
+        }
 
-    #[test]
-    #[should_panic]
-    fn parse_num_space_before() {
-        let pos = Position { line: 45, col: 121 };
-        parse_num(&" 354".to_string(), &pos);
-    }
+        #[test]
+        fn space_after() {
+            let pos = Position { line: 45, col: 121 };
+            assert_eq!(
+                (Token::Num(354), String::from(" "),pos.col(3)),
+                parse_num(&"354 ".to_string(), &pos)
+            );
+        }
 
-    #[test]
-    #[should_panic]
-    fn parse_num_fail_2() {
-        let pos = Position { line: 45, col: 121 };
-        parse_num(&"x324312".to_string(), &pos);
+        #[test]
+        #[should_panic]
+        fn space_before() {
+            let pos = Position { line: 45, col: 121 };
+            parse_num(&" 354".to_string(), &pos);
+        }
+
+        #[test]
+        #[should_panic]
+        fn x_before() {
+            let pos = Position { line: 45, col: 121 };
+            parse_num(&"x324312".to_string(), &pos);
+        }
     }
 
     // parse_ide
@@ -581,7 +585,59 @@ mod tests {
     }
 
     // parse_factor1
-    // parse_factor
+
+    #[cfg(test)]
+    mod parse_factor {
+        use super::*;
+        #[test]
+        fn if_then_else() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("if a < b then c else d fi");
+            let expr = Expression::IfElse(
+                box Condition::Lt(Expression::VariableReference(String::from("a")), Expression::VariableReference(String::from("b"))),
+                box Expression::VariableReference(String::from("c")),
+                box Expression::VariableReference(String::from("d"))
+            );
+            assert_eq!(
+                Ok((expr, String::from(""), pos.col(string.len() as isize))),
+                parse_factor(&string, &pos)
+            );
+        }
+        #[test]
+        fn brackets() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("(5 + a * 6)");
+            let expr = Expression::Add(
+                box Expression::NumberLiteral(5),
+                box Expression::Mult(box Expression::VariableReference(String::from("a")), box Expression::NumberLiteral(6))
+            );
+            assert_eq!(
+                Ok((expr, String::from(""), pos.col(string.len() as isize))),
+                parse_factor(&string, &pos)
+            );
+        }
+        #[test]
+        fn ide() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("a");
+            let expr = Expression::VariableReference(String::from("a"));
+            assert_eq!(
+                Ok((expr, String::from(""), pos.col(string.len() as isize))),
+                parse_factor(&string, &pos)
+            );
+        }
+        #[test]
+        fn num() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("234");
+            let expr = Expression::NumberLiteral(234);
+            assert_eq!(
+                Ok((expr, String::from(""), pos.col(string.len() as isize))),
+                parse_factor(&string, &pos)
+            );
+        }
+    }
+
     // parse_term1
     // parse_term
     // parse_expr1
