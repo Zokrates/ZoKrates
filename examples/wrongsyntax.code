@@ -1,4 +1,7 @@
-def qeval(a):
+//def wrong(a)
+//def (a):
+//def wrongtoo(a,):
+def correct(a):
   b = a + 5
   //c = if x < 6 then b ele 5 fi + 2
   //c = 5 + 2 * b + 5 b * 8 + a

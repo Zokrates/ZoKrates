@@ -49,7 +49,6 @@ use std::fmt;
 use std::io::BufReader;
 use std::io::prelude::*;
 use std::fs::File;
-use self::regex::Regex;
 use absy::*;
 
 #[derive(Clone,PartialEq)]
@@ -94,7 +93,8 @@ impl fmt::Debug for Error {
 
 #[derive(PartialEq)]
 enum Token {
-    Open, Close, Eq, Return,
+    Open, Close, Comma, Colon,
+    Eq, Return,
     If, Then, Else, Fi,
     Lt, Le, Eqeq, Ge, Gt,
     Add, Sub, Mult, Div, Pow,
@@ -107,6 +107,8 @@ impl fmt::Display for Token {
         match *self {
             Token::Open => write!(f, "("),
             Token::Close => write!(f, ")"),
+            Token::Comma => write!(f, ","),
+            Token::Colon => write!(f, ":"),
             Token::Eq => write!(f, "="),
             Token::Return => write!(f, "return"),
             Token::If => write!(f, "if"),
@@ -180,6 +182,8 @@ fn next_token(input: &String, pos: &Position) -> (Token, String, Position) {
     match input.chars().nth(offset) {
         Some('(') => (Token::Open, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
         Some(')') => (Token::Close, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
+        Some(',') => (Token::Comma, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
+        Some(':') => (Token::Colon, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
         Some('=') => match input.chars().nth(offset + 1) {
             Some('=') => (Token::Eqeq, input[offset + 2..].to_string(), Position { line: pos.line, col: pos.col + offset + 2 }),
             _ => (Token::Eq, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
@@ -395,29 +399,58 @@ pub fn parse_program(file: File) -> Result<Prog, Error> {
     let reader = BufReader::new(file);
     let mut lines = reader.lines();
 
-    // TODO def parse old
     let id;
-    let args;
-    let def_regex = Regex::new(r"^def\s(?P<id>\D[a-zA-Z0-9]+)\(\s*([a-z]+)(,\s*[a-z]+)*\s*\):$").unwrap();
-    let args_regex = Regex::new(r"\(\s*(?P<args>[a-z]+(,\s*[a-z]+)*)\s*\)").unwrap();
+    let mut args = Vec::new();
     loop { // search and make Prog
         match lines.next() {
-            Some(Ok(ref x)) if x.starts_with("def") => {
-                id = match def_regex.captures(x) {
-                    Some(x) => x["id"].to_string(),
-                    None => panic!("Wrong definition of function"),
-                };
-                args = match args_regex.captures(x) {
-                    Some(x) => x["args"].replace(" ", "").replace("\t", "").split(",")
-                                        .map(|p| Parameter { id: p.to_string() })
-                                        .collect::<Vec<_>>(),
-                    None => panic!("Wrong argument definition in function: {}", id),
-                };
-                break;
-            },
             Some(Ok(ref x)) if x.trim().starts_with("//") || x == "" => {},
-            None => panic!("End of file reached without function def"),
-            Some(x) => panic!("Found '{:?}' outside of function", x),
+            Some(Ok(ref x)) => {
+                match next_token(x, &Position { line: current_line, col: 1 }) {
+                    (Token::Ide(ref x1), ref s1, ref p1) if x1 == "def" => match next_token(s1, p1) {
+                        (Token::Ide(x2), s2, p2) => {
+                            id = x2;
+                            match next_token(&s2, &p2) {
+                                (Token::Open, s3, p3) => {
+                                    let mut s = s3;
+                                    let mut p = p3;
+                                    loop {
+                                        match next_token(&s, &p) {
+                                            (Token::Ide(x), s4, p4) => {
+                                                args.push(Parameter { id: x });
+                                                match next_token(&s4, &p4) {
+                                                    (Token::Comma, s5, p5) => {
+                                                        s = s5;
+                                                        p = p5;
+                                                    },
+                                                    (Token::Close, s4, p4) => {
+                                                        match next_token(&s4, &p4) {
+                                                            (Token::Colon, s5, p5) => {
+                                                                match next_token(&s5, &p5) {
+                                                                    (Token::Unknown(ref x6), ..) if x6 == "" => break,
+                                                                    (t6, _, p6) => return Err(Error { expected: vec![Token::Unknown("".to_string())], got: t6 , pos: p6 }),
+                                                                }
+                                                            },
+                                                            (t5, _, p5) => return Err(Error { expected: vec![Token::Colon], got: t5 , pos: p5 }),
+                                                        }
+                                                    },
+                                                    (t5, _, p5) => return Err(Error { expected: vec![Token::Comma, Token::Close], got: t5 , pos: p5 }),
+                                                }
+                                            },
+                                            (t4, _, p4) => return Err(Error { expected: vec![Token::Ide(String::from("ide"))], got: t4 , pos: p4 }),
+                                        }
+                                    }
+                                    break;
+                                },
+                                (t3, _, p3) => return Err(Error { expected: vec![Token::Open], got: t3 , pos: p3 }),
+                            }
+                        },
+                        (t2, _, p2) => return Err(Error { expected: vec![Token::Ide(String::from("name"))], got: t2 , pos: p2 }),
+                    },
+                    (t1, _, p1) => return Err(Error { expected: vec![Token::Ide(String::from("def"))], got: t1 , pos: p1 }),
+                }
+            },
+            Some(Err(err)) => panic!("Error while reading line {}: {:?}", current_line, err),
+            None => return Err(Error { expected: vec![Token::Ide(String::from("def"))], got: Token::Unknown(String::from("")) , pos: Position { line: current_line, col: 1 } }),
         }
         current_line += 1;
     };

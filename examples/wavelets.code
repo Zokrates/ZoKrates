@@ -1,0 +1,19 @@
+
+def wavelet(in1, in2, in3, in4, in5, in6, in7, in8):
+  // first iteration
+  a = (in1 + in2) / 2
+  b = (in3 + in4) / 2
+  c = (in5 + in6) / 2
+  d = (in7 + in8) / 2
+  e = (in1 - in2) / 2
+  f = (in3 - in4) / 2
+  g = (in5 - in6) / 2
+  h = (in7 - in8) / 2
+  // second iteration
+  i = (a + b) / 2
+  j = (c + d) / 2
+  k = (e - f) / 2
+  l = (g - h) / 2
+  // third iteration
+  out1 = (i + j) / 2
+  return (k + l) / 2
