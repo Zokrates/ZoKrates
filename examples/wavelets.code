@@ -16,4 +16,4 @@ def wavelet(in1, in2, in3, in4, in5, in6, in7, in8):
   l = (g - h) / 2
   // third iteration
   out1 = (i + j) / 2
-  return (k + l) / 2
+  return (k - l) / 2

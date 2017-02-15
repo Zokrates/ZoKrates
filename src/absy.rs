@@ -191,11 +191,19 @@ impl fmt::Debug for Expression {
 #[derive(Clone,PartialEq)]
 pub enum Condition {
     Lt(Expression, Expression),
+    Le(Expression, Expression),
+    Eq(Expression, Expression),
+    Ge(Expression, Expression),
+    Gt(Expression, Expression),
 }
 impl Condition {
     fn solve(&self, inputs: &mut HashMap<String, i32>) -> bool {
         match *self {
             Condition::Lt(ref lhs, ref rhs) => lhs.solve(inputs) < rhs.solve(inputs),
+            Condition::Le(ref lhs, ref rhs) => lhs.solve(inputs) <= rhs.solve(inputs),
+            Condition::Eq(ref lhs, ref rhs) => lhs.solve(inputs) == rhs.solve(inputs),
+            Condition::Ge(ref lhs, ref rhs) => lhs.solve(inputs) >= rhs.solve(inputs),
+            Condition::Gt(ref lhs, ref rhs) => lhs.solve(inputs) > rhs.solve(inputs),
         }
     }
 }
@@ -203,6 +211,10 @@ impl fmt::Display for Condition {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Condition::Lt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
+            Condition::Le(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
+            Condition::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            Condition::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
+            Condition::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
         }
     }
 }

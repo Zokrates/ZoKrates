@@ -217,30 +217,50 @@ fn next_token(input: &String, pos: &Position) -> (Token, String, Position) {
     }
 }
 
+fn parse_then_else(cond: Condition, input: &String, pos: &Position) -> Result<(Expression, String, Position), Error> {
+    match next_token(input, pos) {
+        (Token::Then, s5, p5) => match parse_expr(&s5, &p5) {
+            Ok((e6, s6, p6)) => match next_token(&s6, &p6) {
+                (Token::Else, s7, p7) => match parse_expr(&s7, &p7) {
+                    Ok((e8, s8, p8)) => match next_token(&s8, &p8) {
+                        (Token::Fi, s9, p9) => parse_expr1(Expression::IfElse(box cond, box e6, box e8), s9, p9),
+                        (t10, _, p10) => Err(Error { expected: vec![Token::Fi], got: t10 , pos: p10 }),
+                    },
+                    err => err,
+                },
+                (t7, _, p7) => Err(Error { expected: vec![Token::Else], got: t7 , pos: p7 }),
+            },
+            err => err,
+        },
+        (t5, _, p5) => Err(Error { expected: vec![Token::Then], got: t5 , pos: p5 }),
+    }
+}
+
 fn parse_if_then_else(input: &String, pos: &Position) -> Result<(Expression, String, Position), Error> {
     match next_token(input, pos) {
         (Token::If, s1, p1) => match parse_expr(&s1, &p1) {
             Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
                 (Token::Lt, s3, p3) => match parse_expr(&s3, &p3) {
-                    Ok((e4, s4, p4)) => match next_token(&s4, &p4) {
-                        (Token::Then, s5, p5) => match parse_expr(&s5, &p5) {
-                            Ok((e6, s6, p6)) => match next_token(&s6, &p6) {
-                                (Token::Else, s7, p7) => match parse_expr(&s7, &p7) {
-                                    Ok((e8, s8, p8)) => match next_token(&s8, &p8) {
-                                        (Token::Fi, s9, p9) => parse_expr1(Expression::IfElse(box Condition::Lt(e2, e4), box e6, box e8), s9, p9),
-                                        (t10, _, p10) => Err(Error { expected: vec![Token::Fi], got: t10 , pos: p10 }),
-                                    },
-                                    err => err,
-                                },
-                                (t7, _, p7) => Err(Error { expected: vec![Token::Else], got: t7 , pos: p7 }),
-                            },
-                            err => err,
-                        },
-                        (t5, _, p5) => Err(Error { expected: vec![Token::Then], got: t5 , pos: p5 }),
-                    },
+                    Ok((e4, s4, p4)) => parse_then_else(Condition::Lt(e2, e4), &s4, &p4),
                     err => err,
                 },
-                _ => unimplemented!()
+                (Token::Le, s3, p3) => match parse_expr(&s3, &p3) {
+                    Ok((e4, s4, p4)) => parse_then_else(Condition::Le(e2, e4), &s4, &p4),
+                    err => err,
+                },
+                (Token::Eqeq, s3, p3) => match parse_expr(&s3, &p3) {
+                    Ok((e4, s4, p4)) => parse_then_else(Condition::Eq(e2, e4), &s4, &p4),
+                    err => err,
+                },
+                (Token::Ge, s3, p3) => match parse_expr(&s3, &p3) {
+                    Ok((e4, s4, p4)) => parse_then_else(Condition::Ge(e2, e4), &s4, &p4),
+                    err => err,
+                },
+                (Token::Gt, s3, p3) => match parse_expr(&s3, &p3) {
+                    Ok((e4, s4, p4)) => parse_then_else(Condition::Gt(e2, e4), &s4, &p4),
+                    err => err,
+                },
+                (t3, _, p3) => Err(Error { expected: vec![Token::Lt, Token::Le, Token::Eqeq, Token::Ge, Token::Gt], got: t3 , pos: p3 }),
             },
             err => err,
         },

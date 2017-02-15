@@ -61,7 +61,8 @@ fn flatten_condition(statements_flattened: &mut Vec<Statement>, num_variables: &
 
             let cond_true = format!("{}_b{}", &cond_result, bits - 1);
             VariableReference(cond_true)
-        }
+        },
+        _ => unimplemented!(),
     }
 }
 
