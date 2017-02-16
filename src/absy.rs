@@ -37,7 +37,7 @@ impl Prog {
 }
 impl fmt::Display for Prog {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}({}):\n{}", self.id, self.arguments.iter().map(|x| format!("{}", x)).collect::<Vec<_>>().join(","), self.statements.iter().map(|x| format!("\t{}", x)).collect::<Vec<_>>().join("\n"))
+        write!(f, "def {}({}):\n{}", self.id, self.arguments.iter().map(|x| format!("{}", x)).collect::<Vec<_>>().join(","), self.statements.iter().map(|x| format!("\t{}", x)).collect::<Vec<_>>().join("\n"))
     }
 }
 impl fmt::Debug for Prog {
@@ -94,6 +94,27 @@ pub enum Expression {
     IfElse(Box<Condition>, Box<Expression>, Box<Expression>),
 }
 impl Expression {
+    pub fn apply_substitution(&self, substitution: &HashMap<String, String>) -> Expression {
+        match *self {
+            ref e @ Expression::NumberLiteral(_) => e.clone(),
+            Expression::VariableReference(ref v) => {
+                let mut new_name = v.to_string();
+                loop {
+                    match substitution.get(&new_name) {
+                        Some(x) => new_name = x.to_string(),
+                        None => return Expression::VariableReference(new_name),
+                    }
+                }
+            },
+            Expression::Add(ref e1, ref e2) => Expression::Add(box e1.apply_substitution(substitution), box e2.apply_substitution(substitution)),
+            Expression::Sub(ref e1, ref e2) => Expression::Sub(box e1.apply_substitution(substitution), box e2.apply_substitution(substitution)),
+            Expression::Mult(ref e1, ref e2) => Expression::Mult(box e1.apply_substitution(substitution), box e2.apply_substitution(substitution)),
+            Expression::Div(ref e1, ref e2) => Expression::Div(box e1.apply_substitution(substitution), box e2.apply_substitution(substitution)),
+            Expression::Pow(ref e1, ref e2) => Expression::Pow(box e1.apply_substitution(substitution), box e2.apply_substitution(substitution)),
+            Expression::IfElse(ref c, ref e1, ref e2) => Expression::IfElse(box c.apply_substitution(substitution), box e1.apply_substitution(substitution), box e2.apply_substitution(substitution)),
+        }
+    }
+
     fn solve(&self, inputs: &mut HashMap<String, i32>) -> i32 {
         match *self {
             Expression::NumberLiteral(x) => x,
@@ -201,6 +222,16 @@ pub enum Condition {
     Gt(Expression, Expression),
 }
 impl Condition {
+    fn apply_substitution(&self, substitution: &HashMap<String, String>) -> Condition {
+        match *self {
+            Condition::Lt(ref lhs, ref rhs) => Condition::Lt(lhs.apply_substitution(substitution), rhs.apply_substitution(substitution)),
+            Condition::Le(ref lhs, ref rhs) => Condition::Le(lhs.apply_substitution(substitution), rhs.apply_substitution(substitution)),
+            Condition::Eq(ref lhs, ref rhs) => Condition::Eq(lhs.apply_substitution(substitution), rhs.apply_substitution(substitution)),
+            Condition::Ge(ref lhs, ref rhs) => Condition::Ge(lhs.apply_substitution(substitution), rhs.apply_substitution(substitution)),
+            Condition::Gt(ref lhs, ref rhs) => Condition::Gt(lhs.apply_substitution(substitution), rhs.apply_substitution(substitution)),
+        }
+    }
+
     fn solve(&self, inputs: &mut HashMap<String, i32>) -> bool {
         match *self {
             Condition::Lt(ref lhs, ref rhs) => lhs.solve(inputs) < rhs.solve(inputs),

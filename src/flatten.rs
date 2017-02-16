@@ -1,4 +1,6 @@
 //
+//
+//
 //@file flatten.rs
 //@author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
 //@date 2017
@@ -234,18 +236,45 @@ impl Flattener {
         for def in prog.statements {
             match def {
                 Statement::Return(expr) => {
+                    let expr_subbed = expr.apply_substitution(&self.substitution);
+                    let rhs = self.flatten_expression(&mut statements_flattened, expr_subbed);
                     self.variables.insert("~out".to_string());
-                    let rhs = self.flatten_expression(&mut statements_flattened, expr);
                     statements_flattened.push(Statement::Return(rhs));
                 },
                 Statement::Definition(id, expr) => {
-                    self.variables.insert(id.to_string());
-                    let rhs = self.flatten_expression(&mut statements_flattened, expr);
-                    statements_flattened.push(Statement::Definition(id, rhs));
+                    let expr_subbed = expr.apply_substitution(&self.substitution);
+                    let rhs = self.flatten_expression(&mut statements_flattened, expr_subbed);
+                    statements_flattened.push(Statement::Definition(self.use_variable(id), rhs));
                 },
                 Statement::Condition(..) => unimplemented!(),
             }
         }
+        println!("DEBUG self.variables {:?}", self.variables);
+        println!("DEBUG self.substitution {:?}", self.substitution);
         Prog { id: prog.id, arguments: prog.arguments, statements: statements_flattened }
+    }
+
+    /// Proofs if the given name is a not used variable and returns a fresh variable.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - A String that holds the name of the variable
+    fn use_variable(&mut self, name: String) -> String {
+        let mut i = 0;
+        let mut new_name = name.to_string();
+        loop {
+            if self.variables.contains(&new_name) {
+                new_name = format!("{}_{}", &name, i);
+                i += 1;
+            } else {
+                self.variables.insert(new_name.to_string());
+                if i == 1 {
+                    self.substitution.insert(name, new_name.to_string());
+                } else if i > 1 {
+                    self.substitution.insert(format!("{}_{}", name, i - 2), new_name.to_string());
+                }
+                return new_name;
+            }
+        }
     }
 }
