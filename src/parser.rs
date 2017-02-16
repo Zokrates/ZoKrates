@@ -229,11 +229,11 @@ fn parse_then_else(cond: Condition, input: &String, pos: &Position) -> Result<(E
                         (Token::Fi, s9, p9) => parse_expr1(Expression::IfElse(box cond, box e6, box e8), s9, p9),
                         (t10, _, p10) => Err(Error { expected: vec![Token::Fi], got: t10 , pos: p10 }),
                     },
-                    err => err,
+                    Err(err) => Err(err),
                 },
                 (t7, _, p7) => Err(Error { expected: vec![Token::Else], got: t7 , pos: p7 }),
             },
-            err => err,
+            Err(err) => Err(err),
         },
         (t5, _, p5) => Err(Error { expected: vec![Token::Then], got: t5 , pos: p5 }),
     }
@@ -245,27 +245,27 @@ fn parse_if_then_else(input: &String, pos: &Position) -> Result<(Expression, Str
             Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
                 (Token::Lt, s3, p3) => match parse_expr(&s3, &p3) {
                     Ok((e4, s4, p4)) => parse_then_else(Condition::Lt(e2, e4), &s4, &p4),
-                    err => err,
+                    Err(err) => Err(err),
                 },
                 (Token::Le, s3, p3) => match parse_expr(&s3, &p3) {
                     Ok((e4, s4, p4)) => parse_then_else(Condition::Le(e2, e4), &s4, &p4),
-                    err => err,
+                    Err(err) => Err(err),
                 },
                 (Token::Eqeq, s3, p3) => match parse_expr(&s3, &p3) {
                     Ok((e4, s4, p4)) => parse_then_else(Condition::Eq(e2, e4), &s4, &p4),
-                    err => err,
+                    Err(err) => Err(err),
                 },
                 (Token::Ge, s3, p3) => match parse_expr(&s3, &p3) {
                     Ok((e4, s4, p4)) => parse_then_else(Condition::Ge(e2, e4), &s4, &p4),
-                    err => err,
+                    Err(err) => Err(err),
                 },
                 (Token::Gt, s3, p3) => match parse_expr(&s3, &p3) {
                     Ok((e4, s4, p4)) => parse_then_else(Condition::Gt(e2, e4), &s4, &p4),
-                    err => err,
+                    Err(err) => Err(err),
                 },
                 (t3, _, p3) => Err(Error { expected: vec![Token::Lt, Token::Le, Token::Eqeq, Token::Ge, Token::Gt], got: t3 , pos: p3 }),
             },
-            err => err,
+            Err(err) => Err(err),
         },
         (t1, _, p1) => Err(Error { expected: vec![Token::If], got: t1 , pos: p1 }),
     }
@@ -281,9 +281,9 @@ fn parse_factor1(expr: Expression, input: String, pos: Position) -> Result<(Expr
                 },
                 _ => Ok((expr, input, pos)),
             },
-            Err(why) => Err(why),
+            Err(err) => Err(err),
         },
-        Err(why) => Err(why),
+        Err(err) => Err(err),
     }
 }
 
@@ -295,7 +295,7 @@ fn parse_factor(input: &String, pos: &Position) -> Result<(Expression, String, P
                 (Token::Close, s3, p3) => parse_factor1(e2, s3, p3),
                 (t3, _, p3) => Err(Error { expected: vec![Token::Close], got: t3 , pos: p3 }),
             },
-            Err(why) => Err(why),
+            Err(err) => Err(err),
         },
         (Token::Ide(x), s1, p1) => parse_factor1(Expression::VariableReference(x), s1, p1),
         (Token::Num(x), s1, p1) => parse_factor1(Expression::NumberLiteral(x), s1, p1),
@@ -308,13 +308,13 @@ fn parse_term1(expr: Expression, input: String, pos: Position) -> Result<(Expres
         (Token::Mult, s1, p1) => {
             match parse_term(&s1, &p1) {
                 Ok((e, s2, p2)) => Ok((Expression::Mult(box expr, box e), s2, p2)),
-                Err(why) => Err(why),
+                Err(err) => Err(err),
             }
         },
         (Token::Div, s1, p1) => {
             match parse_term(&s1, &p1) {
                 Ok((e, s2, p2)) => Ok((Expression::Div(box expr, box e), s2, p2)),
-                Err(why) => Err(why),
+                Err(err) => Err(err),
             }
         },
         _ => Ok((expr, input, pos)),
@@ -324,7 +324,7 @@ fn parse_term1(expr: Expression, input: String, pos: Position) -> Result<(Expres
 fn parse_term(input: &String, pos: &Position) -> Result<(Expression, String, Position), Error> {
     match parse_factor(input, pos) {
         Ok((e, s1, p1)) => parse_term1(e, s1, p1),
-        e @ Err(_) => e,
+        Err(err) => Err(err),
     }
 }
 
@@ -333,20 +333,20 @@ fn parse_expr1(expr: Expression, input: String, pos: Position) -> Result<(Expres
         (Token::Add, s1, p1) => {
             match parse_term(&s1, &p1) {
                 Ok((e2, s2, p2)) => parse_expr1(Expression::Add(box expr, box e2), s2, p2),
-                Err(why) => Err(why),
+                Err(err) => Err(err),
             }
         },
         (Token::Sub, s1, p1) => {
             match parse_term(&s1, &p1) {
                 Ok((e2, s2, p2)) => parse_expr1(Expression::Sub(box expr, box e2), s2, p2),
-                Err(why) => Err(why),
+                Err(err) => Err(err),
             }
         },
         (Token::Pow, s1, p1) => {
             match parse_num(&s1, &p1) {
                 (Token::Num(x), s2, p2) => match parse_term1(Expression::Pow(box expr, box Expression::NumberLiteral(x)), s2, p2) {
                     Ok((e3, s3, p3)) => parse_expr1(e3, s3, p3),
-                    Err(why) => Err(why),
+                    Err(err) => Err(err),
                 },
                 (t2, _, p2) => Err(Error { expected: vec![Token::Num(0)], got: t2 , pos: p2 }),
             }
@@ -362,22 +362,22 @@ fn parse_expr(input: &String, pos: &Position) -> Result<(Expression, String, Pos
             Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
                 (Token::Close, s3, p3) => match parse_term1(e2, s3, p3) {
                     Ok((e4, s4, p4)) => parse_expr1(e4, s4, p4),
-                    Err(why) => Err(why),
+                    Err(err) => Err(err),
                 },
                 (t3, _, p3) => Err(Error { expected: vec![Token::Close], got: t3 , pos: p3 }),
             },
-            Err(why) => Err(why),
+            Err(err) => Err(err),
         },
         (Token::Ide(x), s1, p1) => {
             match parse_term1(Expression::VariableReference(x), s1, p1) {
                 Ok((e2, s2, p2)) => parse_expr1(e2, s2, p2),
-                Err(why) => Err(why),
+                Err(err) => Err(err),
             }
         }
         (Token::Num(x), s1, p1) => {
             match parse_term1(Expression::NumberLiteral(x), s1, p1) {
                 Ok((e2, s2, p2)) => parse_expr1(e2, s2, p2),
-                Err(why) => Err(why),
+                Err(err) => Err(err),
             }
         },
         (t1, _, p1) => Err(Error { expected: vec![Token::If, Token::Open, Token::Ide("ide".to_string()), Token::Num(0)], got: t1 , pos: p1 }),
@@ -394,7 +394,7 @@ fn parse_statement1(ide: String, input: String, pos: Position) -> Result<(Statem
                 },
                 (t3, _, p3) => Err(Error { expected: vec![Token::Add, Token::Sub, Token::Pow, Token::Mult, Token::Div, Token::Unknown("".to_string())], got: t3 , pos: p3 }),
             },
-            Err(e) => Err(e),
+            Err(err) => Err(err),
         },
         _ => match parse_term1(Expression::VariableReference(ide), input, pos) {
             Ok((e2, s2, p2)) => match parse_expr1(e2, s2, p2) {
@@ -407,13 +407,13 @@ fn parse_statement1(ide: String, input: String, pos: Position) -> Result<(Statem
                             },
                             (t6, _, p6) => Err(Error { expected: vec![Token::Add, Token::Sub, Token::Pow, Token::Mult, Token::Div, Token::Unknown("".to_string())], got: t6 , pos: p6 }),
                         },
-                        Err(e) => Err(e),
+                        Err(err) => Err(err),
                     },
                     (t4, _, p4) => Err(Error { expected: vec![Token::Eqeq], got: t4 , pos: p4 }),
                 },
-                Err(e) => Err(e),
+                Err(err) => Err(err),
             },
-            Err(e) => Err(e),
+            Err(err) => Err(err),
         },
     }
 }
@@ -433,11 +433,11 @@ fn parse_statement(input: &String, pos: &Position) -> Result<(Statement, String,
                         },
                         (t5, _, p5) => Err(Error { expected: vec![Token::Unknown("".to_string())], got: t5 , pos: p5 }),
                     },
-                    Err(e) => Err(e),
+                    Err(err) => Err(err),
                 },
                 (t3, _, p3) => Err(Error { expected: vec![Token::Eqeq], got: t3 , pos: p3 }),
             },
-            Err(e) => Err(e),
+            Err(err) => Err(err),
         },
         (Token::Return, s1, p1) => {
             match parse_expr(&s1, &p1) {
@@ -448,7 +448,7 @@ fn parse_statement(input: &String, pos: &Position) -> Result<(Statement, String,
                     },
                     (t4, _, p4) => Err(Error { expected: vec![Token::Add, Token::Sub, Token::Pow, Token::Mult, Token::Div, Token::Unknown("".to_string())], got: t4 , pos: p4 }),
                 },
-                Err(e) => Err(e),
+                Err(err) => Err(err),
             }
         },
         (t1, _, p1) => Err(Error { expected: vec![Token::Ide("ide".to_string()), Token::Num(0), Token::If, Token::Open, Token::Return], got: t1 , pos: p1 }),
@@ -532,10 +532,10 @@ pub fn parse_program(file: File) -> Result<Prog, Error> {
                     }
                 },
                 Ok((statement, ..)) => defs.push(statement),
-                Err(e) => return Err(e),
+                Err(err) => return Err(err),
             },
             None => break,
-            Some(Err(e)) => panic!("Error while reading Definitions: {}", e),
+            Some(Err(err)) => panic!("Error while reading Definitions: {}", err),
         }
         current_line += 1;
     }
