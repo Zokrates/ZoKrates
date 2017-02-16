@@ -219,6 +219,7 @@ pub fn r1cs_program(prog: &Prog) -> (Vec<String>, Vec<Vec<(usize, i32)>>, Vec<Ve
                 variables.push(id.to_string());
                 r1cs_expression(idx, expr.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row);
             },
+            Statement::Condition(..) => unimplemented!(),
         }
         a.push(a_row);
         b.push(b_row);

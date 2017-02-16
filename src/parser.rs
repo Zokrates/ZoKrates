@@ -5,43 +5,46 @@
 
 // Grammar:
 //
-// <statement> ::= <ide> `=' <expr> `\\n' 1
+// <statement> ::= <ide> <statement'>
+//         | `if' <expr> <comparator> <expr> `then' <expr> `else' <expr> `fi' <expr'> `==` <expr> `\\n`
+//         | `(' <expr> `)' <term'> <expr'> `==` <expr> `\\n`
+//         | <num> <term'> <expr'> `==` <expr> `\\n`
 //
-// <return> ::= `return' <expr> `\\n' 2
+// <statement'> ::= `=' <expr> `\\n'
+//         | <term'> <expr'> `==` <expr> `\\n`
 //
-// <expr> ::= `if' <expr> <comparator> <expr> `then' <expr> `else' <expr> `fi' 3 <expr'>
-//         | `(' <expr> `)' 11 <term'> 6 <expr'>
-//         | <ide> 12 <term'> 6 <expr'>
-//         | <num> 13 <term'> 6 <expr'>
+// <expr> ::= `if' <expr> <comparator> <expr> `then' <expr> `else' <expr> `fi' <expr'>
+//         | `(' <expr> `)' <term'> <expr'>
+//         | <ide> <term'> <expr'>
+//         | <num> <term'> <expr'>
 //
-// <expr'> ::= `+' <term> 4 <expr'>
-//         | `-' <term> 5 <expr'>
-//         | `**' <num> 10 <term'> 6 <expr'>
+// <expr'> ::= `+' <term> <expr'>
+//         | `-' <term> <expr'>
+//         | `**' <num> <term'> <expr'>
 //         | $\varepsilon$
 //
 // <term> ::= <factor> <term'>
 //
-// <term'> ::= `*' <term> 7
-//         | `/' <term> 8
-//         | $\varepsilon$ 9
+// <term'> ::= `*' <term>
+//         | `/' <term>
+//         | $\varepsilon$
 //
-// <factor> ::= `if' <expr> <comparator> <expr> `then' <expr> `else' <expr> `fi' 3 <expr'> `**' <num> 10
-//         | `(' <expr> `)' 11 <factor'>
-//         | <ide> 12 <factor'>
-//         | <num> 13 <factor'>
+// <factor> ::= `if' <expr> <comparator> <expr> `then' <expr> `else' <expr> `fi' <expr'> `**' <num>
+//         | `(' <expr> `)' <factor'>
+//         | <ide> <factor'>
+//         | <num> <factor'>
 //
-// <factor'> ::= <term'> 6 <expr'> `**' <num> 10
+// <factor'> ::= <term'> <expr'> `**' <num>
 //         | $\varepsilon$
 //
 // <comparator> ::= `<' | `<=' | `==' | `>=' | `>'
 //
-// <num> ::= `d' <num> | `d' 14
+// <num> ::= `d' <num> | `d'
 //
-// <ide> ::= `l' <trail> | `l' 15
+// <ide> ::= `l' <trail> | `l'
 //
-// <trail> ::= `d' <trail> | `l' <trail> | `d' 16 | `l' 17
+// <trail> ::= `d' <trail> | `l' <trail> | `d' | `l'
 //
-// (Numbers 1 - 17 are production rules)
 
 extern crate regex;
 
@@ -381,22 +384,60 @@ fn parse_expr(input: &String, pos: &Position) -> Result<(Expression, String, Pos
     }
 }
 
+fn parse_statement1(ide: String, input: String, pos: Position) -> Result<(Statement, String, Position), Error> {
+    match next_token(&input, &pos) {
+        (Token::Eq, s1, p1) => match parse_expr(&s1, &p1) {
+            Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
+                (Token::Unknown(ref t3), ref s3, _) if t3 == "" => {
+                    assert_eq!(s3, "");
+                    Ok((Statement::Definition(ide, e2), s2, p2))
+                },
+                (t3, _, p3) => Err(Error { expected: vec![Token::Add, Token::Sub, Token::Pow, Token::Mult, Token::Div, Token::Unknown("".to_string())], got: t3 , pos: p3 }),
+            },
+            Err(e) => Err(e),
+        },
+        _ => match parse_term1(Expression::VariableReference(ide), input, pos) {
+            Ok((e2, s2, p2)) => match parse_expr1(e2, s2, p2) {
+                Ok((e3, s3, p3)) => match next_token(&s3, &p3) {
+                    (Token::Eqeq, s4, p4) => match parse_expr(&s4, &p4) {
+                        Ok((e5, s5, p5)) => match next_token(&s5, &p5) {
+                            (Token::Unknown(ref t6), ref s6, _) if t6 == "" => {
+                                assert_eq!(s6, "");
+                                Ok((Statement::Condition(e3, e5), s5, p5))
+                            },
+                            (t6, _, p6) => Err(Error { expected: vec![Token::Add, Token::Sub, Token::Pow, Token::Mult, Token::Div, Token::Unknown("".to_string())], got: t6 , pos: p6 }),
+                        },
+                        Err(e) => Err(e),
+                    },
+                    (t4, _, p4) => Err(Error { expected: vec![Token::Eqeq], got: t4 , pos: p4 }),
+                },
+                Err(e) => Err(e),
+            },
+            Err(e) => Err(e),
+        },
+    }
+}
+
 fn parse_statement(input: &String, pos: &Position) -> Result<(Statement, String, Position), Error> {
     match next_token(input, pos) {
-        (Token::Ide(x), s1, p1) => {
-            match next_token(&s1, &p1) {
-                (Token::Eq, s2, p2) => match parse_expr(&s2, &p2) {
-                    Ok((expr, s3, p3)) => match next_token(&s3, &p3) {
-                        (Token::Unknown(ref t4), ref s4, _) if t4 == "" => {
-                            assert_eq!(s4, "");
-                            Ok((Statement::Definition(x, expr), s3, p3))
+        (Token::Ide(x1), s1, p1) => parse_statement1(x1, s1, p1),
+        (Token::If, ..) |
+        (Token::Open, ..) |
+        (Token::Num(_), ..) => match parse_expr(input, pos) {
+            Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
+                (Token::Eqeq, s3, p3) => match parse_expr(&s3, &p3) {
+                    Ok((e4, s4, p4)) => match next_token(&s4, &p4) {
+                        (Token::Unknown(ref t5), ref s5, _) if t5 == "" => {
+                            assert_eq!(s5, "");
+                            Ok((Statement::Condition(e2, e4), s4, p4))
                         },
-                        (t4, _, p4) => Err(Error { expected: vec![Token::Add, Token::Sub, Token::Pow, Token::Mult, Token::Div, Token::Unknown("".to_string())], got: t4 , pos: p4 }),
+                        (t5, _, p5) => Err(Error { expected: vec![Token::Unknown("".to_string())], got: t5 , pos: p5 }),
                     },
                     Err(e) => Err(e),
                 },
-                (t2, _, p2) => Err(Error { expected: vec![Token::Eq], got: t2 , pos: p2 }),
-            }
+                (t3, _, p3) => Err(Error { expected: vec![Token::Eqeq], got: t3 , pos: p3 }),
+            },
+            Err(e) => Err(e),
         },
         (Token::Return, s1, p1) => {
             match parse_expr(&s1, &p1) {
@@ -410,7 +451,7 @@ fn parse_statement(input: &String, pos: &Position) -> Result<(Statement, String,
                 Err(e) => Err(e),
             }
         },
-        (t1, _, p1) => Err(Error { expected: vec![Token::Ide("ide".to_string()), Token::Return], got: t1 , pos: p1 }),
+        (t1, _, p1) => Err(Error { expected: vec![Token::Ide("ide".to_string()), Token::Num(0), Token::If, Token::Open, Token::Return], got: t1 , pos: p1 }),
     }
 }
 

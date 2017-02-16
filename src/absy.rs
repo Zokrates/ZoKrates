@@ -29,6 +29,7 @@ impl Prog {
                     let s = expr.solve(&mut witness);
                     witness.insert(id.to_string(), s);
                 },
+                Statement::Condition(..) => unimplemented!(),
             }
         }
         witness
@@ -48,12 +49,14 @@ impl fmt::Debug for Prog {
 pub enum Statement {
     Return(Expression),
     Definition(String, Expression),
+    Condition(Expression, Expression),
 }
 impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Statement::Return(ref expr) => write!(f, "return {}", expr),
             Statement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
+            Statement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
         }
     }
 }
@@ -62,6 +65,7 @@ impl fmt::Debug for Statement {
         match *self {
             Statement::Return(ref expr) => write!(f, "Return({:?})", expr),
             Statement::Definition(ref lhs, ref rhs) => write!(f, "Definition({:?}, {:?})", lhs, rhs),
+            Statement::Condition(ref lhs, ref rhs) => write!(f, "Condition({:?}, {:?})", lhs, rhs),
         }
     }
 }

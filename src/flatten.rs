@@ -228,6 +228,7 @@ pub fn flatten_program(prog: Prog) -> Prog {
                 let rhs = flatten_expression(&mut statements_flattened, &mut num_variables, expr);
                 statements_flattened.push(Statement::Definition(id, rhs));
             },
+            Statement::Condition(..) => unimplemented!(),
         }
     }
     Prog { id: prog.id, arguments: prog.arguments, statements: statements_flattened }
