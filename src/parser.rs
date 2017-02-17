@@ -46,8 +46,6 @@
 // <trail> ::= `d' <trail> | `l' <trail> | `d' | `l'
 //
 
-extern crate regex;
-
 use std::fmt;
 use std::io::BufReader;
 use std::io::prelude::*;

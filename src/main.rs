@@ -5,10 +5,14 @@
 
 #![feature(box_patterns, box_syntax)]
 
+#[macro_use]
+extern crate lazy_static;
+
 mod absy;
 mod parser;
 mod flatten;
 mod r1cs;
+mod field;
 #[cfg(not(feature="nolibsnark"))]
 mod libsnark;
 
