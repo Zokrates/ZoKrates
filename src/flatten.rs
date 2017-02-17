@@ -1,6 +1,4 @@
 //
-//
-//
 //@file flatten.rs
 //@author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
 //@date 2017
@@ -246,7 +244,18 @@ impl Flattener {
                     let rhs = self.flatten_expression(&mut statements_flattened, expr_subbed);
                     statements_flattened.push(Statement::Definition(self.use_variable(id), rhs));
                 },
-                Statement::Condition(..) => unimplemented!(),
+                Statement::Condition(expr1, expr2) => {
+                    let expr1_subbed = expr1.apply_substitution(&self.substitution);
+                    let expr2_subbed = expr2.apply_substitution(&self.substitution);
+                    let (lhs, rhs) = if expr1_subbed.is_linear() {
+                        (expr1_subbed, self.flatten_expression(&mut statements_flattened, expr2_subbed))
+                    } else if expr2_subbed.is_linear() {
+                        (expr2_subbed, self.flatten_expression(&mut statements_flattened, expr1_subbed))
+                    } else {
+                        unimplemented!()
+                    };
+                    statements_flattened.push(Statement::Condition(lhs, rhs));
+                },
             }
         }
         println!("DEBUG self.variables {:?}", self.variables);
