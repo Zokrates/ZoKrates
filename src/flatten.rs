@@ -1,11 +1,12 @@
 //
-//@file flatten.rs
-//@author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
-//@date 2017
+// @file flatten.rs
+// @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
+// @date 2017
 
 use absy::*;
 use absy::Expression::*;
 use std::collections::{HashSet,HashMap};
+use field::Field;
 
 pub struct Flattener {
     variables: HashSet<String>,
@@ -21,7 +22,7 @@ impl Flattener {
         }
     }
 
-    fn flatten_condition(&mut self, statements_flattened: &mut Vec<Statement>, condition: Condition) -> Expression {
+    fn flatten_condition<T: Field>(&mut self, statements_flattened: &mut Vec<Statement<T>>, condition: Condition<T>) -> Expression<T> {
         match condition {
             Condition::Lt(lhs, rhs) => {
                 let lhs_flattened = self.flatten_expression(statements_flattened, lhs);
@@ -59,7 +60,7 @@ impl Flattener {
                     expr = Add(
                         box Mult(
                             box VariableReference(format!("{}_b{}", &cond_result, i)),
-                            box NumberLiteral(2i32.pow(i))
+                            box NumberLiteral(T::from(2).pow(i))
                         ),
                         box expr
                     );
@@ -67,7 +68,7 @@ impl Flattener {
                 expr = Add(
                     box Mult(
                         box VariableReference(format!("{}_b{}", &cond_result, bits - 1)),
-                        box NumberLiteral(-2i32.pow(bits - 1))
+                        box NumberLiteral(T::zero() - T::from(2).pow(bits - 1))
                     ),
                     box expr
                 );
@@ -80,7 +81,8 @@ impl Flattener {
         }
     }
 
-    fn flatten_expression(&mut self, statements_flattened: &mut Vec<Statement>, expr: Expression) -> Expression {        match expr {
+    fn flatten_expression<T: Field>(&mut self, statements_flattened: &mut Vec<Statement<T>>, expr: Expression<T>) -> Expression<T> {
+        match expr {
             x @ NumberLiteral(_) |
             x @ VariableReference(_) => x,
             ref x @ Add(..) |
@@ -174,15 +176,15 @@ impl Flattener {
             Pow(base, exponent) => {
                 // TODO currently assuming that base is number or variable
                 match exponent {
-                    box NumberLiteral(x) if x > 1 => {
+                    box NumberLiteral(ref x) if x > &T::one() => {
                         match base {
                             box VariableReference(ref var) => {
-                                let id = if x > 2 {
+                                let id = if x > &T::from(2) {
                                     let tmp_expression = self.flatten_expression(
                                         statements_flattened,
                                         Pow(
                                             box VariableReference(var.to_string()),
-                                            box NumberLiteral(x - 1)
+                                            box NumberLiteral(x.clone() - T::one())
                                         )
                                     );
                                     let new_name = format!("sym_{}", self.next_var_idx);
@@ -198,7 +200,7 @@ impl Flattener {
                                 )
                             },
                             box NumberLiteral(var) => Mult(
-                                box NumberLiteral(var),
+                                box NumberLiteral(var.clone()),
                                 box NumberLiteral(var)
                             ),
                             _ => panic!("Only variables and numbers allowed in pow base")
@@ -212,7 +214,7 @@ impl Flattener {
                 let new_name = format!("sym_{}", self.next_var_idx);
                 self.next_var_idx += 1;
                 // condition_false = 1 - condition_true
-                statements_flattened.push(Statement::Definition(new_name.to_string(), Sub(box NumberLiteral(1), box condition_true.clone())));
+                statements_flattened.push(Statement::Definition(new_name.to_string(), Sub(box NumberLiteral(T::one()), box condition_true.clone())));
                 let condition_false = VariableReference(new_name);
                 // (condition_true * consequent) + (condition_false * alternatuve)
                 self.flatten_expression(
@@ -226,7 +228,7 @@ impl Flattener {
         }
     }
 
-    pub fn flatten_program(&mut self, prog: Prog) -> Prog {
+    pub fn flatten_program<T: Field>(&mut self, prog: Prog<T>) -> Prog<T> {
         let mut statements_flattened = Vec::new();
         self.variables = HashSet::new();
         self.substitution = HashMap::new();

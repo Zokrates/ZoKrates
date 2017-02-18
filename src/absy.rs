@@ -5,19 +5,20 @@
 
 use std::fmt;
 use std::collections::HashMap;
+use field::Field;
 
-pub struct Prog {
+pub struct Prog<T: Field> {
     pub id: String,
     pub arguments: Vec<Parameter>,
-    pub statements: Vec<Statement>,
+    pub statements: Vec<Statement<T>>,
 }
-impl Prog {
-    pub fn get_witness(&self, inputs: Vec<i32>) -> HashMap<String, i32> {
+impl<T: Field> Prog<T> {
+    pub fn get_witness(&self, inputs: Vec<T>) -> HashMap<String, T> {
         assert!(self.arguments.len() == inputs.len());
         let mut witness = HashMap::new();
-        witness.insert("~one".to_string(), 1);
+        witness.insert("~one".to_string(), T::one());
         for i in 0..self.arguments.len() {
-            witness.insert(self.arguments[i].id.to_string(), inputs[i]);
+            witness.insert(self.arguments[i].id.to_string(), inputs[i].clone());
         }
         for statement in &self.statements {
             match *statement {
@@ -35,23 +36,23 @@ impl Prog {
         witness
     }
 }
-impl fmt::Display for Prog {
+impl<T: Field> fmt::Display for Prog<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "def {}({}):\n{}", self.id, self.arguments.iter().map(|x| format!("{}", x)).collect::<Vec<_>>().join(","), self.statements.iter().map(|x| format!("\t{}", x)).collect::<Vec<_>>().join("\n"))
     }
 }
-impl fmt::Debug for Prog {
+impl<T: Field> fmt::Debug for Prog<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Prog(id: {:?}, arguments: {:?}, ...):\n{}", self.id, self.arguments, self.statements.iter().map(|x| format!("\t{:?}", x)).collect::<Vec<_>>().join("\n"))
     }
 }
 
-pub enum Statement {
-    Return(Expression),
-    Definition(String, Expression),
-    Condition(Expression, Expression),
+pub enum Statement<T: Field> {
+    Return(Expression<T>),
+    Definition(String, Expression<T>),
+    Condition(Expression<T>, Expression<T>),
 }
-impl fmt::Display for Statement {
+impl<T: Field> fmt::Display for Statement<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Statement::Return(ref expr) => write!(f, "return {}", expr),
@@ -60,7 +61,7 @@ impl fmt::Display for Statement {
         }
     }
 }
-impl fmt::Debug for Statement {
+impl<T: Field> fmt::Debug for Statement<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Statement::Return(ref expr) => write!(f, "Return({:?})", expr),
@@ -83,18 +84,18 @@ impl fmt::Debug for Parameter {
 }
 
 #[derive(Clone,PartialEq)]
-pub enum Expression {
-    NumberLiteral(i32),
+pub enum Expression<T: Field> {
+    NumberLiteral(T),
     VariableReference(String),
-    Add(Box<Expression>, Box<Expression>),
-    Sub(Box<Expression>, Box<Expression>),
-    Mult(Box<Expression>, Box<Expression>),
-    Div(Box<Expression>, Box<Expression>),
-    Pow(Box<Expression>, Box<Expression>),
-    IfElse(Box<Condition>, Box<Expression>, Box<Expression>),
+    Add(Box<Expression<T>>, Box<Expression<T>>),
+    Sub(Box<Expression<T>>, Box<Expression<T>>),
+    Mult(Box<Expression<T>>, Box<Expression<T>>),
+    Div(Box<Expression<T>>, Box<Expression<T>>),
+    Pow(Box<Expression<T>>, Box<Expression<T>>),
+    IfElse(Box<Condition<T>>, Box<Expression<T>>, Box<Expression<T>>),
 }
-impl Expression {
-    pub fn apply_substitution(&self, substitution: &HashMap<String, String>) -> Expression {
+impl<T: Field> Expression<T> {
+    pub fn apply_substitution(&self, substitution: &HashMap<String, String>) -> Expression<T> {
         match *self {
             ref e @ Expression::NumberLiteral(_) => e.clone(),
             Expression::VariableReference(ref v) => {
@@ -115,41 +116,41 @@ impl Expression {
         }
     }
 
-    fn solve(&self, inputs: &mut HashMap<String, i32>) -> i32 {
+    fn solve(&self, inputs: &mut HashMap<String, T>) -> T {
         match *self {
-            Expression::NumberLiteral(x) => x,
+            Expression::NumberLiteral(ref x) => x.clone(),
             Expression::VariableReference(ref var) => {
                 if let None = inputs.get(var) {
                     if var.contains("_b") {
                         let var_name = var.split("_b").collect::<Vec<_>>()[0];
-                        let mut num = inputs[var_name];
+                        let mut num = inputs[var_name].clone();
                         let bits = 8;
-                        if num < 0 {
-                            num += 2i32.pow(bits - 1);
-                            inputs.insert(format!("{}_b{}", &var_name, bits - 1), 1);
+                        if num < T::zero() {
+                            num = num + T::from(2).pow(bits - 1);
+                            inputs.insert(format!("{}_b{}", &var_name, T::from(bits - 1)), T::one());
                         } else {
-                            inputs.insert(format!("{}_b{}", &var_name, bits - 1), 0);
+                            inputs.insert(format!("{}_b{}", &var_name, T::from(bits - 1)), T::zero());
                         }
                         for i in (0..bits - 1).rev() {
-                            if 2i32.pow(i) <= num {
-                                num -= 2i32.pow(i);
-                                inputs.insert(format!("{}_b{}", &var_name, i), 1);
+                            if T::from(2).pow(i) <= num {
+                                num = num - T::from(2).pow(i);
+                                inputs.insert(format!("{}_b{}", &var_name, i), T::one());
                             } else {
-                                inputs.insert(format!("{}_b{}", &var_name, i), 0);
+                                inputs.insert(format!("{}_b{}", &var_name, i), T::zero());
                             }
                         }
-                        assert_eq!(num, 0);
+                        assert_eq!(num, T::zero());
                     } else {
                         panic!("Variable not found in inputs: {}", var);
                     }
                 }
-                inputs[var]
+                inputs[var].clone()
             },
             Expression::Add(ref x, ref y) => x.solve(inputs) + y.solve(inputs),
             Expression::Sub(ref x, ref y) => x.solve(inputs) - y.solve(inputs),
             Expression::Mult(ref x, ref y) => x.solve(inputs) * y.solve(inputs),
             Expression::Div(ref x, ref y) => x.solve(inputs) / y.solve(inputs),
-            Expression::Pow(ref x, ref y) => x.solve(inputs).pow(y.solve(inputs) as u32),
+            Expression::Pow(ref x, ref y) => x.solve(inputs).pow(y.solve(inputs)),
             Expression::IfElse(ref condition, ref consequent, ref alternative)
                 => if condition.solve(inputs) { consequent.solve(inputs) } else { alternative.solve(inputs) },
         }
@@ -184,7 +185,7 @@ impl Expression {
         }
     }
 }
-impl fmt::Display for Expression {
+impl<T: Field> fmt::Display for Expression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Expression::NumberLiteral(ref i) => write!(f, "{}", i),
@@ -198,7 +199,7 @@ impl fmt::Display for Expression {
         }
     }
 }
-impl fmt::Debug for Expression {
+impl<T: Field> fmt::Debug for Expression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Expression::NumberLiteral(ref i) => write!(f, "Num({})", i),
@@ -214,15 +215,15 @@ impl fmt::Debug for Expression {
 }
 
 #[derive(Clone,PartialEq)]
-pub enum Condition {
-    Lt(Expression, Expression),
-    Le(Expression, Expression),
-    Eq(Expression, Expression),
-    Ge(Expression, Expression),
-    Gt(Expression, Expression),
+pub enum Condition<T: Field> {
+    Lt(Expression<T>, Expression<T>),
+    Le(Expression<T>, Expression<T>),
+    Eq(Expression<T>, Expression<T>),
+    Ge(Expression<T>, Expression<T>),
+    Gt(Expression<T>, Expression<T>),
 }
-impl Condition {
-    fn apply_substitution(&self, substitution: &HashMap<String, String>) -> Condition {
+impl<T: Field> Condition<T> {
+    fn apply_substitution(&self, substitution: &HashMap<String, String>) -> Condition<T> {
         match *self {
             Condition::Lt(ref lhs, ref rhs) => Condition::Lt(lhs.apply_substitution(substitution), rhs.apply_substitution(substitution)),
             Condition::Le(ref lhs, ref rhs) => Condition::Le(lhs.apply_substitution(substitution), rhs.apply_substitution(substitution)),
@@ -232,7 +233,7 @@ impl Condition {
         }
     }
 
-    fn solve(&self, inputs: &mut HashMap<String, i32>) -> bool {
+    fn solve(&self, inputs: &mut HashMap<String, T>) -> bool {
         match *self {
             Condition::Lt(ref lhs, ref rhs) => lhs.solve(inputs) < rhs.solve(inputs),
             Condition::Le(ref lhs, ref rhs) => lhs.solve(inputs) <= rhs.solve(inputs),
@@ -242,7 +243,7 @@ impl Condition {
         }
     }
 }
-impl fmt::Display for Condition {
+impl<T: Field> fmt::Display for Condition<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Condition::Lt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
@@ -253,7 +254,7 @@ impl fmt::Display for Condition {
         }
     }
 }
-impl fmt::Debug for Condition {
+impl<T: Field> fmt::Debug for Condition<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self)
     }

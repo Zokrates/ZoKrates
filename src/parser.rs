@@ -50,6 +50,7 @@ use std::fmt;
 use std::io::BufReader;
 use std::io::prelude::*;
 use std::fs::File;
+use field::Field;
 use absy::*;
 
 #[derive(Clone,PartialEq)]
@@ -76,34 +77,36 @@ impl fmt::Debug for Position {
 }
 
 #[derive(PartialEq)]
-pub struct Error {
-    expected: Vec<Token>,
-    got: Token,
+pub struct Error<T: Field> {
+    expected: Vec<Token<T>>,
+    got: Token<T>,
     pos: Position,
 }
-impl fmt::Display for Error {
+impl<T: Field> fmt::Display for Error<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Error at {}: Expected one of {:?}, got {:?}", self.pos.col(-(self.got.to_string().len() as isize)), self.expected, self.got)
     }
 }
-impl fmt::Debug for Error {
+impl<T: Field> fmt::Debug for Error<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self)
     }
 }
 
 #[derive(PartialEq)]
-enum Token {
+enum Token<T: Field> {
     Open, Close, Comma, Colon,
     Eq, Return,
     If, Then, Else, Fi,
     Lt, Le, Eqeq, Ge, Gt,
     Add, Sub, Mult, Div, Pow,
     Ide(String),
-    Num(i32),
+    Num(T),
     Unknown(String),
+    // following used for error messages
+    ErrIde, ErrNum
 }
-impl fmt::Display for Token {
+impl<T: Field> fmt::Display for Token<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Token::Open => write!(f, "("),
@@ -129,16 +132,22 @@ impl fmt::Display for Token {
             Token::Ide(ref x) => write!(f, "{}", x),
             Token::Num(ref x) => write!(f, "{}", x),
             Token::Unknown(ref x) => write!(f, "{}", x),
+            Token::ErrIde => write!(f, "identifier"),
+            Token::ErrNum => write!(f, "number"),
         }
     }
 }
-impl fmt::Debug for Token {
+impl<T: Field> fmt::Debug for Token<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "`{}`", self)
+        match *self {
+            ref t @ Token::ErrIde |
+            ref t @ Token::ErrNum => write!(f, "{}", t),
+            ref t => write!(f, "`{}`", t)
+        }
     }
 }
 
-fn parse_num(input: &String, pos: &Position) -> (Token, String, Position) {
+fn parse_num<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Position) {
     let mut end = 0;
     loop {
         match input.chars().nth(end) {
@@ -150,10 +159,10 @@ fn parse_num(input: &String, pos: &Position) -> (Token, String, Position) {
         }
     }
     assert!(end > 0);
-    (Token::Num(input[0..end].parse().unwrap()), input[end..].to_string(), Position { line: pos.line, col: pos.col + end })
+    (Token::Num(T::from(&input[0..end])), input[end..].to_string(), Position { line: pos.line, col: pos.col + end })
 }
 
-fn parse_ide(input: &String, pos: &Position) -> (Token, String, Position) {
+fn parse_ide<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Position) {
     assert!(match input.chars().next().unwrap() { 'a'...'z' | 'A'...'Z' => true, _ => false });
     let mut end = 1;
     loop {
@@ -178,7 +187,7 @@ fn skip_whitespaces(input: &String) -> usize {
     }
 }
 
-fn next_token(input: &String, pos: &Position) -> (Token, String, Position) {
+fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Position) {
     let offset = skip_whitespaces(input);
     match input.chars().nth(offset) {
         Some('(') => (Token::Open, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
@@ -218,7 +227,7 @@ fn next_token(input: &String, pos: &Position) -> (Token, String, Position) {
     }
 }
 
-fn parse_then_else(cond: Condition, input: &String, pos: &Position) -> Result<(Expression, String, Position), Error> {
+fn parse_then_else<T: Field>(cond: Condition<T>, input: &String, pos: &Position) -> Result<(Expression<T>, String, Position), Error<T>> {
     match next_token(input, pos) {
         (Token::Then, s5, p5) => match parse_expr(&s5, &p5) {
             Ok((e6, s6, p6)) => match next_token(&s6, &p6) {
@@ -237,7 +246,7 @@ fn parse_then_else(cond: Condition, input: &String, pos: &Position) -> Result<(E
     }
 }
 
-fn parse_if_then_else(input: &String, pos: &Position) -> Result<(Expression, String, Position), Error> {
+fn parse_if_then_else<T: Field>(input: &String, pos: &Position) -> Result<(Expression<T>, String, Position), Error<T>> {
     match next_token(input, pos) {
         (Token::If, s1, p1) => match parse_expr(&s1, &p1) {
             Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
@@ -269,13 +278,13 @@ fn parse_if_then_else(input: &String, pos: &Position) -> Result<(Expression, Str
     }
 }
 
-fn parse_factor1(expr: Expression, input: String, pos: Position) -> Result<(Expression, String, Position), Error> {
+fn parse_factor1<T: Field>(expr: Expression<T>, input: String, pos: Position) -> Result<(Expression<T>, String, Position), Error<T>> {
     match parse_term1(expr.clone(), input.clone(), pos.clone()) {
         Ok((e1, s1, p1)) => match parse_expr1(e1, s1, p1) {
-            Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
+            Ok((e2, s2, p2)) => match next_token::<T>(&s2, &p2) {
                 (Token::Pow, s3, p3) => match next_token(&s3, &p3) {
                     (Token::Num(x), s4, p4) => Ok((Expression::Pow(box e2, box Expression::NumberLiteral(x)), s4, p4)),
-                    (t4, _, p4) => Err(Error { expected: vec![Token::Num(0)], got: t4 , pos: p4 }),
+                    (t4, _, p4) => Err(Error { expected: vec![Token::ErrNum], got: t4 , pos: p4 }),
                 },
                 _ => Ok((expr, input, pos)),
             },
@@ -285,7 +294,7 @@ fn parse_factor1(expr: Expression, input: String, pos: Position) -> Result<(Expr
     }
 }
 
-fn parse_factor(input: &String, pos: &Position) -> Result<(Expression, String, Position), Error> {
+fn parse_factor<T: Field>(input: &String, pos: &Position) -> Result<(Expression<T>, String, Position), Error<T>> {
     match next_token(input, pos) {
         (Token::If, ..) => parse_if_then_else(input, pos),
         (Token::Open, s1, p1) => match parse_expr(&s1, &p1) {
@@ -297,12 +306,12 @@ fn parse_factor(input: &String, pos: &Position) -> Result<(Expression, String, P
         },
         (Token::Ide(x), s1, p1) => parse_factor1(Expression::VariableReference(x), s1, p1),
         (Token::Num(x), s1, p1) => parse_factor1(Expression::NumberLiteral(x), s1, p1),
-        (t1, _, p1) => Err(Error { expected: vec![Token::If, Token::Open, Token::Ide("ide".to_string()), Token::Num(0)], got: t1 , pos: p1 }),
+        (t1, _, p1) => Err(Error { expected: vec![Token::If, Token::Open, Token::ErrIde, Token::ErrNum], got: t1 , pos: p1 }),
     }
 }
 
-fn parse_term1(expr: Expression, input: String, pos: Position) -> Result<(Expression, String, Position), Error> {
-    match next_token(&input, &pos) {
+fn parse_term1<T: Field>(expr: Expression<T>, input: String, pos: Position) -> Result<(Expression<T>, String, Position), Error<T>> {
+    match next_token::<T>(&input, &pos) {
         (Token::Mult, s1, p1) => {
             match parse_term(&s1, &p1) {
                 Ok((e, s2, p2)) => Ok((Expression::Mult(box expr, box e), s2, p2)),
@@ -319,15 +328,15 @@ fn parse_term1(expr: Expression, input: String, pos: Position) -> Result<(Expres
     }
 }
 
-fn parse_term(input: &String, pos: &Position) -> Result<(Expression, String, Position), Error> {
+fn parse_term<T: Field>(input: &String, pos: &Position) -> Result<(Expression<T>, String, Position), Error<T>> {
     match parse_factor(input, pos) {
         Ok((e, s1, p1)) => parse_term1(e, s1, p1),
         Err(err) => Err(err),
     }
 }
 
-fn parse_expr1(expr: Expression, input: String, pos: Position) -> Result<(Expression, String, Position), Error> {
-    match next_token(&input, &pos) {
+fn parse_expr1<T: Field>(expr: Expression<T>, input: String, pos: Position) -> Result<(Expression<T>, String, Position), Error<T>> {
+    match next_token::<T>(&input, &pos) {
         (Token::Add, s1, p1) => {
             match parse_term(&s1, &p1) {
                 Ok((e2, s2, p2)) => parse_expr1(Expression::Add(box expr, box e2), s2, p2),
@@ -346,15 +355,15 @@ fn parse_expr1(expr: Expression, input: String, pos: Position) -> Result<(Expres
                     Ok((e3, s3, p3)) => parse_expr1(e3, s3, p3),
                     Err(err) => Err(err),
                 },
-                (t2, _, p2) => Err(Error { expected: vec![Token::Num(0)], got: t2 , pos: p2 }),
+                (t2, _, p2) => Err(Error { expected: vec![Token::ErrNum], got: t2 , pos: p2 }),
             }
         },
         _ => Ok((expr, input, pos)),
     }
 }
 
-fn parse_expr(input: &String, pos: &Position) -> Result<(Expression, String, Position), Error> {
-    match next_token(input, pos) {
+fn parse_expr<T: Field>(input: &String, pos: &Position) -> Result<(Expression<T>, String, Position), Error<T>> {
+    match next_token::<T>(input, pos) {
         (Token::If, ..) => parse_if_then_else(input, pos),
         (Token::Open, s1, p1) => match parse_expr(&s1, &p1) {
             Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
@@ -378,12 +387,12 @@ fn parse_expr(input: &String, pos: &Position) -> Result<(Expression, String, Pos
                 Err(err) => Err(err),
             }
         },
-        (t1, _, p1) => Err(Error { expected: vec![Token::If, Token::Open, Token::Ide("ide".to_string()), Token::Num(0)], got: t1 , pos: p1 }),
+        (t1, _, p1) => Err(Error { expected: vec![Token::If, Token::Open, Token::ErrIde, Token::ErrNum], got: t1 , pos: p1 }),
     }
 }
 
-fn parse_statement1(ide: String, input: String, pos: Position) -> Result<(Statement, String, Position), Error> {
-    match next_token(&input, &pos) {
+fn parse_statement1<T: Field>(ide: String, input: String, pos: Position) -> Result<(Statement<T>, String, Position), Error<T>> {
+    match next_token::<T>(&input, &pos) {
         (Token::Eq, s1, p1) => match parse_expr(&s1, &p1) {
             Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
                 (Token::Unknown(ref t3), ref s3, _) if t3 == "" => {
@@ -416,8 +425,8 @@ fn parse_statement1(ide: String, input: String, pos: Position) -> Result<(Statem
     }
 }
 
-fn parse_statement(input: &String, pos: &Position) -> Result<(Statement, String, Position), Error> {
-    match next_token(input, pos) {
+fn parse_statement<T: Field>(input: &String, pos: &Position) -> Result<(Statement<T>, String, Position), Error<T>> {
+    match next_token::<T>(input, pos) {
         (Token::Ide(x1), s1, p1) => parse_statement1(x1, s1, p1),
         (Token::If, ..) |
         (Token::Open, ..) |
@@ -449,11 +458,11 @@ fn parse_statement(input: &String, pos: &Position) -> Result<(Statement, String,
                 Err(err) => Err(err),
             }
         },
-        (t1, _, p1) => Err(Error { expected: vec![Token::Ide("ide".to_string()), Token::Num(0), Token::If, Token::Open, Token::Return], got: t1 , pos: p1 }),
+        (t1, _, p1) => Err(Error { expected: vec![Token::ErrIde, Token::ErrNum, Token::If, Token::Open, Token::Return], got: t1 , pos: p1 }),
     }
 }
 
-pub fn parse_program(file: File) -> Result<Prog, Error> {
+pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
     let mut current_line = 1;
     let reader = BufReader::new(file);
     let mut lines = reader.lines();
@@ -526,7 +535,7 @@ pub fn parse_program(file: File) -> Result<Prog, Error> {
                         got_return = true;
                         defs.push(statement)
                     } else {
-                        return Err(Error { expected: vec![], got: Token::Return , pos: Position { line: current_line, col: 1 + skip_whitespaces(x) + Token::Return.to_string().len() } })
+                        return Err(Error { expected: vec![], got: Token::Return , pos: Position { line: current_line, col: 1 + skip_whitespaces(x) + Token::Return::<T>.to_string().len() } })
                     }
                 },
                 Ok((statement, ..)) => defs.push(statement),
@@ -549,6 +558,7 @@ pub fn parse_program(file: File) -> Result<Prog, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use field::FieldPrime;
 
     // Position.col()
     #[test]
@@ -566,7 +576,7 @@ mod tests {
         fn single() {
             let pos = Position { line: 45, col: 121 };
             assert_eq!(
-                (Token::Num(12234), String::from(""),pos.col(5)),
+                (Token::Num(FieldPrime::from(12234)), String::from(""), pos.col(5)),
                 parse_num(&"12234".to_string(), &pos)
             );
         }
@@ -575,7 +585,7 @@ mod tests {
         fn add() {
             let pos = Position { line: 45, col: 121 };
             assert_eq!(
-                (Token::Num(354), String::from("+879"),pos.col(3)),
+                (Token::Num(FieldPrime::from(354)), String::from("+879"), pos.col(3)),
                 parse_num(&"354+879".to_string(), &pos)
             );
         }
@@ -584,7 +594,7 @@ mod tests {
         fn space_after() {
             let pos = Position { line: 45, col: 121 };
             assert_eq!(
-                (Token::Num(354), String::from(" "),pos.col(3)),
+                (Token::Num(FieldPrime::from(354)), String::from(" "), pos.col(3)),
                 parse_num(&"354 ".to_string(), &pos)
             );
         }
@@ -593,14 +603,14 @@ mod tests {
         #[should_panic]
         fn space_before() {
             let pos = Position { line: 45, col: 121 };
-            parse_num(&" 354".to_string(), &pos);
+            parse_num::<FieldPrime>(&" 354".to_string(), &pos);
         }
 
         #[test]
         #[should_panic]
         fn x_before() {
             let pos = Position { line: 45, col: 121 };
-            parse_num(&"x324312".to_string(), &pos);
+            parse_num::<FieldPrime>(&"x324312".to_string(), &pos);
         }
     }
 
@@ -612,7 +622,7 @@ mod tests {
     fn parse_if_then_else_ok() {
         let pos = Position { line: 45, col: 121 };
         let string = String::from("if a < b then c else d fi");
-        let expr = Expression::IfElse(
+        let expr = Expression::IfElse::<FieldPrime>(
             box Condition::Lt(Expression::VariableReference(String::from("a")), Expression::VariableReference(String::from("b"))),
             box Expression::VariableReference(String::from("c")),
             box Expression::VariableReference(String::from("d"))
@@ -632,7 +642,7 @@ mod tests {
         fn if_then_else() {
             let pos = Position { line: 45, col: 121 };
             let string = String::from("if a < b then c else d fi");
-            let expr = Expression::IfElse(
+            let expr = Expression::IfElse::<FieldPrime>(
                 box Condition::Lt(Expression::VariableReference(String::from("a")), Expression::VariableReference(String::from("b"))),
                 box Expression::VariableReference(String::from("c")),
                 box Expression::VariableReference(String::from("d"))
@@ -647,8 +657,8 @@ mod tests {
             let pos = Position { line: 45, col: 121 };
             let string = String::from("(5 + a * 6)");
             let expr = Expression::Add(
-                box Expression::NumberLiteral(5),
-                box Expression::Mult(box Expression::VariableReference(String::from("a")), box Expression::NumberLiteral(6))
+                box Expression::NumberLiteral(FieldPrime::from(5)),
+                box Expression::Mult(box Expression::VariableReference(String::from("a")), box Expression::NumberLiteral(FieldPrime::from(6)))
             );
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
@@ -659,7 +669,7 @@ mod tests {
         fn ide() {
             let pos = Position { line: 45, col: 121 };
             let string = String::from("a");
-            let expr = Expression::VariableReference(String::from("a"));
+            let expr = Expression::VariableReference::<FieldPrime>(String::from("a"));
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
                 parse_factor(&string, &pos)
@@ -669,7 +679,7 @@ mod tests {
         fn num() {
             let pos = Position { line: 45, col: 121 };
             let string = String::from("234");
-            let expr = Expression::NumberLiteral(234);
+            let expr = Expression::NumberLiteral(FieldPrime::from(234));
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
                 parse_factor(&string, &pos)

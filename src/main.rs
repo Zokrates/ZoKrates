@@ -18,6 +18,7 @@ mod libsnark;
 
 use std::fs::File;
 use std::path::Path;
+use field::FieldPrime;
 use parser::parse_program;
 use flatten::Flattener;
 use r1cs::*;
@@ -63,12 +64,12 @@ fn main() {
     if args.len() < 3 {
         std::process::exit(0);
     }
-    let inputs: Vec<i32> = args[2].split_whitespace().flat_map(|x| x.parse::<i32>()).collect();
+    let inputs: Vec<FieldPrime> = args[2].split_whitespace().flat_map(|x| FieldPrime::from(x)).collect();
     assert!(inputs.len() == program_flattened.arguments.len());
     println!("inputs {:?}", inputs);
     let witness_map = program_flattened.get_witness(inputs);
     println!("witness_map {:?}", witness_map);
-    let witness: Vec<_> = variables.iter().map(|x| witness_map[x]).collect();
+    let witness: Vec<_> = variables.iter().map(|x| witness_map[x].clone()).collect();
     println!("witness {:?}", witness);
     #[cfg(not(feature="nolibsnark"))]
     println!("run_libsnark = {:?}", run_libsnark(variables, a, b, c, witness));

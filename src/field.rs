@@ -5,28 +5,39 @@
 
 extern crate num;
 
-use self::num::Integer;
+use self::num::{Integer, Zero, One};
 use self::num::bigint::{BigInt, ToBigInt};
 use std::convert::From;
 use std::ops::{Add, Sub, Mul, Div};
+use std::fmt;
+use std::fmt::{Display, Debug};
 
 lazy_static! {
     static ref P: BigInt = BigInt::parse_bytes(b"21888242871839275222246405745257275088696311157297823662689037894645226208583", 10).unwrap();
 }
 
-trait Field : for<'a> From<&'a str>
-            + Add<Self> + for<'a> Add<&'a Self>
-            + Sub<Self> + for<'a> Sub<&'a Self>
-            + Mul<Self> + for<'a> Mul<&'a Self>
-            + Div<Self> + for<'a> Div<&'a Self>
+pub trait Pow<RHS> {
+    type Output;
+    fn pow(self, RHS) -> Self::Output;
+}
+
+pub trait Field : From<i32> + From<u32> + for<'a> From<&'a str>
+                + Zero + One + Clone + PartialEq + PartialOrd + Display + Debug
+                + Add<Self, Output=Self> + for<'a> Add<&'a Self, Output=Self>
+                + Sub<Self, Output=Self> + for<'a> Sub<&'a Self, Output=Self>
+                + Mul<Self, Output=Self> + for<'a> Mul<&'a Self, Output=Self>
+                + Div<Self, Output=Self> + for<'a> Div<&'a Self, Output=Self>
+                + Pow<Self, Output=Self> + Pow<u32, Output=Self>
 {
     /// Returns the smallest value that can be represented by this field type.
     fn min_value() -> Self;
     /// Returns the largest value that can be represented by this field type.
     fn max_value() -> Self;
+    // Raises self to the power of exp.
+    // fn pow<T>(self, exp: T) -> Self;
 }
 
-#[derive(Debug)]
+#[derive(PartialEq,PartialOrd,Clone)]
 pub struct FieldPrime {
     value: BigInt,
 }
@@ -40,10 +51,59 @@ impl Field for FieldPrime {
     }
 }
 
+impl Display for FieldPrime {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.value.to_str_radix(10))
+    }
+}
+
+impl Debug for FieldPrime {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.value.to_str_radix(10))
+    }
+}
+
+impl Iterator for FieldPrime {
+    type Item = FieldPrime;
+
+    fn next(&mut self) -> Option<FieldPrime> {
+        Some(self.clone() + FieldPrime::from(1))
+    }
+}
+
+impl From<i32> for FieldPrime {
+    fn from(num: i32) -> Self {
+        let x = ToBigInt::to_bigint(&num).unwrap();
+        FieldPrime { value: &x - x.div_floor(&*P) * &*P }
+    }
+}
+
+impl From<u32> for FieldPrime {
+    fn from(num: u32) -> Self {
+        let x = ToBigInt::to_bigint(&num).unwrap();
+        FieldPrime { value: &x - x.div_floor(&*P) * &*P }
+    }
+}
+
 impl<'a> From<&'a str> for FieldPrime {
     fn from(s: &'a str) -> Self {
         let x = BigInt::parse_bytes(s.as_bytes(), 10).unwrap();
         FieldPrime { value: &x - x.div_floor(&*P) * &*P }
+    }
+}
+
+impl Zero for FieldPrime {
+    fn zero() -> FieldPrime {
+        FieldPrime { value: ToBigInt::to_bigint(&0).unwrap() }
+    }
+    fn is_zero(&self) -> bool {
+        self.value == ToBigInt::to_bigint(&0).unwrap()
+    }
+}
+
+impl One for FieldPrime {
+    fn one() -> FieldPrime {
+        FieldPrime { value: ToBigInt::to_bigint(&1).unwrap() }
     }
 }
 
@@ -62,6 +122,14 @@ impl<'a> Add<&'a FieldPrime> for FieldPrime {
         FieldPrime { value: (self.value + other.value.clone()) % &*P }
     }
 }
+
+// impl<'a> Add<&'a mut FieldPrime> for FieldPrime {
+//     type Output = FieldPrime;
+//
+//     fn add(self, other: &mut FieldPrime) -> FieldPrime {
+//         FieldPrime { value: (self.value + other.value.clone()) % &*P }
+//     }
+// }
 
 impl Sub<FieldPrime> for FieldPrime {
     type Output = FieldPrime;
@@ -110,6 +178,34 @@ impl<'a> Div<&'a FieldPrime> for FieldPrime {
 
     fn div(self, other: &FieldPrime) -> FieldPrime {
         FieldPrime { value: (self.value / other.value.clone()) % &*P }
+    }
+}
+
+impl Pow<u32> for FieldPrime {
+    type Output = FieldPrime;
+
+    fn pow(self, exp: u32) -> FieldPrime {
+        let mut res = FieldPrime::from(1);
+        for _ in 0..exp {
+            res = res * &self;
+        }
+        res
+    }
+}
+
+impl Pow<FieldPrime> for FieldPrime {
+    type Output = FieldPrime;
+
+    fn pow(self, exp: FieldPrime) -> FieldPrime {
+        let mut res = FieldPrime::one();
+        let mut current = FieldPrime::zero();
+        loop {
+            res = res * &self;
+            if current >= exp {
+                return res;
+            }
+            current = current + FieldPrime::one();
+        }
     }
 }
 

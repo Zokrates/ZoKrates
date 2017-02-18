@@ -1,8 +1,7 @@
-/**
- * @file libsnark.rs
- * @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
- * @date 2017
- */
+//
+// @file libsnark.rs
+// @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
+// @date 2017
 
 extern crate libc;
 

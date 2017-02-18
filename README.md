@@ -1,5 +1,7 @@
 # VerifiableStatementCompiler
 
+**Info:** libsnark integration is not working in the current commit!
+
 ## Using VerifiableStatementCompiler
 
 Set the libsnark library path in `LD_LIBRARY_PATH`
