@@ -33,8 +33,6 @@ pub trait Field : From<i32> + From<u32> + From<usize> + for<'a> From<&'a str>
     fn min_value() -> Self;
     /// Returns the largest value that can be represented by this field type.
     fn max_value() -> Self;
-    // Raises self to the power of exp.
-    // fn pow<T>(self, exp: T) -> Self;
 }
 
 #[derive(PartialEq,PartialOrd,Clone)]
@@ -44,10 +42,10 @@ pub struct FieldPrime {
 
 impl Field for FieldPrime {
     fn min_value() -> FieldPrime {
-        FieldPrime { value: ToBigInt::to_bigint(&0).unwrap() }
+        FieldPrime{ value: ToBigInt::to_bigint(&0).unwrap() }
     }
     fn max_value() -> FieldPrime {
-        FieldPrime { value: &*P - ToBigInt::to_bigint(&1).unwrap() }
+        FieldPrime{ value: &*P - ToBigInt::to_bigint(&1).unwrap() }
     }
 }
 
@@ -63,45 +61,37 @@ impl Debug for FieldPrime {
     }
 }
 
-impl Iterator for FieldPrime {
-    type Item = FieldPrime;
-
-    fn next(&mut self) -> Option<FieldPrime> {
-        Some(self.clone() + FieldPrime::from(1))
-    }
-}
-
 impl From<i32> for FieldPrime {
     fn from(num: i32) -> Self {
         let x = ToBigInt::to_bigint(&num).unwrap();
-        FieldPrime { value: &x - x.div_floor(&*P) * &*P }
+        FieldPrime{ value: &x - x.div_floor(&*P) * &*P }
     }
 }
 
 impl From<u32> for FieldPrime {
     fn from(num: u32) -> Self {
         let x = ToBigInt::to_bigint(&num).unwrap();
-        FieldPrime { value: &x - x.div_floor(&*P) * &*P }
+        FieldPrime{ value: &x - x.div_floor(&*P) * &*P }
     }
 }
 
 impl From<usize> for FieldPrime {
     fn from(num: usize) -> Self {
         let x = ToBigInt::to_bigint(&num).unwrap();
-        FieldPrime { value: &x - x.div_floor(&*P) * &*P }
+        FieldPrime{ value: &x - x.div_floor(&*P) * &*P }
     }
 }
 
 impl<'a> From<&'a str> for FieldPrime {
     fn from(s: &'a str) -> Self {
         let x = BigInt::parse_bytes(s.as_bytes(), 10).unwrap();
-        FieldPrime { value: &x - x.div_floor(&*P) * &*P }
+        FieldPrime{ value: &x - x.div_floor(&*P) * &*P }
     }
 }
 
 impl Zero for FieldPrime {
     fn zero() -> FieldPrime {
-        FieldPrime { value: ToBigInt::to_bigint(&0).unwrap() }
+        FieldPrime{ value: ToBigInt::to_bigint(&0).unwrap() }
     }
     fn is_zero(&self) -> bool {
         self.value == ToBigInt::to_bigint(&0).unwrap()
@@ -110,7 +100,7 @@ impl Zero for FieldPrime {
 
 impl One for FieldPrime {
     fn one() -> FieldPrime {
-        FieldPrime { value: ToBigInt::to_bigint(&1).unwrap() }
+        FieldPrime{ value: ToBigInt::to_bigint(&1).unwrap() }
     }
 }
 
@@ -118,7 +108,7 @@ impl Add<FieldPrime> for FieldPrime {
     type Output = FieldPrime;
 
     fn add(self, other: FieldPrime) -> FieldPrime {
-        FieldPrime { value: (self.value + other.value) % &*P }
+        FieldPrime{ value: (self.value + other.value) % &*P }
     }
 }
 
@@ -126,7 +116,7 @@ impl<'a> Add<&'a FieldPrime> for FieldPrime {
     type Output = FieldPrime;
 
     fn add(self, other: &FieldPrime) -> FieldPrime {
-        FieldPrime { value: (self.value + other.value.clone()) % &*P }
+        FieldPrime{ value: (self.value + other.value.clone()) % &*P }
     }
 }
 
@@ -135,7 +125,7 @@ impl Sub<FieldPrime> for FieldPrime {
 
     fn sub(self, other: FieldPrime) -> FieldPrime {
         let x = self.value - other.value;
-        FieldPrime { value: &x - x.div_floor(&*P) * &*P }
+        FieldPrime{ value: &x - x.div_floor(&*P) * &*P }
     }
 }
 
@@ -144,7 +134,7 @@ impl<'a> Sub<&'a FieldPrime> for FieldPrime {
 
     fn sub(self, other: &FieldPrime) -> FieldPrime {
         let x = self.value - other.value.clone();
-        FieldPrime { value: &x - x.div_floor(&*P) * &*P }
+        FieldPrime{ value: &x - x.div_floor(&*P) * &*P }
     }
 }
 
@@ -152,7 +142,7 @@ impl Mul<FieldPrime> for FieldPrime {
     type Output = FieldPrime;
 
     fn mul(self, other: FieldPrime) -> FieldPrime {
-        FieldPrime { value: (self.value * other.value) % &*P }
+        FieldPrime{ value: (self.value * other.value) % &*P }
     }
 }
 
@@ -160,16 +150,89 @@ impl<'a> Mul<&'a FieldPrime> for FieldPrime {
     type Output = FieldPrime;
 
     fn mul(self, other: &FieldPrime) -> FieldPrime {
-        FieldPrime { value: (self.value * other.value.clone()) % &*P }
+        FieldPrime{ value: (self.value * other.value.clone()) % &*P }
     }
 }
 
+
+// extended_euclid(a,b)
+// 1  wenn b = 0
+// 2      dann return (a,1,0)
+// 3  (d',s',t') = extended_euclid(b, a mod b)
+// 4  (d,s,t) = (d',t',s' - (a div b)t')
+// 5  return (d,s,t)
+
+/// Calculates the gcd using a recursive implementation of the extended euclidian algorithm.
+/// Returns (gcd(a,b), s, t) where gcd(a,b) = s * a + t * b
+// fn extended_euclid(a: &BigInt, b: &BigInt) -> (BigInt, BigInt, BigInt) {
+//     if b.is_zero() {
+//         return (a.clone(), BigInt::one(), BigInt::zero());
+//     }
+//     let (d2, s2, t2) = extended_euclid(b, &(a % b));
+//     (d2, t2.clone(), s2 - (a / b) * t2)
+// }
+
+// function extended_gcd(a, b)
+//     s := 0;    old_s := 1
+//     t := 1;    old_t := 0
+//     r := b;    old_r := a
+//     while r ≠ 0
+//         quotient := old_r div r
+//         (old_r, r) := (r, old_r - quotient * r)
+//         (old_s, s) := (s, old_s - quotient * s)
+//         (old_t, t) := (t, old_t - quotient * t)
+//     output "Bézout coefficients:", (old_s, old_t)
+//     output "greatest common divisor:", old_r
+//     output "quotients by the gcd:", (t, s)
+fn extended_euclid(a: &BigInt, b: &BigInt) -> (BigInt, BigInt, BigInt) {
+    let (mut s, mut old_s) = (BigInt::zero(), BigInt::one());
+    let (mut t, mut old_t) = (BigInt::one(), BigInt::zero());
+    let (mut r, mut old_r) = (b.clone(), a.clone());
+    while !&r.is_zero() {
+        let quotient = &old_r / &r;
+        let tmp_r = old_r.clone();
+        old_r = r.clone();
+        r = &tmp_r - &quotient * &r;
+        let tmp_s = old_s.clone();
+        old_s = s.clone();
+        s = &tmp_s - &quotient * &s;
+        let tmp_t = old_t.clone();
+        old_t = t.clone();
+        t = &tmp_t - &quotient * &t;
+    }
+    return (old_r, old_s, old_t)
+}
+
+// function inverse(a, n)
+//     t := 0;     newt := 1;
+//     r := n;     newr := a;
+//     while newr ≠ 0
+//         quotient := r div newr
+//         (t, newt) := (newt, t - quotient * newt)
+//         (r, newr) := (newr, r - quotient * newr)
+//     if r > 1 then return "a is not invertible"
+//     if t < 0 then t := t + n
+//     return t
 impl Div<FieldPrime> for FieldPrime {
     type Output = FieldPrime;
 
     fn div(self, other: FieldPrime) -> FieldPrime {
+        // let (mut t, mut newt, mut r, mut newr) = (FieldPrime::zero(), FieldPrime::one(), other, self);
+        // while !&newr.is_zero() {
+        //     let quotient = r.value.clone() / newr.value.clone();
+        //     t = newt.clone();
+        //     newt = t.clone() - FieldPrime{ value: quotient.clone() } * &newt;
+        //     r = newr.clone();
+        //     newr = r.clone() - FieldPrime{ value: quotient } * &newr;
+        // }
+        // if r > FieldPrime::one() {
+        //     panic!("a is not invertible");
+        // }
+        // t
+
         // (a * b^(p-2)) % p
-        self * other.pow(FieldPrime::max_value() - FieldPrime::one())
+        // self * other.pow(FieldPrime::max_value() - FieldPrime::one())
+        FieldPrime{ value: self.value / other.value }
     }
 }
 
@@ -177,7 +240,7 @@ impl<'a> Div<&'a FieldPrime> for FieldPrime {
     type Output = FieldPrime;
 
     fn div(self, other: &FieldPrime) -> FieldPrime {
-        self * other.clone().pow(FieldPrime::max_value() - FieldPrime::one())
+        self / other.clone()
     }
 }
 
@@ -224,7 +287,6 @@ impl<'a> Pow<&'a FieldPrime> for FieldPrime {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -371,7 +433,6 @@ mod tests {
         }
 
         #[test]
-        #[ignore]
         fn division() {
             assert_eq!(
                 "4".parse::<BigInt>().unwrap(),
@@ -384,29 +445,15 @@ mod tests {
         }
 
         #[test]
-        #[ignore]
         fn division_negative() {
-            assert_eq!(
-                "4".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("-54") / FieldPrime::from("12")).value
-            );
-            assert_eq!(
-                "4".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("-54") / &FieldPrime::from("12")).value
-            );
+            let res = FieldPrime::from("-54") / FieldPrime::from("12");
+            assert_eq!(FieldPrime::from("-54"), FieldPrime::from("12") * res);
         }
 
         #[test]
-        #[ignore]
         fn division_two_negative() {
-            assert_eq!(
-                "21888242871839275222246405745257275088696311157297823662689037894645226208578".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("-54") / FieldPrime::from("-12")).value
-            );
-            assert_eq!(
-                "21888242871839275222246405745257275088696311157297823662689037894645226208578".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("-54") / &FieldPrime::from("-12")).value
-            );
+            let res = FieldPrime::from("-12") / FieldPrime::from("-85");
+            assert_eq!(FieldPrime::from("-12"), FieldPrime::from("-85") * res);
         }
 
         #[test]
@@ -460,5 +507,21 @@ mod tests {
         assert_eq!(&x + &x, BigInt::parse_bytes(b"130", 10).unwrap());
         assert_eq!("1".parse::<BigInt>().unwrap(), "3".parse::<BigInt>().unwrap().div_floor(&"2".parse::<BigInt>().unwrap()));
         assert_eq!("-2".parse::<BigInt>().unwrap(), "-3".parse::<BigInt>().unwrap().div_floor(&"2".parse::<BigInt>().unwrap()));
+    }
+
+    #[test]
+    fn test_extended_euclid() {
+        assert_eq!(
+            (ToBigInt::to_bigint(&1).unwrap(), ToBigInt::to_bigint(&-9).unwrap(), ToBigInt::to_bigint(&47).unwrap()),
+            extended_euclid(&ToBigInt::to_bigint(&120).unwrap(), &ToBigInt::to_bigint(&23).unwrap())
+        );
+        assert_eq!(
+            (ToBigInt::to_bigint(&2).unwrap(), ToBigInt::to_bigint(&2).unwrap(), ToBigInt::to_bigint(&-11).unwrap()),
+            extended_euclid(&ToBigInt::to_bigint(&122).unwrap(), &ToBigInt::to_bigint(&22).unwrap())
+        );
+        assert_eq!(
+            (ToBigInt::to_bigint(&2).unwrap(), ToBigInt::to_bigint(&-9).unwrap(), ToBigInt::to_bigint(&47).unwrap()),
+            extended_euclid(&ToBigInt::to_bigint(&240).unwrap(), &ToBigInt::to_bigint(&46).unwrap())
+        );
     }
 }

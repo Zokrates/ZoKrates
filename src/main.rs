@@ -64,7 +64,7 @@ fn main() {
     if args.len() < 3 {
         std::process::exit(0);
     }
-    let inputs: Vec<FieldPrime> = args[2].split_whitespace().flat_map(|x| FieldPrime::from(x)).collect();
+    let inputs: Vec<FieldPrime> = args[2].split_whitespace().map(|x| FieldPrime::from(x)).collect();
     assert!(inputs.len() == program_flattened.arguments.len());
     println!("inputs {:?}", inputs);
     let witness_map = program_flattened.get_witness(inputs);
