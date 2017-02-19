@@ -21,13 +21,13 @@ pub trait Pow<RHS> {
     fn pow(self, RHS) -> Self::Output;
 }
 
-pub trait Field : From<i32> + From<u32> + for<'a> From<&'a str>
+pub trait Field : From<i32> + From<u32> + From<usize> + for<'a> From<&'a str>
                 + Zero + One + Clone + PartialEq + PartialOrd + Display + Debug
                 + Add<Self, Output=Self> + for<'a> Add<&'a Self, Output=Self>
                 + Sub<Self, Output=Self> + for<'a> Sub<&'a Self, Output=Self>
                 + Mul<Self, Output=Self> + for<'a> Mul<&'a Self, Output=Self>
                 + Div<Self, Output=Self> + for<'a> Div<&'a Self, Output=Self>
-                + Pow<u32, Output=Self> + Pow<Self, Output=Self> + for<'a> Pow<&'a Self, Output=Self>
+                + Pow<usize, Output=Self> + Pow<Self, Output=Self> + for<'a> Pow<&'a Self, Output=Self>
 {
     /// Returns the smallest value that can be represented by this field type.
     fn min_value() -> Self;
@@ -80,6 +80,13 @@ impl From<i32> for FieldPrime {
 
 impl From<u32> for FieldPrime {
     fn from(num: u32) -> Self {
+        let x = ToBigInt::to_bigint(&num).unwrap();
+        FieldPrime { value: &x - x.div_floor(&*P) * &*P }
+    }
+}
+
+impl From<usize> for FieldPrime {
+    fn from(num: usize) -> Self {
         let x = ToBigInt::to_bigint(&num).unwrap();
         FieldPrime { value: &x - x.div_floor(&*P) * &*P }
     }
@@ -174,10 +181,10 @@ impl<'a> Div<&'a FieldPrime> for FieldPrime {
     }
 }
 
-impl Pow<u32> for FieldPrime {
+impl Pow<usize> for FieldPrime {
     type Output = FieldPrime;
 
-    fn pow(self, exp: u32) -> FieldPrime {
+    fn pow(self, exp: usize) -> FieldPrime {
         let mut res = FieldPrime::from(1);
         for _ in 0..exp {
             res = res * &self;
@@ -411,6 +418,14 @@ mod tests {
             assert_eq!(
                 "8".parse::<BigInt>().unwrap(),
                 (FieldPrime::from("2").pow(&FieldPrime::from("3"))).value
+            );
+        }
+
+        #[test]
+        fn pow_usize() {
+            assert_eq!(
+                "614787626176508399616".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("54").pow(12)).value
             );
         }
 
