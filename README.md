@@ -48,3 +48,14 @@ Build with the feature `nolibsnark`
 ```
 cargo build --features nolibsnark
 ```
+
+## Testing
+
+Run normal tests with
+```
+cargo test
+```
+and run long and expensive tests with
+```
+cargo test -- --ignored
+```

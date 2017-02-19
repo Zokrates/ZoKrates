@@ -27,7 +27,7 @@ pub trait Field : From<i32> + From<u32> + for<'a> From<&'a str>
                 + Sub<Self, Output=Self> + for<'a> Sub<&'a Self, Output=Self>
                 + Mul<Self, Output=Self> + for<'a> Mul<&'a Self, Output=Self>
                 + Div<Self, Output=Self> + for<'a> Div<&'a Self, Output=Self>
-                + Pow<Self, Output=Self> + Pow<u32, Output=Self>
+                + Pow<u32, Output=Self> + Pow<Self, Output=Self> + for<'a> Pow<&'a Self, Output=Self>
 {
     /// Returns the smallest value that can be represented by this field type.
     fn min_value() -> Self;
@@ -123,14 +123,6 @@ impl<'a> Add<&'a FieldPrime> for FieldPrime {
     }
 }
 
-// impl<'a> Add<&'a mut FieldPrime> for FieldPrime {
-//     type Output = FieldPrime;
-//
-//     fn add(self, other: &mut FieldPrime) -> FieldPrime {
-//         FieldPrime { value: (self.value + other.value.clone()) % &*P }
-//     }
-// }
-
 impl Sub<FieldPrime> for FieldPrime {
     type Output = FieldPrime;
 
@@ -169,7 +161,8 @@ impl Div<FieldPrime> for FieldPrime {
     type Output = FieldPrime;
 
     fn div(self, other: FieldPrime) -> FieldPrime {
-        FieldPrime { value: (self.value / other.value) % &*P }
+        // (a * b^(p-2)) % p
+        self * other.pow(FieldPrime::max_value() - FieldPrime::one())
     }
 }
 
@@ -177,7 +170,7 @@ impl<'a> Div<&'a FieldPrime> for FieldPrime {
     type Output = FieldPrime;
 
     fn div(self, other: &FieldPrime) -> FieldPrime {
-        FieldPrime { value: (self.value / other.value.clone()) % &*P }
+        self * other.clone().pow(FieldPrime::max_value() - FieldPrime::one())
     }
 }
 
@@ -200,10 +193,26 @@ impl Pow<FieldPrime> for FieldPrime {
         let mut res = FieldPrime::one();
         let mut current = FieldPrime::zero();
         loop {
-            res = res * &self;
             if current >= exp {
                 return res;
             }
+            res = res * &self;
+            current = current + FieldPrime::one();
+        }
+    }
+}
+
+impl<'a> Pow<&'a FieldPrime> for FieldPrime {
+    type Output = FieldPrime;
+
+    fn pow(self, exp: &'a FieldPrime) -> FieldPrime {
+        let mut res = FieldPrime::one();
+        let mut current = FieldPrime::zero();
+        loop {
+            if &current >= exp {
+                return res;
+            }
+            res = res * &self;
             current = current + FieldPrime::one();
         }
     }
@@ -303,6 +312,129 @@ mod tests {
             assert_eq!(
                 "21888242871839275222246405745257275088696311157297823662689037894645160860360".parse::<BigInt>().unwrap(),
                 (FieldPrime::from("68135") - &FieldPrime::from("65416358")).value
+            );
+        }
+
+        #[test]
+        fn multiplication() {
+            assert_eq!(
+                "13472".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("32") * FieldPrime::from("421")).value
+            );
+            assert_eq!(
+                "13472".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("32") * &FieldPrime::from("421")).value
+            );
+        }
+
+        #[test]
+        fn multiplication_negative() {
+            assert_eq!(
+                "21888242871839275222246405745257275088696311157297823662689037894645225727335".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("54") * FieldPrime::from("-8912")).value
+            );
+            assert_eq!(
+                "21888242871839275222246405745257275088696311157297823662689037894645225727335".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("54") * &FieldPrime::from("-8912")).value
+            );
+        }
+
+        #[test]
+        fn multiplication_two_negative() {
+            assert_eq!(
+                "648".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("-54") * FieldPrime::from("-12")).value
+            );
+            assert_eq!(
+                "648".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("-54") * &FieldPrime::from("-12")).value
+            );
+        }
+
+        #[test]
+        fn multiplication_overflow() {
+            assert_eq!(
+                "17436011686556311570790404434796320012075729933178429424714726294203061301666".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("21888242871839225222246405785257275088694311157297823662689037894645225727") * FieldPrime::from("218882428715392752222464057432572755886923")).value
+            );
+            assert_eq!(
+                "17436011686556311570790404434796320012075729933178429424714726294203061301666".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("21888242871839225222246405785257275088694311157297823662689037894645225727") * &FieldPrime::from("218882428715392752222464057432572755886923")).value
+            );
+        }
+
+        #[test]
+        #[ignore]
+        fn division() {
+            assert_eq!(
+                "4".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("54") / FieldPrime::from("12")).value
+            );
+            assert_eq!(
+                "4".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("54") / &FieldPrime::from("12")).value
+            );
+        }
+
+        #[test]
+        #[ignore]
+        fn division_negative() {
+            assert_eq!(
+                "4".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("-54") / FieldPrime::from("12")).value
+            );
+            assert_eq!(
+                "4".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("-54") / &FieldPrime::from("12")).value
+            );
+        }
+
+        #[test]
+        #[ignore]
+        fn division_two_negative() {
+            assert_eq!(
+                "21888242871839275222246405745257275088696311157297823662689037894645226208578".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("-54") / FieldPrime::from("-12")).value
+            );
+            assert_eq!(
+                "21888242871839275222246405745257275088696311157297823662689037894645226208578".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("-54") / &FieldPrime::from("-12")).value
+            );
+        }
+
+        #[test]
+        fn pow_small() {
+            assert_eq!(
+                "8".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("2").pow(FieldPrime::from("3"))).value
+            );
+            assert_eq!(
+                "8".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("2").pow(&FieldPrime::from("3"))).value
+            );
+        }
+
+        #[test]
+        fn pow() {
+            assert_eq!(
+                "614787626176508399616".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("54").pow(FieldPrime::from("12"))).value
+            );
+            assert_eq!(
+                "614787626176508399616".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("54").pow(&FieldPrime::from("12"))).value
+            );
+        }
+
+        #[test]
+        fn pow_negative() {
+            assert_eq!(
+                "21888242871839275222246405745257275088696311157297823662677652938604920497479".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("-54").pow(FieldPrime::from("11"))).value
+            );
+            assert_eq!(
+                "21888242871839275222246405745257275088696311157297823662677652938604920497479".parse::<BigInt>().unwrap(),
+                (FieldPrime::from("-54").pow(&FieldPrime::from("11"))).value
             );
         }
     }
