@@ -8,9 +8,9 @@ use absy::Expression::*;
 use std::collections::HashMap;
 use field::Field;
 
-fn count_variables_add<T: Field>(expr: Expression<T>) -> HashMap<String, T> {
+fn count_variables_add<T: Field>(expr: &Expression<T>) -> HashMap<String, T> {
     let mut count = HashMap::new();
-    match expr {
+    match expr.clone() {
         NumberLiteral(x) => { count.insert("~one".to_string(), x); },
         VariableReference(var) => { count.insert(var, T::one()); },
         Add(box lhs, box rhs) => {
@@ -42,7 +42,7 @@ fn count_variables_add<T: Field>(expr: Expression<T>) -> HashMap<String, T> {
                         let num = count.entry("~one".to_string()).or_insert(T::zero());
                         *num = num.clone() + x;
                     }
-                    let vars = count_variables_add(e);
+                    let vars = count_variables_add(&e);
                     for (key, value) in &vars {
                         let val = count.entry(key.to_string()).or_insert(T::zero());
                         *val = val.clone() + value;
@@ -54,7 +54,7 @@ fn count_variables_add<T: Field>(expr: Expression<T>) -> HashMap<String, T> {
                         let var = count.entry(v).or_insert(T::zero());
                         *var = var.clone() + T::one();
                     }
-                    let vars = count_variables_add(e);
+                    let vars = count_variables_add(&e);
                     for (key, value) in &vars {
                         let val = count.entry(key.to_string()).or_insert(T::zero());
                         *val = val.clone() + value;
@@ -90,12 +90,15 @@ fn count_variables_add<T: Field>(expr: Expression<T>) -> HashMap<String, T> {
                         let var = count.entry(v).or_insert(T::zero());
                         *var = var.clone() + n;
                     }
-                    let vars = count_variables_add(e);
+                    let vars = count_variables_add(&e);
                     for (key, value) in &vars {
                         let val = count.entry(key.to_string()).or_insert(T::zero());
                         *val = val.clone() + value;
                     }
                 },
+                (Mult(box NumberLiteral(n1), box VariableReference(v1)), Mult(box NumberLiteral(n2), box VariableReference(v2))) |
+                (Mult(box VariableReference(v1), box NumberLiteral(n1)), Mult(box NumberLiteral(n2), box VariableReference(v2))) |
+                (Mult(box NumberLiteral(n1), box VariableReference(v1)), Mult(box VariableReference(v2), box NumberLiteral(n2))) |
                 (Mult(box VariableReference(v1), box NumberLiteral(n1)), Mult(box VariableReference(v2), box NumberLiteral(n2))) => {
                     {
                         let var = count.entry(v1).or_insert(T::zero());
@@ -135,7 +138,10 @@ fn swap_sub<T: Field>(lhs: &Expression<T>, rhs: &Expression<T>) -> (Expression<T
         (Sub(box left, box right), v @ VariableReference(_)) |
         (v @ VariableReference(_), Sub(box left, box right)) |
         (Sub(box left, box right), v @ NumberLiteral(_)) |
-        (v @ NumberLiteral(_), Sub(box left, box right)) => {
+        (v @ NumberLiteral(_), Sub(box left, box right)) |
+        (Sub(box left, box right), v @ Mult(..)) |
+        (v @ Mult(..), Sub(box left, box right)) => {
+            assert!(v.is_linear());
             let (l, r) = swap_sub(&left, &right);
             (Add(box v, box r), l)
         },
@@ -149,11 +155,11 @@ pub fn r1cs_expression<T: Field>(linear_expr: Expression<T>, expr: Expression<T>
         e @ Add(..) |
         e @ Sub(..) => { // a - b = c --> b + c = a
             let (lhs, rhs) = swap_sub(&linear_expr, &e);
-            for (key, value) in count_variables_add(rhs) {
+            for (key, value) in count_variables_add(&rhs) {
                 a_row.push((variables.iter().position(|r| r == &key).unwrap(), value));
             }
             b_row.push((0, T::one()));
-            for (key, value) in count_variables_add(lhs) {
+            for (key, value) in count_variables_add(&lhs) {
                 c_row.push((variables.iter().position(|r| r == &key).unwrap(), value));
             }
         },
@@ -161,7 +167,7 @@ pub fn r1cs_expression<T: Field>(linear_expr: Expression<T>, expr: Expression<T>
             match lhs {
                 box NumberLiteral(x) => a_row.push((0, x)),
                 box VariableReference(x) => a_row.push((variables.iter().position(|r| r == &x).unwrap(), T::one())),
-                box e @ Add(..) => for (key, value) in count_variables_add(e) {
+                box e @ Add(..) => for (key, value) in count_variables_add(&e) {
                     a_row.push((variables.iter().position(|r| r == &key).unwrap(), value));
                 },
                 e @ _ => panic!("Not flattened: {}", e),
@@ -169,43 +175,47 @@ pub fn r1cs_expression<T: Field>(linear_expr: Expression<T>, expr: Expression<T>
             match rhs {
                 box NumberLiteral(x) => b_row.push((0, x)),
                 box VariableReference(x) => b_row.push((variables.iter().position(|r| r == &x).unwrap(), T::one())),
-                box e @ Add(..) => for (key, value) in count_variables_add(e) {
+                box e @ Add(..) => for (key, value) in count_variables_add(&e) {
                     b_row.push((variables.iter().position(|r| r == &key).unwrap(), value));
                 },
                 e @ _ => panic!("Not flattened: {}", e),
             };
-            for (key, value) in count_variables_add(linear_expr) {
+            for (key, value) in count_variables_add(&linear_expr) {
                 c_row.push((variables.iter().position(|r| r == &key).unwrap(), value));
             }
         },
         Div(lhs, rhs) => { // a / b = c --> c * b = a
-            for (key, value) in count_variables_add(linear_expr) {
-                a_row.push((variables.iter().position(|r| r == &key).unwrap(), value));
-            }
             match lhs {
                 box NumberLiteral(x) => c_row.push((0, x)),
                 box VariableReference(x) => c_row.push((variables.iter().position(|r| r == &x).unwrap(), T::one())),
-                _ => unimplemented!(),
+                box e @ Add(..) => for (key, value) in count_variables_add(&e) {
+                    c_row.push((variables.iter().position(|r| r == &key).unwrap(), value));
+                },
+                box e @ Sub(..) => return r1cs_expression(Mult(box linear_expr, rhs), e, variables, a_row, b_row, c_row),
+                e @ _ => panic!("not implemented yet: {:?}", e),
             };
             match rhs {
                 box NumberLiteral(x) => b_row.push((0, x)),
                 box VariableReference(x) => b_row.push((variables.iter().position(|r| r == &x).unwrap(), T::one())),
                 _ => unimplemented!(),
             };
+            for (key, value) in count_variables_add(&linear_expr) {
+                a_row.push((variables.iter().position(|r| r == &key).unwrap(), value));
+            }
         },
         Pow(_, _) => panic!("Pow not flattened"),
         IfElse(_, _, _) => panic!("IfElse not flattened"),
         VariableReference(var) => {
             a_row.push((variables.iter().position(|r| r == &var).unwrap(), T::one()));
             b_row.push((0, T::one()));
-            for (key, value) in count_variables_add(linear_expr) {
+            for (key, value) in count_variables_add(&linear_expr) {
                 c_row.push((variables.iter().position(|r| r == &key).unwrap(), value));
             }
         },
         NumberLiteral(x) => {
             a_row.push((0, x));
             b_row.push((0, T::one()));
-            for (key, value) in count_variables_add(linear_expr) {
+            for (key, value) in count_variables_add(&linear_expr) {
                 c_row.push((variables.iter().position(|r| r == &key).unwrap(), value));
             }
         },
@@ -271,6 +281,74 @@ mod tests {
             row_eq(vec![(2, FieldPrime::from(1)), (0, FieldPrime::from(5))], a_row);
             row_eq(vec![(0, FieldPrime::from(1))], b_row);
             row_eq(vec![(1, FieldPrime::from(1))], c_row);
+        }
+
+        #[test]
+        fn add_mult() {
+            // 4 * b + 3 * a + 3 * c == (3 * a + 6 * b + 4 * c) * (31 * a + 4 * c)
+            let lhs = Add(
+                box Add(
+                    box Mult(box NumberLiteral(FieldPrime::from(4)), box VariableReference(String::from("b"))),
+                    box Mult(box NumberLiteral(FieldPrime::from(3)), box VariableReference(String::from("a")))
+                ),
+                box Mult(box NumberLiteral(FieldPrime::from(3)), box VariableReference(String::from("c")))
+            );
+            let rhs = Mult(
+                box Add(
+                    box Add(
+                        box Mult(box NumberLiteral(FieldPrime::from(3)), box VariableReference(String::from("a"))),
+                        box Mult(box NumberLiteral(FieldPrime::from(6)), box VariableReference(String::from("b")))
+                    ),
+                    box Mult(box NumberLiteral(FieldPrime::from(4)), box VariableReference(String::from("c")))
+                ),
+                box Add(
+                    box Mult(box NumberLiteral(FieldPrime::from(31)), box VariableReference(String::from("a"))),
+                    box Mult(box NumberLiteral(FieldPrime::from(4)), box VariableReference(String::from("c")))
+                )
+            );
+            let mut variables: Vec<String> = vec!["~one", "a", "b", "c"].iter().map(|&x| String::from(x)).collect();
+            let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
+            let mut b_row: Vec<(usize, FieldPrime)> = Vec::new();
+            let mut c_row: Vec<(usize, FieldPrime)> = Vec::new();
+
+            r1cs_expression(lhs, rhs, &mut variables, &mut a_row, &mut b_row, &mut c_row);
+            row_eq(vec![(1, FieldPrime::from(3)), (2, FieldPrime::from(6)), (3, FieldPrime::from(4))], a_row);
+            row_eq(vec![(1, FieldPrime::from(31)), (3, FieldPrime::from(4))], b_row);
+            row_eq(vec![(1, FieldPrime::from(3)), (2, FieldPrime::from(4)), (3, FieldPrime::from(3))], c_row);
+        }
+
+        #[test]
+        fn add_mult() {
+            // 4 * b + 3 * a - 3 * c == (3 * a + 6 * b + 4 * c) * (31 * a + 4 * c)
+            let lhs = Add(
+                box Add(
+                    box Mult(box NumberLiteral(FieldPrime::from(4)), box VariableReference(String::from("b"))),
+                    box Mult(box NumberLiteral(FieldPrime::from(3)), box VariableReference(String::from("a")))
+                ),
+                box Mult(box NumberLiteral(FieldPrime::from(3)), box VariableReference(String::from("c")))
+            );
+            let rhs = Mult(
+                box Add(
+                    box Add(
+                        box Mult(box NumberLiteral(FieldPrime::from(3)), box VariableReference(String::from("a"))),
+                        box Mult(box NumberLiteral(FieldPrime::from(6)), box VariableReference(String::from("b")))
+                    ),
+                    box Mult(box NumberLiteral(FieldPrime::from(4)), box VariableReference(String::from("c")))
+                ),
+                box Add(
+                    box Mult(box NumberLiteral(FieldPrime::from(31)), box VariableReference(String::from("a"))),
+                    box Mult(box NumberLiteral(FieldPrime::from(4)), box VariableReference(String::from("c")))
+                )
+            );
+            let mut variables: Vec<String> = vec!["~one", "a", "b", "c"].iter().map(|&x| String::from(x)).collect();
+            let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
+            let mut b_row: Vec<(usize, FieldPrime)> = Vec::new();
+            let mut c_row: Vec<(usize, FieldPrime)> = Vec::new();
+
+            r1cs_expression(lhs, rhs, &mut variables, &mut a_row, &mut b_row, &mut c_row);
+            row_eq(vec![(1, FieldPrime::from(3)), (2, FieldPrime::from(6)), (3, FieldPrime::from(4))], a_row);
+            row_eq(vec![(1, FieldPrime::from(31)), (3, FieldPrime::from(4))], b_row);
+            row_eq(vec![(1, FieldPrime::from(3)), (2, FieldPrime::from(4)), (3, FieldPrime::from(3))], c_row);
         }
     }
 }

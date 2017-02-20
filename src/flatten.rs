@@ -135,7 +135,14 @@ impl Flattener {
                 let left_flattened = self.flatten_expression(statements_flattened, left);
                 let right_flattened = self.flatten_expression(statements_flattened, right);
                 let new_left = if left_flattened.is_linear() {
-                    left_flattened
+                    if let Sub(..) = left_flattened {
+                        let new_name = format!("sym_{}", self.next_var_idx);
+                        self.next_var_idx += 1;
+                        statements_flattened.push(Statement::Definition(new_name.to_string(), left_flattened));
+                        VariableReference(new_name)
+                    } else {
+                        left_flattened
+                    }
                 } else {
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;
@@ -143,7 +150,14 @@ impl Flattener {
                     VariableReference(new_name)
                 };
                 let new_right = if right_flattened.is_linear() {
-                    right_flattened
+                    if let Sub(..) = right_flattened {
+                        let new_name = format!("sym_{}", self.next_var_idx);
+                        self.next_var_idx += 1;
+                        statements_flattened.push(Statement::Definition(new_name.to_string(), right_flattened));
+                        VariableReference(new_name)
+                    } else {
+                        right_flattened
+                    }
                 } else {
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;

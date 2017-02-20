@@ -29,6 +29,8 @@ pub trait Field : From<i32> + From<u32> + From<usize> + for<'a> From<&'a str>
                 + Div<Self, Output=Self> + for<'a> Div<&'a Self, Output=Self>
                 + Pow<usize, Output=Self> + Pow<Self, Output=Self> + for<'a> Pow<&'a Self, Output=Self>
 {
+    /// Returns a byte slice of this `Field`'s contents in decimal `String` representation.
+    fn into_dec_bytes(&self) -> Vec<u8>;
     /// Returns the smallest value that can be represented by this field type.
     fn min_value() -> Self;
     /// Returns the largest value that can be represented by this field type.
@@ -46,6 +48,9 @@ impl Field for FieldPrime {
     }
     fn max_value() -> FieldPrime {
         FieldPrime{ value: &*P - ToBigInt::to_bigint(&1).unwrap() }
+    }
+    fn into_dec_bytes(&self) -> Vec<u8> {
+        self.value.to_str_radix(10).to_string().into_bytes()
     }
 }
 
@@ -154,36 +159,7 @@ impl<'a> Mul<&'a FieldPrime> for FieldPrime {
     }
 }
 
-
-// extended_euclid(a,b)
-// 1  wenn b = 0
-// 2      dann return (a,1,0)
-// 3  (d',s',t') = extended_euclid(b, a mod b)
-// 4  (d,s,t) = (d',t',s' - (a div b)t')
-// 5  return (d,s,t)
-
-/// Calculates the gcd using a recursive implementation of the extended euclidian algorithm.
-/// Returns (gcd(a,b), s, t) where gcd(a,b) = s * a + t * b
-// fn extended_euclid(a: &BigInt, b: &BigInt) -> (BigInt, BigInt, BigInt) {
-//     if b.is_zero() {
-//         return (a.clone(), BigInt::one(), BigInt::zero());
-//     }
-//     let (d2, s2, t2) = extended_euclid(b, &(a % b));
-//     (d2, t2.clone(), s2 - (a / b) * t2)
-// }
-
-// function extended_gcd(a, b)
-//     s := 0;    old_s := 1
-//     t := 1;    old_t := 0
-//     r := b;    old_r := a
-//     while r ≠ 0
-//         quotient := old_r div r
-//         (old_r, r) := (r, old_r - quotient * r)
-//         (old_s, s) := (s, old_s - quotient * s)
-//         (old_t, t) := (t, old_t - quotient * t)
-//     output "Bézout coefficients:", (old_s, old_t)
-//     output "greatest common divisor:", old_r
-//     output "quotients by the gcd:", (t, s)
+/// Calculates the gcd using a iterative implementation of the extended euclidian algorithm.
 fn extended_euclid(a: &BigInt, b: &BigInt) -> (BigInt, BigInt, BigInt) {
     let (mut s, mut old_s) = (BigInt::zero(), BigInt::one());
     let (mut t, mut old_t) = (BigInt::one(), BigInt::zero());
@@ -203,36 +179,13 @@ fn extended_euclid(a: &BigInt, b: &BigInt) -> (BigInt, BigInt, BigInt) {
     return (old_r, old_s, old_t)
 }
 
-// function inverse(a, n)
-//     t := 0;     newt := 1;
-//     r := n;     newr := a;
-//     while newr ≠ 0
-//         quotient := r div newr
-//         (t, newt) := (newt, t - quotient * newt)
-//         (r, newr) := (newr, r - quotient * newr)
-//     if r > 1 then return "a is not invertible"
-//     if t < 0 then t := t + n
-//     return t
 impl Div<FieldPrime> for FieldPrime {
     type Output = FieldPrime;
 
     fn div(self, other: FieldPrime) -> FieldPrime {
-        // let (mut t, mut newt, mut r, mut newr) = (FieldPrime::zero(), FieldPrime::one(), other, self);
-        // while !&newr.is_zero() {
-        //     let quotient = r.value.clone() / newr.value.clone();
-        //     t = newt.clone();
-        //     newt = t.clone() - FieldPrime{ value: quotient.clone() } * &newt;
-        //     r = newr.clone();
-        //     newr = r.clone() - FieldPrime{ value: quotient } * &newr;
-        // }
-        // if r > FieldPrime::one() {
-        //     panic!("a is not invertible");
-        // }
-        // t
-
-        // (a * b^(p-2)) % p
-        // self * other.pow(FieldPrime::max_value() - FieldPrime::one())
-        FieldPrime{ value: self.value / other.value }
+        let (b, s, _) = extended_euclid(&other.value, &*P);
+        assert_eq!(b, BigInt::one());
+        FieldPrime{ value: &s - s.div_floor(&*P) * &*P } * self
     }
 }
 
@@ -435,25 +388,25 @@ mod tests {
         #[test]
         fn division() {
             assert_eq!(
-                "4".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("54") / FieldPrime::from("12")).value
+                FieldPrime::from(4),
+                FieldPrime::from(48) / FieldPrime::from(12)
             );
             assert_eq!(
-                "4".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("54") / &FieldPrime::from("12")).value
+                FieldPrime::from(4),
+                FieldPrime::from(48) / &FieldPrime::from(12)
             );
         }
 
         #[test]
         fn division_negative() {
-            let res = FieldPrime::from("-54") / FieldPrime::from("12");
-            assert_eq!(FieldPrime::from("-54"), FieldPrime::from("12") * res);
+            let res = FieldPrime::from(-54) / FieldPrime::from(12);
+            assert_eq!(FieldPrime::from(-54), FieldPrime::from(12) * res);
         }
 
         #[test]
         fn division_two_negative() {
-            let res = FieldPrime::from("-12") / FieldPrime::from("-85");
-            assert_eq!(FieldPrime::from("-12"), FieldPrime::from("-85") * res);
+            let res = FieldPrime::from(-12) / FieldPrime::from(-85);
+            assert_eq!(FieldPrime::from(-12), FieldPrime::from(-85) * res);
         }
 
         #[test]
@@ -522,6 +475,13 @@ mod tests {
         assert_eq!(
             (ToBigInt::to_bigint(&2).unwrap(), ToBigInt::to_bigint(&-9).unwrap(), ToBigInt::to_bigint(&47).unwrap()),
             extended_euclid(&ToBigInt::to_bigint(&240).unwrap(), &ToBigInt::to_bigint(&46).unwrap())
+        );
+        let (b, s, _) = extended_euclid(&ToBigInt::to_bigint(&253).unwrap(), &*P);
+        assert_eq!(b, BigInt::one());
+        let s_field = FieldPrime{ value: &s - s.div_floor(&*P) * &*P };
+        assert_eq!(
+            FieldPrime::from("20071432198682655539767455070749754231531795211435158457485599966631195574669"),
+            s_field
         );
     }
 }
