@@ -21,7 +21,7 @@ use std::path::Path;
 use field::FieldPrime;
 use parser::parse_program;
 use flatten::Flattener;
-use r1cs::*;
+use r1cs::r1cs_program;
 #[cfg(not(feature="nolibsnark"))]
 use libsnark::run_libsnark;
 
@@ -73,4 +73,33 @@ fn main() {
     println!("witness {:?}", witness);
     #[cfg(not(feature="nolibsnark"))]
     println!("run_libsnark = {:?}", run_libsnark(variables, a, b, c, witness));
+}
+
+#[cfg(test)]
+mod tests {
+    extern crate glob;
+    use super::*;
+    use self::glob::glob;
+
+    #[test]
+    fn examples() {
+        for p in glob("./examples/*.code").expect("Failed to read glob pattern") {
+            let path = match p {
+                Ok(x) => x,
+                Err(why) => panic!("Error: {:?}", why),
+            };
+            println!("Testing {:?}", path);
+            let file = match File::open(&path) {
+                Ok(file) => file,
+                Err(why) => panic!("couldn't open {:?}: {}", path, why),
+            };
+
+            let program_ast = match parse_program::<FieldPrime>(file) {
+                Ok(x) => x,
+                Err(why) => panic!("Error: {:?}", why),
+            };
+            let program_flattened = Flattener::new().flatten_program(program_ast);
+            let (..) = r1cs_program(&program_flattened);
+        }
+    }
 }

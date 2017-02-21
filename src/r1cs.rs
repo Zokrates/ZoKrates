@@ -13,6 +13,9 @@ fn count_variables_add<T: Field>(expr: &Expression<T>) -> HashMap<String, T> {
     match expr.clone() {
         NumberLiteral(x) => { count.insert("~one".to_string(), x); },
         VariableReference(var) => { count.insert(var, T::one()); },
+        Mult(box NumberLiteral(x1), box NumberLiteral(x2)) => { count.insert("~one".to_string(), x1 * x2); },
+        Mult(box NumberLiteral(x), box VariableReference(var)) |
+        Mult(box VariableReference(var), box NumberLiteral(x)) => { count.insert(var, x); },
         Add(box lhs, box rhs) => {
             match (lhs, rhs) {
                 (NumberLiteral(x), NumberLiteral(y)) => {
@@ -110,35 +113,45 @@ fn count_variables_add<T: Field>(expr: &Expression<T>) -> HashMap<String, T> {
                 e @ _ => panic!("Error: Add({}, {})", e.0, e.1),
             }
         },
-        e @ _ => panic!("Statement::Add expected, got: {}", e),
+        e @ _ => panic!("Statement::Add/Mult[linear] expected, got: {}", e),
     }
     count
 }
 
 // lhs = rhy
 fn swap_sub<T: Field>(lhs: &Expression<T>, rhs: &Expression<T>) -> (Expression<T>, Expression<T>) {
+    // assert that Mult on lhs or rhs is linear!
     match (lhs.clone(), rhs.clone()) {
         // recursion end
         (v1 @ NumberLiteral(_), v2 @ NumberLiteral(_)) |
         (v1 @ VariableReference(_), v2 @ NumberLiteral(_)) |
         (v1 @ NumberLiteral(_), v2 @ VariableReference(_)) |
         (v1 @ VariableReference(_), v2 @ VariableReference(_)) |
-        (v1 @ VariableReference(_), v2 @ Mult(..)) | // because Mult has to be linear
-        (v1 @ Mult(..), v2 @ VariableReference(_)) => (v1, v2),
+        (v1 @ VariableReference(_), v2 @ Mult(..)) |
+        (v1 @ Mult(..), v2 @ VariableReference(_)) |
+        (v1 @ NumberLiteral(_), v2 @ Mult(..)) |
+        (v1 @ Mult(..), v2 @ NumberLiteral(_)) |
+        (v1 @ Mult(..), v2 @ Mult(..)) => (v1, v2),
         // Add
         (Add(left, right), var @ NumberLiteral(_)) |
         (var @ NumberLiteral(_), Add(left, right)) |
         (Add(left, right), var @ VariableReference(_)) |
-        (var @ VariableReference(_), Add(left, right)) => { // var = left + right
+        (var @ VariableReference(_), Add(left, right)) |
+        (var @ Mult(..), Add(left, right)) |
+        (Add(left, right), var @ Mult(..)) => { // var = left + right
             let (l1, r1) = swap_sub(&var, &right);
             let (l2, r2) = swap_sub(&l1, &left);
             (l2, Add(box r2, box r1))
         },
-        // Sub
+        // Sub = Var/Ide
         (Sub(box left, box right), v @ VariableReference(_)) |
         (v @ VariableReference(_), Sub(box left, box right)) |
         (Sub(box left, box right), v @ NumberLiteral(_)) |
         (v @ NumberLiteral(_), Sub(box left, box right)) |
+        // Sub = Add
+        (Sub(box left, box right), v @ Add(..)) |
+        (v @ Add(..), Sub(box left, box right)) |
+        // Sub = Mult
         (Sub(box left, box right), v @ Mult(..)) |
         (v @ Mult(..), Sub(box left, box right)) => {
             assert!(v.is_linear());
@@ -296,6 +309,31 @@ mod tests {
             assert_eq!(vec![(0, FieldPrime::from(5)), (2, FieldPrime::from(1))], a_row);
             assert_eq!(vec![(0, FieldPrime::from(1))], b_row);
             assert_eq!(vec![(1, FieldPrime::from(1))], c_row);
+        }
+
+        #[test]
+        fn sub() {
+            // 7 * x + y == 3 * y - z * 6
+            let lhs = Add(
+                box Mult(box NumberLiteral(FieldPrime::from(7)), box VariableReference(String::from("x"))),
+                box VariableReference(String::from("y"))
+            );
+            let rhs = Sub(
+                box Mult(box NumberLiteral(FieldPrime::from(3)), box VariableReference(String::from("y"))),
+                box Mult(box VariableReference(String::from("z")), box NumberLiteral(FieldPrime::from(6)))
+            );
+            let mut variables: Vec<String> = vec!["~one", "x", "y", "z"].iter().map(|&x| String::from(x)).collect();
+            let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
+            let mut b_row: Vec<(usize, FieldPrime)> = Vec::new();
+            let mut c_row: Vec<(usize, FieldPrime)> = Vec::new();
+
+            r1cs_expression(lhs, rhs, &mut variables, &mut a_row, &mut b_row, &mut c_row);
+            a_row.sort_by(sort_tup);
+            b_row.sort_by(sort_tup);
+            c_row.sort_by(sort_tup);
+            assert_eq!(vec![(2, FieldPrime::from(3))], a_row); // 3 * y
+            assert_eq!(vec![(0, FieldPrime::from(1))], b_row); // 1
+            assert_eq!(vec![(1, FieldPrime::from(7)), (2, FieldPrime::from(1)), (3, FieldPrime::from(6))], c_row); // (7 * x + y) + z * 6
         }
 
         #[test]
