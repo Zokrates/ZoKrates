@@ -38,6 +38,7 @@ pub trait Field : From<i32> + From<u32> + From<usize> + for<'a> From<&'a str>
 }
 
 #[derive(PartialEq,PartialOrd,Clone)]
+#[derive(Eq,Ord)] // for tests
 pub struct FieldPrime {
     value: BigInt,
 }

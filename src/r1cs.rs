@@ -192,11 +192,17 @@ pub fn r1cs_expression<T: Field>(linear_expr: Expression<T>, expr: Expression<T>
                     c_row.push((variables.iter().position(|r| r == &key).unwrap(), value));
                 },
                 box e @ Sub(..) => return r1cs_expression(Mult(box linear_expr, rhs), e, variables, a_row, b_row, c_row),
+                box Mult(box NumberLiteral(ref x1), box NumberLiteral(ref x2)) => c_row.push((0, x1.clone() * x2)),
+                box Mult(box NumberLiteral(ref x), box VariableReference(ref v)) |
+                box Mult(box VariableReference(ref v), box NumberLiteral(ref x)) => c_row.push((variables.iter().position(|r| r == v).unwrap(), x.clone())),
                 e @ _ => panic!("not implemented yet: {:?}", e),
             };
             match rhs {
                 box NumberLiteral(x) => b_row.push((0, x)),
                 box VariableReference(x) => b_row.push((variables.iter().position(|r| r == &x).unwrap(), T::one())),
+                box Mult(box NumberLiteral(ref x1), box NumberLiteral(ref x2)) => b_row.push((0, x1.clone() * x2)),
+                box Mult(box NumberLiteral(ref x), box VariableReference(ref v)) |
+                box Mult(box VariableReference(ref v), box NumberLiteral(ref x)) => b_row.push((variables.iter().position(|r| r == v).unwrap(), x.clone())),
                 _ => unimplemented!(),
             };
             for (key, value) in count_variables_add(&linear_expr) {
@@ -257,10 +263,16 @@ pub fn r1cs_program<T: Field>(prog: &Prog<T>) -> (Vec<String>, Vec<Vec<(usize, T
 mod tests {
     use super::*;
     use field::FieldPrime;
+    use std::cmp::Ordering;
 
-    fn row_eq<T: PartialEq>(expected: Vec<T>, got: Vec<T>) {
-        assert_eq!(expected.len(), got.len());
-        assert!(expected.iter().fold(true, |acc, x| acc && got.contains(x)));
+    /// Sort function for tuples `(x, y)` which sorts based on `x` first.
+    /// If `x` is equal, `y` is used for comparison.
+    fn sort_tup<A: Ord, B: Ord>(a: &(A, B), b: &(A, B)) -> Ordering {
+        if a.0 == b.0 {
+            a.1.cmp(&b.1)
+        } else {
+            a.0.cmp(&b.0)
+        }
     }
 
     #[cfg(test)]
@@ -278,9 +290,12 @@ mod tests {
             let mut c_row: Vec<(usize, FieldPrime)> = Vec::new();
 
             r1cs_expression(lhs, rhs, &mut variables, &mut a_row, &mut b_row, &mut c_row);
-            row_eq(vec![(2, FieldPrime::from(1)), (0, FieldPrime::from(5))], a_row);
-            row_eq(vec![(0, FieldPrime::from(1))], b_row);
-            row_eq(vec![(1, FieldPrime::from(1))], c_row);
+            a_row.sort_by(sort_tup);
+            b_row.sort_by(sort_tup);
+            c_row.sort_by(sort_tup);
+            assert_eq!(vec![(0, FieldPrime::from(5)), (2, FieldPrime::from(1))], a_row);
+            assert_eq!(vec![(0, FieldPrime::from(1))], b_row);
+            assert_eq!(vec![(1, FieldPrime::from(1))], c_row);
         }
 
         #[test]
@@ -312,43 +327,34 @@ mod tests {
             let mut c_row: Vec<(usize, FieldPrime)> = Vec::new();
 
             r1cs_expression(lhs, rhs, &mut variables, &mut a_row, &mut b_row, &mut c_row);
-            row_eq(vec![(1, FieldPrime::from(3)), (2, FieldPrime::from(6)), (3, FieldPrime::from(4))], a_row);
-            row_eq(vec![(1, FieldPrime::from(31)), (3, FieldPrime::from(4))], b_row);
-            row_eq(vec![(1, FieldPrime::from(3)), (2, FieldPrime::from(4)), (3, FieldPrime::from(3))], c_row);
+            a_row.sort_by(sort_tup);
+            b_row.sort_by(sort_tup);
+            c_row.sort_by(sort_tup);
+            assert_eq!(vec![(1, FieldPrime::from(3)), (2, FieldPrime::from(6)), (3, FieldPrime::from(4))], a_row);
+            assert_eq!(vec![(1, FieldPrime::from(31)), (3, FieldPrime::from(4))], b_row);
+            assert_eq!(vec![(1, FieldPrime::from(3)), (2, FieldPrime::from(4)), (3, FieldPrime::from(3))], c_row);
         }
 
         #[test]
-        fn add_mult() {
-            // 4 * b + 3 * a - 3 * c == (3 * a + 6 * b + 4 * c) * (31 * a + 4 * c)
-            let lhs = Add(
-                box Add(
-                    box Mult(box NumberLiteral(FieldPrime::from(4)), box VariableReference(String::from("b"))),
-                    box Mult(box NumberLiteral(FieldPrime::from(3)), box VariableReference(String::from("a")))
-                ),
-                box Mult(box NumberLiteral(FieldPrime::from(3)), box VariableReference(String::from("c")))
+        fn div() {
+            // x = (3 * x) / (y * 6) --> x * (y * 6) = 3 * x
+            let lhs = VariableReference(String::from("x"));
+            let rhs = Div(
+                box Mult(box NumberLiteral(FieldPrime::from(3)), box VariableReference(String::from("x"))),
+                box Mult(box VariableReference(String::from("y")), box NumberLiteral(FieldPrime::from(6)))
             );
-            let rhs = Mult(
-                box Add(
-                    box Add(
-                        box Mult(box NumberLiteral(FieldPrime::from(3)), box VariableReference(String::from("a"))),
-                        box Mult(box NumberLiteral(FieldPrime::from(6)), box VariableReference(String::from("b")))
-                    ),
-                    box Mult(box NumberLiteral(FieldPrime::from(4)), box VariableReference(String::from("c")))
-                ),
-                box Add(
-                    box Mult(box NumberLiteral(FieldPrime::from(31)), box VariableReference(String::from("a"))),
-                    box Mult(box NumberLiteral(FieldPrime::from(4)), box VariableReference(String::from("c")))
-                )
-            );
-            let mut variables: Vec<String> = vec!["~one", "a", "b", "c"].iter().map(|&x| String::from(x)).collect();
+            let mut variables: Vec<String> = vec!["~one", "x", "y"].iter().map(|&x| String::from(x)).collect();
             let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut b_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut c_row: Vec<(usize, FieldPrime)> = Vec::new();
 
             r1cs_expression(lhs, rhs, &mut variables, &mut a_row, &mut b_row, &mut c_row);
-            row_eq(vec![(1, FieldPrime::from(3)), (2, FieldPrime::from(6)), (3, FieldPrime::from(4))], a_row);
-            row_eq(vec![(1, FieldPrime::from(31)), (3, FieldPrime::from(4))], b_row);
-            row_eq(vec![(1, FieldPrime::from(3)), (2, FieldPrime::from(4)), (3, FieldPrime::from(3))], c_row);
+            a_row.sort_by(sort_tup);
+            b_row.sort_by(sort_tup);
+            c_row.sort_by(sort_tup);
+            assert_eq!(vec![(1, FieldPrime::from(1))], a_row); // x
+            assert_eq!(vec![(2, FieldPrime::from(6))], b_row); // y * 6
+            assert_eq!(vec![(1, FieldPrime::from(3))], c_row); // 3 * x
         }
     }
 }
