@@ -1,4 +1,0 @@
-// only using sub, no need to flatten
-def tests(x, y, z):
-  a = x + y + z - 3 - x * 3
-  return x
