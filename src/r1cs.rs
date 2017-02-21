@@ -131,7 +131,11 @@ fn swap_sub<T: Field>(lhs: &Expression<T>, rhs: &Expression<T>) -> (Expression<T
         (v1 @ Mult(..), v2 @ VariableReference(_)) |
         (v1 @ NumberLiteral(_), v2 @ Mult(..)) |
         (v1 @ Mult(..), v2 @ NumberLiteral(_)) |
-        (v1 @ Mult(..), v2 @ Mult(..)) => (v1, v2),
+        (v1 @ Mult(..), v2 @ Mult(..)) => {
+            assert!(v1.is_linear());
+            assert!(v2.is_linear());
+            (v1, v2)
+        },
         // Add
         (Add(left, right), var @ NumberLiteral(_)) |
         (var @ NumberLiteral(_), Add(left, right)) |
@@ -143,20 +147,33 @@ fn swap_sub<T: Field>(lhs: &Expression<T>, rhs: &Expression<T>) -> (Expression<T
             let (l2, r2) = swap_sub(&l1, &left);
             (l2, Add(box r2, box r1))
         },
-        // Sub = Var/Ide
+        // Sub = Var/Num/Add/Mult
         (Sub(box left, box right), v @ VariableReference(_)) |
-        (v @ VariableReference(_), Sub(box left, box right)) |
         (Sub(box left, box right), v @ NumberLiteral(_)) |
-        (v @ NumberLiteral(_), Sub(box left, box right)) |
-        // Sub = Add
         (Sub(box left, box right), v @ Add(..)) |
+        (Sub(box left, box right), v @ Mult(..)) => {
+            assert!(v.is_linear());
+            let (l, r) = swap_sub(&left, &right);
+            (l, Add(box v, box r))
+        },
+        // Var/Num/Add/Mult = Sub
+        (v @ VariableReference(_), Sub(box left, box right)) |
+        (v @ NumberLiteral(_), Sub(box left, box right)) |
         (v @ Add(..), Sub(box left, box right)) |
-        // Sub = Mult
-        (Sub(box left, box right), v @ Mult(..)) |
         (v @ Mult(..), Sub(box left, box right)) => {
             assert!(v.is_linear());
             let (l, r) = swap_sub(&left, &right);
             (Add(box v, box r), l)
+        },
+        // Sub = Sub
+        (Sub(box l1, box r1), Sub(l2, r2)) => {
+            println!("1: {} - {}", l1, r1);
+            println!("2: {} - {}", l2, r2);
+            let (lhs1, rhs1) = swap_sub(&l1, &r1);
+            println!("11: {} = {}", lhs1, rhs1);
+            let (lhs2, rhs2) = swap_sub(&l2, &r2);
+            println!("12: {} = {}", lhs2, rhs2);
+            (Add(box lhs1, box rhs2), Add(box lhs2, box rhs1))
         },
         e @ _ => panic!("Input not covered: {} = {}", e.0, e.1),
     }
@@ -334,6 +351,35 @@ mod tests {
             assert_eq!(vec![(2, FieldPrime::from(3))], a_row); // 3 * y
             assert_eq!(vec![(0, FieldPrime::from(1))], b_row); // 1
             assert_eq!(vec![(1, FieldPrime::from(7)), (2, FieldPrime::from(1)), (3, FieldPrime::from(6))], c_row); // (7 * x + y) + z * 6
+        }
+
+        #[test]
+        fn sub_multiple() {
+            // (((3 * y) - (z * 2)) - (x * 12)) == (a - x)
+            // --> 3*y + x == a + 12*x + 2*z
+            let lhs = Sub(
+                box Sub(
+                    box Mult(box NumberLiteral(FieldPrime::from(3)), box VariableReference(String::from("y"))),
+                    box Mult(box VariableReference(String::from("z")), box NumberLiteral(FieldPrime::from(2)))
+                ),
+                box Mult(box VariableReference(String::from("x")), box NumberLiteral(FieldPrime::from(12)))
+            );
+            let rhs = Sub(
+                box VariableReference(String::from("a")),
+                box VariableReference(String::from("x"))
+            );
+            let mut variables: Vec<String> = vec!["~one", "x", "y", "z", "a"].iter().map(|&x| String::from(x)).collect();
+            let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
+            let mut b_row: Vec<(usize, FieldPrime)> = Vec::new();
+            let mut c_row: Vec<(usize, FieldPrime)> = Vec::new();
+
+            r1cs_expression(lhs, rhs, &mut variables, &mut a_row, &mut b_row, &mut c_row);
+            a_row.sort_by(sort_tup);
+            b_row.sort_by(sort_tup);
+            c_row.sort_by(sort_tup);
+            assert_eq!(vec![(1, FieldPrime::from(12)), (3, FieldPrime::from(2)), (4, FieldPrime::from(1))], a_row); // a + 12*x + 2*z
+            assert_eq!(vec![(0, FieldPrime::from(1))], b_row); // 1
+            assert_eq!(vec![(1, FieldPrime::from(1)), (2, FieldPrime::from(3))], c_row); // 3*y + x
         }
 
         #[test]

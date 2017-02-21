@@ -1,7 +1,5 @@
 // this code does not need to be flattened
-def qeval(a):
-  b = a + 5
-  c = b + 5 * a
-  // following line b * (..)
-  d = b * c + 5 + a
-  return c + b + c
+def qeval(x, y, z):
+  a = x + 3*y - z *2 - x * 12
+  3*y - z *2 - x * 12 == a - x
+  return x

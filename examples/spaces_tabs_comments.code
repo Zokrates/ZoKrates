@@ -8,6 +8,6 @@ def qeval(x):
   b = x**5
 
   c = x / 2
-  d = (2 * x + 3 * b) * (x - b)
+  d = (2 * x + 3 * b) * (x - b)  	 
   return y + x + y + c + d
 // comment
