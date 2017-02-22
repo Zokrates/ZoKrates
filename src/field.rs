@@ -16,6 +16,26 @@ lazy_static! {
     static ref P: BigInt = BigInt::parse_bytes(b"21888242871839275222246405745257275088696311157297823662689037894645226208583", 10).unwrap();
 }
 
+/// Calculates the gcd using a iterative implementation of the extended euclidian algorithm.
+fn extended_euclid(a: &BigInt, b: &BigInt) -> (BigInt, BigInt, BigInt) {
+    let (mut s, mut old_s) = (BigInt::zero(), BigInt::one());
+    let (mut t, mut old_t) = (BigInt::one(), BigInt::zero());
+    let (mut r, mut old_r) = (b.clone(), a.clone());
+    while !&r.is_zero() {
+        let quotient = &old_r / &r;
+        let tmp_r = old_r.clone();
+        old_r = r.clone();
+        r = &tmp_r - &quotient * &r;
+        let tmp_s = old_s.clone();
+        old_s = s.clone();
+        s = &tmp_s - &quotient * &s;
+        let tmp_t = old_t.clone();
+        old_t = t.clone();
+        t = &tmp_t - &quotient * &t;
+    }
+    return (old_r, old_s, old_t)
+}
+
 pub trait Pow<RHS> {
     type Output;
     fn pow(self, RHS) -> Self::Output;
@@ -31,6 +51,8 @@ pub trait Field : From<i32> + From<u32> + From<usize> + for<'a> From<&'a str>
 {
     /// Returns a byte slice of this `Field`'s contents in decimal `String` representation.
     fn into_dec_bytes(&self) -> Vec<u8>;
+    /// Returns the multiplicative inverse, i.e.: self * self.inverse_mul() = Self::one()
+    fn inverse_mul(&self) -> Self;
     /// Returns the smallest value that can be represented by this field type.
     fn min_value() -> Self;
     /// Returns the largest value that can be represented by this field type.
@@ -44,14 +66,19 @@ pub struct FieldPrime {
 }
 
 impl Field for FieldPrime {
+    fn into_dec_bytes(&self) -> Vec<u8> {
+        self.value.to_str_radix(10).to_string().into_bytes()
+    }
+    fn inverse_mul(&self) -> FieldPrime {
+        let (b, s, _) = extended_euclid(&self.value, &*P);
+        assert_eq!(b, BigInt::one());
+        FieldPrime{ value: &s - s.div_floor(&*P) * &*P }
+    }
     fn min_value() -> FieldPrime {
         FieldPrime{ value: ToBigInt::to_bigint(&0).unwrap() }
     }
     fn max_value() -> FieldPrime {
         FieldPrime{ value: &*P - ToBigInt::to_bigint(&1).unwrap() }
-    }
-    fn into_dec_bytes(&self) -> Vec<u8> {
-        self.value.to_str_radix(10).to_string().into_bytes()
     }
 }
 
@@ -160,33 +187,11 @@ impl<'a> Mul<&'a FieldPrime> for FieldPrime {
     }
 }
 
-/// Calculates the gcd using a iterative implementation of the extended euclidian algorithm.
-fn extended_euclid(a: &BigInt, b: &BigInt) -> (BigInt, BigInt, BigInt) {
-    let (mut s, mut old_s) = (BigInt::zero(), BigInt::one());
-    let (mut t, mut old_t) = (BigInt::one(), BigInt::zero());
-    let (mut r, mut old_r) = (b.clone(), a.clone());
-    while !&r.is_zero() {
-        let quotient = &old_r / &r;
-        let tmp_r = old_r.clone();
-        old_r = r.clone();
-        r = &tmp_r - &quotient * &r;
-        let tmp_s = old_s.clone();
-        old_s = s.clone();
-        s = &tmp_s - &quotient * &s;
-        let tmp_t = old_t.clone();
-        old_t = t.clone();
-        t = &tmp_t - &quotient * &t;
-    }
-    return (old_r, old_s, old_t)
-}
-
 impl Div<FieldPrime> for FieldPrime {
     type Output = FieldPrime;
 
     fn div(self, other: FieldPrime) -> FieldPrime {
-        let (b, s, _) = extended_euclid(&other.value, &*P);
-        assert_eq!(b, BigInt::one());
-        FieldPrime{ value: &s - s.div_floor(&*P) * &*P } * self
+        self * other.inverse_mul()
     }
 }
 

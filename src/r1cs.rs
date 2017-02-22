@@ -1,13 +1,23 @@
-//
-// @file r1cs.rs
-// @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
-// @date 2017
+//! Module containing necessary functions to convert a flattened program or expression to r1cs.
+//!
+//! @file r1cs.rs
+//! @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
+//! @date 2017
 
+use std::collections::HashMap;
 use absy::*;
 use absy::Expression::*;
-use std::collections::HashMap;
 use field::Field;
 
+/// Returns a `HashMap` containing variables and the number of occurences
+///
+/// # Arguments
+///
+/// * `expr` - Expression only containing Numbers, Variables, Add and Mult
+///
+/// # Example
+///
+/// `7 * x + 4 * y + x` -> { x => 8, y = 4 }
 fn count_variables_add<T: Field>(expr: &Expression<T>) -> HashMap<String, T> {
     let mut count = HashMap::new();
     match expr.clone() {
@@ -124,7 +134,7 @@ fn count_variables_add<T: Field>(expr: &Expression<T>) -> HashMap<String, T> {
                         *val = val.clone() + value;
                     }
                 }
-                e @ _ => panic!("Error: Add({}, {})", e.0, e.1),
+                e @ _ => panic!("Error: unexpected Add({}, {})", e.0, e.1),
             }
         },
         e @ _ => panic!("Statement::Add/Mult[linear] expected, got: {}", e),
@@ -132,7 +142,12 @@ fn count_variables_add<T: Field>(expr: &Expression<T>) -> HashMap<String, T> {
     count
 }
 
-// lhs = rhy
+/// Returns an equotation equivalent to `lhs == rhs` only using `Add` and `Mult`
+///
+/// # Arguments
+///
+/// * `lhs` - Leht hand side of the equotation
+/// * `rhs` - Right hand side of the equotation
 fn swap_sub<T: Field>(lhs: &Expression<T>, rhs: &Expression<T>) -> (Expression<T>, Expression<T>) {
     // assert that Mult on lhs or rhs is linear!
     match (lhs.clone(), rhs.clone()) {
@@ -221,75 +236,85 @@ pub fn r1cs_expression<T: Field>(linear_expr: Expression<T>, expr: Expression<T>
         e @ Sub(..) => {
             let (lhs, rhs) = swap_sub(&linear_expr, &e);
             for (key, value) in count_variables_add(&rhs) {
-                a_row.push((variables.iter().position(|r| r == &key).unwrap(), value));
+                a_row.push((get_variable_idx(variables, &key), value));
             }
             b_row.push((0, T::one()));
             for (key, value) in count_variables_add(&lhs) {
-                c_row.push((variables.iter().position(|r| r == &key).unwrap(), value));
+                c_row.push((get_variable_idx(variables, &key), value));
             }
         },
         Mult(lhs, rhs) => {
             match lhs {
                 box NumberLiteral(x) => a_row.push((0, x)),
-                box VariableReference(x) => a_row.push((variables.iter().position(|r| r == &x).unwrap(), T::one())),
+                box VariableReference(x) => a_row.push((get_variable_idx(variables, &x), T::one())),
                 box e @ Add(..) => for (key, value) in count_variables_add(&e) {
-                    a_row.push((variables.iter().position(|r| r == &key).unwrap(), value));
+                    a_row.push((get_variable_idx(variables, &key), value));
                 },
                 e @ _ => panic!("Not flattened: {}", e),
             };
             match rhs {
                 box NumberLiteral(x) => b_row.push((0, x)),
-                box VariableReference(x) => b_row.push((variables.iter().position(|r| r == &x).unwrap(), T::one())),
+                box VariableReference(x) => b_row.push((get_variable_idx(variables, &x), T::one())),
                 box e @ Add(..) => for (key, value) in count_variables_add(&e) {
-                    b_row.push((variables.iter().position(|r| r == &key).unwrap(), value));
+                    b_row.push((get_variable_idx(variables, &key), value));
                 },
                 e @ _ => panic!("Not flattened: {}", e),
             };
             for (key, value) in count_variables_add(&linear_expr) {
-                c_row.push((variables.iter().position(|r| r == &key).unwrap(), value));
+                c_row.push((get_variable_idx(variables, &key), value));
             }
         },
         Div(lhs, rhs) => { // a / b = c --> c * b = a
             match lhs {
                 box NumberLiteral(x) => c_row.push((0, x)),
-                box VariableReference(x) => c_row.push((variables.iter().position(|r| r == &x).unwrap(), T::one())),
+                box VariableReference(x) => c_row.push((get_variable_idx(variables, &x), T::one())),
                 box e @ Add(..) => for (key, value) in count_variables_add(&e) {
-                    c_row.push((variables.iter().position(|r| r == &key).unwrap(), value));
+                    c_row.push((get_variable_idx(variables, &key), value));
                 },
                 box e @ Sub(..) => return r1cs_expression(Mult(box linear_expr, rhs), e, variables, a_row, b_row, c_row),
                 box Mult(box NumberLiteral(ref x1), box NumberLiteral(ref x2)) => c_row.push((0, x1.clone() * x2)),
                 box Mult(box NumberLiteral(ref x), box VariableReference(ref v)) |
-                box Mult(box VariableReference(ref v), box NumberLiteral(ref x)) => c_row.push((variables.iter().position(|r| r == v).unwrap(), x.clone())),
+                box Mult(box VariableReference(ref v), box NumberLiteral(ref x)) => c_row.push((get_variable_idx(variables, v), x.clone())),
                 e @ _ => panic!("not implemented yet: {:?}", e),
             };
             match rhs {
                 box NumberLiteral(x) => b_row.push((0, x)),
-                box VariableReference(x) => b_row.push((variables.iter().position(|r| r == &x).unwrap(), T::one())),
+                box VariableReference(x) => b_row.push((get_variable_idx(variables, &x), T::one())),
                 box Mult(box NumberLiteral(ref x1), box NumberLiteral(ref x2)) => b_row.push((0, x1.clone() * x2)),
                 box Mult(box NumberLiteral(ref x), box VariableReference(ref v)) |
-                box Mult(box VariableReference(ref v), box NumberLiteral(ref x)) => b_row.push((variables.iter().position(|r| r == v).unwrap(), x.clone())),
+                box Mult(box VariableReference(ref v), box NumberLiteral(ref x)) => b_row.push((get_variable_idx(variables, v), x.clone())),
                 _ => unimplemented!(),
             };
             for (key, value) in count_variables_add(&linear_expr) {
-                a_row.push((variables.iter().position(|r| r == &key).unwrap(), value));
+                a_row.push((get_variable_idx(variables, &key), value));
             }
         },
         Pow(_, _) => panic!("Pow not flattened"),
         IfElse(_, _, _) => panic!("IfElse not flattened"),
         VariableReference(var) => {
-            a_row.push((variables.iter().position(|r| r == &var).unwrap(), T::one()));
+            a_row.push((get_variable_idx(variables, &var), T::one()));
             b_row.push((0, T::one()));
             for (key, value) in count_variables_add(&linear_expr) {
-                c_row.push((variables.iter().position(|r| r == &key).unwrap(), value));
+                c_row.push((get_variable_idx(variables, &key), value));
             }
         },
         NumberLiteral(x) => {
             a_row.push((0, x));
             b_row.push((0, T::one()));
             for (key, value) in count_variables_add(&linear_expr) {
-                c_row.push((variables.iter().position(|r| r == &key).unwrap(), value));
+                c_row.push((get_variable_idx(variables, &key), value));
             }
         },
+    }
+}
+
+fn get_variable_idx(variables: &mut Vec<String>, var: &String) -> usize {
+    match variables.iter().position(|r| r == var) {
+        Some(x) => x,
+        None => {
+            variables.push(var.to_string());
+            variables.len() - 1
+        }
     }
 }
 
@@ -306,11 +331,11 @@ pub fn r1cs_program<T: Field>(prog: &Prog<T>) -> (Vec<String>, Vec<Vec<(usize, T
         let mut c_row: Vec<(usize, T)> = Vec::new();
         match *def {
             Statement::Return(ref expr) => {
-                variables.push("~out".to_string());
+                // variables.push("~out".to_string());
                 r1cs_expression(VariableReference("~out".to_string()), expr.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row);
             },
             Statement::Definition(ref id, ref expr) => {
-                variables.push(id.to_string());
+                // variables.push(id.to_string());
                 r1cs_expression(VariableReference(id.to_string()), expr.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row);
             },
             Statement::Condition(ref expr1, ref expr2) => {

@@ -9,6 +9,7 @@ use std::collections::{HashSet,HashMap};
 use field::Field;
 
 pub struct Flattener {
+    bits: usize,
     variables: HashSet<String>,
     substitution: HashMap<String, String>,
     next_var_idx: u32,
@@ -16,13 +17,14 @@ pub struct Flattener {
 impl Flattener {
     pub fn new() -> Flattener {
         Flattener {
+            bits: 8,
             variables: HashSet::new(),
             substitution: HashMap::new(),
             next_var_idx: 0
         }
     }
 
-    fn flatten_condition<T: Field>(&mut self, statements_flattened: &mut Vec<Statement<T>>, condition: Condition<T>) -> Expression<T> {
+    fn flatten_condition<T: Field>(&mut self, statements_flattened: &mut Vec<Statement<T>>, condition: Condition<T>) -> (Expression<T>, Expression<T>) {
         match condition {
             Condition::Lt(lhs, rhs) => {
                 let lhs_flattened = self.flatten_expression(statements_flattened, lhs);
@@ -44,8 +46,7 @@ impl Flattener {
                         box VariableReference(rhs_name.to_string())
                     )
                 ));
-                let bits = 8;
-                for i in 0..bits {
+                for i in 0..self.bits {
                     let new_name = format!("{}_b{}", &cond_result, i);
                     statements_flattened.push(Statement::Definition(
                         new_name.to_string(),
@@ -56,7 +57,7 @@ impl Flattener {
                     ));
                 }
                 let mut expr = VariableReference(format!("{}_b0", &cond_result)); // * 2^0
-                for i in 1..bits - 1 {
+                for i in 1..self.bits - 1 {
                     expr = Add(
                         box Mult(
                             box VariableReference(format!("{}_b{}", &cond_result, i)),
@@ -67,15 +68,40 @@ impl Flattener {
                 }
                 expr = Add(
                     box Mult(
-                        box VariableReference(format!("{}_b{}", &cond_result, bits - 1)),
-                        box NumberLiteral(T::zero() - T::from(2).pow(bits - 1))
+                        box VariableReference(format!("{}_b{}", &cond_result, self.bits - 1)),
+                        box NumberLiteral(T::zero() - T::from(2).pow(self.bits - 1))
                     ),
                     box expr
                 );
                 statements_flattened.push(Statement::Definition(cond_result.to_string(), expr));
 
-                let cond_true = format!("{}_b{}", &cond_result, bits - 1);
-                VariableReference(cond_true)
+                let cond_true = format!("{}_b{}", &cond_result, self.bits - 1);
+                let cond_false = format!("sym_{}", self.next_var_idx);
+                self.next_var_idx += 1;
+                statements_flattened.push(Statement::Definition(cond_false.to_string(), Sub(box NumberLiteral(T::one()), box VariableReference(cond_true.to_string()))));
+                (VariableReference(cond_true), VariableReference(cond_false))
+            },
+            Condition::Eq(lhs, rhs) => {
+                let name_c = format!("sym_{}", self.next_var_idx);
+                self.next_var_idx += 1;
+                let name_d = format!("sym_{}", self.next_var_idx);
+                self.next_var_idx += 1;
+                let name_1_d = format!("sym_{}", self.next_var_idx);
+                self.next_var_idx += 1;
+                let name_c_d = format!("sym_{}", self.next_var_idx);
+                self.next_var_idx += 1;
+                let name_w = format!("sym_{}", self.next_var_idx);
+                self.next_var_idx += 1;
+                // d = {1, if c = 0, 0 else}
+                let c = self.flatten_expression(statements_flattened, Sub(box lhs, box rhs));
+                statements_flattened.push(Statement::Definition(name_c.to_string(), c));
+                statements_flattened.push(Statement::Definition(name_1_d.to_string(), Sub(box NumberLiteral(T::one()), box VariableReference(name_d.to_string()))));
+                statements_flattened.push(Statement::Definition(name_c_d.to_string(), Sub(box VariableReference(name_c_d.to_string()), box VariableReference(name_d.to_string()))));
+                // c d = 0, d (1-d) = 0, (c-d)w = 1
+                statements_flattened.push(Statement::Condition(NumberLiteral(T::zero()), Mult(box VariableReference(name_c), box VariableReference(name_d.to_string()))));
+                statements_flattened.push(Statement::Condition(NumberLiteral(T::zero()), Mult(box VariableReference(name_d.to_string()), box VariableReference(name_1_d.to_string()))));
+                statements_flattened.push(Statement::Condition(NumberLiteral(T::one()), Mult(box VariableReference(name_c_d), box VariableReference(name_w))));
+                (VariableReference(name_d), VariableReference(name_1_d))
             },
             _ => unimplemented!(),
         }
@@ -224,18 +250,13 @@ impl Flattener {
                 }
             },
             IfElse(box condition, consequent, alternative) => {
-                let condition_true = self.flatten_condition(statements_flattened, condition);
-                let new_name = format!("sym_{}", self.next_var_idx);
-                self.next_var_idx += 1;
-                // condition_false = 1 - condition_true
-                statements_flattened.push(Statement::Definition(new_name.to_string(), Sub(box NumberLiteral(T::one()), box condition_true.clone())));
-                let condition_false = VariableReference(new_name);
+                let (cond_true, cond_false) = self.flatten_condition(statements_flattened, condition);
                 // (condition_true * consequent) + (condition_false * alternatuve)
                 self.flatten_expression(
                     statements_flattened,
                     Add(
-                        box Mult(box condition_true, consequent),
-                        box Mult(box condition_false, alternative)
+                        box Mult(box cond_true, consequent),
+                        box Mult(box cond_false, alternative)
                     )
                 )
             },
