@@ -4,15 +4,22 @@
 // @date 2017
 
 // Grammar:
+// <prog> ::= `def' <ide> `(' <arguments> `):\\n' <stat-list>
+//
+// <arguments> ::= <ide> <more-args> | $\varepsilon$
+//
+// <more-args> ::= `,' <ide> <more-args>  | $\varepsilon$
+//
+// <stat-list> ::= <statement> <stat-list> | <return>
 //
 // <statement> ::= <ide> <statement'>
-//         | `if' <expr> <comparator> <expr> `then' <expr> `else' <expr> `fi' <expr'> `==` <expr> `\\n`
-//         | `(' <expr> `)' <term'> <expr'> `==` <expr> `\\n`
-//         | <num> <term'> <expr'> `==` <expr> `\\n`
-//         | `#` <ide> `=` <expr> `\\n`
+//         | `if' <expr> <comparator> <expr> `then' <expr> `else' <expr> `fi' <expr'> `==' <expr> `\\n'
+//         | `(' <expr> `)' <term'> <expr'> `==' <expr> `\\n'
+//         | <num> <term'> <expr'> `==' <expr> `\\n'
+//         | `#' <ide> `=' <expr> `\\n'
 //
 // <statement'> ::= `=' <expr> `\\n'
-//         | <term'> <expr'> `==` <expr> `\\n`
+//         | <term'> <expr'> `==' <expr> `\\n'
 //
 // <expr> ::= `if' <expr> <comparator> <expr> `then' <expr> `else' <expr> `fi' <expr'>
 //         | `(' <expr> `)' <term'> <expr'>
