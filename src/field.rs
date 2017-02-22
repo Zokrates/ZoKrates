@@ -117,7 +117,10 @@ impl From<usize> for FieldPrime {
 
 impl<'a> From<&'a str> for FieldPrime {
     fn from(s: &'a str) -> Self {
-        let x = BigInt::parse_bytes(s.as_bytes(), 10).unwrap();
+        let x = match BigInt::parse_bytes(s.as_bytes(), 10) {
+            Some(x) => x,
+            None => panic!("Could not parse {:?} to BigInt!", &s)
+        };
         FieldPrime{ value: &x - x.div_floor(&*P) * &*P }
     }
 }

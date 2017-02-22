@@ -5,7 +5,7 @@
 
 use absy::*;
 use absy::Expression::*;
-use std::collections::{HashSet,HashMap};
+use std::collections::{HashSet, HashMap};
 use field::Field;
 
 pub struct Flattener {
@@ -95,12 +95,22 @@ impl Flattener {
                 // d = {1, if c = 0, 0 else}
                 let c = self.flatten_expression(statements_flattened, Sub(box lhs, box rhs));
                 statements_flattened.push(Statement::Definition(name_c.to_string(), c));
+                statements_flattened.push(Statement::Compiler(name_d.to_string(), IfElse(
+                    box Condition::Eq(
+                        VariableReference(name_c.to_string()),
+                        NumberLiteral(T::zero())
+                    ),
+                    box NumberLiteral(T::one()),
+                    box NumberLiteral(T::zero())
+                )));
                 statements_flattened.push(Statement::Definition(name_1_d.to_string(), Sub(box NumberLiteral(T::one()), box VariableReference(name_d.to_string()))));
-                statements_flattened.push(Statement::Definition(name_c_d.to_string(), Sub(box VariableReference(name_c_d.to_string()), box VariableReference(name_d.to_string()))));
+                statements_flattened.push(Statement::Definition(name_c_d.to_string(), Sub(box VariableReference(name_c.to_string()), box VariableReference(name_d.to_string()))));
                 // c d = 0, d (1-d) = 0, (c-d)w = 1
+                statements_flattened.push(Statement::Compiler(name_w.to_string(), Div(box NumberLiteral(T::one()), box VariableReference(name_c_d.to_string()))));
                 statements_flattened.push(Statement::Condition(NumberLiteral(T::zero()), Mult(box VariableReference(name_c), box VariableReference(name_d.to_string()))));
                 statements_flattened.push(Statement::Condition(NumberLiteral(T::zero()), Mult(box VariableReference(name_d.to_string()), box VariableReference(name_1_d.to_string()))));
                 statements_flattened.push(Statement::Condition(NumberLiteral(T::one()), Mult(box VariableReference(name_c_d), box VariableReference(name_w))));
+
                 (VariableReference(name_d), VariableReference(name_1_d))
             },
             _ => unimplemented!(),
@@ -293,6 +303,7 @@ impl Flattener {
                     };
                     statements_flattened.push(Statement::Condition(lhs, rhs));
                 },
+                s @ Statement::Compiler(..) => statements_flattened.push(s),
             }
         }
         println!("DEBUG self.variables {:?}", self.variables);

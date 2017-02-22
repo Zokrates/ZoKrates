@@ -5,6 +5,7 @@
 
 use std::fmt;
 use std::collections::HashMap;
+use std::io::{stdin, BufRead};
 use field::Field;
 
 pub struct Prog<T: Field> {
@@ -26,11 +27,15 @@ impl<T: Field> Prog<T> {
                     let s = expr.solve(&mut witness);
                     witness.insert("~out".to_string(), s);
                 },
+                Statement::Compiler(ref id, ref expr) |
                 Statement::Definition(ref id, ref expr) => {
                     let s = expr.solve(&mut witness);
                     witness.insert(id.to_string(), s);
                 },
-                Statement::Condition(..) => unimplemented!(),
+                Statement::Condition(ref lhs, ref rhs) => assert_eq!(
+                    lhs.solve(&mut witness),
+                    rhs.solve(&mut witness)
+                ), // TODO check if condition true?
             }
         }
         witness
@@ -51,6 +56,7 @@ pub enum Statement<T: Field> {
     Return(Expression<T>),
     Definition(String, Expression<T>),
     Condition(Expression<T>, Expression<T>),
+    Compiler(String, Expression<T>),
 }
 impl<T: Field> fmt::Display for Statement<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -58,6 +64,7 @@ impl<T: Field> fmt::Display for Statement<T> {
             Statement::Return(ref expr) => write!(f, "return {}", expr),
             Statement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             Statement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            Statement::Compiler(ref lhs, ref rhs) => write!(f, "# {} = {}", lhs, rhs),
         }
     }
 }
@@ -67,6 +74,7 @@ impl<T: Field> fmt::Debug for Statement<T> {
             Statement::Return(ref expr) => write!(f, "Return({:?})", expr),
             Statement::Definition(ref lhs, ref rhs) => write!(f, "Definition({:?}, {:?})", lhs, rhs),
             Statement::Condition(ref lhs, ref rhs) => write!(f, "Condition({:?}, {:?})", lhs, rhs),
+            Statement::Compiler(ref lhs, ref rhs) => write!(f, "Compiler({:?}, {:?})", lhs, rhs),
         }
     }
 }
@@ -141,7 +149,12 @@ impl<T: Field> Expression<T> {
                         }
                         assert_eq!(num, T::zero());
                     } else {
-                        panic!("Variable not found in inputs: {}", var);
+                        println!("Could not calculate variable {:?}, inputs: {:?}", var, inputs);
+                        println!("Please enter a value for {:?}:", var);
+                        let mut input = String::new();
+                        let stdin = stdin();
+                        stdin.lock().read_line(&mut input).expect("Did not enter a correct String");
+                        inputs.insert(var.to_string(), T::from(input.trim()));
                     }
                 }
                 inputs[var].clone()

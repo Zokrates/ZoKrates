@@ -330,17 +330,10 @@ pub fn r1cs_program<T: Field>(prog: &Prog<T>) -> (Vec<String>, Vec<Vec<(usize, T
         let mut b_row: Vec<(usize, T)> = Vec::new();
         let mut c_row: Vec<(usize, T)> = Vec::new();
         match *def {
-            Statement::Return(ref expr) => {
-                // variables.push("~out".to_string());
-                r1cs_expression(VariableReference("~out".to_string()), expr.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row);
-            },
-            Statement::Definition(ref id, ref expr) => {
-                // variables.push(id.to_string());
-                r1cs_expression(VariableReference(id.to_string()), expr.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row);
-            },
-            Statement::Condition(ref expr1, ref expr2) => {
-                r1cs_expression(expr1.clone(), expr2.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row);
-            },
+            Statement::Return(ref expr) => r1cs_expression(VariableReference("~out".to_string()), expr.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row),
+            Statement::Definition(ref id, ref expr) => r1cs_expression(VariableReference(id.to_string()), expr.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row),
+            Statement::Condition(ref expr1, ref expr2) => r1cs_expression(expr1.clone(), expr2.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row),
+            Statement::Compiler(..) => continue,
         }
         a.push(a_row);
         b.push(b_row);

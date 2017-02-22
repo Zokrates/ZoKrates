@@ -9,6 +9,7 @@
 //         | `if' <expr> <comparator> <expr> `then' <expr> `else' <expr> `fi' <expr'> `==` <expr> `\\n`
 //         | `(' <expr> `)' <term'> <expr'> `==` <expr> `\\n`
 //         | <num> <term'> <expr'> `==` <expr> `\\n`
+//         | `#` <ide> `=` <expr> `\\n`
 //
 // <statement'> ::= `=' <expr> `\\n'
 //         | <term'> <expr'> `==` <expr> `\\n`
@@ -95,7 +96,7 @@ impl<T: Field> fmt::Debug for Error<T> {
 
 #[derive(PartialEq)]
 enum Token<T: Field> {
-    Open, Close, Comma, Colon,
+    Open, Close, Comma, Colon, Hash,
     Eq, Return,
     If, Then, Else, Fi,
     Lt, Le, Eqeq, Ge, Gt,
@@ -113,6 +114,7 @@ impl<T: Field> fmt::Display for Token<T> {
             Token::Close => write!(f, ")"),
             Token::Comma => write!(f, ","),
             Token::Colon => write!(f, ":"),
+            Token::Hash => write!(f, "#"),
             Token::Eq => write!(f, "="),
             Token::Return => write!(f, "return"),
             Token::If => write!(f, "if"),
@@ -194,6 +196,7 @@ fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Po
         Some(')') => (Token::Close, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
         Some(',') => (Token::Comma, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
         Some(':') => (Token::Colon, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
+        Some('#') => (Token::Hash, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
         Some('=') => match input.chars().nth(offset + 1) {
             Some('=') => (Token::Eqeq, input[offset + 2..].to_string(), Position { line: pos.line, col: pos.col + offset + 2 }),
             _ => (Token::Eq, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
@@ -446,6 +449,16 @@ fn parse_statement<T: Field>(input: &String, pos: &Position) -> Result<(Statemen
             },
             Err(err) => Err(err),
         },
+        (Token::Hash, s1, p1) => match parse_ide(&s1, &p1) {
+            (Token::Ide(x2), s2, p2) => match next_token(&s2, &p2) {
+                (Token::Eq, s3, p3) => match parse_expr(&s3, &p3) {
+                    Ok((e4, s4, p4)) => Ok((Statement::Compiler(x2, e4), s4, p4)),
+                    Err(err) => Err(err),
+                },
+                (t3, _, p3) => Err(Error { expected: vec![Token::Eq], got: t3 , pos: p3 }),
+            },
+            (t2, _, p2) => Err(Error { expected: vec![Token::ErrIde], got: t2 , pos: p2 }),
+        },
         (Token::Return, s1, p1) => {
             match parse_expr(&s1, &p1) {
                 Ok((expr, s2, p2)) => match next_token(&s2, &p2) {
@@ -458,7 +471,7 @@ fn parse_statement<T: Field>(input: &String, pos: &Position) -> Result<(Statemen
                 Err(err) => Err(err),
             }
         },
-        (t1, _, p1) => Err(Error { expected: vec![Token::ErrIde, Token::ErrNum, Token::If, Token::Open, Token::Return], got: t1 , pos: p1 }),
+        (t1, _, p1) => Err(Error { expected: vec![Token::ErrIde, Token::ErrNum, Token::If, Token::Open, Token::Hash, Token::Return], got: t1 , pos: p1 }),
     }
 }
 
