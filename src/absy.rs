@@ -32,10 +32,7 @@ impl<T: Field> Prog<T> {
                     let s = expr.solve(&mut witness);
                     witness.insert(id.to_string(), s);
                 },
-                Statement::Condition(ref lhs, ref rhs) => assert_eq!(
-                    lhs.solve(&mut witness),
-                    rhs.solve(&mut witness)
-                ), // TODO check if condition true?
+                Statement::Condition(ref lhs, ref rhs) => assert_eq!(lhs.solve(&mut witness), rhs.solve(&mut witness)),
             }
         }
         witness

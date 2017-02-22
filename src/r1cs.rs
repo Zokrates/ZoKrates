@@ -229,7 +229,18 @@ fn swap_sub<T: Field>(lhs: &Expression<T>, rhs: &Expression<T>) -> (Expression<T
     }
 }
 
-pub fn r1cs_expression<T: Field>(linear_expr: Expression<T>, expr: Expression<T>, variables: &mut Vec<String>, a_row: &mut Vec<(usize, T)>, b_row: &mut Vec<(usize, T)>, c_row: &mut Vec<(usize, T)>) {
+/// Calculates one R1CS row representation for `linear_expr` = `expr`.
+/// (<A,x>*<B,c> = <C,x>)
+///
+/// # Arguments
+///
+/// * `linear_expr` - Leht hand side of the equotation, has to be linear
+/// * `expr` - Right hand side of the equotation
+/// * `variables` - A mutual vector that contains all existing variables. Not found variables will be added.
+/// * `a_row` - Result row of matrix A
+/// * `b_row` - Result row of matrix B
+/// * `c_row` - Result row of matrix C
+fn r1cs_expression<T: Field>(linear_expr: Expression<T>, expr: Expression<T>, variables: &mut Vec<String>, a_row: &mut Vec<(usize, T)>, b_row: &mut Vec<(usize, T)>, c_row: &mut Vec<(usize, T)>) {
     assert!(linear_expr.is_linear());
     match expr {
         e @ Add(..) |
@@ -275,7 +286,7 @@ pub fn r1cs_expression<T: Field>(linear_expr: Expression<T>, expr: Expression<T>
                 box Mult(box NumberLiteral(ref x1), box NumberLiteral(ref x2)) => c_row.push((0, x1.clone() * x2)),
                 box Mult(box NumberLiteral(ref x), box VariableReference(ref v)) |
                 box Mult(box VariableReference(ref v), box NumberLiteral(ref x)) => c_row.push((get_variable_idx(variables, v), x.clone())),
-                e @ _ => panic!("not implemented yet: {:?}", e),
+                e @ _ => panic!("(lhs) not supported: {:?}", e),
             };
             match rhs {
                 box NumberLiteral(x) => b_row.push((0, x)),
@@ -283,7 +294,7 @@ pub fn r1cs_expression<T: Field>(linear_expr: Expression<T>, expr: Expression<T>
                 box Mult(box NumberLiteral(ref x1), box NumberLiteral(ref x2)) => b_row.push((0, x1.clone() * x2)),
                 box Mult(box NumberLiteral(ref x), box VariableReference(ref v)) |
                 box Mult(box VariableReference(ref v), box NumberLiteral(ref x)) => b_row.push((get_variable_idx(variables, v), x.clone())),
-                _ => unimplemented!(),
+                e @ _ => panic!("(rhs) not supported: {:?}", e),
             };
             for (key, value) in count_variables_add(&linear_expr) {
                 a_row.push((get_variable_idx(variables, &key), value));
@@ -308,6 +319,12 @@ pub fn r1cs_expression<T: Field>(linear_expr: Expression<T>, expr: Expression<T>
     }
 }
 
+/// Returns the index of `var` in the vector `variables` or adds `var`.
+///
+/// # Arguments
+///
+/// * `variables` - A mutual vector that contains all existing variables. Not found variables will be added.
+/// * `var` - Variable to be searched for.
 fn get_variable_idx(variables: &mut Vec<String>, var: &String) -> usize {
     match variables.iter().position(|r| r == var) {
         Some(x) => x,
@@ -318,6 +335,13 @@ fn get_variable_idx(variables: &mut Vec<String>, var: &String) -> usize {
     }
 }
 
+/// Calculates one R1CS row representation of a program and returns (V, A, B, C) so that:
+/// * `V` contains all used variables and the index in the vector represents the used number in `A`, `B`, `C`
+/// * `<A,x>*<B,c> = <C,x>` for a witness `x`
+///
+/// # Arguments
+///
+/// * `prog` - The program the representation is calculated for.
 pub fn r1cs_program<T: Field>(prog: &Prog<T>) -> (Vec<String>, Vec<Vec<(usize, T)>>, Vec<Vec<(usize, T)>>, Vec<Vec<(usize, T)>>){
     let mut variables: Vec<String> = Vec::new();
     variables.push("~one".to_string());
