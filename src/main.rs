@@ -43,7 +43,7 @@ fn main() {
         },
     };
     println!("program:\n{}", program_ast);
-    let program_flattened = Flattener::new().flatten_program(program_ast);
+    let program_flattened = Flattener::new(8).flatten_program(program_ast);
     println!("flattened:\n{}", program_flattened);
     let (variables, a, b, c) = r1cs_program(&program_flattened);
     println!("variables {:?}", variables);
@@ -98,7 +98,7 @@ mod tests {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
             };
-            let program_flattened = Flattener::new().flatten_program(program_ast);
+            let program_flattened = Flattener::new(8).flatten_program(program_ast);
             let (..) = r1cs_program(&program_flattened);
         }
     }

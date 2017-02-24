@@ -1,29 +1,48 @@
-//
-// @file flatten.rs
-// @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
-// @date 2017
+//! Module containing the `Flattener` to process a program that it is R1CS-able.
+//!
+//! @file flatten.rs
+//! @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
+//! @date 2017
 
+use std::collections::{HashSet, HashMap};
 use absy::*;
 use absy::Expression::*;
-use std::collections::{HashSet, HashMap};
 use field::Field;
 
+/// Flattener compute flattened program.
 pub struct Flattener {
+    /// Number of bits needed to represent the maximum value.
     bits: usize,
+    /// Vector containing all used variables while processing the program.
     variables: HashSet<String>,
+    /// Map of renamings for reassigned variables while processing the program.
     substitution: HashMap<String, String>,
-    next_var_idx: u32,
+    /// Index of the next introduced variable while processing the program.
+    next_var_idx: usize,
 }
 impl Flattener {
-    pub fn new() -> Flattener {
+    /// Returns a `Flattener` with fresh a fresh [substitution] and [variables].
+    ///
+    /// # Arguments
+    ///
+    /// * `bits` - Number of bits needed to represent the maximum value.
+    pub fn new(bits: usize) -> Flattener {
         Flattener {
-            bits: 8,
+            bits: bits,
             variables: HashSet::new(),
             substitution: HashMap::new(),
             next_var_idx: 0
         }
     }
 
+    /// Returns (condition true, condition false) `VariableReference`s for the given condition.
+    /// condition true = 1, if `condition` is true, 0 else
+    /// condition false = 1, if `condition` is false, 0 else
+    ///
+    /// # Arguments
+    ///
+    /// * `statements_flattened` - Vector where new flattened statements can be added.
+    /// * `condition` - `Condition` that will be flattened.
     fn flatten_condition<T: Field>(&mut self, statements_flattened: &mut Vec<Statement<T>>, condition: Condition<T>) -> (Expression<T>, Expression<T>) {
         match condition {
             Condition::Lt(lhs, rhs) => {
@@ -117,6 +136,12 @@ impl Flattener {
         }
     }
 
+    /// Returns a flattened `Expression` based on the given `expr`.
+    ///
+    /// # Arguments
+    ///
+    /// * `statements_flattened` - Vector where new flattened statements can be added.
+    /// * `expr` - `Expresstion` that will be flattened.
     fn flatten_expression<T: Field>(&mut self, statements_flattened: &mut Vec<Statement<T>>, expr: Expression<T>) -> Expression<T> {
         match expr {
             x @ NumberLiteral(_) |
@@ -273,6 +298,11 @@ impl Flattener {
         }
     }
 
+    /// Returns a flattened `Prog`ram based on the given `prog`.
+    ///
+    /// # Arguments
+    ///
+    /// * `prog` - `Prog`ram that will be flattened.
     pub fn flatten_program<T: Field>(&mut self, prog: Prog<T>) -> Prog<T> {
         let mut statements_flattened = Vec::new();
         self.variables = HashSet::new();
@@ -306,8 +336,6 @@ impl Flattener {
                 s @ Statement::Compiler(..) => statements_flattened.push(s),
             }
         }
-        println!("DEBUG self.variables {:?}", self.variables);
-        println!("DEBUG self.substitution {:?}", self.substitution);
         Prog { id: prog.id, arguments: prog.arguments, statements: statements_flattened }
     }
 
