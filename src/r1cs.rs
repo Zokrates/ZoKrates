@@ -142,6 +142,40 @@ fn count_variables_add<T: Field>(expr: &Expression<T>) -> HashMap<String, T> {
     count
 }
 
+/// Returns a vector of summands of the given `Expression`.
+///
+/// # Arguments
+///
+/// * `expr` - `Expression` to be split to summands.
+///
+/// # Example
+///
+/// a + 2*b + (c - d) -> [a, 2*b, c-d]
+fn get_summands<T: Field>(expr: &Expression<T>) -> Vec<&Expression<T>> {
+    let mut trace = Vec::new();
+    let mut add = Vec::new();
+    trace.push(expr);
+    loop {
+        if let Some(e) = trace.pop() {
+            match *e {
+                ref e @ NumberLiteral(_) |
+                ref e @ VariableReference(_) |
+                ref e @ Mult(..) |
+                ref e @ Sub(..) if e.is_linear() => {
+                    add.push(e);
+                },
+                Add(ref l, ref r) => {
+                    trace.push(l);
+                    trace.push(r);
+                },
+                ref e => panic!("Not covered: {}", e),
+            }
+        } else {
+            return add;
+        }
+    }
+}
+
 /// Returns an equotation equivalent to `lhs == rhs` only using `Add` and `Mult`
 ///
 /// # Arguments
@@ -149,85 +183,137 @@ fn count_variables_add<T: Field>(expr: &Expression<T>) -> HashMap<String, T> {
 /// * `lhs` - Leht hand side of the equotation
 /// * `rhs` - Right hand side of the equotation
 fn swap_sub<T: Field>(lhs: &Expression<T>, rhs: &Expression<T>) -> (Expression<T>, Expression<T>) {
-    // assert that Mult on lhs or rhs is linear!
-    match (lhs.clone(), rhs.clone()) {
-        // recursion end
-        (v1 @ NumberLiteral(_), v2 @ NumberLiteral(_)) |
-        (v1 @ VariableReference(_), v2 @ NumberLiteral(_)) |
-        (v1 @ NumberLiteral(_), v2 @ VariableReference(_)) |
-        (v1 @ VariableReference(_), v2 @ VariableReference(_)) |
-        (v1 @ VariableReference(_), v2 @ Mult(..)) |
-        (v1 @ Mult(..), v2 @ VariableReference(_)) |
-        (v1 @ NumberLiteral(_), v2 @ Mult(..)) |
-        (v1 @ Mult(..), v2 @ NumberLiteral(_)) |
-        (v1 @ Mult(..), v2 @ Mult(..)) => {
-            assert!(v1.is_linear());
-            assert!(v2.is_linear());
-            (v1, v2)
-        },
-        // Num/Var/Mult = Add
-        (v @ NumberLiteral(_), Add(left, right)) |
-        (v @ VariableReference(_), Add(left, right)) |
-        (v @ Mult(..), Add(left, right)) => {
-            assert!(v.is_linear());
-            let (l1, r1) = swap_sub(&v, &left);
-            let (l2, r2) = swap_sub(&l1, &right);
-            (l2, Add(box r1, box r2))
-        },
-        // Add = Num/Var/Mult
-        (Add(left, right), v @ NumberLiteral(_)) |
-        (Add(left, right), v @ VariableReference(_)) |
-        (Add(left, right), v @ Mult(..)) => { // v = left + right
-            assert!(v.is_linear());
-            let (l1, r1) = swap_sub(&left, &v);
-            let (l2, r2) = swap_sub(&right, &r1);
-            (Add(box l1, box l2), r2)
-        },
-        // Sub = Var/Num/Mult
-        (Sub(box left, box right), v @ VariableReference(_)) |
-        (Sub(box left, box right), v @ NumberLiteral(_)) |
-        (Sub(box left, box right), v @ Mult(..)) => {
-            assert!(v.is_linear());
-            let (l, r) = swap_sub(&left, &right);
-            (l, Add(box v, box r))
-        },
-        // Var/Num/Mult = Sub
-        (v @ VariableReference(_), Sub(box left, box right)) |
-        (v @ NumberLiteral(_), Sub(box left, box right)) |
-        (v @ Mult(..), Sub(box left, box right)) => {
-            assert!(v.is_linear());
-            let (l, r) = swap_sub(&left, &right);
-            (Add(box v, box r), l)
-        },
-        // Add = Add
-        (Add(box left1, box right1), Add(box left2, box right2)) => {
-            let (l1, r1) = swap_sub(&left1, &left2);
-            let (l2, r2) = swap_sub(&right1, &right2);
-            (Add(box l1, box l2), Add(box r1, box r2))
-        },
-        // Sub = Add
-        (Sub(box left_s, box right_s), Add(box left_a, box right_a)) => {
-            let (l1, r1) = swap_sub(&left_s, &right_s);
-            let (l2, r2) = swap_sub(&l1, &left_a);
-            let (l3, r3) = swap_sub(&l2, &right_a);
-            (l3, Add(box r1, box Add(box r2, box r3)))
-        },
-        // Add = Sub
-        (Add(box left_a, box right_a), Sub(box left_s, box right_s)) => {
-            let (l1, r1) = swap_sub(&left_s, &right_s);
-            let (l2, r2) = swap_sub(&l1, &left_a);
-            let (l3, r3) = swap_sub(&l2, &right_a);
-            (Add(box r1, box Add(box r2, box r3)), l3)
-        },
-        // Sub = Sub
-        (Sub(box l1, box r1), Sub(l2, r2)) => {
-            let (lhs1, rhs1) = swap_sub(&l1, &r1);
-            let (lhs2, rhs2) = swap_sub(&l2, &r2);
-            (Add(box lhs1, box rhs2), Add(box lhs2, box rhs1))
-        },
-        e @ _ => panic!("Input not covered: {} = {}", e.0, e.1),
+    let mut left = get_summands(lhs);
+    let mut right = get_summands(rhs);
+    let mut run = true;
+    while run {
+        run = false;
+        for mut i in 0..left.len() {
+            match *left[i] {
+                ref e @ NumberLiteral(_) |
+                ref e @ VariableReference(_) |
+                ref e @ Mult(..) if e.is_linear() => {},
+                Sub(ref l, ref r) => {
+                    run = true;
+                    left.swap_remove(i);
+                    left.extend(get_summands(l));
+                    right.extend(get_summands(r));
+                },
+                ref e => panic!("Unexpected: {}", e),
+            }
+        }
+        for mut i in 0..right.len() {
+            match *right[i] {
+                ref e @ NumberLiteral(_) |
+                ref e @ VariableReference(_) |
+                ref e @ Mult(..) if e.is_linear() => {},
+                Sub(ref l, ref r) => {
+                    run = true;
+                    right.swap_remove(i);
+                    right.extend(get_summands(l));
+                    left.extend(get_summands(r));
+                },
+                ref e => panic!("Unexpected: {}", e),
+            }
+        }
     }
+    if let Some(left_init) = left.pop() {
+        if let Some(right_init) = right.pop() {
+            return (
+                left.iter().fold(left_init.clone(), |acc, &x| Add(box acc, box x.clone())),
+                right.iter().fold(right_init.clone(), |acc, &x| Add(box acc, box x.clone()))
+            );
+        }
+    }
+    panic!("Unexpected");
 }
+
+/// Returns an equotation equivalent to `lhs == rhs` only using `Add` and `Mult`
+///
+/// # Arguments
+///
+/// * `lhs` - Leht hand side of the equotation
+/// * `rhs` - Right hand side of the equotation
+// fn swap_sub_recursive<T: Field>(lhs: &Expression<T>, rhs: &Expression<T>) -> (Expression<T>, Expression<T>) {
+//     // assert that Mult on lhs or rhs is linear!
+//     match (lhs.clone(), rhs.clone()) {
+//         // recursion end
+//         (v1 @ NumberLiteral(_), v2 @ NumberLiteral(_)) |
+//         (v1 @ VariableReference(_), v2 @ NumberLiteral(_)) |
+//         (v1 @ NumberLiteral(_), v2 @ VariableReference(_)) |
+//         (v1 @ VariableReference(_), v2 @ VariableReference(_)) |
+//         (v1 @ VariableReference(_), v2 @ Mult(..)) |
+//         (v1 @ Mult(..), v2 @ VariableReference(_)) |
+//         (v1 @ NumberLiteral(_), v2 @ Mult(..)) |
+//         (v1 @ Mult(..), v2 @ NumberLiteral(_)) |
+//         (v1 @ Mult(..), v2 @ Mult(..)) => {
+//             assert!(v1.is_linear());
+//             assert!(v2.is_linear());
+//             (v1, v2)
+//         },
+//         // Num/Var/Mult = Add
+//         (v @ NumberLiteral(_), Add(left, right)) |
+//         (v @ VariableReference(_), Add(left, right)) |
+//         (v @ Mult(..), Add(left, right)) => {
+//             assert!(v.is_linear());
+//             let (l1, r1) = swap_sub(&v, &left);
+//             let (l2, r2) = swap_sub(&l1, &right);
+//             (l2, Add(box r1, box r2))
+//         },
+//         // Add = Num/Var/Mult
+//         (Add(left, right), v @ NumberLiteral(_)) |
+//         (Add(left, right), v @ VariableReference(_)) |
+//         (Add(left, right), v @ Mult(..)) => { // v = left + right
+//             assert!(v.is_linear());
+//             let (l1, r1) = swap_sub(&left, &v);
+//             let (l2, r2) = swap_sub(&right, &r1);
+//             (Add(box l1, box l2), r2)
+//         },
+//         // Sub = Var/Num/Mult
+//         (Sub(box left, box right), v @ VariableReference(_)) |
+//         (Sub(box left, box right), v @ NumberLiteral(_)) |
+//         (Sub(box left, box right), v @ Mult(..)) => {
+//             assert!(v.is_linear());
+//             let (l, r) = swap_sub(&left, &right);
+//             (l, Add(box v, box r))
+//         },
+//         // Var/Num/Mult = Sub
+//         (v @ VariableReference(_), Sub(box left, box right)) |
+//         (v @ NumberLiteral(_), Sub(box left, box right)) |
+//         (v @ Mult(..), Sub(box left, box right)) => {
+//             assert!(v.is_linear());
+//             let (l, r) = swap_sub(&left, &right);
+//             (Add(box v, box r), l)
+//         },
+//         // Add = Add
+//         (Add(box left1, box right1), Add(box left2, box right2)) => {
+//             let (l1, r1) = swap_sub(&left1, &left2);
+//             let (l2, r2) = swap_sub(&right1, &right2);
+//             (Add(box l1, box l2), Add(box r1, box r2))
+//         },
+//         // Sub = Add
+//         (Sub(box left_s, box right_s), Add(box left_a, box right_a)) => {
+//             let (l1, r1) = swap_sub(&left_s, &right_s);
+//             let (l2, r2) = swap_sub(&l1, &left_a);
+//             let (l3, r3) = swap_sub(&l2, &right_a);
+//             (l3, Add(box r1, box Add(box r2, box r3)))
+//         },
+//         // Add = Sub
+//         (Add(box left_a, box right_a), Sub(box left_s, box right_s)) => {
+//             let (l1, r1) = swap_sub(&left_s, &right_s);
+//             let (l2, r2) = swap_sub(&l1, &left_a);
+//             let (l3, r3) = swap_sub(&l2, &right_a);
+//             (Add(box r1, box Add(box r2, box r3)), l3)
+//         },
+//         // Sub = Sub
+//         (Sub(box l1, box r1), Sub(l2, r2)) => {
+//             let (lhs1, rhs1) = swap_sub(&l1, &r1);
+//             let (lhs2, rhs2) = swap_sub(&l2, &r2);
+//             (Add(box lhs1, box rhs2), Add(box lhs2, box rhs1))
+//         },
+//         e @ _ => panic!("Input not covered: {} = {}", e.0, e.1),
+//     }
+// }
 
 /// Calculates one R1CS row representation for `linear_expr` = `expr`.
 /// (<A,x>*<B,c> = <C,x>)
