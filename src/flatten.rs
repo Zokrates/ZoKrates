@@ -75,14 +75,26 @@ impl Flattener {
                         )
                     ));
                 }
-                let mut expr = VariableReference(format!("{}_b0", &cond_result)); // * 2^0
-                for i in 1..self.bits - 1 {
+                let mut expr = Add(
+                    box VariableReference(format!("{}_b0", &cond_result)), // * 2^0
+                    box Mult(
+                        box VariableReference(format!("{}_b1", &cond_result)),
+                        box NumberLiteral(T::from(2))
+                    )
+                );
+                for i in 1..self.bits/2 {
                     expr = Add(
-                        box Mult(
-                            box VariableReference(format!("{}_b{}", &cond_result, i)),
-                            box NumberLiteral(T::from(2).pow(i))
-                        ),
-                        box expr
+                        box expr,
+                        box Add(
+                            box Mult(
+                                box VariableReference(format!("{}_b{}", &cond_result, 2*i)),
+                                box NumberLiteral(T::from(2).pow(i))
+                            ),
+                            box Mult(
+                                box VariableReference(format!("{}_b{}", &cond_result, 2*i+1)),
+                                box NumberLiteral(T::from(2).pow(i))
+                            ),
+                        )
                     );
                 }
                 expr = Add(

@@ -7,6 +7,7 @@
 
 #[macro_use]
 extern crate lazy_static;
+extern crate num;
 
 mod absy;
 mod parser;
@@ -18,7 +19,7 @@ mod libsnark;
 
 use std::fs::File;
 use std::path::Path;
-use field::FieldPrime;
+use field::{Field, FieldPrime};
 use parser::parse_program;
 use flatten::Flattener;
 use r1cs::r1cs_program;
@@ -43,7 +44,7 @@ fn main() {
         },
     };
     println!("program:\n{}", program_ast);
-    let program_flattened = Flattener::new(8).flatten_program(program_ast);
+    let program_flattened = Flattener::new(FieldPrime::get_required_bits()).flatten_program(program_ast);
     println!("flattened:\n{}", program_flattened);
     let (variables, a, b, c) = r1cs_program(&program_flattened);
     println!("variables {:?}", variables);
