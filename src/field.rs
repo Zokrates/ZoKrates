@@ -3,10 +3,8 @@
 // @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
 // @date 2017
 
-extern crate num;
-
-use self::num::{Integer, Zero, One};
-use self::num::bigint::{BigInt, ToBigInt};
+use num::{Integer, Zero, One};
+use num::bigint::{BigInt, ToBigInt};
 use std::convert::From;
 use std::ops::{Add, Sub, Mul, Div};
 use std::fmt;
@@ -14,26 +12,6 @@ use std::fmt::{Display, Debug};
 
 lazy_static! {
     static ref P: BigInt = BigInt::parse_bytes(b"21888242871839275222246405745257275088696311157297823662689037894645226208583", 10).unwrap();
-}
-
-/// Calculates the gcd using a iterative implementation of the extended euclidian algorithm.
-fn extended_euclid(a: &BigInt, b: &BigInt) -> (BigInt, BigInt, BigInt) {
-    let (mut s, mut old_s) = (BigInt::zero(), BigInt::one());
-    let (mut t, mut old_t) = (BigInt::one(), BigInt::zero());
-    let (mut r, mut old_r) = (b.clone(), a.clone());
-    while !&r.is_zero() {
-        let quotient = &old_r / &r;
-        let tmp_r = old_r.clone();
-        old_r = r.clone();
-        r = &tmp_r - &quotient * &r;
-        let tmp_s = old_s.clone();
-        old_s = s.clone();
-        s = &tmp_s - &quotient * &s;
-        let tmp_t = old_t.clone();
-        old_t = t.clone();
-        t = &tmp_t - &quotient * &t;
-    }
-    return (old_r, old_s, old_t)
 }
 
 pub trait Pow<RHS> {
@@ -57,6 +35,8 @@ pub trait Field : From<i32> + From<u32> + From<usize> + for<'a> From<&'a str>
     fn min_value() -> Self;
     /// Returns the largest value that can be represented by this field type.
     fn max_value() -> Self;
+    /// Returns the number of required bits to represent this field type.
+    fn get_required_bits() -> usize;
 }
 
 #[derive(PartialEq,PartialOrd,Clone)]
@@ -79,6 +59,9 @@ impl Field for FieldPrime {
     }
     fn max_value() -> FieldPrime {
         FieldPrime{ value: &*P - ToBigInt::to_bigint(&1).unwrap() }
+    }
+    fn get_required_bits() -> usize {
+        (*P).bits()
     }
 }
 
@@ -248,6 +231,31 @@ impl<'a> Pow<&'a FieldPrime> for FieldPrime {
             current = current + FieldPrime::one();
         }
     }
+}
+
+/// Calculates the gcd using a iterative implementation of the extended euclidian algorithm.
+/// Returning `(d, s, t)` so that `d = s * a + t * b`
+///
+/// # Arguments
+/// * `a` - First number as `BigInt`
+/// * `b` - Second number as `BigInt`
+fn extended_euclid(a: &BigInt, b: &BigInt) -> (BigInt, BigInt, BigInt) {
+    let (mut s, mut old_s) = (BigInt::zero(), BigInt::one());
+    let (mut t, mut old_t) = (BigInt::one(), BigInt::zero());
+    let (mut r, mut old_r) = (b.clone(), a.clone());
+    while !&r.is_zero() {
+        let quotient = &old_r / &r;
+        let tmp_r = old_r.clone();
+        old_r = r.clone();
+        r = &tmp_r - &quotient * &r;
+        let tmp_s = old_s.clone();
+        old_s = s.clone();
+        s = &tmp_s - &quotient * &s;
+        let tmp_t = old_t.clone();
+        old_t = t.clone();
+        t = &tmp_t - &quotient * &t;
+    }
+    return (old_r, old_s, old_t)
 }
 
 #[cfg(test)]
