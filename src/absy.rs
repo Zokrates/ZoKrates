@@ -1,18 +1,24 @@
-//
-// @file absy.rs
-// @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
-// @date 2017
+//! Module containing structs and enums to represent a program.
+//!
+//! @file absy.rs
+//! @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
+//! @date 2017
 
 use std::fmt;
 use std::collections::HashMap;
 use std::io::{stdin, BufRead};
 use field::Field;
 
+///
 pub struct Prog<T: Field> {
+    /// Name of the program
     pub id: String,
+    /// Arguments of the program
     pub arguments: Vec<Parameter>,
+    /// Vector of statements that are executed when running the program
     pub statements: Vec<Statement<T>>,
 }
+
 impl<T: Field> Prog<T> {
     pub fn get_witness(&self, inputs: Vec<T>) -> HashMap<String, T> {
         assert!(self.arguments.len() == inputs.len());
@@ -38,11 +44,13 @@ impl<T: Field> Prog<T> {
         witness
     }
 }
+
 impl<T: Field> fmt::Display for Prog<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "def {}({}):\n{}", self.id, self.arguments.iter().map(|x| format!("{}", x)).collect::<Vec<_>>().join(","), self.statements.iter().map(|x| format!("\t{}", x)).collect::<Vec<_>>().join("\n"))
     }
 }
+
 impl<T: Field> fmt::Debug for Prog<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Prog(id: {:?}, arguments: {:?}, ...):\n{}", self.id, self.arguments, self.statements.iter().map(|x| format!("\t{:?}", x)).collect::<Vec<_>>().join("\n"))
@@ -55,6 +63,7 @@ pub enum Statement<T: Field> {
     Condition(Expression<T>, Expression<T>),
     Compiler(String, Expression<T>),
 }
+
 impl<T: Field> fmt::Display for Statement<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -65,6 +74,7 @@ impl<T: Field> fmt::Display for Statement<T> {
         }
     }
 }
+
 impl<T: Field> fmt::Debug for Statement<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -77,11 +87,13 @@ impl<T: Field> fmt::Debug for Statement<T> {
 }
 
 pub struct Parameter { pub id: String }
+
 impl fmt::Display for Parameter {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.id)
     }
 }
+
 impl fmt::Debug for Parameter {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Parameter(id: {:?})", self.id)
@@ -99,6 +111,7 @@ pub enum Expression<T: Field> {
     Pow(Box<Expression<T>>, Box<Expression<T>>),
     IfElse(Box<Condition<T>>, Box<Expression<T>>, Box<Expression<T>>),
 }
+
 impl<T: Field> Expression<T> {
     pub fn apply_substitution(&self, substitution: &HashMap<String, String>) -> Expression<T> {
         match *self {
@@ -129,14 +142,8 @@ impl<T: Field> Expression<T> {
                     if var.contains("_b") {
                         let var_name = var.split("_b").collect::<Vec<_>>()[0];
                         let mut num = inputs[var_name].clone();
-                        let bits = 8;
-                        if num < T::zero() {
-                            num = num + T::from(2).pow(bits - 1);
-                            inputs.insert(format!("{}_b{}", &var_name, T::from(bits - 1)), T::one());
-                        } else {
-                            inputs.insert(format!("{}_b{}", &var_name, T::from(bits - 1)), T::zero());
-                        }
-                        for i in (0..bits - 1).rev() {
+                        let bits = T::get_required_bits();
+                        for i in (0..bits).rev() {
                             if T::from(2).pow(i) <= num {
                                 num = num - T::from(2).pow(i);
                                 inputs.insert(format!("{}_b{}", &var_name, i), T::one());
@@ -199,6 +206,7 @@ impl<T: Field> Expression<T> {
         }
     }
 }
+
 impl<T: Field> fmt::Display for Expression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -213,6 +221,7 @@ impl<T: Field> fmt::Display for Expression<T> {
         }
     }
 }
+
 impl<T: Field> fmt::Debug for Expression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -236,6 +245,7 @@ pub enum Condition<T: Field> {
     Ge(Expression<T>, Expression<T>),
     Gt(Expression<T>, Expression<T>),
 }
+
 impl<T: Field> Condition<T> {
     fn apply_substitution(&self, substitution: &HashMap<String, String>) -> Condition<T> {
         match *self {
@@ -257,6 +267,7 @@ impl<T: Field> Condition<T> {
         }
     }
 }
+
 impl<T: Field> fmt::Display for Condition<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -268,6 +279,7 @@ impl<T: Field> fmt::Display for Condition<T> {
         }
     }
 }
+
 impl<T: Field> fmt::Debug for Condition<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self)
