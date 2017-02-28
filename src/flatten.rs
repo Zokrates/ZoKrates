@@ -108,12 +108,10 @@ impl Flattener {
                 }
                 statements_flattened.push(Statement::Definition(subtraction_result.to_string(), expr));
 
-                // a < b <=> a - b = c > 0 <=> 0 < c < p/2 ==> 2*c < p ==> (2c)_b0 = 0
-                // a > b <=> a - b = c < 0 <=> p/2 < c < p ==> 2*c > p ==> (2c)_b0 = 1
-                let cond_false = format!("{}_b0", &subtraction_result);
-                let cond_true = format!("sym_{}", self.next_var_idx);
+                let cond_true = format!("{}_b0", &subtraction_result);
+                let cond_false = format!("sym_{}", self.next_var_idx);
                 self.next_var_idx += 1;
-                statements_flattened.push(Statement::Definition(cond_true.to_string(), Sub(box Number(T::one()), box Identifier(cond_false.to_string()))));
+                statements_flattened.push(Statement::Definition(cond_false.to_string(), Sub(box Number(T::one()), box Identifier(cond_true.to_string()))));
                 (Identifier(cond_true), Identifier(cond_false))
             },
             Condition::Eq(lhs, rhs) => {

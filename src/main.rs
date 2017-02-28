@@ -80,6 +80,7 @@ fn main() {
 mod tests {
     extern crate glob;
     use super::*;
+    use num::Zero;
     use self::glob::glob;
 
     #[test]
@@ -101,6 +102,29 @@ mod tests {
             };
             let program_flattened = Flattener::new(8).flatten_program(program_ast);
             let (..) = r1cs_program(&program_flattened);
+        }
+    }
+
+    #[test]
+    fn examples_with_input() {
+        for p in glob("./examples/test*.code").expect("Failed to read glob pattern") {
+            let path = match p {
+                Ok(x) => x,
+                Err(why) => panic!("Error: {:?}", why),
+            };
+            println!("Testing {:?}", path);
+            let file = match File::open(&path) {
+                Ok(file) => file,
+                Err(why) => panic!("couldn't open {:?}: {}", path, why),
+            };
+
+            let program_ast = match parse_program::<FieldPrime>(file) {
+                Ok(x) => x,
+                Err(why) => panic!("Error: {:?}", why),
+            };
+            let program_flattened = Flattener::new(8).flatten_program(program_ast);
+            let (..) = r1cs_program(&program_flattened);
+            let _ = program_flattened.get_witness(vec![FieldPrime::zero()]);
         }
     }
 }
