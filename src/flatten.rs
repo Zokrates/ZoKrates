@@ -35,7 +35,7 @@ impl Flattener {
         }
     }
 
-    /// Returns (condition true, condition false) `VariableReference`s for the given condition.
+    /// Returns (condition true, condition false) `Identifier`s for the given condition.
     /// condition true = 1, if `condition` is true, 0 else
     /// condition false = 1, if `condition` is false, 0 else
     ///
@@ -61,8 +61,8 @@ impl Flattener {
                 statements_flattened.push(Statement::Definition(
                     subtraction_result.to_string(),
                     Sub(
-                        box Mult(box NumberLiteral(T::from(2)), box VariableReference(lhs_name.to_string())),
-                        box Mult(box NumberLiteral(T::from(2)), box VariableReference(rhs_name.to_string()))
+                        box Mult(box Number(T::from(2)), box Identifier(lhs_name.to_string())),
+                        box Mult(box Number(T::from(2)), box Identifier(rhs_name.to_string()))
                     )
                 ));
                 for i in 0..self.bits-2 {
@@ -70,16 +70,16 @@ impl Flattener {
                     statements_flattened.push(Statement::Definition(
                         new_name.to_string(),
                         Mult(
-                            box VariableReference(new_name.to_string()),
-                            box VariableReference(new_name.to_string())
+                            box Identifier(new_name.to_string()),
+                            box Identifier(new_name.to_string())
                         )
                     ));
                 }
                 let mut expr = Add(
-                    box VariableReference(format!("{}_b0", &subtraction_result)), // * 2^0
+                    box Identifier(format!("{}_b0", &subtraction_result)), // * 2^0
                     box Mult(
-                        box VariableReference(format!("{}_b1", &subtraction_result)),
-                        box NumberLiteral(T::from(2))
+                        box Identifier(format!("{}_b1", &subtraction_result)),
+                        box Number(T::from(2))
                     )
                 );
                 for i in 1..self.bits/2 {
@@ -87,12 +87,12 @@ impl Flattener {
                         box expr,
                         box Add(
                             box Mult(
-                                box VariableReference(format!("{}_b{}", &subtraction_result, 2*i)),
-                                box NumberLiteral(T::from(2).pow(i))
+                                box Identifier(format!("{}_b{}", &subtraction_result, 2*i)),
+                                box Number(T::from(2).pow(i))
                             ),
                             box Mult(
-                                box VariableReference(format!("{}_b{}", &subtraction_result, 2*i+1)),
-                                box NumberLiteral(T::from(2).pow(i))
+                                box Identifier(format!("{}_b{}", &subtraction_result, 2*i+1)),
+                                box Number(T::from(2).pow(i))
                             ),
                         )
                     );
@@ -101,8 +101,8 @@ impl Flattener {
                     expr = Add(
                         box expr,
                         box Mult(
-                            box VariableReference(format!("{}_b{}", &subtraction_result, self.bits - 3)),
-                            box NumberLiteral(T::from(2).pow(self.bits - 1))
+                            box Identifier(format!("{}_b{}", &subtraction_result, self.bits - 3)),
+                            box Number(T::from(2).pow(self.bits - 1))
                         )
                     )
                 }
@@ -113,8 +113,8 @@ impl Flattener {
                 let cond_false = format!("{}_b0", &subtraction_result);
                 let cond_true = format!("sym_{}", self.next_var_idx);
                 self.next_var_idx += 1;
-                statements_flattened.push(Statement::Definition(cond_true.to_string(), Sub(box NumberLiteral(T::one()), box VariableReference(cond_false.to_string()))));
-                (VariableReference(cond_true), VariableReference(cond_false))
+                statements_flattened.push(Statement::Definition(cond_true.to_string(), Sub(box Number(T::one()), box Identifier(cond_false.to_string()))));
+                (Identifier(cond_true), Identifier(cond_false))
             },
             Condition::Eq(lhs, rhs) => {
                 // Wanted: (Y = (X != 0) ? 1 : 0)
@@ -136,25 +136,25 @@ impl Flattener {
                 statements_flattened.push(Statement::Definition(name_x.to_string(), x));
                 statements_flattened.push(Statement::Compiler(name_y.to_string(), IfElse(
                     box Condition::Eq(
-                        VariableReference(name_x.to_string()),
-                        NumberLiteral(T::zero())
+                        Identifier(name_x.to_string()),
+                        Number(T::zero())
                     ),
-                    box NumberLiteral(T::zero()),
-                    box NumberLiteral(T::one())
+                    box Number(T::zero()),
+                    box Number(T::one())
                 )));
                 statements_flattened.push(Statement::Compiler(name_m.to_string(), IfElse(
                     box Condition::Eq(
-                        VariableReference(name_x.to_string()),
-                        NumberLiteral(T::zero())
+                        Identifier(name_x.to_string()),
+                        Number(T::zero())
                     ),
-                    box NumberLiteral(T::one()),
-                    box Div(box NumberLiteral(T::one()), box VariableReference(name_x.to_string()))
+                    box Number(T::one()),
+                    box Div(box Number(T::one()), box Identifier(name_x.to_string()))
                 )));
-                statements_flattened.push(Statement::Condition(VariableReference(name_y.to_string()), Mult(box VariableReference(name_x.to_string()), box VariableReference(name_m))));
-                statements_flattened.push(Statement::Definition(name_1_y.to_string(), Sub(box NumberLiteral(T::one()), box VariableReference(name_y.to_string()))));
-                statements_flattened.push(Statement::Condition(NumberLiteral(T::zero()), Mult(box VariableReference(name_1_y.to_string()), box VariableReference(name_x))));
+                statements_flattened.push(Statement::Condition(Identifier(name_y.to_string()), Mult(box Identifier(name_x.to_string()), box Identifier(name_m))));
+                statements_flattened.push(Statement::Definition(name_1_y.to_string(), Sub(box Number(T::one()), box Identifier(name_y.to_string()))));
+                statements_flattened.push(Statement::Condition(Number(T::zero()), Mult(box Identifier(name_1_y.to_string()), box Identifier(name_x))));
 
-                (VariableReference(name_1_y), VariableReference(name_y))
+                (Identifier(name_1_y), Identifier(name_y))
             },
             _ => unimplemented!(),
         }
@@ -168,8 +168,8 @@ impl Flattener {
     /// * `expr` - `Expresstion` that will be flattened.
     fn flatten_expression<T: Field>(&mut self, statements_flattened: &mut Vec<Statement<T>>, expr: Expression<T>) -> Expression<T> {
         match expr {
-            x @ NumberLiteral(_) |
-            x @ VariableReference(_) => x,
+            x @ Number(_) |
+            x @ Identifier(_) => x,
             ref x @ Add(..) |
             ref x @ Sub(..) |
             ref x @ Mult(..) |
@@ -183,7 +183,7 @@ impl Flattener {
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;
                     statements_flattened.push(Statement::Definition(new_name.to_string(), left_flattened));
-                    VariableReference(new_name)
+                    Identifier(new_name)
                 };
                 let new_right = if right_flattened.is_linear() {
                     right_flattened
@@ -191,7 +191,7 @@ impl Flattener {
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;
                     statements_flattened.push(Statement::Definition(new_name.to_string(), right_flattened));
-                    VariableReference(new_name)
+                    Identifier(new_name)
                 };
                 Add(box new_left, box new_right)
             },
@@ -204,7 +204,7 @@ impl Flattener {
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;
                     statements_flattened.push(Statement::Definition(new_name.to_string(), left_flattened));
-                    VariableReference(new_name)
+                    Identifier(new_name)
                 };
                 let new_right = if right_flattened.is_linear() {
                     right_flattened
@@ -212,7 +212,7 @@ impl Flattener {
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;
                     statements_flattened.push(Statement::Definition(new_name.to_string(), right_flattened));
-                    VariableReference(new_name)
+                    Identifier(new_name)
                 };
                 Sub(box new_left, box new_right)
             },
@@ -224,7 +224,7 @@ impl Flattener {
                         let new_name = format!("sym_{}", self.next_var_idx);
                         self.next_var_idx += 1;
                         statements_flattened.push(Statement::Definition(new_name.to_string(), left_flattened));
-                        VariableReference(new_name)
+                        Identifier(new_name)
                     } else {
                         left_flattened
                     }
@@ -232,14 +232,14 @@ impl Flattener {
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;
                     statements_flattened.push(Statement::Definition(new_name.to_string(), left_flattened));
-                    VariableReference(new_name)
+                    Identifier(new_name)
                 };
                 let new_right = if right_flattened.is_linear() {
                     if let Sub(..) = right_flattened {
                         let new_name = format!("sym_{}", self.next_var_idx);
                         self.next_var_idx += 1;
                         statements_flattened.push(Statement::Definition(new_name.to_string(), right_flattened));
-                        VariableReference(new_name)
+                        Identifier(new_name)
                     } else {
                         right_flattened
                     }
@@ -247,7 +247,7 @@ impl Flattener {
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;
                     statements_flattened.push(Statement::Definition(new_name.to_string(), right_flattened));
-                    VariableReference(new_name)
+                    Identifier(new_name)
                 };
                 Mult(box new_left, box new_right)
             },
@@ -260,7 +260,7 @@ impl Flattener {
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;
                     statements_flattened.push(Statement::Definition(new_name.to_string(), left_flattened));
-                    VariableReference(new_name)
+                    Identifier(new_name)
                 };
                 let new_right = if right_flattened.is_linear() {
                     right_flattened
@@ -268,22 +268,22 @@ impl Flattener {
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;
                     statements_flattened.push(Statement::Definition(new_name.to_string(), right_flattened));
-                    VariableReference(new_name)
+                    Identifier(new_name)
                 };
                 Div(box new_left, box new_right)
             },
             Pow(base, exponent) => {
                 // TODO currently assuming that base is number or variable
                 match exponent {
-                    box NumberLiteral(ref x) if x > &T::one() => {
+                    box Number(ref x) if x > &T::one() => {
                         match base {
-                            box VariableReference(ref var) => {
+                            box Identifier(ref var) => {
                                 let id = if x > &T::from(2) {
                                     let tmp_expression = self.flatten_expression(
                                         statements_flattened,
                                         Pow(
-                                            box VariableReference(var.to_string()),
-                                            box NumberLiteral(x.clone() - T::one())
+                                            box Identifier(var.to_string()),
+                                            box Number(x.clone() - T::one())
                                         )
                                     );
                                     let new_name = format!("sym_{}", self.next_var_idx);
@@ -294,13 +294,13 @@ impl Flattener {
                                     var.to_string()
                                 };
                                 Mult(
-                                    box VariableReference(id.to_string()),
-                                    box VariableReference(var.to_string())
+                                    box Identifier(id.to_string()),
+                                    box Identifier(var.to_string())
                                 )
                             },
-                            box NumberLiteral(var) => Mult(
-                                box NumberLiteral(var.clone()),
-                                box NumberLiteral(var)
+                            box Number(var) => Mult(
+                                box Number(var.clone()),
+                                box Number(var)
                             ),
                             _ => panic!("Only variables and numbers allowed in pow base")
                         }

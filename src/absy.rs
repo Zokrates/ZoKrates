@@ -102,8 +102,8 @@ impl fmt::Debug for Parameter {
 
 #[derive(Clone,PartialEq)]
 pub enum Expression<T: Field> {
-    NumberLiteral(T),
-    VariableReference(String),
+    Number(T),
+    Identifier(String),
     Add(Box<Expression<T>>, Box<Expression<T>>),
     Sub(Box<Expression<T>>, Box<Expression<T>>),
     Mult(Box<Expression<T>>, Box<Expression<T>>),
@@ -115,13 +115,13 @@ pub enum Expression<T: Field> {
 impl<T: Field> Expression<T> {
     pub fn apply_substitution(&self, substitution: &HashMap<String, String>) -> Expression<T> {
         match *self {
-            ref e @ Expression::NumberLiteral(_) => e.clone(),
-            Expression::VariableReference(ref v) => {
+            ref e @ Expression::Number(_) => e.clone(),
+            Expression::Identifier(ref v) => {
                 let mut new_name = v.to_string();
                 loop {
                     match substitution.get(&new_name) {
                         Some(x) => new_name = x.to_string(),
-                        None => return Expression::VariableReference(new_name),
+                        None => return Expression::Identifier(new_name),
                     }
                 }
             },
@@ -136,8 +136,8 @@ impl<T: Field> Expression<T> {
 
     fn solve(&self, inputs: &mut HashMap<String, T>) -> T {
         match *self {
-            Expression::NumberLiteral(ref x) => x.clone(),
-            Expression::VariableReference(ref var) => {
+            Expression::Number(ref x) => x.clone(),
+            Expression::Identifier(ref var) => {
                 if let None = inputs.get(var) {
                     if var.contains("_b") {
                         let var_name = var.split("_b").collect::<Vec<_>>()[0];
@@ -175,15 +175,15 @@ impl<T: Field> Expression<T> {
 
     pub fn is_linear(&self) -> bool {
         match *self {
-            Expression::NumberLiteral(_) |
-            Expression::VariableReference(_) => true,
+            Expression::Number(_) |
+            Expression::Identifier(_) => true,
             Expression::Add(ref x, ref y) |
             Expression::Sub(ref x, ref y) => x.is_linear() && y.is_linear(),
             Expression::Mult(ref x, ref y) |
             Expression::Div(ref x, ref y) => match (x.clone(), y.clone()) {
-                (box Expression::NumberLiteral(_), box Expression::NumberLiteral(_)) |
-                (box Expression::NumberLiteral(_), box Expression::VariableReference(_)) |
-                (box Expression::VariableReference(_), box Expression::NumberLiteral(_)) => true,
+                (box Expression::Number(_), box Expression::Number(_)) |
+                (box Expression::Number(_), box Expression::Identifier(_)) |
+                (box Expression::Identifier(_), box Expression::Number(_)) => true,
                 _ => false,
             },
             _ => false,
@@ -192,8 +192,8 @@ impl<T: Field> Expression<T> {
 
     pub fn is_flattened(&self) -> bool {
         match *self {
-            Expression::NumberLiteral(_) |
-            Expression::VariableReference(_) => true,
+            Expression::Number(_) |
+            Expression::Identifier(_) => true,
             Expression::Add(ref x, ref y) |
             Expression::Sub(ref x, ref y) => x.is_linear() && y.is_linear(),
             Expression::Mult(ref x, ref y) |
@@ -210,8 +210,8 @@ impl<T: Field> Expression<T> {
 impl<T: Field> fmt::Display for Expression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Expression::NumberLiteral(ref i) => write!(f, "{}", i),
-            Expression::VariableReference(ref var) => write!(f, "{}", var),
+            Expression::Number(ref i) => write!(f, "{}", i),
+            Expression::Identifier(ref var) => write!(f, "{}", var),
             Expression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
             Expression::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
             Expression::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
@@ -225,8 +225,8 @@ impl<T: Field> fmt::Display for Expression<T> {
 impl<T: Field> fmt::Debug for Expression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Expression::NumberLiteral(ref i) => write!(f, "Num({})", i),
-            Expression::VariableReference(ref var) => write!(f, "Ide({})", var),
+            Expression::Number(ref i) => write!(f, "Num({})", i),
+            Expression::Identifier(ref var) => write!(f, "Ide({})", var),
             Expression::Add(ref lhs, ref rhs) => write!(f, "Add({:?}, {:?})", lhs, rhs),
             Expression::Sub(ref lhs, ref rhs) => write!(f, "Sub({:?}, {:?})", lhs, rhs),
             Expression::Mult(ref lhs, ref rhs) => write!(f, "Mult({:?}, {:?})", lhs, rhs),

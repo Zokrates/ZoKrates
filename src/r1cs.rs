@@ -25,8 +25,8 @@ fn get_summands<T: Field>(expr: &Expression<T>) -> Vec<&Expression<T>> {
     loop {
         if let Some(e) = trace.pop() {
             match *e {
-                ref e @ NumberLiteral(_) |
-                ref e @ VariableReference(_) |
+                ref e @ Number(_) |
+                ref e @ Identifier(_) |
                 ref e @ Mult(..) |
                 ref e @ Sub(..) if e.is_linear() => add.push(e),
                 Add(ref l, ref r) => {
@@ -55,20 +55,20 @@ fn count_variables_add<T: Field>(expr: &Expression<T>) -> HashMap<String, T> {
     let mut count = HashMap::new();
     for s in summands {
         match *s {
-            NumberLiteral(ref x) => {
+            Number(ref x) => {
                 let num = count.entry("~one".to_string()).or_insert(T::zero());
                 *num = num.clone() + x;
             },
-            VariableReference(ref v) => {
+            Identifier(ref v) => {
                 let num = count.entry(v.to_string()).or_insert(T::zero());
                 *num = num.clone() + T::one();
             },
-            Mult(box NumberLiteral(ref x1), box NumberLiteral(ref x2)) => {
+            Mult(box Number(ref x1), box Number(ref x2)) => {
                 let num = count.entry("~one".to_string()).or_insert(T::zero());
                 *num = num.clone() + x1 + x2;
             },
-            Mult(box NumberLiteral(ref x), box VariableReference(ref v)) |
-            Mult(box VariableReference(ref v), box NumberLiteral(ref x)) => {
+            Mult(box Number(ref x), box Identifier(ref v)) |
+            Mult(box Identifier(ref v), box Number(ref x)) => {
                 let num = count.entry(v.to_string()).or_insert(T::zero());
                 *num = num.clone() + x;
             },
@@ -92,8 +92,8 @@ fn swap_sub<T: Field>(lhs: &Expression<T>, rhs: &Expression<T>) -> (Expression<T
         run = false;
         for i in 0..left.len() {
             match *left[i] {
-                ref e @ NumberLiteral(_) |
-                ref e @ VariableReference(_) |
+                ref e @ Number(_) |
+                ref e @ Identifier(_) |
                 ref e @ Mult(..) if e.is_linear() => {},
                 Sub(ref l, ref r) => {
                     run = true;
@@ -106,8 +106,8 @@ fn swap_sub<T: Field>(lhs: &Expression<T>, rhs: &Expression<T>) -> (Expression<T
         }
         for i in 0..right.len() {
             match *right[i] {
-                ref e @ NumberLiteral(_) |
-                ref e @ VariableReference(_) |
+                ref e @ Number(_) |
+                ref e @ Identifier(_) |
                 ref e @ Mult(..) if e.is_linear() => {},
                 Sub(ref l, ref r) => {
                     run = true;
@@ -157,16 +157,16 @@ fn r1cs_expression<T: Field>(linear_expr: Expression<T>, expr: Expression<T>, va
         },
         Mult(lhs, rhs) => {
             match lhs {
-                box NumberLiteral(x) => a_row.push((0, x)),
-                box VariableReference(x) => a_row.push((get_variable_idx(variables, &x), T::one())),
+                box Number(x) => a_row.push((0, x)),
+                box Identifier(x) => a_row.push((get_variable_idx(variables, &x), T::one())),
                 box e @ Add(..) => for (key, value) in count_variables_add(&e) {
                     a_row.push((get_variable_idx(variables, &key), value));
                 },
                 e @ _ => panic!("Not flattened: {}", e),
             };
             match rhs {
-                box NumberLiteral(x) => b_row.push((0, x)),
-                box VariableReference(x) => b_row.push((get_variable_idx(variables, &x), T::one())),
+                box Number(x) => b_row.push((0, x)),
+                box Identifier(x) => b_row.push((get_variable_idx(variables, &x), T::one())),
                 box e @ Add(..) => for (key, value) in count_variables_add(&e) {
                     b_row.push((get_variable_idx(variables, &key), value));
                 },
@@ -178,23 +178,23 @@ fn r1cs_expression<T: Field>(linear_expr: Expression<T>, expr: Expression<T>, va
         },
         Div(lhs, rhs) => { // a / b = c --> c * b = a
             match lhs {
-                box NumberLiteral(x) => c_row.push((0, x)),
-                box VariableReference(x) => c_row.push((get_variable_idx(variables, &x), T::one())),
+                box Number(x) => c_row.push((0, x)),
+                box Identifier(x) => c_row.push((get_variable_idx(variables, &x), T::one())),
                 box e @ Add(..) => for (key, value) in count_variables_add(&e) {
                     c_row.push((get_variable_idx(variables, &key), value));
                 },
                 box e @ Sub(..) => return r1cs_expression(Mult(box linear_expr, rhs), e, variables, a_row, b_row, c_row),
-                box Mult(box NumberLiteral(ref x1), box NumberLiteral(ref x2)) => c_row.push((0, x1.clone() * x2)),
-                box Mult(box NumberLiteral(ref x), box VariableReference(ref v)) |
-                box Mult(box VariableReference(ref v), box NumberLiteral(ref x)) => c_row.push((get_variable_idx(variables, v), x.clone())),
+                box Mult(box Number(ref x1), box Number(ref x2)) => c_row.push((0, x1.clone() * x2)),
+                box Mult(box Number(ref x), box Identifier(ref v)) |
+                box Mult(box Identifier(ref v), box Number(ref x)) => c_row.push((get_variable_idx(variables, v), x.clone())),
                 e @ _ => panic!("(lhs) not supported: {:?}", e),
             };
             match rhs {
-                box NumberLiteral(x) => b_row.push((0, x)),
-                box VariableReference(x) => b_row.push((get_variable_idx(variables, &x), T::one())),
-                box Mult(box NumberLiteral(ref x1), box NumberLiteral(ref x2)) => b_row.push((0, x1.clone() * x2)),
-                box Mult(box NumberLiteral(ref x), box VariableReference(ref v)) |
-                box Mult(box VariableReference(ref v), box NumberLiteral(ref x)) => b_row.push((get_variable_idx(variables, v), x.clone())),
+                box Number(x) => b_row.push((0, x)),
+                box Identifier(x) => b_row.push((get_variable_idx(variables, &x), T::one())),
+                box Mult(box Number(ref x1), box Number(ref x2)) => b_row.push((0, x1.clone() * x2)),
+                box Mult(box Number(ref x), box Identifier(ref v)) |
+                box Mult(box Identifier(ref v), box Number(ref x)) => b_row.push((get_variable_idx(variables, v), x.clone())),
                 e @ _ => panic!("(rhs) not supported: {:?}", e),
             };
             for (key, value) in count_variables_add(&linear_expr) {
@@ -203,14 +203,14 @@ fn r1cs_expression<T: Field>(linear_expr: Expression<T>, expr: Expression<T>, va
         },
         Pow(_, _) => panic!("Pow not flattened"),
         IfElse(_, _, _) => panic!("IfElse not flattened"),
-        VariableReference(var) => {
+        Identifier(var) => {
             a_row.push((get_variable_idx(variables, &var), T::one()));
             b_row.push((0, T::one()));
             for (key, value) in count_variables_add(&linear_expr) {
                 c_row.push((get_variable_idx(variables, &key), value));
             }
         },
-        NumberLiteral(x) => {
+        Number(x) => {
             a_row.push((0, x));
             b_row.push((0, T::one()));
             for (key, value) in count_variables_add(&linear_expr) {
@@ -255,8 +255,8 @@ pub fn r1cs_program<T: Field>(prog: &Prog<T>) -> (Vec<String>, Vec<Vec<(usize, T
         let mut b_row: Vec<(usize, T)> = Vec::new();
         let mut c_row: Vec<(usize, T)> = Vec::new();
         match *def {
-            Statement::Return(ref expr) => r1cs_expression(VariableReference("~out".to_string()), expr.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row),
-            Statement::Definition(ref id, ref expr) => r1cs_expression(VariableReference(id.to_string()), expr.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row),
+            Statement::Return(ref expr) => r1cs_expression(Identifier("~out".to_string()), expr.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row),
+            Statement::Definition(ref id, ref expr) => r1cs_expression(Identifier(id.to_string()), expr.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row),
             Statement::Condition(ref expr1, ref expr2) => r1cs_expression(expr1.clone(), expr2.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row),
             Statement::Compiler(..) => continue,
         }
@@ -290,8 +290,8 @@ mod tests {
         #[test]
         fn add() {
             // x = y + 5
-            let lhs = VariableReference(String::from("x"));
-            let rhs = Add(box VariableReference(String::from("y")), box NumberLiteral(FieldPrime::from(5)));
+            let lhs = Identifier(String::from("x"));
+            let rhs = Add(box Identifier(String::from("y")), box Number(FieldPrime::from(5)));
             let mut variables: Vec<String> = vec!["~one", "x", "y"].iter().map(|&x| String::from(x)).collect();
             let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut b_row: Vec<(usize, FieldPrime)> = Vec::new();
@@ -312,25 +312,25 @@ mod tests {
             // --> (x + y) + y + 4y + 2z + y == x + 2x + 4y + (z + 3x)
             // <=> x + 7*y + 2*z == 6*x + 4y + z
             let lhs = Sub(
-                box Add(box VariableReference(String::from("x")), box VariableReference(String::from("y"))),
+                box Add(box Identifier(String::from("x")), box Identifier(String::from("y"))),
                 box Sub(
                     box Add(
-                        box VariableReference(String::from("z")),
-                        box Mult(box NumberLiteral(FieldPrime::from(3)), box VariableReference(String::from("x")))
+                        box Identifier(String::from("z")),
+                        box Mult(box Number(FieldPrime::from(3)), box Identifier(String::from("x")))
                     ),
-                    box VariableReference(String::from("y"))
+                    box Identifier(String::from("y"))
                 )
             );
             let rhs = Add(
-                box Sub(box VariableReference(String::from("x")), box VariableReference(String::from("y"))),
+                box Sub(box Identifier(String::from("x")), box Identifier(String::from("y"))),
                 box Add(
                     box Sub(
-                        box Mult(box NumberLiteral(FieldPrime::from(2)), box VariableReference(String::from("x"))),
-                        box Mult(box NumberLiteral(FieldPrime::from(4)), box VariableReference(String::from("y")))
+                        box Mult(box Number(FieldPrime::from(2)), box Identifier(String::from("x"))),
+                        box Mult(box Number(FieldPrime::from(4)), box Identifier(String::from("y")))
                     ),
                     box Sub(
-                        box Mult(box NumberLiteral(FieldPrime::from(4)), box VariableReference(String::from("y"))),
-                        box Mult(box NumberLiteral(FieldPrime::from(2)), box VariableReference(String::from("z")))
+                        box Mult(box Number(FieldPrime::from(4)), box Identifier(String::from("y"))),
+                        box Mult(box Number(FieldPrime::from(2)), box Identifier(String::from("z")))
                     )
                 )
             );
@@ -352,12 +352,12 @@ mod tests {
         fn sub() {
             // 7 * x + y == 3 * y - z * 6
             let lhs = Add(
-                box Mult(box NumberLiteral(FieldPrime::from(7)), box VariableReference(String::from("x"))),
-                box VariableReference(String::from("y"))
+                box Mult(box Number(FieldPrime::from(7)), box Identifier(String::from("x"))),
+                box Identifier(String::from("y"))
             );
             let rhs = Sub(
-                box Mult(box NumberLiteral(FieldPrime::from(3)), box VariableReference(String::from("y"))),
-                box Mult(box VariableReference(String::from("z")), box NumberLiteral(FieldPrime::from(6)))
+                box Mult(box Number(FieldPrime::from(3)), box Identifier(String::from("y"))),
+                box Mult(box Identifier(String::from("z")), box Number(FieldPrime::from(6)))
             );
             let mut variables: Vec<String> = vec!["~one", "x", "y", "z"].iter().map(|&x| String::from(x)).collect();
             let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
@@ -379,14 +379,14 @@ mod tests {
             // --> 3*y + x == a + 12*x + 2*z
             let lhs = Sub(
                 box Sub(
-                    box Mult(box NumberLiteral(FieldPrime::from(3)), box VariableReference(String::from("y"))),
-                    box Mult(box VariableReference(String::from("z")), box NumberLiteral(FieldPrime::from(2)))
+                    box Mult(box Number(FieldPrime::from(3)), box Identifier(String::from("y"))),
+                    box Mult(box Identifier(String::from("z")), box Number(FieldPrime::from(2)))
                 ),
-                box Mult(box VariableReference(String::from("x")), box NumberLiteral(FieldPrime::from(12)))
+                box Mult(box Identifier(String::from("x")), box Number(FieldPrime::from(12)))
             );
             let rhs = Sub(
-                box VariableReference(String::from("a")),
-                box VariableReference(String::from("x"))
+                box Identifier(String::from("a")),
+                box Identifier(String::from("x"))
             );
             let mut variables: Vec<String> = vec!["~one", "x", "y", "z", "a"].iter().map(|&x| String::from(x)).collect();
             let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
@@ -407,22 +407,22 @@ mod tests {
             // 4 * b + 3 * a + 3 * c == (3 * a + 6 * b + 4 * c) * (31 * a + 4 * c)
             let lhs = Add(
                 box Add(
-                    box Mult(box NumberLiteral(FieldPrime::from(4)), box VariableReference(String::from("b"))),
-                    box Mult(box NumberLiteral(FieldPrime::from(3)), box VariableReference(String::from("a")))
+                    box Mult(box Number(FieldPrime::from(4)), box Identifier(String::from("b"))),
+                    box Mult(box Number(FieldPrime::from(3)), box Identifier(String::from("a")))
                 ),
-                box Mult(box NumberLiteral(FieldPrime::from(3)), box VariableReference(String::from("c")))
+                box Mult(box Number(FieldPrime::from(3)), box Identifier(String::from("c")))
             );
             let rhs = Mult(
                 box Add(
                     box Add(
-                        box Mult(box NumberLiteral(FieldPrime::from(3)), box VariableReference(String::from("a"))),
-                        box Mult(box NumberLiteral(FieldPrime::from(6)), box VariableReference(String::from("b")))
+                        box Mult(box Number(FieldPrime::from(3)), box Identifier(String::from("a"))),
+                        box Mult(box Number(FieldPrime::from(6)), box Identifier(String::from("b")))
                     ),
-                    box Mult(box NumberLiteral(FieldPrime::from(4)), box VariableReference(String::from("c")))
+                    box Mult(box Number(FieldPrime::from(4)), box Identifier(String::from("c")))
                 ),
                 box Add(
-                    box Mult(box NumberLiteral(FieldPrime::from(31)), box VariableReference(String::from("a"))),
-                    box Mult(box NumberLiteral(FieldPrime::from(4)), box VariableReference(String::from("c")))
+                    box Mult(box Number(FieldPrime::from(31)), box Identifier(String::from("a"))),
+                    box Mult(box Number(FieldPrime::from(4)), box Identifier(String::from("c")))
                 )
             );
             let mut variables: Vec<String> = vec!["~one", "a", "b", "c"].iter().map(|&x| String::from(x)).collect();
@@ -442,10 +442,10 @@ mod tests {
         #[test]
         fn div() {
             // x = (3 * x) / (y * 6) --> x * (y * 6) = 3 * x
-            let lhs = VariableReference(String::from("x"));
+            let lhs = Identifier(String::from("x"));
             let rhs = Div(
-                box Mult(box NumberLiteral(FieldPrime::from(3)), box VariableReference(String::from("x"))),
-                box Mult(box VariableReference(String::from("y")), box NumberLiteral(FieldPrime::from(6)))
+                box Mult(box Number(FieldPrime::from(3)), box Identifier(String::from("x"))),
+                box Mult(box Identifier(String::from("y")), box Number(FieldPrime::from(6)))
             );
             let mut variables: Vec<String> = vec!["~one", "x", "y"].iter().map(|&x| String::from(x)).collect();
             let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
@@ -477,19 +477,19 @@ mod tests {
 // fn count_variables_add<T: Field>(expr: &Expression<T>) -> HashMap<String, T> {
 //     let mut count = HashMap::new();
 //     match expr.clone() {
-//         NumberLiteral(x) => { count.insert("~one".to_string(), x); },
-//         VariableReference(var) => { count.insert(var, T::one()); },
-//         Mult(box NumberLiteral(x1), box NumberLiteral(x2)) => { count.insert("~one".to_string(), x1 * x2); },
-//         Mult(box NumberLiteral(x), box VariableReference(var)) |
-//         Mult(box VariableReference(var), box NumberLiteral(x)) => { count.insert(var, x); },
+//         Number(x) => { count.insert("~one".to_string(), x); },
+//         Identifier(var) => { count.insert(var, T::one()); },
+//         Mult(box Number(x1), box Number(x2)) => { count.insert("~one".to_string(), x1 * x2); },
+//         Mult(box Number(x), box Identifier(var)) |
+//         Mult(box Identifier(var), box Number(x)) => { count.insert(var, x); },
 //         Add(box lhs, box rhs) => {
 //             match (lhs, rhs) {
-//                 (NumberLiteral(x), NumberLiteral(y)) => {
+//                 (Number(x), Number(y)) => {
 //                     let num = count.entry("~one".to_string()).or_insert(T::zero());
 //                     *num = num.clone() + x + y;
 //                 },
-//                 (VariableReference(v), NumberLiteral(x)) |
-//                 (NumberLiteral(x), VariableReference(v)) => {
+//                 (Identifier(v), Number(x)) |
+//                 (Number(x), Identifier(v)) => {
 //                     {
 //                         let num = count.entry("~one".to_string()).or_insert(T::zero());
 //                         *num = num.clone() + x;
@@ -497,7 +497,7 @@ mod tests {
 //                     let var = count.entry(v).or_insert(T::zero());
 //                     *var = var.clone() + T::one();
 //                 },
-//                 (VariableReference(v1), VariableReference(v2)) => {
+//                 (Identifier(v1), Identifier(v2)) => {
 //                     {
 //                         let var1 = count.entry(v1).or_insert(T::zero());
 //                         *var1 = var1.clone() + T::one();
@@ -505,8 +505,8 @@ mod tests {
 //                     let var2 = count.entry(v2).or_insert(T::zero());
 //                     *var2 = var2.clone() + T::one();
 //                 },
-//                 (NumberLiteral(x), e @ Add(..)) |
-//                 (e @ Add(..), NumberLiteral(x)) => {
+//                 (Number(x), e @ Add(..)) |
+//                 (e @ Add(..), Number(x)) => {
 //                     {
 //                         let num = count.entry("~one".to_string()).or_insert(T::zero());
 //                         *num = num.clone() + x;
@@ -517,8 +517,8 @@ mod tests {
 //                         *val = val.clone() + value;
 //                     }
 //                 },
-//                 (VariableReference(v), e @ Add(..)) |
-//                 (e @ Add(..), VariableReference(v)) => {
+//                 (Identifier(v), e @ Add(..)) |
+//                 (e @ Add(..), Identifier(v)) => {
 //                     {
 //                         let var = count.entry(v).or_insert(T::zero());
 //                         *var = var.clone() + T::one();
@@ -529,10 +529,10 @@ mod tests {
 //                         *val = val.clone() + value;
 //                     }
 //                 },
-//                 (NumberLiteral(x), Mult(box NumberLiteral(n), box VariableReference(v))) |
-//                 (NumberLiteral(x), Mult(box VariableReference(v), box NumberLiteral(n))) |
-//                 (Mult(box NumberLiteral(n), box VariableReference(v)), NumberLiteral(x)) |
-//                 (Mult(box VariableReference(v), box NumberLiteral(n)), NumberLiteral(x)) => {
+//                 (Number(x), Mult(box Number(n), box Identifier(v))) |
+//                 (Number(x), Mult(box Identifier(v), box Number(n))) |
+//                 (Mult(box Number(n), box Identifier(v)), Number(x)) |
+//                 (Mult(box Identifier(v), box Number(n)), Number(x)) => {
 //                     {
 //                         let num = count.entry("~one".to_string()).or_insert(T::zero());
 //                         *num = num.clone() + x;
@@ -540,10 +540,10 @@ mod tests {
 //                     let var = count.entry(v).or_insert(T::zero());
 //                     *var = var.clone() + n;
 //                 },
-//                 (VariableReference(v1), Mult(box NumberLiteral(n), box VariableReference(v2))) |
-//                 (VariableReference(v1), Mult(box VariableReference(v2), box NumberLiteral(n))) |
-//                 (Mult(box NumberLiteral(n), box VariableReference(v2)), VariableReference(v1)) |
-//                 (Mult(box VariableReference(v2), box NumberLiteral(n)), VariableReference(v1)) => {
+//                 (Identifier(v1), Mult(box Number(n), box Identifier(v2))) |
+//                 (Identifier(v1), Mult(box Identifier(v2), box Number(n))) |
+//                 (Mult(box Number(n), box Identifier(v2)), Identifier(v1)) |
+//                 (Mult(box Identifier(v2), box Number(n)), Identifier(v1)) => {
 //                     {
 //                         let var = count.entry(v1).or_insert(T::zero());
 //                         *var = var.clone() + T::one();
@@ -551,10 +551,10 @@ mod tests {
 //                     let var = count.entry(v2).or_insert(T::zero());
 //                     *var = var.clone() + n;
 //                 },
-//                 (e @ Add(..), Mult(box NumberLiteral(n), box VariableReference(v))) |
-//                 (e @ Add(..), Mult(box VariableReference(v), box NumberLiteral(n))) |
-//                 (Mult(box NumberLiteral(n), box VariableReference(v)), e @ Add(..)) |
-//                 (Mult(box VariableReference(v), box NumberLiteral(n)), e @ Add(..)) => {
+//                 (e @ Add(..), Mult(box Number(n), box Identifier(v))) |
+//                 (e @ Add(..), Mult(box Identifier(v), box Number(n))) |
+//                 (Mult(box Number(n), box Identifier(v)), e @ Add(..)) |
+//                 (Mult(box Identifier(v), box Number(n)), e @ Add(..)) => {
 //                     {
 //                         let var = count.entry(v).or_insert(T::zero());
 //                         *var = var.clone() + n;
@@ -565,10 +565,10 @@ mod tests {
 //                         *val = val.clone() + value;
 //                     }
 //                 },
-//                 (Mult(box NumberLiteral(n1), box VariableReference(v1)), Mult(box NumberLiteral(n2), box VariableReference(v2))) |
-//                 (Mult(box VariableReference(v1), box NumberLiteral(n1)), Mult(box NumberLiteral(n2), box VariableReference(v2))) |
-//                 (Mult(box NumberLiteral(n1), box VariableReference(v1)), Mult(box VariableReference(v2), box NumberLiteral(n2))) |
-//                 (Mult(box VariableReference(v1), box NumberLiteral(n1)), Mult(box VariableReference(v2), box NumberLiteral(n2))) => {
+//                 (Mult(box Number(n1), box Identifier(v1)), Mult(box Number(n2), box Identifier(v2))) |
+//                 (Mult(box Identifier(v1), box Number(n1)), Mult(box Number(n2), box Identifier(v2))) |
+//                 (Mult(box Number(n1), box Identifier(v1)), Mult(box Identifier(v2), box Number(n2))) |
+//                 (Mult(box Identifier(v1), box Number(n1)), Mult(box Identifier(v2), box Number(n2))) => {
 //                     {
 //                         let var = count.entry(v1).or_insert(T::zero());
 //                         *var = var.clone() + n1;
@@ -608,22 +608,22 @@ mod tests {
 //     // assert that Mult on lhs or rhs is linear!
 //     match (lhs.clone(), rhs.clone()) {
 //         // recursion end
-//         (v1 @ NumberLiteral(_), v2 @ NumberLiteral(_)) |
-//         (v1 @ VariableReference(_), v2 @ NumberLiteral(_)) |
-//         (v1 @ NumberLiteral(_), v2 @ VariableReference(_)) |
-//         (v1 @ VariableReference(_), v2 @ VariableReference(_)) |
-//         (v1 @ VariableReference(_), v2 @ Mult(..)) |
-//         (v1 @ Mult(..), v2 @ VariableReference(_)) |
-//         (v1 @ NumberLiteral(_), v2 @ Mult(..)) |
-//         (v1 @ Mult(..), v2 @ NumberLiteral(_)) |
+//         (v1 @ Number(_), v2 @ Number(_)) |
+//         (v1 @ Identifier(_), v2 @ Number(_)) |
+//         (v1 @ Number(_), v2 @ Identifier(_)) |
+//         (v1 @ Identifier(_), v2 @ Identifier(_)) |
+//         (v1 @ Identifier(_), v2 @ Mult(..)) |
+//         (v1 @ Mult(..), v2 @ Identifier(_)) |
+//         (v1 @ Number(_), v2 @ Mult(..)) |
+//         (v1 @ Mult(..), v2 @ Number(_)) |
 //         (v1 @ Mult(..), v2 @ Mult(..)) => {
 //             assert!(v1.is_linear());
 //             assert!(v2.is_linear());
 //             (v1, v2)
 //         },
 //         // Num/Var/Mult = Add
-//         (v @ NumberLiteral(_), Add(left, right)) |
-//         (v @ VariableReference(_), Add(left, right)) |
+//         (v @ Number(_), Add(left, right)) |
+//         (v @ Identifier(_), Add(left, right)) |
 //         (v @ Mult(..), Add(left, right)) => {
 //             assert!(v.is_linear());
 //             let (l1, r1) = swap_sub(&v, &left);
@@ -631,8 +631,8 @@ mod tests {
 //             (l2, Add(box r1, box r2))
 //         },
 //         // Add = Num/Var/Mult
-//         (Add(left, right), v @ NumberLiteral(_)) |
-//         (Add(left, right), v @ VariableReference(_)) |
+//         (Add(left, right), v @ Number(_)) |
+//         (Add(left, right), v @ Identifier(_)) |
 //         (Add(left, right), v @ Mult(..)) => { // v = left + right
 //             assert!(v.is_linear());
 //             let (l1, r1) = swap_sub(&left, &v);
@@ -640,16 +640,16 @@ mod tests {
 //             (Add(box l1, box l2), r2)
 //         },
 //         // Sub = Var/Num/Mult
-//         (Sub(box left, box right), v @ VariableReference(_)) |
-//         (Sub(box left, box right), v @ NumberLiteral(_)) |
+//         (Sub(box left, box right), v @ Identifier(_)) |
+//         (Sub(box left, box right), v @ Number(_)) |
 //         (Sub(box left, box right), v @ Mult(..)) => {
 //             assert!(v.is_linear());
 //             let (l, r) = swap_sub(&left, &right);
 //             (l, Add(box v, box r))
 //         },
 //         // Var/Num/Mult = Sub
-//         (v @ VariableReference(_), Sub(box left, box right)) |
-//         (v @ NumberLiteral(_), Sub(box left, box right)) |
+//         (v @ Identifier(_), Sub(box left, box right)) |
+//         (v @ Number(_), Sub(box left, box right)) |
 //         (v @ Mult(..), Sub(box left, box right)) => {
 //             assert!(v.is_linear());
 //             let (l, r) = swap_sub(&left, &right);

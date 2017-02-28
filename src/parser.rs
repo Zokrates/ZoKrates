@@ -293,7 +293,7 @@ fn parse_factor1<T: Field>(expr: Expression<T>, input: String, pos: Position) ->
         Ok((e1, s1, p1)) => match parse_expr1(e1, s1, p1) {
             Ok((e2, s2, p2)) => match next_token::<T>(&s2, &p2) {
                 (Token::Pow, s3, p3) => match next_token(&s3, &p3) {
-                    (Token::Num(x), s4, p4) => Ok((Expression::Pow(box e2, box Expression::NumberLiteral(x)), s4, p4)),
+                    (Token::Num(x), s4, p4) => Ok((Expression::Pow(box e2, box Expression::Number(x)), s4, p4)),
                     (t4, _, p4) => Err(Error { expected: vec![Token::ErrNum], got: t4 , pos: p4 }),
                 },
                 _ => Ok((expr, input, pos)),
@@ -314,8 +314,8 @@ fn parse_factor<T: Field>(input: &String, pos: &Position) -> Result<(Expression<
             },
             Err(err) => Err(err),
         },
-        (Token::Ide(x), s1, p1) => parse_factor1(Expression::VariableReference(x), s1, p1),
-        (Token::Num(x), s1, p1) => parse_factor1(Expression::NumberLiteral(x), s1, p1),
+        (Token::Ide(x), s1, p1) => parse_factor1(Expression::Identifier(x), s1, p1),
+        (Token::Num(x), s1, p1) => parse_factor1(Expression::Number(x), s1, p1),
         (t1, _, p1) => Err(Error { expected: vec![Token::If, Token::Open, Token::ErrIde, Token::ErrNum], got: t1 , pos: p1 }),
     }
 }
@@ -361,7 +361,7 @@ fn parse_expr1<T: Field>(expr: Expression<T>, input: String, pos: Position) -> R
         },
         (Token::Pow, s1, p1) => {
             match parse_num(&s1, &p1) {
-                (Token::Num(x), s2, p2) => match parse_term1(Expression::Pow(box expr, box Expression::NumberLiteral(x)), s2, p2) {
+                (Token::Num(x), s2, p2) => match parse_term1(Expression::Pow(box expr, box Expression::Number(x)), s2, p2) {
                     Ok((e3, s3, p3)) => parse_expr1(e3, s3, p3),
                     Err(err) => Err(err),
                 },
@@ -386,13 +386,13 @@ fn parse_expr<T: Field>(input: &String, pos: &Position) -> Result<(Expression<T>
             Err(err) => Err(err),
         },
         (Token::Ide(x), s1, p1) => {
-            match parse_term1(Expression::VariableReference(x), s1, p1) {
+            match parse_term1(Expression::Identifier(x), s1, p1) {
                 Ok((e2, s2, p2)) => parse_expr1(e2, s2, p2),
                 Err(err) => Err(err),
             }
         }
         (Token::Num(x), s1, p1) => {
-            match parse_term1(Expression::NumberLiteral(x), s1, p1) {
+            match parse_term1(Expression::Number(x), s1, p1) {
                 Ok((e2, s2, p2)) => parse_expr1(e2, s2, p2),
                 Err(err) => Err(err),
             }
@@ -413,7 +413,7 @@ fn parse_statement1<T: Field>(ide: String, input: String, pos: Position) -> Resu
             },
             Err(err) => Err(err),
         },
-        _ => match parse_term1(Expression::VariableReference(ide), input, pos) {
+        _ => match parse_term1(Expression::Identifier(ide), input, pos) {
             Ok((e2, s2, p2)) => match parse_expr1(e2, s2, p2) {
                 Ok((e3, s3, p3)) => match next_token(&s3, &p3) {
                     (Token::Eqeq, s4, p4) => match parse_expr(&s4, &p4) {
@@ -641,9 +641,9 @@ mod tests {
         let pos = Position { line: 45, col: 121 };
         let string = String::from("if a < b then c else d fi");
         let expr = Expression::IfElse::<FieldPrime>(
-            box Condition::Lt(Expression::VariableReference(String::from("a")), Expression::VariableReference(String::from("b"))),
-            box Expression::VariableReference(String::from("c")),
-            box Expression::VariableReference(String::from("d"))
+            box Condition::Lt(Expression::Identifier(String::from("a")), Expression::Identifier(String::from("b"))),
+            box Expression::Identifier(String::from("c")),
+            box Expression::Identifier(String::from("d"))
         );
         assert_eq!(
             Ok((expr, String::from(""), pos.col(string.len() as isize))),
@@ -661,9 +661,9 @@ mod tests {
             let pos = Position { line: 45, col: 121 };
             let string = String::from("if a < b then c else d fi");
             let expr = Expression::IfElse::<FieldPrime>(
-                box Condition::Lt(Expression::VariableReference(String::from("a")), Expression::VariableReference(String::from("b"))),
-                box Expression::VariableReference(String::from("c")),
-                box Expression::VariableReference(String::from("d"))
+                box Condition::Lt(Expression::Identifier(String::from("a")), Expression::Identifier(String::from("b"))),
+                box Expression::Identifier(String::from("c")),
+                box Expression::Identifier(String::from("d"))
             );
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
@@ -675,8 +675,8 @@ mod tests {
             let pos = Position { line: 45, col: 121 };
             let string = String::from("(5 + a * 6)");
             let expr = Expression::Add(
-                box Expression::NumberLiteral(FieldPrime::from(5)),
-                box Expression::Mult(box Expression::VariableReference(String::from("a")), box Expression::NumberLiteral(FieldPrime::from(6)))
+                box Expression::Number(FieldPrime::from(5)),
+                box Expression::Mult(box Expression::Identifier(String::from("a")), box Expression::Number(FieldPrime::from(6)))
             );
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
@@ -687,7 +687,7 @@ mod tests {
         fn ide() {
             let pos = Position { line: 45, col: 121 };
             let string = String::from("a");
-            let expr = Expression::VariableReference::<FieldPrime>(String::from("a"));
+            let expr = Expression::Identifier::<FieldPrime>(String::from("a"));
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
                 parse_factor(&string, &pos)
@@ -697,7 +697,7 @@ mod tests {
         fn num() {
             let pos = Position { line: 45, col: 121 };
             let string = String::from("234");
-            let expr = Expression::NumberLiteral(FieldPrime::from(234));
+            let expr = Expression::Number(FieldPrime::from(234));
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
                 parse_factor(&string, &pos)
