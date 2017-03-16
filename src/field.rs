@@ -4,7 +4,7 @@
 // @date 2017
 
 use num::{Integer, Zero, One};
-use num::bigint::{BigInt, ToBigInt};
+use num::bigint::{BigInt, ToBigInt, Sign};
 use std::convert::From;
 use std::ops::{Add, Sub, Mul, Div};
 use std::fmt;
@@ -29,6 +29,8 @@ pub trait Field : From<i32> + From<u32> + From<usize> + for<'a> From<&'a str>
 {
     /// Returns a byte slice of this `Field`'s contents in decimal `String` representation.
     fn into_dec_bytes(&self) -> Vec<u8>;
+    /// Returns this `Field`'s contents as big-endian byte vector
+    fn into_byte_vector(&self) -> Vec<u8>;
     /// Returns the multiplicative inverse, i.e.: self * self.inverse_mul() = Self::one()
     fn inverse_mul(&self) -> Self;
     /// Returns the smallest value that can be represented by this field type.
@@ -49,6 +51,13 @@ impl Field for FieldPrime {
     fn into_dec_bytes(&self) -> Vec<u8> {
         self.value.to_str_radix(10).to_string().into_bytes()
     }
+
+    fn into_byte_vector(&self) -> Vec<u8> {
+        let (sign, val) = self.value.to_bytes_be();
+        assert!(sign!=Sign::Minus);
+        val
+    }
+
     fn inverse_mul(&self) -> FieldPrime {
         let (b, s, _) = extended_euclid(&self.value, &*P);
         assert_eq!(b, BigInt::one());

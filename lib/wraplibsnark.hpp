@@ -10,10 +10,10 @@ extern "C" {
 
 #include <stdbool.h>
 
-bool _run_libsnark(const int* A,
-                  const int* B,
-                  const int* C,
-                  const int* witness,
+bool _run_libsnark(const char* A,
+                  const char* B,
+                  const char* C,
+                  const char* witness,
                   int constraints,
                   int variables);
 

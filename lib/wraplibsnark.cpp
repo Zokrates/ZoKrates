@@ -14,27 +14,27 @@
 using namespace std;
 using namespace libsnark;
 
-bool _run_libsnark(const int* A, const int* B, const int* C, const int* witness, int constraints, int variables){
+bool _run_libsnark(const char* A, const char* B, const char* C, const char* witness, int constraints, int variables){
   r1cs_constraint_system<Fr<default_r1cs_ppzksnark_pp> > cs;
   cs.primary_input_size = variables - 1;
   cs.auxiliary_input_size = 0;
 
   cout << endl << "run_libsnark" << endl;
   for (int row = 0; row < constraints; row++) {
-    // cout << "row " << row << endl;
+    cout << "row " << row << endl;
     linear_combination<Fr<default_r1cs_ppzksnark_pp> > lin_comb_A, lin_comb_B, lin_comb_C;
     for (int idx = 0; idx < variables; idx++) {
       // using (constraints + 2) because of the representation of Rust's Vec<_>
       if (A[row * (constraints + 2) + idx] != 0) {
-        // cout << "A(" << idx << ", " << A[row * (constraints + 2) + idx] << ")" << endl;
+        cout << "A(" << idx << ", " << A[row * (constraints + 2) + idx] << ")" << endl;
         lin_comb_A.add_term(idx, A[row * (constraints + 2) + idx]);
       }
       if (B[row * (constraints + 2) + idx] != 0) {
-        // cout << "B(" << idx << ", " << B[row * (constraints + 2) + idx] << ")" << endl;
+        cout << "B(" << idx << ", " << B[row * (constraints + 2) + idx] << ")" << endl;
         lin_comb_B.add_term(idx, B[row * (constraints + 2) + idx]);
       }
       if (C[row * (constraints + 2) + idx] != 0) {
-        // cout << "C(" << idx << ", " << C[row * (constraints + 2) + idx] << ")" << endl;
+        cout << "C(" << idx << ", " << C[row * (constraints + 2) + idx] << ")" << endl;
         lin_comb_C.add_term(idx, C[row * (constraints + 2) + idx]);
       }
     }
