@@ -4,7 +4,7 @@
 // @date 2017
 
 use num::{Integer, Zero, One};
-use num::bigint::{BigInt, ToBigInt, Sign};
+use num::bigint::{BigInt, ToBigInt};
 use std::convert::From;
 use std::ops::{Add, Sub, Mul, Div};
 use std::fmt;
@@ -29,7 +29,7 @@ pub trait Field : From<i32> + From<u32> + From<usize> + for<'a> From<&'a str>
 {
     /// Returns a byte slice of this `Field`'s contents in decimal `String` representation.
     fn into_dec_bytes(&self) -> Vec<u8>;
-    /// Returns this `Field`'s contents as big-endian byte vector
+    /// Returns this `Field`'s contents as little-endian byte vector
     fn into_byte_vector(&self) -> Vec<u8>;
     /// Returns the multiplicative inverse, i.e.: self * self.inverse_mul() = Self::one()
     fn inverse_mul(&self) -> Self;
@@ -53,9 +53,15 @@ impl Field for FieldPrime {
     }
 
     fn into_byte_vector(&self) -> Vec<u8> {
-        let (sign, val) = self.value.to_bytes_be();
-        assert!(sign!=Sign::Minus);
-        val
+        ////for debugging
+        //println!("uint dec: {}\n",self.value.to_biguint().unwrap().to_str_radix(10));
+        //println!("uint bin: {}\n",self.value.to_biguint().unwrap().to_str_radix(2));
+        //println!("uint bin length: {}\n",self.value.to_biguint().unwrap().to_str_radix(2).len());
+
+        match self.value.to_biguint() {
+            Option::Some(val) => val.to_bytes_le(),
+            Option::None => panic!("Should never happen."),
+        }
     }
 
     fn inverse_mul(&self) -> FieldPrime {

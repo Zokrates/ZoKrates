@@ -9,11 +9,12 @@ extern "C" {
 #endif
 
 #include <stdbool.h>
+#include <stdint.h>
 
-bool _run_libsnark(const char* A,
-                  const char* B,
-                  const char* C,
-                  const char* witness,
+bool _run_libsnark(const uint8_t* A,
+                  const uint8_t* B,
+                  const uint8_t* C,
+                  const uint8_t* witness,
                   int constraints,
                   int variables);
 
