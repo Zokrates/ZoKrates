@@ -24,7 +24,7 @@
 // libsnark/zk_proof_systems/ppzksnark/r1cs_ppzksnark/examples/run_r1cs_ppzksnark.tcc
 
 // Interfaces for R1CS
-// libsnark /relations/constraint_satisfaction_problems/r1cs/r1cs.hpp
+// libsnark/relations/constraint_satisfaction_problems/r1cs/r1cs.hpp
 
 using namespace std;
 using namespace libsnark;
@@ -120,33 +120,32 @@ bool _run_libsnark(const uint8_t* A, const uint8_t* B, const uint8_t* C, const u
 																full_variable_assignment.push_back(witness[i]);
 								}
 
-								// //split up variables into primary and auxiliary inputs
-								// // TODO: Check whether this is consistent with inputs from VerifiableStatementCompiler
-								// r1cs_primary_input<Fr<alt_bn128_pp> > primary_input(full_variable_assignment.begin(), full_variable_assignment.begin() + variables - 1);
-								// r1cs_primary_input<Fr<alt_bn128_pp> > auxiliary_input(full_variable_assignment.begin() + variables - 1, full_variable_assignment.end());
-								//
-								// // sanity checks
-								// assert(cs.num_variables() == full_variable_assignment.size());
-								// assert(cs.num_variables() >= variables - 1);
-								// assert(cs.num_inputs() == variables - 1);
-								// assert(cs.num_constraints() == constraints);
-								// assert(cs.is_satisfied(primary_input, auxiliary_input));
-								//
-								// //initialize curve parameters
-								// alt_bn128_pp::init_public_params();
-								//
-								// // create keypair
-								// r1cs_ppzksnark_keypair<alt_bn128_pp> keypair = r1cs_ppzksnark_generator<alt_bn128_pp>(cs);
-								//
-								// // Print VerificationKey
-								// printVerificationKey(keypair);
-								//
-								// // Proof Generation
-								// r1cs_ppzksnark_proof<alt_bn128_pp> proof = r1cs_ppzksnark_prover<alt_bn128_pp>(keypair.pk, primary_input, auxiliary_input);
-								//
-								// // Verification
-								// bool result = r1cs_ppzksnark_verifier_strong_IC<alt_bn128_pp>(keypair.vk, primary_input, proof);
-								//
-								// return result;
-								return true;
+								//split up variables into primary and auxiliary inputs
+								// TODO: Check whether this is consistent with inputs from VerifiableStatementCompiler
+								r1cs_primary_input<Fr<alt_bn128_pp> > primary_input(full_variable_assignment.begin(), full_variable_assignment.begin() + variables - 1);
+								r1cs_primary_input<Fr<alt_bn128_pp> > auxiliary_input(full_variable_assignment.begin() + variables - 1, full_variable_assignment.end());
+
+								// sanity checks
+								assert(cs.num_variables() == full_variable_assignment.size());
+								assert(cs.num_variables() >= variables - 1);
+								assert(cs.num_inputs() == variables - 1);
+								assert(cs.num_constraints() == constraints);
+								assert(cs.is_satisfied(primary_input, auxiliary_input));
+
+								//initialize curve parameters
+								alt_bn128_pp::init_public_params();
+
+								// create keypair
+								r1cs_ppzksnark_keypair<alt_bn128_pp> keypair = r1cs_ppzksnark_generator<alt_bn128_pp>(cs);
+
+								// Print VerificationKey
+								printVerificationKey(keypair);
+
+								// Proof Generation
+								r1cs_ppzksnark_proof<alt_bn128_pp> proof = r1cs_ppzksnark_prover<alt_bn128_pp>(keypair.pk, primary_input, auxiliary_input);
+
+								// Verification
+								bool result = r1cs_ppzksnark_verifier_strong_IC<alt_bn128_pp>(keypair.vk, primary_input, proof);
+
+								return result;
 }
