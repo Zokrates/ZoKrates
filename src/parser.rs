@@ -55,7 +55,7 @@
 //
 
 use std::fmt;
-use std::io::BufReader;
+use std::io::{BufReader, Lines};
 use std::io::prelude::*;
 use std::fs::File;
 use field::Field;
@@ -106,6 +106,7 @@ enum Token<T: Field> {
     Open, Close, Comma, Colon, Hash,
     Eq, Return,
     If, Then, Else, Fi,
+    For, In, Dotdot, Do, Endfor,
     Lt, Le, Eqeq, Ge, Gt,
     Add, Sub, Mult, Div, Pow,
     Ide(String),
@@ -128,6 +129,11 @@ impl<T: Field> fmt::Display for Token<T> {
             Token::Then => write!(f, "then"),
             Token::Else => write!(f, "else"),
             Token::Fi => write!(f, "fi"),
+            Token::For => write!(f, "for"),
+            Token::In => write!(f, "in"),
+            Token::Dotdot => write!(f, ".."),
+            Token::Do => write!(f, "do"),
+            Token::Endfor => write!(f, "endfor"),
             Token::Lt => write!(f, "<"),
             Token::Le => write!(f, "<="),
             Token::Eqeq => write!(f, "=="),
@@ -228,6 +234,11 @@ fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Po
         Some(_) if input[offset..].starts_with("then ") => (Token::Then, input[offset + 5..].to_string(), Position { line: pos.line, col: pos.col + offset + 5 }),
         Some(_) if input[offset..].starts_with("else ") => (Token::Else, input[offset + 5..].to_string(), Position { line: pos.line, col: pos.col + offset + 5 }),
         Some(_) if input[offset..].starts_with("fi ") || input[offset..].to_string() == "fi" => (Token::Fi, input[offset + 2..].to_string(), Position { line: pos.line, col: pos.col + offset + 2 }),
+        Some(_) if input[offset..].starts_with("for ") => (Token::For, input[offset + 4..].to_string(), Position { line: pos.line, col: pos.col + offset + 4 }),
+        Some(_) if input[offset..].starts_with("in ") => (Token::In, input[offset + 3..].to_string(), Position { line: pos.line, col: pos.col + offset + 3 }),
+        Some(_) if input[offset..].starts_with("..") => (Token::Dotdot, input[offset + 2..].to_string(), Position { line: pos.line, col: pos.col + offset + 2 }),
+        Some(_) if input[offset..].starts_with("do ") || input[offset..].to_string() == "do" => (Token::Do, input[offset + 2..].to_string(), Position { line: pos.line, col: pos.col + offset + 2 }),
+        Some(_) if input[offset..].starts_with("endfor ") || input[offset..].to_string() == "endfor" => (Token::For, input[offset + 6..].to_string(), Position { line: pos.line, col: pos.col + offset + 6 }),
         Some(x) => match x {
             '0'...'9' => parse_num(&input[offset..].to_string(), &Position { line: pos.line, col: pos.col + offset }),
             'a'...'z' | 'A'...'Z' => parse_ide(&input[offset..].to_string(), &Position { line: pos.line, col: pos.col + offset }),
@@ -435,7 +446,7 @@ fn parse_statement1<T: Field>(ide: String, input: String, pos: Position) -> Resu
     }
 }
 
-fn parse_statement<T: Field>(input: &String, pos: &Position) -> Result<(Statement<T>, String, Position), Error<T>> {
+fn parse_statement<T: Field>(lines: &mut Lines<BufReader<File>>, input: &String, pos: &Position) -> Result<(Statement<T>, String, Position), Error<T>> {
     match next_token::<T>(input, pos) {
         (Token::Ide(x1), s1, p1) => parse_statement1(x1, s1, p1),
         (Token::If, ..) |
@@ -455,6 +466,62 @@ fn parse_statement<T: Field>(input: &String, pos: &Position) -> Result<(Statemen
                 (t3, _, p3) => Err(Error { expected: vec![Token::Eqeq], got: t3 , pos: p3 }),
             },
             Err(err) => Err(err),
+        },
+        (Token::For, s1, p1) => match parse_ide(&s1, &p1) {
+            (Token::Ide(x2), s2, p2) => match next_token(&s2, &p2) {
+                (Token::In, s3, p3) => match next_token(&s3, &p3) {
+                    (Token::Num(x4), s4, p4) => match next_token(&s4, &p4) {
+                        (Token::Dotdot, s5, p5) => match next_token(&s5, &p5) {
+                            (Token::Num(x6), s6, p6) => match next_token(&s6, &p6) {
+                                (Token::Do, s7, p7) => {
+                                    match next_token(&s7, &p7) {
+                                        (Token::Unknown(ref t8), ref s8, _) if t8 == "" => {
+                                            assert_eq!(s8, "");
+                                        },
+                                        (t8, _, p8) => return Err(Error { expected: vec![Token::Unknown("".to_string())], got: t8 , pos: p8 }),
+                                    }
+                                    let mut current_line = p7.line;
+                                    let mut statements = Vec::new();
+                                    loop {
+                                        current_line += 1;
+                                        match lines.next() {
+                                            Some(Ok(ref x)) if x.trim().starts_with("//") || x.trim() == "" => {}, // skip
+                                            Some(Ok(ref x)) if x.trim().starts_with("endfor") => {
+                                                let offset = skip_whitespaces(x);
+                                                let s8 = x[offset + 6..].to_string();
+                                                let p8 = Position{ line: current_line, col: offset + 7 };
+                                                match next_token(&s8, &p8) {
+                                                    (Token::Unknown(ref t9), ref s9, _) if t9 == "" => {
+                                                        assert_eq!(s9, "");
+                                                        return Ok((Statement::For(x2, x4, x6, statements), s8, p8))
+                                                    },
+                                                    (t9, _, p9) => return Err(Error { expected: vec![Token::Unknown("1432567iuhgvfc".to_string())], got: t9 , pos: p9 }),
+                                                }
+                                            },
+                                            Some(Ok(ref x)) if !x.trim().starts_with("return") => match parse_statement(lines, x, &Position { line: current_line, col: 1 }) {
+                                                Ok((statement, ..)) => statements.push(statement),
+                                                Err(err) => return Err(err),
+                                            },
+                                            Some(Err(err)) => panic!("Error while reading Definitions: {}", err),
+                                            Some(Ok(ref x)) => {
+                                                let (t, ..) = next_token(x, &Position{ line: current_line, col: 1 });
+                                                return Err(Error { expected: vec![Token::ErrIde, Token::ErrNum, Token::If, Token::Open, Token::Hash, Token::For, Token::Endfor], got: t , pos:  Position{ line: current_line, col: 1 } })
+                                            },
+                                            None => return Err(Error { expected: vec![Token::ErrIde, Token::ErrNum, Token::If, Token::Open, Token::Hash, Token::For], got: Token::Unknown("".to_string()) , pos:  Position{ line: current_line, col: 1 } }),
+                                        }
+                                    };
+                                },
+                                (t7, _, p7) => Err(Error { expected: vec![Token::Do], got: t7 , pos: p7 }),
+                            },
+                            (t6, _, p6) => Err(Error { expected: vec![Token::ErrNum], got: t6 , pos: p6 }),
+                        },
+                        (t5, _, p5) => Err(Error { expected: vec![Token::Dotdot], got: t5 , pos: p5 }),
+                    },
+                    (t4, _, p4) => Err(Error { expected: vec![Token::ErrNum], got: t4 , pos: p4 }),
+                },
+                (t3, _, p3) => Err(Error { expected: vec![Token::In], got: t3 , pos: p3 }),
+            },
+            (t2, _, p2) => Err(Error { expected: vec![Token::ErrIde], got: t2 , pos: p2 }),
         },
         (Token::Hash, s1, p1) => match parse_ide(&s1, &p1) {
             (Token::Ide(x2), s2, p2) => match next_token(&s2, &p2) {
@@ -547,7 +614,7 @@ pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
     loop {
         match lines.next() {
             Some(Ok(ref x)) if x.trim().starts_with("//") || x.trim() == "" => {}, // skip
-            Some(Ok(ref x)) => match parse_statement(x, &Position { line: current_line, col: 1 }) {
+            Some(Ok(ref x)) => match parse_statement(&mut lines, x, &Position { line: current_line, col: 1 }) {
                 Ok((statement @ Statement::Return(_), ..)) => {
                     if !got_return {
                         got_return = true;
