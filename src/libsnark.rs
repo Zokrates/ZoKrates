@@ -9,10 +9,6 @@ use self::libc::c_int;
 use self::libc::uint8_t;
 use field::Field;
 
-#[cfg(test)]
-use field::FieldPrime;
-use num::bigint::{BigUint};
-
 #[link(name = "snark")]
 #[link(name = "supercop")]
 #[link(name = "gmp")]
@@ -74,6 +70,8 @@ fn vec_as_u8_32_array(vec: &Vec<u8>) -> [u8;32]{
 #[cfg(test)]
 mod tests {
     use super::*;
+    use field::FieldPrime;
+    use num::bigint::{BigUint};
 
     #[cfg(test)]
     mod libsnark_integration {
