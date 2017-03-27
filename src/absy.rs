@@ -38,6 +38,7 @@ impl<T: Field> Prog<T> {
                     let s = expr.solve(&mut witness);
                     witness.insert(id.to_string(), s);
                 },
+                Statement::For(..) => unimplemented!(),
                 Statement::Condition(ref lhs, ref rhs) => assert_eq!(lhs.solve(&mut witness), rhs.solve(&mut witness)),
             }
         }
@@ -61,6 +62,7 @@ pub enum Statement<T: Field> {
     Return(Expression<T>),
     Definition(String, Expression<T>),
     Condition(Expression<T>, Expression<T>),
+    For(String, T, T, Vec<Statement<T>>),
     Compiler(String, Expression<T>),
 }
 
@@ -70,6 +72,13 @@ impl<T: Field> fmt::Display for Statement<T> {
             Statement::Return(ref expr) => write!(f, "return {}", expr),
             Statement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             Statement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            Statement::For(ref var, ref start, ref stop, ref list) => {
+                try!(write!(f, "for {} in {}..{} do\n", var, start, stop));
+                for l in list {
+                    try!(write!(f, "\t\t{}\n", l));
+                }
+                write!(f, "\tendfor")
+            },
             Statement::Compiler(ref lhs, ref rhs) => write!(f, "# {} = {}", lhs, rhs),
         }
     }
@@ -81,6 +90,13 @@ impl<T: Field> fmt::Debug for Statement<T> {
             Statement::Return(ref expr) => write!(f, "Return({:?})", expr),
             Statement::Definition(ref lhs, ref rhs) => write!(f, "Definition({:?}, {:?})", lhs, rhs),
             Statement::Condition(ref lhs, ref rhs) => write!(f, "Condition({:?}, {:?})", lhs, rhs),
+            Statement::For(ref var, ref start, ref stop, ref list) => {
+                try!(write!(f, "for {:?} in {:?}..{:?} do\n", var, start, stop));
+                for l in list {
+                    try!(write!(f, "\t\t{:?}\n", l));
+                }
+                write!(f, "\tendfor")
+            },
             Statement::Compiler(ref lhs, ref rhs) => write!(f, "Compiler({:?}, {:?})", lhs, rhs),
         }
     }

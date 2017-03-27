@@ -27,8 +27,6 @@ pub trait Field : From<i32> + From<u32> + From<usize> + for<'a> From<&'a str>
                 + Div<Self, Output=Self> + for<'a> Div<&'a Self, Output=Self>
                 + Pow<usize, Output=Self> + Pow<Self, Output=Self> + for<'a> Pow<&'a Self, Output=Self>
 {
-    /// Returns a byte slice of this `Field`'s contents in decimal `String` representation.
-    fn into_dec_bytes(&self) -> Vec<u8>;
     /// Returns this `Field`'s contents as little-endian byte vector
     fn into_byte_vector(&self) -> Vec<u8>;
     /// Returns the multiplicative inverse, i.e.: self * self.inverse_mul() = Self::one()
@@ -48,10 +46,6 @@ pub struct FieldPrime {
 }
 
 impl Field for FieldPrime {
-    fn into_dec_bytes(&self) -> Vec<u8> {
-        self.value.to_str_radix(10).to_string().into_bytes()
-    }
-
     fn into_byte_vector(&self) -> Vec<u8> {
         ////for debugging
         //println!("uint dec: {}\n",self.value.to_biguint().unwrap().to_str_radix(10));

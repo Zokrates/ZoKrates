@@ -355,6 +355,7 @@ impl Flattener {
                     };
                     statements_flattened.push(Statement::Condition(lhs, rhs));
                 },
+                Statement::For(..) => unimplemented!(),
                 s @ Statement::Compiler(..) => statements_flattened.push(s),
             }
         }
