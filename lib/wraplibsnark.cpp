@@ -1,12 +1,14 @@
 /**
  * @file wraplibsnark.cpp
  * @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
+ * @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de
  * @date 2017
  */
 
 #include "wraplibsnark.hpp"
 #include <iostream>
 #include <cassert>
+#include <iomanip>
 
 // contains definition of alt_bn128 ec public parameters
 #include "libsnark/algebra/curves/alt_bn128/alt_bn128_pp.hpp"
@@ -38,6 +40,46 @@ libsnark::bigint<libsnark::alt_bn128_r_limbs> libsnarkBigintFromBytes(const uint
 																for (unsigned j = 0; j < 8; j++)
 																								x.data[3 - i] |= uint64_t(_x[i * 8 + j]) << (8 * (7-j));
 								return x;
+}
+
+
+std::string HexStringFromLibsnarkBigint(libsnark::bigint<libsnark::alt_bn128_r_limbs> _x){
+								uint8_t x[32];
+								for (unsigned i = 0; i < 4; i++)
+																for (unsigned j = 0; j < 8; j++)
+																								x[i * 8 + j] = uint8_t(uint64_t(_x.data[3 - i]) >> (8 * (7 - j)));
+
+								std::stringstream ss;
+								ss << std::setfill('0');
+								for (unsigned i = 0; i<32; i++) {
+																ss << std::hex << std::setw(2) << (int)x[i];
+								}
+
+								return ss.str();
+}
+
+std::string outputPointG1Affine(libsnark::alt_bn128_G1 _p)
+{
+								libsnark::alt_bn128_G1 aff = _p;
+								aff.to_affine_coordinates();
+								return
+																"Pairing.g1FromAffine(0x" +
+																HexStringFromLibsnarkBigint(aff.X.as_bigint()) +
+																", 0x" +
+																HexStringFromLibsnarkBigint(aff.Y.as_bigint()) +
+																")";
+}
+
+std::string outputPointG2Affine(libsnark::alt_bn128_G2 _p)
+{
+								libsnark::alt_bn128_G2 aff = _p;
+								aff.to_affine_coordinates();
+								return
+																"Pairing.g2FromAffine([0x" +
+																HexStringFromLibsnarkBigint(aff.X.c1.as_bigint()) + ", 0x" +
+																HexStringFromLibsnarkBigint(aff.X.c0.as_bigint()) + "], [0x" +
+																HexStringFromLibsnarkBigint(aff.Y.c1.as_bigint()) + ", 0x" +
+																HexStringFromLibsnarkBigint(aff.Y.c0.as_bigint()) + "])";
 }
 
 //takes input and puts it into constraint system
@@ -93,17 +135,28 @@ r1cs_ppzksnark_keypair<alt_bn128_pp> generateKeypair(const r1cs_ppzksnark_constr
 								return r1cs_ppzksnark_generator<alt_bn128_pp>(cs);
 }
 
-// TODO: Check with solidity format. Also, is IC_Query needed?
-void printVerificationKey(r1cs_ppzksnark_keypair<alt_bn128_pp> keypair){
-								printf("Verification key:\n");
-								printf("vk.alphaA_g2: "); keypair.vk.alphaA_g2.print();
-								printf("\nvk.alphaB_g1: "); keypair.vk.alphaB_g1.print();
-								printf("\nvk.alphaC_g2: "); keypair.vk.alphaC_g2.print();
-								printf("\nvk.gamma_g2: "); keypair.vk.gamma_g2.print();
-								printf("\nvk.gamma_beta_g1: "); keypair.vk.gamma_beta_g1.print();
-								printf("\nvk.gamma_beta_g2: "); keypair.vk.gamma_beta_g2.print();
-								printf("\nvk.rC_Z_g2: "); keypair.vk.rC_Z_g2.print();
-								//printf("\nvk.encoded_IC_query: "); keypair.vk.encoded_IC_query.print();
+
+// compliant with solidty, from c++ client libsnark integration
+void exportVerificationKey(r1cs_ppzksnark_keypair<alt_bn128_pp> keypair){
+								unsigned icLength = keypair.vk.encoded_IC_query.rest.indices.size() + 1;
+
+								cout << "\tVerification key in Solidity compliant format:{" << endl;
+								cout << "\t\tvk.A = " << outputPointG2Affine(keypair.vk.alphaA_g2) << ";" << endl;
+								cout << "\t\tvk.B = " << outputPointG1Affine(keypair.vk.alphaB_g1) << ";" << endl;
+								cout << "\t\tvk.C = " << outputPointG2Affine(keypair.vk.alphaC_g2) << ";" << endl;
+								cout << "\t\tvk.gamma = " << outputPointG2Affine(keypair.vk.gamma_g2) << ";" << endl;
+								cout << "\t\tvk.gammaBeta1 = " << outputPointG1Affine(keypair.vk.gamma_beta_g1) << ";" << endl;
+								cout << "\t\tvk.gammaBeta2 = " << outputPointG2Affine(keypair.vk.gamma_beta_g2) << ";" << endl;
+								cout << "\t\tvk.Z = " << outputPointG2Affine(keypair.vk.rC_Z_g2) << ";" << endl;
+								cout << "\t\tvk.IC = new Pairing.G1Point[](" << icLength << ");" << endl;
+								cout << "\t\tvk.IC[0] = " << outputPointG1Affine(keypair.vk.encoded_IC_query.first) << ";" << endl;
+								for (size_t i = 1; i < icLength; ++i)
+								{
+																auto vkICi = outputPointG1Affine(keypair.vk.encoded_IC_query.rest.values[i - 1]);
+																cout << "\t\tvk.IC[" << i << "] = " << vkICi << ";" << endl;
+								}
+								cout << "\t\t}" << endl;
+
 }
 
 
@@ -138,8 +191,8 @@ bool _run_libsnark(const uint8_t* A, const uint8_t* B, const uint8_t* C, const u
 								// create keypair
 								r1cs_ppzksnark_keypair<alt_bn128_pp> keypair = r1cs_ppzksnark_generator<alt_bn128_pp>(cs);
 
-								// Print VerificationKey
-								printVerificationKey(keypair);
+								// Print VerificationKey in Solidity compatible format
+								exportVerificationKey(keypair);
 
 								// Proof Generation
 								r1cs_ppzksnark_proof<alt_bn128_pp> proof = r1cs_ppzksnark_prover<alt_bn128_pp>(keypair.pk, primary_input, auxiliary_input);
