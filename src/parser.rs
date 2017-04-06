@@ -1,10 +1,15 @@
 //
 // @file parser.rs
 // @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
+// @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 // @date 2017
 
 // Grammar:
-// <prog> ::= `def' <ide> `(' <arguments> `):\\n' <stat-list>
+// <prog> ::= <func-list>
+//
+// <func-list> ::= <func> <func-list>
+//
+// <func> ::= `def' <ide> `(' <arguments> `):\\n' <stat-list>
 //
 // <arguments> ::= <ide> <more-args> | $\varepsilon$
 //
@@ -17,6 +22,7 @@
 //         | `(' <expr> `)' <term'> <expr'> `==' <expr> `\\n'
 //         | <num> <term'> <expr'> `==' <expr> `\\n'
 //         | `#' <ide> `=' <expr> `\\n'
+//         | <ide> `(' <arguments> `)`\\n'
 //
 // <statement'> ::= `=' <expr> `\\n'
 //         | <term'> <expr'> `==' <expr> `\\n'
@@ -25,6 +31,7 @@
 //         | `(' <expr> `)' <term'> <expr'>
 //         | <ide> <term'> <expr'>
 //         | <num> <term'> <expr'>
+//         | <ide> `(' <arguments> `)' <term'> <expr'>
 //
 // <expr'> ::= `+' <term> <expr'>
 //         | `-' <term> <expr'>
@@ -41,6 +48,7 @@
 //         | `(' <expr> `)' <factor'>
 //         | <ide> <factor'>
 //         | <num> <factor'>
+//         | <ide> `(' <arguments> `)' <factor'>
 //
 // <factor'> ::= <term'> <expr'> `**' <num>
 //         | $\varepsilon$
