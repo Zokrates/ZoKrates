@@ -112,7 +112,7 @@ impl<T: Field> fmt::Debug for Error<T> {
 #[derive(PartialEq)]
 enum Token<T: Field> {
     Open, Close, Comma, Colon, Hash,
-    Eq, Return,
+    Eq, Return, Def,
     If, Then, Else, Fi,
     For, In, Dotdot, Do, Endfor,
     Lt, Le, Eqeq, Ge, Gt,
@@ -132,6 +132,7 @@ impl<T: Field> fmt::Display for Token<T> {
             Token::Colon => write!(f, ":"),
             Token::Hash => write!(f, "#"),
             Token::Eq => write!(f, "="),
+            Token::Def=> write!(f, "def"),
             Token::Return => write!(f, "return"),
             Token::If => write!(f, "if"),
             Token::Then => write!(f, "then"),
@@ -237,6 +238,7 @@ fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Po
             _ => (Token::Mult, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
         },
         Some('/') => (Token::Div, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
+        Some(_) if input[offset..].starts_with("def ") => (Token::Def, input[offset + 4..].to_string(), Position { line: pos.line, col: pos.col + offset + 4 }),
         Some(_) if input[offset..].starts_with("return ") => (Token::Return, input[offset + 7..].to_string(), Position { line: pos.line, col: pos.col + offset + 7 }),
         Some(_) if input[offset..].starts_with("if ") => (Token::If, input[offset + 3..].to_string(), Position { line: pos.line, col: pos.col + offset + 3 }),
         Some(_) if input[offset..].starts_with("then ") => (Token::Then, input[offset + 5..].to_string(), Position { line: pos.line, col: pos.col + offset + 5 }),
@@ -562,6 +564,31 @@ pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
     let reader = BufReader::new(file);
     let mut lines = reader.lines();
 
+    let mut functions = Vec::new();
+
+    loop{
+        match lines.next() {
+            Some(Ok(ref x)) if x.trim().starts_with("//") || x == "" => {},
+            Some(Ok(ref x)) => match next_token(x, &Position { line: current_line, col: 1 }) {
+                (Token::Def, ref s1, ref p1) => match parse_function(&mut lines,s1,p1){
+                    Ok((function, p2)) => {
+                        functions.push(function);
+                        current_line = p2.line
+                        },
+                    Err(err) => return Err(err),
+                },
+                (t1, _, p1) => return Err(Error { expected: vec![Token::Def], got: t1 , pos: p1 }),
+            },
+            None => break,
+        }
+    }
+    Ok(Prog {functions})
+}
+
+
+pub fn parse_function<T: Field>(lines: &mut Lines<BufReader<File>>, input: &String, pos: &Position) -> Result<(Function<T>, Position), Error<T>> {
+
+    let mut current_line = pos.line;
     let id;
     let mut args = Vec::new();
     loop { // search and make Prog
@@ -631,7 +658,10 @@ pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
                         return Err(Error { expected: vec![], got: Token::Return , pos: Position { line: current_line, col: 1 + skip_whitespaces(x) + Token::Return::<T>.to_string().len() } })
                     }
                 },
-                Ok((statement, ..)) => defs.push(statement),
+                Ok((statement, _ , pos)) => {
+                    defs.push(statement);
+                    current_line = pos.line // update the interal line counter depending on the number of lines the statement was long
+                    },
                 Err(err) => return Err(err),
             },
             None => break,
@@ -645,7 +675,7 @@ pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
         Some(x) => panic!("Last definition not Return: {}", x),
         None => panic!("Error while checking last definition"),
     }
-    Ok(Prog { id: id, arguments: args, statements: defs })
+    Ok((Function { id: id, arguments: args, statements: defs }, Position{line: current_line, col: 1}))
 }
 
 #[cfg(test)]
@@ -776,6 +806,22 @@ mod tests {
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
                 parse_factor(&string, &pos)
+            );
+        }
+    }
+
+    #[cfg(test)]
+    mod parse_functions {
+        use super::*;
+
+        #[test]
+        fn parse_function_definition() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("def testFunction(a, b, c)");
+            let functDef = FunctDef(Expression::Identifier(String::from("testFunction"),3));
+            assert_eq!(
+                Ok((functDef, String::from(""), pos.col(string.len() as isize))),
+                parse_function(&string, &pos)
             );
         }
     }

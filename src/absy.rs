@@ -11,6 +11,12 @@ use field::Field;
 
 ///
 pub struct Prog<T: Field> {
+    /// Functions of the program
+    pub functions: Vec<Function<T>>,
+}
+
+
+pub struct Function<T: Field> {
     /// Name of the program
     pub id: String,
     /// Arguments of the program
