@@ -1,8 +1,8 @@
-//
-// @file parser.rs
-// @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
-// @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
-// @date 2017
+//!
+//! @file parser.rs
+//! @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
+//! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
+//! @date 2017
 
 // Grammar:
 // <prog> ::= <func-list>
@@ -559,6 +559,90 @@ fn parse_statement<T: Field>(lines: &mut Lines<BufReader<File>>, input: &String,
     }
 }
 
+
+fn parse_function<T: Field>(mut lines: &mut Lines<BufReader<File>>, input: &String, pos: &Position) -> Result<(Function<T>, Position), Error<T>> {
+
+    let mut current_line = pos.line;
+    let id;
+    let mut args = Vec::new();
+
+    // parse function signature
+    match next_token(input, pos) {
+                (Token::Ide(x2), s2, p2) => {
+                    id = x2;
+                    match next_token(&s2, &p2) {
+                        (Token::Open, s3, p3) => {
+                            let mut s = s3;
+                            let mut p = p3;
+                            loop {
+                                match next_token(&s, &p) {
+                                    (Token::Ide(x), s4, p4) => {
+                                        args.push(Parameter { id: x });
+                                        match next_token(&s4, &p4) {
+                                            (Token::Comma, s5, p5) => {
+                                                s = s5;
+                                                p = p5;
+                                            },
+                                            (Token::Close, s4, p4) => {
+                                                match next_token(&s4, &p4) {
+                                                    (Token::Colon, s5, p5) => {
+                                                        match next_token(&s5, &p5) {
+                                                            (Token::Unknown(ref x6), ..) if x6 == "" => break,
+                                                            (t6, _, p6) => return Err(Error { expected: vec![Token::Unknown("".to_string())], got: t6 , pos: p6 }),
+                                                        }
+                                                    },
+                                                    (t5, _, p5) => return Err(Error { expected: vec![Token::Colon], got: t5 , pos: p5 }),
+                                                }
+                                            },
+                                            (t5, _, p5) => return Err(Error { expected: vec![Token::Comma, Token::Close], got: t5 , pos: p5 }),
+                                        }
+                                    },
+                                    (t4, _, p4) => return Err(Error { expected: vec![Token::Ide(String::from("ide"))], got: t4 , pos: p4 }),
+                                }
+                            }
+                        },
+                        (t3, _, p3) => return Err(Error { expected: vec![Token::Open], got: t3 , pos: p3 }),
+                    }
+                },
+                (t2, _, p2) => return Err(Error { expected: vec![Token::Ide(String::from("name"))], got: t2 , pos: p2 }),
+            }
+            current_line += 1;
+
+    // parse function body
+    let mut stats = Vec::new();
+    let mut got_return = false;
+    loop {
+        match lines.next() {
+            Some(Ok(ref x)) if x.trim().starts_with("//") || x.trim() == "" => {}, // skip
+            Some(Ok(ref x)) => match parse_statement(&mut lines, x, &Position { line: current_line, col: 1 }) {
+                Ok((statement @ Statement::Return(_), ..)) => {
+                    if !got_return {
+                        got_return = true;
+                        stats.push(statement)
+                    } else {
+                        return Err(Error { expected: vec![], got: Token::Return , pos: Position { line: current_line, col: 1 + skip_whitespaces(x) + Token::Return::<T>.to_string().len() } })
+                    }
+                },
+                Ok((statement, _ , pos)) => {
+                    stats.push(statement);
+                    current_line = pos.line // update the interal line counter depending on the number of lines the statement was long
+                    },
+                Err(err) => return Err(err),
+            },
+            None => break,
+            Some(Err(err)) => panic!("Error while reading function statements: {}", err),
+        }
+        current_line += 1;
+    }
+
+    match stats.last() {
+        Some(&Statement::Return(_)) => {},
+        Some(x) => panic!("Last function statement not Return: {}", x),
+        None => panic!("Error while checking last function statement"),
+    }
+    Ok((Function { id: id, arguments: args, statements: stats }, Position{line: current_line, col: 1}))
+}
+
 pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
     let mut current_line = 1;
     let reader = BufReader::new(file);
@@ -568,7 +652,7 @@ pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
 
     loop{
         match lines.next() {
-            Some(Ok(ref x)) if x.trim().starts_with("//") || x == "" => {},
+            Some(Ok(ref x)) if x.trim().starts_with("//") || x.trim() == "" => {},
             Some(Ok(ref x)) => match next_token(x, &Position { line: current_line, col: 1 }) {
                 (Token::Def, ref s1, ref p1) => match parse_function(&mut lines,s1,p1){
                     Ok((function, p2)) => {
@@ -580,103 +664,12 @@ pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
                 (t1, _, p1) => return Err(Error { expected: vec![Token::Def], got: t1 , pos: p1 }),
             },
             None => break,
+            Some(Err(err)) => panic!("Error while reading function definitions: {}", err),
         }
     }
     Ok(Prog {functions})
 }
 
-
-pub fn parse_function<T: Field>(lines: &mut Lines<BufReader<File>>, input: &String, pos: &Position) -> Result<(Function<T>, Position), Error<T>> {
-
-    let mut current_line = pos.line;
-    let id;
-    let mut args = Vec::new();
-    loop { // search and make Prog
-        match lines.next() {
-            Some(Ok(ref x)) if x.trim().starts_with("//") || x == "" => {},
-            Some(Ok(ref x)) => match next_token(x, &Position { line: current_line, col: 1 }) {
-                (Token::Ide(ref x1), ref s1, ref p1) if x1 == "def" => match next_token(s1, p1) {
-                    (Token::Ide(x2), s2, p2) => {
-                        id = x2;
-                        match next_token(&s2, &p2) {
-                            (Token::Open, s3, p3) => {
-                                let mut s = s3;
-                                let mut p = p3;
-                                loop {
-                                    match next_token(&s, &p) {
-                                        (Token::Ide(x), s4, p4) => {
-                                            args.push(Parameter { id: x });
-                                            match next_token(&s4, &p4) {
-                                                (Token::Comma, s5, p5) => {
-                                                    s = s5;
-                                                    p = p5;
-                                                },
-                                                (Token::Close, s4, p4) => {
-                                                    match next_token(&s4, &p4) {
-                                                        (Token::Colon, s5, p5) => {
-                                                            match next_token(&s5, &p5) {
-                                                                (Token::Unknown(ref x6), ..) if x6 == "" => break,
-                                                                (t6, _, p6) => return Err(Error { expected: vec![Token::Unknown("".to_string())], got: t6 , pos: p6 }),
-                                                            }
-                                                        },
-                                                        (t5, _, p5) => return Err(Error { expected: vec![Token::Colon], got: t5 , pos: p5 }),
-                                                    }
-                                                },
-                                                (t5, _, p5) => return Err(Error { expected: vec![Token::Comma, Token::Close], got: t5 , pos: p5 }),
-                                            }
-                                        },
-                                        (t4, _, p4) => return Err(Error { expected: vec![Token::Ide(String::from("ide"))], got: t4 , pos: p4 }),
-                                    }
-                                }
-                                break;
-                            },
-                            (t3, _, p3) => return Err(Error { expected: vec![Token::Open], got: t3 , pos: p3 }),
-                        }
-                    },
-                    (t2, _, p2) => return Err(Error { expected: vec![Token::Ide(String::from("name"))], got: t2 , pos: p2 }),
-                },
-                (t1, _, p1) => return Err(Error { expected: vec![Token::Ide(String::from("def"))], got: t1 , pos: p1 }),
-            },
-            Some(Err(err)) => panic!("Error while reading line {}: {:?}", current_line, err),
-            None => return Err(Error { expected: vec![Token::Ide(String::from("def"))], got: Token::Unknown(String::from("")) , pos: Position { line: current_line, col: 1 } }),
-        }
-        current_line += 1;
-    };
-    current_line += 1;
-
-    let mut defs = Vec::new();
-    let mut got_return = false;
-    loop {
-        match lines.next() {
-            Some(Ok(ref x)) if x.trim().starts_with("//") || x.trim() == "" => {}, // skip
-            Some(Ok(ref x)) => match parse_statement(&mut lines, x, &Position { line: current_line, col: 1 }) {
-                Ok((statement @ Statement::Return(_), ..)) => {
-                    if !got_return {
-                        got_return = true;
-                        defs.push(statement)
-                    } else {
-                        return Err(Error { expected: vec![], got: Token::Return , pos: Position { line: current_line, col: 1 + skip_whitespaces(x) + Token::Return::<T>.to_string().len() } })
-                    }
-                },
-                Ok((statement, _ , pos)) => {
-                    defs.push(statement);
-                    current_line = pos.line // update the interal line counter depending on the number of lines the statement was long
-                    },
-                Err(err) => return Err(err),
-            },
-            None => break,
-            Some(Err(err)) => panic!("Error while reading Definitions: {}", err),
-        }
-        current_line += 1;
-    }
-
-    match defs.last() {
-        Some(&Statement::Return(_)) => {},
-        Some(x) => panic!("Last definition not Return: {}", x),
-        None => panic!("Error while checking last definition"),
-    }
-    Ok((Function { id: id, arguments: args, statements: defs }, Position{line: current_line, col: 1}))
-}
 
 #[cfg(test)]
 mod tests {

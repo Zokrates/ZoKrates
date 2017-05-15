@@ -320,21 +320,19 @@ impl Flattener {
         }
     }
 
-    /// Returns a flattened `Prog`ram based on the given `prog`.
+    /// Returns a flattened `Function` based on the given `Function`.
     ///
     /// # Arguments
     ///
-    /// * `prog` - `Prog`ram that will be flattened.
-    pub fn flatten_program<T: Field>(&mut self, prog: Prog<T>) -> Prog<T> {
+    /// * `funct` - `Function` that will be flattened.
+    pub fn flatten_function<T: Field>(&mut self, funct: Function<T>) -> Function<T> {
         let mut statements_flattened = Vec::new();
-        self.variables = HashSet::new();
-        self.substitution = HashMap::new();
-        self.next_var_idx = 0;
-        for def in prog.statements {
-            match def {
+        for stat in funct.statements {
+            match stat {
                 Statement::Return(expr) => {
                     let expr_subbed = expr.apply_substitution(&self.substitution);
                     let rhs = self.flatten_expression(&mut statements_flattened, expr_subbed);
+                    //TODO call use_variable here for out?
                     self.variables.insert("~out".to_string());
                     statements_flattened.push(Statement::Return(rhs));
                 },
@@ -359,10 +357,28 @@ impl Flattener {
                 s @ Statement::Compiler(..) => statements_flattened.push(s),
             }
         }
-        Prog { id: prog.id, arguments: prog.arguments, statements: statements_flattened }
+        Function { id: funct.id, arguments: funct.arguments, statements: statements_flattened }
     }
 
-    /// Proofs if the given name is a not used variable and returns a fresh variable.
+    /// Returns a flattened `Prog`ram based on the given `prog`.
+    ///
+    /// # Arguments
+    ///
+    /// * `prog` - `Prog`ram that will be flattened.
+    pub fn flatten_program<T: Field>(&mut self, prog: Prog<T>) -> Prog<T> {
+        let mut functions_flattened = Vec::new();
+        self.variables = HashSet::new();
+        self.substitution = HashMap::new();
+        self.next_var_idx = 0;
+        for func in prog.functions{
+            let flattened_func = self.flatten_function(func);
+            functions_flattened.push(flattened_func);
+        }
+        Prog { functions: functions_flattened}
+    }
+
+
+    /// Checks if the given name is a not used variable and returns a fresh variable.
     ///
     /// # Arguments
     ///

@@ -2,6 +2,7 @@
 //!
 //! @file absy.rs
 //! @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
+//! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
 use std::fmt;
@@ -16,16 +17,37 @@ pub struct Prog<T: Field> {
 }
 
 
+impl<T: Field> Prog<T> {
+    //TODO: Adapt to support multiple functions. Currently supports exactly one.
+    pub fn get_witness(&self, inputs: Vec<T>) -> HashMap<String, T> {
+        //assert!(self.arguments.len() == inputs.len());
+        self.functions[0].get_witness(inputs)
+    }
+}
+
+
+impl<T: Field> fmt::Display for Prog<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "prog({})", self.functions.iter().map(|x| format!("\t{}", x)).collect::<Vec<_>>().join("\n"))
+    }
+}
+
+impl<T: Field> fmt::Debug for Prog<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "program(functions: {})", self.functions.iter().map(|x| format!("\t{:?}", x)).collect::<Vec<_>>().join("\n"))
+    }
+}
+
 pub struct Function<T: Field> {
     /// Name of the program
     pub id: String,
-    /// Arguments of the program
+    /// Arguments of the function
     pub arguments: Vec<Parameter>,
-    /// Vector of statements that are executed when running the program
+    /// Vector of statements that are executed when running the function
     pub statements: Vec<Statement<T>>,
 }
 
-impl<T: Field> Prog<T> {
+impl<T: Field> Function<T> {
     pub fn get_witness(&self, inputs: Vec<T>) -> HashMap<String, T> {
         assert!(self.arguments.len() == inputs.len());
         let mut witness = HashMap::new();
@@ -52,15 +74,15 @@ impl<T: Field> Prog<T> {
     }
 }
 
-impl<T: Field> fmt::Display for Prog<T> {
+impl<T: Field> fmt::Display for Function<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "def {}({}):\n{}", self.id, self.arguments.iter().map(|x| format!("{}", x)).collect::<Vec<_>>().join(","), self.statements.iter().map(|x| format!("\t{}", x)).collect::<Vec<_>>().join("\n"))
     }
 }
 
-impl<T: Field> fmt::Debug for Prog<T> {
+impl<T: Field> fmt::Debug for Function<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Prog(id: {:?}, arguments: {:?}, ...):\n{}", self.id, self.arguments, self.statements.iter().map(|x| format!("\t{:?}", x)).collect::<Vec<_>>().join("\n"))
+        write!(f, "Function(id: {:?}, arguments: {:?}, ...):\n{}", self.id, self.arguments, self.statements.iter().map(|x| format!("\t{:?}", x)).collect::<Vec<_>>().join("\n"))
     }
 }
 

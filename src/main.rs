@@ -66,12 +66,16 @@ fn main() {
         std::process::exit(0);
     }
     let inputs: Vec<FieldPrime> = args[2].split_whitespace().map(|x| FieldPrime::from(x)).collect();
-    assert!(inputs.len() == program_flattened.arguments.len());
-    println!("inputs {:?}", inputs);
+
+    //TODO: Rewrite Assertion to check main function #params. Assert "main" exists?
+    //assert!(inputs.len() == program_flattened.arguments.len());
+    //println!("inputs {:?}", inputs);
+
     let witness_map = program_flattened.get_witness(inputs);
     println!("witness_map {:?}", witness_map);
     let witness: Vec<_> = variables.iter().map(|x| witness_map[x].clone()).collect();
     println!("witness {:?}", witness);
+
     #[cfg(not(feature="nolibsnark"))]
     println!("run_libsnark = {:?}", run_libsnark(variables, a, b, c, witness));
 }

@@ -78,12 +78,12 @@ fn count_variables_add<T: Field>(expr: &Expression<T>) -> HashMap<String, T> {
     count
 }
 
-/// Returns an equotation equivalent to `lhs == rhs` only using `Add` and `Mult`
+/// Returns an equation equivalent to `lhs == rhs` only using `Add` and `Mult`
 ///
 /// # Arguments
 ///
-/// * `lhs` - Leht hand side of the equotation
-/// * `rhs` - Right hand side of the equotation
+/// * `lhs` - Leht hand side of the equation
+/// * `rhs` - Right hand side of the equation
 fn swap_sub<T: Field>(lhs: &Expression<T>, rhs: &Expression<T>) -> (Expression<T>, Expression<T>) {
     let mut left = get_summands(lhs);
     let mut right = get_summands(rhs);
@@ -131,12 +131,12 @@ fn swap_sub<T: Field>(lhs: &Expression<T>, rhs: &Expression<T>) -> (Expression<T
 }
 
 /// Calculates one R1CS row representation for `linear_expr` = `expr`.
-/// (<A,x>*<B,c> = <C,x>)
+/// (<C,x> = <A,x>*<B,x>)
 ///
 /// # Arguments
 ///
-/// * `linear_expr` - Leht hand side of the equotation, has to be linear
-/// * `expr` - Right hand side of the equotation
+/// * `linear_expr` - Left hand side of the equation, has to be linear
+/// * `expr` - Right hand side of the equation
 /// * `variables` - A mutual vector that contains all existing variables. Not found variables will be added.
 /// * `a_row` - Result row of matrix A
 /// * `b_row` - Result row of matrix B
@@ -238,7 +238,7 @@ fn get_variable_idx(variables: &mut Vec<String>, var: &String) -> usize {
 
 /// Calculates one R1CS row representation of a program and returns (V, A, B, C) so that:
 /// * `V` contains all used variables and the index in the vector represents the used number in `A`, `B`, `C`
-/// * `<A,x>*<B,c> = <C,x>` for a witness `x`
+/// * `<A,x>*<B,x> = <C,x>` for a witness `x`
 ///
 /// # Arguments
 ///
@@ -249,21 +249,25 @@ pub fn r1cs_program<T: Field>(prog: &Prog<T>) -> (Vec<String>, Vec<Vec<(usize, T
     let mut a: Vec<Vec<(usize, T)>> = Vec::new();
     let mut b: Vec<Vec<(usize, T)>> = Vec::new();
     let mut c: Vec<Vec<(usize, T)>> = Vec::new();
-    variables.extend(prog.arguments.iter().map(|x| format!("{}", x)));
-    for def in &prog.statements {
-        let mut a_row: Vec<(usize, T)> = Vec::new();
-        let mut b_row: Vec<(usize, T)> = Vec::new();
-        let mut c_row: Vec<(usize, T)> = Vec::new();
-        match *def {
-            Statement::Return(ref expr) => r1cs_expression(Identifier("~out".to_string()), expr.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row),
-            Statement::Definition(ref id, ref expr) => r1cs_expression(Identifier(id.to_string()), expr.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row),
-            Statement::Condition(ref expr1, ref expr2) => r1cs_expression(expr1.clone(), expr2.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row),
-            Statement::For(..) => unimplemented!(),
-            Statement::Compiler(..) => continue,
+
+    //TODO: Hand variables to main function. Works for exactly 1 function now.
+    variables.extend(prog.functions[0].arguments.iter().map(|x| format!("{}", x)));
+    for func in &prog.functions{
+        for def in &func.statements {
+            let mut a_row: Vec<(usize, T)> = Vec::new();
+            let mut b_row: Vec<(usize, T)> = Vec::new();
+            let mut c_row: Vec<(usize, T)> = Vec::new();
+            match *def {
+                Statement::Return(ref expr) => r1cs_expression(Identifier("~out".to_string()), expr.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row),
+                Statement::Definition(ref id, ref expr) => r1cs_expression(Identifier(id.to_string()), expr.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row),
+                Statement::Condition(ref expr1, ref expr2) => r1cs_expression(expr1.clone(), expr2.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row),
+                Statement::For(..) => unimplemented!(),
+                Statement::Compiler(..) => continue,
+            }
+            a.push(a_row);
+            b.push(b_row);
+            c.push(c_row);
         }
-        a.push(a_row);
-        b.push(b_row);
-        c.push(c_row);
     }
     (variables, a, b, c)
 }
@@ -599,12 +603,12 @@ mod tests {
 //     count
 // }
 
-// /// Returns an equotation equivalent to `lhs == rhs` only using `Add` and `Mult`
+// /// Returns an equation equivalent to `lhs == rhs` only using `Add` and `Mult`
 // ///
 // /// # Arguments
 // ///
-// /// * `lhs` - Leht hand side of the equotation
-// /// * `rhs` - Right hand side of the equotation
+// /// * `lhs` - Leht hand side of the equation
+// /// * `rhs` - Right hand side of the equation
 // fn swap_sub_recursive<T: Field>(lhs: &Expression<T>, rhs: &Expression<T>) -> (Expression<T>, Expression<T>) {
 //     // assert that Mult on lhs or rhs is linear!
 //     match (lhs.clone(), rhs.clone()) {
