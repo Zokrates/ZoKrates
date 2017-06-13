@@ -854,22 +854,7 @@ mod tests {
         }
     }
 
-    #[cfg(test)]
-    mod parse_functions {
-        use super::*;
-
-        #[test]
-        fn parse_function_definition() {
-            let pos = Position { line: 45, col: 121 };
-            let string = String::from("def testFunction(a, b, c)");
-            let functDef = FunctDef(Expression::Identifier(String::from("testFunction"),3));
-            assert_eq!(
-                Ok((functDef, String::from(""), pos.col(string.len() as isize))),
-                parse_function(&string, &pos)
-            );
-        }
-    }
-
+    // parse function
     // parse_term1
     // parse_term
     // parse_expr1
