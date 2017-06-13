@@ -1,5 +1,5 @@
 // only using sub, no need to flatten
-def test(x):
+def main(x):
   a = 5
   b = 7
   c = if a == b then 4 else 3 fi

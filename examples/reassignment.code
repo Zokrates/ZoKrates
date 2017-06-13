@@ -1,4 +1,4 @@
-def reassign(x):
+def main(x):
   a = x + 5
   b = a + x
   a = 7

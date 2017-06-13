@@ -1,5 +1,5 @@
 // this code needs flattening
-def qeval(a):
+def main(a):
   b = a + 5 + a * a
   c = b + a + a * b * b
   d = a * b + c * c

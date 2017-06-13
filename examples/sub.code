@@ -1,5 +1,5 @@
 // only using sub, no need to flatten
-def qeval(a):
+def main(a):
   b = a + 100
   c = b + a + b
   d = b - a - 3 - a
