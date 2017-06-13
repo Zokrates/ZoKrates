@@ -1,7 +1,0 @@
-// only using add, no need to flatten
-def main(a,b):
-  c = add(a,b)
-  return c
-
-def add(a,b):
-  return a + b
