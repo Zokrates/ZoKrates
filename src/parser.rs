@@ -5,11 +5,11 @@
 //! @date 2017
 
 // Grammar:
-// <prog> ::= <func-list>
+// <prog> ::= <functions>
 //
-// <func-list> ::= <func> <func-list>
+// <functions> ::= <function> <functions>
 //
-// <func> ::= `def' <ide> `(' <arguments> `):\\n' <stat-list>
+// <function> ::= `def' <ide> `(' <arguments> `):\\n' <stat-list>
 //
 // <arguments> ::= <ide> <more-args> | $\varepsilon$
 //
@@ -22,7 +22,6 @@
 //         | `(' <expr> `)' <term'> <expr'> `==' <expr> `\\n'
 //         | <num> <term'> <expr'> `==' <expr> `\\n'
 //         | `#' <ide> `=' <expr> `\\n'
-//         | <ide> `(' <arguments> `)`\\n'
 //
 // <statement'> ::= `=' <expr> `\\n'
 //         | <term'> <expr'> `==' <expr> `\\n'
@@ -393,6 +392,37 @@ fn parse_expr1<T: Field>(expr: Expression<T>, input: String, pos: Position) -> R
     }
 }
 
+fn parse_function_call<T: Field>(ide: String, input: String, pos: Position) -> Result<(Expression<T>, String, Position), Error<T>> {
+    // function call can have 0 .. n args
+    let mut args = Vec::new();
+    let mut s = input;
+    let mut p = pos;
+    loop {
+        match next_token(&s, &p) {
+            (Token::Ide(x), s3, p3) => {
+                args.push(Parameter { id: x });
+                match next_token(&s3, &p3) {
+                    (Token::Comma, s4, p4) => {
+                        s = s4;
+                        p = p4;
+                    },
+                    (Token::Close, s4, p4) => match parse_term1(Expression::FunctionCall(ide, args), s4, p4) {
+                        Ok((e5, s5, p5)) => return parse_expr1(e5, s5, p5),
+                        Err(err) => return Err(err),
+                    },
+                    (t4, _, p4) => return Err(Error { expected: vec![Token::Comma, Token::Close], got: t4 , pos: p4 }),
+                }
+            },
+            (Token::Close, s3, p3) => match parse_term1(Expression::FunctionCall(ide, args), s3, p3) {
+                Ok((e4, s4, p4)) => return parse_expr1(e4, s4, p4),
+                Err(err) => return Err(err),
+            },
+            (t3, _, p3) => return Err(Error { expected: vec![Token::ErrNum, Token::Close], got: t3 , pos: p3 }),
+        }
+    }
+}
+
+
 fn parse_expr<T: Field>(input: &String, pos: &Position) -> Result<(Expression<T>, String, Position), Error<T>> {
     match next_token::<T>(input, pos) {
         (Token::If, ..) => parse_if_then_else(input, pos),
@@ -407,10 +437,14 @@ fn parse_expr<T: Field>(input: &String, pos: &Position) -> Result<(Expression<T>
             Err(err) => Err(err),
         },
         (Token::Ide(x), s1, p1) => {
-            match parse_term1(Expression::Identifier(x), s1, p1) {
-                Ok((e2, s2, p2)) => parse_expr1(e2, s2, p2),
-                Err(err) => Err(err),
+            match next_token::<T>(&s1, &p1){
+                (Token::Open, s2, p2) => parse_function_call(x, s2, p2),
+                _ => match parse_term1(Expression::Identifier(x), s1, p1) {
+                        Ok((e2, s2, p2)) => parse_expr1(e2, s2, p2),
+                        Err(err) => Err(err),
+                },
             }
+
         }
         (Token::Num(x), s1, p1) => {
             match parse_term1(Expression::Number(x), s1, p1) {
@@ -555,6 +589,8 @@ fn parse_statement<T: Field>(lines: &mut Lines<BufReader<File>>, input: &String,
                 Err(err) => Err(err),
             }
         },
+        // This just covers an error case: Def Token is never part of a valid statement and indicates that a return statement is missing.
+        (Token::Def, _, p1) => Err(Error { expected: vec![Token::Return], got: Token::Def , pos: p1 }),
         (t1, _, p1) => Err(Error { expected: vec![Token::ErrIde, Token::ErrNum, Token::If, Token::Open, Token::Hash, Token::Return], got: t1 , pos: p1 }),
     }
 }
@@ -610,26 +646,21 @@ fn parse_function<T: Field>(mut lines: &mut Lines<BufReader<File>>, input: &Stri
 
     // parse function body
     let mut stats = Vec::new();
-    let mut got_return = false;
     loop {
         match lines.next() {
             Some(Ok(ref x)) if x.trim().starts_with("//") || x.trim() == "" => {}, // skip
             Some(Ok(ref x)) => match parse_statement(&mut lines, x, &Position { line: current_line, col: 1 }) {
                 Ok((statement @ Statement::Return(_), ..)) => {
-                    if !got_return {
-                        got_return = true;
-                        stats.push(statement)
-                    } else {
-                        return Err(Error { expected: vec![], got: Token::Return , pos: Position { line: current_line, col: 1 + skip_whitespaces(x) + Token::Return::<T>.to_string().len() } })
-                    }
-                },
+                        stats.push(statement);
+                        break;
+                    },
                 Ok((statement, _ , pos)) => {
                     stats.push(statement);
-                    current_line = pos.line // update the interal line counter depending on the number of lines the statement was long
+                    current_line = pos.line // update the interal line counter to continue where statement ended.
                     },
                 Err(err) => return Err(err),
             },
-            None => break,
+            None => panic!("Function {} does not return before program ends", id),
             Some(Err(err)) => panic!("Error while reading function statements: {}", err),
         }
         current_line += 1;
@@ -647,15 +678,20 @@ pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
     let mut current_line = 1;
     let reader = BufReader::new(file);
     let mut lines = reader.lines();
-
     let mut functions = Vec::new();
 
     loop{
         match lines.next() {
-            Some(Ok(ref x)) if x.trim().starts_with("//") || x.trim() == "" => {},
+            Some(Ok(ref x)) if x.trim().starts_with("//") || x.trim() == "" => {current_line += 1},
             Some(Ok(ref x)) => match next_token(x, &Position { line: current_line, col: 1 }) {
                 (Token::Def, ref s1, ref p1) => match parse_function(&mut lines,s1,p1){
                     Ok((function, p2)) => {
+                        // panic if signature is not unique
+                        match functions.iter().find(|x: &&Function<T>| x.id == function.id && x.arguments.len()==function.arguments.len()){
+                            Some(_) => panic!("Error while reading function: {}({}). Duplicate function signatures.", function.id, function.arguments.iter().map(|x| format!("{}", x)).collect::<Vec<_>>().join(",")),
+                            _ => {}
+                        }
+
                         functions.push(function);
                         current_line = p2.line
                         },
@@ -667,6 +703,21 @@ pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
             Some(Err(err)) => panic!("Error while reading function definitions: {}", err),
         }
     }
+
+    //check if exactly one main function exists
+    let mut has_main = false;
+    for func in &functions {
+        if func.id == "main".to_string() {
+            if !has_main {
+                has_main = true;
+            } else {
+                panic!("Error while parsing program: Multiple main functions!");
+            }
+        }
+    }
+
+    if !has_main {panic!("Error while parsing program: No main function found.")};
+
     Ok(Prog {functions})
 }
 

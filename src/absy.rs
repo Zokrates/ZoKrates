@@ -28,13 +28,13 @@ impl<T: Field> Prog<T> {
 
 impl<T: Field> fmt::Display for Prog<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "prog({})", self.functions.iter().map(|x| format!("\t{}", x)).collect::<Vec<_>>().join("\n"))
+        write!(f, "prog({}\t)", self.functions.iter().map(|x| format!("\t{}", x)).collect::<Vec<_>>().join("\n"))
     }
 }
 
 impl<T: Field> fmt::Debug for Prog<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "program(functions: {})", self.functions.iter().map(|x| format!("\t{:?}", x)).collect::<Vec<_>>().join("\n"))
+        write!(f, "program(functions: {}\t)", self.functions.iter().map(|x| format!("\t{:?}", x)).collect::<Vec<_>>().join("\n"))
     }
 }
 
@@ -86,6 +86,7 @@ impl<T: Field> fmt::Debug for Function<T> {
     }
 }
 
+#[derive(Clone)]
 pub enum Statement<T: Field> {
     Return(Expression<T>),
     Definition(String, Expression<T>),
@@ -93,6 +94,22 @@ pub enum Statement<T: Field> {
     For(String, T, T, Vec<Statement<T>>),
     Compiler(String, Expression<T>),
 }
+
+impl<T: Field> Statement<T> {
+
+    pub fn is_flattened(&self) -> bool {
+        match *self {
+            Statement::Return(ref x) |
+            Statement::Definition(_,ref x) |
+            Statement::Compiler(_,ref  x) => x.is_flattened(),
+            Statement::Condition(ref x,ref y) => x.is_flattened() && y.is_flattened(),
+            Statement::For(_, _, _,ref x) => unimplemented!(), // should not be required, can be implemented later
+            _ => false,
+        }
+    }
+
+}
+
 
 impl<T: Field> fmt::Display for Statement<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -130,6 +147,7 @@ impl<T: Field> fmt::Debug for Statement<T> {
     }
 }
 
+#[derive(Clone,PartialEq)]
 pub struct Parameter { pub id: String }
 
 impl fmt::Display for Parameter {
@@ -154,6 +172,7 @@ pub enum Expression<T: Field> {
     Div(Box<Expression<T>>, Box<Expression<T>>),
     Pow(Box<Expression<T>>, Box<Expression<T>>),
     IfElse(Box<Condition<T>>, Box<Expression<T>>, Box<Expression<T>>),
+    FunctionCall(String, Vec<Parameter>),
 }
 
 impl<T: Field> Expression<T> {
@@ -175,6 +194,22 @@ impl<T: Field> Expression<T> {
             Expression::Div(ref e1, ref e2) => Expression::Div(box e1.apply_substitution(substitution), box e2.apply_substitution(substitution)),
             Expression::Pow(ref e1, ref e2) => Expression::Pow(box e1.apply_substitution(substitution), box e2.apply_substitution(substitution)),
             Expression::IfElse(ref c, ref e1, ref e2) => Expression::IfElse(box c.apply_substitution(substitution), box e1.apply_substitution(substitution), box e2.apply_substitution(substitution)),
+            Expression::FunctionCall(ref i, ref p) => {
+                let mut new_params = Vec::new();
+                for param in p {
+                    let mut new_id = param.id.to_string();
+                    loop {
+                        match substitution.get(&new_id) {
+                            Some(x) => new_id = x.to_string(),
+                            None =>  {
+                                new_params.push(Parameter{id: new_id.clone()});
+                                break;
+                            },
+                        }
+                    }
+                }
+                Expression::FunctionCall(i.clone(), new_params)
+            },
         }
     }
 
@@ -214,6 +249,7 @@ impl<T: Field> Expression<T> {
             Expression::Pow(ref x, ref y) => x.solve(inputs).pow(y.solve(inputs)),
             Expression::IfElse(ref condition, ref consequent, ref alternative)
                 => if condition.solve(inputs) { consequent.solve(inputs) } else { alternative.solve(inputs) },
+            Expression::FunctionCall(ref i, ref p) => unimplemented!(),
         }
     }
 
@@ -262,6 +298,16 @@ impl<T: Field> fmt::Display for Expression<T> {
             Expression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
             Expression::Pow(ref lhs, ref rhs) => write!(f, "{}**{}", lhs, rhs),
             Expression::IfElse(ref condition, ref consequent, ref alternative) => write!(f, "if {} then {} else {} fi", condition, consequent, alternative),
+            Expression::FunctionCall(ref i, ref p) => {
+                try!(write!(f, "{}(", i,));
+                for (i, param) in  p.iter().enumerate() {
+                    try!(write!(f, "{}",param));
+                    if i<p.len()-1 {
+                        try!(write!(f, ","));
+                    }
+                }
+                write!(f,")")
+            },
         }
     }
 }
@@ -277,6 +323,11 @@ impl<T: Field> fmt::Debug for Expression<T> {
             Expression::Div(ref lhs, ref rhs) => write!(f, "Div({:?}, {:?})", lhs, rhs),
             Expression::Pow(ref lhs, ref rhs) => write!(f, "Pow({:?}, {:?})", lhs, rhs),
             Expression::IfElse(ref condition, ref consequent, ref alternative) => write!(f, "IfElse({:?}, {:?}, {:?})", condition, consequent, alternative),
+            Expression::FunctionCall(ref i, ref p) => {
+                try!(write!(f, "FunctionCall({:?}, (", i));
+                f.debug_list().entries(p.iter()).finish();
+                write!(f,")")
+            },
         }
     }
 }
