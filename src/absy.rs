@@ -18,10 +18,11 @@ pub struct Prog<T: Field> {
 
 
 impl<T: Field> Prog<T> {
-    //TODO: Adapt to support multiple functions. Currently supports exactly one.
+    // only main flattened function is relevant here, as all other functions are unrolled into it
     pub fn get_witness(&self, inputs: Vec<T>) -> HashMap<String, T> {
-        //assert!(self.arguments.len() == inputs.len());
-        self.functions[0].get_witness(inputs)
+        let main = self.functions.iter().find(|x| x.id=="main").unwrap();
+        assert!(main.arguments.len() == inputs.len());
+        main.get_witness(inputs)
     }
 }
 
@@ -48,12 +49,14 @@ pub struct Function<T: Field> {
 }
 
 impl<T: Field> Function<T> {
+    // for flattened functions
     pub fn get_witness(&self, inputs: Vec<T>) -> HashMap<String, T> {
         assert!(self.arguments.len() == inputs.len());
         let mut witness = HashMap::new();
         witness.insert("~one".to_string(), T::one());
-        for i in 0..self.arguments.len() {
-            witness.insert(self.arguments[i].id.to_string(), inputs[i].clone());
+        for (i, arg) in self.arguments.iter().enumerate()
+        {
+            witness.insert(arg.id.to_string(), inputs[i].clone());
         }
         for statement in &self.statements {
             match *statement {
@@ -103,8 +106,7 @@ impl<T: Field> Statement<T> {
             Statement::Definition(_,ref x) |
             Statement::Compiler(_,ref  x) => x.is_flattened(),
             Statement::Condition(ref x,ref y) => x.is_flattened() && y.is_flattened(),
-            Statement::For(_, _, _,ref x) => unimplemented!(), // should not be required, can be implemented later
-            _ => false,
+            Statement::For(_, _, _, _) => unimplemented!(), // should not be required, can be implemented later
         }
     }
 
@@ -249,7 +251,7 @@ impl<T: Field> Expression<T> {
             Expression::Pow(ref x, ref y) => x.solve(inputs).pow(y.solve(inputs)),
             Expression::IfElse(ref condition, ref consequent, ref alternative)
                 => if condition.solve(inputs) { consequent.solve(inputs) } else { alternative.solve(inputs) },
-            Expression::FunctionCall(ref i, ref p) => unimplemented!(),
+            Expression::FunctionCall(_, _) => unimplemented!(), // should not happen, since never part of flattened functions
         }
     }
 
@@ -325,7 +327,7 @@ impl<T: Field> fmt::Debug for Expression<T> {
             Expression::IfElse(ref condition, ref consequent, ref alternative) => write!(f, "IfElse({:?}, {:?}, {:?})", condition, consequent, alternative),
             Expression::FunctionCall(ref i, ref p) => {
                 try!(write!(f, "FunctionCall({:?}, (", i));
-                f.debug_list().entries(p.iter()).finish();
+                try!(f.debug_list().entries(p.iter()).finish());
                 write!(f,")")
             },
         }

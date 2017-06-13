@@ -356,13 +356,6 @@ impl Flattener {
                 Statement::Return(expr) => {
                     let expr_subbed = expr.apply_substitution(&self.substitution);
                     let rhs = self.flatten_expression(&functions_flattened, &mut statements_flattened, expr_subbed);
-                    // TODO: Check if this is correct and needed
-                    // use ~out variable for main, else use function name
-                    //if funct.id == "main" {
-                    //    self.variables.insert("~out".to_string());
-                    //} else{
-                    //    self.variables.insert(self.use_variable(funct.id));
-                    //}
                     statements_flattened.push(Statement::Return(rhs));
                 },
                 Statement::Definition(id, expr) => {
