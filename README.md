@@ -30,6 +30,16 @@ with `add(1, 2, 3)`, call
 
 Currently needs to be build with nightly Rust.
 
+### Docker
+
+Example usage:
+```
+docker build -t VerifiableStatementCompiler .
+docker run -ti VerifiableStatementCompiler /bin/bash
+cd VerifiableStatementCompiler
+./target/debug/code_to_r1cs examples/add.code "3"
+```
+
 ### With libsnark
 
 Install [libsnark](https://github.com/scipr-lab/libsnark) to `/usr/local` with
