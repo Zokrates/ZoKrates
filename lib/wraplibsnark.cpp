@@ -159,6 +159,32 @@ void exportVerificationKey(r1cs_ppzksnark_keypair<alt_bn128_pp> keypair){
 
 }
 
+// compliant with solidty verification example
+void exportProof(r1cs_ppzksnark_proof<alt_bn128_pp> proof){
+                // solidity data structure
+                // struct Proof {
+                //   Pairing.G1Point A;
+                //   Pairing.G1Point A_p;
+                //   Pairing.G2Point B;
+                //   Pairing.G1Point B_p;
+                //   Pairing.G1Point C;
+                //   Pairing.G1Point C_p;
+                //   Pairing.G1Point K;
+                //   Pairing.G1Point H;
+                // }
+                cout << "\Proof in Solidity compliant format:{" << endl;
+                cout << "proof.g_A.g: " << outputPointG1Affine(proof.g_A.g) << ";" << endl;
+                cout << "proof.g_A.h: " << outputPointG1Affine(proof.g_A.h) << ";" << endl;
+                cout << "proof.g_B.g: " << outputPointG2Affine(proof.g_B.g) << ";" << endl;
+                cout << "proof.g_B.h: " << outputPointG1Affine(proof.g_B.h) << ";" << endl;
+                cout << "proof.g_C.g: " << outputPointG1Affine(proof.g_C.g) << ";" << endl;
+                cout << "proof.g_C.h: " << outputPointG1Affine(proof.g_C.h) << ";" << endl;
+                cout << "proof.g_H: " << outputPointG1Affine(proof.g_H) << ";" << endl;
+                cout << "proof.g_K: " << outputPointG1Affine(proof.g_K) << ";" << endl;
+                cout << "\t\t}" << endl;
+
+}
+
 
 bool _run_libsnark(const uint8_t* A, const uint8_t* B, const uint8_t* C, const uint8_t* witness, int constraints, int variables)
 {
@@ -197,6 +223,21 @@ bool _run_libsnark(const uint8_t* A, const uint8_t* B, const uint8_t* C, const u
 
   // Proof Generation
   r1cs_ppzksnark_proof<alt_bn128_pp> proof = r1cs_ppzksnark_prover<alt_bn128_pp>(keypair.pk, primary_input, auxiliary_input);
+
+  // proof.A = Pairing.G1Point(12873740738727497448187997291915224677121726020054032516825496230827252793177, 21804419174137094775122804775419507726154084057848719988004616848382402162497);
+	// 		proof.A_p = Pairing.G1Point(7742452358972543465462254569134860944739929848367563713587808717088650354556, 7324522103398787664095385319014038380128814213034709026832529060148225837366);
+	// 		proof.B = Pairing.G2Point(
+	// 			[8176651290984905087450403379100573157708110416512446269839297438960217797614, 15588556568726919713003060429893850972163943674590384915350025440408631945055],
+	// 			[15347511022514187557142999444367533883366476794364262773195059233657571533367, 4265071979090628150845437155927259896060451682253086069461962693761322642015]);
+	// 		proof.B_p = Pairing.G1Point(2979746655438963305714517285593753729335852012083057917022078236006592638393, 6470627481646078059765266161088786576504622012540639992486470834383274712950);
+	// 		proof.C = Pairing.G1Point(6851077925310461602867742977619883934042581405263014789956638244065803308498, 10336382210592135525880811046708757754106524561907815205241508542912494488506);
+	// 		proof.C_p = Pairing.G1Point(12491625890066296859584468664467427202390981822868257437245835716136010795448, 13818492518017455361318553880921248537817650587494176379915981090396574171686);
+	// 		proof.H = Pairing.G1Point(12091046215835229523641173286701717671667447745509192321596954139357866668225, 14446807589950902476683545679847436767890904443411534435294953056557941441758);
+	// 		proof.K = Pairing.G1Point(21341087976609916409401737322664290631992568431163400450267978471171152600502, 2942165230690572858696920423896381470344658299915828986338281196715687693170);
+
+
+  // print proof
+  exportProof(proof);
 
   // Verification
   bool result = r1cs_ppzksnark_verifier_strong_IC<alt_bn128_pp>(keypair.vk, primary_input, proof);
