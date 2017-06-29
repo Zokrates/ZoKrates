@@ -204,12 +204,10 @@ void exportVerificationKey(r1cs_ppzksnark_keypair<alt_bn128_pp> keypair){
 
 // compliant with solidty verification example
 void exportInput(r1cs_primary_input<Fr<alt_bn128_pp>> input){
-								unsigned inputLength = input.size() + 1;
-
 								cout << "\tInput in Solidity compliant format:{" << endl;
-								for (size_t i = 1; i <= inputLength; ++i)
+								for (size_t i = 0; i < input.size(); ++i)
 								{
-																cout << "\t\tinput[" << i-1 << "] = " << DecStringFromLibsnarkBigint(input[i-1].as_bigint()) << ";" << endl;
+																cout << "\t\tinput[" << i << "] = " << DecStringFromLibsnarkBigint(input[i].as_bigint()) << ";" << endl;
 								}
 								cout << "\t\t}" << endl;
 }
@@ -248,12 +246,14 @@ bool _run_libsnark(const uint8_t* A, const uint8_t* B, const uint8_t* C, const u
   r1cs_constraint_system<Fr<alt_bn128_pp>> cs;
   cs = createConstraintSystem(A, B ,C , witness, constraints, variables, inputs);
 
-  // assign variables, excludes ~one
+  // assign variables based on witness values, excludes ~one
   // TODO: fix adding to variable assignment!
   r1cs_variable_assignment<Fr<alt_bn128_pp> > full_variable_assignment;
   for (int i = 1; i < variables; i++) {
+    // for debugging
     cout << "witness ["<< i << "]: " << DecStringFromLibsnarkBigint(libsnarkBigintFromBytes(witness + i*32)) << endl;
     cout << "fieldElement ["<< i << "]: " << DecStringFromLibsnarkBigint((Fr<alt_bn128_pp>(libsnarkBigintFromBytes(witness + i*32))).as_bigint()) << endl;
+
     full_variable_assignment.push_back(Fr<alt_bn128_pp>(libsnarkBigintFromBytes(witness + i*32)));
   }
 
@@ -262,7 +262,8 @@ bool _run_libsnark(const uint8_t* A, const uint8_t* B, const uint8_t* C, const u
   r1cs_primary_input<Fr<alt_bn128_pp> > primary_input(full_variable_assignment.begin(), full_variable_assignment.begin() + inputs);
   r1cs_primary_input<Fr<alt_bn128_pp> > auxiliary_input(full_variable_assignment.begin() + inputs, full_variable_assignment.end());
 
-  cout << "full variable assignment " << full_variable_assignment;
+  // for debugging
+  cout << "full variable assignment :"<< endl << full_variable_assignment;
 
   // sanity checks
   assert(cs.num_variables() == full_variable_assignment.size());
