@@ -44,6 +44,23 @@ libsnark::bigint<libsnark::alt_bn128_r_limbs> libsnarkBigintFromBytes(const uint
   return x;
 }
 
+// conversion libsnark bigint <-> byte[32]
+// assumes #limbs = 4 and size(limb) = 64 bit
+std::string DecStringFromLibsnarkBigint(libsnark::bigint<libsnark::alt_bn128_r_limbs> _x)
+{
+  uint8_t x[32];
+  for (unsigned i = 0; i < 4; i++)
+                  for (unsigned j = 0; j < 8; j++)
+                                  x[i * 8 + j] = uint8_t(uint64_t(_x.data[3 - i]) >> (8 * (7 - j)));
+
+  std::stringstream ss;
+  ss << std::setfill('0');
+  for (unsigned i = 0; i<32; i++) {
+                  ss << std::dec << std::setw(2) << (int)x[i];
+  }
+
+  return ss.str();
+}
 
 std::string HexStringFromLibsnarkBigint(libsnark::bigint<libsnark::alt_bn128_r_limbs> _x){
 								uint8_t x[32];
@@ -60,39 +77,65 @@ std::string HexStringFromLibsnarkBigint(libsnark::bigint<libsnark::alt_bn128_r_l
 								return ss.str();
 }
 
-std::string outputPointG1Affine(libsnark::alt_bn128_G1 _p)
+std::string outputPointG1AffineAsHex(libsnark::alt_bn128_G1 _p)
 {
 								libsnark::alt_bn128_G1 aff = _p;
 								aff.to_affine_coordinates();
 								return
-																"Pairing.g1FromAffine(0x" +
+																"0x" +
 																HexStringFromLibsnarkBigint(aff.X.as_bigint()) +
 																", 0x" +
 																HexStringFromLibsnarkBigint(aff.Y.as_bigint()) +
-																")";
+																"";
 }
 
-std::string outputPointG2Affine(libsnark::alt_bn128_G2 _p)
+
+std::string outputPointG1AffineAsDec(libsnark::alt_bn128_G1 _p)
+{
+								libsnark::alt_bn128_G1 aff = _p;
+								aff.to_affine_coordinates();
+                return
+																"" +
+																DecStringFromLibsnarkBigint(aff.X.as_bigint()) +
+																", " +
+																DecStringFromLibsnarkBigint(aff.Y.as_bigint()) +
+																"";
+}
+
+std::string outputPointG2AffineAsHex(libsnark::alt_bn128_G2 _p)
 {
 								libsnark::alt_bn128_G2 aff = _p;
 								aff.to_affine_coordinates();
 								return
-																"Pairing.g2FromAffine([0x" +
+																"[0x" +
 																HexStringFromLibsnarkBigint(aff.X.c1.as_bigint()) + ", 0x" +
 																HexStringFromLibsnarkBigint(aff.X.c0.as_bigint()) + "], [0x" +
 																HexStringFromLibsnarkBigint(aff.Y.c1.as_bigint()) + ", 0x" +
-																HexStringFromLibsnarkBigint(aff.Y.c0.as_bigint()) + "])";
+																HexStringFromLibsnarkBigint(aff.Y.c0.as_bigint()) + "]";
+}
+
+std::string outputPointG2AffineAsDec(libsnark::alt_bn128_G2 _p)
+{
+								libsnark::alt_bn128_G2 aff = _p;
+								aff.to_affine_coordinates();
+								return
+																"[" +
+																DecStringFromLibsnarkBigint(aff.X.c1.as_bigint()) + ", " +
+																DecStringFromLibsnarkBigint(aff.X.c0.as_bigint()) + "], [" +
+																DecStringFromLibsnarkBigint(aff.Y.c1.as_bigint()) + ", " +
+																DecStringFromLibsnarkBigint(aff.Y.c0.as_bigint()) + "]";
 }
 
 //takes input and puts it into constraint system
-r1cs_ppzksnark_constraint_system<alt_bn128_pp> createConstraintSystem(const uint8_t* A, const uint8_t* B, const uint8_t* C, const uint8_t* witness, int constraints, int variables)
+r1cs_ppzksnark_constraint_system<alt_bn128_pp> createConstraintSystem(const uint8_t* A, const uint8_t* B, const uint8_t* C, const uint8_t* witness, int constraints, int variables, int inputs)
 {
   r1cs_constraint_system<Fr<alt_bn128_pp> > cs;
-  cs.primary_input_size = variables - 1;
-  cs.auxiliary_input_size = 0;
+  cs.primary_input_size = inputs;
+  cs.auxiliary_input_size = variables - inputs - 1; // ~one not included
 
   cout << "num variables: " << variables <<endl;
   cout << "num constraints: " << constraints <<endl;
+  cout << "num inputs: " << inputs <<endl;
 
   for (int row = 0; row < constraints; row++) {
     linear_combination<Fr<alt_bn128_pp> > lin_comb_A, lin_comb_B, lin_comb_C;
@@ -136,78 +179,95 @@ r1cs_ppzksnark_keypair<alt_bn128_pp> generateKeypair(const r1cs_ppzksnark_constr
   return r1cs_ppzksnark_generator<alt_bn128_pp>(cs);
 }
 
-// compliant with solidty, from c++ client libsnark integration
+// compliant with solidty verification example
 void exportVerificationKey(r1cs_ppzksnark_keypair<alt_bn128_pp> keypair){
 								unsigned icLength = keypair.vk.encoded_IC_query.rest.indices.size() + 1;
 
 								cout << "\tVerification key in Solidity compliant format:{" << endl;
-								cout << "\t\tvk.A = " << outputPointG2Affine(keypair.vk.alphaA_g2) << ";" << endl;
-								cout << "\t\tvk.B = " << outputPointG1Affine(keypair.vk.alphaB_g1) << ";" << endl;
-								cout << "\t\tvk.C = " << outputPointG2Affine(keypair.vk.alphaC_g2) << ";" << endl;
-								cout << "\t\tvk.gamma = " << outputPointG2Affine(keypair.vk.gamma_g2) << ";" << endl;
-								cout << "\t\tvk.gammaBeta1 = " << outputPointG1Affine(keypair.vk.gamma_beta_g1) << ";" << endl;
-								cout << "\t\tvk.gammaBeta2 = " << outputPointG2Affine(keypair.vk.gamma_beta_g2) << ";" << endl;
-								cout << "\t\tvk.Z = " << outputPointG2Affine(keypair.vk.rC_Z_g2) << ";" << endl;
+								cout << "\t\tvk.A = Pairing.G2Point(" << outputPointG2AffineAsDec(keypair.vk.alphaA_g2) << ");" << endl;
+								cout << "\t\tvk.B = Pairing.G1Point(" << outputPointG1AffineAsDec(keypair.vk.alphaB_g1) << ");" << endl;
+								cout << "\t\tvk.C = Pairing.G2Point(" << outputPointG2AffineAsDec(keypair.vk.alphaC_g2) << ");" << endl;
+								cout << "\t\tvk.gamma = Pairing.G2Point(" << outputPointG2AffineAsDec(keypair.vk.gamma_g2) << ");" << endl;
+								cout << "\t\tvk.gammaBeta1 = Pairing.G1Point(" << outputPointG1AffineAsDec(keypair.vk.gamma_beta_g1) << ");" << endl;
+								cout << "\t\tvk.gammaBeta2 = Pairing.G2Point(" << outputPointG2AffineAsDec(keypair.vk.gamma_beta_g2) << ");" << endl;
+								cout << "\t\tvk.Z = Pairing.G2Point(" << outputPointG2AffineAsDec(keypair.vk.rC_Z_g2) << ");" << endl;
 								cout << "\t\tvk.IC = new Pairing.G1Point[](" << icLength << ");" << endl;
-								cout << "\t\tvk.IC[0] = " << outputPointG1Affine(keypair.vk.encoded_IC_query.first) << ";" << endl;
+								cout << "\t\tvk.IC[0] = Pairing.G1Point(" << outputPointG1AffineAsDec(keypair.vk.encoded_IC_query.first) << ");" << endl;
 								for (size_t i = 1; i < icLength; ++i)
 								{
-																auto vkICi = outputPointG1Affine(keypair.vk.encoded_IC_query.rest.values[i - 1]);
-																cout << "\t\tvk.IC[" << i << "] = " << vkICi << ";" << endl;
+																auto vkICi = outputPointG1AffineAsDec(keypair.vk.encoded_IC_query.rest.values[i - 1]);
+																cout << "\t\tvk.IC[" << i << "] = Pairing.G1Point(" << vkICi << ");" << endl;
 								}
 								cout << "\t\t}" << endl;
 
 }
 
 // compliant with solidty verification example
+void exportInput(r1cs_primary_input<Fr<alt_bn128_pp>> input){
+								unsigned inputLength = input.size() + 1;
+
+								cout << "\tInput in Solidity compliant format:{" << endl;
+								for (size_t i = 1; i <= inputLength; ++i)
+								{
+																cout << "\t\tinput[" << i-1 << "] = " << DecStringFromLibsnarkBigint(input[i-1].as_bigint()) << ";" << endl;
+								}
+								cout << "\t\t}" << endl;
+}
+
+// compliant with solidty verification example
 void exportProof(r1cs_ppzksnark_proof<alt_bn128_pp> proof){
-                // solidity data structure
-                // struct Proof {
-                //   Pairing.G1Point A;
-                //   Pairing.G1Point A_p;
-                //   Pairing.G2Point B;
-                //   Pairing.G1Point B_p;
-                //   Pairing.G1Point C;
-                //   Pairing.G1Point C_p;
-                //   Pairing.G1Point K;
-                //   Pairing.G1Point H;
-                // }
-                cout << "\Proof in Solidity compliant format:{" << endl;
-                cout << "proof.g_A.g: " << outputPointG1Affine(proof.g_A.g) << ";" << endl;
-                cout << "proof.g_A.h: " << outputPointG1Affine(proof.g_A.h) << ";" << endl;
-                cout << "proof.g_B.g: " << outputPointG2Affine(proof.g_B.g) << ";" << endl;
-                cout << "proof.g_B.h: " << outputPointG1Affine(proof.g_B.h) << ";" << endl;
-                cout << "proof.g_C.g: " << outputPointG1Affine(proof.g_C.g) << ";" << endl;
-                cout << "proof.g_C.h: " << outputPointG1Affine(proof.g_C.h) << ";" << endl;
-                cout << "proof.g_H: " << outputPointG1Affine(proof.g_H) << ";" << endl;
-                cout << "proof.g_K: " << outputPointG1Affine(proof.g_K) << ";" << endl;
-                cout << "\t\t}" << endl;
+                cout << "\tstruct Proof {\n"
+                   "\t\tPairing.G1Point A;\n"
+                   "\t\tPairing.G1Point A_p;\n"
+                   "\t\tPairing.G2Point B;\n"
+                   "\t\tPairing.G1Point B_p;\n"
+                   "\t\tPairing.G1Point C;\n"
+                   "\t\tPairing.G1Point C_p;\n"
+                   "\t\tPairing.G1Point K;\n"
+                   "\t\tPairing.G1Point H;\n"
+                 "\t}" << endl;
+
+                cout << "\t//Proof in Solidity compliant format:{" << endl;
+                cout << "\t\tproof.A = Pairing.G1Point(" << outputPointG1AffineAsDec(proof.g_A.g) << ");" << endl;
+                cout << "\t\tproof.A_p = Pairing.G1Point(" << outputPointG1AffineAsDec(proof.g_A.h) << ");" << endl;
+                cout << "\t\tproof.B = Pairing.G2Point(" << outputPointG2AffineAsDec(proof.g_B.g) << ");" << endl;
+                cout << "\t\tproof.B_p = Pairing.G1Point(" << outputPointG1AffineAsDec(proof.g_B.h) << ");" << endl;
+                cout << "\t\tproof.C = Pairing.G1Point(" << outputPointG1AffineAsDec(proof.g_C.g) << ");" << endl;
+                cout << "\t\tproof.C_p = Pairing.G1Point(" << outputPointG1AffineAsDec(proof.g_C.h) << ");" << endl;
+                cout << "\t\tproof.H = Pairing.G1Point(" << outputPointG1AffineAsDec(proof.g_H) << ");" << endl;
+                cout << "\t\tproof.K = Pairing.G1Point(" << outputPointG1AffineAsDec(proof.g_K) << ");" << endl;
+                cout << "\t}" << endl;
 
 }
 
 
-bool _run_libsnark(const uint8_t* A, const uint8_t* B, const uint8_t* C, const uint8_t* witness, int constraints, int variables)
+bool _run_libsnark(const uint8_t* A, const uint8_t* B, const uint8_t* C, const uint8_t* witness, int constraints, int variables, int inputs)
 {
   // Setup:
   // create constraint system
-  r1cs_constraint_system<Fr<alt_bn128_pp> > cs;
-  cs = createConstraintSystem(A,B,C,witness,constraints,variables);
+  r1cs_constraint_system<Fr<alt_bn128_pp>> cs;
+  cs = createConstraintSystem(A, B ,C , witness, constraints, variables, inputs);
 
-  // assign variables
+  // assign variables, excludes ~one
+  // TODO: fix adding to variable assignment!
   r1cs_variable_assignment<Fr<alt_bn128_pp> > full_variable_assignment;
   for (int i = 1; i < variables; i++) {
-    full_variable_assignment.push_back(witness[i]);
+    cout << "witness ["<< i << "]: " << DecStringFromLibsnarkBigint(libsnarkBigintFromBytes(witness + i*32)) << endl;
+    cout << "fieldElement ["<< i << "]: " << DecStringFromLibsnarkBigint((Fr<alt_bn128_pp>(libsnarkBigintFromBytes(witness + i*32))).as_bigint()) << endl;
+    full_variable_assignment.push_back(Fr<alt_bn128_pp>(libsnarkBigintFromBytes(witness + i*32)));
   }
 
-  //split up variables into primary and auxiliary inputs
-  // TODO: Check whether this is consistent with inputs from VerifiableStatementCompiler
-  r1cs_primary_input<Fr<alt_bn128_pp> > primary_input(full_variable_assignment.begin(), full_variable_assignment.begin() + variables - 1);
-  r1cs_primary_input<Fr<alt_bn128_pp> > auxiliary_input(full_variable_assignment.begin() + variables - 1, full_variable_assignment.end());
+  // split up variables into primary and auxiliary inputs. Does *NOT* include the constant 1 */
+  // Output variables belong to primary input, helper variables are auxiliary input.
+  r1cs_primary_input<Fr<alt_bn128_pp> > primary_input(full_variable_assignment.begin(), full_variable_assignment.begin() + inputs);
+  r1cs_primary_input<Fr<alt_bn128_pp> > auxiliary_input(full_variable_assignment.begin() + inputs, full_variable_assignment.end());
+
+  cout << "full variable assignment " << full_variable_assignment;
 
   // sanity checks
   assert(cs.num_variables() == full_variable_assignment.size());
-  assert(cs.num_variables() >= variables - 1);
-  assert(cs.num_inputs() == variables - 1);
+  assert(cs.num_variables() >= inputs);
+  assert(cs.num_inputs() == inputs);
   assert(cs.num_constraints() == constraints);
   assert(cs.is_satisfied(primary_input, auxiliary_input));
 
@@ -220,21 +280,11 @@ bool _run_libsnark(const uint8_t* A, const uint8_t* B, const uint8_t* C, const u
 	// Print VerificationKey in Solidity compatible format
 	exportVerificationKey(keypair);
 
+  // print primary input
+  exportInput(primary_input);
 
   // Proof Generation
   r1cs_ppzksnark_proof<alt_bn128_pp> proof = r1cs_ppzksnark_prover<alt_bn128_pp>(keypair.pk, primary_input, auxiliary_input);
-
-  // proof.A = Pairing.G1Point(12873740738727497448187997291915224677121726020054032516825496230827252793177, 21804419174137094775122804775419507726154084057848719988004616848382402162497);
-	// 		proof.A_p = Pairing.G1Point(7742452358972543465462254569134860944739929848367563713587808717088650354556, 7324522103398787664095385319014038380128814213034709026832529060148225837366);
-	// 		proof.B = Pairing.G2Point(
-	// 			[8176651290984905087450403379100573157708110416512446269839297438960217797614, 15588556568726919713003060429893850972163943674590384915350025440408631945055],
-	// 			[15347511022514187557142999444367533883366476794364262773195059233657571533367, 4265071979090628150845437155927259896060451682253086069461962693761322642015]);
-	// 		proof.B_p = Pairing.G1Point(2979746655438963305714517285593753729335852012083057917022078236006592638393, 6470627481646078059765266161088786576504622012540639992486470834383274712950);
-	// 		proof.C = Pairing.G1Point(6851077925310461602867742977619883934042581405263014789956638244065803308498, 10336382210592135525880811046708757754106524561907815205241508542912494488506);
-	// 		proof.C_p = Pairing.G1Point(12491625890066296859584468664467427202390981822868257437245835716136010795448, 13818492518017455361318553880921248537817650587494176379915981090396574171686);
-	// 		proof.H = Pairing.G1Point(12091046215835229523641173286701717671667447745509192321596954139357866668225, 14446807589950902476683545679847436767890904443411534435294953056557941441758);
-	// 		proof.K = Pairing.G1Point(21341087976609916409401737322664290631992568431163400450267978471171152600502, 2942165230690572858696920423896381470344658299915828986338281196715687693170);
-
 
   // print proof
   exportProof(proof);

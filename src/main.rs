@@ -80,7 +80,9 @@ fn main() {
 
     // run libsnark
     #[cfg(not(feature="nolibsnark"))]
-    println!("run_libsnark = {:?}", run_libsnark(variables, a, b, c, witness));
+    // number of inputs in the zkSNARK sense, i.e., input variables + output variables
+    let num_inputs = args_provided.len() + 1; //currently exactly one output variable
+    println!("run_libsnark = {:?}", run_libsnark(variables, a, b, c, witness, num_inputs));
 }
 
 #[cfg(test)]
