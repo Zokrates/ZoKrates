@@ -75,6 +75,10 @@ fn main() {
     // generate wittness
     let witness_map = program_flattened.get_witness(inputs);
     println!("witness_map {:?}", witness_map);
+    match witness_map.get("~out") {
+        Some(out) => println!("~out: {}", out),
+        None => println!("~out not found")
+    }
     let witness: Vec<_> = variables.iter().map(|x| witness_map[x].clone()).collect();
     println!("witness {:?}", witness);
 

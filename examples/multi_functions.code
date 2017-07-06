@@ -1,0 +1,12 @@
+def add(a,b):
+  v = a + b
+  return v + a
+
+def main(a,b,c,d):
+  g = a + b
+  x = add(a,b)
+  y = add(c,d)
+  g = add(x, g)
+  g = add(x, g)
+  f = c + d + a
+  return x + y + g + f

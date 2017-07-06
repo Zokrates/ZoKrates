@@ -323,23 +323,101 @@ impl Flattener {
             FunctionCall(ref id, ref params) => {
                 for funct in functions_flattened {
                     if funct.id == *id && funct.arguments.len() == (*params).len() {
-                        // add all flattened statements except return statement
-                        for stat in funct.statements.clone() {
-                            assert!(stat.is_flattened());
-                            match stat {
-                                Statement::Return(x) =>{
-                                    // set return statements right side as expression result
-                                    return x
-                                },
-                                _ => statements_flattened.push(stat),
+                        let mut old_sub: HashMap<String, String> = HashMap::new();
+                        for i in 0..funct.arguments.len() {
+                            let input_param = match self.substitution.get(&funct.arguments[i].id) {
+                                Some(val) => val.to_string(),
+                                None => funct.arguments[i].id.to_string(),
+                            };
+                            if params[i].id != input_param {
+                                match self.substitution.get(&params[i].id) {
+                                    Some(val) => {
+                                        old_sub.insert(val.to_string(), params[i].id.to_string());
+                                    },
+                                    None => {},
+                                }
+                                // self.variables.insert(params[i].id.to_string());
+                                self.substitution.insert(input_param, params[i].id.to_string());
                             }
                         }
-                    } else {
-                        panic!("Function definition for function {} with {} argument(s) not found.",funct.id , funct.arguments.len());
+                        // add all flattened statements except return statement
+                        for stat in funct.statements.clone() {
+                            assert!(stat.is_flattened(), format!("Not flattened: {}", &stat));
+                            match stat {
+                                // set return statements right side as expression result
+                                Statement::Return(x) => {
+                                    let result = x.apply_substitution(&self.substitution);
+                                    // restore previous substitution
+                                    for param in &funct.arguments {
+                                        match old_sub.get(&param.id) {
+                                            Some(val) => {
+                                                self.substitution.insert(param.id.to_string(), val.to_string());
+                                            },
+                                            None => {
+                                                self.substitution.remove(&param.id);
+                                            },
+                                        }
+                                    }
+                                    return result;
+                                },
+                                Statement::Definition(var, rhs) => {
+                                    let new_rhs = rhs.apply_substitution(&self.substitution);
+                                    statements_flattened.push(Statement::Definition(self.use_variable(&var), new_rhs));
+                                },
+                                Statement::Compiler(var, rhs) => {
+                                    let new_rhs = rhs.apply_substitution(&self.substitution);
+                                    statements_flattened.push(Statement::Compiler(self.use_variable(&var), new_rhs));
+                                },
+                                Statement::Condition(lhs, rhs) => {
+                                    let new_lhs = lhs.apply_substitution(&self.substitution);
+                                    let new_rhs = rhs.apply_substitution(&self.substitution);
+                                    statements_flattened.push(Statement::Condition(new_lhs, new_rhs));
+                                },
+                                Statement::For(..) => panic!("Not flattened!"),
+                            }
+                        }
                     }
                 }
-                panic!("Should never happen.")
+                panic!("Function definition for function {} with {:?} argument(s) not found.",id , params);
             },
+        }
+    }
+
+    pub fn flatten_statement<T: Field>(&mut self, functions_flattened: &mut Vec<Function<T>>, statements_flattened: &mut Vec<Statement<T>>, stat: &Statement<T>) {
+        match *stat {
+            Statement::Return(ref expr) => {
+                let expr_subbed = expr.apply_substitution(&self.substitution);
+                let rhs = self.flatten_expression(functions_flattened, statements_flattened, expr_subbed);
+                statements_flattened.push(Statement::Return(rhs));
+            },
+            Statement::Definition(ref id, ref expr) => {
+                let expr_subbed = expr.apply_substitution(&self.substitution);
+                let rhs = self.flatten_expression(functions_flattened, statements_flattened, expr_subbed);
+                statements_flattened.push(Statement::Definition(self.use_variable(&id), rhs));
+            },
+            Statement::Condition(ref expr1, ref expr2) => {
+                let expr1_subbed = expr1.apply_substitution(&self.substitution);
+                let expr2_subbed = expr2.apply_substitution(&self.substitution);
+                let (lhs, rhs) = if expr1_subbed.is_linear() {
+                    (expr1_subbed, self.flatten_expression(functions_flattened, statements_flattened, expr2_subbed))
+                } else if expr2_subbed.is_linear() {
+                    (expr2_subbed, self.flatten_expression(functions_flattened, statements_flattened, expr1_subbed))
+                } else {
+                    unimplemented!()
+                };
+                statements_flattened.push(Statement::Condition(lhs, rhs));
+            },
+            Statement::For(ref var, ref start, ref end, ref statements) => {
+                let mut current = start.clone();
+                while &current < end {
+                    statements_flattened.push(Statement::Definition(self.use_variable(&var), Expression::Number(current.clone())));
+                    for s in statements {
+                        self.flatten_statement(functions_flattened, statements_flattened, s);
+                    }
+                    current = T::one() + &current;
+                }
+            },
+            ref s @ Statement::Compiler(..) => statements_flattened.push(s.clone()),
         }
     }
 
@@ -350,34 +428,9 @@ impl Flattener {
     /// * `functions_flattened` - Vector where new flattened statements can be added.
     /// * `funct` - `Function` that will be flattened.
     pub fn flatten_function<T: Field>(&mut self, functions_flattened: &mut Vec<Function<T>>, funct: Function<T>) -> Function<T> {
-        let mut statements_flattened = Vec::new();
+        let mut statements_flattened: Vec<Statement<T>> = Vec::new();
         for stat in funct.statements {
-            match stat {
-                Statement::Return(expr) => {
-                    let expr_subbed = expr.apply_substitution(&self.substitution);
-                    let rhs = self.flatten_expression(&functions_flattened, &mut statements_flattened, expr_subbed);
-                    statements_flattened.push(Statement::Return(rhs));
-                },
-                Statement::Definition(id, expr) => {
-                    let expr_subbed = expr.apply_substitution(&self.substitution);
-                    let rhs = self.flatten_expression(&functions_flattened, &mut statements_flattened, expr_subbed);
-                    statements_flattened.push(Statement::Definition(self.use_variable(id), rhs));
-                },
-                Statement::Condition(expr1, expr2) => {
-                    let expr1_subbed = expr1.apply_substitution(&self.substitution);
-                    let expr2_subbed = expr2.apply_substitution(&self.substitution);
-                    let (lhs, rhs) = if expr1_subbed.is_linear() {
-                        (expr1_subbed, self.flatten_expression(&functions_flattened, &mut statements_flattened, expr2_subbed))
-                    } else if expr2_subbed.is_linear() {
-                        (expr2_subbed, self.flatten_expression(&functions_flattened, &mut statements_flattened, expr1_subbed))
-                    } else {
-                        unimplemented!()
-                    };
-                    statements_flattened.push(Statement::Condition(lhs, rhs));
-                },
-                Statement::For(..) => unimplemented!(),
-                s @ Statement::Compiler(..) => statements_flattened.push(s),
-            }
+            self.flatten_statement(functions_flattened, &mut statements_flattened, &stat);
         }
         Function { id: funct.id, arguments: funct.arguments, statements: statements_flattened }
     }
@@ -393,6 +446,9 @@ impl Flattener {
         self.substitution = HashMap::new();
         self.next_var_idx = 0;
         for func in prog.functions{
+            self.variables = HashSet::new();
+            self.substitution = HashMap::new();
+            self.next_var_idx = 0;
             let flattened_func = self.flatten_function(&mut functions_flattened, func);
             functions_flattened.push(flattened_func);
         }
@@ -405,7 +461,7 @@ impl Flattener {
     /// # Arguments
     ///
     /// * `name` - A String that holds the name of the variable
-    fn use_variable(&mut self, name: String) -> String {
+    fn use_variable(&mut self, name: &String) -> String {
         let mut i = 0;
         let mut new_name = name.to_string();
         loop {
@@ -415,7 +471,7 @@ impl Flattener {
             } else {
                 self.variables.insert(new_name.to_string());
                 if i == 1 {
-                    self.substitution.insert(name, new_name.to_string());
+                    self.substitution.insert(name.to_string(), new_name.to_string());
                 } else if i > 1 {
                     self.substitution.insert(format!("{}_{}", name, i - 2), new_name.to_string());
                 }

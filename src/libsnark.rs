@@ -46,11 +46,11 @@ pub fn run_libsnark<T: Field>(variables: Vec<String>, a: Vec<Vec<(usize, T)>>, b
     }
 
     //debugging output
-    println!("debugging output:");
-    println!("a_arr {:?}", a_arr);
-    println!("b_arr {:?}", b_arr);
-    println!("c_arr {:?}", c_arr);
-    println!("w_arr {:?}", w_arr);
+    //println!("debugging output:");
+    //println!("a_arr {:?}", a_arr);
+    //println!("b_arr {:?}", b_arr);
+    //println!("c_arr {:?}", c_arr);
+    //println!("w_arr {:?}", w_arr);
 
     unsafe {
         _run_libsnark(a_arr[0].as_ptr(),b_arr[0].as_ptr(), c_arr[0].as_ptr(), w_arr[0].as_ptr(), num_constraints as i32, num_variables as i32, num_inputs as i32)

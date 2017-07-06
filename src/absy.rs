@@ -29,7 +29,7 @@ impl<T: Field> Prog<T> {
 
 impl<T: Field> fmt::Display for Prog<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "prog({}\t)", self.functions.iter().map(|x| format!("\t{}", x)).collect::<Vec<_>>().join("\n"))
+        write!(f, "{}", self.functions.iter().map(|x| format!("{}", x)).collect::<Vec<_>>().join("\n"))
     }
 }
 
@@ -99,17 +99,15 @@ pub enum Statement<T: Field> {
 }
 
 impl<T: Field> Statement<T> {
-
     pub fn is_flattened(&self) -> bool {
         match *self {
             Statement::Return(ref x) |
-            Statement::Definition(_,ref x) |
-            Statement::Compiler(_,ref  x) => x.is_flattened(),
-            Statement::Condition(ref x,ref y) => x.is_flattened() && y.is_flattened(),
-            Statement::For(_, _, _, _) => unimplemented!(), // should not be required, can be implemented later
+            Statement::Definition(_,ref x) => x.is_flattened(),
+            Statement::Compiler(..) => true,
+            Statement::Condition(ref x,ref y) => (x.is_linear() && y.is_flattened()) || (x.is_flattened() && y.is_linear()),
+            Statement::For(..) => unimplemented!(), // should not be required, can be implemented later
         }
     }
-
 }
 
 

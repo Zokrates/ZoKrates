@@ -464,7 +464,10 @@ fn parse_statement1<T: Field>(ide: String, input: String, pos: Position) -> Resu
                     assert_eq!(s3, "");
                     Ok((Statement::Definition(ide, e2), s2, p2))
                 },
-                (t3, _, p3) => Err(Error { expected: vec![Token::Add, Token::Sub, Token::Pow, Token::Mult, Token::Div, Token::Unknown("".to_string())], got: t3 , pos: p3 }),
+                (t3, _, p3) => {
+                    println!("here {}", input);
+                    Err(Error { expected: vec![Token::Add, Token::Sub, Token::Pow, Token::Mult, Token::Div, Token::Unknown("".to_string())], got: t3 , pos: p3 })
+                },
             },
             Err(err) => Err(err),
         },
