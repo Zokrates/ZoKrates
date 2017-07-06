@@ -28,7 +28,7 @@ RUN cd libsnark-$libsnarkcommit \
 
 ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/usr/local/lib
 
-#COPY . /root/VerifiableStatementCompiler
+COPY . /root/VerifiableStatementCompiler
 
-#RUN cd VerifiableStatementCompiler \
-#  && cargo build --release
+RUN cd VerifiableStatementCompiler \
+  && cargo build --release
