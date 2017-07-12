@@ -1,7 +1,7 @@
 // simple ifelse example
 // x = 2 -> 2 + 1 + 2**3 = 11
 // x = 5 -> 5 + 5 + 5**3 = 135
-def qeval(x):
+def main(x):
   y = if x < 3 then 1 else 5 fi
   z = if y < x then x**3 else y**3 fi
   return x + y + z

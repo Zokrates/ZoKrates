@@ -34,8 +34,8 @@ Currently needs to be build with nightly Rust.
 
 Example usage:
 ```
-docker build -t VerifiableStatementCompiler .
-docker run -ti VerifiableStatementCompiler /bin/bash
+docker build -t verifiablestatementcompiler .
+docker run -ti verifiablestatementcompiler /bin/bash
 cd VerifiableStatementCompiler
 ./target/debug/code_to_r1cs examples/add.code "3"
 ```

@@ -44,7 +44,6 @@ libsnark::bigint<libsnark::alt_bn128_r_limbs> libsnarkBigintFromBytes(const uint
   return x;
 }
 
-
 std::string HexStringFromLibsnarkBigint(libsnark::bigint<libsnark::alt_bn128_r_limbs> _x){
 								uint8_t x[32];
 								for (unsigned i = 0; i < 4; i++)
@@ -57,42 +56,44 @@ std::string HexStringFromLibsnarkBigint(libsnark::bigint<libsnark::alt_bn128_r_l
 																ss << std::hex << std::setw(2) << (int)x[i];
 								}
 
-								return ss.str();
+                std:string str = ss.str();
+                return str.erase(0, min(str.find_first_not_of('0'), str.size()-1));
 }
 
-std::string outputPointG1Affine(libsnark::alt_bn128_G1 _p)
+std::string outputPointG1AffineAsHex(libsnark::alt_bn128_G1 _p)
 {
 								libsnark::alt_bn128_G1 aff = _p;
 								aff.to_affine_coordinates();
 								return
-																"Pairing.g1FromAffine(0x" +
+																"0x" +
 																HexStringFromLibsnarkBigint(aff.X.as_bigint()) +
 																", 0x" +
 																HexStringFromLibsnarkBigint(aff.Y.as_bigint()) +
-																")";
+																"";
 }
 
-std::string outputPointG2Affine(libsnark::alt_bn128_G2 _p)
+std::string outputPointG2AffineAsHex(libsnark::alt_bn128_G2 _p)
 {
 								libsnark::alt_bn128_G2 aff = _p;
 								aff.to_affine_coordinates();
 								return
-																"Pairing.g2FromAffine([0x" +
+																"[0x" +
 																HexStringFromLibsnarkBigint(aff.X.c1.as_bigint()) + ", 0x" +
 																HexStringFromLibsnarkBigint(aff.X.c0.as_bigint()) + "], [0x" +
 																HexStringFromLibsnarkBigint(aff.Y.c1.as_bigint()) + ", 0x" +
-																HexStringFromLibsnarkBigint(aff.Y.c0.as_bigint()) + "])";
+																HexStringFromLibsnarkBigint(aff.Y.c0.as_bigint()) + "]";
 }
 
 //takes input and puts it into constraint system
-r1cs_ppzksnark_constraint_system<alt_bn128_pp> createConstraintSystem(const uint8_t* A, const uint8_t* B, const uint8_t* C, const uint8_t* witness, int constraints, int variables)
+r1cs_ppzksnark_constraint_system<alt_bn128_pp> createConstraintSystem(const uint8_t* A, const uint8_t* B, const uint8_t* C, const uint8_t* witness, int constraints, int variables, int inputs)
 {
   r1cs_constraint_system<Fr<alt_bn128_pp> > cs;
-  cs.primary_input_size = variables - 1;
-  cs.auxiliary_input_size = 0;
+  cs.primary_input_size = inputs;
+  cs.auxiliary_input_size = variables - inputs - 1; // ~one not included
 
   cout << "num variables: " << variables <<endl;
   cout << "num constraints: " << constraints <<endl;
+  cout << "num inputs: " << inputs <<endl;
 
   for (int row = 0; row < constraints; row++) {
     linear_combination<Fr<alt_bn128_pp> > lin_comb_A, lin_comb_B, lin_comb_C;
@@ -136,57 +137,108 @@ r1cs_ppzksnark_keypair<alt_bn128_pp> generateKeypair(const r1cs_ppzksnark_constr
   return r1cs_ppzksnark_generator<alt_bn128_pp>(cs);
 }
 
-// compliant with solidty, from c++ client libsnark integration
+// compliant with solidty verification example
 void exportVerificationKey(r1cs_ppzksnark_keypair<alt_bn128_pp> keypair){
 								unsigned icLength = keypair.vk.encoded_IC_query.rest.indices.size() + 1;
 
 								cout << "\tVerification key in Solidity compliant format:{" << endl;
-								cout << "\t\tvk.A = " << outputPointG2Affine(keypair.vk.alphaA_g2) << ";" << endl;
-								cout << "\t\tvk.B = " << outputPointG1Affine(keypair.vk.alphaB_g1) << ";" << endl;
-								cout << "\t\tvk.C = " << outputPointG2Affine(keypair.vk.alphaC_g2) << ";" << endl;
-								cout << "\t\tvk.gamma = " << outputPointG2Affine(keypair.vk.gamma_g2) << ";" << endl;
-								cout << "\t\tvk.gammaBeta1 = " << outputPointG1Affine(keypair.vk.gamma_beta_g1) << ";" << endl;
-								cout << "\t\tvk.gammaBeta2 = " << outputPointG2Affine(keypair.vk.gamma_beta_g2) << ";" << endl;
-								cout << "\t\tvk.Z = " << outputPointG2Affine(keypair.vk.rC_Z_g2) << ";" << endl;
+								cout << "\t\tvk.A = Pairing.G2Point(" << outputPointG2AffineAsHex(keypair.vk.alphaA_g2) << ");" << endl;
+								cout << "\t\tvk.B = Pairing.G1Point(" << outputPointG1AffineAsHex(keypair.vk.alphaB_g1) << ");" << endl;
+								cout << "\t\tvk.C = Pairing.G2Point(" << outputPointG2AffineAsHex(keypair.vk.alphaC_g2) << ");" << endl;
+								cout << "\t\tvk.gamma = Pairing.G2Point(" << outputPointG2AffineAsHex(keypair.vk.gamma_g2) << ");" << endl;
+								cout << "\t\tvk.gammaBeta1 = Pairing.G1Point(" << outputPointG1AffineAsHex(keypair.vk.gamma_beta_g1) << ");" << endl;
+								cout << "\t\tvk.gammaBeta2 = Pairing.G2Point(" << outputPointG2AffineAsHex(keypair.vk.gamma_beta_g2) << ");" << endl;
+								cout << "\t\tvk.Z = Pairing.G2Point(" << outputPointG2AffineAsHex(keypair.vk.rC_Z_g2) << ");" << endl;
 								cout << "\t\tvk.IC = new Pairing.G1Point[](" << icLength << ");" << endl;
-								cout << "\t\tvk.IC[0] = " << outputPointG1Affine(keypair.vk.encoded_IC_query.first) << ";" << endl;
+								cout << "\t\tvk.IC[0] = Pairing.G1Point(" << outputPointG1AffineAsHex(keypair.vk.encoded_IC_query.first) << ");" << endl;
 								for (size_t i = 1; i < icLength; ++i)
 								{
-																auto vkICi = outputPointG1Affine(keypair.vk.encoded_IC_query.rest.values[i - 1]);
-																cout << "\t\tvk.IC[" << i << "] = " << vkICi << ";" << endl;
+																auto vkICi = outputPointG1AffineAsHex(keypair.vk.encoded_IC_query.rest.values[i - 1]);
+																cout << "\t\tvk.IC[" << i << "] = Pairing.G1Point(" << vkICi << ");" << endl;
 								}
 								cout << "\t\t}" << endl;
 
 }
 
+// compliant with solidty verification example
+void exportInput(r1cs_primary_input<Fr<alt_bn128_pp>> input){
+								cout << "\tInput in Solidity compliant format:{" << endl;
+								for (size_t i = 0; i < input.size(); ++i)
+								{
+																cout << "\t\tinput[" << i << "] = " << HexStringFromLibsnarkBigint(input[i].as_bigint()) << ";" << endl;
+								}
+								cout << "\t\t}" << endl;
+}
 
-bool _run_libsnark(const uint8_t* A, const uint8_t* B, const uint8_t* C, const uint8_t* witness, int constraints, int variables)
+// compliant with solidty verification example
+void exportProof(r1cs_ppzksnark_proof<alt_bn128_pp> proof){
+                cout << "\tstruct Proof {\n"
+                   "\t\tPairing.G1Point A;\n"
+                   "\t\tPairing.G1Point A_p;\n"
+                   "\t\tPairing.G2Point B;\n"
+                   "\t\tPairing.G1Point B_p;\n"
+                   "\t\tPairing.G1Point C;\n"
+                   "\t\tPairing.G1Point C_p;\n"
+                   "\t\tPairing.G1Point K;\n"
+                   "\t\tPairing.G1Point H;\n"
+                 "\t}" << endl;
+
+                cout << "\t//Proof in Solidity compliant format:{" << endl;
+                cout << "\t\tproof.A = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_A.g) << ");" << endl;
+                cout << "\t\tproof.A_p = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_A.h) << ");" << endl;
+                cout << "\t\tproof.B = Pairing.G2Point(" << outputPointG2AffineAsHex(proof.g_B.g) << ");" << endl;
+                cout << "\t\tproof.B_p = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_B.h) << ");" << endl;
+                cout << "\t\tproof.C = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_C.g) << ");" << endl;
+                cout << "\t\tproof.C_p = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_C.h) << ");" << endl;
+                cout << "\t\tproof.H = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_H) << ");" << endl;
+                cout << "\t\tproof.K = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_K) << ");" << endl;
+                cout << "\t}" << endl;
+
+}
+
+
+bool _run_libsnark(const uint8_t* A, const uint8_t* B, const uint8_t* C, const uint8_t* witness, int constraints, int variables, int inputs)
 {
+  //initialize curve parameters
+  alt_bn128_pp::init_public_params();
+
+  // for testing of serialization only. remove later.
+  // string decString = "123456789123456789123456789";
+  // string hexString = "0x661efdf2e3b19f7c045f15";
+  // libsnark::bigint<libsnark::alt_bn128_r_limbs> value = bigint<libsnark::alt_bn128_r_limbs>(decString.c_str());
+  //
+  // cout << "expected: " << hexString << endl;
+  // cout << "computed: " << "0x"+HexStringFromLibsnarkBigint(value) <<endl;
+  // assert("0x"+HexStringFromLibsnarkBigint(value) == hexString);
+
   // Setup:
   // create constraint system
-  r1cs_constraint_system<Fr<alt_bn128_pp> > cs;
-  cs = createConstraintSystem(A,B,C,witness,constraints,variables);
+  r1cs_constraint_system<Fr<alt_bn128_pp>> cs;
+  cs = createConstraintSystem(A, B ,C , witness, constraints, variables, inputs);
 
-  // assign variables
+  // assign variables based on witness values, excludes ~one
   r1cs_variable_assignment<Fr<alt_bn128_pp> > full_variable_assignment;
   for (int i = 1; i < variables; i++) {
-    full_variable_assignment.push_back(witness[i]);
+    // for debugging
+    cout << "witness ["<< i << "]: " << HexStringFromLibsnarkBigint(libsnarkBigintFromBytes(witness + i*32)) << endl;
+    cout << "fieldElement ["<< i << "]: " << HexStringFromLibsnarkBigint((Fr<alt_bn128_pp>(libsnarkBigintFromBytes(witness + i*32))).as_bigint()) << endl;
+    full_variable_assignment.push_back(Fr<alt_bn128_pp>(libsnarkBigintFromBytes(witness + i*32)));
   }
 
-  //split up variables into primary and auxiliary inputs
-  // TODO: Check whether this is consistent with inputs from VerifiableStatementCompiler
-  r1cs_primary_input<Fr<alt_bn128_pp> > primary_input(full_variable_assignment.begin(), full_variable_assignment.begin() + variables - 1);
-  r1cs_primary_input<Fr<alt_bn128_pp> > auxiliary_input(full_variable_assignment.begin() + variables - 1, full_variable_assignment.end());
+  // split up variables into primary and auxiliary inputs. Does *NOT* include the constant 1 */
+  // Output variables belong to primary input, helper variables are auxiliary input.
+  r1cs_primary_input<Fr<alt_bn128_pp> > primary_input(full_variable_assignment.begin(), full_variable_assignment.begin() + inputs);
+  r1cs_primary_input<Fr<alt_bn128_pp> > auxiliary_input(full_variable_assignment.begin() + inputs, full_variable_assignment.end());
+
+  // for debugging
+  cout << "full variable assignment :"<< endl << full_variable_assignment;
 
   // sanity checks
   assert(cs.num_variables() == full_variable_assignment.size());
-  assert(cs.num_variables() >= variables - 1);
-  assert(cs.num_inputs() == variables - 1);
+  assert(cs.num_variables() >= inputs);
+  assert(cs.num_inputs() == inputs);
   assert(cs.num_constraints() == constraints);
   assert(cs.is_satisfied(primary_input, auxiliary_input));
-
-  //initialize curve parameters
-  alt_bn128_pp::init_public_params();
 
   // create keypair
   r1cs_ppzksnark_keypair<alt_bn128_pp> keypair = r1cs_ppzksnark_generator<alt_bn128_pp>(cs);
@@ -194,9 +246,14 @@ bool _run_libsnark(const uint8_t* A, const uint8_t* B, const uint8_t* C, const u
 	// Print VerificationKey in Solidity compatible format
 	exportVerificationKey(keypair);
 
+  // print primary input
+  exportInput(primary_input);
 
   // Proof Generation
   r1cs_ppzksnark_proof<alt_bn128_pp> proof = r1cs_ppzksnark_prover<alt_bn128_pp>(keypair.pk, primary_input, auxiliary_input);
+
+  // print proof
+  exportProof(proof);
 
   // Verification
   bool result = r1cs_ppzksnark_verifier_strong_IC<alt_bn128_pp>(keypair.vk, primary_input, proof);

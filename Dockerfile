@@ -26,9 +26,9 @@ RUN cd libsnark-$libsnarkcommit \
   && make install lib PREFIX=/usr/local \
     NO_PROCPS=1 NO_GTEST=1 NO_DOCS=1 CURVE=ALT_BN128 FEATUREFLAGS="-DBINARY_OUTPUT=1 -DMONTGOMERY_OUTPUT=1 -DNO_PT_COMPRESSION=1"
 
-COPY . /root/VerifiableStatementCompiler
-
 ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/usr/local/lib
 
+COPY . /root/VerifiableStatementCompiler
+
 RUN cd VerifiableStatementCompiler \
-  && cargo build
+  && cargo build --release

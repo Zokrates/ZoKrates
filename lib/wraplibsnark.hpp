@@ -17,7 +17,8 @@ bool _run_libsnark(const uint8_t* A,
                    const uint8_t* C,
                    const uint8_t* witness,
                    int constraints,
-                   int variables);
+                   int variables,
+                   int inputs);
 
 #ifdef __cplusplus
 } // extern "C"

@@ -14,11 +14,11 @@ use field::Field;
 #[link(name = "gmp")]
 #[link(name = "gmpxx")]
 extern {
-    fn _run_libsnark(A: *const uint8_t, B: *const uint8_t, C: *const uint8_t, witness: *const uint8_t, constraints: c_int, variables: c_int) -> bool;
+    fn _run_libsnark(A: *const uint8_t, B: *const uint8_t, C: *const uint8_t, witness: *const uint8_t, constraints: c_int, variables: c_int, inputs: c_int) -> bool;
 }
 
 // assumes that field elements can be represented with 32 bytes
-pub fn run_libsnark<T: Field>(variables: Vec<String>, a: Vec<Vec<(usize, T)>>, b: Vec<Vec<(usize, T)>>, c: Vec<Vec<(usize, T)>>, witness: Vec<T>) -> bool {
+pub fn run_libsnark<T: Field>(variables: Vec<String>, a: Vec<Vec<(usize, T)>>, b: Vec<Vec<(usize, T)>>, c: Vec<Vec<(usize, T)>>, witness: Vec<T>, num_inputs: usize) -> bool {
     let num_constraints = a.len();
     let num_variables = variables.len();
 
@@ -53,7 +53,7 @@ pub fn run_libsnark<T: Field>(variables: Vec<String>, a: Vec<Vec<(usize, T)>>, b
     //println!("w_arr {:?}", w_arr);
 
     unsafe {
-        _run_libsnark(a_arr[0].as_ptr(),b_arr[0].as_ptr(), c_arr[0].as_ptr(), w_arr[0].as_ptr(), num_constraints as i32, num_variables as i32)
+        _run_libsnark(a_arr[0].as_ptr(),b_arr[0].as_ptr(), c_arr[0].as_ptr(), w_arr[0].as_ptr(), num_constraints as i32, num_variables as i32, num_inputs as i32)
     }
 }
 

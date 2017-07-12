@@ -1,5 +1,5 @@
 // this code does not need to be flattened
-def qeval(x, y, z):
+def main(x, y, z):
   a = x + 3*y - z *2 - x * 12
   3*y - z *2 - x * 12 == a - x
   (x + y) - ((z + 3*x) - y) == (x - y) + ((2*x - 4*y) + (4*y - 2*z))

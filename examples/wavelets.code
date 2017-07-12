@@ -1,5 +1,5 @@
 
-def wavelet(in1, in2, in3, in4, in5, in6, in7, in8):
+def main(in1, in2, in3, in4, in5, in6, in7, in8):
   // first iteration
   a = (in1 + in2) / 2
   b = (in3 + in4) / 2

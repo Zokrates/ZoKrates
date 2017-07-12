@@ -1,4 +1,4 @@
-def forex(a):
+def main(a):
   x = 7
   for i in 0..10 do
     // x = x + a

@@ -65,15 +65,28 @@ fn main() {
     if args.len() < 3 {
         std::process::exit(0);
     }
+
+    // check #inputs
     let inputs: Vec<FieldPrime> = args[2].split_whitespace().map(|x| FieldPrime::from(x)).collect();
-    assert!(inputs.len() == program_flattened.arguments.len());
+    let args_provided = &program_flattened.functions.iter().find(|x| x.id=="main").unwrap().arguments;
+    assert!(inputs.len() == args_provided.len(),"Wrong number of arguments provided for main function. Provided: {}, Expected: {}.", inputs.len(), args_provided.len());
     println!("inputs {:?}", inputs);
+
+    // generate wittness
     let witness_map = program_flattened.get_witness(inputs);
     println!("witness_map {:?}", witness_map);
+    match witness_map.get("~out") {
+        Some(out) => println!("~out: {}", out),
+        None => println!("~out not found")
+    }
     let witness: Vec<_> = variables.iter().map(|x| witness_map[x].clone()).collect();
     println!("witness {:?}", witness);
+
+    // run libsnark
     #[cfg(not(feature="nolibsnark"))]
-    println!("run_libsnark = {:?}", run_libsnark(variables, a, b, c, witness));
+    // number of inputs in the zkSNARK sense, i.e., input variables + output variables
+    let num_inputs = args_provided.len() + 1; //currently exactly one output variable
+    println!("run_libsnark = {:?}", run_libsnark(variables, a, b, c, witness, num_inputs));
 }
 
 #[cfg(test)]

@@ -78,12 +78,12 @@ fn count_variables_add<T: Field>(expr: &Expression<T>) -> HashMap<String, T> {
     count
 }
 
-/// Returns an equotation equivalent to `lhs == rhs` only using `Add` and `Mult`
+/// Returns an equation equivalent to `lhs == rhs` only using `Add` and `Mult`
 ///
 /// # Arguments
 ///
-/// * `lhs` - Leht hand side of the equotation
-/// * `rhs` - Right hand side of the equotation
+/// * `lhs` - Leht hand side of the equation
+/// * `rhs` - Right hand side of the equation
 fn swap_sub<T: Field>(lhs: &Expression<T>, rhs: &Expression<T>) -> (Expression<T>, Expression<T>) {
     let mut left = get_summands(lhs);
     let mut right = get_summands(rhs);
@@ -131,12 +131,12 @@ fn swap_sub<T: Field>(lhs: &Expression<T>, rhs: &Expression<T>) -> (Expression<T
 }
 
 /// Calculates one R1CS row representation for `linear_expr` = `expr`.
-/// (<A,x>*<B,c> = <C,x>)
+/// (<C,x> = <A,x>*<B,x>)
 ///
 /// # Arguments
 ///
-/// * `linear_expr` - Leht hand side of the equotation, has to be linear
-/// * `expr` - Right hand side of the equotation
+/// * `linear_expr` - Left hand side of the equation, has to be linear
+/// * `expr` - Right hand side of the equation
 /// * `variables` - A mutual vector that contains all existing variables. Not found variables will be added.
 /// * `a_row` - Result row of matrix A
 /// * `b_row` - Result row of matrix B
@@ -203,6 +203,7 @@ fn r1cs_expression<T: Field>(linear_expr: Expression<T>, expr: Expression<T>, va
         },
         Pow(_, _) => panic!("Pow not flattened"),
         IfElse(_, _, _) => panic!("IfElse not flattened"),
+        FunctionCall(_, _) => panic!("FunctionCall not flattened"),
         Identifier(var) => {
             a_row.push((get_variable_idx(variables, &var), T::one()));
             b_row.push((0, T::one()));
@@ -238,7 +239,7 @@ fn get_variable_idx(variables: &mut Vec<String>, var: &String) -> usize {
 
 /// Calculates one R1CS row representation of a program and returns (V, A, B, C) so that:
 /// * `V` contains all used variables and the index in the vector represents the used number in `A`, `B`, `C`
-/// * `<A,x>*<B,c> = <C,x>` for a witness `x`
+/// * `<A,x>*<B,x> = <C,x>` for a witness `x`
 ///
 /// # Arguments
 ///
@@ -249,8 +250,11 @@ pub fn r1cs_program<T: Field>(prog: &Prog<T>) -> (Vec<String>, Vec<Vec<(usize, T
     let mut a: Vec<Vec<(usize, T)>> = Vec::new();
     let mut b: Vec<Vec<(usize, T)>> = Vec::new();
     let mut c: Vec<Vec<(usize, T)>> = Vec::new();
-    variables.extend(prog.arguments.iter().map(|x| format!("{}", x)));
-    for def in &prog.statements {
+
+    //Only the main function is relevant in this step, since all calls to other functions were resolved during flattening
+    let main = prog.functions.iter().find(|x: &&Function<T>| x.id == "main".to_string()).unwrap();
+    variables.extend(main.arguments.iter().map(|x| format!("{}", x)));
+    for def in &main.statements {
         let mut a_row: Vec<(usize, T)> = Vec::new();
         let mut b_row: Vec<(usize, T)> = Vec::new();
         let mut c_row: Vec<(usize, T)> = Vec::new();
@@ -258,7 +262,7 @@ pub fn r1cs_program<T: Field>(prog: &Prog<T>) -> (Vec<String>, Vec<Vec<(usize, T
             Statement::Return(ref expr) => r1cs_expression(Identifier("~out".to_string()), expr.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row),
             Statement::Definition(ref id, ref expr) => r1cs_expression(Identifier(id.to_string()), expr.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row),
             Statement::Condition(ref expr1, ref expr2) => r1cs_expression(expr1.clone(), expr2.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row),
-            Statement::For(..) => unimplemented!(),
+            Statement::For(..) => panic!("For-loop not flattened"),
             Statement::Compiler(..) => continue,
         }
         a.push(a_row);
@@ -463,225 +467,3 @@ mod tests {
         }
     }
 }
-
-// old recursive implementations
-
-// /// Returns a `HashMap` containing variables and the number of occurences
-// ///
-// /// # Arguments
-// ///
-// /// * `expr` - Expression only containing Numbers, Variables, Add and Mult
-// ///
-// /// # Example
-// ///
-// /// `7 * x + 4 * y + x` -> { x => 8, y = 4 }
-// fn count_variables_add<T: Field>(expr: &Expression<T>) -> HashMap<String, T> {
-//     let mut count = HashMap::new();
-//     match expr.clone() {
-//         Number(x) => { count.insert("~one".to_string(), x); },
-//         Identifier(var) => { count.insert(var, T::one()); },
-//         Mult(box Number(x1), box Number(x2)) => { count.insert("~one".to_string(), x1 * x2); },
-//         Mult(box Number(x), box Identifier(var)) |
-//         Mult(box Identifier(var), box Number(x)) => { count.insert(var, x); },
-//         Add(box lhs, box rhs) => {
-//             match (lhs, rhs) {
-//                 (Number(x), Number(y)) => {
-//                     let num = count.entry("~one".to_string()).or_insert(T::zero());
-//                     *num = num.clone() + x + y;
-//                 },
-//                 (Identifier(v), Number(x)) |
-//                 (Number(x), Identifier(v)) => {
-//                     {
-//                         let num = count.entry("~one".to_string()).or_insert(T::zero());
-//                         *num = num.clone() + x;
-//                     }
-//                     let var = count.entry(v).or_insert(T::zero());
-//                     *var = var.clone() + T::one();
-//                 },
-//                 (Identifier(v1), Identifier(v2)) => {
-//                     {
-//                         let var1 = count.entry(v1).or_insert(T::zero());
-//                         *var1 = var1.clone() + T::one();
-//                     }
-//                     let var2 = count.entry(v2).or_insert(T::zero());
-//                     *var2 = var2.clone() + T::one();
-//                 },
-//                 (Number(x), e @ Add(..)) |
-//                 (e @ Add(..), Number(x)) => {
-//                     {
-//                         let num = count.entry("~one".to_string()).or_insert(T::zero());
-//                         *num = num.clone() + x;
-//                     }
-//                     let vars = count_variables_add(&e);
-//                     for (key, value) in &vars {
-//                         let val = count.entry(key.to_string()).or_insert(T::zero());
-//                         *val = val.clone() + value;
-//                     }
-//                 },
-//                 (Identifier(v), e @ Add(..)) |
-//                 (e @ Add(..), Identifier(v)) => {
-//                     {
-//                         let var = count.entry(v).or_insert(T::zero());
-//                         *var = var.clone() + T::one();
-//                     }
-//                     let vars = count_variables_add(&e);
-//                     for (key, value) in &vars {
-//                         let val = count.entry(key.to_string()).or_insert(T::zero());
-//                         *val = val.clone() + value;
-//                     }
-//                 },
-//                 (Number(x), Mult(box Number(n), box Identifier(v))) |
-//                 (Number(x), Mult(box Identifier(v), box Number(n))) |
-//                 (Mult(box Number(n), box Identifier(v)), Number(x)) |
-//                 (Mult(box Identifier(v), box Number(n)), Number(x)) => {
-//                     {
-//                         let num = count.entry("~one".to_string()).or_insert(T::zero());
-//                         *num = num.clone() + x;
-//                     }
-//                     let var = count.entry(v).or_insert(T::zero());
-//                     *var = var.clone() + n;
-//                 },
-//                 (Identifier(v1), Mult(box Number(n), box Identifier(v2))) |
-//                 (Identifier(v1), Mult(box Identifier(v2), box Number(n))) |
-//                 (Mult(box Number(n), box Identifier(v2)), Identifier(v1)) |
-//                 (Mult(box Identifier(v2), box Number(n)), Identifier(v1)) => {
-//                     {
-//                         let var = count.entry(v1).or_insert(T::zero());
-//                         *var = var.clone() + T::one();
-//                     }
-//                     let var = count.entry(v2).or_insert(T::zero());
-//                     *var = var.clone() + n;
-//                 },
-//                 (e @ Add(..), Mult(box Number(n), box Identifier(v))) |
-//                 (e @ Add(..), Mult(box Identifier(v), box Number(n))) |
-//                 (Mult(box Number(n), box Identifier(v)), e @ Add(..)) |
-//                 (Mult(box Identifier(v), box Number(n)), e @ Add(..)) => {
-//                     {
-//                         let var = count.entry(v).or_insert(T::zero());
-//                         *var = var.clone() + n;
-//                     }
-//                     let vars = count_variables_add(&e);
-//                     for (key, value) in &vars {
-//                         let val = count.entry(key.to_string()).or_insert(T::zero());
-//                         *val = val.clone() + value;
-//                     }
-//                 },
-//                 (Mult(box Number(n1), box Identifier(v1)), Mult(box Number(n2), box Identifier(v2))) |
-//                 (Mult(box Identifier(v1), box Number(n1)), Mult(box Number(n2), box Identifier(v2))) |
-//                 (Mult(box Number(n1), box Identifier(v1)), Mult(box Identifier(v2), box Number(n2))) |
-//                 (Mult(box Identifier(v1), box Number(n1)), Mult(box Identifier(v2), box Number(n2))) => {
-//                     {
-//                         let var = count.entry(v1).or_insert(T::zero());
-//                         *var = var.clone() + n1;
-//                     }
-//                     let var = count.entry(v2).or_insert(T::zero());
-//                     *var = var.clone() + n2;
-//                 },
-//                 (e1 @ Add(..), e2 @ Add(..)) => {
-//                     {
-//                         let vars = count_variables_add(&e1);
-//                         for (key, value) in &vars {
-//                             let val = count.entry(key.to_string()).or_insert(T::zero());
-//                             *val = val.clone() + value;
-//                         }
-//                     }
-//                     let vars = count_variables_add(&e2);
-//                     for (key, value) in &vars {
-//                         let val = count.entry(key.to_string()).or_insert(T::zero());
-//                         *val = val.clone() + value;
-//                     }
-//                 }
-//                 e @ _ => panic!("Error: unexpected Add({}, {})", e.0, e.1),
-//             }
-//         },
-//         e @ _ => panic!("Statement::Add/Mult[linear] expected, got: {}", e),
-//     }
-//     count
-// }
-
-// /// Returns an equotation equivalent to `lhs == rhs` only using `Add` and `Mult`
-// ///
-// /// # Arguments
-// ///
-// /// * `lhs` - Leht hand side of the equotation
-// /// * `rhs` - Right hand side of the equotation
-// fn swap_sub_recursive<T: Field>(lhs: &Expression<T>, rhs: &Expression<T>) -> (Expression<T>, Expression<T>) {
-//     // assert that Mult on lhs or rhs is linear!
-//     match (lhs.clone(), rhs.clone()) {
-//         // recursion end
-//         (v1 @ Number(_), v2 @ Number(_)) |
-//         (v1 @ Identifier(_), v2 @ Number(_)) |
-//         (v1 @ Number(_), v2 @ Identifier(_)) |
-//         (v1 @ Identifier(_), v2 @ Identifier(_)) |
-//         (v1 @ Identifier(_), v2 @ Mult(..)) |
-//         (v1 @ Mult(..), v2 @ Identifier(_)) |
-//         (v1 @ Number(_), v2 @ Mult(..)) |
-//         (v1 @ Mult(..), v2 @ Number(_)) |
-//         (v1 @ Mult(..), v2 @ Mult(..)) => {
-//             assert!(v1.is_linear());
-//             assert!(v2.is_linear());
-//             (v1, v2)
-//         },
-//         // Num/Var/Mult = Add
-//         (v @ Number(_), Add(left, right)) |
-//         (v @ Identifier(_), Add(left, right)) |
-//         (v @ Mult(..), Add(left, right)) => {
-//             assert!(v.is_linear());
-//             let (l1, r1) = swap_sub(&v, &left);
-//             let (l2, r2) = swap_sub(&l1, &right);
-//             (l2, Add(box r1, box r2))
-//         },
-//         // Add = Num/Var/Mult
-//         (Add(left, right), v @ Number(_)) |
-//         (Add(left, right), v @ Identifier(_)) |
-//         (Add(left, right), v @ Mult(..)) => { // v = left + right
-//             assert!(v.is_linear());
-//             let (l1, r1) = swap_sub(&left, &v);
-//             let (l2, r2) = swap_sub(&right, &r1);
-//             (Add(box l1, box l2), r2)
-//         },
-//         // Sub = Var/Num/Mult
-//         (Sub(box left, box right), v @ Identifier(_)) |
-//         (Sub(box left, box right), v @ Number(_)) |
-//         (Sub(box left, box right), v @ Mult(..)) => {
-//             assert!(v.is_linear());
-//             let (l, r) = swap_sub(&left, &right);
-//             (l, Add(box v, box r))
-//         },
-//         // Var/Num/Mult = Sub
-//         (v @ Identifier(_), Sub(box left, box right)) |
-//         (v @ Number(_), Sub(box left, box right)) |
-//         (v @ Mult(..), Sub(box left, box right)) => {
-//             assert!(v.is_linear());
-//             let (l, r) = swap_sub(&left, &right);
-//             (Add(box v, box r), l)
-//         },
-//         // Add = Add
-//         (Add(box left1, box right1), Add(box left2, box right2)) => {
-//             let (l1, r1) = swap_sub(&left1, &left2);
-//             let (l2, r2) = swap_sub(&right1, &right2);
-//             (Add(box l1, box l2), Add(box r1, box r2))
-//         },
-//         // Sub = Add
-//         (Sub(box left_s, box right_s), Add(box left_a, box right_a)) => {
-//             let (l1, r1) = swap_sub(&left_s, &right_s);
-//             let (l2, r2) = swap_sub(&l1, &left_a);
-//             let (l3, r3) = swap_sub(&l2, &right_a);
-//             (l3, Add(box r1, box Add(box r2, box r3)))
-//         },
-//         // Add = Sub
-//         (Add(box left_a, box right_a), Sub(box left_s, box right_s)) => {
-//             let (l1, r1) = swap_sub(&left_s, &right_s);
-//             let (l2, r2) = swap_sub(&l1, &left_a);
-//             let (l3, r3) = swap_sub(&l2, &right_a);
-//             (Add(box r1, box Add(box r2, box r3)), l3)
-//         },
-//         // Sub = Sub
-//         (Sub(box l1, box r1), Sub(l2, r2)) => {
-//             let (lhs1, rhs1) = swap_sub(&l1, &r1);
-//             let (lhs2, rhs2) = swap_sub(&l2, &r2);
-//             (Add(box lhs1, box rhs2), Add(box lhs2, box rhs1))
-//         },
-//         e @ _ => panic!("Input not covered: {} = {}", e.0, e.1),
-//     }
-// }
