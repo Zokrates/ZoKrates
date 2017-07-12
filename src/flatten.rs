@@ -88,11 +88,11 @@ impl Flattener {
                         box Add(
                             box Mult(
                                 box Identifier(format!("{}_b{}", &subtraction_result, 2*i)),
-                                box Number(T::from(2).pow(i))
+                                box Number(T::from(2).pow(2*i))
                             ),
                             box Mult(
                                 box Identifier(format!("{}_b{}", &subtraction_result, 2*i+1)),
-                                box Number(T::from(2).pow(i))
+                                box Number(T::from(2).pow(2*i + 1))
                             ),
                         )
                     );
