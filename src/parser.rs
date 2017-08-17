@@ -17,6 +17,10 @@
 //
 // <stat-list> ::= <statement> <stat-list> | <return>
 //
+// <expressions> ::= <expr> <more-expr> | $\varepsilon$
+//
+// <more-exprs> ::= `,' <ide> <more-args>  | $\varepsilon$
+//
 // <statement> ::= <ide> <statement'>
 //         | `if' <expr> <comparator> <expr> `then' <expr> `else' <expr> `fi' <expr'> `==' <expr> `\\n'
 //         | `(' <expr> `)' <term'> <expr'> `==' <expr> `\\n'
@@ -30,7 +34,7 @@
 //         | `(' <expr> `)' <term'> <expr'>
 //         | <ide> <term'> <expr'>
 //         | <num> <term'> <expr'>
-//         | <ide> `(' <arguments> `)' <term'> <expr'>
+//         | <ide> `(' <expressions> `)' <term'> <expr'>
 //
 // <expr'> ::= `+' <term> <expr'>
 //         | `-' <term> <expr'>
@@ -395,29 +399,34 @@ fn parse_expr1<T: Field>(expr: Expression<T>, input: String, pos: Position) -> R
 fn parse_function_call<T: Field>(ide: String, input: String, pos: Position) -> Result<(Expression<T>, String, Position), Error<T>> {
     // function call can have 0 .. n args
     let mut args = Vec::new();
-    let mut s = input;
-    let mut p = pos;
+    let mut s: String = input;
+    let mut p: Position = pos;
+
     loop {
-        match next_token(&s, &p) {
-            (Token::Ide(x), s3, p3) => {
-                args.push(Parameter { id: x });
-                match next_token(&s3, &p3) {
-                    (Token::Comma, s4, p4) => {
-                        s = s4;
-                        p = p4;
-                    },
-                    (Token::Close, s4, p4) => match parse_term1(Expression::FunctionCall(ide, args), s4, p4) {
-                        Ok((e5, s5, p5)) => return parse_expr1(e5, s5, p5),
-                        Err(err) => return Err(err),
-                    },
-                    (t4, _, p4) => return Err(Error { expected: vec![Token::Comma, Token::Close], got: t4 , pos: p4 }),
-                }
-            },
-            (Token::Close, s3, p3) => match parse_term1(Expression::FunctionCall(ide, args), s3, p3) {
-                Ok((e4, s4, p4)) => return parse_expr1(e4, s4, p4),
+        match next_token::<T>(&s, &p) {
+            // no arguments
+            (Token::Close, s1, p1) => match parse_term1(Expression::FunctionCall(ide, args), s1, p1) {
+                Ok((e2, s2, p2)) => return parse_expr1(e2, s2, p2),
                 Err(err) => return Err(err),
             },
-            (t3, _, p3) => return Err(Error { expected: vec![Token::ErrNum, Token::Close], got: t3 , pos: p3 }),
+            // at least one argument
+            (_, _, _) => match parse_expr(&s,&p){
+                Ok((e1, s1, p1)) => {
+                    args.push(e1);
+                    match next_token::<T>(&s1, &p1) {
+                        (Token::Comma, s2, p2) => {
+                            s = s2;
+                            p = p2;
+                        },
+                        (Token::Close, s2, p2) => match parse_term1(Expression::FunctionCall(ide, args), s2, p2) {
+                            Ok((e3, s3, p3)) => return parse_expr1(e3, s3, p3),
+                            Err(err) => return Err(err),
+                        },
+                        (t2, _, p2) => return Err(Error { expected: vec![Token::Comma, Token::Close], got: t2 , pos: p2 }),
+                    }
+                },
+                Err(err) => return Err(err),
+            }
         }
     }
 }

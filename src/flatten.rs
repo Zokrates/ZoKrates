@@ -323,41 +323,17 @@ impl Flattener {
             FunctionCall(ref id, ref params) => {
                 for funct in functions_flattened {
                     if funct.id == *id && funct.arguments.len() == (*params).len() {
-                        let mut old_sub: HashMap<String, String> = HashMap::new();
-                        for i in 0..funct.arguments.len() {
-                            let input_param = match self.substitution.get(&funct.arguments[i].id) {
-                                Some(val) => val.to_string(),
-                                None => funct.arguments[i].id.to_string(),
-                            };
-                            if params[i].id != input_param {
-                                match self.substitution.get(&params[i].id) {
-                                    Some(val) => {
-                                        old_sub.insert(val.to_string(), params[i].id.to_string());
-                                    },
-                                    None => {},
-                                }
-                                // self.variables.insert(params[i].id.to_string());
-                                self.substitution.insert(input_param, params[i].id.to_string());
-                            }
+                        // add called function's parameters to calling function's variables
+                        for args in &funct.arguments {
+                            self.use_variable(&args.id);
                         }
-                        // add all flattened statements except return statement
+                        // add all flattened statements, adapt return statement
                         for stat in funct.statements.clone() {
                             assert!(stat.is_flattened(), format!("Not flattened: {}", &stat));
                             match stat {
                                 // set return statements right side as expression result
                                 Statement::Return(x) => {
                                     let result = x.apply_substitution(&self.substitution);
-                                    // restore previous substitution
-                                    for param in &funct.arguments {
-                                        match old_sub.get(&param.id) {
-                                            Some(val) => {
-                                                self.substitution.insert(param.id.to_string(), val.to_string());
-                                            },
-                                            None => {
-                                                self.substitution.remove(&param.id);
-                                            },
-                                        }
-                                    }
                                     return result;
                                 },
                                 Statement::Definition(var, rhs) => {
@@ -429,6 +405,9 @@ impl Flattener {
     /// * `funct` - `Function` that will be flattened.
     pub fn flatten_function<T: Field>(&mut self, functions_flattened: &mut Vec<Function<T>>, funct: Function<T>) -> Function<T> {
         let mut statements_flattened: Vec<Statement<T>> = Vec::new();
+        // flatten parameters
+
+        // flatten statements in functions and apply substitution
         for stat in funct.statements {
             self.flatten_statement(functions_flattened, &mut statements_flattened, &stat);
         }
@@ -442,13 +421,15 @@ impl Flattener {
     /// * `prog` - `Prog`ram that will be flattened.
     pub fn flatten_program<T: Field>(&mut self, prog: Prog<T>) -> Prog<T> {
         let mut functions_flattened = Vec::new();
+        // TODO Remove
         self.variables = HashSet::new();
-        self.substitution = HashMap::new();
+        //self.substitution = HashMap::new();
         self.next_var_idx = 0;
         for func in prog.functions{
-            self.variables = HashSet::new();
+            // each function has its own set of substitutions
+            //self.variables = HashSet::new();
             self.substitution = HashMap::new();
-            self.next_var_idx = 0;
+            //self.next_var_idx = 0;
             let flattened_func = self.flatten_function(&mut functions_flattened, func);
             functions_flattened.push(flattened_func);
         }
@@ -457,7 +438,7 @@ impl Flattener {
 
 
     /// Checks if the given name is a not used variable and returns a fresh variable.
-    ///
+    /// Adds the variable to the list of substitution, to implement shadowing
     /// # Arguments
     ///
     /// * `name` - A String that holds the name of the variable
@@ -479,4 +460,5 @@ impl Flattener {
             }
         }
     }
+
 }

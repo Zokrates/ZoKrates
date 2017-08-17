@@ -1,0 +1,6 @@
+def add(f,g):
+  return f+g
+
+def main(a,b):
+  c = add(a,b)
+  return c
