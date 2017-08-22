@@ -43,11 +43,11 @@ impl Flattener {
     ///
     /// * `statements_flattened` - Vector where new flattened statements can be added.
     /// * `condition` - `Condition` that will be flattened.
-    fn flatten_condition<T: Field>(&mut self, functions_flattened: &Vec<Function<T>>, statements_flattened: &mut Vec<Statement<T>>, condition: Condition<T>) -> (Expression<T>, Expression<T>) {
+    fn flatten_condition<T: Field>(&mut self, functions_flattened: &Vec<Function<T>>, arguments_flattened: &Vec<Parameter>, statements_flattened: &mut Vec<Statement<T>>, condition: Condition<T>) -> (Expression<T>, Expression<T>) {
         match condition {
             Condition::Lt(lhs, rhs) => {
-                let lhs_flattened = self.flatten_expression(functions_flattened, statements_flattened, lhs);
-                let rhs_flattened = self.flatten_expression(functions_flattened, statements_flattened, rhs);
+                let lhs_flattened = self.flatten_expression(functions_flattened, arguments_flattened, statements_flattened, lhs);
+                let rhs_flattened = self.flatten_expression(functions_flattened, arguments_flattened, statements_flattened, rhs);
 
                 let lhs_name = format!("sym_{}", self.next_var_idx);
                 self.next_var_idx += 1;
@@ -130,7 +130,7 @@ impl Flattener {
                 let name_1_y = format!("sym_{}", self.next_var_idx);
                 self.next_var_idx += 1;
 
-                let x = self.flatten_expression(functions_flattened, statements_flattened, Sub(box lhs, box rhs));
+                let x = self.flatten_expression(functions_flattened, arguments_flattened, statements_flattened, Sub(box lhs, box rhs));
                 statements_flattened.push(Statement::Definition(name_x.to_string(), x));
                 statements_flattened.push(Statement::Compiler(name_y.to_string(), IfElse(
                     box Condition::Eq(
@@ -165,7 +165,7 @@ impl Flattener {
     /// * `functions_flattened` - Vector containing already flattened functions.
     /// * `statements_flattened` - Vector where new flattened statements can be added.
     /// * `expr` - `Expresstion` that will be flattened.
-    fn flatten_expression<T: Field>(&mut self, functions_flattened: &Vec<Function<T>>, statements_flattened: &mut Vec<Statement<T>>, expr: Expression<T>) -> Expression<T> {
+    fn flatten_expression<T: Field>(&mut self, functions_flattened: &Vec<Function<T>>, arguments_flattened: &Vec<Parameter>, statements_flattened: &mut Vec<Statement<T>>, expr: Expression<T>) -> Expression<T> {
         match expr {
             x @ Number(_) |
             x @ Identifier(_) => x,
@@ -174,8 +174,8 @@ impl Flattener {
             ref x @ Mult(..) |
             ref x @ Div(..) if x.is_flattened() => x.clone(),
             Add(box left, box right) => {
-                let left_flattened = self.flatten_expression(functions_flattened, statements_flattened, left);
-                let right_flattened = self.flatten_expression(functions_flattened, statements_flattened, right);
+                let left_flattened = self.flatten_expression(functions_flattened, arguments_flattened, statements_flattened, left);
+                let right_flattened = self.flatten_expression(functions_flattened, arguments_flattened, statements_flattened, right);
                 let new_left = if left_flattened.is_linear() {
                     left_flattened
                 } else {
@@ -195,8 +195,8 @@ impl Flattener {
                 Add(box new_left, box new_right)
             },
             Sub(box left, box right) => {
-                let left_flattened = self.flatten_expression(functions_flattened, statements_flattened, left);
-                let right_flattened = self.flatten_expression(functions_flattened, statements_flattened, right);
+                let left_flattened = self.flatten_expression(functions_flattened, arguments_flattened, statements_flattened, left);
+                let right_flattened = self.flatten_expression(functions_flattened, arguments_flattened, statements_flattened, right);
                 let new_left = if left_flattened.is_linear() {
                     left_flattened
                 } else {
@@ -216,8 +216,8 @@ impl Flattener {
                 Sub(box new_left, box new_right)
             },
             Mult(box left, box right) => {
-                let left_flattened = self.flatten_expression(functions_flattened, statements_flattened, left);
-                let right_flattened = self.flatten_expression(functions_flattened, statements_flattened, right);
+                let left_flattened = self.flatten_expression(functions_flattened, arguments_flattened, statements_flattened, left);
+                let right_flattened = self.flatten_expression(functions_flattened, arguments_flattened, statements_flattened, right);
                 let new_left = if left_flattened.is_linear() {
                     if let Sub(..) = left_flattened {
                         let new_name = format!("sym_{}", self.next_var_idx);
@@ -251,8 +251,8 @@ impl Flattener {
                 Mult(box new_left, box new_right)
             },
             Div(box left, box right) => {
-                let left_flattened = self.flatten_expression(functions_flattened, statements_flattened, left);
-                let right_flattened = self.flatten_expression(functions_flattened, statements_flattened, right);
+                let left_flattened = self.flatten_expression(functions_flattened, arguments_flattened, statements_flattened, left);
+                let right_flattened = self.flatten_expression(functions_flattened, arguments_flattened, statements_flattened, right);
                 let new_left = if left_flattened.is_linear() {
                     left_flattened
                 } else {
@@ -280,6 +280,7 @@ impl Flattener {
                                 let id = if x > &T::from(2) {
                                     let tmp_expression = self.flatten_expression(
                                         functions_flattened,
+                                        arguments_flattened,
                                         statements_flattened,
                                         Pow(
                                             box Identifier(var.to_string()),
@@ -309,10 +310,11 @@ impl Flattener {
                 }
             },
             IfElse(box condition, consequent, alternative) => {
-                let (cond_true, cond_false) = self.flatten_condition(functions_flattened, statements_flattened, condition);
+                let (cond_true, cond_false) = self.flatten_condition(functions_flattened, arguments_flattened, statements_flattened, condition);
                 // (condition_true * consequent) + (condition_false * alternatuve)
                 self.flatten_expression(
                     functions_flattened,
+                    arguments_flattened,
                     statements_flattened,
                     Add(
                         box Mult(box cond_true, consequent),
@@ -320,13 +322,38 @@ impl Flattener {
                     )
                 )
             },
-            FunctionCall(ref id, ref params) => {
-                for funct in functions_flattened {
-                    if funct.id == *id && funct.arguments.len() == (*params).len() {
-                        // add called function's parameters to calling function's variables
-                        for args in &funct.arguments {
-                            self.use_variable(&args.id);
+            FunctionCall(ref id, ref param_expressions) => {
+
+                // Replace complex expressions with definitions in parameters
+                let mut params_flattened: Vec<Parameter> = Vec::new();
+                for param_expr in &*param_expressions{
+                    match param_expr.apply_substitution(&self.substitution){
+                        Expression::Identifier(ref x) =>{params_flattened.push(Parameter{id:x.clone().to_string()})},
+                        _ => {
+                            let expr_subbed = param_expr.apply_substitution(&self.substitution);
+                            let rhs = self.flatten_expression(functions_flattened, arguments_flattened, statements_flattened, expr_subbed);
+                            statements_flattened.push(Statement::Definition(self.use_variable(&id), rhs));
                         }
+                    }
+                }
+                println!("Param Expressions Flattened: {:?}", params_flattened);
+
+
+                for funct in functions_flattened {
+                    if funct.id == *id && funct.arguments.len() == (*param_expressions).len() {
+
+                        //// add substitution for the parameters
+                        for (i,param) in params_flattened.iter().enumerate(){
+                            println!("Called Function's Arguments: {:?}",funct.arguments);
+                            let identifier_call: String = params_flattened.get(i).unwrap().id.clone();
+                            println!("Calling Function's Arguments: {:?}",params_flattened);
+                            let identifier_called: String = funct.arguments.get(i).unwrap().id.clone();
+                            //if (identifier_call!=identifier_called) // skip substitution for
+                                self.substitution.insert(identifier_called, identifier_call);
+                        }
+                        println!("Param substitutions: {:?}", self.substitution);
+
+
                         // add all flattened statements, adapt return statement
                         for stat in funct.statements.clone() {
                             assert!(stat.is_flattened(), format!("Not flattened: {}", &stat));
@@ -354,30 +381,30 @@ impl Flattener {
                         }
                     }
                 }
-                panic!("Function definition for function {} with {:?} argument(s) not found.",id , params);
+                panic!("Function definition for function {} with {:?} argument(s) not found.",id , param_expressions);
             },
         }
     }
 
-    pub fn flatten_statement<T: Field>(&mut self, functions_flattened: &mut Vec<Function<T>>, statements_flattened: &mut Vec<Statement<T>>, stat: &Statement<T>) {
+    pub fn flatten_statement<T: Field>(&mut self, functions_flattened: &mut Vec<Function<T>>, arguments_flattened: &Vec<Parameter>, statements_flattened: &mut Vec<Statement<T>>, stat: &Statement<T>) {
         match *stat {
             Statement::Return(ref expr) => {
                 let expr_subbed = expr.apply_substitution(&self.substitution);
-                let rhs = self.flatten_expression(functions_flattened, statements_flattened, expr_subbed);
+                let rhs = self.flatten_expression(functions_flattened, arguments_flattened, statements_flattened, expr_subbed);
                 statements_flattened.push(Statement::Return(rhs));
             },
             Statement::Definition(ref id, ref expr) => {
                 let expr_subbed = expr.apply_substitution(&self.substitution);
-                let rhs = self.flatten_expression(functions_flattened, statements_flattened, expr_subbed);
+                let rhs = self.flatten_expression(functions_flattened, arguments_flattened, statements_flattened, expr_subbed);
                 statements_flattened.push(Statement::Definition(self.use_variable(&id), rhs));
             },
             Statement::Condition(ref expr1, ref expr2) => {
                 let expr1_subbed = expr1.apply_substitution(&self.substitution);
                 let expr2_subbed = expr2.apply_substitution(&self.substitution);
                 let (lhs, rhs) = if expr1_subbed.is_linear() {
-                    (expr1_subbed, self.flatten_expression(functions_flattened, statements_flattened, expr2_subbed))
+                    (expr1_subbed, self.flatten_expression(functions_flattened, arguments_flattened, statements_flattened, expr2_subbed))
                 } else if expr2_subbed.is_linear() {
-                    (expr2_subbed, self.flatten_expression(functions_flattened, statements_flattened, expr1_subbed))
+                    (expr2_subbed, self.flatten_expression(functions_flattened, arguments_flattened, statements_flattened, expr1_subbed))
                 } else {
                     unimplemented!()
                 };
@@ -388,7 +415,7 @@ impl Flattener {
                 while &current < end {
                     statements_flattened.push(Statement::Definition(self.use_variable(&var), Expression::Number(current.clone())));
                     for s in statements {
-                        self.flatten_statement(functions_flattened, statements_flattened, s);
+                        self.flatten_statement(functions_flattened, arguments_flattened, statements_flattened, s);
                     }
                     current = T::one() + &current;
                 }
@@ -401,17 +428,20 @@ impl Flattener {
     ///
     /// # Arguments
     ///
-    /// * `functions_flattened` - Vector where new flattened statements can be added.
+    /// * `functions_flattened` - Vector where new flattened functions can be added.
     /// * `funct` - `Function` that will be flattened.
     pub fn flatten_function<T: Field>(&mut self, functions_flattened: &mut Vec<Function<T>>, funct: Function<T>) -> Function<T> {
+        let mut arguments_flattened: Vec<Parameter> = Vec::new();
         let mut statements_flattened: Vec<Statement<T>> = Vec::new();
-        // flatten parameters
-
+        // flatten parameters (substitute name to guarantee global uniqueness)
+        for arg in funct.arguments {
+            arguments_flattened.push(Parameter{id:self.use_variable(&arg.id)});
+        }
         // flatten statements in functions and apply substitution
         for stat in funct.statements {
-            self.flatten_statement(functions_flattened, &mut statements_flattened, &stat);
+            self.flatten_statement(functions_flattened, &arguments_flattened, &mut statements_flattened, &stat);
         }
-        Function { id: funct.id, arguments: funct.arguments, statements: statements_flattened }
+        Function { id: funct.id, arguments: arguments_flattened, statements: statements_flattened }
     }
 
     /// Returns a flattened `Prog`ram based on the given `prog`.
@@ -438,7 +468,6 @@ impl Flattener {
 
 
     /// Checks if the given name is a not used variable and returns a fresh variable.
-    /// Adds the variable to the list of substitution, to implement shadowing
     /// # Arguments
     ///
     /// * `name` - A String that holds the name of the variable
