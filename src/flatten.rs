@@ -343,7 +343,7 @@ impl Flattener {
                     if funct.id == *id && funct.arguments.len() == (*param_expressions).len() {
 
                         //// add substitution for the parameters
-                        for (i,param) in params_flattened.iter().enumerate(){
+                        for (i,_) in params_flattened.iter().enumerate(){
                             println!("Called Function's Arguments: {:?}",funct.arguments);
                             let identifier_call: String = params_flattened.get(i).unwrap().id.clone();
                             println!("Calling Function's Arguments: {:?}",params_flattened);
