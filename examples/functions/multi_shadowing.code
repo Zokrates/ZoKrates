@@ -1,0 +1,12 @@
+def add(a,b):
+  v = a + b
+  return v
+
+// is the direct return a problem?
+def sub(a,b):
+  return a-b
+
+def main(a,b):
+  c = add(a,b)
+  d = sub(a,b)
+  return 0

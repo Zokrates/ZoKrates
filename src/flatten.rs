@@ -451,15 +451,10 @@ impl Flattener {
     /// * `prog` - `Prog`ram that will be flattened.
     pub fn flatten_program<T: Field>(&mut self, prog: Prog<T>) -> Prog<T> {
         let mut functions_flattened = Vec::new();
-        // TODO Remove
         self.variables = HashSet::new();
-        //self.substitution = HashMap::new();
+        self.substitution = HashMap::new();
         self.next_var_idx = 0;
         for func in prog.functions{
-            // each function has its own set of substitutions
-            //self.variables = HashSet::new();
-            self.substitution = HashMap::new();
-            //self.next_var_idx = 0;
             let flattened_func = self.flatten_function(&mut functions_flattened, func);
             functions_flattened.push(flattened_func);
         }
