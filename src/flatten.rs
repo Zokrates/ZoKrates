@@ -326,13 +326,15 @@ impl Flattener {
 
                 // Replace complex expressions with definitions in parameters
                 let mut params_flattened: Vec<Parameter> = Vec::new();
-                for param_expr in &*param_expressions{
+                for (i,param_expr) in param_expressions.iter().enumerate(){
                     match param_expr.apply_substitution(&self.substitution){
                         Expression::Identifier(ref x) =>{params_flattened.push(Parameter{id:x.clone().to_string()})},
                         _ => {
                             let expr_subbed = param_expr.apply_substitution(&self.substitution);
                             let rhs = self.flatten_expression(functions_flattened, arguments_flattened, statements_flattened, expr_subbed);
-                            statements_flattened.push(Statement::Definition(self.use_variable(&id), rhs));
+                            let intermediate_var = self.use_variable(&format!("{}_param_{}",&id,i));
+                            statements_flattened.push(Statement::Definition(intermediate_var.clone(), rhs));
+                            params_flattened.push(Parameter{id:intermediate_var.clone().to_string()});
                         }
                     }
                 }
@@ -342,14 +344,15 @@ impl Flattener {
                 for funct in functions_flattened {
                     if funct.id == *id && funct.arguments.len() == (*param_expressions).len() {
 
-                        //// add substitution for the parameters
+                        // add temporary substitution for the parameters
+                        let tempSubstitution = HashMap::new(); // substitutions for parameters are only valid during the function call's processing
+
+                        println!("Called Function's Arguments: {:?}",funct.arguments);
+                        println!("Calling Function's Arguments: {:?}",params_flattened);
                         for (i,_) in params_flattened.iter().enumerate(){
-                            println!("Called Function's Arguments: {:?}",funct.arguments);
                             let identifier_call: String = params_flattened.get(i).unwrap().id.clone();
-                            println!("Calling Function's Arguments: {:?}",params_flattened);
                             let identifier_called: String = funct.arguments.get(i).unwrap().id.clone();
-                            //if (identifier_call!=identifier_called) // skip substitution for
-                                self.substitution.insert(identifier_called, identifier_call);
+                            self.substitution.insert(identifier_called, identifier_call);
                         }
                         println!("Param substitutions: {:?}", self.substitution);
 
@@ -379,6 +382,8 @@ impl Flattener {
                                 Statement::For(..) => panic!("Not flattened!"),
                             }
                         }
+                        // remove substitutions for function call
+                        self.substitution.remove(identifier_called, identifier_call);
                     }
                 }
                 panic!("Function definition for function {} with {:?} argument(s) not found.",id , param_expressions);

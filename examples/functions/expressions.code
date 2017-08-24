@@ -2,6 +2,9 @@ def add(a,b):
   v = a + b
   return v
 
+// Expected for inputs 1,1: c=4, d=4, e=4
 def main(a,b):
-  c = add(a*2+3*b-a,b-1)
-  return c
+   c = add(a*2+3*b-a,b-1)
+   d = add(a*b+2, a*b*b)
+   // e = add(add(a,b),add(a,b))
+  return d
