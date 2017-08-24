@@ -364,25 +364,20 @@ impl Flattener {
                             match stat {
                                 // set return statements right side as expression result
                                 Statement::Return(x) => {
-                                    let int_result = x.apply_substitution(&self.substitution);
-                                    let result = int_result.apply_substitution(&temp_substitution);
+                                    let result = x.apply_substitution(&temp_substitution).apply_substitution(&self.substitution);
                                     return result;
                                 },
                                 Statement::Definition(var, rhs) => {
-                                    let new_rhs = rhs.apply_substitution(&temp_substitution);
-                                    let new_rhs = new_rhs.apply_substitution(&self.substitution);
+                                    let new_rhs = rhs.apply_substitution(&temp_substitution).apply_substitution(&self.substitution);
                                     statements_flattened.push(Statement::Definition(self.use_variable(&var), new_rhs));
                                 },
                                 Statement::Compiler(var, rhs) => {
-                                    let new_rhs = rhs.apply_substitution(&temp_substitution);
-                                    let new_rhs = new_rhs.apply_substitution(&self.substitution);
+                                    let new_rhs = rhs.apply_substitution(&temp_substitution).apply_substitution(&self.substitution);
                                     statements_flattened.push(Statement::Compiler(self.use_variable(&var), new_rhs));
                                 },
                                 Statement::Condition(lhs, rhs) => {
-                                    let new_lhs = lhs.apply_substitution(&temp_substitution);
-                                    let new_lhs = new_lhs.apply_substitution(&self.substitution);
-                                    let new_rhs = rhs.apply_substitution(&temp_substitution);
-                                    let new_rhs = new_rhs.apply_substitution(&self.substitution);
+                                    let new_lhs = lhs.apply_substitution(&temp_substitution).apply_substitution(&self.substitution);
+                                    let new_rhs = rhs.apply_substitution(&temp_substitution).apply_substitution(&self.substitution);
                                     statements_flattened.push(Statement::Condition(new_lhs, new_rhs));
                                 },
                                 Statement::For(..) => panic!("Not flattened!"),

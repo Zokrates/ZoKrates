@@ -6,5 +6,5 @@ def add(a,b):
 def main(a,b):
    c = add(a*2+3*b-a,b-1)
    d = add(a*b+2, a*b*b)
-   // e = add(add(a,b),add(a,b))
+   e = add(add(a,b),add(a,b))
   return d
