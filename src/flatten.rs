@@ -2,6 +2,7 @@
 //!
 //! @file flatten.rs
 //! @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
+//! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
 use std::collections::{HashSet, HashMap};
@@ -9,7 +10,7 @@ use absy::*;
 use absy::Expression::*;
 use field::Field;
 
-/// Flattener compute flattened program.
+/// Flattener, computes flattened program.
 pub struct Flattener {
     /// Number of bits needed to represent the maximum value.
     bits: usize,
@@ -345,16 +346,16 @@ impl Flattener {
                     if funct.id == *id && funct.arguments.len() == (*param_expressions).len() {
 
                         // add temporary substitution for the parameters
-                        let tempSubstitution = HashMap::new(); // substitutions for parameters are only valid during the function call's processing
+                        let mut temp_substitution: HashMap<String, String> = HashMap::new(); // substitutions for parameters are only valid during the function call's processing
 
                         println!("Called Function's Arguments: {:?}",funct.arguments);
                         println!("Calling Function's Arguments: {:?}",params_flattened);
                         for (i,_) in params_flattened.iter().enumerate(){
                             let identifier_call: String = params_flattened.get(i).unwrap().id.clone();
                             let identifier_called: String = funct.arguments.get(i).unwrap().id.clone();
-                            self.substitution.insert(identifier_called, identifier_call);
+                            temp_substitution.insert(identifier_called, identifier_call);
                         }
-                        println!("Param substitutions: {:?}", self.substitution);
+                        println!("Param substitutions: {:?}", temp_substitution);
 
 
                         // add all flattened statements, adapt return statement
@@ -363,27 +364,30 @@ impl Flattener {
                             match stat {
                                 // set return statements right side as expression result
                                 Statement::Return(x) => {
-                                    let result = x.apply_substitution(&self.substitution);
+                                    let int_result = x.apply_substitution(&self.substitution);
+                                    let result = int_result.apply_substitution(&temp_substitution);
                                     return result;
                                 },
                                 Statement::Definition(var, rhs) => {
-                                    let new_rhs = rhs.apply_substitution(&self.substitution);
+                                    let new_rhs = rhs.apply_substitution(&temp_substitution);
+                                    let new_rhs = new_rhs.apply_substitution(&self.substitution);
                                     statements_flattened.push(Statement::Definition(self.use_variable(&var), new_rhs));
                                 },
                                 Statement::Compiler(var, rhs) => {
-                                    let new_rhs = rhs.apply_substitution(&self.substitution);
+                                    let new_rhs = rhs.apply_substitution(&temp_substitution);
+                                    let new_rhs = new_rhs.apply_substitution(&self.substitution);
                                     statements_flattened.push(Statement::Compiler(self.use_variable(&var), new_rhs));
                                 },
                                 Statement::Condition(lhs, rhs) => {
-                                    let new_lhs = lhs.apply_substitution(&self.substitution);
-                                    let new_rhs = rhs.apply_substitution(&self.substitution);
+                                    let new_lhs = lhs.apply_substitution(&temp_substitution);
+                                    let new_lhs = new_lhs.apply_substitution(&self.substitution);
+                                    let new_rhs = rhs.apply_substitution(&temp_substitution);
+                                    let new_rhs = new_rhs.apply_substitution(&self.substitution);
                                     statements_flattened.push(Statement::Condition(new_lhs, new_rhs));
                                 },
                                 Statement::For(..) => panic!("Not flattened!"),
                             }
                         }
-                        // remove substitutions for function call
-                        self.substitution.remove(identifier_called, identifier_call);
                     }
                 }
                 panic!("Function definition for function {} with {:?} argument(s) not found.",id , param_expressions);
