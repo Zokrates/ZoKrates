@@ -123,6 +123,7 @@ enum Token<T: Field> {
     Ide(String),
     Num(T),
     Unknown(String),
+    InlineComment(String),
     // following used for error messages
     ErrIde, ErrNum
 }
@@ -159,6 +160,7 @@ impl<T: Field> fmt::Display for Token<T> {
             Token::Ide(ref x) => write!(f, "{}", x),
             Token::Num(ref x) => write!(f, "{}", x),
             Token::Unknown(ref x) => write!(f, "{}", x),
+            Token::InlineComment(ref x) => write!(f, "// {}", x),
             Token::ErrIde => write!(f, "identifier"),
             Token::ErrNum => write!(f, "number"),
         }
@@ -240,7 +242,10 @@ fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Po
             Some('*') => (Token::Pow, input[offset + 2..].to_string(), Position { line: pos.line, col: pos.col + offset + 2 }),
             _ => (Token::Mult, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
         },
-        Some('/') => (Token::Div, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
+        Some('/') => match input.chars().nth(offset + 1) {
+            Some('/') => (Token::InlineComment(input[offset + 2..].to_string()), "".to_string(), Position { line: pos.line, col: pos.col + offset + input[offset + 2..].len()}),
+            _ => (Token::Div, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
+        },
         Some(_) if input[offset..].starts_with("def ") => (Token::Def, input[offset + 4..].to_string(), Position { line: pos.line, col: pos.col + offset + 4 }),
         Some(_) if input[offset..].starts_with("return ") => (Token::Return, input[offset + 7..].to_string(), Position { line: pos.line, col: pos.col + offset + 7 }),
         Some(_) if input[offset..].starts_with("if ") => (Token::If, input[offset + 3..].to_string(), Position { line: pos.line, col: pos.col + offset + 3 }),
@@ -469,6 +474,10 @@ fn parse_statement1<T: Field>(ide: String, input: String, pos: Position) -> Resu
     match next_token::<T>(&input, &pos) {
         (Token::Eq, s1, p1) => match parse_expr(&s1, &p1) {
             Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
+                (Token::InlineComment(_), ref s3, _) => {
+                    assert_eq!(s3, "");
+                    Ok((Statement::Definition(ide, e2), s2, p2))
+                }
                 (Token::Unknown(ref t3), ref s3, _) if t3 == "" => {
                     assert_eq!(s3, "");
                     Ok((Statement::Definition(ide, e2), s2, p2))
@@ -485,6 +494,10 @@ fn parse_statement1<T: Field>(ide: String, input: String, pos: Position) -> Resu
                 Ok((e3, s3, p3)) => match next_token(&s3, &p3) {
                     (Token::Eqeq, s4, p4) => match parse_expr(&s4, &p4) {
                         Ok((e5, s5, p5)) => match next_token(&s5, &p5) {
+                            (Token::InlineComment(_), ref s6, _) => {
+                                assert_eq!(s6, "");
+                                Ok((Statement::Condition(e3, e5), s5, p5))
+                            }
                             (Token::Unknown(ref t6), ref s6, _) if t6 == "" => {
                                 assert_eq!(s6, "");
                                 Ok((Statement::Condition(e3, e5), s5, p5))
@@ -511,6 +524,10 @@ fn parse_statement<T: Field>(lines: &mut Lines<BufReader<File>>, input: &String,
             Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
                 (Token::Eqeq, s3, p3) => match parse_expr(&s3, &p3) {
                     Ok((e4, s4, p4)) => match next_token(&s4, &p4) {
+                        (Token::InlineComment(_), ref s5, _) => {
+                            assert_eq!(s5, "");
+                            Ok((Statement::Condition(e2, e4), s4, p4))
+                        }
                         (Token::Unknown(ref t5), ref s5, _) if t5 == "" => {
                             assert_eq!(s5, "");
                             Ok((Statement::Condition(e2, e4), s4, p4))
@@ -531,6 +548,9 @@ fn parse_statement<T: Field>(lines: &mut Lines<BufReader<File>>, input: &String,
                             (Token::Num(x6), s6, p6) => match next_token(&s6, &p6) {
                                 (Token::Do, s7, p7) => {
                                     match next_token(&s7, &p7) {
+                                        (Token::InlineComment(_), ref s8, _) => {
+                                            assert_eq!(s8, "");
+                                        }
                                         (Token::Unknown(ref t8), ref s8, _) if t8 == "" => {
                                             assert_eq!(s8, "");
                                         },
@@ -547,6 +567,10 @@ fn parse_statement<T: Field>(lines: &mut Lines<BufReader<File>>, input: &String,
                                                 let s8 = x[offset + 6..].to_string();
                                                 let p8 = Position{ line: current_line, col: offset + 7 };
                                                 match next_token(&s8, &p8) {
+                                                    (Token::InlineComment(_), ref s9, _) => {
+                                                        assert_eq!(s9, "");
+                                                        return Ok((Statement::For(x2, x4, x6, statements), s8, p8))
+                                                    }
                                                     (Token::Unknown(ref t9), ref s9, _) if t9 == "" => {
                                                         assert_eq!(s9, "");
                                                         return Ok((Statement::For(x2, x4, x6, statements), s8, p8))
@@ -592,6 +616,10 @@ fn parse_statement<T: Field>(lines: &mut Lines<BufReader<File>>, input: &String,
         (Token::Return, s1, p1) => {
             match parse_expr(&s1, &p1) {
                 Ok((expr, s2, p2)) => match next_token(&s2, &p2) {
+                    (Token::InlineComment(_), ref s3, _) => {
+                        assert_eq!(s3, "");
+                        Ok((Statement::Return(expr), s2, p2))
+                    }
                     (Token::Unknown(ref t3), ref s3, _) if t3 == "" => {
                         assert_eq!(s3, "");
                         Ok((Statement::Return(expr), s2, p2))
@@ -601,8 +629,7 @@ fn parse_statement<T: Field>(lines: &mut Lines<BufReader<File>>, input: &String,
                 Err(err) => Err(err),
             }
         },
-        // This just covers an error case: Def Token is never part of a valid statement and indicates that a return statement is missing.
-        (Token::Def, _, p1) => Err(Error { expected: vec![Token::Return], got: Token::Def , pos: p1 }),
+        (Token::Def, _, p1) => Err(Error { expected: vec![Token::Return], got: Token::Def , pos: p1 }), // This just covers an error case: Def Token is never part of a valid statement and indicates that a return statement is missing.
         (t1, _, p1) => Err(Error { expected: vec![Token::ErrIde, Token::ErrNum, Token::If, Token::Open, Token::Hash, Token::Return], got: t1 , pos: p1 }),
     }
 }
@@ -635,6 +662,7 @@ fn parse_function<T: Field>(mut lines: &mut Lines<BufReader<File>>, input: &Stri
                                                 match next_token(&s4, &p4) {
                                                     (Token::Colon, s5, p5) => {
                                                         match next_token(&s5, &p5) {
+                                                            (Token::InlineComment(_), _, _) => break,
                                                             (Token::Unknown(ref x6), ..) if x6 == "" => break,
                                                             (t6, _, p6) => return Err(Error { expected: vec![Token::Unknown("".to_string())], got: t6 , pos: p6 }),
                                                         }
@@ -745,6 +773,14 @@ mod tests {
         let pos = Position { line: 100, col: 258 };
         assert_eq!(pos.col(26), Position { line: 100, col: 284 });
         assert_eq!(pos.col(-23), Position { line: 100, col: 235 });
+    }
+
+    // inline comment
+    #[test]
+    fn inline_comment(){
+        let pos = Position { line: 100, col: 258 };
+        let (token, _, _)= next_token::<FieldPrime>(&" //inline comment".to_string(), &pos);
+        assert_eq!(Token::InlineComment("inline comment".to_string()), token);
     }
 
     #[cfg(test)]
