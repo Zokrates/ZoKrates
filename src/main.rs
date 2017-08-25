@@ -1,6 +1,7 @@
 //
 // @file main.rs
 // @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
+// @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 // @date 2017
 
 #![feature(box_patterns, box_syntax)]
@@ -83,10 +84,11 @@ fn main() {
     println!("witness {:?}", witness);
 
     // run libsnark
-    #[cfg(not(feature="nolibsnark"))]
-    // number of inputs in the zkSNARK sense, i.e., input variables + output variables
-    let num_inputs = args_provided.len() + 1; //currently exactly one output variable
-    println!("run_libsnark = {:?}", run_libsnark(variables, a, b, c, witness, num_inputs));
+    #[cfg(not(feature="nolibsnark"))]{
+        // number of inputs in the zkSNARK sense, i.e., input variables + output variables
+        let num_inputs = args_provided.len() + 1; //currently exactly one output variable
+        println!("run_libsnark = {:?}", run_libsnark(variables, a, b, c, witness, num_inputs));
+    }
 }
 
 #[cfg(test)]

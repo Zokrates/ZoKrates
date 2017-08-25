@@ -172,7 +172,7 @@ pub enum Expression<T: Field> {
     Div(Box<Expression<T>>, Box<Expression<T>>),
     Pow(Box<Expression<T>>, Box<Expression<T>>),
     IfElse(Box<Condition<T>>, Box<Expression<T>>, Box<Expression<T>>),
-    FunctionCall(String, Vec<Parameter>),
+    FunctionCall(String, Vec<Expression<T>>),
 }
 
 impl<T: Field> Expression<T> {
@@ -195,20 +195,10 @@ impl<T: Field> Expression<T> {
             Expression::Pow(ref e1, ref e2) => Expression::Pow(box e1.apply_substitution(substitution), box e2.apply_substitution(substitution)),
             Expression::IfElse(ref c, ref e1, ref e2) => Expression::IfElse(box c.apply_substitution(substitution), box e1.apply_substitution(substitution), box e2.apply_substitution(substitution)),
             Expression::FunctionCall(ref i, ref p) => {
-                let mut new_params = Vec::new();
                 for param in p {
-                    let mut new_id = param.id.to_string();
-                    loop {
-                        match substitution.get(&new_id) {
-                            Some(x) => new_id = x.to_string(),
-                            None =>  {
-                                new_params.push(Parameter{id: new_id.clone()});
-                                break;
-                            },
-                        }
-                    }
+                    param.apply_substitution(substitution);
                 }
-                Expression::FunctionCall(i.clone(), new_params)
+                Expression::FunctionCall(i.clone(), p.clone())
             },
         }
     }
