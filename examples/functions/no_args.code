@@ -1,0 +1,10 @@
+def const():
+  return 123123
+
+def add(a,b):
+  a=const()
+  return a+b
+
+def main(a,b):
+  c = add(a, b+const())
+  return const()

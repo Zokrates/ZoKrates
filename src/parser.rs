@@ -343,7 +343,12 @@ fn parse_factor<T: Field>(input: &String, pos: &Position) -> Result<(Expression<
             },
             Err(err) => Err(err),
         },
-        (Token::Ide(x), s1, p1) => parse_factor1(Expression::Identifier(x), s1, p1),
+        (Token::Ide(x), s1, p1) => {
+            match next_token::<T>(&s1, &p1){
+                (Token::Open, s2, p2) => parse_function_call(x, s2, p2),
+                _ => parse_factor1(Expression::Identifier(x), s1, p1),
+            }
+        }
         (Token::Num(x), s1, p1) => parse_factor1(Expression::Number(x), s1, p1),
         (t1, _, p1) => Err(Error { expected: vec![Token::If, Token::Open, Token::ErrIde, Token::ErrNum], got: t1 , pos: p1 }),
     }
@@ -410,9 +415,11 @@ fn parse_function_call<T: Field>(ide: String, input: String, pos: Position) -> R
     loop {
         match next_token::<T>(&s, &p) {
             // no arguments
-            (Token::Close, s1, p1) => match parse_term1(Expression::FunctionCall(ide, args), s1, p1) {
-                Ok((e2, s2, p2)) => return parse_expr1(e2, s2, p2),
-                Err(err) => return Err(err),
+            (Token::Close, s1, p1) => {
+                match parse_term1(Expression::FunctionCall(ide, args), s1, p1) {
+                    Ok((e2, s2, p2)) => return parse_expr1(e2, s2, p2),
+                    Err(err) => return Err(err),
+                }
             },
             // at least one argument
             (_, _, _) => match parse_expr(&s,&p){
@@ -673,7 +680,19 @@ fn parse_function<T: Field>(mut lines: &mut Lines<BufReader<File>>, input: &Stri
                                             (t5, _, p5) => return Err(Error { expected: vec![Token::Comma, Token::Close], got: t5 , pos: p5 }),
                                         }
                                     },
-                                    (t4, _, p4) => return Err(Error { expected: vec![Token::Ide(String::from("ide"))], got: t4 , pos: p4 }),
+                                    (Token::Close, s4, p4) => { // case of no parameters
+                                        match next_token(&s4, &p4) {
+                                            (Token::Colon, s5, p5) => {
+                                                match next_token(&s5, &p5) {
+                                                    (Token::InlineComment(_), _, _) => break,
+                                                    (Token::Unknown(ref x6), ..) if x6 == "" => break,
+                                                    (t6, _, p6) => return Err(Error { expected: vec![Token::Unknown("".to_string())], got: t6 , pos: p6 }),
+                                                }
+                                            },
+                                            (t5, _, p5) => return Err(Error { expected: vec![Token::Colon], got: t5 , pos: p5 }),
+                                        }
+                                    },
+                                    (t4, _, p4) => return Err(Error { expected: vec![Token::Ide(String::from("ide")),Token::Close], got: t4 , pos: p4 }),
                                 }
                             }
                         },
@@ -682,7 +701,7 @@ fn parse_function<T: Field>(mut lines: &mut Lines<BufReader<File>>, input: &Stri
                 },
                 (t2, _, p2) => return Err(Error { expected: vec![Token::Ide(String::from("name"))], got: t2 , pos: p2 }),
             }
-            current_line += 1;
+    current_line += 1;
 
     // parse function body
     let mut stats = Vec::new();
@@ -733,7 +752,8 @@ pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
                         }
 
                         functions.push(function);
-                        current_line = p2.line
+                        current_line = p2.line; // this is the line of the return statement
+                        current_line += 1;
                         },
                     Err(err) => return Err(err),
                 },
