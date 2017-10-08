@@ -1,5 +1,5 @@
 [package]
-name = "code_to_r1cs"
+name = "zkc"
 version = "0.1.0"
 authors = ["Dennis Kuhnert <mail@kyroy.com>"]
 repository = "https://github.com/Kyroy/VerifiableStatementCompiler.git"
@@ -13,6 +13,7 @@ nolibsnark = []
 libc = "0.2.0"
 num = "0.1.36"
 lazy_static = "0.1.*"
+clap = "2.26.2"
 
 [dev-dependencies]
 glob = "0.2.11"
