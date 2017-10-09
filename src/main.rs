@@ -6,32 +6,38 @@
 
 #![feature(box_patterns, box_syntax)]
 
+extern crate clap;
 #[macro_use]
 extern crate lazy_static;
-extern crate num;
-extern crate clap; // cli
+extern crate num; // cli
+extern crate serde; // serialization deserialization
+#[macro_use]
+extern crate serde_derive;
+extern crate bincode;
 
 mod absy;
 mod parser;
 mod flatten;
 mod r1cs;
 mod field;
-#[cfg(not(feature="nolibsnark"))]
+#[cfg(not(feature = "nolibsnark"))]
 mod libsnark;
 
 use std::fs::File;
 use std::path::Path;
-use std::io::{Write, BufWriter};
+use std::io::{BufWriter, Write};
 use field::{Field, FieldPrime};
 use absy::Prog;
 use parser::parse_program;
 use flatten::Flattener;
 use r1cs::r1cs_program;
-use clap::{Arg, App, AppSettings, SubCommand};
-#[cfg(not(feature="nolibsnark"))]
+use clap::{App, AppSettings, Arg, SubCommand};
+#[cfg(not(feature = "nolibsnark"))]
 use libsnark::run_libsnark;
+use bincode::{serialize, deserialize, Infinite};
 
 fn main() {
+    const FLATTENED_CODE_DEFAULT_PATH: &str = "out";
 
     // cli specification using clap library
     let matches = App::new("zkc")
@@ -40,18 +46,22 @@ fn main() {
     .author("Jacob Eberhardt, Dennis Kuhnert")
     .about("Supports generation of zkSNARKs from high level language code including Smart Contracts for proof verification on the Ethereum Blockchain.")
     .subcommand(SubCommand::with_name("compile")
-                                    .about("Compiles into flattened conditions.")
+                                    .about("Compiles into flattened conditions. Produces two files: human-readable '.code' file and binary file")
                                     .arg(Arg::with_name("input")
                                         .short("i")
+                                        .long("input")
                                         .help("path of source code file to compile.")
+                                        .value_name("FILE")
                                         .takes_value(true)
                                         .required(true)
                                     ).arg(Arg::with_name("output")
                                         .short("o")
+                                        .long("output")
                                         .help("output file path.")
+                                        .value_name("FILE")
                                         .takes_value(true)
                                         .required(false)
-                                        .default_value("out.code")
+                                        .default_value(FLATTENED_CODE_DEFAULT_PATH)
                                     )
                                  )
     .subcommand(SubCommand::with_name("setup")
@@ -59,7 +69,23 @@ fn main() {
     .subcommand(SubCommand::with_name("export-verifier")
         .about("Exports a verifier as Solidity smart contract."))
     .subcommand(SubCommand::with_name("compute-witness")
-        .about("Calculates a witness for a given constraint system, i.e., a variable assignment which satisfies all constraints. Interactive if underspecified."))
+        .about("Calculates a witness for a given constraint system, i.e., a variable assignment which satisfies all constraints. Interactive if arguments underspecified.")
+        .arg(Arg::with_name("input")
+            .short("i")
+            .long("input")
+            .help("path of comiled code.")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(FLATTENED_CODE_DEFAULT_PATH)
+        ).arg(Arg::with_name("arguments")
+            .short("a")
+            .long("arguments")
+            .help("Arguments for the program's main method. Space or comma separated list.")
+            .takes_value(true)
+            .multiple(true) // allows multiple values
+            .required(false)
+        ))
     .subcommand(SubCommand::with_name("generate-proof")
         .about("Calculates a proof for a given constraint system and witness."))
     .subcommand(SubCommand::with_name("deploy-verifier")
@@ -69,8 +95,7 @@ fn main() {
     //println!("matches: {:?}", matches);
 
     match matches.subcommand() {
-        ("compile", Some(sub_matches)) =>{
-
+        ("compile", Some(sub_matches)) => {
             println!("Compiling {}", sub_matches.value_of("input").unwrap());
 
             let path = Path::new(sub_matches.value_of("input").unwrap());
@@ -84,47 +109,102 @@ fn main() {
                 Err(why) => {
                     println!("{:?}", why);
                     std::process::exit(1);
-                },
+                }
             };
 
-            // debugging output
-            println!("uncompiled program:\n{}", program_ast);
+            // flatten input program
+            let program_flattened =
+                Flattener::new(FieldPrime::get_required_bits()).flatten_program(program_ast);
 
-            let program_flattened = Flattener::new(FieldPrime::get_required_bits()).flatten_program(program_ast);
-
-            let output_path = Path::new(sub_matches.value_of("output").unwrap());
-            let mut output_file = match File::create(&output_path) {
+            // serialize flattened program and write to binary file
+            let bin_output_path = Path::new(sub_matches.value_of("output").unwrap());
+            let mut bin_output_file = match File::create(&bin_output_path) {
                 Ok(file) => file,
-                Err(why) => panic!("couldn't create {}: {}", output_path.display(), why),
+                Err(why) => panic!("couldn't create {}: {}", bin_output_path.display(), why),
             };
 
-            let mut ofb = BufWriter::new(output_file);
-            write!(&mut ofb, "{}\n", program_flattened).expect("Unable to write data to file.");
-            ofb.flush();
+            let encoded: Vec<u8> = serialize(&program_flattened, Infinite).unwrap();
 
-            println!("Compiled code written to {}", sub_matches.value_of("output").unwrap());
+            // write human-readable output file
+            let hr_output_path = bin_output_path.to_path_buf().with_extension("code");
+
+            let mut hr_output_file = match File::create(&hr_output_path) {
+                Ok(file) => file,
+                Err(why) => panic!("couldn't create {}: {}", hr_output_path.display(), why),
+            };
+
+            let mut hrofb = BufWriter::new(hr_output_file);
+            write!(&mut hrofb, "{}\n", program_flattened).expect("Unable to write data to file.");
+            hrofb.flush();
 
             // debugging output
-            println!("compiled program:\n{}", program_flattened);
-        },
+            println!("Compiled program:\n{}", program_flattened);
+            println!(
+                "Compiled code written to {}",
+                sub_matches.value_of("output").unwrap()
+            );
+        }
         ("compute-witness", Some(sub_matches)) => {
             println!("Computing witness...");
-        },
+
+            // read compiled program
+            let path = Path::new(sub_matches.value_of("input").unwrap());
+            let file = match File::open(&path) {
+                Ok(file) => file,
+                Err(why) => panic!("couldn't open {}: {}", path.display(), why),
+            };
+
+            let program_ast: Prog<FieldPrime> = match parse_program(file) {
+                Ok(x) => x,
+                Err(why) => {
+                    println!("{:?}", why);
+                    std::process::exit(1);
+                }
+            };
+
+            // make sure the input program is actually flattened.
+            // TODO: is_flattened should be provided as method of Prog in absy.
+            let program_flattened = program_ast
+                .functions
+                .iter()
+                .find(|x| x.id == "main")
+                .unwrap();
+            for stat in program_flattened.statements.clone() {
+                assert!(
+                    stat.is_flattened(),
+                    format!("Input conditions not flattened: {}", &stat)
+                );
+            }
+
+            // validate arguments
+            println!("{:?}", sub_matches.value_of("arguments"));
+
+
+            // calculate witness
+            // let witness_map = program_flattened.get_witness(args);
+            // println!("witness_map {:?}", witness_map);
+            // match witness_map.get("~out") {
+            //     Some(out) => println!("~out: {}", out),
+            //     None => println!("~out not found")
+            // }
+            // let witness: Vec<_> = variables.iter().map(|x| witness_map[x].clone()).collect();
+            // println!("witness {:?}", witness);
+        }
         ("setup", Some(sub_matches)) => {
             println!("Performing setup...");
-        },
+        }
         ("export-verifier", Some(sub_matches)) => {
             println!("Exporting verifier...");
-        },
+        }
         ("generate-proof", Some(sub_matches)) => {
             println!("Generating proof...");
-        },
+        }
         ("deploy-verifier", Some(sub_matches)) => {
             println!("Deploying verifier...");
             // use https://github.com/tomusdrw/rust-web3 for blockchain interaction
             // and https://doc.rust-lang.org/std/process/struct.Command.html for solc
         }
-        _ => {unimplemented!()}, // Either no subcommand or one not tested for...
+        _ => unimplemented!(), // Either no subcommand or one not tested for...
     }
 
 
@@ -196,7 +276,8 @@ mod tests {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
             };
-            let program_flattened = Flattener::new(FieldPrime::get_required_bits()).flatten_program(program_ast);
+            let program_flattened =
+                Flattener::new(FieldPrime::get_required_bits()).flatten_program(program_ast);
             let (..) = r1cs_program(&program_flattened);
         }
     }
@@ -218,7 +299,8 @@ mod tests {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
             };
-            let program_flattened = Flattener::new(FieldPrime::get_required_bits()).flatten_program(program_ast);
+            let program_flattened =
+                Flattener::new(FieldPrime::get_required_bits()).flatten_program(program_ast);
             let (..) = r1cs_program(&program_flattened);
             let _ = program_flattened.get_witness(vec![FieldPrime::zero()]);
         }

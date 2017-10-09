@@ -3,12 +3,13 @@
 // @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
 // @date 2017
 
-use num::{Integer, Zero, One};
+use num::{Integer, One, Zero};
 use num::bigint::{BigInt, ToBigInt};
 use std::convert::From;
-use std::ops::{Add, Sub, Mul, Div};
+use std::ops::{Add, Div, Mul, Sub};
 use std::fmt;
-use std::fmt::{Display, Debug};
+use std::fmt::{Debug, Display};
+use serde::{Serialize, Deserialize, Serializer};
 
 lazy_static! {
     static ref P: BigInt = BigInt::parse_bytes(b"21888242871839275222246405745257275088548364400416034343698204186575808495617", 10).unwrap();
@@ -19,14 +20,29 @@ pub trait Pow<RHS> {
     fn pow(self, RHS) -> Self::Output;
 }
 
-pub trait Field : From<i32> + From<u32> + From<usize> + for<'a> From<&'a str>
-                + Zero + One + Clone + PartialEq + PartialOrd + Display + Debug
-                + Add<Self, Output=Self> + for<'a> Add<&'a Self, Output=Self>
-                + Sub<Self, Output=Self> + for<'a> Sub<&'a Self, Output=Self>
-                + Mul<Self, Output=Self> + for<'a> Mul<&'a Self, Output=Self>
-                + Div<Self, Output=Self> + for<'a> Div<&'a Self, Output=Self>
-                + Pow<usize, Output=Self> + Pow<Self, Output=Self> + for<'a> Pow<&'a Self, Output=Self>
-{
+pub trait Field
+    : From<i32>
+    + From<u32>
+    + From<usize>
+    + for<'a> From<&'a str>
+    + Zero
+    + One
+    + Clone
+    + PartialEq
+    + PartialOrd
+    + Display
+    + Debug
+    + Add<Self, Output = Self>
+    + for<'a> Add<&'a Self, Output = Self>
+    + Sub<Self, Output = Self>
+    + for<'a> Sub<&'a Self, Output = Self>
+    + Mul<Self, Output = Self>
+    + for<'a> Mul<&'a Self, Output = Self>
+    + Div<Self, Output = Self>
+    + for<'a> Div<&'a Self, Output = Self>
+    + Pow<usize, Output = Self>
+    + Pow<Self, Output = Self>
+    + for<'a> Pow<&'a Self, Output = Self> {
     /// Returns this `Field`'s contents as little-endian byte vector
     fn into_byte_vector(&self) -> Vec<u8>;
     /// Returns the multiplicative inverse, i.e.: self * self.inverse_mul() = Self::one()
@@ -39,8 +55,7 @@ pub trait Field : From<i32> + From<u32> + From<usize> + for<'a> From<&'a str>
     fn get_required_bits() -> usize;
 }
 
-#[derive(PartialEq,PartialOrd,Clone)]
-#[derive(Eq,Ord)] // for tests
+#[derive(PartialEq, PartialOrd, Clone, Eq, Ord)]
 pub struct FieldPrime {
     value: BigInt,
 }
@@ -61,13 +76,19 @@ impl Field for FieldPrime {
     fn inverse_mul(&self) -> FieldPrime {
         let (b, s, _) = extended_euclid(&self.value, &*P);
         assert_eq!(b, BigInt::one());
-        FieldPrime{ value: &s - s.div_floor(&*P) * &*P }
+        FieldPrime {
+            value: &s - s.div_floor(&*P) * &*P,
+        }
     }
     fn min_value() -> FieldPrime {
-        FieldPrime{ value: ToBigInt::to_bigint(&0).unwrap() }
+        FieldPrime {
+            value: ToBigInt::to_bigint(&0).unwrap(),
+        }
     }
     fn max_value() -> FieldPrime {
-        FieldPrime{ value: &*P - ToBigInt::to_bigint(&1).unwrap() }
+        FieldPrime {
+            value: &*P - ToBigInt::to_bigint(&1).unwrap(),
+        }
     }
     fn get_required_bits() -> usize {
         (*P).bits()
@@ -89,21 +110,27 @@ impl Debug for FieldPrime {
 impl From<i32> for FieldPrime {
     fn from(num: i32) -> Self {
         let x = ToBigInt::to_bigint(&num).unwrap();
-        FieldPrime{ value: &x - x.div_floor(&*P) * &*P }
+        FieldPrime {
+            value: &x - x.div_floor(&*P) * &*P,
+        }
     }
 }
 
 impl From<u32> for FieldPrime {
     fn from(num: u32) -> Self {
         let x = ToBigInt::to_bigint(&num).unwrap();
-        FieldPrime{ value: &x - x.div_floor(&*P) * &*P }
+        FieldPrime {
+            value: &x - x.div_floor(&*P) * &*P,
+        }
     }
 }
 
 impl From<usize> for FieldPrime {
     fn from(num: usize) -> Self {
         let x = ToBigInt::to_bigint(&num).unwrap();
-        FieldPrime{ value: &x - x.div_floor(&*P) * &*P }
+        FieldPrime {
+            value: &x - x.div_floor(&*P) * &*P,
+        }
     }
 }
 
@@ -111,15 +138,19 @@ impl<'a> From<&'a str> for FieldPrime {
     fn from(s: &'a str) -> Self {
         let x = match BigInt::parse_bytes(s.as_bytes(), 10) {
             Some(x) => x,
-            None => panic!("Could not parse {:?} to BigInt!", &s)
+            None => panic!("Could not parse {:?} to BigInt!", &s),
         };
-        FieldPrime{ value: &x - x.div_floor(&*P) * &*P }
+        FieldPrime {
+            value: &x - x.div_floor(&*P) * &*P,
+        }
     }
 }
 
 impl Zero for FieldPrime {
     fn zero() -> FieldPrime {
-        FieldPrime{ value: ToBigInt::to_bigint(&0).unwrap() }
+        FieldPrime {
+            value: ToBigInt::to_bigint(&0).unwrap(),
+        }
     }
     fn is_zero(&self) -> bool {
         self.value == ToBigInt::to_bigint(&0).unwrap()
@@ -128,7 +159,9 @@ impl Zero for FieldPrime {
 
 impl One for FieldPrime {
     fn one() -> FieldPrime {
-        FieldPrime{ value: ToBigInt::to_bigint(&1).unwrap() }
+        FieldPrime {
+            value: ToBigInt::to_bigint(&1).unwrap(),
+        }
     }
 }
 
@@ -136,7 +169,9 @@ impl Add<FieldPrime> for FieldPrime {
     type Output = FieldPrime;
 
     fn add(self, other: FieldPrime) -> FieldPrime {
-        FieldPrime{ value: (self.value + other.value) % &*P }
+        FieldPrime {
+            value: (self.value + other.value) % &*P,
+        }
     }
 }
 
@@ -144,7 +179,9 @@ impl<'a> Add<&'a FieldPrime> for FieldPrime {
     type Output = FieldPrime;
 
     fn add(self, other: &FieldPrime) -> FieldPrime {
-        FieldPrime{ value: (self.value + other.value.clone()) % &*P }
+        FieldPrime {
+            value: (self.value + other.value.clone()) % &*P,
+        }
     }
 }
 
@@ -153,7 +190,9 @@ impl Sub<FieldPrime> for FieldPrime {
 
     fn sub(self, other: FieldPrime) -> FieldPrime {
         let x = self.value - other.value;
-        FieldPrime{ value: &x - x.div_floor(&*P) * &*P }
+        FieldPrime {
+            value: &x - x.div_floor(&*P) * &*P,
+        }
     }
 }
 
@@ -162,7 +201,9 @@ impl<'a> Sub<&'a FieldPrime> for FieldPrime {
 
     fn sub(self, other: &FieldPrime) -> FieldPrime {
         let x = self.value - other.value.clone();
-        FieldPrime{ value: &x - x.div_floor(&*P) * &*P }
+        FieldPrime {
+            value: &x - x.div_floor(&*P) * &*P,
+        }
     }
 }
 
@@ -170,7 +211,9 @@ impl Mul<FieldPrime> for FieldPrime {
     type Output = FieldPrime;
 
     fn mul(self, other: FieldPrime) -> FieldPrime {
-        FieldPrime{ value: (self.value * other.value) % &*P }
+        FieldPrime {
+            value: (self.value * other.value) % &*P,
+        }
     }
 }
 
@@ -178,7 +221,9 @@ impl<'a> Mul<&'a FieldPrime> for FieldPrime {
     type Output = FieldPrime;
 
     fn mul(self, other: &FieldPrime) -> FieldPrime {
-        FieldPrime{ value: (self.value * other.value.clone()) % &*P }
+        FieldPrime {
+            value: (self.value * other.value.clone()) % &*P,
+        }
     }
 }
 
@@ -242,6 +287,15 @@ impl<'a> Pow<&'a FieldPrime> for FieldPrime {
     }
 }
 
+// custom serde serialization
+impl Serialize for FieldPrime {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where S: Serializer
+    {
+        serializer.serialize_bytes(&(*self.into_byte_vector().as_slice()))
+    }
+}
+
 /// Calculates the gcd using a iterative implementation of the extended euclidian algorithm.
 /// Returning `(d, s, t)` so that `d = s * a + t * b`
 ///
@@ -264,7 +318,7 @@ fn extended_euclid(a: &BigInt, b: &BigInt) -> (BigInt, BigInt, BigInt) {
         old_t = t.clone();
         t = &tmp_t - &quotient * &t;
     }
-    return (old_r, old_s, old_t)
+    return (old_r, old_s, old_t);
 }
 
 #[cfg(test)]
@@ -354,11 +408,15 @@ mod tests {
         #[test]
         fn subtraction_overflow() {
             assert_eq!(
-                "21888242871839275222246405745257275088548364400416034343698204186575743147394".parse::<BigInt>().unwrap(),
+                "21888242871839275222246405745257275088548364400416034343698204186575743147394"
+                    .parse::<BigInt>()
+                    .unwrap(),
                 (FieldPrime::from("68135") - FieldPrime::from("65416358")).value
             );
             assert_eq!(
-                "21888242871839275222246405745257275088548364400416034343698204186575743147394".parse::<BigInt>().unwrap(),
+                "21888242871839275222246405745257275088548364400416034343698204186575743147394"
+                    .parse::<BigInt>()
+                    .unwrap(),
                 (FieldPrime::from("68135") - &FieldPrime::from("65416358")).value
             );
         }
@@ -378,11 +436,15 @@ mod tests {
         #[test]
         fn multiplication_negative() {
             assert_eq!(
-                "21888242871839275222246405745257275088548364400416034343698204186575808014369".parse::<BigInt>().unwrap(),
+                "21888242871839275222246405745257275088548364400416034343698204186575808014369"
+                    .parse::<BigInt>()
+                    .unwrap(),
                 (FieldPrime::from("54") * FieldPrime::from("-8912")).value
             );
             assert_eq!(
-                "21888242871839275222246405745257275088548364400416034343698204186575808014369".parse::<BigInt>().unwrap(),
+                "21888242871839275222246405745257275088548364400416034343698204186575808014369"
+                    .parse::<BigInt>()
+                    .unwrap(),
                 (FieldPrime::from("54") * &FieldPrime::from("-8912")).value
             );
         }
@@ -402,12 +464,24 @@ mod tests {
         #[test]
         fn multiplication_overflow() {
             assert_eq!(
-                "6042471409729479866150380306128222617399890671095126975526159292198160466142".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("21888242871839225222246405785257275088694311157297823662689037894645225727") * FieldPrime::from("218882428715392752222464057432572755886923")).value
+                "6042471409729479866150380306128222617399890671095126975526159292198160466142"
+                    .parse::<BigInt>()
+                    .unwrap(),
+                (FieldPrime::from(
+                    "21888242871839225222246405785257275088694311157297823662689037894645225727"
+                ) *
+                    FieldPrime::from("218882428715392752222464057432572755886923"))
+                    .value
             );
             assert_eq!(
-                "6042471409729479866150380306128222617399890671095126975526159292198160466142".parse::<BigInt>().unwrap(),
-                (FieldPrime::from("21888242871839225222246405785257275088694311157297823662689037894645225727") * &FieldPrime::from("218882428715392752222464057432572755886923")).value
+                "6042471409729479866150380306128222617399890671095126975526159292198160466142"
+                    .parse::<BigInt>()
+                    .unwrap(),
+                (FieldPrime::from(
+                    "21888242871839225222246405785257275088694311157297823662689037894645225727"
+                ) *
+                    &FieldPrime::from("218882428715392752222464057432572755886923"))
+                    .value
             );
         }
 
@@ -470,11 +544,15 @@ mod tests {
         #[test]
         fn pow_negative() {
             assert_eq!(
-                "21888242871839275222246405745257275088548364400416034343686819230535502784513".parse::<BigInt>().unwrap(),
+                "21888242871839275222246405745257275088548364400416034343686819230535502784513"
+                    .parse::<BigInt>()
+                    .unwrap(),
                 (FieldPrime::from("-54").pow(FieldPrime::from("11"))).value
             );
             assert_eq!(
-                "21888242871839275222246405745257275088548364400416034343686819230535502784513".parse::<BigInt>().unwrap(),
+                "21888242871839275222246405745257275088548364400416034343686819230535502784513"
+                    .parse::<BigInt>()
+                    .unwrap(),
                 (FieldPrime::from("-54").pow(&FieldPrime::from("11"))).value
             );
         }
@@ -484,29 +562,64 @@ mod tests {
     fn bigint_assertions() {
         let x = BigInt::parse_bytes(b"65", 10).unwrap();
         assert_eq!(&x + &x, BigInt::parse_bytes(b"130", 10).unwrap());
-        assert_eq!("1".parse::<BigInt>().unwrap(), "3".parse::<BigInt>().unwrap().div_floor(&"2".parse::<BigInt>().unwrap()));
-        assert_eq!("-2".parse::<BigInt>().unwrap(), "-3".parse::<BigInt>().unwrap().div_floor(&"2".parse::<BigInt>().unwrap()));
+        assert_eq!(
+            "1".parse::<BigInt>().unwrap(),
+            "3".parse::<BigInt>()
+                .unwrap()
+                .div_floor(&"2".parse::<BigInt>().unwrap())
+        );
+        assert_eq!(
+            "-2".parse::<BigInt>().unwrap(),
+            "-3".parse::<BigInt>()
+                .unwrap()
+                .div_floor(&"2".parse::<BigInt>().unwrap())
+        );
     }
 
     #[test]
     fn test_extended_euclid() {
         assert_eq!(
-            (ToBigInt::to_bigint(&1).unwrap(), ToBigInt::to_bigint(&-9).unwrap(), ToBigInt::to_bigint(&47).unwrap()),
-            extended_euclid(&ToBigInt::to_bigint(&120).unwrap(), &ToBigInt::to_bigint(&23).unwrap())
+            (
+                ToBigInt::to_bigint(&1).unwrap(),
+                ToBigInt::to_bigint(&-9).unwrap(),
+                ToBigInt::to_bigint(&47).unwrap()
+            ),
+            extended_euclid(
+                &ToBigInt::to_bigint(&120).unwrap(),
+                &ToBigInt::to_bigint(&23).unwrap()
+            )
         );
         assert_eq!(
-            (ToBigInt::to_bigint(&2).unwrap(), ToBigInt::to_bigint(&2).unwrap(), ToBigInt::to_bigint(&-11).unwrap()),
-            extended_euclid(&ToBigInt::to_bigint(&122).unwrap(), &ToBigInt::to_bigint(&22).unwrap())
+            (
+                ToBigInt::to_bigint(&2).unwrap(),
+                ToBigInt::to_bigint(&2).unwrap(),
+                ToBigInt::to_bigint(&-11).unwrap()
+            ),
+            extended_euclid(
+                &ToBigInt::to_bigint(&122).unwrap(),
+                &ToBigInt::to_bigint(&22).unwrap()
+            )
         );
         assert_eq!(
-            (ToBigInt::to_bigint(&2).unwrap(), ToBigInt::to_bigint(&-9).unwrap(), ToBigInt::to_bigint(&47).unwrap()),
-            extended_euclid(&ToBigInt::to_bigint(&240).unwrap(), &ToBigInt::to_bigint(&46).unwrap())
+            (
+                ToBigInt::to_bigint(&2).unwrap(),
+                ToBigInt::to_bigint(&-9).unwrap(),
+                ToBigInt::to_bigint(&47).unwrap()
+            ),
+            extended_euclid(
+                &ToBigInt::to_bigint(&240).unwrap(),
+                &ToBigInt::to_bigint(&46).unwrap()
+            )
         );
         let (b, s, _) = extended_euclid(&ToBigInt::to_bigint(&253).unwrap(), &*P);
         assert_eq!(b, BigInt::one());
-        let s_field = FieldPrime{ value: &s - s.div_floor(&*P) * &*P };
+        let s_field = FieldPrime {
+            value: &s - s.div_floor(&*P) * &*P,
+        };
         assert_eq!(
-            FieldPrime::from("12717674712096337777352654721552646000065650461901806515903699665717959876900"),
+            FieldPrime::from(
+                "12717674712096337777352654721552646000065650461901806515903699665717959876900"
+            ),
             s_field
         );
     }

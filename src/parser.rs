@@ -72,7 +72,7 @@ use std::fs::File;
 use field::Field;
 use absy::*;
 
-#[derive(Clone,PartialEq)]
+#[derive(Clone, PartialEq)]
 struct Position {
     line: usize,
     col: usize,
@@ -81,7 +81,10 @@ impl Position {
     fn col(&self, delta: isize) -> Position {
         assert!(self.col <= isize::max_value() as usize);
         assert!(self.col as isize >= delta);
-        Position { line: self.line, col: (self.col as isize + delta) as usize }
+        Position {
+            line: self.line,
+            col: (self.col as isize + delta) as usize,
+        }
     }
 }
 impl fmt::Display for Position {
@@ -103,7 +106,13 @@ pub struct Error<T: Field> {
 }
 impl<T: Field> fmt::Display for Error<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Error at {}: Expected one of {:?}, got {:?}", self.pos.col(-(self.got.to_string().len() as isize)), self.expected, self.got)
+        write!(
+            f,
+            "Error at {}: Expected one of {:?}, got {:?}",
+            self.pos.col(-(self.got.to_string().len() as isize)),
+            self.expected,
+            self.got
+        )
     }
 }
 impl<T: Field> fmt::Debug for Error<T> {
@@ -114,18 +123,40 @@ impl<T: Field> fmt::Debug for Error<T> {
 
 #[derive(PartialEq)]
 enum Token<T: Field> {
-    Open, Close, Comma, Colon, Hash,
-    Eq, Return, Def,
-    If, Then, Else, Fi,
-    For, In, Dotdot, Do, Endfor,
-    Lt, Le, Eqeq, Ge, Gt,
-    Add, Sub, Mult, Div, Pow,
+    Open,
+    Close,
+    Comma,
+    Colon,
+    Hash,
+    Eq,
+    Return,
+    Def,
+    If,
+    Then,
+    Else,
+    Fi,
+    For,
+    In,
+    Dotdot,
+    Do,
+    Endfor,
+    Lt,
+    Le,
+    Eqeq,
+    Ge,
+    Gt,
+    Add,
+    Sub,
+    Mult,
+    Div,
+    Pow,
     Ide(String),
     Num(T),
     Unknown(String),
     InlineComment(String),
     // following used for error messages
-    ErrIde, ErrNum
+    ErrIde,
+    ErrNum,
 }
 impl<T: Field> fmt::Display for Token<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -136,7 +167,7 @@ impl<T: Field> fmt::Display for Token<T> {
             Token::Colon => write!(f, ":"),
             Token::Hash => write!(f, "#"),
             Token::Eq => write!(f, "="),
-            Token::Def=> write!(f, "def"),
+            Token::Def => write!(f, "def"),
             Token::Return => write!(f, "return"),
             Token::If => write!(f, "if"),
             Token::Then => write!(f, "then"),
@@ -169,9 +200,8 @@ impl<T: Field> fmt::Display for Token<T> {
 impl<T: Field> fmt::Debug for Token<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            ref t @ Token::ErrIde |
-            ref t @ Token::ErrNum => write!(f, "{}", t),
-            ref t => write!(f, "`{}`", t)
+            ref t @ Token::ErrIde | ref t @ Token::ErrNum => write!(f, "{}", t),
+            ref t => write!(f, "`{}`", t),
         }
     }
 }
@@ -188,11 +218,21 @@ fn parse_num<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Pos
         }
     }
     assert!(end > 0);
-    (Token::Num(T::from(&input[0..end])), input[end..].to_string(), Position { line: pos.line, col: pos.col + end })
+    (
+        Token::Num(T::from(&input[0..end])),
+        input[end..].to_string(),
+        Position {
+            line: pos.line,
+            col: pos.col + end,
+        },
+    )
 }
 
 fn parse_ide<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Position) {
-    assert!(match input.chars().next().unwrap() { 'a'...'z' | 'A'...'Z' => true, _ => false });
+    assert!(match input.chars().next().unwrap() {
+        'a'...'z' | 'A'...'Z' => true,
+        _ => false,
+    });
     let mut end = 1;
     loop {
         match input.chars().nth(end) {
@@ -203,7 +243,14 @@ fn parse_ide<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Pos
             None => break,
         }
     }
-    (Token::Ide(input[0..end].to_string()), input[end..].to_string(), Position { line: pos.line, col: pos.col + end })
+    (
+        Token::Ide(input[0..end].to_string()),
+        input[end..].to_string(),
+        Position {
+            line: pos.line,
+            col: pos.col + end,
+        },
+    )
 }
 
 fn skip_whitespaces(input: &String) -> usize {
@@ -219,73 +266,318 @@ fn skip_whitespaces(input: &String) -> usize {
 fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Position) {
     let offset = skip_whitespaces(input);
     match input.chars().nth(offset) {
-        Some('(') => (Token::Open, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
-        Some(')') => (Token::Close, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
-        Some(',') => (Token::Comma, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
-        Some(':') => (Token::Colon, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
-        Some('#') => (Token::Hash, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
+        Some('(') => (
+            Token::Open,
+            input[offset + 1..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 1,
+            },
+        ),
+        Some(')') => (
+            Token::Close,
+            input[offset + 1..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 1,
+            },
+        ),
+        Some(',') => (
+            Token::Comma,
+            input[offset + 1..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 1,
+            },
+        ),
+        Some(':') => (
+            Token::Colon,
+            input[offset + 1..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 1,
+            },
+        ),
+        Some('#') => (
+            Token::Hash,
+            input[offset + 1..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 1,
+            },
+        ),
         Some('=') => match input.chars().nth(offset + 1) {
-            Some('=') => (Token::Eqeq, input[offset + 2..].to_string(), Position { line: pos.line, col: pos.col + offset + 2 }),
-            _ => (Token::Eq, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
+            Some('=') => (
+                Token::Eqeq,
+                input[offset + 2..].to_string(),
+                Position {
+                    line: pos.line,
+                    col: pos.col + offset + 2,
+                },
+            ),
+            _ => (
+                Token::Eq,
+                input[offset + 1..].to_string(),
+                Position {
+                    line: pos.line,
+                    col: pos.col + offset + 1,
+                },
+            ),
         },
         Some('<') => match input.chars().nth(offset + 1) {
-            Some('=') => (Token::Le, input[offset + 2..].to_string(), Position { line: pos.line, col: pos.col + offset + 2 }),
-            _ => (Token::Lt, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
+            Some('=') => (
+                Token::Le,
+                input[offset + 2..].to_string(),
+                Position {
+                    line: pos.line,
+                    col: pos.col + offset + 2,
+                },
+            ),
+            _ => (
+                Token::Lt,
+                input[offset + 1..].to_string(),
+                Position {
+                    line: pos.line,
+                    col: pos.col + offset + 1,
+                },
+            ),
         },
         Some('>') => match input.chars().nth(offset + 1) {
-            Some('=') => (Token::Ge, input[offset + 2..].to_string(), Position { line: pos.line, col: pos.col + offset + 2 }),
-            _ => (Token::Gt, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
+            Some('=') => (
+                Token::Ge,
+                input[offset + 2..].to_string(),
+                Position {
+                    line: pos.line,
+                    col: pos.col + offset + 2,
+                },
+            ),
+            _ => (
+                Token::Gt,
+                input[offset + 1..].to_string(),
+                Position {
+                    line: pos.line,
+                    col: pos.col + offset + 1,
+                },
+            ),
         },
-        Some('+') => (Token::Add, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
-        Some('-') => (Token::Sub, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
+        Some('+') => (
+            Token::Add,
+            input[offset + 1..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 1,
+            },
+        ),
+        Some('-') => (
+            Token::Sub,
+            input[offset + 1..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 1,
+            },
+        ),
         Some('*') => match input.chars().nth(offset + 1) {
-            Some('*') => (Token::Pow, input[offset + 2..].to_string(), Position { line: pos.line, col: pos.col + offset + 2 }),
-            _ => (Token::Mult, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
+            Some('*') => (
+                Token::Pow,
+                input[offset + 2..].to_string(),
+                Position {
+                    line: pos.line,
+                    col: pos.col + offset + 2,
+                },
+            ),
+            _ => (
+                Token::Mult,
+                input[offset + 1..].to_string(),
+                Position {
+                    line: pos.line,
+                    col: pos.col + offset + 1,
+                },
+            ),
         },
         Some('/') => match input.chars().nth(offset + 1) {
-            Some('/') => (Token::InlineComment(input[offset + 2..].to_string()), "".to_string(), Position { line: pos.line, col: pos.col + offset + input[offset + 2..].len()}),
-            _ => (Token::Div, input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
+            Some('/') => (
+                Token::InlineComment(input[offset + 2..].to_string()),
+                "".to_string(),
+                Position {
+                    line: pos.line,
+                    col: pos.col + offset + input[offset + 2..].len(),
+                },
+            ),
+            _ => (
+                Token::Div,
+                input[offset + 1..].to_string(),
+                Position {
+                    line: pos.line,
+                    col: pos.col + offset + 1,
+                },
+            ),
         },
-        Some(_) if input[offset..].starts_with("def ") => (Token::Def, input[offset + 4..].to_string(), Position { line: pos.line, col: pos.col + offset + 4 }),
-        Some(_) if input[offset..].starts_with("return ") => (Token::Return, input[offset + 7..].to_string(), Position { line: pos.line, col: pos.col + offset + 7 }),
-        Some(_) if input[offset..].starts_with("if ") => (Token::If, input[offset + 3..].to_string(), Position { line: pos.line, col: pos.col + offset + 3 }),
-        Some(_) if input[offset..].starts_with("then ") => (Token::Then, input[offset + 5..].to_string(), Position { line: pos.line, col: pos.col + offset + 5 }),
-        Some(_) if input[offset..].starts_with("else ") => (Token::Else, input[offset + 5..].to_string(), Position { line: pos.line, col: pos.col + offset + 5 }),
-        Some(_) if input[offset..].starts_with("fi ") || input[offset..].to_string() == "fi" => (Token::Fi, input[offset + 2..].to_string(), Position { line: pos.line, col: pos.col + offset + 2 }),
-        Some(_) if input[offset..].starts_with("for ") => (Token::For, input[offset + 4..].to_string(), Position { line: pos.line, col: pos.col + offset + 4 }),
-        Some(_) if input[offset..].starts_with("in ") => (Token::In, input[offset + 3..].to_string(), Position { line: pos.line, col: pos.col + offset + 3 }),
-        Some(_) if input[offset..].starts_with("..") => (Token::Dotdot, input[offset + 2..].to_string(), Position { line: pos.line, col: pos.col + offset + 2 }),
-        Some(_) if input[offset..].starts_with("do ") || input[offset..].to_string() == "do" => (Token::Do, input[offset + 2..].to_string(), Position { line: pos.line, col: pos.col + offset + 2 }),
-        Some(_) if input[offset..].starts_with("endfor ") || input[offset..].to_string() == "endfor" => (Token::For, input[offset + 6..].to_string(), Position { line: pos.line, col: pos.col + offset + 6 }),
+        Some(_) if input[offset..].starts_with("def ") => (
+            Token::Def,
+            input[offset + 4..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 4,
+            },
+        ),
+        Some(_) if input[offset..].starts_with("return ") => (
+            Token::Return,
+            input[offset + 7..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 7,
+            },
+        ),
+        Some(_) if input[offset..].starts_with("if ") => (
+            Token::If,
+            input[offset + 3..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 3,
+            },
+        ),
+        Some(_) if input[offset..].starts_with("then ") => (
+            Token::Then,
+            input[offset + 5..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 5,
+            },
+        ),
+        Some(_) if input[offset..].starts_with("else ") => (
+            Token::Else,
+            input[offset + 5..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 5,
+            },
+        ),
+        Some(_) if input[offset..].starts_with("fi ") || input[offset..].to_string() == "fi" => (
+            Token::Fi,
+            input[offset + 2..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 2,
+            },
+        ),
+        Some(_) if input[offset..].starts_with("for ") => (
+            Token::For,
+            input[offset + 4..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 4,
+            },
+        ),
+        Some(_) if input[offset..].starts_with("in ") => (
+            Token::In,
+            input[offset + 3..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 3,
+            },
+        ),
+        Some(_) if input[offset..].starts_with("..") => (
+            Token::Dotdot,
+            input[offset + 2..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 2,
+            },
+        ),
+        Some(_) if input[offset..].starts_with("do ") || input[offset..].to_string() == "do" => (
+            Token::Do,
+            input[offset + 2..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 2,
+            },
+        ),
+        Some(_) if input[offset..].starts_with("endfor ") || input[offset..].to_string() == "endfor" => {
+            (
+                Token::For,
+                input[offset + 6..].to_string(),
+                Position {
+                    line: pos.line,
+                    col: pos.col + offset + 6,
+                },
+            )
+        }
         Some(x) => match x {
-            '0'...'9' => parse_num(&input[offset..].to_string(), &Position { line: pos.line, col: pos.col + offset }),
-            'a'...'z' | 'A'...'Z' => parse_ide(&input[offset..].to_string(), &Position { line: pos.line, col: pos.col + offset }),
-            _ => (Token::Unknown(x.to_string()), input[offset + 1..].to_string(), Position { line: pos.line, col: pos.col + offset + 1 }),
+            '0'...'9' => parse_num(
+                &input[offset..].to_string(),
+                &Position {
+                    line: pos.line,
+                    col: pos.col + offset,
+                },
+            ),
+            'a'...'z' | 'A'...'Z' => parse_ide(
+                &input[offset..].to_string(),
+                &Position {
+                    line: pos.line,
+                    col: pos.col + offset,
+                },
+            ),
+            _ => (
+                Token::Unknown(x.to_string()),
+                input[offset + 1..].to_string(),
+                Position {
+                    line: pos.line,
+                    col: pos.col + offset + 1,
+                },
+            ),
         },
-        None => (Token::Unknown("".to_string()), input[offset..].to_string(), Position { line: pos.line, col: pos.col + offset }),
+        None => (
+            Token::Unknown("".to_string()),
+            input[offset..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset,
+            },
+        ),
     }
 }
 
-fn parse_then_else<T: Field>(cond: Condition<T>, input: &String, pos: &Position) -> Result<(Expression<T>, String, Position), Error<T>> {
+fn parse_then_else<T: Field>(
+    cond: Condition<T>,
+    input: &String,
+    pos: &Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
     match next_token(input, pos) {
         (Token::Then, s5, p5) => match parse_expr(&s5, &p5) {
             Ok((e6, s6, p6)) => match next_token(&s6, &p6) {
                 (Token::Else, s7, p7) => match parse_expr(&s7, &p7) {
                     Ok((e8, s8, p8)) => match next_token(&s8, &p8) {
-                        (Token::Fi, s9, p9) => parse_expr1(Expression::IfElse(box cond, box e6, box e8), s9, p9),
-                        (t10, _, p10) => Err(Error { expected: vec![Token::Fi], got: t10 , pos: p10 }),
+                        (Token::Fi, s9, p9) => {
+                            parse_expr1(Expression::IfElse(box cond, box e6, box e8), s9, p9)
+                        }
+                        (t10, _, p10) => Err(Error {
+                            expected: vec![Token::Fi],
+                            got: t10,
+                            pos: p10,
+                        }),
                     },
                     Err(err) => Err(err),
                 },
-                (t7, _, p7) => Err(Error { expected: vec![Token::Else], got: t7 , pos: p7 }),
+                (t7, _, p7) => Err(Error {
+                    expected: vec![Token::Else],
+                    got: t7,
+                    pos: p7,
+                }),
             },
             Err(err) => Err(err),
         },
-        (t5, _, p5) => Err(Error { expected: vec![Token::Then], got: t5 , pos: p5 }),
+        (t5, _, p5) => Err(Error {
+            expected: vec![Token::Then],
+            got: t5,
+            pos: p5,
+        }),
     }
 }
 
-fn parse_if_then_else<T: Field>(input: &String, pos: &Position) -> Result<(Expression<T>, String, Position), Error<T>> {
+fn parse_if_then_else<T: Field>(
+    input: &String,
+    pos: &Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
     match next_token(input, pos) {
         (Token::If, s1, p1) => match parse_expr(&s1, &p1) {
             Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
@@ -309,21 +601,39 @@ fn parse_if_then_else<T: Field>(input: &String, pos: &Position) -> Result<(Expre
                     Ok((e4, s4, p4)) => parse_then_else(Condition::Gt(e2, e4), &s4, &p4),
                     Err(err) => Err(err),
                 },
-                (t3, _, p3) => Err(Error { expected: vec![Token::Lt, Token::Le, Token::Eqeq, Token::Ge, Token::Gt], got: t3 , pos: p3 }),
+                (t3, _, p3) => Err(Error {
+                    expected: vec![Token::Lt, Token::Le, Token::Eqeq, Token::Ge, Token::Gt],
+                    got: t3,
+                    pos: p3,
+                }),
             },
             Err(err) => Err(err),
         },
-        (t1, _, p1) => Err(Error { expected: vec![Token::If], got: t1 , pos: p1 }),
+        (t1, _, p1) => Err(Error {
+            expected: vec![Token::If],
+            got: t1,
+            pos: p1,
+        }),
     }
 }
 
-fn parse_factor1<T: Field>(expr: Expression<T>, input: String, pos: Position) -> Result<(Expression<T>, String, Position), Error<T>> {
+fn parse_factor1<T: Field>(
+    expr: Expression<T>,
+    input: String,
+    pos: Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
     match parse_term1(expr.clone(), input.clone(), pos.clone()) {
         Ok((e1, s1, p1)) => match parse_expr1(e1, s1, p1) {
             Ok((e2, s2, p2)) => match next_token::<T>(&s2, &p2) {
                 (Token::Pow, s3, p3) => match next_token(&s3, &p3) {
-                    (Token::Num(x), s4, p4) => Ok((Expression::Pow(box e2, box Expression::Number(x)), s4, p4)),
-                    (t4, _, p4) => Err(Error { expected: vec![Token::ErrNum], got: t4 , pos: p4 }),
+                    (Token::Num(x), s4, p4) => {
+                        Ok((Expression::Pow(box e2, box Expression::Number(x)), s4, p4))
+                    }
+                    (t4, _, p4) => Err(Error {
+                        expected: vec![Token::ErrNum],
+                        got: t4,
+                        pos: p4,
+                    }),
                 },
                 _ => Ok((expr, input, pos)),
             },
@@ -333,80 +643,100 @@ fn parse_factor1<T: Field>(expr: Expression<T>, input: String, pos: Position) ->
     }
 }
 
-fn parse_factor<T: Field>(input: &String, pos: &Position) -> Result<(Expression<T>, String, Position), Error<T>> {
+fn parse_factor<T: Field>(
+    input: &String,
+    pos: &Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
     match next_token(input, pos) {
         (Token::If, ..) => parse_if_then_else(input, pos),
         (Token::Open, s1, p1) => match parse_expr(&s1, &p1) {
             Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
                 (Token::Close, s3, p3) => parse_factor1(e2, s3, p3),
-                (t3, _, p3) => Err(Error { expected: vec![Token::Close], got: t3 , pos: p3 }),
+                (t3, _, p3) => Err(Error {
+                    expected: vec![Token::Close],
+                    got: t3,
+                    pos: p3,
+                }),
             },
             Err(err) => Err(err),
         },
-        (Token::Ide(x), s1, p1) => {
-            match next_token::<T>(&s1, &p1){
-                (Token::Open, s2, p2) => parse_function_call(x, s2, p2),
-                _ => parse_factor1(Expression::Identifier(x), s1, p1),
-            }
-        }
+        (Token::Ide(x), s1, p1) => match next_token::<T>(&s1, &p1) {
+            (Token::Open, s2, p2) => parse_function_call(x, s2, p2),
+            _ => parse_factor1(Expression::Identifier(x), s1, p1),
+        },
         (Token::Num(x), s1, p1) => parse_factor1(Expression::Number(x), s1, p1),
-        (t1, _, p1) => Err(Error { expected: vec![Token::If, Token::Open, Token::ErrIde, Token::ErrNum], got: t1 , pos: p1 }),
+        (t1, _, p1) => Err(Error {
+            expected: vec![Token::If, Token::Open, Token::ErrIde, Token::ErrNum],
+            got: t1,
+            pos: p1,
+        }),
     }
 }
 
-fn parse_term1<T: Field>(expr: Expression<T>, input: String, pos: Position) -> Result<(Expression<T>, String, Position), Error<T>> {
+fn parse_term1<T: Field>(
+    expr: Expression<T>,
+    input: String,
+    pos: Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
     match next_token::<T>(&input, &pos) {
-        (Token::Mult, s1, p1) => {
-            match parse_term(&s1, &p1) {
-                Ok((e, s2, p2)) => Ok((Expression::Mult(box expr, box e), s2, p2)),
-                Err(err) => Err(err),
-            }
+        (Token::Mult, s1, p1) => match parse_term(&s1, &p1) {
+            Ok((e, s2, p2)) => Ok((Expression::Mult(box expr, box e), s2, p2)),
+            Err(err) => Err(err),
         },
-        (Token::Div, s1, p1) => {
-            match parse_term(&s1, &p1) {
-                Ok((e, s2, p2)) => Ok((Expression::Div(box expr, box e), s2, p2)),
-                Err(err) => Err(err),
-            }
+        (Token::Div, s1, p1) => match parse_term(&s1, &p1) {
+            Ok((e, s2, p2)) => Ok((Expression::Div(box expr, box e), s2, p2)),
+            Err(err) => Err(err),
         },
         _ => Ok((expr, input, pos)),
     }
 }
 
-fn parse_term<T: Field>(input: &String, pos: &Position) -> Result<(Expression<T>, String, Position), Error<T>> {
+fn parse_term<T: Field>(
+    input: &String,
+    pos: &Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
     match parse_factor(input, pos) {
         Ok((e, s1, p1)) => parse_term1(e, s1, p1),
         Err(err) => Err(err),
     }
 }
 
-fn parse_expr1<T: Field>(expr: Expression<T>, input: String, pos: Position) -> Result<(Expression<T>, String, Position), Error<T>> {
+fn parse_expr1<T: Field>(
+    expr: Expression<T>,
+    input: String,
+    pos: Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
     match next_token::<T>(&input, &pos) {
-        (Token::Add, s1, p1) => {
-            match parse_term(&s1, &p1) {
-                Ok((e2, s2, p2)) => parse_expr1(Expression::Add(box expr, box e2), s2, p2),
-                Err(err) => Err(err),
-            }
+        (Token::Add, s1, p1) => match parse_term(&s1, &p1) {
+            Ok((e2, s2, p2)) => parse_expr1(Expression::Add(box expr, box e2), s2, p2),
+            Err(err) => Err(err),
         },
-        (Token::Sub, s1, p1) => {
-            match parse_term(&s1, &p1) {
-                Ok((e2, s2, p2)) => parse_expr1(Expression::Sub(box expr, box e2), s2, p2),
-                Err(err) => Err(err),
-            }
+        (Token::Sub, s1, p1) => match parse_term(&s1, &p1) {
+            Ok((e2, s2, p2)) => parse_expr1(Expression::Sub(box expr, box e2), s2, p2),
+            Err(err) => Err(err),
         },
-        (Token::Pow, s1, p1) => {
-            match parse_num(&s1, &p1) {
-                (Token::Num(x), s2, p2) => match parse_term1(Expression::Pow(box expr, box Expression::Number(x)), s2, p2) {
+        (Token::Pow, s1, p1) => match parse_num(&s1, &p1) {
+            (Token::Num(x), s2, p2) => {
+                match parse_term1(Expression::Pow(box expr, box Expression::Number(x)), s2, p2) {
                     Ok((e3, s3, p3)) => parse_expr1(e3, s3, p3),
                     Err(err) => Err(err),
-                },
-                (t2, _, p2) => Err(Error { expected: vec![Token::ErrNum], got: t2 , pos: p2 }),
+                }
             }
+            (t2, _, p2) => Err(Error {
+                expected: vec![Token::ErrNum],
+                got: t2,
+                pos: p2,
+            }),
         },
         _ => Ok((expr, input, pos)),
     }
 }
 
-fn parse_function_call<T: Field>(ide: String, input: String, pos: Position) -> Result<(Expression<T>, String, Position), Error<T>> {
+fn parse_function_call<T: Field>(
+    ide: String,
+    input: String,
+    pos: Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
     // function call can have 0 .. n args
     let mut args = Vec::new();
     let mut s: String = input;
@@ -420,31 +750,42 @@ fn parse_function_call<T: Field>(ide: String, input: String, pos: Position) -> R
                     Ok((e2, s2, p2)) => return parse_expr1(e2, s2, p2),
                     Err(err) => return Err(err),
                 }
-            },
+            }
             // at least one argument
-            (_, _, _) => match parse_expr(&s,&p){
+            (_, _, _) => match parse_expr(&s, &p) {
                 Ok((e1, s1, p1)) => {
                     args.push(e1);
                     match next_token::<T>(&s1, &p1) {
                         (Token::Comma, s2, p2) => {
                             s = s2;
                             p = p2;
-                        },
-                        (Token::Close, s2, p2) => match parse_term1(Expression::FunctionCall(ide, args), s2, p2) {
-                            Ok((e3, s3, p3)) => return parse_expr1(e3, s3, p3),
-                            Err(err) => return Err(err),
-                        },
-                        (t2, _, p2) => return Err(Error { expected: vec![Token::Comma, Token::Close], got: t2 , pos: p2 }),
+                        }
+                        (Token::Close, s2, p2) => {
+                            match parse_term1(Expression::FunctionCall(ide, args), s2, p2) {
+                                Ok((e3, s3, p3)) => return parse_expr1(e3, s3, p3),
+                                Err(err) => return Err(err),
+                            }
+                        }
+                        (t2, _, p2) => {
+                            return Err(Error {
+                                expected: vec![Token::Comma, Token::Close],
+                                got: t2,
+                                pos: p2,
+                            })
+                        }
                     }
-                },
+                }
                 Err(err) => return Err(err),
-            }
+            },
         }
     }
 }
 
 
-fn parse_expr<T: Field>(input: &String, pos: &Position) -> Result<(Expression<T>, String, Position), Error<T>> {
+fn parse_expr<T: Field>(
+    input: &String,
+    pos: &Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
     match next_token::<T>(input, pos) {
         (Token::If, ..) => parse_if_then_else(input, pos),
         (Token::Open, s1, p1) => match parse_expr(&s1, &p1) {
@@ -453,31 +794,38 @@ fn parse_expr<T: Field>(input: &String, pos: &Position) -> Result<(Expression<T>
                     Ok((e4, s4, p4)) => parse_expr1(e4, s4, p4),
                     Err(err) => Err(err),
                 },
-                (t3, _, p3) => Err(Error { expected: vec![Token::Close], got: t3 , pos: p3 }),
+                (t3, _, p3) => Err(Error {
+                    expected: vec![Token::Close],
+                    got: t3,
+                    pos: p3,
+                }),
             },
             Err(err) => Err(err),
         },
-        (Token::Ide(x), s1, p1) => {
-            match next_token::<T>(&s1, &p1){
-                (Token::Open, s2, p2) => parse_function_call(x, s2, p2),
-                _ => match parse_term1(Expression::Identifier(x), s1, p1) {
-                        Ok((e2, s2, p2)) => parse_expr1(e2, s2, p2),
-                        Err(err) => Err(err),
-                },
-            }
-
-        }
-        (Token::Num(x), s1, p1) => {
-            match parse_term1(Expression::Number(x), s1, p1) {
+        (Token::Ide(x), s1, p1) => match next_token::<T>(&s1, &p1) {
+            (Token::Open, s2, p2) => parse_function_call(x, s2, p2),
+            _ => match parse_term1(Expression::Identifier(x), s1, p1) {
                 Ok((e2, s2, p2)) => parse_expr1(e2, s2, p2),
                 Err(err) => Err(err),
-            }
+            },
         },
-        (t1, _, p1) => Err(Error { expected: vec![Token::If, Token::Open, Token::ErrIde, Token::ErrNum], got: t1 , pos: p1 }),
+        (Token::Num(x), s1, p1) => match parse_term1(Expression::Number(x), s1, p1) {
+            Ok((e2, s2, p2)) => parse_expr1(e2, s2, p2),
+            Err(err) => Err(err),
+        },
+        (t1, _, p1) => Err(Error {
+            expected: vec![Token::If, Token::Open, Token::ErrIde, Token::ErrNum],
+            got: t1,
+            pos: p1,
+        }),
     }
 }
 
-fn parse_statement1<T: Field>(ide: String, input: String, pos: Position) -> Result<(Statement<T>, String, Position), Error<T>> {
+fn parse_statement1<T: Field>(
+    ide: String,
+    input: String,
+    pos: Position,
+) -> Result<(Statement<T>, String, Position), Error<T>> {
     match next_token::<T>(&input, &pos) {
         (Token::Eq, s1, p1) => match parse_expr(&s1, &p1) {
             Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
@@ -488,11 +836,22 @@ fn parse_statement1<T: Field>(ide: String, input: String, pos: Position) -> Resu
                 (Token::Unknown(ref t3), ref s3, _) if t3 == "" => {
                     assert_eq!(s3, "");
                     Ok((Statement::Definition(ide, e2), s2, p2))
-                },
+                }
                 (t3, _, p3) => {
                     println!("here {}", input);
-                    Err(Error { expected: vec![Token::Add, Token::Sub, Token::Pow, Token::Mult, Token::Div, Token::Unknown("".to_string())], got: t3 , pos: p3 })
-                },
+                    Err(Error {
+                        expected: vec![
+                            Token::Add,
+                            Token::Sub,
+                            Token::Pow,
+                            Token::Mult,
+                            Token::Div,
+                            Token::Unknown("".to_string()),
+                        ],
+                        got: t3,
+                        pos: p3,
+                    })
+                }
             },
             Err(err) => Err(err),
         },
@@ -508,12 +867,27 @@ fn parse_statement1<T: Field>(ide: String, input: String, pos: Position) -> Resu
                             (Token::Unknown(ref t6), ref s6, _) if t6 == "" => {
                                 assert_eq!(s6, "");
                                 Ok((Statement::Condition(e3, e5), s5, p5))
-                            },
-                            (t6, _, p6) => Err(Error { expected: vec![Token::Add, Token::Sub, Token::Pow, Token::Mult, Token::Div, Token::Unknown("".to_string())], got: t6 , pos: p6 }),
+                            }
+                            (t6, _, p6) => Err(Error {
+                                expected: vec![
+                                    Token::Add,
+                                    Token::Sub,
+                                    Token::Pow,
+                                    Token::Mult,
+                                    Token::Div,
+                                    Token::Unknown("".to_string()),
+                                ],
+                                got: t6,
+                                pos: p6,
+                            }),
                         },
                         Err(err) => Err(err),
                     },
-                    (t4, _, p4) => Err(Error { expected: vec![Token::Eqeq], got: t4 , pos: p4 }),
+                    (t4, _, p4) => Err(Error {
+                        expected: vec![Token::Eqeq],
+                        got: t4,
+                        pos: p4,
+                    }),
                 },
                 Err(err) => Err(err),
             },
@@ -522,12 +896,14 @@ fn parse_statement1<T: Field>(ide: String, input: String, pos: Position) -> Resu
     }
 }
 
-fn parse_statement<T: Field>(lines: &mut Lines<BufReader<File>>, input: &String, pos: &Position) -> Result<(Statement<T>, String, Position), Error<T>> {
+fn parse_statement<T: Field>(
+    lines: &mut Lines<BufReader<File>>,
+    input: &String,
+    pos: &Position,
+) -> Result<(Statement<T>, String, Position), Error<T>> {
     match next_token::<T>(input, pos) {
         (Token::Ide(x1), s1, p1) => parse_statement1(x1, s1, p1),
-        (Token::If, ..) |
-        (Token::Open, ..) |
-        (Token::Num(_), ..) => match parse_expr(input, pos) {
+        (Token::If, ..) | (Token::Open, ..) | (Token::Num(_), ..) => match parse_expr(input, pos) {
             Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
                 (Token::Eqeq, s3, p3) => match parse_expr(&s3, &p3) {
                     Ok((e4, s4, p4)) => match next_token(&s4, &p4) {
@@ -538,36 +914,69 @@ fn parse_statement<T: Field>(lines: &mut Lines<BufReader<File>>, input: &String,
                         (Token::Unknown(ref t5), ref s5, _) if t5 == "" => {
                             assert_eq!(s5, "");
                             Ok((Statement::Condition(e2, e4), s4, p4))
-                        },
-                        (t5, _, p5) => Err(Error { expected: vec![Token::Unknown("".to_string())], got: t5 , pos: p5 }),
+                        }
+                        (t5, _, p5) => Err(Error {
+                            expected: vec![Token::Unknown("".to_string())],
+                            got: t5,
+                            pos: p5,
+                        }),
                     },
                     Err(err) => Err(err),
                 },
-                (t3, _, p3) => Err(Error { expected: vec![Token::Eqeq], got: t3 , pos: p3 }),
+                (t3, _, p3) => Err(Error {
+                    expected: vec![Token::Eqeq],
+                    got: t3,
+                    pos: p3,
+                }),
             },
             Err(err) => Err(err),
         },
-        (Token::For, s1, p1) => match parse_ide(&s1, &p1) {
-            (Token::Ide(x2), s2, p2) => match next_token(&s2, &p2) {
-                (Token::In, s3, p3) => match next_token(&s3, &p3) {
-                    (Token::Num(x4), s4, p4) => match next_token(&s4, &p4) {
-                        (Token::Dotdot, s5, p5) => match next_token(&s5, &p5) {
-                            (Token::Num(x6), s6, p6) => match next_token(&s6, &p6) {
-                                (Token::Do, s7, p7) => {
-                                    match next_token(&s7, &p7) {
-                                        (Token::InlineComment(_), ref s8, _) => {
-                                            assert_eq!(s8, "");
-                                        }
-                                        (Token::Unknown(ref t8), ref s8, _) if t8 == "" => {
-                                            assert_eq!(s8, "");
-                                        },
-                                        (t8, _, p8) => return Err(Error { expected: vec![Token::Unknown("".to_string())], got: t8 , pos: p8 }),
-                                    }
-                                    let mut current_line = p7.line;
-                                    let mut statements = Vec::new();
-                                    loop {
-                                        current_line += 1;
-                                        match lines.next() {
+        (Token::For, s1, p1) => {
+            match parse_ide(&s1, &p1) {
+                (Token::Ide(x2), s2, p2) => {
+                    match next_token(&s2, &p2) {
+                        (Token::In, s3, p3) => {
+                            match next_token(&s3, &p3) {
+                                (Token::Num(x4), s4, p4) => {
+                                    match next_token(&s4, &p4) {
+                                        (Token::Dotdot, s5, p5) => {
+                                            match next_token(&s5, &p5) {
+                                                (Token::Num(x6), s6, p6) => {
+                                                    match next_token(&s6, &p6) {
+                                                        (Token::Do, s7, p7) => {
+                                                            match next_token(&s7, &p7) {
+                                                                (
+                                                                    Token::InlineComment(_),
+                                                                    ref s8,
+                                                                    _,
+                                                                ) => {
+                                                                    assert_eq!(s8, "");
+                                                                }
+                                                                (
+                                                                    Token::Unknown(ref t8),
+                                                                    ref s8,
+                                                                    _,
+                                                                ) if t8 == "" =>
+                                                                {
+                                                                    assert_eq!(s8, "");
+                                                                }
+                                                                (t8, _, p8) => {
+                                                                    return Err(Error {
+                                                                        expected: vec![
+                                                                            Token::Unknown(
+                                                                                "".to_string(),
+                                                                            ),
+                                                                        ],
+                                                                        got: t8,
+                                                                        pos: p8,
+                                                                    })
+                                                                }
+                                                            }
+                                                            let mut current_line = p7.line;
+                                                            let mut statements = Vec::new();
+                                                            loop {
+                                                                current_line += 1;
+                                                                match lines.next() {
                                             Some(Ok(ref x)) if x.trim().starts_with("//") || x.trim() == "" => {}, // skip
                                             Some(Ok(ref x)) if x.trim().starts_with("endfor") => {
                                                 let offset = skip_whitespaces(x);
@@ -596,127 +1005,242 @@ fn parse_statement<T: Field>(lines: &mut Lines<BufReader<File>>, input: &String,
                                             },
                                             None => return Err(Error { expected: vec![Token::ErrIde, Token::ErrNum, Token::If, Token::Open, Token::Hash, Token::For], got: Token::Unknown("".to_string()) , pos:  Position{ line: current_line, col: 1 } }),
                                         }
-                                    };
-                                },
-                                (t7, _, p7) => Err(Error { expected: vec![Token::Do], got: t7 , pos: p7 }),
-                            },
-                            (t6, _, p6) => Err(Error { expected: vec![Token::ErrNum], got: t6 , pos: p6 }),
-                        },
-                        (t5, _, p5) => Err(Error { expected: vec![Token::Dotdot], got: t5 , pos: p5 }),
-                    },
-                    (t4, _, p4) => Err(Error { expected: vec![Token::ErrNum], got: t4 , pos: p4 }),
-                },
-                (t3, _, p3) => Err(Error { expected: vec![Token::In], got: t3 , pos: p3 }),
-            },
-            (t2, _, p2) => Err(Error { expected: vec![Token::ErrIde], got: t2 , pos: p2 }),
-        },
+                                                            }
+                                                        }
+                                                        (t7, _, p7) => Err(Error {
+                                                            expected: vec![Token::Do],
+                                                            got: t7,
+                                                            pos: p7,
+                                                        }),
+                                                    }
+                                                }
+                                                (t6, _, p6) => Err(Error {
+                                                    expected: vec![Token::ErrNum],
+                                                    got: t6,
+                                                    pos: p6,
+                                                }),
+                                            }
+                                        }
+                                        (t5, _, p5) => Err(Error {
+                                            expected: vec![Token::Dotdot],
+                                            got: t5,
+                                            pos: p5,
+                                        }),
+                                    }
+                                }
+                                (t4, _, p4) => Err(Error {
+                                    expected: vec![Token::ErrNum],
+                                    got: t4,
+                                    pos: p4,
+                                }),
+                            }
+                        }
+                        (t3, _, p3) => Err(Error {
+                            expected: vec![Token::In],
+                            got: t3,
+                            pos: p3,
+                        }),
+                    }
+                }
+                (t2, _, p2) => Err(Error {
+                    expected: vec![Token::ErrIde],
+                    got: t2,
+                    pos: p2,
+                }),
+            }
+        }
         (Token::Hash, s1, p1) => match parse_ide(&s1, &p1) {
             (Token::Ide(x2), s2, p2) => match next_token(&s2, &p2) {
                 (Token::Eq, s3, p3) => match parse_expr(&s3, &p3) {
                     Ok((e4, s4, p4)) => Ok((Statement::Compiler(x2, e4), s4, p4)),
                     Err(err) => Err(err),
                 },
-                (t3, _, p3) => Err(Error { expected: vec![Token::Eq], got: t3 , pos: p3 }),
+                (t3, _, p3) => Err(Error {
+                    expected: vec![Token::Eq],
+                    got: t3,
+                    pos: p3,
+                }),
             },
-            (t2, _, p2) => Err(Error { expected: vec![Token::ErrIde], got: t2 , pos: p2 }),
+            (t2, _, p2) => Err(Error {
+                expected: vec![Token::ErrIde],
+                got: t2,
+                pos: p2,
+            }),
         },
-        (Token::Return, s1, p1) => {
-            match parse_expr(&s1, &p1) {
-                Ok((expr, s2, p2)) => match next_token(&s2, &p2) {
-                    (Token::InlineComment(_), ref s3, _) => {
-                        assert_eq!(s3, "");
-                        Ok((Statement::Return(expr), s2, p2))
-                    }
-                    (Token::Unknown(ref t3), ref s3, _) if t3 == "" => {
-                        assert_eq!(s3, "");
-                        Ok((Statement::Return(expr), s2, p2))
-                    },
-                    (t4, _, p4) => Err(Error { expected: vec![Token::Add, Token::Sub, Token::Pow, Token::Mult, Token::Div, Token::Unknown("".to_string())], got: t4 , pos: p4 }),
-                },
-                Err(err) => Err(err),
-            }
+        (Token::Return, s1, p1) => match parse_expr(&s1, &p1) {
+            Ok((expr, s2, p2)) => match next_token(&s2, &p2) {
+                (Token::InlineComment(_), ref s3, _) => {
+                    assert_eq!(s3, "");
+                    Ok((Statement::Return(expr), s2, p2))
+                }
+                (Token::Unknown(ref t3), ref s3, _) if t3 == "" => {
+                    assert_eq!(s3, "");
+                    Ok((Statement::Return(expr), s2, p2))
+                }
+                (t4, _, p4) => Err(Error {
+                    expected: vec![
+                        Token::Add,
+                        Token::Sub,
+                        Token::Pow,
+                        Token::Mult,
+                        Token::Div,
+                        Token::Unknown("".to_string()),
+                    ],
+                    got: t4,
+                    pos: p4,
+                }),
+            },
+            Err(err) => Err(err),
         },
-        (Token::Def, _, p1) => Err(Error { expected: vec![Token::Return], got: Token::Def , pos: p1 }), // This just covers an error case: Def Token is never part of a valid statement and indicates that a return statement is missing.
-        (t1, _, p1) => Err(Error { expected: vec![Token::ErrIde, Token::ErrNum, Token::If, Token::Open, Token::Hash, Token::Return], got: t1 , pos: p1 }),
+        (Token::Def, _, p1) => Err(Error {
+            expected: vec![Token::Return],
+            got: Token::Def,
+            pos: p1,
+        }), // This just covers an error case: Def Token is never part of a valid statement and indicates that a return statement is missing.
+        (t1, _, p1) => Err(Error {
+            expected: vec![
+                Token::ErrIde,
+                Token::ErrNum,
+                Token::If,
+                Token::Open,
+                Token::Hash,
+                Token::Return,
+            ],
+            got: t1,
+            pos: p1,
+        }),
     }
 }
 
 
-fn parse_function<T: Field>(mut lines: &mut Lines<BufReader<File>>, input: &String, pos: &Position) -> Result<(Function<T>, Position), Error<T>> {
-
+fn parse_function<T: Field>(
+    mut lines: &mut Lines<BufReader<File>>,
+    input: &String,
+    pos: &Position,
+) -> Result<(Function<T>, Position), Error<T>> {
     let mut current_line = pos.line;
     let id;
     let mut args = Vec::new();
 
     // parse function signature
     match next_token(input, pos) {
-                (Token::Ide(x2), s2, p2) => {
-                    id = x2;
-                    match next_token(&s2, &p2) {
-                        (Token::Open, s3, p3) => {
-                            let mut s = s3;
-                            let mut p = p3;
-                            loop {
-                                match next_token(&s, &p) {
-                                    (Token::Ide(x), s4, p4) => {
-                                        args.push(Parameter { id: x });
-                                        match next_token(&s4, &p4) {
-                                            (Token::Comma, s5, p5) => {
-                                                s = s5;
-                                                p = p5;
-                                            },
-                                            (Token::Close, s4, p4) => {
-                                                match next_token(&s4, &p4) {
-                                                    (Token::Colon, s5, p5) => {
-                                                        match next_token(&s5, &p5) {
-                                                            (Token::InlineComment(_), _, _) => break,
-                                                            (Token::Unknown(ref x6), ..) if x6 == "" => break,
-                                                            (t6, _, p6) => return Err(Error { expected: vec![Token::Unknown("".to_string())], got: t6 , pos: p6 }),
-                                                        }
-                                                    },
-                                                    (t5, _, p5) => return Err(Error { expected: vec![Token::Colon], got: t5 , pos: p5 }),
-                                                }
-                                            },
-                                            (t5, _, p5) => return Err(Error { expected: vec![Token::Comma, Token::Close], got: t5 , pos: p5 }),
+        (Token::Ide(x2), s2, p2) => {
+            id = x2;
+            match next_token(&s2, &p2) {
+                (Token::Open, s3, p3) => {
+                    let mut s = s3;
+                    let mut p = p3;
+                    loop {
+                        match next_token(&s, &p) {
+                            (Token::Ide(x), s4, p4) => {
+                                args.push(Parameter { id: x });
+                                match next_token(&s4, &p4) {
+                                    (Token::Comma, s5, p5) => {
+                                        s = s5;
+                                        p = p5;
+                                    }
+                                    (Token::Close, s4, p4) => match next_token(&s4, &p4) {
+                                        (Token::Colon, s5, p5) => match next_token(&s5, &p5) {
+                                            (Token::InlineComment(_), _, _) => break,
+                                            (Token::Unknown(ref x6), ..) if x6 == "" => break,
+                                            (t6, _, p6) => {
+                                                return Err(Error {
+                                                    expected: vec![Token::Unknown("".to_string())],
+                                                    got: t6,
+                                                    pos: p6,
+                                                })
+                                            }
+                                        },
+                                        (t5, _, p5) => {
+                                            return Err(Error {
+                                                expected: vec![Token::Colon],
+                                                got: t5,
+                                                pos: p5,
+                                            })
                                         }
                                     },
-                                    (Token::Close, s4, p4) => { // case of no parameters
-                                        match next_token(&s4, &p4) {
-                                            (Token::Colon, s5, p5) => {
-                                                match next_token(&s5, &p5) {
-                                                    (Token::InlineComment(_), _, _) => break,
-                                                    (Token::Unknown(ref x6), ..) if x6 == "" => break,
-                                                    (t6, _, p6) => return Err(Error { expected: vec![Token::Unknown("".to_string())], got: t6 , pos: p6 }),
-                                                }
-                                            },
-                                            (t5, _, p5) => return Err(Error { expected: vec![Token::Colon], got: t5 , pos: p5 }),
-                                        }
-                                    },
-                                    (t4, _, p4) => return Err(Error { expected: vec![Token::Ide(String::from("ide")),Token::Close], got: t4 , pos: p4 }),
+                                    (t5, _, p5) => {
+                                        return Err(Error {
+                                            expected: vec![Token::Comma, Token::Close],
+                                            got: t5,
+                                            pos: p5,
+                                        })
+                                    }
                                 }
                             }
-                        },
-                        (t3, _, p3) => return Err(Error { expected: vec![Token::Open], got: t3 , pos: p3 }),
+                            (Token::Close, s4, p4) => {
+                                // case of no parameters
+                                match next_token(&s4, &p4) {
+                                    (Token::Colon, s5, p5) => match next_token(&s5, &p5) {
+                                        (Token::InlineComment(_), _, _) => break,
+                                        (Token::Unknown(ref x6), ..) if x6 == "" => break,
+                                        (t6, _, p6) => {
+                                            return Err(Error {
+                                                expected: vec![Token::Unknown("".to_string())],
+                                                got: t6,
+                                                pos: p6,
+                                            })
+                                        }
+                                    },
+                                    (t5, _, p5) => {
+                                        return Err(Error {
+                                            expected: vec![Token::Colon],
+                                            got: t5,
+                                            pos: p5,
+                                        })
+                                    }
+                                }
+                            }
+                            (t4, _, p4) => {
+                                return Err(Error {
+                                    expected: vec![Token::Ide(String::from("ide")), Token::Close],
+                                    got: t4,
+                                    pos: p4,
+                                })
+                            }
+                        }
                     }
-                },
-                (t2, _, p2) => return Err(Error { expected: vec![Token::Ide(String::from("name"))], got: t2 , pos: p2 }),
+                }
+                (t3, _, p3) => {
+                    return Err(Error {
+                        expected: vec![Token::Open],
+                        got: t3,
+                        pos: p3,
+                    })
+                }
             }
+        }
+        (t2, _, p2) => {
+            return Err(Error {
+                expected: vec![Token::Ide(String::from("name"))],
+                got: t2,
+                pos: p2,
+            })
+        }
+    }
     current_line += 1;
 
     // parse function body
     let mut stats = Vec::new();
     loop {
         match lines.next() {
-            Some(Ok(ref x)) if x.trim().starts_with("//") || x.trim() == "" => {}, // skip
-            Some(Ok(ref x)) => match parse_statement(&mut lines, x, &Position { line: current_line, col: 1 }) {
+            Some(Ok(ref x)) if x.trim().starts_with("//") || x.trim() == "" => {} // skip
+            Some(Ok(ref x)) => match parse_statement(
+                &mut lines,
+                x,
+                &Position {
+                    line: current_line,
+                    col: 1,
+                },
+            ) {
                 Ok((statement @ Statement::Return(_), ..)) => {
-                        stats.push(statement);
-                        break;
-                    },
-                Ok((statement, _ , pos)) => {
+                    stats.push(statement);
+                    break;
+                }
+                Ok((statement, _, pos)) => {
                     stats.push(statement);
                     current_line = pos.line // update the interal line counter to continue where statement ended.
-                    },
+                }
                 Err(err) => return Err(err),
             },
             None => panic!("Function {} does not return before program ends", id),
@@ -726,11 +1250,21 @@ fn parse_function<T: Field>(mut lines: &mut Lines<BufReader<File>>, input: &Stri
     }
 
     match stats.last() {
-        Some(&Statement::Return(_)) => {},
+        Some(&Statement::Return(_)) => {}
         Some(x) => panic!("Last function statement not Return: {}", x),
         None => panic!("Error while checking last function statement"),
     }
-    Ok((Function { id: id, arguments: args, statements: stats }, Position{line: current_line, col: 1}))
+    Ok((
+        Function {
+            id: id,
+            arguments: args,
+            statements: stats,
+        },
+        Position {
+            line: current_line,
+            col: 1,
+        },
+    ))
 }
 
 pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
@@ -739,25 +1273,48 @@ pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
     let mut lines = reader.lines();
     let mut functions = Vec::new();
 
-    loop{
+    loop {
         match lines.next() {
-            Some(Ok(ref x)) if x.trim().starts_with("//") || x.trim() == "" => {current_line += 1},
-            Some(Ok(ref x)) => match next_token(x, &Position { line: current_line, col: 1 }) {
-                (Token::Def, ref s1, ref p1) => match parse_function(&mut lines,s1,p1){
+            Some(Ok(ref x)) if x.trim().starts_with("//") || x.trim() == "" => current_line += 1,
+            Some(Ok(ref x)) => match next_token(
+                x,
+                &Position {
+                    line: current_line,
+                    col: 1,
+                },
+            ) {
+                (Token::Def, ref s1, ref p1) => match parse_function(&mut lines, s1, p1) {
                     Ok((function, p2)) => {
                         // panic if signature is not unique
-                        match functions.iter().find(|x: &&Function<T>| x.id == function.id && x.arguments.len()==function.arguments.len()){
-                            Some(_) => panic!("Error while reading function: {}({}). Duplicate function signatures.", function.id, function.arguments.iter().map(|x| format!("{}", x)).collect::<Vec<_>>().join(",")),
+                        match functions.iter().find(|x: &&Function<T>| {
+                            x.id == function.id && x.arguments.len() == function.arguments.len()
+                        }) {
+                            Some(_) => panic!(
+                                "Error while reading function: {}({}). Duplicate function signatures.",
+                                function.id,
+                                function
+                                    .arguments
+                                    .iter()
+                                    .map(|x| format!("{}", x))
+                                    .collect::<Vec<_>>()
+                                    .join(",")
+                            ),
                             _ => {}
                         }
 
                         functions.push(function);
                         current_line = p2.line; // this is the line of the return statement
                         current_line += 1;
-                        },
+                    }
                     Err(err) => return Err(err),
                 },
-                (t1, _, p1) => return Err(Error { expected: vec![Token::Def], got: t1 , pos: p1 }),
+                (t1, _, p1) => {
+                    return Err(Error {
+                        expected: vec![Token::Def],
+                        got: t1,
+                        pos: p1,
+                    })
+                }
             },
             None => break,
             Some(Err(err)) => panic!("Error while reading function definitions: {}", err),
@@ -776,9 +1333,11 @@ pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
         }
     }
 
-    if !has_main {panic!("Error while parsing program: No main function found.")};
+    if !has_main {
+        panic!("Error while parsing program: No main function found.")
+    };
 
-    Ok(Prog {functions})
+    Ok(Prog { functions })
 }
 
 
@@ -790,16 +1349,34 @@ mod tests {
     // Position.col()
     #[test]
     fn position_col() {
-        let pos = Position { line: 100, col: 258 };
-        assert_eq!(pos.col(26), Position { line: 100, col: 284 });
-        assert_eq!(pos.col(-23), Position { line: 100, col: 235 });
+        let pos = Position {
+            line: 100,
+            col: 258,
+        };
+        assert_eq!(
+            pos.col(26),
+            Position {
+                line: 100,
+                col: 284,
+            }
+        );
+        assert_eq!(
+            pos.col(-23),
+            Position {
+                line: 100,
+                col: 235,
+            }
+        );
     }
 
     // inline comment
     #[test]
-    fn inline_comment(){
-        let pos = Position { line: 100, col: 258 };
-        let (token, _, _)= next_token::<FieldPrime>(&" //inline comment".to_string(), &pos);
+    fn inline_comment() {
+        let pos = Position {
+            line: 100,
+            col: 258,
+        };
+        let (token, _, _) = next_token::<FieldPrime>(&" //inline comment".to_string(), &pos);
         assert_eq!(Token::InlineComment("inline comment".to_string()), token);
     }
 
@@ -811,7 +1388,11 @@ mod tests {
         fn single() {
             let pos = Position { line: 45, col: 121 };
             assert_eq!(
-                (Token::Num(FieldPrime::from(12234)), String::from(""), pos.col(5)),
+                (
+                    Token::Num(FieldPrime::from(12234)),
+                    String::from(""),
+                    pos.col(5)
+                ),
                 parse_num(&"12234".to_string(), &pos)
             );
         }
@@ -820,7 +1401,11 @@ mod tests {
         fn add() {
             let pos = Position { line: 45, col: 121 };
             assert_eq!(
-                (Token::Num(FieldPrime::from(354)), String::from("+879"), pos.col(3)),
+                (
+                    Token::Num(FieldPrime::from(354)),
+                    String::from("+879"),
+                    pos.col(3)
+                ),
                 parse_num(&"354+879".to_string(), &pos)
             );
         }
@@ -829,7 +1414,11 @@ mod tests {
         fn space_after() {
             let pos = Position { line: 45, col: 121 };
             assert_eq!(
-                (Token::Num(FieldPrime::from(354)), String::from(" "), pos.col(3)),
+                (
+                    Token::Num(FieldPrime::from(354)),
+                    String::from(" "),
+                    pos.col(3)
+                ),
                 parse_num(&"354 ".to_string(), &pos)
             );
         }
@@ -858,9 +1447,12 @@ mod tests {
         let pos = Position { line: 45, col: 121 };
         let string = String::from("if a < b then c else d fi");
         let expr = Expression::IfElse::<FieldPrime>(
-            box Condition::Lt(Expression::Identifier(String::from("a")), Expression::Identifier(String::from("b"))),
+            box Condition::Lt(
+                Expression::Identifier(String::from("a")),
+                Expression::Identifier(String::from("b")),
+            ),
             box Expression::Identifier(String::from("c")),
-            box Expression::Identifier(String::from("d"))
+            box Expression::Identifier(String::from("d")),
         );
         assert_eq!(
             Ok((expr, String::from(""), pos.col(string.len() as isize))),
@@ -878,9 +1470,12 @@ mod tests {
             let pos = Position { line: 45, col: 121 };
             let string = String::from("if a < b then c else d fi");
             let expr = Expression::IfElse::<FieldPrime>(
-                box Condition::Lt(Expression::Identifier(String::from("a")), Expression::Identifier(String::from("b"))),
+                box Condition::Lt(
+                    Expression::Identifier(String::from("a")),
+                    Expression::Identifier(String::from("b")),
+                ),
                 box Expression::Identifier(String::from("c")),
-                box Expression::Identifier(String::from("d"))
+                box Expression::Identifier(String::from("d")),
             );
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
@@ -893,7 +1488,10 @@ mod tests {
             let string = String::from("(5 + a * 6)");
             let expr = Expression::Add(
                 box Expression::Number(FieldPrime::from(5)),
-                box Expression::Mult(box Expression::Identifier(String::from("a")), box Expression::Number(FieldPrime::from(6)))
+                box Expression::Mult(
+                    box Expression::Identifier(String::from("a")),
+                    box Expression::Number(FieldPrime::from(6)),
+                ),
             );
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
