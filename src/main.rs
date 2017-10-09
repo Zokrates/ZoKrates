@@ -69,7 +69,7 @@ fn main() {
     .subcommand(SubCommand::with_name("export-verifier")
         .about("Exports a verifier as Solidity smart contract."))
     .subcommand(SubCommand::with_name("compute-witness")
-        .about("Calculates a witness for a given constraint system, i.e., a variable assignment which satisfies all constraints. Interactive if arguments underspecified.")
+        .about("Calculates a witness for a given constraint system, i.e., a variable assignment which satisfies all constraints. Interactive if underspecified.")
         .arg(Arg::with_name("input")
             .short("i")
             .long("input")
@@ -81,7 +81,7 @@ fn main() {
         ).arg(Arg::with_name("arguments")
             .short("a")
             .long("arguments")
-            .help("Arguments for the program's main method. Space or comma separated list.")
+            .help("Arguments for the program's main method. Space separated list.")
             .takes_value(true)
             .multiple(true) // allows multiple values
             .required(false)
@@ -89,7 +89,7 @@ fn main() {
     .subcommand(SubCommand::with_name("generate-proof")
         .about("Calculates a proof for a given constraint system and witness."))
     .subcommand(SubCommand::with_name("deploy-verifier")
-        .about("Deploys Solidity verification code to an Ethereum network."))
+        .about("Deploys Solidity verification code to an Ethereum network. Requires an Ethereum client to be running and the 'solc' solidity compiler to be installed."))
     .get_matches();
 
     //println!("matches: {:?}", matches);
@@ -145,7 +145,7 @@ fn main() {
             );
         }
         ("compute-witness", Some(sub_matches)) => {
-            println!("Computing witness...");
+            println!("Computing witness for:");
 
             // read compiled program
             let path = Path::new(sub_matches.value_of("input").unwrap());
@@ -162,9 +162,6 @@ fn main() {
                 }
             };
 
-            // debugging output
-            println!("AST:\n {}", program_ast);
-
             // make sure the input program is actually flattened.
             // TODO: is_flattened should be provided as method of Prog in absy.
             let main_flattened = program_ast
@@ -179,9 +176,12 @@ fn main() {
                 );
             }
 
+            // print deserialized flattened program
+            println!("{}", main_flattened);
+
             // validate #arguments
             let mut args: Vec<FieldPrime> = Vec::new();
-            match sub_matches.values_of("output"){
+            match sub_matches.values_of("arguments"){
                 Some(p) => {
                     let arg_strings: Vec<&str> = p.collect();
                     args = arg_strings.into_iter().map(|x| FieldPrime::from(x)).collect();
@@ -189,18 +189,18 @@ fn main() {
                 None => {
                 }
             }
-            println!("{:?}\n{:?}", main_flattened.arguments, args);
 
-            assert!(main_flattened.arguments.len() == args.len());
+            if main_flattened.arguments.len() != args.len() {
+                println!("Wrong number of arguments. Given: {}, Required: {}.", args.len(), main_flattened.arguments.len());
+                std::process::exit(1);
+            }
 
             let witness_map = main_flattened.get_witness(args);
-            println!("witness_map {:?}", witness_map);
+            println!("Witness: {:?}", witness_map);
             match witness_map.get("~out") {
-                Some(out) => println!("~out: {}", out),
-                None => println!("~out not found")
+                Some(out) => println!("Returned (~out): {}", out),
+                None => println!("~out not found, no value returned")
             }
-            // let witness: Vec<_> = variables.iter().map(|x| witness_map[x].clone()).collect();
-            // println!("witness {:?}", witness);
         }
         ("setup", Some(sub_matches)) => {
             println!("Performing setup...");
@@ -246,16 +246,11 @@ fn main() {
     // assert!(inputs.len() == args_provided.len(),"Wrong number of arguments provided for main function. Provided: {}, Expected: {}.", inputs.len(), args_provided.len());
     // println!("inputs {:?}", inputs);
     //
-    // // generate wittness
-    // let witness_map = program_flattened.get_witness(inputs);
-    // println!("witness_map {:?}", witness_map);
-    // match witness_map.get("~out") {
-    //     Some(out) => println!("~out: {}", out),
-    //     None => println!("~out not found")
-    // }
+
+
     // let witness: Vec<_> = variables.iter().map(|x| witness_map[x].clone()).collect();
     // println!("witness {:?}", witness);
-    //
+
     // // run libsnark
     // #[cfg(not(feature="nolibsnark"))]{
     //     // number of inputs in the zkSNARK sense, i.e., input variables + output variables
