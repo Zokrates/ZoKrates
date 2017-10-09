@@ -1,7 +1,7 @@
 //
 // @file main.rs
-// @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
 // @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
+// @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
 // @date 2017
 
 #![feature(box_patterns, box_syntax)]
@@ -34,7 +34,7 @@ use r1cs::r1cs_program;
 use clap::{App, AppSettings, Arg, SubCommand};
 #[cfg(not(feature = "nolibsnark"))]
 use libsnark::run_libsnark;
-use bincode::{serialize, deserialize, Infinite};
+use bincode::{serialize_into, deserialize_from , Infinite};
 
 fn main() {
     const FLATTENED_CODE_DEFAULT_PATH: &str = "out";
@@ -44,7 +44,7 @@ fn main() {
     .setting(AppSettings::SubcommandRequiredElseHelp)
     .version("0.1")
     .author("Jacob Eberhardt, Dennis Kuhnert")
-    .about("Supports generation of zkSNARKs from high level language code including Smart Contracts for proof verification on the Ethereum Blockchain.")
+    .about("I know that I show nothing!\nSupports generation of zkSNARKs from high level language code including Smart Contracts for proof verification on the Ethereum Blockchain.")
     .subcommand(SubCommand::with_name("compile")
                                     .about("Compiles into flattened conditions. Produces two files: human-readable '.code' file and binary file")
                                     .arg(Arg::with_name("input")
@@ -123,7 +123,7 @@ fn main() {
                 Err(why) => panic!("couldn't create {}: {}", bin_output_path.display(), why),
             };
 
-            let encoded: Vec<u8> = serialize(&program_flattened, Infinite).unwrap();
+            serialize_into(&mut bin_output_file, &program_flattened, Infinite).expect("Unable to write data to file.");
 
             // write human-readable output file
             let hr_output_path = bin_output_path.to_path_buf().with_extension("code");
@@ -149,12 +149,12 @@ fn main() {
 
             // read compiled program
             let path = Path::new(sub_matches.value_of("input").unwrap());
-            let file = match File::open(&path) {
+            let mut file = match File::open(&path) {
                 Ok(file) => file,
                 Err(why) => panic!("couldn't open {}: {}", path.display(), why),
             };
 
-            let program_ast: Prog<FieldPrime> = match parse_program(file) {
+            let program_ast: Prog<FieldPrime> = match deserialize_from(&mut file, Infinite) {
                 Ok(x) => x,
                 Err(why) => {
                     println!("{:?}", why);
@@ -162,31 +162,43 @@ fn main() {
                 }
             };
 
+            // debugging output
+            println!("AST:\n {}", program_ast);
+
             // make sure the input program is actually flattened.
             // TODO: is_flattened should be provided as method of Prog in absy.
-            let program_flattened = program_ast
+            let main_flattened = program_ast
                 .functions
                 .iter()
                 .find(|x| x.id == "main")
                 .unwrap();
-            for stat in program_flattened.statements.clone() {
+            for stat in main_flattened.statements.clone() {
                 assert!(
                     stat.is_flattened(),
                     format!("Input conditions not flattened: {}", &stat)
                 );
             }
 
-            // validate arguments
-            println!("{:?}", sub_matches.value_of("arguments"));
+            // validate #arguments
+            let mut args: Vec<FieldPrime> = Vec::new();
+            match sub_matches.values_of("output"){
+                Some(p) => {
+                    let arg_strings: Vec<&str> = p.collect();
+                    args = arg_strings.into_iter().map(|x| FieldPrime::from(x)).collect();
+                },
+                None => {
+                }
+            }
+            println!("{:?}\n{:?}", main_flattened.arguments, args);
 
+            assert!(main_flattened.arguments.len() == args.len());
 
-            // calculate witness
-            // let witness_map = program_flattened.get_witness(args);
-            // println!("witness_map {:?}", witness_map);
-            // match witness_map.get("~out") {
-            //     Some(out) => println!("~out: {}", out),
-            //     None => println!("~out not found")
-            // }
+            let witness_map = main_flattened.get_witness(args);
+            println!("witness_map {:?}", witness_map);
+            match witness_map.get("~out") {
+                Some(out) => println!("~out: {}", out),
+                None => println!("~out not found")
+            }
             // let witness: Vec<_> = variables.iter().map(|x| witness_map[x].clone()).collect();
             // println!("witness {:?}", witness);
         }

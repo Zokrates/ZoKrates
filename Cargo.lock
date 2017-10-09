@@ -1,5 +1,5 @@
 [root]
-name = "zkc"
+name = "ZoKrates"
 version = "0.1.0"
 dependencies = [
  "bincode 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",

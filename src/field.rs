@@ -4,12 +4,13 @@
 // @date 2017
 
 use num::{Integer, One, Zero};
-use num::bigint::{BigInt, ToBigInt};
+use num::bigint::{BigInt, BigUint, ToBigInt, ToBigUint};
 use std::convert::From;
 use std::ops::{Add, Div, Mul, Sub};
 use std::fmt;
 use std::fmt::{Debug, Display};
-use serde::{Serialize, Deserialize, Serializer};
+use serde::{Serialize, Serializer};
+use serde::de::{Deserialize, Deserializer, Visitor};
 
 lazy_static! {
     static ref P: BigInt = BigInt::parse_bytes(b"21888242871839275222246405745257275088548364400416034343698204186575808495617", 10).unwrap();
@@ -292,7 +293,40 @@ impl Serialize for FieldPrime {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: Serializer
     {
+        // serializer.serialize_bytes(&(*self.value.to_biguint().to_bytes_le().as_slice()))
         serializer.serialize_bytes(&(*self.into_byte_vector().as_slice()))
+    }
+}
+
+// custom serde deserialization
+
+struct FieldPrimeVisitor;
+
+impl FieldPrimeVisitor {
+    fn new() -> Self {
+        FieldPrimeVisitor{}
+    }
+}
+
+impl<'de> Visitor<'de> for FieldPrimeVisitor {
+    type Value = FieldPrime;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("struct FieldPrime")
+    }
+
+    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E> {
+        let val = BigUint::from_bytes_le(v).to_bigint().unwrap();
+        Ok(FieldPrime{value: val})
+    }
+}
+
+impl<'de> Deserialize<'de> for FieldPrime {
+
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where D: Deserializer<'de>
+    {
+        deserializer.deserialize_bytes(FieldPrimeVisitor::new())
     }
 }
 
@@ -328,6 +362,7 @@ mod tests {
     #[cfg(test)]
     mod field_prime {
         use super::*;
+        use bincode::{serialize, deserialize , Infinite};
 
         #[test]
         fn positive_number() {
@@ -555,6 +590,13 @@ mod tests {
                     .unwrap(),
                 (FieldPrime::from("-54").pow(&FieldPrime::from("11"))).value
             );
+        }
+
+        #[test]
+        fn ser_deser() {
+            let serialized = &serialize(&FieldPrime::from("11"), Infinite).unwrap();
+            let deserialized = deserialize(serialized).unwrap();
+            assert_eq!(FieldPrime::from("11"), deserialized);
         }
     }
 
