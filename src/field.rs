@@ -4,7 +4,7 @@
 // @date 2017
 
 use num::{Integer, One, Zero};
-use num::bigint::{BigInt, BigUint, ToBigInt, ToBigUint};
+use num::bigint::{BigInt, BigUint, ToBigInt};
 use std::convert::From;
 use std::ops::{Add, Div, Mul, Sub};
 use std::fmt;

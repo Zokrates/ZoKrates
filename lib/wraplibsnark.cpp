@@ -199,6 +199,10 @@ void exportProof(r1cs_ppzksnark_proof<alt_bn128_pp> proof){
 
 bool _run_libsnark(const uint8_t* A, const uint8_t* B, const uint8_t* C, const uint8_t* witness, int constraints, int variables, int inputs)
 {
+
+  libsnark::inhibit_profiling_info = true;
+  libsnark::inhibit_profiling_counters = true;
+
   //initialize curve parameters
   alt_bn128_pp::init_public_params();
 
@@ -220,13 +224,15 @@ bool _run_libsnark(const uint8_t* A, const uint8_t* B, const uint8_t* C, const u
   r1cs_variable_assignment<Fr<alt_bn128_pp> > full_variable_assignment;
   for (int i = 1; i < variables; i++) {
     // for debugging
-    cout << "witness ["<< i << "]: " << HexStringFromLibsnarkBigint(libsnarkBigintFromBytes(witness + i*32)) << endl;
+    cout << "witness_hex ["<< i << "]: " << HexStringFromLibsnarkBigint(libsnarkBigintFromBytes(witness + i*32)) << endl;
     cout << "fieldElement ["<< i << "]: " << HexStringFromLibsnarkBigint((Fr<alt_bn128_pp>(libsnarkBigintFromBytes(witness + i*32))).as_bigint()) << endl;
     full_variable_assignment.push_back(Fr<alt_bn128_pp>(libsnarkBigintFromBytes(witness + i*32)));
   }
 
   // split up variables into primary and auxiliary inputs. Does *NOT* include the constant 1 */
   // Output variables belong to primary input, helper variables are auxiliary input.
+  // TODO: At the moment, this has implicit assumptions regarding ordering.
+  // The inputs to the run_libsnark_functions need to put primary inputs first.
   r1cs_primary_input<Fr<alt_bn128_pp> > primary_input(full_variable_assignment.begin(), full_variable_assignment.begin() + inputs);
   r1cs_primary_input<Fr<alt_bn128_pp> > auxiliary_input(full_variable_assignment.begin() + inputs, full_variable_assignment.end());
 

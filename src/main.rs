@@ -40,11 +40,11 @@ fn main() {
     const FLATTENED_CODE_DEFAULT_PATH: &str = "out";
 
     // cli specification using clap library
-    let matches = App::new("zkc")
+    let matches = App::new("ZoKrates")
     .setting(AppSettings::SubcommandRequiredElseHelp)
     .version("0.1")
     .author("Jacob Eberhardt, Dennis Kuhnert")
-    .about("I know that I show nothing!\nSupports generation of zkSNARKs from high level language code including Smart Contracts for proof verification on the Ethereum Blockchain.")
+    .about("Supports generation of zkSNARKs from high level language code including Smart Contracts for proof verification on the Ethereum Blockchain.\n'I know that I show nothing!'")
     .subcommand(SubCommand::with_name("compile")
                                     .about("Compiles into flattened conditions. Produces two files: human-readable '.code' file and binary file")
                                     .arg(Arg::with_name("input")
@@ -65,11 +65,21 @@ fn main() {
                                     )
                                  )
     .subcommand(SubCommand::with_name("setup")
-        .about("Performs a trusted setup for a given constraint system."))
+        .about("Performs a trusted setup for a given constraint system.")
+        .arg(Arg::with_name("input")
+            .short("i")
+            .long("input")
+            .help("path of comiled code.")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(FLATTENED_CODE_DEFAULT_PATH))
+    )
     .subcommand(SubCommand::with_name("export-verifier")
-        .about("Exports a verifier as Solidity smart contract."))
+        .about("Exports a verifier as Solidity smart contract.")
+    )
     .subcommand(SubCommand::with_name("compute-witness")
-        .about("Calculates a witness for a given constraint system, i.e., a variable assignment which satisfies all constraints. Interactive if underspecified.")
+        .about("Calculates a witness for a given constraint system, i.e., a variable assignment which satisfies all constraints. Private inputs are specified interactively.")
         .arg(Arg::with_name("input")
             .short("i")
             .long("input")
@@ -85,11 +95,29 @@ fn main() {
             .takes_value(true)
             .multiple(true) // allows multiple values
             .required(false)
-        ))
+        )
+    )
     .subcommand(SubCommand::with_name("generate-proof")
         .about("Calculates a proof for a given constraint system and witness."))
-    .subcommand(SubCommand::with_name("deploy-verifier")
-        .about("Deploys Solidity verification code to an Ethereum network. Requires an Ethereum client to be running and the 'solc' solidity compiler to be installed."))
+    .subcommand(SubCommand::with_name("shortcut")
+        .about("Executes witness generation, setup and proof-generation in succession")
+        .arg(Arg::with_name("input")
+            .short("i")
+            .long("input")
+            .help("path of comiled code.")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(FLATTENED_CODE_DEFAULT_PATH)
+        ).arg(Arg::with_name("arguments")
+            .short("a")
+            .long("arguments")
+            .help("Arguments for the program's main method. Space separated list.")
+            .takes_value(true)
+            .multiple(true) // allows multiple values
+            .required(false)
+        )
+    )
     .get_matches();
 
     //println!("matches: {:?}", matches);
@@ -128,14 +156,14 @@ fn main() {
             // write human-readable output file
             let hr_output_path = bin_output_path.to_path_buf().with_extension("code");
 
-            let mut hr_output_file = match File::create(&hr_output_path) {
+            let hr_output_file = match File::create(&hr_output_path) {
                 Ok(file) => file,
                 Err(why) => panic!("couldn't create {}: {}", hr_output_path.display(), why),
             };
 
             let mut hrofb = BufWriter::new(hr_output_file);
             write!(&mut hrofb, "{}\n", program_flattened).expect("Unable to write data to file.");
-            hrofb.flush();
+            hrofb.flush().expect("Unable to flush buffer.");
 
             // debugging output
             println!("Compiled program:\n{}", program_flattened);
@@ -202,16 +230,81 @@ fn main() {
                 None => println!("~out not found, no value returned")
             }
         }
-        ("setup", Some(sub_matches)) => {
+        ("shortcut", Some(sub_matches)) => {
             println!("Performing setup...");
+            // read compiled program
+            let path = Path::new(sub_matches.value_of("input").unwrap());
+            let mut file = match File::open(&path) {
+                Ok(file) => file,
+                Err(why) => panic!("couldn't open {}: {}", path.display(), why),
+            };
+
+            let program_ast: Prog<FieldPrime> = match deserialize_from(&mut file, Infinite) {
+                Ok(x) => x,
+                Err(why) => {
+                    println!("{:?}", why);
+                    std::process::exit(1);
+                }
+            };
+
+            // make sure the input program is actually flattened.
+            // TODO: is_flattened should be provided as method of Prog in absy.
+            let main_flattened = program_ast
+                .functions
+                .iter()
+                .find(|x| x.id == "main")
+                .unwrap();
+            for stat in main_flattened.statements.clone() {
+                assert!(
+                    stat.is_flattened(),
+                    format!("Input conditions not flattened: {}", &stat)
+                );
+            }
+
+            // print deserialized flattened program
+            println!("{}", main_flattened);
+
+            // validate #arguments
+            let mut args: Vec<FieldPrime> = Vec::new();
+            match sub_matches.values_of("arguments"){
+                Some(p) => {
+                    let arg_strings: Vec<&str> = p.collect();
+                    args = arg_strings.into_iter().map(|x| FieldPrime::from(x)).collect();
+                },
+                None => {
+                }
+            }
+
+            if main_flattened.arguments.len() != args.len() {
+                println!("Wrong number of arguments. Given: {}, Required: {}.", args.len(), main_flattened.arguments.len());
+                std::process::exit(1);
+            }
+
+            let witness_map = main_flattened.get_witness(args);
+            println!("Witness: {:?}", witness_map);
+            match witness_map.get("~out") {
+                Some(out) => println!("Returned (~out): {}", out),
+                None => println!("~out not found, no value returned")
+            }
+
+            let (variables, a, b, c) = r1cs_program(&program_ast);
+
+            let witness: Vec<_> = variables.iter().map(|x| witness_map[x].clone()).collect();
+
+            // run libsnark
+            #[cfg(not(feature="nolibsnark"))]{
+                // number of inputs in the zkSNARK sense, i.e., input variables + output variables
+                let num_inputs = main_flattened.arguments.len() + 1; //currently exactly one output variable
+                println!("run_libsnark = {:?}", run_libsnark(variables, a, b, c, witness, num_inputs));
+            }
         }
-        ("export-verifier", Some(sub_matches)) => {
+        ("export-verifier", Some(_)) => {
             println!("Exporting verifier...");
         }
-        ("generate-proof", Some(sub_matches)) => {
+        ("generate-proof", Some(_)) => {
             println!("Generating proof...");
         }
-        ("deploy-verifier", Some(sub_matches)) => {
+        ("deploy-verifier", Some(_)) => {
             println!("Deploying verifier...");
             // use https://github.com/tomusdrw/rust-web3 for blockchain interaction
             // and https://doc.rust-lang.org/std/process/struct.Command.html for solc
@@ -233,11 +326,6 @@ fn main() {
     // println!("C");
     // for x in &c {
     //     println!("{:?}", x);
-    // }
-    //
-    // // calculate witness if wanted
-    // if args.len() < 3 {
-    //     std::process::exit(0);
     // }
     //
     // // check #inputs
