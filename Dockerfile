@@ -2,7 +2,7 @@ FROM ubuntu:14.04
 
 MAINTAINER JacobEberhardt <jacob.eberhardt@tu-berlin.de>, Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
 
-ARG libsnarkcommit=master
+ARG libsnarkcommit=deprecated-master
 
 WORKDIR /root
 
