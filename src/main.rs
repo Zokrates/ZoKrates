@@ -25,7 +25,8 @@ mod libsnark;
 
 use std::fs::File;
 use std::path::Path;
-use std::io::{BufWriter, Write};
+use std::io::{BufWriter, Write, BufReader, BufRead};
+use std::collections::HashMap;
 use field::{Field, FieldPrime};
 use absy::Prog;
 use parser::parse_program;
@@ -287,6 +288,7 @@ fn main() {
             }
 
             let witness_map = main_flattened.get_witness(args);
+            // let witness_map: HashMap<String, FieldPrime> = main_flattened.get_witness(args);
             println!("Witness: {:?}", witness_map);
             match witness_map.get("~out") {
                 Some(out) => println!("Returned (~out): {}", out),
@@ -300,12 +302,63 @@ fn main() {
                 Err(why) => panic!("couldn't create {}: {}", output_path.display(), why),
             };
             let mut bw = BufWriter::new(output_file);
-            write!(&mut bw, "{:?}\n", witness_map).expect("Unable to write data to file.");
+            for (var, val) in &witness_map {
+                // TODO: Serialize PrimeField Elements
+                println!("{}:{:?}",var, val.to_dec_string());
+                write!(&mut bw, "{} {}\n", var, val.to_dec_string()).expect("Unable to write data to file.");
+                //write!(&mut bw, "{} {}\n", var, String::from_utf8(val.into_byte_vector()).unwrap()).expect("Unable to write data to file.");
+            }
+
             bw.flush().expect("Unable to flush buffer.");
 
         }
-        ("shortcut", Some(sub_matches)) => {
+        ("setup", Some(sub_matches)) => {
             println!("Performing setup...");
+
+            let path = Path::new(sub_matches.value_of("input").unwrap());
+            let mut file = match File::open(&path) {
+                Ok(file) => file,
+                Err(why) => panic!("couldn't open {}: {}", path.display(), why),
+            };
+
+            let program_ast: Prog<FieldPrime> = match deserialize_from(&mut file, Infinite) {
+                Ok(x) => x,
+                Err(why) => {
+                    println!("{:?}", why);
+                    std::process::exit(1);
+                }
+            };
+
+            // make sure the input program is actually flattened.
+            let main_flattened = program_ast
+                .functions
+                .iter()
+                .find(|x| x.id == "main")
+                .unwrap();
+            for stat in main_flattened.statements.clone() {
+                assert!(
+                    stat.is_flattened(),
+                    format!("Input conditions not flattened: {}", &stat)
+                );
+            }
+
+            // print deserialized flattened program
+            println!("{}", main_flattened);
+
+            let (variables, a, b, c) = r1cs_program(&program_ast);
+
+            // TODO: Setup Operation
+
+            // run libsnark
+            // #[cfg(not(feature="nolibsnark"))]{
+            //     // number of inputs in the zkSNARK sense, i.e., input variables + output variables
+            //     let num_inputs = main_flattened.arguments.len() + 1; //currently exactly one output variable
+            //     println!("run_libsnark = {:?}", run_libsnark(variables, a, b, c, witness, num_inputs));
+            // }
+
+        }
+        ("shortcut", Some(sub_matches)) => {
+            println!("Performing Setup, Witness Generation and Export...");
             // read compiled program
             let path = Path::new(sub_matches.value_of("input").unwrap());
             let mut file = match File::open(&path) {
@@ -376,9 +429,33 @@ fn main() {
             println!("Exporting verifier...");
             //TODO
         }
-        ("generate-proof", Some(_)) => {
+        ("generate-proof", Some(sub_matches)) => {
             println!("Generating proof...");
-            //TODO
+
+            // deserialize witness
+            let witness_path = Path::new(sub_matches.value_of("witness").unwrap());
+            let mut witness_file = match File::open(&witness_path) {
+                Ok(file) => file,
+                Err(why) => panic!("couldn't open {}: {}", witness_path.display(), why),
+            };
+
+            let reader = BufReader::new(witness_file);
+            let mut lines = reader.lines();
+            let mut witness_map = HashMap::new();
+
+            loop {
+                match lines.next() {
+                    Some(Ok(ref x)) => {
+                        let pairs: Vec<&str> = x.split_whitespace().collect();
+                        witness_map.insert(pairs[0].to_string(),FieldPrime::from_dec_string(pairs[1].to_string()));
+                    },
+                    None => break,
+                    Some(Err(err)) => panic!("Error reading witness: {}", err),
+                }
+            }
+
+            println!("Witness: {:?}", witness_map);
+
         }
         ("deploy-verifier", Some(_)) => {
             println!("Deploying verifier...");

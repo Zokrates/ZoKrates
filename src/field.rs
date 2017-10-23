@@ -1,10 +1,11 @@
 //
 // @file field.rs
 // @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
+// @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 // @date 2017
 
-use num::{Integer, One, Zero};
-use num::bigint::{BigInt, BigUint, ToBigInt};
+use num::{Num, Integer, One, Zero};
+use num::bigint::{BigInt, BigUint, Sign, ToBigInt};
 use std::convert::From;
 use std::ops::{Add, Div, Mul, Sub};
 use std::fmt;
@@ -46,6 +47,12 @@ pub trait Field
     + for<'a> Pow<&'a Self, Output = Self> {
     /// Returns this `Field`'s contents as little-endian byte vector
     fn into_byte_vector(&self) -> Vec<u8>;
+    /// Returns an element of this `Field` from a little-endian byte vector
+    fn from_byte_vector(Vec<u8>) -> Self;
+    /// Returns this `Field`'s contents as decimal string
+    fn to_dec_string(&self) -> String;
+    /// Returns an element of this `Field` from a decimal string
+    fn from_dec_string(val: String) -> Self;
     /// Returns the multiplicative inverse, i.e.: self * self.inverse_mul() = Self::one()
     fn inverse_mul(&self) -> Self;
     /// Returns the smallest value that can be represented by this field type.
@@ -63,15 +70,23 @@ pub struct FieldPrime {
 
 impl Field for FieldPrime {
     fn into_byte_vector(&self) -> Vec<u8> {
-        ////for debugging
-        //println!("uint dec: {}\n",self.value.to_biguint().unwrap().to_str_radix(10));
-        //println!("uint bin: {}\n",self.value.to_biguint().unwrap().to_str_radix(2));
-        //println!("uint bin length: {}\n",self.value.to_biguint().unwrap().to_str_radix(2).len());
-
         match self.value.to_biguint() {
             Option::Some(val) => val.to_bytes_le(),
             Option::None => panic!("Should never happen."),
         }
+    }
+
+    fn from_byte_vector(bytes: Vec<u8>) -> Self {
+        let uval = BigUint::from_bytes_le(bytes.as_slice());
+        FieldPrime{value: BigInt::from_biguint(Sign::Plus, uval)}
+    }
+
+    fn to_dec_string(&self) -> String {
+        self.value.to_str_radix(10)
+    }
+
+    fn from_dec_string(val: String) -> Self {
+        FieldPrime{value: BigInt::from_str_radix(val.as_str(), 10).unwrap()}
     }
 
     fn inverse_mul(&self) -> FieldPrime {
@@ -593,10 +608,24 @@ mod tests {
         }
 
         #[test]
-        fn ser_deser() {
+        fn serde_ser_deser() {
             let serialized = &serialize(&FieldPrime::from("11"), Infinite).unwrap();
             let deserialized = deserialize(serialized).unwrap();
             assert_eq!(FieldPrime::from("11"), deserialized);
+        }
+
+        #[test]
+        fn bytes_ser_deser() {
+            let fp = FieldPrime::from("101");
+            let bv = fp.into_byte_vector();
+            assert_eq!(fp, FieldPrime::from_byte_vector(bv));
+        }
+
+        #[test]
+        fn dec_string_ser_deser() {
+            let fp = FieldPrime::from("101");
+            let bv = fp.to_dec_string();
+            assert_eq!(fp, FieldPrime::from_dec_string(bv));
         }
     }
 
