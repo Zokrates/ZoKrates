@@ -118,6 +118,22 @@ fn main() {
             .required(false)
         )
     )
+    .subcommand(SubCommand::with_name("deploy-verifier")
+        .about("Deploys a given verification contract to the Ethereum network the current web3 provider is connected to.")
+        .arg(Arg::with_name("input")
+            .short("i")
+            .long("input")
+            .help("Solidity contract code.")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(true)
+        ).arg(Arg::with_name("account")
+            .short("acc")
+            .long("account")
+            .help("Address of the account triggering the Ethereum Transaction.")
+            .takes_value(true)
+        )
+    )
     .get_matches();
 
     //println!("matches: {:?}", matches);
@@ -312,39 +328,6 @@ fn main() {
         _ => unimplemented!(), // Either no subcommand or one not tested for...
     }
 
-
-    // let (variables, a, b, c) = r1cs_program(&program_flattened);
-    // println!("variables {:?}", variables);
-    // println!("A");
-    // for x in &a {
-    //     println!("{:?}", x);
-    // }
-    // println!("B");
-    // for x in &b {
-    //     println!("{:?}", x);
-    // }
-    // println!("C");
-    // for x in &c {
-    //     println!("{:?}", x);
-    // }
-    //
-    // // check #inputs
-    // let inputs: Vec<FieldPrime> = args[2].split_whitespace().map(|x| FieldPrime::from(x)).collect();
-    // let args_provided = &program_flattened.functions.iter().find(|x| x.id=="main").unwrap().arguments;
-    // assert!(inputs.len() == args_provided.len(),"Wrong number of arguments provided for main function. Provided: {}, Expected: {}.", inputs.len(), args_provided.len());
-    // println!("inputs {:?}", inputs);
-    //
-
-
-    // let witness: Vec<_> = variables.iter().map(|x| witness_map[x].clone()).collect();
-    // println!("witness {:?}", witness);
-
-    // // run libsnark
-    // #[cfg(not(feature="nolibsnark"))]{
-    //     // number of inputs in the zkSNARK sense, i.e., input variables + output variables
-    //     let num_inputs = args_provided.len() + 1; //currently exactly one output variable
-    //     println!("run_libsnark = {:?}", run_libsnark(variables, a, b, c, witness, num_inputs));
-    // }
 }
 
 #[cfg(test)]
