@@ -1,6 +1,6 @@
-# ZoKrates
+# zokrates
 
-## Using ZoKrates
+## Using zokrates
 
 Set the libsnark library path in `LD_LIBRARY_PATH`
 ```
@@ -18,8 +18,8 @@ def add(a, b, c):
 ```
 with `add(1, 2, 3)`, call
 ```
-./ZoKrates compile -i add.code_path
-./ZoKrates shortcut -a "1 2 3"
+./zokrates compile -i add.code_path
+./zokrates shortcut -a 1 2 3
 ```
 
 ## Building
@@ -32,8 +32,8 @@ Example usage:
 ```
 docker build -t zokrates .
 docker run -ti zokrates /bin/bash
-cd ZoKrates
-./target/debug/ZoKrates compile -i examples/add.code
+cd zokrates
+./target/debug/zokrates compile -i examples/add.code
 ```
 
 ### With libsnark
