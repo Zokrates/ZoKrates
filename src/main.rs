@@ -110,6 +110,14 @@ fn main() {
             .takes_value(true)
             .required(false)
             .default_value(FLATTENED_CODE_DEFAULT_PATH)
+        ).arg(Arg::with_name("output")
+            .short("o")
+            .long("output")
+            .help("output file path.")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(WITNESS_DEFAULT_PATH)
         ).arg(Arg::with_name("arguments")
             .short("a")
             .long("arguments")
@@ -284,6 +292,17 @@ fn main() {
                 Some(out) => println!("Returned (~out): {}", out),
                 None => println!("~out not found, no value returned")
             }
+
+            // write witness to file
+            let output_path = Path::new(sub_matches.value_of("output").unwrap());
+            let mut output_file = match File::create(&output_path) {
+                Ok(file) => file,
+                Err(why) => panic!("couldn't create {}: {}", output_path.display(), why),
+            };
+            let mut bw = BufWriter::new(output_file);
+            write!(&mut bw, "{:?}\n", witness_map).expect("Unable to write data to file.");
+            bw.flush().expect("Unable to flush buffer.");
+
         }
         ("shortcut", Some(sub_matches)) => {
             println!("Performing setup...");
@@ -355,13 +374,15 @@ fn main() {
         }
         ("export-verifier", Some(_)) => {
             println!("Exporting verifier...");
-
+            //TODO
         }
         ("generate-proof", Some(_)) => {
             println!("Generating proof...");
+            //TODO
         }
         ("deploy-verifier", Some(_)) => {
             println!("Deploying verifier...");
+            //TODO Steffen
             // use https://github.com/tomusdrw/rust-web3 for blockchain interaction
             // and https://doc.rust-lang.org/std/process/struct.Command.html for solc
         }
