@@ -38,6 +38,10 @@ use bincode::{serialize_into, deserialize_from , Infinite};
 
 fn main() {
     const FLATTENED_CODE_DEFAULT_PATH: &str = "out";
+    const VERIFICATION_KEY_DEFAULT_PATH: &str = "verification.key";
+    const PROVING_KEY_DEFAULT_PATH: &str = "proving.key";
+    const VERIFICATION_CONTRACT_DEFAULT_PATH: &str = "verifier.sol";
+    const WITNESS_DEFAULT_PATH: &str = "witness";
 
     // cli specification using clap library
     let matches = App::new("ZoKrates")
@@ -77,6 +81,24 @@ fn main() {
     )
     .subcommand(SubCommand::with_name("export-verifier")
         .about("Exports a verifier as Solidity smart contract.")
+        .arg(Arg::with_name("input")
+            .short("i")
+            .long("input")
+            .help("path of verifier.")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(VERIFICATION_KEY_DEFAULT_PATH)
+        )
+        .arg(Arg::with_name("output")
+            .short("o")
+            .long("output")
+            .help("output file path.")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(VERIFICATION_CONTRACT_DEFAULT_PATH)
+        )
     )
     .subcommand(SubCommand::with_name("compute-witness")
         .about("Calculates a witness for a given constraint system, i.e., a variable assignment which satisfies all constraints. Private inputs are specified interactively.")
@@ -98,7 +120,26 @@ fn main() {
         )
     )
     .subcommand(SubCommand::with_name("generate-proof")
-        .about("Calculates a proof for a given constraint system and witness."))
+        .about("Calculates a proof for a given constraint system and witness.")
+        .arg(Arg::with_name("witness")
+            .short("w")
+            .long("witness")
+            .help("path of witness file.")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(WITNESS_DEFAULT_PATH)
+        )
+        .arg(Arg::with_name("provingkey")
+            .short("pk")
+            .long("provingkey")
+            .help("path of proving key file.")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(PROVING_KEY_DEFAULT_PATH)
+        )
+    )
     .subcommand(SubCommand::with_name("shortcut")
         .about("Executes witness generation, setup and proof-generation in succession")
         .arg(Arg::with_name("input")
@@ -135,8 +176,6 @@ fn main() {
         )
     )
     .get_matches();
-
-    //println!("matches: {:?}", matches);
 
     match matches.subcommand() {
         ("compile", Some(sub_matches)) => {
@@ -316,6 +355,7 @@ fn main() {
         }
         ("export-verifier", Some(_)) => {
             println!("Exporting verifier...");
+
         }
         ("generate-proof", Some(_)) => {
             println!("Generating proof...");
