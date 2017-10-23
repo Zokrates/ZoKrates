@@ -1,18 +1,13 @@
-# VerifiableStatementCompiler
+# ZoKrates
 
-## Using VerifiableStatementCompiler
+## Using ZoKrates
 
 Set the libsnark library path in `LD_LIBRARY_PATH`
 ```
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 ```
+### CLI
 
-Command
-```
-./code_to_r1cs program [inputs]
-```
-- `program`: Path to the program that you want to be compiled.
-- `inputs` (optional): String of variable assignments of the inputs of a program split with whitespaces.<br>
 
 ### Example
 
@@ -23,7 +18,8 @@ def add(a, b, c):
 ```
 with `add(1, 2, 3)`, call
 ```
-./code_to_r1cs program "1 2 3"
+./zokrates compile -i add.code_path
+./zokrates shortcut -a "1 2 3"
 ```
 
 ## Building
@@ -34,10 +30,10 @@ Currently needs to be build with nightly Rust.
 
 Example usage:
 ```
-docker build -t verifiablestatementcompiler .
-docker run -ti verifiablestatementcompiler /bin/bash
-cd VerifiableStatementCompiler
-./target/debug/code_to_r1cs examples/add.code "3"
+docker build -t zokrates .
+docker run -ti zokrates /bin/bash
+cd ZoKrates
+./target/debug/zokrates compile -i examples/add.code
 ```
 
 ### With libsnark
