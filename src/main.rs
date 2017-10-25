@@ -461,8 +461,6 @@ fn main() {
             };
             let reader = BufReader::new(input_file);
             let mut lines = reader.lines();
-            
-            //TODO: Parse input file!
 
             //read template
             let template_path = Path::new("templates/sol_verification.template");
@@ -507,10 +505,11 @@ fn main() {
                 curr_template = vk_ic_points_regex.replace(curr_template.as_str(), current_line_split[1].trim()).into_owned();
                 ic_repeat_text.push_str(curr_template.as_str());
                 if x < ic_count - 1 {
-                    ic_repeat_text.push_str("\n\t\t");
+                    ic_repeat_text.push_str("\n        ");
                 }
             }
             template_text = vk_ic_repeat_regex.replace(template_text.as_str(), ic_repeat_text.as_str()).into_owned();
+
             //write output file
             let output_path = Path::new(sub_matches.value_of("output").unwrap());
             let mut output_file = match File::create(&output_path) {

@@ -210,7 +210,7 @@ contract Test {
     function verifyingKey() internal returns (VerifyingKey vk) {
         vk.A = Pairing.G2Point(<%vk_a%>);
         vk.B = Pairing.G1Point(<%vk_b%>);
-        vk.C = Pairing.G2Point(<%vk_c%>]);
+        vk.C = Pairing.G2Point(<%vk_c%>);
         vk.gamma = Pairing.G2Point(<%vk_g%>);
         vk.gammaBeta1 = Pairing.G1Point(<%vk_gb1%>);
         vk.gammaBeta2 = Pairing.G2Point(<%vk_gb2%>);
