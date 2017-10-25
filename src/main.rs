@@ -455,10 +455,12 @@ fn main() {
             println!("Exporting verifier...");
             // read vk file
             let input_path = Path::new(sub_matches.value_of("input").unwrap());
-            let mut file = match File::open(&input_path) {
-                Ok(file) => file,
+            let input_file = match File::open(&input_path) {
+                Ok(input_file) => input_file,
                 Err(why) => panic!("couldn't open {}: {}", input_path.display(), why),
             };
+            let reader = BufReader::new(input_file);
+            let mut lines = reader.lines();
             
             //TODO: Parse input file!
 
@@ -470,31 +472,42 @@ fn main() {
             };
             let mut template_text = String::new();
             template_file.read_to_string(&mut template_text).unwrap();
-            let ic_template = String::from("vk.IC[index] = Pairing.G1Point(point0, point1);");      //copy this for each entry
+            let ic_template = String::from("vk.IC[index] = Pairing.G1Point(points);");      //copy this for each entry
 
             //replace things in template
             let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
             let vk_ic_len_regex = Regex::new(r#"(<%vk_ic_length%>)"#).unwrap();
             let vk_ic_index_regex = Regex::new(r#"index"#).unwrap();
-            let vk_ic_point0_regex = Regex::new(r#"point0"#).unwrap();
-            let vk_ic_point1_regex = Regex::new(r#"point1"#).unwrap();
+            let vk_ic_points_regex = Regex::new(r#"points"#).unwrap();
             let vk_ic_repeat_regex = Regex::new(r#"(<%vk_ic_pts%>)"#).unwrap();
+            let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
 
-            for x in 0..24 {
-                template_text = vk_regex.replace(template_text.as_str(), "0x123").into_owned();
+            for _ in 0..7 {
+                let current_line: String = lines.next().expect("Unexpected end of file in verification key!").unwrap();
+                let current_line_split: Vec<&str> = current_line.split("=").collect();
+                assert_eq!(current_line_split.len(), 2);
+                template_text = vk_regex.replace(template_text.as_str(), current_line_split[1].trim()).into_owned();
             }
 
-            let ic_count = 5;
-            template_text = vk_ic_len_regex.replace_all(template_text.as_str(), format!("{}", ic_count).as_str()).into_owned();
+            let current_line: String = lines.next().expect("Unexpected end of file in verification key!").unwrap();
+            let current_line_split: Vec<&str> = current_line.split("=").collect();
+            assert_eq!(current_line_split.len(), 2);
+            let ic_count: i32 = current_line_split[1].trim().parse().unwrap();
+
+            template_text = vk_ic_len_regex.replace(template_text.as_str(), format!("{}", ic_count).as_str()).into_owned();
+            template_text = vk_input_len_regex.replace(template_text.as_str(), format!("{}", ic_count-1).as_str()).into_owned();
+            
             let mut ic_repeat_text = String::new();
             for x in 0..ic_count {
                 let mut curr_template = ic_template.clone();
+                let current_line: String = lines.next().expect("Unexpected end of file in verification key!").unwrap();
+                let current_line_split: Vec<&str> = current_line.split("=").collect();
+                assert_eq!(current_line_split.len(), 2);
                 curr_template = vk_ic_index_regex.replace(curr_template.as_str(), format!("{}", x).as_str()).into_owned();
-                curr_template = vk_ic_point0_regex.replace(curr_template.as_str(), "0x1").into_owned();
-                curr_template = vk_ic_point1_regex.replace(curr_template.as_str(), "0x2").into_owned();
+                curr_template = vk_ic_points_regex.replace(curr_template.as_str(), current_line_split[1].trim()).into_owned();
                 ic_repeat_text.push_str(curr_template.as_str());
                 if x < ic_count - 1 {
-                    ic_repeat_text.push_str("\n        ");
+                    ic_repeat_text.push_str("\n\t\t");
                 }
             }
             template_text = vk_ic_repeat_regex.replace(template_text.as_str(), ic_repeat_text.as_str()).into_owned();
@@ -504,7 +517,8 @@ fn main() {
                 Ok(file) => file,
                 Err(why) => panic!("couldn't create {}: {}", output_path.display(), why),
             };
-            output_file.write_all(&template_text.as_bytes());
+            output_file.write_all(&template_text.as_bytes()).expect("Failed writing output to file.");
+            println!("Finished exporting verifier.");
         }
         ("generate-proof", Some(sub_matches)) => {
             println!("Generating proof...");

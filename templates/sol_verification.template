@@ -208,13 +208,13 @@ contract Test {
         return true;
     }
     function verifyingKey() internal returns (VerifyingKey vk) {
-        vk.A = Pairing.G2Point([<%vk_a_0%>, <%vk_a_1%>], [<%vk_a_2%>, <%vk_a_3%>]);
-        vk.B = Pairing.G1Point(<%vk_b_0%>, <%vk_b_1%>);
-        vk.C = Pairing.G2Point([<%vk_c_0%>, <%vk_c_1%>], [<%vk_c_2%>, <%vk_c_3%>]);
-        vk.gamma = Pairing.G2Point([<%vk_g_0%>, <%vk_g_1%>], [<%vk_g_2%>, <%vk_g_3%>]);
-        vk.gammaBeta1 = Pairing.G1Point(<%vk_gb1_0%>, <%vk_gb1_1%>);
-        vk.gammaBeta2 = Pairing.G2Point([<%vk_gb2_0%>, <%vk_gb2_1%>], [<%vk_gb2_2%>, <%vk_gb2_3%>]);
-        vk.Z = Pairing.G2Point([<%vk_z_0%>, <%vk_z_1%>], [<%vk_z_2%>, <%vk_z_3%>]);
+        vk.A = Pairing.G2Point(<%vk_a%>);
+        vk.B = Pairing.G1Point(<%vk_b%>);
+        vk.C = Pairing.G2Point(<%vk_c%>]);
+        vk.gamma = Pairing.G2Point(<%vk_g%>);
+        vk.gammaBeta1 = Pairing.G1Point(<%vk_gb1%>);
+        vk.gammaBeta2 = Pairing.G2Point(<%vk_gb2%>);
+        vk.Z = Pairing.G2Point(<%vk_z%>);
         vk.IC = new Pairing.G1Point[](<%vk_ic_length%>);
         <%vk_ic_pts%>
     }
@@ -251,7 +251,7 @@ contract Test {
             uint[2] c_p,
             uint[2] h,
             uint[2] k,
-            uint[<%vk_ic_length%>] input
+            uint[<%vk_input_length%>] input
         ) returns (bool r) {
         Proof memory proof;
         proof.A = Pairing.G1Point(a[0], a[1]);
