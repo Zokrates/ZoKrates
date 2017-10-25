@@ -134,12 +134,54 @@ void writeToFile(std::string path, T& obj) {
     fh.close();
 }
 
+template<typename T>
+T loadFromFile(std::string path) {
+    std::stringstream ss;
+    std::ifstream fh(path, std::ios::binary);
+
+    assert(fh.is_open());
+
+    ss << fh.rdbuf();
+    fh.close();
+
+    ss.rdbuf()->pubseekpos(0, std::ios_base::in);
+
+    T obj;
+    ss >> obj;
+
+    return obj;
+}
+
 void serializeProvingKeyToFile(r1cs_ppzksnark_keypair<alt_bn128_pp> keypair, const char* pk_path){
   writeToFile(pk_path, keypair.pk);
 }
 
 void serializeVerificationKeyToFile(r1cs_ppzksnark_keypair<alt_bn128_pp> keypair, const char* vk_path){
-  writeToFile(vk_path, keypair.vk);
+  std::stringstream ss;
+
+  unsigned icLength = keypair.vk.encoded_IC_query.rest.indices.size() + 1;
+
+  ss << "\t\tvk.A = " << outputPointG2AffineAsHex(keypair.vk.alphaA_g2) << endl;
+  ss << "\t\tvk.B = " << outputPointG1AffineAsHex(keypair.vk.alphaB_g1) << endl;
+  ss << "\t\tvk.C = " << outputPointG2AffineAsHex(keypair.vk.alphaC_g2) << endl;
+  ss << "\t\tvk.gamma = " << outputPointG2AffineAsHex(keypair.vk.gamma_g2) << endl;
+  ss << "\t\tvk.gammaBeta1 = " << outputPointG1AffineAsHex(keypair.vk.gamma_beta_g1) << endl;
+  ss << "\t\tvk.gammaBeta2 = " << outputPointG2AffineAsHex(keypair.vk.gamma_beta_g2) << endl;
+  ss << "\t\tvk.Z = " << outputPointG2AffineAsHex(keypair.vk.rC_Z_g2) << endl;
+  ss << "\t\tvk.IC.len() = " << icLength << endl;
+  ss << "\t\tvk.IC[0] = " << outputPointG1AffineAsHex(keypair.vk.encoded_IC_query.first) << endl;
+  for (size_t i = 1; i < icLength; ++i)
+  {
+                  auto vkICi = outputPointG1AffineAsHex(keypair.vk.encoded_IC_query.rest.values[i - 1]);
+                  ss << "\t\tvk.IC[" << i << "] = Pairing.G1Point(" << vkICi << endl;
+  }
+
+  std::ofstream fh;
+  fh.open(vk_path, std::ios::binary);
+  ss.rdbuf()->pubseekpos(0, std::ios_base::out);
+  fh << ss.rdbuf();
+  fh.flush();
+  fh.close();
 }
 
 // compliant with solidty verification example
