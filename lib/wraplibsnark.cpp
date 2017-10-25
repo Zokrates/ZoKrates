@@ -1,32 +1,20 @@
 /**
  * @file wraplibsnark.cpp
- * @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
  * @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de
+ * @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
  * @date 2017
  */
 
 #include "wraplibsnark.hpp"
+#include <fstream>
 #include <iostream>
 #include <cassert>
 #include <iomanip>
 
 // contains definition of alt_bn128 ec public parameters
 #include "libsnark/algebra/curves/alt_bn128/alt_bn128_pp.hpp"
-
 // contains required interfaces and types (keypair, proof, generator, prover, verifier)
 #include "libsnark/zk_proof_systems/ppzksnark/r1cs_ppzksnark/r1cs_ppzksnark.hpp"
-
-// contains usage example for these interfaces
-//#include "libsnark/zk_proof_systems/ppzksnark/r1cs_ppzksnark/examples/run_r1cs_ppzksnark.hpp"
-
-// How to "zkSNARK from R1CS:"
-// libsnark/relations/constraint_satisfaction_problems/r1cs/examples/r1cs_examples.tcc
-
-// How to generate R1CS Example
-// libsnark/zk_proof_systems/ppzksnark/r1cs_ppzksnark/examples/run_r1cs_ppzksnark.tcc
-
-// Interfaces for R1CS
-// libsnark/relations/constraint_satisfaction_problems/r1cs/r1cs.hpp
 
 using namespace std;
 using namespace libsnark;
@@ -85,7 +73,7 @@ std::string outputPointG2AffineAsHex(libsnark::alt_bn128_G2 _p)
 }
 
 //takes input and puts it into constraint system
-r1cs_ppzksnark_constraint_system<alt_bn128_pp> createConstraintSystem(const uint8_t* A, const uint8_t* B, const uint8_t* C, const uint8_t* witness, int constraints, int variables, int inputs)
+r1cs_ppzksnark_constraint_system<alt_bn128_pp> createConstraintSystem(const uint8_t* A, const uint8_t* B, const uint8_t* C, int constraints, int variables, int inputs)
 {
   r1cs_constraint_system<Fr<alt_bn128_pp> > cs;
   cs.primary_input_size = inputs;
@@ -124,9 +112,6 @@ r1cs_ppzksnark_constraint_system<alt_bn128_pp> createConstraintSystem(const uint
     }
     cs.add_constraint(r1cs_constraint<Fr<alt_bn128_pp> >(lin_comb_A, lin_comb_B, lin_comb_C));
   }
-  for (int idx=0; idx<variables; idx++) {
-    cout << "witness entry " << idx << ": " << libsnarkBigintFromBytes(witness + idx*32) << endl;
-  }
 
   return cs;
 }
@@ -135,6 +120,14 @@ r1cs_ppzksnark_constraint_system<alt_bn128_pp> createConstraintSystem(const uint
 r1cs_ppzksnark_keypair<alt_bn128_pp> generateKeypair(const r1cs_ppzksnark_constraint_system<alt_bn128_pp> &cs){
   // from r1cs_ppzksnark.hpp
   return r1cs_ppzksnark_generator<alt_bn128_pp>(cs);
+}
+
+void serializeProvingKeyToFile(r1cs_ppzksnark_keypair<alt_bn128_pp> keypair, const char* pk_path){
+  writeToFile(pk_path, keypair.pk);
+}
+
+void serializeVerificationKeyToFile(r1cs_ppzksnark_keypair<alt_bn128_pp> keypair, const char* vk_path){
+  writeToFile(vk_path, keypair.vk);
 }
 
 // compliant with solidty verification example
@@ -196,6 +189,33 @@ void exportProof(r1cs_ppzksnark_proof<alt_bn128_pp> proof){
 
 }
 
+bool _setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int constraints, int variables, int inputs, const char* pk_path, const char* vk_path)
+{
+  libsnark::inhibit_profiling_info = true;
+  libsnark::inhibit_profiling_counters = true;
+
+  //initialize curve parameters
+  alt_bn128_pp::init_public_params();
+
+  r1cs_constraint_system<Fr<alt_bn128_pp>> cs;
+  cs = createConstraintSystem(A, B ,C , constraints, variables, inputs);
+
+  assert(cs.num_variables() >= inputs);
+  assert(cs.num_inputs() == inputs);
+  assert(cs.num_constraints() == constraints);
+
+  // create keypair
+  r1cs_ppzksnark_keypair<alt_bn128_pp> keypair = r1cs_ppzksnark_generator<alt_bn128_pp>(cs);
+
+  // Export vk and pk to files
+  serializeProvingKeyToFile(keypair, pk_path);
+  serializeVerificationKeyToFile(keypair, vk_path);
+
+  // Print VerificationKey in Solidity compatible format
+  exportVerificationKey(keypair);
+
+  return true;
+}
 
 bool _run_libsnark(const uint8_t* A, const uint8_t* B, const uint8_t* C, const uint8_t* witness, int constraints, int variables, int inputs)
 {
@@ -218,7 +238,7 @@ bool _run_libsnark(const uint8_t* A, const uint8_t* B, const uint8_t* C, const u
   // Setup:
   // create constraint system
   r1cs_constraint_system<Fr<alt_bn128_pp>> cs;
-  cs = createConstraintSystem(A, B ,C , witness, constraints, variables, inputs);
+  cs = createConstraintSystem(A, B ,C , constraints, variables, inputs);
 
   // assign variables based on witness values, excludes ~one
   r1cs_variable_assignment<Fr<alt_bn128_pp> > full_variable_assignment;
@@ -265,4 +285,16 @@ bool _run_libsnark(const uint8_t* A, const uint8_t* B, const uint8_t* C, const u
   bool result = r1cs_ppzksnark_verifier_strong_IC<alt_bn128_pp>(keypair.vk, primary_input, proof);
 
   return result;
+}
+
+template<typename T>
+void writeToFile(std::string path, T& obj) {
+    std::stringstream ss;
+    ss << obj;
+    std::ofstream fh;
+    fh.open(path, std::ios::binary);
+    ss.rdbuf()->pubseekpos(0, std::ios_base::out);
+    fh << ss.rdbuf();
+    fh.flush();
+    fh.close();
 }

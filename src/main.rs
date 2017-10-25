@@ -34,7 +34,7 @@ use flatten::Flattener;
 use r1cs::r1cs_program;
 use clap::{App, AppSettings, Arg, SubCommand};
 #[cfg(not(feature = "nolibsnark"))]
-use libsnark::run_libsnark;
+use libsnark::{run_libsnark, setup};
 use bincode::{serialize_into, deserialize_from , Infinite};
 
 fn main() {
@@ -78,7 +78,26 @@ fn main() {
             .value_name("FILE")
             .takes_value(true)
             .required(false)
-            .default_value(FLATTENED_CODE_DEFAULT_PATH))
+            .default_value(FLATTENED_CODE_DEFAULT_PATH)
+        )
+        .arg(Arg::with_name("proving-key-path")
+            .short("pk")
+            .long("proving-key-path")
+            .help("Path of the generated proving key file.")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(PROVING_KEY_DEFAULT_PATH)
+        )
+        .arg(Arg::with_name("verification-key-path")
+            .short("vk")
+            .long("verification-key-path")
+            .help("Path of the generated verification key file.")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(VERIFICATION_KEY_DEFAULT_PATH)
+        )
     )
     .subcommand(SubCommand::with_name("export-verifier")
         .about("Exports a verifier as Solidity smart contract.")
@@ -297,7 +316,7 @@ fn main() {
 
             // write witness to file
             let output_path = Path::new(sub_matches.value_of("output").unwrap());
-            let mut output_file = match File::create(&output_path) {
+            let output_file = match File::create(&output_path) {
                 Ok(file) => file,
                 Err(why) => panic!("couldn't create {}: {}", output_path.display(), why),
             };
@@ -345,16 +364,19 @@ fn main() {
             // print deserialized flattened program
             println!("{}", main_flattened);
 
+            // transform to R1CS
             let (variables, a, b, c) = r1cs_program(&program_ast);
 
-            // TODO: Setup Operation
+            // get paths for proving and verification keys
+            let pk_path = sub_matches.value_of("proving-key-path").unwrap();
+            let vk_path = sub_matches.value_of("verification-key-path").unwrap();
 
-            // run libsnark
-            // #[cfg(not(feature="nolibsnark"))]{
-            //     // number of inputs in the zkSNARK sense, i.e., input variables + output variables
-            //     let num_inputs = main_flattened.arguments.len() + 1; //currently exactly one output variable
-            //     println!("run_libsnark = {:?}", run_libsnark(variables, a, b, c, witness, num_inputs));
-            // }
+            // run setup phase
+            #[cfg(not(feature="nolibsnark"))]{
+                // number of inputs in the zkSNARK sense, i.e., input variables + output variables
+                let num_inputs = main_flattened.arguments.len() + 1; //currently exactly one output variable
+                println!("setup successful: {:?}", setup(variables, a, b, c, num_inputs, pk_path, vk_path));
+            }
 
         }
         ("shortcut", Some(sub_matches)) => {
@@ -434,7 +456,7 @@ fn main() {
 
             // deserialize witness
             let witness_path = Path::new(sub_matches.value_of("witness").unwrap());
-            let mut witness_file = match File::open(&witness_path) {
+            let witness_file = match File::open(&witness_path) {
                 Ok(file) => file,
                 Err(why) => panic!("couldn't open {}: {}", witness_path.display(), why),
             };

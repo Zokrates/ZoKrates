@@ -1,12 +1,16 @@
 //
 // @file libsnark.rs
+// @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de
 // @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
 // @date 2017
 
 extern crate libc;
 
 use self::libc::c_int;
+use self::libc::c_char;
 use self::libc::uint8_t;
+use std::ffi::CString;
+
 use field::Field;
 
 #[link(name = "snark")]
@@ -23,6 +27,65 @@ extern "C" {
         variables: c_int,
         inputs: c_int,
     ) -> bool;
+
+    fn _setup(
+        A: *const uint8_t,
+        B: *const uint8_t,
+        C: *const uint8_t,
+        constraints: c_int,
+        variables: c_int,
+        inputs: c_int,
+        pk_path: *const c_char,
+        vk_path: *const c_char,
+    ) -> bool;
+}
+
+pub fn setup<T: Field> (
+    variables: Vec<String>,
+    a: Vec<Vec<(usize, T)>>,
+    b: Vec<Vec<(usize, T)>>,
+    c: Vec<Vec<(usize, T)>>,
+    num_inputs: usize,
+    pk_path: &str,
+    vk_path: &str,
+    ) -> bool {
+
+    let num_constraints = a.len();
+    let num_variables = variables.len();
+
+    //initialize matrix entries with 0s.
+    let mut a_arr: Vec<[u8; 32]> = vec![[0u8; 32]; num_constraints * num_variables];
+    let mut b_arr: Vec<[u8; 32]> = vec![[0u8; 32]; num_constraints * num_variables];
+    let mut c_arr: Vec<[u8; 32]> = vec![[0u8; 32]; num_constraints * num_variables];
+
+    for row in 0..num_constraints {
+        for &(idx, ref val) in &a[row] {
+            a_arr[row * num_variables + idx] = vec_as_u8_32_array(&val.into_byte_vector());
+        }
+        for &(idx, ref val) in &b[row] {
+            b_arr[row * num_variables + idx] = vec_as_u8_32_array(&val.into_byte_vector());
+        }
+        for &(idx, ref val) in &c[row] {
+            c_arr[row * num_variables + idx] = vec_as_u8_32_array(&val.into_byte_vector());
+        }
+    }
+
+    // convert String slices to 'CString's
+    let pk_path_cstring = CString::new(pk_path).unwrap();
+    let vk_path_cstring = CString::new(vk_path).unwrap();
+
+    unsafe {
+        _setup(
+            a_arr[0].as_ptr(),
+            b_arr[0].as_ptr(),
+            c_arr[0].as_ptr(),
+            num_constraints as i32,
+            num_variables as i32,
+            num_inputs as i32,
+            pk_path_cstring.as_ptr(),
+            vk_path_cstring.as_ptr()
+        )
+    }
 }
 
 // assumes that field elements can be represented with 32 bytes
@@ -34,6 +97,7 @@ pub fn run_libsnark<T: Field>(
     witness: Vec<T>,
     num_inputs: usize,
 ) -> bool {
+
     let num_constraints = a.len();
     let num_variables = variables.len();
 
