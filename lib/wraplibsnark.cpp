@@ -173,7 +173,7 @@ void serializeVerificationKeyToFile(r1cs_ppzksnark_keypair<alt_bn128_pp> keypair
   for (size_t i = 1; i < icLength; ++i)
   {
                   auto vkICi = outputPointG1AffineAsHex(keypair.vk.encoded_IC_query.rest.values[i - 1]);
-                  ss << "\t\tvk.IC[" << i << "] = Pairing.G1Point(" << vkICi << endl;
+                  ss << "\t\tvk.IC[" << i << "] = " << vkICi << endl;
   }
 
   std::ofstream fh;
