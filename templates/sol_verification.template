@@ -156,57 +156,6 @@ contract Test {
         Pairing.G1Point K;
         Pairing.G1Point H;
     }
-    function f() returns (bool) {
-        Pairing.G1Point memory p1;
-        Pairing.G1Point memory p2;
-        p1.X = 1; p1.Y = 2;
-        p2.X = 1; p2.Y = 2;
-        var explict_sum = Pairing.add(p1, p2);
-        var scalar_prod = Pairing.mul(p1, 2);
-        return (explict_sum.X == scalar_prod.X &&
-                explict_sum.Y == scalar_prod.Y);
-    }
-    function g() returns (bool) {
-        Pairing.G1Point memory x = Pairing.add(Pairing.P1(), Pairing.negate(Pairing.P1()));
-        // should be zero
-        return (x.X == 0 && x.Y == 0);
-    }
-    function testMul() returns (bool) {
-        Pairing.G1Point memory p;
-        // @TODO The points here are reported to be not well-formed
-        p.X = 14125296762497065001182820090155008161146766663259912659363835465243039841726;
-        p.Y = 16229134936871442251132173501211935676986397196799085184804749187146857848057;
-        p = Pairing.mul(p, 13986731495506593864492662381614386532349950841221768152838255933892789078521);
-        return
-            p.X == 18256332256630856740336504687838346961237861778318632856900758565550522381207 &&
-            p.Y == 6976682127058094634733239494758371323697222088503263230319702770853579280803;
-    }
-    function pair() returns (bool) {
-        Pairing.G2Point memory fiveTimesP2 = Pairing.G2Point(
-            [4540444681147253467785307942530223364530218361853237193970751657229138047649, 20954117799226682825035885491234530437475518021362091509513177301640194298072],
-            [11631839690097995216017572651900167465857396346217730511548857041925508482915, 21508930868448350162258892668132814424284302804699005394342512102884055673846]
-        );
-        // The prime p in the base field F_p for G1
-        uint p = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
-        Pairing.G1Point[] memory g1points = new Pairing.G1Point[](2);
-        Pairing.G2Point[] memory g2points = new Pairing.G2Point[](2);
-//          // check e(5 P1, P2)e(-P1, 5 P2) == 1
-        g1points[0] = Pairing.P1().mul(5);
-        g1points[1] = Pairing.P1();
-        g1points[1].Y = p - g1points[1].Y;
-        g2points[0] = Pairing.P2();
-        g2points[1] = fiveTimesP2;
-        if (!Pairing.pairing(g1points, g2points))
-            return false;
-        // check e(P1, P2)e(-P1, P2) == 0
-        g1points[0] = Pairing.P1();
-        g1points[1] = Pairing.P1().negate();
-        g2points[0] = Pairing.P2();
-        g2points[1] = Pairing.P2();
-        if (!Pairing.pairing(g1points, g2points))
-            return false;
-        return true;
-    }
     function verifyingKey() internal returns (VerifyingKey vk) {
         vk.A = Pairing.G2Point(<%vk_a%>);
         vk.B = Pairing.G1Point(<%vk_b%>);
