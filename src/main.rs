@@ -14,6 +14,7 @@ extern crate serde; // serialization deserialization
 #[macro_use]
 extern crate serde_derive;
 extern crate bincode;
+extern crate regex;
 
 mod absy;
 mod parser;
@@ -27,6 +28,8 @@ use std::fs::File;
 use std::path::Path;
 use std::io::{BufWriter, Write, BufReader, BufRead};
 use std::collections::HashMap;
+use std::string::String; 
+use std::io::prelude::*;
 use field::{Field, FieldPrime};
 use absy::Prog;
 use parser::parse_program;
@@ -36,6 +39,7 @@ use clap::{App, AppSettings, Arg, SubCommand};
 #[cfg(not(feature = "nolibsnark"))]
 use libsnark::{run_libsnark, setup};
 use bincode::{serialize_into, deserialize_from , Infinite};
+use regex::Regex;
 
 fn main() {
     const FLATTENED_CODE_DEFAULT_PATH: &str = "out";
@@ -447,9 +451,60 @@ fn main() {
                 println!("run_libsnark = {:?}", run_libsnark(variables, a, b, c, witness, num_inputs));
             }
         }
-        ("export-verifier", Some(_)) => {
+        ("export-verifier", Some(sub_matches)) => {
             println!("Exporting verifier...");
-            //TODO
+            // read vk file
+            let input_path = Path::new(sub_matches.value_of("input").unwrap());
+            let mut file = match File::open(&input_path) {
+                Ok(file) => file,
+                Err(why) => panic!("couldn't open {}: {}", input_path.display(), why),
+            };
+            
+            //TODO: Parse input file!
+
+            //read template
+            let template_path = Path::new("templates/sol_verification.template");
+            let mut template_file = match File::open(&template_path) {
+                Ok(template_file) => template_file,
+                Err(why) => panic!("couldn't open {}: {}", template_path.display(), why)
+            };
+            let mut template_text = String::new();
+            template_file.read_to_string(&mut template_text).unwrap();
+            let ic_template = String::from("vk.IC[index] = Pairing.G1Point(point0, point1);");      //copy this for each entry
+
+            //replace things in template
+            let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
+            let vk_ic_len_regex = Regex::new(r#"(<%vk_ic_length%>)"#).unwrap();
+            let vk_ic_index_regex = Regex::new(r#"index"#).unwrap();
+            let vk_ic_point0_regex = Regex::new(r#"point0"#).unwrap();
+            let vk_ic_point1_regex = Regex::new(r#"point1"#).unwrap();
+            let vk_ic_repeat_regex = Regex::new(r#"(<%vk_ic_pts%>)"#).unwrap();
+
+            for x in 0..24 {
+                template_text = vk_regex.replace(template_text.as_str(), "0x123").into_owned();
+            }
+
+            let ic_count = 5;
+            template_text = vk_ic_len_regex.replace_all(template_text.as_str(), format!("{}", ic_count).as_str()).into_owned();
+            let mut ic_repeat_text = String::new();
+            for x in 0..ic_count {
+                let mut curr_template = ic_template.clone();
+                curr_template = vk_ic_index_regex.replace(curr_template.as_str(), format!("{}", x).as_str()).into_owned();
+                curr_template = vk_ic_point0_regex.replace(curr_template.as_str(), "0x1").into_owned();
+                curr_template = vk_ic_point1_regex.replace(curr_template.as_str(), "0x2").into_owned();
+                ic_repeat_text.push_str(curr_template.as_str());
+                if x < ic_count - 1 {
+                    ic_repeat_text.push_str("\n        ");
+                }
+            }
+            template_text = vk_ic_repeat_regex.replace(template_text.as_str(), ic_repeat_text.as_str()).into_owned();
+            //write output file
+            let output_path = Path::new(sub_matches.value_of("output").unwrap());
+            let mut output_file = match File::create(&output_path) {
+                Ok(file) => file,
+                Err(why) => panic!("couldn't create {}: {}", output_path.display(), why),
+            };
+            output_file.write_all(&template_text.as_bytes());
         }
         ("generate-proof", Some(sub_matches)) => {
             println!("Generating proof...");
