@@ -607,8 +607,9 @@ fn main() {
 
             // split witness into public and private inputs at offset
             let mut public_inputs: Vec<_>= witness.clone();
-            println!("Public inputs: {:?}", public_inputs);
             let private_inputs: Vec<_> = public_inputs.split_off(private_inputs_offset);
+
+            println!("Public inputs: {:?}", public_inputs);
             println!("Private inputs: {:?}", private_inputs);
 
             let pk_path = sub_matches.value_of("provingkey").unwrap();
