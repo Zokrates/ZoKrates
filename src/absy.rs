@@ -19,6 +19,7 @@ pub struct Prog<T: Field> {
 
 impl<T: Field> Prog<T> {
     // only main flattened function is relevant here, as all other functions are unrolled into it
+    #[allow(dead_code)] // I don't want to remove this
     pub fn get_witness(&self, inputs: Vec<T>) -> HashMap<String, T> {
         let main = self.functions.iter().find(|x| x.id == "main").unwrap();
         assert!(main.arguments.len() == inputs.len());
