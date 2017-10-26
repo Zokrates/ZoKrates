@@ -622,7 +622,7 @@ fn main() {
         }
         // ("deploy-verifier", Some(_)) => {
         //     println!("Deploying verifier...");
-        //     //TODO Steffen
+        //     // Stays in feature branch until migrated to newer rust version.
         // }
         _ => unimplemented!(), // Either no subcommand or one not tested for...
     }

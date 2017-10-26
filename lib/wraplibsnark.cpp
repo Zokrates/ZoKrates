@@ -336,10 +336,8 @@ bool _run_libsnark(const uint8_t* A, const uint8_t* B, const uint8_t* C, const u
 
   // split up variables into primary and auxiliary inputs. Does *NOT* include the constant 1 */
   // Output variables belong to primary input, helper variables are auxiliary input.
-  // Care! This has implicit assumptions regarding ordering.
-  // The inputs to the run_libsnark_functions need to put primary inputs first.
-  r1cs_primary_input<Fr<alt_bn128_pp>> primary_input(full_variable_assignment.begin(), full_variable_assignment.begin() + inputs);
-  r1cs_primary_input<Fr<alt_bn128_pp>> auxiliary_input(full_variable_assignment.begin() + inputs, full_variable_assignment.end());
+  r1cs_primary_input<Fr<alt_bn128_pp>> primary_input(full_variable_assignment.begin(), full_variable_assignment.begin() + inputs-1);
+  r1cs_primary_input<Fr<alt_bn128_pp>> auxiliary_input(full_variable_assignment.begin() + inputs-1, full_variable_assignment.end());
 
   // for debugging
   cout << "full variable assignment :"<< endl << full_variable_assignment;
