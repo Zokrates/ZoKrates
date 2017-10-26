@@ -18,25 +18,37 @@ counter = counter + if e12 == e21 then 1 else 0 fi
 counter = counter + if e21 == e22 then 1 else 0 fi
 return counter
 
-def sum(e1,e2,e3,e3):
-return e1 + e2 + e3 + e4
-
-
-// def inOneToFour(x):
-// 1 == if x==1 then 1 else 0 fi + if x==2 then 1 else 0 fi + if x==3 then 1 else 0 fi + if x==4 then 1 else 0 fi
+// returns 0 for x in (1..4)
+def validateInput(x):
+return (x-1)*(x-2)*(x-3)*(x-4)
 
 def main(a11,a12,a21,a22,b11,b12,b21,b22):
 // variables naming: box'row''column'
-// counter globally counts duplicate entries in boxes, rows and columns
-counter = 0
+
+// validate inputs
+0 == validateInput(a11)
+0 == validateInput(a12)
+0 == validateInput(a21)
+0 == validateInput(a22)
+
+0 == validateInput(b11)
+0 == validateInput(b12)
+0 == validateInput(b21)
+0 == validateInput(b22)
+
+0 == validateInput(c11)
+0 == validateInput(c12)
+0 == validateInput(c21)
+0 == validateInput(c22)
+
+0 == validateInput(d11)
+0 == validateInput(d12)
+0 == validateInput(d21)
+0 == validateInput(d22)
+
+counter = 0 // globally counts duplicate entries in boxes, rows and columns
 
 // check box correctnes
-
-  // assert 1,2,3,4 are used as symbols
-  10 == sum(a11,a12,a21,a22)
-  10 == sum(b11,b12,b21,b22)
-  10 == sum(c11,c12,c21,c22)
-  10 == sum(d11,d12,d21,d22)
 
   // no duplicates
   counter = checkEquality(a11,a12,a21,a22)
@@ -46,22 +58,12 @@ counter = 0
 
 // check row correctnes
 
-  10 == sum(a11,a12,b11,b22)
-  10 == sum(a21,a22,b21,b22)
-  10 == sum(c11,c21,d11,d12)
-  10 == sum(c21,c22,d21,d22)
-
   counter = checkEquality(a11,a21,b11,b21)
   counter = counter + checkEquality(a21,a22,b21,b22)
   counter = counter + checkEquality(c11,c21,d11,d12)
   counter = counter + checkEquality(c21,c22,d21,d22)
 
 // check column correctnes
-
-  10 == sum(a11,a21,c11,c21)
-  10 == sum(a12,a22,c12,c22)
-  10 == sum(b11,b21,d11,d21)
-  10 == sum(b12,b22,d12,d22)
 
   counter = checkEquality(a11,a21,b11,b21)
   counter = counter + checkEquality(a21,a22,b21,b22)
