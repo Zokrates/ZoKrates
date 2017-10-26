@@ -289,21 +289,26 @@ bool _generate_proof(const char* pk_path, const uint8_t* public_inputs, int publ
   for (int i = 1; i < public_inputs_length; i++) {
     full_variable_assignment.push_back(Fr<alt_bn128_pp>(libsnarkBigintFromBytes(public_inputs + i*32)));
   }
-  for (int i = 1; i < private_inputs_length; i++) {
+  for (int i = 0; i < private_inputs_length; i++) {
     full_variable_assignment.push_back(Fr<alt_bn128_pp>(libsnarkBigintFromBytes(private_inputs + i*32)));
   }
 
   // split up variables into primary and auxiliary inputs. Does *NOT* include the constant 1 */
-  // Output variables belong to primary input, helper variables are auxiliary input.
-  r1cs_primary_input<Fr<alt_bn128_pp> > primary_input(full_variable_assignment.begin(), full_variable_assignment.begin() + public_inputs_length);
-  r1cs_primary_input<Fr<alt_bn128_pp> > auxiliary_input(full_variable_assignment.begin() + public_inputs_length, full_variable_assignment.end());
-
+  // Public variables belong to primary input, private variables are auxiliary input.
+  r1cs_primary_input<Fr<alt_bn128_pp>> primary_input(full_variable_assignment.begin(), full_variable_assignment.begin() + public_inputs_length-1);
+  r1cs_primary_input<Fr<alt_bn128_pp>> auxiliary_input(full_variable_assignment.begin() + public_inputs_length-1, full_variable_assignment.end());
   // for debugging
-  cout << "full variable assignment :"<< endl << full_variable_assignment;
+  cout << "full variable assignment:"<< endl << full_variable_assignment;
+  cout << "primary input:"<< endl << primary_input;
+  cout << "auxiliary input:"<< endl << auxiliary_input;
 
   // Proof Generation
   r1cs_ppzksnark_proof<alt_bn128_pp> proof = r1cs_ppzksnark_prover<alt_bn128_pp>(pk, primary_input, auxiliary_input);
 
+  // print proof
+  exportProof(proof);
+
+  return true;
 }
 
 
@@ -343,8 +348,8 @@ bool _run_libsnark(const uint8_t* A, const uint8_t* B, const uint8_t* C, const u
   // Output variables belong to primary input, helper variables are auxiliary input.
   // TODO: At the moment, this has implicit assumptions regarding ordering.
   // The inputs to the run_libsnark_functions need to put primary inputs first.
-  r1cs_primary_input<Fr<alt_bn128_pp> > primary_input(full_variable_assignment.begin(), full_variable_assignment.begin() + inputs);
-  r1cs_primary_input<Fr<alt_bn128_pp> > auxiliary_input(full_variable_assignment.begin() + inputs, full_variable_assignment.end());
+  r1cs_primary_input<Fr<alt_bn128_pp>> primary_input(full_variable_assignment.begin(), full_variable_assignment.begin() + inputs);
+  r1cs_primary_input<Fr<alt_bn128_pp>> auxiliary_input(full_variable_assignment.begin() + inputs, full_variable_assignment.end());
 
   // for debugging
   cout << "full variable assignment :"<< endl << full_variable_assignment;

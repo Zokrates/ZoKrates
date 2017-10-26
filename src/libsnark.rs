@@ -10,6 +10,7 @@ use self::libc::c_int;
 use self::libc::c_char;
 use self::libc::uint8_t;
 use std::ffi::CString;
+use std::cmp::max;
 
 use field::Field;
 
@@ -97,7 +98,11 @@ pub fn setup<T: Field> (
     }
 }
 
-pub fn generate_proof<T: Field>(pk_path: &str, public_inputs: Vec<T>, private_inputs: Vec<T>) -> bool {
+pub fn generate_proof<T: Field>(
+    pk_path: &str,
+    public_inputs: Vec<T>,
+    private_inputs: Vec<T>,
+) -> bool {
 
     let pk_path_cstring = CString::new(pk_path).unwrap();
 
@@ -105,7 +110,8 @@ pub fn generate_proof<T: Field>(pk_path: &str, public_inputs: Vec<T>, private_in
     let private_inputs_length = private_inputs.len();
 
     let mut public_inputs_arr: Vec<[u8; 32]> = vec![[0u8; 32]; public_inputs_length];
-    let mut private_inputs_arr: Vec<[u8; 32]> = vec![[0u8; 32]; private_inputs_length];
+    // length must not be zero here, so we apply the max function
+    let mut private_inputs_arr: Vec<[u8; 32]> = vec![[0u8; 32]; max(private_inputs_length,1)];
 
     //convert inputs
     for (index, value) in public_inputs.into_iter().enumerate() {

@@ -386,16 +386,17 @@ fn main() {
 
             // write variables meta information to file
             let var_inf_path = Path::new(sub_matches.value_of("meta-information").unwrap());
-            let var_inf_file = match File::open(&var_inf_path) {
+            let var_inf_file = match File::create(&var_inf_path) {
                 Ok(file) => file,
                 Err(why) => panic!("couldn't open {}: {}", var_inf_path.display(), why),
             };
             let mut bw = BufWriter::new(var_inf_file);
-                write!(&mut bw, "Private inputs offset: {}\n", private_inputs_offset).expect("Unable to write data to file.");
-                write!(&mut bw, "R1CS variable order: \n").expect("Unable to write data to file.");
+                write!(&mut bw, "Private inputs offset:\n{}\n", private_inputs_offset).expect("Unable to write data to file.");
+                write!(&mut bw, "R1CS variable order:\n").expect("Unable to write data to file.");
             for var in &variables {
                 write!(&mut bw, "{} ", var).expect("Unable to write data to file.");
             }
+            write!(&mut bw, "\n").expect("Unable to write data to file.");
             bw.flush().expect("Unable to flush buffer.");
 
 
@@ -583,14 +584,15 @@ fn main() {
 
             // get private inputs offset
             let private_inputs_offset;
-            if let Some(Ok(ref o)) = var_lines.next(){
+            if let Some(Ok(ref o)) = var_lines.nth(1){ // consumes first 2 lines
                 private_inputs_offset = o.parse().expect("Failed parsing private inputs offset");
             } else {
                 panic!("Error reading private inputs offset");
             }
+
             // get variables vector
             let mut variables: Vec<String> = Vec::new();
-            if let Some(Ok(ref v)) = var_lines.next(){
+            if let Some(Ok(ref v)) = var_lines.nth(1){
                 let iter = v.split_whitespace();
                 for i in iter {
                         variables.push(i.to_string());
@@ -605,7 +607,9 @@ fn main() {
 
             // split witness into public and private inputs at offset
             let mut public_inputs: Vec<_>= witness.clone();
+            println!("Public inputs: {:?}", public_inputs);
             let private_inputs: Vec<_> = public_inputs.split_off(private_inputs_offset);
+            println!("Private inputs: {:?}", private_inputs);
 
             let pk_path = sub_matches.value_of("provingkey").unwrap();
 
