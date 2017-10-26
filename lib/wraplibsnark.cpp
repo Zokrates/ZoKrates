@@ -221,29 +221,17 @@ void exportInput(r1cs_primary_input<Fr<alt_bn128_pp>> input){
 								cout << "\t\t}" << endl;
 }
 
-// compliant with solidty verification example
-void exportProof(r1cs_ppzksnark_proof<alt_bn128_pp> proof){
-                cout << "\tstruct Proof {\n"
-                   "\t\tPairing.G1Point A;\n"
-                   "\t\tPairing.G1Point A_p;\n"
-                   "\t\tPairing.G2Point B;\n"
-                   "\t\tPairing.G1Point B_p;\n"
-                   "\t\tPairing.G1Point C;\n"
-                   "\t\tPairing.G1Point C_p;\n"
-                   "\t\tPairing.G1Point K;\n"
-                   "\t\tPairing.G1Point H;\n"
-                 "\t}" << endl;
 
-                cout << "\t//Proof in Solidity compliant format:{" << endl;
-                cout << "\t\tproof.A = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_A.g) << ");" << endl;
-                cout << "\t\tproof.A_p = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_A.h) << ");" << endl;
-                cout << "\t\tproof.B = Pairing.G2Point(" << outputPointG2AffineAsHex(proof.g_B.g) << ");" << endl;
-                cout << "\t\tproof.B_p = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_B.h) << ");" << endl;
-                cout << "\t\tproof.C = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_C.g) << ");" << endl;
-                cout << "\t\tproof.C_p = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_C.h) << ");" << endl;
-                cout << "\t\tproof.H = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_H) << ");" << endl;
-                cout << "\t\tproof.K = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_K) << ");" << endl;
-                cout << "\t}" << endl;
+void printProof(r1cs_ppzksnark_proof<alt_bn128_pp> proof){
+                cout << "Proof:"<< endl;
+                cout << "A = " << outputPointG1AffineAsHex(proof.g_A.g)<< endl;
+                cout << "A_p = " << outputPointG1AffineAsHex(proof.g_A.h)<< endl;
+                cout << "B = " << outputPointG2AffineAsHex(proof.g_B.g)<< endl;
+                cout << "B_p = " << outputPointG1AffineAsHex(proof.g_B.h)<< endl;
+                cout << "C = " << outputPointG1AffineAsHex(proof.g_C.g)<< endl;
+                cout << "C_p = " << outputPointG1AffineAsHex(proof.g_C.h)<< endl;
+                cout << "H = " << outputPointG1AffineAsHex(proof.g_H)<< endl;
+                cout << "K = " << outputPointG1AffineAsHex(proof.g_K)<< endl;
 
 }
 
@@ -297,16 +285,18 @@ bool _generate_proof(const char* pk_path, const uint8_t* public_inputs, int publ
   // Public variables belong to primary input, private variables are auxiliary input.
   r1cs_primary_input<Fr<alt_bn128_pp>> primary_input(full_variable_assignment.begin(), full_variable_assignment.begin() + public_inputs_length-1);
   r1cs_primary_input<Fr<alt_bn128_pp>> auxiliary_input(full_variable_assignment.begin() + public_inputs_length-1, full_variable_assignment.end());
+
   // for debugging
-  cout << "full variable assignment:"<< endl << full_variable_assignment;
-  cout << "primary input:"<< endl << primary_input;
-  cout << "auxiliary input:"<< endl << auxiliary_input;
+  // cout << "full variable assignment:"<< endl << full_variable_assignment;
+  // cout << "primary input:"<< endl << primary_input;
+  // cout << "auxiliary input:"<< endl << auxiliary_input;
 
   // Proof Generation
   r1cs_ppzksnark_proof<alt_bn128_pp> proof = r1cs_ppzksnark_prover<alt_bn128_pp>(pk, primary_input, auxiliary_input);
 
   // print proof
-  exportProof(proof);
+  printProof(proof);
+  // TODO? print inputs
 
   return true;
 }
@@ -346,7 +336,7 @@ bool _run_libsnark(const uint8_t* A, const uint8_t* B, const uint8_t* C, const u
 
   // split up variables into primary and auxiliary inputs. Does *NOT* include the constant 1 */
   // Output variables belong to primary input, helper variables are auxiliary input.
-  // TODO: At the moment, this has implicit assumptions regarding ordering.
+  // Care! This has implicit assumptions regarding ordering.
   // The inputs to the run_libsnark_functions need to put primary inputs first.
   r1cs_primary_input<Fr<alt_bn128_pp>> primary_input(full_variable_assignment.begin(), full_variable_assignment.begin() + inputs);
   r1cs_primary_input<Fr<alt_bn128_pp>> auxiliary_input(full_variable_assignment.begin() + inputs, full_variable_assignment.end());
@@ -374,7 +364,7 @@ bool _run_libsnark(const uint8_t* A, const uint8_t* B, const uint8_t* C, const u
   r1cs_ppzksnark_proof<alt_bn128_pp> proof = r1cs_ppzksnark_prover<alt_bn128_pp>(keypair.pk, primary_input, auxiliary_input);
 
   // print proof
-  exportProof(proof);
+  printProof(proof);
 
   // Verification
   bool result = r1cs_ppzksnark_verifier_strong_IC<alt_bn128_pp>(keypair.vk, primary_input, proof);
