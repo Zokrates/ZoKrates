@@ -37,7 +37,7 @@ use flatten::Flattener;
 use r1cs::r1cs_program;
 use clap::{App, AppSettings, Arg, SubCommand};
 #[cfg(not(feature = "nolibsnark"))]
-use libsnark::{run_libsnark, setup};
+use libsnark::{run_libsnark, setup, generate_proof};
 use bincode::{serialize_into, deserialize_from , Infinite};
 use regex::Regex;
 
@@ -47,6 +47,7 @@ fn main() {
     const PROVING_KEY_DEFAULT_PATH: &str = "proving.key";
     const VERIFICATION_CONTRACT_DEFAULT_PATH: &str = "verifier.sol";
     const WITNESS_DEFAULT_PATH: &str = "witness";
+    const VARIABLES_INFORMATION_KEY_DEFAULT_PATH: &str = "variables.inf";
 
     // cli specification using clap library
     let matches = App::new("ZoKrates")
@@ -102,6 +103,15 @@ fn main() {
             .required(false)
             .default_value(VERIFICATION_KEY_DEFAULT_PATH)
         )
+        .arg(Arg::with_name("variables-inf")
+            .short("vi")
+            .long("variables-information")
+            .help("Path of variables information file.")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(VARIABLES_INFORMATION_KEY_DEFAULT_PATH)
+        )
     )
     .subcommand(SubCommand::with_name("export-verifier")
         .about("Exports a verifier as Solidity smart contract.")
@@ -156,7 +166,7 @@ fn main() {
         .arg(Arg::with_name("witness")
             .short("w")
             .long("witness")
-            .help("path of witness file.")
+            .help("Path of witness file.")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -165,11 +175,20 @@ fn main() {
         .arg(Arg::with_name("provingkey")
             .short("pk")
             .long("provingkey")
-            .help("path of proving key file.")
+            .help("Path of proving key file.")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
             .default_value(PROVING_KEY_DEFAULT_PATH)
+        )
+        .arg(Arg::with_name("variables-inf")
+            .short("vi")
+            .long("variables-information")
+            .help("Path of variables information file.")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(VARIABLES_INFORMATION_KEY_DEFAULT_PATH)
         )
     )
     .subcommand(SubCommand::with_name("shortcut")
@@ -365,7 +384,22 @@ fn main() {
             println!("{}", main_flattened);
 
             // transform to R1CS
-            let (variables, a, b, c) = r1cs_program(&program_ast);
+            let (variables, private_inputs_offset, a, b, c) = r1cs_program(&program_ast);
+
+            // write variables to file
+            let var_inf_path = Path::new(sub_matches.value_of("variables-inf").unwrap());
+            let var_inf_file = match File::open(&var_inf_path) {
+                Ok(file) => file,
+                Err(why) => panic!("couldn't open {}: {}", var_inf_path.display(), why),
+            };
+            let mut bw = BufWriter::new(var_inf_file);
+                write!(&mut bw, "Private inputs offset: {}\n", private_inputs_offset).expect("Unable to write data to file.");
+                write!(&mut bw, "R1CS variable order: \n").expect("Unable to write data to file.");
+            for var in &variables {
+                write!(&mut bw, "{} ", var).expect("Unable to write data to file.");
+            }
+            bw.flush().expect("Unable to flush buffer.");
+
 
             // get paths for proving and verification keys
             let pk_path = sub_matches.value_of("proving-key-path").unwrap();
@@ -436,7 +470,7 @@ fn main() {
                 None => println!("~out not found, no value returned")
             }
 
-            let (variables, a, b, c) = r1cs_program(&program_ast);
+            let (variables, _, a, b, c) = r1cs_program(&program_ast);
 
             let witness: Vec<_> = variables.iter().map(|x| witness_map[x].clone()).collect();
 
@@ -540,10 +574,42 @@ fn main() {
                 }
             }
 
+            // determine variable order
+            let var_inf_path = Path::new(sub_matches.value_of("variables-inf").unwrap());
+            let var_inf_file = match File::open(&var_inf_path) {
+                Ok(file) => file,
+                Err(why) => panic!("couldn't open {}: {}", var_inf_path.display(), why),
+            };
+            let var_reader = BufReader::new(var_inf_file);
+            let mut var_lines = var_reader.lines();
+
+            // get private inputs offset
+            let private_inputs_offset;
+            if let Some(Ok(ref o)) = var_lines.next(){
+                private_inputs_offset = o.parse().expect("Failed parsing private inputs offset");
+            } else {
+                panic!("Error reading private inputs offset");
+            }
+            // get variables vector
+            let mut variables: Vec<String> = Vec::new();
+            if let Some(Ok(ref v)) = var_lines.next(){
+                let iter = v.split_whitespace();
+                for i in iter {
+                        variables.push(i.to_string());
+                }
+            } else {
+                panic!("Error reading variables.");
+            }
+
             println!("Using Witness: {:?}", witness_map);
 
             let witness: Vec<_> = variables.iter().map(|x| witness_map[x].clone()).collect();
-            let pk_path = Path::new(sub_matches.value_of("provingkey").unwrap());
+
+            // split witness into public and private inputs at offset
+            let mut public_inputs: Vec<_>= witness.clone();
+            let private_inputs: Vec<_> = public_inputs.split_off(private_inputs_offset);
+
+            let pk_path = sub_matches.value_of("provingkey").unwrap();
 
             // run libsnark
             #[cfg(not(feature="nolibsnark"))]{

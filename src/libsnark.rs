@@ -30,9 +30,11 @@ extern "C" {
         vk_path: *const c_char,
     ) -> bool;
 
-    fn _generate_proof(pk_path: *const char,
-                witness: *const uint8_t,
-                witness_length: c_int,
+    fn _generate_proof(pk_path: *const c_char,
+                public_inputs: *const uint8_t,
+                public_inputs_length: c_int,
+                private_inputs: *const uint8_t,
+                private_inputs_length: c_int,
             ) -> bool;
 
     fn _run_libsnark(
@@ -95,7 +97,7 @@ pub fn setup<T: Field> (
     }
 }
 
-pub fn generate_proof<T: Field>(pk_path: &str, public_inputs: Vec<T>, private_inputs: Vec<T>) {
+pub fn generate_proof<T: Field>(pk_path: &str, public_inputs: Vec<T>, private_inputs: Vec<T>) -> bool {
 
     let pk_path_cstring = CString::new(pk_path).unwrap();
 

@@ -274,6 +274,7 @@ pub fn r1cs_program<T: Field>(
     prog: &Prog<T>,
 ) -> (
     Vec<String>,
+    usize,
     Vec<Vec<(usize, T)>>,
     Vec<Vec<(usize, T)>>,
     Vec<Vec<(usize, T)>>,
@@ -293,6 +294,9 @@ pub fn r1cs_program<T: Field>(
     // ~out is added after main's arguments as we want variables (columns)
     // in the r1cs to be aligned like "public inputs | private inputs"
     variables.push("~out".to_string());
+
+    // position where private part of witness starts
+    let private_inputs_offset = variables.len();
 
     for def in &main.statements {
         let mut a_row: Vec<(usize, T)> = Vec::new();
@@ -330,7 +334,7 @@ pub fn r1cs_program<T: Field>(
         b.push(b_row);
         c.push(c_row);
     }
-    (variables, a, b, c)
+    (variables, private_inputs_offset, a, b, c)
 }
 
 #[cfg(test)]
