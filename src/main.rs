@@ -103,10 +103,10 @@ fn main() {
             .required(false)
             .default_value(VERIFICATION_KEY_DEFAULT_PATH)
         )
-        .arg(Arg::with_name("information-variables")
-            .short("i")
-            .long("information-variables")
-            .help("Path of variables information file.")
+        .arg(Arg::with_name("meta-information")
+            .short("m")
+            .long("meta-information")
+            .help("Path of file containing meta information for variable transformation.")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -179,10 +179,10 @@ fn main() {
             .takes_value(true)
             .required(false)
             .default_value(PROVING_KEY_DEFAULT_PATH)
-        ).arg(Arg::with_name("information-variables")
+        ).arg(Arg::with_name("meta-information")
             .short("i")
-            .long("information-variables")
-            .help("Path of variables information file.")
+            .long("meta-information")
+            .help("Path of file containing meta information for variable transformation.")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -384,8 +384,8 @@ fn main() {
             // transform to R1CS
             let (variables, private_inputs_offset, a, b, c) = r1cs_program(&program_ast);
 
-            // write variables to file
-            let var_inf_path = Path::new(sub_matches.value_of("variables-inf").unwrap());
+            // write variables meta information to file
+            let var_inf_path = Path::new(sub_matches.value_of("meta-information").unwrap());
             let var_inf_file = match File::open(&var_inf_path) {
                 Ok(file) => file,
                 Err(why) => panic!("couldn't open {}: {}", var_inf_path.display(), why),
@@ -573,7 +573,7 @@ fn main() {
             }
 
             // determine variable order
-            let var_inf_path = Path::new(sub_matches.value_of("variables-inf").unwrap());
+            let var_inf_path = Path::new(sub_matches.value_of("meta-information").unwrap());
             let var_inf_file = match File::open(&var_inf_path) {
                 Ok(file) => file,
                 Err(why) => panic!("couldn't open {}: {}", var_inf_path.display(), why),
