@@ -2,6 +2,7 @@
 //!
 //! @file r1cs.rs
 //! @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
+//! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de
 //! @date 2017
 
 use std::collections::HashMap;
@@ -150,6 +151,7 @@ fn r1cs_expression<T: Field>(
     c_row: &mut Vec<(usize, T)>,
 ) {
     assert!(linear_expr.is_linear());
+
     match expr {
         e @ Add(..) | e @ Sub(..) => {
             let (lhs, rhs) = swap_sub(&linear_expr, &e);
@@ -288,6 +290,10 @@ pub fn r1cs_program<T: Field>(
         .find(|x: &&Function<T>| x.id == "main".to_string())
         .unwrap();
     variables.extend(main.arguments.iter().map(|x| format!("{}", x)));
+    // ~out is added after main's arguments as we want variables (columns)
+    // in the r1cs to be aligned like "public inputs | private inputs"
+    variables.push("~out".to_string());
+
     for def in &main.statements {
         let mut a_row: Vec<(usize, T)> = Vec::new();
         let mut b_row: Vec<(usize, T)> = Vec::new();

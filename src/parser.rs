@@ -51,7 +51,7 @@
 //         | `(' <expr> `)' <factor'>
 //         | <ide> <factor'>
 //         | <num> <factor'>
-//         | <ide> `(' <arguments> `)' <factor'>
+//         | <ide> `(' <expressions> `)' <factor'>
 //
 // <factor'> ::= <term'> <expr'> `**' <num>
 //         | $\varepsilon$

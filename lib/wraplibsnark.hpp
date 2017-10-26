@@ -22,6 +22,13 @@ bool _setup(const uint8_t* A,
             const char* vk_path
           );
 
+bool _generate_proof(const char* pk_path,
+            const uint8_t* public_inputs,
+            int public_inputs_length,
+            const uint8_t* private_inputs,
+            int private_inputs_length
+          );
+
 // entrypoint, wraps the whole process, probably should be removed later
 bool _run_libsnark(const uint8_t* A,
                    const uint8_t* B,

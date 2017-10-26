@@ -152,27 +152,31 @@ T loadFromFile(std::string path) {
     return obj;
 }
 
-void serializeProvingKeyToFile(r1cs_ppzksnark_keypair<alt_bn128_pp> keypair, const char* pk_path){
-  writeToFile(pk_path, keypair.pk);
+void serializeProvingKeyToFile(r1cs_ppzksnark_proving_key<alt_bn128_pp> pk, const char* pk_path){
+  writeToFile(pk_path, pk);
 }
 
-void serializeVerificationKeyToFile(r1cs_ppzksnark_keypair<alt_bn128_pp> keypair, const char* vk_path){
+r1cs_ppzksnark_proving_key<alt_bn128_pp> deserializeProvingKeyFromFile(const char* pk_path){
+  return loadFromFile<r1cs_ppzksnark_proving_key<alt_bn128_pp>>(pk_path);
+}
+
+void serializeVerificationKeyToFile(r1cs_ppzksnark_verification_key<alt_bn128_pp> vk, const char* vk_path){
   std::stringstream ss;
 
-  unsigned icLength = keypair.vk.encoded_IC_query.rest.indices.size() + 1;
+  unsigned icLength = vk.encoded_IC_query.rest.indices.size() + 1;
 
-  ss << "\t\tvk.A = " << outputPointG2AffineAsHex(keypair.vk.alphaA_g2) << endl;
-  ss << "\t\tvk.B = " << outputPointG1AffineAsHex(keypair.vk.alphaB_g1) << endl;
-  ss << "\t\tvk.C = " << outputPointG2AffineAsHex(keypair.vk.alphaC_g2) << endl;
-  ss << "\t\tvk.gamma = " << outputPointG2AffineAsHex(keypair.vk.gamma_g2) << endl;
-  ss << "\t\tvk.gammaBeta1 = " << outputPointG1AffineAsHex(keypair.vk.gamma_beta_g1) << endl;
-  ss << "\t\tvk.gammaBeta2 = " << outputPointG2AffineAsHex(keypair.vk.gamma_beta_g2) << endl;
-  ss << "\t\tvk.Z = " << outputPointG2AffineAsHex(keypair.vk.rC_Z_g2) << endl;
+  ss << "\t\tvk.A = " << outputPointG2AffineAsHex(vk.alphaA_g2) << endl;
+  ss << "\t\tvk.B = " << outputPointG1AffineAsHex(vk.alphaB_g1) << endl;
+  ss << "\t\tvk.C = " << outputPointG2AffineAsHex(vk.alphaC_g2) << endl;
+  ss << "\t\tvk.gamma = " << outputPointG2AffineAsHex(vk.gamma_g2) << endl;
+  ss << "\t\tvk.gammaBeta1 = " << outputPointG1AffineAsHex(vk.gamma_beta_g1) << endl;
+  ss << "\t\tvk.gammaBeta2 = " << outputPointG2AffineAsHex(vk.gamma_beta_g2) << endl;
+  ss << "\t\tvk.Z = " << outputPointG2AffineAsHex(vk.rC_Z_g2) << endl;
   ss << "\t\tvk.IC.len() = " << icLength << endl;
-  ss << "\t\tvk.IC[0] = " << outputPointG1AffineAsHex(keypair.vk.encoded_IC_query.first) << endl;
+  ss << "\t\tvk.IC[0] = " << outputPointG1AffineAsHex(vk.encoded_IC_query.first) << endl;
   for (size_t i = 1; i < icLength; ++i)
   {
-                  auto vkICi = outputPointG1AffineAsHex(keypair.vk.encoded_IC_query.rest.values[i - 1]);
+                  auto vkICi = outputPointG1AffineAsHex(vk.encoded_IC_query.rest.values[i - 1]);
                   ss << "\t\tvk.IC[" << i << "] = " << vkICi << endl;
   }
 
@@ -262,14 +266,46 @@ bool _setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int constraint
   r1cs_ppzksnark_keypair<alt_bn128_pp> keypair = r1cs_ppzksnark_generator<alt_bn128_pp>(cs);
 
   // Export vk and pk to files
-  serializeProvingKeyToFile(keypair, pk_path);
-  serializeVerificationKeyToFile(keypair, vk_path);
+  serializeProvingKeyToFile(keypair.pk, pk_path);
+  serializeVerificationKeyToFile(keypair.vk, vk_path);
 
   // Print VerificationKey in Solidity compatible format
   exportVerificationKey(keypair);
 
   return true;
 }
+
+bool _generate_proof(const char* pk_path, const uint8_t* public_inputs, int public_inputs_length, const uint8_t* private_inputs, int private_inputs_length)
+{
+  libsnark::inhibit_profiling_info = true;
+  libsnark::inhibit_profiling_counters = true;
+
+  //initialize curve parameters
+  alt_bn128_pp::init_public_params();
+  r1cs_ppzksnark_proving_key<alt_bn128_pp> pk = deserializeProvingKeyFromFile(pk_path);
+
+  // assign variables based on witness values, excludes ~one
+  r1cs_variable_assignment<Fr<alt_bn128_pp> > full_variable_assignment;
+  for (int i = 1; i < public_inputs_length; i++) {
+    full_variable_assignment.push_back(Fr<alt_bn128_pp>(libsnarkBigintFromBytes(public_inputs + i*32)));
+  }
+  for (int i = 1; i < private_inputs_length; i++) {
+    full_variable_assignment.push_back(Fr<alt_bn128_pp>(libsnarkBigintFromBytes(private_inputs + i*32)));
+  }
+
+  // split up variables into primary and auxiliary inputs. Does *NOT* include the constant 1 */
+  // Output variables belong to primary input, helper variables are auxiliary input.
+  r1cs_primary_input<Fr<alt_bn128_pp> > primary_input(full_variable_assignment.begin(), full_variable_assignment.begin() + public_inputs_length);
+  r1cs_primary_input<Fr<alt_bn128_pp> > auxiliary_input(full_variable_assignment.begin() + public_inputs_length, full_variable_assignment.end());
+
+  // for debugging
+  cout << "full variable assignment :"<< endl << full_variable_assignment;
+
+  // Proof Generation
+  r1cs_ppzksnark_proof<alt_bn128_pp> proof = r1cs_ppzksnark_prover<alt_bn128_pp>(pk, primary_input, auxiliary_input);
+
+}
+
 
 bool _run_libsnark(const uint8_t* A, const uint8_t* B, const uint8_t* C, const uint8_t* witness, int constraints, int variables, int inputs)
 {

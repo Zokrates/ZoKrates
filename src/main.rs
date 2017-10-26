@@ -28,7 +28,7 @@ use std::fs::File;
 use std::path::Path;
 use std::io::{BufWriter, Write, BufReader, BufRead};
 use std::collections::HashMap;
-use std::string::String; 
+use std::string::String;
 use std::io::prelude::*;
 use field::{Field, FieldPrime};
 use absy::Prog;
@@ -191,22 +191,22 @@ fn main() {
             .required(false)
         )
     )
-    .subcommand(SubCommand::with_name("deploy-verifier")
-        .about("Deploys a given verification contract to the Ethereum network the current web3 provider is connected to.")
-        .arg(Arg::with_name("input")
-            .short("i")
-            .long("input")
-            .help("Solidity contract code.")
-            .value_name("FILE")
-            .takes_value(true)
-            .required(true)
-        ).arg(Arg::with_name("account")
-            .short("acc")
-            .long("account")
-            .help("Address of the account triggering the Ethereum Transaction.")
-            .takes_value(true)
-        )
-    )
+    // .subcommand(SubCommand::with_name("deploy-verifier")
+    //     .about("Deploys a given verification contract to the Ethereum network the current web3 provider is connected to.")
+    //     .arg(Arg::with_name("input")
+    //         .short("i")
+    //         .long("input")
+    //         .help("Solidity contract code.")
+    //         .value_name("FILE")
+    //         .takes_value(true)
+    //         .required(true)
+    //     ).arg(Arg::with_name("account")
+    //         .short("acc")
+    //         .long("account")
+    //         .help("Address of the account triggering the Ethereum Transaction.")
+    //         .takes_value(true)
+    //     )
+    // )
     .get_matches();
 
     match matches.subcommand() {
@@ -278,7 +278,6 @@ fn main() {
             };
 
             // make sure the input program is actually flattened.
-            // TODO: is_flattened should be provided as method of Prog in absy.
             let main_flattened = program_ast
                 .functions
                 .iter()
@@ -326,12 +325,9 @@ fn main() {
             };
             let mut bw = BufWriter::new(output_file);
             for (var, val) in &witness_map {
-                // TODO: Serialize PrimeField Elements
                 println!("{}:{:?}",var, val.to_dec_string());
                 write!(&mut bw, "{} {}\n", var, val.to_dec_string()).expect("Unable to write data to file.");
-                //write!(&mut bw, "{} {}\n", var, String::from_utf8(val.into_byte_vector()).unwrap()).expect("Unable to write data to file.");
             }
-
             bw.flush().expect("Unable to flush buffer.");
 
         }
@@ -461,7 +457,7 @@ fn main() {
             };
             let reader = BufReader::new(input_file);
             let mut lines = reader.lines();
-            
+
             //TODO: Parse input file!
 
             //read template
@@ -496,7 +492,7 @@ fn main() {
 
             template_text = vk_ic_len_regex.replace(template_text.as_str(), format!("{}", ic_count).as_str()).into_owned();
             template_text = vk_input_len_regex.replace(template_text.as_str(), format!("{}", ic_count-1).as_str()).into_owned();
-            
+
             let mut ic_repeat_text = String::new();
             for x in 0..ic_count {
                 let mut curr_template = ic_template.clone();
@@ -545,15 +541,21 @@ fn main() {
                 }
             }
 
-            println!("Witness: {:?}", witness_map);
+            println!("Using Witness: {:?}", witness_map);
+
+            let witness: Vec<_> = variables.iter().map(|x| witness_map[x].clone()).collect();
+            let pk_path = Path::new(sub_matches.value_of("provingkey").unwrap());
+
+            // run libsnark
+            #[cfg(not(feature="nolibsnark"))]{
+                println!("generate-proof successful: {:?}", generate_proof(pk_path, public_inputs, private_inputs));
+            }
 
         }
-        ("deploy-verifier", Some(_)) => {
-            println!("Deploying verifier...");
-            //TODO Steffen
-            // use https://github.com/tomusdrw/rust-web3 for blockchain interaction
-            // and https://doc.rust-lang.org/std/process/struct.Command.html for solc
-        }
+        // ("deploy-verifier", Some(_)) => {
+        //     println!("Deploying verifier...");
+        //     //TODO Steffen
+        // }
         _ => unimplemented!(), // Either no subcommand or one not tested for...
     }
 

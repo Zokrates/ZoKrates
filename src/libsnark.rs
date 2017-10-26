@@ -18,15 +18,6 @@ use field::Field;
 #[link(name = "gmp")]
 #[link(name = "gmpxx")]
 extern "C" {
-    fn _run_libsnark(
-        A: *const uint8_t,
-        B: *const uint8_t,
-        C: *const uint8_t,
-        witness: *const uint8_t,
-        constraints: c_int,
-        variables: c_int,
-        inputs: c_int,
-    ) -> bool;
 
     fn _setup(
         A: *const uint8_t,
@@ -38,6 +29,22 @@ extern "C" {
         pk_path: *const c_char,
         vk_path: *const c_char,
     ) -> bool;
+
+    fn _generate_proof(pk_path: *const char,
+                witness: *const uint8_t,
+                witness_length: c_int,
+            ) -> bool;
+
+    fn _run_libsnark(
+        A: *const uint8_t,
+        B: *const uint8_t,
+        C: *const uint8_t,
+        witness: *const uint8_t,
+        constraints: c_int,
+        variables: c_int,
+        inputs: c_int,
+    ) -> bool;
+
 }
 
 pub fn setup<T: Field> (
@@ -84,6 +91,35 @@ pub fn setup<T: Field> (
             num_inputs as i32,
             pk_path_cstring.as_ptr(),
             vk_path_cstring.as_ptr()
+        )
+    }
+}
+
+pub fn generate_proof<T: Field>(pk_path: &str, public_inputs: Vec<T>, private_inputs: Vec<T>) {
+
+    let pk_path_cstring = CString::new(pk_path).unwrap();
+
+    let public_inputs_length = public_inputs.len();
+    let private_inputs_length = private_inputs.len();
+
+    let mut public_inputs_arr: Vec<[u8; 32]> = vec![[0u8; 32]; public_inputs_length];
+    let mut private_inputs_arr: Vec<[u8; 32]> = vec![[0u8; 32]; private_inputs_length];
+
+    //convert inputs
+    for (index, value) in public_inputs.into_iter().enumerate() {
+        public_inputs_arr[index] = vec_as_u8_32_array(&value.into_byte_vector());
+    }
+    for (index, value) in private_inputs.into_iter().enumerate() {
+        private_inputs_arr[index] = vec_as_u8_32_array(&value.into_byte_vector());
+    }
+
+    unsafe {
+        _generate_proof(
+            pk_path_cstring.as_ptr(),
+            public_inputs_arr[0].as_ptr(),
+            public_inputs_length as i32,
+            private_inputs_arr[0].as_ptr(),
+            private_inputs_length as i32
         )
     }
 }
