@@ -5,6 +5,6 @@ def add(a,b):
 // Expected for inputs 1,1: c=4, d=4, e=4
 def main(a,b):
    c = add(a*2+3*b-a,b-1)
-   d = add(a*b+2, a*b*b)
-   e = add(add(a,b),add(a,b))
-  return d
+   d = add(a*b+2, a*b*c)
+   e = add(add(a,d),add(a,b))
+  return e
