@@ -347,7 +347,7 @@ impl<T: Field> Expression<T> {
             }
             Expression::Mult(ref x, ref y) | Expression::Div(ref x, ref y) => {
                 match (x.clone(), y.clone()) {
-                    (box Expression::Sub(..), _) | (_, box Expression::Sub(..)) => false,
+                    // (box Expression::Sub(..), _) | (_, box Expression::Sub(..)) => false,
                     (box x, box y) => x.is_linear() && y.is_linear(),
                 }
             }
