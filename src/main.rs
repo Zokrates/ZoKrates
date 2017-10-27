@@ -342,7 +342,7 @@ fn main() {
             };
             let mut bw = BufWriter::new(output_file);
             for (var, val) in &witness_map {
-                println!("{}:{:?}",var, val.to_dec_string());
+                // println!("{}:{:?}",var, val.to_dec_string());
                 write!(&mut bw, "{} {}\n", var, val.to_dec_string()).expect("Unable to write data to file.");
             }
             bw.flush().expect("Unable to flush buffer.");
