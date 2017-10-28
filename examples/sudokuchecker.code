@@ -9,7 +9,6 @@
 // | c21 | c22 || d21 | d22 |
 
 def checkEquality(e11,e12,e21,e22):
-counter = 0
 counter = if e11 == e12 then 1 else 0 fi
 counter = counter + if e11 == e21 then 1 else 0 fi
 counter = counter + if e11 == e22 then 1 else 0 fi
@@ -51,21 +50,21 @@ counter = 0 // globally counts duplicate entries in boxes, rows and columns
 // check box correctnes
 
   // no duplicates
-  counter = checkEquality(a11,a12,a21,a22)
+  counter = counter + checkEquality(a11,a12,a21,a22)
   counter = counter + checkEquality(b11,b12,b21,b22)
   counter = counter + checkEquality(c11,c12,c21,c22)
   counter = counter + checkEquality(d11,d12,d21,d22)
 
 // check row correctnes
 
-  counter = checkEquality(a11,a21,b11,b21)
+  counter = counter + checkEquality(a11,a21,b11,b21)
   counter = counter + checkEquality(a21,a22,b21,b22)
   counter = counter + checkEquality(c11,c21,d11,d12)
   counter = counter + checkEquality(c21,c22,d21,d22)
 
 // check column correctnes
 
-  counter = checkEquality(a11,a21,b11,b21)
+  counter = counter + checkEquality(a11,a21,b11,b21)
   counter = counter + checkEquality(a21,a22,b21,b22)
   counter = counter + checkEquality(c11,c21,d11,d12)
   counter = counter + checkEquality(c21,c22,d21,d22)
