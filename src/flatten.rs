@@ -471,19 +471,24 @@ impl Flattener {
                                 Statement::Return(x) => {
                                     let result = x.apply_substitution(&temp_substitution)
                                         .apply_substitution(&self.substitution);
+                                    println!("substitutions:\n {:?}", &self.substitution);
                                     return result;
                                 }
                                 Statement::Definition(var, rhs) => {
                                     let new_rhs = rhs.apply_substitution(&temp_substitution)
                                         .apply_substitution(&self.substitution);
+                                    let subsvar = self.use_variable(&var);
+                                    temp_substitution.insert(var.clone(), subsvar.clone());
                                     statements_flattened.push(
-                                        Statement::Definition(self.use_variable(&var), new_rhs),
+                                        Statement::Definition(subsvar, new_rhs),
                                     );
                                 }
                                 Statement::Compiler(var, rhs) => {
                                     let new_rhs = rhs.apply_substitution(&temp_substitution)
                                         .apply_substitution(&self.substitution);
-                                    statements_flattened.push(Statement::Compiler(self.use_variable(&var), new_rhs));
+                                    let subsvar = self.use_variable(&var);
+                                    temp_substitution.insert(var.clone(), subsvar.clone());
+                                    statements_flattened.push(Statement::Compiler(subsvar, new_rhs));
                                 }
                                 Statement::Condition(lhs, rhs) => {
                                     let new_lhs = lhs.apply_substitution(&temp_substitution)
