@@ -458,7 +458,9 @@ impl Flattener {
                                 params_flattened.get(i).unwrap().id.clone();
                             let identifier_called: String =
                                 funct.arguments.get(i).unwrap().id.clone();
-                            temp_substitution.insert(identifier_called, identifier_call);
+                            if identifier_called != identifier_call{
+                                temp_substitution.insert(identifier_called, identifier_call);
+                            }
                         }
                         println!("Param substitutions: {:?}", temp_substitution);
 
@@ -471,7 +473,7 @@ impl Flattener {
                                 Statement::Return(x) => {
                                     let result = x.apply_substitution(&temp_substitution)
                                         .apply_substitution(&self.substitution);
-                                    println!("substitutions:\n {:?}", &self.substitution);
+                                    println!("function return substitutions:\n {:?}", &self.substitution);
                                     return result;
                                 }
                                 Statement::Definition(var, rhs) => {
@@ -532,6 +534,7 @@ impl Flattener {
                     statements_flattened,
                     expr_subbed,
                 );
+                println!("substitution at return: {:?}", &self.substitution);
                 statements_flattened.push(Statement::Return(rhs));
             }
             Statement::Definition(ref id, ref expr) => {
