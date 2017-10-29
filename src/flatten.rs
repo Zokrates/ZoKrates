@@ -484,9 +484,6 @@ impl Flattener {
                                     for v in used_vars{
                                         self.variables.insert(v);
                                     }
-                                    // for (k,v) in replacement_map{
-                                    //     self.substitution.insert(k,v);
-                                    // }
                                     return result;
                                 }
                                 Statement::Definition(var, rhs) => {
