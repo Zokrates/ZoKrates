@@ -484,9 +484,9 @@ impl Flattener {
                                     for v in used_vars{
                                         self.variables.insert(v);
                                     }
-                                    for (k,v) in replacement_map{
-                                        self.substitution.insert(k,v);
-                                    }
+                                    // for (k,v) in replacement_map{
+                                    //     self.substitution.insert(k,v);
+                                    // }
                                     return result;
                                 }
                                 Statement::Definition(var, rhs) => {
@@ -561,8 +561,9 @@ impl Flattener {
                 );
                 let var = self.use_variable(&id);
                 // handle return of function call
-                if !(var == *id) && self.variables.contains(id) && !self.substitution.contains_key(id){
-                    self.substitution.insert(id.clone().to_string(),var.clone());
+                let var_to_replace = self.get_latest_var_substitution(&id);
+                if !(var == var_to_replace) && self.variables.contains(&var_to_replace) && !self.substitution.contains_key(&var_to_replace){
+                    self.substitution.insert(var_to_replace.clone().to_string(),var.clone());
                 }
                 println!("substitution: {:?}",self.substitution);
                 statements_flattened.push(Statement::Definition(var, rhs));
@@ -693,6 +694,16 @@ impl Flattener {
                         .insert(format!("{}_{}", name, i - 2), new_name.to_string());
                 }
                 return new_name;
+            }
+        }
+    }
+
+    fn get_latest_var_substitution(&mut self, name: &String)->String{
+        let mut latest_var = name.to_string();
+        loop {
+            match self.substitution.get(&latest_var) {
+                Some(x) => latest_var = x.to_string(),
+                None => return latest_var,
             }
         }
     }
