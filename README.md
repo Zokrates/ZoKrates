@@ -1,60 +1,54 @@
-# VerifiableStatementCompiler
+# ZoKrates
 
-## Using VerifiableStatementCompiler
+## Using ZoKrates
 
-Set the libsnark library path in `LD_LIBRARY_PATH`
-```
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
-```
+ZoKrates provides a command line interface.
+To see an overview of the available subcommands, run
 
-Command
 ```
-./code_to_r1cs program [inputs]
+./zokrates
 ```
-- `program`: Path to the program that you want to be compiled.
-- `inputs` (optional): String of variable assignments of the inputs of a program split with whitespaces.<br>
 
 ### Example
 
-To execute the program
+To execute the program, perform the setup for the program, generate a proof
 ```
 def add(a, b, c):
   return a + b + c
 ```
 with `add(1, 2, 3)`, call
 ```
-./code_to_r1cs program "1 2 3"
+./zokrates compile -i 'add.code_path'
+./zokrates compute-witness -a 1 2 3
+./zokrates setup
+./zokrates generate-proof
+./zokrates export-verifier
 ```
 
 ## Building
 
 Currently needs to be build with nightly Rust.
 
-### Docker
+### Docker (Recommended)
 
 Example usage:
 ```
-docker build -t verifiablestatementcompiler .
-docker run -ti verifiablestatementcompiler /bin/bash
-cd VerifiableStatementCompiler
-./target/debug/code_to_r1cs examples/add.code "3"
-```
-
-### With libsnark
-
-Install [libsnark](https://github.com/scipr-lab/libsnark) to `/usr/local` with
-```
-make install lib PREFIX=/usr/local NO_PROCPS=1 NO_GTEST=1 NO_DOCS=1 CURVE=ALT_BN128 FEATUREFLAGS="-DBINARY_OUTPUT=1 -DMONTGOMERY_OUTPUT=1 -DNO_PT_COMPRESSION=1"
-```
-and build with
-```
-cargo build
+docker build -t zokrates .
+docker run -ti zokrates /bin/bash
+cd zokrates
+./target/debug/zokrates compile -i examples/add.code
 ```
 
 ### Without libsnark
 Build with the feature `nolibsnark`
 ```
 cargo build --features nolibsnark
+```
+
+### Environment Variables
+Set the libsnark library path in `LD_LIBRARY_PATH`
+```
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 ```
 
 ## Testing

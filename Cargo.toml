@@ -1,7 +1,7 @@
 [package]
-name = "code_to_r1cs"
+name = "zokrates"
 version = "0.1.0"
-authors = ["Dennis Kuhnert <mail@kyroy.com>"]
+authors = ["Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>", "Dennis Kuhnert <mail@kyroy.com>"]
 repository = "https://github.com/Kyroy/VerifiableStatementCompiler.git"
 readme = "README.md"
 build = "build.rs"
@@ -13,6 +13,13 @@ nolibsnark = []
 libc = "0.2.0"
 num = "0.1.36"
 lazy_static = "0.1.*"
+# cli
+clap = "2.26.2"
+# serialization and deserialization
+serde = "1.0"
+serde_derive = "1.0"
+bincode = "0.8.0"
+regex = "0.2"
 
 [dev-dependencies]
 glob = "0.2.11"

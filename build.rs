@@ -1,8 +1,8 @@
-#[cfg(not(feature="nolibsnark"))]
+#[cfg(not(feature = "nolibsnark"))]
 extern crate gcc;
 
 fn main() {
-    #[cfg(not(feature="nolibsnark"))]
+    #[cfg(not(feature = "nolibsnark"))]
     {
         println!("cargo:rustc-link-search=/usr/local/lib");
         gcc::Config::new()

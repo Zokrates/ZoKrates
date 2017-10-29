@@ -2,6 +2,7 @@
 //!
 //! @file r1cs.rs
 //! @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
+//! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de
 //! @date 2017
 
 use std::collections::HashMap;
@@ -25,14 +26,15 @@ fn get_summands<T: Field>(expr: &Expression<T>) -> Vec<&Expression<T>> {
     loop {
         if let Some(e) = trace.pop() {
             match *e {
-                ref e @ Number(_) |
-                ref e @ Identifier(_) |
-                ref e @ Mult(..) |
-                ref e @ Sub(..) if e.is_linear() => add.push(e),
+                ref e @ Number(_) | ref e @ Identifier(_) | ref e @ Mult(..) | ref e @ Sub(..)
+                    if e.is_linear() =>
+                {
+                    add.push(e)
+                }
                 Add(ref l, ref r) => {
                     trace.push(l);
                     trace.push(r);
-                },
+                }
                 ref e => panic!("Not covered: {}", e),
             }
         } else {
@@ -58,20 +60,20 @@ fn count_variables_add<T: Field>(expr: &Expression<T>) -> HashMap<String, T> {
             Number(ref x) => {
                 let num = count.entry("~one".to_string()).or_insert(T::zero());
                 *num = num.clone() + x;
-            },
+            }
             Identifier(ref v) => {
                 let num = count.entry(v.to_string()).or_insert(T::zero());
                 *num = num.clone() + T::one();
-            },
+            }
             Mult(box Number(ref x1), box Number(ref x2)) => {
                 let num = count.entry("~one".to_string()).or_insert(T::zero());
                 *num = num.clone() + x1 + x2;
-            },
+            }
             Mult(box Number(ref x), box Identifier(ref v)) |
             Mult(box Identifier(ref v), box Number(ref x)) => {
                 let num = count.entry(v.to_string()).or_insert(T::zero());
                 *num = num.clone() + x;
-            },
+            }
             ref e => panic!("Not covered: {}", e),
         }
     }
@@ -92,29 +94,25 @@ fn swap_sub<T: Field>(lhs: &Expression<T>, rhs: &Expression<T>) -> (Expression<T
         run = false;
         for i in 0..left.len() {
             match *left[i] {
-                ref e @ Number(_) |
-                ref e @ Identifier(_) |
-                ref e @ Mult(..) if e.is_linear() => {},
+                ref e @ Number(_) | ref e @ Identifier(_) | ref e @ Mult(..) if e.is_linear() => {}
                 Sub(ref l, ref r) => {
                     run = true;
                     left.swap_remove(i);
                     left.extend(get_summands(l));
                     right.extend(get_summands(r));
-                },
+                }
                 ref e => panic!("Unexpected: {}", e),
             }
         }
         for i in 0..right.len() {
             match *right[i] {
-                ref e @ Number(_) |
-                ref e @ Identifier(_) |
-                ref e @ Mult(..) if e.is_linear() => {},
+                ref e @ Number(_) | ref e @ Identifier(_) | ref e @ Mult(..) if e.is_linear() => {}
                 Sub(ref l, ref r) => {
                     run = true;
                     right.swap_remove(i);
                     right.extend(get_summands(l));
                     left.extend(get_summands(r));
-                },
+                }
                 ref e => panic!("Unexpected: {}", e),
             }
         }
@@ -122,8 +120,11 @@ fn swap_sub<T: Field>(lhs: &Expression<T>, rhs: &Expression<T>) -> (Expression<T
     if let Some(left_init) = left.pop() {
         if let Some(right_init) = right.pop() {
             return (
-                left.iter().fold(left_init.clone(), |acc, &x| Add(box acc, box x.clone())),
-                right.iter().fold(right_init.clone(), |acc, &x| Add(box acc, box x.clone()))
+                left.iter()
+                    .fold(left_init.clone(), |acc, &x| Add(box acc, box x.clone())),
+                right
+                    .iter()
+                    .fold(right_init.clone(), |acc, &x| Add(box acc, box x.clone())),
             );
         }
     }
@@ -141,11 +142,18 @@ fn swap_sub<T: Field>(lhs: &Expression<T>, rhs: &Expression<T>) -> (Expression<T
 /// * `a_row` - Result row of matrix A
 /// * `b_row` - Result row of matrix B
 /// * `c_row` - Result row of matrix C
-fn r1cs_expression<T: Field>(linear_expr: Expression<T>, expr: Expression<T>, variables: &mut Vec<String>, a_row: &mut Vec<(usize, T)>, b_row: &mut Vec<(usize, T)>, c_row: &mut Vec<(usize, T)>) {
+fn r1cs_expression<T: Field>(
+    linear_expr: Expression<T>,
+    expr: Expression<T>,
+    variables: &mut Vec<String>,
+    a_row: &mut Vec<(usize, T)>,
+    b_row: &mut Vec<(usize, T)>,
+    c_row: &mut Vec<(usize, T)>,
+) {
     assert!(linear_expr.is_linear());
+
     match expr {
-        e @ Add(..) |
-        e @ Sub(..) => {
+        e @ Add(..) | e @ Sub(..) => {
             let (lhs, rhs) = swap_sub(&linear_expr, &e);
             for (key, value) in count_variables_add(&rhs) {
                 a_row.push((get_variable_idx(variables, &key), value));
@@ -154,7 +162,7 @@ fn r1cs_expression<T: Field>(linear_expr: Expression<T>, expr: Expression<T>, va
             for (key, value) in count_variables_add(&lhs) {
                 c_row.push((get_variable_idx(variables, &key), value));
             }
-        },
+        }
         Mult(lhs, rhs) => {
             match lhs {
                 box Number(x) => a_row.push((0, x)),
@@ -175,32 +183,50 @@ fn r1cs_expression<T: Field>(linear_expr: Expression<T>, expr: Expression<T>, va
             for (key, value) in count_variables_add(&linear_expr) {
                 c_row.push((get_variable_idx(variables, &key), value));
             }
-        },
-        Div(lhs, rhs) => { // a / b = c --> c * b = a
+        }
+        Div(lhs, rhs) => {
+            // a / b = c --> c * b = a
             match lhs {
                 box Number(x) => c_row.push((0, x)),
                 box Identifier(x) => c_row.push((get_variable_idx(variables, &x), T::one())),
                 box e @ Add(..) => for (key, value) in count_variables_add(&e) {
                     c_row.push((get_variable_idx(variables, &key), value));
                 },
-                box e @ Sub(..) => return r1cs_expression(Mult(box linear_expr, rhs), e, variables, a_row, b_row, c_row),
-                box Mult(box Number(ref x1), box Number(ref x2)) => c_row.push((0, x1.clone() * x2)),
+                box e @ Sub(..) => {
+                    return r1cs_expression(
+                        Mult(box linear_expr, rhs),
+                        e,
+                        variables,
+                        a_row,
+                        b_row,
+                        c_row,
+                    )
+                }
+                box Mult(box Number(ref x1), box Number(ref x2)) => {
+                    c_row.push((0, x1.clone() * x2))
+                }
                 box Mult(box Number(ref x), box Identifier(ref v)) |
-                box Mult(box Identifier(ref v), box Number(ref x)) => c_row.push((get_variable_idx(variables, v), x.clone())),
+                box Mult(box Identifier(ref v), box Number(ref x)) => {
+                    c_row.push((get_variable_idx(variables, v), x.clone()))
+                }
                 e @ _ => panic!("(lhs) not supported: {:?}", e),
             };
             match rhs {
                 box Number(x) => b_row.push((0, x)),
                 box Identifier(x) => b_row.push((get_variable_idx(variables, &x), T::one())),
-                box Mult(box Number(ref x1), box Number(ref x2)) => b_row.push((0, x1.clone() * x2)),
+                box Mult(box Number(ref x1), box Number(ref x2)) => {
+                    b_row.push((0, x1.clone() * x2))
+                }
                 box Mult(box Number(ref x), box Identifier(ref v)) |
-                box Mult(box Identifier(ref v), box Number(ref x)) => b_row.push((get_variable_idx(variables, v), x.clone())),
+                box Mult(box Identifier(ref v), box Number(ref x)) => {
+                    b_row.push((get_variable_idx(variables, v), x.clone()))
+                }
                 e @ _ => panic!("(rhs) not supported: {:?}", e),
             };
             for (key, value) in count_variables_add(&linear_expr) {
                 a_row.push((get_variable_idx(variables, &key), value));
             }
-        },
+        }
         Pow(_, _) => panic!("Pow not flattened"),
         IfElse(_, _, _) => panic!("IfElse not flattened"),
         FunctionCall(_, _) => panic!("FunctionCall not flattened"),
@@ -210,14 +236,14 @@ fn r1cs_expression<T: Field>(linear_expr: Expression<T>, expr: Expression<T>, va
             for (key, value) in count_variables_add(&linear_expr) {
                 c_row.push((get_variable_idx(variables, &key), value));
             }
-        },
+        }
         Number(x) => {
             a_row.push((0, x));
             b_row.push((0, T::one()));
             for (key, value) in count_variables_add(&linear_expr) {
                 c_row.push((get_variable_idx(variables, &key), value));
             }
-        },
+        }
     }
 }
 
@@ -244,7 +270,15 @@ fn get_variable_idx(variables: &mut Vec<String>, var: &String) -> usize {
 /// # Arguments
 ///
 /// * `prog` - The program the representation is calculated for.
-pub fn r1cs_program<T: Field>(prog: &Prog<T>) -> (Vec<String>, Vec<Vec<(usize, T)>>, Vec<Vec<(usize, T)>>, Vec<Vec<(usize, T)>>){
+pub fn r1cs_program<T: Field>(
+    prog: &Prog<T>,
+) -> (
+    Vec<String>,
+    usize,
+    Vec<Vec<(usize, T)>>,
+    Vec<Vec<(usize, T)>>,
+    Vec<Vec<(usize, T)>>,
+) {
     let mut variables: Vec<String> = Vec::new();
     variables.push("~one".to_string());
     let mut a: Vec<Vec<(usize, T)>> = Vec::new();
@@ -252,16 +286,47 @@ pub fn r1cs_program<T: Field>(prog: &Prog<T>) -> (Vec<String>, Vec<Vec<(usize, T
     let mut c: Vec<Vec<(usize, T)>> = Vec::new();
 
     //Only the main function is relevant in this step, since all calls to other functions were resolved during flattening
-    let main = prog.functions.iter().find(|x: &&Function<T>| x.id == "main".to_string()).unwrap();
+    let main = prog.functions
+        .iter()
+        .find(|x: &&Function<T>| x.id == "main".to_string())
+        .unwrap();
     variables.extend(main.arguments.iter().map(|x| format!("{}", x)));
+    // ~out is added after main's arguments as we want variables (columns)
+    // in the r1cs to be aligned like "public inputs | private inputs"
+    variables.push("~out".to_string());
+
+    // position where private part of witness starts
+    let private_inputs_offset = variables.len();
+
     for def in &main.statements {
         let mut a_row: Vec<(usize, T)> = Vec::new();
         let mut b_row: Vec<(usize, T)> = Vec::new();
         let mut c_row: Vec<(usize, T)> = Vec::new();
         match *def {
-            Statement::Return(ref expr) => r1cs_expression(Identifier("~out".to_string()), expr.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row),
-            Statement::Definition(ref id, ref expr) => r1cs_expression(Identifier(id.to_string()), expr.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row),
-            Statement::Condition(ref expr1, ref expr2) => r1cs_expression(expr1.clone(), expr2.clone(), &mut variables, &mut a_row, &mut b_row, &mut c_row),
+            Statement::Return(ref expr) => r1cs_expression(
+                Identifier("~out".to_string()),
+                expr.clone(),
+                &mut variables,
+                &mut a_row,
+                &mut b_row,
+                &mut c_row,
+            ),
+            Statement::Definition(ref id, ref expr) => r1cs_expression(
+                Identifier(id.to_string()),
+                expr.clone(),
+                &mut variables,
+                &mut a_row,
+                &mut b_row,
+                &mut c_row,
+            ),
+            Statement::Condition(ref expr1, ref expr2) => r1cs_expression(
+                expr1.clone(),
+                expr2.clone(),
+                &mut variables,
+                &mut a_row,
+                &mut b_row,
+                &mut c_row,
+            ),
             Statement::For(..) => panic!("For-loop not flattened"),
             Statement::Compiler(..) => continue,
         }
@@ -269,7 +334,7 @@ pub fn r1cs_program<T: Field>(prog: &Prog<T>) -> (Vec<String>, Vec<Vec<(usize, T
         b.push(b_row);
         c.push(c_row);
     }
-    (variables, a, b, c)
+    (variables, private_inputs_offset, a, b, c)
 }
 
 #[cfg(test)]
@@ -296,8 +361,14 @@ mod tests {
         fn add() {
             // x = y + 5
             let lhs = Identifier(String::from("x"));
-            let rhs = Add(box Identifier(String::from("y")), box Number(FieldPrime::from(5)));
-            let mut variables: Vec<String> = vec!["~one", "x", "y"].iter().map(|&x| String::from(x)).collect();
+            let rhs = Add(
+                box Identifier(String::from("y")),
+                box Number(FieldPrime::from(5)),
+            );
+            let mut variables: Vec<String> = vec!["~one", "x", "y"]
+                .iter()
+                .map(|&x| String::from(x))
+                .collect();
             let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut b_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut c_row: Vec<(usize, FieldPrime)> = Vec::new();
@@ -306,7 +377,10 @@ mod tests {
             a_row.sort_by(sort_tup);
             b_row.sort_by(sort_tup);
             c_row.sort_by(sort_tup);
-            assert_eq!(vec![(0, FieldPrime::from(5)), (2, FieldPrime::from(1))], a_row);
+            assert_eq!(
+                vec![(0, FieldPrime::from(5)), (2, FieldPrime::from(1))],
+                a_row
+            );
             assert_eq!(vec![(0, FieldPrime::from(1))], b_row);
             assert_eq!(vec![(1, FieldPrime::from(1))], c_row);
         }
@@ -317,29 +391,53 @@ mod tests {
             // --> (x + y) + y + 4y + 2z + y == x + 2x + 4y + (z + 3x)
             // <=> x + 7*y + 2*z == 6*x + 4y + z
             let lhs = Sub(
-                box Add(box Identifier(String::from("x")), box Identifier(String::from("y"))),
+                box Add(
+                    box Identifier(String::from("x")),
+                    box Identifier(String::from("y")),
+                ),
                 box Sub(
                     box Add(
                         box Identifier(String::from("z")),
-                        box Mult(box Number(FieldPrime::from(3)), box Identifier(String::from("x")))
+                        box Mult(
+                            box Number(FieldPrime::from(3)),
+                            box Identifier(String::from("x")),
+                        ),
                     ),
-                    box Identifier(String::from("y"))
-                )
+                    box Identifier(String::from("y")),
+                ),
             );
             let rhs = Add(
-                box Sub(box Identifier(String::from("x")), box Identifier(String::from("y"))),
+                box Sub(
+                    box Identifier(String::from("x")),
+                    box Identifier(String::from("y")),
+                ),
                 box Add(
                     box Sub(
-                        box Mult(box Number(FieldPrime::from(2)), box Identifier(String::from("x"))),
-                        box Mult(box Number(FieldPrime::from(4)), box Identifier(String::from("y")))
+                        box Mult(
+                            box Number(FieldPrime::from(2)),
+                            box Identifier(String::from("x")),
+                        ),
+                        box Mult(
+                            box Number(FieldPrime::from(4)),
+                            box Identifier(String::from("y")),
+                        ),
                     ),
                     box Sub(
-                        box Mult(box Number(FieldPrime::from(4)), box Identifier(String::from("y"))),
-                        box Mult(box Number(FieldPrime::from(2)), box Identifier(String::from("z")))
-                    )
-                )
+                        box Mult(
+                            box Number(FieldPrime::from(4)),
+                            box Identifier(String::from("y")),
+                        ),
+                        box Mult(
+                            box Number(FieldPrime::from(2)),
+                            box Identifier(String::from("z")),
+                        ),
+                    ),
+                ),
             );
-            let mut variables: Vec<String> = vec!["~one", "x", "y", "z"].iter().map(|&x| String::from(x)).collect();
+            let mut variables: Vec<String> = vec!["~one", "x", "y", "z"]
+                .iter()
+                .map(|&x| String::from(x))
+                .collect();
             let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut b_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut c_row: Vec<(usize, FieldPrime)> = Vec::new();
@@ -348,23 +446,49 @@ mod tests {
             a_row.sort_by(sort_tup);
             b_row.sort_by(sort_tup);
             c_row.sort_by(sort_tup);
-            assert_eq!(vec![(1, FieldPrime::from(6)), (2, FieldPrime::from(4)), (3, FieldPrime::from(1))], a_row);
+            assert_eq!(
+                vec![
+                    (1, FieldPrime::from(6)),
+                    (2, FieldPrime::from(4)),
+                    (3, FieldPrime::from(1)),
+                ],
+                a_row
+            );
             assert_eq!(vec![(0, FieldPrime::from(1))], b_row);
-            assert_eq!(vec![(1, FieldPrime::from(1)), (2, FieldPrime::from(7)), (3, FieldPrime::from(2))], c_row);
+            assert_eq!(
+                vec![
+                    (1, FieldPrime::from(1)),
+                    (2, FieldPrime::from(7)),
+                    (3, FieldPrime::from(2)),
+                ],
+                c_row
+            );
         }
 
         #[test]
         fn sub() {
             // 7 * x + y == 3 * y - z * 6
             let lhs = Add(
-                box Mult(box Number(FieldPrime::from(7)), box Identifier(String::from("x"))),
-                box Identifier(String::from("y"))
+                box Mult(
+                    box Number(FieldPrime::from(7)),
+                    box Identifier(String::from("x")),
+                ),
+                box Identifier(String::from("y")),
             );
             let rhs = Sub(
-                box Mult(box Number(FieldPrime::from(3)), box Identifier(String::from("y"))),
-                box Mult(box Identifier(String::from("z")), box Number(FieldPrime::from(6)))
+                box Mult(
+                    box Number(FieldPrime::from(3)),
+                    box Identifier(String::from("y")),
+                ),
+                box Mult(
+                    box Identifier(String::from("z")),
+                    box Number(FieldPrime::from(6)),
+                ),
             );
-            let mut variables: Vec<String> = vec!["~one", "x", "y", "z"].iter().map(|&x| String::from(x)).collect();
+            let mut variables: Vec<String> = vec!["~one", "x", "y", "z"]
+                .iter()
+                .map(|&x| String::from(x))
+                .collect();
             let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut b_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut c_row: Vec<(usize, FieldPrime)> = Vec::new();
@@ -375,7 +499,14 @@ mod tests {
             c_row.sort_by(sort_tup);
             assert_eq!(vec![(2, FieldPrime::from(3))], a_row); // 3 * y
             assert_eq!(vec![(0, FieldPrime::from(1))], b_row); // 1
-            assert_eq!(vec![(1, FieldPrime::from(7)), (2, FieldPrime::from(1)), (3, FieldPrime::from(6))], c_row); // (7 * x + y) + z * 6
+            assert_eq!(
+                vec![
+                    (1, FieldPrime::from(7)),
+                    (2, FieldPrime::from(1)),
+                    (3, FieldPrime::from(6)),
+                ],
+                c_row
+            ); // (7 * x + y) + z * 6
         }
 
         #[test]
@@ -384,16 +515,28 @@ mod tests {
             // --> 3*y + x == a + 12*x + 2*z
             let lhs = Sub(
                 box Sub(
-                    box Mult(box Number(FieldPrime::from(3)), box Identifier(String::from("y"))),
-                    box Mult(box Identifier(String::from("z")), box Number(FieldPrime::from(2)))
+                    box Mult(
+                        box Number(FieldPrime::from(3)),
+                        box Identifier(String::from("y")),
+                    ),
+                    box Mult(
+                        box Identifier(String::from("z")),
+                        box Number(FieldPrime::from(2)),
+                    ),
                 ),
-                box Mult(box Identifier(String::from("x")), box Number(FieldPrime::from(12)))
+                box Mult(
+                    box Identifier(String::from("x")),
+                    box Number(FieldPrime::from(12)),
+                ),
             );
             let rhs = Sub(
                 box Identifier(String::from("a")),
-                box Identifier(String::from("x"))
+                box Identifier(String::from("x")),
             );
-            let mut variables: Vec<String> = vec!["~one", "x", "y", "z", "a"].iter().map(|&x| String::from(x)).collect();
+            let mut variables: Vec<String> = vec!["~one", "x", "y", "z", "a"]
+                .iter()
+                .map(|&x| String::from(x))
+                .collect();
             let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut b_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut c_row: Vec<(usize, FieldPrime)> = Vec::new();
@@ -402,9 +545,19 @@ mod tests {
             a_row.sort_by(sort_tup);
             b_row.sort_by(sort_tup);
             c_row.sort_by(sort_tup);
-            assert_eq!(vec![(1, FieldPrime::from(12)), (3, FieldPrime::from(2)), (4, FieldPrime::from(1))], a_row); // a + 12*x + 2*z
+            assert_eq!(
+                vec![
+                    (1, FieldPrime::from(12)),
+                    (3, FieldPrime::from(2)),
+                    (4, FieldPrime::from(1)),
+                ],
+                a_row
+            ); // a + 12*x + 2*z
             assert_eq!(vec![(0, FieldPrime::from(1))], b_row); // 1
-            assert_eq!(vec![(1, FieldPrime::from(1)), (2, FieldPrime::from(3))], c_row); // 3*y + x
+            assert_eq!(
+                vec![(1, FieldPrime::from(1)), (2, FieldPrime::from(3))],
+                c_row
+            ); // 3*y + x
         }
 
         #[test]
@@ -412,25 +565,52 @@ mod tests {
             // 4 * b + 3 * a + 3 * c == (3 * a + 6 * b + 4 * c) * (31 * a + 4 * c)
             let lhs = Add(
                 box Add(
-                    box Mult(box Number(FieldPrime::from(4)), box Identifier(String::from("b"))),
-                    box Mult(box Number(FieldPrime::from(3)), box Identifier(String::from("a")))
+                    box Mult(
+                        box Number(FieldPrime::from(4)),
+                        box Identifier(String::from("b")),
+                    ),
+                    box Mult(
+                        box Number(FieldPrime::from(3)),
+                        box Identifier(String::from("a")),
+                    ),
                 ),
-                box Mult(box Number(FieldPrime::from(3)), box Identifier(String::from("c")))
+                box Mult(
+                    box Number(FieldPrime::from(3)),
+                    box Identifier(String::from("c")),
+                ),
             );
             let rhs = Mult(
                 box Add(
                     box Add(
-                        box Mult(box Number(FieldPrime::from(3)), box Identifier(String::from("a"))),
-                        box Mult(box Number(FieldPrime::from(6)), box Identifier(String::from("b")))
+                        box Mult(
+                            box Number(FieldPrime::from(3)),
+                            box Identifier(String::from("a")),
+                        ),
+                        box Mult(
+                            box Number(FieldPrime::from(6)),
+                            box Identifier(String::from("b")),
+                        ),
                     ),
-                    box Mult(box Number(FieldPrime::from(4)), box Identifier(String::from("c")))
+                    box Mult(
+                        box Number(FieldPrime::from(4)),
+                        box Identifier(String::from("c")),
+                    ),
                 ),
                 box Add(
-                    box Mult(box Number(FieldPrime::from(31)), box Identifier(String::from("a"))),
-                    box Mult(box Number(FieldPrime::from(4)), box Identifier(String::from("c")))
-                )
+                    box Mult(
+                        box Number(FieldPrime::from(31)),
+                        box Identifier(String::from("a")),
+                    ),
+                    box Mult(
+                        box Number(FieldPrime::from(4)),
+                        box Identifier(String::from("c")),
+                    ),
+                ),
             );
-            let mut variables: Vec<String> = vec!["~one", "a", "b", "c"].iter().map(|&x| String::from(x)).collect();
+            let mut variables: Vec<String> = vec!["~one", "a", "b", "c"]
+                .iter()
+                .map(|&x| String::from(x))
+                .collect();
             let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut b_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut c_row: Vec<(usize, FieldPrime)> = Vec::new();
@@ -439,9 +619,26 @@ mod tests {
             a_row.sort_by(sort_tup);
             b_row.sort_by(sort_tup);
             c_row.sort_by(sort_tup);
-            assert_eq!(vec![(1, FieldPrime::from(3)), (2, FieldPrime::from(6)), (3, FieldPrime::from(4))], a_row);
-            assert_eq!(vec![(1, FieldPrime::from(31)), (3, FieldPrime::from(4))], b_row);
-            assert_eq!(vec![(1, FieldPrime::from(3)), (2, FieldPrime::from(4)), (3, FieldPrime::from(3))], c_row);
+            assert_eq!(
+                vec![
+                    (1, FieldPrime::from(3)),
+                    (2, FieldPrime::from(6)),
+                    (3, FieldPrime::from(4)),
+                ],
+                a_row
+            );
+            assert_eq!(
+                vec![(1, FieldPrime::from(31)), (3, FieldPrime::from(4))],
+                b_row
+            );
+            assert_eq!(
+                vec![
+                    (1, FieldPrime::from(3)),
+                    (2, FieldPrime::from(4)),
+                    (3, FieldPrime::from(3)),
+                ],
+                c_row
+            );
         }
 
         #[test]
@@ -449,10 +646,19 @@ mod tests {
             // x = (3 * x) / (y * 6) --> x * (y * 6) = 3 * x
             let lhs = Identifier(String::from("x"));
             let rhs = Div(
-                box Mult(box Number(FieldPrime::from(3)), box Identifier(String::from("x"))),
-                box Mult(box Identifier(String::from("y")), box Number(FieldPrime::from(6)))
+                box Mult(
+                    box Number(FieldPrime::from(3)),
+                    box Identifier(String::from("x")),
+                ),
+                box Mult(
+                    box Identifier(String::from("y")),
+                    box Number(FieldPrime::from(6)),
+                ),
             );
-            let mut variables: Vec<String> = vec!["~one", "x", "y"].iter().map(|&x| String::from(x)).collect();
+            let mut variables: Vec<String> = vec!["~one", "x", "y"]
+                .iter()
+                .map(|&x| String::from(x))
+                .collect();
             let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut b_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut c_row: Vec<(usize, FieldPrime)> = Vec::new();

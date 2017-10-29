@@ -1,0 +1,3 @@
+def main():
+  c = 3 + a
+  return 3

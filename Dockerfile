@@ -1,8 +1,8 @@
 FROM ubuntu:14.04
 
-MAINTAINER Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
+MAINTAINER JacobEberhardt <jacob.eberhardt@tu-berlin.de>, Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
 
-ARG libsnarkcommit=master
+ARG libsnarkcommit=deprecated-master
 
 WORKDIR /root
 
@@ -28,7 +28,7 @@ RUN cd libsnark-$libsnarkcommit \
 
 ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/usr/local/lib
 
-COPY . /root/VerifiableStatementCompiler
+COPY . /root/ZoKrates
 
-RUN cd VerifiableStatementCompiler \
+RUN cd ZoKrates \
   && cargo build --release
