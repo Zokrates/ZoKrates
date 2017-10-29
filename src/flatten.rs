@@ -443,8 +443,6 @@ impl Flattener {
                         }
                     }
                 }
-                println!("Param Expressions Flattened: {:?}", params_flattened);
-
 
                 for funct in functions_flattened {
                     if funct.id == *id && funct.arguments.len() == (*param_expressions).len() {
@@ -457,10 +455,6 @@ impl Flattener {
                         // and the substitution needs to be added to replacement map.
                         let mut replacement_map: HashMap<String, String> = HashMap::new();
 
-                        println!("used variables: {:?}", used_vars);
-
-                        println!("Called Function's Arguments: {:?}", funct.arguments);
-                        println!("Calling Function's Arguments: {:?}", params_flattened);
                         for (i, _) in params_flattened.iter().enumerate() {
                             let identifier_call: String =
                                 params_flattened.get(i).unwrap().id.clone();
@@ -470,8 +464,6 @@ impl Flattener {
                                 replacement_map.insert(identifier_called, identifier_call);
                             }
                         }
-                        println!("Param substitutions: {:?}", replacement_map);
-
 
                         // add all flattened statements, adapt return statement
                         for stat in funct.statements.clone() {
@@ -562,7 +554,6 @@ impl Flattener {
                 if !(var == var_to_replace) && self.variables.contains(&var_to_replace) && !self.substitution.contains_key(&var_to_replace){
                     self.substitution.insert(var_to_replace.clone().to_string(),var.clone());
                 }
-                println!("substitution: {:?}",self.substitution);
                 statements_flattened.push(Statement::Definition(var, rhs));
             }
             Statement::Condition(ref expr1, ref expr2) => {

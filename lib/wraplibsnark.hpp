@@ -29,15 +29,6 @@ bool _generate_proof(const char* pk_path,
             int private_inputs_length
           );
 
-// entrypoint, wraps the whole process, probably should be removed later
-bool _run_libsnark(const uint8_t* A,
-                   const uint8_t* B,
-                   const uint8_t* C,
-                   const uint8_t* witness,
-                   int constraints,
-                   int variables,
-                   int inputs);
-
 #ifdef __cplusplus
 } // extern "C"
 #endif

@@ -37,7 +37,7 @@ use flatten::Flattener;
 use r1cs::r1cs_program;
 use clap::{App, AppSettings, Arg, SubCommand};
 #[cfg(not(feature = "nolibsnark"))]
-use libsnark::{run_libsnark, setup, generate_proof};
+use libsnark::{setup, generate_proof};
 use bincode::{serialize_into, deserialize_from , Infinite};
 use regex::Regex;
 
@@ -189,41 +189,6 @@ fn main() {
             .default_value(VARIABLES_INFORMATION_KEY_DEFAULT_PATH)
         )
     )
-    .subcommand(SubCommand::with_name("shortcut")
-        .about("Executes witness generation, setup and proof-generation in succession")
-        .arg(Arg::with_name("input")
-            .short("i")
-            .long("input")
-            .help("path of comiled code.")
-            .value_name("FILE")
-            .takes_value(true)
-            .required(false)
-            .default_value(FLATTENED_CODE_DEFAULT_PATH)
-        ).arg(Arg::with_name("arguments")
-            .short("a")
-            .long("arguments")
-            .help("Arguments for the program's main method. Space separated list.")
-            .takes_value(true)
-            .multiple(true) // allows multiple values
-            .required(false)
-        )
-    )
-    // .subcommand(SubCommand::with_name("deploy-verifier")
-    //     .about("Deploys a given verification contract to the Ethereum network the current web3 provider is connected to.")
-    //     .arg(Arg::with_name("input")
-    //         .short("i")
-    //         .long("input")
-    //         .help("Solidity contract code.")
-    //         .value_name("FILE")
-    //         .takes_value(true)
-    //         .required(true)
-    //     ).arg(Arg::with_name("account")
-    //         .short("a)
-    //         .long("account")
-    //         .help("Address of the account triggering the Ethereum Transaction.")
-    //         .takes_value(true)
-    //     )
-    // )
     .get_matches();
 
     match matches.subcommand() {
@@ -270,10 +235,12 @@ fn main() {
             hrofb.flush().expect("Unable to flush buffer.");
 
             // debugging output
-            println!("Compiled program:\n{}", program_flattened);
+            //println!("Compiled program:\n{}", program_flattened);
+
             println!(
-                "Compiled code written to {}",
-                sub_matches.value_of("output").unwrap()
+                "Compiled code written to '{}', \nHuman readable code to '{}'",
+                bin_output_path.display(),
+                hr_output_path.display(),
             );
         }
         ("compute-witness", Some(sub_matches)) => {
@@ -346,7 +313,6 @@ fn main() {
                 write!(&mut bw, "{} {}\n", var, val.to_dec_string()).expect("Unable to write data to file.");
             }
             bw.flush().expect("Unable to flush buffer.");
-
         }
         ("setup", Some(sub_matches)) => {
             println!("Performing setup...");
@@ -409,75 +375,6 @@ fn main() {
                 // number of inputs in the zkSNARK sense, i.e., input variables + output variables
                 let num_inputs = main_flattened.arguments.len() + 1; //currently exactly one output variable
                 println!("setup successful: {:?}", setup(variables, a, b, c, num_inputs, pk_path, vk_path));
-            }
-
-        }
-        ("shortcut", Some(sub_matches)) => {
-            println!("Performing Setup, Witness Generation and Export...");
-            // read compiled program
-            let path = Path::new(sub_matches.value_of("input").unwrap());
-            let mut file = match File::open(&path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't open {}: {}", path.display(), why),
-            };
-
-            let program_ast: Prog<FieldPrime> = match deserialize_from(&mut file, Infinite) {
-                Ok(x) => x,
-                Err(why) => {
-                    println!("{:?}", why);
-                    std::process::exit(1);
-                }
-            };
-
-            // make sure the input program is actually flattened.
-            // TODO: is_flattened should be provided as method of Prog in absy.
-            let main_flattened = program_ast
-                .functions
-                .iter()
-                .find(|x| x.id == "main")
-                .unwrap();
-            for stat in main_flattened.statements.clone() {
-                assert!(
-                    stat.is_flattened(),
-                    format!("Input conditions not flattened: {}", &stat)
-                );
-            }
-
-            // print deserialized flattened program
-            println!("{}", main_flattened);
-
-            // validate #arguments
-            let mut args: Vec<FieldPrime> = Vec::new();
-            match sub_matches.values_of("arguments"){
-                Some(p) => {
-                    let arg_strings: Vec<&str> = p.collect();
-                    args = arg_strings.into_iter().map(|x| FieldPrime::from(x)).collect();
-                },
-                None => {
-                }
-            }
-
-            if main_flattened.arguments.len() != args.len() {
-                println!("Wrong number of arguments. Given: {}, Required: {}.", args.len(), main_flattened.arguments.len());
-                std::process::exit(1);
-            }
-
-            let witness_map = main_flattened.get_witness(args);
-            println!("Witness: {:?}", witness_map);
-            match witness_map.get("~out") {
-                Some(out) => println!("Returned (~out): {}", out),
-                None => println!("~out not found, no value returned")
-            }
-
-            let (variables, _, a, b, c) = r1cs_program(&program_ast);
-
-            let witness: Vec<_> = variables.iter().map(|x| witness_map[x].clone()).collect();
-
-            // run libsnark
-            #[cfg(not(feature="nolibsnark"))]{
-                // number of inputs in the zkSNARK sense, i.e., input variables + output variables
-                let num_inputs = main_flattened.arguments.len() + 1; //currently exactly one output variable
-                println!("run_libsnark = {:?}", run_libsnark(variables, a, b, c, witness, num_inputs));
             }
         }
         ("export-verifier", Some(sub_matches)) => {
@@ -620,10 +517,6 @@ fn main() {
             }
 
         }
-        // ("deploy-verifier", Some(_)) => {
-        //     println!("Deploying verifier...");
-        //     // Stays in feature branch until migrated to newer rust version.
-        // }
         _ => unimplemented!(), // Either no subcommand or one not tested for...
     }
 

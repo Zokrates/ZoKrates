@@ -90,7 +90,7 @@ r1cs_ppzksnark_constraint_system<alt_bn128_pp> createConstraintSystem(const uint
       libsnark::bigint<libsnark::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(A+row*variables*32 + idx*32);
       // cout << "C entry " << idx << " in row " << row << ": " << value << endl;
       if (!value.is_zero()) {
-        cout << "A(" << idx << ", " << value << ")" << endl;
+        // cout << "A(" << idx << ", " << value << ")" << endl;
         lin_comb_A.add_term(idx, value);
       }
     }
@@ -98,7 +98,7 @@ r1cs_ppzksnark_constraint_system<alt_bn128_pp> createConstraintSystem(const uint
       libsnark::bigint<libsnark::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(B+row*variables*32 + idx*32);
       // cout << "B entry " << idx << " in row " << row << ": " << value << endl;
       if (!value.is_zero()) {
-        cout << "B(" << idx << ", " << value << ")" << endl;
+        // cout << "B(" << idx << ", " << value << ")" << endl;
         lin_comb_B.add_term(idx, value);
       }
     }
@@ -106,7 +106,7 @@ r1cs_ppzksnark_constraint_system<alt_bn128_pp> createConstraintSystem(const uint
       libsnark::bigint<libsnark::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(C+row*variables*32 + idx*32);
       // cout << "C entry " << idx << " in row " << row << ": " << value << endl;
       if (!value.is_zero()) {
-        cout << "C(" << idx << ", " << value << ")" << endl;
+        // cout << "C(" << idx << ", " << value << ")" << endl;
         lin_comb_C.add_term(idx, value);
       }
     }
@@ -299,73 +299,4 @@ bool _generate_proof(const char* pk_path, const uint8_t* public_inputs, int publ
   // TODO? print inputs
 
   return true;
-}
-
-
-bool _run_libsnark(const uint8_t* A, const uint8_t* B, const uint8_t* C, const uint8_t* witness, int constraints, int variables, int inputs)
-{
-
-  libsnark::inhibit_profiling_info = true;
-  libsnark::inhibit_profiling_counters = true;
-
-  //initialize curve parameters
-  alt_bn128_pp::init_public_params();
-
-  // for testing of serialization only. remove later.
-  // string decString = "123456789123456789123456789";
-  // string hexString = "0x661efdf2e3b19f7c045f15";
-  // libsnark::bigint<libsnark::alt_bn128_r_limbs> value = bigint<libsnark::alt_bn128_r_limbs>(decString.c_str());
-  //
-  // cout << "expected: " << hexString << endl;
-  // cout << "computed: " << "0x"+HexStringFromLibsnarkBigint(value) <<endl;
-  // assert("0x"+HexStringFromLibsnarkBigint(value) == hexString);
-
-  // Setup:
-  // create constraint system
-  r1cs_constraint_system<Fr<alt_bn128_pp>> cs;
-  cs = createConstraintSystem(A, B ,C , constraints, variables, inputs);
-
-  // assign variables based on witness values, excludes ~one
-  r1cs_variable_assignment<Fr<alt_bn128_pp> > full_variable_assignment;
-  for (int i = 1; i < variables; i++) {
-    // for debugging
-    cout << "witness_hex ["<< i << "]: " << HexStringFromLibsnarkBigint(libsnarkBigintFromBytes(witness + i*32)) << endl;
-    cout << "fieldElement ["<< i << "]: " << HexStringFromLibsnarkBigint((Fr<alt_bn128_pp>(libsnarkBigintFromBytes(witness + i*32))).as_bigint()) << endl;
-    full_variable_assignment.push_back(Fr<alt_bn128_pp>(libsnarkBigintFromBytes(witness + i*32)));
-  }
-
-  // split up variables into primary and auxiliary inputs. Does *NOT* include the constant 1 */
-  // Output variables belong to primary input, helper variables are auxiliary input.
-  r1cs_primary_input<Fr<alt_bn128_pp>> primary_input(full_variable_assignment.begin(), full_variable_assignment.begin() + inputs-1);
-  r1cs_primary_input<Fr<alt_bn128_pp>> auxiliary_input(full_variable_assignment.begin() + inputs-1, full_variable_assignment.end());
-
-  // for debugging
-  cout << "full variable assignment :"<< endl << full_variable_assignment;
-
-  // sanity checks
-  assert(cs.num_variables() == full_variable_assignment.size());
-  assert(cs.num_variables() >= inputs);
-  assert(cs.num_inputs() == inputs);
-  assert(cs.num_constraints() == constraints);
-  assert(cs.is_satisfied(primary_input, auxiliary_input));
-
-  // create keypair
-  r1cs_ppzksnark_keypair<alt_bn128_pp> keypair = r1cs_ppzksnark_generator<alt_bn128_pp>(cs);
-
-	// Print VerificationKey in Solidity compatible format
-	exportVerificationKey(keypair);
-
-  // print primary input
-  exportInput(primary_input);
-
-  // Proof Generation
-  r1cs_ppzksnark_proof<alt_bn128_pp> proof = r1cs_ppzksnark_prover<alt_bn128_pp>(keypair.pk, primary_input, auxiliary_input);
-
-  // print proof
-  printProof(proof);
-
-  // Verification
-  bool result = r1cs_ppzksnark_verifier_strong_IC<alt_bn128_pp>(keypair.vk, primary_input, proof);
-
-  return result;
 }
