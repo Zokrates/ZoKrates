@@ -1,32 +1,35 @@
-# zokrates
+# ZoKrates
 
-## Using zokrates
+## Using ZoKrates
 
-Set the libsnark library path in `LD_LIBRARY_PATH`
+ZoKrates provides a command line interface.
+To see an overview of the available subcommands, run
+
 ```
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+./zokrates
 ```
-### CLI
-
 
 ### Example
 
-To execute the program
+To execute the program, perform the setup for the program, generate a proof
 ```
 def add(a, b, c):
   return a + b + c
 ```
 with `add(1, 2, 3)`, call
 ```
-./zokrates compile -i add.code_path
-./zokrates shortcut -a 1 2 3
+./zokrates compile -i 'add.code_path'
+./zokrates compute-witness -a 1 2 3
+./zokrates setup
+./zokrates generate-proof
+./zokrates export-verifier
 ```
 
 ## Building
 
 Currently needs to be build with nightly Rust.
 
-### Docker
+### Docker (Recommended)
 
 Example usage:
 ```
@@ -36,21 +39,16 @@ cd zokrates
 ./target/debug/zokrates compile -i examples/add.code
 ```
 
-### With libsnark
-
-Install [libsnark](https://github.com/scipr-lab/libsnark) to `/usr/local` with
-```
-make install lib PREFIX=/usr/local NO_PROCPS=1 NO_GTEST=1 NO_DOCS=1 CURVE=ALT_BN128 FEATUREFLAGS="-DBINARY_OUTPUT=1 -DMONTGOMERY_OUTPUT=1 -DNO_PT_COMPRESSION=1"
-```
-and build with
-```
-cargo build
-```
-
 ### Without libsnark
 Build with the feature `nolibsnark`
 ```
 cargo build --features nolibsnark
+```
+
+### Environment Variables
+Set the libsnark library path in `LD_LIBRARY_PATH`
+```
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 ```
 
 ## Testing
