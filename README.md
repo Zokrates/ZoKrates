@@ -1,5 +1,9 @@
 # ZoKrates
 
+Zokrates is a toolbox for zkSNARKs on Ethereum.
+
+_This is a proof-of-concept implementation. It has not been tested for production._
+
 ## Using ZoKrates
 
 ZoKrates provides a command line interface.
