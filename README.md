@@ -39,7 +39,7 @@ Example usage:
 ```
 docker build -t zokrates .
 docker run -ti zokrates /bin/bash
-cd zokrates
+cd ZoKrates
 ./target/release/zokrates compile -i examples/add.code
 ```
 
