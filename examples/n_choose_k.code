@@ -7,10 +7,6 @@ def fac(x):
         counter = if counter == x then counter else counter + 1 fi
     endfor
     return f
+
 def main(n, k):
-    top = fac(n)
-    bot1 = fac(k)
-    sub = n - k
-    bot2 = fac(sub)
-    bot = bot1 * bot2
-    return top / bot
+    return fac(n)/(fac(k)*fac(n-k))
