@@ -50,6 +50,7 @@ impl Flattener {
         arguments_flattened: &Vec<Parameter>,
         statements_flattened: &mut Vec<Statement<T>>,
         condition: Condition<T>,
+        all_vars: &mut HashSet<String>,
     ) -> (Expression<T>, Expression<T>) {
         match condition {
             Condition::Lt(lhs, rhs) => {
@@ -58,24 +59,28 @@ impl Flattener {
                     arguments_flattened,
                     statements_flattened,
                     lhs,
+                    all_vars,
                 );
                 let rhs_flattened = self.flatten_expression(
                     functions_flattened,
                     arguments_flattened,
                     statements_flattened,
                     rhs,
+                    all_vars,
                 );
 
-                let lhs_name = format!("sym_{}", self.next_var_idx);
+                let lhs_name_idx = self.next_var_idx;
+                let lhs_name = self.get_new_var(&format!("sym_{}", &lhs_name_idx), all_vars);
                 self.next_var_idx += 1;
                 statements_flattened
                     .push(Statement::Definition(lhs_name.to_string(), lhs_flattened));
-                let rhs_name = format!("sym_{}", self.next_var_idx);
+                let rhs_name_idx = self.next_var_idx;
+                let rhs_name = self.get_new_var(&format!("sym_{}", &rhs_name_idx), all_vars);
                 self.next_var_idx += 1;
                 statements_flattened
                     .push(Statement::Definition(rhs_name.to_string(), rhs_flattened));
-
-                let subtraction_result = format!("sym_{}", self.next_var_idx);
+                let subtraction_result_idx = self.next_var_idx;
+                let subtraction_result = self.get_new_var(&format!("sym_{}", &subtraction_result_idx), all_vars);
                 self.next_var_idx += 1;
                 statements_flattened.push(Statement::Definition(
                     subtraction_result.to_string(),
@@ -129,7 +134,8 @@ impl Flattener {
                     .push(Statement::Definition(subtraction_result.to_string(), expr));
 
                 let cond_true = format!("{}_b0", &subtraction_result);
-                let cond_false = format!("sym_{}", self.next_var_idx);
+                let cond_false_idx = self.next_var_idx;
+                let cond_false = self.get_new_var(&format!("sym_{}", &cond_false_idx), all_vars);
                 self.next_var_idx += 1;
                 statements_flattened.push(Statement::Definition(
                     cond_false.to_string(),
@@ -144,13 +150,17 @@ impl Flattener {
                 // # M = if X == 0 then 1 else 1/X fi
                 // Y == X * M
                 // 0 == (1-Y) * X
-                let name_x = format!("sym_{}", self.next_var_idx);
+                let name_x_idx = self.next_var_idx;
+                let name_x = self.get_new_var(&format!("sym_{}", &name_x_idx), all_vars);
                 self.next_var_idx += 1;
-                let name_y = format!("sym_{}", self.next_var_idx);
+                let name_y_idx = self.next_var_idx;
+                let name_y = self.get_new_var(&format!("sym_{}", &name_y_idx), all_vars);
                 self.next_var_idx += 1;
-                let name_m = format!("sym_{}", self.next_var_idx);
+                let name_m_idx = self.next_var_idx;
+                let name_m = self.get_new_var(&format!("sym_{}", &name_m_idx), all_vars);
                 self.next_var_idx += 1;
-                let name_1_y = format!("sym_{}", self.next_var_idx);
+                let name_1_y_idx = self.next_var_idx;
+                let name_1_y = self.get_new_var(&format!("sym_{}", &name_1_y_idx), all_vars);
                 self.next_var_idx += 1;
 
                 let x = self.flatten_expression(
@@ -158,6 +168,7 @@ impl Flattener {
                     arguments_flattened,
                     statements_flattened,
                     Sub(box lhs, box rhs),
+                    all_vars,
                 );
                 statements_flattened.push(Statement::Definition(name_x.to_string(), x));
                 statements_flattened.push(Statement::Compiler(
@@ -208,6 +219,7 @@ impl Flattener {
         arguments_flattened: &Vec<Parameter>,
         statements_flattened: &mut Vec<Statement<T>>,
         expr: Expression<T>,
+        all_vars: &mut HashSet<String>,
     ) -> Expression<T> {
         match expr {
             x @ Number(_) | x @ Identifier(_) => x,
@@ -222,17 +234,20 @@ impl Flattener {
                     arguments_flattened,
                     statements_flattened,
                     left,
+                    all_vars,
                 );
                 let right_flattened = self.flatten_expression(
                     functions_flattened,
                     arguments_flattened,
                     statements_flattened,
                     right,
+                    all_vars,
                 );
                 let new_left = if left_flattened.is_linear() {
                     left_flattened
                 } else {
-                    let new_name = format!("sym_{}", self.next_var_idx);
+                    let new_name_idx = self.next_var_idx;
+                    let new_name = self.get_new_var(&format!("sym_{}", &new_name_idx), all_vars);
                     self.next_var_idx += 1;
                     statements_flattened
                         .push(Statement::Definition(new_name.to_string(), left_flattened));
@@ -241,7 +256,8 @@ impl Flattener {
                 let new_right = if right_flattened.is_linear() {
                     right_flattened
                 } else {
-                    let new_name = format!("sym_{}", self.next_var_idx);
+                    let new_name_idx = self.next_var_idx;
+                    let new_name = self.get_new_var(&format!("sym_{}", &new_name_idx), all_vars);
                     self.next_var_idx += 1;
                     statements_flattened
                         .push(Statement::Definition(new_name.to_string(), right_flattened));
@@ -255,17 +271,20 @@ impl Flattener {
                     arguments_flattened,
                     statements_flattened,
                     left,
+                    all_vars,
                 );
                 let right_flattened = self.flatten_expression(
                     functions_flattened,
                     arguments_flattened,
                     statements_flattened,
                     right,
+                    all_vars,
                 );
                 let new_left = if left_flattened.is_linear() {
                     left_flattened
                 } else {
-                    let new_name = format!("sym_{}", self.next_var_idx);
+                    let new_name_idx = self.next_var_idx;
+                    let new_name = self.get_new_var(&format!("sym_{}", &new_name_idx), all_vars);
                     self.next_var_idx += 1;
                     statements_flattened
                         .push(Statement::Definition(new_name.to_string(), left_flattened));
@@ -274,7 +293,8 @@ impl Flattener {
                 let new_right = if right_flattened.is_linear() {
                     right_flattened
                 } else {
-                    let new_name = format!("sym_{}", self.next_var_idx);
+                    let new_name_idx = self.next_var_idx;
+                    let new_name = self.get_new_var(&format!("sym_{}", &new_name_idx), all_vars);
                     self.next_var_idx += 1;
                     statements_flattened
                         .push(Statement::Definition(new_name.to_string(), right_flattened));
@@ -288,16 +308,19 @@ impl Flattener {
                     arguments_flattened,
                     statements_flattened,
                     left,
+                    all_vars,
                 );
                 let right_flattened = self.flatten_expression(
                     functions_flattened,
                     arguments_flattened,
                     statements_flattened,
                     right,
+                    all_vars,
                 );
                 let new_left = if left_flattened.is_linear() {
                     if let Sub(..) = left_flattened {
-                        let new_name = format!("sym_{}", self.next_var_idx);
+                        let new_name_idx = self.next_var_idx;
+                        let new_name = self.get_new_var(&format!("sym_{}", &new_name_idx), all_vars);
                         self.next_var_idx += 1;
                         statements_flattened
                             .push(Statement::Definition(new_name.to_string(), left_flattened));
@@ -306,7 +329,8 @@ impl Flattener {
                         left_flattened
                     }
                 } else {
-                    let new_name = format!("sym_{}", self.next_var_idx);
+                    let new_name_idx = self.next_var_idx;
+                    let new_name = self.get_new_var(&format!("sym_{}", &new_name_idx), all_vars);
                     self.next_var_idx += 1;
                     statements_flattened
                         .push(Statement::Definition(new_name.to_string(), left_flattened));
@@ -314,7 +338,8 @@ impl Flattener {
                 };
                 let new_right = if right_flattened.is_linear() {
                     if let Sub(..) = right_flattened {
-                        let new_name = format!("sym_{}", self.next_var_idx);
+                        let new_name_idx = self.next_var_idx;
+                        let new_name = self.get_new_var(&format!("sym_{}", &new_name_idx), all_vars);
                         self.next_var_idx += 1;
                         statements_flattened
                             .push(Statement::Definition(new_name.to_string(), right_flattened));
@@ -323,7 +348,8 @@ impl Flattener {
                         right_flattened
                     }
                 } else {
-                    let new_name = format!("sym_{}", self.next_var_idx);
+                    let new_name_idx = self.next_var_idx;
+                    let new_name = self.get_new_var(&format!("sym_{}", &new_name_idx), all_vars);
                     self.next_var_idx += 1;
                     statements_flattened
                         .push(Statement::Definition(new_name.to_string(), right_flattened));
@@ -337,17 +363,20 @@ impl Flattener {
                     arguments_flattened,
                     statements_flattened,
                     left,
+                    all_vars,
                 );
                 let right_flattened = self.flatten_expression(
                     functions_flattened,
                     arguments_flattened,
                     statements_flattened,
                     right,
+                    all_vars,
                 );
                 let new_left = if left_flattened.is_linear() {
                     left_flattened
                 } else {
-                    let new_name = format!("sym_{}", self.next_var_idx);
+                    let new_name_idx = self.next_var_idx;
+                    let new_name = self.get_new_var(&format!("sym_{}", &new_name_idx), all_vars);
                     self.next_var_idx += 1;
                     statements_flattened
                         .push(Statement::Definition(new_name.to_string(), left_flattened));
@@ -356,7 +385,8 @@ impl Flattener {
                 let new_right = if right_flattened.is_linear() {
                     right_flattened
                 } else {
-                    let new_name = format!("sym_{}", self.next_var_idx);
+                    let new_name_idx = self.next_var_idx;
+                    let new_name = self.get_new_var(&format!("sym_{}", &new_name_idx), all_vars);
                     self.next_var_idx += 1;
                     statements_flattened
                         .push(Statement::Definition(new_name.to_string(), right_flattened));
@@ -378,8 +408,10 @@ impl Flattener {
                                         box Identifier(var.to_string()),
                                         box Number(x.clone() - T::one()),
                                     ),
+                                    all_vars,
                                 );
-                                let new_name = format!("sym_{}", self.next_var_idx);
+                                let new_name_idx = self.next_var_idx;
+                                let new_name = self.get_new_var(&format!("sym_{}", &new_name_idx), all_vars);
                                 self.next_var_idx += 1;
                                 statements_flattened.push(
                                     Statement::Definition(new_name.to_string(), tmp_expression),
@@ -405,6 +437,7 @@ impl Flattener {
                     arguments_flattened,
                     statements_flattened,
                     condition,
+                    all_vars,
                 );
                 // (condition_true * consequent) + (condition_false * alternatuve)
                 self.flatten_expression(
@@ -415,6 +448,7 @@ impl Flattener {
                         box Mult(box cond_true, consequent),
                         box Mult(box cond_false, alternative),
                     ),
+                    all_vars,
                 )
             }
             FunctionCall(ref id, ref param_expressions) => {
@@ -432,6 +466,7 @@ impl Flattener {
                                 arguments_flattened,
                                 statements_flattened,
                                 expr_subbed,
+                                all_vars,
                             );
                             let intermediate_var =
                                 self.use_variable(&format!("{}_param_{}", &id, i));
@@ -528,6 +563,7 @@ impl Flattener {
         arguments_flattened: &Vec<Parameter>,
         statements_flattened: &mut Vec<Statement<T>>,
         stat: &Statement<T>,
+        all_vars: &mut HashSet<String>,
     ) {
         match *stat {
             Statement::Return(ref expr) => {
@@ -537,6 +573,7 @@ impl Flattener {
                     arguments_flattened,
                     statements_flattened,
                     expr_subbed,
+                    all_vars,
                 );
                 statements_flattened.push(Statement::Return(rhs));
             }
@@ -547,6 +584,7 @@ impl Flattener {
                     arguments_flattened,
                     statements_flattened,
                     expr_subbed,
+                    all_vars,
                 );
                 let var = self.use_variable(&id);
                 // handle return of function call
@@ -567,6 +605,7 @@ impl Flattener {
                             arguments_flattened,
                             statements_flattened,
                             expr2_subbed,
+                            all_vars,
                         ),
                     )
                 } else if expr2_subbed.is_linear() {
@@ -577,6 +616,7 @@ impl Flattener {
                             arguments_flattened,
                             statements_flattened,
                             expr1_subbed,
+                            all_vars,
                         ),
                     )
                 } else {
@@ -597,6 +637,7 @@ impl Flattener {
                             arguments_flattened,
                             statements_flattened,
                             s,
+                            all_vars,
                         );
                     }
                     current = T::one() + &current;
@@ -616,6 +657,7 @@ impl Flattener {
         &mut self,
         functions_flattened: &mut Vec<Function<T>>,
         funct: Function<T>,
+        all_vars: &mut HashSet<String>,
     ) -> Function<T> {
         self.variables = HashSet::new();
         self.substitution = HashMap::new();
@@ -635,6 +677,7 @@ impl Flattener {
                 &arguments_flattened,
                 &mut statements_flattened,
                 &stat,
+                all_vars
             );
         }
         Function {
@@ -651,8 +694,9 @@ impl Flattener {
     /// * `prog` - `Prog`ram that will be flattened.
     pub fn flatten_program<T: Field>(&mut self, prog: Prog<T>) -> Prog<T> {
         let mut functions_flattened = Vec::new();
+        let mut all_vars = HashSet::new();     
         for func in prog.functions {
-            let flattened_func = self.flatten_function(&mut functions_flattened, func);
+            let flattened_func = self.flatten_function(&mut functions_flattened, func, &mut all_vars);
             functions_flattened.push(flattened_func);
         }
         Prog {
