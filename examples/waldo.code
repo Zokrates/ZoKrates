@@ -1,0 +1,15 @@
+def isWaldo(a):
+  a == p * q
+  p > 1
+  q > 1
+  return 1
+
+// returns 1 for now, we don't check the input is well formed
+def validateInput(x):
+  return 1
+
+// variables naming: box'row''column'
+def main(a0, a1, a2, a3):
+
+  waldo = if index == 0 then a0 else 0 fi + if index == 1 then a1 else 0 fi + if index == 2 then a2 else 0 fi + if index == 3 then a3 else 0 fi
+  return isWaldo(waldo)
