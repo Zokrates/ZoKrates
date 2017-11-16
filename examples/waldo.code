@@ -1,15 +1,23 @@
+// Find Waldo = find a non-prime number in a set
+
 def isWaldo(a):
+  // make sure that p and q are both non zero
+  // we can't check inequalities, so let's create binary
+  // variables
+  p1 = if p == 1 then 0 else 1 fi // "p != 1"
+  q1 = if q == 1 then 0 else 1 fi // "q != 1"
+  q1 * p1 == 1 // "p1 and q1"
+
+  // we know how to factor a
   a == p * q
-  p > 1
-  q > 1
+
   return 1
 
-// returns 1 for now, we don't check the input is well formed
-def validateInput(x):
-  return 1
-
-// variables naming: box'row''column'
+// define all
 def main(a0, a1, a2, a3):
-
-  waldo = if index == 0 then a0 else 0 fi + if index == 1 then a1 else 0 fi + if index == 2 then a2 else 0 fi + if index == 3 then a3 else 0 fi
+  // prover provides the index of Waldo
+  waldo = if index == 0 then a0 else 0 fi 
+  waldo = waldo + if index == 1 then a1 else 0 fi 
+  waldo = waldo + if index == 2 then a2 else 0 fi 
+  waldo = waldo + if index == 3 then a3 else 0 fi
   return isWaldo(waldo)
