@@ -213,6 +213,12 @@ fn main() {
             let program_flattened =
                 Flattener::new(FieldPrime::get_required_bits()).flatten_program(program_ast);
 
+            // number of constraints the flattened program will translate to.
+            let num_constraints = &program_flattened.functions
+            .iter()
+            .find(|x| x.id == "main")
+            .unwrap().statements.len();
+
             // serialize flattened program and write to binary file
             let bin_output_path = Path::new(sub_matches.value_of("output").unwrap());
             let mut bin_output_file = match File::create(&bin_output_path) {
@@ -237,10 +243,12 @@ fn main() {
             // debugging output
             //println!("Compiled program:\n{}", program_flattened);
 
+
             println!(
-                "Compiled code written to '{}', \nHuman readable code to '{}'",
+                "Compiled code written to '{}', \nHuman readable code to '{}'. \nNumber of constraints: {}",
                 bin_output_path.display(),
                 hr_output_path.display(),
+                num_constraints
             );
         }
         ("compute-witness", Some(sub_matches)) => {
