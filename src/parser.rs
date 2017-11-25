@@ -150,6 +150,7 @@ enum Token<T: Field> {
     Mult,
     Div,
     Pow,
+    Private,
     Ide(String),
     Num(T),
     Unknown(String),
@@ -188,6 +189,7 @@ impl<T: Field> fmt::Display for Token<T> {
             Token::Mult => write!(f, "*"),
             Token::Div => write!(f, "/"),
             Token::Pow => write!(f, "**"),
+            Token::Private => write!(f, "private"),
             Token::Ide(ref x) => write!(f, "{}", x),
             Token::Num(ref x) => write!(f, "{}", x),
             Token::Unknown(ref x) => write!(f, "{}", x),
@@ -502,6 +504,14 @@ fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Po
                 },
             )
         }
+        Some(_) if input[offset..].starts_with("private ") => (
+            Token::Private,
+            input[offset + 8..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 8,
+            },
+        ),
         Some(x) => match x {
             '0'...'9' => parse_num(
                 &input[offset..].to_string(),
@@ -1132,8 +1142,55 @@ fn parse_function<T: Field>(
                     let mut p = p3;
                     loop {
                         match next_token(&s, &p) {
+                            (Token::Private, s4, p4) => {
+                                match next_token(&s4, &p4) {
+                                    (Token::Ide(x), s5, p5) => {
+                                        args.push(Parameter { id: x, private: true });
+                                        match next_token(&s5, &p5) {
+                                            (Token::Comma, s6, p6) => {
+                                                s = s6;
+                                                p = p6;
+                                            }
+                                            (Token::Close, s5, p5) => match next_token(&s5, &p5) {
+                                                (Token::Colon, s6, p6) => match next_token(&s6, &p6) {
+                                                    (Token::InlineComment(_), _, _) => break,
+                                                    (Token::Unknown(ref x6), ..) if x6 == "" => break,
+                                                    (t6, _, p6) => {
+                                                        return Err(Error {
+                                                            expected: vec![Token::Unknown("".to_string())],
+                                                            got: t6,
+                                                            pos: p6,
+                                                        })
+                                                    }
+                                                },
+                                                (t6, _, p6) => {
+                                                    return Err(Error {
+                                                        expected: vec![Token::Colon],
+                                                        got: t6,
+                                                        pos: p6,
+                                                    })
+                                                }
+                                            },
+                                            (t5, _, p5) => {
+                                                return Err(Error {
+                                                    expected: vec![Token::Comma, Token::Close],
+                                                    got: t5,
+                                                    pos: p5,
+                                                })
+                                            }
+                                        }
+                                    }
+                                    (t5, _, p5) => {
+                                        return Err(Error {
+                                            expected: vec![Token::Comma, Token::Close],
+                                            got: t5,
+                                            pos: p5,
+                                        })
+                                    }
+                                }
+                            }
                             (Token::Ide(x), s4, p4) => {
-                                args.push(Parameter { id: x });
+                                args.push(Parameter { id: x, private: false });
                                 match next_token(&s4, &p4) {
                                     (Token::Comma, s5, p5) => {
                                         s = s5;

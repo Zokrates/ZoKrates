@@ -195,6 +195,7 @@ impl<T: Field> fmt::Debug for Statement<T> {
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct Parameter {
     pub id: String,
+    pub private: bool,
 }
 
 impl fmt::Display for Parameter {

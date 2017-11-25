@@ -290,13 +290,17 @@ pub fn r1cs_program<T: Field>(
         .iter()
         .find(|x: &&Function<T>| x.id == "main".to_string())
         .unwrap();
-    variables.extend(main.arguments.iter().map(|x| format!("{}", x)));
+    variables.extend(main.arguments.iter().filter(|x| x.private == false).map(|x| format!("{}", x)));
+
     // ~out is added after main's arguments as we want variables (columns)
     // in the r1cs to be aligned like "public inputs | private inputs"
     variables.push("~out".to_string());
 
     // position where private part of witness starts
     let private_inputs_offset = variables.len();
+
+    variables.extend(main.arguments.iter().filter(|x| x.private == true).map(|x| format!("{}", x)));
+
 
     for def in &main.statements {
         let mut a_row: Vec<(usize, T)> = Vec::new();
