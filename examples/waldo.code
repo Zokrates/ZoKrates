@@ -1,4 +1,6 @@
-// Find Waldo = find a non-prime number in a set
+// Where's Waldo is a puzzle where the goal is to find Waldo in the picture of a crowd
+// In this example, the crowd is a series of numbers, ideally* all prime but one, and Waldo is a non-prime number
+// * we don't enforce only one number being non-prime, so there could be multiple Waldos
 
 def isWaldo(a):
   // make sure that p and q are both non zero
