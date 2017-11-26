@@ -200,7 +200,8 @@ pub struct Parameter {
 
 impl fmt::Display for Parameter {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.id)
+        let visibility = if self.private { "private " } else { "" };
+        write!(f, "{}{}", visibility, self.id)
     }
 }
 

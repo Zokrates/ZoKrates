@@ -357,6 +357,7 @@ fn main() {
 
             // transform to R1CS
             let (variables, private_inputs_offset, a, b, c) = r1cs_program(&program_ast);
+            println!("\nvars\n{:?}\noffset\n{:?}\na\n{:?}\nb\n{:?}\nc\n{:?}", variables, private_inputs_offset, a, b, c);
 
             // write variables meta information to file
             let var_inf_path = Path::new(sub_matches.value_of("meta-information").unwrap());
@@ -507,6 +508,7 @@ fn main() {
             }
 
             println!("Using Witness: {:?}", witness_map);
+            println!("{:?}", variables);
 
             let witness: Vec<_> = variables.iter().map(|x| witness_map[x].clone()).collect();
 
