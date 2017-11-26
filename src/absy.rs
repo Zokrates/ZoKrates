@@ -7,7 +7,6 @@
 
 use std::fmt;
 use std::collections::HashMap;
-use std::io::{stdin, BufRead};
 use field::Field;
 
 #[derive(Serialize, Deserialize)]
@@ -290,19 +289,11 @@ impl<T: Field> Expression<T> {
                         }
                         assert_eq!(num, T::zero());
                     } else {
-                        println!(
-                            "Could not calculate variable {:?}, inputs: {:?}",
+                        panic!(
+                            "Variable {:?} is undeclared in inputs: {:?}",
                             var,
                             inputs
                         );
-                        println!("Please enter a value for {:?}:", var);
-                        let mut input = String::new();
-                        let stdin = stdin();
-                        stdin
-                            .lock()
-                            .read_line(&mut input)
-                            .expect("Did not enter a correct String");
-                        inputs.insert(var.to_string(), T::from(input.trim()));
                     }
                 }
                 inputs[var].clone()
