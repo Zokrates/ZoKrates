@@ -357,7 +357,6 @@ fn main() {
 
             // transform to R1CS
             let (variables, private_inputs_offset, a, b, c) = r1cs_program(&program_ast);
-            println!("\nvars\n{:?}\noffset\n{:?}\na\n{:?}\nb\n{:?}\nc\n{:?}", variables, private_inputs_offset, a, b, c);
 
             // write variables meta information to file
             let var_inf_path = Path::new(sub_matches.value_of("meta-information").unwrap());
@@ -382,7 +381,7 @@ fn main() {
             // run setup phase
             #[cfg(not(feature="nolibsnark"))]{
                 // number of inputs in the zkSNARK sense, i.e., input variables + output variables
-                let num_inputs = main_flattened.arguments.len() + 1; //currently exactly one output variable
+                let num_inputs = main_flattened.arguments.iter().filter(|x| !x.private).count() + 1;
                 println!("setup successful: {:?}", setup(variables, a, b, c, num_inputs, pk_path, vk_path));
             }
         }
