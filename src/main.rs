@@ -507,7 +507,6 @@ fn main() {
             }
 
             println!("Using Witness: {:?}", witness_map);
-            println!("{:?}", variables);
 
             let witness: Vec<_> = variables.iter().map(|x| witness_map[x].clone()).collect();
 

@@ -299,9 +299,6 @@ pub fn r1cs_program<T: Field>(
     // position where private part of witness starts
     let private_inputs_offset = variables.len();
 
-    //variables.extend(main.arguments.iter().filter(|x| x.private).map(|x| format!("{}", x.id.to_string())));
-
-
     for def in &main.statements {
         let mut a_row: Vec<(usize, T)> = Vec::new();
         let mut b_row: Vec<(usize, T)> = Vec::new();
@@ -315,7 +312,7 @@ pub fn r1cs_program<T: Field>(
                 &mut b_row,
                 &mut c_row,
             ),
-            Statement::Definition(ref id, ref expr) => continue,
+            Statement::Definition(_, _) => continue,
             Statement::Condition(ref expr1, ref expr2) => r1cs_expression(
                 expr1.clone(),
                 expr2.clone(),
