@@ -1,0 +1,3 @@
+def main(private a,c,private b):
+	c == (a * b)
+	return 1
