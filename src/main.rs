@@ -18,6 +18,7 @@ extern crate regex;
 
 mod absy;
 mod parser;
+mod semantics;
 mod flatten;
 mod r1cs;
 mod field;
@@ -33,6 +34,7 @@ use std::io::prelude::*;
 use field::{Field, FieldPrime};
 use absy::Prog;
 use parser::parse_program;
+use semantics::Checker;
 use flatten::Flattener;
 use r1cs::r1cs_program;
 use clap::{App, AppSettings, Arg, SubCommand};
@@ -208,6 +210,10 @@ fn main() {
                     std::process::exit(1);
                 }
             };
+
+            // check semantics
+            let semantics_ok = Checker::new().check_program(program_ast.clone());
+            println!("Semantics ok? {:?}", semantics_ok);
 
             // flatten input program
             let program_flattened =

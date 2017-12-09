@@ -9,7 +9,7 @@ use std::fmt;
 use std::collections::HashMap;
 use field::Field;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Prog<T: Field> {
     /// Functions of the program
     pub functions: Vec<Function<T>>,
@@ -55,7 +55,7 @@ impl<T: Field> fmt::Debug for Prog<T> {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Function<T: Field> {
     /// Name of the program
     pub id: String,
