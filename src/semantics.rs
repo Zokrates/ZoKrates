@@ -9,7 +9,7 @@ use std::collections::{HashMap, HashSet};
 use absy::*;
 use field::Field;
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Symbol {
 	id: String,
 	level: usize
@@ -48,14 +48,19 @@ impl Checker {
 		for arg in funct.arguments {
 			self.scope.insert(Symbol {
 				id: arg.id.to_string(),
-				level: 0
+				level: self.level
 			});
 		}
 		for stat in funct.statements {
 			self.check_statement(stat)?;
 		}
+		let current_level = self.level.clone();
+		let current_scope = self.scope.clone();
+		let to_remove = current_scope.iter().filter(|symbol| symbol.level == current_level);
+		for symbol in to_remove {
+			self.scope.remove(symbol);
+		}
 		self.level -= 1;
-		// TODO: cleanup scope of all symbols of level i
 		Ok(true)
 	}
 
@@ -69,7 +74,7 @@ impl Checker {
 				self.check_expression(expr)?;
 				self.scope.insert(Symbol {
 					id: id.to_string(),
-					level: 0
+					level: self.level
 				});
 				Ok(true)
 
@@ -86,9 +91,10 @@ impl Checker {
 	fn check_expression<T: Field>(&mut self, expr: Expression<T>) -> Result<bool, String> {
 		match expr {
 			Expression::Identifier(id) => {
-				match self.scope.contains(&Symbol {id: id.to_string(), level: 0}) {
-					true => Ok(true),
-					false => Err(format!("{:?} is undefined", id.to_string())),
+				// check that `id` is defined in the scope
+				match self.scope.iter().filter(|symbol| symbol.id == id.to_string()).count() {
+					0 => Err(format!("{:?} is undefined", id.to_string())),
+					_ => Ok(true),
 				}
 			}
 			Expression::Add(box e1, box e2) | Expression::Sub(box e1, box e2) | Expression::Mult(box e1, box e2) |
@@ -154,5 +160,92 @@ mod tests {
 		});
 		let mut checker = Checker::new_with_args(scope, 1);
 		assert_eq!(checker.check_statement(statement), Ok(true));
+	}
+
+	#[test]
+	fn declared_in_other_function() {
+		// def foo():
+		//   a = 1
+		// def bar():
+		//   return a
+		// should fail
+		let foo_args = Vec::<Parameter>::new();
+		let mut foo_statements = Vec::<Statement<FieldPrime>>::new();
+		foo_statements.push(Statement::Definition(
+			String::from("a"),
+			Expression::Number(FieldPrime::from(1)))
+		);
+		let foo = Function {
+            id: "foo".to_string(),
+            arguments: foo_args,
+            statements: foo_statements,
+        };
+
+        let bar_args = Vec::<Parameter>::new();
+		let mut bar_statements = Vec::<Statement<FieldPrime>>::new();
+		bar_statements.push(Statement::Return(
+			Expression::Identifier(String::from("a"))
+		));
+		let bar = Function {
+            id: "bar".to_string(),
+            arguments: bar_args,
+            statements: bar_statements,
+        };
+
+        let mut funcs = Vec::<Function<FieldPrime>>::new();
+        funcs.push(foo);
+        funcs.push(bar);
+        let prog = Prog {
+			functions: funcs
+        };
+
+		let mut checker = Checker::new();
+		assert_eq!(checker.check_program(prog), Err("\"a\" is undefined".to_string()));
+	}
+
+	#[test]
+	fn declared_in_two_scopes() {
+		// def foo():
+		//   a = 1
+		// def bar():
+		//   a = 2
+		//   return a
+		// should pass
+		let foo_args = Vec::<Parameter>::new();
+		let mut foo_statements = Vec::<Statement<FieldPrime>>::new();
+		foo_statements.push(Statement::Definition(
+			String::from("a"),
+			Expression::Number(FieldPrime::from(1)))
+		);
+		let foo = Function {
+            id: "foo".to_string(),
+            arguments: foo_args,
+            statements: foo_statements,
+        };
+
+        let bar_args = Vec::<Parameter>::new();
+		let mut bar_statements = Vec::<Statement<FieldPrime>>::new();
+		bar_statements.push(Statement::Definition(
+			String::from("a"),
+			Expression::Number(FieldPrime::from(2))
+		));
+		bar_statements.push(Statement::Return(
+			Expression::Identifier(String::from("a"))
+		));
+		let bar = Function {
+            id: "bar".to_string(),
+            arguments: bar_args,
+            statements: bar_statements,
+        };
+
+        let mut funcs = Vec::<Function<FieldPrime>>::new();
+        funcs.push(foo);
+        funcs.push(bar);
+        let prog = Prog {
+			functions: funcs
+        };
+
+		let mut checker = Checker::new();
+		assert_eq!(checker.check_program(prog), Ok(true));
 	}
 }
