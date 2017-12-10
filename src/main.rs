@@ -212,8 +212,10 @@ fn main() {
             };
 
             // check semantics
-            let semantics_ok = Checker::new().check_program(program_ast.clone());
-            println!("Semantics ok? {:?}", semantics_ok);
+            match Checker::new().check_program(program_ast.clone()) {
+                Ok(_) => println!("Semantics ok"),
+                Err(why) => panic!("Semantic analysis failed with: {}", why)
+            };
 
             // flatten input program
             let program_flattened =
