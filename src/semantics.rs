@@ -5,7 +5,7 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use absy::*;
 use field::Field;
 
@@ -109,7 +109,13 @@ impl Checker {
 				self.check_expression(alternative)?;
 				Ok(true)
 			}
-			_ => Ok(true),
+			Expression::FunctionCall(_, param_expressions) => {
+				for expr in param_expressions {
+					self.check_expression(expr)?;
+				}
+				Ok(true)
+			}
+			Expression::Number(_) => Ok(true)
 		}
 	}
 
@@ -148,7 +154,7 @@ mod tests {
 	#[test]
 	fn defined_variable_in_statement() {
 		// a = b
-		// b undefined
+		// b defined
 		let statement: Statement<FieldPrime> = Statement::Definition(
 			String::from("a"),
 			Expression::Identifier(String::from("b"))
