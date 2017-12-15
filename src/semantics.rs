@@ -1,8 +1,7 @@
 //! Module containing semantic analysis tools to run at compile time
 //!
-//! @file flatten.rs
-//! @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
-//! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
+//! @file semantics.rs
+//! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2017
 
 use std::collections::HashSet;
@@ -82,6 +81,20 @@ impl Checker {
 			Statement::Condition(lhs, rhs) => {
 				self.check_expression(lhs)?;
 				self.check_expression(rhs)?;
+				Ok(())
+			}
+			Statement::For(id, _, _, statements) => {
+				self.level += 1;
+				let index = Symbol {
+					id: id.to_string(),
+					level: self.level
+				};
+				self.scope.insert(index.clone());
+				for stat in statements {
+					self.check_statement(stat)?;
+				}
+				self.scope.remove(&index);
+				self.level -= 1;
 				Ok(())
 			}
 			_ => Ok(()),
@@ -253,5 +266,61 @@ mod tests {
 
 		let mut checker = Checker::new();
 		assert_eq!(checker.check_program(prog), Ok(()));
+	}
+
+	#[test]
+	fn for_index_after_end() {
+		// def foo():
+		//   for i in 0..10 do
+		//   endfor
+		//   return i
+		// should fail
+		let mut foo_statements = Vec::<Statement<FieldPrime>>::new();
+		foo_statements.push(Statement::For(
+			String::from("i"),
+			FieldPrime::from(0),
+			FieldPrime::from(10),
+			Vec::<Statement<FieldPrime>>::new())
+		);
+		foo_statements.push(Statement::Return(
+			Expression::Identifier(String::from("i"))
+		));
+		let foo = Function {
+			id: "foo".to_string(),
+			arguments: Vec::<Parameter>::new(),
+			statements: foo_statements
+		};
+
+		let mut checker = Checker::new();
+		assert_eq!(checker.check_function(foo), Err("\"i\" is undefined".to_string()));
+	}
+
+	#[test]
+	fn for_index_in_for() {
+		// def foo():
+		//   for i in 0..10 do
+		//     a = i
+		//   endfor
+		// should pass
+		let mut foo_statements = Vec::<Statement<FieldPrime>>::new();
+		let mut for_statements = Vec::<Statement<FieldPrime>>::new();
+		for_statements.push(Statement::Definition(
+			String::from("a"),q
+			Expression::Identifier(String::from("i"))
+		));
+		foo_statements.push(Statement::For(
+			String::from("i"),
+			FieldPrime::from(0),
+			FieldPrime::from(10),
+			for_statements
+		));
+		let foo = Function {
+			id: "foo".to_string(),
+			arguments: Vec::<Parameter>::new(),
+			statements: foo_statements
+		};
+
+		let mut checker = Checker::new();
+		assert_eq!(checker.check_function(foo), Ok(()));
 	}
 }
