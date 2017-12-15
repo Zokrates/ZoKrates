@@ -36,14 +36,14 @@ impl Checker {
 		}
 	}
 
-	pub fn check_program<T: Field>(&mut self, prog: Prog<T>) -> Result<bool, String> {
+	pub fn check_program<T: Field>(&mut self, prog: Prog<T>) -> Result<(), String> {
 		for func in prog.functions {
 			self.check_function(func)?;
 		}
-		Ok(true)
+		Ok(())
 	}
 
-	fn check_function<T: Field>(&mut self, funct: Function<T>) -> Result<bool, String> {
+	fn check_function<T: Field>(&mut self, funct: Function<T>) -> Result<(), String> {
 		self.level += 1;
 		for arg in funct.arguments {
 			self.scope.insert(Symbol {
@@ -61,14 +61,14 @@ impl Checker {
 			self.scope.remove(symbol);
 		}
 		self.level -= 1;
-		Ok(true)
+		Ok(())
 	}
 
-	fn check_statement<T: Field>(&mut self, stat: Statement<T>) -> Result<bool, String> {
+	fn check_statement<T: Field>(&mut self, stat: Statement<T>) -> Result<(), String> {
 		match stat {
 			Statement::Return(expr) => {
 				self.check_expression(expr)?;
-				Ok(true)
+				Ok(())
 			}
 			Statement::Definition(id, expr) => {
 				self.check_expression(expr)?;
@@ -76,50 +76,50 @@ impl Checker {
 					id: id.to_string(),
 					level: self.level
 				});
-				Ok(true)
+				Ok(())
 
 			}
 			Statement::Condition(lhs, rhs) => {
 				self.check_expression(lhs)?;
 				self.check_expression(rhs)?;
-				Ok(true)
+				Ok(())
 			}
-			_ => Ok(true),
+			_ => Ok(()),
 		}
 	}
 
-	fn check_expression<T: Field>(&mut self, expr: Expression<T>) -> Result<bool, String> {
+	fn check_expression<T: Field>(&mut self, expr: Expression<T>) -> Result<(), String> {
 		match expr {
 			Expression::Identifier(id) => {
 				// check that `id` is defined in the scope
 				match self.scope.iter().filter(|symbol| symbol.id == id.to_string()).count() {
 					0 => Err(format!("{:?} is undefined", id.to_string())),
-					_ => Ok(true),
+					_ => Ok(()),
 				}
 			}
 			Expression::Add(box e1, box e2) | Expression::Sub(box e1, box e2) | Expression::Mult(box e1, box e2) |
 			Expression::Div(box e1, box e2) | Expression::Pow(box e1, box e2) => {
 				self.check_expression(e1)?;
 				self.check_expression(e2)?;
-				Ok(true)
+				Ok(())
 			}
 			Expression::IfElse(box condition, box consequent, box alternative) => {
 				self.check_condition(condition)?; 
 				self.check_expression(consequent)?;
 				self.check_expression(alternative)?;
-				Ok(true)
+				Ok(())
 			}
 			Expression::FunctionCall(_, param_expressions) => {
 				for expr in param_expressions {
 					self.check_expression(expr)?;
 				}
-				Ok(true)
+				Ok(())
 			}
-			Expression::Number(_) => Ok(true)
+			Expression::Number(_) => Ok(())
 		}
 	}
 
-	fn check_condition<T: Field>(&mut self, cond: Condition<T>) -> Result<bool, String> {
+	fn check_condition<T: Field>(&mut self, cond: Condition<T>) -> Result<(), String> {
 		match cond {
 			Condition::Lt(e1, e2) |
 			Condition::Le(e1, e2) |
@@ -128,7 +128,7 @@ impl Checker {
 			Condition::Gt(e1, e2) => {
 				self.check_expression(e1)?;
 				self.check_expression(e2)?;
-				Ok(true)
+				Ok(())
 			}
 		}
 	}
@@ -165,7 +165,7 @@ mod tests {
 			level: 0
 		});
 		let mut checker = Checker::new_with_args(scope, 1);
-		assert_eq!(checker.check_statement(statement), Ok(true));
+		assert_eq!(checker.check_statement(statement), Ok(()));
 	}
 
 	#[test]
@@ -252,6 +252,6 @@ mod tests {
         };
 
 		let mut checker = Checker::new();
-		assert_eq!(checker.check_program(prog), Ok(true));
+		assert_eq!(checker.check_program(prog), Ok(()));
 	}
 }
