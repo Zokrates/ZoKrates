@@ -28,6 +28,7 @@ impl Checker {
 		}
 	}
 
+	#[test]
 	pub fn new_with_args(scope: HashSet<Symbol>, level: usize) -> Checker {
 		Checker {
 			scope: scope,
