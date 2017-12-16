@@ -69,7 +69,7 @@ impl Checker {
 				self.check_expression(expr)?;
 				Ok(())
 			}
-			Statement::Definition(id, expr) => {
+			Statement::Definition(id, expr) | Statement::Compiler(id, expr) => {
 				self.check_expression(expr)?;
 				self.scope.insert(Symbol {
 					id: id.to_string(),
@@ -97,7 +97,6 @@ impl Checker {
 				self.level -= 1;
 				Ok(())
 			}
-			_ => Ok(()),
 		}
 	}
 
@@ -305,7 +304,7 @@ mod tests {
 		let mut foo_statements = Vec::<Statement<FieldPrime>>::new();
 		let mut for_statements = Vec::<Statement<FieldPrime>>::new();
 		for_statements.push(Statement::Definition(
-			String::from("a"),q
+			String::from("a"),
 			Expression::Identifier(String::from("i"))
 		));
 		foo_statements.push(Statement::For(
