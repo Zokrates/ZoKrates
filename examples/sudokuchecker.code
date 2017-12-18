@@ -22,7 +22,7 @@ def validateInput(x):
 return (x-1)*(x-2)*(x-3)*(x-4)
 
 // variables naming: box'row''column'
-def main(private a21, private b11, private b22, private c11, private c22, private d21):
+def main(a21, b11, b22, c11, c22, d21, private a11, private a12, private a22, private b12, private b21, private c12, private c21, private d11, private d12, private d22):
 
 // validate inputs
 0 == validateInput(a11)
