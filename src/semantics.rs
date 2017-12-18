@@ -1,4 +1,6 @@
 //! Module containing semantic analysis tools to run at compile time
+//! The goal is to detect semantic errors such as undefined variables
+//! A variable is undefined if it isn't present in the static scope
 //!
 //! @file semantics.rs
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
@@ -116,9 +118,9 @@ impl Checker {
 				self.check_expression(e2)?;
 				Ok(())
 			}
-			Expression::IfElse(box condition, box consequent, box alternative) => {
+			Expression::IfElse(box condition, box consequence, box alternative) => {
 				self.check_condition(condition)?; 
-				self.check_expression(consequent)?;
+				self.check_expression(consequence)?;
 				self.check_expression(alternative)?;
 				Ok(())
 			}

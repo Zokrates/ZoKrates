@@ -424,7 +424,7 @@ impl Flattener {
                     match param_expr.apply_substitution(&self.substitution) {
                         Expression::Identifier(ref x) => params_flattened.push(Parameter {
                             id: x.clone().to_string(),
-                            private: false
+                            private: true
                         }),
                         _ => {
                             let expr_subbed = param_expr.apply_substitution(&self.substitution);
@@ -440,7 +440,7 @@ impl Flattener {
                                 .push(Statement::Definition(intermediate_var.clone(), rhs));
                             params_flattened.push(Parameter {
                                 id: intermediate_var.clone().to_string(),
-                                private: false
+                                private: true
                             });
                         }
                     }
