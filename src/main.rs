@@ -27,7 +27,7 @@ mod libsnark;
 
 use std::fs::File;
 use std::path::Path;
-use std::io::{BufWriter, Write, BufReader, BufRead};
+use std::io::{BufWriter, Write, BufReader, BufRead, stdin};
 use std::collections::HashMap;
 use std::string::String;
 use std::io::prelude::*;
@@ -141,7 +141,7 @@ fn main() {
         .arg(Arg::with_name("input")
             .short("i")
             .long("input")
-            .help("path of comiled code.")
+            .help("path of compiled code.")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -160,6 +160,10 @@ fn main() {
             .help("Arguments for the program's main method. Space separated list.")
             .takes_value(true)
             .multiple(true) // allows multiple values
+            .required(false)
+        ).arg(Arg::with_name("interactive")
+            .long("interactive")
+            .help("enter private inputs interactively.")
             .required(false)
         )
     )
@@ -294,22 +298,54 @@ fn main() {
             println!("{}", main_flattened);
 
             // validate #arguments
-            let mut args: Vec<FieldPrime> = Vec::new();
+            let mut cli_arguments: Vec<FieldPrime> = Vec::new();
             match sub_matches.values_of("arguments"){
                 Some(p) => {
                     let arg_strings: Vec<&str> = p.collect();
-                    args = arg_strings.into_iter().map(|x| FieldPrime::from(x)).collect();
+                    cli_arguments = arg_strings.into_iter().map(|x| FieldPrime::from(x)).collect();
                 },
                 None => {
                 }
             }
 
-            if main_flattened.arguments.len() != args.len() {
-                println!("Wrong number of arguments. Given: {}, Required: {}.", args.len(), main_flattened.arguments.len());
+            // handle interactive and non-interactive modes
+            let is_interactive = sub_matches.occurrences_of("interactive") > 0;
+
+            // in interactive mode, only public inputs are expected
+            let expected_cli_args_count = main_flattened.arguments.iter().filter(|x| !(x.private && is_interactive)).count();
+
+            if cli_arguments.len() != expected_cli_args_count {
+                println!("Wrong number of arguments. Given: {}, Required: {}.", cli_arguments.len(), expected_cli_args_count);
                 std::process::exit(1);
             }
 
-            let witness_map = main_flattened.get_witness(args);
+            let mut cli_arguments_iter = cli_arguments.into_iter();
+            let arguments = main_flattened.arguments.clone().into_iter().map(|x| {
+                match x.private && is_interactive {
+                    // private inputs are passed interactively when the flag is present
+                    true => {
+                        println!("Please enter a value for {:?}:", x.id);
+                        let mut input = String::new();
+                        let stdin = stdin();
+                        stdin
+                            .lock()
+                            .read_line(&mut input)
+                            .expect("Did not enter a correct String");
+                        FieldPrime::from(input.trim())
+                    }
+                    // otherwise, they are taken from the CLI arguments
+                    false => {
+                        match cli_arguments_iter.next() {
+                            Some(x) => x,
+                            None => {
+                                std::process::exit(1);
+                            }
+                        }
+                    }
+                }
+            }).collect();
+
+            let witness_map = main_flattened.get_witness(arguments);
             // let witness_map: HashMap<String, FieldPrime> = main_flattened.get_witness(args);
             println!("Witness: {:?}", witness_map);
             match witness_map.get("~out") {
