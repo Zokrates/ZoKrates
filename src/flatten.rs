@@ -442,7 +442,6 @@ impl Flattener {
                             }
                         }
                         let prefix = format!("{}_{}_", funct.id.clone(), self.function_calls.get(&funct.id).unwrap());
-                        println!("Function Prefix {}",prefix);
 
                         // Handle complex parameters and assign values:
                         // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions
