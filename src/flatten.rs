@@ -18,6 +18,8 @@ pub struct Flattener {
     variables: HashSet<String>,
     /// Map of renamings for reassigned variables while processing the program.
     substitution: HashMap<String, String>,
+    /// Map of function id to invocation counter
+    function_calls: HashMap<String, usize>,
     /// Index of the next introduced variable while processing the program.
     next_var_idx: usize,
 }
@@ -32,6 +34,7 @@ impl Flattener {
             bits: bits,
             variables: HashSet::new(),
             substitution: HashMap::new(),
+            function_calls: HashMap::new(),
             next_var_idx: 0,
         }
     }
@@ -418,53 +421,56 @@ impl Flattener {
                 )
             }
             FunctionCall(ref id, ref param_expressions) => {
-                // Replace complex expressions with definitions in parameters
-                let mut params_flattened: Vec<Parameter> = Vec::new();
-                for (i, param_expr) in param_expressions.iter().enumerate() {
-                    match param_expr.apply_substitution(&self.substitution) {
-                        Expression::Identifier(ref x) => params_flattened.push(Parameter {
-                            id: x.clone().to_string(),
-                        }),
-                        _ => {
-                            let expr_subbed = param_expr.apply_substitution(&self.substitution);
-                            let rhs = self.flatten_expression(
-                                functions_flattened,
-                                arguments_flattened,
-                                statements_flattened,
-                                expr_subbed,
-                            );
-                            let intermediate_var =
-                                self.use_variable(&format!("{}_param_{}", &id, i));
-                            statements_flattened
-                                .push(Statement::Definition(intermediate_var.clone(), rhs));
-                            params_flattened.push(Parameter {
-                                id: intermediate_var.clone().to_string(),
-                            });
-                        }
-                    }
-                }
-
                 for funct in functions_flattened {
                     if funct.id == *id && funct.arguments.len() == (*param_expressions).len() {
                         // funct is now the called function
 
-                        // add all variables of caller to ensure no conflicting variable can be used in funct
-                        // update with new variables created during processing
-                        let mut used_vars: HashSet<String> = self.variables.clone();
-                        // if conflicting variable is found, a replacement variable needs to be created
-                        // and the substitution needs to be added to replacement map.
+                        // Idea: variables are given a prefix.
+                        // It consists of the function name followed by a call counter value
+                        // e.g.: add_1_a_2
+
+                        // Stores prefixed variables
                         let mut replacement_map: HashMap<String, String> = HashMap::new();
 
-                        for (i, _) in params_flattened.iter().enumerate() {
-                            let identifier_call: String =
-                                params_flattened.get(i).unwrap().id.clone();
-                            let identifier_called: String =
-                                funct.arguments.get(i).unwrap().id.clone();
-                            if identifier_called != identifier_call{
-                                replacement_map.insert(identifier_called, identifier_call);
+                        // build prefix
+                        match self.function_calls.clone().get(&funct.id) {
+                            Some(val) => {
+                                self.function_calls.insert(funct.id.clone(),val+1);
+                            }
+                            None => {
+                                self.function_calls.insert(funct.id.clone(),1);
                             }
                         }
+                        let prefix = format!("{}_{}_", funct.id.clone(), self.function_calls.get(&funct.id).unwrap());
+                        println!("Function Prefix {}",prefix);
 
+                        // Handle complex parameters and assign values:
+                        // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions
+                        for (i, param_expr) in param_expressions.iter().enumerate() {
+                            let new_var;
+                            match param_expr.apply_substitution(&self.substitution) {
+                                Expression::Identifier(ref x) => {
+                                    new_var = format!("{}param_{}", &prefix, i);
+                                        statements_flattened
+                                        .push(Statement::Definition(new_var.clone(), Expression::Identifier(x.clone().to_string())));
+                                },
+                                _ => {
+                                    let expr_subbed = param_expr.apply_substitution(&self.substitution);
+                                    let rhs = self.flatten_expression(
+                                        functions_flattened,
+                                        arguments_flattened,
+                                        statements_flattened,
+                                        expr_subbed,
+                                    );
+                                    new_var = format!("{}param_{}", &prefix, i);
+                                    statements_flattened
+                                        .push(Statement::Definition(new_var.clone(), rhs));
+                                }
+                            }
+                            replacement_map.insert(funct.arguments.get(i).unwrap().id.clone(), new_var);
+                        }
+
+                        // Ensure Renaming and correct returns:
                         // add all flattened statements, adapt return statement
                         for stat in funct.statements.clone() {
                             assert!(stat.is_flattened(), format!("Not flattened: {}", &stat));
@@ -472,42 +478,28 @@ impl Flattener {
                                 // set return statements right side as expression result
                                 Statement::Return(x) => {
                                     let result = x.apply_substitution(&replacement_map);
-                                    // add back variables and substitutions to calling function
-                                    for v in used_vars{
-                                        self.variables.insert(v);
-                                    }
                                     return result;
-                                }
+                                },
                                 Statement::Definition(var, rhs) => {
                                     let new_rhs = rhs.apply_substitution(&replacement_map);
-                                    let mut new_var: String = var.clone();
-                                    if used_vars.contains(&var){
-                                        new_var = self.get_new_var(&var, &mut used_vars);
-                                        replacement_map.insert(var, new_var.clone());
-                                    } else{
-                                        used_vars.insert(new_var.clone()); // variables must not be used again
-                                    }
+                                    let new_var: String = format!("{}{}", prefix, var.clone());
+                                    replacement_map.insert(var, new_var.clone());
                                     statements_flattened.push(
                                         Statement::Definition(new_var, new_rhs)
                                     );
-                                }
+                                },
                                 Statement::Compiler(var, rhs) => {
                                     let new_rhs = rhs.apply_substitution(&replacement_map);
-                                    let mut new_var: String = var.clone();
-                                    if used_vars.contains(&var){
-                                        new_var = self.get_new_var(&var, &mut used_vars);
-                                        replacement_map.insert(var, new_var.clone());
-                                    } else{
-                                        used_vars.insert(new_var.clone()); // variables must not be used again
-                                    }
+                                    let new_var: String = format!("{}{}", prefix, var.clone());
+                                    replacement_map.insert(var, new_var.clone());
                                     statements_flattened.push(Statement::Compiler(new_var, new_rhs));
-                                }
+                                },
                                 Statement::Condition(lhs, rhs) => {
                                     let new_lhs = lhs.apply_substitution(&replacement_map);
                                     let new_rhs = rhs.apply_substitution(&replacement_map);
                                     statements_flattened
                                         .push(Statement::Condition(new_lhs, new_rhs));
-                                }
+                                },
                                 Statement::For(..) => panic!("Not flattened!"),
                             }
                         }
@@ -692,21 +684,6 @@ impl Flattener {
             match self.substitution.get(&latest_var) {
                 Some(x) => latest_var = x.to_string(),
                 None => return latest_var,
-            }
-        }
-    }
-
-    // used for function call flattening
-    fn get_new_var(&mut self, name: &String, used_vars: &mut HashSet<String>) -> String{
-        let mut i = 0;
-        let mut new_name = name.to_string();
-        loop {
-            if used_vars.contains(&new_name) {
-                new_name = format!("{}_{}", &name, i);
-                i += 1;
-            } else {
-                used_vars.insert(new_name.to_string());
-                return new_name;
             }
         }
     }
