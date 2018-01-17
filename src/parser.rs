@@ -69,7 +69,7 @@ use std::fmt;
 use std::io::{BufReader, Lines};
 use std::io::prelude::*;
 use std::fs::File;
-use field::Field;
+use field::{Field, FieldPrime};
 use absy::*;
 
 #[derive(Clone, PartialEq)]
@@ -781,6 +781,31 @@ fn parse_function_call<T: Field>(
     }
 }
 
+// parse an expression list starting with an identifier
+fn parse_expression_list1<T: Field>(
+    head: String,
+    input: String,
+    pos: Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
+    let mut res = Vec::new();
+    res.push(Expression::Identifier(head));
+    match parse_comma_separated_list_rec(input, pos, &mut res) {
+        Ok((list, s1, p1)) => Ok((Expression::Destructure(list), s1, p1)),
+        Err(err) => Err(err)
+    }
+}
+
+// parse an expression list
+fn parse_expression_list<T: Field>(
+    input: String,
+    pos: Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
+    let mut res = Vec::new();
+    match parse_comma_separated_list_rec(input, pos, &mut res) {
+        Ok((list, s1, p1)) => Ok((Expression::Destructure(list), s1, p1)),
+        Err(err) => Err(err)
+    }
+}
 
 fn parse_expr<T: Field>(
     input: &String,
@@ -821,6 +846,7 @@ fn parse_expr<T: Field>(
     }
 }
 
+// parse statement that starts with an identifier
 fn parse_statement1<T: Field>(
     ide: String,
     input: String,
@@ -854,6 +880,24 @@ fn parse_statement1<T: Field>(
                 }
             },
             Err(err) => Err(err),
+        },
+        (Token::Comma, s1, p1) => match parse_expression_list1(ide, s1, p1) { // if we find a comma, parse the rest of the destructure
+            Ok((e2, s2, p2)) => match next_token(&s2, &p2) { // then we should have an equal sign
+                (Token::Eq, s3, p3) => match parse_expr(&s3, &p3) {
+                    Ok((e4, s4, p4)) => {
+                        Ok((Statement::MultipleDefinition(e2, e4), s4, p4)) // output a multipledefinition with the destructure and the expression
+                    },
+                    Err(err) => Err(err)
+                },
+                (t3, _, p3) => Err(Error {
+                    expected: vec![
+                        Token::Eq
+                    ],
+                    got: t3,
+                    pos: p3,
+                }),
+            },
+            Err(err) => Err(err)
         },
         _ => match parse_term1(Expression::Identifier(ide), input, pos) {
             Ok((e2, s2, p2)) => match parse_expr1(e2, s2, p2) {
@@ -1222,6 +1266,7 @@ fn parse_function<T: Field>(
 
     // parse function body
     let mut stats = Vec::new();
+    let mut return_count;
     loop {
         match lines.next() {
             Some(Ok(ref x)) if x.trim().starts_with("//") || x.trim() == "" => {} // skip
@@ -1234,6 +1279,7 @@ fn parse_function<T: Field>(
                 },
             ) {
                 Ok((statement @ Statement::Return(_), ..)) => {
+                    return_count = 1;
                     stats.push(statement);
                     break;
                 }
@@ -1259,6 +1305,7 @@ fn parse_function<T: Field>(
             id: id,
             arguments: args,
             statements: stats,
+            return_count: return_count
         },
         Position {
             line: current_line,
@@ -1338,6 +1385,31 @@ pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
     };
 
     Ok(Prog { functions })
+}
+
+fn parse_comma_separated_list<T: Field>(
+    input: String, 
+    pos: Position
+) -> Result<(Vec<Expression<T>>, String, Position), Error<T>> { 
+    let mut res = Vec::new();
+    parse_comma_separated_list_rec(input, pos, &mut res) 
+}
+
+fn parse_comma_separated_list_rec<T: Field>(
+    input: String, 
+    pos: Position,
+    mut acc: &mut Vec<Expression<T>>
+) -> Result<(Vec<Expression<T>>, String, Position), Error<T>> {
+    match parse_expr(&input, &pos) {
+        Ok((e1, s1, p1)) => {
+            acc.push(e1);
+            match next_token::<FieldPrime>(&s1, &p1) {
+                (Token::Comma, s2, p2) => parse_comma_separated_list_rec(s2, p2, &mut acc),
+                (_, _, _) => Ok((acc.to_vec(), s1, p1)),
+            }                
+        },
+        Err(err) => Err(err)
+    }
 }
 
 
@@ -1518,6 +1590,67 @@ mod tests {
                 parse_factor(&string, &pos)
             );
         }
+    }
+
+    #[cfg(test)]
+    mod parse_destructure {
+        use super::*;
+        #[test]
+        fn destructure1() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("b, c");
+            let expr = Expression::Destructure::<FieldPrime>(vec![Expression::Identifier(String::from("a")),Expression::Identifier(String::from("b")),Expression::Identifier(String::from("c"))]);
+            assert_eq!(
+                Ok((expr, String::from(""), pos.col(string.len() as isize))),
+                parse_expression_list1(String::from("a"), string, pos)
+            )
+        }
+
+        #[test]
+        fn destructure() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("b, c");
+            let expr = Expression::Destructure::<FieldPrime>(vec![Expression::Identifier(String::from("b")),Expression::Identifier(String::from("c"))]);
+            assert_eq!(
+                Ok((expr, String::from(""), pos.col(string.len() as isize))),
+                parse_expression_list(string, pos)
+            )
+        }
+
+        #[test]
+        fn destructure_single() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("a");
+            let exprs = vec![Expression::Identifier(String::from("a"))];
+            assert_eq!(
+                Ok((exprs, String::from(""), pos.col(string.len() as isize))),
+                parse_comma_separated_list::<FieldPrime>(string, pos)
+            )
+        }
+
+        #[test]
+        fn destructure_two() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("a, b");
+            let exprs = vec![Expression::Identifier(String::from("a")),Expression::Identifier(String::from("b"))];
+            assert_eq!(
+                Ok((exprs, String::from(""), pos.col(string.len() as isize))),
+                parse_comma_separated_list::<FieldPrime>(string, pos)
+            )
+        }
+
+        #[test]
+        fn destructure_three() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("a, b, c");
+            let exprs = vec![Expression::Identifier(String::from("a")),Expression::Identifier(String::from("b")),Expression::Identifier(String::from("c"))];
+            assert_eq!(
+                Ok((exprs, String::from(""), pos.col(string.len() as isize))),
+                parse_comma_separated_list::<FieldPrime>(string, pos)
+            )
+        }
+
+        // test impossible to run forever?
     }
 
     // parse function

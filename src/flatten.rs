@@ -500,6 +500,7 @@ impl Flattener {
                                         .push(Statement::Condition(new_lhs, new_rhs));
                                 },
                                 Statement::For(..) => panic!("Not flattened!"),
+                                Statement::MultipleDefinition(..) => unimplemented!(),
                             }
                         }
                     }
@@ -509,7 +510,8 @@ impl Flattener {
                     id,
                     param_expressions
                 );
-            }
+            },
+            _ => unimplemented!()
         }
     }
 
@@ -594,6 +596,7 @@ impl Flattener {
                 }
             }
             ref s @ Statement::Compiler(..) => statements_flattened.push(s.clone()),
+            Statement::MultipleDefinition(..) => unimplemented!(),
         }
     }
 
@@ -632,6 +635,7 @@ impl Flattener {
             id: funct.id,
             arguments: arguments_flattened,
             statements: statements_flattened,
+            return_count: 1
         }
     }
 

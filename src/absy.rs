@@ -64,6 +64,8 @@ pub struct Function<T: Field> {
     pub arguments: Vec<Parameter>,
     /// Vector of statements that are executed when running the function
     pub statements: Vec<Statement<T>>,
+    /// number of returns
+    pub return_count: usize,
 }
 
 impl<T: Field> Function<T> {
@@ -88,7 +90,8 @@ impl<T: Field> Function<T> {
                 Statement::For(..) => unimplemented!(),
                 Statement::Condition(ref lhs, ref rhs) => {
                     assert_eq!(lhs.solve(&mut witness), rhs.solve(&mut witness))
-                }
+                },
+                Statement::MultipleDefinition(ref ids, ref expr) => unimplemented!()
             }
         }
         witness
@@ -138,12 +141,13 @@ pub enum Statement<T: Field> {
     Condition(Expression<T>, Expression<T>),
     For(String, T, T, Vec<Statement<T>>),
     Compiler(String, Expression<T>),
+    MultipleDefinition(Expression<T>, Expression<T>),
 }
 
 impl<T: Field> Statement<T> {
     pub fn is_flattened(&self) -> bool {
         match *self {
-            Statement::Return(ref x) | Statement::Definition(_, ref x) => x.is_flattened(),
+            Statement::Return(ref x) | Statement::Definition(_, ref x) | Statement::MultipleDefinition(_, ref x) => x.is_flattened(),
             Statement::Compiler(..) => true,
             Statement::Condition(ref x, ref y) => {
                 (x.is_linear() && y.is_flattened()) || (x.is_flattened() && y.is_linear())
@@ -168,6 +172,9 @@ impl<T: Field> fmt::Display for Statement<T> {
                 write!(f, "\tendfor")
             }
             Statement::Compiler(ref lhs, ref rhs) => write!(f, "# {} = {}", lhs, rhs),
+            Statement::MultipleDefinition(ref lhs, ref rhs) => {
+                write!(f, "{} = {}", lhs, rhs)
+            },
         }
     }
 }
@@ -188,6 +195,9 @@ impl<T: Field> fmt::Debug for Statement<T> {
                 write!(f, "\tendfor")
             }
             Statement::Compiler(ref lhs, ref rhs) => write!(f, "Compiler({:?}, {:?})", lhs, rhs),
+            Statement::MultipleDefinition(ref lhs, ref rhs) => {
+                write!(f, "MultipleDefinition({:?}, {:?})", lhs, rhs)
+            },
         }
     }
 }
@@ -220,6 +230,7 @@ pub enum Expression<T: Field> {
     Pow(Box<Expression<T>>, Box<Expression<T>>),
     IfElse(Box<Condition<T>>, Box<Expression<T>>, Box<Expression<T>>),
     FunctionCall(String, Vec<Expression<T>>),
+    Destructure(Vec<Expression<T>>),
 }
 
 impl<T: Field> Expression<T> {
@@ -266,6 +277,10 @@ impl<T: Field> Expression<T> {
                 }
                 Expression::FunctionCall(i.clone(), p.clone())
             }
+            Expression::Destructure(ref ids) => unimplemented!()
+            // Expression::Destructure(
+            //     ids.iter().map(|id| Expression::Identifier(id).apply_substitution(substitution)).collect::<Vec<_>>()
+            // )
         }
     }
 
@@ -318,6 +333,7 @@ impl<T: Field> Expression<T> {
                 }
             }
             Expression::FunctionCall(_, _) => unimplemented!(), // should not happen, since never part of flattened functions
+            Expression::Destructure(_) => unimplemented!() // same
         }
     }
 
@@ -383,6 +399,7 @@ impl<T: Field> fmt::Display for Expression<T> {
                 }
                 write!(f, ")")
             }
+            Expression::Destructure(..) => unimplemented!()
         }
     }
 }
@@ -409,6 +426,7 @@ impl<T: Field> fmt::Debug for Expression<T> {
                 try!(f.debug_list().entries(p.iter()).finish());
                 write!(f, ")")
             }
+            Expression::Destructure(ref ids) => write!(f, "Destructure({:?})", ids),
         }
     }
 }

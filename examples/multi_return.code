@@ -1,0 +1,6 @@
+def main(x):
+	x, y = dup(x)
+    return 1
+
+def dup(x):
+	return x, x

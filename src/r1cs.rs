@@ -244,6 +244,7 @@ fn r1cs_expression<T: Field>(
                 c_row.push((get_variable_idx(variables, &key), value));
             }
         }
+        _ => unimplemented!()
     }
 }
 
@@ -329,6 +330,7 @@ pub fn r1cs_program<T: Field>(
             ),
             Statement::For(..) => panic!("For-loop not flattened"),
             Statement::Compiler(..) => continue,
+            Statement::MultipleDefinition(..) => unimplemented!(),
         }
         a.push(a_row);
         b.push(b_row);
