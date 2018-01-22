@@ -433,7 +433,6 @@ impl Flattener {
             FunctionCall(ref id, ref param_expressions) => {
                 for funct in functions_flattened {
                     if funct.id == *id && funct.arguments.len() == (*param_expressions).len() {
-
                         // funct is now the called function
 
                         // Idea: variables are given a prefix.
@@ -489,7 +488,7 @@ impl Flattener {
                                 Statement::Return(x) => {
                                     match x {
                                         List(values) => {
-                                            let new_values = values.into_iter().map(|x| x.apply_substitution(&replacement_map)).collect::<Vec<_>>();
+                                            let new_values: Vec<Expression<T>> = values.into_iter().map(|x| x.apply_substitution(&replacement_map)).collect();
                                             if new_values.len() == 1 {
                                                 return new_values[0].clone();
                                             }
@@ -541,20 +540,15 @@ impl Flattener {
     ) {
         match *stat {
             Statement::Return(ref exprs) => {
-                let exprs_subbed = exprs.clone().apply_substitution(&self.substitution);
+                let exprs_subbed = exprs.apply_substitution(&self.substitution);
                 let rhs = self.flatten_expression(
                     functions_flattened,
                     arguments_flattened,
                     statements_flattened,
                     exprs_subbed,
                 );
-
-                match rhs.clone() {
-                    List(_) => {
-                        statements_flattened.push(Statement::Return(rhs));
-                    },
-                    _ => panic!("")
-                }
+                
+                statements_flattened.push(Statement::Return(rhs));
             }
             Statement::Definition(ref id, ref expr) => {
                 let expr_subbed = expr.apply_substitution(&self.substitution);
@@ -620,33 +614,28 @@ impl Flattener {
                 }
             }
             ref s @ Statement::Compiler(..) => statements_flattened.push(s.clone()),
-            Statement::MultipleDefinition(ref ids, ref e2) => {
-                match *e2 {
-                    FunctionCall(..) => {
-                        let expr_subbed = e2.apply_substitution(&self.substitution);
-                        let rhs = self.flatten_expression(
-                            functions_flattened,
-                            arguments_flattened,
-                            statements_flattened,
-                            expr_subbed,
-                        );
+            Statement::MultipleDefinition(ref ids, ref rhs) => {
+                let rhs_subbed = rhs.apply_substitution(&self.substitution);
+                let rhs_flattened = self.flatten_expression(
+                    functions_flattened,
+                    arguments_flattened,
+                    statements_flattened,
+                    rhs_subbed,
+                );
 
-                        match rhs {
-                            Expression::List(rhslist) => {
-                                for (i, id) in ids.into_iter().enumerate() {
-                                    let var = self.use_variable(&id);
-                                    // handle return of function call
-                                    let var_to_replace = self.get_latest_var_substitution(&id);
-                                    if !(var == var_to_replace) && self.variables.contains(&var_to_replace) && !self.substitution.contains_key(&var_to_replace){
-                                        self.substitution.insert(var_to_replace.clone().to_string(),var.clone());
-                                    }
-                                    statements_flattened.push(Statement::Definition(var, rhslist[i].clone()));
-                                }
-                            },
-                            _ => panic!("rhs should flatten to a List, semantics failed")
+                match rhs_flattened {
+                    Expression::List(rhs_list) => {
+                        for (i, id) in ids.into_iter().enumerate() {
+                            let var = self.use_variable(&id);
+                            // handle return of function call
+                            let var_to_replace = self.get_latest_var_substitution(&id);
+                            if !(var == var_to_replace) && self.variables.contains(&var_to_replace) && !self.substitution.contains_key(&var_to_replace){
+                                self.substitution.insert(var_to_replace.clone().to_string(),var.clone());
+                            }
+                            statements_flattened.push(Statement::Definition(var, rhs_list[i].clone()));
                         }
                     },
-                    _ => panic!("rhs should be a function call")
+                    _ => panic!("rhs should flatten to a List, semantics failed")
                 }
             },
         }

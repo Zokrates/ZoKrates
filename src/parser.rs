@@ -1119,29 +1119,21 @@ fn parse_statement<T: Field>(
             }),
         },
         (Token::Return, s1, p1) => match parse_expression_list(s1, p1) {
-            Ok((Expression::List(xs), s2, p2)) => match next_token(&s2, &p2) {
+            Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
                 (Token::InlineComment(_), ref s3, _) => {
                     assert_eq!(s3, "");
-                    Ok((Statement::Return(Expression::List(xs)), s2, p2))
+                    Ok((Statement::Return(e2), s2, p2))
                 }
                 (Token::Unknown(ref t3), ref s3, _) if t3 == "" => {
                     assert_eq!(s3, "");
-                    Ok((Statement::Return(Expression::List(xs)), s2, p2))
+                    Ok((Statement::Return(e2), s2, p2))
                 }
-                (t4, _, p4) => Err(Error {
-                    expected: vec![
-                        Token::Add,
-                        Token::Sub,
-                        Token::Pow,
-                        Token::Mult,
-                        Token::Div,
-                        Token::Unknown("".to_string()),
-                    ],
-                    got: t4,
-                    pos: p4,
+                (t3, _, p3) => Err(Error {
+                    expected: vec![Token::Unknown("".to_string())],
+                    got: t3,
+                    pos: p3,
                 }),
             },
-            Ok(..) => unimplemented!(),
             Err(err) => Err(err),
         },
         (Token::Def, _, p1) => Err(Error {

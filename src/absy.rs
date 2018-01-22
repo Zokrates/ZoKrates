@@ -151,8 +151,7 @@ pub enum Statement<T: Field> {
 impl<T: Field> Statement<T> {
     pub fn is_flattened(&self) -> bool {
         match *self {
-            Statement::Definition(_, ref x) | Statement::MultipleDefinition(_, ref x) => x.is_flattened(),
-            Statement::Return(ref x) => x.is_flattened(),
+            Statement::Definition(_, ref x) | Statement::MultipleDefinition(_, ref x) | Statement::Return(ref x) => x.is_flattened(),
             Statement::Compiler(..) => true,
             Statement::Condition(ref x, ref y) => {
                 (x.is_linear() && y.is_flattened()) || (x.is_flattened() && y.is_linear())
@@ -291,7 +290,7 @@ impl<T: Field> Expression<T> {
                 Expression::FunctionCall(i.clone(), p.clone())
             },
             Expression::List(ref exprs) => {
-                Expression::List(exprs.iter().map(|e| e.apply_substitution(substitution)).collect::<Vec<_>>())
+                Expression::List(exprs.iter().map(|e| e.apply_substitution(substitution)).collect())
             }
         }
     }
@@ -372,7 +371,7 @@ impl<T: Field> Expression<T> {
                 }
             },
             Expression::List(ref exprs) => {
-                exprs.into_iter().fold(true, |acc, x| acc && x.is_flattened())
+                exprs.into_iter().all(|x| x.is_flattened())
             },
             _ => false,
         }
