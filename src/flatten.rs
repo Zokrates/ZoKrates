@@ -219,8 +219,15 @@ impl Flattener {
             {
                 x.clone()
             }
-            List(ref exprs) if exprs.iter().fold(true, |acc, x| acc && x.is_flattened()) => {
-                List(exprs.clone())
+            List(ref exprs) => {
+                let flattened_exprs = exprs.into_iter().map(|x| 
+                    self.flatten_expression(
+                        functions_flattened, 
+                        arguments_flattened, 
+                        statements_flattened, 
+                        x.clone())
+                    ).collect();
+                List(flattened_exprs)
             },
             Add(box left, box right) => {
                 let left_flattened = self.flatten_expression(
@@ -483,7 +490,10 @@ impl Flattener {
                                     match x {
                                         List(values) => {
                                             let new_values = values.into_iter().map(|x| x.apply_substitution(&replacement_map)).collect::<Vec<_>>();
-                                            return List(new_values)
+                                            if new_values.len() == 1 {
+                                                return new_values[0].clone();
+                                            }
+                                            return List(new_values);
                                         },
                                         _ => panic!("should return a List")
                                     }
@@ -508,33 +518,7 @@ impl Flattener {
                                     statements_flattened
                                         .push(Statement::Condition(new_lhs, new_rhs));
                                 },
-                                Statement::For(..) => panic!("Not flattened!"),
-                                // Statement::MultipleDefinition(e1, e2) => {
-                                //     let new_rhs = e2.apply_substitution(&replacement_map);
-                                //     match new_rhs {
-                                //         Expression::List(rhslist) => {
-                                //             match e1 {
-                                //                 Expression::List(exprs) => {
-                                //                     for (i, e) in exprs.into_iter().enumerate() {
-                                //                         match e {
-                                //                             Expression::Identifier(var) => {
-                                //                                 let new_var: String = format!("{}{}", prefix, var.clone());
-                                //                                 replacement_map.insert(var, new_var.clone());
-                                //                                 statements_flattened.push(
-                                //                                     Statement::Definition(new_var, rhslist[i].clone())
-                                //                                 );
-                                //                             },
-                                //                             _ => panic!("")
-                                //                         }
-                                //                     }
-                                //                 },
-                                //                 _ => panic!("")
-                                //             }
-                                //         },
-                                //         _ => panic!("")
-                                //     }
-                                // },
-                                _ => unimplemented!()
+                                _ => panic!("Statement inside function not flattened when flattening function call")
                             }
                         }
                     }
@@ -544,8 +528,7 @@ impl Flattener {
                     id,
                     param_expressions
                 );
-            },
-            _ => unimplemented!()
+            }
         }
     }
 
@@ -587,6 +570,7 @@ impl Flattener {
                 if !(var == var_to_replace) && self.variables.contains(&var_to_replace) && !self.substitution.contains_key(&var_to_replace){
                     self.substitution.insert(var_to_replace.clone().to_string(),var.clone());
                 }
+
                 statements_flattened.push(Statement::Definition(var, rhs));
             }
             Statement::Condition(ref expr1, ref expr2) => {
@@ -861,10 +845,13 @@ mod multiple_definition {
             &statement,
         );
 
+        println!("{:?}", statements_flattened);
+
+
         assert_eq!(
             statements_flattened[0]
             ,
-            Statement::Definition("a".to_string(), Expression::Number(FieldPrime::from(2)))
+            Statement::Definition("dup_1_param_0".to_string(), Expression::Number(FieldPrime::from(2)))
         );
     }
 

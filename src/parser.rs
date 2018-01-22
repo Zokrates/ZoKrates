@@ -1586,10 +1586,19 @@ mod tests {
     }
 
     #[cfg(test)]
-    mod parse_destructure {
+    mod parse_comma_separated_list {
         use super::*;
+
+        fn parse_comma_separated_list<T: Field>(
+            input: String, 
+            pos: Position
+        ) -> Result<(Vec<Expression<T>>, String, Position), Error<T>> { 
+            let mut res = Vec::new();
+            parse_comma_separated_list_rec(input, pos, &mut res) 
+        }
+
         #[test]
-        fn destructure1() {
+        fn comma_separated_list1() {
             let pos = Position { line: 45, col: 121 };
             let string = String::from("b, c");
             let expr = Expression::List::<FieldPrime>(vec![Expression::Identifier(String::from("a")),Expression::Identifier(String::from("b")),Expression::Identifier(String::from("c"))]);
@@ -1600,7 +1609,7 @@ mod tests {
         }
 
         #[test]
-        fn destructure() {
+        fn comma_separated_list() {
             let pos = Position { line: 45, col: 121 };
             let string = String::from("b, c");
             let expr = Expression::List::<FieldPrime>(vec![Expression::Identifier(String::from("b")),Expression::Identifier(String::from("c"))]);
@@ -1611,7 +1620,7 @@ mod tests {
         }
 
         #[test]
-        fn destructure_single() {
+        fn comma_separated_list_single() {
             let pos = Position { line: 45, col: 121 };
             let string = String::from("a");
             let exprs = vec![Expression::Identifier(String::from("a"))];
@@ -1622,18 +1631,7 @@ mod tests {
         }
 
         #[test]
-        fn destructure_two() {
-            let pos = Position { line: 45, col: 121 };
-            let string = String::from("a, b");
-            let exprs = vec![Expression::Identifier(String::from("a")),Expression::Identifier(String::from("b"))];
-            assert_eq!(
-                Ok((exprs, String::from(""), pos.col(string.len() as isize))),
-                parse_comma_separated_list::<FieldPrime>(string, pos)
-            )
-        }
-
-        #[test]
-        fn destructure_three() {
+        fn comma_separated_list_three() {
             let pos = Position { line: 45, col: 121 };
             let string = String::from("a, b, c");
             let exprs = vec![Expression::Identifier(String::from("a")),Expression::Identifier(String::from("b")),Expression::Identifier(String::from("c"))];
