@@ -145,7 +145,7 @@ pub enum Statement<T: Field> {
     Condition(Expression<T>, Expression<T>),
     For(String, T, T, Vec<Statement<T>>),
     Compiler(String, Expression<T>),
-    MultipleDefinition(Expression<T>, Expression<T>),
+    MultipleDefinition(Vec<String>, Expression<T>),
 }
 
 impl<T: Field> Statement<T> {
@@ -177,8 +177,14 @@ impl<T: Field> fmt::Display for Statement<T> {
                 write!(f, "\tendfor")
             }
             Statement::Compiler(ref lhs, ref rhs) => write!(f, "# {} = {}", lhs, rhs),
-            Statement::MultipleDefinition(ref lhs, ref rhs) => {
-                write!(f, "{} = {}", lhs, rhs)
+            Statement::MultipleDefinition(ref ids, ref rhs) => {
+                for (i, id) in ids.iter().enumerate() {
+                    try!(write!(f, "{}", id));
+                    if i < ids.len() - 1 {
+                        try!(write!(f, ", "));
+                    }
+                }
+                write!(f, " = {}", rhs)
             },
         }
     }

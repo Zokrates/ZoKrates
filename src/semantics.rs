@@ -115,51 +115,30 @@ impl Checker {
 				self.level -= 1;
 				Ok(())
 			},
-            Statement::MultipleDefinition(e1, e2) => {
-                match e1 {
-                	// left side has to be a List
-                    Expression::List(ref values) => {
-                    	let mut identifiers = Vec::new();
-                    	let all_identifiers = values.into_iter().fold(true, |acc, x| {
-                    		match x.clone() {
-                    			Expression::Identifier(i) => {
-                    				identifiers.push(i);
-                    				acc && true
-                    			},
-                    			_ => false
-                    		}
-                    	});
-                    	match all_identifiers {
-                    		// All elements of the left side have to be identifiers
-                    		true => {
-		                        match e2 {
-		                        	// Right side has to be a function call
-		                            Expression::FunctionCall(id, arguments) => {
-		                            	match self.find_function(id, arguments) {
-		                            		// the function has to be defined
-		                            		Some(f) => {
-		                            			if f.return_count == values.len() {
-		                            				// the return count has to match the left side
-		                            				for id in identifiers {
-			                            				self.scope.insert(Symbol {
-															id: id.to_string(),
-															level: self.level
-														});
-		                            				}
-		                            				return Ok(())
-		                            			}
-		                            			Err(format!("{:?} returns {} values but left side is of size {}", f.id, f.return_count, values.len()))
-		                            		},
-		                            		None => Err(format!("Function definition for function ??? with ??? argument(s) not found."))
-		                            	}
-		                            },
-		                            _ => Err(format!("{:?} should be a FunctionCall", e2))
-		                        }
+            Statement::MultipleDefinition(ids, rhs) => {
+        		// All elements of the left side have to be identifiers
+                match rhs {
+                	// Right side has to be a function call
+                    Expression::FunctionCall(fun_id, arguments) => {
+                    	match self.find_function(fun_id, arguments) {
+                    		// the function has to be defined
+                    		Some(f) => {
+                    			if f.return_count == ids.len() {
+                    				// the return count has to match the left side
+                    				for id in ids {
+                        				self.scope.insert(Symbol {
+											id: id.to_string(),
+											level: self.level
+										});
+                    				}
+                    				return Ok(());
+                    			}
+                    			Err(format!("{:?} returns {} values but left side is of size {}", f.id, f.return_count, ids.len()))
                     		},
-                    		_ => Err(format!("{:?} should be a List of Identifiers", e1))
+                    		None => Err(format!("Function definition for function ??? with ??? argument(s) not found."))
                     	}
                     },
-                    _ =>  Err(format!("{:?} should be a List", e1))
+                    _ => Err(format!("{:?} should be a FunctionCall", rhs))
                 }
             },
 		}
@@ -412,7 +391,7 @@ mod tests {
 		//   c = foo()
 		// should fail
 		let bar_statements: Vec<Statement<FieldPrime>> = vec![Statement::MultipleDefinition(
-			Expression::List(vec![Expression::Identifier("c".to_string())]), 
+			vec!["c".to_string()], 
 			Expression::FunctionCall("foo".to_string(), vec![])
 		)];
 
@@ -442,7 +421,7 @@ mod tests {
 		//   c = foo()
 		// should fail
 		let bar_statements: Vec<Statement<FieldPrime>> = vec![Statement::MultipleDefinition(
-			Expression::List(vec![Expression::Identifier("c".to_string())]), 
+			vec!["c".to_string()], 
 			Expression::FunctionCall("foo".to_string(), vec![])
 		)];
 
@@ -491,7 +470,7 @@ mod tests {
 		// should pass
 		let bar_statements: Vec<Statement<FieldPrime>> = vec![
 			Statement::MultipleDefinition(
-				Expression::List(vec![Expression::Identifier("a".to_string()), Expression::Identifier("b".to_string())]), 
+				vec!["a".to_string(), "b".to_string()], 
 				Expression::FunctionCall("foo".to_string(), vec![])
 			),
 			Statement::Return(

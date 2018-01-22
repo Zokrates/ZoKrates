@@ -620,44 +620,33 @@ impl Flattener {
                 }
             }
             ref s @ Statement::Compiler(..) => statements_flattened.push(s.clone()),
-            Statement::MultipleDefinition(ref e1, ref e2) => {
-                match *e1 {
-                    Expression::List(ref exprs) => {
-                        match *e2 {
-                            FunctionCall(..) => {
-                                let expr_subbed = e2.apply_substitution(&self.substitution);
-                                let rhs = self.flatten_expression(
-                                    functions_flattened,
-                                    arguments_flattened,
-                                    statements_flattened,
-                                    expr_subbed,
-                                );
+            Statement::MultipleDefinition(ref ids, ref e2) => {
+                match *e2 {
+                    FunctionCall(..) => {
+                        let expr_subbed = e2.apply_substitution(&self.substitution);
+                        let rhs = self.flatten_expression(
+                            functions_flattened,
+                            arguments_flattened,
+                            statements_flattened,
+                            expr_subbed,
+                        );
 
-                                match rhs {
-                                    Expression::List(rhslis) => {
-                                        let rhslist = rhslis.clone();
-                                        for (i, exp) in exprs.into_iter().enumerate() {
-                                            match *exp {
-                                                Expression::Identifier(ref id) => {
-                                                    let var = self.use_variable(&id);
-                                                    // handle return of function call
-                                                    let var_to_replace = self.get_latest_var_substitution(&id);
-                                                    if !(var == var_to_replace) && self.variables.contains(&var_to_replace) && !self.substitution.contains_key(&var_to_replace){
-                                                        self.substitution.insert(var_to_replace.clone().to_string(),var.clone());
-                                                    }
-                                                    statements_flattened.push(Statement::Definition(var, rhslist[i].clone()));
-                                                },
-                                                _ => panic!("Only identifiers can be on the left side of a definition")
-                                            }
-                                        }
-                                    },
-                                    _ => panic!("")
+                        match rhs {
+                            Expression::List(rhslist) => {
+                                for (i, id) in ids.into_iter().enumerate() {
+                                    let var = self.use_variable(&id);
+                                    // handle return of function call
+                                    let var_to_replace = self.get_latest_var_substitution(&id);
+                                    if !(var == var_to_replace) && self.variables.contains(&var_to_replace) && !self.substitution.contains_key(&var_to_replace){
+                                        self.substitution.insert(var_to_replace.clone().to_string(),var.clone());
+                                    }
+                                    statements_flattened.push(Statement::Definition(var, rhslist[i].clone()));
                                 }
                             },
-                            _ => panic!("")
+                            _ => panic!("rhs should flatten to a List, semantics failed")
                         }
                     },
-                    _ => panic!("")
+                    _ => panic!("rhs should be a function call")
                 }
             },
         }
@@ -784,12 +773,10 @@ mod multiple_definition {
         let arguments_flattened = vec![];
         let mut statements_flattened = vec![];
         let statement = Statement::MultipleDefinition(
-            Expression::List(
-                vec![
-                    Expression::Identifier("a".to_string()), 
-                    Expression::Identifier("b".to_string())
-                ]
-            ), 
+            vec![
+                "a".to_string(), 
+                "b".to_string()
+            ],
             Expression::FunctionCall("foo".to_string(), vec![])
         );
 
@@ -830,12 +817,10 @@ mod multiple_definition {
         let arguments_flattened = vec![];
         let mut statements_flattened = vec![];
         let statement = Statement::MultipleDefinition(
-            Expression::List(
-                vec![
-                    Expression::Identifier("a".to_string()), 
-                    Expression::Identifier("b".to_string())
-                ]
-            ), 
+            vec![
+                "a".to_string(), 
+                "b".to_string()
+            ], 
             Expression::FunctionCall("dup".to_string(), vec![Expression::Number(FieldPrime::from(2))])
         );
 
