@@ -183,7 +183,10 @@ impl Checker {
 				Ok(())
 			}
 			Expression::Number(_) => Ok(()),
-			Expression::List(values) => {
+			Expression::List(exprs) => {
+				for expr in exprs {
+					self.check_expression(expr)?
+				}
 				Ok(())
 			}
 		}
@@ -442,5 +445,28 @@ mod tests {
 
 		let mut checker = Checker::new_with_args(HashSet::new(), 0, HashSet::new());
 		assert_eq!(checker.check_function(bar), Err(("Function definition for function ??? with ??? argument(s) not found.".to_string())));
+	}
+
+	#[test]
+	fn return_undefined() {
+		// def bar():
+		//   return a, b
+		// should fail
+		let bar_statements: Vec<Statement<FieldPrime>> = vec![Statement::Return(
+			Expression::List(vec![
+				Expression::Identifier("a".to_string()),
+				Expression::Identifier("b".to_string())
+			])
+		)];
+
+		let bar = Function {
+			id: "bar".to_string(),
+			arguments: vec![],
+			statements: bar_statements,
+			return_count: 2
+		};
+
+		let mut checker = Checker::new_with_args(HashSet::new(), 0, HashSet::new());
+		assert_eq!(checker.check_function(bar), Err(("\"a\" is undefined".to_string())));
 	}
 }
