@@ -116,26 +116,36 @@ impl Checker {
 				Ok(())
 			},
             Statement::MultipleDefinition(e1, e2) => {
-            	println!("{:?} = {:?}", e1, e2);
                 match e1 {
+                	// left side has to be a List
                     Expression::List(ref values) => {
-                    	println!("{:?}", values);
+                    	let mut identifiers = Vec::new();
                     	let all_identifiers = values.into_iter().fold(true, |acc, x| {
                     		match x.clone() {
-                    			Expression::Identifier(_) => {
+                    			Expression::Identifier(i) => {
+                    				identifiers.push(i);
                     				acc && true
                     			},
                     			_ => false
                     		}
                     	});
                     	match all_identifiers {
+                    		// All elements of the left side have to be identifiers
                     		true => {
 		                        match e2 {
+		                        	// Right side has to be a function call
 		                            Expression::FunctionCall(id, arguments) => {
-		                            	println!("{:?} , {:?}", id, arguments);
 		                            	match self.find_function(id, arguments) {
+		                            		// the function has to be defined
 		                            		Some(f) => {
 		                            			if f.return_count == values.len() {
+		                            				// the return count has to match the left side
+		                            				for id in identifiers {
+			                            				self.scope.insert(Symbol {
+															id: id.to_string(),
+															level: self.level
+														});
+		                            				}
 		                            				return Ok(())
 		                            			}
 		                            			Err(format!("{:?} returns {} values but left side is of size {}", f.id, f.return_count, values.len()))
@@ -468,5 +478,49 @@ mod tests {
 
 		let mut checker = Checker::new_with_args(HashSet::new(), 0, HashSet::new());
 		assert_eq!(checker.check_function(bar), Err(("\"a\" is undefined".to_string())));
+	}
+
+	#[test]
+	fn multi_def() {
+		// def foo():
+		//   return 1, 2
+		// def bar():
+		//   a, b = foo()
+		//   return a + b
+		//
+		// should pass
+		let bar_statements: Vec<Statement<FieldPrime>> = vec![
+			Statement::MultipleDefinition(
+				Expression::List(vec![Expression::Identifier("a".to_string()), Expression::Identifier("b".to_string())]), 
+				Expression::FunctionCall("foo".to_string(), vec![])
+			),
+			Statement::Return(
+				Expression::List(vec![
+					Expression::Add(
+						box Expression::Identifier("a".to_string()), 
+						box Expression::Identifier("b".to_string())
+					)]
+				)
+			)
+		];
+
+		let foo = FunctionDeclaration {
+			id: "foo".to_string(),
+			arg_count: 0,
+            return_count: 2,
+		};
+
+		let mut functions = HashSet::new();
+		functions.insert(foo);
+
+		let bar = Function {
+			id: "bar".to_string(),
+			arguments: vec![],
+			statements: bar_statements,
+			return_count: 1
+		};
+
+		let mut checker = Checker::new_with_args(HashSet::new(), 0, functions);
+		assert_eq!(checker.check_function(bar), Ok(()));
 	}
 }
