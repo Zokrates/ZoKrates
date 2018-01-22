@@ -1,6 +1,7 @@
-def main(x):
-	x, y = dup(x)
-    return 1
+def foo(a):
+	b = 12*a
+	return a, 2*a, 5*b, a*b
 
-def dup(x):
-	return x, x
+def main(i):
+	x, y, z, t = foo(i)
+    return 1

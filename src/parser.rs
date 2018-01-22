@@ -790,7 +790,7 @@ fn parse_expression_list1<T: Field>(
     let mut res = Vec::new();
     res.push(Expression::Identifier(head));
     match parse_comma_separated_list_rec(input, pos, &mut res) {
-        Ok((list, s1, p1)) => Ok((Expression::Destructure(list), s1, p1)),
+        Ok((list, s1, p1)) => Ok((Expression::List(list), s1, p1)),
         Err(err) => Err(err)
     }
 }
@@ -802,7 +802,7 @@ fn parse_expression_list<T: Field>(
 ) -> Result<(Expression<T>, String, Position), Error<T>> {
     let mut res = Vec::new();
     match parse_comma_separated_list_rec(input, pos, &mut res) {
-        Ok((list, s1, p1)) => Ok((Expression::Destructure(list), s1, p1)),
+        Ok((list, s1, p1)) => Ok((Expression::List(list), s1, p1)),
         Err(err) => Err(err)
     }
 }
@@ -1111,15 +1111,15 @@ fn parse_statement<T: Field>(
                 pos: p2,
             }),
         },
-        (Token::Return, s1, p1) => match parse_expr(&s1, &p1) {
-            Ok((expr, s2, p2)) => match next_token(&s2, &p2) {
+        (Token::Return, s1, p1) => match parse_expression_list(s1, p1) {
+            Ok((Expression::List(xs), s2, p2)) => match next_token(&s2, &p2) {
                 (Token::InlineComment(_), ref s3, _) => {
                     assert_eq!(s3, "");
-                    Ok((Statement::Return(expr), s2, p2))
+                    Ok((Statement::Return(Expression::List(xs)), s2, p2))
                 }
                 (Token::Unknown(ref t3), ref s3, _) if t3 == "" => {
                     assert_eq!(s3, "");
-                    Ok((Statement::Return(expr), s2, p2))
+                    Ok((Statement::Return(Expression::List(xs)), s2, p2))
                 }
                 (t4, _, p4) => Err(Error {
                     expected: vec![
@@ -1134,6 +1134,7 @@ fn parse_statement<T: Field>(
                     pos: p4,
                 }),
             },
+            Ok(..) => unimplemented!(),
             Err(err) => Err(err),
         },
         (Token::Def, _, p1) => Err(Error {
@@ -1266,7 +1267,7 @@ fn parse_function<T: Field>(
 
     // parse function body
     let mut stats = Vec::new();
-    let mut return_count;
+    let return_count;
     loop {
         match lines.next() {
             Some(Ok(ref x)) if x.trim().starts_with("//") || x.trim() == "" => {} // skip
@@ -1278,9 +1279,9 @@ fn parse_function<T: Field>(
                     col: 1,
                 },
             ) {
-                Ok((statement @ Statement::Return(_), ..)) => {
-                    return_count = 1;
-                    stats.push(statement);
+                Ok((Statement::Return(Expression::List(exprs)), ..)) => {
+                    return_count = exprs.len();
+                    stats.push(Statement::Return(Expression::List(exprs)));
                     break;
                 }
                 Ok((statement, _, pos)) => {
@@ -1385,14 +1386,6 @@ pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
     };
 
     Ok(Prog { functions })
-}
-
-fn parse_comma_separated_list<T: Field>(
-    input: String, 
-    pos: Position
-) -> Result<(Vec<Expression<T>>, String, Position), Error<T>> { 
-    let mut res = Vec::new();
-    parse_comma_separated_list_rec(input, pos, &mut res) 
 }
 
 fn parse_comma_separated_list_rec<T: Field>(
@@ -1599,7 +1592,7 @@ mod tests {
         fn destructure1() {
             let pos = Position { line: 45, col: 121 };
             let string = String::from("b, c");
-            let expr = Expression::Destructure::<FieldPrime>(vec![Expression::Identifier(String::from("a")),Expression::Identifier(String::from("b")),Expression::Identifier(String::from("c"))]);
+            let expr = Expression::List::<FieldPrime>(vec![Expression::Identifier(String::from("a")),Expression::Identifier(String::from("b")),Expression::Identifier(String::from("c"))]);
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
                 parse_expression_list1(String::from("a"), string, pos)
@@ -1610,7 +1603,7 @@ mod tests {
         fn destructure() {
             let pos = Position { line: 45, col: 121 };
             let string = String::from("b, c");
-            let expr = Expression::Destructure::<FieldPrime>(vec![Expression::Identifier(String::from("b")),Expression::Identifier(String::from("c"))]);
+            let expr = Expression::List::<FieldPrime>(vec![Expression::Identifier(String::from("b")),Expression::Identifier(String::from("c"))]);
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
                 parse_expression_list(string, pos)
@@ -1652,6 +1645,29 @@ mod tests {
 
         // test impossible to run forever?
     }
+
+    // #[cfg(test)]
+    // mod parse_program {
+    //     use super::*;
+    //     #[test]
+    //     fn single_output() {
+    //         let pos = Position { line: 45, col: 121 };
+    //         let string = "
+    //         def foo():
+    //             return 1
+    //         ";
+    //         let fun = Function {
+    //             id: "foo".to_string(),
+    //             arguments: vec![],
+    //             statements: vec![Expression::Return(Expression::Number(FieldPrime::from(1)))],
+    //             return_count: 1
+    //         };
+    //         assert_eq!(
+    //             Ok((fun, String::from(""), pos.col(string.len() as isize))),
+    //             parse_function(string, pos)
+    //         )
+    //     }
+    // }
 
     // parse function
     // parse_term1

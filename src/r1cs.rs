@@ -304,14 +304,19 @@ pub fn r1cs_program<T: Field>(
         let mut b_row: Vec<(usize, T)> = Vec::new();
         let mut c_row: Vec<(usize, T)> = Vec::new();
         match *def {
-            Statement::Return(ref expr) => r1cs_expression(
-                Identifier("~out".to_string()),
-                expr.clone(),
-                &mut variables,
-                &mut a_row,
-                &mut b_row,
-                &mut c_row,
-            ),
+            Statement::Return(ref expr) => {
+                match expr.clone() {
+                    Expression::List(values) => r1cs_expression(
+                        Identifier("~out".to_string()),
+                        values[0].clone(),
+                        &mut variables,
+                        &mut a_row,
+                        &mut b_row,
+                        &mut c_row,
+                    ),
+                    _ => panic!("should return a List")
+                }
+            },
             Statement::Definition(ref id, ref expr) => r1cs_expression(
                 Identifier(id.to_string()),
                 expr.clone(),

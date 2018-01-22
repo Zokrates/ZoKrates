@@ -80,8 +80,13 @@ impl<T: Field> Function<T> {
         for statement in &self.statements {
             match *statement {
                 Statement::Return(ref expr) => {
-                    let s = expr.solve(&mut witness);
-                    witness.insert("~out".to_string(), s);
+                    match expr.clone() {
+                        Expression::List(values) => {
+                            let s = values[0].solve(&mut witness);
+                            witness.insert("~out".to_string(), s);
+                        },
+                        _ => panic!("should return a list")
+                    }
                 }
                 Statement::Compiler(ref id, ref expr) | Statement::Definition(ref id, ref expr) => {
                     let s = expr.solve(&mut witness);
@@ -91,7 +96,7 @@ impl<T: Field> Function<T> {
                 Statement::Condition(ref lhs, ref rhs) => {
                     assert_eq!(lhs.solve(&mut witness), rhs.solve(&mut witness))
                 },
-                Statement::MultipleDefinition(ref ids, ref expr) => unimplemented!()
+                Statement::MultipleDefinition(..) => panic!("No MultipleDefinition allowed in flattened code"),
             }
         }
         witness
@@ -134,7 +139,7 @@ impl<T: Field> fmt::Debug for Function<T> {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub enum Statement<T: Field> {
     Return(Expression<T>),
     Definition(String, Expression<T>),
@@ -147,7 +152,8 @@ pub enum Statement<T: Field> {
 impl<T: Field> Statement<T> {
     pub fn is_flattened(&self) -> bool {
         match *self {
-            Statement::Return(ref x) | Statement::Definition(_, ref x) | Statement::MultipleDefinition(_, ref x) => x.is_flattened(),
+            Statement::Definition(_, ref x) | Statement::MultipleDefinition(_, ref x) => x.is_flattened(),
+            Statement::Return(ref x) => x.is_flattened(),
             Statement::Compiler(..) => true,
             Statement::Condition(ref x, ref y) => {
                 (x.is_linear() && y.is_flattened()) || (x.is_flattened() && y.is_linear())
@@ -230,7 +236,7 @@ pub enum Expression<T: Field> {
     Pow(Box<Expression<T>>, Box<Expression<T>>),
     IfElse(Box<Condition<T>>, Box<Expression<T>>, Box<Expression<T>>),
     FunctionCall(String, Vec<Expression<T>>),
-    Destructure(Vec<Expression<T>>),
+    List(Vec<Expression<T>>),
 }
 
 impl<T: Field> Expression<T> {
@@ -276,11 +282,10 @@ impl<T: Field> Expression<T> {
                     param.apply_substitution(substitution);
                 }
                 Expression::FunctionCall(i.clone(), p.clone())
+            },
+            Expression::List(ref exprs) => {
+                Expression::List(exprs.iter().map(|e| e.apply_substitution(substitution)).collect::<Vec<_>>())
             }
-            Expression::Destructure(ref ids) => unimplemented!()
-            // Expression::Destructure(
-            //     ids.iter().map(|id| Expression::Identifier(id).apply_substitution(substitution)).collect::<Vec<_>>()
-            // )
         }
     }
 
@@ -333,7 +338,7 @@ impl<T: Field> Expression<T> {
                 }
             }
             Expression::FunctionCall(_, _) => unimplemented!(), // should not happen, since never part of flattened functions
-            Expression::Destructure(_) => unimplemented!() // same
+            Expression::List(_) => unimplemented!() // same
         }
     }
 
@@ -366,7 +371,10 @@ impl<T: Field> Expression<T> {
                     (box Expression::Sub(..), _) | (_, box Expression::Sub(..)) => false,
                     (box x, box y) => x.is_linear() && y.is_linear(),
                 }
-            }
+            },
+            Expression::List(ref exprs) => {
+                exprs.into_iter().fold(true, |acc, x| acc && x.is_flattened())
+            },
             _ => false,
         }
     }
@@ -394,12 +402,20 @@ impl<T: Field> fmt::Display for Expression<T> {
                 for (i, param) in p.iter().enumerate() {
                     try!(write!(f, "{}", param));
                     if i < p.len() - 1 {
-                        try!(write!(f, ","));
+                        try!(write!(f, ", "));
                     }
                 }
                 write!(f, ")")
             }
-            Expression::Destructure(..) => unimplemented!()
+            Expression::List(ref exprs) => {
+                for (i, param) in exprs.iter().enumerate() {
+                    try!(write!(f, "{}", param));
+                    if i < exprs.len() - 1 {
+                        try!(write!(f, ", "));
+                    }
+                }
+                write!(f, "")
+            },
         }
     }
 }
@@ -426,7 +442,7 @@ impl<T: Field> fmt::Debug for Expression<T> {
                 try!(f.debug_list().entries(p.iter()).finish());
                 write!(f, ")")
             }
-            Expression::Destructure(ref ids) => write!(f, "Destructure({:?})", ids),
+            Expression::List(ref exprs) => write!(f, "List({:?})", exprs),
         }
     }
 }

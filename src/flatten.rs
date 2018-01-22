@@ -219,6 +219,9 @@ impl Flattener {
             {
                 x.clone()
             }
+            List(ref exprs) if exprs.iter().fold(true, |acc, x| acc && x.is_flattened()) => {
+                List(exprs.clone())
+            },
             Add(box left, box right) => {
                 let left_flattened = self.flatten_expression(
                     functions_flattened,
@@ -423,6 +426,7 @@ impl Flattener {
             FunctionCall(ref id, ref param_expressions) => {
                 for funct in functions_flattened {
                     if funct.id == *id && funct.arguments.len() == (*param_expressions).len() {
+
                         // funct is now the called function
 
                         // Idea: variables are given a prefix.
@@ -476,8 +480,13 @@ impl Flattener {
                             match stat {
                                 // set return statements right side as expression result
                                 Statement::Return(x) => {
-                                    let result = x.apply_substitution(&replacement_map);
-                                    return result;
+                                    match x {
+                                        List(values) => {
+                                            let new_values = values.into_iter().map(|x| x.apply_substitution(&replacement_map)).collect::<Vec<_>>();
+                                            return List(new_values)
+                                        },
+                                        _ => panic!("should return a List")
+                                    }
                                 },
                                 Statement::Definition(var, rhs) => {
                                     let new_rhs = rhs.apply_substitution(&replacement_map);
@@ -500,7 +509,32 @@ impl Flattener {
                                         .push(Statement::Condition(new_lhs, new_rhs));
                                 },
                                 Statement::For(..) => panic!("Not flattened!"),
-                                Statement::MultipleDefinition(..) => unimplemented!(),
+                                // Statement::MultipleDefinition(e1, e2) => {
+                                //     let new_rhs = e2.apply_substitution(&replacement_map);
+                                //     match new_rhs {
+                                //         Expression::List(rhslist) => {
+                                //             match e1 {
+                                //                 Expression::List(exprs) => {
+                                //                     for (i, e) in exprs.into_iter().enumerate() {
+                                //                         match e {
+                                //                             Expression::Identifier(var) => {
+                                //                                 let new_var: String = format!("{}{}", prefix, var.clone());
+                                //                                 replacement_map.insert(var, new_var.clone());
+                                //                                 statements_flattened.push(
+                                //                                     Statement::Definition(new_var, rhslist[i].clone())
+                                //                                 );
+                                //                             },
+                                //                             _ => panic!("")
+                                //                         }
+                                //                     }
+                                //                 },
+                                //                 _ => panic!("")
+                                //             }
+                                //         },
+                                //         _ => panic!("")
+                                //     }
+                                // },
+                                _ => unimplemented!()
                             }
                         }
                     }
@@ -523,15 +557,21 @@ impl Flattener {
         stat: &Statement<T>,
     ) {
         match *stat {
-            Statement::Return(ref expr) => {
-                let expr_subbed = expr.apply_substitution(&self.substitution);
+            Statement::Return(ref exprs) => {
+                let exprs_subbed = exprs.clone().apply_substitution(&self.substitution);
                 let rhs = self.flatten_expression(
                     functions_flattened,
                     arguments_flattened,
                     statements_flattened,
-                    expr_subbed,
+                    exprs_subbed,
                 );
-                statements_flattened.push(Statement::Return(rhs));
+
+                match rhs.clone() {
+                    List(_) => {
+                        statements_flattened.push(Statement::Return(rhs));
+                    },
+                    _ => panic!("")
+                }
             }
             Statement::Definition(ref id, ref expr) => {
                 let expr_subbed = expr.apply_substitution(&self.substitution);
@@ -596,7 +636,46 @@ impl Flattener {
                 }
             }
             ref s @ Statement::Compiler(..) => statements_flattened.push(s.clone()),
-            Statement::MultipleDefinition(..) => unimplemented!(),
+            Statement::MultipleDefinition(ref e1, ref e2) => {
+                match *e1 {
+                    Expression::List(ref exprs) => {
+                        match *e2 {
+                            FunctionCall(..) => {
+                                let expr_subbed = e2.apply_substitution(&self.substitution);
+                                let rhs = self.flatten_expression(
+                                    functions_flattened,
+                                    arguments_flattened,
+                                    statements_flattened,
+                                    expr_subbed,
+                                );
+
+                                match rhs {
+                                    Expression::List(rhslis) => {
+                                        let rhslist = rhslis.clone();
+                                        for (i, exp) in exprs.into_iter().enumerate() {
+                                            match *exp {
+                                                Expression::Identifier(ref id) => {
+                                                    let var = self.use_variable(&id);
+                                                    // handle return of function call
+                                                    let var_to_replace = self.get_latest_var_substitution(&id);
+                                                    if !(var == var_to_replace) && self.variables.contains(&var_to_replace) && !self.substitution.contains_key(&var_to_replace){
+                                                        self.substitution.insert(var_to_replace.clone().to_string(),var.clone());
+                                                    }
+                                                    statements_flattened.push(Statement::Definition(var, rhslist[i].clone()));
+                                                },
+                                                _ => panic!("Only identifiers can be on the left side of a definition")
+                                            }
+                                        }
+                                    },
+                                    _ => panic!("")
+                                }
+                            },
+                            _ => panic!("")
+                        }
+                    },
+                    _ => panic!("")
+                }
+            },
         }
     }
 
@@ -635,7 +714,7 @@ impl Flattener {
             id: funct.id,
             arguments: arguments_flattened,
             statements: statements_flattened,
-            return_count: 1
+            return_count: funct.return_count
         }
     }
 
@@ -690,5 +769,142 @@ impl Flattener {
             }
         }
     }
+}
 
+#[cfg(test)]
+mod multiple_definition {
+    use super::*;
+    use field::FieldPrime;
+
+    #[test]
+    fn multiple_definition() {
+
+        // def foo()
+        //     return 1, 2
+        // def main()
+        //     a, b = foo()
+
+        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut functions_flattened = vec![
+            Function {
+                id: "foo".to_string(), 
+                arguments: vec![], 
+                statements: vec![Statement::Return(Expression::List(vec![
+                    Expression::Number(FieldPrime::from(1)), 
+                    Expression::Number(FieldPrime::from(2))
+                ]))],
+                return_count: 2,
+            }
+        ];
+        let arguments_flattened = vec![];
+        let mut statements_flattened = vec![];
+        let statement = Statement::MultipleDefinition(
+            Expression::List(
+                vec![
+                    Expression::Identifier("a".to_string()), 
+                    Expression::Identifier("b".to_string())
+                ]
+            ), 
+            Expression::FunctionCall("foo".to_string(), vec![])
+        );
+
+        flattener.flatten_statement(
+            &mut functions_flattened,
+            &arguments_flattened,
+            &mut statements_flattened,
+            &statement,
+        );
+
+        assert_eq!(
+            statements_flattened[0]
+            ,
+            Statement::Definition("a".to_string(), Expression::Number(FieldPrime::from(1)))
+        );
+    }
+
+    #[test]
+    fn multiple_definition2() {
+
+        // def dup(x)
+        //     return x, x
+        // def main()
+        //     a, b = dup(2)
+
+        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut functions_flattened = vec![
+            Function {
+                id: "dup".to_string(), 
+                arguments: vec![Parameter { id: "x".to_string() }], 
+                statements: vec![Statement::Return(Expression::List(vec![
+                    Expression::Identifier("x".to_string()), 
+                    Expression::Identifier("x".to_string()), 
+                ]))],
+                return_count: 2,
+            }
+        ];
+        let arguments_flattened = vec![];
+        let mut statements_flattened = vec![];
+        let statement = Statement::MultipleDefinition(
+            Expression::List(
+                vec![
+                    Expression::Identifier("a".to_string()), 
+                    Expression::Identifier("b".to_string())
+                ]
+            ), 
+            Expression::FunctionCall("dup".to_string(), vec![Expression::Number(FieldPrime::from(2))])
+        );
+
+        flattener.flatten_statement(
+            &mut functions_flattened,
+            &arguments_flattened,
+            &mut statements_flattened,
+            &statement,
+        );
+
+        assert_eq!(
+            statements_flattened[0]
+            ,
+            Statement::Definition("a".to_string(), Expression::Number(FieldPrime::from(2)))
+        );
+    }
+
+    #[test]
+    fn simple_definition() {
+
+        // def foo()
+        //     return 1
+        // def main()
+        //     a = foo()
+
+        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut functions_flattened = vec![
+            Function {
+                id: "foo".to_string(), 
+                arguments: vec![], 
+                statements: vec![Statement::Return(Expression::List(vec![
+                    Expression::Number(FieldPrime::from(1))
+                ]))],
+                return_count: 1,
+            }
+        ];
+        let arguments_flattened = vec![];
+        let mut statements_flattened = vec![];
+        let statement = Statement::Definition(
+            "a".to_string(), 
+            Expression::FunctionCall("foo".to_string(), vec![])
+        );
+
+        flattener.flatten_statement(
+            &mut functions_flattened,
+            &arguments_flattened,
+            &mut statements_flattened,
+            &statement,
+        );
+
+        assert_eq!(
+            statements_flattened[0]
+            ,
+            Statement::Definition("a".to_string(), Expression::Number(FieldPrime::from(1)))
+        );
+    }
 }
