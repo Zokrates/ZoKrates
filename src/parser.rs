@@ -792,17 +792,14 @@ fn parse_function_call<T: Field>(
 }
 
 // parse an expression list starting with an identifier
-fn parse_expression_list1<T: Field>(
+fn parse_identifier_list1<T: Field>(
     head: String,
     input: String,
     pos: Position,
-) -> Result<(Expression<T>, String, Position), Error<T>> {
+) -> Result<(Vec<String>, String, Position), Error<T>> {
     let mut res = Vec::new();
-    res.push(Expression::Identifier(head));
-    match parse_comma_separated_list_rec(input, pos, &mut res) {
-        Ok((list, s1, p1)) => Ok((Expression::List(list), s1, p1)),
-        Err(err) => Err(err)
-    }
+    res.push(head);
+    parse_comma_separated_identifier_list_rec(input, pos, &mut res)
 }
 
 // parse an expression list
@@ -811,7 +808,7 @@ fn parse_expression_list<T: Field>(
     pos: Position,
 ) -> Result<(Expression<T>, String, Position), Error<T>> {
     let mut res = Vec::new();
-    match parse_comma_separated_list_rec(input, pos, &mut res) {
+    match parse_comma_separated_expression_list_rec(input, pos, &mut res) {
         Ok((list, s1, p1)) => Ok((Expression::List(list), s1, p1)),
         Err(err) => Err(err)
     }
@@ -891,7 +888,7 @@ fn parse_statement1<T: Field>(
             },
             Err(err) => Err(err),
         },
-        (Token::Comma, s1, p1) => match parse_expression_list1(ide, s1, p1) { // if we find a comma, parse the rest of the destructure
+        (Token::Comma, s1, p1) => match parse_identifier_list1(ide, s1, p1) { // if we find a comma, parse the rest of the destructure
             Ok((e2, s2, p2)) => match next_token(&s2, &p2) { // then we should have an equal sign
                 (Token::Eq, s3, p3) => match parse_expr(&s3, &p3) {
                     Ok((e4, s4, p4)) => {
@@ -1445,7 +1442,7 @@ pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
     Ok(Prog { functions })
 }
 
-fn parse_comma_separated_list_rec<T: Field>(
+fn parse_comma_separated_expression_list_rec<T: Field>(
     input: String, 
     pos: Position,
     mut acc: &mut Vec<Expression<T>>
@@ -1454,11 +1451,32 @@ fn parse_comma_separated_list_rec<T: Field>(
         Ok((e1, s1, p1)) => {
             acc.push(e1);
             match next_token::<FieldPrime>(&s1, &p1) {
-                (Token::Comma, s2, p2) => parse_comma_separated_list_rec(s2, p2, &mut acc),
-                (_, _, _) => Ok((acc.to_vec(), s1, p1)),
+                (Token::Comma, s2, p2) => parse_comma_separated_expression_list_rec(s2, p2, &mut acc),
+                (..) => Ok((acc.to_vec(), s1, p1)),
             }                
         },
         Err(err) => Err(err)
+    }
+}
+
+fn parse_comma_separated_identifier_list_rec<T: Field>(
+    input: String, 
+    pos: Position,
+    mut acc: &mut Vec<String>
+) -> Result<(Vec<String>, String, Position), Error<T>> {
+    match next_token(&input, &pos) {
+        (Token::Ide(id), s1, p1) => {
+            acc.push(id);
+            match next_token::<FieldPrime>(&s1, &p1) {
+                (Token::Comma, s2, p2) => parse_comma_separated_identifier_list_rec(s2, p2, &mut acc),
+                (..) => Ok((acc.to_vec(), s1, p1)),
+            }
+        },
+        (t1, _, p1) => Err(Error {
+            expected: vec![Token::Ide(String::from("ide"))],
+            got: t1,
+            pos: p1,
+        })
     }
 }
 
@@ -1651,18 +1669,7 @@ mod tests {
             pos: Position
         ) -> Result<(Vec<Expression<T>>, String, Position), Error<T>> { 
             let mut res = Vec::new();
-            parse_comma_separated_list_rec(input, pos, &mut res) 
-        }
-
-        #[test]
-        fn comma_separated_list1() {
-            let pos = Position { line: 45, col: 121 };
-            let string = String::from("b, c");
-            let expr = Expression::List::<FieldPrime>(vec![Expression::Identifier(String::from("a")),Expression::Identifier(String::from("b")),Expression::Identifier(String::from("c"))]);
-            assert_eq!(
-                Ok((expr, String::from(""), pos.col(string.len() as isize))),
-                parse_expression_list1(String::from("a"), string, pos)
-            )
+            parse_comma_separated_expression_list_rec(input, pos, &mut res) 
         }
 
         #[test]
