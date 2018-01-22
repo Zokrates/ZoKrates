@@ -683,6 +683,7 @@ impl Flattener {
         for arg in funct.arguments {
             arguments_flattened.push(Parameter {
                 id: arg.id.to_string(),
+                private: arg.private
             });
         }
         // flatten statements in functions and apply substitution
@@ -818,7 +819,7 @@ mod multiple_definition {
         let mut functions_flattened = vec![
             Function {
                 id: "dup".to_string(), 
-                arguments: vec![Parameter { id: "x".to_string() }], 
+                arguments: vec![Parameter { id: "x".to_string(), private: true }], 
                 statements: vec![Statement::Return(Expression::List(vec![
                     Expression::Identifier("x".to_string()), 
                     Expression::Identifier("x".to_string()), 

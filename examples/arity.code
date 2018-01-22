@@ -1,0 +1,5 @@
+def foo():
+	return 1, 1
+def main():
+	a = foo()
+	return a

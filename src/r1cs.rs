@@ -291,7 +291,8 @@ pub fn r1cs_program<T: Field>(
         .iter()
         .find(|x: &&Function<T>| x.id == "main".to_string())
         .unwrap();
-    variables.extend(main.arguments.iter().map(|x| format!("{}", x)));
+    variables.extend(main.arguments.iter().filter(|x| !x.private).map(|x| format!("{}", x)));
+
     // ~out is added after main's arguments as we want variables (columns)
     // in the r1cs to be aligned like "public inputs | private inputs"
     variables.push("~out".to_string());
@@ -317,14 +318,7 @@ pub fn r1cs_program<T: Field>(
                     _ => panic!("should return a List")
                 }
             },
-            Statement::Definition(ref id, ref expr) => r1cs_expression(
-                Identifier(id.to_string()),
-                expr.clone(),
-                &mut variables,
-                &mut a_row,
-                &mut b_row,
-                &mut c_row,
-            ),
+            Statement::Definition(_, _) => continue,
             Statement::Condition(ref expr1, ref expr2) => r1cs_expression(
                 expr1.clone(),
                 expr2.clone(),
