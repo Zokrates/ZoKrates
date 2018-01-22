@@ -617,6 +617,7 @@ impl Flattener {
         for arg in funct.arguments {
             arguments_flattened.push(Parameter {
                 id: arg.id.to_string(),
+                private: arg.private
             });
         }
         // flatten statements in functions and apply substitution

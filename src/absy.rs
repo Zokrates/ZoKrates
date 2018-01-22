@@ -7,10 +7,9 @@
 
 use std::fmt;
 use std::collections::HashMap;
-use std::io::{stdin, BufRead};
 use field::Field;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Prog<T: Field> {
     /// Functions of the program
     pub functions: Vec<Function<T>>,
@@ -56,7 +55,7 @@ impl<T: Field> fmt::Debug for Prog<T> {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Function<T: Field> {
     /// Name of the program
     pub id: String,
@@ -195,11 +194,13 @@ impl<T: Field> fmt::Debug for Statement<T> {
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct Parameter {
     pub id: String,
+    pub private: bool,
 }
 
 impl fmt::Display for Parameter {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.id)
+        let visibility = if self.private { "private " } else { "" };
+        write!(f, "{}{}", visibility, self.id)
     }
 }
 
@@ -288,19 +289,11 @@ impl<T: Field> Expression<T> {
                         }
                         assert_eq!(num, T::zero());
                     } else {
-                        println!(
-                            "Could not calculate variable {:?}, inputs: {:?}",
+                        panic!(
+                            "Variable {:?} is undeclared in inputs: {:?}",
                             var,
                             inputs
                         );
-                        println!("Please enter a value for {:?}:", var);
-                        let mut input = String::new();
-                        let stdin = stdin();
-                        stdin
-                            .lock()
-                            .read_line(&mut input)
-                            .expect("Did not enter a correct String");
-                        inputs.insert(var.to_string(), T::from(input.trim()));
                     }
                 }
                 inputs[var].clone()
