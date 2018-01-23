@@ -295,7 +295,9 @@ pub fn r1cs_program<T: Field>(
 
     // ~out is added after main's arguments as we want variables (columns)
     // in the r1cs to be aligned like "public inputs | private inputs"
-    variables.push("~out".to_string());
+    for i in 0..main.return_count {
+        variables.push(format!("~out_{}", i).to_string());
+    }
 
     // position where private part of witness starts
     let private_inputs_offset = variables.len();
@@ -307,14 +309,18 @@ pub fn r1cs_program<T: Field>(
         match *def {
             Statement::Return(ref expr) => {
                 match expr.clone() {
-                    Expression::List(values) => r1cs_expression(
-                        Identifier("~out".to_string()),
-                        values[0].clone(),
-                        &mut variables,
-                        &mut a_row,
-                        &mut b_row,
-                        &mut c_row,
-                    ),
+                    Expression::List(values) => {
+                        for (i, val) in values.iter().enumerate() {
+                            r1cs_expression(
+                                Identifier(format!("~out_{}", i).to_string()),
+                                val.clone(),
+                                &mut variables,
+                                &mut a_row,
+                                &mut b_row,
+                                &mut c_row,
+                            )
+                        }
+                    },
                     _ => panic!("should return a List")
                 }
             },

@@ -81,8 +81,10 @@ impl<T: Field> Function<T> {
                 Statement::Return(ref expr) => {
                     match expr.clone() {
                         Expression::List(values) => {
-                            let s = values[0].solve(&mut witness);
-                            witness.insert("~out".to_string(), s);
+                            for (i, val) in values.iter().enumerate() {
+                                let s = val.solve(&mut witness);
+                                witness.insert(format!("~out_{}", i).to_string(), s);
+                            }
                         },
                         _ => panic!("should return a list")
                     }
