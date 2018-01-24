@@ -303,14 +303,14 @@ pub fn r1cs_program<T: Field>(
     let private_inputs_offset = variables.len();
 
     for def in &main.statements {
-        let mut a_row: Vec<(usize, T)> = Vec::new();
-        let mut b_row: Vec<(usize, T)> = Vec::new();
-        let mut c_row: Vec<(usize, T)> = Vec::new();
         match *def {
             Statement::Return(ref expr) => {
                 match expr.clone() {
                     Expression::List(values) => {
                         for (i, val) in values.iter().enumerate() {
+                            let mut a_row: Vec<(usize, T)> = Vec::new();
+                            let mut b_row: Vec<(usize, T)> = Vec::new();
+                            let mut c_row: Vec<(usize, T)> = Vec::new();
                             r1cs_expression(
                                 Identifier(format!("~out_{}", i).to_string()),
                                 val.clone(),
@@ -318,28 +318,36 @@ pub fn r1cs_program<T: Field>(
                                 &mut a_row,
                                 &mut b_row,
                                 &mut c_row,
-                            )
+                            );
+                            a.push(a_row);
+                            b.push(b_row);
+                            c.push(c_row);
                         }
                     },
                     _ => panic!("should return a List")
                 }
             },
             Statement::Definition(_, _) => continue,
-            Statement::Condition(ref expr1, ref expr2) => r1cs_expression(
-                expr1.clone(),
-                expr2.clone(),
-                &mut variables,
-                &mut a_row,
-                &mut b_row,
-                &mut c_row,
-            ),
+            Statement::Condition(ref expr1, ref expr2) => {
+                let mut a_row: Vec<(usize, T)> = Vec::new();
+                let mut b_row: Vec<(usize, T)> = Vec::new();
+                let mut c_row: Vec<(usize, T)> = Vec::new();
+                r1cs_expression(
+                    expr1.clone(),
+                    expr2.clone(),
+                    &mut variables,
+                    &mut a_row,
+                    &mut b_row,
+                    &mut c_row,
+                );
+                a.push(a_row);
+                b.push(b_row);
+                c.push(c_row);
+            },
             Statement::For(..) => panic!("For-loop not flattened"),
             Statement::Compiler(..) => continue,
             Statement::MultipleDefinition(..) => unimplemented!(),
         }
-        a.push(a_row);
-        b.push(b_row);
-        c.push(c_row);
     }
     (variables, private_inputs_offset, a, b, c)
 }
