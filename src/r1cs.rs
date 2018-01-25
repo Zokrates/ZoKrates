@@ -84,7 +84,7 @@ fn count_variables_add<T: Field>(expr: &Expression<T>) -> HashMap<String, T> {
 ///
 /// # Arguments
 ///
-/// * `lhs` - Leht hand side of the equation
+/// * `lhs` - Left hand side of the equation
 /// * `rhs` - Right hand side of the equation
 fn swap_sub<T: Field>(lhs: &Expression<T>, rhs: &Expression<T>) -> (Expression<T>, Expression<T>) {
     let mut left = get_summands(lhs);
@@ -329,6 +329,34 @@ pub fn r1cs_program<T: Field>(
         c.push(c_row);
     }
     (variables, private_inputs_offset, a, b, c)
+}
+
+
+/// Calculates a flattend program based on a R1CS (A, B, C) and returns that flattened program:
+/// * The Rank 1 Constraint System (R1CS) is defined as:
+/// * `<A,x>*<B,x> = <C,x>` for a witness `x`
+/// * Since the matrices in R1CS are usually sparse, the following encoding is used:
+/// * For each constraint (i.e., row in the R1CS), only non-zero values are supplied and encoded as a tuple (index, value).
+///
+/// Example for a row of Matrix A: 0 0 1 2 0 -> (2,1),(3,2)
+///
+/// # Arguments
+///
+/// * `inputs` - Input variables as (Index, Name) name tuples, where index is the column index.
+/// * `outputs` - Output variables as (Index, Name) name tuples, where index is the column index.
+/// * `a` - Matrix A in the R1CS.
+/// * `b` - Matrix B in the R1CS.
+/// * `c` - Matrix C in the R1CS.
+
+pub fn flattened_program<T: Field>(
+    inputs: Vec<(usize, String)>,
+    outputs: Vec<(usize, String)>,
+    a: Vec<Vec<(usize, T)>>,
+    b: Vec<Vec<(usize, T)>>,
+    c: Vec<Vec<(usize, T)>>,
+) -> Prog<T> {
+    // initialize variable map with index->name
+
 }
 
 #[cfg(test)]
