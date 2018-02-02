@@ -83,8 +83,8 @@ impl Checker {
 
 	fn check_statement<T: Field>(&mut self, stat: Statement<T>) -> Result<(), String> {
 		match stat {
-			Statement::Return(expr) => {
-				self.check_expression(expr)?;
+			Statement::Return(list) => {
+				self.check_expression_list(list)?;
 				Ok(())
 			}
 			Statement::Definition(id, expr) | Statement::Compiler(id, expr) => {
@@ -171,14 +171,15 @@ impl Checker {
 				}
 				Ok(())
 			}
-			Expression::Number(_) => Ok(()),
-			Expression::List(exprs) => {
-				for expr in exprs {
-					self.check_expression(expr)?
-				}
-				Ok(())
-			}
+			Expression::Number(_) => Ok(())
 		}
+	}
+
+	fn check_expression_list<T: Field>(&mut self, list: ExpressionList<T>) -> Result<(), String> {
+		for expr in list.expressions { // implement Iterator trait?
+			self.check_expression(expr)?
+		}
+		Ok(())
 	}
 
 	fn check_condition<T: Field>(&mut self, cond: Condition<T>) -> Result<(), String> {
@@ -257,7 +258,9 @@ mod tests {
         let bar_args = Vec::<Parameter>::new();
 		let mut bar_statements = Vec::<Statement<FieldPrime>>::new();
 		bar_statements.push(Statement::Return(
-			Expression::Identifier(String::from("a"))
+			ExpressionList {
+				expressions: vec![Expression::Identifier(String::from("a"))]
+			}			
 		));
 		let bar = Function {
             id: "bar".to_string(),
@@ -305,7 +308,9 @@ mod tests {
 			Expression::Number(FieldPrime::from(2))
 		));
 		bar_statements.push(Statement::Return(
-			Expression::Identifier(String::from("a"))
+			ExpressionList {
+				expressions: vec![Expression::Identifier(String::from("a"))]
+			}
 		));
 		let bar = Function {
             id: "bar".to_string(),
@@ -340,7 +345,9 @@ mod tests {
 			Vec::<Statement<FieldPrime>>::new())
 		);
 		foo_statements.push(Statement::Return(
-			Expression::Identifier(String::from("i"))
+			ExpressionList {
+				expressions: vec![Expression::Identifier(String::from("i"))]
+			}
 		));
 		let foo = Function {
 			id: "foo".to_string(),
@@ -442,10 +449,10 @@ mod tests {
 		//   return a, b
 		// should fail
 		let bar_statements: Vec<Statement<FieldPrime>> = vec![Statement::Return(
-			Expression::List(vec![
+			ExpressionList { expressions: vec![
 				Expression::Identifier("a".to_string()),
 				Expression::Identifier("b".to_string())
-			])
+			]}
 		)];
 
 		let bar = Function {
@@ -474,12 +481,12 @@ mod tests {
 				Expression::FunctionCall("foo".to_string(), vec![])
 			),
 			Statement::Return(
-				Expression::List(vec![
+				ExpressionList { expressions: vec![
 					Expression::Add(
 						box Expression::Identifier("a".to_string()), 
 						box Expression::Identifier("b".to_string())
 					)]
-				)
+				}
 			)
 		];
 

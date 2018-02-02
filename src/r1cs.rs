@@ -244,7 +244,6 @@ fn r1cs_expression<T: Field>(
                 c_row.push((get_variable_idx(variables, &key), value));
             }
         }
-        _ => unimplemented!()
     }
 }
 
@@ -304,27 +303,22 @@ pub fn r1cs_program<T: Field>(
 
     for def in &main.statements {
         match *def {
-            Statement::Return(ref expr) => {
-                match expr.clone() {
-                    Expression::List(values) => {
-                        for (i, val) in values.iter().enumerate() {
-                            let mut a_row: Vec<(usize, T)> = Vec::new();
-                            let mut b_row: Vec<(usize, T)> = Vec::new();
-                            let mut c_row: Vec<(usize, T)> = Vec::new();
-                            r1cs_expression(
-                                Identifier(format!("~out_{}", i).to_string()),
-                                val.clone(),
-                                &mut variables,
-                                &mut a_row,
-                                &mut b_row,
-                                &mut c_row,
-                            );
-                            a.push(a_row);
-                            b.push(b_row);
-                            c.push(c_row);
-                        }
-                    },
-                    _ => panic!("should return a List")
+            Statement::Return(ref list) => {
+                for (i, val) in list.expressions.iter().enumerate() {
+                    let mut a_row: Vec<(usize, T)> = Vec::new();
+                    let mut b_row: Vec<(usize, T)> = Vec::new();
+                    let mut c_row: Vec<(usize, T)> = Vec::new();
+                    r1cs_expression(
+                        Identifier(format!("~out_{}", i).to_string()),
+                        val.clone(),
+                        &mut variables,
+                        &mut a_row,
+                        &mut b_row,
+                        &mut c_row,
+                    );
+                    a.push(a_row);
+                    b.push(b_row);
+                    c.push(c_row);
                 }
             },
             Statement::Definition(_, _) => continue,

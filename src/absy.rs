@@ -78,15 +78,10 @@ impl<T: Field> Function<T> {
         }
         for statement in &self.statements {
             match *statement {
-                Statement::Return(ref expr) => {
-                    match expr.clone() {
-                        Expression::List(values) => {
-                            for (i, val) in values.iter().enumerate() {
-                                let s = val.solve(&mut witness);
-                                witness.insert(format!("~out_{}", i).to_string(), s);
-                            }
-                        },
-                        _ => panic!("should return a list")
+                Statement::Return(ref list) => {
+                    for (i, val) in list.expressions.iter().enumerate() {
+                        let s = val.solve(&mut witness);
+                        witness.insert(format!("~out_{}", i).to_string(), s);
                     }
                 }
                 Statement::Compiler(ref id, ref expr) | Statement::Definition(ref id, ref expr) => {
@@ -142,7 +137,7 @@ impl<T: Field> fmt::Debug for Function<T> {
 
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub enum Statement<T: Field> {
-    Return(Expression<T>),
+    Return(ExpressionList<T>),
     Definition(String, Expression<T>),
     Condition(Expression<T>, Expression<T>),
     For(String, T, T, Vec<Statement<T>>),
@@ -153,7 +148,8 @@ pub enum Statement<T: Field> {
 impl<T: Field> Statement<T> {
     pub fn is_flattened(&self) -> bool {
         match *self {
-            Statement::Definition(_, ref x) | Statement::MultipleDefinition(_, ref x) | Statement::Return(ref x) => x.is_flattened(),
+            Statement::Definition(_, ref x) | Statement::MultipleDefinition(_, ref x) => x.is_flattened(),
+            Statement::Return(ref x) => x.is_flattened(),
             Statement::Compiler(..) => true,
             Statement::Condition(ref x, ref y) => {
                 (x.is_linear() && y.is_flattened()) || (x.is_flattened() && y.is_linear())
@@ -244,7 +240,6 @@ pub enum Expression<T: Field> {
     Pow(Box<Expression<T>>, Box<Expression<T>>),
     IfElse(Box<Condition<T>>, Box<Expression<T>>, Box<Expression<T>>),
     FunctionCall(String, Vec<Expression<T>>),
-    List(Vec<Expression<T>>),
 }
 
 impl<T: Field> Expression<T> {
@@ -290,9 +285,6 @@ impl<T: Field> Expression<T> {
                     param.apply_substitution(substitution);
                 }
                 Expression::FunctionCall(i.clone(), p.clone())
-            },
-            Expression::List(ref exprs) => {
-                Expression::List(exprs.iter().map(|e| e.apply_substitution(substitution)).collect())
             }
         }
     }
@@ -338,7 +330,6 @@ impl<T: Field> Expression<T> {
                 }
             }
             Expression::FunctionCall(_, _) => unimplemented!(), // should not happen, since never part of flattened functions
-            Expression::List(_) => unimplemented!() // same
         }
     }
 
@@ -372,9 +363,6 @@ impl<T: Field> Expression<T> {
                     (box x, box y) => x.is_linear() && y.is_linear(),
                 }
             },
-            Expression::List(ref exprs) => {
-                exprs.into_iter().all(|x| x.is_flattened())
-            },
             _ => false,
         }
     }
@@ -407,15 +395,6 @@ impl<T: Field> fmt::Display for Expression<T> {
                 }
                 write!(f, ")")
             }
-            Expression::List(ref exprs) => {
-                for (i, param) in exprs.iter().enumerate() {
-                    try!(write!(f, "{}", param));
-                    if i < exprs.len() - 1 {
-                        try!(write!(f, ", "));
-                    }
-                }
-                write!(f, "")
-            },
         }
     }
 }
@@ -442,8 +421,49 @@ impl<T: Field> fmt::Debug for Expression<T> {
                 try!(f.debug_list().entries(p.iter()).finish());
                 write!(f, ")")
             }
-            Expression::List(ref exprs) => write!(f, "List({:?})", exprs),
         }
+    }
+}
+
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+pub struct ExpressionList<T: Field> {
+    pub expressions: Vec<Expression<T>>
+}
+
+impl<T: Field> ExpressionList<T> {
+    pub fn new() -> ExpressionList<T> {
+        ExpressionList {
+            expressions: vec![]
+        }
+    }
+
+    pub fn apply_substitution(&self, substitution: &HashMap<String, String>) -> ExpressionList<T> {
+        let expressions: Vec<Expression<T>> = self.expressions.iter().map(|e| e.apply_substitution(substitution)).collect();
+        ExpressionList {
+            expressions: expressions
+        }
+    }
+
+    pub fn is_flattened(&self) -> bool {
+        self.expressions.iter().all(|e| e.is_flattened())
+    }
+}
+
+impl<T: Field> fmt::Display for ExpressionList<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for (i, param) in self.expressions.iter().enumerate() {
+            try!(write!(f, "{}", param));
+            if i < self.expressions.len() - 1 {
+                try!(write!(f, ", "));
+            }
+        }
+        write!(f, "")
+    }
+}
+
+impl<T: Field> fmt::Debug for ExpressionList<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "ExpressionList({:?})", self.expressions)
     }
 }
 
