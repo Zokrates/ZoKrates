@@ -348,10 +348,6 @@ fn main() {
             let witness_map = main_flattened.get_witness(arguments);
             // let witness_map: HashMap<String, FieldPrime> = main_flattened.get_witness(args);
             println!("Witness: {:?}", witness_map);
-            match witness_map.get("~out") {
-                Some(out) => println!("Returned (~out): {}", out),
-                None => println!("~out not found, no value returned")
-            }
 
             // write witness to file
             let output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -425,7 +421,7 @@ fn main() {
             // run setup phase
             #[cfg(not(feature="nolibsnark"))]{
                 // number of inputs in the zkSNARK sense, i.e., input variables + output variables
-                let num_inputs = main_flattened.arguments.iter().filter(|x| !x.private).count() + 1;
+                let num_inputs = main_flattened.arguments.iter().filter(|x| !x.private).count() + main_flattened.return_count;
                 println!("setup successful: {:?}", setup(variables, a, b, c, num_inputs, pk_path, vk_path));
             }
         }
