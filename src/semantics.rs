@@ -119,7 +119,7 @@ impl Checker {
         		// All elements of the left side have to be identifiers
                 match rhs {
                 	// Right side has to be a function call
-                    Expression::FunctionCall(fun_id, arguments) => {
+                    Expression::FunctionCall(ref fun_id, ref arguments) => {
                     	match self.find_function(fun_id, arguments) {
                     		// the function has to be defined
                     		Some(f) => {
@@ -135,7 +135,7 @@ impl Checker {
                     			}
                     			Err(format!("{} returns {} values but left side is of size {}", f.id, f.return_count, ids.len()))
                     		},
-                    		None => Err(format!("Function definition for function ??? with ??? argument(s) not found."))
+                    		None => Err(format!("Function definition for function {} with {} argument(s) not found.", fun_id, arguments.len()))
                     	}
                     },
                     _ => Err(format!("{} should be a FunctionCall", rhs))
@@ -165,19 +165,19 @@ impl Checker {
 				self.check_expression(alternative)?;
 				Ok(())
 			}
-			Expression::FunctionCall(fun_id, arguments) => {
-				match self.find_function(fun_id.clone(), arguments.clone()) {
+			Expression::FunctionCall(ref fun_id, ref arguments) => {
+				match self.find_function(fun_id, arguments) {
 					// the function has to be defined
 					Some(f) => {
 						if f.return_count == 1 { // Functions must return a single value when not in a MultipleDefinition
 							for expr in arguments {
-								self.check_expression(expr)?;
+								self.check_expression(expr.clone())?;
 							}
 							return Ok(())
 						}
 						Err(format!("{} returns {} values but is called outside of a definition", fun_id, f.return_count))
 					},
-                   	None => Err(format!("Function definition for function ??? with ??? argument(s) not found."))
+                   	None => Err(format!("Function definition for function {} with {} argument(s) not found.", fun_id, arguments.len()))
 				}
 			}
 			Expression::Number(_) => Ok(())
@@ -205,7 +205,7 @@ impl Checker {
 		}
 	}
 
-	fn find_function<T: Field>(&mut self, id: String, args: Vec<Expression<T>>) -> Option<FunctionDeclaration> {
+	fn find_function<T: Field>(&mut self, id: &str, args: &Vec<Expression<T>>) -> Option<FunctionDeclaration> {
 		self.functions.clone().into_iter().find(|fun| fun.id == id && fun.arg_count == args.len())
 	}
 }
@@ -464,7 +464,7 @@ mod tests {
 	}
 
 	#[test]
-	fn function_undefined() {
+	fn function_undefined_in_multidef() {
 		// def bar():
 		//   c = foo()
 		// should fail
@@ -481,7 +481,28 @@ mod tests {
 		};
 
 		let mut checker = Checker::new_with_args(HashSet::new(), 0, HashSet::new());
-		assert_eq!(checker.check_function(bar), Err(("Function definition for function ??? with ??? argument(s) not found.".to_string())));
+		assert_eq!(checker.check_function(bar), Err(("Function definition for function foo with 0 argument(s) not found.".to_string())));
+	}
+
+	#[test]
+	fn function_undefined() {
+		// def bar():
+		//   1 = foo()
+		// should fail
+		let bar_statements: Vec<Statement<FieldPrime>> = vec![Statement::Condition(
+			Expression::Number(FieldPrime::from(1)), 
+			Expression::FunctionCall("foo".to_string(), vec![])
+		)];
+
+		let bar = Function {
+			id: "bar".to_string(),
+			arguments: vec![],
+			statements: bar_statements,
+			return_count: 1
+		};
+
+		let mut checker = Checker::new_with_args(HashSet::new(), 0, HashSet::new());
+		assert_eq!(checker.check_function(bar), Err(("Function definition for function foo with 0 argument(s) not found.".to_string())));
 	}
 
 	#[test]
