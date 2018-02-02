@@ -657,7 +657,7 @@ impl Flattener {
                             statements_flattened.push(Statement::Definition(var, rhs_flattened.expressions[i].clone()));
                         }
                     },
-                    _ => panic!("")
+                    _ => panic!("Right hand side of a MultipleDefinition should be a FunctionCall")
                 }
             },
         }

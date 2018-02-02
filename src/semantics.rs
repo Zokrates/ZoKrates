@@ -131,14 +131,14 @@ impl Checker {
 											level: self.level
 										});
                     				}
-                    				return Ok(());
+                    				return Ok(())
                     			}
-                    			Err(format!("{:?} returns {} values but left side is of size {}", f.id, f.return_count, ids.len()))
+                    			Err(format!("{} returns {} values but left side is of size {}", f.id, f.return_count, ids.len()))
                     		},
                     		None => Err(format!("Function definition for function ??? with ??? argument(s) not found."))
                     	}
                     },
-                    _ => Err(format!("{:?} should be a FunctionCall", rhs))
+                    _ => Err(format!("{} should be a FunctionCall", rhs))
                 }
             },
 		}
@@ -150,7 +150,7 @@ impl Checker {
 				// check that `id` is defined in the scope
 				match self.scope.iter().find(|symbol| symbol.id == id.to_string()) {
 					Some(_) => Ok(()),
-					None => Err(format!("{:?} is undefined", id.to_string())),
+					None => Err(format!("{} is undefined", id.to_string())),
 				}
 			}
 			Expression::Add(box e1, box e2) | Expression::Sub(box e1, box e2) | Expression::Mult(box e1, box e2) |
@@ -165,11 +165,20 @@ impl Checker {
 				self.check_expression(alternative)?;
 				Ok(())
 			}
-			Expression::FunctionCall(_, param_expressions) => {
-				for expr in param_expressions {
-					self.check_expression(expr)?;
+			Expression::FunctionCall(fun_id, arguments) => {
+				match self.find_function(fun_id.clone(), arguments.clone()) {
+					// the function has to be defined
+					Some(f) => {
+						if f.return_count == 1 { // Functions must return a single value when not in a MultipleDefinition
+							for expr in arguments {
+								self.check_expression(expr)?;
+							}
+							return Ok(())
+						}
+						Err(format!("{} returns {} values but is called outside of a definition", fun_id, f.return_count))
+					},
+                   	None => Err(format!("Function definition for function ??? with ??? argument(s) not found."))
 				}
-				Ok(())
 			}
 			Expression::Number(_) => Ok(())
 		}
@@ -215,7 +224,7 @@ mod tests {
 			Expression::Identifier(String::from("b"))
 		);
 		let mut checker = Checker::new();
-		assert_eq!(checker.check_statement(statement), Err("\"b\" is undefined".to_string()));
+		assert_eq!(checker.check_statement(statement), Err("b is undefined".to_string()));
 	}
 
 	#[test]
@@ -277,7 +286,7 @@ mod tests {
         };
 
 		let mut checker = Checker::new();
-		assert_eq!(checker.check_program(prog), Err("\"a\" is undefined".to_string()));
+		assert_eq!(checker.check_program(prog), Err("a is undefined".to_string()));
 	}
 
 	#[test]
@@ -357,7 +366,7 @@ mod tests {
 		};
 
 		let mut checker = Checker::new();
-		assert_eq!(checker.check_function(foo), Err("\"i\" is undefined".to_string()));
+		assert_eq!(checker.check_function(foo), Err("i is undefined".to_string()));
 	}
 
 	#[test]
@@ -419,7 +428,39 @@ mod tests {
 		};
 
 		let mut checker = Checker::new_with_args(HashSet::new(), 0, functions);
-		assert_eq!(checker.check_function(bar), Err(("\"foo\" returns 2 values but left side is of size 1".to_string())));
+		assert_eq!(checker.check_function(bar), Err(("foo returns 2 values but left side is of size 1".to_string())));
+	}
+
+	#[test]
+	fn multi_return_outside_multidef() {
+		// def foo():
+		//   return 1, 2
+		// def bar():
+		//   4 == foo()
+		// should fail
+		let bar_statements: Vec<Statement<FieldPrime>> = vec![Statement::Condition(
+			Expression::Number(FieldPrime::from(2)),
+			Expression::FunctionCall("foo".to_string(), vec![])
+		)];
+
+		let foo = FunctionDeclaration {
+			id: "foo".to_string(),
+			arg_count: 0,
+            return_count: 2,
+		};
+
+		let mut functions = HashSet::new();
+		functions.insert(foo);
+
+		let bar = Function {
+			id: "bar".to_string(),
+			arguments: vec![],
+			statements: bar_statements,
+			return_count: 1
+		};
+
+		let mut checker = Checker::new_with_args(HashSet::new(), 0, functions);
+		assert_eq!(checker.check_function(bar), Err(("foo returns 2 values but is called outside of a definition".to_string())));
 	}
 
 	#[test]
@@ -463,7 +504,7 @@ mod tests {
 		};
 
 		let mut checker = Checker::new_with_args(HashSet::new(), 0, HashSet::new());
-		assert_eq!(checker.check_function(bar), Err(("\"a\" is undefined".to_string())));
+		assert_eq!(checker.check_function(bar), Err(("a is undefined".to_string())));
 	}
 
 	#[test]
