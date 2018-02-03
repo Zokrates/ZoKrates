@@ -1,0 +1,23 @@
+name: zokrates
+version: git
+summary: A toolbox for zkSNARKS on Ethereum
+description: |
+  A higher-level language and compiler, which transforms a more convenient
+  representation into verifiable programs based on zkSNARKS.
+  Additionally, generates Ethereum Smart Contraccts, which verify the results
+  on-chain.
+
+grade: devel # must be 'stable' to release into candidate/stable channels
+confinement: devmode # use 'strict' once you have the right plugs and slots
+
+apps:
+  zokrates:
+    command: zokrates
+
+parts:
+  zokrates:
+    source: .
+    plugin: rust
+    rust-channel: nightly
+    build-packages: [g++]
+    rust-features: [nolibsnark]
