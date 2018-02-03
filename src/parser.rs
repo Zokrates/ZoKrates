@@ -1395,22 +1395,6 @@ pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
         }
     }
 
-    //check if exactly one main function exists
-    let mut has_main = false;
-    for func in &functions {
-        if func.id == "main".to_string() {
-            if !has_main {
-                has_main = true;
-            } else {
-                panic!("Error while parsing program: Multiple main functions!");
-            }
-        }
-    }
-
-    if !has_main {
-        panic!("Error while parsing program: No main function found.")
-    };
-
     Ok(Prog { functions })
 }
 
