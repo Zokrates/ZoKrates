@@ -18,7 +18,7 @@ RUN wget https://github.com/scipr-lab/libsnark/archive/$libsnarkcommit.zip \
   && ./prepare-depends.sh
 
 RUN curl https://sh.rustup.rs -sSf | \
-  sh -s -- --default-toolchain nightly-2017-03-20 -y
+  sh -s -- --default-toolchain nightly-2018-02-05 -y
 
 ENV PATH=/root/.cargo/bin:$PATH
 
@@ -31,4 +31,4 @@ ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/usr/local/lib
 COPY . /root/ZoKrates
 
 RUN cd ZoKrates \
-  && cargo build --release
+  && cargo build --release --features nolibsnark
