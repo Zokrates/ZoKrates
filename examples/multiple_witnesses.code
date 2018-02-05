@@ -1,4 +1,4 @@
 // this code does not need to be flattened
-def main(x):
+def main(x, private a, private b):
   a == b * 7
   return x + a + b

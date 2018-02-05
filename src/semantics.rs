@@ -48,8 +48,8 @@ impl Checker {
 		}
 	}
 
-	pub fn check_program<T: Field>(&mut self, prog: Prog<T>) -> Result<(), String> {
-		for func in prog.functions {
+	pub fn check_program<T: Field>(&mut self, prog: &Prog<T>) -> Result<(), String> {
+		for func in prog.clone().functions {
 			self.functions.insert(FunctionDeclaration {
 				id: func.clone().id,
 				return_count: func.clone().return_count,
@@ -286,7 +286,7 @@ mod tests {
         };
 
 		let mut checker = Checker::new();
-		assert_eq!(checker.check_program(prog), Err("a is undefined".to_string()));
+		assert_eq!(checker.check_program(&prog), Err("a is undefined".to_string()));
 	}
 
 	#[test]
@@ -336,7 +336,7 @@ mod tests {
         };
 
 		let mut checker = Checker::new();
-		assert_eq!(checker.check_program(prog), Ok(()));
+		assert_eq!(checker.check_program(&prog), Ok(()));
 	}
 
 	#[test]

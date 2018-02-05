@@ -216,7 +216,7 @@ fn main() {
             };
 
             // check semantics
-            match Checker::new().check_program(program_ast.clone()) {
+            match Checker::new().check_program(&program_ast) {
                 Ok(()) => (),
                 Err(why) => panic!("Semantic analysis failed with: {}", why)
             };
@@ -594,6 +594,12 @@ mod tests {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
             };
+
+            match Checker::new().check_program(&program_ast) {
+                Ok(()) => {},
+                Err(why) => panic!("Error: {:?}", why)
+            }
+
             let program_flattened =
                 Flattener::new(FieldPrime::get_required_bits()).flatten_program(program_ast);
             let (..) = r1cs_program(&program_flattened);
@@ -617,6 +623,12 @@ mod tests {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
             };
+
+            match Checker::new().check_program(&program_ast) {
+                Ok(()) => {},
+                Err(why) => panic!("Error: {:?}", why)
+            }
+
             let program_flattened =
                 Flattener::new(FieldPrime::get_required_bits()).flatten_program(program_ast);
             let (..) = r1cs_program(&program_flattened);
