@@ -14,10 +14,6 @@ use std::cmp::max;
 
 use field::Field;
 
-#[link(name = "snark")]
-#[link(name = "supercop")]
-#[link(name = "gmp")]
-#[link(name = "gmpxx")]
 extern "C" {
 
     fn _setup(
