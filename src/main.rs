@@ -11,6 +11,7 @@ extern crate clap;
 extern crate lazy_static;
 extern crate num; // cli
 extern crate serde; // serialization deserialization
+extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
 extern crate bincode;
@@ -36,7 +37,7 @@ use absy::Prog;
 use parser::parse_program;
 use semantics::Checker;
 use flatten::Flattener;
-use r1cs::r1cs_program;
+use r1cs::{r1cs_program, R1CS};
 use clap::{App, AppSettings, Arg, SubCommand};
 #[cfg(not(feature = "nolibsnark"))]
 use libsnark::{setup, generate_proof};
@@ -50,6 +51,7 @@ fn main() {
     const VERIFICATION_CONTRACT_DEFAULT_PATH: &str = "verifier.sol";
     const WITNESS_DEFAULT_PATH: &str = "witness";
     const VARIABLES_INFORMATION_KEY_DEFAULT_PATH: &str = "variables.inf";
+    const IMPORT_OUTPUT_DEFAULT_PATH: &str = "import.code";
 
     // cli specification using clap library
     let matches = App::new("ZoKrates")
@@ -193,6 +195,26 @@ fn main() {
             .takes_value(true)
             .required(false)
             .default_value(VARIABLES_INFORMATION_KEY_DEFAULT_PATH)
+        )
+    )
+    .subcommand(SubCommand::with_name("import")
+        .about("Imports a standard R1CS file as .code.")
+        .arg(Arg::with_name("input")
+            .short("i")
+            .long("input")
+            .help("path of verifier.")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(true)
+        )
+        .arg(Arg::with_name("output")
+            .short("o")
+            .long("output")
+            .help("output file path.")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(IMPORT_OUTPUT_DEFAULT_PATH)
         )
     )
     .get_matches();
@@ -568,6 +590,19 @@ fn main() {
                 println!("generate-proof successful: {:?}", generate_proof(pk_path, public_inputs, private_inputs));
             }
 
+        }
+        ("import", Some(sub_matches)) => {
+            let path = Path::new(sub_matches.value_of("input").unwrap());
+            println!("Importing R1CS from {}", sub_matches.value_of("input").unwrap());
+
+            let file = match File::open(&path) {
+                Ok(file) => file,
+                Err(why) => panic!("couldn't open {}: {}", path.display(), why),
+            };
+
+            let r1cs: r1cs::R1CS = serde_json::from_reader(file).unwrap();
+            println!("R1CS: {:?}", r1cs);
+            let prog: Prog<FieldPrime> = r1cs::flattened_program(r1cs);
         }
         _ => unimplemented!(), // Either no subcommand or one not tested for...
     }

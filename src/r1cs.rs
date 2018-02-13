@@ -6,9 +6,22 @@
 //! @date 2017
 
 use std::collections::HashMap;
+use std::collections::BTreeMap;
 use absy::*;
 use absy::Expression::*;
 use field::Field;
+
+// for r1cs import, can be moved.
+// r1cs data strucutre reflecting JSON standard format:
+//{variables:["a","b", ... ],
+//constraints:[
+// [{offset_1:value_a1,offset2:value_a2,...},{offset1:value_b1,offset2:value_b2,...},{offset1:value_c1,offset2:value_c2,...}]
+//]}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct R1CS {
+    variables: Vec<String>,
+    constraints: Vec<Vec<BTreeMap<String, isize>>>,
+}
 
 /// Returns a vector of summands of the given `Expression`.
 ///
@@ -338,25 +351,45 @@ pub fn r1cs_program<T: Field>(
 /// * Since the matrices in R1CS are usually sparse, the following encoding is used:
 /// * For each constraint (i.e., row in the R1CS), only non-zero values are supplied and encoded as a tuple (index, value).
 ///
-/// Example for a row of Matrix A: 0 0 1 2 0 -> (2,1),(3,2)
-///
 /// # Arguments
 ///
-/// * `inputs` - Input variables as (Index, Name) name tuples, where index is the column index.
-/// * `outputs` - Output variables as (Index, Name) name tuples, where index is the column index.
-/// * `a` - Matrix A in the R1CS.
-/// * `b` - Matrix B in the R1CS.
-/// * `c` - Matrix C in the R1CS.
+/// * r1cs - R1CS in standard JSON data format
 
 pub fn flattened_program<T: Field>(
-    inputs: Vec<(usize, String)>,
-    outputs: Vec<(usize, String)>,
-    a: Vec<Vec<(usize, T)>>,
-    b: Vec<Vec<(usize, T)>>,
-    c: Vec<Vec<(usize, T)>>,
+    r1cs: R1CS
 ) -> Prog<T> {
-    // initialize variable map with index->name
 
+    // statements that constrains are translated to
+    let mut statements: Vec<Statement<T>> = Vec::new();
+
+    for cons in r1cs.constraints {
+        assert!(cons.len() == 3); // entries for a,b,c
+
+        // right hand side of definition
+        let mut rhs: Expression<T>;
+
+        // Expression: c0+c1+c2...
+        for (c_var_offset, c_val) in cons[2] {
+            let counter = 0;
+            let var = r1cs.variables[c_var_offset.parse::<usize>().unwrap()]; // get variable name
+            if counter ==0{
+                rhs = Expression::Identifier(var);
+            } else {
+                rhs = Expression::Add(box rhs, box Expression::Identifier(var));
+            }
+            println!("rhs: {:?}", rhs);
+        }
+
+
+        let a_entries = cons[0].clone();
+        let b_entries = cons[1].clone();
+        let c_entries = cons[2].clone();
+        println!("a entries: {:?}", a_entries);
+    }
+
+    let mut functs = Vec::new();
+    functs.push(Function{ id: "import".to_owned(), arguments: Vec::new() , statements: statements});
+    Prog{functions: functs}
 }
 
 #[cfg(test)]
