@@ -18,7 +18,7 @@ RUN wget https://github.com/scipr-lab/libsnark/archive/$libsnarkcommit.zip \
   && ./prepare-depends.sh
 
 RUN curl https://sh.rustup.rs -sSf | \
-  sh -s -- --default-toolchain nightly-2018-02-05 -y
+  sh -s -- --default-toolchain nightly-2018-02-10 -y
 
 ENV PATH=/root/.cargo/bin:$PATH
 

@@ -59,7 +59,7 @@ counter = 0 // globally counts duplicate entries in boxes, rows and columns
 
   counter = counter + checkEquality(a11,a12,b11,b12)
   counter = counter + checkEquality(a21,a22,b21,b22)
-  counter = counter + checkEquality(c11,c21,d11,d12)
+  counter = counter + checkEquality(c11,c12,d11,d12)
   counter = counter + checkEquality(c21,c22,d21,d22)
 
 // check column correctness
