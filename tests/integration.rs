@@ -8,10 +8,32 @@ mod integration {
     use std::path::Path;
     use std::io::prelude::*;
     use std::fs::{self};
+    use std::panic;
     use serde_json;
     use serde_json::Value;
+
+    fn setup() {
+        fs::create_dir("./tests/tmp").unwrap();
+    }
+
+    fn teardown() {
+        fs::remove_dir_all("./tests/tmp").unwrap();
+    } 
     
     #[test]
+    fn run_integration_tests() {
+        // see https://medium.com/@ericdreichert/test-setup-and-teardown-in-rust-without-a-framework-ba32d97aa5ab
+        setup();
+
+        let result = panic::catch_unwind(|| {
+            test_compile_and_witness_dir()
+        });
+
+        teardown();
+
+        assert!(result.is_ok())
+    }
+
     fn test_compile_and_witness_dir() {
         let dir = Path::new("./tests/code");
         if dir.is_dir() {
@@ -19,21 +41,26 @@ mod integration {
                 let entry = entry.unwrap();
                 let path = entry.path();
                 if path.extension().unwrap() == "witness" {
-                    let base = Path::new(Path::new(path.file_stem().unwrap()).file_stem().unwrap());
-                    let prog = dir.join(base).with_extension("code");
-                    let flat = dir.join(base).with_extension("expected.out.code");
-                    let witness = dir.join(base).with_extension("expected.witness");
-                    let args = dir.join(base).with_extension("arguments.json");
-                    test_compile_and_witness(&prog, &flat, &args, &witness);
+                    let program_name = Path::new(Path::new(path.file_stem().unwrap()).file_stem().unwrap());
+                    let prog = dir.join(program_name).with_extension("code");
+                    let flat = dir.join(program_name).with_extension("expected.out.code");
+                    let witness = dir.join(program_name).with_extension("expected.witness");
+                    let args = dir.join(program_name).with_extension("arguments.json");
+                    test_compile_and_witness(program_name.to_str().unwrap(), &prog, &flat, &args, &witness);
                 }
             }
         }
     }
 
-    fn test_compile_and_witness(program_path: &Path, expected_flattened_code_path: &Path, arguments_path: &Path, expected_witness_path: &Path) {
-    	let flattened_path = Path::new("./tests/tmp/out");
-    	let flattened_code_path = Path::new("./tests/tmp/out.code");
-    	let witness_path = Path::new("./tests/tmp/witness");
+    fn test_compile_and_witness(program_name: &str, program_path: &Path, expected_flattened_code_path: &Path, arguments_path: &Path, expected_witness_path: &Path) {
+        let tmp_base = Path::new("./tests/tmp/");
+        let test_case_path = tmp_base.join(program_name);
+    	let flattened_path = tmp_base.join(program_name).join("out");
+    	let flattened_code_path = tmp_base.join(program_name).join("out").with_extension("code");
+    	let witness_path = tmp_base.join(program_name).join("witness");
+
+        // create a tmp folder to store artifacts
+        fs::create_dir(test_case_path).unwrap();
 
     	// compile
         assert_cli::Assert::command(&["cargo", "run", "--", "compile", "-i", program_path.to_str().unwrap(), "-o", flattened_path.to_str().unwrap()])
@@ -53,32 +80,33 @@ mod integration {
         for arg in arguments_str_list.iter() {
             compute.push(arg);
         }
+        
         assert_cli::Assert::command(&compute)
             .succeeds()
             .unwrap();
 
     	// load the expected result
-    	let mut expected_flattened_code_file = File::open(expected_flattened_code_path).unwrap();
+    	let mut expected_flattened_code_file = File::open(&expected_flattened_code_path).unwrap();
         let mut expected_flattened_code = String::new();
 		expected_flattened_code_file.read_to_string(&mut expected_flattened_code).unwrap();
 
 		// load the expected witness
-		let mut expected_witness_file = File::open(expected_witness_path).unwrap();
+		let mut expected_witness_file = File::open(&expected_witness_path).unwrap();
 		let mut expected_witness = String::new();
 		expected_witness_file.read_to_string(&mut expected_witness).unwrap();
 
 		// load the actual result
-    	let mut flattened_code_file = File::open(flattened_code_path).unwrap();
+    	let mut flattened_code_file = File::open(&flattened_code_path).unwrap();
         let mut flattened_code = String::new();
 		flattened_code_file.read_to_string(&mut flattened_code).unwrap();
 
 		// load the actual witness
-    	let mut witness_file = File::open(witness_path).unwrap();
+    	let mut witness_file = File::open(&witness_path).unwrap();
         let mut witness = String::new();
 		witness_file.read_to_string(&mut witness).unwrap();
 
 		// check equality
-		assert_eq!(flattened_code, expected_flattened_code);
-		assert_eq!(witness, expected_witness);
+		assert_eq!(flattened_code, expected_flattened_code, "Flattening failed for {}\n\nExpected\n\n{}\n\nGot\n\n{}", program_path.to_str().unwrap(), expected_flattened_code.as_str(), flattened_code.as_str());
+		assert!(witness.contains(expected_witness.as_str()), "Witness generation failed for {}\n\nExpected\n\n{}\n\nGot\n\n{}", program_path.to_str().unwrap(), expected_witness.as_str(), witness.as_str());
     }
 }
