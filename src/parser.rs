@@ -1376,23 +1376,6 @@ pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
             ) {
                 (Token::Def, ref s1, ref p1) => match parse_function(&mut lines, s1, p1) {
                     Ok((function, p2)) => {
-                        // panic if signature is not unique
-                        match functions.iter().find(|x: &&Function<T>| {
-                            x.id == function.id && x.arguments.len() == function.arguments.len()
-                        }) {
-                            Some(_) => panic!(
-                                "Error while reading function: {}({}). Duplicate function signatures.",
-                                function.id,
-                                function
-                                    .arguments
-                                    .iter()
-                                    .map(|x| format!("{}", x))
-                                    .collect::<Vec<_>>()
-                                    .join(",")
-                            ),
-                            _ => {}
-                        }
-
                         functions.push(function);
                         current_line = p2.line; // this is the line of the return statement
                         current_line += 1;
@@ -1411,22 +1394,6 @@ pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
             Some(Err(err)) => panic!("Error while reading function definitions: {}", err),
         }
     }
-
-    //check if exactly one main function exists
-    let mut has_main = false;
-    for func in &functions {
-        if func.id == "main".to_string() {
-            if !has_main {
-                has_main = true;
-            } else {
-                panic!("Error while parsing program: Multiple main functions!");
-            }
-        }
-    }
-
-    if !has_main {
-        panic!("Error while parsing program: No main function found.")
-    };
 
     Ok(Prog { functions })
 }

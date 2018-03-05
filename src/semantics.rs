@@ -50,25 +50,42 @@ impl Checker {
 
 	pub fn check_program<T: Field>(&mut self, prog: Prog<T>) -> Result<(), String> {
 		for func in prog.functions {
+			self.check_function(&func)?;
 			self.functions.insert(FunctionDeclaration {
-				id: func.clone().id,
-				return_count: func.clone().return_count,
-				arg_count: func.clone().arguments.len()
+				id: func.id,
+				return_count: func.return_count,
+				arg_count: func.arguments.len()
 			});
-			self.check_function(func)?;
 		}
+		self.check_single_main()?;
 		Ok(())
 	}
 
-	fn check_function<T: Field>(&mut self, funct: Function<T>) -> Result<(), String> {
+	fn check_single_main(&mut self) -> Result<(), String> {
+		match self.functions.clone().into_iter().filter(|fun| fun.id == "main").count() {
+			1 => Ok(()),
+			0 => Err((format!("No main function found"))),
+			n => Err((format!("Only one main function allowed, found {}", n)))
+		}
+	}
+
+	fn check_function<T: Field>(&mut self, funct: &Function<T>) -> Result<(), String> {
+		match self.find_function(&funct.id, funct.arguments.len()) {
+			Some(_) => {
+				return Err(format!("Duplicate definition for function {} with {} arguments", funct.id, funct.arguments.len()))
+			},
+			None => {
+
+			}
+		}
 		self.level += 1;
-		for arg in funct.arguments {
+		for arg in funct.arguments.clone() {
 			self.scope.insert(Symbol {
 				id: arg.id.to_string(),
 				level: self.level
 			});
 		}
-		for stat in funct.statements {
+		for stat in funct.statements.clone() {
 			self.check_statement(stat)?;
 		}
 		let current_level = self.level.clone();
@@ -120,7 +137,7 @@ impl Checker {
                 match rhs {
                 	// Right side has to be a function call
                     Expression::FunctionCall(ref fun_id, ref arguments) => {
-                    	match self.find_function(fun_id, arguments) {
+                    	match self.find_function(fun_id, arguments.len()) {
                     		// the function has to be defined
                     		Some(f) => {
                     			if f.return_count == ids.len() {
@@ -166,7 +183,7 @@ impl Checker {
 				Ok(())
 			}
 			Expression::FunctionCall(ref fun_id, ref arguments) => {
-				match self.find_function(fun_id, arguments) {
+				match self.find_function(fun_id, arguments.len()) {
 					// the function has to be defined
 					Some(f) => {
 						if f.return_count == 1 { // Functions must return a single value when not in a MultipleDefinition
@@ -205,8 +222,8 @@ impl Checker {
 		}
 	}
 
-	fn find_function<T: Field>(&mut self, id: &str, args: &Vec<Expression<T>>) -> Option<FunctionDeclaration> {
-		self.functions.clone().into_iter().find(|fun| fun.id == id && fun.arg_count == args.len())
+	fn find_function(&mut self, id: &str, arg_count: usize) -> Option<FunctionDeclaration> {
+		self.functions.clone().into_iter().find(|fun| fun.id == id && fun.arg_count == arg_count)
 	}
 }
 
@@ -296,6 +313,8 @@ mod tests {
 		// def bar():
 		//   a = 2
 		//   return a
+		// def main():
+		//   return 1
 		// should pass
 		let foo_args = Vec::<Parameter>::new();
 		let mut foo_statements = Vec::<Statement<FieldPrime>>::new();
@@ -328,9 +347,24 @@ mod tests {
             return_count: 1,
         };
 
+        let main_args = Vec::<Parameter>::new();
+		let mut main_statements = Vec::<Statement<FieldPrime>>::new();
+		main_statements.push(Statement::Return(
+			ExpressionList {
+				expressions: vec![Expression::Number(FieldPrime::from(1))]
+			})
+		);
+		let main = Function {
+            id: "main".to_string(),
+            arguments: main_args,
+            statements: main_statements,
+            return_count: 1,
+        };
+
         let mut funcs = Vec::<Function<FieldPrime>>::new();
         funcs.push(foo);
         funcs.push(bar);
+        funcs.push(main);
         let prog = Prog {
 			functions: funcs
         };
@@ -366,7 +400,7 @@ mod tests {
 		};
 
 		let mut checker = Checker::new();
-		assert_eq!(checker.check_function(foo), Err("i is undefined".to_string()));
+		assert_eq!(checker.check_function(&foo), Err("i is undefined".to_string()));
 	}
 
 	#[test]
@@ -396,7 +430,7 @@ mod tests {
 		};
 
 		let mut checker = Checker::new();
-		assert_eq!(checker.check_function(foo), Ok(()));
+		assert_eq!(checker.check_function(&foo), Ok(()));
 	}
 
 	#[test]
@@ -569,6 +603,103 @@ mod tests {
 		};
 
 		let mut checker = Checker::new_with_args(HashSet::new(), 0, functions);
-		assert_eq!(checker.check_function(bar), Ok(()));
+		assert_eq!(checker.check_function(&bar), Ok(()));
+	}
+
+	#[test]
+	fn duplicate_function_declaration() {
+		// def foo(a, b):
+		//   return 1
+		// def foo(c, d):
+		//   return 2
+		//
+		// should fail
+		let foo2_statements: Vec<Statement<FieldPrime>> = vec![
+			Statement::Return(
+				ExpressionList { 
+					expressions: vec![
+						Expression::Number(FieldPrime::from(1))
+					]
+				}
+			)
+		];
+
+		let foo2_arguments = vec![
+			Parameter { id: 'c'.to_string(), private: true }, 
+			Parameter { id: 'd'.to_string(), private: true }
+		];
+
+		let foo1 = FunctionDeclaration {
+			id: "foo".to_string(),
+			arg_count: 2,
+            return_count: 1,
+		};
+
+		let mut functions = HashSet::new();
+		functions.insert(foo1);
+
+		let foo2 = Function {
+			id: "foo".to_string(),
+			arguments: foo2_arguments,
+			statements: foo2_statements,
+			return_count: 1
+		};
+
+		let mut checker = Checker::new_with_args(HashSet::new(), 0, functions);
+		assert_eq!(checker.check_function(&foo2), Err(("Duplicate definition for function foo with 2 arguments".to_string())));
+	}
+
+	#[test]
+	fn duplicate_main_function() {
+		// def main(a):
+		//   return 1
+		// def main():
+		//   return 1
+		//
+		// should fail
+		let main1_statements: Vec<Statement<FieldPrime>> = vec![
+			Statement::Return(
+				ExpressionList { 
+					expressions: vec![
+						Expression::Number(FieldPrime::from(1))
+					]
+				}
+			)
+		];
+
+		let main1_arguments = vec![Parameter { id: 'a'.to_string(), private: false }];
+
+		let main2_statements: Vec<Statement<FieldPrime>> = vec![
+			Statement::Return(
+				ExpressionList { 
+					expressions: vec![
+						Expression::Number(FieldPrime::from(1))
+					]
+				}
+			)
+		];
+
+		let main2_arguments = vec![];
+
+		let main1 = Function {
+			id: "main".to_string(),
+			arguments: main1_arguments,
+			statements: main1_statements,
+            return_count: 1,
+		};
+
+		let main2 = Function {
+			id: "main".to_string(),
+			arguments: main2_arguments,
+			statements: main2_statements,
+            return_count: 1,
+		};
+
+		let prog = Prog {
+			functions: vec![main1, main2]
+		};
+
+		let mut checker = Checker::new();
+		assert_eq!(checker.check_program(prog), Err(("Only one main function allowed, found 2".to_string())));
 	}
 }
