@@ -15,6 +15,7 @@ extern crate serde; // serialization deserialization
 extern crate serde_derive;
 extern crate bincode;
 extern crate regex;
+extern crate time;
 
 mod absy;
 mod parser;
@@ -31,6 +32,8 @@ use std::io::{BufWriter, Write, BufReader, BufRead, stdin};
 use std::collections::HashMap;
 use std::string::String;
 use std::io::prelude::*;
+use std::time::Instant;
+use time::Duration;
 use field::{Field, FieldPrime};
 use absy::Prog;
 use parser::parse_program;
@@ -197,6 +200,7 @@ fn main() {
     )
     .get_matches();
 
+    let program_start = Instant::now();
     match matches.subcommand() {
         ("compile", Some(sub_matches)) => {
             println!("Compiling {}", sub_matches.value_of("input").unwrap());
@@ -567,7 +571,11 @@ fn main() {
         }
         _ => unimplemented!(), // Either no subcommand or one not tested for...
     }
-
+    let program_duration_result = Duration::from_std(program_start.elapsed());
+    match program_duration_result {
+        Ok(program_duration) => println!("Program runtime: {} ms", program_duration.num_milliseconds()),
+        Err(e) => println!("Error in time measurement: {:?}", e),
+    }
 }
 
 #[cfg(test)]
