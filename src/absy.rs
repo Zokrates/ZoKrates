@@ -6,7 +6,7 @@
 //! @date 2017
 
 use std::fmt;
-use std::collections::HashMap;
+use std::collections::{HashMap, BTreeMap};
 use field::Field;
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -19,7 +19,7 @@ pub struct Prog<T: Field> {
 impl<T: Field> Prog<T> {
     // only main flattened function is relevant here, as all other functions are unrolled into it
     #[allow(dead_code)] // I don't want to remove this
-    pub fn get_witness(&self, inputs: Vec<T>) -> HashMap<String, T> {
+    pub fn get_witness(&self, inputs: Vec<T>) -> BTreeMap<String, T> {
         let main = self.functions.iter().find(|x| x.id == "main").unwrap();
         assert!(main.arguments.len() == inputs.len());
         main.get_witness(inputs)
@@ -69,9 +69,9 @@ pub struct Function<T: Field> {
 
 impl<T: Field> Function<T> {
     // for flattened functions
-    pub fn get_witness(&self, inputs: Vec<T>) -> HashMap<String, T> {
+    pub fn get_witness(&self, inputs: Vec<T>) -> BTreeMap<String, T> {
         assert!(self.arguments.len() == inputs.len());
-        let mut witness = HashMap::new();
+        let mut witness = BTreeMap::new();
         witness.insert("~one".to_string(), T::one());
         for (i, arg) in self.arguments.iter().enumerate() {
             witness.insert(arg.id.to_string(), inputs[i].clone());
@@ -289,7 +289,7 @@ impl<T: Field> Expression<T> {
         }
     }
 
-    fn solve(&self, inputs: &mut HashMap<String, T>) -> T {
+    fn solve(&self, inputs: &mut BTreeMap<String, T>) -> T {
         match *self {
             Expression::Number(ref x) => x.clone(),
             Expression::Identifier(ref var) => {
@@ -502,7 +502,7 @@ impl<T: Field> Condition<T> {
         }
     }
 
-    fn solve(&self, inputs: &mut HashMap<String, T>) -> bool {
+    fn solve(&self, inputs: &mut BTreeMap<String, T>) -> bool {
         match *self {
             Condition::Lt(ref lhs, ref rhs) => lhs.solve(inputs) < rhs.solve(inputs),
             Condition::Le(ref lhs, ref rhs) => lhs.solve(inputs) <= rhs.solve(inputs),
