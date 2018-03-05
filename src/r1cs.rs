@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::collections::BTreeMap;
 use absy::*;
 use absy::Expression::*;
-use field::Field;
+use field::{Field, FieldPrime};
 
 // for r1cs import, can be moved.
 // r1cs data strucutre reflecting JSON standard format:
@@ -364,27 +364,53 @@ pub fn flattened_program<T: Field>(
 
     for cons in r1cs.constraints {
         assert!(cons.len() == 3); // entries for a,b,c
+        let mut lhs_a: Expression<T> = Number(T::from(0));
+        let mut lhs_b: Expression<T> = Number(T::from(0));
+        let mut rhs: Expression<T> = Number(T::from(0));
 
-        // right hand side of definition
-        let mut rhs: Expression<T>;
+        let mut first = true;
+
+        for (var_offset, val) in &cons[0] {
+            let var = r1cs.variables[var_offset.parse::<usize>().unwrap()].clone(); // get variable name
+            let term = Expression::Mult(box Number(T::from(*val as i32)), box Identifier(var));
+            if first {
+                lhs_a = term;
+                first = !first;
+            } else {
+                lhs_a = Expression::Add(box lhs_a, box term);
+            }
+        }
+        println!("lhs a: {:?}", lhs_a);
+        
+        first = true;
+
+        for (var_offset, val) in &cons[1] {
+            let var = r1cs.variables[var_offset.parse::<usize>().unwrap()].clone(); // get variable name
+            let term = Expression::Mult(box Number(T::from(*val as i32)), box Identifier(var));
+            if first {
+                lhs_b = term;
+                first = !first;
+            } else {
+                lhs_b = Expression::Add(box lhs_b, box term);
+            }
+        }
+        println!("lhs b: {:?}", lhs_b);
+
+        first = true;
 
         // Expression: c0+c1+c2...
-        for (c_var_offset, c_val) in cons[2] {
-            let counter = 0;
-            let var = r1cs.variables[c_var_offset.parse::<usize>().unwrap()]; // get variable name
-            if counter ==0{
-                rhs = Expression::Identifier(var);
+        for (var_offset, val) in &cons[2] {
+            let var = r1cs.variables[var_offset.parse::<usize>().unwrap()].clone(); // get variable name
+            let term = Expression::Mult(box Number(T::from(*val as i32)), box Identifier(var));
+            if first {
+                rhs = term;
+                first = !first;
             } else {
-                rhs = Expression::Add(box rhs, box Expression::Identifier(var));
+                rhs = Expression::Add(box rhs, box term);
             }
-            println!("rhs: {:?}", rhs);
         }
-
-
-        let a_entries = cons[0].clone();
-        let b_entries = cons[1].clone();
-        let c_entries = cons[2].clone();
-        println!("a entries: {:?}", a_entries);
+        println!("rhs: {:?}", rhs);
+        statements.push(Statement::Condition(Expression::Mult(box lhs_a, box lhs_b), rhs));
     }
 
     let mut functs = Vec::new();
