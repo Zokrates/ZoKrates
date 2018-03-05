@@ -49,7 +49,7 @@ You can see an overview of the available subcommands by running
 ./zokrates
 ```
 
-## `compile`
+#### `compile`
 ```
 ./zokrates compile -i /path/to/add.code
 ```
@@ -58,7 +58,7 @@ Compile a `.code` file.
 
 Creates a compiled `.code` file at `./out.code`.
 
-## `compute-witness`
+#### `compute-witness`
 ```
 ./zokrates compute-witness -a 1 2
 ```
@@ -68,7 +68,7 @@ A witness is a valid assignment of the variables, which include the results of t
 
 Creates a witness file at `./witness`
 
-## `setup`
+#### `setup`
 ```
 ./zokrates setup
 ```
@@ -77,7 +77,7 @@ Generates a trusted setup for the compiled program found at `./out.code`.
 
 Creates a proving key and a verifying key at `./proving.key` and `./verifying.key`.
 
-## `export-verifier`
+#### `export-verifier`
 ```
 ./zokrates export-verifier
 ```
@@ -86,7 +86,7 @@ Using the verifying key at `./verifying.key`, generates a Solidity contract enab
 
 Creates a verifier contract at `./verifier.sol`
 
-## `generate-proof`
+#### `generate-proof`
 ```
 ./zokrates generate-proof
 ```
@@ -107,7 +107,7 @@ K = 0x1868436121f271e9fbf78a8f75bb4077e2d4f208891793fd5b468afc3b05c0e4, 0x1021c3
 
 Passed to the verifier contract, this proof can be checked.
 
-## Testing
+# Testing
 
 Run normal tests with
 ```
