@@ -253,7 +253,7 @@ fn main() {
             hrofb.flush().expect("Unable to flush buffer.");
 
             // debugging output
-            //println!("Compiled program:\n{}", program_flattened);
+            println!("Compiled program:\n{}", program_flattened);
 
 
             println!(

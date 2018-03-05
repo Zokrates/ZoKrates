@@ -462,7 +462,7 @@ mod tests {
 		};
 
 		let mut checker = Checker::new_with_args(HashSet::new(), 0, functions);
-		assert_eq!(checker.check_function(&bar), Err(("foo returns 2 values but left side is of size 1".to_string())));
+		assert_eq!(checker.check_function(bar), Err("foo returns 2 values but left side is of size 1".to_string()));
 	}
 
 	#[test]
@@ -494,7 +494,7 @@ mod tests {
 		};
 
 		let mut checker = Checker::new_with_args(HashSet::new(), 0, functions);
-		assert_eq!(checker.check_function(&bar), Err(("foo returns 2 values but is called outside of a definition".to_string())));
+		assert_eq!(checker.check_function(bar), Err("foo returns 2 values but is called outside of a definition".to_string()));
 	}
 
 	#[test]
@@ -515,7 +515,7 @@ mod tests {
 		};
 
 		let mut checker = Checker::new_with_args(HashSet::new(), 0, HashSet::new());
-		assert_eq!(checker.check_function(&bar), Err(("Function definition for function foo with 0 argument(s) not found.".to_string())));
+		assert_eq!(checker.check_function(bar), Err("Function definition for function foo with 0 argument(s) not found.".to_string()));
 	}
 
 	#[test]
@@ -536,7 +536,7 @@ mod tests {
 		};
 
 		let mut checker = Checker::new_with_args(HashSet::new(), 0, HashSet::new());
-		assert_eq!(checker.check_function(&bar), Err(("Function definition for function foo with 0 argument(s) not found.".to_string())));
+		assert_eq!(checker.check_function(bar), Err("Function definition for function foo with 0 argument(s) not found.".to_string()));
 	}
 
 	#[test]
@@ -559,7 +559,7 @@ mod tests {
 		};
 
 		let mut checker = Checker::new_with_args(HashSet::new(), 0, HashSet::new());
-		assert_eq!(checker.check_function(&bar), Err(("a is undefined".to_string())));
+		assert_eq!(checker.check_function(bar), Err("a is undefined".to_string()));
 	}
 
 	#[test]
