@@ -362,6 +362,7 @@ pub fn flattened_program<T: Field>(
 
     // statements that constrains are translated to
     let mut statements: Vec<Statement<T>> = Vec::new();
+    let mut parameters: Vec<Parameter> = Vec::new();
     let mut intermediate_var_index = 1;
 
     for cons in r1cs.constraints {
@@ -373,72 +374,35 @@ pub fn flattened_program<T: Field>(
         let mut first = true;
         let regex = Regex::new(r"[^a-zA-Z0-9]").unwrap();
 
-        for (var_offset, val) in &cons[0] {
-            let var_index = var_offset.parse::<usize>().unwrap();
-            let mut var;
-            if var_index < r1cs.variables.len() {
-                var = r1cs.variables[var_index].clone(); // get variable name
-                var = String::from(regex.replace_all(var.as_str(), "").into_owned());
-            } else {
-                var = format!("inter{}", intermediate_var_index);
-                intermediate_var_index+=1;
+        for i in 0..cons.len() {
+            for (var_offset, val) in &cons[i] {
+                let var_index = var_offset.parse::<usize>().unwrap();
+                let mut var;
+                if var_index < r1cs.variables.len() {
+                    var = r1cs.variables[var_index].clone(); // get variable name
+                    var = String::from(regex.replace_all(var.as_str(), "").into_owned());
+                    parameters.push(Parameter{id: var.clone(), private: false});
+                } else {
+                    var = format!("inter{}", intermediate_var_index);
+                    parameters.push(Parameter{id: var.clone(), private: true});
+                    intermediate_var_index+=1;
+                }
+                let term = Expression::Mult(box Number(T::from(*val as i32)), box Identifier(var));
+                if first {
+                    lhs_a = term;
+                    first = !first;
+                } else {
+                    lhs_a = Expression::Add(box lhs_a, box term);
+                }
             }
-            let term = Expression::Mult(box Number(T::from(*val as i32)), box Identifier(var));
-            if first {
-                lhs_a = term;
-                first = !first;
-            } else {
-                lhs_a = Expression::Add(box lhs_a, box term);
-            }
-        }
-        
-        first = true;
-
-        for (var_offset, val) in &cons[1] {
-            let var_index = var_offset.parse::<usize>().unwrap();
-            let mut var;
-            if var_index < r1cs.variables.len() {
-                var = r1cs.variables[var_index].clone(); // get variable name
-                var = String::from(regex.replace_all(var.as_str(), "").into_owned());
-            } else {
-                var = format!("inter{}", intermediate_var_index);
-                intermediate_var_index+=1;
-            }
-            let term = Expression::Mult(box Number(T::from(*val as i32)), box Identifier(var));
-            if first {
-                lhs_b = term;
-                first = !first;
-            } else {
-                lhs_b = Expression::Add(box lhs_b, box term);
-            }
-        }
-
-        first = true;
-
-        // Expression: c0+c1+c2...
-        for (var_offset, val) in &cons[2] {
-            let var_index = var_offset.parse::<usize>().unwrap();
-            let mut var;
-            if var_index < r1cs.variables.len() {
-                var = r1cs.variables[var_index].clone(); 
-                var = String::from(regex.replace_all(var.as_str(), "").into_owned());
-            } else {
-                var = format!("inter{}", intermediate_var_index);
-                intermediate_var_index+=1;
-            }
-            let term = Expression::Mult(box Number(T::from(*val as i32)), box Identifier(var));
-            if first {
-                rhs = term;
-                first = !first;
-            } else {
-                rhs = Expression::Add(box rhs, box term);
-            }
+            first = true;
         }
         statements.push(Statement::Condition(Expression::Mult(box lhs_a, box lhs_b), rhs));
     }
 
+    statements.push(Statement::Return(Number(T::from(1))));         //TODO: Fix me when inputs and outputs are clear from the json
     let mut functs = Vec::new();
-    functs.push(Function{ id: "import".to_owned(), arguments: Vec::new() , statements: statements});
+    functs.push(Function{ id: "main".to_owned(), arguments: parameters , statements: statements});
     Prog{functions: functs}
 }
 
