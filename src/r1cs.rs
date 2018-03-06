@@ -9,7 +9,8 @@ use std::collections::HashMap;
 use std::collections::BTreeMap;
 use absy::*;
 use absy::Expression::*;
-use field::{Field, FieldPrime};
+use field::{Field};
+use regex::Regex;
 
 // for r1cs import, can be moved.
 // r1cs data strucutre reflecting JSON standard format:
@@ -361,6 +362,7 @@ pub fn flattened_program<T: Field>(
 
     // statements that constrains are translated to
     let mut statements: Vec<Statement<T>> = Vec::new();
+    let mut intermediate_var_index = 1;
 
     for cons in r1cs.constraints {
         assert!(cons.len() == 3); // entries for a,b,c
@@ -369,9 +371,18 @@ pub fn flattened_program<T: Field>(
         let mut rhs: Expression<T> = Number(T::from(0));
 
         let mut first = true;
+        let regex = Regex::new(r"[^a-zA-Z0-9]").unwrap();
 
         for (var_offset, val) in &cons[0] {
-            let var = r1cs.variables[var_offset.parse::<usize>().unwrap()].clone(); // get variable name
+            let var_index = var_offset.parse::<usize>().unwrap();
+            let mut var;
+            if var_index < r1cs.variables.len() {
+                var = r1cs.variables[var_index].clone(); // get variable name
+                var = String::from(regex.replace_all(var.as_str(), "").into_owned());
+            } else {
+                var = format!("inter{}", intermediate_var_index);
+                intermediate_var_index+=1;
+            }
             let term = Expression::Mult(box Number(T::from(*val as i32)), box Identifier(var));
             if first {
                 lhs_a = term;
@@ -380,12 +391,19 @@ pub fn flattened_program<T: Field>(
                 lhs_a = Expression::Add(box lhs_a, box term);
             }
         }
-        println!("lhs a: {:?}", lhs_a);
         
         first = true;
 
         for (var_offset, val) in &cons[1] {
-            let var = r1cs.variables[var_offset.parse::<usize>().unwrap()].clone(); // get variable name
+            let var_index = var_offset.parse::<usize>().unwrap();
+            let mut var;
+            if var_index < r1cs.variables.len() {
+                var = r1cs.variables[var_index].clone(); // get variable name
+                var = String::from(regex.replace_all(var.as_str(), "").into_owned());
+            } else {
+                var = format!("inter{}", intermediate_var_index);
+                intermediate_var_index+=1;
+            }
             let term = Expression::Mult(box Number(T::from(*val as i32)), box Identifier(var));
             if first {
                 lhs_b = term;
@@ -394,13 +412,20 @@ pub fn flattened_program<T: Field>(
                 lhs_b = Expression::Add(box lhs_b, box term);
             }
         }
-        println!("lhs b: {:?}", lhs_b);
 
         first = true;
 
         // Expression: c0+c1+c2...
         for (var_offset, val) in &cons[2] {
-            let var = r1cs.variables[var_offset.parse::<usize>().unwrap()].clone(); // get variable name
+            let var_index = var_offset.parse::<usize>().unwrap();
+            let mut var;
+            if var_index < r1cs.variables.len() {
+                var = r1cs.variables[var_index].clone(); 
+                var = String::from(regex.replace_all(var.as_str(), "").into_owned());
+            } else {
+                var = format!("inter{}", intermediate_var_index);
+                intermediate_var_index+=1;
+            }
             let term = Expression::Mult(box Number(T::from(*val as i32)), box Identifier(var));
             if first {
                 rhs = term;
@@ -409,7 +434,6 @@ pub fn flattened_program<T: Field>(
                 rhs = Expression::Add(box rhs, box term);
             }
         }
-        println!("rhs: {:?}", rhs);
         statements.push(Statement::Condition(Expression::Mult(box lhs_a, box lhs_b), rhs));
     }
 
