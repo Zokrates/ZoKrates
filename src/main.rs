@@ -603,6 +603,14 @@ fn main() {
             let r1cs: r1cs::R1CS = serde_json::from_reader(file).unwrap();
             println!("R1CS: {:?}", r1cs);
             let prog: Prog<FieldPrime> = r1cs::flattened_program(r1cs);
+
+            let output_path = Path::new(sub_matches.value_of("output").unwrap());
+            let output_file = match File::create(&output_path) {
+                Ok(file) => file,
+                Err(why) => panic!("couldn't create {}: {}", output_path.display(), why),
+            };
+            let mut bw = BufWriter::new(output_file);
+            write!(&mut bw, "{} ", prog).expect("Unable to write program to file.");
         }
         _ => unimplemented!(), // Either no subcommand or one not tested for...
     }
