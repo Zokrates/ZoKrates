@@ -308,39 +308,54 @@ pub fn r1cs_program<T: Field>(
 
     // ~out is added after main's arguments as we want variables (columns)
     // in the r1cs to be aligned like "public inputs | private inputs"
-    variables.push("~out".to_string());
+    for i in 0..main.return_count {
+        variables.push(format!("~out_{}", i).to_string());
+    }
 
     // position where private part of witness starts
     let private_inputs_offset = variables.len();
 
     for def in &main.statements {
-        let mut a_row: Vec<(usize, T)> = Vec::new();
-        let mut b_row: Vec<(usize, T)> = Vec::new();
-        let mut c_row: Vec<(usize, T)> = Vec::new();
         match *def {
-            Statement::Return(ref expr) => r1cs_expression(
-                Identifier("~out".to_string()),
-                expr.clone(),
-                &mut variables,
-                &mut a_row,
-                &mut b_row,
-                &mut c_row,
-            ),
+            Statement::Return(ref list) => {
+                for (i, val) in list.expressions.iter().enumerate() {
+                    let mut a_row: Vec<(usize, T)> = Vec::new();
+                    let mut b_row: Vec<(usize, T)> = Vec::new();
+                    let mut c_row: Vec<(usize, T)> = Vec::new();
+                    r1cs_expression(
+                        Identifier(format!("~out_{}", i).to_string()),
+                        val.clone(),
+                        &mut variables,
+                        &mut a_row,
+                        &mut b_row,
+                        &mut c_row,
+                    );
+                    a.push(a_row);
+                    b.push(b_row);
+                    c.push(c_row);
+                }
+            },
             Statement::Definition(_, _) => continue,
-            Statement::Condition(ref expr1, ref expr2) => r1cs_expression(
-                expr1.clone(),
-                expr2.clone(),
-                &mut variables,
-                &mut a_row,
-                &mut b_row,
-                &mut c_row,
-            ),
+            Statement::Condition(ref expr1, ref expr2) => {
+                let mut a_row: Vec<(usize, T)> = Vec::new();
+                let mut b_row: Vec<(usize, T)> = Vec::new();
+                let mut c_row: Vec<(usize, T)> = Vec::new();
+                r1cs_expression(
+                    expr1.clone(),
+                    expr2.clone(),
+                    &mut variables,
+                    &mut a_row,
+                    &mut b_row,
+                    &mut c_row,
+                );
+                a.push(a_row);
+                b.push(b_row);
+                c.push(c_row);
+            },
             Statement::For(..) => panic!("For-loop not flattened"),
             Statement::Compiler(..) => continue,
+            Statement::MultipleDefinition(..) => unimplemented!(),
         }
-        a.push(a_row);
-        b.push(b_row);
-        c.push(c_row);
     }
     (variables, private_inputs_offset, a, b, c)
 }
@@ -400,9 +415,9 @@ pub fn flattened_program<T: Field>(
         statements.push(Statement::Condition(Expression::Mult(box lhs_a, box lhs_b), rhs));
     }
 
-    statements.push(Statement::Return(Number(T::from(1))));         //TODO: Fix me when inputs and outputs are clear from the json
+    statements.push(Statement::Return(ExpressionList{expressions: vec![Number(T::from(1))]}));         //TODO: Fix me when inputs and outputs are clear from the json
     let mut functs = Vec::new();
-    functs.push(Function{ id: "main".to_owned(), arguments: parameters , statements: statements});
+    functs.push(Function{ id: "main".to_owned(), arguments: parameters , statements: statements, return_count: 1});
     Prog{functions: functs}
 }
 

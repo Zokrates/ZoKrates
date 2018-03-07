@@ -1,0 +1,5 @@
+def foo():
+   return 1, 2
+def main():
+   a, b = foo()
+   return a + b, b - a

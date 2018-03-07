@@ -23,6 +23,7 @@ mod semantics;
 mod flatten;
 mod r1cs;
 mod field;
+mod verification;
 #[cfg(not(feature = "nolibsnark"))]
 mod libsnark;
 
@@ -31,7 +32,6 @@ use std::path::Path;
 use std::io::{BufWriter, Write, BufReader, BufRead, stdin};
 use std::collections::HashMap;
 use std::string::String;
-use std::io::prelude::*;
 use field::{Field, FieldPrime};
 use absy::Prog;
 use parser::parse_program;
@@ -43,6 +43,7 @@ use clap::{App, AppSettings, Arg, SubCommand};
 use libsnark::{setup, generate_proof};
 use bincode::{serialize_into, deserialize_from , Infinite};
 use regex::Regex;
+use verification::CONTRACT_TEMPLATE;
 
 fn main() {
     const FLATTENED_CODE_DEFAULT_PATH: &str = "out";
@@ -275,7 +276,7 @@ fn main() {
             hrofb.flush().expect("Unable to flush buffer.");
 
             // debugging output
-            //println!("Compiled program:\n{}", program_flattened);
+            println!("Compiled program:\n{}", program_flattened);
 
 
             println!(
@@ -370,10 +371,6 @@ fn main() {
             let witness_map = main_flattened.get_witness(arguments);
             // let witness_map: HashMap<String, FieldPrime> = main_flattened.get_witness(args);
             println!("Witness: {:?}", witness_map);
-            match witness_map.get("~out") {
-                Some(out) => println!("Returned (~out): {}", out),
-                None => println!("~out not found, no value returned")
-            }
 
             // write witness to file
             let output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -447,7 +444,7 @@ fn main() {
             // run setup phase
             #[cfg(not(feature="nolibsnark"))]{
                 // number of inputs in the zkSNARK sense, i.e., input variables + output variables
-                let num_inputs = main_flattened.arguments.iter().filter(|x| !x.private).count() + 1;
+                let num_inputs = main_flattened.arguments.iter().filter(|x| !x.private).count() + main_flattened.return_count;
                 println!("setup successful: {:?}", setup(variables, a, b, c, num_inputs, pk_path, vk_path));
             }
         }
@@ -462,14 +459,7 @@ fn main() {
             let reader = BufReader::new(input_file);
             let mut lines = reader.lines();
 
-            //read template
-            let template_path = Path::new("templates/sol_verification.template");
-            let mut template_file = match File::open(&template_path) {
-                Ok(template_file) => template_file,
-                Err(why) => panic!("couldn't open {}: {}", template_path.display(), why)
-            };
-            let mut template_text = String::new();
-            template_file.read_to_string(&mut template_text).unwrap();
+            let mut template_text = String::from(CONTRACT_TEMPLATE);
             let ic_template = String::from("vk.IC[index] = Pairing.G1Point(points);");      //copy this for each entry
 
             //replace things in template

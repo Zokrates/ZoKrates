@@ -44,7 +44,7 @@ std::string HexStringFromLibsnarkBigint(libsnark::bigint<libsnark::alt_bn128_r_l
 																ss << std::hex << std::setw(2) << (int)x[i];
 								}
 
-                std:string str = ss.str();
+                std::string str = ss.str();
                 return str.erase(0, min(str.find_first_not_of('0'), str.size()-1));
 }
 
