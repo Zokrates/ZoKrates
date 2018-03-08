@@ -1,7 +1,4 @@
 // a and b are factorization of c
-def main(c):
-  a1 = if a == 1 then 0 else 1 fi // "a != 1"
-  b1 = if b == 1 then 0 else 1 fi // "b != 1"
-  a1 * b1 == 1 // "a1 and b1"
+def main(c, private a, private b):
   c == a * b
   return 1

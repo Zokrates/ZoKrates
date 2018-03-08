@@ -69,7 +69,7 @@ use std::fmt;
 use std::io::{BufReader, Lines};
 use std::io::prelude::*;
 use std::fs::File;
-use field::Field;
+use field::{Field, FieldPrime};
 use absy::*;
 
 #[derive(Clone, PartialEq)]
@@ -150,6 +150,7 @@ enum Token<T: Field> {
     Mult,
     Div,
     Pow,
+    Private,
     Ide(String),
     Num(T),
     Unknown(String),
@@ -188,6 +189,7 @@ impl<T: Field> fmt::Display for Token<T> {
             Token::Mult => write!(f, "*"),
             Token::Div => write!(f, "/"),
             Token::Pow => write!(f, "**"),
+            Token::Private => write!(f, "private"),
             Token::Ide(ref x) => write!(f, "{}", x),
             Token::Num(ref x) => write!(f, "{}", x),
             Token::Unknown(ref x) => write!(f, "{}", x),
@@ -502,6 +504,14 @@ fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Po
                 },
             )
         }
+        Some(_) if input[offset..].starts_with("private ") => (
+            Token::Private,
+            input[offset + 8..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 8,
+            },
+        ),
         Some(x) => match x {
             '0'...'9' => parse_num(
                 &input[offset..].to_string(),
@@ -781,6 +791,25 @@ fn parse_function_call<T: Field>(
     }
 }
 
+// parse an expression list starting with an identifier
+fn parse_identifier_list1<T: Field>(
+    head: String,
+    input: String,
+    pos: Position,
+) -> Result<(Vec<String>, String, Position), Error<T>> {
+    let mut res = Vec::new();
+    res.push(head);
+    parse_comma_separated_identifier_list_rec(input, pos, &mut res)
+}
+
+// parse an expression list
+fn parse_expression_list<T: Field>(
+    input: String,
+    pos: Position,
+) -> Result<(ExpressionList<T>, String, Position), Error<T>> {
+    let mut res = ExpressionList::new();
+    parse_comma_separated_expression_list_rec(input, pos, &mut res)
+}
 
 fn parse_expr<T: Field>(
     input: &String,
@@ -821,6 +850,7 @@ fn parse_expr<T: Field>(
     }
 }
 
+// parse statement that starts with an identifier
 fn parse_statement1<T: Field>(
     ide: String,
     input: String,
@@ -854,6 +884,24 @@ fn parse_statement1<T: Field>(
                 }
             },
             Err(err) => Err(err),
+        },
+        (Token::Comma, s1, p1) => match parse_identifier_list1(ide, s1, p1) { // if we find a comma, parse the rest of the destructure
+            Ok((e2, s2, p2)) => match next_token(&s2, &p2) { // then we should have an equal sign
+                (Token::Eq, s3, p3) => match parse_expr(&s3, &p3) {
+                    Ok((e4, s4, p4)) => {
+                        Ok((Statement::MultipleDefinition(e2, e4), s4, p4)) // output a multipledefinition with the destructure and the expression
+                    },
+                    Err(err) => Err(err)
+                },
+                (t3, _, p3) => Err(Error {
+                    expected: vec![
+                        Token::Eq
+                    ],
+                    got: t3,
+                    pos: p3,
+                }),
+            },
+            Err(err) => Err(err)
         },
         _ => match parse_term1(Expression::Identifier(ide), input, pos) {
             Ok((e2, s2, p2)) => match parse_expr1(e2, s2, p2) {
@@ -1067,27 +1115,20 @@ fn parse_statement<T: Field>(
                 pos: p2,
             }),
         },
-        (Token::Return, s1, p1) => match parse_expr(&s1, &p1) {
-            Ok((expr, s2, p2)) => match next_token(&s2, &p2) {
+        (Token::Return, s1, p1) => match parse_expression_list(s1, p1) {
+            Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
                 (Token::InlineComment(_), ref s3, _) => {
                     assert_eq!(s3, "");
-                    Ok((Statement::Return(expr), s2, p2))
+                    Ok((Statement::Return(e2), s2, p2))
                 }
                 (Token::Unknown(ref t3), ref s3, _) if t3 == "" => {
                     assert_eq!(s3, "");
-                    Ok((Statement::Return(expr), s2, p2))
+                    Ok((Statement::Return(e2), s2, p2))
                 }
-                (t4, _, p4) => Err(Error {
-                    expected: vec![
-                        Token::Add,
-                        Token::Sub,
-                        Token::Pow,
-                        Token::Mult,
-                        Token::Div,
-                        Token::Unknown("".to_string()),
-                    ],
-                    got: t4,
-                    pos: p4,
+                (t3, _, p3) => Err(Error {
+                    expected: vec![Token::Unknown("".to_string())],
+                    got: t3,
+                    pos: p3,
                 }),
             },
             Err(err) => Err(err),
@@ -1132,8 +1173,55 @@ fn parse_function<T: Field>(
                     let mut p = p3;
                     loop {
                         match next_token(&s, &p) {
+                            (Token::Private, s4, p4) => {
+                                match next_token(&s4, &p4) {
+                                    (Token::Ide(x), s5, p5) => {
+                                        args.push(Parameter { id: x, private: true });
+                                        match next_token(&s5, &p5) {
+                                            (Token::Comma, s6, p6) => {
+                                                s = s6;
+                                                p = p6;
+                                            }
+                                            (Token::Close, s5, p5) => match next_token(&s5, &p5) {
+                                                (Token::Colon, s6, p6) => match next_token(&s6, &p6) {
+                                                    (Token::InlineComment(_), _, _) => break,
+                                                    (Token::Unknown(ref x6), ..) if x6 == "" => break,
+                                                    (t6, _, p6) => {
+                                                        return Err(Error {
+                                                            expected: vec![Token::Unknown("".to_string())],
+                                                            got: t6,
+                                                            pos: p6,
+                                                        })
+                                                    }
+                                                },
+                                                (t6, _, p6) => {
+                                                    return Err(Error {
+                                                        expected: vec![Token::Colon],
+                                                        got: t6,
+                                                        pos: p6,
+                                                    })
+                                                }
+                                            },
+                                            (t5, _, p5) => {
+                                                return Err(Error {
+                                                    expected: vec![Token::Comma, Token::Close],
+                                                    got: t5,
+                                                    pos: p5,
+                                                })
+                                            }
+                                        }
+                                    }
+                                    (t5, _, p5) => {
+                                        return Err(Error {
+                                            expected: vec![Token::Comma, Token::Close],
+                                            got: t5,
+                                            pos: p5,
+                                        })
+                                    }
+                                }
+                            }
                             (Token::Ide(x), s4, p4) => {
-                                args.push(Parameter { id: x });
+                                args.push(Parameter { id: x, private: false });
                                 match next_token(&s4, &p4) {
                                     (Token::Comma, s5, p5) => {
                                         s = s5;
@@ -1222,6 +1310,7 @@ fn parse_function<T: Field>(
 
     // parse function body
     let mut stats = Vec::new();
+    let return_count;
     loop {
         match lines.next() {
             Some(Ok(ref x)) if x.trim().starts_with("//") || x.trim() == "" => {} // skip
@@ -1233,8 +1322,9 @@ fn parse_function<T: Field>(
                     col: 1,
                 },
             ) {
-                Ok((statement @ Statement::Return(_), ..)) => {
-                    stats.push(statement);
+                Ok((Statement::Return(list), ..)) => {
+                    return_count = list.expressions.len();
+                    stats.push(Statement::Return(list));
                     break;
                 }
                 Ok((statement, _, pos)) => {
@@ -1259,6 +1349,7 @@ fn parse_function<T: Field>(
             id: id,
             arguments: args,
             statements: stats,
+            return_count: return_count
         },
         Position {
             line: current_line,
@@ -1285,23 +1376,6 @@ pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
             ) {
                 (Token::Def, ref s1, ref p1) => match parse_function(&mut lines, s1, p1) {
                     Ok((function, p2)) => {
-                        // panic if signature is not unique
-                        match functions.iter().find(|x: &&Function<T>| {
-                            x.id == function.id && x.arguments.len() == function.arguments.len()
-                        }) {
-                            Some(_) => panic!(
-                                "Error while reading function: {}({}). Duplicate function signatures.",
-                                function.id,
-                                function
-                                    .arguments
-                                    .iter()
-                                    .map(|x| format!("{}", x))
-                                    .collect::<Vec<_>>()
-                                    .join(",")
-                            ),
-                            _ => {}
-                        }
-
                         functions.push(function);
                         current_line = p2.line; // this is the line of the return statement
                         current_line += 1;
@@ -1321,23 +1395,45 @@ pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
         }
     }
 
-    //check if exactly one main function exists
-    let mut has_main = false;
-    for func in &functions {
-        if func.id == "main".to_string() {
-            if !has_main {
-                has_main = true;
-            } else {
-                panic!("Error while parsing program: Multiple main functions!");
-            }
-        }
-    }
-
-    if !has_main {
-        panic!("Error while parsing program: No main function found.")
-    };
-
     Ok(Prog { functions })
+}
+
+fn parse_comma_separated_expression_list_rec<T: Field>(
+    input: String, 
+    pos: Position,
+    mut acc: &mut ExpressionList<T>
+) -> Result<(ExpressionList<T>, String, Position), Error<T>> {
+    match parse_expr(&input, &pos) {
+        Ok((e1, s1, p1)) => {
+            acc.expressions.push(e1);
+            match next_token::<FieldPrime>(&s1, &p1) {
+                (Token::Comma, s2, p2) => parse_comma_separated_expression_list_rec(s2, p2, &mut acc),
+                (..) => Ok((acc.clone(), s1, p1)),
+            }                
+        },
+        Err(err) => Err(err)
+    }
+}
+
+fn parse_comma_separated_identifier_list_rec<T: Field>(
+    input: String, 
+    pos: Position,
+    mut acc: &mut Vec<String>
+) -> Result<(Vec<String>, String, Position), Error<T>> {
+    match next_token(&input, &pos) {
+        (Token::Ide(id), s1, p1) => {
+            acc.push(id);
+            match next_token::<FieldPrime>(&s1, &p1) {
+                (Token::Comma, s2, p2) => parse_comma_separated_identifier_list_rec(s2, p2, &mut acc),
+                (..) => Ok((acc.to_vec(), s1, p1)),
+            }
+        },
+        (t1, _, p1) => Err(Error {
+            expected: vec![Token::Ide(String::from("ide"))],
+            got: t1,
+            pos: p1,
+        })
+    }
 }
 
 
@@ -1519,6 +1615,87 @@ mod tests {
             );
         }
     }
+
+    #[cfg(test)]
+    mod parse_comma_separated_list {
+        use super::*;
+
+        fn parse_comma_separated_list<T: Field>(
+            input: String, 
+            pos: Position
+        ) -> Result<(ExpressionList<T>, String, Position), Error<T>> { 
+            let mut res = ExpressionList::new();
+            parse_comma_separated_expression_list_rec(input, pos, &mut res) 
+        }
+
+        #[test]
+        fn comma_separated_list() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("b, c");
+            let expr = ExpressionList::<FieldPrime> {
+                expressions: vec![Expression::Identifier(String::from("b")),Expression::Identifier(String::from("c"))]
+            };
+            assert_eq!(
+                Ok((expr, String::from(""), pos.col(string.len() as isize))),
+                parse_expression_list(string, pos)
+            )
+        }
+
+        #[test]
+        fn comma_separated_list_single() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("a");
+            let exprs = ExpressionList {
+                expressions: vec![Expression::Identifier(String::from("a"))]
+            };
+            assert_eq!(
+                Ok((exprs, String::from(""), pos.col(string.len() as isize))),
+                parse_comma_separated_list::<FieldPrime>(string, pos)
+            )
+        }
+
+        #[test]
+        fn comma_separated_list_three() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("a, b, c");
+            let exprs = ExpressionList {
+                expressions: vec![
+                    Expression::Identifier(String::from("a")),
+                    Expression::Identifier(String::from("b")),
+                    Expression::Identifier(String::from("c"))
+                ]
+            };
+            assert_eq!(
+                Ok((exprs, String::from(""), pos.col(string.len() as isize))),
+                parse_comma_separated_list::<FieldPrime>(string, pos)
+            )
+        }
+
+        // test impossible to run forever?
+    }
+
+    // #[cfg(test)]
+    // mod parse_program {
+    //     use super::*;
+    //     #[test]
+    //     fn single_output() {
+    //         let pos = Position { line: 45, col: 121 };
+    //         let string = "
+    //         def foo():
+    //             return 1
+    //         ";
+    //         let fun = Function {
+    //             id: "foo".to_string(),
+    //             arguments: vec![],
+    //             statements: vec![Expression::Return(Expression::Number(FieldPrime::from(1)))],
+    //             return_count: 1
+    //         };
+    //         assert_eq!(
+    //             Ok((fun, String::from(""), pos.col(string.len() as isize))),
+    //             parse_function(string, pos)
+    //         )
+    //     }
+    // }
 
     // parse function
     // parse_term1

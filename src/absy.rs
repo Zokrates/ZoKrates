@@ -6,11 +6,10 @@
 //! @date 2017
 
 use std::fmt;
-use std::collections::HashMap;
-use std::io::{stdin, BufRead};
+use std::collections::{HashMap, BTreeMap};
 use field::Field;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Prog<T: Field> {
     /// Functions of the program
     pub functions: Vec<Function<T>>,
@@ -20,7 +19,7 @@ pub struct Prog<T: Field> {
 impl<T: Field> Prog<T> {
     // only main flattened function is relevant here, as all other functions are unrolled into it
     #[allow(dead_code)] // I don't want to remove this
-    pub fn get_witness(&self, inputs: Vec<T>) -> HashMap<String, T> {
+    pub fn get_witness(&self, inputs: Vec<T>) -> BTreeMap<String, T> {
         let main = self.functions.iter().find(|x| x.id == "main").unwrap();
         assert!(main.arguments.len() == inputs.len());
         main.get_witness(inputs)
@@ -56,7 +55,7 @@ impl<T: Field> fmt::Debug for Prog<T> {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Function<T: Field> {
     /// Name of the program
     pub id: String,
@@ -64,22 +63,26 @@ pub struct Function<T: Field> {
     pub arguments: Vec<Parameter>,
     /// Vector of statements that are executed when running the function
     pub statements: Vec<Statement<T>>,
+    /// number of returns
+    pub return_count: usize,
 }
 
 impl<T: Field> Function<T> {
     // for flattened functions
-    pub fn get_witness(&self, inputs: Vec<T>) -> HashMap<String, T> {
+    pub fn get_witness(&self, inputs: Vec<T>) -> BTreeMap<String, T> {
         assert!(self.arguments.len() == inputs.len());
-        let mut witness = HashMap::new();
+        let mut witness = BTreeMap::new();
         witness.insert("~one".to_string(), T::one());
         for (i, arg) in self.arguments.iter().enumerate() {
             witness.insert(arg.id.to_string(), inputs[i].clone());
         }
         for statement in &self.statements {
             match *statement {
-                Statement::Return(ref expr) => {
-                    let s = expr.solve(&mut witness);
-                    witness.insert("~out".to_string(), s);
+                Statement::Return(ref list) => {
+                    for (i, val) in list.expressions.iter().enumerate() {
+                        let s = val.solve(&mut witness);
+                        witness.insert(format!("~out_{}", i).to_string(), s);
+                    }
                 }
                 Statement::Compiler(ref id, ref expr) | Statement::Definition(ref id, ref expr) => {
                     let s = expr.solve(&mut witness);
@@ -88,7 +91,8 @@ impl<T: Field> Function<T> {
                 Statement::For(..) => unimplemented!(),
                 Statement::Condition(ref lhs, ref rhs) => {
                     assert_eq!(lhs.solve(&mut witness), rhs.solve(&mut witness))
-                }
+                },
+                Statement::MultipleDefinition(..) => panic!("No MultipleDefinition allowed in flattened code"),
             }
         }
         witness
@@ -131,19 +135,21 @@ impl<T: Field> fmt::Debug for Function<T> {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub enum Statement<T: Field> {
-    Return(Expression<T>),
+    Return(ExpressionList<T>),
     Definition(String, Expression<T>),
     Condition(Expression<T>, Expression<T>),
     For(String, T, T, Vec<Statement<T>>),
     Compiler(String, Expression<T>),
+    MultipleDefinition(Vec<String>, Expression<T>),
 }
 
 impl<T: Field> Statement<T> {
     pub fn is_flattened(&self) -> bool {
         match *self {
-            Statement::Return(ref x) | Statement::Definition(_, ref x) => x.is_flattened(),
+            Statement::Definition(_, ref x) | Statement::MultipleDefinition(_, ref x) => x.is_flattened(),
+            Statement::Return(ref x) => x.is_flattened(),
             Statement::Compiler(..) => true,
             Statement::Condition(ref x, ref y) => {
                 (x.is_linear() && y.is_flattened()) || (x.is_flattened() && y.is_linear())
@@ -168,6 +174,15 @@ impl<T: Field> fmt::Display for Statement<T> {
                 write!(f, "\tendfor")
             }
             Statement::Compiler(ref lhs, ref rhs) => write!(f, "# {} = {}", lhs, rhs),
+            Statement::MultipleDefinition(ref ids, ref rhs) => {
+                for (i, id) in ids.iter().enumerate() {
+                    try!(write!(f, "{}", id));
+                    if i < ids.len() - 1 {
+                        try!(write!(f, ", "));
+                    }
+                }
+                write!(f, " = {}", rhs)
+            },
         }
     }
 }
@@ -188,6 +203,9 @@ impl<T: Field> fmt::Debug for Statement<T> {
                 write!(f, "\tendfor")
             }
             Statement::Compiler(ref lhs, ref rhs) => write!(f, "Compiler({:?}, {:?})", lhs, rhs),
+            Statement::MultipleDefinition(ref lhs, ref rhs) => {
+                write!(f, "MultipleDefinition({:?}, {:?})", lhs, rhs)
+            },
         }
     }
 }
@@ -195,11 +213,13 @@ impl<T: Field> fmt::Debug for Statement<T> {
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct Parameter {
     pub id: String,
+    pub private: bool,
 }
 
 impl fmt::Display for Parameter {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.id)
+        let visibility = if self.private { "private " } else { "" };
+        write!(f, "{}{}", visibility, self.id)
     }
 }
 
@@ -269,7 +289,7 @@ impl<T: Field> Expression<T> {
         }
     }
 
-    fn solve(&self, inputs: &mut HashMap<String, T>) -> T {
+    fn solve(&self, inputs: &mut BTreeMap<String, T>) -> T {
         match *self {
             Expression::Number(ref x) => x.clone(),
             Expression::Identifier(ref var) => {
@@ -288,19 +308,11 @@ impl<T: Field> Expression<T> {
                         }
                         assert_eq!(num, T::zero());
                     } else {
-                        println!(
-                            "Could not calculate variable {:?}, inputs: {:?}",
+                        panic!(
+                            "Variable {:?} is undeclared in inputs: {:?}",
                             var,
                             inputs
                         );
-                        println!("Please enter a value for {:?}:", var);
-                        let mut input = String::new();
-                        let stdin = stdin();
-                        stdin
-                            .lock()
-                            .read_line(&mut input)
-                            .expect("Did not enter a correct String");
-                        inputs.insert(var.to_string(), T::from(input.trim()));
                     }
                 }
                 inputs[var].clone()
@@ -350,7 +362,7 @@ impl<T: Field> Expression<T> {
                     (box Expression::Sub(..), _) | (_, box Expression::Sub(..)) => false,
                     (box x, box y) => x.is_linear() && y.is_linear(),
                 }
-            }
+            },
             _ => false,
         }
     }
@@ -378,7 +390,7 @@ impl<T: Field> fmt::Display for Expression<T> {
                 for (i, param) in p.iter().enumerate() {
                     try!(write!(f, "{}", param));
                     if i < p.len() - 1 {
-                        try!(write!(f, ","));
+                        try!(write!(f, ", "));
                     }
                 }
                 write!(f, ")")
@@ -410,6 +422,48 @@ impl<T: Field> fmt::Debug for Expression<T> {
                 write!(f, ")")
             }
         }
+    }
+}
+
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+pub struct ExpressionList<T: Field> {
+    pub expressions: Vec<Expression<T>>
+}
+
+impl<T: Field> ExpressionList<T> {
+    pub fn new() -> ExpressionList<T> {
+        ExpressionList {
+            expressions: vec![]
+        }
+    }
+
+    pub fn apply_substitution(&self, substitution: &HashMap<String, String>) -> ExpressionList<T> {
+        let expressions: Vec<Expression<T>> = self.expressions.iter().map(|e| e.apply_substitution(substitution)).collect();
+        ExpressionList {
+            expressions: expressions
+        }
+    }
+
+    pub fn is_flattened(&self) -> bool {
+        self.expressions.iter().all(|e| e.is_flattened())
+    }
+}
+
+impl<T: Field> fmt::Display for ExpressionList<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for (i, param) in self.expressions.iter().enumerate() {
+            try!(write!(f, "{}", param));
+            if i < self.expressions.len() - 1 {
+                try!(write!(f, ", "));
+            }
+        }
+        write!(f, "")
+    }
+}
+
+impl<T: Field> fmt::Debug for ExpressionList<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "ExpressionList({:?})", self.expressions)
     }
 }
 
@@ -448,7 +502,7 @@ impl<T: Field> Condition<T> {
         }
     }
 
-    fn solve(&self, inputs: &mut HashMap<String, T>) -> bool {
+    fn solve(&self, inputs: &mut BTreeMap<String, T>) -> bool {
         match *self {
             Condition::Lt(ref lhs, ref rhs) => lhs.solve(inputs) < rhs.solve(inputs),
             Condition::Le(ref lhs, ref rhs) => lhs.solve(inputs) <= rhs.solve(inputs),

@@ -18,6 +18,8 @@ pub struct Flattener {
     variables: HashSet<String>,
     /// Map of renamings for reassigned variables while processing the program.
     substitution: HashMap<String, String>,
+    /// Map of function id to invocation counter
+    function_calls: HashMap<String, usize>,
     /// Index of the next introduced variable while processing the program.
     next_var_idx: usize,
 }
@@ -32,6 +34,7 @@ impl Flattener {
             bits: bits,
             variables: HashSet::new(),
             substitution: HashMap::new(),
+            function_calls: HashMap::new(),
             next_var_idx: 0,
         }
     }
@@ -193,6 +196,105 @@ impl Flattener {
             }
             _ => unimplemented!(),
         }
+    }
+
+    fn flatten_function_call<T: Field>(
+        &mut self,
+        functions_flattened: &Vec<Function<T>>,
+        arguments_flattened: &Vec<Parameter>,
+        statements_flattened: &mut Vec<Statement<T>>,
+        id: &String,
+        param_expressions: &Vec<Expression<T>>
+    ) -> ExpressionList<T> {
+        for funct in functions_flattened {
+            if funct.id == *id && funct.arguments.len() == (*param_expressions).len() {
+                // funct is now the called function
+
+                // Idea: variables are given a prefix.
+                // It consists of the function name followed by a call counter value
+                // e.g.: add_1_a_2
+
+                // Stores prefixed variables
+                let mut replacement_map: HashMap<String, String> = HashMap::new();
+
+                // build prefix
+                match self.function_calls.clone().get(&funct.id) {
+                    Some(val) => {
+                        self.function_calls.insert(funct.id.clone(),val+1);
+                    }
+                    None => {
+                        self.function_calls.insert(funct.id.clone(),1);
+                    }
+                }
+                let prefix = format!("{}_{}_", funct.id.clone(), self.function_calls.get(&funct.id).unwrap());
+
+                // Handle complex parameters and assign values:
+                // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions
+                for (i, param_expr) in param_expressions.iter().enumerate() {
+                    let new_var;
+                    match param_expr.apply_substitution(&self.substitution) {
+                        Expression::Identifier(ref x) => {
+                            new_var = format!("{}param_{}", &prefix, i);
+                                statements_flattened
+                                .push(Statement::Definition(new_var.clone(), Expression::Identifier(x.clone().to_string())));
+                        },
+                        _ => {
+                            let expr_subbed = param_expr.apply_substitution(&self.substitution);
+                            let rhs = self.flatten_expression(
+                                functions_flattened,
+                                arguments_flattened,
+                                statements_flattened,
+                                expr_subbed,
+                            );
+                            new_var = format!("{}param_{}", &prefix, i);
+                            statements_flattened
+                                .push(Statement::Definition(new_var.clone(), rhs));
+                        }
+                    }
+                    replacement_map.insert(funct.arguments.get(i).unwrap().id.clone(), new_var);
+                }
+
+                // Ensure Renaming and correct returns:
+                // add all flattened statements, adapt return statement
+                for stat in funct.statements.clone() {
+                    assert!(stat.is_flattened(), format!("Not flattened: {}", &stat));
+                    match stat {
+                        // set return statements right side as expression result
+                        Statement::Return(list) => {
+                            return ExpressionList {
+                                expressions: list.expressions.into_iter().map(|x| x.apply_substitution(&replacement_map)).collect()
+                            }
+                        },
+                        Statement::Definition(var, rhs) => {
+                            let new_rhs = rhs.apply_substitution(&replacement_map);
+                            let new_var: String = format!("{}{}", prefix, var.clone());
+                            replacement_map.insert(var, new_var.clone());
+                            statements_flattened.push(
+                                Statement::Definition(new_var, new_rhs)
+                            );
+                        },
+                        Statement::Compiler(var, rhs) => {
+                            let new_rhs = rhs.apply_substitution(&replacement_map);
+                            let new_var: String = format!("{}{}", prefix, var.clone());
+                            replacement_map.insert(var, new_var.clone());
+                            statements_flattened.push(Statement::Compiler(new_var, new_rhs));
+                        },
+                        Statement::Condition(lhs, rhs) => {
+                            let new_lhs = lhs.apply_substitution(&replacement_map);
+                            let new_rhs = rhs.apply_substitution(&replacement_map);
+                            statements_flattened
+                                .push(Statement::Condition(new_lhs, new_rhs));
+                        },
+                        _ => panic!("Statement inside function not flattened when flattening function call")
+                    }
+                }
+            }
+        }
+        panic!(
+            "Function definition for function {} with {:?} argument(s) not found.",
+            id,
+            param_expressions
+        );
     }
 
     /// Returns a flattened `Expression` based on the given `expr`.
@@ -418,107 +520,35 @@ impl Flattener {
                 )
             }
             FunctionCall(ref id, ref param_expressions) => {
-                // Replace complex expressions with definitions in parameters
-                let mut params_flattened: Vec<Parameter> = Vec::new();
-                for (i, param_expr) in param_expressions.iter().enumerate() {
-                    match param_expr.apply_substitution(&self.substitution) {
-                        Expression::Identifier(ref x) => params_flattened.push(Parameter {
-                            id: x.clone().to_string(),
-                        }),
-                        _ => {
-                            let expr_subbed = param_expr.apply_substitution(&self.substitution);
-                            let rhs = self.flatten_expression(
-                                functions_flattened,
-                                arguments_flattened,
-                                statements_flattened,
-                                expr_subbed,
-                            );
-                            let intermediate_var =
-                                self.use_variable(&format!("{}_param_{}", &id, i));
-                            statements_flattened
-                                .push(Statement::Definition(intermediate_var.clone(), rhs));
-                            params_flattened.push(Parameter {
-                                id: intermediate_var.clone().to_string(),
-                            });
-                        }
-                    }
-                }
-
-                for funct in functions_flattened {
-                    if funct.id == *id && funct.arguments.len() == (*param_expressions).len() {
-                        // funct is now the called function
-
-                        // add all variables of caller to ensure no conflicting variable can be used in funct
-                        // update with new variables created during processing
-                        let mut used_vars: HashSet<String> = self.variables.clone();
-                        // if conflicting variable is found, a replacement variable needs to be created
-                        // and the substitution needs to be added to replacement map.
-                        let mut replacement_map: HashMap<String, String> = HashMap::new();
-
-                        for (i, _) in params_flattened.iter().enumerate() {
-                            let identifier_call: String =
-                                params_flattened.get(i).unwrap().id.clone();
-                            let identifier_called: String =
-                                funct.arguments.get(i).unwrap().id.clone();
-                            if identifier_called != identifier_call{
-                                replacement_map.insert(identifier_called, identifier_call);
-                            }
-                        }
-
-                        // add all flattened statements, adapt return statement
-                        for stat in funct.statements.clone() {
-                            assert!(stat.is_flattened(), format!("Not flattened: {}", &stat));
-                            match stat {
-                                // set return statements right side as expression result
-                                Statement::Return(x) => {
-                                    let result = x.apply_substitution(&replacement_map);
-                                    // add back variables and substitutions to calling function
-                                    for v in used_vars{
-                                        self.variables.insert(v);
-                                    }
-                                    return result;
-                                }
-                                Statement::Definition(var, rhs) => {
-                                    let new_rhs = rhs.apply_substitution(&replacement_map);
-                                    let mut new_var: String = var.clone();
-                                    if used_vars.contains(&var){
-                                        new_var = self.get_new_var(&var, &mut used_vars);
-                                        replacement_map.insert(var, new_var.clone());
-                                    } else{
-                                        used_vars.insert(new_var.clone()); // variables must not be used again
-                                    }
-                                    statements_flattened.push(
-                                        Statement::Definition(new_var, new_rhs)
-                                    );
-                                }
-                                Statement::Compiler(var, rhs) => {
-                                    let new_rhs = rhs.apply_substitution(&replacement_map);
-                                    let mut new_var: String = var.clone();
-                                    if used_vars.contains(&var){
-                                        new_var = self.get_new_var(&var, &mut used_vars);
-                                        replacement_map.insert(var, new_var.clone());
-                                    } else{
-                                        used_vars.insert(new_var.clone()); // variables must not be used again
-                                    }
-                                    statements_flattened.push(Statement::Compiler(new_var, new_rhs));
-                                }
-                                Statement::Condition(lhs, rhs) => {
-                                    let new_lhs = lhs.apply_substitution(&replacement_map);
-                                    let new_rhs = rhs.apply_substitution(&replacement_map);
-                                    statements_flattened
-                                        .push(Statement::Condition(new_lhs, new_rhs));
-                                }
-                                Statement::For(..) => panic!("Not flattened!"),
-                            }
-                        }
-                    }
-                }
-                panic!(
-                    "Function definition for function {} with {:?} argument(s) not found.",
+                let exprs_flattened = self.flatten_function_call(
+                    functions_flattened,
+                    arguments_flattened,
+                    statements_flattened,
                     id,
                     param_expressions
                 );
+                assert!(exprs_flattened.expressions.len() == 1); // outside of MultipleDefinition, FunctionCalls must return a single value
+                exprs_flattened.expressions[0].clone()
             }
+        }
+    }
+
+    pub fn flatten_expression_list<T: Field>(
+        &mut self,
+        functions_flattened: &mut Vec<Function<T>>,
+        arguments_flattened: &Vec<Parameter>,
+        statements_flattened: &mut Vec<Statement<T>>,
+        list: ExpressionList<T>,
+    ) -> ExpressionList<T> {
+        let flattened_exprs = list.expressions.into_iter().map(|x| 
+            self.flatten_expression(
+                functions_flattened, 
+                arguments_flattened, 
+                statements_flattened, 
+                x.clone())
+            ).collect();
+        ExpressionList {
+            expressions: flattened_exprs
         }
     }
 
@@ -530,14 +560,15 @@ impl Flattener {
         stat: &Statement<T>,
     ) {
         match *stat {
-            Statement::Return(ref expr) => {
-                let expr_subbed = expr.apply_substitution(&self.substitution);
-                let rhs = self.flatten_expression(
+            Statement::Return(ref exprs) => {
+                let exprs_subbed = exprs.apply_substitution(&self.substitution);
+                let rhs = self.flatten_expression_list(
                     functions_flattened,
                     arguments_flattened,
                     statements_flattened,
-                    expr_subbed,
+                    exprs_subbed,
                 );
+                
                 statements_flattened.push(Statement::Return(rhs));
             }
             Statement::Definition(ref id, ref expr) => {
@@ -554,6 +585,7 @@ impl Flattener {
                 if !(var == var_to_replace) && self.variables.contains(&var_to_replace) && !self.substitution.contains_key(&var_to_replace){
                     self.substitution.insert(var_to_replace.clone().to_string(),var.clone());
                 }
+
                 statements_flattened.push(Statement::Definition(var, rhs));
             }
             Statement::Condition(ref expr1, ref expr2) => {
@@ -603,6 +635,31 @@ impl Flattener {
                 }
             }
             ref s @ Statement::Compiler(..) => statements_flattened.push(s.clone()),
+            Statement::MultipleDefinition(ref ids, ref rhs) => {
+                let rhs_subbed = rhs.apply_substitution(&self.substitution);
+                match rhs_subbed {
+                    FunctionCall(ref fun_id, ref exprs) => {
+                        let rhs_flattened = self.flatten_function_call(
+                            functions_flattened,
+                            arguments_flattened,
+                            statements_flattened,
+                            fun_id,
+                            exprs,
+                        );
+
+                        for (i, id) in ids.into_iter().enumerate() {
+                            let var = self.use_variable(&id);
+                            // handle return of function call
+                            let var_to_replace = self.get_latest_var_substitution(&id);
+                            if !(var == var_to_replace) && self.variables.contains(&var_to_replace) && !self.substitution.contains_key(&var_to_replace){
+                                self.substitution.insert(var_to_replace.clone().to_string(),var.clone());
+                            }
+                            statements_flattened.push(Statement::Definition(var, rhs_flattened.expressions[i].clone()));
+                        }
+                    },
+                    _ => panic!("Right hand side of a MultipleDefinition should be a FunctionCall")
+                }
+            },
         }
     }
 
@@ -626,6 +683,7 @@ impl Flattener {
         for arg in funct.arguments {
             arguments_flattened.push(Parameter {
                 id: arg.id.to_string(),
+                private: arg.private
             });
         }
         // flatten statements in functions and apply substitution
@@ -641,6 +699,7 @@ impl Flattener {
             id: funct.id,
             arguments: arguments_flattened,
             statements: statements_flattened,
+            return_count: funct.return_count
         }
     }
 
@@ -695,20 +754,153 @@ impl Flattener {
             }
         }
     }
+}
 
-    // used for function call flattening
-    fn get_new_var(&mut self, name: &String, used_vars: &mut HashSet<String>) -> String{
-        let mut i = 0;
-        let mut new_name = name.to_string();
-        loop {
-            if used_vars.contains(&new_name) {
-                new_name = format!("{}_{}", &name, i);
-                i += 1;
-            } else {
-                used_vars.insert(new_name.to_string());
-                return new_name;
+#[cfg(test)]
+mod multiple_definition {
+    use super::*;
+    use field::FieldPrime;
+
+    #[test]
+    fn multiple_definition() {
+
+        // def foo()
+        //     return 1, 2
+        // def main()
+        //     a, b = foo()
+
+        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut functions_flattened = vec![
+            Function {
+                id: "foo".to_string(), 
+                arguments: vec![], 
+                statements: vec![Statement::Return(
+                    ExpressionList { 
+                        expressions: vec![
+                            Expression::Number(FieldPrime::from(1)), 
+                            Expression::Number(FieldPrime::from(2))
+                        ]
+                    }
+                )],
+                return_count: 2,
             }
-        }
+        ];
+        let arguments_flattened = vec![];
+        let mut statements_flattened = vec![];
+        let statement = Statement::MultipleDefinition(
+            vec![
+                "a".to_string(), 
+                "b".to_string()
+            ],
+            Expression::FunctionCall("foo".to_string(), vec![])
+        );
+
+        flattener.flatten_statement(
+            &mut functions_flattened,
+            &arguments_flattened,
+            &mut statements_flattened,
+            &statement,
+        );
+
+        assert_eq!(
+            statements_flattened[0]
+            ,
+            Statement::Definition("a".to_string(), Expression::Number(FieldPrime::from(1)))
+        );
     }
 
+    #[test]
+    fn multiple_definition2() {
+
+        // def dup(x)
+        //     return x, x
+        // def main()
+        //     a, b = dup(2)
+
+        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut functions_flattened = vec![
+            Function {
+                id: "dup".to_string(), 
+                arguments: vec![Parameter { id: "x".to_string(), private: true }], 
+                statements: vec![Statement::Return(
+                    ExpressionList { 
+                        expressions: vec![
+                            Expression::Identifier("x".to_string()), 
+                            Expression::Identifier("x".to_string()), 
+                        ]
+                    }
+                )],
+                return_count: 2,
+            }
+        ];
+        let arguments_flattened = vec![];
+        let mut statements_flattened = vec![];
+        let statement = Statement::MultipleDefinition(
+            vec![
+                "a".to_string(), 
+                "b".to_string()
+            ], 
+            Expression::FunctionCall("dup".to_string(), vec![Expression::Number(FieldPrime::from(2))])
+        );
+
+        flattener.flatten_statement(
+            &mut functions_flattened,
+            &arguments_flattened,
+            &mut statements_flattened,
+            &statement,
+        );
+
+        println!("{:?}", statements_flattened);
+
+
+        assert_eq!(
+            statements_flattened[0]
+            ,
+            Statement::Definition("dup_1_param_0".to_string(), Expression::Number(FieldPrime::from(2)))
+        );
+    }
+
+    #[test]
+    fn simple_definition() {
+
+        // def foo()
+        //     return 1
+        // def main()
+        //     a = foo()
+
+        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut functions_flattened = vec![
+            Function {
+                id: "foo".to_string(), 
+                arguments: vec![], 
+                statements: vec![Statement::Return(
+                    ExpressionList { 
+                        expressions: vec![
+                            Expression::Number(FieldPrime::from(1))
+                        ]
+                    }
+                )],
+                return_count: 1,
+            }
+        ];
+        let arguments_flattened = vec![];
+        let mut statements_flattened = vec![];
+        let statement = Statement::Definition(
+            "a".to_string(), 
+            Expression::FunctionCall("foo".to_string(), vec![])
+        );
+
+        flattener.flatten_statement(
+            &mut functions_flattened,
+            &arguments_flattened,
+            &mut statements_flattened,
+            &statement,
+        );
+
+        assert_eq!(
+            statements_flattened[0]
+            ,
+            Statement::Definition("a".to_string(), Expression::Number(FieldPrime::from(1)))
+        );
+    }
 }
