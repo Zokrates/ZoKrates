@@ -1,6 +1,7 @@
 # Zokrates
 
 [![Join the chat at https://gitter.im/ZoKrates/Lobby](https://badges.gitter.im/ZoKrates/Lobby.svg)](https://gitter.im/ZoKrates/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Build Status](https://jenkins.kyroy.com/job/ZoKrates/job/master/badge/icon)](https://jenkins.kyroy.com/job/ZoKrates/job/master/)
 
 Zokrates is a toolbox for zkSNARKs on Ethereum.
 
@@ -18,11 +19,7 @@ Zokrates bridges this gap. It helps you create offchain programs and link them t
 Using Docker is currently the recommended way to get started with Zokrates.
 
 ```
-git clone https://github.com/JacobEberhardt/ZoKrates
-cd ZoKrates
-docker build -t zokrates .
-docker run -ti zokrates /bin/bash
-cd ZoKrates/target/release
+docker run -ti kyroy/zokrates /bin/bash
 ```
 # Example
 

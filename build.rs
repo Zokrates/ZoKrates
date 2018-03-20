@@ -4,7 +4,7 @@ extern crate gcc;
 fn main() {
     #[cfg(not(feature = "nolibsnark"))]
     {
-        gcc::Config::new()
+        gcc::Build::new()
             .cpp(true)
             .debug(true)
             .include("/usr/local/include")
