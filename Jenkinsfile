@@ -3,18 +3,36 @@
 pipeline {
     agent any
     stages {
-        stage('Build & Test') {
+        stage('Build') {
             steps {
                 withDockerContainer('kyroy/zokrates-test') {
                     sh 'RUSTFLAGS="-D warnings" cargo build'
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                withDockerContainer('kyroy/zokrates-test') {
                     sh 'RUSTFLAGS="-D warnings" cargo test'
+                }
+            }
+        }
+
+        stage('Integration Test') {
+            when {
+                expression { env.BRANCH_NAME == 'master' || env.BRANCH_NAME == 'develop' }
+            }
+            steps {
+                withDockerContainer('kyroy/zokrates-test') {
+                    sh 'RUSTFLAGS="-D warnings" cargo test -- --ignored'
                 }
             }
         }
 
         stage('Docker Build & Push') {
             when {
-                environment name: 'BRANCH_NAME', value: 'master'
+                expression { env.BRANCH_NAME == 'master' }
             }
             steps {
                 script {
