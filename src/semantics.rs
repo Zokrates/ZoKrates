@@ -39,15 +39,6 @@ impl Checker {
 		}
 	}
 
-	#[test]
-	pub fn new_with_args(scope: HashSet<Symbol>, level: usize, functions: HashSet<FunctionDeclaration>) -> Checker {
-		Checker {
-			scope: scope,
-			functions: functions,
-			level: level,
-		}
-	}
-
 	pub fn check_program<T: Field>(&mut self, prog: Prog<T>) -> Result<(), String> {
 		for func in prog.functions {
 			self.check_function(&func)?;
@@ -64,8 +55,8 @@ impl Checker {
 	fn check_single_main(&mut self) -> Result<(), String> {
 		match self.functions.clone().into_iter().filter(|fun| fun.id == "main").count() {
 			1 => Ok(()),
-			0 => Err((format!("No main function found"))),
-			n => Err((format!("Only one main function allowed, found {}", n)))
+			0 => Err(format!("No main function found")),
+			n => Err(format!("Only one main function allowed, found {}", n))
 		}
 	}
 
@@ -177,7 +168,7 @@ impl Checker {
 				Ok(())
 			}
 			Expression::IfElse(box condition, box consequence, box alternative) => {
-				self.check_condition(condition)?; 
+				self.check_condition(condition)?;
 				self.check_expression(consequence)?;
 				self.check_expression(alternative)?;
 				Ok(())
@@ -232,6 +223,14 @@ mod tests {
 	use super::*;
 	use field::FieldPrime;
 
+	pub fn new_with_args(scope: HashSet<Symbol>, level: usize, functions: HashSet<FunctionDeclaration>) -> Checker {
+		Checker {
+			scope: scope,
+			functions: functions,
+			level: level,
+		}
+	}
+
 	#[test]
 	fn undefined_variable_in_statement() {
 		// a = b
@@ -257,7 +256,7 @@ mod tests {
 			id: String::from("b"),
 			level: 0
 		});
-		let mut checker = Checker::new_with_args(scope, 1, HashSet::new());
+		let mut checker = new_with_args(scope, 1, HashSet::new());
 		assert_eq!(checker.check_statement(statement), Ok(()));
 	}
 
@@ -286,7 +285,7 @@ mod tests {
 		bar_statements.push(Statement::Return(
 			ExpressionList {
 				expressions: vec![Expression::Identifier(String::from("a"))]
-			}			
+			}
 		));
 		let bar = Function {
             id: "bar".to_string(),
@@ -441,7 +440,7 @@ mod tests {
 		//   c = foo()
 		// should fail
 		let bar_statements: Vec<Statement<FieldPrime>> = vec![Statement::MultipleDefinition(
-			vec!["c".to_string()], 
+			vec!["c".to_string()],
 			Expression::FunctionCall("foo".to_string(), vec![])
 		)];
 
@@ -461,8 +460,8 @@ mod tests {
 			return_count: 1
 		};
 
-		let mut checker = Checker::new_with_args(HashSet::new(), 0, functions);
-		assert_eq!(checker.check_function(bar), Err("foo returns 2 values but left side is of size 1".to_string()));
+		let mut checker = new_with_args(HashSet::new(), 0, functions);
+		assert_eq!(checker.check_function(&bar), Err("foo returns 2 values but left side is of size 1".to_string()));
 	}
 
 	#[test]
@@ -493,8 +492,8 @@ mod tests {
 			return_count: 1
 		};
 
-		let mut checker = Checker::new_with_args(HashSet::new(), 0, functions);
-		assert_eq!(checker.check_function(bar), Err("foo returns 2 values but is called outside of a definition".to_string()));
+		let mut checker = new_with_args(HashSet::new(), 0, functions);
+		assert_eq!(checker.check_function(&bar), Err("foo returns 2 values but is called outside of a definition".to_string()));
 	}
 
 	#[test]
@@ -503,7 +502,7 @@ mod tests {
 		//   c = foo()
 		// should fail
 		let bar_statements: Vec<Statement<FieldPrime>> = vec![Statement::MultipleDefinition(
-			vec!["c".to_string()], 
+			vec!["c".to_string()],
 			Expression::FunctionCall("foo".to_string(), vec![])
 		)];
 
@@ -514,8 +513,8 @@ mod tests {
 			return_count: 1
 		};
 
-		let mut checker = Checker::new_with_args(HashSet::new(), 0, HashSet::new());
-		assert_eq!(checker.check_function(bar), Err("Function definition for function foo with 0 argument(s) not found.".to_string()));
+		let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
+		assert_eq!(checker.check_function(&bar), Err("Function definition for function foo with 0 argument(s) not found.".to_string()));
 	}
 
 	#[test]
@@ -524,7 +523,7 @@ mod tests {
 		//   1 = foo()
 		// should fail
 		let bar_statements: Vec<Statement<FieldPrime>> = vec![Statement::Condition(
-			Expression::Number(FieldPrime::from(1)), 
+			Expression::Number(FieldPrime::from(1)),
 			Expression::FunctionCall("foo".to_string(), vec![])
 		)];
 
@@ -535,8 +534,8 @@ mod tests {
 			return_count: 1
 		};
 
-		let mut checker = Checker::new_with_args(HashSet::new(), 0, HashSet::new());
-		assert_eq!(checker.check_function(bar), Err("Function definition for function foo with 0 argument(s) not found.".to_string()));
+		let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
+		assert_eq!(checker.check_function(&bar), Err("Function definition for function foo with 0 argument(s) not found.".to_string()));
 	}
 
 	#[test]
@@ -558,8 +557,8 @@ mod tests {
 			return_count: 2
 		};
 
-		let mut checker = Checker::new_with_args(HashSet::new(), 0, HashSet::new());
-		assert_eq!(checker.check_function(bar), Err("a is undefined".to_string()));
+		let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
+		assert_eq!(checker.check_function(&bar), Err("a is undefined".to_string()));
 	}
 
 	#[test]
@@ -573,13 +572,13 @@ mod tests {
 		// should pass
 		let bar_statements: Vec<Statement<FieldPrime>> = vec![
 			Statement::MultipleDefinition(
-				vec!["a".to_string(), "b".to_string()], 
+				vec!["a".to_string(), "b".to_string()],
 				Expression::FunctionCall("foo".to_string(), vec![])
 			),
 			Statement::Return(
 				ExpressionList { expressions: vec![
 					Expression::Add(
-						box Expression::Identifier("a".to_string()), 
+						box Expression::Identifier("a".to_string()),
 						box Expression::Identifier("b".to_string())
 					)]
 				}
@@ -602,7 +601,7 @@ mod tests {
 			return_count: 1
 		};
 
-		let mut checker = Checker::new_with_args(HashSet::new(), 0, functions);
+		let mut checker = new_with_args(HashSet::new(), 0, functions);
 		assert_eq!(checker.check_function(&bar), Ok(()));
 	}
 
@@ -616,7 +615,7 @@ mod tests {
 		// should fail
 		let foo2_statements: Vec<Statement<FieldPrime>> = vec![
 			Statement::Return(
-				ExpressionList { 
+				ExpressionList {
 					expressions: vec![
 						Expression::Number(FieldPrime::from(1))
 					]
@@ -625,7 +624,7 @@ mod tests {
 		];
 
 		let foo2_arguments = vec![
-			Parameter { id: 'c'.to_string(), private: true }, 
+			Parameter { id: 'c'.to_string(), private: true },
 			Parameter { id: 'd'.to_string(), private: true }
 		];
 
@@ -645,8 +644,8 @@ mod tests {
 			return_count: 1
 		};
 
-		let mut checker = Checker::new_with_args(HashSet::new(), 0, functions);
-		assert_eq!(checker.check_function(&foo2), Err(("Duplicate definition for function foo with 2 arguments".to_string())));
+		let mut checker = new_with_args(HashSet::new(), 0, functions);
+		assert_eq!(checker.check_function(&foo2), Err("Duplicate definition for function foo with 2 arguments".to_string()));
 	}
 
 	#[test]
@@ -659,7 +658,7 @@ mod tests {
 		// should fail
 		let main1_statements: Vec<Statement<FieldPrime>> = vec![
 			Statement::Return(
-				ExpressionList { 
+				ExpressionList {
 					expressions: vec![
 						Expression::Number(FieldPrime::from(1))
 					]
@@ -671,7 +670,7 @@ mod tests {
 
 		let main2_statements: Vec<Statement<FieldPrime>> = vec![
 			Statement::Return(
-				ExpressionList { 
+				ExpressionList {
 					expressions: vec![
 						Expression::Number(FieldPrime::from(1))
 					]
@@ -700,6 +699,6 @@ mod tests {
 		};
 
 		let mut checker = Checker::new();
-		assert_eq!(checker.check_program(prog), Err(("Only one main function allowed, found 2".to_string())));
+		assert_eq!(checker.check_program(prog), Err("Only one main function allowed, found 2".to_string()));
 	}
 }
