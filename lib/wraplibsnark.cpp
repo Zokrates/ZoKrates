@@ -246,9 +246,9 @@ bool _setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int constraint
   r1cs_constraint_system<Fr<alt_bn128_pp>> cs;
   cs = createConstraintSystem(A, B ,C , constraints, variables, inputs);
 
-  assert(cs.num_variables() >= inputs);
-  assert(cs.num_inputs() == inputs);
-  assert(cs.num_constraints() == constraints);
+  assert(cs.num_variables() >= (unsigned)inputs);
+  assert(cs.num_inputs() == (unsigned)inputs);
+  assert(cs.num_constraints() == (unsigned)constraints);
 
   // create keypair
   r1cs_ppzksnark_keypair<alt_bn128_pp> keypair = r1cs_ppzksnark_generator<alt_bn128_pp>(cs);
