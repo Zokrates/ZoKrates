@@ -1,8 +1,8 @@
 # Zokrates
 
 [![Join the chat at https://gitter.im/ZoKrates/Lobby](https://badges.gitter.im/ZoKrates/Lobby.svg)](https://gitter.im/ZoKrates/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-![Jenkins](https://img.shields.io/jenkins/s/https/jenkins.kyroy.com/ZoKrates/job/master.svg?label=master)
-![Jenkins](https://img.shields.io/jenkins/s/https/jenkins.kyroy.com/ZoKrates/job/develop.svg?label=develop)
+![Jenkins](https://img.shields.io/jenkins/s/https/jenkins.kyroy.com/job/ZoKrates/job/master.svg?label=master)
+![Jenkins](https://img.shields.io/jenkins/s/https/jenkins.kyroy.com/job/ZoKrates/job/develop.svg?label=develop)
 
 
 Zokrates is a toolbox for zkSNARKs on Ethereum.
