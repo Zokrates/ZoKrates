@@ -205,7 +205,7 @@ fn main() {
     let program_start = Instant::now();
     match matches.subcommand() {
         ("compile", Some(sub_matches)) => {
-            println!("Compiling {}", sub_matches.value_of("input").unwrap());
+            // println!("Compiling {}", sub_matches.value_of("input").unwrap());
 
             let path = Path::new(sub_matches.value_of("input").unwrap());
             let file = match File::open(&path) {
@@ -259,18 +259,19 @@ fn main() {
             hrofb.flush().expect("Unable to flush buffer.");
 
             // debugging output
-            println!("Compiled program:\n{}", program_flattened);
+            //println!("Compiled program:\n{}", program_flattened);
 
 
-            println!(
+            /* println!(
                 "Compiled code written to '{}', \nHuman readable code to '{}'. \nNumber of constraints: {}",
                 bin_output_path.display(),
                 hr_output_path.display(),
                 num_constraints
             );
+            */
         }
         ("compute-witness", Some(sub_matches)) => {
-            println!("Computing witness for:");
+            // println!("Computing witness for:");
 
             // read compiled program
             let path = Path::new(sub_matches.value_of("input").unwrap());
@@ -301,7 +302,7 @@ fn main() {
             }
 
             // print deserialized flattened program
-            println!("{}", main_flattened);
+            //println!("{}", main_flattened);
 
             // validate #arguments
             let mut cli_arguments: Vec<FieldPrime> = Vec::new();
@@ -353,7 +354,7 @@ fn main() {
 
             let witness_map = main_flattened.get_witness(arguments);
             // let witness_map: HashMap<String, FieldPrime> = main_flattened.get_witness(args);
-            println!("Witness: {:?}", witness_map);
+            // println!("Witness: {:?}", witness_map);
 
             // write witness to file
             let output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -369,7 +370,7 @@ fn main() {
             bw.flush().expect("Unable to flush buffer.");
         }
         ("setup", Some(sub_matches)) => {
-            println!("Performing setup...");
+            // println!("Performing setup...");
 
             let path = Path::new(sub_matches.value_of("input").unwrap());
             let mut file = match File::open(&path) {
@@ -399,7 +400,7 @@ fn main() {
             }
 
             // print deserialized flattened program
-            println!("{}", main_flattened);
+            //println!("{}", main_flattened);
 
             // transform to R1CS
             let (variables, private_inputs_offset, a, b, c) = r1cs_program(&program_ast);
@@ -432,7 +433,7 @@ fn main() {
             }
         }
         ("export-verifier", Some(sub_matches)) => {
-            println!("Exporting verifier...");
+            // println!("Exporting verifier...");
             // read vk file
             let input_path = Path::new(sub_matches.value_of("input").unwrap());
             let input_file = match File::open(&input_path) {
@@ -490,10 +491,10 @@ fn main() {
                 Err(why) => panic!("couldn't create {}: {}", output_path.display(), why),
             };
             output_file.write_all(&template_text.as_bytes()).expect("Failed writing output to file.");
-            println!("Finished exporting verifier.");
+            // println!("Finished exporting verifier.");
         }
         ("generate-proof", Some(sub_matches)) => {
-            println!("Generating proof...");
+            // println!("Generating proof...");
 
             // deserialize witness
             let witness_path = Path::new(sub_matches.value_of("witness").unwrap());
@@ -545,7 +546,7 @@ fn main() {
                 panic!("Error reading variables.");
             }
 
-            println!("Using Witness: {:?}", witness_map);
+            // println!("Using Witness: {:?}", witness_map);
 
             let witness: Vec<_> = variables.iter().map(|x| witness_map[x].clone()).collect();
 
@@ -553,8 +554,8 @@ fn main() {
             let mut public_inputs: Vec<_>= witness.clone();
             let private_inputs: Vec<_> = public_inputs.split_off(private_inputs_offset);
 
-            println!("Public inputs: {:?}", public_inputs);
-            println!("Private inputs: {:?}", private_inputs);
+            // println!("Public inputs: {:?}", public_inputs);
+            // println!("Private inputs: {:?}", private_inputs);
 
             let pk_path = sub_matches.value_of("provingkey").unwrap();
 
@@ -568,7 +569,12 @@ fn main() {
     }
     let program_duration_result = Duration::from_std(program_start.elapsed());
     match program_duration_result {
-        Ok(program_duration) => println!("Program runtime: {} ms", program_duration.num_milliseconds()),
+        Ok(program_duration) => {
+            let runtime = program_duration.num_microseconds();
+            if(runtime.is_some()){
+                println!("Program runtime: {} µs", runtime.unwrap());
+            }
+        },
         Err(e) => println!("Error in time measurement: {:?}", e),
     }
 }

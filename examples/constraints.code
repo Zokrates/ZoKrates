@@ -1,0 +1,11 @@
+// Binomial Coeffizient, n!/(k!*(n-k)!).
+def loop(x):
+    f = 1
+    counter = 0
+    for i in 1..10000 do
+        f = f + 2 * x - 1
+    endfor
+    return f
+
+def main(a):
+    return loop(a*a)
