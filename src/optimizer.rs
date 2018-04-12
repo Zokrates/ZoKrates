@@ -63,11 +63,11 @@ impl Optimizer {
 		// The first variable to appear is used for its synonyms.
 
 		for statement in &funct.statements {
-			match statement {
+			match *statement {
 				// Synonym definition
 				// if the right side of the assignment is already being reassigned to `x`,
 				// reassign the left side to `x` as well, otherwise reassign to a new variable
-				Statement::Definition(left, Expression::Identifier(right)) => {
+				Statement::Definition(ref left, Expression::Identifier(ref right)) => {
 					let r = match self.substitution.get(right) {
 						Some(value) => {
 							value.clone()
@@ -79,11 +79,11 @@ impl Optimizer {
 					self.substitution.insert(left.clone(), r);
 				},
 				// Other definitions
-				Statement::Definition(left, _) => {
+				Statement::Definition(ref left, _) => {
 					self.substitution.insert(left.clone(), format!("_{}", self.next_var_idx.increment()));
 				},
 				// Compiler statements introduce variables before they are defined, so add them to the substitution
-				Statement::Compiler(id, _) => {
+				Statement::Compiler(ref id, _) => {
 					self.substitution.insert(id.clone(), format!("_{}", self.next_var_idx.increment()));
 				},
 				_ => ()
@@ -92,7 +92,7 @@ impl Optimizer {
 
 		// generate optimized statements by removing synonym declarations and renaming variables
 		let optimized_statements = funct.statements.iter().filter_map(|statement| {
-			match statement {
+			match *statement {
 				// filter out synonyms definitions
 				Statement::Definition(_, Expression::Identifier(_)) => {
 					None
