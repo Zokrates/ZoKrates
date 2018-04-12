@@ -950,7 +950,7 @@ mod multiple_definition {
                 id: "main".to_string(),
                 arguments: vec![],
                 statements: vec![
-                    Statement::Definition("a".to_string(), Expression::FunctionCall("foou".to_string(), vec![])),
+                    Statement::Definition("a".to_string(), Expression::FunctionCall("foo".to_string(), vec![])),
                     Statement::MultipleDefinition(vec!["b".to_string(), "c".to_string()], Expression::FunctionCall("foo".to_string(), vec![])),
                     Statement::Return(ExpressionList {
                         expressions: vec![Expression::Number(FieldPrime::from(1))]
