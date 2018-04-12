@@ -55,7 +55,7 @@ impl<T: Field> fmt::Debug for Prog<T> {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct Function<T: Field> {
     /// Name of the program
     pub id: String,
@@ -157,6 +157,30 @@ impl<T: Field> Statement<T> {
             Statement::For(..) => unimplemented!(), // should not be required, can be implemented later
         }
     }
+
+    pub fn apply_substitution(&self, substitution: &HashMap<String, String>) -> Statement<T> {
+        match *self {
+            Statement::Definition(ref id, ref x) => Statement::Definition(
+                match substitution.get(id) { 
+                    Some(z) => z.clone(), 
+                    None => id.clone() 
+                }, 
+                x.apply_substitution(substitution)
+            ),
+            Statement::MultipleDefinition(ref ids, ref x) => Statement::MultipleDefinition(
+                ids.into_iter().map(|id| substitution.get(id).unwrap().clone()).collect(), 
+                x.apply_substitution(substitution)),
+            Statement::Return(ref x) => Statement::Return(x.apply_substitution(substitution)),
+            Statement::Compiler(ref lhs, ref rhs) => Statement::Compiler(match substitution.get(lhs) { 
+                    Some(z) => z.clone(), 
+                    None => lhs.clone() 
+                }, rhs.clone().apply_substitution(&substitution)),
+            Statement::Condition(ref x, ref y) => {
+                Statement::Condition(x.apply_substitution(substitution), y.apply_substitution(substitution))
+            }
+            Statement::For(..) => unimplemented!(), // should not be required, can be implemented later
+        }
+    }
 }
 
 
@@ -214,6 +238,15 @@ impl<T: Field> fmt::Debug for Statement<T> {
 pub struct Parameter {
     pub id: String,
     pub private: bool,
+}
+
+impl Parameter {
+    pub fn apply_substitution(&self, substitution: &HashMap<String, String>) -> Parameter {
+        Parameter {
+            id: substitution.get(&self.id).unwrap().to_string(),
+            private: self.private
+        }
+    }
 }
 
 impl fmt::Display for Parameter {

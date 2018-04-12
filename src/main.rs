@@ -20,6 +20,7 @@ mod absy;
 mod parser;
 mod semantics;
 mod flatten;
+mod optimizer;
 mod r1cs;
 mod field;
 mod verification;
@@ -36,6 +37,7 @@ use absy::Prog;
 use parser::parse_program;
 use semantics::Checker;
 use flatten::Flattener;
+use optimizer::Optimizer;
 use r1cs::r1cs_program;
 use clap::{App, AppSettings, Arg, SubCommand};
 #[cfg(not(feature = "nolibsnark"))]
@@ -223,8 +225,15 @@ fn main() {
             };
 
             // flatten input program
-            let program_flattened =
+            let program_flattened_unoptimized =
                 Flattener::new(FieldPrime::get_required_bits()).flatten_program(program_ast);
+
+            // Optimize flattened program
+            let program_flattened =
+                match Optimizer::new().optimize_program(program_flattened_unoptimized) {
+                    Ok(p) => p,
+                    Err(why) => panic!("Optimization failed with: {}", why)
+                };
 
             // number of constraints the flattened program will translate to.
             let num_constraints = &program_flattened.functions
