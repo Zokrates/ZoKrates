@@ -77,6 +77,10 @@ fn main() {
                                         .takes_value(true)
                                         .required(false)
                                         .default_value(FLATTENED_CODE_DEFAULT_PATH)
+                                    ).arg(Arg::with_name("unoptimized")
+                                        .long("unoptimized")
+                                        .help("ignore optimization.")
+                                        .required(false)
                                     )
                                  )
     .subcommand(SubCommand::with_name("setup")
@@ -228,11 +232,21 @@ fn main() {
             let program_flattened_unoptimized =
                 Flattener::new(FieldPrime::get_required_bits()).flatten_program(program_ast);
 
+            // determine if we should optimize
+            let should_optimize = sub_matches.occurrences_of("unoptimized") == 0;
+
             // Optimize flattened program
-            let program_flattened =
-                match Optimizer::new().optimize_program(program_flattened_unoptimized) {
-                    Ok(p) => p,
-                    Err(why) => panic!("Optimization failed with: {}", why)
+            let program_flattened = 
+                match should_optimize {
+                    true => {
+                        match Optimizer::new().optimize_program(program_flattened_unoptimized) {
+                            Ok(p) => p,
+                            Err(why) => panic!("Optimization failed with: {}", why)
+                        }
+                    },
+                    _ => {
+                        program_flattened_unoptimized
+                    }
                 };
 
             // number of constraints the flattened program will translate to.
