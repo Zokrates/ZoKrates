@@ -960,7 +960,7 @@ mod multiple_definition {
             }
         ];
 
-        let p = flattener.flatten_program(
+        flattener.flatten_program(
             Prog {
                 functions: functions
             }
