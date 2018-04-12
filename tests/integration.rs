@@ -63,7 +63,7 @@ mod integration {
         fs::create_dir(test_case_path).unwrap();
 
     	// compile
-        assert_cli::Assert::command(&["cargo", "run", "--", "compile", "-i", program_path.to_str().unwrap(), "-o", flattened_path.to_str().unwrap()])
+        assert_cli::Assert::command(&["cargo", "run", "--", "compile", "-i", program_path.to_str().unwrap(), "-o", flattened_path.to_str().unwrap(), "--unoptimized"])
             .succeeds()
             .unwrap();
 
