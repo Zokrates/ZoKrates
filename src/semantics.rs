@@ -131,8 +131,13 @@ impl Checker {
                     	match self.find_function(fun_id, arguments.len()) {
                     		// the function has to be defined
                     		Some(f) => {
+                    			// the return count has to match the left side
                     			if f.return_count == ids.len() {
-                    				// the return count has to match the left side
+                    				// check the arguments
+                    				for arg in arguments {
+                    					self.check_expression(arg.clone())?;
+                    				}
+
                     				for id in ids {
                         				self.scope.insert(Symbol {
 											id: id.to_string(),
@@ -515,6 +520,60 @@ mod tests {
 
 		let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
 		assert_eq!(checker.check_function(&bar), Err("Function definition for function foo with 0 argument(s) not found.".to_string()));
+	}
+
+	#[test]
+	fn undefined_variable_in_multireturn_call() {
+		// def foo(x):
+		// 	return 1, 2
+		// def main():
+		// 	a, b = foo(x)
+		// 	return 1
+		// should fail
+
+		let foo_statements: Vec<Statement<FieldPrime>> = vec![Statement::Return(
+			ExpressionList {
+				expressions: vec![
+					Expression::Number(FieldPrime::from(1)),
+					Expression::Number(FieldPrime::from(2))
+				]
+			}
+		)];
+
+		let foo = Function {
+			id: "foo".to_string(),
+			arguments: vec![Parameter { id: "x".to_string(), private: false}],
+			statements: foo_statements,
+			return_count: 2
+		};
+
+		let main_statements: Vec<Statement<FieldPrime>> = vec![
+			Statement::MultipleDefinition(
+				vec!["a".to_string(), "b".to_string()],
+				Expression::FunctionCall("foo".to_string(), vec![
+					Expression::Identifier("x".to_string())
+				])
+			),
+			Statement::Return(ExpressionList { 
+				expressions: vec![
+					Expression::Number(FieldPrime::from(1))
+				]
+			})
+		];
+
+		let main = Function {
+			id: "main".to_string(),
+			arguments: vec![],
+			statements: main_statements,
+			return_count: 1
+		};
+
+		let program = Prog {
+			functions: vec![foo, main]
+		};
+
+		let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
+		assert_eq!(checker.check_program(program), Err("x is undefined".to_string()));
 	}
 
 	#[test]
