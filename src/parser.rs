@@ -4,7 +4,13 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
+// import syntax draft
+// <imports> ::= <import> <imports>
+//
+// <import> ::= `import' 
+
 // Grammar:
+//
 // <prog> ::= <functions>
 //
 // <functions> ::= <function> <functions>
@@ -71,6 +77,7 @@ use std::io::prelude::*;
 use std::fs::File;
 use field::{Field, FieldPrime};
 use absy::*;
+use imports::*;
 
 #[derive(Clone, PartialEq)]
 struct Position {
@@ -155,6 +162,8 @@ enum Token<T: Field> {
     Num(T),
     Unknown(String),
     InlineComment(String),
+    Import,
+    DoubleQuote,
     // following used for error messages
     ErrIde,
     ErrNum,
@@ -194,6 +203,8 @@ impl<T: Field> fmt::Display for Token<T> {
             Token::Num(ref x) => write!(f, "{}", x),
             Token::Unknown(ref x) => write!(f, "{}", x),
             Token::InlineComment(ref x) => write!(f, "// {}", x),
+            Token::Import => write!(f, "import"),
+            Token::DoubleQuote => write!(f, "\""),
             Token::ErrIde => write!(f, "identifier"),
             Token::ErrNum => write!(f, "number"),
         }
@@ -378,6 +389,14 @@ fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Po
                 col: pos.col + offset + 1,
             },
         ),
+        Some('"') => (
+            Token::DoubleQuote,
+            input[offset + 1..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 1,
+            },
+        ),
         Some('*') => match input.chars().nth(offset + 1) {
             Some('*') => (
                 Token::Pow,
@@ -511,6 +530,14 @@ fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Po
                 line: pos.line,
                 col: pos.col + offset + 8,
             },
+        ),
+        Some(_) if input[offset..].starts_with("import ") => (
+            Token::Import,
+            input[offset + 7..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 7
+            }
         ),
         Some(x) => match x {
             '0'...'9' => parse_num(
@@ -868,7 +895,6 @@ fn parse_statement1<T: Field>(
                     Ok((Statement::Definition(ide, e2), s2, p2))
                 }
                 (t3, _, p3) => {
-                    println!("here {}", input);
                     Err(Error {
                         expected: vec![
                             Token::Add,
@@ -1358,11 +1384,54 @@ fn parse_function<T: Field>(
     ))
 }
 
+fn parse_import<T: Field>(
+    input: &String,
+    pos: &Position,
+) -> Result<(Import, Position), Error<T>> {
+    match next_token(input, pos) {
+        (Token::DoubleQuote, s1, p1) => {
+            let mut end = 0;
+            loop {
+                match s1.chars().nth(end) {
+                    Some('"') => {
+                        end += 1;
+                        return Ok((
+                            Import::new(s1[0..end - 1].to_string()),
+                            Position {
+                                line: p1.line,
+                                col: p1.col + end
+                            }
+                        ))
+                    },
+                    Some(x) => end += 1,
+                    None => {
+                        return Err(
+                            Error {
+                                expected: vec![Token::DoubleQuote],
+                                got: Token::Unknown("endofline".to_string()),
+                                pos: p1,
+                            }
+                        )
+                    }
+                }
+            }
+        },
+        (t1, _, p1) => {
+            return Err(Error {
+                expected: vec![Token::DoubleQuote],
+                got: t1,
+                pos: p1,
+            })
+        }
+    }
+}
+
 pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
     let mut current_line = 1;
     let reader = BufReader::new(file);
     let mut lines = reader.lines();
     let mut functions = Vec::new();
+    let mut imports = Vec::new();
 
     loop {
         match lines.next() {
@@ -1374,6 +1443,14 @@ pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
                     col: 1,
                 },
             ) {
+                (Token::Import, ref s1, ref p1) => match parse_import(s1, p1) {
+                    Ok((import, p2)) => {
+                        imports.push(import);
+                        current_line = p2.line; // this is the line of the return statement
+                        current_line += 1;
+                    }
+                    Err(err) => return Err(err),
+                },
                 (Token::Def, ref s1, ref p1) => match parse_function(&mut lines, s1, p1) {
                     Ok((function, p2)) => {
                         functions.push(function);
@@ -1395,7 +1472,7 @@ pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
         }
     }
 
-    Ok(Prog { functions })
+    Ok(Prog { functions, imports })
 }
 
 fn parse_comma_separated_expression_list_rec<T: Field>(
@@ -1670,8 +1747,37 @@ mod tests {
                 parse_comma_separated_list::<FieldPrime>(string, pos)
             )
         }
+    }
 
-        // test impossible to run forever?
+    #[cfg(test)]
+    mod parse_imports {
+        use super::*;
+
+        #[test]
+        fn import() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("import ./foo.code");
+            let import: Token<FieldPrime> = Token::Import;
+            assert_eq!(
+                (import, "./foo.code".to_string(), pos.col(7 as isize)),
+                next_token(&string, &pos)
+            );
+        }
+
+        #[test]
+        fn parse_import_test() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("\"./foo.code\"");
+            let import = Import::new("./foo.code".to_string());
+            let position = Position {
+                line: 45,
+                col: pos.col + 1 + "./foo.code".len() + 1
+            };
+            assert_eq!(
+                Ok((import, position)),
+                parse_import::<FieldPrime>(&string, &pos)
+            )
+        }
     }
 
     // #[cfg(test)]

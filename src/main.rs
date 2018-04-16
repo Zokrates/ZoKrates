@@ -18,6 +18,7 @@ extern crate regex;
 
 mod absy;
 mod parser;
+mod imports;
 mod semantics;
 mod flatten;
 mod r1cs;
@@ -215,6 +216,8 @@ fn main() {
                     std::process::exit(1);
                 }
             };
+
+            println!("{}", program_ast);
 
             // check semantics
             match Checker::new().check_program(program_ast.clone()) {

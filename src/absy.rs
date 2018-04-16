@@ -8,11 +8,13 @@
 use std::fmt;
 use std::collections::{HashMap, BTreeMap};
 use field::Field;
+use imports::Import;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Prog<T: Field> {
     /// Functions of the program
     pub functions: Vec<Function<T>>,
+    pub imports: Vec<Import>
 }
 
 
@@ -31,7 +33,12 @@ impl<T: Field> fmt::Display for Prog<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{}",
+            "{}\n{}",
+            self.imports
+                .iter()
+                .map(|x| format!("{}", x))
+                .collect::<Vec<_>>()
+                .join("\n"),
             self.functions
                 .iter()
                 .map(|x| format!("{}", x))
@@ -45,12 +52,17 @@ impl<T: Field> fmt::Debug for Prog<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "program(functions: {}\t)",
+            "program(\n\timports:\n\t\t{}\n\tfunctions:\n\t\t{}\n)",
+            self.imports
+                .iter()
+                .map(|x| format!("{:?}", x))
+                .collect::<Vec<_>>()
+                .join("\n\t\t"),
             self.functions
                 .iter()
-                .map(|x| format!("\t{:?}", x))
+                .map(|x| format!("{:?}", x))
                 .collect::<Vec<_>>()
-                .join("\n")
+                .join("\n\t\t")
         )
     }
 }

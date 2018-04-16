@@ -716,6 +716,7 @@ impl Flattener {
         }
         Prog {
             functions: functions_flattened,
+            imports: vec![]
         }
     }
 

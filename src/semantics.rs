@@ -298,7 +298,8 @@ mod tests {
         funcs.push(foo);
         funcs.push(bar);
         let prog = Prog {
-			functions: funcs
+			functions: funcs,
+			imports: vec![]
         };
 
 		let mut checker = Checker::new();
@@ -365,7 +366,8 @@ mod tests {
         funcs.push(bar);
         funcs.push(main);
         let prog = Prog {
-			functions: funcs
+			functions: funcs,
+			imports: vec![]
         };
 
 		let mut checker = Checker::new();
@@ -695,7 +697,8 @@ mod tests {
 		};
 
 		let prog = Prog {
-			functions: vec![main1, main2]
+			functions: vec![main1, main2],
+			imports: vec![]
 		};
 
 		let mut checker = Checker::new();
