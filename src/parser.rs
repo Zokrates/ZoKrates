@@ -1403,7 +1403,7 @@ fn parse_import<T: Field>(
                             }
                         ))
                     },
-                    Some(x) => end += 1,
+                    Some(_) => end += 1,
                     None => {
                         return Err(
                             Error {

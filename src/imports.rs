@@ -20,12 +20,12 @@ impl Import {
 		}
 	}
 
-	pub fn new_with_alias(source: String, alias: String) -> Import {
-		Import {
-			source,
-			alias: Some(alias)
-		}
-	}
+	// pub fn new_with_alias(source: String, alias: String) -> Import {
+	// 	Import {
+	// 		source,
+	// 		alias: Some(alias)
+	// 	}
+	// }
 }
 
 impl fmt::Display for Import {
