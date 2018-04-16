@@ -77,9 +77,9 @@ fn main() {
                                         .takes_value(true)
                                         .required(false)
                                         .default_value(FLATTENED_CODE_DEFAULT_PATH)
-                                    ).arg(Arg::with_name("unoptimized")
-                                        .long("unoptimized")
-                                        .help("ignore optimization.")
+                                    ).arg(Arg::with_name("optimized")
+                                        .long("optimized")
+                                        .help("perform optimization.")
                                         .required(false)
                                     )
                                  )
@@ -233,7 +233,7 @@ fn main() {
                 Flattener::new(FieldPrime::get_required_bits()).flatten_program(program_ast);
 
             // determine if we should optimize
-            let should_optimize = sub_matches.occurrences_of("unoptimized") == 0;
+            let should_optimize = sub_matches.occurrences_of("optimized") > 0;
 
             // Optimize flattened program
             let program_flattened = 
