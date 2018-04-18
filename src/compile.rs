@@ -19,7 +19,12 @@ pub fn compile<T: Field>(path: PathBuf) -> Result<Prog<T>,()> {
 
     let program_ast_without_imports: Prog<T> = parse_program(file, path.to_owned()).unwrap();
 
-    let program_ast = Importer::new().resolve_imports(program_ast_without_imports).unwrap();
+    let compiled_imports: Vec<(Prog<T>, String)> = program_ast_without_imports.clone().imports.into_iter().map(|import| {
+    	let path = import.resolve().unwrap();
+    	(compile(path).unwrap(), import.alias())
+    }).collect();
+    	
+    let program_ast = Importer::new().apply_imports(compiled_imports, program_ast_without_imports);
 
     // check semantics
     Checker::new().check_program(program_ast.clone()).unwrap();

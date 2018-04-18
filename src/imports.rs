@@ -18,17 +18,29 @@ use field::FieldPrime;
 #[derive(PartialEq, Clone, Serialize, Deserialize)]
 pub struct Import {
 	source: PathBuf,
-	alias: Option<String>,
+	alias: String,
 	base: PathBuf
 }
 
 impl Import {
 	pub fn new(source: String, base: &PathBuf) -> Import {
 		Import {
-			source: PathBuf::from(source),
-			alias: None,
+			source: PathBuf::from(source.clone()),
+			alias: PathBuf::from(source).file_stem().unwrap().to_os_string().to_string_lossy().to_string(),
 			base: base.clone()
 		}
+	}
+
+	pub fn resolve(&self) -> Result<PathBuf,String> {
+		let mut path = self.base.parent().unwrap().to_owned();
+		let source = self.source.strip_prefix("./").unwrap();
+		path.push(&source);
+
+		Ok(path)
+	}
+
+	pub fn alias(&self) -> String {
+		self.alias.clone()
 	}
 
 	// pub fn new_with_alias(source: String, alias: String) -> Import {
@@ -41,19 +53,13 @@ impl Import {
 
 impl fmt::Display for Import {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		match &self.alias {
-			&Some(ref a) => write!(f, "import {} as {}", self.source.clone().into_os_string().into_string().unwrap(), a),
-			&None => write!(f, "import {}", self.source.clone().into_os_string().into_string().unwrap())
-		}
+		write!(f, "import {} as {}", self.source.clone().into_os_string().into_string().unwrap(), self.alias)
 	}
 }
 
 impl fmt::Debug for Import {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		match &self.alias {
-			&Some(ref a) => write!(f, "import(source: {}, alias: {})", self.source.clone().into_os_string().into_string().unwrap(), a),
-			&None => write!(f, "import(source: {})", self.source.clone().into_os_string().into_string().unwrap())
-		}
+		write!(f, "import(source: {}, alias: {})", self.source.clone().into_os_string().into_string().unwrap(), self.alias)
     }
 }
 
@@ -68,63 +74,28 @@ impl Importer {
 		}
 	}
 
-	pub fn resolve_imports<T: Field>(&self, prog: Prog<T>) -> Result<Prog<T>,String> {
-		let mut p = prog.clone();
-		let imported_functions: Result<Vec<Function<T>>, String> = p.imports
-			.clone()
-			.into_iter()
-			.map(|i| self.resolve_import::<T>(i))
-			.collect();
+	pub	fn apply_imports<T: Field>(&self, origins: Vec<(Prog<T>, String)>, destination: Prog<T>) -> Prog<T> {
+		let mut imported_mains: Vec<Function<T>> = origins.iter().map(|origin| {
+			match origin {
+				&(ref program, ref alias) => {
+					match program.functions.iter().find(|fun| fun.id == "main") {
+			        	Some(fun) => {
+			        		let mut f = fun.clone();
+			        		f.id = alias.to_string();
+			        		f
+			        	},
+			        	None => panic!("no main")
+			        }
+				}
+			}
+		}).collect();
 
-		match imported_functions {
-			Ok(mut funs) => {
-				funs.append(&mut p.functions);
-				Ok(Prog {
-					imports: vec![],
-					functions: funs
-				})
-			},
-			Err(e) => Err(e)
+		imported_mains.append(&mut destination.clone().functions);
+
+		Prog {
+			imports: vec![],
+			functions: imported_mains
 		}
-	}
-
-	fn resolve_import<T: Field>(&self, import: Import) -> Result<Function<T>,String> {
-		let mut path = import.base.parent().unwrap().to_owned();
-		let source = import.source.strip_prefix("./").unwrap();
-		path.push(&source);
-
-		let file = match File::open(&path) {
-            Ok(file) => file,
-            Err(why) => panic!("couldn't open {}: {}", path.display(), why),
-        };
-
-        let program_ast_without_imports = match parse_program(file, path) {
-        	Ok(prog) => prog,
-        	Err(why) => panic!(why.to_string())
-        };
-
-        let program_ast = match self.resolve_imports(program_ast_without_imports) {
-        	Ok(prog) => prog,
-        	Err(why) => panic!(why.to_string())
-        };
-
-                    // check semantics
-        match Checker::new().check_program(program_ast.clone()) {
-            Ok(()) => (),
-            Err(why) => panic!(why.to_string())
-        };
-
-        // flatten input program
-        let program_flattened =
-            Flattener::new(FieldPrime::get_required_bits()).flatten_program(program_ast);
-
-        match program_flattened.functions.into_iter().find(|fun| fun.id == "main") {
-        	Some(mut fun) => {
-        		fun.id = source.file_stem().unwrap().to_os_string().to_string_lossy().to_string();
-        		Ok(fun)
-        	},
-        	None => panic!("no main")
-        }
 	}
 }
 
