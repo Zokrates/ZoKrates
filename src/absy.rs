@@ -10,7 +10,7 @@ use std::collections::{HashMap, BTreeMap};
 use field::Field;
 use imports::Import;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct Prog<T: Field> {
     /// Functions of the program
     pub functions: Vec<Function<T>>,
@@ -67,7 +67,7 @@ impl<T: Field> fmt::Debug for Prog<T> {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct Function<T: Field> {
     /// Name of the program
     pub id: String,

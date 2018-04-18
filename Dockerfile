@@ -29,6 +29,3 @@ RUN cd libsnark-$libsnarkcommit \
 ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/usr/local/lib
 
 COPY . /root/ZoKrates
-
-RUN cd ZoKrates \
-  && cargo build --release

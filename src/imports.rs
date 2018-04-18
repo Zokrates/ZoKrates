@@ -5,18 +5,25 @@
 //! @date 2018
 
 use std::fmt;
+use absy::*;
+use field::Field;
+use std::path::PathBuf;
+use std::fs::File;
+use parser::parse_program;
 
 #[derive(PartialEq, Clone, Serialize, Deserialize)]
 pub struct Import {
-	source: String,
-	alias: Option<String>
+	source: PathBuf,
+	alias: Option<String>,
+	base: PathBuf
 }
 
 impl Import {
-	pub fn new(source: String) -> Import {
+	pub fn new(source: String, base: &PathBuf) -> Import {
 		Import {
-			source,
-			alias: None
+			source: PathBuf::from(source),
+			alias: None,
+			base: base.clone()
 		}
 	}
 
@@ -31,8 +38,8 @@ impl Import {
 impl fmt::Display for Import {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match &self.alias {
-			&Some(ref a) => write!(f, "import {} as {}", self.source, a),
-			&None => write!(f, "import {}", self.source)
+			&Some(ref a) => write!(f, "import {} as {}", self.source.clone().into_os_string().into_string().unwrap(), a),
+			&None => write!(f, "import {}", self.source.clone().into_os_string().into_string().unwrap())
 		}
 	}
 }
@@ -40,8 +47,67 @@ impl fmt::Display for Import {
 impl fmt::Debug for Import {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match &self.alias {
-			&Some(ref a) => write!(f, "import(source: {}, alias: {})", self.source, a),
-			&None => write!(f, "import(source: {})", self.source)
+			&Some(ref a) => write!(f, "import(source: {}, alias: {})", self.source.clone().into_os_string().into_string().unwrap(), a),
+			&None => write!(f, "import(source: {})", self.source.clone().into_os_string().into_string().unwrap())
 		}
     }
+}
+
+pub struct Importer {
+
+}
+
+impl Importer {
+	pub fn new() -> Importer {
+		Importer {
+
+		}
+	}
+
+	pub fn resolve_imports<T: Field>(&self, prog: Prog<T>) -> Result<Prog<T>,String> {
+		let mut p = prog.clone();
+		let imported_functions: Result<Vec<Function<T>>, String> = p.imports
+			.clone()
+			.into_iter()
+			.map(|i| self.resolve_import::<T>(i))
+			.collect();
+
+		match imported_functions {
+			Ok(mut funs) => {
+				funs.append(&mut p.functions);
+				Ok(Prog {
+					imports: vec![],
+					functions: funs
+				})
+			},
+			Err(e) => Err(e)
+		}
+	}
+
+	fn resolve_import<T: Field>(&self, import: Import) -> Result<Function<T>,String> {
+		let mut path = import.base.parent().unwrap().to_owned();
+		let source = import.source.strip_prefix("./").unwrap();
+		path.push(&source);
+
+		let file = match File::open(&path) {
+            Ok(file) => file,
+            Err(why) => panic!("couldn't open {}: {}", path.display(), why),
+        };
+
+        match parse_program(file, path) {
+        	Ok(p) => Ok(p.functions[0].clone()),
+        	Err(why) => Err(why.to_string())
+        }
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use field::FieldPrime;
+
+	#[test]
+	fn resolve_imports_test() {
+
+	}
 }

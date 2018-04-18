@@ -35,6 +35,7 @@ use std::string::String;
 use field::{Field, FieldPrime};
 use absy::Prog;
 use parser::parse_program;
+use imports::Importer;
 use semantics::Checker;
 use flatten::Flattener;
 use r1cs::r1cs_program;
@@ -209,12 +210,17 @@ fn main() {
                 Err(why) => panic!("couldn't open {}: {}", path.display(), why),
             };
 
-            let program_ast: Prog<FieldPrime> = match parse_program(file) {
+            let program_ast_without_imports: Prog<FieldPrime> = match parse_program(file, path.to_owned()) {
                 Ok(x) => x,
                 Err(why) => {
                     println!("{:?}", why);
                     std::process::exit(1);
                 }
+            };
+
+            let program_ast = match Importer::new().resolve_imports(program_ast_without_imports) {
+                Ok(program) => program,
+                Err(why) => panic!("Imports failed with {}", why)
             };
 
             println!("{}", program_ast);
@@ -587,7 +593,7 @@ mod tests {
                 Err(why) => panic!("couldn't open {:?}: {}", path, why),
             };
 
-            let program_ast = match parse_program::<FieldPrime>(file) {
+            let program_ast = match parse_program::<FieldPrime>(file, path.to_owned()) {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
             };
@@ -610,7 +616,7 @@ mod tests {
                 Err(why) => panic!("couldn't open {:?}: {}", path, why),
             };
 
-            let program_ast = match parse_program::<FieldPrime>(file) {
+            let program_ast = match parse_program::<FieldPrime>(file, path.to_owned()) {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
             };

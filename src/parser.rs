@@ -77,6 +77,7 @@ use std::io::prelude::*;
 use std::fs::File;
 use field::{Field, FieldPrime};
 use absy::*;
+use std::path::PathBuf;
 use imports::*;
 
 #[derive(Clone, PartialEq)]
@@ -1387,6 +1388,7 @@ fn parse_function<T: Field>(
 fn parse_import<T: Field>(
     input: &String,
     pos: &Position,
+    path: &PathBuf
 ) -> Result<(Import, Position), Error<T>> {
     match next_token(input, pos) {
         (Token::DoubleQuote, s1, p1) => {
@@ -1396,7 +1398,7 @@ fn parse_import<T: Field>(
                     Some('"') => {
                         end += 1;
                         return Ok((
-                            Import::new(s1[0..end - 1].to_string()),
+                            Import::new(s1[0..end - 1].to_string(), &path),
                             Position {
                                 line: p1.line,
                                 col: p1.col + end
@@ -1426,7 +1428,7 @@ fn parse_import<T: Field>(
     }
 }
 
-pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
+pub fn parse_program<T: Field>(file: File, path: PathBuf) -> Result<Prog<T>, Error<T>> {
     let mut current_line = 1;
     let reader = BufReader::new(file);
     let mut lines = reader.lines();
@@ -1443,7 +1445,7 @@ pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
                     col: 1,
                 },
             ) {
-                (Token::Import, ref s1, ref p1) => match parse_import(s1, p1) {
+                (Token::Import, ref s1, ref p1) => match parse_import(s1, p1, &path) {
                     Ok((import, p2)) => {
                         imports.push(import);
                         current_line = p2.line; // this is the line of the return statement
@@ -1767,15 +1769,16 @@ mod tests {
         #[test]
         fn parse_import_test() {
             let pos = Position { line: 45, col: 121 };
+            let pathbuf = PathBuf::from("examples/bar.code");
             let string = String::from("\"./foo.code\"");
-            let import = Import::new("./foo.code".to_string());
+            let import = Import::new("./foo.code".to_string(), &pathbuf);
             let position = Position {
                 line: 45,
                 col: pos.col + 1 + "./foo.code".len() + 1
             };
             assert_eq!(
                 Ok((import, position)),
-                parse_import::<FieldPrime>(&string, &pos)
+                parse_import::<FieldPrime>(&string, &pos, &pathbuf)
             )
         }
     }
