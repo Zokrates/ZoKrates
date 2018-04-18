@@ -15,6 +15,11 @@ use flatten::Flattener;
 use field::FieldPrime;
 
 
+#[derive(PartialEq, Debug)]
+pub struct Error {
+	message: String
+}
+
 #[derive(PartialEq, Clone, Serialize, Deserialize)]
 pub struct Import {
 	source: PathBuf,
@@ -31,7 +36,7 @@ impl Import {
 		}
 	}
 
-	pub fn resolve(&self) -> Result<PathBuf,String> {
+	pub fn resolve(&self) -> Result<PathBuf,Error> {
 		let mut path = self.base.parent().unwrap().to_owned();
 		let source = self.source.strip_prefix("./").unwrap();
 		path.push(&source);

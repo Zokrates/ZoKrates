@@ -10,6 +10,11 @@ use std::collections::HashSet;
 use absy::*;
 use field::Field;
 
+#[derive(PartialEq, Debug)]
+pub struct Error {
+	message: String
+}
+
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Symbol {
 	id: String,
@@ -39,7 +44,7 @@ impl Checker {
 		}
 	}
 
-	pub fn check_program<T: Field>(&mut self, prog: Prog<T>) -> Result<(), String> {
+	pub fn check_program<T: Field>(&mut self, prog: Prog<T>) -> Result<(), Error> {
 		for func in prog.functions {
 			self.check_function(&func)?;
 			self.functions.insert(FunctionDeclaration {
@@ -52,18 +57,18 @@ impl Checker {
 		Ok(())
 	}
 
-	fn check_single_main(&mut self) -> Result<(), String> {
+	fn check_single_main(&mut self) -> Result<(), Error> {
 		match self.functions.clone().into_iter().filter(|fun| fun.id == "main").count() {
 			1 => Ok(()),
-			0 => Err(format!("No main function found")),
-			n => Err(format!("Only one main function allowed, found {}", n))
+			0 => Err(Error { message: format!("No main function found") }),
+			n => Err(Error { message: format!("Only one main function allowed, found {}", n) })
 		}
 	}
 
-	fn check_function<T: Field>(&mut self, funct: &Function<T>) -> Result<(), String> {
+	fn check_function<T: Field>(&mut self, funct: &Function<T>) -> Result<(), Error> {
 		match self.find_function(&funct.id, funct.arguments.len()) {
 			Some(_) => {
-				return Err(format!("Duplicate definition for function {} with {} arguments", funct.id, funct.arguments.len()))
+				return Err(Error { message: format!("Duplicate definition for function {} with {} arguments", funct.id, funct.arguments.len()) })
 			},
 			None => {
 
@@ -89,7 +94,7 @@ impl Checker {
 		Ok(())
 	}
 
-	fn check_statement<T: Field>(&mut self, stat: Statement<T>) -> Result<(), String> {
+	fn check_statement<T: Field>(&mut self, stat: Statement<T>) -> Result<(), Error> {
 		match stat {
 			Statement::Return(list) => {
 				self.check_expression_list(list)?;
@@ -141,24 +146,24 @@ impl Checker {
                     				}
                     				return Ok(())
                     			}
-                    			Err(format!("{} returns {} values but left side is of size {}", f.id, f.return_count, ids.len()))
+                    			Err(Error { message: format!("{} returns {} values but left side is of size {}", f.id, f.return_count, ids.len()) })
                     		},
-                    		None => Err(format!("Function definition for function {} with {} argument(s) not found.", fun_id, arguments.len()))
+                    		None => Err(Error { message: format!("Function definition for function {} with {} argument(s) not found.", fun_id, arguments.len()) })
                     	}
                     },
-                    _ => Err(format!("{} should be a FunctionCall", rhs))
+                    _ => Err(Error { message: format!("{} should be a FunctionCall", rhs) })
                 }
             },
 		}
 	}
 
-	fn check_expression<T: Field>(&mut self, expr: Expression<T>) -> Result<(), String> {
+	fn check_expression<T: Field>(&mut self, expr: Expression<T>) -> Result<(), Error> {
 		match expr {
 			Expression::Identifier(id) => {
 				// check that `id` is defined in the scope
 				match self.scope.iter().find(|symbol| symbol.id == id.to_string()) {
 					Some(_) => Ok(()),
-					None => Err(format!("{} is undefined", id.to_string())),
+					None => Err(Error { message: format!("{} is undefined", id.to_string()) }),
 				}
 			}
 			Expression::Add(box e1, box e2) | Expression::Sub(box e1, box e2) | Expression::Mult(box e1, box e2) |
@@ -183,23 +188,23 @@ impl Checker {
 							}
 							return Ok(())
 						}
-						Err(format!("{} returns {} values but is called outside of a definition", fun_id, f.return_count))
+						Err(Error { message: format!("{} returns {} values but is called outside of a definition", fun_id, f.return_count) })
 					},
-                   	None => Err(format!("Function definition for function {} with {} argument(s) not found.", fun_id, arguments.len()))
+                   	None => Err(Error { message: format!("Function definition for function {} with {} argument(s) not found.", fun_id, arguments.len()) })
 				}
 			}
 			Expression::Number(_) => Ok(())
 		}
 	}
 
-	fn check_expression_list<T: Field>(&mut self, list: ExpressionList<T>) -> Result<(), String> {
+	fn check_expression_list<T: Field>(&mut self, list: ExpressionList<T>) -> Result<(), Error> {
 		for expr in list.expressions { // implement Iterator trait?
 			self.check_expression(expr)?
 		}
 		Ok(())
 	}
 
-	fn check_condition<T: Field>(&mut self, cond: Condition<T>) -> Result<(), String> {
+	fn check_condition<T: Field>(&mut self, cond: Condition<T>) -> Result<(), Error> {
 		match cond {
 			Condition::Lt(e1, e2) |
 			Condition::Le(e1, e2) |
