@@ -1,2 +1,4 @@
+import "./baz.code"
+
 def main():
-	return 42
+	return baz()

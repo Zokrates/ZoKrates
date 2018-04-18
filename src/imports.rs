@@ -10,6 +10,10 @@ use field::Field;
 use std::path::PathBuf;
 use std::fs::File;
 use parser::parse_program;
+use semantics::Checker;
+use flatten::Flattener;
+use field::FieldPrime;
+
 
 #[derive(PartialEq, Clone, Serialize, Deserialize)]
 pub struct Import {
@@ -94,9 +98,32 @@ impl Importer {
             Err(why) => panic!("couldn't open {}: {}", path.display(), why),
         };
 
-        match parse_program(file, path) {
-        	Ok(p) => Ok(p.functions[0].clone()),
-        	Err(why) => Err(why.to_string())
+        let program_ast_without_imports = match parse_program(file, path) {
+        	Ok(prog) => prog,
+        	Err(why) => panic!(why.to_string())
+        };
+
+        let program_ast = match self.resolve_imports(program_ast_without_imports) {
+        	Ok(prog) => prog,
+        	Err(why) => panic!(why.to_string())
+        };
+
+                    // check semantics
+        match Checker::new().check_program(program_ast.clone()) {
+            Ok(()) => (),
+            Err(why) => panic!(why.to_string())
+        };
+
+        // flatten input program
+        let program_flattened =
+            Flattener::new(FieldPrime::get_required_bits()).flatten_program(program_ast);
+
+        match program_flattened.functions.into_iter().find(|fun| fun.id == "main") {
+        	Some(mut fun) => {
+        		fun.id = source.file_stem().unwrap().to_os_string().to_string_lossy().to_string();
+        		Ok(fun)
+        	},
+        	None => panic!("no main")
         }
 	}
 }

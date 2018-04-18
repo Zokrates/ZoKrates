@@ -1,6 +1,5 @@
 import "./foo.code"
 import "./bar.code"
 
-
 def main():
-	return 1
+	return foo() + bar()
