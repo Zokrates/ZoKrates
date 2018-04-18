@@ -24,14 +24,16 @@ mod flatten;
 mod r1cs;
 mod field;
 mod verification;
+mod compile;
 #[cfg(not(feature = "nolibsnark"))]
 mod libsnark;
 
 use std::fs::File;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::io::{BufWriter, Write, BufReader, BufRead, stdin};
 use std::collections::HashMap;
 use std::string::String;
+use compile::compile;
 use field::{Field, FieldPrime};
 use absy::Prog;
 use parser::parse_program;
@@ -204,36 +206,9 @@ fn main() {
         ("compile", Some(sub_matches)) => {
             println!("Compiling {}", sub_matches.value_of("input").unwrap());
 
-            let path = Path::new(sub_matches.value_of("input").unwrap());
-            let file = match File::open(&path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't open {}: {}", path.display(), why),
-            };
+            let path = PathBuf::from(sub_matches.value_of("input").unwrap());
 
-            let program_ast_without_imports: Prog<FieldPrime> = match parse_program(file, path.to_owned()) {
-                Ok(x) => x,
-                Err(why) => {
-                    println!("{:?}", why);
-                    std::process::exit(1);
-                }
-            };
-
-            let program_ast = match Importer::new().resolve_imports(program_ast_without_imports) {
-                Ok(program) => program,
-                Err(why) => panic!("Imports failed with {}", why)
-            };
-
-            println!("{}", program_ast);
-
-            // check semantics
-            match Checker::new().check_program(program_ast.clone()) {
-                Ok(()) => (),
-                Err(why) => panic!("Semantic analysis failed with: {}", why)
-            };
-
-            // flatten input program
-            let program_flattened =
-                Flattener::new(FieldPrime::get_required_bits()).flatten_program(program_ast);
+            let program_flattened: Prog<FieldPrime> = compile(path).unwrap();
 
             // number of constraints the flattened program will translate to.
             let num_constraints = &program_flattened.functions
