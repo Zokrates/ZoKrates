@@ -35,9 +35,6 @@ use std::string::String;
 use field::{Field, FieldPrime};
 use absy::Prog;
 use compile::compile;
-use parser::parse_program;
-use semantics::Checker;
-use flatten::Flattener;
 use r1cs::r1cs_program;
 use clap::{App, AppSettings, Arg, SubCommand};
 #[cfg(not(feature = "nolibsnark"))]
@@ -560,18 +557,12 @@ mod tests {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
             };
-            println!("Testing {:?}", path);
-            let file = match File::open(&path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't open {:?}: {}", path, why),
-            };
 
-            let program_ast = match parse_program::<FieldPrime>(file) {
-                Ok(x) => x,
-                Err(why) => panic!("Error: {:?}", why),
-            };
-            let program_flattened =
-                Flattener::new(FieldPrime::get_required_bits()).flatten_program(program_ast);
+            println!("Testing {:?}", path);
+
+            let program_flattened: Prog<FieldPrime> =
+                compile(path).unwrap();
+
             let (..) = r1cs_program(&program_flattened);
         }
     }
@@ -584,17 +575,10 @@ mod tests {
                 Err(why) => panic!("Error: {:?}", why),
             };
             println!("Testing {:?}", path);
-            let file = match File::open(&path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't open {:?}: {}", path, why),
-            };
 
-            let program_ast = match parse_program::<FieldPrime>(file) {
-                Ok(x) => x,
-                Err(why) => panic!("Error: {:?}", why),
-            };
-            let program_flattened =
-                Flattener::new(FieldPrime::get_required_bits()).flatten_program(program_ast);
+            let program_flattened: Prog<FieldPrime> =
+                compile(path).unwrap();
+
             let (..) = r1cs_program(&program_flattened);
             let _ = program_flattened.get_witness(vec![FieldPrime::zero()]);
         }

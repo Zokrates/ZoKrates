@@ -4,10 +4,8 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.org>
 //! @date 2018
 use std::fs::File;
-use std::path::{Path, PathBuf};
-use std::collections::HashMap;
-use std::string::String;
-use field::{Field, FieldPrime};
+use std::path::{PathBuf};
+use field::{Field};
 use absy::{Prog};
 use parser::{self, parse_program};
 use semantics::{self, Checker};
