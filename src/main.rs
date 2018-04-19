@@ -203,7 +203,10 @@ fn main() {
 
             let path = PathBuf::from(sub_matches.value_of("input").unwrap());
             
-            let program_flattened: Prog<FieldPrime> = compile(path).unwrap();
+            let program_flattened: Prog<FieldPrime> = match compile(path) {
+                Ok(p) => p,
+                Err(why) => panic!("Compilation failed: {}", why)
+            };
 
             // number of constraints the flattened program will translate to.
             let num_constraints = &program_flattened.functions

@@ -5,7 +5,8 @@
 //! @date 2018
 use std::fs::File;
 use std::path::{PathBuf};
-use field::{Field};
+use std::fmt;
+use field::{Field, FieldPrime};
 use absy::{Prog};
 use parser::{self, parse_program};
 use semantics::{self, Checker};
@@ -37,10 +38,21 @@ impl<T: Field> From<semantics::Error> for CompileError<T> {
 	}
 }
 
-pub fn compile<T: Field>(path: PathBuf) -> Result<Prog<T>, CompileError<T>> {
-	let file = File::open(&path).unwrap();
+impl fmt::Display for CompileError<FieldPrime> {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		let res = match *self {
+			CompileError::ParserError(ref e) => format!("Syntax error: {}", e),
+			CompileError::SemanticError(ref e) => format!("Semantic error: {}", e),
+			CompileError::ReadError(ref e) => format!("Read error: {}", e)
+		};
+		write!(f, "{}", res)
+	}
+}
 
-    let program_ast: Prog<T> = parse_program(file).unwrap();
+pub fn compile<T: Field>(path: PathBuf) -> Result<Prog<T>, CompileError<T>> {
+	let file = File::open(&path)?;
+
+    let program_ast: Prog<T> = parse_program(file)?;
 
     // check semantics
     Checker::new().check_program(program_ast.clone())?;

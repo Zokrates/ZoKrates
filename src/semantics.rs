@@ -9,10 +9,17 @@
 use std::collections::HashSet;
 use absy::*;
 use field::Field;
+use std::fmt;
 
 #[derive(PartialEq, Debug)]
 pub struct Error {
 	message: String
+}
+
+impl fmt::Display for Error {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "{}", self.message)
+	}
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
