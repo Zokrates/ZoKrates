@@ -8,16 +8,16 @@ use std::fmt;
 use absy::*;
 use field::Field;
 use std::path::PathBuf;
-use std::fs::File;
-use parser::parse_program;
-use semantics::Checker;
-use flatten::Flattener;
-use field::FieldPrime;
-
 
 #[derive(PartialEq, Debug)]
 pub struct Error {
 	message: String
+}
+
+impl fmt::Display for Error {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "{}", self.message)
+	}
 }
 
 #[derive(PartialEq, Clone, Serialize, Deserialize)]
@@ -106,11 +106,5 @@ impl Importer {
 
 #[cfg(test)]
 mod tests {
-	use super::*;
-	use field::FieldPrime;
 
-	#[test]
-	fn resolve_imports_test() {
-
-	}
 }

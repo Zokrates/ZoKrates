@@ -21,10 +21,10 @@ mod parser;
 mod imports;
 mod semantics;
 mod flatten;
+mod compile;
 mod r1cs;
 mod field;
 mod verification;
-mod compile;
 #[cfg(not(feature = "nolibsnark"))]
 mod libsnark;
 
@@ -36,10 +36,6 @@ use std::string::String;
 use compile::compile;
 use field::{Field, FieldPrime};
 use absy::Prog;
-use parser::parse_program;
-use imports::Importer;
-use semantics::Checker;
-use flatten::Flattener;
 use r1cs::r1cs_program;
 use clap::{App, AppSettings, Arg, SubCommand};
 #[cfg(not(feature = "nolibsnark"))]
@@ -207,8 +203,11 @@ fn main() {
             println!("Compiling {}", sub_matches.value_of("input").unwrap());
 
             let path = PathBuf::from(sub_matches.value_of("input").unwrap());
-
-            let program_flattened: Prog<FieldPrime> = compile(path).unwrap();
+            
+            let program_flattened: Prog<FieldPrime> = match compile(path) {
+                Ok(p) => p,
+                Err(why) => panic!("Compilation failed: {}", why)
+            };
 
             // number of constraints the flattened program will translate to.
             let num_constraints = &program_flattened.functions
@@ -562,18 +561,12 @@ mod tests {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
             };
-            println!("Testing {:?}", path);
-            let file = match File::open(&path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't open {:?}: {}", path, why),
-            };
 
-            let program_ast = match parse_program::<FieldPrime>(file, path.to_owned()) {
-                Ok(x) => x,
-                Err(why) => panic!("Error: {:?}", why),
-            };
-            let program_flattened =
-                Flattener::new(FieldPrime::get_required_bits()).flatten_program(program_ast);
+            println!("Testing {:?}", path);
+
+            let program_flattened: Prog<FieldPrime> =
+                compile(path).unwrap();
+
             let (..) = r1cs_program(&program_flattened);
         }
     }
@@ -586,17 +579,10 @@ mod tests {
                 Err(why) => panic!("Error: {:?}", why),
             };
             println!("Testing {:?}", path);
-            let file = match File::open(&path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't open {:?}: {}", path, why),
-            };
 
-            let program_ast = match parse_program::<FieldPrime>(file, path.to_owned()) {
-                Ok(x) => x,
-                Err(why) => panic!("Error: {:?}", why),
-            };
-            let program_flattened =
-                Flattener::new(FieldPrime::get_required_bits()).flatten_program(program_ast);
+            let program_flattened: Prog<FieldPrime> =
+                compile(path).unwrap();
+
             let (..) = r1cs_program(&program_flattened);
             let _ = program_flattened.get_witness(vec![FieldPrime::zero()]);
         }

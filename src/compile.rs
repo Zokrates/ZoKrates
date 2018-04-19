@@ -4,9 +4,8 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.org>
 //! @date 2018
 use std::fs::File;
-use std::path::{Path, PathBuf};
-use std::collections::HashMap;
-use std::string::String;
+use std::fmt;
+use std::path::{PathBuf};
 use field::{Field, FieldPrime};
 use absy::{Prog};
 use parser::{self, parse_program};
@@ -47,10 +46,22 @@ impl<T: Field> From<semantics::Error> for CompileError<T> {
 	}
 }
 
-pub fn compile<T: Field>(path: PathBuf) -> Result<Prog<T>, CompileError<T>> {
-	let file = File::open(&path).unwrap();
+impl fmt::Display for CompileError<FieldPrime> {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		let res = match *self {
+			CompileError::ParserError(ref e) => format!("Syntax error: {}", e),
+			CompileError::SemanticError(ref e) => format!("Semantic error: {}", e),
+			CompileError::ReadError(ref e) => format!("Read error: {}", e),
+			CompileError::ImportError(ref e) => format!("Import error: {}", e)
+		};
+		write!(f, "{}", res)
+	}
+}
 
-    let program_ast_without_imports: Prog<T> = parse_program(file, path.to_owned()).unwrap();
+pub fn compile<T: Field>(path: PathBuf) -> Result<Prog<T>, CompileError<T>> {
+	let file = File::open(&path)?;
+
+    let program_ast_without_imports: Prog<T> = parse_program(file, path.to_owned())?;
 
     let mut compiled_imports: Vec<(Prog<T>, String)> = vec![];
 

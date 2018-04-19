@@ -9,10 +9,17 @@
 use std::collections::HashSet;
 use absy::*;
 use field::Field;
+use std::fmt;
 
 #[derive(PartialEq, Debug)]
 pub struct Error {
 	message: String
+}
+
+impl fmt::Display for Error {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "{}", self.message)
+	}
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -245,7 +252,7 @@ mod tests {
 			Expression::Identifier(String::from("b"))
 		);
 		let mut checker = Checker::new();
-		assert_eq!(checker.check_statement(statement), Err("b is undefined".to_string()));
+		assert_eq!(checker.check_statement(statement), Err(Error { message: "b is undefined".to_string() }));
 	}
 
 	#[test]
@@ -308,7 +315,7 @@ mod tests {
         };
 
 		let mut checker = Checker::new();
-		assert_eq!(checker.check_program(prog), Err("a is undefined".to_string()));
+		assert_eq!(checker.check_program(prog), Err(Error { message: "a is undefined".to_string() }));
 	}
 
 	#[test]
@@ -406,7 +413,7 @@ mod tests {
 		};
 
 		let mut checker = Checker::new();
-		assert_eq!(checker.check_function(&foo), Err("i is undefined".to_string()));
+		assert_eq!(checker.check_function(&foo), Err(Error { message: "i is undefined".to_string() }));
 	}
 
 	#[test]
@@ -468,7 +475,7 @@ mod tests {
 		};
 
 		let mut checker = new_with_args(HashSet::new(), 0, functions);
-		assert_eq!(checker.check_function(&bar), Err("foo returns 2 values but left side is of size 1".to_string()));
+		assert_eq!(checker.check_function(&bar), Err(Error { message: "foo returns 2 values but left side is of size 1".to_string() }));
 	}
 
 	#[test]
@@ -500,7 +507,7 @@ mod tests {
 		};
 
 		let mut checker = new_with_args(HashSet::new(), 0, functions);
-		assert_eq!(checker.check_function(&bar), Err("foo returns 2 values but is called outside of a definition".to_string()));
+		assert_eq!(checker.check_function(&bar), Err(Error { message: "foo returns 2 values but is called outside of a definition".to_string() }));
 	}
 
 	#[test]
@@ -521,7 +528,7 @@ mod tests {
 		};
 
 		let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
-		assert_eq!(checker.check_function(&bar), Err("Function definition for function foo with 0 argument(s) not found.".to_string()));
+		assert_eq!(checker.check_function(&bar), Err(Error { message: "Function definition for function foo with 0 argument(s) not found.".to_string() }));
 	}
 
 	#[test]
@@ -542,7 +549,7 @@ mod tests {
 		};
 
 		let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
-		assert_eq!(checker.check_function(&bar), Err("Function definition for function foo with 0 argument(s) not found.".to_string()));
+		assert_eq!(checker.check_function(&bar), Err(Error { message: "Function definition for function foo with 0 argument(s) not found.".to_string() }));
 	}
 
 	#[test]
@@ -565,7 +572,7 @@ mod tests {
 		};
 
 		let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
-		assert_eq!(checker.check_function(&bar), Err("a is undefined".to_string()));
+		assert_eq!(checker.check_function(&bar), Err(Error { message: "a is undefined".to_string() }));
 	}
 
 	#[test]
@@ -652,7 +659,7 @@ mod tests {
 		};
 
 		let mut checker = new_with_args(HashSet::new(), 0, functions);
-		assert_eq!(checker.check_function(&foo2), Err("Duplicate definition for function foo with 2 arguments".to_string()));
+		assert_eq!(checker.check_function(&foo2), Err(Error { message: "Duplicate definition for function foo with 2 arguments".to_string() }));
 	}
 
 	#[test]
@@ -707,6 +714,6 @@ mod tests {
 		};
 
 		let mut checker = Checker::new();
-		assert_eq!(checker.check_program(prog), Err("Only one main function allowed, found 2".to_string()));
+		assert_eq!(checker.check_program(prog), Err(Error { message: "Only one main function allowed, found 2".to_string() }));
 	}
 }
