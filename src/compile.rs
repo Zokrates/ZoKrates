@@ -13,12 +13,14 @@ use parser::{self, parse_program};
 use imports::{self, Importer};
 use semantics::{self, Checker};
 use flatten::Flattener;
+use std::io::{self};
 
-#[derive(PartialEq, Debug)]
+#[derive(Debug)]
 pub enum CompileError<T: Field> {
 	ParserError(parser::Error<T>),
 	ImportError(imports::Error),
-	SemanticError(semantics::Error)
+	SemanticError(semantics::Error),
+	ReadError(io::Error)
 }
 
 impl<T: Field> From<parser::Error<T>> for CompileError<T> {
@@ -30,6 +32,12 @@ impl<T: Field> From<parser::Error<T>> for CompileError<T> {
 impl<T: Field> From<imports::Error> for CompileError<T> {
 	fn from(error: imports::Error) -> Self {
 		CompileError::ImportError(error)
+	}
+}
+
+impl<T: Field> From<io::Error> for CompileError<T> {
+	fn from(error: io::Error) -> Self {
+		CompileError::ReadError(error)
 	}
 }
 
@@ -55,7 +63,7 @@ pub fn compile<T: Field>(path: PathBuf) -> Result<Prog<T>, CompileError<T>> {
     let program_ast = Importer::new().apply_imports(compiled_imports, program_ast_without_imports);
 
     // check semantics
-    Checker::new().check_program(program_ast.clone()).unwrap();
+    Checker::new().check_program(program_ast.clone())?;
 
     // flatten input program
     let program_flattened =
