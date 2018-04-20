@@ -585,7 +585,7 @@ mod tests {
 		};
 
 		let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
-		assert_eq!(checker.check_program(program), Err("x is undefined".to_string()));
+		assert_eq!(checker.check_program(program), Err(Error { message: "x is undefined".to_string() }));
 	}
 
 	#[test]
