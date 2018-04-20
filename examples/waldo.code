@@ -2,7 +2,7 @@
 // In this example, the crowd is a series of numbers, ideally* all prime but one, and Waldo is a non-prime number
 // * we don't enforce only one number being non-prime, so there could be multiple Waldos
 
-def isWaldo(a):
+def isWaldo(a, p, q):
   // make sure that p and q are both non zero
   // we can't check inequalities, so let's create binary
   // variables
@@ -16,10 +16,10 @@ def isWaldo(a):
   return 1
 
 // define all
-def main(a0, a1, a2, a3):
+def main(a0, a1, a2, a3, private index, private p, private q):
   // prover provides the index of Waldo
   waldo = if index == 0 then a0 else 0 fi 
   waldo = waldo + if index == 1 then a1 else 0 fi 
   waldo = waldo + if index == 2 then a2 else 0 fi 
   waldo = waldo + if index == 3 then a3 else 0 fi
-  return isWaldo(waldo)
+  return isWaldo(waldo, p, q)
