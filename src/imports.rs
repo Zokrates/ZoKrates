@@ -1,7 +1,7 @@
 //! Module containing structs and enums to represent imports.
 //!
 //! @file imports.rs
-//! @author Thibaut Schaeffer <thibaut@schaeff.org>
+//! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
 use std::fmt;
