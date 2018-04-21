@@ -583,7 +583,8 @@ mod tests {
 		};
 
 		let program = Prog {
-			functions: vec![foo, main]
+			functions: vec![foo, main],
+			imports: vec![]
 		};
 
 		let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
