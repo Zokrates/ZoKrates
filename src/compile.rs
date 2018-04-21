@@ -1,7 +1,7 @@
 //! Module containing the complete compilation pipeline.
 //!
 //! @file compile.rs
-//! @author Thibaut Schaeffer <thibaut@schaeff.org>
+//! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 use std::fs::File;
 use std::fmt;
