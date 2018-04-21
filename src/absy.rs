@@ -31,19 +31,19 @@ impl<T: Field> Prog<T> {
 
 impl<T: Field> fmt::Display for Prog<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut res = vec![];
+        res.extend(self.imports
+                .iter()
+                .map(|x| format!("{}", x))
+                .collect::<Vec<_>>());
+        res.extend(self.functions
+                .iter()
+                .map(|x| format!("{}", x))
+                .collect::<Vec<_>>());
         write!(
             f,
-            "{}\n{}",
-            self.imports
-                .iter()
-                .map(|x| format!("{}", x))
-                .collect::<Vec<_>>()
-                .join("\n"),
-            self.functions
-                .iter()
-                .map(|x| format!("{}", x))
-                .collect::<Vec<_>>()
-                .join("\n")
+            "{}",
+            res.join("\n")
         )
     }
 }
