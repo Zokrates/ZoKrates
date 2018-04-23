@@ -48,12 +48,13 @@ impl Import {
 		self.alias.clone()
 	}
 
-	// pub fn new_with_alias(source: String, alias: String) -> Import {
-	// 	Import {
-	// 		source,
-	// 		alias: Some(alias)
-	// 	}
-	// }
+	pub fn new_with_alias(source: String, base: &PathBuf, alias: &String) -> Import {
+		Import {
+			source: PathBuf::from(source.clone()),
+			alias: alias.clone(),
+			base: base.clone()
+		}
+	}
 }
 
 impl fmt::Display for Import {
@@ -107,4 +108,23 @@ impl Importer {
 #[cfg(test)]
 mod tests {
 
+	use super::*;
+
+	#[test]
+	fn create_with_no_alias() {
+		assert_eq!(Import::new("./foo/bar/baz.code".to_string(), &PathBuf::from("/path/to/dir")), Import {
+			source: PathBuf::from("./foo/bar/baz.code"),
+			alias: "baz".to_string(),
+			base: PathBuf::from("/path/to/dir")
+		});
+	}
+
+	#[test]
+	fn create_with_alias() {
+		assert_eq!(Import::new_with_alias("./foo/bar/baz.code".to_string(), &PathBuf::from("/path/to/dir"), &"myalias".to_string()), Import {
+			source: PathBuf::from("./foo/bar/baz.code"),
+			alias: "myalias".to_string(),
+			base: PathBuf::from("/path/to/dir")
+		});
+	}
 }
