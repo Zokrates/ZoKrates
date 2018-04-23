@@ -38,19 +38,19 @@ impl Optimizer {
 		}
 	}
 
-	pub fn optimize_program<T: Field>(&mut self, prog: Prog<T>) -> Result<Prog<T>, String> {
+	pub fn optimize_program<T: Field>(&mut self, prog: Prog<T>) -> Prog<T> {
 		let optimized_program = Prog {
 			functions: prog.functions.into_iter().filter_map(|func| {
 				if func.id == "main" {
-					return Some(self.optimize_function(func).unwrap());
+					return Some(self.optimize_function(func));
 				}
 				return None;
 			}).collect()
 		};
-		Ok(optimized_program)
+		optimized_program
 	}
 
-	pub fn optimize_function<T: Field>(&mut self, funct: Function<T>) -> Result<Function<T>, String> {
+	pub fn optimize_function<T: Field>(&mut self, funct: Function<T>) -> Function<T> {
 
 		// Add arguments to substitution map
 		for arg in &funct.arguments {
@@ -113,7 +113,7 @@ impl Optimizer {
 		optimized_funct.statements = optimized_statements;
 		optimized_funct.arguments = optimized_arguments;
 
-		Ok(optimized_funct)
+		optimized_funct
 	}
 }
 
@@ -149,7 +149,7 @@ mod tests {
         };
 
         let mut optimizer = Optimizer::new();
-        assert_eq!(optimizer.optimize_function(f), Ok(optimized));
+        assert_eq!(optimizer.optimize_function(f), optimized);
 	}
 
 
@@ -183,6 +183,6 @@ mod tests {
         };
 
         let mut optimizer = Optimizer::new();
-        assert_eq!(optimizer.optimize_function(f), Ok(optimized));
+        assert_eq!(optimizer.optimize_function(f), optimized);
 	}
 }
