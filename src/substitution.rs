@@ -25,7 +25,10 @@ impl Substitution {
     pub fn insert(&mut self, key: String, element: String) -> Option<String>
     {
         let (p, _) = Self::split_key(&key);
-        self.hashmap.insert(p.to_string(), element)
+        match self.hashmap.get(p) {
+            None => self.hashmap.insert(p.to_string(), element),
+            Some(_) => None
+        }
     }
 
     pub fn get(&self, key: &str) -> Option<String> {
@@ -71,5 +74,13 @@ mod tests {
         let mut s = Substitution::new();
         s.insert("abc_de_b23".to_string(), "_123".to_string());
         assert_eq!(s.get("abc_de_b23").unwrap(), "_123_b23".to_string());
+    }
+
+    #[test]
+    fn insert_twice_with_same_prefix() {
+        let mut s = Substitution::new();
+        s.insert("abc_de_b23".to_string(), "_123".to_string());
+        s.insert("abc_de_b24".to_string(), "_456".to_string());
+        assert_eq!(s.get("abc_de_b24").unwrap(), "_123_b24".to_string());
     }
 }
