@@ -7,7 +7,6 @@
 
 use absy::*;
 use field::Field;
-use std::collections::{HashMap};
 
 pub struct Optimizer {
 	/// Map of renamings for reassigned variables while processing the program.
