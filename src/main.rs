@@ -571,7 +571,7 @@ mod tests {
             println!("Testing {:?}", path);
 
             let program_flattened: Prog<FieldPrime> =
-                compile(path, false).unwrap();
+                compile(path, true).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
         }
@@ -587,7 +587,7 @@ mod tests {
             println!("Testing {:?}", path);
 
             let program_flattened: Prog<FieldPrime> =
-                compile(path, false).unwrap();
+                compile(path, true).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
             let _ = program_flattened.get_witness(vec![FieldPrime::zero()]);
