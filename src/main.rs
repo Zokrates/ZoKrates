@@ -19,6 +19,7 @@ extern crate regex;
 mod absy;
 mod parser;
 mod semantics;
+mod substitution;
 mod flatten;
 mod compile;
 mod optimizer;

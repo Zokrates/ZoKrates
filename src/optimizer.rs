@@ -5,6 +5,7 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
+use substitution::Substitution;
 use absy::*;
 use field::Field;
 
