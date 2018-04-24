@@ -6,6 +6,7 @@
 //! @date 2017
 
 use std::collections::{HashMap, HashSet};
+use substitution::Substitution;
 use absy::*;
 use absy::Expression::*;
 use field::Field;
