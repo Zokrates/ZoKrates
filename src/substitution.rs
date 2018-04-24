@@ -53,3 +53,23 @@ impl Substitution {
         (parts.nth(0).unwrap(), parts.nth(0))
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn insert_simple_variable() {
+        let mut s = Substitution::new();
+        s.insert("abc_de".to_string(), "_123".to_string());
+        assert_eq!(s.get("abc_de").unwrap(), "_123".to_string());
+    }
+
+    #[test]
+    fn insert_binary_variable() {
+        let mut s = Substitution::new();
+        s.insert("abc_de_b23".to_string(), "_123".to_string());
+        assert_eq!(s.get("abc_de_b23").unwrap(), "_123_b23".to_string());
+    }
+}

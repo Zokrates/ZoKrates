@@ -5,6 +5,8 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
+const BINARY_SEPARATOR: &str = "_b";
+
 use std::collections::{HashMap, HashSet};
 use substitution::Substitution;
 use absy::*;
@@ -89,7 +91,7 @@ impl Flattener {
                     ),
                 ));
                 for i in 0..self.bits - 2 {
-                    let new_name = format!("{}_b{}", &subtraction_result, i);
+                    let new_name = format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, i);
                     statements_flattened.push(Statement::Definition(
                         new_name.to_string(),
                         Mult(
@@ -99,9 +101,9 @@ impl Flattener {
                     ));
                 }
                 let mut expr = Add(
-                    box Identifier(format!("{}_b0", &subtraction_result)), // * 2^0
+                    box Identifier(format!("{}{}0", &subtraction_result, BINARY_SEPARATOR)), // * 2^0
                     box Mult(
-                        box Identifier(format!("{}_b1", &subtraction_result)),
+                        box Identifier(format!("{}{}1", &subtraction_result, BINARY_SEPARATOR)),
                         box Number(T::from(2)),
                     ),
                 );
@@ -110,11 +112,11 @@ impl Flattener {
                         box expr,
                         box Add(
                             box Mult(
-                                box Identifier(format!("{}_b{}", &subtraction_result, 2 * i)),
+                                box Identifier(format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, 2 * i)),
                                 box Number(T::from(2).pow(2 * i)),
                             ),
                             box Mult(
-                                box Identifier(format!("{}_b{}", &subtraction_result, 2 * i + 1)),
+                                box Identifier(format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, 2 * i + 1)),
                                 box Number(T::from(2).pow(2 * i + 1)),
                             ),
                         ),
@@ -124,7 +126,7 @@ impl Flattener {
                     expr = Add(
                         box expr,
                         box Mult(
-                            box Identifier(format!("{}_b{}", &subtraction_result, self.bits - 3)),
+                            box Identifier(format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, self.bits - 3)),
                             box Number(T::from(2).pow(self.bits - 1)),
                         ),
                     )
@@ -132,7 +134,7 @@ impl Flattener {
                 statements_flattened
                     .push(Statement::Definition(subtraction_result.to_string(), expr));
 
-                let cond_true = format!("{}_b0", &subtraction_result);
+                let cond_true = format!("{}{}0", &subtraction_result, BINARY_SEPARATOR);
                 let cond_false = format!("sym_{}", self.next_var_idx);
                 self.next_var_idx += 1;
                 statements_flattened.push(Statement::Definition(
