@@ -17,7 +17,7 @@ pub struct Flattener {
     /// Vector containing all used variables while processing the program.
     variables: HashSet<String>,
     /// Map of renamings for reassigned variables while processing the program.
-    substitution: HashMap<String, String>,
+    substitution: Substitution,
     /// Map of function id to invocation counter
     function_calls: HashMap<String, usize>,
     /// Index of the next introduced variable while processing the program.
@@ -33,7 +33,7 @@ impl Flattener {
         Flattener {
             bits: bits,
             variables: HashSet::new(),
-            substitution: HashMap::new(),
+            substitution: Substitution::new(),
             function_calls: HashMap::new(),
             next_var_idx: 0,
         }
@@ -215,7 +215,7 @@ impl Flattener {
                 // e.g.: add_1_a_2
 
                 // Stores prefixed variables
-                let mut replacement_map: HashMap<String, String> = HashMap::new();
+                let mut replacement_map = Substitution::new();
 
                 // build prefix
                 match self.function_calls.clone().get(&funct.id) {
@@ -675,7 +675,7 @@ impl Flattener {
         funct: Function<T>,
     ) -> Function<T> {
         self.variables = HashSet::new();
-        self.substitution = HashMap::new();
+        self.substitution = Substitution::new();
         self.next_var_idx = 0;
         let mut arguments_flattened: Vec<Parameter> = Vec::new();
         let mut statements_flattened: Vec<Statement<T>> = Vec::new();

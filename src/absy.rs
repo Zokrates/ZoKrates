@@ -9,6 +9,56 @@ use std::fmt;
 use std::collections::{HashMap, BTreeMap};
 use field::Field;
 
+#[derive(Debug, Clone)]
+pub struct Substitution {
+    hashmap: HashMap<String, String>
+}
+
+impl Substitution {
+    pub fn new() -> Substitution {
+        Substitution {
+            hashmap: {
+                HashMap::<String, String>::new()
+            }
+        }
+    }
+
+    pub fn insert(&mut self, key: String, element: String) -> Option<String>
+    {
+        let (p, _) = Self::split_key(&key);
+        self.hashmap.insert(p.to_string(), element)
+    }
+
+    pub fn get(&self, key: &str) -> Option<String> {
+        let (p, s) = Self::split_key(key);
+        match self.hashmap.get(p) {
+            Some(ref v) => {
+                match s {
+                    Some(suffix) => {
+                        Some(format!("{}{}{}", v, Self::separator(), suffix))
+                    },
+                    None => Some(v.to_string()),
+                }
+            },
+            None => None
+        }
+    }
+
+    pub fn contains_key(&mut self, key: &str) -> bool {
+        let (p, _) = Self::split_key(&key);
+        self.hashmap.contains_key(p)
+    }
+
+    fn split_key(key: &str) -> (&str, Option<&str>) {
+        let mut parts = key.split("_b");
+        (parts.nth(0).unwrap(), parts.nth(0))
+    }
+
+    fn separator() -> String {
+        "_b".to_string()
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Prog<T: Field> {
     /// Functions of the program
@@ -158,7 +208,7 @@ impl<T: Field> Statement<T> {
         }
     }
 
-    pub fn apply_substitution(&self, substitution: &HashMap<String, String>) -> Statement<T> {
+    pub fn apply_substitution(&self, substitution: &Substitution) -> Statement<T> {
         match *self {
             Statement::Definition(ref id, ref x) => Statement::Definition(
                 match substitution.get(id) { 
@@ -241,7 +291,7 @@ pub struct Parameter {
 }
 
 impl Parameter {
-    pub fn apply_substitution(&self, substitution: &HashMap<String, String>) -> Parameter {
+    pub fn apply_substitution(&self, substitution: &Substitution) -> Parameter {
         Parameter {
             id: substitution.get(&self.id).unwrap().to_string(),
             private: self.private
@@ -276,7 +326,7 @@ pub enum Expression<T: Field> {
 }
 
 impl<T: Field> Expression<T> {
-    pub fn apply_substitution(&self, substitution: &HashMap<String, String>) -> Expression<T> {
+    pub fn apply_substitution(&self, substitution: &Substitution) -> Expression<T> {
         match *self {
             ref e @ Expression::Number(_) => e.clone(),
             Expression::Identifier(ref v) => {
@@ -470,7 +520,7 @@ impl<T: Field> ExpressionList<T> {
         }
     }
 
-    pub fn apply_substitution(&self, substitution: &HashMap<String, String>) -> ExpressionList<T> {
+    pub fn apply_substitution(&self, substitution: &Substitution) -> ExpressionList<T> {
         let expressions: Vec<Expression<T>> = self.expressions.iter().map(|e| e.apply_substitution(substitution)).collect();
         ExpressionList {
             expressions: expressions
@@ -510,7 +560,7 @@ pub enum Condition<T: Field> {
 }
 
 impl<T: Field> Condition<T> {
-    fn apply_substitution(&self, substitution: &HashMap<String, String>) -> Condition<T> {
+    fn apply_substitution(&self, substitution: &Substitution) -> Condition<T> {
         match *self {
             Condition::Lt(ref lhs, ref rhs) => Condition::Lt(
                 lhs.apply_substitution(substitution),

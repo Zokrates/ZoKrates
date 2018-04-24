@@ -11,7 +11,7 @@ use std::collections::{HashMap};
 
 pub struct Optimizer {
 	/// Map of renamings for reassigned variables while processing the program.
-	substitution: HashMap<String,String>,
+	substitution: Substitution,
 	/// Index of the next introduced variable while processing the program.
 	next_var_idx: Counter
 }
@@ -31,7 +31,7 @@ impl Counter {
 impl Optimizer {
 	pub fn new() -> Optimizer {
 		Optimizer {
-			substitution: HashMap::new(),
+			substitution: Substitution::new(),
     		next_var_idx: Counter {
     			value: 0
     		}
