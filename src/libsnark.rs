@@ -33,6 +33,10 @@ extern "C" {
                 private_inputs: *const uint8_t,
                 private_inputs_length: c_int,
             ) -> bool;
+
+    fn _sha256Constraints() -> String ;
+
+    fn _sha256Witness() -> String;  
 }
 
 pub fn setup<T: Field> (
@@ -170,5 +174,11 @@ mod tests {
             }
         }
 
+        #[test]
+        fn sha_256() { 
+            //let out: String = unsafe { _sha256Constraints() };
+             //let out: String = unsafe { _sha256Witness() };
+            //assert_eq!(0,12);
+        }
     }
 }
