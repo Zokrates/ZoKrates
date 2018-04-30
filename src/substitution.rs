@@ -53,6 +53,7 @@ impl Substitution {
 
     fn split_key(key: &str) -> (&str, Option<&str>) {
         let mut parts = key.split(BINARY_SEPARATOR);
+        assert!(parts.clone().count() <= 2);
         (parts.nth(0).unwrap(), parts.nth(0))
     }
 }
@@ -82,5 +83,12 @@ mod tests {
         s.insert("abc_de_b23".to_string(), "_123".to_string());
         s.insert("abc_de_b24".to_string(), "_456".to_string());
         assert_eq!(s.get("abc_de_b24").unwrap(), "_123_b24".to_string());
+    }
+
+    #[test]
+    #[should_panic]
+    fn two_separators() {
+        let mut s = Substitution::new();
+        s.insert("abc_b21_b33".to_string(), "_123".to_string());
     }
 }
