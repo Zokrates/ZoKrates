@@ -326,14 +326,18 @@ impl Flattener {
                     statements_flattened,
                     right,
                 );
-                let new_left = {
+                let new_left = if left_flattened.is_linear() {
+                    left_flattened
+                } else {
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;
                     statements_flattened
                         .push(FlatStatement::Definition(new_name.to_string(), left_flattened));
                     FlatExpression::Identifier(new_name)
                 };
-                let new_right = {
+                let new_right = if right_flattened.is_linear() {
+                    right_flattened
+                } else {
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;
                     statements_flattened
@@ -355,14 +359,18 @@ impl Flattener {
                     statements_flattened,
                     right,
                 );
-                let new_left = {
+                let new_left = if left_flattened.is_linear() {
+                    left_flattened
+                } else {                    
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;
                     statements_flattened
                         .push(FlatStatement::Definition(new_name.to_string(), left_flattened));
                     FlatExpression::Identifier(new_name)
                 };
-                let new_right = {
+                let new_right = if right_flattened.is_linear() {
+                    right_flattened
+                } else {                    
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;
                     statements_flattened
