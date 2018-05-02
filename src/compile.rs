@@ -8,6 +8,7 @@ use std::path::{PathBuf};
 use std::fmt;
 use field::{Field, FieldPrime};
 use absy::{Prog};
+use flat_absy::{FlatProg};
 use parser::{self, parse_program};
 use semantics::{self, Checker};
 use flatten::Flattener;
@@ -49,7 +50,7 @@ impl fmt::Display for CompileError<FieldPrime> {
 	}
 }
 
-pub fn compile<T: Field>(path: PathBuf) -> Result<Prog<T>, CompileError<T>> {
+pub fn compile<T: Field>(path: PathBuf) -> Result<FlatProg<T>, CompileError<T>> {
 	let file = File::open(&path)?;
 
     let program_ast: Prog<T> = parse_program(file)?;

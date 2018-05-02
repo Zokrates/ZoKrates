@@ -17,6 +17,8 @@ extern crate bincode;
 extern crate regex;
 
 mod absy;
+mod flat_absy;
+mod parameter;
 mod parser;
 mod semantics;
 mod flatten;
@@ -33,7 +35,7 @@ use std::io::{BufWriter, Write, BufReader, BufRead, stdin};
 use std::collections::HashMap;
 use std::string::String;
 use field::{Field, FieldPrime};
-use absy::Prog;
+use flat_absy::FlatProg;
 use compile::compile;
 use r1cs::r1cs_program;
 use clap::{App, AppSettings, Arg, SubCommand};
@@ -203,7 +205,7 @@ fn main() {
 
             let path = PathBuf::from(sub_matches.value_of("input").unwrap());
             
-            let program_flattened: Prog<FieldPrime> = match compile(path) {
+            let program_flattened: FlatProg<FieldPrime> = match compile(path) {
                 Ok(p) => p,
                 Err(why) => panic!("Compilation failed: {}", why)
             };
@@ -256,7 +258,7 @@ fn main() {
                 Err(why) => panic!("couldn't open {}: {}", path.display(), why),
             };
 
-            let program_ast: Prog<FieldPrime> = match deserialize_from(&mut file, Infinite) {
+            let program_ast: FlatProg<FieldPrime> = match deserialize_from(&mut file, Infinite) {
                 Ok(x) => x,
                 Err(why) => {
                     println!("{:?}", why);
@@ -264,18 +266,11 @@ fn main() {
                 }
             };
 
-            // make sure the input program is actually flattened.
             let main_flattened = program_ast
                 .functions
                 .iter()
                 .find(|x| x.id == "main")
                 .unwrap();
-            for stat in main_flattened.statements.clone() {
-                assert!(
-                    stat.is_flattened(),
-                    format!("Input conditions not flattened: {}", &stat)
-                );
-            }
 
             // print deserialized flattened program
             println!("{}", main_flattened);
@@ -354,7 +349,7 @@ fn main() {
                 Err(why) => panic!("couldn't open {}: {}", path.display(), why),
             };
 
-            let program_ast: Prog<FieldPrime> = match deserialize_from(&mut file, Infinite) {
+            let program_ast: FlatProg<FieldPrime> = match deserialize_from(&mut file, Infinite) {
                 Ok(x) => x,
                 Err(why) => {
                     println!("{:?}", why);
@@ -362,18 +357,11 @@ fn main() {
                 }
             };
 
-            // make sure the input program is actually flattened.
             let main_flattened = program_ast
                 .functions
                 .iter()
                 .find(|x| x.id == "main")
                 .unwrap();
-            for stat in main_flattened.statements.clone() {
-                assert!(
-                    stat.is_flattened(),
-                    format!("Input conditions not flattened: {}", &stat)
-                );
-            }
 
             // print deserialized flattened program
             println!("{}", main_flattened);
@@ -563,7 +551,7 @@ mod tests {
 
             println!("Testing {:?}", path);
 
-            let program_flattened: Prog<FieldPrime> =
+            let program_flattened: FlatProg<FieldPrime> =
                 compile(path).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
@@ -579,7 +567,7 @@ mod tests {
             };
             println!("Testing {:?}", path);
 
-            let program_flattened: Prog<FieldPrime> =
+            let program_flattened: FlatProg<FieldPrime> =
                 compile(path).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
