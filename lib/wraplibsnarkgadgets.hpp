@@ -13,7 +13,7 @@ extern "C" {
 #include <stdint.h>
 
 std::string _sha256Constraints();
-bool foo();
+bool _foo();
 
 #ifdef __cplusplus
 } // extern "C"

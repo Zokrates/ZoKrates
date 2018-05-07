@@ -80,8 +80,8 @@ std::string _sha256Constraints() {
     return(r1cs_to_json(pb, 10));
 }
 
-template <typename FieldT>
-bool foo() {
+// template <typename FieldT>
+bool _foo() {
     return true;
 }
 
