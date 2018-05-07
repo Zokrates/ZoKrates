@@ -26,7 +26,6 @@ using namespace libff;
 using std::vector;
 
 
-template<typename FieldT>
 std::string r1cs_to_json(protoboard<FieldT> pb, uint input_variables)
     {  
     // output inputs, right now need to compile with debug flag so that the `variable_annotations`
@@ -64,7 +63,6 @@ std::string r1cs_to_json(protoboard<FieldT> pb, uint input_variables)
     return ss.str(); 
 }
 
-template<typename FieldT>
 std::string _sha256Constraints() {
 
     protoboard<FieldT> pb;
@@ -80,12 +78,10 @@ std::string _sha256Constraints() {
     return(r1cs_to_json(pb, 10));
 }
 
-// template <typename FieldT>
 bool _foo() {
     return true;
 }
 
-template <typename FieldT>
 std::string array_to_json(protoboard<FieldT> pb)
 {
 
@@ -108,7 +104,6 @@ std::string array_to_json(protoboard<FieldT> pb)
 
 
 
-template<typename FieldT>
 std::string _sha256Witness( pb_variable_array<FieldT> left, pb_variable_array<FieldT> right)
 {
 
