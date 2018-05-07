@@ -81,6 +81,11 @@ std::string _sha256Constraints() {
 }
 
 template <typename FieldT>
+bool foo() {
+    return true;
+}
+
+template <typename FieldT>
 std::string array_to_json(protoboard<FieldT> pb)
 {
 

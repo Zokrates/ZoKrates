@@ -6,7 +6,7 @@
  */
 
 
-#include "wraplibsnarkgadgets.cpp"
+//#include "wraplibsnarkgadgets.cpp"
 
 
 #include "wraplibsnark.hpp"

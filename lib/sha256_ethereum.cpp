@@ -21,17 +21,6 @@ using std::vector;
 
 typedef libff::Fr<libff::default_ec_pp> FieldT;
 
-pb_variable_array<FieldT> from_bits(std::vector<bool> bits, pb_variable<FieldT>& ZERO) {
-    pb_variable_array<FieldT> acc;
-
-		for (size_t i = 0; i < bits.size(); i++) {
-			bool bit = bits[i];
-			acc.emplace_back(bit ? ONE : ZERO);
-		}
-
-    return acc;
-}
-
 class sha256_ethereum : gadget<FieldT> {
 private:
     std::shared_ptr<block_variable<FieldT>> block1;
@@ -41,6 +30,17 @@ private:
     std::shared_ptr<sha256_compression_function_gadget<FieldT>> hasher2;
 
 public:
+
+    pb_variable_array<FieldT> from_bits(std::vector<bool> bits, pb_variable<FieldT>& ZERO) {
+        pb_variable_array<FieldT> acc;
+
+            for (size_t i = 0; i < bits.size(); i++) {
+                bool bit = bits[i];
+                acc.emplace_back(bit ? ONE : ZERO);
+            }
+
+        return acc;
+    }
 
    sha256_ethereum(protoboard<FieldT> &pb,
                                   const size_t block_length,
@@ -192,21 +192,18 @@ public:
         libff::UNUSED(ensure_output_bitness);
         return 54560; /* hardcoded for now */
     }
-};
 
-
-
-
-vector<unsigned long> bit_list_to_ints(vector<bool> bit_list, const size_t wordsize) {
-  vector<unsigned long> res;
-	size_t iterations = bit_list.size()/wordsize+1;
-  for (size_t i = 0; i < iterations; ++i) {
-      unsigned long current = 0;
-      for (size_t j = 0; j < wordsize; ++j) {
-					if (bit_list.size() == (i*wordsize+j)) break;
-          current += (bit_list[i*wordsize+j] * (1ul<<(wordsize-1-j)));
+    vector<unsigned long> bit_list_to_ints(vector<bool> bit_list, const size_t wordsize) {
+      vector<unsigned long> res;
+        size_t iterations = bit_list.size()/wordsize+1;
+      for (size_t i = 0; i < iterations; ++i) {
+          unsigned long current = 0;
+          for (size_t j = 0; j < wordsize; ++j) {
+                        if (bit_list.size() == (i*wordsize+j)) break;
+              current += (bit_list[i*wordsize+j] * (1ul<<(wordsize-1-j)));
+          }
+          res.push_back(current);
       }
-      res.push_back(current);
-  }
-  return res;
-}
+      return res;
+    }
+};

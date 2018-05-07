@@ -38,7 +38,7 @@ use compile::compile;
 use r1cs::r1cs_program;
 use clap::{App, AppSettings, Arg, SubCommand};
 #[cfg(not(feature = "nolibsnark"))]
-use libsnark::{setup, generate_proof};
+use libsnark::{setup, generate_proof, getSha256Constraints, foo};
 use bincode::{serialize_into, deserialize_from , Infinite};
 use regex::Regex;
 use verification::CONTRACT_TEMPLATE;
@@ -199,6 +199,9 @@ fn main() {
 
     match matches.subcommand() {
         ("compile", Some(sub_matches)) => {
+            foo();
+            println!("{:?}", getSha256Constraints());
+
             println!("Compiling {}", sub_matches.value_of("input").unwrap());
 
             let path = PathBuf::from(sub_matches.value_of("input").unwrap());

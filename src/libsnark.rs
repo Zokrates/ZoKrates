@@ -34,9 +34,10 @@ extern "C" {
                 private_inputs_length: c_int,
             ) -> bool;
 
-    fn _sha256Constraints() -> String ;
+    fn _sha256Constraints() -> CString;
 
-    fn _sha256Witness() -> String;  
+    fn _foo() -> bool;
+
 }
 
 pub fn setup<T: Field> (
@@ -118,6 +119,18 @@ pub fn generate_proof<T: Field>(
             private_inputs_arr[0].as_ptr(),
             private_inputs_length as i32
         )
+    }
+}
+
+pub fn getSha256Constraints() -> CString {
+    unsafe {
+        _sha256Constraints()
+    }
+}
+
+pub fn foo() -> bool {
+    unsafe {
+        _foo()
     }
 }
 
