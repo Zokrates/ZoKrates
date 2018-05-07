@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-//#include "wraplibsnarkgadgets.cpp"
+#include "wraplibsnarkgadgets.hpp"
 
 /*#include "libsnark/gadgetlib1/gadget.hpp"
 #include "libsnark/gadgetlib1/protoboard.hpp"
