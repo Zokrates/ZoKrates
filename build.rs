@@ -31,6 +31,7 @@ fn main() {
             .warnings(false)
             .flag("-std=c++11")
             .define("CURVE_ALT_BN128", None)
+            .define("DEBUG", None)
             .file("lib/wraplibsnarkgadgets.cpp")
             .compile("libwraplibsnarkgadgets.a");
 
