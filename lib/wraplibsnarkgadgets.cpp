@@ -14,7 +14,7 @@
 #include <libsnark/gadgetlib1/gadgets/hashes/hash_io.hpp>
 #include <libsnark/gadgetlib1/gadgets/hashes/sha256/sha256_components.hpp>
 #include <libsnark/gadgetlib1/gadgets/hashes/sha256/sha256_gadget.hpp>*/
-#include "./sha256_ethereum.cpp"
+#include "./sha256_ethereum.hpp"
 
 //r1cs to json
 #include <libsnark/zk_proof_systems/ppzksnark/r1cs_ppzksnark/r1cs_ppzksnark.hpp>
