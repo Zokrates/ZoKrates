@@ -10,9 +10,6 @@
 using namespace libsnark;
 using namespace libff;
 
-using std::vector;
-
-
 std::string r1cs_to_json(protoboard<FieldT> pb, uint input_variables)
 {
     // output inputs, right now need to compile with debug flag so that the `variable_annotations`
@@ -34,11 +31,11 @@ std::string r1cs_to_json(protoboard<FieldT> pb, uint input_variables)
     for (size_t c = 0; c < constraints.num_constraints(); ++c)
     {
         ss << "[";// << "\"A\"=";
-        constraint_to_json(constraints.constraints[c].a, ss);
+        // constraint_to_json(constraints.constraints[c].a, ss);
         ss << ",";// << "\"B\"=";
-        constraint_to_json(constraints.constraints[c].b, ss);
+        // constraint_to_json(constraints.constraints[c].b, ss);
         ss << ",";// << "\"A\"=";;
-        constraint_to_json(constraints.constraints[c].c, ss);
+        // constraint_to_json(constraints.constraints[c].c, ss);
         if (c == constraints.num_constraints()-1 ) {
             ss << "]\n";
         } else {
@@ -50,19 +47,20 @@ std::string r1cs_to_json(protoboard<FieldT> pb, uint input_variables)
     return ss.str();
 }
 
-std::string _sha256Constraints()
+const char* _sha256Constraints()
 {
     protoboard<FieldT> pb;
     std::shared_ptr<sha256_ethereum> hash;
 
-    block_variable<FieldT> input;
-    block_variable<FieldT> output;
-    hash.reset(new sha256_ethereum(
-        pb, 256, input, output, "cm_hash"
-    ));
-    hash->generate_r1cs_constraints(true);
+    // block_variable<FieldT> input;
+    // block_variable<FieldT> output;
+    // hash.reset(new sha256_ethereum(
+    //     pb, 256, input, output, "cm_hash"
+    // ));
+    // hash->generate_r1cs_constraints(true);
 
-    return(r1cs_to_json(pb, 10));
+    // return(r1cs_to_json(pb, 10));
+    return std::string{}.c_str();
 }
 
 bool _foo() {
@@ -100,20 +98,21 @@ std::string _sha256Witness( pb_variable_array<FieldT> left, pb_variable_array<Fi
 
     pb.set_input_sizes(90);
 
-    block_variable<FieldT> output;
-    block_variable<FieldT> input =  block_variable<FieldT>(pb, {
-        from_bits(left, ZERO),
-        from_bits(right, ZERO)
-    }, "input_variable");
+    // block_variable<FieldT> output;
+    // block_variable<FieldT> input =  block_variable<FieldT>(pb, {
+    //     from_bits(left, ZERO),
+    //     from_bits(right, ZERO)
+    // }, "input_variable");
 
 
-    hash.reset(new sha256_ethereum(
-        pb, 256, input, output, "cm_hash"
-    ));
+    // hash.reset(new sha256_ethereum(
+    //     pb, 256, input, output, "cm_hash"
+    // ));
 
-    hash->generate_r1cs_constraints(true);
-    hash->generate_r1cs_witness();
+    // hash->generate_r1cs_constraints(true);
+    // hash->generate_r1cs_witness();
 
-    return(array_to_json(hash->pb));
+    // return(array_to_json(hash->pb));
+    return std::string{};
 }
 

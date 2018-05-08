@@ -12,7 +12,7 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 
-std::string _sha256Constraints();
+const char* _sha256Constraints();
 bool _foo();
 
 #ifdef __cplusplus
