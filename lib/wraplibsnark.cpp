@@ -5,10 +5,6 @@
  * @date 2017
  */
 
-
-//#include "wraplibsnarkgadgets.cpp"
-
-
 #include "wraplibsnark.hpp"
 #include <fstream>
 #include <iostream>
@@ -16,7 +12,6 @@
 #include <iomanip>
 
 // contains definition of alt_bn128 ec public parameters
-//#include "libsnark/libsnark/algebra/curves/alt_bn128/alt_bn128_pp.hpp"
 #include "libff/algebra/curves/alt_bn128/alt_bn128_pp.hpp"
 // contains required interfaces and types (keypair, proof, generator, prover, verifier)
 #include <libsnark/zk_proof_systems/ppzksnark/r1cs_ppzksnark/r1cs_ppzksnark.hpp>
@@ -74,7 +69,7 @@ std::string outputPointG2AffineAsHex(libff::alt_bn128_G2 _p)
         return
                 "[\"0x" +
                 HexStringFromLibsnarkBigint(aff.X.c1.as_bigint()) + "\", \"0x" +
-                HexStringFromLibsnarkBigint(aff.X.c0.as_bigint()) + "\"],\n [\"0x" + 
+                HexStringFromLibsnarkBigint(aff.X.c0.as_bigint()) + "\"],\n [\"0x" +
                 HexStringFromLibsnarkBigint(aff.Y.c1.as_bigint()) + "\", \"0x" +
                 HexStringFromLibsnarkBigint(aff.Y.c0.as_bigint()) + "\"]";
 }

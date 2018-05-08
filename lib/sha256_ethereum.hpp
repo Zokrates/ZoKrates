@@ -50,7 +50,7 @@ public:
 
          intermediate_hash.reset(new digest_variable<FieldT>(pb, 256, "intermediate"));
          pb_variable<FieldT> ZERO;
-       
+
          ZERO.allocate(pb, "ZERO");
          pb.val(ZERO) = 0;
 
@@ -149,7 +149,7 @@ public:
             length_padding,
             output,
         "hasher2"));
-       
+
     }
 
     void generate_r1cs_constraints(const bool ensure_output_bitness) {
@@ -182,7 +182,7 @@ public:
         input_variable.generate_r1cs_witness(input);
         f.generate_r1cs_witness();
 
-        return output_variable.get_digest(); 
+        return output_variable.get_digest();
 
     }
 

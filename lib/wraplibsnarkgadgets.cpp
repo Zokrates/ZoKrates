@@ -1,24 +1,11 @@
 //https://gist.github.com/kobigurk/24c25e68219df87c348f1a78db51bb52
 
-#include <iostream>
-
 #include "wraplibsnarkgadgets.hpp"
+#include "sha256_ethereum.hpp"
 
-/*#include "libsnark/gadgetlib1/gadget.hpp"
-#include "libsnark/gadgetlib1/protoboard.hpp"
-#include "libff/common/default_types/ec_pp.hpp"
-#include "libsnark/reductions/r1cs_to_qap/r1cs_to_qap.hpp"
-
-#include <libsnark/common/data_structures/merkle_tree.hpp>
-#include <libsnark/gadgetlib1/gadgets/basic_gadgets.hpp>
-#include <libsnark/gadgetlib1/gadgets/hashes/hash_io.hpp>
-#include <libsnark/gadgetlib1/gadgets/hashes/sha256/sha256_components.hpp>
-#include <libsnark/gadgetlib1/gadgets/hashes/sha256/sha256_gadget.hpp>*/
-#include "./sha256_ethereum.hpp"
-
-//r1cs to json
 #include <libsnark/zk_proof_systems/ppzksnark/r1cs_ppzksnark/r1cs_ppzksnark.hpp>
 
+#include <iostream>
 
 using namespace libsnark;
 using namespace libff;
@@ -27,7 +14,7 @@ using std::vector;
 
 
 std::string r1cs_to_json(protoboard<FieldT> pb, uint input_variables)
-    {  
+{
     // output inputs, right now need to compile with debug flag so that the `variable_annotations`
     // exists. Having trouble setting that up so will leave for now.
     r1cs_constraint_system<FieldT> constraints = pb.get_constraint_system();
@@ -35,7 +22,7 @@ std::string r1cs_to_json(protoboard<FieldT> pb, uint input_variables)
     ss << "\n{\"variables\":[";
 
     for (size_t i = 0; i < input_variables + 1; ++i)
-    {   
+    {
         ss << '"' << constraints.variable_annotations[i].c_str() << '"';
         if (i < input_variables ) {
             ss << ", ";
@@ -43,9 +30,9 @@ std::string r1cs_to_json(protoboard<FieldT> pb, uint input_variables)
     }
     ss << "],\n";
     ss << "\"constraints\":[";
-     
+
     for (size_t c = 0; c < constraints.num_constraints(); ++c)
-    {   
+    {
         ss << "[";// << "\"A\"=";
         constraint_to_json(constraints.constraints[c].a, ss);
         ss << ",";// << "\"B\"=";
@@ -57,14 +44,14 @@ std::string r1cs_to_json(protoboard<FieldT> pb, uint input_variables)
         } else {
             ss << "],\n";
         }
-    } 
+    }
     ss << "]}";
-    ss.rdbuf()->pubseekpos(0, std::ios_base::out);  
-    return ss.str(); 
+    ss.rdbuf()->pubseekpos(0, std::ios_base::out);
+    return ss.str();
 }
 
-std::string _sha256Constraints() {
-
+std::string _sha256Constraints()
+{
     protoboard<FieldT> pb;
     std::shared_ptr<sha256_ethereum> hash;
 
@@ -84,14 +71,12 @@ bool _foo() {
 
 std::string array_to_json(protoboard<FieldT> pb)
 {
-
     std::stringstream ss;
     r1cs_variable_assignment<FieldT> values = pb.full_variable_assignment();
     ss << "\n{\"TestVariables\":[";
 
     for (size_t i = 0; i < values.size(); ++i)
     {
-
         ss << values[i].as_bigint();
         if (i <  values.size() - 1) { ss << ",";}
     }
@@ -106,7 +91,6 @@ std::string array_to_json(protoboard<FieldT> pb)
 
 std::string _sha256Witness( pb_variable_array<FieldT> left, pb_variable_array<FieldT> right)
 {
-
     protoboard<FieldT> pb;
     std::shared_ptr<sha256_ethereum> hash;
 
@@ -130,10 +114,6 @@ std::string _sha256Witness( pb_variable_array<FieldT> left, pb_variable_array<Fi
     hash->generate_r1cs_constraints(true);
     hash->generate_r1cs_witness();
 
-
-
-
     return(array_to_json(hash->pb));
-
 }
 
