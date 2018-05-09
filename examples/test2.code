@@ -1,5 +1,0 @@
-def foo():
-  return if 1 < 2 then 0 else 1 fi
-
-def main(x):
-  return foo()
