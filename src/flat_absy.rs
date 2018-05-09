@@ -7,9 +7,10 @@
 
 use absy::Expression;
 use std::fmt;
-use std::collections::{HashMap, BTreeMap};
+use std::collections::{BTreeMap};
 use field::Field;
 use parameter::Parameter;
+use substitution::Substitution;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FlatProg<T: Field> {
@@ -179,7 +180,7 @@ pub enum FlatExpression<T: Field> {
 }
 
 impl<T: Field> FlatExpression<T> {
-    pub fn apply_substitution(&self, substitution: &HashMap<String, String>) -> FlatExpression<T> {
+    pub fn apply_substitution(&self, substitution: &Substitution) -> FlatExpression<T> {
         match *self {
             ref e @ FlatExpression::Number(_) => e.clone(),
             FlatExpression::Identifier(ref v) => {
@@ -307,6 +308,15 @@ impl<T: Field> fmt::Display for FlatExpressionList<T> {
     }
 }
 
+impl<T: Field> FlatExpressionList<T> {
+    pub fn apply_substitution(&self, substitution: &Substitution) -> FlatExpressionList<T> {
+        let expressions: Vec<FlatExpression<T>> = self.expressions.iter().map(|e| e.apply_substitution(substitution)).collect();
+        FlatExpressionList {
+            expressions: expressions
+        }
+    }
+}
+
 impl<T: Field> fmt::Debug for FlatExpressionList<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "ExpressionList({:?})", self.expressions)
@@ -329,5 +339,16 @@ impl<T: Field> fmt::Display for FlatCondition<T> {
 impl<T: Field> fmt::Debug for FlatCondition<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self)
+    }
+}
+
+impl<T: Field> FlatCondition<T> {
+    fn apply_substitution(&self, substitution: &Substitution) -> FlatCondition<T> {
+        match *self {
+            FlatCondition::Eq(ref lhs, ref rhs) => FlatCondition::Eq(
+                lhs.apply_substitution(substitution),
+                rhs.apply_substitution(substitution),
+            )
+        }
     }
 }
