@@ -7,11 +7,14 @@
 
 const BINARY_SEPARATOR: &str = "_b";
 
-use std::collections::{HashMap, HashSet};
-use substitution::Substitution;
+
+use std::collections::{HashSet, HashMap};
 use absy::*;
-use absy::Expression::*;
 use field::Field;
+use flat_absy::*;
+use parameter::Parameter;
+use direct_substitution::DirectSubstitution;
+use substitution::Substitution;
 
 /// Flattener, computes flattened program.
 pub struct Flattener {
@@ -20,7 +23,7 @@ pub struct Flattener {
     /// Vector containing all used variables while processing the program.
     variables: HashSet<String>,
     /// Map of renamings for reassigned variables while processing the program.
-    substitution: Substitution,
+    substitution: DirectSubstitution,
     /// Map of function id to invocation counter
     function_calls: HashMap<String, usize>,
     /// Index of the next introduced variable while processing the program.
@@ -36,7 +39,7 @@ impl Flattener {
         Flattener {
             bits: bits,
             variables: HashSet::new(),
-            substitution: Substitution::new(),
+            substitution: DirectSubstitution::new(),
             function_calls: HashMap::new(),
             next_var_idx: 0,
         }
@@ -52,9 +55,9 @@ impl Flattener {
     /// * `condition` - `Condition` that will be flattened.
     fn flatten_condition<T: Field>(
         &mut self,
-        functions_flattened: &Vec<Function<T>>,
+        functions_flattened: &Vec<FlatFunction<T>>,
         arguments_flattened: &Vec<Parameter>,
-        statements_flattened: &mut Vec<Statement<T>>,
+        statements_flattened: &mut Vec<FlatStatement<T>>,
         condition: Condition<T>,
     ) -> (Expression<T>, Expression<T>) {
         match condition {
@@ -75,73 +78,73 @@ impl Flattener {
                 let lhs_name = format!("sym_{}", self.next_var_idx);
                 self.next_var_idx += 1;
                 statements_flattened
-                    .push(Statement::Definition(lhs_name.to_string(), lhs_flattened));
+                    .push(FlatStatement::Definition(lhs_name.to_string(), lhs_flattened));
                 let rhs_name = format!("sym_{}", self.next_var_idx);
                 self.next_var_idx += 1;
                 statements_flattened
-                    .push(Statement::Definition(rhs_name.to_string(), rhs_flattened));
+                    .push(FlatStatement::Definition(rhs_name.to_string(), rhs_flattened));
 
                 let subtraction_result = format!("sym_{}", self.next_var_idx);
                 self.next_var_idx += 1;
-                statements_flattened.push(Statement::Definition(
+                statements_flattened.push(FlatStatement::Definition(
                     subtraction_result.to_string(),
-                    Sub(
-                        box Mult(box Number(T::from(2)), box Identifier(lhs_name.to_string())),
-                        box Mult(box Number(T::from(2)), box Identifier(rhs_name.to_string())),
+                    FlatExpression::Sub(
+                        box FlatExpression::Mult(box FlatExpression::Number(T::from(2)), box FlatExpression::Identifier(lhs_name.to_string())),
+                        box FlatExpression::Mult(box FlatExpression::Number(T::from(2)), box FlatExpression::Identifier(rhs_name.to_string())),
                     ),
                 ));
                 for i in 0..self.bits - 2 {
                     let new_name = format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, i);
-                    statements_flattened.push(Statement::Definition(
+                    statements_flattened.push(FlatStatement::Definition(
                         new_name.to_string(),
-                        Mult(
-                            box Identifier(new_name.to_string()),
-                            box Identifier(new_name.to_string()),
+                        FlatExpression::Mult(
+                            box FlatExpression::Identifier(new_name.to_string()),
+                            box FlatExpression::Identifier(new_name.to_string()),
                         ),
                     ));
                 }
-                let mut expr = Add(
-                    box Identifier(format!("{}{}0", &subtraction_result, BINARY_SEPARATOR)), // * 2^0
-                    box Mult(
-                        box Identifier(format!("{}{}1", &subtraction_result, BINARY_SEPARATOR)),
-                        box Number(T::from(2)),
+                let mut expr = FlatExpression::Add(
+                    box FlatExpression::Identifier(format!("{}{}0", &subtraction_result, BINARY_SEPARATOR)), // * 2^0
+                    box FlatExpression::Mult(
+                        box FlatExpression::Identifier(format!("{}{}1", &subtraction_result, BINARY_SEPARATOR)),
+                        box FlatExpression::Number(T::from(2)),
                     ),
                 );
                 for i in 1..self.bits / 2 {
-                    expr = Add(
+                    expr = FlatExpression::Add(
                         box expr,
-                        box Add(
-                            box Mult(
-                                box Identifier(format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, 2 * i)),
-                                box Number(T::from(2).pow(2 * i)),
+                        box FlatExpression::Add(
+                            box FlatExpression::Mult(
+                                box FlatExpression::Identifier(format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, 2 * i)),
+                                box FlatExpression::Number(T::from(2).pow(2 * i)),
                             ),
-                            box Mult(
-                                box Identifier(format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, 2 * i + 1)),
-                                box Number(T::from(2).pow(2 * i + 1)),
+                            box FlatExpression::Mult(
+                                box FlatExpression::Identifier(format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, 2 * i + 1)),
+                                box FlatExpression::Number(T::from(2).pow(2 * i + 1)),
                             ),
                         ),
                     );
                 }
                 if self.bits % 2 == 1 {
-                    expr = Add(
+                    expr = FlatExpression::Add(
                         box expr,
-                        box Mult(
-                            box Identifier(format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, self.bits - 3)),
-                            box Number(T::from(2).pow(self.bits - 1)),
+                        box FlatExpression::Mult(
+                            box FlatExpression::Identifier(format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, self.bits - 3)),
+                            box FlatExpression::Number(T::from(2).pow(self.bits - 1)),
                         ),
                     )
                 }
                 statements_flattened
-                    .push(Statement::Definition(subtraction_result.to_string(), expr));
+                    .push(FlatStatement::Definition(subtraction_result.to_string(), expr));
 
                 let cond_true = format!("{}{}0", &subtraction_result, BINARY_SEPARATOR);
                 let cond_false = format!("sym_{}", self.next_var_idx);
                 self.next_var_idx += 1;
-                statements_flattened.push(Statement::Definition(
+                statements_flattened.push(FlatStatement::Definition(
                     cond_false.to_string(),
-                    Sub(box Number(T::one()), box Identifier(cond_true.to_string())),
+                    FlatExpression::Sub(box FlatExpression::Number(T::one()), box FlatExpression::Identifier(cond_true.to_string())),
                 ));
-                (Identifier(cond_true), Identifier(cond_false))
+                (Expression::Identifier(cond_true), Expression::Identifier(cond_false))
             }
             Condition::Eq(lhs, rhs) => {
                 // Wanted: (Y = (X != 0) ? 1 : 0)
@@ -163,39 +166,39 @@ impl Flattener {
                     functions_flattened,
                     arguments_flattened,
                     statements_flattened,
-                    Sub(box lhs, box rhs),
+                    Expression::Sub(box lhs, box rhs),
                 );
-                statements_flattened.push(Statement::Definition(name_x.to_string(), x));
-                statements_flattened.push(Statement::Compiler(
+                statements_flattened.push(FlatStatement::Definition(name_x.to_string(), x));
+                statements_flattened.push(FlatStatement::Compiler(
                     name_y.to_string(),
-                    IfElse(
-                        box Condition::Eq(Identifier(name_x.to_string()), Number(T::zero())),
-                        box Number(T::zero()),
-                        box Number(T::one()),
+                    Expression::IfElse(
+                            box Condition::Eq(Expression::Identifier(name_x.to_string()), Expression::Number(T::zero())),
+                            box Expression::Number(T::zero()),
+                            box Expression::Number(T::one()),
                     ),
                 ));
-                statements_flattened.push(Statement::Compiler(
+                statements_flattened.push(FlatStatement::Compiler(
                     name_m.to_string(),
-                    IfElse(
-                        box Condition::Eq(Identifier(name_x.to_string()), Number(T::zero())),
-                        box Number(T::one()),
-                        box Div(box Number(T::one()), box Identifier(name_x.to_string())),
+                    Expression::IfElse(
+                            box Condition::Eq(Expression::Identifier(name_x.to_string()), Expression::Number(T::zero())),
+                            box Expression::Number(T::one()),
+                            box Expression::Div(box Expression::Number(T::one()), box Expression::Identifier(name_x.to_string())),
                     ),
                 ));
-                statements_flattened.push(Statement::Condition(
-                    Identifier(name_y.to_string()),
-                    Mult(box Identifier(name_x.to_string()), box Identifier(name_m)),
+                statements_flattened.push(FlatStatement::Condition(
+                    FlatExpression::Identifier(name_y.to_string()),
+                    FlatExpression::Mult(box FlatExpression::Identifier(name_x.to_string()), box FlatExpression::Identifier(name_m)),
                 ));
-                statements_flattened.push(Statement::Definition(
+                statements_flattened.push(FlatStatement::Definition(
                     name_1_y.to_string(),
-                    Sub(box Number(T::one()), box Identifier(name_y.to_string())),
+                    FlatExpression::Sub(box FlatExpression::Number(T::one()), box FlatExpression::Identifier(name_y.to_string())),
                 ));
-                statements_flattened.push(Statement::Condition(
-                    Number(T::zero()),
-                    Mult(box Identifier(name_1_y.to_string()), box Identifier(name_x)),
+                statements_flattened.push(FlatStatement::Condition(
+                    FlatExpression::Number(T::zero()),
+                    FlatExpression::Mult(box FlatExpression::Identifier(name_1_y.to_string()), box FlatExpression::Identifier(name_x)),
                 ));
 
-                (Identifier(name_1_y), Identifier(name_y))
+                (Expression::Identifier(name_1_y), Expression::Identifier(name_y))
             }
             _ => unimplemented!(),
         }
@@ -203,12 +206,12 @@ impl Flattener {
 
     fn flatten_function_call<T: Field>(
         &mut self,
-        functions_flattened: &Vec<Function<T>>,
+        functions_flattened: &Vec<FlatFunction<T>>,
         arguments_flattened: &Vec<Parameter>,
-        statements_flattened: &mut Vec<Statement<T>>,
+        statements_flattened: &mut Vec<FlatStatement<T>>,
         id: &String,
         param_expressions: &Vec<Expression<T>>
-    ) -> ExpressionList<T> {
+    ) -> FlatExpressionList<T> {
         for funct in functions_flattened {
             if funct.id == *id && funct.arguments.len() == (*param_expressions).len() {
                 // funct is now the called function
@@ -218,7 +221,8 @@ impl Flattener {
                 // e.g.: add_1_a_2
 
                 // Stores prefixed variables
-                let mut replacement_map = Substitution::new();
+
+                let mut replacement_map = DirectSubstitution::new();
 
                 // build prefix
                 match self.function_calls.clone().get(&funct.id) {
@@ -239,7 +243,7 @@ impl Flattener {
                         Expression::Identifier(ref x) => {
                             new_var = format!("{}param_{}", &prefix, i);
                                 statements_flattened
-                                .push(Statement::Definition(new_var.clone(), Expression::Identifier(x.clone().to_string())));
+                                .push(FlatStatement::Definition(new_var.clone(), FlatExpression::Identifier(x.clone().to_string())));
                         },
                         _ => {
                             let expr_subbed = param_expr.apply_substitution(&self.substitution);
@@ -251,7 +255,7 @@ impl Flattener {
                             );
                             new_var = format!("{}param_{}", &prefix, i);
                             statements_flattened
-                                .push(Statement::Definition(new_var.clone(), rhs));
+                                .push(FlatStatement::Definition(new_var.clone(), rhs));
                         }
                     }
                     replacement_map.insert(funct.arguments.get(i).unwrap().id.clone(), new_var);
@@ -260,35 +264,33 @@ impl Flattener {
                 // Ensure Renaming and correct returns:
                 // add all flattened statements, adapt return statement
                 for stat in funct.statements.clone() {
-                    assert!(stat.is_flattened(), format!("Not flattened: {}", &stat));
                     match stat {
                         // set return statements right side as expression result
-                        Statement::Return(list) => {
-                            return ExpressionList {
+                        FlatStatement::Return(list) => {
+                            return FlatExpressionList {
                                 expressions: list.expressions.into_iter().map(|x| x.apply_substitution(&replacement_map)).collect()
                             }
                         },
-                        Statement::Definition(var, rhs) => {
+                        FlatStatement::Definition(var, rhs) => {
                             let new_rhs = rhs.apply_substitution(&replacement_map);
                             let new_var: String = format!("{}{}", prefix, var.clone());
                             replacement_map.insert(var, new_var.clone());
                             statements_flattened.push(
-                                Statement::Definition(new_var, new_rhs)
+                                FlatStatement::Definition(new_var, new_rhs)
                             );
                         },
-                        Statement::Compiler(var, rhs) => {
+                        FlatStatement::Compiler(var, rhs) => {
                             let new_rhs = rhs.apply_substitution(&replacement_map);
                             let new_var: String = format!("{}{}", prefix, var.clone());
                             replacement_map.insert(var, new_var.clone());
-                            statements_flattened.push(Statement::Compiler(new_var, new_rhs));
+                            statements_flattened.push(FlatStatement::Compiler(new_var, new_rhs));
                         },
-                        Statement::Condition(lhs, rhs) => {
+                        FlatStatement::Condition(lhs, rhs) => {
                             let new_lhs = lhs.apply_substitution(&replacement_map);
                             let new_rhs = rhs.apply_substitution(&replacement_map);
                             statements_flattened
-                                .push(Statement::Condition(new_lhs, new_rhs));
-                        },
-                        _ => panic!("Statement inside function not flattened when flattening function call")
+                                .push(FlatStatement::Condition(new_lhs, new_rhs));
+                        }
                     }
                 }
             }
@@ -309,19 +311,15 @@ impl Flattener {
     /// * `expr` - `Expresstion` that will be flattened.
     fn flatten_expression<T: Field>(
         &mut self,
-        functions_flattened: &Vec<Function<T>>,
+        functions_flattened: &Vec<FlatFunction<T>>,
         arguments_flattened: &Vec<Parameter>,
-        statements_flattened: &mut Vec<Statement<T>>,
+        statements_flattened: &mut Vec<FlatStatement<T>>,
         expr: Expression<T>,
-    ) -> Expression<T> {
+    ) -> FlatExpression<T> {
         match expr {
-            x @ Number(_) | x @ Identifier(_) => x,
-            ref x @ Add(..) | ref x @ Sub(..) | ref x @ Mult(..) | ref x @ Div(..)
-                if x.is_flattened() =>
-            {
-                x.clone()
-            }
-            Add(box left, box right) => {
+            Expression::Number(x) => FlatExpression::Number(x),
+            Expression::Identifier(x) => FlatExpression::Identifier(x),
+            Expression::Add(box left, box right) => {
                 let left_flattened = self.flatten_expression(
                     functions_flattened,
                     arguments_flattened,
@@ -340,8 +338,8 @@ impl Flattener {
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;
                     statements_flattened
-                        .push(Statement::Definition(new_name.to_string(), left_flattened));
-                    Identifier(new_name)
+                        .push(FlatStatement::Definition(new_name.to_string(), left_flattened));
+                    FlatExpression::Identifier(new_name)
                 };
                 let new_right = if right_flattened.is_linear() {
                     right_flattened
@@ -349,12 +347,12 @@ impl Flattener {
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;
                     statements_flattened
-                        .push(Statement::Definition(new_name.to_string(), right_flattened));
-                    Identifier(new_name)
+                        .push(FlatStatement::Definition(new_name.to_string(), right_flattened));
+                    FlatExpression::Identifier(new_name)
                 };
-                Add(box new_left, box new_right)
+                FlatExpression::Add(box new_left, box new_right)
             }
-            Sub(box left, box right) => {
+            Expression::Sub(box left, box right) => {
                 let left_flattened = self.flatten_expression(
                     functions_flattened,
                     arguments_flattened,
@@ -369,25 +367,25 @@ impl Flattener {
                 );
                 let new_left = if left_flattened.is_linear() {
                     left_flattened
-                } else {
+                } else {                    
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;
                     statements_flattened
-                        .push(Statement::Definition(new_name.to_string(), left_flattened));
-                    Identifier(new_name)
+                        .push(FlatStatement::Definition(new_name.to_string(), left_flattened));
+                    FlatExpression::Identifier(new_name)
                 };
                 let new_right = if right_flattened.is_linear() {
                     right_flattened
-                } else {
+                } else {                    
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;
                     statements_flattened
-                        .push(Statement::Definition(new_name.to_string(), right_flattened));
-                    Identifier(new_name)
+                        .push(FlatStatement::Definition(new_name.to_string(), right_flattened));
+                    FlatExpression::Identifier(new_name)
                 };
-                Sub(box new_left, box new_right)
+                FlatExpression::Sub(box new_left, box new_right)
             }
-            Mult(box left, box right) => {
+            Expression::Mult(box left, box right) => {
                 let left_flattened = self.flatten_expression(
                     functions_flattened,
                     arguments_flattened,
@@ -401,12 +399,12 @@ impl Flattener {
                     right,
                 );
                 let new_left = if left_flattened.is_linear() {
-                    if let Sub(..) = left_flattened {
+                    if let FlatExpression::Sub(..) = left_flattened {
                         let new_name = format!("sym_{}", self.next_var_idx);
                         self.next_var_idx += 1;
                         statements_flattened
-                            .push(Statement::Definition(new_name.to_string(), left_flattened));
-                        Identifier(new_name)
+                            .push(FlatStatement::Definition(new_name.to_string(), left_flattened));
+                        FlatExpression::Identifier(new_name)
                     } else {
                         left_flattened
                     }
@@ -414,16 +412,16 @@ impl Flattener {
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;
                     statements_flattened
-                        .push(Statement::Definition(new_name.to_string(), left_flattened));
-                    Identifier(new_name)
+                        .push(FlatStatement::Definition(new_name.to_string(), left_flattened));
+                    FlatExpression::Identifier(new_name)
                 };
                 let new_right = if right_flattened.is_linear() {
-                    if let Sub(..) = right_flattened {
+                    if let FlatExpression::Sub(..) = right_flattened {
                         let new_name = format!("sym_{}", self.next_var_idx);
                         self.next_var_idx += 1;
                         statements_flattened
-                            .push(Statement::Definition(new_name.to_string(), right_flattened));
-                        Identifier(new_name)
+                            .push(FlatStatement::Definition(new_name.to_string(), right_flattened));
+                        FlatExpression::Identifier(new_name)
                     } else {
                         right_flattened
                     }
@@ -431,12 +429,12 @@ impl Flattener {
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;
                     statements_flattened
-                        .push(Statement::Definition(new_name.to_string(), right_flattened));
-                    Identifier(new_name)
+                        .push(FlatStatement::Definition(new_name.to_string(), right_flattened));
+                    FlatExpression::Identifier(new_name)
                 };
-                Mult(box new_left, box new_right)
+                FlatExpression::Mult(box new_left, box new_right)
             }
-            Div(box left, box right) => {
+            Expression::Div(box left, box right) => {
                 let left_flattened = self.flatten_expression(
                     functions_flattened,
                     arguments_flattened,
@@ -449,62 +447,59 @@ impl Flattener {
                     statements_flattened,
                     right,
                 );
-                let new_left = if left_flattened.is_linear() {
-                    left_flattened
-                } else {
+                let new_left = {
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;
                     statements_flattened
-                        .push(Statement::Definition(new_name.to_string(), left_flattened));
-                    Identifier(new_name)
+                        .push(FlatStatement::Definition(new_name.to_string(), left_flattened));
+                    FlatExpression::Identifier(new_name)
                 };
-                let new_right = if right_flattened.is_linear() {
-                    right_flattened
-                } else {
+                let new_right = {
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;
                     statements_flattened
-                        .push(Statement::Definition(new_name.to_string(), right_flattened));
-                    Identifier(new_name)
+                        .push(FlatStatement::Definition(new_name.to_string(), right_flattened));
+                    FlatExpression::Identifier(new_name)
                 };
-                Div(box new_left, box new_right)
+                FlatExpression::Div(box new_left, box new_right)
             }
-            Pow(base, exponent) => {
+            Expression::Pow(base, exponent) => {
                 // TODO currently assuming that base is number or variable
                 match exponent {
-                    box Number(ref x) if x > &T::one() => match base {
-                        box Identifier(ref var) => {
+                    box Expression::Number(ref x) if x > &T::one() => match base {
+                        box Expression::Identifier(ref var) => {
                             let id = if x > &T::from(2) {
                                 let tmp_expression = self.flatten_expression(
                                     functions_flattened,
                                     arguments_flattened,
                                     statements_flattened,
-                                    Pow(
-                                        box Identifier(var.to_string()),
-                                        box Number(x.clone() - T::one()),
+                                    Expression::Pow(
+                                        box Expression::Identifier(var.to_string()),
+                                        box Expression::Number(x.clone() - T::one()),
                                     ),
                                 );
                                 let new_name = format!("sym_{}", self.next_var_idx);
                                 self.next_var_idx += 1;
                                 statements_flattened.push(
-                                    Statement::Definition(new_name.to_string(), tmp_expression),
+                                    FlatStatement::Definition(new_name.to_string(), tmp_expression),
                                 );
                                 new_name
                             } else {
                                 var.to_string()
                             };
-                            Mult(
-                                box Identifier(id.to_string()),
-                                box Identifier(var.to_string()),
+                            FlatExpression::Mult(
+                                box FlatExpression::Identifier(id.to_string()),
+                                box FlatExpression::Identifier(var.to_string()),
                             )
                         }
-                        box Number(var) => Mult(box Number(var.clone()), box Number(var)),
+                        box Expression::Number(var) => FlatExpression::Mult(box FlatExpression::Number(var.clone()), box FlatExpression::Number(var)),
                         _ => panic!("Only variables and numbers allowed in pow base"),
                     },
                     _ => panic!("Expected number > 1 as pow exponent"),
                 }
             }
-            IfElse(box condition, consequent, alternative) => {
+            Expression::IfElse(box condition, consequent, alternative) => {
+
                 let (cond_true, cond_false) = self.flatten_condition(
                     functions_flattened,
                     arguments_flattened,
@@ -516,13 +511,13 @@ impl Flattener {
                     functions_flattened,
                     arguments_flattened,
                     statements_flattened,
-                    Add(
-                        box Mult(box cond_true, consequent),
-                        box Mult(box cond_false, alternative),
+                    Expression::Add(
+                        box Expression::Mult(box cond_true, consequent),
+                        box Expression::Mult(box cond_false, alternative),
                     ),
                 )
             }
-            FunctionCall(ref id, ref param_expressions) => {
+            Expression::FunctionCall(ref id, ref param_expressions) => {
                 let exprs_flattened = self.flatten_function_call(
                     functions_flattened,
                     arguments_flattened,
@@ -538,11 +533,11 @@ impl Flattener {
 
     pub fn flatten_expression_list<T: Field>(
         &mut self,
-        functions_flattened: &mut Vec<Function<T>>,
+        functions_flattened: &mut Vec<FlatFunction<T>>,
         arguments_flattened: &Vec<Parameter>,
-        statements_flattened: &mut Vec<Statement<T>>,
+        statements_flattened: &mut Vec<FlatStatement<T>>,
         list: ExpressionList<T>,
-    ) -> ExpressionList<T> {
+    ) -> FlatExpressionList<T> {
         let flattened_exprs = list.expressions.into_iter().map(|x| 
             self.flatten_expression(
                 functions_flattened, 
@@ -550,16 +545,16 @@ impl Flattener {
                 statements_flattened, 
                 x.clone())
             ).collect();
-        ExpressionList {
+        FlatExpressionList {
             expressions: flattened_exprs
         }
     }
 
     pub fn flatten_statement<T: Field>(
         &mut self,
-        functions_flattened: &mut Vec<Function<T>>,
+        functions_flattened: &mut Vec<FlatFunction<T>>,
         arguments_flattened: &Vec<Parameter>,
-        statements_flattened: &mut Vec<Statement<T>>,
+        statements_flattened: &mut Vec<FlatStatement<T>>,
         stat: &Statement<T>,
     ) {
         match *stat {
@@ -572,7 +567,7 @@ impl Flattener {
                     exprs_subbed,
                 );
                 
-                statements_flattened.push(Statement::Return(rhs));
+                statements_flattened.push(FlatStatement::Return(rhs));
             }
             Statement::Definition(ref id, ref expr) => {
                 let expr_subbed = expr.apply_substitution(&self.substitution);
@@ -589,14 +584,19 @@ impl Flattener {
                     self.substitution.insert(var_to_replace.clone().to_string(),var.clone());
                 }
 
-                statements_flattened.push(Statement::Definition(var, rhs));
+                statements_flattened.push(FlatStatement::Definition(var, rhs));
             }
             Statement::Condition(ref expr1, ref expr2) => {
                 let expr1_subbed = expr1.apply_substitution(&self.substitution);
                 let expr2_subbed = expr2.apply_substitution(&self.substitution);
                 let (lhs, rhs) = if expr1_subbed.is_linear() {
                     (
-                        expr1_subbed,
+                        self.flatten_expression(
+                            functions_flattened,
+                            arguments_flattened,
+                            statements_flattened,
+                            expr1_subbed
+                        ),
                         self.flatten_expression(
                             functions_flattened,
                             arguments_flattened,
@@ -606,7 +606,12 @@ impl Flattener {
                     )
                 } else if expr2_subbed.is_linear() {
                     (
-                        expr2_subbed,
+                        self.flatten_expression(
+                            functions_flattened,
+                            arguments_flattened,
+                            statements_flattened,
+                            expr2_subbed,
+                        ),
                         self.flatten_expression(
                             functions_flattened,
                             arguments_flattened,
@@ -617,14 +622,14 @@ impl Flattener {
                 } else {
                     unimplemented!()
                 };
-                statements_flattened.push(Statement::Condition(lhs, rhs));
+                statements_flattened.push(FlatStatement::Condition(lhs, rhs));
             }
             Statement::For(ref var, ref start, ref end, ref statements) => {
                 let mut current = start.clone();
                 while &current < end {
-                    statements_flattened.push(Statement::Definition(
+                    statements_flattened.push(FlatStatement::Definition(
                         self.use_variable(&var),
-                        Expression::Number(current.clone()),
+                        FlatExpression::Number(current.clone()),
                     ));
                     for s in statements {
                         self.flatten_statement(
@@ -637,11 +642,10 @@ impl Flattener {
                     current = T::one() + &current;
                 }
             }
-            ref s @ Statement::Compiler(..) => statements_flattened.push(s.clone()),
             Statement::MultipleDefinition(ref ids, ref rhs) => {
                 let rhs_subbed = rhs.apply_substitution(&self.substitution);
                 match rhs_subbed {
-                    FunctionCall(ref fun_id, ref exprs) => {
+                    Expression::FunctionCall(ref fun_id, ref exprs) => {
                         let rhs_flattened = self.flatten_function_call(
                             functions_flattened,
                             arguments_flattened,
@@ -657,7 +661,7 @@ impl Flattener {
                             if !(var == var_to_replace) && self.variables.contains(&var_to_replace) && !self.substitution.contains_key(&var_to_replace){
                                 self.substitution.insert(var_to_replace.clone().to_string(),var.clone());
                             }
-                            statements_flattened.push(Statement::Definition(var, rhs_flattened.expressions[i].clone()));
+                            statements_flattened.push(FlatStatement::Definition(var, rhs_flattened.expressions[i].clone()));
                         }
                     },
                     _ => panic!("Right hand side of a MultipleDefinition should be a FunctionCall")
@@ -674,14 +678,14 @@ impl Flattener {
     /// * `funct` - `Function` that will be flattened.
     pub fn flatten_function<T: Field>(
         &mut self,
-        functions_flattened: &mut Vec<Function<T>>,
+        functions_flattened: &mut Vec<FlatFunction<T>>,
         funct: Function<T>,
-    ) -> Function<T> {
+    ) -> FlatFunction<T> {
         self.variables = HashSet::new();
-        self.substitution = Substitution::new();
+        self.substitution = DirectSubstitution::new();
         self.next_var_idx = 0;
         let mut arguments_flattened: Vec<Parameter> = Vec::new();
-        let mut statements_flattened: Vec<Statement<T>> = Vec::new();
+        let mut statements_flattened: Vec<FlatStatement<T>> = Vec::new();
         // push parameters
         for arg in funct.arguments {
             arguments_flattened.push(Parameter {
@@ -698,7 +702,7 @@ impl Flattener {
                 &stat,
             );
         }
-        Function {
+        FlatFunction {
             id: funct.id,
             arguments: arguments_flattened,
             statements: statements_flattened,
@@ -711,13 +715,13 @@ impl Flattener {
     /// # Arguments
     ///
     /// * `prog` - `Prog`ram that will be flattened.
-    pub fn flatten_program<T: Field>(&mut self, prog: Prog<T>) -> Prog<T> {
+    pub fn flatten_program<T: Field>(&mut self, prog: Prog<T>) -> FlatProg<T> {
         let mut functions_flattened = Vec::new();
         for func in prog.functions {
             let flattened_func = self.flatten_function(&mut functions_flattened, func);
             functions_flattened.push(flattened_func);
         }
-        Prog {
+        FlatProg {
             functions: functions_flattened,
         }
     }
@@ -774,14 +778,14 @@ mod multiple_definition {
 
         let mut flattener = Flattener::new(FieldPrime::get_required_bits());
         let mut functions_flattened = vec![
-            Function {
+            FlatFunction {
                 id: "foo".to_string(), 
                 arguments: vec![], 
-                statements: vec![Statement::Return(
-                    ExpressionList { 
+                statements: vec![FlatStatement::Return(
+                    FlatExpressionList { 
                         expressions: vec![
-                            Expression::Number(FieldPrime::from(1)), 
-                            Expression::Number(FieldPrime::from(2))
+                            FlatExpression::Number(FieldPrime::from(1)), 
+                            FlatExpression::Number(FieldPrime::from(2))
                         ]
                     }
                 )],
@@ -808,7 +812,7 @@ mod multiple_definition {
         assert_eq!(
             statements_flattened[0]
             ,
-            Statement::Definition("a".to_string(), Expression::Number(FieldPrime::from(1)))
+            FlatStatement::Definition("a".to_string(), FlatExpression::Number(FieldPrime::from(1)))
         );
     }
 
@@ -822,14 +826,14 @@ mod multiple_definition {
 
         let mut flattener = Flattener::new(FieldPrime::get_required_bits());
         let mut functions_flattened = vec![
-            Function {
+            FlatFunction {
                 id: "dup".to_string(), 
                 arguments: vec![Parameter { id: "x".to_string(), private: true }], 
-                statements: vec![Statement::Return(
-                    ExpressionList { 
+                statements: vec![FlatStatement::Return(
+                    FlatExpressionList { 
                         expressions: vec![
-                            Expression::Identifier("x".to_string()), 
-                            Expression::Identifier("x".to_string()), 
+                            FlatExpression::Identifier("x".to_string()), 
+                            FlatExpression::Identifier("x".to_string()), 
                         ]
                     }
                 )],
@@ -853,13 +857,10 @@ mod multiple_definition {
             &statement,
         );
 
-        println!("{:?}", statements_flattened);
-
-
         assert_eq!(
             statements_flattened[0]
             ,
-            Statement::Definition("dup_1_param_0".to_string(), Expression::Number(FieldPrime::from(2)))
+            FlatStatement::Definition("dup_1_param_0".to_string(), FlatExpression::Number(FieldPrime::from(2)))
         );
     }
 
@@ -873,13 +874,13 @@ mod multiple_definition {
 
         let mut flattener = Flattener::new(FieldPrime::get_required_bits());
         let mut functions_flattened = vec![
-            Function {
+            FlatFunction {
                 id: "foo".to_string(), 
                 arguments: vec![], 
-                statements: vec![Statement::Return(
-                    ExpressionList { 
+                statements: vec![FlatStatement::Return(
+                    FlatExpressionList { 
                         expressions: vec![
-                            Expression::Number(FieldPrime::from(1))
+                            FlatExpression::Number(FieldPrime::from(1))
                         ]
                     }
                 )],
@@ -903,7 +904,7 @@ mod multiple_definition {
         assert_eq!(
             statements_flattened[0]
             ,
-            Statement::Definition("a".to_string(), Expression::Number(FieldPrime::from(1)))
+            FlatStatement::Definition("a".to_string(), FlatExpression::Number(FieldPrime::from(1)))
         );
     }
 }

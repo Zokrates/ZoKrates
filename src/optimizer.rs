@@ -5,13 +5,14 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
+use prefixed_substitution::PrefixedSubstitution;
 use substitution::Substitution;
-use absy::*;
+use flat_absy::*;
 use field::Field;
 
 pub struct Optimizer {
 	/// Map of renamings for reassigned variables while processing the program.
-	substitution: Substitution,
+	substitution: PrefixedSubstitution,
 	/// Index of the next introduced variable while processing the program.
 	next_var_idx: Counter
 }
@@ -31,15 +32,15 @@ impl Counter {
 impl Optimizer {
 	pub fn new() -> Optimizer {
 		Optimizer {
-			substitution: Substitution::new(),
+			substitution: PrefixedSubstitution::new(),
     		next_var_idx: Counter {
     			value: 0
     		}
 		}
 	}
 
-	pub fn optimize_program<T: Field>(&mut self, prog: Prog<T>) -> Prog<T> {
-		let optimized_program = Prog {
+	pub fn optimize_program<T: Field>(&mut self, prog: FlatProg<T>) -> FlatProg<T> {
+		let optimized_program = FlatProg {
 			functions: prog.functions.into_iter().filter_map(|func| {
 				if func.id == "main" {
 					return Some(self.optimize_function(func));
@@ -50,7 +51,7 @@ impl Optimizer {
 		optimized_program
 	}
 
-	pub fn optimize_function<T: Field>(&mut self, funct: Function<T>) -> Function<T> {
+	pub fn optimize_function<T: Field>(&mut self, funct: FlatFunction<T>) -> FlatFunction<T> {
 
 		// Add arguments to substitution map
 		for arg in &funct.arguments {
@@ -67,7 +68,7 @@ impl Optimizer {
 				// Synonym definition
 				// if the right side of the assignment is already being reassigned to `x`,
 				// reassign the left side to `x` as well, otherwise reassign to a new variable
-				Statement::Definition(ref left, Expression::Identifier(ref right)) => {
+				FlatStatement::Definition(ref left, FlatExpression::Identifier(ref right)) => {
 					let r = match self.substitution.get(right) {
 						Some(value) => {
 							value.clone()
@@ -79,11 +80,11 @@ impl Optimizer {
 					self.substitution.insert(left.clone(), r);
 				},
 				// Other definitions
-				Statement::Definition(ref left, _) => {
+				FlatStatement::Definition(ref left, _) => {
 					self.substitution.insert(left.clone(), format!("_{}", self.next_var_idx.increment()));
 				},
 				// Compiler statements introduce variables before they are defined, so add them to the substitution
-				Statement::Compiler(ref id, _) => {
+				FlatStatement::Compiler(ref id, _) => {
 					self.substitution.insert(id.clone(), format!("_{}", self.next_var_idx.increment()));
 				},
 				_ => ()
@@ -94,7 +95,7 @@ impl Optimizer {
 		let optimized_statements = funct.statements.iter().filter_map(|statement| {
 			match *statement {
 				// filter out synonyms definitions
-				Statement::Definition(_, Expression::Identifier(_)) => {
+				FlatStatement::Definition(_, FlatExpression::Identifier(_)) => {
 					None
 				},
 				// substitute all other statements
@@ -124,25 +125,25 @@ mod tests {
 
 	#[test]
 	fn remove_synonyms() {
-		let f: Function<FieldPrime> = Function {
+		let f: FlatFunction<FieldPrime> = Function {
             id: "foo".to_string(),
             arguments: vec![Parameter {id: "a".to_string(), private: false}],
             statements: vec![
-            	Statement::Definition("b".to_string(), Expression::Identifier("a".to_string())),
-            	Statement::Definition("c".to_string(), Expression::Identifier("b".to_string())),
-            	Statement::Return(ExpressionList {
-            		expressions: vec![Expression::Identifier("c".to_string())]
+            	FlatStatement::Definition("b".to_string(), FlatExpression::Identifier("a".to_string())),
+            	FlatStatement::Definition("c".to_string(), FlatExpression::Identifier("b".to_string())),
+            	FlatStatement::Return(FlatExpressionList {
+            		expressions: vec![FlatExpression::Identifier("c".to_string())]
             	})
             ],
             return_count: 1
         };
 
-        let optimized: Function<FieldPrime> = Function {
+        let optimized: FlatFunction<FieldPrime> = Function {
             id: "foo".to_string(),
         	arguments: vec![Parameter {id: "_0".to_string(), private: false}],
         	statements: vec![
-        		Statement::Return(ExpressionList {
-            		expressions: vec![Expression::Identifier("_0".to_string())]
+        		FlatStatement::Return(FlatExpressionList {
+            		expressions: vec![FlatExpression::Identifier("_0".to_string())]
             	})
         	],
         	return_count: 1
@@ -159,24 +160,24 @@ mod tests {
             id: "foo".to_string(),
             arguments: vec![Parameter {id: "a".to_string(), private: false}],
             statements: vec![
-            	Statement::Definition("b".to_string(), Expression::Identifier("a".to_string())),
-            	Statement::Definition("d".to_string(), Expression::Number(FieldPrime::from(1))),
-            	Statement::Definition("c".to_string(), Expression::Identifier("b".to_string())),
-            	Statement::Definition("e".to_string(), Expression::Identifier("d".to_string())),
-            	Statement::Return(ExpressionList {
-            		expressions: vec![Expression::Identifier("c".to_string()), Expression::Identifier("e".to_string())]
+            	FlatStatement::Definition("b".to_string(), FlatExpression::Identifier("a".to_string())),
+            	FlatStatement::Definition("d".to_string(), FlatExpression::Number(FieldPrime::from(1))),
+            	FlatStatement::Definition("c".to_string(), FlatExpression::Identifier("b".to_string())),
+            	FlatStatement::Definition("e".to_string(), FlatExpression::Identifier("d".to_string())),
+            	FlatStatement::Return(FlatExpressionList {
+            		expressions: vec![FlatExpression::Identifier("c".to_string()), FlatExpression::Identifier("e".to_string())]
             	})
             ],
             return_count: 2
         };
 
-        let optimized: Function<FieldPrime> = Function {
+        let optimized: FlatFunction<FieldPrime> = Function {
             id: "foo".to_string(),
         	arguments: vec![Parameter {id: "_0".to_string(), private: false}],
         	statements: vec![
-            	Statement::Definition("_1".to_string(), Expression::Number(FieldPrime::from(1))),
-        		Statement::Return(ExpressionList {
-            		expressions: vec![Expression::Identifier("_0".to_string()), Expression::Identifier("_1".to_string())]
+            	FlatStatement::Definition("_1".to_string(), FlatExpression::Number(FieldPrime::from(1))),
+        		FlatStatement::Return(FlatExpressionList {
+            		expressions: vec![FlatExpression::Identifier("_0".to_string()), FlatExpression::Identifier("_1".to_string())]
             	})
         	],
         	return_count: 2
