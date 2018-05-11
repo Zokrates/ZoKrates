@@ -79,6 +79,7 @@ use field::{Field};
 use absy::*;
 use std::path::PathBuf;
 use imports::*;
+use parameter::Parameter;
 
 #[derive(Clone, PartialEq)]
 struct Position {
@@ -1136,24 +1137,6 @@ fn parse_statement<T: Field>(
                 }),
             }
         }
-        (Token::Hash, s1, p1) => match parse_ide(&s1, &p1) {
-            (Token::Ide(x2), s2, p2) => match next_token(&s2, &p2) {
-                (Token::Eq, s3, p3) => match parse_expr(&s3, &p3) {
-                    Ok((e4, s4, p4)) => Ok((Statement::Compiler(x2, e4), s4, p4)),
-                    Err(err) => Err(err),
-                },
-                (t3, _, p3) => Err(Error {
-                    expected: vec![Token::Eq],
-                    got: t3,
-                    pos: p3,
-                }),
-            },
-            (t2, _, p2) => Err(Error {
-                expected: vec![Token::ErrIde],
-                got: t2,
-                pos: p2,
-            }),
-        },
         (Token::Return, s1, p1) => match parse_expression_list(s1, p1) {
             Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
                 (Token::InlineComment(_), ref s3, _) => {
@@ -1183,7 +1166,6 @@ fn parse_statement<T: Field>(
                 Token::ErrNum,
                 Token::If,
                 Token::Open,
-                Token::Hash,
                 Token::Return,
             ],
             got: t1,
@@ -1529,7 +1511,7 @@ pub fn parse_program<T: Field>(file: File, path: PathBuf) -> Result<Prog<T>, Err
         }
     }
 
-    Ok(Prog { functions, imports })
+    Ok(Prog { functions, imports, imported_functions: vec![] })
 }
 
 fn parse_comma_separated_expression_list_rec<T: Field>(

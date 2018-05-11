@@ -6,6 +6,7 @@
 
 use std::fmt;
 use absy::*;
+use flat_absy::*;
 use field::Field;
 use std::path::PathBuf;
 
@@ -80,8 +81,8 @@ impl Importer {
 		}
 	}
 
-	pub	fn apply_imports<T: Field>(&self, origins: Vec<(Prog<T>, String)>, destination: Prog<T>) -> Prog<T> {
-		let mut imported_mains: Vec<Function<T>> = origins.iter().map(|origin| {
+	pub	fn apply_imports<T: Field>(&self, origins: Vec<(FlatProg<T>, String)>, destination: Prog<T>) -> Prog<T> {
+		let imported_mains = origins.iter().map(|origin| {
 			match origin {
 				&(ref program, ref alias) => {
 					match program.functions.iter().find(|fun| fun.id == "main") {
@@ -96,11 +97,10 @@ impl Importer {
 			}
 		}).collect();
 
-		imported_mains.append(&mut destination.clone().functions);
-
 		Prog {
 			imports: vec![],
-			functions: imported_mains
+			functions: destination.clone().functions,
+			imported_functions: imported_mains
 		}
 	}
 }

@@ -8,6 +8,7 @@ use std::fmt;
 use std::path::{PathBuf};
 use field::{Field, FieldPrime};
 use absy::{Prog};
+use flat_absy::{FlatProg};
 use parser::{self, parse_program};
 use imports::{self, Importer};
 use semantics::{self, Checker};
@@ -58,12 +59,12 @@ impl fmt::Display for CompileError<FieldPrime> {
 	}
 }
 
-pub fn compile<T: Field>(path: PathBuf) -> Result<Prog<T>, CompileError<T>> {
+pub fn compile<T: Field>(path: PathBuf) -> Result<FlatProg<T>, CompileError<T>> {
 	let file = File::open(&path)?;
 
     let program_ast_without_imports: Prog<T> = parse_program(file, path.to_owned())?;
 
-    let mut compiled_imports: Vec<(Prog<T>, String)> = vec![];
+    let mut compiled_imports: Vec<(FlatProg<T>, String)> = vec![];
 
     for import in program_ast_without_imports.clone().imports {
     	let path = import.resolve()?;
