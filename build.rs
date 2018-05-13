@@ -48,7 +48,7 @@ fn main() {
 
         println!("cargo:rustc-link-lib=gmp");
         println!("cargo:rustc-link-lib=gmpxx");
-        println!("cargo:rustc-link-lib=static=snark");
-        println!("cargo:rustc-link-lib=static=ff");
+        println!("cargo:rustc-link-lib=static=snarkd");
+        println!("cargo:rustc-link-lib=static=ffd");
     }
 }

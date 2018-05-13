@@ -240,13 +240,7 @@ void printProof(r1cs_ppzksnark_proof<libff::alt_bn128_pp> proof){
                 cout << "proof.K = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_K)<<");"<< endl;
 }
 
-
 bool _setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int constraints, int variables, int inputs, const char* pk_path, const char* vk_path)
-{
-    return(true);
-}
-
-/*bool _setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int constraints, int variables, int inputs, const char* pk_path, const char* vk_path)
 {
   //libsnark::inhibit_profiling_info = true;
   //libsnark::inhibit_profiling_counters = true;
@@ -254,15 +248,14 @@ bool _setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int constraint
   //initialize curve parameters
   libff::alt_bn128_pp::init_public_params();
 
-  r1cs_constraint_system<libff::alt_bn128_pp> cs;
-  cs = createConstraintSystem(A, B ,C , constraints, variables, inputs);
+  auto cs = createConstraintSystem(A, B ,C , constraints, variables, inputs);
 
   assert(cs.num_variables() >= inputs);
   assert(cs.num_inputs() == inputs);
   assert(cs.num_constraints() == constraints);
 
   // create keypair
-  r1cs_ppzksnark_keypair<alt_bn128_pp> keypair = r1cs_ppzksnark_generator<alt_bn128_pp>(cs);
+  auto keypair = r1cs_ppzksnark_generator<libff::alt_bn128_pp>(cs);
 
   // Export vk and pk to files
   serializeProvingKeyToFile(keypair.pk, pk_path);
@@ -272,7 +265,7 @@ bool _setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int constraint
   exportVerificationKey(keypair);
 
   return true;
-}*/
+}
 
 bool _generate_proof(const char* pk_path, const uint8_t* public_inputs, int public_inputs_length, const uint8_t* private_inputs, int private_inputs_length)
     {
@@ -286,7 +279,7 @@ bool _generate_proof(const char* pk_path, const uint8_t* public_inputs, int publ
 
   //initialize curve parameters
   libff::alt_bn128_pp::init_public_params();
-  r1cs_ppzksnark_proving_key<libff::alt_bn128_pp> pk = deserializeProvingKeyFromFile(pk_path);
+  auto pk = deserializeProvingKeyFromFile(pk_path);
 
   // assign variables based on witness values, excludes ~one
   r1cs_variable_assignment<libff::alt_bn128_pp> full_variable_assignment;
@@ -299,8 +292,8 @@ bool _generate_proof(const char* pk_path, const uint8_t* public_inputs, int publ
 
   // split up variables into primary and auxiliary inputs. Does *NOT* include the constant 1
   // Public variables belong to primary input, private variables are auxiliary input.
-  r1cs_primary_input<libff::alt_bn128_pp> primary_input(full_variable_assignment.begin(), full_variable_assignment.begin() + public_inputs_length-1);
-  r1cs_primary_input<libff::alt_bn128_pp> auxiliary_input(full_variable_assignment.begin() + public_inputs_length-1, full_variable_assignment.end());
+  auto primary_input(full_variable_assignment.begin(), full_variable_assignment.begin() + public_inputs_length-1);
+  auto auxiliary_input(full_variable_assignment.begin() + public_inputs_length-1, full_variable_assignment.end());
 
   // for debugging
   // cout << "full variable assignment:"<< endl << full_variable_assignment;
@@ -308,7 +301,7 @@ bool _generate_proof(const char* pk_path, const uint8_t* public_inputs, int publ
   // cout << "auxiliary input:"<< endl << auxiliary_input;
 
   // Proof Generation
-  r1cs_ppzksnark_proof<alt_bn128_pp> proof = r1cs_ppzksnark_prover<alt_bn128_pp>(pk, primary_input, auxiliary_input);
+  auto proof = r1cs_ppzksnark_prover<libff::alt_bn128_pp>(pk, primary_input, auxiliary_input);
 
   // print proof
   printProof(proof);

@@ -20,7 +20,7 @@ std::string r1cs_to_json(protoboard<FieldT> pb, uint input_variables)
 
     for (size_t i = 0; i < input_variables + 1; ++i)
     {
-        ss << '"' << constraints.variable_annotations[i].c_str() << '"';
+        // ss << '"' << constraints.variable_annotations[i].c_str() << '"';
         if (i < input_variables ) {
             ss << ", ";
         }
@@ -47,24 +47,22 @@ std::string r1cs_to_json(protoboard<FieldT> pb, uint input_variables)
     return ss.str();
 }
 
-const char* _sha256Constraints()
+void _sha256Constraints()
 {
-    protoboard<FieldT> pb;
-    std::shared_ptr<sha256_ethereum> hash;
-
     // block_variable<FieldT> input;
     // block_variable<FieldT> output;
+    // auto hash = std::make_shared<sha256_ethereum>(pb, 256, input; output, "cm_hash");
+
+    // std::shared_ptr<sha256_ethereum> hash;
+    protoboard<FieldT> pb;
+    
     // hash.reset(new sha256_ethereum(
     //     pb, 256, input, output, "cm_hash"
     // ));
     // hash->generate_r1cs_constraints(true);
 
     // return(r1cs_to_json(pb, 10));
-    return std::string{}.c_str();
-}
-
-bool _foo() {
-    return true;
+    //return "";
 }
 
 std::string array_to_json(protoboard<FieldT> pb)

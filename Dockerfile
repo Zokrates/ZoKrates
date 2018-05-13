@@ -24,5 +24,6 @@ RUN curl https://sh.rustup.rs -sSf | \
 
 ENV PATH=/root/.cargo/bin:$PATH
 
-COPY . .
-RUN cargo build --release
+COPY . /root/ZoKrates
+RUN  cd ZoKrates \
+    && cargo build

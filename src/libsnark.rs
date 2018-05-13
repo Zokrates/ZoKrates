@@ -34,10 +34,7 @@ extern "C" {
                 private_inputs_length: c_int,
             ) -> bool;
 
-    fn _sha256Constraints() -> CString;
-
-    fn _foo() -> bool;
-
+    fn _sha256Constraints() -> ();
 }
 
 pub fn setup<T: Field> (
@@ -122,15 +119,9 @@ pub fn generate_proof<T: Field>(
     }
 }
 
-pub fn getSha256Constraints() -> CString {
+pub fn getSha256Constraints() -> () {
     unsafe {
         _sha256Constraints()
-    }
-}
-
-pub fn foo() -> bool {
-    unsafe {
-        _foo()
     }
 }
 

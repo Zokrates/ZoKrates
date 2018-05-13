@@ -50,6 +50,7 @@ impl fmt::Display for CompileError<FieldPrime> {
 }
 
 pub fn compile<T: Field>(path: PathBuf) -> Result<Prog<T>, CompileError<T>> {
+	println!("compile {:?}", path);
 	let file = File::open(&path)?;
 
     let program_ast: Prog<T> = parse_program(file)?;
