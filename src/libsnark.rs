@@ -119,7 +119,7 @@ pub fn generate_proof<T: Field>(
     }
 }
 
-pub fn getSha256Constraints() -> () {
+pub fn get_sha256_constraints() -> () {
     unsafe {
         _sha256Constraints()
     }
