@@ -63,7 +63,7 @@ mod integration {
         fs::create_dir(test_case_path).unwrap();
 
     	// compile
-        assert_cli::Assert::command(&["cargo", "run", "--", "compile", "-i", program_path.to_str().unwrap(), "-o", flattened_path.to_str().unwrap()])
+        assert_cli::Assert::command(&["./target/debug/zokrates", "compile", "-i", program_path.to_str().unwrap(), "-o", flattened_path.to_str().unwrap()])
             .succeeds()
             .unwrap();
 
@@ -75,7 +75,7 @@ mod integration {
             _ => panic!(format!("Cannot read arguments. Check {}", arguments_path.to_str().unwrap()))
         }).collect();
 
-        let mut compute = vec!["cargo", "run", "--", "compute-witness", "-i", flattened_path.to_str().unwrap(), "-o", witness_path.to_str().unwrap(), "-a"];
+        let mut compute = vec!["./target/debug/zokrates", "compute-witness", "-i", flattened_path.to_str().unwrap(), "-o", witness_path.to_str().unwrap(), "-a"];
 
         for arg in arguments_str_list.iter() {
             compute.push(arg);
