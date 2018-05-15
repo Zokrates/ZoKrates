@@ -869,7 +869,7 @@ mod multiple_definition {
         assert_eq!(
             statements_flattened[0]
             ,
-            FlatStatement::Definition("dup_1_param_0".to_string(), FlatExpression::Number(FieldPrime::from(2)))
+            FlatStatement::Definition("dup_i1o2_1_param_0".to_string(), FlatExpression::Number(FieldPrime::from(2)))
         );
     }
 
@@ -915,5 +915,72 @@ mod multiple_definition {
             ,
             FlatStatement::Definition("a".to_string(), FlatExpression::Number(FieldPrime::from(1)))
         );
+    }
+
+    #[test]
+    fn overload() {
+
+        // def foo()
+        //      return 1
+        // def foo()
+        //      return 1, 2
+        // def main()
+        //      a = foo()
+        //      b, c = foo()
+        //      return 1
+        //
+        //      should not panic    
+        //
+
+        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let functions = vec![
+            Function {
+                id: "foo".to_string(), 
+                arguments: vec![], 
+                statements: vec![Statement::Return(
+                    ExpressionList { 
+                        expressions: vec![
+                            Expression::Number(FieldPrime::from(1))
+                        ]
+                    }
+                )],
+                return_count: 1,
+            },
+            Function {
+                id: "foo".to_string(), 
+                arguments: vec![], 
+                statements: vec![Statement::Return(
+                    ExpressionList { 
+                        expressions: vec![
+                            Expression::Number(FieldPrime::from(1)),
+                            Expression::Number(FieldPrime::from(2))
+                        ]
+                    }
+                )],
+                return_count: 2,
+            },
+            Function {
+                id: "main".to_string(),
+                arguments: vec![],
+                statements: vec![
+                    Statement::Definition("a".to_string(), Expression::FunctionCall("foo".to_string(), vec![])),
+                    Statement::MultipleDefinition(vec!["b".to_string(), "c".to_string()], Expression::FunctionCall("foo".to_string(), vec![])),
+                    Statement::Return(ExpressionList {
+                        expressions: vec![Expression::Number(FieldPrime::from(1))]
+                    })
+                ],
+                return_count: 1
+            }
+        ];
+
+        flattener.flatten_program(
+            Prog {
+                functions: functions,
+                imported_functions: vec![],
+                imports: vec![]
+            }
+        );
+
+        // shouldn't panic
     }
 }
