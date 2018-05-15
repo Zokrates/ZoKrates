@@ -344,33 +344,3 @@ impl<T: Field> fmt::Debug for FlatExpressionList<T> {
         write!(f, "ExpressionList({:?})", self.expressions)
     }
 }
-
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub enum FlatCondition<T: Field> {
-    Eq(FlatExpression<T>, FlatExpression<T>),
-}
-
-impl<T: Field> fmt::Display for FlatCondition<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            FlatCondition::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
-        }
-    }
-}
-
-impl<T: Field> fmt::Debug for FlatCondition<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self)
-    }
-}
-
-impl<T: Field> FlatCondition<T> {
-    fn apply_substitution(&self, substitution: &Substitution) -> FlatCondition<T> {
-        match *self {
-            FlatCondition::Eq(ref lhs, ref rhs) => FlatCondition::Eq(
-                lhs.apply_substitution(substitution),
-                rhs.apply_substitution(substitution),
-            )
-        }
-    }
-}

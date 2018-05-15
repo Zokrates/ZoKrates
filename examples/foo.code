@@ -1,0 +1,4 @@
+def main():
+	a = 1 + 2 + 3
+	a == 3
+	return 123
