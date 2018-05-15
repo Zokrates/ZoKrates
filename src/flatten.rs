@@ -361,7 +361,7 @@ impl Flattener {
                 );
                 let new_left = if left_flattened.is_linear() {
                     left_flattened
-                } else {                    
+                } else {
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;
                     statements_flattened
@@ -370,7 +370,7 @@ impl Flattener {
                 };
                 let new_right = if right_flattened.is_linear() {
                     right_flattened
-                } else {                    
+                } else {
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;
                     statements_flattened
@@ -461,14 +461,19 @@ impl Flattener {
                 // TODO currently assuming that base is number or variable
                 match exponent {
                     box Expression::Number(ref x) if x > &T::one() => match base {
-                        box Expression::Identifier(ref var) => {
-                            let id = if x > &T::from(2) {
+                        box Expression::Identifier(..) | box Expression::Number(..) => {
+                            let flat_base = match base {
+                              box Expression::Identifier(ref var) => FlatExpression::Identifier(var.to_string()),
+                              box Expression::Number(ref var) => FlatExpression::Number(var.clone()),
+                              _ => panic!("Only variables and numbers allowed in pow base"),
+                            };
+                            let tmp_result = if x > &T::from(2) {
                                 let tmp_expression = self.flatten_expression(
                                     functions_flattened,
                                     arguments_flattened,
                                     statements_flattened,
                                     Expression::Pow(
-                                        box Expression::Identifier(var.to_string()),
+                                        base,
                                         box Expression::Number(x.clone() - T::one()),
                                     ),
                                 );
@@ -477,16 +482,15 @@ impl Flattener {
                                 statements_flattened.push(
                                     FlatStatement::Definition(new_name.to_string(), tmp_expression),
                                 );
-                                new_name
+                                FlatExpression::Identifier(new_name)
                             } else {
-                                var.to_string()
+                                flat_base.clone()
                             };
                             FlatExpression::Mult(
-                                box FlatExpression::Identifier(id.to_string()),
-                                box FlatExpression::Identifier(var.to_string()),
+                                box tmp_result,
+                                box flat_base,
                             )
                         }
-                        box Expression::Number(var) => FlatExpression::Mult(box FlatExpression::Number(var.clone()), box FlatExpression::Number(var)),
                         _ => panic!("Only variables and numbers allowed in pow base"),
                     },
                     _ => panic!("Expected number > 1 as pow exponent"),
@@ -532,11 +536,11 @@ impl Flattener {
         statements_flattened: &mut Vec<FlatStatement<T>>,
         list: ExpressionList<T>,
     ) -> FlatExpressionList<T> {
-        let flattened_exprs = list.expressions.into_iter().map(|x| 
+        let flattened_exprs = list.expressions.into_iter().map(|x|
             self.flatten_expression(
-                functions_flattened, 
-                arguments_flattened, 
-                statements_flattened, 
+                functions_flattened,
+                arguments_flattened,
+                statements_flattened,
                 x.clone())
             ).collect();
         FlatExpressionList {
@@ -560,7 +564,7 @@ impl Flattener {
                     statements_flattened,
                     exprs_subbed,
                 );
-                
+
                 statements_flattened.push(FlatStatement::Return(rhs));
             }
             Statement::Definition(ref id, ref expr) => {
@@ -773,12 +777,12 @@ mod multiple_definition {
         let mut flattener = Flattener::new(FieldPrime::get_required_bits());
         let mut functions_flattened = vec![
             FlatFunction {
-                id: "foo".to_string(), 
-                arguments: vec![], 
+                id: "foo".to_string(),
+                arguments: vec![],
                 statements: vec![FlatStatement::Return(
-                    FlatExpressionList { 
+                    FlatExpressionList {
                         expressions: vec![
-                            FlatExpression::Number(FieldPrime::from(1)), 
+                            FlatExpression::Number(FieldPrime::from(1)),
                             FlatExpression::Number(FieldPrime::from(2))
                         ]
                     }
@@ -790,7 +794,7 @@ mod multiple_definition {
         let mut statements_flattened = vec![];
         let statement = Statement::MultipleDefinition(
             vec![
-                "a".to_string(), 
+                "a".to_string(),
                 "b".to_string()
             ],
             Expression::FunctionCall("foo".to_string(), vec![])
@@ -821,13 +825,13 @@ mod multiple_definition {
         let mut flattener = Flattener::new(FieldPrime::get_required_bits());
         let mut functions_flattened = vec![
             FlatFunction {
-                id: "dup".to_string(), 
-                arguments: vec![Parameter { id: "x".to_string(), private: true }], 
+                id: "dup".to_string(),
+                arguments: vec![Parameter { id: "x".to_string(), private: true }],
                 statements: vec![FlatStatement::Return(
-                    FlatExpressionList { 
+                    FlatExpressionList {
                         expressions: vec![
-                            FlatExpression::Identifier("x".to_string()), 
-                            FlatExpression::Identifier("x".to_string()), 
+                            FlatExpression::Identifier("x".to_string()),
+                            FlatExpression::Identifier("x".to_string()),
                         ]
                     }
                 )],
@@ -838,9 +842,9 @@ mod multiple_definition {
         let mut statements_flattened = vec![];
         let statement = Statement::MultipleDefinition(
             vec![
-                "a".to_string(), 
+                "a".to_string(),
                 "b".to_string()
-            ], 
+            ],
             Expression::FunctionCall("dup".to_string(), vec![Expression::Number(FieldPrime::from(2))])
         );
 
@@ -869,10 +873,10 @@ mod multiple_definition {
         let mut flattener = Flattener::new(FieldPrime::get_required_bits());
         let mut functions_flattened = vec![
             FlatFunction {
-                id: "foo".to_string(), 
-                arguments: vec![], 
+                id: "foo".to_string(),
+                arguments: vec![],
                 statements: vec![FlatStatement::Return(
-                    FlatExpressionList { 
+                    FlatExpressionList {
                         expressions: vec![
                             FlatExpression::Number(FieldPrime::from(1))
                         ]
@@ -884,7 +888,7 @@ mod multiple_definition {
         let arguments_flattened = vec![];
         let mut statements_flattened = vec![];
         let statement = Statement::Definition(
-            "a".to_string(), 
+            "a".to_string(),
             Expression::FunctionCall("foo".to_string(), vec![])
         );
 
