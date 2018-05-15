@@ -857,7 +857,7 @@ mod multiple_definition {
         assert_eq!(
             statements_flattened[0]
             ,
-            FlatStatement::Definition("dup_1_param_0".to_string(), FlatExpression::Number(FieldPrime::from(2)))
+            FlatStatement::Definition("dup_i1o2_1_param_0".to_string(), FlatExpression::Number(FieldPrime::from(2)))
         );
     }
 
