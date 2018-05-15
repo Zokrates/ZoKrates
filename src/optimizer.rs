@@ -122,10 +122,11 @@ impl Optimizer {
 mod tests {
 	use super::*;
 	use field::FieldPrime;
+	use parameter::Parameter;
 
 	#[test]
 	fn remove_synonyms() {
-		let f: FlatFunction<FieldPrime> = Function {
+		let f: FlatFunction<FieldPrime> = FlatFunction {
             id: "foo".to_string(),
             arguments: vec![Parameter {id: "a".to_string(), private: false}],
             statements: vec![
@@ -138,7 +139,7 @@ mod tests {
             return_count: 1
         };
 
-        let optimized: FlatFunction<FieldPrime> = Function {
+        let optimized: FlatFunction<FieldPrime> = FlatFunction {
             id: "foo".to_string(),
         	arguments: vec![Parameter {id: "_0".to_string(), private: false}],
         	statements: vec![
@@ -156,7 +157,7 @@ mod tests {
 
 	#[test]
 	fn remove_multiple_synonyms() {
-		let f: Function<FieldPrime> = Function {
+		let f: FlatFunction<FieldPrime> = FlatFunction {
             id: "foo".to_string(),
             arguments: vec![Parameter {id: "a".to_string(), private: false}],
             statements: vec![
@@ -171,7 +172,7 @@ mod tests {
             return_count: 2
         };
 
-        let optimized: FlatFunction<FieldPrime> = Function {
+        let optimized: FlatFunction<FieldPrime> = FlatFunction {
             id: "foo".to_string(),
         	arguments: vec![Parameter {id: "_0".to_string(), private: false}],
         	statements: vec![
