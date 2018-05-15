@@ -969,7 +969,9 @@ mod multiple_definition {
 
         flattener.flatten_program(
             Prog {
-                functions: functions
+                functions: functions,
+                imported_functions: vec![],
+                imports: vec![]
             }
         );
 
