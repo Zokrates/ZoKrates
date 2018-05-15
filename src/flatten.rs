@@ -210,10 +210,11 @@ impl Flattener {
         arguments_flattened: &Vec<Parameter>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
         id: &String,
+        return_count: usize,
         param_expressions: &Vec<Expression<T>>
     ) -> FlatExpressionList<T> {
         for funct in functions_flattened {
-            if funct.id == *id && funct.arguments.len() == (*param_expressions).len() {
+            if funct.id == *id && funct.arguments.len() == (*param_expressions).len() && funct.return_count == return_count {
                 // funct is now the called function
 
                 // Idea: variables are given a prefix.
@@ -523,6 +524,7 @@ impl Flattener {
                     arguments_flattened,
                     statements_flattened,
                     id,
+                    1,
                     param_expressions
                 );
                 assert!(exprs_flattened.expressions.len() == 1); // outside of MultipleDefinition, FunctionCalls must return a single value
@@ -651,6 +653,7 @@ impl Flattener {
                             arguments_flattened,
                             statements_flattened,
                             fun_id,
+                            ids.len(),
                             exprs,
                         );
 
