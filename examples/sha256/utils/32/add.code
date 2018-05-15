@@ -1,0 +1,38 @@
+// ADD
+
+import "./../../binary/fulladd.code" as FULLADD
+
+def main(b31, b30, b29, b28, b27, b26, b25, b24, b23, b22, b21, b20, b19, b18, b17, b16, b15, b14, b13, b12, b11, b10, b9, b8, b7, b6, b5, b4, b3, b2, b1, b0, c31, c30, c29, c28, c27, c26, c25, c24, c23, c22, c21, c20, c19, c18, c17, c16, c15, c14, c13, c12, c11, c10, c9, c8, c7, c6, c5, c4, c3, c2, c1, c0):
+	d0, car1 = FULLADD(b0, c0, 0)
+	d1, car2 = FULLADD(b1, c1, car1)
+	d2, car3 = FULLADD(b2, c2, car2)
+	d3, car4 = FULLADD(b3, c3, car3)
+	d4, car5 = FULLADD(b4, c4, car4)
+	d5, car6 = FULLADD(b5, c5, car5)
+	d6, car7 = FULLADD(b6, c6, car6)
+	d7, car8 = FULLADD(b7, c7, car7)
+	d8, car9 = FULLADD(b8, c8, car8)
+	d9, car10 = FULLADD(b9, c9, car9)
+	d10, car11 = FULLADD(b10, c10, car10)
+	d11, car12 = FULLADD(b11, c11, car11)
+	d12, car13 = FULLADD(b12, c12, car12)
+	d13, car14 = FULLADD(b13, c13, car13)
+	d14, car15 = FULLADD(b14, c14, car14)
+	d15, car16 = FULLADD(b15, c15, car15)
+	d16, car17 = FULLADD(b16, c16, car16)
+	d17, car18 = FULLADD(b17, c17, car17)
+	d18, car19 = FULLADD(b18, c18, car18)
+	d19, car20 = FULLADD(b19, c19, car19)
+	d20, car21 = FULLADD(b20, c20, car20)
+	d21, car22 = FULLADD(b21, c21, car21)
+	d22, car23 = FULLADD(b22, c22, car22)
+	d23, car24 = FULLADD(b23, c23, car23)
+	d24, car25 = FULLADD(b24, c24, car24)
+	d25, car26 = FULLADD(b25, c25, car25)
+	d26, car27 = FULLADD(b26, c26, car26)
+	d27, car28 = FULLADD(b27, c27, car27)
+	d28, car29 = FULLADD(b28, c28, car28)
+	d29, car30 = FULLADD(b29, c29, car29)
+	d30, car31 = FULLADD(b30, c30, car30)
+	d31, car32 = FULLADD(b31, c31, car31)
+	return d31, d30, d29, d28, d27, d26, d25, d24, d23, d22, d21, d20, d19, d18, d17, d16, d15, d14, d13, d12, d11, d10, d9, d8, d7, d6, d5, d4, d3, d2, d1, d0

@@ -81,7 +81,7 @@ fn compile_aux<T: Field>(path: PathBuf) -> Result<FlatProg<T>, CompileError<T>> 
 
     for import in program_ast_without_imports.clone().imports {
     	let path = import.resolve()?;
-    	let compiled = compile(path)?;
+    	let compiled = compile_aux(path)?;
     	compiled_imports.push((compiled, import.alias()));
     }
     	
