@@ -12,6 +12,7 @@ use flat_absy::{FlatProg};
 use parser::{self, parse_program};
 use imports::{self, Importer};
 use semantics::{self, Checker};
+use optimizer::{Optimizer};
 use flatten::Flattener;
 use std::io::{self};
 
@@ -59,7 +60,19 @@ impl fmt::Display for CompileError<FieldPrime> {
 	}
 }
 
-pub fn compile<T: Field>(path: PathBuf) -> Result<FlatProg<T>, CompileError<T>> {
+pub fn compile<T: Field>(path: PathBuf, should_optimize: bool) -> Result<FlatProg<T>, CompileError<T>> {
+	let compiled = compile_aux(path);
+
+	match compiled {
+		Ok(c) => match should_optimize {
+			true => Ok(Optimizer::new().optimize_program(c)),
+			_ => Ok(c)
+		}
+		err => err
+	}
+}
+
+fn compile_aux<T: Field>(path: PathBuf) -> Result<FlatProg<T>, CompileError<T>> {
 	let file = File::open(&path)?;
 
     let program_ast_without_imports: Prog<T> = parse_program(file, path.to_owned())?;
@@ -68,7 +81,7 @@ pub fn compile<T: Field>(path: PathBuf) -> Result<FlatProg<T>, CompileError<T>> 
 
     for import in program_ast_without_imports.clone().imports {
     	let path = import.resolve()?;
-    	let compiled = compile(path)?;
+    	let compiled = compile_aux(path)?;
     	compiled_imports.push((compiled, import.alias()));
     }
     	

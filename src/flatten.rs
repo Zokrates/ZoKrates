@@ -5,11 +5,16 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
-use std::collections::{HashMap, HashSet};
+const BINARY_SEPARATOR: &str = "_b";
+
+
+use std::collections::{HashSet, HashMap};
 use absy::*;
 use field::Field;
 use flat_absy::*;
 use parameter::Parameter;
+use direct_substitution::DirectSubstitution;
+use substitution::Substitution;
 
 /// Flattener, computes flattened program.
 pub struct Flattener {
@@ -18,7 +23,7 @@ pub struct Flattener {
     /// Vector containing all used variables while processing the program.
     variables: HashSet<String>,
     /// Map of renamings for reassigned variables while processing the program.
-    substitution: HashMap<String, String>,
+    substitution: DirectSubstitution,
     /// Map of function id to invocation counter
     function_calls: HashMap<String, usize>,
     /// Index of the next introduced variable while processing the program.
@@ -34,7 +39,7 @@ impl Flattener {
         Flattener {
             bits: bits,
             variables: HashSet::new(),
-            substitution: HashMap::new(),
+            substitution: DirectSubstitution::new(),
             function_calls: HashMap::new(),
             next_var_idx: 0,
         }
@@ -89,7 +94,7 @@ impl Flattener {
                     ),
                 ));
                 for i in 0..self.bits - 2 {
-                    let new_name = format!("{}_b{}", &subtraction_result, i);
+                    let new_name = format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, i);
                     statements_flattened.push(FlatStatement::Definition(
                         new_name.to_string(),
                         FlatExpression::Mult(
@@ -99,9 +104,9 @@ impl Flattener {
                     ));
                 }
                 let mut expr = FlatExpression::Add(
-                    box FlatExpression::Identifier(format!("{}_b0", &subtraction_result)), // * 2^0
+                    box FlatExpression::Identifier(format!("{}{}0", &subtraction_result, BINARY_SEPARATOR)), // * 2^0
                     box FlatExpression::Mult(
-                        box FlatExpression::Identifier(format!("{}_b1", &subtraction_result)),
+                        box FlatExpression::Identifier(format!("{}{}1", &subtraction_result, BINARY_SEPARATOR)),
                         box FlatExpression::Number(T::from(2)),
                     ),
                 );
@@ -110,11 +115,11 @@ impl Flattener {
                         box expr,
                         box FlatExpression::Add(
                             box FlatExpression::Mult(
-                                box FlatExpression::Identifier(format!("{}_b{}", &subtraction_result, 2 * i)),
+                                box FlatExpression::Identifier(format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, 2 * i)),
                                 box FlatExpression::Number(T::from(2).pow(2 * i)),
                             ),
                             box FlatExpression::Mult(
-                                box FlatExpression::Identifier(format!("{}_b{}", &subtraction_result, 2 * i + 1)),
+                                box FlatExpression::Identifier(format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, 2 * i + 1)),
                                 box FlatExpression::Number(T::from(2).pow(2 * i + 1)),
                             ),
                         ),
@@ -124,7 +129,7 @@ impl Flattener {
                     expr = FlatExpression::Add(
                         box expr,
                         box FlatExpression::Mult(
-                            box FlatExpression::Identifier(format!("{}_b{}", &subtraction_result, self.bits - 3)),
+                            box FlatExpression::Identifier(format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, self.bits - 3)),
                             box FlatExpression::Number(T::from(2).pow(self.bits - 1)),
                         ),
                     )
@@ -132,7 +137,7 @@ impl Flattener {
                 statements_flattened
                     .push(FlatStatement::Definition(subtraction_result.to_string(), expr));
 
-                let cond_true = format!("{}_b0", &subtraction_result);
+                let cond_true = format!("{}{}0", &subtraction_result, BINARY_SEPARATOR);
                 let cond_false = format!("sym_{}", self.next_var_idx);
                 self.next_var_idx += 1;
                 statements_flattened.push(FlatStatement::Definition(
@@ -217,7 +222,8 @@ impl Flattener {
                 // e.g.: add_1_a_2
 
                 // Stores prefixed variables
-                let mut replacement_map: HashMap<String, String> = HashMap::new();
+
+                let mut replacement_map = DirectSubstitution::new();
 
                 // build prefix
                 match self.function_calls.clone().get(&funct.id) {
@@ -679,7 +685,7 @@ impl Flattener {
         funct: Function<T>,
     ) -> FlatFunction<T> {
         self.variables = HashSet::new();
-        self.substitution = HashMap::new();
+        self.substitution = DirectSubstitution::new();
         self.next_var_idx = 0;
         let mut arguments_flattened: Vec<Parameter> = Vec::new();
         let mut statements_flattened: Vec<FlatStatement<T>> = Vec::new();

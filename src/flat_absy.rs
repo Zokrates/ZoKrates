@@ -7,9 +7,10 @@
 
 use absy::Expression;
 use std::fmt;
-use std::collections::{HashMap, BTreeMap};
+use std::collections::{BTreeMap};
 use field::Field;
 use parameter::Parameter;
+use substitution::Substitution;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FlatProg<T: Field> {
@@ -168,6 +169,28 @@ impl<T: Field> fmt::Debug for FlatStatement<T> {
     }
 }
 
+impl<T: Field> FlatStatement<T> {
+    pub fn apply_substitution(&self, substitution: &Substitution) -> FlatStatement<T> {
+        match *self {
+            FlatStatement::Definition(ref id, ref x) => FlatStatement::Definition(
+                match substitution.get(id) { 
+                    Some(z) => z.clone(), 
+                    None => id.clone() 
+                }, 
+                x.apply_substitution(substitution)
+            ),
+            FlatStatement::Return(ref x) => FlatStatement::Return(x.apply_substitution(substitution)),
+            FlatStatement::Compiler(ref lhs, ref rhs) => FlatStatement::Compiler(match substitution.get(lhs) { 
+                    Some(z) => z.clone(), 
+                    None => lhs.clone() 
+                }, rhs.clone().apply_substitution(substitution)),
+            FlatStatement::Condition(ref x, ref y) => {
+                FlatStatement::Condition(x.apply_substitution(substitution), y.apply_substitution(substitution))
+            }
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub enum FlatExpression<T: Field> {
     Number(T),
@@ -179,7 +202,7 @@ pub enum FlatExpression<T: Field> {
 }
 
 impl<T: Field> FlatExpression<T> {
-    pub fn apply_substitution(&self, substitution: &HashMap<String, String>) -> FlatExpression<T> {
+    pub fn apply_substitution(&self, substitution: &Substitution) -> FlatExpression<T> {
         match *self {
             ref e @ FlatExpression::Number(_) => e.clone(),
             FlatExpression::Identifier(ref v) => {
@@ -307,27 +330,17 @@ impl<T: Field> fmt::Display for FlatExpressionList<T> {
     }
 }
 
-impl<T: Field> fmt::Debug for FlatExpressionList<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "ExpressionList({:?})", self.expressions)
-    }
-}
-
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub enum FlatCondition<T: Field> {
-    Eq(FlatExpression<T>, FlatExpression<T>),
-}
-
-impl<T: Field> fmt::Display for FlatCondition<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            FlatCondition::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+impl<T: Field> FlatExpressionList<T> {
+    pub fn apply_substitution(&self, substitution: &Substitution) -> FlatExpressionList<T> {
+        let expressions: Vec<FlatExpression<T>> = self.expressions.iter().map(|e| e.apply_substitution(substitution)).collect();
+        FlatExpressionList {
+            expressions: expressions
         }
     }
 }
 
-impl<T: Field> fmt::Debug for FlatCondition<T> {
+impl<T: Field> fmt::Debug for FlatExpressionList<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self)
+        write!(f, "ExpressionList({:?})", self.expressions)
     }
 }

@@ -22,8 +22,12 @@ mod parameter;
 mod parser;
 mod imports;
 mod semantics;
+mod substitution;
+mod prefixed_substitution;
+mod direct_substitution;
 mod flatten;
 mod compile;
+mod optimizer;
 mod r1cs;
 mod field;
 mod verification;
@@ -61,24 +65,28 @@ fn main() {
     .author("Jacob Eberhardt, Dennis Kuhnert")
     .about("Supports generation of zkSNARKs from high level language code including Smart Contracts for proof verification on the Ethereum Blockchain.\n'I know that I show nothing!'")
     .subcommand(SubCommand::with_name("compile")
-                                    .about("Compiles into flattened conditions. Produces two files: human-readable '.code' file and binary file")
-                                    .arg(Arg::with_name("input")
-                                        .short("i")
-                                        .long("input")
-                                        .help("path of source code file to compile.")
-                                        .value_name("FILE")
-                                        .takes_value(true)
-                                        .required(true)
-                                    ).arg(Arg::with_name("output")
-                                        .short("o")
-                                        .long("output")
-                                        .help("output file path.")
-                                        .value_name("FILE")
-                                        .takes_value(true)
-                                        .required(false)
-                                        .default_value(FLATTENED_CODE_DEFAULT_PATH)
-                                    )
-                                 )
+        .about("Compiles into flattened conditions. Produces two files: human-readable '.code' file and binary file")
+        .arg(Arg::with_name("input")
+            .short("i")
+            .long("input")
+            .help("path of source code file to compile.")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(true)
+        ).arg(Arg::with_name("output")
+            .short("o")
+            .long("output")
+            .help("output file path.")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(FLATTENED_CODE_DEFAULT_PATH)
+        ).arg(Arg::with_name("optimized")
+            .long("optimized")
+            .help("perform optimization.")
+            .required(false)
+        )
+     )
     .subcommand(SubCommand::with_name("setup")
         .about("Performs a trusted setup for a given constraint system.")
         .arg(Arg::with_name("input")
@@ -205,8 +213,10 @@ fn main() {
             println!("Compiling {}", sub_matches.value_of("input").unwrap());
 
             let path = PathBuf::from(sub_matches.value_of("input").unwrap());
+
+            let should_optimize = sub_matches.occurrences_of("optimized") > 0;
             
-            let program_flattened: FlatProg<FieldPrime> = match compile(path) {
+            let program_flattened: FlatProg<FieldPrime> = match compile(path, should_optimize) {
                 Ok(p) => p,
                 Err(why) => panic!("Compilation failed: {}", why)
             };
@@ -553,7 +563,7 @@ mod tests {
             println!("Testing {:?}", path);
 
             let program_flattened: FlatProg<FieldPrime> =
-                compile(path).unwrap();
+                compile(path, true).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
         }
@@ -569,7 +579,7 @@ mod tests {
             println!("Testing {:?}", path);
 
             let program_flattened: FlatProg<FieldPrime> =
-                compile(path).unwrap();
+                compile(path, true).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
             let _ = program_flattened.get_witness(vec![FieldPrime::zero()]);
