@@ -260,6 +260,7 @@ impl<T: Field> FlatExpression<T> {
                         );
                     }
                 }
+                println!("var {}", var);
                 inputs[var].clone()
             }
             FlatExpression::Add(ref x, ref y) => x.solve(inputs) + y.solve(inputs),

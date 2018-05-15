@@ -4,7 +4,7 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
-const BINARY_SEPARATOR: &str = "_b";
+const BINARY_SEPARATOR: &str = "#b";
 
 use substitution::Substitution;
 use std::collections::HashMap;
