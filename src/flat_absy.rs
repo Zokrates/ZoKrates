@@ -57,7 +57,7 @@ impl<T: Field> fmt::Debug for FlatProg<T> {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct FlatFunction<T: Field> {
     /// Name of the program
     pub id: String,

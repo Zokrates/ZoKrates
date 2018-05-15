@@ -1,0 +1,4 @@
+import "./baz.code"
+
+def main():
+	return baz()

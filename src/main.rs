@@ -20,6 +20,7 @@ mod absy;
 mod flat_absy;
 mod parameter;
 mod parser;
+mod imports;
 mod semantics;
 mod flatten;
 mod compile;
@@ -34,9 +35,9 @@ use std::path::{Path, PathBuf};
 use std::io::{BufWriter, Write, BufReader, BufRead, stdin};
 use std::collections::HashMap;
 use std::string::String;
+use compile::compile;
 use field::{Field, FieldPrime};
 use flat_absy::FlatProg;
-use compile::compile;
 use r1cs::r1cs_program;
 use clap::{App, AppSettings, Arg, SubCommand};
 #[cfg(not(feature = "nolibsnark"))]

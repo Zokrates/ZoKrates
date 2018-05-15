@@ -8,24 +8,37 @@
 use std::fmt;
 use std::collections::{HashMap, BTreeMap};
 use field::Field;
+use imports::Import;
 use parameter::Parameter;
+use flat_absy::*;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct Prog<T: Field> {
     /// Functions of the program
     pub functions: Vec<Function<T>>,
+    pub imports: Vec<Import>,
+    pub imported_functions: Vec<FlatFunction<T>>
 }
 
 impl<T: Field> fmt::Display for Prog<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut res = vec![];
+        res.extend(self.imports
+                .iter()
+                .map(|x| format!("{}", x))
+                .collect::<Vec<_>>());
+        res.extend(self.imported_functions
+                .iter()
+                .map(|x| format!("{}", x))
+                .collect::<Vec<_>>());
+        res.extend(self.functions
+                .iter()
+                .map(|x| format!("{}", x))
+                .collect::<Vec<_>>());
         write!(
             f,
             "{}",
-            self.functions
-                .iter()
-                .map(|x| format!("{}", x))
-                .collect::<Vec<_>>()
-                .join("\n")
+            res.join("\n")
         )
     }
 }
@@ -34,17 +47,27 @@ impl<T: Field> fmt::Debug for Prog<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "program(functions: {}\t)",
+            "program(\n\timports:\n\t\t{}\n\tfunctions:\n\t\t{}{}\n)",
+            self.imports
+                .iter()
+                .map(|x| format!("{:?}", x))
+                .collect::<Vec<_>>()
+                .join("\n\t\t"),
+            self.imported_functions
+                .iter()
+                .map(|x| format!("{}", x))
+                .collect::<Vec<_>>()
+                .join("\n\t\t"),
             self.functions
                 .iter()
-                .map(|x| format!("\t{:?}", x))
+                .map(|x| format!("{:?}", x))
                 .collect::<Vec<_>>()
-                .join("\n")
+                .join("\n\t\t")
         )
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct Function<T: Field> {
     /// Name of the program
     pub id: String,

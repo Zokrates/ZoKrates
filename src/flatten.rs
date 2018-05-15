@@ -714,12 +714,18 @@ impl Flattener {
     /// * `prog` - `Prog`ram that will be flattened.
     pub fn flatten_program<T: Field>(&mut self, prog: Prog<T>) -> FlatProg<T> {
         let mut functions_flattened = Vec::new();
+
+        for func in prog.imported_functions {
+            functions_flattened.push(func);
+        }
+
         for func in prog.functions {
             let flattened_func = self.flatten_function(&mut functions_flattened, func);
             functions_flattened.push(flattened_func);
         }
+
         FlatProg {
-            functions: functions_flattened,
+            functions: functions_flattened
         }
     }
 
@@ -963,7 +969,9 @@ mod multiple_definition {
 
         flattener.flatten_program(
             Prog {
-                functions: functions
+                functions: functions,
+                imported_functions: vec![],
+                imports: vec![]
             }
         );
 
