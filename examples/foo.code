@@ -1,5 +1,0 @@
-def main():
-	SHA256COMPRESSi512o2561H7b40 = 3
-	h4 = SHA256COMPRESSi512o2561H7b40
-	h4 == 3
-	return 1
