@@ -5,6 +5,8 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
+const BINARY_SEPARATOR: &str = "#b";
+
 use absy::Expression;
 use std::fmt;
 use std::collections::{BTreeMap};
@@ -239,16 +241,16 @@ impl<T: Field> FlatExpression<T> {
             FlatExpression::Number(ref x) => x.clone(),
             FlatExpression::Identifier(ref var) => {
                 if let None = inputs.get(var) {
-                    if var.contains("_b") {
-                        let var_name = var.split("_b").collect::<Vec<_>>()[0];
+                    if var.contains(BINARY_SEPARATOR) {
+                        let var_name = var.split(BINARY_SEPARATOR).collect::<Vec<_>>()[0];
                         let mut num = inputs[var_name].clone();
                         let bits = T::get_required_bits();
                         for i in (0..bits).rev() {
                             if T::from(2).pow(i) <= num {
                                 num = num - T::from(2).pow(i);
-                                inputs.insert(format!("{}_b{}", &var_name, i), T::one());
+                                inputs.insert(format!("{}{}{}", &var_name, BINARY_SEPARATOR, i), T::one());
                             } else {
-                                inputs.insert(format!("{}_b{}", &var_name, i), T::zero());
+                                inputs.insert(format!("{}{}{}", &var_name, BINARY_SEPARATOR, i), T::zero());
                             }
                         }
                         assert_eq!(num, T::zero());
@@ -260,7 +262,6 @@ impl<T: Field> FlatExpression<T> {
                         );
                     }
                 }
-                println!("var {}", var);
                 inputs[var].clone()
             }
             FlatExpression::Add(ref x, ref y) => x.solve(inputs) + y.solve(inputs),

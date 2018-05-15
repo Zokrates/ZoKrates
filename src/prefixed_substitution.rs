@@ -76,22 +76,22 @@ mod tests {
     #[test]
     fn insert_binary_variable() {
         let mut s = PrefixedSubstitution::new();
-        s.insert("abc_de_b23".to_string(), "_123".to_string());
-        assert_eq!(s.get("abc_de_b23").unwrap(), "_123_b23".to_string());
+        s.insert("abc_de#b23".to_string(), "_123".to_string());
+        assert_eq!(s.get("abc_de#b23").unwrap(), "_123#b23".to_string());
     }
 
     #[test]
     fn insert_twice_with_same_prefix() {
         let mut s = PrefixedSubstitution::new();
-        s.insert("abc_de_b23".to_string(), "_123".to_string());
-        s.insert("abc_de_b24".to_string(), "_456".to_string());
-        assert_eq!(s.get("abc_de_b24").unwrap(), "_123_b24".to_string());
+        s.insert("abc_de#b23".to_string(), "_123".to_string());
+        s.insert("abc_de#b24".to_string(), "_456".to_string());
+        assert_eq!(s.get("abc_de#b24").unwrap(), "_123#b24".to_string());
     }
 
     #[test]
     #[should_panic]
     fn two_separators() {
         let mut s = PrefixedSubstitution::new();
-        s.insert("abc_b21_b33".to_string(), "_123".to_string());
+        s.insert("abc#b21#b33".to_string(), "_123".to_string());
     }
 }
