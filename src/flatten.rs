@@ -210,10 +210,11 @@ impl Flattener {
         arguments_flattened: &Vec<Parameter>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
         id: &String,
+        return_count: usize,
         param_expressions: &Vec<Expression<T>>
     ) -> FlatExpressionList<T> {
         for funct in functions_flattened {
-            if funct.id == *id && funct.arguments.len() == (*param_expressions).len() {
+            if funct.id == *id && funct.arguments.len() == (*param_expressions).len() && funct.return_count == return_count {
                 // funct is now the called function
 
                 // Idea: variables are given a prefix.
@@ -233,7 +234,7 @@ impl Flattener {
                         self.function_calls.insert(funct.id.clone(),1);
                     }
                 }
-                let prefix = format!("{}_{}_", funct.id.clone(), self.function_calls.get(&funct.id).unwrap());
+                let prefix = format!("{}_i{}o{}_{}_", funct.id.clone(), funct.arguments.len(), funct.return_count, self.function_calls.get(&funct.id).unwrap());
 
                 // Handle complex parameters and assign values:
                 // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions
@@ -523,6 +524,7 @@ impl Flattener {
                     arguments_flattened,
                     statements_flattened,
                     id,
+                    1,
                     param_expressions
                 );
                 assert!(exprs_flattened.expressions.len() == 1); // outside of MultipleDefinition, FunctionCalls must return a single value
@@ -651,6 +653,7 @@ impl Flattener {
                             arguments_flattened,
                             statements_flattened,
                             fun_id,
+                            ids.len(),
                             exprs,
                         );
 
@@ -717,12 +720,18 @@ impl Flattener {
     /// * `prog` - `Prog`ram that will be flattened.
     pub fn flatten_program<T: Field>(&mut self, prog: Prog<T>) -> FlatProg<T> {
         let mut functions_flattened = Vec::new();
+
+        for func in prog.imported_functions {
+            functions_flattened.push(func);
+        }
+
         for func in prog.functions {
             let flattened_func = self.flatten_function(&mut functions_flattened, func);
             functions_flattened.push(flattened_func);
         }
+
         FlatProg {
-            functions: functions_flattened,
+            functions: functions_flattened
         }
     }
 
@@ -860,7 +869,7 @@ mod multiple_definition {
         assert_eq!(
             statements_flattened[0]
             ,
-            FlatStatement::Definition("dup_1_param_0".to_string(), FlatExpression::Number(FieldPrime::from(2)))
+            FlatStatement::Definition("dup_i1o2_1_param_0".to_string(), FlatExpression::Number(FieldPrime::from(2)))
         );
     }
 
@@ -906,5 +915,72 @@ mod multiple_definition {
             ,
             FlatStatement::Definition("a".to_string(), FlatExpression::Number(FieldPrime::from(1)))
         );
+    }
+
+    #[test]
+    fn overload() {
+
+        // def foo()
+        //      return 1
+        // def foo()
+        //      return 1, 2
+        // def main()
+        //      a = foo()
+        //      b, c = foo()
+        //      return 1
+        //
+        //      should not panic    
+        //
+
+        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let functions = vec![
+            Function {
+                id: "foo".to_string(), 
+                arguments: vec![], 
+                statements: vec![Statement::Return(
+                    ExpressionList { 
+                        expressions: vec![
+                            Expression::Number(FieldPrime::from(1))
+                        ]
+                    }
+                )],
+                return_count: 1,
+            },
+            Function {
+                id: "foo".to_string(), 
+                arguments: vec![], 
+                statements: vec![Statement::Return(
+                    ExpressionList { 
+                        expressions: vec![
+                            Expression::Number(FieldPrime::from(1)),
+                            Expression::Number(FieldPrime::from(2))
+                        ]
+                    }
+                )],
+                return_count: 2,
+            },
+            Function {
+                id: "main".to_string(),
+                arguments: vec![],
+                statements: vec![
+                    Statement::Definition("a".to_string(), Expression::FunctionCall("foo".to_string(), vec![])),
+                    Statement::MultipleDefinition(vec!["b".to_string(), "c".to_string()], Expression::FunctionCall("foo".to_string(), vec![])),
+                    Statement::Return(ExpressionList {
+                        expressions: vec![Expression::Number(FieldPrime::from(1))]
+                    })
+                ],
+                return_count: 1
+            }
+        ];
+
+        flattener.flatten_program(
+            Prog {
+                functions: functions,
+                imported_functions: vec![],
+                imports: vec![]
+            }
+        );
+
+        // shouldn't panic
     }
 }
