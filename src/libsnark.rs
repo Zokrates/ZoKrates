@@ -9,7 +9,7 @@ extern crate libc;
 use self::libc::c_int;
 use self::libc::c_char;
 use self::libc::uint8_t;
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::cmp::max;
 
 use field::Field;
@@ -33,8 +33,8 @@ extern "C" {
                 private_inputs: *const uint8_t,
                 private_inputs_length: c_int,
             ) -> bool;
-
-    fn _sha256Constraints() -> ();
+    
+    fn _sha256Constraints() -> *const c_char;
 }
 
 pub fn setup<T: Field> (
@@ -120,9 +120,10 @@ pub fn generate_proof<T: Field>(
 }
 
 pub fn get_sha256_constraints() -> () {
-    unsafe {
-        _sha256Constraints()
-    }
+    let c_buf: *const c_char = unsafe { _sha256Constraints() };
+    let c_str: &CStr = unsafe { CStr::from_ptr(c_buf) };
+    let str_slice: &str = c_str.to_str().unwrap();
+    println!("{}", str_slice);
 }
 
 // utility function. Converts a Fields vector-based byte representation to fixed size array.

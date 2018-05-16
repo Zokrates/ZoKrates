@@ -26,13 +26,11 @@ fn main() {
 
         gcc::Build::new()
             .cpp(true)
-            //.debug(true)
             .flag("-std=c++11")
             .include("./depends/libsnark")
             .include("./depends/libsnark/depends/libff")
             .include("./depends/libsnark/depends/libfqfft")
             .define("CURVE_ALT_BN128", None)
-            //.define("DEBUG", None)
             .file("lib/wraplibsnarkgadgets.cpp")
             .compile("libwraplibsnarkgadgets.a");
 

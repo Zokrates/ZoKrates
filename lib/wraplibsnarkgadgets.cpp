@@ -32,24 +32,13 @@ void constraint_to_json(linear_combination<FieldT> constraints, std::stringstrea
 }
 
 
-std::string r1cs_to_json(protoboard<FieldT> pb, uint input_variables)
+std::string r1cs_to_json(protoboard<FieldT> pb)
 {
     // output inputs, right now need to compile with debug flag so that the `variable_annotations`
     // exists. Having trouble setting that up so will leave for now.
     r1cs_constraint_system<FieldT> constraints = pb.get_constraint_system();
     std::stringstream ss;
-    /*ss << "\n{\"variables\":[";
 
-    for (size_t i = 0; i < input_variables + 1; ++i)
-    {
-        // ss << '"' << constraints.variable_annotations[i].c_str() << '"';
-        if (i < input_variables ) {
-            ss << ", ";
-        }
-    }
-    ss << "],\n";
-    ss << "\"constraints\":[";
-    */
     for (size_t c = 0; c < constraints.num_constraints(); ++c)
     {
         ss << "[";// << "\"A\"=";
@@ -69,23 +58,16 @@ std::string r1cs_to_json(protoboard<FieldT> pb, uint input_variables)
     return ss.str();
 }
 
-void _sha256Constraints()
+const char* _sha256Constraints()
 {
     protoboard<FieldT> pb;
     block_variable<FieldT> input(pb, 256, "input");
     digest_variable<FieldT> output(pb, 256, "output");
-    //auto hash = std::make_shared<sha256_ethereum>(pb, 256, input, output, "hash");
-
-    std::shared_ptr<sha256_ethereum> hash;
-
     
-    hash.reset(new sha256_ethereum(
-        pb, 256, input, output, "cm_hash"
-    ));
+    auto hash = std::make_shared<sha256_ethereum>(pb, 256, input, output, "cm_hash");
+
     hash->generate_r1cs_constraints(true);
-    r1cs_to_json(pb, 0);
-    // return(r1cs_to_json(pb, 10));
-    //return "";
+    return(r1cs_to_json(pb).c_str());
 }
 
 std::string array_to_json(protoboard<FieldT> pb)

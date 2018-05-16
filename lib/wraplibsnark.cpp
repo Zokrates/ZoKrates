@@ -214,18 +214,15 @@ void exportVerificationKey(r1cs_ppzksnark_keypair<libff::alt_bn128_pp> keypair){
 
 }
 
-void exportInput(r1cs_primary_input<libff::alt_bn128_pp> input){
-}
 // compliant with solidty verification example
-/*
-void exportInput(r1cs_primary_input<libff::alt_bn128_pp> input){
+void exportInput(r1cs_primary_input<libff::Fr<libff::alt_bn128_pp>> input){
         cout << "\tInput in Solidity compliant format:{" << endl;
         for (size_t i = 0; i < input.size(); ++i)
         {
                 cout << "\t\tinput[" << i << "] = " << HexStringFromLibsnarkBigint(input[i].as_bigint()) << ";" << endl;
         }
         cout << "\t\t}" << endl;
-} */
+} 
 
 
 void printProof(r1cs_ppzksnark_proof<libff::alt_bn128_pp> proof){
@@ -268,11 +265,6 @@ bool _setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int constraint
 }
 
 bool _generate_proof(const char* pk_path, const uint8_t* public_inputs, int public_inputs_length, const uint8_t* private_inputs, int private_inputs_length)
-    {
-        return(true);
-    }
-/*
-bool _generate_proof(const char* pk_path, const uint8_t* public_inputs, int public_inputs_length, const uint8_t* private_inputs, int private_inputs_length)
 {
 //  libsnark::inhibit_profiling_info = true;
 //  libsnark::inhibit_profiling_counters = true;
@@ -282,18 +274,18 @@ bool _generate_proof(const char* pk_path, const uint8_t* public_inputs, int publ
   auto pk = deserializeProvingKeyFromFile(pk_path);
 
   // assign variables based on witness values, excludes ~one
-  r1cs_variable_assignment<libff::alt_bn128_pp> full_variable_assignment;
+  r1cs_variable_assignment<libff::Fr<libff::alt_bn128_pp> > full_variable_assignment;
   for (int i = 1; i < public_inputs_length; i++) {
-    full_variable_assignment.push_back(libff::alt_bn128_pp(libsnarkBigintFromBytes(public_inputs + i*32)));
+    full_variable_assignment.push_back(libff::Fr<libff::alt_bn128_pp>(libsnarkBigintFromBytes(public_inputs + i*32)));
   }
   for (int i = 0; i < private_inputs_length; i++) {
-    full_variable_assignment.push_back(<libff::alt_bn128_pp>(libsnarkBigintFromBytes(private_inputs + i*32)));
+    full_variable_assignment.push_back(libff::Fr<libff::alt_bn128_pp>(libsnarkBigintFromBytes(private_inputs + i*32)));
   }
 
   // split up variables into primary and auxiliary inputs. Does *NOT* include the constant 1
   // Public variables belong to primary input, private variables are auxiliary input.
-  auto primary_input(full_variable_assignment.begin(), full_variable_assignment.begin() + public_inputs_length-1);
-  auto auxiliary_input(full_variable_assignment.begin() + public_inputs_length-1, full_variable_assignment.end());
+  r1cs_primary_input<libff::Fr<libff::alt_bn128_pp>> primary_input(full_variable_assignment.begin(), full_variable_assignment.begin() + public_inputs_length-1);
+  r1cs_primary_input<libff::Fr<libff::alt_bn128_pp>> auxiliary_input(full_variable_assignment.begin() + public_inputs_length-1, full_variable_assignment.end());
 
   // for debugging
   // cout << "full variable assignment:"<< endl << full_variable_assignment;
@@ -308,4 +300,4 @@ bool _generate_proof(const char* pk_path, const uint8_t* public_inputs, int publ
   // TODO? print inputs
 
   return true;
-} */
+} 
