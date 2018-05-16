@@ -86,24 +86,23 @@ r1cs_ppzksnark_constraint_system<libff::alt_bn128_pp> createConstraintSystem(con
   cout << "num inputs: " << inputs <<endl;
 
   for (int row = 0; row < constraints; row++) {
-    linear_combination<libff::alt_bn128_pp> lin_comb_A, lin_comb_B, lin_comb_C;
+    linear_combination<libff::Fr<libff::alt_bn128_pp> > lin_comb_A, lin_comb_B, lin_comb_C;
 
     for (int idx=0; idx<variables; idx++) {
       libff::bigint<libff::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(A+row*variables*32 + idx*32);
       libff::alt_bn128_pp::init_public_params();
-      cout << "C entry " << idx << " in row " << row << ": " << value << endl;
+      // cout << "C entry " << idx << " in row " << row << ": " << value << endl;
       if (!value.is_zero()) {
-        //cout << "A(" << idx << ", " << value << ")" << endl;
-        //lin_comb_A.add_term(idx,value);
-        //linear_term<libff::alt_bn128_pp>(0);
+        // cout << "A(" << idx << ", " << value << ")" << endl;
+        lin_comb_A.add_term(idx,value);
       }
     }
     for (int idx=0; idx<variables; idx++) {
       libff::bigint<libff::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(B+row*variables*32 + idx*32);
-      cout << "B entry " << idx << " in row " << row << ": " << value << endl;
+      // cout << "B entry " << idx << " in row " << row << ": " << value << endl;
       if (!value.is_zero()) {
-        cout << "B(" << idx << ", " << value << ")" << endl;
-        //lin_comb_B.add_term(idx, value);
+        // cout << "B(" << idx << ", " << value << ")" << endl;
+        lin_comb_B.add_term(idx, value);
       }
     }
     for (int idx=0; idx<variables; idx++) {
@@ -111,10 +110,10 @@ r1cs_ppzksnark_constraint_system<libff::alt_bn128_pp> createConstraintSystem(con
       // cout << "C entry " << idx << " in row " << row << ": " << value << endl;
       if (!value.is_zero()) {
         // cout << "C(" << idx << ", " << value << ")" << endl;
-        //lin_comb_C.add_term(idx, value);
+        lin_comb_C.add_term(idx, value);
       }
     }
-    //cs.add_constraint(r1cs_constraint<libff::alt_bn128_pp>(lin_comb_A, lin_comb_B, lin_comb_C));
+    cs.add_constraint(r1cs_constraint<libff::Fr<libff::alt_bn128_pp> >(lin_comb_A, lin_comb_B, lin_comb_C));
   }
   return cs;
 }
