@@ -58,7 +58,7 @@ std::string r1cs_to_json(protoboard<FieldT> pb)
     return ss.str();
 }
 
-const char* _sha256Constraints()
+char* _sha256Constraints()
 {
     protoboard<FieldT> pb;
     block_variable<FieldT> input(pb, 256, "input");
@@ -67,7 +67,10 @@ const char* _sha256Constraints()
     auto hash = std::make_shared<sha256_ethereum>(pb, 256, input, output, "cm_hash");
 
     hash->generate_r1cs_constraints(true);
-    return(r1cs_to_json(pb).c_str());
+    auto json = r1cs_to_json(pb);
+    auto result = new char[json.size()];
+    memcpy(result, json.c_str(), json.size() + 1);
+    return result;
 }
 
 std::string array_to_json(protoboard<FieldT> pb)
