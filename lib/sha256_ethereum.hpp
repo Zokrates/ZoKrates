@@ -19,7 +19,9 @@ using namespace libff;
 
 using std::vector;
 
-typedef libff::Fr<libff::default_ec_pp> FieldT;
+//typedef libff::Fr<libff::default_ec_pp> FieldT;
+
+typedef libff::Fr<alt_bn128_pp> FieldT;
 
 class sha256_ethereum : gadget<FieldT> {
 private:

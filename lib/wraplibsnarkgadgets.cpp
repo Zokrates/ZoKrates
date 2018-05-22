@@ -60,6 +60,7 @@ std::string r1cs_to_json(protoboard<FieldT> pb)
 
 char* _sha256Constraints()
 {
+    libff::alt_bn128_pp::init_public_params();
     protoboard<FieldT> pb;
     block_variable<FieldT> input(pb, 256, "input");
     digest_variable<FieldT> output(pb, 256, "output");
@@ -75,6 +76,9 @@ char* _sha256Constraints()
 
 std::string array_to_json(protoboard<FieldT> pb)
 {
+
+
+
     std::stringstream ss;
     r1cs_variable_assignment<FieldT> values = pb.full_variable_assignment();
     ss << "\n{\"TestVariables\":[";
