@@ -76,9 +76,6 @@ char* _sha256Constraints()
 
 std::string array_to_json(protoboard<FieldT> pb)
 {
-
-
-
     std::stringstream ss;
     r1cs_variable_assignment<FieldT> values = pb.full_variable_assignment();
     ss << "\n{\"TestVariables\":[";
