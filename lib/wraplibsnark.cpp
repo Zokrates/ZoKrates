@@ -10,6 +10,7 @@
 #include <iostream>
 #include <cassert>
 #include <iomanip>
+#include <ext/stdio_filebuf.h>
 
 // contains definition of alt_bn128 ec public parameters
 #include "libff/algebra/curves/alt_bn128/alt_bn128_pp.hpp"
@@ -71,6 +72,28 @@ std::string outputPointG2AffineAsHex(libff::alt_bn128_G2 _p)
                 HexStringFromLibsnarkBigint(aff.X.c0.as_bigint()) + "], [0x" +
                 HexStringFromLibsnarkBigint(aff.Y.c1.as_bigint()) + ", 0x" +
                 HexStringFromLibsnarkBigint(aff.Y.c0.as_bigint()) + "]";
+}
+
+std::string outputPointG1AffineAsYaml(libsnark::alt_bn128_G1 _p)
+{
+								libsnark::alt_bn128_G1 aff = _p;
+								aff.to_affine_coordinates();
+								return
+																"\"0x" +
+																HexStringFromLibsnarkBigint(aff.X.as_bigint()) + "\", \"0x" +
+																HexStringFromLibsnarkBigint(aff.Y.as_bigint()) + "\"";
+}
+
+std::string outputPointG2AffineAsYaml(libsnark::alt_bn128_G2 _p)
+{
+								libsnark::alt_bn128_G2 aff = _p;
+								aff.to_affine_coordinates();
+								return
+																"\"0x" +
+																HexStringFromLibsnarkBigint(aff.X.c1.as_bigint()) + "\", \"0x" +
+																HexStringFromLibsnarkBigint(aff.X.c0.as_bigint()) + "\", \"0x" +
+																HexStringFromLibsnarkBigint(aff.Y.c1.as_bigint()) + "\", \"0x" +
+																HexStringFromLibsnarkBigint(aff.Y.c0.as_bigint()) + "\"";
 }
 
 //takes input and puts it into constraint system
@@ -245,6 +268,22 @@ void printProof(r1cs_ppzksnark_proof<libff::alt_bn128_pp> proof){
                 cout << "K = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_K)<<");"<< endl;
 }
 
+std::string proof_to_yaml_array(r1cs_ppzksnark_proof<alt_bn128_pp> proof){
+                std::string s = std::string("")
+                  + "# Proof point coordinates: A, A', B, B', C, C', H, K\n"
+                  + "proof: [\n"
+                  + "  " + outputPointG1AffineAsYaml(proof.g_A.g) + ",\n"
+                  + "  " + outputPointG1AffineAsYaml(proof.g_A.h) + ",\n"
+                  + "  " + outputPointG2AffineAsYaml(proof.g_B.g) + ",\n"
+                  + "  " + outputPointG1AffineAsYaml(proof.g_B.h) + ",\n"
+                  + "  " + outputPointG1AffineAsYaml(proof.g_C.g) + ",\n"
+                  + "  " + outputPointG1AffineAsYaml(proof.g_C.h) + ",\n"
+                  + "  " + outputPointG1AffineAsYaml(proof.g_H)   + ",\n"
+                  + "  " + outputPointG1AffineAsYaml(proof.g_K)   + ",\n"
+                  + "]\n";
+                return s;
+}
+
 bool _setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int A_len, int B_len, int C_len, int constraints, int variables, int inputs, const char* pk_path, const char* vk_path)
 {
   libff::inhibit_profiling_info = true;
@@ -272,7 +311,7 @@ bool _setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int A_len, int
   return true;
 }
 
-bool _generate_proof(const char* pk_path, const uint8_t* public_inputs, int public_inputs_length, const uint8_t* private_inputs, int private_inputs_length)
+bool _generate_proof(const char* pk_path, const uint8_t* public_inputs, int public_inputs_length, const uint8_t* private_inputs, int private_inputs_length, int out_fd)
 {
   libff::inhibit_profiling_info = true;
   libff::inhibit_profiling_counters = true;
@@ -306,6 +345,12 @@ bool _generate_proof(const char* pk_path, const uint8_t* public_inputs, int publ
   // print proof
   printProof(proof);
   // TODO? print inputs
+
+  std::string yaml = proof_to_yaml_array(proof);
+
+  __gnu_cxx::stdio_filebuf<char> sourcebuf(out_fd, std::ios::out);
+  std::ostream out(&sourcebuf);
+  out << yaml;
 
   return true;
 }

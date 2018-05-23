@@ -10,6 +10,8 @@ use self::libc::{c_int, c_char, uint8_t};
 use std::ffi::{CString};
 use std::cmp::max;
 use std::string::String;
+use std::fs::File;
+use std::os::unix::io::AsRawFd;
 
 use field::Field;
 
@@ -34,6 +36,7 @@ extern "C" {
                 public_inputs_length: c_int,
                 private_inputs: *const uint8_t,
                 private_inputs_length: c_int,
+                out_fd: c_int,
             ) -> bool;
 
     fn _sha256Constraints() -> *mut c_char;
@@ -155,6 +158,7 @@ pub fn generate_proof<T: Field>(
     pk_path: &str,
     public_inputs: Vec<T>,
     private_inputs: Vec<T>,
+    out_file: File,
 ) -> bool {
 
     let pk_path_cstring = CString::new(pk_path).unwrap();
@@ -180,7 +184,8 @@ pub fn generate_proof<T: Field>(
             public_inputs_arr[0].as_ptr(),
             public_inputs_length as i32,
             private_inputs_arr[0].as_ptr(),
-            private_inputs_length as i32
+            private_inputs_length as i32,
+            out_file.as_raw_fd(),
         )
     }
 }
