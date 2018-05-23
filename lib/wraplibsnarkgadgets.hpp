@@ -13,6 +13,8 @@ extern "C" {
 #include <stdint.h>
 
 char* _sha256Constraints();
+char* _sha256Witness();
+
 
 #ifdef __cplusplus
 } // extern "C"

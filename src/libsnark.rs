@@ -36,6 +36,8 @@ extern "C" {
             ) -> bool;
     
     fn _sha256Constraints() -> *mut c_char;
+
+    fn _sha256Witness() -> *mut c_char;
 }
 
 pub fn setup<T: Field> (
@@ -125,6 +127,11 @@ pub fn get_sha256_constraints() -> String {
     a.into_string().unwrap()
 }
 
+pub fn get_sha256_witness() -> String {
+    let a = unsafe { CString::from_raw(_sha256Witness()) };
+    a.into_string().unwrap()
+}
+
 // utility function. Converts a Fields vector-based byte representation to fixed size array.
 fn vec_as_u8_32_array(vec: &Vec<u8>) -> [u8; 32] {
     assert!(vec.len() <= 32);
@@ -140,6 +147,21 @@ mod tests {
     use super::*;
     use field::FieldPrime;
     use num::bigint::BigUint;
+
+    #[cfg(test)]
+    mod sha256_gadget {
+        use super::*;
+
+        #[test]
+        fn can_get_sha256_constraints() {
+            println!("constraints {:?}", get_sha256_constraints());
+        }
+
+        #[test]
+        fn can_generate_sha_256_witness() {
+            println!("witness {:?}", get_sha256_witness());
+        }
+    }
 
     #[cfg(test)]
     mod libsnark_integration {
