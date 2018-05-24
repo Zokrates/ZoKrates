@@ -92,7 +92,7 @@ std::string array_to_json(protoboard<FieldT> pb)
     return(ss.str());
 }
 
-std::string _sha256Witness( std::vector<bool> left, std::vector<bool> right)
+char* _sha256Witness()
 {
     protoboard<FieldT> pb;
     std::shared_ptr<sha256_ethereum> hash;
@@ -117,6 +117,6 @@ std::string _sha256Witness( std::vector<bool> left, std::vector<bool> right)
     // hash->generate_r1cs_witness();
 
     // return(array_to_json(hash->pb));
-    return std::string{};
+    return "abc";
 }
 

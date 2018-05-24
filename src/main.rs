@@ -38,7 +38,7 @@ use compile::compile;
 use r1cs::r1cs_program;
 use clap::{App, AppSettings, Arg, SubCommand};
 #[cfg(not(feature = "nolibsnark"))]
-use libsnark::{setup, generate_proof, get_sha256_constraints};
+use libsnark::{setup, generate_proof};
 use bincode::{serialize_into, deserialize_from , Infinite};
 use regex::Regex;
 use verification::CONTRACT_TEMPLATE;
@@ -552,11 +552,6 @@ mod tests {
     use super::*;
     use num::Zero;
     use self::glob::glob;
-
-    #[test]
-    fn can_get_sha256_constraints() {
-        println!("{:?}", get_sha256_constraints());
-    }
 
     #[test]
     fn examples() {
