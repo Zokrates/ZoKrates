@@ -40,7 +40,7 @@ mod libsnark;
 
 use std::fs::File;
 use std::path::{Path, PathBuf};
-use std::io::{BufWriter, Write, BufReader, BufRead, stdin};
+use std::io::{BufWriter, Write, BufReader, BufRead, stdin, Read};
 use std::collections::HashMap;
 use std::string::String;
 use compile::compile;
@@ -153,6 +153,14 @@ fn main() {
             .takes_value(true)
             .required(false)
             .default_value(VERIFICATION_CONTRACT_DEFAULT_PATH)
+        )
+        .arg(Arg::with_name("template")
+            .short("t")
+            .long("template")
+            .help("template file path.")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
         )
     )
     .subcommand(SubCommand::with_name("compute-witness")
@@ -426,7 +434,21 @@ fn main() {
             let reader = BufReader::new(input_file);
             let mut lines = reader.lines();
 
-            let mut template_text = String::from(CONTRACT_TEMPLATE);
+            let mut template_text: String = match sub_matches.value_of("template") {
+                // read template from file
+                Some(template_path) => {
+                    let mut template_file = match File::open(&Path::new(template_path)) {
+                        Ok(template_file) => template_file,
+                        Err(why) => panic!("couldn't open {}: {}", template_path, why),
+                    };
+                    let mut read = String::new();
+                    template_file.read_to_string(&mut read).expect("something went wrong reading the file");
+                    read
+                },
+                // Use default template
+                None => String::from(CONTRACT_TEMPLATE),
+            };
+
             let ic_template = String::from("vk.IC[index] = Pairing.G1Point(points);");      //copy this for each entry
 
             //replace things in template
