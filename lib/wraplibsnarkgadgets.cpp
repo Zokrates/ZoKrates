@@ -92,10 +92,28 @@ std::string array_to_json(protoboard<FieldT> pb)
     return(ss.str());
 }
 
+pb_variable_array<FieldT> from_bits(std::vector<bool> bits, pb_variable<FieldT>& ZERO) {
+    pb_variable_array<FieldT> acc;
+
+    for (size_t i = 0; i < bits.size(); i++) {
+        bool bit = bits[i];
+        acc.emplace_back(bit ? ONE : ZERO);
+    }
+    return acc;
+    }
+
+
 char* _sha256Witness()
 {
+
+    libff::alt_bn128_pp::init_public_params();
+
     protoboard<FieldT> pb;
     std::shared_ptr<sha256_ethereum> hash;
+
+    libff::bit_vector left =  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+    libff::bit_vector right = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
     pb_variable<FieldT> ZERO;
     ZERO.allocate(pb, "ZERO");
@@ -103,20 +121,21 @@ char* _sha256Witness()
    
     digest_variable<FieldT> output(pb, 256, "output");
 
-   
-   //block_variable<FieldT> input =  block_variable<FieldT>(pb, {
-   //     from_bits(left, ZERO),
-   //     from_bits(right, ZERO)
-   // }, "input_variable");
 
-    // hash.reset(new sha256_ethereum(
-    //     pb, 256, input, output, "cm_hash"
-    // ));
+    block_variable<FieldT> input =  block_variable<FieldT>(pb, {
+         from_bits(left, ZERO),
+         from_bits(right, ZERO)
+    }, "input_variable");
 
-    // hash->generate_r1cs_constraints(true);
-    // hash->generate_r1cs_witness();
+    hash.reset(new sha256_ethereum(
+        pb, 256, input, output, "cm_hash"
+    ));
 
-    // return(array_to_json(hash->pb));
-    return "abc";
+    hash->generate_r1cs_constraints(true);
+    hash->generate_r1cs_witness();
+    auto json = array_to_json(pb);
+    auto result = new char[json.size()];
+    memcpy(result, json.c_str(), json.size() + 1);
+    return result;
 }
 
