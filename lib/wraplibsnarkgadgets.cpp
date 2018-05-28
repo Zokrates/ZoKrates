@@ -39,6 +39,8 @@ std::string r1cs_to_json(protoboard<FieldT> pb)
     r1cs_constraint_system<FieldT> constraints = pb.get_constraint_system();
     std::stringstream ss;
 
+    ss << "{\"constraints\":[";
+
     for (size_t c = 0; c < constraints.num_constraints(); ++c)
     {
         ss << "[";// << "\"A\"=";

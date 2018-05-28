@@ -147,6 +147,9 @@ mod tests {
     use super::*;
     use field::FieldPrime;
     use num::bigint::BigUint;
+    use r1cs;
+    use serde_json;
+    use flat_absy::*;
 
     #[cfg(test)]
     mod sha256_gadget {
@@ -160,6 +163,14 @@ mod tests {
         #[test]
         fn can_generate_sha_256_witness() {
             println!("witness {:?}", get_sha256_witness());
+        }
+
+        #[test]
+        fn can_generate_flattened_code() {
+            let constraints = get_sha256_constraints();
+            let r1cs: r1cs::R1CS = serde_json::from_str(&constraints).unwrap();
+            let prog: FlatProg<FieldPrime> = r1cs::flattened_program(r1cs);
+            println!("{}", prog);
         }
     }
 
