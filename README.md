@@ -1,6 +1,9 @@
 # Zokrates
 
 [![Join the chat at https://gitter.im/ZoKrates/Lobby](https://badges.gitter.im/ZoKrates/Lobby.svg)](https://gitter.im/ZoKrates/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+![Jenkins](https://img.shields.io/jenkins/s/https/jenkins.kyroy.com/job/ZoKrates/job/master.svg?label=master)
+![Jenkins](https://img.shields.io/jenkins/s/https/jenkins.kyroy.com/job/ZoKrates/job/develop.svg?label=develop)
+
 
 Zokrates is a toolbox for zkSNARKs on Ethereum.
 
@@ -17,13 +20,19 @@ Zokrates bridges this gap. It helps you create offchain programs and link them t
 
 Using Docker is currently the recommended way to get started with Zokrates.
 
+```bash
+docker run -ti kyroy/zokrates /bin/bash
 ```
+Or build yourself with the following commands.
+```bash
 git clone https://github.com/JacobEberhardt/ZoKrates
 cd ZoKrates
 docker build -t zokrates .
 docker run -ti zokrates /bin/bash
 cd ZoKrates/target/release
 ```
+
+
 # Example
 
 To execute the program, perform the setup for the program, generate a proof
@@ -106,6 +115,12 @@ K = 0x1868436121f271e9fbf78a8f75bb4077e2d4f208891793fd5b468afc3b05c0e4, 0x1021c3
 ```
 
 Passed to the verifier contract, this proof can be checked.
+For example, using `web3`, a call would look like the following:
+```
+Verifier.at(<verifier contract address>).verifyTx(A, A_p, B, B_p, C, C_p, H, K, [...publicInputs, ...outputs])
+```
+
+Where `A, ..., K` are defined as above (adding brackets and quotes: `A = ["0x123", "0x345"]`), `publicInputs` are the public inputs supplied to witness generation and `outputs` are the results of the computation.
 
 # Testing
 
