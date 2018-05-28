@@ -1,0 +1,7 @@
+def main():
+	a = 1
+	b = a
+	c = b
+	d = c
+	e = d
+	return e

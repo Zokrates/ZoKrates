@@ -6,20 +6,35 @@
 //! @date 2017
 
 use std::collections::HashMap;
-use absy::*;
-use absy::Expression::*;
+use std::collections::BTreeMap;
+use flat_absy::*;
+use flat_absy::FlatExpression::*;
 use field::Field;
+use regex::Regex;
+use parameter::Parameter;
 
-/// Returns a vector of summands of the given `Expression`.
+// for r1cs import, can be moved.
+// r1cs data strucutre reflecting JSON standard format:
+//{variables:["a","b", ... ],
+//constraints:[
+// [{offset_1:value_a1,offset2:value_a2,...},{offset1:value_b1,offset2:value_b2,...},{offset1:value_c1,offset2:value_c2,...}]
+//]}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct R1CS {
+    variables: Vec<String>,
+    constraints: Vec<Vec<BTreeMap<String, isize>>>,
+}
+
+/// Returns a vector of summands of the given `FlatExpression`.
 ///
 /// # Arguments
 ///
-/// * `expr` - `Expression` to be split to summands.
+/// * `expr` - `FlatExpression` to be split to summands.
 ///
 /// # Example
 ///
 /// a + 2*b + (c - d) -> [a, 2*b, c-d]
-fn get_summands<T: Field>(expr: &Expression<T>) -> Vec<&Expression<T>> {
+fn get_summands<T: Field>(expr: &FlatExpression<T>) -> Vec<&FlatExpression<T>> {
     let mut trace = Vec::new();
     let mut add = Vec::new();
     trace.push(expr);
@@ -47,12 +62,12 @@ fn get_summands<T: Field>(expr: &Expression<T>) -> Vec<&Expression<T>> {
 ///
 /// # Arguments
 ///
-/// * `expr` - Expression only containing Numbers, Variables, Add and Mult
+/// * `expr` - FlatExpression only containing Numbers, Variables, Add and Mult
 ///
 /// # Example
 ///
 /// `7 * x + 4 * y + x` -> { x => 8, y = 4 }
-fn count_variables_add<T: Field>(expr: &Expression<T>) -> HashMap<String, T> {
+fn count_variables_add<T: Field>(expr: &FlatExpression<T>) -> HashMap<String, T> {
     let summands = get_summands(expr);
     let mut count = HashMap::new();
     for s in summands {
@@ -84,9 +99,9 @@ fn count_variables_add<T: Field>(expr: &Expression<T>) -> HashMap<String, T> {
 ///
 /// # Arguments
 ///
-/// * `lhs` - Leht hand side of the equation
+/// * `lhs` - Left hand side of the equation
 /// * `rhs` - Right hand side of the equation
-fn swap_sub<T: Field>(lhs: &Expression<T>, rhs: &Expression<T>) -> (Expression<T>, Expression<T>) {
+fn swap_sub<T: Field>(lhs: &FlatExpression<T>, rhs: &FlatExpression<T>) -> (FlatExpression<T>, FlatExpression<T>) {
     let mut left = get_summands(lhs);
     let mut right = get_summands(rhs);
     let mut run = true;
@@ -143,8 +158,8 @@ fn swap_sub<T: Field>(lhs: &Expression<T>, rhs: &Expression<T>) -> (Expression<T
 /// * `b_row` - Result row of matrix B
 /// * `c_row` - Result row of matrix C
 fn r1cs_expression<T: Field>(
-    linear_expr: Expression<T>,
-    expr: Expression<T>,
+    linear_expr: FlatExpression<T>,
+    expr: FlatExpression<T>,
     variables: &mut Vec<String>,
     a_row: &mut Vec<(usize, T)>,
     b_row: &mut Vec<(usize, T)>,
@@ -227,9 +242,6 @@ fn r1cs_expression<T: Field>(
                 a_row.push((get_variable_idx(variables, &key), value));
             }
         }
-        Pow(_, _) => panic!("Pow not flattened"),
-        IfElse(_, _, _) => panic!("IfElse not flattened"),
-        FunctionCall(_, _) => panic!("FunctionCall not flattened"),
         Identifier(var) => {
             a_row.push((get_variable_idx(variables, &var), T::one()));
             b_row.push((0, T::one()));
@@ -271,7 +283,7 @@ fn get_variable_idx(variables: &mut Vec<String>, var: &String) -> usize {
 ///
 /// * `prog` - The program the representation is calculated for.
 pub fn r1cs_program<T: Field>(
-    prog: &Prog<T>,
+    prog: &FlatProg<T>,
 ) -> (
     Vec<String>,
     usize,
@@ -288,7 +300,7 @@ pub fn r1cs_program<T: Field>(
     //Only the main function is relevant in this step, since all calls to other functions were resolved during flattening
     let main = prog.functions
         .iter()
-        .find(|x: &&Function<T>| x.id == "main".to_string())
+        .find(|x: &&FlatFunction<T>| x.id == "main".to_string())
         .unwrap();
     variables.extend(main.arguments.iter().filter(|x| !x.private).map(|x| format!("{}", x)));
 
@@ -303,7 +315,7 @@ pub fn r1cs_program<T: Field>(
 
     for def in &main.statements {
         match *def {
-            Statement::Return(ref list) => {
+            FlatStatement::Return(ref list) => {
                 for (i, val) in list.expressions.iter().enumerate() {
                     let mut a_row: Vec<(usize, T)> = Vec::new();
                     let mut b_row: Vec<(usize, T)> = Vec::new();
@@ -321,8 +333,8 @@ pub fn r1cs_program<T: Field>(
                     c.push(c_row);
                 }
             },
-            Statement::Definition(_, _) => continue,
-            Statement::Condition(ref expr1, ref expr2) => {
+            FlatStatement::Definition(_, _) => continue,
+            FlatStatement::Condition(ref expr1, ref expr2) => {
                 let mut a_row: Vec<(usize, T)> = Vec::new();
                 let mut b_row: Vec<(usize, T)> = Vec::new();
                 let mut c_row: Vec<(usize, T)> = Vec::new();
@@ -338,12 +350,73 @@ pub fn r1cs_program<T: Field>(
                 b.push(b_row);
                 c.push(c_row);
             },
-            Statement::For(..) => panic!("For-loop not flattened"),
-            Statement::Compiler(..) => continue,
-            Statement::MultipleDefinition(..) => unimplemented!(),
+            FlatStatement::Compiler(..) => continue
         }
     }
     (variables, private_inputs_offset, a, b, c)
+}
+
+
+/// Calculates a flattend program based on a R1CS (A, B, C) and returns that flattened program:
+/// * The Rank 1 Constraint System (R1CS) is defined as:
+/// * `<A,x>*<B,x> = <C,x>` for a witness `x`
+/// * Since the matrices in R1CS are usually sparse, the following encoding is used:
+/// * For each constraint (i.e., row in the R1CS), only non-zero values are supplied and encoded as a tuple (index, value).
+///
+/// # Arguments
+///
+/// * r1cs - R1CS in standard JSON data format
+
+pub fn flattened_program<T: Field>(
+    r1cs: R1CS
+) -> FlatProg<T> {
+
+    // statements that constrains are translated to
+    let mut statements: Vec<FlatStatement<T>> = Vec::new();
+    let mut parameters: Vec<Parameter> = Vec::new();
+    let mut intermediate_var_index = 1;
+
+    for cons in r1cs.constraints {
+        assert!(cons.len() == 3); // entries for a,b,c
+        let mut lhs_a: FlatExpression<T> = Number(T::from(0));
+        let mut lhs_b: FlatExpression<T> = Number(T::from(0));
+        let mut rhs: FlatExpression<T> = Number(T::from(0));
+
+        let mut first = true;
+        let regex = Regex::new(r"[^a-zA-Z0-9]").unwrap();
+
+        for i in 0..cons.len() {
+            for (var_offset, val) in &cons[i] {
+                let var_index = var_offset.parse::<usize>().unwrap();
+                let mut var;
+                if var_index < r1cs.variables.len() {
+                    var = r1cs.variables[var_index].clone(); // get variable name
+                    var = String::from(regex.replace_all(var.as_str(), "").into_owned());
+                    parameters.push(Parameter{id: var.clone(), private: false});
+                } else {
+                    var = format!("inter{}", intermediate_var_index);
+                    parameters.push(Parameter{id: var.clone(), private: true});
+                    intermediate_var_index+=1;
+                }
+                let term = FlatExpression::Mult(box Number(T::from(*val as i32)), box Identifier(var));
+                if first {
+                    lhs_a = term;
+                    first = !first;
+                } else {
+                    lhs_a = FlatExpression::Add(box lhs_a, box term);
+                }
+            }
+            first = true;
+        }
+        statements.push(FlatStatement::Condition(FlatExpression::Mult(box lhs_a, box lhs_b), rhs));
+    }
+
+    statements.push(FlatStatement::Return(FlatExpressionList{expressions: vec![Number(T::from(1))]}));         //TODO: Fix me when inputs and outputs are clear from the json
+    let mut functs = Vec::new();
+    functs.push(FlatFunction{ id: "main".to_owned(), arguments: parameters , statements: statements, return_count: 1});
+    FlatProg {
+        functions: functs
+    }
 }
 
 #[cfg(test)]

@@ -4,18 +4,22 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 use std::fs::File;
-use std::path::{PathBuf};
 use std::fmt;
+use std::path::{PathBuf};
 use field::{Field, FieldPrime};
 use absy::{Prog};
+use flat_absy::{FlatProg};
 use parser::{self, parse_program};
+use imports::{self, Importer};
 use semantics::{self, Checker};
+use optimizer::{Optimizer};
 use flatten::Flattener;
 use std::io::{self};
 
 #[derive(Debug)]
 pub enum CompileError<T: Field> {
 	ParserError(parser::Error<T>),
+	ImportError(imports::Error),
 	SemanticError(semantics::Error),
 	ReadError(io::Error)
 }
@@ -23,6 +27,12 @@ pub enum CompileError<T: Field> {
 impl<T: Field> From<parser::Error<T>> for CompileError<T> {
 	fn from(error: parser::Error<T>) -> Self {
 		CompileError::ParserError(error)
+	}
+}
+
+impl<T: Field> From<imports::Error> for CompileError<T> {
+	fn from(error: imports::Error) -> Self {
+		CompileError::ImportError(error)
 	}
 }
 
@@ -43,17 +53,39 @@ impl fmt::Display for CompileError<FieldPrime> {
 		let res = match *self {
 			CompileError::ParserError(ref e) => format!("Syntax error: {}", e),
 			CompileError::SemanticError(ref e) => format!("Semantic error: {}", e),
-			CompileError::ReadError(ref e) => format!("Read error: {}", e)
+			CompileError::ReadError(ref e) => format!("Read error: {}", e),
+			CompileError::ImportError(ref e) => format!("Import error: {}", e)
 		};
 		write!(f, "{}", res)
 	}
 }
 
-pub fn compile<T: Field>(path: PathBuf) -> Result<Prog<T>, CompileError<T>> {
-	println!("compile {:?}", path);
+pub fn compile<T: Field>(path: PathBuf, should_optimize: bool) -> Result<FlatProg<T>, CompileError<T>> {
+	let compiled = compile_aux(path);
+
+	match compiled {
+		Ok(c) => match should_optimize {
+			true => Ok(Optimizer::new().optimize_program(c)),
+			_ => Ok(c)
+		}
+		err => err
+	}
+}
+
+fn compile_aux<T: Field>(path: PathBuf) -> Result<FlatProg<T>, CompileError<T>> {
 	let file = File::open(&path)?;
 
-    let program_ast: Prog<T> = parse_program(file)?;
+    let program_ast_without_imports: Prog<T> = parse_program(file, path.to_owned())?;
+
+    let mut compiled_imports: Vec<(FlatProg<T>, String)> = vec![];
+
+    for import in program_ast_without_imports.clone().imports {
+    	let path = import.resolve()?;
+    	let compiled = compile_aux(path)?;
+    	compiled_imports.push((compiled, import.alias()));
+    }
+    	
+    let program_ast = Importer::new().apply_imports(compiled_imports, program_ast_without_imports);
 
     // check semantics
     Checker::new().check_program(program_ast.clone())?;

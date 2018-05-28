@@ -4,7 +4,13 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
+// import syntax draft
+// <imports> ::= <import> <imports>
+//
+// <import> ::= `import' 
+
 // Grammar:
+//
 // <prog> ::= <functions>
 //
 // <functions> ::= <function> <functions>
@@ -69,8 +75,11 @@ use std::fmt;
 use std::io::{BufReader, Lines};
 use std::io::prelude::*;
 use std::fs::File;
-use field::{Field, FieldPrime};
+use field::{Field};
 use absy::*;
+use std::path::PathBuf;
+use imports::*;
+use parameter::Parameter;
 
 #[derive(Clone, PartialEq)]
 struct Position {
@@ -155,6 +164,10 @@ enum Token<T: Field> {
     Num(T),
     Unknown(String),
     InlineComment(String),
+    Import,
+    DoubleQuote,
+    Path(String),
+    As,
     // following used for error messages
     ErrIde,
     ErrNum,
@@ -194,6 +207,10 @@ impl<T: Field> fmt::Display for Token<T> {
             Token::Num(ref x) => write!(f, "{}", x),
             Token::Unknown(ref x) => write!(f, "{}", x),
             Token::InlineComment(ref x) => write!(f, "// {}", x),
+            Token::Import => write!(f, "import"),
+            Token::DoubleQuote => write!(f, "\""),
+            Token::Path(ref x) => write!(f, "\"{}\"", x),
+            Token::As => write!(f, "as"),
             Token::ErrIde => write!(f, "identifier"),
             Token::ErrNum => write!(f, "number"),
         }
@@ -378,6 +395,14 @@ fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Po
                 col: pos.col + offset + 1,
             },
         ),
+        Some('"') => (
+            Token::DoubleQuote,
+            input[offset + 1..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 1,
+            },
+        ),
         Some('*') => match input.chars().nth(offset + 1) {
             Some('*') => (
                 Token::Pow,
@@ -511,6 +536,22 @@ fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Po
                 line: pos.line,
                 col: pos.col + offset + 8,
             },
+        ),
+        Some(_) if input[offset..].starts_with("import ") => (
+            Token::Import,
+            input[offset + 7..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 7
+            }
+        ),
+        Some(_) if input[offset..].starts_with("as ") => (
+            Token::As,
+            input[offset + 2..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 2
+            }
         ),
         Some(x) => match x {
             '0'...'9' => parse_num(
@@ -868,7 +909,6 @@ fn parse_statement1<T: Field>(
                     Ok((Statement::Definition(ide, e2), s2, p2))
                 }
                 (t3, _, p3) => {
-                    println!("here {}", input);
                     Err(Error {
                         expected: vec![
                             Token::Add,
@@ -1097,24 +1137,6 @@ fn parse_statement<T: Field>(
                 }),
             }
         }
-        (Token::Hash, s1, p1) => match parse_ide(&s1, &p1) {
-            (Token::Ide(x2), s2, p2) => match next_token(&s2, &p2) {
-                (Token::Eq, s3, p3) => match parse_expr(&s3, &p3) {
-                    Ok((e4, s4, p4)) => Ok((Statement::Compiler(x2, e4), s4, p4)),
-                    Err(err) => Err(err),
-                },
-                (t3, _, p3) => Err(Error {
-                    expected: vec![Token::Eq],
-                    got: t3,
-                    pos: p3,
-                }),
-            },
-            (t2, _, p2) => Err(Error {
-                expected: vec![Token::ErrIde],
-                got: t2,
-                pos: p2,
-            }),
-        },
         (Token::Return, s1, p1) => match parse_expression_list(s1, p1) {
             Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
                 (Token::InlineComment(_), ref s3, _) => {
@@ -1144,7 +1166,6 @@ fn parse_statement<T: Field>(
                 Token::ErrNum,
                 Token::If,
                 Token::Open,
-                Token::Hash,
                 Token::Return,
             ],
             got: t1,
@@ -1358,11 +1379,98 @@ fn parse_function<T: Field>(
     ))
 }
 
-pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
+fn parse_quoted_path<T: Field>(
+    input: &String,
+    pos: &Position
+) -> (Token<T>, String, Position) {
+    let mut end = 0;
+    loop {
+        match input.chars().nth(end) {
+            Some(x) => {
+                end += 1;
+                match x {
+                    '\"' => break,
+                    _ => continue,
+                }
+            },
+            None => {
+                panic!("Invalid import path, should end with '\"'")
+            }
+        }
+    }
+    (Token::Path(input[0..end - 1].to_string()),
+    input[end..].to_string(),
+    Position {
+        line: pos.line,
+        col: pos.col + end,
+    })
+}
+
+fn parse_import<T: Field>(
+    input: &String,
+    pos: &Position,
+    path: &PathBuf
+) -> Result<(Import, Position), Error<T>> {
+    match next_token(input, pos) {
+        (Token::DoubleQuote, s1, p1) => {
+            match parse_quoted_path(&s1, &p1) {
+                (Token::Path(code_path), s2, p2) => {
+                    match next_token::<T>(&s2, &p2) {
+                        (Token::As, s3, p3) => {
+                            match next_token(&s3, &p3) {
+                                (Token::Ide(id), _, p4) => {
+                                    return Ok((
+                                        Import::new_with_alias(code_path, &path, &id),
+                                        p4
+                                    ))
+                                },
+                                (t4, _, p4) => {
+                                    return Err(
+                                        Error {
+                                            expected: vec![Token::Ide("ide".to_string())],
+                                            got: t4,
+                                            pos: p4
+                                        }
+                                    )
+                                }
+                            } 
+                        },
+                        (Token::Unknown(_), _, p3) => {
+                            return Ok((
+                                Import::new(code_path, &path),
+                                p3
+                            ))
+                        },
+                        (t3, _, p3) => {
+                            return Err( Error {
+                                expected: vec![Token::Ide("id".to_string()), Token::Unknown("".to_string())],
+                                got: t3,
+                                pos: p3
+                            })
+                        }
+                    }
+                },
+                (t2, _, p2) => Err( Error {
+                    expected: vec![Token::Path("./path/to/program.code".to_string())],
+                    got: t2,
+                    pos: p2
+                })
+            }
+        },
+        (t1, _, p1) => Err( Error {
+            expected: vec![Token::DoubleQuote],
+            got: t1,
+            pos: p1
+        })
+    }
+}
+
+pub fn parse_program<T: Field>(file: File, path: PathBuf) -> Result<Prog<T>, Error<T>> {
     let mut current_line = 1;
     let reader = BufReader::new(file);
     let mut lines = reader.lines();
     let mut functions = Vec::new();
+    let mut imports = Vec::new();
 
     loop {
         match lines.next() {
@@ -1374,6 +1482,14 @@ pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
                     col: 1,
                 },
             ) {
+                (Token::Import, ref s1, ref p1) => match parse_import(s1, p1, &path) {
+                    Ok((import, p2)) => {
+                        imports.push(import);
+                        current_line = p2.line; // this is the line of the import statement
+                        current_line += 1;
+                    }
+                    Err(err) => return Err(err),
+                },
                 (Token::Def, ref s1, ref p1) => match parse_function(&mut lines, s1, p1) {
                     Ok((function, p2)) => {
                         functions.push(function);
@@ -1395,7 +1511,7 @@ pub fn parse_program<T: Field>(file: File) -> Result<Prog<T>, Error<T>> {
         }
     }
 
-    Ok(Prog { functions })
+    Ok(Prog { functions, imports, imported_functions: vec![] })
 }
 
 fn parse_comma_separated_expression_list_rec<T: Field>(
@@ -1406,7 +1522,7 @@ fn parse_comma_separated_expression_list_rec<T: Field>(
     match parse_expr(&input, &pos) {
         Ok((e1, s1, p1)) => {
             acc.expressions.push(e1);
-            match next_token::<FieldPrime>(&s1, &p1) {
+            match next_token::<T>(&s1, &p1) {
                 (Token::Comma, s2, p2) => parse_comma_separated_expression_list_rec(s2, p2, &mut acc),
                 (..) => Ok((acc.clone(), s1, p1)),
             }                
@@ -1423,7 +1539,7 @@ fn parse_comma_separated_identifier_list_rec<T: Field>(
     match next_token(&input, &pos) {
         (Token::Ide(id), s1, p1) => {
             acc.push(id);
-            match next_token::<FieldPrime>(&s1, &p1) {
+            match next_token::<T>(&s1, &p1) {
                 (Token::Comma, s2, p2) => parse_comma_separated_identifier_list_rec(s2, p2, &mut acc),
                 (..) => Ok((acc.to_vec(), s1, p1)),
             }
@@ -1670,8 +1786,66 @@ mod tests {
                 parse_comma_separated_list::<FieldPrime>(string, pos)
             )
         }
+    }
 
-        // test impossible to run forever?
+    #[cfg(test)]
+    mod parse_imports {
+        use super::*;
+
+        #[test]
+        fn quoted_path() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("./foo.code\" as foo");
+            let path: Token<FieldPrime> = Token::Path("./foo.code".to_string());
+            assert_eq!(
+                (path, " as foo".to_string(), pos.col(11 as isize)),
+                parse_quoted_path(&string, &pos)
+            );
+        }
+
+        #[test]
+        fn import() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("import \"./foo.code\"");
+            let import: Token<FieldPrime> = Token::Import;
+            assert_eq!(
+                (import, "\"./foo.code\"".to_string(), pos.col(7 as isize)),
+                next_token(&string, &pos)
+            )
+        }
+
+        #[test]
+        fn parse_import_test() {
+            let pos = Position { line: 45, col: 121 };
+            let pathbuf = PathBuf::from("examples/bar.code");
+            let string = String::from("\"./foo.code\"");
+            let import = Import::new("./foo.code".to_string(), &pathbuf);
+            let position = Position {
+                line: 45,
+                col: pos.col + 1 + "./foo.code".len() + 1
+            };
+            assert_eq!(
+                Ok((import, position)),
+                parse_import::<FieldPrime>(&string, &pos, &pathbuf)
+            )
+        }
+
+        #[test]
+        fn parse_import_with_alias_test() {
+            let pos = Position { line: 45, col: 121 };
+            let pathbuf = PathBuf::from("examples/bar.code");
+            let string = String::from("\"./foo.code\" as myalias");
+            let alias = "myalias".to_string();
+            let import = Import::new_with_alias("./foo.code".to_string(), &pathbuf, &alias);
+            let position = Position {
+                line: 45,
+                col: pos.col + string.len()
+            };
+            assert_eq!(
+                Ok((import, position)),
+                parse_import::<FieldPrime>(&string, &pos, &pathbuf)
+            )
+        }
     }
 
     // #[cfg(test)]
