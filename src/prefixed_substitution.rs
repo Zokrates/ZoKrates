@@ -1,17 +1,18 @@
-//! Module containing ways to represent a substitution.
-//!
+//! A substitution which attributes the same prefix to related strings:
+//! foo_b12 -> _123_b12  =>  foo_b13 -> _123_b13
+//! 
 //! @file prefixed_substitution.rs
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
-const BINARY_SEPARATOR: &str = "#b";
-
 use substitution::Substitution;
 use std::collections::HashMap;
+use regex::Regex;
 
 #[derive(Debug, Clone)]
 pub struct PrefixedSubstitution {
-    hashmap: HashMap<String, String>
+    hashmap: HashMap<String, String>,
+    regex: Regex
 }
 
 impl Substitution for PrefixedSubstitution {
@@ -19,13 +20,14 @@ impl Substitution for PrefixedSubstitution {
         PrefixedSubstitution {
             hashmap: {
                 HashMap::<String, String>::new()
-            }
+            },
+            regex: Regex::new(r"_b\d+$").unwrap()
         }
     }
 
     fn insert(&mut self, key: String, element: String) -> Option<String>
     {
-        let (p, _) = Self::split_key(&key);
+        let (p, _) = self.split_key(&key);
         match self.hashmap.get(p) {
             None => self.hashmap.insert(p.to_string(), element),
             Some(_) => None
@@ -33,7 +35,7 @@ impl Substitution for PrefixedSubstitution {
     }
 
     fn get(&self, key: &str) -> Option<String> {
-        let (p, s) = Self::split_key(key);
+        let (p, s) = self.split_key(key);
 
         let p_val = match self.hashmap.get(p) {
             Some(ref v) => Some(v.to_string()),
@@ -41,23 +43,24 @@ impl Substitution for PrefixedSubstitution {
         };
 
         match (s, p_val.clone()) {
-            (Some(suffix), Some(v)) => Some(format!("{}{}{}", v, BINARY_SEPARATOR, suffix)),
+            (Some(suffix), Some(v)) => Some(format!("{}{}", v, suffix)),
             (Some(_), None) => None,
             (None, _) => p_val
         }
     }
 
     fn contains_key(&mut self, key: &str) -> bool {
-        let (p, _) = Self::split_key(&key);
+        let (p, _) = self.split_key(&key);
         self.hashmap.contains_key(p)
     }
 }
 
 impl PrefixedSubstitution {
-    fn split_key(key: &str) -> (&str, Option<&str>) {
-        let mut parts = key.split(BINARY_SEPARATOR);
-        assert!(parts.clone().count() <= 2);
-        (parts.nth(0).unwrap(), parts.nth(0))
+    fn split_key<'a>(&self, key: &'a str) -> (&'a str, Option<&'a str>) {
+        match self.regex.find(key) {
+            Some(candidate) => (&key[0..candidate.start()], Some(&key[candidate.start()..])),
+            None => (key, None)
+        }
     }
 }
 
@@ -76,22 +79,15 @@ mod tests {
     #[test]
     fn insert_binary_variable() {
         let mut s = PrefixedSubstitution::new();
-        s.insert("abc_de#b23".to_string(), "_123".to_string());
-        assert_eq!(s.get("abc_de#b23").unwrap(), "_123#b23".to_string());
+        s.insert("abc_de_b23".to_string(), "_123".to_string());
+        assert_eq!(s.get("abc_de_b23").unwrap(), "_123_b23".to_string());
     }
 
     #[test]
     fn insert_twice_with_same_prefix() {
         let mut s = PrefixedSubstitution::new();
-        s.insert("abc_de#b23".to_string(), "_123".to_string());
-        s.insert("abc_de#b24".to_string(), "_456".to_string());
-        assert_eq!(s.get("abc_de#b24").unwrap(), "_123#b24".to_string());
-    }
-
-    #[test]
-    #[should_panic]
-    fn two_separators() {
-        let mut s = PrefixedSubstitution::new();
-        s.insert("abc#b21#b33".to_string(), "_123".to_string());
+        s.insert("abc_de_b23".to_string(), "_123".to_string());
+        s.insert("abc_de_b24".to_string(), "_456".to_string());
+        assert_eq!(s.get("abc_de_b24").unwrap(), "_123_b24".to_string());
     }
 }

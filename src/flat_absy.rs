@@ -5,7 +5,7 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
-const BINARY_SEPARATOR: &str = "#b";
+const BINARY_SEPARATOR: &str = "_b";
 
 use absy::Expression;
 use std::fmt;
