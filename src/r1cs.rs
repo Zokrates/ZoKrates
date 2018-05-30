@@ -25,6 +25,11 @@ pub struct R1CS {
     constraints: Vec<Vec<BTreeMap<String, isize>>>,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Witness {
+    pub TestVariables: Vec<usize>
+}
+
 /// Returns a vector of summands of the given `FlatExpression`.
 ///
 /// # Arguments

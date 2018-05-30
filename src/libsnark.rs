@@ -127,7 +127,7 @@ pub fn get_sha256_constraints() -> String {
     a.into_string().unwrap()
 }
 
-pub fn get_sha256_witness() -> String {
+pub fn get_sha256_witness<T:Field>(inputs: &Vec<T>) -> String {
     let a = unsafe { CString::from_raw(_sha256Witness()) };
     a.into_string().unwrap()
 }
@@ -162,7 +162,7 @@ mod tests {
 
         #[test]
         fn can_generate_sha_256_witness() {
-            println!("witness {:?}", get_sha256_witness());
+            println!("witness {:?}", get_sha256_witness(&vec![FieldPrime::from(0),FieldPrime::from(1),FieldPrime::from(0)]));
         }
 
         #[test]
