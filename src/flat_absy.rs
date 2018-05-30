@@ -13,6 +13,7 @@ use std::collections::{BTreeMap};
 use field::Field;
 use parameter::Parameter;
 use substitution::Substitution;
+use executable::{Executable, Zokrates};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FlatProg<T: Field> {
@@ -96,6 +97,28 @@ impl<T: Field> FlatFunction<T> {
                     let s = expr.solve(&mut witness);
                     witness.insert(id.to_string(), s);
                 },
+                FlatStatement::ZokratesDirective(ref inputs, ref outputs, ref lambda) => {
+                    // check that inputs and outputs match the signature
+                    assert!((inputs.len(), outputs.len()) == lambda.get_signature());
+
+                    // get the values for the inputs
+                    let inputs = inputs.iter().map(|i| witness.get(i).unwrap().clone()).collect();
+
+                    // execute the function
+                    let res: Result<Vec<T>, ()> = lambda.execute(&inputs);
+
+                    // add outputs to the witness
+                    match res {
+                        Ok(output_values) => {
+                            for (i, r) in output_values.into_iter().enumerate() {
+                                //println!(" value {:?}", r);
+                                witness.insert(outputs[i].clone(), r);
+                            }
+                        },
+                        Err(()) => panic!("failfailfail")
+                    }
+
+                },
                 FlatStatement::Condition(ref lhs, ref rhs) => {
                     assert_eq!(lhs.solve(&mut witness), rhs.solve(&mut witness))
                 }
@@ -146,6 +169,7 @@ pub enum FlatStatement<T: Field> {
     Return(FlatExpressionList<T>),
     Condition(FlatExpression<T>, FlatExpression<T>),
     Compiler(String, Expression<T>),
+    ZokratesDirective(Vec<String>, Vec<String>, Box<Zokrates<T>>),
     Definition(String, FlatExpression<T>)
 }
 
@@ -156,6 +180,7 @@ impl<T: Field> fmt::Display for FlatStatement<T> {
             FlatStatement::Return(ref expr) => write!(f, "return {}", expr),
             FlatStatement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             FlatStatement::Compiler(ref lhs, ref rhs) => write!(f, "# {} = {}", lhs, rhs),
+            FlatStatement::ZokratesDirective(ref inputs, ref outputs, _) => write!(f, "# {} = ZokratesDirective({})", outputs.join(", "), inputs.join(", ")),
         }
     }
 }
@@ -167,6 +192,7 @@ impl<T: Field> fmt::Debug for FlatStatement<T> {
             FlatStatement::Return(ref expr) => write!(f, "FlatReturn({:?})", expr),
             FlatStatement::Condition(ref lhs, ref rhs) => write!(f, "FlatCondition({:?}, {:?})", lhs, rhs),
             FlatStatement::Compiler(ref lhs, ref rhs) => write!(f, "Compiler({:?}, {:?})", lhs, rhs),
+            FlatStatement::ZokratesDirective(ref inputs, ref outputs, ref lambda) => write!(f, "ZokratesDirective({:?}, {:?}, {:?}", inputs, outputs, lambda),
         }
     }
 }
@@ -188,6 +214,9 @@ impl<T: Field> FlatStatement<T> {
                 }, rhs.clone().apply_substitution(substitution)),
             FlatStatement::Condition(ref x, ref y) => {
                 FlatStatement::Condition(x.apply_substitution(substitution), y.apply_substitution(substitution))
+            },
+            FlatStatement::ZokratesDirective(ref inputs, ref outputs, ref lambda) => {
+                FlatStatement::ZokratesDirective(inputs.iter().map(|i| substitution.get(i).unwrap()).collect(), outputs.iter().map(|o| substitution.get(o).unwrap()).collect(), lambda.clone())
             }
         }
     }
@@ -344,5 +373,79 @@ impl<T: Field> FlatExpressionList<T> {
 impl<T: Field> fmt::Debug for FlatExpressionList<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "ExpressionList({:?})", self.expressions)
+    }
+}
+
+mod tests {
+    use super::*;
+    use absy::*;
+    use FieldPrime;
+
+    #[test]
+    fn get_directive_witness() {
+        let fun = Function {
+            id: "internal".to_string(),
+            statements: vec![
+                Statement::Return(
+                    ExpressionList {
+                        expressions: vec![
+                            Expression::Identifier("a".to_string()),
+                            Expression::Identifier("a".to_string())
+                        ]
+                    }
+                )
+            ],
+            return_count: 2,
+            arguments: vec![Parameter { id: "a".to_string(), private: true }, Parameter { id: "b".to_string(), private: true }]
+        };
+
+        let lambda = Zokrates {
+            function: fun
+        };
+
+        let res = lambda.execute(&vec![FieldPrime::from(2), FieldPrime::from(3)]);
+
+        println!("{:?}", res);
+    }
+
+    #[test]
+    fn solve_flat_function() {
+        let fun = Function {
+            id: "internal".to_string(),
+            statements: vec![
+                Statement::Return(
+                    ExpressionList {
+                        expressions: vec![
+                            Expression::Identifier("b".to_string()),
+                            Expression::Identifier("a".to_string())
+                        ]
+                    }
+                )
+            ],
+            return_count: 2,
+            arguments: vec![Parameter { id: "a".to_string(), private: true }, Parameter { id: "b".to_string(), private: true }]
+        };
+
+        let lambda = Zokrates {
+            function: fun
+        };
+
+        let ffun = FlatFunction {
+            id: "foo".to_string(),
+            arguments: vec![Parameter { id: "a".to_string(), private: true }, Parameter { id: "b".to_string(), private: true }],
+            statements: vec![
+                FlatStatement::ZokratesDirective(vec!["a".to_string(), "b".to_string()], vec!["c".to_string(), "d".to_string()], Box::new(lambda)),
+                FlatStatement::Return(
+                    FlatExpressionList {
+                        expressions: vec![]
+                    }
+                )
+            ],
+            return_count: 1
+        };
+
+        println!("{}", ffun);
+
+        let res = ffun.get_witness(vec![FieldPrime::from(42), FieldPrime::from(33)]);
     }
 }
