@@ -15,7 +15,6 @@ use flat_absy::*;
 use parameter::Parameter;
 use direct_substitution::DirectSubstitution;
 use substitution::Substitution;
-use executable::Zokrates;
 
 /// Flattener, computes flattened program.
 pub struct Flattener {
@@ -178,14 +177,13 @@ impl Flattener {
                             box Expression::Number(T::one()),
                     ),
                 ));
-                statements_flattened.push(FlatStatement::ZokratesDirective(
-                    vec![name_x.to_string()],
-                    vec![name_m.to_string()],
-                    Box::new(Zokrates::new(name_x.to_string(), Expression::IfElse(
+                statements_flattened.push(FlatStatement::Compiler(
+                    name_m.to_string(),
+                    Expression::IfElse(
                             box Condition::Eq(Expression::Identifier(name_x.to_string()), Expression::Number(T::zero())),
                             box Expression::Number(T::one()),
                             box Expression::Div(box Expression::Number(T::one()), box Expression::Identifier(name_x.to_string())),
-                    ), vec![Parameter { id: name_x.to_string(), private: true }])),
+                    ),
                 ));
                 statements_flattened.push(FlatStatement::Condition(
                     FlatExpression::Identifier(name_y.to_string()),
@@ -293,12 +291,6 @@ impl Flattener {
                             let new_rhs = rhs.apply_substitution(&replacement_map);
                             statements_flattened
                                 .push(FlatStatement::Condition(new_lhs, new_rhs));
-                        }
-                        FlatStatement::ZokratesDirective(inputs, outputs, lambda) => {
-                            let renamed_inputs = inputs.iter().map(|i| format!("{}{}", prefix, i.clone())).collect();
-                            let renamed_outputs = outputs.iter().map(|o| format!("{}{}", prefix, o.clone())).collect();
-                            statements_flattened
-                                .push(FlatStatement::ZokratesDirective(renamed_inputs, renamed_outputs, lambda));
                         }
                     }
                 }
