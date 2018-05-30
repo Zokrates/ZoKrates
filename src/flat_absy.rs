@@ -189,7 +189,7 @@ impl<T: Field> FlatStatement<T> {
                 }, rhs.clone().apply_substitution(substitution)),
             FlatStatement::Condition(ref x, ref y) => {
                 FlatStatement::Condition(x.apply_substitution(substitution), y.apply_substitution(substitution))
-            },
+            }
         }
     }
 }
@@ -346,78 +346,4 @@ impl<T: Field> fmt::Debug for FlatExpressionList<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "ExpressionList({:?})", self.expressions)
     }
-}
-
-mod tests {
-    use super::*;
-    use absy::*;
-    use FieldPrime;
-
-    // #[test]
-    // fn get_directive_witness() {
-    //     let fun = Function {
-    //         id: "internal".to_string(),
-    //         statements: vec![
-    //             Statement::Return(
-    //                 ExpressionList {
-    //                     expressions: vec![
-    //                         Expression::Identifier("a".to_string()),
-    //                         Expression::Identifier("a".to_string())
-    //                     ]
-    //                 }
-    //             )
-    //         ],
-    //         return_count: 2,
-    //         arguments: vec![Parameter { id: "a".to_string(), private: true }, Parameter { id: "b".to_string(), private: true }]
-    //     };
-
-    //     let lambda = Zokrates {
-    //         function: fun
-    //     };
-
-    //     let res = lambda.execute(&vec![FieldPrime::from(2), FieldPrime::from(3)]);
-
-    //     println!("{:?}", res);
-    // }
-
-    // #[test]
-    // fn solve_flat_function() {
-    //     let fun = Function {
-    //         id: "internal".to_string(),
-    //         statements: vec![
-    //             Statement::Return(
-    //                 ExpressionList {
-    //                     expressions: vec![
-    //                         Expression::Identifier("b".to_string()),
-    //                         Expression::Identifier("a".to_string())
-    //                     ]
-    //                 }
-    //             )
-    //         ],
-    //         return_count: 2,
-    //         arguments: vec![Parameter { id: "a".to_string(), private: true }, Parameter { id: "b".to_string(), private: true }]
-    //     };
-
-    //     let lambda = Zokrates {
-    //         function: fun
-    //     };
-
-    //     let ffun = FlatFunction {
-    //         id: "foo".to_string(),
-    //         arguments: vec![Parameter { id: "a".to_string(), private: true }, Parameter { id: "b".to_string(), private: true }],
-    //         statements: vec![
-    //             FlatStatement::ZokratesDirective(vec!["a".to_string(), "b".to_string()], vec!["c".to_string(), "d".to_string()], Box::new(lambda)),
-    //             FlatStatement::Return(
-    //                 FlatExpressionList {
-    //                     expressions: vec![]
-    //                 }
-    //             )
-    //         ],
-    //         return_count: 1
-    //     };
-
-    //     println!("{}", ffun);
-
-    //     let res = ffun.get_witness(vec![FieldPrime::from(42), FieldPrime::from(33)]);
-    // }
 }

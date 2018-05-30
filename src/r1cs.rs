@@ -335,7 +335,7 @@ pub fn r1cs_program<T: Field>(
                 b.push(b_row);
                 c.push(c_row);
             },
-            FlatStatement::Compiler(..) => continue,
+            FlatStatement::Compiler(..) => continue
         }
     }
     (variables, private_inputs_offset, a, b, c)

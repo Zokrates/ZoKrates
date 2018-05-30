@@ -9,7 +9,6 @@ use std::collections::{BTreeMap};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub struct Sha256Libsnark {
-	
 }
 
 impl<T: Field> Executable<T> for Sha256Libsnark {
