@@ -13,6 +13,7 @@ use std::collections::{BTreeMap};
 use field::Field;
 use parameter::Parameter;
 use substitution::Substitution;
+use executable::{Executable};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FlatProg<T: Field> {
