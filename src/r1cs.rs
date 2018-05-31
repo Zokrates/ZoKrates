@@ -12,6 +12,7 @@ use flat_absy::FlatExpression::*;
 use field::Field;
 use regex::Regex;
 use parameter::Parameter;
+use executable::{Sha256Libsnark};
 
 // for r1cs import, can be moved.
 // r1cs data strucutre reflecting JSON standard format:
@@ -21,7 +22,6 @@ use parameter::Parameter;
 //]}
 #[derive(Serialize, Deserialize, Debug)]
 pub struct R1CS {
-    variables: Vec<String>,
     constraints: Vec<Vec<BTreeMap<String, isize>>>,
 }
 
@@ -355,7 +355,8 @@ pub fn r1cs_program<T: Field>(
                 b.push(b_row);
                 c.push(c_row);
             },
-            FlatStatement::Compiler(..) => continue
+            FlatStatement::Compiler(..) => continue,
+            FlatStatement::LibsnarkSha256Directive(..) => continue
         }
     }
     (variables, private_inputs_offset, a, b, c)
@@ -381,6 +382,8 @@ pub fn flattened_program<T: Field>(
     let mut parameters: Vec<Parameter> = Vec::new();
     let mut intermediate_var_index = 1;
 
+    statements.push(FlatStatement::LibsnarkSha256Directive(Sha256Libsnark {}));
+
     for cons in r1cs.constraints {
         assert!(cons.len() == 3); // entries for a,b,c
         let mut lhs_a: FlatExpression<T> = Number(T::from(0));
@@ -394,15 +397,15 @@ pub fn flattened_program<T: Field>(
             for (var_offset, val) in &cons[i] {
                 let var_index = var_offset.parse::<usize>().unwrap();
                 let mut var;
-                if var_index < r1cs.variables.len() {
-                    var = r1cs.variables[var_index].clone(); // get variable name
-                    var = String::from(regex.replace_all(var.as_str(), "").into_owned());
-                    parameters.push(Parameter{id: var.clone(), private: false});
-                } else {
+                // if var_index < r1cs.variables.len() {
+                //     var = r1cs.variables[var_index].clone(); // get variable name
+                //     var = String::from(regex.replace_all(var.as_str(), "").into_owned());
+                //     parameters.push(Parameter{id: var.clone(), private: false});
+                // } else {
                     var = format!("inter{}", intermediate_var_index);
-                    parameters.push(Parameter{id: var.clone(), private: true});
+                    //parameters.push(Parameter{id: var.clone(), private: true});
                     intermediate_var_index+=1;
-                }
+                // }
                 let term = FlatExpression::Mult(box Number(T::from(*val as i32)), box Identifier(var));
                 if first {
                     lhs_a = term;
