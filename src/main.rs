@@ -22,6 +22,7 @@ mod absy;
 mod flat_absy;
 mod parameter;
 mod parser;
+mod gadgets;
 mod imports;
 mod semantics;
 mod substitution;
@@ -531,7 +532,12 @@ fn main() {
 
             println!("Using Witness: {:?}", witness_map);
 
-            let witness: Vec<_> = variables.iter().map(|x| witness_map[x].clone()).collect();
+            let witness: Vec<_> = variables.iter().map(|key| {
+                match witness_map.get(key) {
+                    Some(val) => val.clone(),
+                    None => panic!("No witness value for variable {}", key),
+                }
+            }).collect();
 
             // split witness into public and private inputs at offset
             let mut public_inputs: Vec<_>= witness.clone();

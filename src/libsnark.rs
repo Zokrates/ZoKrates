@@ -202,7 +202,7 @@ pub fn get_sha256_witness<T:Field>(inputs: &Vec<T>) -> String {
 }
 
 // utility function. Converts a Fields vector-based byte representation to fixed size array.
-fn vec_as_u8_32_array(vec: &Vec<u8>) -> [u8; 32] {
+pub fn vec_as_u8_32_array(vec: &Vec<u8>) -> [u8; 32] {
     assert!(vec.len() <= 32);
     let mut array = [0u8; 32];
     for (index, byte) in vec.iter().enumerate() {

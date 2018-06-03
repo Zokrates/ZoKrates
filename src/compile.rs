@@ -6,6 +6,7 @@
 use std::fs::File;
 use std::fmt;
 use std::path::{PathBuf};
+use std::ffi::OsStr;
 use field::{Field, FieldPrime};
 use absy::{Prog};
 use flat_absy::{FlatProg};
@@ -15,6 +16,7 @@ use semantics::{self, Checker};
 use optimizer::{Optimizer};
 use flatten::Flattener;
 use std::io::{self};
+use gadgets;
 
 #[cfg(not(feature = "nolibsnark"))]
 use libsnark::{get_sha256_constraints};
@@ -87,8 +89,16 @@ fn compile_aux<T: Field>(path: PathBuf, should_include_gadgets: bool) -> Result<
 
     for import in program_ast_without_imports.clone().imports {
     	let path = import.resolve()?;
-    	let compiled = compile_aux(path, should_include_gadgets)?;
-    	compiled_imports.push((compiled, import.alias()));
+		match path.extension().and_then(OsStr::to_str) {
+			Some("so") => {
+				// Register functions from a C plugin
+				gadgets::load_gadgets(&path, &mut compiled_imports);
+			},
+			_ => {
+				let compiled = compile_aux(path, should_include_gadgets)?;
+				compiled_imports.push((compiled, import.alias()));
+			}
+		}
     }
 
     #[cfg(not(feature = "nolibsnark"))]

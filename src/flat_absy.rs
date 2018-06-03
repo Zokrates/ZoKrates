@@ -7,6 +7,7 @@
 
 const BINARY_SEPARATOR: &str = "_b";
 
+use std::path::{PathBuf};
 use absy::Expression;
 use std::fmt;
 use std::collections::{BTreeMap};
@@ -15,6 +16,7 @@ use parameter::Parameter;
 use substitution::Substitution;
 use standard;
 use helpers::{DirectiveStatement, Executable};
+use gadgets;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FlatProg<T: Field> {
@@ -127,6 +129,40 @@ impl<T: Field> FlatFunction<T> {
                             })
                         }
                     };
+                },
+                FlatStatement::Gadget(ref plugin_path, ref gadget_name, ref local, ref inputs, ref outputs) => {
+
+                    // Compute the inputs
+                    let input_values = inputs.expressions.iter().map(
+                        |i| i.solve(&mut witness)
+                    ).collect();
+
+                    // Gadget generate_r1cs_witness()
+                    let context = gadgets::make_witness(plugin_path, gadget_name, &input_values);
+
+                    for &(is_inp_out_local, var_index, ref val) in context.witness.iter() {
+                        match is_inp_out_local {
+                            0 => {
+                                assert_eq!(&input_values[var_index as usize], val);
+                            },
+
+                            1 => {
+                                match outputs.expressions[var_index as usize] {
+                                    FlatExpression::Identifier(ref out_id) => {
+                                        witness.insert(out_id.to_string(), val.clone());
+                                    },
+                                    _ => panic!("Outputs must be Identifiers.")
+                                };
+                            },
+
+                            2 => {
+                                witness.insert(format!("{}{}", local, var_index).to_string(), val.clone());
+                            },
+
+                            _ => panic!("Invalid is_inp_out_local"),
+                        };
+                    }
+
                 }
             }
         }
@@ -186,7 +222,8 @@ pub enum FlatStatement<T: Field> {
     Condition(FlatExpression<T>, FlatExpression<T>),
     Compiler(String, Expression<T>),
     Definition(String, FlatExpression<T>),
-    Directive(DirectiveStatement)
+    Directive(DirectiveStatement),
+    Gadget(PathBuf, gadgets::GadgetName, String, FlatExpressionList<T>, FlatExpressionList<T>),
 }
 
 impl<T: Field> fmt::Display for FlatStatement<T> {
@@ -197,6 +234,7 @@ impl<T: Field> fmt::Display for FlatStatement<T> {
             FlatStatement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             FlatStatement::Compiler(ref lhs, ref rhs) => write!(f, "# {} = {}", lhs, rhs),
             FlatStatement::Directive(ref d) => write!(f, "{}", d),
+            FlatStatement::Gadget(ref _plugin_path, ref gadget_name, ref _local, ref inputs, ref outputs) => write!(f, "{} = gadget {:?}({})", outputs, gadget_name, inputs),
         }
     }
 }
@@ -209,6 +247,7 @@ impl<T: Field> fmt::Debug for FlatStatement<T> {
             FlatStatement::Condition(ref lhs, ref rhs) => write!(f, "FlatCondition({:?}, {:?})", lhs, rhs),
             FlatStatement::Compiler(ref lhs, ref rhs) => write!(f, "Compiler({:?}, {:?})", lhs, rhs),
             FlatStatement::Directive(ref d) => write!(f, "{:?}", d),
+            FlatStatement::Gadget(ref plugin_path, ref gadget_name, ref local, ref inputs, ref outputs) => write!(f, "Gadget({:?}, {:?}, {:?}, {:?}, {:?})", plugin_path, gadget_name, local, inputs, outputs),
         }
     }
 }
@@ -219,7 +258,7 @@ impl<T: Field> FlatStatement<T> {
             FlatStatement::Definition(ref id, ref x) => FlatStatement::Definition(
                 match substitution.get(id) { 
                     Some(z) => z.clone(), 
-                    None => id.clone() 
+                    None => id.clone()
                 }, 
                 x.apply_substitution(substitution)
             ),
@@ -244,7 +283,13 @@ impl<T: Field> FlatStatement<T> {
                         helper: d.helper.clone()
                     }
                 )
-            }
+            },
+            FlatStatement::Gadget(ref plugin_path, ref gadget_name, ref local, ref inputs, ref outputs) => FlatStatement::Gadget(
+                plugin_path.clone(),
+                gadget_name.clone(),
+                substitution.get(local).unwrap_or(local.to_string()),
+                inputs.apply_substitution(substitution),
+                outputs.apply_substitution(substitution)),
         }
     }
 }
@@ -312,9 +357,9 @@ impl<T: Field> FlatExpression<T> {
                         assert_eq!(num, T::zero());
                     } else {
                         panic!(
-                            "Variable {:?} is undeclared in inputs: {:?}",
+                            "Variable {:?} is undeclared in inputs",
                             var,
-                            inputs
+                            //inputs
                         );
                     }
                 }

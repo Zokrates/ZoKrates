@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use flat_absy::*;
 use flat_absy::FlatExpression::*;
 use field::Field;
+use gadgets;
 
 /// Returns a vector of summands of the given `FlatExpression`.
 ///
@@ -145,7 +146,7 @@ fn swap_sub<T: Field>(lhs: &FlatExpression<T>, rhs: &FlatExpression<T>) -> (Flat
 fn r1cs_expression<T: Field>(
     linear_expr: FlatExpression<T>,
     expr: FlatExpression<T>,
-    variables: &mut Vec<String>,
+    variables: &mut HashMap<String, usize>,
     a_row: &mut Vec<(usize, T)>,
     b_row: &mut Vec<(usize, T)>,
     c_row: &mut Vec<(usize, T)>,
@@ -250,12 +251,13 @@ fn r1cs_expression<T: Field>(
 ///
 /// * `variables` - A mutual vector that contains all existing variables. Not found variables will be added.
 /// * `var` - Variable to be searched for.
-fn get_variable_idx(variables: &mut Vec<String>, var: &String) -> usize {
-    match variables.iter().position(|r| r == var) {
-        Some(x) => x,
+fn get_variable_idx(variables: &mut HashMap<String, usize>, var: &String) -> usize {
+    match variables.get(var).cloned() {
+        Some(index) => index,
         None => {
-            variables.push(var.to_string());
-            variables.len() - 1
+            let index = variables.len();
+            variables.insert(var.to_string(), index);
+            index
         }
     }
 }
@@ -276,8 +278,9 @@ pub fn r1cs_program<T: Field>(
     Vec<Vec<(usize, T)>>,
     Vec<Vec<(usize, T)>>,
 ) {
-    let mut variables: Vec<String> = Vec::new();
-    variables.push("~one".to_string());
+    let mut variables: HashMap<String, usize> = HashMap::new();
+    let next_index = variables.len();
+    variables.insert("~one".to_string(), next_index);
     let mut a: Vec<Vec<(usize, T)>> = Vec::new();
     let mut b: Vec<Vec<(usize, T)>> = Vec::new();
     let mut c: Vec<Vec<(usize, T)>> = Vec::new();
@@ -287,12 +290,17 @@ pub fn r1cs_program<T: Field>(
         .iter()
         .find(|x: &&FlatFunction<T>| x.id == "main".to_string())
         .unwrap();
-    variables.extend(main.arguments.iter().filter(|x| !x.private).map(|x| format!("{}", x)));
+
+    for var in main.arguments.iter().filter(|x| !x.private).map(|x| format!("{}", x)) {
+        let next_index = variables.len();
+        variables.insert(var, next_index);
+    }
 
     // ~out is added after main's arguments as we want variables (columns)
     // in the r1cs to be aligned like "public inputs | private inputs"
     for i in 0..main.return_count {
-        variables.push(format!("~out_{}", i).to_string());
+        let next_index = variables.len();
+        variables.insert(format!("~out_{}", i).to_string(), next_index);
     }
 
     // position where private part of witness starts
@@ -336,10 +344,69 @@ pub fn r1cs_program<T: Field>(
                 c.push(c_row);
             },
             FlatStatement::Compiler(..) => continue,
-            FlatStatement::Directive(..) => continue
+            FlatStatement::Directive(..) => continue,
+            FlatStatement::Gadget(ref plugin_path, ref gadget_name, ref local, ref inputs, ref outputs) => {
+
+                // Remap indices
+                let mut convert_index = |is_inp_out_local: u8, var_index: u64| {
+
+                    let name = match is_inp_out_local {
+                        0 => {
+                            match inputs.expressions[var_index as usize] {
+                                FlatExpression::Identifier(ref id) => {
+                                    id.to_string()
+                                },
+                                _ => panic!("Inputs must be Identifiers.")
+                            }
+                        },
+                        1 => {
+                            match outputs.expressions[var_index as usize] {
+                                FlatExpression::Identifier(ref out_id) => {
+                                    out_id.to_string()
+                                },
+                                _ => panic!("Outputs must be Identifiers.")
+                            }
+                        },
+                        2 => {
+                            format!("{}{}", local, var_index)
+                        },
+                        _ => panic!("Invalid is_inp_out_local"),
+                    };
+
+                    return get_variable_idx(&mut variables, &name);
+                };
+
+                let mut context = gadgets::AddConstraintContext {
+                    indices_map: gadgets::IndicesMap{first_input: 0, first_output: 0, first_local: 0},
+                    num_rows: 0,
+
+                    convert_index: &mut convert_index,
+
+                    a: &mut a,
+                    b: &mut b,
+                    c: &mut c,
+                };
+
+                let inputs_size = inputs.expressions.len() as u64;
+
+                gadgets::make_constraints(plugin_path, gadget_name, inputs_size, &mut context);
+
+                assert_eq!(context.a.len(), context.b.len());
+                assert_eq!(context.a.len(), context.c.len());
+            },
         }
     }
-    (variables, private_inputs_offset, a, b, c)
+
+    // Sort the variable names by index
+    let mut variable_indices: Vec<(&String, usize)> = variables.iter().map(|su| (su.0, *su.1)).collect();
+    variable_indices.sort_by(|a, b| {
+        a.1.cmp(&b.1)
+    });
+    let ordered_variables: Vec<String> = variable_indices.iter().map(|su| su.0.clone()).collect();
+    assert_eq!(variable_indices[0].1, 0);
+    assert_eq!(ordered_variables[0], "~one");
+
+    (ordered_variables, private_inputs_offset, a, b, c)
 }
 
 #[cfg(test)]

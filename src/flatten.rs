@@ -309,7 +309,31 @@ impl Flattener {
                                     }
                                 )
                             )
-                        }
+                        },
+                        FlatStatement::Gadget(plugin_path, gadget_name, local, inputs, outputs) => {
+
+                            // Create local output variables
+                            for expr in outputs.expressions.clone() {
+                                if let FlatExpression::Identifier(id) = expr {
+                                    let local_id: String = format!("{}{}", prefix, id.clone());
+                                    replacement_map.insert(id, local_id.clone());
+                                }
+                            }
+
+                            // Track the local variables
+                            let instance_local = format!("{}{}_", prefix, local);
+                            let instance_inputs = FlatExpressionList {
+                                expressions: inputs.expressions.into_iter().map(|x| x.apply_substitution(&replacement_map)).collect()
+                            };
+                            let instance_outputs = FlatExpressionList {
+                                expressions: outputs.expressions.into_iter().map(|x| x.apply_substitution(&replacement_map)).collect()
+                            };
+
+                            // Instantiate a gadget call
+                            statements_flattened.push(
+                                FlatStatement::Gadget(plugin_path, gadget_name, instance_local, instance_inputs, instance_outputs)
+                            );
+                        },
                     }
                 }
             }
