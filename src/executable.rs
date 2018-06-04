@@ -9,6 +9,7 @@ use field::Field;
 use std::collections::{BTreeMap};
 use r1cs;
 use serde_json;
+use standard;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub struct Sha256Libsnark {
@@ -20,7 +21,7 @@ impl<T: Field> Executable<T> for Sha256Libsnark {
 	}
 	fn execute(&self, inputs: &Vec<T>) -> Result<Vec<T>, ()> {
 		assert!(inputs.len() == 512);
-		let witness: r1cs::Witness = serde_json::from_str(&get_sha256_witness(inputs)).unwrap();
+		let witness: standard::Witness = serde_json::from_str(&get_sha256_witness(inputs)).unwrap();
 		Ok(witness.TestVariables.iter().map(|&i| T::from(i)).collect())
 	}
 }

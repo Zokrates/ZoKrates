@@ -20,6 +20,7 @@ use libsnark::{get_sha256_constraints};
 use serde_json;
 use flat_absy::{FlatFunction, FlatStatement, FlatExpressionList, FlatExpression};
 use r1cs;
+use standard;
 
 #[derive(Debug)]
 pub enum CompileError<T: Field> {
@@ -90,11 +91,11 @@ fn compile_aux<T: Field>(path: PathBuf) -> Result<FlatProg<T>, CompileError<T>> 
     	compiled_imports.push((compiled, import.alias()));
     }
 
+    // inject globals
     let constraints = get_sha256_constraints();
-    let r1cs: r1cs::R1CS = serde_json::from_str(&constraints).unwrap();
-    let prog: FlatProg<T> = r1cs::flattened_program(r1cs);
+    let r1cs: standard::R1CS = serde_json::from_str(&constraints).unwrap();
 
-    compiled_imports.push((prog, "sha256libsnark".to_string()));
+    compiled_imports.push((FlatProg::from(r1cs), "sha256libsnark".to_string()));
     	
     let program_ast = Importer::new().apply_imports(compiled_imports, program_ast_without_imports);
 

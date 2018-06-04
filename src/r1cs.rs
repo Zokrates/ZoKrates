@@ -13,22 +13,7 @@ use field::Field;
 use regex::Regex;
 use parameter::Parameter;
 use executable::{Sha256Libsnark};
-
-// for r1cs import, can be moved.
-// r1cs data strucutre reflecting JSON standard format:
-//{variables:["a","b", ... ],
-//constraints:[
-// [{offset_1:value_a1,offset2:value_a2,...},{offset1:value_b1,offset2:value_b2,...},{offset1:value_c1,offset2:value_c2,...}]
-//]}
-#[derive(Serialize, Deserialize, Debug)]
-pub struct R1CS {
-    constraints: Vec<Vec<BTreeMap<String, isize>>>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Witness {
-    pub TestVariables: Vec<usize>
-}
+use standard;
 
 /// Returns a vector of summands of the given `FlatExpression`.
 ///
@@ -360,71 +345,6 @@ pub fn r1cs_program<T: Field>(
         }
     }
     (variables, private_inputs_offset, a, b, c)
-}
-
-
-/// Calculates a flattend program based on a R1CS (A, B, C) and returns that flattened program:
-/// * The Rank 1 Constraint System (R1CS) is defined as:
-/// * `<A,x>*<B,x> = <C,x>` for a witness `x`
-/// * Since the matrices in R1CS are usually sparse, the following encoding is used:
-/// * For each constraint (i.e., row in the R1CS), only non-zero values are supplied and encoded as a tuple (index, value).
-///
-/// # Arguments
-///
-/// * r1cs - R1CS in standard JSON data format
-
-pub fn flattened_program<T: Field>(
-    r1cs: R1CS
-) -> FlatProg<T> {
-
-    // statements that constrains are translated to
-    let mut statements: Vec<FlatStatement<T>> = Vec::new();
-    let mut parameters: Vec<Parameter> = Vec::new();
-    let mut intermediate_var_index = 1;
-
-    statements.push(FlatStatement::LibsnarkSha256Directive(Sha256Libsnark {}));
-
-    for cons in r1cs.constraints {
-        assert!(cons.len() == 3); // entries for a,b,c
-        let mut lhs_a: FlatExpression<T> = Number(T::from(0));
-        let mut lhs_b: FlatExpression<T> = Number(T::from(0));
-        let mut rhs: FlatExpression<T> = Number(T::from(0));
-
-        let mut first = true;
-        let regex = Regex::new(r"[^a-zA-Z0-9]").unwrap();
-
-        for i in 0..cons.len() {
-            for (var_offset, val) in &cons[i] {
-                let var_index = var_offset.parse::<usize>().unwrap();
-                let mut var;
-                // if var_index < r1cs.variables.len() {
-                //     var = r1cs.variables[var_index].clone(); // get variable name
-                //     var = String::from(regex.replace_all(var.as_str(), "").into_owned());
-                //     parameters.push(Parameter{id: var.clone(), private: false});
-                // } else {
-                    var = format!("inter{}", intermediate_var_index);
-                    //parameters.push(Parameter{id: var.clone(), private: true});
-                    intermediate_var_index+=1;
-                // }
-                let term = FlatExpression::Mult(box Number(T::from(*val as i32)), box Identifier(var));
-                if first {
-                    lhs_a = term;
-                    first = !first;
-                } else {
-                    lhs_a = FlatExpression::Add(box lhs_a, box term);
-                }
-            }
-            first = true;
-        }
-        statements.push(FlatStatement::Condition(FlatExpression::Mult(box lhs_a, box lhs_b), rhs));
-    }
-
-    statements.push(FlatStatement::Return(FlatExpressionList{expressions: vec![Number(T::from(1))]}));         //TODO: Fix me when inputs and outputs are clear from the json
-    let mut functs = Vec::new();
-    functs.push(FlatFunction{ id: "main".to_owned(), arguments: parameters , statements: statements, return_count: 1});
-    FlatProg {
-        functions: functs
-    }
 }
 
 #[cfg(test)]

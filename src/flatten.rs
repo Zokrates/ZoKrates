@@ -294,8 +294,14 @@ impl Flattener {
                             statements_flattened
                                 .push(FlatStatement::Condition(new_lhs, new_rhs));
                         },
-                        FlatStatement::LibsnarkSha256Directive(..) => {
-                            statements_flattened.push(FlatStatement::LibsnarkSha256Directive(Sha256Libsnark {}))
+                        FlatStatement::LibsnarkSha256Directive(outputs, inputs, _) => {
+                            let new_outputs = outputs.iter().map(|o| {
+                                let new_o: String = format!("{}{}", prefix, o.clone());
+                                replacement_map.insert(o.to_string(), new_o.clone());
+                                new_o
+                            }).collect();
+                            let new_inputs = inputs.iter().map(|i| replacement_map.get(i).unwrap()).collect();
+                            statements_flattened.push(FlatStatement::LibsnarkSha256Directive(new_outputs, new_inputs, Sha256Libsnark {}))
                         }
                     }
                 }
