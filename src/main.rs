@@ -44,10 +44,6 @@ use std::collections::HashMap;
 use std::string::String;
 use compile::compile;
 use field::{Field, FieldPrime};
-use absy::Prog;
-use parser::parse_program;
-use semantics::Checker;
-use flatten::Flattener;
 use r1cs::{r1cs_program};
 use flat_absy::FlatProg;
 use clap::{App, AppSettings, Arg, SubCommand};
@@ -291,7 +287,7 @@ fn main() {
                 .unwrap();
 
             // print deserialized flattened program
-            println!("{}", main_flattened);
+            //println!("{}", main_flattened);
 
             // validate #arguments
             let mut cli_arguments: Vec<FieldPrime> = Vec::new();

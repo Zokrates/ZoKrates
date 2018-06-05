@@ -18,8 +18,6 @@ use std::io::{self};
 
 use libsnark::{get_sha256_constraints};
 use serde_json;
-use flat_absy::{FlatFunction, FlatStatement, FlatExpressionList, FlatExpression};
-use r1cs;
 use standard;
 
 #[derive(Debug)]

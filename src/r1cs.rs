@@ -6,14 +6,9 @@
 //! @date 2017
 
 use std::collections::HashMap;
-use std::collections::BTreeMap;
 use flat_absy::*;
 use flat_absy::FlatExpression::*;
 use field::Field;
-use regex::Regex;
-use parameter::Parameter;
-use executable::{Sha256Libsnark};
-use standard;
 
 /// Returns a vector of summands of the given `FlatExpression`.
 ///
@@ -341,7 +336,7 @@ pub fn r1cs_program<T: Field>(
                 c.push(c_row);
             },
             FlatStatement::Compiler(..) => continue,
-            FlatStatement::LibsnarkSha256Directive(..) => continue
+            FlatStatement::Directive(..) => continue
         }
     }
     (variables, private_inputs_offset, a, b, c)

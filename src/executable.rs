@@ -6,8 +6,6 @@
 
 use libsnark::*;
 use field::Field;
-use std::collections::{BTreeMap};
-use r1cs;
 use serde_json;
 use standard;
 
@@ -17,12 +15,16 @@ pub struct Sha256Libsnark {
 
 impl<T: Field> Executable<T> for Sha256Libsnark {
 	fn get_signature(&self) -> (usize, usize) {
-		(512, 256)
+		(0, 256)
 	}
 	fn execute(&self, inputs: &Vec<T>) -> Result<Vec<T>, ()> {
-		assert!(inputs.len() == 512);
+		assert!(inputs.len() == 0);
 		let witness: standard::Witness = serde_json::from_str(&get_sha256_witness(inputs)).unwrap();
-		Ok(witness.TestVariables.iter().map(|&i| T::from(i)).collect())
+		let res: Vec<T> = witness.TestVariables.iter().map(|&i| T::from(i)).collect();
+		match res.len() {
+			50098 => Ok(witness.TestVariables.iter().map(|&i| T::from(i)).collect()),
+			_ => Err(())
+		}
 	}
 }
 
@@ -31,8 +33,8 @@ pub trait Executable<T: Field> {
 	fn execute(&self, inputs: &Vec<T>) -> Result<Vec<T>, ()>;
 }
 
+#[cfg(test)]
 mod tests {
-	use super::*;
 	use field::FieldPrime;
 
 	#[test]

@@ -9,7 +9,7 @@ extern crate libc;
 use self::libc::c_int;
 use self::libc::c_char;
 use self::libc::uint8_t;
-use std::ffi::{CStr, CString};
+use std::ffi::{CString};
 use std::cmp::max;
 use std::string::String;
 
@@ -127,7 +127,7 @@ pub fn get_sha256_constraints() -> String {
     a.into_string().unwrap()
 }
 
-pub fn get_sha256_witness<T:Field>(inputs: &Vec<T>) -> String {
+pub fn get_sha256_witness<T:Field>(_inputs: &Vec<T>) -> String {
     let a = unsafe { CString::from_raw(_sha256Witness()) };
     a.into_string().unwrap()
 }
@@ -150,6 +150,7 @@ mod tests {
     use r1cs;
     use serde_json;
     use flat_absy::*;
+    use standard;
 
     #[cfg(test)]
     mod sha256_gadget {
@@ -168,8 +169,8 @@ mod tests {
         #[test]
         fn can_generate_flattened_code() {
             let constraints = get_sha256_constraints();
-            let r1cs: r1cs::R1CS = serde_json::from_str(&constraints).unwrap();
-            let prog: FlatProg<FieldPrime> = r1cs::flattened_program(r1cs);
+            let r1cs: standard::R1CS = serde_json::from_str(&constraints).unwrap();
+            let prog: FlatProg<FieldPrime> = FlatProg::from(r1cs);
             println!("{}", prog);
         }
     }

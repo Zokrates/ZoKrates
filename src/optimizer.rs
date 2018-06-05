@@ -87,7 +87,7 @@ impl Optimizer {
 				FlatStatement::Compiler(ref id, _) => {
 					self.substitution.insert(id.clone(), format!("_{}", self.next_var_idx.increment()));
 				},
-				FlatStatement::LibsnarkSha256Directive(ref outputs, ref inputs, _) => {
+				FlatStatement::Directive(ref outputs, _, _) => {
 					for o in outputs {
 						self.substitution.insert(o.clone(), format!("_{}", self.next_var_idx.increment()));
 					}
