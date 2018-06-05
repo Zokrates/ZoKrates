@@ -5,7 +5,7 @@ extern crate gcc;
 fn main() {
     #[cfg(not(feature = "nolibsnark"))]
     {
-        let libsnark = cmake::Config::new("depends/libsnark")
+        let libsnark = cmake::Config::new("/root/libsnark")
             .define("WITH_PROCPS", "OFF")
             .define("CURVE", "ALT_BN128")
             .define("USE_PT_COMPRESSION", "OFF")
@@ -17,9 +17,9 @@ fn main() {
             .cpp(true)
             .debug(true)
             .flag("-std=c++11")
-            .include("./depends/libsnark")
-            .include("./depends/libsnark/depends/libff")
-            .include("./depends/libsnark/depends/libfqfft")
+            .include("/root/libsnark")
+            .include("/root/libsnark/depends/libff")
+            .include("/root/libsnark/depends/libfqfft")
             .define("CURVE_ALT_BN128", None)
             .file("lib/wraplibsnark.cpp")
             .compile("libwraplibsnark.a");
@@ -27,9 +27,9 @@ fn main() {
         gcc::Build::new()
             .cpp(true)
             .flag("-std=c++11")
-            .include("./depends/libsnark")
-            .include("./depends/libsnark/depends/libff")
-            .include("./depends/libsnark/depends/libfqfft")
+            .include("/root/libsnark")
+            .include("/root/libsnark/depends/libff")
+            .include("/root/libsnark/depends/libfqfft")
             .define("CURVE_ALT_BN128", None)
             .file("lib/wraplibsnarkgadgets.cpp")
             .compile("libwraplibsnarkgadgets.a");
