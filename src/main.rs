@@ -88,6 +88,10 @@ fn main() {
             .long("optimized")
             .help("perform optimization.")
             .required(false)
+        ).arg(Arg::with_name("gadgets")
+            .long("gadgets")
+            .help("include libsnark gadgets such as sha256")
+            .required(false)
         )
      )
     .subcommand(SubCommand::with_name("setup")
@@ -218,8 +222,10 @@ fn main() {
             let path = PathBuf::from(sub_matches.value_of("input").unwrap());
 
             let should_optimize = sub_matches.occurrences_of("optimized") > 0;
+
+            let should_include_gadgets = sub_matches.occurrences_of("gadgets") > 0;
             
-            let program_flattened: FlatProg<FieldPrime> = match compile(path, should_optimize) {
+            let program_flattened: FlatProg<FieldPrime> = match compile(path, should_optimize, should_include_gadgets) {
                 Ok(p) => p,
                 Err(why) => panic!("Compilation failed: {}", why)
             };
@@ -252,7 +258,7 @@ fn main() {
             hrofb.flush().expect("Unable to flush buffer.");
 
             // debugging output
-            println!("Compiled program:\n{}", program_flattened);
+            //println!("Compiled program:\n{}", program_flattened);
 
 
             println!(
@@ -566,7 +572,7 @@ mod tests {
             println!("Testing {:?}", path);
 
             let program_flattened: FlatProg<FieldPrime> =
-                compile(path, true).unwrap();
+                compile(path, true, false).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
         }
@@ -582,7 +588,7 @@ mod tests {
             println!("Testing {:?}", path);
 
             let program_flattened: FlatProg<FieldPrime> =
-                compile(path, true).unwrap();
+                compile(path, true, false).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
             let _ = program_flattened.get_witness(vec![FieldPrime::zero()]);

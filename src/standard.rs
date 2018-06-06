@@ -111,14 +111,14 @@ mod tests {
 	#[test]
 	fn deserialize_constraint() {
 		let constraint = r#"[{"2026": 1}, {"0": 1, "2026": -1}, {"0": 0}]"#;
-		let c: Constraint = serde_json::from_str(constraint).unwrap();
+		let _c: Constraint = serde_json::from_str(constraint).unwrap();
 	}
 
 	#[test]
 	fn constraint_into_flat_statement() {
 		let constraint = r#"[{"2026": 1}, {"0": 1, "2026": -1}, {"0": 0}]"#;
 		let c: Constraint = serde_json::from_str(constraint).unwrap();
-		let statement: FlatStatement<FieldPrime> = c.into();
+		let _statement: FlatStatement<FieldPrime> = c.into();
 	}
 }
 

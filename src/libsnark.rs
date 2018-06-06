@@ -158,12 +158,12 @@ mod tests {
 
         #[test]
         fn can_get_sha256_constraints() {
-            let a = get_sha256_constraints();
+            get_sha256_constraints();
         }
 
         #[test]
         fn can_generate_sha_256_witness() {
-            let b = get_sha256_witness(&vec![FieldPrime::from(0),FieldPrime::from(1),FieldPrime::from(0)]);
+            get_sha256_witness(&vec![FieldPrime::from(0),FieldPrime::from(1),FieldPrime::from(0)]);
         }
 
         #[test]
