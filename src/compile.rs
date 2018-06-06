@@ -90,8 +90,7 @@ fn compile_aux<T: Field>(path: PathBuf) -> Result<FlatProg<T>, CompileError<T>> 
     }
 
     // inject globals
-    let constraints = get_sha256_constraints();
-    let r1cs: standard::R1CS = serde_json::from_str(&constraints).unwrap();
+    let r1cs: standard::R1CS = serde_json::from_str(&get_sha256_constraints()).unwrap();
 
     compiled_imports.push((FlatProg::from(r1cs), "sha256libsnark".to_string()));
     	

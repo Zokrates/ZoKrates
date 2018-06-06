@@ -150,6 +150,7 @@ fn r1cs_expression<T: Field>(
     b_row: &mut Vec<(usize, T)>,
     c_row: &mut Vec<(usize, T)>,
 ) {
+    println!("{}", linear_expr);
     assert!(linear_expr.is_linear());
 
     match expr {

@@ -339,7 +339,7 @@ fn main() {
 
             let witness_map = main_flattened.get_witness(arguments);
             // let witness_map: HashMap<String, FieldPrime> = main_flattened.get_witness(args);
-            println!("Witness: {:?}", witness_map);
+            //println!("Witness: {:?}", witness_map);
 
             // write witness to file
             let output_path = Path::new(sub_matches.value_of("output").unwrap());

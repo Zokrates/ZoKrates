@@ -16,8 +16,6 @@ use parameter::Parameter;
 use direct_substitution::DirectSubstitution;
 use substitution::Substitution;
 
-use executable::{Sha256Libsnark};
-
 /// Flattener, computes flattened program.
 pub struct Flattener {
     /// Number of bits needed to represent the maximum value.
@@ -294,14 +292,14 @@ impl Flattener {
                             statements_flattened
                                 .push(FlatStatement::Condition(new_lhs, new_rhs));
                         },
-                        FlatStatement::Directive(outputs, inputs, _) => {
+                        FlatStatement::Directive(outputs, inputs, exe) => {
                             let new_outputs = outputs.iter().map(|o| {
                                 let new_o: String = format!("{}{}", prefix, o.clone());
                                 replacement_map.insert(o.to_string(), new_o.clone());
                                 new_o
                             }).collect();
                             let new_inputs = inputs.iter().map(|i| replacement_map.get(i).unwrap()).collect();
-                            statements_flattened.push(FlatStatement::Directive(new_outputs, new_inputs, Sha256Libsnark {}))
+                            statements_flattened.push(FlatStatement::Directive(new_outputs, new_inputs, exe.clone()))
                         }
                     }
                 }

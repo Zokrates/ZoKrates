@@ -219,13 +219,13 @@ impl<T: Field> FlatStatement<T> {
             FlatStatement::Condition(ref x, ref y) => {
                 FlatStatement::Condition(x.apply_substitution(substitution), y.apply_substitution(substitution))
             },
-            FlatStatement::Directive(ref outputs, ref inputs, _) => {
+            FlatStatement::Directive(ref outputs, ref inputs, ref exe) => {
                 let new_outputs = outputs.iter().map(|o| match substitution.get(o) {
                     Some(z) => z.clone(),
                     None => o.clone()
                 }).collect();
                 let new_inputs = inputs.iter().map(|i| substitution.get(i).unwrap()).collect();
-                FlatStatement::Directive(new_outputs, new_inputs, Sha256Libsnark {})
+                FlatStatement::Directive(new_outputs, new_inputs, exe.clone())
             }
         }
     }

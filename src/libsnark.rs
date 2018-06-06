@@ -158,12 +158,12 @@ mod tests {
 
         #[test]
         fn can_get_sha256_constraints() {
-            println!("constraints {:?}", get_sha256_constraints());
+            let a = get_sha256_constraints();
         }
 
         #[test]
         fn can_generate_sha_256_witness() {
-            println!("witness {:?}", get_sha256_witness(&vec![FieldPrime::from(0),FieldPrime::from(1),FieldPrime::from(0)]));
+            let b = get_sha256_witness(&vec![FieldPrime::from(0),FieldPrime::from(1),FieldPrime::from(0)]);
         }
 
         #[test]
@@ -171,7 +171,6 @@ mod tests {
             let constraints = get_sha256_constraints();
             let r1cs: standard::R1CS = serde_json::from_str(&constraints).unwrap();
             let prog: FlatProg<FieldPrime> = FlatProg::from(r1cs);
-            println!("{}", prog);
         }
     }
 
