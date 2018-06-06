@@ -15,15 +15,20 @@ pub struct Sha256Libsnark {
 
 impl<T: Field> Executable<T> for Sha256Libsnark {
 	fn get_signature(&self) -> (usize, usize) {
-		(0, 256)
+		(512, 50354)
 	}
 	fn execute(&self, inputs: &Vec<T>) -> Result<Vec<T>, ()> {
-		assert!(inputs.len() == 0);
+		let (expected_input_count, expected_output_count) = (self as &Executable<T>).get_signature();
+		assert!(inputs.len() == expected_input_count);
 		let witness: standard::Witness = serde_json::from_str(&get_sha256_witness(inputs)).unwrap();
 		let res: Vec<T> = witness.TestVariables.iter().map(|&i| T::from(i)).collect();
+
 		match res.len() {
-			50098 => Ok(witness.TestVariables.iter().map(|&i| T::from(i)).collect()),
-			_ => Err(())
+			a if a == expected_output_count => Ok(witness.TestVariables.iter().map(|&i| T::from(i)).collect()),
+			_ => {
+				println!("{:?}", res.len());
+				Err(())
+			}
 		}
 	}
 }
