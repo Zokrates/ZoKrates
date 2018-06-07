@@ -2,33 +2,34 @@ FROM ubuntu:14.04
 
 MAINTAINER JacobEberhardt <jacob.eberhardt@tu-berlin.de>, Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
 
-ARG libsnarkcommit=deprecated-master
+ARG rust_toolchain=nightly-2018-06-04
+ARG LIBSNARK_PATH=/root/libsnark
 
-WORKDIR /root
+WORKDIR /root/
 
-RUN apt-get update && \
-    apt-get install -y \
-    wget unzip curl \
-    build-essential git libgmp3-dev libprocps3-dev libgtest-dev python-markdown libboost-all-dev libssl-dev
-
-RUN wget https://github.com/scipr-lab/libsnark/archive/$libsnarkcommit.zip \
-  && mv $libsnarkcommit.zip libsnark.zip \
-  && unzip libsnark.zip \
-  && cd libsnark-$libsnarkcommit \
-  && ./prepare-depends.sh
-
-RUN curl https://sh.rustup.rs -sSf | \
-  sh -s -- --default-toolchain nightly-2018-02-10 -y
-
-ENV PATH=/root/.cargo/bin:$PATH
-
-RUN cd libsnark-$libsnarkcommit \
-  && make install lib PREFIX=/usr/local \
-    NO_PROCPS=1 NO_GTEST=1 NO_DOCS=1 CURVE=ALT_BN128 FEATUREFLAGS="-DBINARY_OUTPUT=1 -DMONTGOMERY_OUTPUT=1 -DNO_PT_COMPRESSION=1"
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    curl \
+    libboost-all-dev \
+    libgmp3-dev \
+    libprocps3-dev \
+    libssl-dev \
+    pkg-config \
+    python-markdown \
+    git
 
 ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/usr/local/lib
 
+RUN curl https://sh.rustup.rs -sSf | \
+    sh -s -- --default-toolchain $rust_toolchain -y
+
+ENV PATH=/root/.cargo/bin:$PATH
+
+RUN git clone https://github.com/scipr-lab/libsnark.git $LIBSNARK_PATH
+RUN cd $LIBSNARK_PATH && git submodule update --init --recursive
+
 COPY . /root/ZoKrates
 
-RUN cd ZoKrates \
-  && cargo build --release
+#RUN cd ZoKrates \
+#    && cargo build
