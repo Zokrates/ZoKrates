@@ -55,11 +55,10 @@ std::string outputPointG1AffineAsHex(libff::alt_bn128_G1 _p)
         libff::alt_bn128_G1 aff = _p;
         aff.to_affine_coordinates();
         return
-                "\"0x" +
+                "0x" +
                 HexStringFromLibsnarkBigint(aff.X.as_bigint()) +
-                "\", \"0x" +
-                HexStringFromLibsnarkBigint(aff.Y.as_bigint()) +
-                "\"";
+                ", 0x" +
+                HexStringFromLibsnarkBigint(aff.Y.as_bigint());
 }
 
 std::string outputPointG2AffineAsHex(libff::alt_bn128_G2 _p)
@@ -67,11 +66,11 @@ std::string outputPointG2AffineAsHex(libff::alt_bn128_G2 _p)
         libff::alt_bn128_G2 aff = _p;
         aff.to_affine_coordinates();
         return
-                "[\"0x" +
-                HexStringFromLibsnarkBigint(aff.X.c1.as_bigint()) + "\", \"0x" +
-                HexStringFromLibsnarkBigint(aff.X.c0.as_bigint()) + "\"],\n [\"0x" +
-                HexStringFromLibsnarkBigint(aff.Y.c1.as_bigint()) + "\", \"0x" +
-                HexStringFromLibsnarkBigint(aff.Y.c0.as_bigint()) + "\"]";
+                "[0x" +
+                HexStringFromLibsnarkBigint(aff.X.c1.as_bigint()) + ", 0x" +
+                HexStringFromLibsnarkBigint(aff.X.c0.as_bigint()) + "], [0x" +
+                HexStringFromLibsnarkBigint(aff.Y.c1.as_bigint()) + ", 0x" +
+                HexStringFromLibsnarkBigint(aff.Y.c0.as_bigint()) + "]";
 }
 
 //takes input and puts it into constraint system
@@ -226,20 +225,20 @@ void exportInput(r1cs_primary_input<libff::Fr<libff::alt_bn128_pp>> input){
 
 void printProof(r1cs_ppzksnark_proof<libff::alt_bn128_pp> proof){
                 cout << "Proof:"<< endl;
-                cout << "proof.A = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_A.g)<< ");" << endl;
-                cout << "proof.A_p = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_A.h)<< ");" << endl;
-                cout << "proof.B = Pairing.G2Point(" << outputPointG2AffineAsHex(proof.g_B.g)<< ");" << endl;
-                cout << "proof.B_p = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_B.h)<<");" << endl;
-                cout << "proof.C = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_C.g)<< ");" << endl;
-                cout << "proof.C_p = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_C.h)<<");" << endl;
-                cout << "proof.H = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_H)<<");"<< endl;
-                cout << "proof.K = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_K)<<");"<< endl;
+                cout << "A = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_A.g)<< ");" << endl;
+                cout << "A_p = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_A.h)<< ");" << endl;
+                cout << "B = Pairing.G2Point(" << outputPointG2AffineAsHex(proof.g_B.g)<< ");" << endl;
+                cout << "B_p = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_B.h)<<");" << endl;
+                cout << "C = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_C.g)<< ");" << endl;
+                cout << "C_p = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_C.h)<<");" << endl;
+                cout << "H = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_H)<<");"<< endl;
+                cout << "K = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_K)<<");"<< endl;
 }
 
 bool _setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int constraints, int variables, int inputs, const char* pk_path, const char* vk_path)
 {
-  //libsnark::inhibit_profiling_info = true;
-  //libsnark::inhibit_profiling_counters = true;
+  libff::inhibit_profiling_info = true;
+  libff::inhibit_profiling_counters = true;
 
   //initialize curve parameters
   libff::alt_bn128_pp::init_public_params();
