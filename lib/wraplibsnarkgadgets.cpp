@@ -1,15 +1,19 @@
 //https://gist.github.com/kobigurk/24c25e68219df87c348f1a78db51bb52
 
-#include "wraplibsnarkgadgets.hpp"
-#include "sha256_ethereum.hpp"
-
-#include <libsnark/zk_proof_systems/ppzksnark/r1cs_ppzksnark/r1cs_ppzksnark.hpp>
-
-
 #include <iostream>
+
+#include "libsnark/gadgetlib1/gadget.hpp"
+#include "libff/common/default_types/ec_pp.hpp"
 
 using namespace libsnark;
 using namespace libff;
+using std::vector;
+
+#include "wraplibsnarkgadgets.hpp"
+#include <libsnark/gadgetlib1/gadgets/hashes/sha256/sha256_gadget.hpp>
+#include <libsnark/zk_proof_systems/ppzksnark/r1cs_ppzksnark/r1cs_ppzksnark.hpp>
+
+typedef libff::Fr<alt_bn128_pp> FieldT;
 
 void constraint_to_json(linear_combination<FieldT> constraints, std::stringstream &ss)
 {
@@ -20,12 +24,8 @@ void constraint_to_json(linear_combination<FieldT> constraints, std::stringstrea
         if (count != 0) {
             ss << ",";
         }
-        if (lt.coeff != 0 && lt.coeff != 1) {
-            ss << '"' << lt.index << '"' << ":" << "-1";
-        }
-        else {
-            ss << '"' << lt.index << '"' << ":" << lt.coeff;
-        }
+        
+        ss << '"' << lt.index << '"' << ":" << '"' << lt.coeff << '"';
         count++;
     }
     ss << "}";
@@ -34,12 +34,10 @@ void constraint_to_json(linear_combination<FieldT> constraints, std::stringstrea
 
 std::string r1cs_to_json(protoboard<FieldT> pb)
 {
-    // output inputs, right now need to compile with debug flag so that the `variable_annotations`
-    // exists. Having trouble setting that up so will leave for now.
     r1cs_constraint_system<FieldT> constraints = pb.get_constraint_system();
     std::stringstream ss;
 
-    ss << "{\"input_count\":512, \"outputs\":[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255, 256],\"constraints\":[";
+    ss << "{\"input_count\":512, \"outputs\":[513,514,515,516,517,518,519,520,521,522,523,524,525,526,527,528,529,530,531,532,533,534,535,536,537,538,539,540,541,542,543,544,545,546,547,548,549,550,551,552,553,554,555,556,557,558,559,560,561,562,563,564,565,566,567,568,569,570,571,572,573,574,575,576,577,578,579,580,581,582,583,584,585,586,587,588,589,590,591,592,593,594,595,596,597,598,599,600,601,602,603,604,605,606,607,608,609,610,611,612,613,614,615,616,617,618,619,620,621,622,623,624,625,626,627,628,629,630,631,632,633,634,635,636,637,638,639,640,641,642,643,644,645,646,647,648,649,650,651,652,653,654,655,656,657,658,659,660,661,662,663,664,665,666,667,668,669,670,671,672,673,674,675,676,677,678,679,680,681,682,683,684,685,686,687,688,689,690,691,692,693,694,695,696,697,698,699,700,701,702,703,704,705,706,707,708,709,710,711,712,713,714,715,716,717,718,719,720,721,722,723,724,725,726,727,728,729,730,731,732,733,734,735,736,737,738,739,740,741,742,743,744,745,746,747,748,749,750,751,752,753,754,755,756,757,758,759,760,761,762,763,764,765,766,767,768],\"constraints\":[";
 
     for (size_t c = 0; c < constraints.num_constraints(); ++c)
     {
@@ -64,13 +62,16 @@ char* _sha256Constraints()
 {
     libff::alt_bn128_pp::init_public_params();
     protoboard<FieldT> pb;
-    block_variable<FieldT> input(pb, 256, "input");
-    digest_variable<FieldT> output(pb, 256, "output");
-    
-    auto hash = std::make_shared<sha256_ethereum>(pb, 256, input, output, "cm_hash");
 
-    hash->generate_r1cs_constraints(true);
+    digest_variable<FieldT> left(pb, SHA256_digest_size, "left");
+    digest_variable<FieldT> right(pb, SHA256_digest_size, "right");
+    digest_variable<FieldT> output(pb, SHA256_digest_size, "output");
+
+    sha256_two_to_one_hash_gadget<FieldT> f(pb, left, right, output, "f");
+    f.generate_r1cs_constraints();
+    
     auto json = r1cs_to_json(pb);
+
     auto result = new char[json.size()];
     memcpy(result, json.c_str(), json.size() + 1);
     return result;
@@ -81,6 +82,8 @@ std::string array_to_json(protoboard<FieldT> pb)
     std::stringstream ss;
     r1cs_variable_assignment<FieldT> values = pb.full_variable_assignment();
     ss << "\n{\"variables\":[";
+
+    ss << 1 << ","; // the variable zero to the one constant
 
     for (size_t i = 0; i < values.size(); ++i)
     {
@@ -109,32 +112,26 @@ char* _sha256Witness()
 {
 
     libff::alt_bn128_pp::init_public_params();
-
+    
     protoboard<FieldT> pb;
-    std::shared_ptr<sha256_ethereum> hash;
 
-    libff::bit_vector left =  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    digest_variable<FieldT> left(pb, SHA256_digest_size, "left");
+    digest_variable<FieldT> right(pb, SHA256_digest_size, "right");
+    digest_variable<FieldT> output(pb, SHA256_digest_size, "output");
 
-    libff::bit_vector right = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    sha256_two_to_one_hash_gadget<FieldT> f(pb, left, right, output, "f");
+    f.generate_r1cs_constraints(true);
 
-    pb_variable<FieldT> ZERO;
-    ZERO.allocate(pb, "ZERO");
-    pb.val(ZERO) = 0;
-   
-    digest_variable<FieldT> output(pb, 256, "output");
+    const libff::bit_vector left_bv = libff::int_list_to_bits({0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000}, 32);
+    const libff::bit_vector right_bv = libff::int_list_to_bits({0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000}, 32);
 
+    left.generate_r1cs_witness(left_bv);
+    right.generate_r1cs_witness(right_bv);
 
-    block_variable<FieldT> input =  block_variable<FieldT>(pb, {
-         from_bits(left, ZERO),
-         from_bits(right, ZERO)
-    }, "input_variable");
+    f.generate_r1cs_witness();
+    
+    assert(pb.is_satisfied());
 
-    hash.reset(new sha256_ethereum(
-        pb, 256, input, output, "cm_hash"
-    ));
-
-    hash->generate_r1cs_constraints(true);
-    hash->generate_r1cs_witness();
     auto json = array_to_json(pb);
     auto result = new char[json.size()];
     memcpy(result, json.c_str(), json.size() + 1);

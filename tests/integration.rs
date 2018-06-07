@@ -115,6 +115,8 @@ mod integration {
 
 		// check equality
 		assert_eq!(flattened_code, expected_flattened_code, "Flattening failed for {}\n\nExpected\n\n{}\n\nGot\n\n{}", program_path.to_str().unwrap(), expected_flattened_code.as_str(), flattened_code.as_str());
-		assert!(witness.contains(expected_witness.as_str()), "Witness generation failed for {}\n\nExpected\n\n{}\n\nGot\n\n{}", program_path.to_str().unwrap(), expected_witness.as_str(), witness.as_str());
+        for line in expected_witness.as_str().split("\n") {
+            assert!(witness.contains(line), "Witness generation failed for {}\n\nLine \"{}\" not found in witness", program_path.to_str().unwrap(), line);
+        }
     }
 }

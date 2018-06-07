@@ -25,23 +25,23 @@ pub struct Witness {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Constraint {
-	a: BTreeMap<String, isize>,
-	b: BTreeMap<String, isize>,
-	c: BTreeMap<String, isize>,
+	a: BTreeMap<String, String>,
+	b: BTreeMap<String, String>,
+	c: BTreeMap<String, String>,
 }
 
 impl<T: Field> Into<FlatStatement<T>> for Constraint {
 	fn into(self: Constraint) -> FlatStatement<T> {
 		let lhs_a = self.a.iter()
-			.map(|(key, val)| FlatExpression::Mult(box FlatExpression::Number(T::from(*val as i32)), box FlatExpression::Identifier(format!("inter{}",key.clone()))))
+			.map(|(key, val)| FlatExpression::Mult(box FlatExpression::Number(T::from_dec_string(val.to_string())), box FlatExpression::Identifier(format!("inter{}",key.clone()))))
 			.fold(FlatExpression::Number(T::zero()), |acc, e| FlatExpression::Add(box acc, box e));
 		
 		let lhs_b = self.b.iter()
-			.map(|(key, val)| FlatExpression::Mult(box FlatExpression::Number(T::from(*val as i32)), box FlatExpression::Identifier(format!("inter{}",key.clone()))))
+			.map(|(key, val)| FlatExpression::Mult(box FlatExpression::Number(T::from_dec_string(val.to_string())), box FlatExpression::Identifier(format!("inter{}",key.clone()))))
 			.fold(FlatExpression::Number(T::zero()), |acc, e| FlatExpression::Add(box acc, box e));
 		
 		let rhs = self.c.iter()
-			.map(|(key, val)| FlatExpression::Mult(box FlatExpression::Number(T::from(*val as i32)), box FlatExpression::Identifier(format!("inter{}",key.clone()))))
+			.map(|(key, val)| FlatExpression::Mult(box FlatExpression::Number(T::from_dec_string(val.to_string())), box FlatExpression::Identifier(format!("inter{}",key.clone()))))
 			.fold(FlatExpression::Number(T::zero()), |acc, e| FlatExpression::Add(box acc, box e));
 
 		FlatStatement::Condition(FlatExpression::Mult(box lhs_a, box lhs_b), rhs)
@@ -110,13 +110,13 @@ mod tests {
 
 	#[test]
 	fn deserialize_constraint() {
-		let constraint = r#"[{"2026": 1}, {"0": 1, "2026": -1}, {"0": 0}]"#;
+		let constraint = r#"[{"2026": "1"}, {"0": "1", "2026": "1751751751751751751751751751751751751751751"}, {"0": "0"}]"#;
 		let _c: Constraint = serde_json::from_str(constraint).unwrap();
 	}
 
 	#[test]
 	fn constraint_into_flat_statement() {
-		let constraint = r#"[{"2026": 1}, {"0": 1, "2026": -1}, {"0": 0}]"#;
+		let constraint = r#"[{"2026": "1"}, {"0": "1", "2026": "1751751751751751751751751751751751751751751"}, {"0": "0"}]"#;
 		let c: Constraint = serde_json::from_str(constraint).unwrap();
 		let _statement: FlatStatement<FieldPrime> = c.into();
 	}

@@ -147,7 +147,6 @@ mod tests {
     use super::*;
     use field::FieldPrime;
     use num::bigint::BigUint;
-    use r1cs;
     use serde_json;
     use flat_absy::*;
     use standard;
@@ -158,19 +157,19 @@ mod tests {
 
         #[test]
         fn can_get_sha256_constraints() {
-            get_sha256_constraints();
+            let _a = get_sha256_constraints();
         }
 
         #[test]
         fn can_generate_sha_256_witness() {
-            get_sha256_witness(&vec![FieldPrime::from(0),FieldPrime::from(1),FieldPrime::from(0)]);
+            let _b = get_sha256_witness(&vec![FieldPrime::from(0),FieldPrime::from(1),FieldPrime::from(0)]);
         }
 
         #[test]
         fn can_generate_flattened_code() {
             let constraints = get_sha256_constraints();
             let r1cs: standard::R1CS = serde_json::from_str(&constraints).unwrap();
-            let prog: FlatProg<FieldPrime> = FlatProg::from(r1cs);
+            let _prog: FlatProg<FieldPrime> = FlatProg::from(r1cs);
         }
     }
 
@@ -209,13 +208,6 @@ mod tests {
             for (index, value) in byte_vector.iter().enumerate() {
                 assert_eq!(*value, array[31 - index]);
             }
-        }
-
-        #[test]
-        fn sha_256() { 
-            //let out: String = unsafe { _sha256Constraints() };
-             //let out: String = unsafe { _sha256Witness() };
-            //assert_eq!(0,12);
         }
     }
 }
