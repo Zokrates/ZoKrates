@@ -13,8 +13,6 @@ use std::collections::{BTreeMap};
 use field::Field;
 use parameter::Parameter;
 use substitution::Substitution;
-use executable::{Executable, Sha256Libsnark};
-use standard;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FlatProg<T: Field> {
@@ -32,6 +30,7 @@ impl<T: Field> FlatProg<T> {
         main.get_witness(inputs)
     }
 }
+
 
 impl<T: Field> fmt::Display for FlatProg<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -60,15 +59,6 @@ impl<T: Field> fmt::Debug for FlatProg<T> {
         )
     }
 }
-
-impl<T: Field> From<standard::R1CS> for FlatProg<T> {
-    fn from(r1cs: standard::R1CS) -> Self {
-        FlatProg {
-            functions: vec![r1cs.into()]
-        }
-    }
-}
-
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct FlatFunction<T: Field> {
@@ -108,13 +98,6 @@ impl<T: Field> FlatFunction<T> {
                 },
                 FlatStatement::Condition(ref lhs, ref rhs) => {
                     assert_eq!(lhs.solve(&mut witness), rhs.solve(&mut witness))
-                },
-                FlatStatement::Directive(ref outputs, ref inputs, ref exe) => {
-                    let input_values: Vec<T> = inputs.into_iter().map(|i| witness.get(i).unwrap().clone()).collect();
-                    let res = exe.execute(&input_values).unwrap();
-                    for (i, o) in outputs.iter().enumerate() {
-                        witness.insert(o.to_string(), res[i].clone());
-                    }
                 }
             }
         }
@@ -158,23 +141,12 @@ impl<T: Field> fmt::Debug for FlatFunction<T> {
     }
 }
 
-/// Calculates a flattened function based on a R1CS (A, B, C) and returns that flattened function:
-/// * The Rank 1 Constraint System (R1CS) is defined as:
-/// * `<A,x>*<B,x> = <C,x>` for a witness `x`
-/// * Since the matrices in R1CS are usually sparse, the following encoding is used:
-/// * For each constraint (i.e., row in the R1CS), only non-zero values are supplied and encoded as a tuple (index, value).
-///
-/// # Arguments
-///
-/// * r1cs - R1CS in standard JSON data format
-
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub enum FlatStatement<T: Field> {
     Return(FlatExpressionList<T>),
     Condition(FlatExpression<T>, FlatExpression<T>),
     Compiler(String, Expression<T>),
-    Definition(String, FlatExpression<T>),
-    Directive(Vec<String>, Vec<String>, Sha256Libsnark)
+    Definition(String, FlatExpression<T>)
 }
 
 impl<T: Field> fmt::Display for FlatStatement<T> {
@@ -184,7 +156,6 @@ impl<T: Field> fmt::Display for FlatStatement<T> {
             FlatStatement::Return(ref expr) => write!(f, "return {}", expr),
             FlatStatement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             FlatStatement::Compiler(ref lhs, ref rhs) => write!(f, "# {} = {}", lhs, rhs),
-            FlatStatement::Directive(ref outputs, ref inputs, _) => write!(f, "# {} = Sha256Libsnark({})", outputs.join(", "), inputs.join(", ")),
         }
     }
 }
@@ -196,7 +167,6 @@ impl<T: Field> fmt::Debug for FlatStatement<T> {
             FlatStatement::Return(ref expr) => write!(f, "FlatReturn({:?})", expr),
             FlatStatement::Condition(ref lhs, ref rhs) => write!(f, "FlatCondition({:?}, {:?})", lhs, rhs),
             FlatStatement::Compiler(ref lhs, ref rhs) => write!(f, "Compiler({:?}, {:?})", lhs, rhs),
-            FlatStatement::Directive(ref outputs, ref inputs, _) => write!(f, "Sha256Libsnark({:?}, {:?})", outputs, inputs),
         }
     }
 }
@@ -218,14 +188,6 @@ impl<T: Field> FlatStatement<T> {
                 }, rhs.clone().apply_substitution(substitution)),
             FlatStatement::Condition(ref x, ref y) => {
                 FlatStatement::Condition(x.apply_substitution(substitution), y.apply_substitution(substitution))
-            },
-            FlatStatement::Directive(ref outputs, ref inputs, ref exe) => {
-                let new_outputs = outputs.iter().map(|o| match substitution.get(o) {
-                    Some(z) => z.clone(),
-                    None => o.clone()
-                }).collect();
-                let new_inputs = inputs.iter().map(|i| substitution.get(i).unwrap()).collect();
-                FlatStatement::Directive(new_outputs, new_inputs, exe.clone())
             }
         }
     }

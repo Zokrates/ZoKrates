@@ -11,7 +11,6 @@ extern crate clap;
 extern crate lazy_static;
 extern crate num; // cli
 extern crate serde; // serialization deserialization
-extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
 extern crate bincode;
@@ -32,8 +31,6 @@ mod optimizer;
 mod r1cs;
 mod field;
 mod verification;
-mod executable;
-mod standard;
 #[cfg(not(feature = "nolibsnark"))]
 mod libsnark;
 
@@ -44,8 +41,8 @@ use std::collections::HashMap;
 use std::string::String;
 use compile::compile;
 use field::{Field, FieldPrime};
-use r1cs::{r1cs_program};
 use flat_absy::FlatProg;
+use r1cs::r1cs_program;
 use clap::{App, AppSettings, Arg, SubCommand};
 #[cfg(not(feature = "nolibsnark"))]
 use libsnark::{setup, generate_proof};
@@ -87,10 +84,6 @@ fn main() {
         ).arg(Arg::with_name("optimized")
             .long("optimized")
             .help("perform optimization.")
-            .required(false)
-        ).arg(Arg::with_name("gadgets")
-            .long("gadgets")
-            .help("include libsnark gadgets such as sha256")
             .required(false)
         )
      )
@@ -222,10 +215,8 @@ fn main() {
             let path = PathBuf::from(sub_matches.value_of("input").unwrap());
 
             let should_optimize = sub_matches.occurrences_of("optimized") > 0;
-
-            let should_include_gadgets = sub_matches.occurrences_of("gadgets") > 0;
             
-            let program_flattened: FlatProg<FieldPrime> = match compile(path, should_optimize, should_include_gadgets) {
+            let program_flattened: FlatProg<FieldPrime> = match compile(path, should_optimize) {
                 Ok(p) => p,
                 Err(why) => panic!("Compilation failed: {}", why)
             };
@@ -258,7 +249,7 @@ fn main() {
             hrofb.flush().expect("Unable to flush buffer.");
 
             // debugging output
-            //println!("Compiled program:\n{}", program_flattened);
+            println!("Compiled program:\n{}", program_flattened);
 
 
             println!(
@@ -293,7 +284,7 @@ fn main() {
                 .unwrap();
 
             // print deserialized flattened program
-            //println!("{}", main_flattened);
+            println!("{}", main_flattened);
 
             // validate #arguments
             let mut cli_arguments: Vec<FieldPrime> = Vec::new();
@@ -345,7 +336,7 @@ fn main() {
 
             let witness_map = main_flattened.get_witness(arguments);
             // let witness_map: HashMap<String, FieldPrime> = main_flattened.get_witness(args);
-            //println!("Witness: {:?}", witness_map);
+            println!("Witness: {:?}", witness_map);
 
             // write witness to file
             let output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -572,7 +563,7 @@ mod tests {
             println!("Testing {:?}", path);
 
             let program_flattened: FlatProg<FieldPrime> =
-                compile(path, true, false).unwrap();
+                compile(path, true).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
         }
@@ -588,7 +579,7 @@ mod tests {
             println!("Testing {:?}", path);
 
             let program_flattened: FlatProg<FieldPrime> =
-                compile(path, true, false).unwrap();
+                compile(path, true).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
             let _ = program_flattened.get_witness(vec![FieldPrime::zero()]);
