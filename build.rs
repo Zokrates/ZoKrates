@@ -24,16 +24,6 @@ fn main() {
             .file("lib/wraplibsnark.cpp")
             .compile("libwraplibsnark.a");
 
-        gcc::Build::new()
-            .cpp(true)
-            .flag("-std=c++11")
-            .include("/root/libsnark")
-            .include("/root/libsnark/depends/libff")
-            .include("/root/libsnark/depends/libfqfft")
-            .define("CURVE_ALT_BN128", None)
-            .file("lib/wraplibsnarkgadgets.cpp")
-            .compile("libwraplibsnarkgadgets.a");
-
         println!("cargo:warning=libsnark installed to {}", libsnark.display());
         println!(
             "cargo:warning=libsnark libs installed to {}",
