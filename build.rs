@@ -15,7 +15,7 @@ fn main() {
 
         gcc::Build::new()
             .cpp(true)
-            .debug(true)
+            .debug(cfg!(debug_assertions))
             .flag("-std=c++11")
             .include("/root/libsnark")
             .include("/root/libsnark/depends/libff")
@@ -36,7 +36,14 @@ fn main() {
 
         println!("cargo:rustc-link-lib=gmp");
         println!("cargo:rustc-link-lib=gmpxx");
-        println!("cargo:rustc-link-lib=static=snarkd");
-        println!("cargo:rustc-link-lib=static=ffd");
+
+        #[cfg(debug_assertions)] {
+            println!("cargo:rustc-link-lib=static=snarkd");
+            println!("cargo:rustc-link-lib=static=ffd");
+        }
+        #[cfg(not(debug_assertions))] {
+            println!("cargo:rustc-link-lib=static=snark");
+            println!("cargo:rustc-link-lib=static=ff");
+        }
     }
 }
