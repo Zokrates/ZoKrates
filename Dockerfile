@@ -36,5 +36,5 @@ WORKDIR /root/
 
 COPY . ZoKrates
 
-#RUN cd ZoKrates \
-#    && cargo build
+RUN cd ZoKrates \
+    && cargo build
