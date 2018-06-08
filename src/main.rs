@@ -284,7 +284,7 @@ fn main() {
                 .unwrap();
 
             // print deserialized flattened program
-            println!("{}", main_flattened);
+            //println!("{}", main_flattened);
 
             // validate #arguments
             let mut cli_arguments: Vec<FieldPrime> = Vec::new();
