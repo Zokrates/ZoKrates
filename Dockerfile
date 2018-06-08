@@ -20,8 +20,6 @@ RUN apt-get update && apt-get install -y \
     python-markdown \
     git
 
-ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/usr/local/lib
-
 RUN curl https://sh.rustup.rs -sSf | \
     sh -s -- --default-toolchain $RUST_TOOLCHAIN -y
 
@@ -37,4 +35,4 @@ WORKDIR /root/
 COPY . ZoKrates
 
 RUN cd ZoKrates \
-    && cargo build
+    && cargo build --release
