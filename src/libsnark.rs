@@ -6,9 +6,7 @@
 
 extern crate libc;
 
-use self::libc::c_int;
-use self::libc::c_char;
-use self::libc::uint8_t;
+use self::libc::{c_int, c_char, uint8_t};
 use std::ffi::{CString};
 use std::cmp::max;
 use std::string::String;
@@ -37,7 +35,7 @@ extern "C" {
     
     fn _sha256Constraints() -> *mut c_char;
 
-    fn _sha256Witness() -> *mut c_char;
+    fn _sha256Witness(inputs: *const uint8_t, inputs_length: c_int) -> *mut c_char;
 }
 
 pub fn setup<T: Field> (
@@ -127,8 +125,14 @@ pub fn get_sha256_constraints() -> String {
     a.into_string().unwrap()
 }
 
-pub fn get_sha256_witness<T:Field>(_inputs: &Vec<T>) -> String {
-    let a = unsafe { CString::from_raw(_sha256Witness()) };
+pub fn get_sha256_witness<T:Field>(inputs: &Vec<T>) -> String {
+    let mut inputs_arr: Vec<[u8; 32]> = vec![[0u8; 32]; inputs.len()];
+
+    for (index, value) in inputs.into_iter().enumerate() {
+        inputs_arr[index] = vec_as_u8_32_array(&value.into_byte_vector());
+    }
+
+    let a = unsafe { CString::from_raw(_sha256Witness(inputs_arr[0].as_ptr(), inputs.len() as i32)) };
     a.into_string().unwrap()
 }
 
@@ -161,8 +165,9 @@ mod tests {
         }
 
         #[test]
-        fn can_generate_sha_256_witness() {
-            let _b = get_sha256_witness(&vec![FieldPrime::from(0),FieldPrime::from(1),FieldPrime::from(0)]);
+        fn can_generate_sha_256_witness_null() {
+            let inputs = vec![FieldPrime::from(0); 512];
+            let _b = get_sha256_witness(&inputs);
         }
 
         #[test]

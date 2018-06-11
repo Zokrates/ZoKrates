@@ -65,7 +65,7 @@ mod integration {
         // prepare compile arguments
         let mut compile = vec!["./target/debug/zokrates", "compile", "-i", program_path.to_str().unwrap(), "-o", flattened_path.to_str().unwrap()];
 
-        if program_name == "sha_libsnark" {
+        if program_name.contains("sha_libsnark") {
             compile.push("--gadgets");
             compile.push("--optimized");
         }

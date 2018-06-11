@@ -13,7 +13,7 @@ extern "C" {
 #include <stdint.h>
 
 char* _sha256Constraints();
-char* _sha256Witness();
+char* _sha256Witness(const uint8_t* input, int input_length);
 
 
 #ifdef __cplusplus

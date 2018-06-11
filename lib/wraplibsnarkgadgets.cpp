@@ -15,6 +15,19 @@ using std::vector;
 
 typedef libff::Fr<alt_bn128_pp> FieldT;
 
+// conversion byte[32] <-> libsnark bigint.
+libff::bigint<libff::alt_bn128_r_limbs> libsnarkBigintFromBytesAux(const uint8_t* _x)
+{
+  libff::bigint<libff::alt_bn128_r_limbs> x;
+
+  for (unsigned i = 0; i < 4; i++) {
+    for (unsigned j = 0; j < 8; j++) {
+      x.data[3 - i] |= uint64_t(_x[i * 8 + j]) << (8 * (7-j));
+    }
+  }
+  return x;
+}
+
 void constraint_to_json(linear_combination<FieldT> constraints, std::stringstream &ss)
 {
     ss << "{";
@@ -107,8 +120,7 @@ pb_variable_array<FieldT> from_bits(std::vector<bool> bits, pb_variable<FieldT>&
     return acc;
     }
 
-
-char* _sha256Witness()
+char* _sha256Witness(const uint8_t* inputs, int inputs_length)
 {
 
     libff::alt_bn128_pp::init_public_params();
@@ -122,8 +134,15 @@ char* _sha256Witness()
     sha256_two_to_one_hash_gadget<FieldT> f(pb, left, right, output, "f");
     f.generate_r1cs_constraints(true);
 
-    const libff::bit_vector left_bv = libff::int_list_to_bits({0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000}, 32);
-    const libff::bit_vector right_bv = libff::int_list_to_bits({0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000}, 32);
+    libff::bit_vector left_bv;
+    libff::bit_vector right_bv;
+
+    for (int i = 0; i < inputs_length / 2; i++) {
+        left_bv.push_back(libsnarkBigintFromBytesBis(inputs + i*32) == 1);
+    }
+    for (int i = inputs_length / 2; i < inputs_length; i++) {
+        right_bv.push_back(libsnarkBigintFromBytesBis(inputs + i*32) == 1);
+    }
 
     left.generate_r1cs_witness(left_bv);
     right.generate_r1cs_witness(right_bv);

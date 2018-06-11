@@ -74,7 +74,7 @@ impl<T: Field> Into<FlatFunction<T>> for R1CS {
         let variables = vec![0; variables_count].iter().enumerate().map(|(i, _)| format!("inter{}", i)).collect();
 
         // define the inputs with dummy variables: arguments to the function and to the directive
-        let inputs: Vec<String> = vec![0; self.input_count].iter().map(|i| format!("input{}", i)).collect();
+        let inputs: Vec<String> = vec![0; self.input_count].iter().enumerate().map(|(i, _)| format!("input{}", i)).collect();
         let input_parameters = inputs.iter().map(|i| Parameter { id: i.clone(), private: true }).collect();
 
         // define which subset of the witness is returned
