@@ -31,5 +31,5 @@ RUN cd $LIBSNARK_PATH && git submodule update --init --recursive
 
 COPY . /root/ZoKrates
 
-#RUN cd ZoKrates \
-#    && cargo build
+RUN cd ZoKrates \
+    && cargo build
