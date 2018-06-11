@@ -26,10 +26,9 @@ pub struct FlatProg<T: Field> {
 impl<T: Field> FlatProg<T> {
     // only main flattened function is relevant here, as all other functions are unrolled into it
     #[allow(dead_code)] // I don't want to remove this
-    pub fn get_witness(&self, inputs: Vec<T>) -> BTreeMap<String, T> {
+    pub fn get_witness(&self, inputs: Vec<T>) -> Result<BTreeMap<String, T>, Error> {
         let main = self.functions.iter().find(|x| x.id == "main").unwrap();
-        assert!(main.arguments.len() == inputs.len());
-        main.get_witness(inputs)
+        main.get_witness(inputs).unwrap()
     }
 }
 
@@ -83,7 +82,7 @@ pub struct FlatFunction<T: Field> {
 }
 
 impl<T: Field> FlatFunction<T> {
-    pub fn get_witness(&self, inputs: Vec<T>) -> BTreeMap<String, T> {
+    pub fn get_witness(&self, inputs: Vec<T>) -> Result<BTreeMap<String, T>, Error> {
         assert!(self.arguments.len() == inputs.len());
         let mut witness = BTreeMap::new();
         witness.insert("~one".to_string(), T::one());
@@ -107,18 +106,31 @@ impl<T: Field> FlatFunction<T> {
                     witness.insert(id.to_string(), s);
                 },
                 FlatStatement::Condition(ref lhs, ref rhs) => {
-                    assert_eq!(lhs.solve(&mut witness), rhs.solve(&mut witness))
+                    if lhs.solve(&mut witness) != rhs.solve(&mut witness) {
+                        return Err(Error {
+                            message: format!("Condition not satisfied: {} should equal {}", lhs, rhs)
+                        });
+                    }
                 },
                 FlatStatement::Directive(ref outputs, ref inputs, ref exe) => {
                     let input_values: Vec<T> = inputs.into_iter().map(|i| witness.get(i).unwrap().clone()).collect();
-                    let res = exe.execute(&input_values).unwrap();
-                    for (i, o) in outputs.iter().enumerate() {
-                        witness.insert(o.to_string(), res[i].clone());
-                    }
+                    match exe.execute(&input_values) {
+                        Ok(res) => {
+                            for (i, o) in outputs.iter().enumerate() {
+                                witness.insert(o.to_string(), res[i].clone());
+                            }
+                            continue;
+                        },
+                        Err(message) => {
+                            return Err(Error {
+                                message: message
+                            })
+                        }
+                    };
                 }
             }
         }
-        witness
+        Ok(witness)
     }
 }
 
@@ -382,5 +394,16 @@ impl<T: Field> FlatExpressionList<T> {
 impl<T: Field> fmt::Debug for FlatExpressionList<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "ExpressionList({:?})", self.expressions)
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct Error {
+    message: String
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.message)
     }
 }

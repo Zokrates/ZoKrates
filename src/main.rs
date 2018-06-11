@@ -342,7 +342,7 @@ fn main() {
                 }
             }).collect();
 
-            let witness_map = main_flattened.get_witness(arguments);
+            let witness_map = main_flattened.get_witness(arguments).unwrap();
 
             println!("Witness: {:?}", witness_map);
 
