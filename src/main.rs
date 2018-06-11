@@ -258,8 +258,7 @@ fn main() {
             hrofb.flush().expect("Unable to flush buffer.");
 
             // debugging output
-            //println!("Compiled program:\n{}", program_flattened);
-
+            println!("Compiled program:\n{}", program_flattened);
 
             println!(
                 "Compiled code written to '{}', \nHuman readable code to '{}'. \nNumber of constraints: {}",
@@ -293,7 +292,7 @@ fn main() {
                 .unwrap();
 
             // print deserialized flattened program
-            //println!("{}", main_flattened);
+            println!("{}", main_flattened);
 
             // validate #arguments
             let mut cli_arguments: Vec<FieldPrime> = Vec::new();
@@ -344,8 +343,8 @@ fn main() {
             }).collect();
 
             let witness_map = main_flattened.get_witness(arguments);
-            // let witness_map: HashMap<String, FieldPrime> = main_flattened.get_witness(args);
-            //println!("Witness: {:?}", witness_map);
+
+            println!("Witness: {:?}", witness_map);
 
             // write witness to file
             let output_path = Path::new(sub_matches.value_of("output").unwrap());
