@@ -1,0 +1,7 @@
+// OR
+
+import "./and.code" as AND
+import "./not.code" as NOT
+
+def main(x, y):
+	return NOT(AND(NOT(x), NOT(y)))

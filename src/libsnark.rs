@@ -9,7 +9,6 @@ extern crate libc;
 use self::libc::{c_int, c_char, uint8_t};
 use std::ffi::{CString};
 use std::cmp::max;
-use std::string::String;
 
 use field::Field;
 
@@ -214,5 +213,6 @@ mod tests {
                 assert_eq!(*value, array[31 - index]);
             }
         }
+
     }
 }

@@ -13,11 +13,11 @@ mod integration {
     use serde_json::Value;
 
     fn setup() {
-        fs::create_dir(".tmp").unwrap();
+        fs::create_dir("./tests/tmp").unwrap();
     }
 
     fn teardown() {
-        fs::remove_dir_all(".tmp").unwrap();
+        fs::remove_dir_all("./tests/tmp").unwrap();
     } 
     
     #[test]
@@ -53,7 +53,7 @@ mod integration {
     }
 
     fn test_compile_and_witness(program_name: &str, program_path: &Path, expected_flattened_code_path: &Path, arguments_path: &Path, expected_witness_path: &Path) {
-        let tmp_base = Path::new(".tmp/");
+        let tmp_base = Path::new("./tests/tmp/");
         let test_case_path = tmp_base.join(program_name);
     	let flattened_path = tmp_base.join(program_name).join("out");
     	let flattened_code_path = tmp_base.join(program_name).join("out").with_extension("code");
@@ -71,7 +71,7 @@ mod integration {
         }
 
     	// compile
-        assert_cli::Assert::command(&compile)
+        assert_cli::Assert::command(&["cargo", "run", "--", "compile", "-i", program_path.to_str().unwrap(), "-o", flattened_path.to_str().unwrap()])
             .succeeds()
             .unwrap();
 
@@ -83,7 +83,7 @@ mod integration {
             _ => panic!(format!("Cannot read arguments. Check {}", arguments_path.to_str().unwrap()))
         }).collect();
 
-        let mut compute = vec!["./target/debug/zokrates", "compute-witness", "-i", flattened_path.to_str().unwrap(), "-o", witness_path.to_str().unwrap(), "-a"];
+        let mut compute = vec!["cargo", "run", "--", "compute-witness", "-i", flattened_path.to_str().unwrap(), "-o", witness_path.to_str().unwrap(), "-a"];
 
         for arg in arguments_str_list.iter() {
             compute.push(arg);
@@ -115,8 +115,6 @@ mod integration {
 
 		// check equality
 		assert_eq!(flattened_code, expected_flattened_code, "Flattening failed for {}\n\nExpected\n\n{}\n\nGot\n\n{}", program_path.to_str().unwrap(), expected_flattened_code.as_str(), flattened_code.as_str());
-        for line in expected_witness.as_str().split("\n") {
-            assert!(witness.contains(line), "Witness generation failed for {}\n\nLine \"{}\" not found in witness", program_path.to_str().unwrap(), line);
-        }
+		assert!(witness.contains(expected_witness.as_str()), "Witness generation failed for {}\n\nExpected\n\n{}\n\nGot\n\n{}", program_path.to_str().unwrap(), expected_witness.as_str(), witness.as_str());
     }
 }

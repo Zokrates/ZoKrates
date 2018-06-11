@@ -291,15 +291,6 @@ impl Flattener {
                             let new_rhs = rhs.apply_substitution(&replacement_map);
                             statements_flattened
                                 .push(FlatStatement::Condition(new_lhs, new_rhs));
-                        },
-                        FlatStatement::Directive(outputs, inputs, exe) => {
-                            let new_outputs = outputs.iter().map(|o| {
-                                let new_o: String = format!("{}{}", prefix, o.clone());
-                                replacement_map.insert(o.to_string(), new_o.clone());
-                                new_o
-                            }).collect();
-                            let new_inputs = inputs.iter().map(|i| replacement_map.get(i).unwrap()).collect();
-                            statements_flattened.push(FlatStatement::Directive(new_outputs, new_inputs, exe.clone()))
                         }
                     }
                 }
