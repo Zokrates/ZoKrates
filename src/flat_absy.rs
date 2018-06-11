@@ -28,7 +28,7 @@ impl<T: Field> FlatProg<T> {
     #[allow(dead_code)] // I don't want to remove this
     pub fn get_witness(&self, inputs: Vec<T>) -> Result<BTreeMap<String, T>, Error> {
         let main = self.functions.iter().find(|x| x.id == "main").unwrap();
-        main.get_witness(inputs).unwrap()
+        main.get_witness(inputs)
     }
 }
 
