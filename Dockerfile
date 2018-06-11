@@ -1,6 +1,6 @@
 FROM ubuntu:14.04
 
-MAINTAINER JacobEberhardt <jacob.eberhardt@tu-berlin.de>, Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
+MAINTAINER JacobEberhardt <jacob.eberhardt@tu-berlin.de>, Dennis Kuhnert <mail@kyroy.com>
 
 ARG libsnarkcommit=deprecated-master
 
