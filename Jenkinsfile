@@ -1,8 +1,28 @@
 #!/usr/bin/env groovy
 
+def majorVersion
+def minorVersion
+def patchVersion
+
 pipeline {
     agent any
     stages {
+        stage('Init') {
+            steps {
+                script {
+                    def gitCommitHash = sh(returnStdout: true, script: 'git rev-parse HEAD').trim().take(7)
+                    currentBuild.displayName = "#${BUILD_ID}-${gitCommitHash}"
+
+                    patchVersion = sh(returnStdout: true, script: 'cat Cargo.toml | grep version | awk \'{print $3}\' | sed -e \'s/"//g\'').trim()
+                    echo "ZoKrates patch version: ${patchVersion}"
+                    def (major, minor, patch) = patchVersion.tokenize( '.' )
+                    minorVersion = "${major}.${minor}"
+                    majorVersion = major
+                    echo "ZoKrates minor version: ${minorVersion}"
+                    echo "ZoKrates major version: ${majorVersion}"
+                }
+            }
+        }
         stage('Build') {
             steps {
                 withDockerContainer('kyroy/zokrates-test') {
@@ -38,6 +58,11 @@ pipeline {
                 script {
                     def dockerImage = docker.build("kyroy/zokrates")
                     docker.withRegistry('https://registry.hub.docker.com', 'dockerhub-kyroy') {
+                        dockerImage.push(patchVersion)
+                        dockerImage.push(minorVersion)
+                        if (majorVersion > '0') {
+                            dockerImage.push(majorVersion)
+                        }
                         dockerImage.push("latest")
                     }
                 }
