@@ -83,7 +83,7 @@ mod integration {
             _ => panic!(format!("Cannot read arguments. Check {}", arguments_path.to_str().unwrap()))
         }).collect();
 
-        let mut compute = vec!["./target/debug/zokrates", "compute-witness", "-i", flattened_path.to_str().unwrap(), "-o", witness_path.to_str().unwrap(), "-a"];
+        let mut compute = vec!["cargo", "run", "--", "compute-witness", "-i", flattened_path.to_str().unwrap(), "-o", witness_path.to_str().unwrap(), "-a"];
 
         for arg in arguments_str_list.iter() {
             compute.push(arg);
@@ -114,7 +114,7 @@ mod integration {
 		witness_file.read_to_string(&mut witness).unwrap();
 
 		// check equality
-		assert_eq!(flattened_code, expected_flattened_code, "Flattening failed for {}\n\nExpected\n\n{}\n\nGot\n\n{}", program_path.to_str().unwrap(), expected_flattened_code.as_str(), flattened_code.as_str());
+        assert_eq!(flattened_code, expected_flattened_code, "Flattening failed for {}\n\nExpected\n\n{}\n\nGot\n\n{}", program_path.to_str().unwrap(), expected_flattened_code.as_str(), flattened_code.as_str());
         for line in expected_witness.as_str().split("\n") {
             assert!(witness.contains(line), "Witness generation failed for {}\n\nLine \"{}\" not found in witness", program_path.to_str().unwrap(), line);
         }
