@@ -138,10 +138,10 @@ char* _sha256Witness(const uint8_t* inputs, int inputs_length)
     libff::bit_vector right_bv;
 
     for (int i = 0; i < inputs_length / 2; i++) {
-        left_bv.push_back(libsnarkBigintFromBytesBis(inputs + i*32) == 1);
+        left_bv.push_back(libsnarkBigintFromBytesAux(inputs + i*32) == 1);
     }
     for (int i = inputs_length / 2; i < inputs_length; i++) {
-        right_bv.push_back(libsnarkBigintFromBytesBis(inputs + i*32) == 1);
+        right_bv.push_back(libsnarkBigintFromBytesAux(inputs + i*32) == 1);
     }
 
     left.generate_r1cs_witness(left_bv);
