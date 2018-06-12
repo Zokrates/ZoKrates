@@ -9,8 +9,9 @@ extern crate libc;
 use self::libc::c_int;
 use self::libc::c_char;
 use self::libc::uint8_t;
-use std::ffi::CString;
+use std::ffi::{CString};
 use std::cmp::max;
+use std::string::String;
 
 use field::Field;
 
@@ -33,6 +34,10 @@ extern "C" {
                 private_inputs: *const uint8_t,
                 private_inputs_length: c_int,
             ) -> bool;
+    
+    fn _sha256Constraints() -> *mut c_char;
+
+    fn _sha256Witness() -> *mut c_char;
 }
 
 pub fn setup<T: Field> (
@@ -117,6 +122,16 @@ pub fn generate_proof<T: Field>(
     }
 }
 
+pub fn get_sha256_constraints() -> String {
+    let a = unsafe { CString::from_raw(_sha256Constraints()) };
+    a.into_string().unwrap()
+}
+
+pub fn get_sha256_witness<T:Field>(_inputs: &Vec<T>) -> String {
+    let a = unsafe { CString::from_raw(_sha256Witness()) };
+    a.into_string().unwrap()
+}
+
 // utility function. Converts a Fields vector-based byte representation to fixed size array.
 fn vec_as_u8_32_array(vec: &Vec<u8>) -> [u8; 32] {
     assert!(vec.len() <= 32);
@@ -132,6 +147,31 @@ mod tests {
     use super::*;
     use field::FieldPrime;
     use num::bigint::BigUint;
+    use serde_json;
+    use flat_absy::*;
+    use standard;
+
+    #[cfg(test)]
+    mod sha256_gadget {
+        use super::*;
+
+        #[test]
+        fn can_get_sha256_constraints() {
+            let _a = get_sha256_constraints();
+        }
+
+        #[test]
+        fn can_generate_sha_256_witness() {
+            let _b = get_sha256_witness(&vec![FieldPrime::from(0),FieldPrime::from(1),FieldPrime::from(0)]);
+        }
+
+        #[test]
+        fn can_generate_flattened_code() {
+            let constraints = get_sha256_constraints();
+            let r1cs: standard::R1CS = serde_json::from_str(&constraints).unwrap();
+            let _prog: FlatProg<FieldPrime> = FlatProg::from(r1cs);
+        }
+    }
 
     #[cfg(test)]
     mod libsnark_integration {
@@ -169,6 +209,5 @@ mod tests {
                 assert_eq!(*value, array[31 - index]);
             }
         }
-
     }
 }

@@ -84,7 +84,7 @@ fn count_variables_add<T: Field>(expr: &FlatExpression<T>) -> HashMap<String, T>
 ///
 /// # Arguments
 ///
-/// * `lhs` - Leht hand side of the equation
+/// * `lhs` - Left hand side of the equation
 /// * `rhs` - Right hand side of the equation
 fn swap_sub<T: Field>(lhs: &FlatExpression<T>, rhs: &FlatExpression<T>) -> (FlatExpression<T>, FlatExpression<T>) {
     let mut left = get_summands(lhs);
@@ -150,6 +150,7 @@ fn r1cs_expression<T: Field>(
     b_row: &mut Vec<(usize, T)>,
     c_row: &mut Vec<(usize, T)>,
 ) {
+    println!("{}", linear_expr);
     assert!(linear_expr.is_linear());
 
     match expr {
@@ -335,7 +336,8 @@ pub fn r1cs_program<T: Field>(
                 b.push(b_row);
                 c.push(c_row);
             },
-            FlatStatement::Compiler(..) => continue
+            FlatStatement::Compiler(..) => continue,
+            FlatStatement::Directive(..) => continue
         }
     }
     (variables, private_inputs_offset, a, b, c)
