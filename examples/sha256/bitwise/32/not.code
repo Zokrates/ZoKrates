@@ -1,0 +1,6 @@
+// NOT
+
+import "./../../binary/not.code" as NOT
+
+def main(b31, b30, b29, b28, b27, b26, b25, b24, b23, b22, b21, b20, b19, b18, b17, b16, b15, b14, b13, b12, b11, b10, b9, b8, b7, b6, b5, b4, b3, b2, b1, b0):
+	return NOT(b31), NOT(b30), NOT(b29), NOT(b28), NOT(b27), NOT(b26), NOT(b25), NOT(b24), NOT(b23), NOT(b22), NOT(b21), NOT(b20), NOT(b19), NOT(b18), NOT(b17), NOT(b16), NOT(b15), NOT(b14), NOT(b13), NOT(b12), NOT(b11), NOT(b10), NOT(b9), NOT(b8), NOT(b7), NOT(b6), NOT(b5), NOT(b4), NOT(b3), NOT(b2), NOT(b1), NOT(b0)
