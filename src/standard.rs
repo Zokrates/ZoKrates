@@ -4,6 +4,7 @@ use flat_absy::{FlatStatement, FlatExpression, FlatFunction, FlatExpressionList}
 use field::Field;
 use executable::Sha256Libsnark;
 use parameter::Parameter;
+use reduce::Reduce;
 
 // for r1cs import, can be moved.
 // r1cs data strucutre reflecting JSON standard format:
@@ -32,19 +33,31 @@ pub struct Constraint {
 
 impl<T: Field> Into<FlatStatement<T>> for Constraint {
 	fn into(self: Constraint) -> FlatStatement<T> {
-		let lhs_a = self.a.iter()
+		let rhs_a = match self.a.iter()
 			.map(|(key, val)| FlatExpression::Mult(box FlatExpression::Number(T::from_dec_string(val.to_string())), box FlatExpression::Identifier(format!("inter{}",key.clone()))))
-			.fold(FlatExpression::Number(T::zero()), |acc, e| FlatExpression::Add(box acc, box e));
+			.reduce(|acc, e| FlatExpression::Add(box acc, box e)) {
+                Some(e @ FlatExpression::Mult(..)) => FlatExpression::Add(box FlatExpression::Number(T::zero()), box e), // the R1CS serializer only recognizes Add
+                Some(e) => e,
+                None => FlatExpression::Number(T::zero())
+            };
 		
-		let lhs_b = self.b.iter()
+		let rhs_b = match self.b.iter()
 			.map(|(key, val)| FlatExpression::Mult(box FlatExpression::Number(T::from_dec_string(val.to_string())), box FlatExpression::Identifier(format!("inter{}",key.clone()))))
-			.fold(FlatExpression::Number(T::zero()), |acc, e| FlatExpression::Add(box acc, box e));
+			.reduce(|acc, e| FlatExpression::Add(box acc, box e)) {
+                Some(e @ FlatExpression::Mult(..)) => FlatExpression::Add(box FlatExpression::Number(T::zero()), box e), // the R1CS serializer only recognizes Add
+                Some(e) => e,
+                None => FlatExpression::Number(T::zero())
+            };
 		
-		let rhs = self.c.iter()
+		let lhs = match self.c.iter()
 			.map(|(key, val)| FlatExpression::Mult(box FlatExpression::Number(T::from_dec_string(val.to_string())), box FlatExpression::Identifier(format!("inter{}",key.clone()))))
-			.fold(FlatExpression::Number(T::zero()), |acc, e| FlatExpression::Add(box acc, box e));
+			.reduce(|acc, e| FlatExpression::Add(box acc, box e)) {
+                Some(e @ FlatExpression::Mult(..)) => FlatExpression::Add(box FlatExpression::Number(T::zero()), box e), // the R1CS serializer only recognizes Add
+                Some(e) => e,
+                None => FlatExpression::Number(T::zero())
+            };
 
-		FlatStatement::Condition(FlatExpression::Mult(box lhs_a, box lhs_b), rhs)
+		FlatStatement::Condition(lhs, FlatExpression::Mult(box rhs_a, box rhs_b))
 	}
 }
 
