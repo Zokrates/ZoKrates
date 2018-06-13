@@ -419,17 +419,17 @@ fn main() {
             let mut lines = reader.lines();
 
             let mut template_text = String::from(CONTRACT_TEMPLATE);
-            let ic_template = String::from("vk.IC[index] = Pairing.G1Point(points);");      //copy this for each entry
+            let gamma_abc_template = String::from("vk.gammaABC[index] = Pairing.G1Point(points);");      //copy this for each entry
 
             //replace things in template
             let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
-            let vk_ic_len_regex = Regex::new(r#"(<%vk_ic_length%>)"#).unwrap();
-            let vk_ic_index_regex = Regex::new(r#"index"#).unwrap();
-            let vk_ic_points_regex = Regex::new(r#"points"#).unwrap();
-            let vk_ic_repeat_regex = Regex::new(r#"(<%vk_ic_pts%>)"#).unwrap();
+            let vk_gamma_abc_len_regex = Regex::new(r#"(<%vk_gammaABC_length%>)"#).unwrap();
+            let vk_gamma_abc_index_regex = Regex::new(r#"index"#).unwrap();
+            let vk_gamma_abc_points_regex = Regex::new(r#"points"#).unwrap();
+            let vk_gamma_abc_repeat_regex = Regex::new(r#"(<%vk_gammaABC_pts%>)"#).unwrap();
             let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
 
-            for _ in 0..7 {
+            for _ in 0..3 {
                 let current_line: String = lines.next().expect("Unexpected end of file in verification key!").unwrap();
                 let current_line_split: Vec<&str> = current_line.split("=").collect();
                 assert_eq!(current_line_split.len(), 2);
@@ -439,25 +439,25 @@ fn main() {
             let current_line: String = lines.next().expect("Unexpected end of file in verification key!").unwrap();
             let current_line_split: Vec<&str> = current_line.split("=").collect();
             assert_eq!(current_line_split.len(), 2);
-            let ic_count: i32 = current_line_split[1].trim().parse().unwrap();
+            let gamma_abc_count: i32 = current_line_split[1].trim().parse().unwrap();
 
-            template_text = vk_ic_len_regex.replace(template_text.as_str(), format!("{}", ic_count).as_str()).into_owned();
-            template_text = vk_input_len_regex.replace(template_text.as_str(), format!("{}", ic_count-1).as_str()).into_owned();
+            template_text = vk_gamma_abc_len_regex.replace(template_text.as_str(), format!("{}", gamma_abc_count).as_str()).into_owned();
+            template_text = vk_input_len_regex.replace(template_text.as_str(), format!("{}", gamma_abc_count-1).as_str()).into_owned();
 
-            let mut ic_repeat_text = String::new();
-            for x in 0..ic_count {
-                let mut curr_template = ic_template.clone();
+            let mut gamma_abc_repeat_text = String::new();
+            for x in 0..gamma_abc_count {
+                let mut curr_template = gamma_abc_template.clone();
                 let current_line: String = lines.next().expect("Unexpected end of file in verification key!").unwrap();
                 let current_line_split: Vec<&str> = current_line.split("=").collect();
                 assert_eq!(current_line_split.len(), 2);
-                curr_template = vk_ic_index_regex.replace(curr_template.as_str(), format!("{}", x).as_str()).into_owned();
-                curr_template = vk_ic_points_regex.replace(curr_template.as_str(), current_line_split[1].trim()).into_owned();
-                ic_repeat_text.push_str(curr_template.as_str());
-                if x < ic_count - 1 {
-                    ic_repeat_text.push_str("\n        ");
+                curr_template = vk_gamma_abc_index_regex.replace(curr_template.as_str(), format!("{}", x).as_str()).into_owned();
+                curr_template = vk_gamma_abc_points_regex.replace(curr_template.as_str(), current_line_split[1].trim()).into_owned();
+                gamma_abc_repeat_text.push_str(curr_template.as_str());
+                if x < gamma_abc_count - 1 {
+                    gamma_abc_repeat_text.push_str("\n        ");
                 }
             }
-            template_text = vk_ic_repeat_regex.replace(template_text.as_str(), ic_repeat_text.as_str()).into_owned();
+            template_text = vk_gamma_abc_repeat_regex.replace(template_text.as_str(), gamma_abc_repeat_text.as_str()).into_owned();
 
             //write output file
             let output_path = Path::new(sub_matches.value_of("output").unwrap());

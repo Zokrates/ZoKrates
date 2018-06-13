@@ -145,7 +145,7 @@ contract Verifier {
     using Pairing for *;
     struct VerifyingKey {
         Pairing.G2Point ab;
-        Pairing.G1Point gamma;
+        Pairing.G2Point gamma;
         Pairing.G2Point delta;
         Pairing.G1Point[] gammaABC;
     }

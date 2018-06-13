@@ -178,10 +178,13 @@ void serializeVerificationKeyToFile(r1cs_gg_ppzksnark_verification_key<libff::al
 
   unsigned icLength = vk.gamma_ABC_g1.rest.indices.size() + 1;
   
-  ss << "\t\tvk.ab = Pairing.GTPoint(" << "TODO" << ");" << endl; // haven't found way to serialize this member yet
+  ss << "\t\tvk.ab = " << "[0x1234123412341234123412341234123412341234123412341234123412341234, "
+  << "0x1234123412341234123412341234123412341234123412341234123412341234], "
+  << "[0x1234123412341234123412341234123412341234123412341234123412341234, "
+  << "0x1234123412341234123412341234123412341234123412341234123412341234]" << endl; // haven't found way to serialize this member yet
   ss << "\t\tvk.gamma = " << outputPointG2AffineAsHex(vk.gamma_g2) << endl;
   ss << "\t\tvk.delta = " << outputPointG2AffineAsHex(vk.delta_g2) << endl;
-  ss << "\t\tvk.gammaABC.len() = " << icLength << ");" << endl;
+  ss << "\t\tvk.gammaABC.len() = " << icLength << endl;
   ss << "\t\tvk.gammaABC[0] = " << outputPointG1AffineAsHex(vk.gamma_ABC_g1.first) << endl;
   for (size_t i = 1; i < icLength; ++i)
   {
@@ -203,7 +206,10 @@ void exportVerificationKey(r1cs_gg_ppzksnark_keypair<libff::alt_bn128_pp> keypai
         unsigned icLength = keypair.vk.gamma_ABC_g1.rest.indices.size() + 1;
 
         cout << "\tVerification key in Solidity compliant format:{" << endl;
-        cout << "\t\tvk.ab = Pairing.GTPoint(" << "TODO" << ");" << endl; // haven't found way to serialize this member yet
+        cout << "\t\tvk.ab = Pairing.G2Point(" << "[0x1234123412341234123412341234123412341234123412341234123412341234, "
+        << "0x1234123412341234123412341234123412341234123412341234123412341234], "
+        << "[0x1234123412341234123412341234123412341234123412341234123412341234, "
+        << "0x1234123412341234123412341234123412341234123412341234123412341234]" << ");" << endl; // haven't found way to serialize this member yet
         cout << "\t\tvk.gamma = Pairing.G2Point(" << outputPointG2AffineAsHex(keypair.vk.gamma_g2) << ");" << endl;
         cout << "\t\tvk.delta = Pairing.G2Point(" << outputPointG2AffineAsHex(keypair.vk.delta_g2) << ");" << endl;
         cout << "\t\tvk.gammaABC = new Pairing.G1Point[](" << icLength << ");" << endl;
@@ -211,7 +217,7 @@ void exportVerificationKey(r1cs_gg_ppzksnark_keypair<libff::alt_bn128_pp> keypai
         for (size_t i = 1; i < icLength; ++i)
         {
                 auto vkICi = outputPointG1AffineAsHex(keypair.vk.gamma_ABC_g1.rest.values[i - 1]);
-                cout << "\t\tvk.IC[" << i << "] = Pairing.G1Point(" << vkICi << ");" << endl;
+                cout << "\t\tvk.gammaABC[" << i << "] = Pairing.G1Point(" << vkICi << ");" << endl;
         }
         cout << "\t\t}" << endl;
 
@@ -298,4 +304,4 @@ bool _generate_proof(const char* pk_path, const uint8_t* public_inputs, int publ
   // TODO? print inputs
 
   return true;
-} 
+}
