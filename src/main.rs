@@ -10,6 +10,7 @@ extern crate clap;
 #[macro_use]
 extern crate lazy_static;
 extern crate num; // cli
+extern crate reduce; // better reduce function than Iter.fold
 extern crate serde; // serialization deserialization
 extern crate serde_json;
 #[macro_use]
