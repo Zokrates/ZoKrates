@@ -83,6 +83,7 @@ r1cs_ppzksnark_constraint_system<libff::alt_bn128_pp> createConstraintSystem(con
   cout << "num variables: " << variables <<endl;
   cout << "num constraints: " << constraints <<endl;
   cout << "num inputs: " << inputs <<endl;
+
   struct VariableValueMapping {
     int constraint_id;
     int variable_id;
@@ -91,10 +92,13 @@ r1cs_ppzksnark_constraint_system<libff::alt_bn128_pp> createConstraintSystem(con
   const VariableValueMapping* A_vvmap = (VariableValueMapping*) A;
   const VariableValueMapping* B_vvmap = (VariableValueMapping*) B;
   const VariableValueMapping* C_vvmap = (VariableValueMapping*) C;
+  
   int A_id = 0;
   int B_id = 0;
   int C_id = 0;
+
   libff::alt_bn128_pp::init_public_params();
+
   for (int row = 0; row < constraints; row++) {
     linear_combination<libff::Fr<libff::alt_bn128_pp> > lin_comb_A, lin_comb_B, lin_comb_C;
 
@@ -119,6 +123,7 @@ r1cs_ppzksnark_constraint_system<libff::alt_bn128_pp> createConstraintSystem(con
 
     cs.add_constraint(r1cs_constraint<libff::Fr<libff::alt_bn128_pp> >(lin_comb_A, lin_comb_B, lin_comb_C));
   }
+
   return cs;
 }
 
