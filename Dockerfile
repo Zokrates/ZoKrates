@@ -34,5 +34,5 @@ WORKDIR /root/
 
 COPY . ZoKrates
 
-RUN cd ZoKrates \
-    && cargo build --release
+#RUN cd ZoKrates \
+#    && cargo build --release
