@@ -61,6 +61,7 @@ mod integration {
         let verification_key_path = tmp_base.join(program_name).join("verification").with_extension("key");
         let proving_key_path = tmp_base.join(program_name).join("proving").with_extension("key");
         let variable_information_path = tmp_base.join(program_name).join("variables").with_extension("inf");
+        let verification_contract_path = tmp_base.join(program_name).join("verifier").with_extension("sol");
 
         // create a tmp folder to store artifacts
         fs::create_dir(test_case_path).unwrap();
@@ -84,6 +85,22 @@ mod integration {
 
         // check equality
         assert_eq!(flattened_code, expected_flattened_code, "Flattening failed for {}\n\nExpected\n\n{}\n\nGot\n\n{}", program_path.to_str().unwrap(), expected_flattened_code.as_str(), flattened_code.as_str());
+
+        // SETUP
+        assert_cli::Assert::command(&["cargo", "run", "--", "setup",
+            "-i", flattened_path.to_str().unwrap(),
+            "-p", proving_key_path.to_str().unwrap(),
+            "-v", verification_key_path.to_str().unwrap(),
+            "-m", variable_information_path.to_str().unwrap()])
+            .succeeds()
+            .unwrap();
+
+        // EXPORT-VERIFIER
+        assert_cli::Assert::command(&["cargo", "run", "--", "export-verifier",
+            "-i", verification_key_path.to_str().unwrap(),
+            "-o", verification_contract_path.to_str().unwrap()])
+            .succeeds()
+            .unwrap();
 
         // COMPUTE_WITNESS
         let arguments: Value = serde_json::from_reader(File::open(arguments_path).unwrap()).unwrap();
@@ -123,15 +140,6 @@ mod integration {
                 program_path.to_str().unwrap(),
                 expected_witness.as_str(),
                 witness.as_str());
-
-        // SETUP
-        assert_cli::Assert::command(&["cargo", "run", "--", "setup",
-            "-i", flattened_path.to_str().unwrap(),
-            "-p", proving_key_path.to_str().unwrap(),
-            "-v", verification_key_path.to_str().unwrap(),
-            "-m", variable_information_path.to_str().unwrap()])
-            .succeeds()
-            .unwrap();
 
         // GENERATE-PROOF
         assert_cli::Assert::command(&["cargo", "run", "--", "generate-proof",
