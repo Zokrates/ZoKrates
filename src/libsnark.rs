@@ -19,6 +19,9 @@ extern "C" {
         A: *const uint8_t,
         B: *const uint8_t,
         C: *const uint8_t,
+        A_len: c_int,
+        B_len: c_int,
+        C_len: c_int,
         constraints: c_int,
         variables: c_int,
         inputs: c_int,
@@ -32,7 +35,7 @@ extern "C" {
                 private_inputs: *const uint8_t,
                 private_inputs_length: c_int,
             ) -> bool;
-    
+
     fn _sha256Constraints() -> *mut c_char;
 
     fn _sha256Witness(inputs: *const uint8_t, inputs_length: c_int) -> *mut c_char;
@@ -51,21 +54,80 @@ pub fn setup<T: Field> (
     let num_constraints = a.len();
     let num_variables = variables.len();
 
-    //initialize matrix entries with 0s.
-    let mut a_arr: Vec<[u8; 32]> = vec![[0u8; 32]; num_constraints * num_variables];
-    let mut b_arr: Vec<[u8; 32]> = vec![[0u8; 32]; num_constraints * num_variables];
-    let mut c_arr: Vec<[u8; 32]> = vec![[0u8; 32]; num_constraints * num_variables];
-
+    // Create single A,B,C vectors of tuples (constraint_number, variable_id, variable_value)
+    let mut a_vec = vec![];
+    let mut b_vec = vec![];
+    let mut c_vec = vec![];
     for row in 0..num_constraints {
-        for &(idx, ref val) in &a[row] {
-            a_arr[row * num_variables + idx] = vec_as_u8_32_array(&val.into_byte_vector());
-        }
-        for &(idx, ref val) in &b[row] {
-            b_arr[row * num_variables + idx] = vec_as_u8_32_array(&val.into_byte_vector());
-        }
-        for &(idx, ref val) in &c[row] {
-            c_arr[row * num_variables + idx] = vec_as_u8_32_array(&val.into_byte_vector());
-        }
+      for &(idx, ref val) in &a[row] {
+          a_vec.push((row as i32, idx as i32, vec_as_u8_32_array(&val.into_byte_vector())));
+      }
+      for &(idx, ref val) in &b[row] {
+          b_vec.push((row as i32, idx as i32, vec_as_u8_32_array(&val.into_byte_vector())));
+      }
+      for &(idx, ref val) in &c[row] {
+          c_vec.push((row as i32, idx as i32, vec_as_u8_32_array(&val.into_byte_vector())));
+      }
+    }
+
+    // Sizes and offsets in bytes for our struct {row, id, value}
+    // We're building { i32, i32, i8[32] }
+    const STRUCT_SIZE: usize = 40;
+
+    const ROW_SIZE: usize = 4;
+
+    const IDX_SIZE: usize = 4;
+    const IDX_OFFSET: usize = 4;
+
+    const VALUE_SIZE: usize = 32;
+    const VALUE_OFFSET: usize = 8;
+
+    // Convert above A,B,C vectors to byte arrays for cpp
+    let mut a_arr: Vec<u8> = vec![0u8; STRUCT_SIZE * a_vec.len()];
+    let mut b_arr: Vec<u8> = vec![0u8; STRUCT_SIZE * b_vec.len()];
+    let mut c_arr: Vec<u8> = vec![0u8; STRUCT_SIZE * c_vec.len()];
+    use std::mem::transmute;
+    for (id, (row, idx, val)) in a_vec.iter().enumerate() {
+      let row_bytes: [u8; ROW_SIZE] = unsafe { transmute(row.to_le()) };
+      let idx_bytes: [u8; IDX_SIZE] = unsafe { transmute(idx.to_le()) };
+
+      for x in 0..ROW_SIZE {
+        a_arr[id * 40 + x] = row_bytes[x];
+      }
+      for x in 0..IDX_SIZE {
+        a_arr[id * 40 + x + IDX_OFFSET] = idx_bytes[x];
+      }
+      for x in 0..VALUE_SIZE {
+        a_arr[id * 40 + x + VALUE_OFFSET] = val[x];
+      }
+    }
+    for (id, (row, idx, val)) in b_vec.iter().enumerate() {
+      let row_bytes: [u8; ROW_SIZE] = unsafe { transmute(row.to_le()) };
+      let idx_bytes: [u8; IDX_SIZE] = unsafe { transmute(idx.to_le()) };
+
+      for x in 0..ROW_SIZE {
+        b_arr[id * 40 + x] = row_bytes[x];
+      }
+      for x in 0..IDX_SIZE {
+        b_arr[id * 40 + x + IDX_OFFSET] = idx_bytes[x];
+      }
+      for x in 0..VALUE_SIZE {
+        b_arr[id * 40 + x + VALUE_OFFSET] = val[x];
+      }
+    }
+    for (id, (row, idx, val)) in c_vec.iter().enumerate() {
+      let row_bytes: [u8; ROW_SIZE] = unsafe { transmute(row.to_le()) };
+      let idx_bytes: [u8; IDX_SIZE] = unsafe { transmute(idx.to_le()) };
+
+      for x in 0..ROW_SIZE {
+        c_arr[id * 40 + x] = row_bytes[x];
+      }
+      for x in 0..IDX_SIZE {
+        c_arr[id * 40 + x + IDX_OFFSET] = idx_bytes[x];
+      }
+      for x in 0..VALUE_SIZE {
+        c_arr[id * 40 + x + VALUE_OFFSET] = val[x];
+      }
     }
 
     // convert String slices to 'CString's
@@ -74,9 +136,12 @@ pub fn setup<T: Field> (
 
     unsafe {
         _setup(
-            a_arr[0].as_ptr(),
-            b_arr[0].as_ptr(),
-            c_arr[0].as_ptr(),
+            a_arr.as_ptr(),
+            b_arr.as_ptr(),
+            c_arr.as_ptr(),
+            a_vec.len() as i32,
+            b_vec.len() as i32,
+            c_vec.len() as i32,
             num_constraints as i32,
             num_variables as i32,
             num_inputs as i32,
