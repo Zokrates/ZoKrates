@@ -72,61 +72,61 @@ pub fn setup<T: Field> (
 
     // Sizes and offsets in bytes for our struct {row, id, value}
     // We're building { i32, i32, i8[32] }
-    let struct_size: usize = 40;
+    const STRUCT_SIZE: usize = 40;
 
-    let row_size: usize = 4;
+    const ROW_SIZE: usize = 4;
 
-    let idx_size: usize = 4;
-    let idx_offset: usize = 4;
+    const IDX_SIZE: usize = 4;
+    const IDX_OFFSET: usize = 4;
 
-    let value_size: usize = 32;
-    let value_offset: usize = 8;
+    const VALUE_SIZE: usize = 32;
+    const VALUE_OFFSET: usize = 8;
 
     // Convert above A,B,C vectors to byte arrays for cpp
-    let mut a_arr: Vec<u8> = vec![0u8; struct_size * a_vec.len()];
-    let mut b_arr: Vec<u8> = vec![0u8; struct_size * b_vec.len()];
-    let mut c_arr: Vec<u8> = vec![0u8; struct_size * c_vec.len()];
+    let mut a_arr: Vec<u8> = vec![0u8; STRUCT_SIZE * a_vec.len()];
+    let mut b_arr: Vec<u8> = vec![0u8; STRUCT_SIZE * b_vec.len()];
+    let mut c_arr: Vec<u8> = vec![0u8; STRUCT_SIZE * c_vec.len()];
     use std::mem::transmute;
     for (id, (row, idx, val)) in a_vec.iter().enumerate() {
-      let row_bytes: [u8; row_size] = unsafe { transmute(row.to_le()) };
-      let idx_bytes: [u8; idx_size] = unsafe { transmute(idx.to_le()) };
+      let row_bytes: [u8; ROW_SIZE] = unsafe { transmute(row.to_le()) };
+      let idx_bytes: [u8; IDX_SIZE] = unsafe { transmute(idx.to_le()) };
 
-      for x in 0..row_size {
+      for x in 0..ROW_SIZE {
         a_arr[id * 40 + x] = row_bytes[x];
       }
-      for x in 0..idx_size {
-        a_arr[id * 40 + x + idx_offset] = idx_bytes[x];
+      for x in 0..IDX_SIZE {
+        a_arr[id * 40 + x + IDX_OFFSET] = idx_bytes[x];
       }
-      for x in 0..value_size {
-        a_arr[id * 40 + x + value_offset] = val[x];
+      for x in 0..VALUE_SIZE {
+        a_arr[id * 40 + x + VALUE_OFFSET] = val[x];
       }
     }
     for (id, (row, idx, val)) in b_vec.iter().enumerate() {
-      let row_bytes: [u8; row_size] = unsafe { transmute(row.to_le()) };
-      let idx_bytes: [u8; idx_size] = unsafe { transmute(idx.to_le()) };
+      let row_bytes: [u8; ROW_SIZE] = unsafe { transmute(row.to_le()) };
+      let idx_bytes: [u8; IDX_SIZE] = unsafe { transmute(idx.to_le()) };
 
-      for x in 0..row_size {
+      for x in 0..ROW_SIZE {
         b_arr[id * 40 + x] = row_bytes[x];
       }
-      for x in 0..idx_size {
-        b_arr[id * 40 + x + idx_offset] = idx_bytes[x];
+      for x in 0..IDX_SIZE {
+        b_arr[id * 40 + x + IDX_OFFSET] = idx_bytes[x];
       }
-      for x in 0..value_size {
-        b_arr[id * 40 + x + value_offset] = val[x];
+      for x in 0..VALUE_SIZE {
+        b_arr[id * 40 + x + VALUE_OFFSET] = val[x];
       }
     }
     for (id, (row, idx, val)) in c_vec.iter().enumerate() {
-      let row_bytes: [u8; row_size] = unsafe { transmute(row.to_le()) };
-      let idx_bytes: [u8; idx_size] = unsafe { transmute(idx.to_le()) };
+      let row_bytes: [u8; ROW_SIZE] = unsafe { transmute(row.to_le()) };
+      let idx_bytes: [u8; IDX_SIZE] = unsafe { transmute(idx.to_le()) };
 
-      for x in 0..row_size {
+      for x in 0..ROW_SIZE {
         c_arr[id * 40 + x] = row_bytes[x];
       }
-      for x in 0..idx_size {
-        c_arr[id * 40 + x + idx_offset] = idx_bytes[x];
+      for x in 0..IDX_SIZE {
+        c_arr[id * 40 + x + IDX_OFFSET] = idx_bytes[x];
       }
-      for x in 0..value_size {
-        c_arr[id * 40 + x + value_offset] = val[x];
+      for x in 0..VALUE_SIZE {
+        c_arr[id * 40 + x + VALUE_OFFSET] = val[x];
       }
     }
 
