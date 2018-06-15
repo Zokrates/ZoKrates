@@ -17,9 +17,17 @@ extern crate bincode;
 extern crate regex;
 
 mod absy;
+mod flat_absy;
+mod parameter;
 mod parser;
+mod imports;
 mod semantics;
+mod substitution;
+mod prefixed_substitution;
+mod direct_substitution;
 mod flatten;
+mod compile;
+mod optimizer;
 mod r1cs;
 mod field;
 mod verification;
@@ -27,15 +35,13 @@ mod verification;
 mod libsnark;
 
 use std::fs::File;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::io::{BufWriter, Write, BufReader, BufRead, stdin};
 use std::collections::HashMap;
 use std::string::String;
+use compile::compile;
 use field::{Field, FieldPrime};
-use absy::Prog;
-use parser::parse_program;
-use semantics::Checker;
-use flatten::Flattener;
+use flat_absy::FlatProg;
 use r1cs::r1cs_program;
 use clap::{App, AppSettings, Arg, SubCommand};
 #[cfg(not(feature = "nolibsnark"))]
@@ -59,24 +65,28 @@ fn main() {
     .author("Jacob Eberhardt, Dennis Kuhnert")
     .about("Supports generation of zkSNARKs from high level language code including Smart Contracts for proof verification on the Ethereum Blockchain.\n'I know that I show nothing!'")
     .subcommand(SubCommand::with_name("compile")
-                                    .about("Compiles into flattened conditions. Produces two files: human-readable '.code' file and binary file")
-                                    .arg(Arg::with_name("input")
-                                        .short("i")
-                                        .long("input")
-                                        .help("path of source code file to compile.")
-                                        .value_name("FILE")
-                                        .takes_value(true)
-                                        .required(true)
-                                    ).arg(Arg::with_name("output")
-                                        .short("o")
-                                        .long("output")
-                                        .help("output file path.")
-                                        .value_name("FILE")
-                                        .takes_value(true)
-                                        .required(false)
-                                        .default_value(FLATTENED_CODE_DEFAULT_PATH)
-                                    )
-                                 )
+        .about("Compiles into flattened conditions. Produces two files: human-readable '.code' file and binary file")
+        .arg(Arg::with_name("input")
+            .short("i")
+            .long("input")
+            .help("path of source code file to compile.")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(true)
+        ).arg(Arg::with_name("output")
+            .short("o")
+            .long("output")
+            .help("output file path.")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(FLATTENED_CODE_DEFAULT_PATH)
+        ).arg(Arg::with_name("optimized")
+            .long("optimized")
+            .help("perform optimization.")
+            .required(false)
+        )
+     )
     .subcommand(SubCommand::with_name("setup")
         .about("Performs a trusted setup for a given constraint system.")
         .arg(Arg::with_name("input")
@@ -202,29 +212,14 @@ fn main() {
         ("compile", Some(sub_matches)) => {
             println!("Compiling {}", sub_matches.value_of("input").unwrap());
 
-            let path = Path::new(sub_matches.value_of("input").unwrap());
-            let file = match File::open(&path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't open {}: {}", path.display(), why),
-            };
+            let path = PathBuf::from(sub_matches.value_of("input").unwrap());
 
-            let program_ast: Prog<FieldPrime> = match parse_program(file) {
-                Ok(x) => x,
-                Err(why) => {
-                    println!("{:?}", why);
-                    std::process::exit(1);
-                }
+            let should_optimize = sub_matches.occurrences_of("optimized") > 0;
+            
+            let program_flattened: FlatProg<FieldPrime> = match compile(path, should_optimize) {
+                Ok(p) => p,
+                Err(why) => panic!("Compilation failed: {}", why)
             };
-
-            // check semantics
-            match Checker::new().check_program(program_ast.clone()) {
-                Ok(()) => (),
-                Err(why) => panic!("Semantic analysis failed with: {}", why)
-            };
-
-            // flatten input program
-            let program_flattened =
-                Flattener::new(FieldPrime::get_required_bits()).flatten_program(program_ast);
 
             // number of constraints the flattened program will translate to.
             let num_constraints = &program_flattened.functions
@@ -274,7 +269,7 @@ fn main() {
                 Err(why) => panic!("couldn't open {}: {}", path.display(), why),
             };
 
-            let program_ast: Prog<FieldPrime> = match deserialize_from(&mut file, Infinite) {
+            let program_ast: FlatProg<FieldPrime> = match deserialize_from(&mut file, Infinite) {
                 Ok(x) => x,
                 Err(why) => {
                     println!("{:?}", why);
@@ -282,21 +277,14 @@ fn main() {
                 }
             };
 
-            // make sure the input program is actually flattened.
             let main_flattened = program_ast
                 .functions
                 .iter()
                 .find(|x| x.id == "main")
                 .unwrap();
-            for stat in main_flattened.statements.clone() {
-                assert!(
-                    stat.is_flattened(),
-                    format!("Input conditions not flattened: {}", &stat)
-                );
-            }
 
             // print deserialized flattened program
-            println!("{}", main_flattened);
+            //println!("{}", main_flattened);
 
             // validate #arguments
             let mut cli_arguments: Vec<FieldPrime> = Vec::new();
@@ -372,7 +360,7 @@ fn main() {
                 Err(why) => panic!("couldn't open {}: {}", path.display(), why),
             };
 
-            let program_ast: Prog<FieldPrime> = match deserialize_from(&mut file, Infinite) {
+            let program_ast: FlatProg<FieldPrime> = match deserialize_from(&mut file, Infinite) {
                 Ok(x) => x,
                 Err(why) => {
                     println!("{:?}", why);
@@ -380,18 +368,11 @@ fn main() {
                 }
             };
 
-            // make sure the input program is actually flattened.
             let main_flattened = program_ast
                 .functions
                 .iter()
                 .find(|x| x.id == "main")
                 .unwrap();
-            for stat in main_flattened.statements.clone() {
-                assert!(
-                    stat.is_flattened(),
-                    format!("Input conditions not flattened: {}", &stat)
-                );
-            }
 
             // print deserialized flattened program
             println!("{}", main_flattened);
@@ -578,18 +559,12 @@ mod tests {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
             };
-            println!("Testing {:?}", path);
-            let file = match File::open(&path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't open {:?}: {}", path, why),
-            };
 
-            let program_ast = match parse_program::<FieldPrime>(file) {
-                Ok(x) => x,
-                Err(why) => panic!("Error: {:?}", why),
-            };
-            let program_flattened =
-                Flattener::new(FieldPrime::get_required_bits()).flatten_program(program_ast);
+            println!("Testing {:?}", path);
+
+            let program_flattened: FlatProg<FieldPrime> =
+                compile(path, true).unwrap();
+
             let (..) = r1cs_program(&program_flattened);
         }
     }
@@ -602,17 +577,10 @@ mod tests {
                 Err(why) => panic!("Error: {:?}", why),
             };
             println!("Testing {:?}", path);
-            let file = match File::open(&path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't open {:?}: {}", path, why),
-            };
 
-            let program_ast = match parse_program::<FieldPrime>(file) {
-                Ok(x) => x,
-                Err(why) => panic!("Error: {:?}", why),
-            };
-            let program_flattened =
-                Flattener::new(FieldPrime::get_required_bits()).flatten_program(program_ast);
+            let program_flattened: FlatProg<FieldPrime> =
+                compile(path, true).unwrap();
+
             let (..) = r1cs_program(&program_flattened);
             let _ = program_flattened.get_witness(vec![FieldPrime::zero()]);
         }

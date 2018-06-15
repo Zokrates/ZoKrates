@@ -1,0 +1,5 @@
+import "./foo.code"
+import "./bar.code"
+
+def main():
+	return foo() + bar()
