@@ -58,6 +58,10 @@ mod integration {
     	let flattened_path = tmp_base.join(program_name).join("out");
     	let flattened_code_path = tmp_base.join(program_name).join("out").with_extension("code");
     	let witness_path = tmp_base.join(program_name).join("witness");
+        let verification_key_path = tmp_base.join(program_name).join("verification").with_extension("key");
+        let proving_key_path = tmp_base.join(program_name).join("proving").with_extension("key");
+        let variable_information_path = tmp_base.join(program_name).join("variables").with_extension("inf");
+        let verification_contract_path = tmp_base.join(program_name).join("verifier").with_extension("sol");
 
         // create a tmp folder to store artifacts
         fs::create_dir(test_case_path).unwrap();
@@ -75,7 +79,36 @@ mod integration {
             .succeeds()
             .unwrap();
 
-        // compute
+        // load the expected result
+        let mut expected_flattened_code_file = File::open(&expected_flattened_code_path).unwrap();
+        let mut expected_flattened_code = String::new();
+        expected_flattened_code_file.read_to_string(&mut expected_flattened_code).unwrap();
+
+        // load the actual result
+        let mut flattened_code_file = File::open(&flattened_code_path).unwrap();
+        let mut flattened_code = String::new();
+        flattened_code_file.read_to_string(&mut flattened_code).unwrap();
+
+        // check equality
+        assert_eq!(flattened_code, expected_flattened_code, "Flattening failed for {}\n\nExpected\n\n{}\n\nGot\n\n{}", program_path.to_str().unwrap(), expected_flattened_code.as_str(), flattened_code.as_str());
+
+        // SETUP
+        assert_cli::Assert::command(&["cargo", "run", "--", "setup",
+            "-i", flattened_path.to_str().unwrap(),
+            "-p", proving_key_path.to_str().unwrap(),
+            "-v", verification_key_path.to_str().unwrap(),
+            "-m", variable_information_path.to_str().unwrap()])
+            .succeeds()
+            .unwrap();
+
+        // EXPORT-VERIFIER
+        assert_cli::Assert::command(&["cargo", "run", "--", "export-verifier",
+            "-i", verification_key_path.to_str().unwrap(),
+            "-o", verification_contract_path.to_str().unwrap()])
+            .succeeds()
+            .unwrap();
+
+        // COMPUTE_WITNESS
         let arguments: Value = serde_json::from_reader(File::open(arguments_path).unwrap()).unwrap();
 
         let arguments_str_list: Vec<String> = arguments.as_array().unwrap().iter().map(|i| match *i {
@@ -83,7 +116,10 @@ mod integration {
             _ => panic!(format!("Cannot read arguments. Check {}", arguments_path.to_str().unwrap()))
         }).collect();
 
-        let mut compute = vec!["cargo", "run", "--", "compute-witness", "-i", flattened_path.to_str().unwrap(), "-o", witness_path.to_str().unwrap(), "-a"];
+        let mut compute = vec!["cargo", "run", "--", "compute-witness",
+            "-i", flattened_path.to_str().unwrap(),
+            "-o", witness_path.to_str().unwrap(),
+            "-a"];
 
         for arg in arguments_str_list.iter() {
             compute.push(arg);
@@ -93,30 +129,25 @@ mod integration {
             .succeeds()
             .unwrap();
 
-    	// load the expected result
-    	let mut expected_flattened_code_file = File::open(&expected_flattened_code_path).unwrap();
-        let mut expected_flattened_code = String::new();
-		expected_flattened_code_file.read_to_string(&mut expected_flattened_code).unwrap();
-
 		// load the expected witness
 		let mut expected_witness_file = File::open(&expected_witness_path).unwrap();
 		let mut expected_witness = String::new();
 		expected_witness_file.read_to_string(&mut expected_witness).unwrap();
-
-		// load the actual result
-    	let mut flattened_code_file = File::open(&flattened_code_path).unwrap();
-        let mut flattened_code = String::new();
-		flattened_code_file.read_to_string(&mut flattened_code).unwrap();
 
 		// load the actual witness
     	let mut witness_file = File::open(&witness_path).unwrap();
         let mut witness = String::new();
 		witness_file.read_to_string(&mut witness).unwrap();
 
-		// check equality
-        assert_eq!(flattened_code, expected_flattened_code, "Flattening failed for {}\n\nExpected\n\n{}\n\nGot\n\n{}", program_path.to_str().unwrap(), expected_flattened_code.as_str(), flattened_code.as_str());
-        for line in expected_witness.as_str().split("\n") {
+		for line in expected_witness.as_str().split("\n") {
             assert!(witness.contains(line), "Witness generation failed for {}\n\nLine \"{}\" not found in witness", program_path.to_str().unwrap(), line);
-        }
+    }
+        // GENERATE-PROOF
+        assert_cli::Assert::command(&["cargo", "run", "--", "generate-proof",
+            "-w", witness_path.to_str().unwrap(),
+            "-p", proving_key_path.to_str().unwrap(),
+            "-i", variable_information_path.to_str().unwrap()])
+            .succeeds()
+            .unwrap();
     }
 }
