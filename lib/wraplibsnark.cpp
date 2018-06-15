@@ -94,26 +94,24 @@ r1cs_ppzksnark_constraint_system<libff::alt_bn128_pp> createConstraintSystem(con
   int A_id = 0;
   int B_id = 0;
   int C_id = 0;
+  libff::alt_bn128_pp::init_public_params();
   for (int row = 0; row < constraints; row++) {
     linear_combination<libff::Fr<libff::alt_bn128_pp> > lin_comb_A, lin_comb_B, lin_comb_C;
 
     while (A_id < A_len && A_vvmap[A_id].constraint_id == row) {
       libff::bigint<libff::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(A_vvmap[A_id].variable_value);
-      libff::alt_bn128_pp::init_public_params();
       if (!value.is_zero())
         lin_comb_A.add_term(A_vvmap[A_id].variable_id, value);
       A_id++;
     }
     while (B_id < B_len && B_vvmap[B_id].constraint_id == row) {
       libff::bigint<libff::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(B_vvmap[B_id].variable_value);
-      libff::alt_bn128_pp::init_public_params();
       if (!value.is_zero())
         lin_comb_B.add_term(B_vvmap[B_id].variable_id, value);
       B_id++;
     }
     while (C_id < C_len && C_vvmap[C_id].constraint_id == row) {
       libff::bigint<libff::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(C_vvmap[C_id].variable_value);
-      libff::alt_bn128_pp::init_public_params();
       if (!value.is_zero())
         lin_comb_C.add_term(C_vvmap[C_id].variable_id, value);
       C_id++;
