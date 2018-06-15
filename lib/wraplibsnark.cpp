@@ -74,7 +74,7 @@ std::string outputPointG2AffineAsHex(libff::alt_bn128_G2 _p)
 }
 
 //takes input and puts it into constraint system
-r1cs_ppzksnark_constraint_system<libff::alt_bn128_pp> createConstraintSystem(const uint8_t* A, const uint8_t* B, const uint8_t* C, int constraints, int variables, int inputs)
+r1cs_ppzksnark_constraint_system<libff::alt_bn128_pp> createConstraintSystem(const uint8_t* A, const uint8_t* B, const uint8_t* C, int A_len, int B_len, int C_len, int constraints, int variables, int inputs)
 {
   r1cs_ppzksnark_constraint_system<libff::alt_bn128_pp> cs;
   cs.primary_input_size = inputs;
@@ -84,36 +84,46 @@ r1cs_ppzksnark_constraint_system<libff::alt_bn128_pp> createConstraintSystem(con
   cout << "num constraints: " << constraints <<endl;
   cout << "num inputs: " << inputs <<endl;
 
+  struct VariableValueMapping {
+    int constraint_id;
+    int variable_id;
+    uint8_t variable_value[32];
+  };
+  const VariableValueMapping* A_vvmap = (VariableValueMapping*) A;
+  const VariableValueMapping* B_vvmap = (VariableValueMapping*) B;
+  const VariableValueMapping* C_vvmap = (VariableValueMapping*) C;
+
+  int A_id = 0;
+  int B_id = 0;
+  int C_id = 0;
+
+  libff::alt_bn128_pp::init_public_params();
+
   for (int row = 0; row < constraints; row++) {
     linear_combination<libff::Fr<libff::alt_bn128_pp> > lin_comb_A, lin_comb_B, lin_comb_C;
 
-    for (int idx=0; idx<variables; idx++) {
-      libff::bigint<libff::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(A+row*variables*32 + idx*32);
-      libff::alt_bn128_pp::init_public_params();
-      // cout << "C entry " << idx << " in row " << row << ": " << value << endl;
-      if (!value.is_zero()) {
-        // cout << "A(" << idx << ", " << value << ")" << endl;
-        lin_comb_A.add_term(idx,value);
-      }
+    while (A_id < A_len && A_vvmap[A_id].constraint_id == row) {
+      libff::bigint<libff::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(A_vvmap[A_id].variable_value);
+      if (!value.is_zero())
+        lin_comb_A.add_term(A_vvmap[A_id].variable_id, value);
+      A_id++;
     }
-    for (int idx=0; idx<variables; idx++) {
-      libff::bigint<libff::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(B+row*variables*32 + idx*32);
-      // cout << "B entry " << idx << " in row " << row << ": " << value << endl;
-      if (!value.is_zero()) {
-        // cout << "B(" << idx << ", " << value << ")" << endl;
-        lin_comb_B.add_term(idx, value);
-      }
+    while (B_id < B_len && B_vvmap[B_id].constraint_id == row) {
+      libff::bigint<libff::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(B_vvmap[B_id].variable_value);
+      if (!value.is_zero())
+        lin_comb_B.add_term(B_vvmap[B_id].variable_id, value);
+      B_id++;
     }
-    for (int idx=0; idx<variables; idx++) {
-      libff::bigint<libff::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(C+row*variables*32 + idx*32);
-      // cout << "C entry " << idx << " in row " << row << ": " << value << endl;
-      if (!value.is_zero()) {
-        // cout << "C(" << idx << ", " << value << ")" << endl;
-        lin_comb_C.add_term(idx, value);
-      }
+    while (C_id < C_len && C_vvmap[C_id].constraint_id == row) {
+      libff::bigint<libff::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(C_vvmap[C_id].variable_value);
+      if (!value.is_zero())
+        lin_comb_C.add_term(C_vvmap[C_id].variable_id, value);
+      C_id++;
     }
+
     cs.add_constraint(r1cs_constraint<libff::Fr<libff::alt_bn128_pp> >(lin_comb_A, lin_comb_B, lin_comb_C));
   }
+
   return cs;
 }
 
@@ -220,7 +230,7 @@ void exportInput(r1cs_primary_input<libff::Fr<libff::alt_bn128_pp>> input){
                 cout << "\t\tinput[" << i << "] = " << HexStringFromLibsnarkBigint(input[i].as_bigint()) << ";" << endl;
         }
         cout << "\t\t}" << endl;
-} 
+}
 
 
 void printProof(r1cs_ppzksnark_proof<libff::alt_bn128_pp> proof){
@@ -235,7 +245,7 @@ void printProof(r1cs_ppzksnark_proof<libff::alt_bn128_pp> proof){
                 cout << "K = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_K)<<");"<< endl;
 }
 
-bool _setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int constraints, int variables, int inputs, const char* pk_path, const char* vk_path)
+bool _setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int A_len, int B_len, int C_len, int constraints, int variables, int inputs, const char* pk_path, const char* vk_path)
 {
   libff::inhibit_profiling_info = true;
   libff::inhibit_profiling_counters = true;
@@ -243,7 +253,7 @@ bool _setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int constraint
   //initialize curve parameters
   libff::alt_bn128_pp::init_public_params();
 
-  auto cs = createConstraintSystem(A, B ,C , constraints, variables, inputs);
+  auto cs = createConstraintSystem(A, B, C, A_len, B_len, C_len, constraints, variables, inputs);
 
   assert(cs.num_variables() >= (unsigned)inputs);
   assert(cs.num_inputs() == (unsigned)inputs);
@@ -298,4 +308,4 @@ bool _generate_proof(const char* pk_path, const uint8_t* public_inputs, int publ
   // TODO? print inputs
 
   return true;
-} 
+}
