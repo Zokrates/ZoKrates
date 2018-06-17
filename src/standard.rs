@@ -8,15 +8,21 @@ use reduce::Reduce;
 
 // for r1cs import, can be moved.
 // r1cs data strucutre reflecting JSON standard format:
-//{variables:["a","b", ... ],
-//constraints:[
-// [{offset_1:value_a1,offset2:value_a2,...},{offset1:value_b1,offset2:value_b2,...},{offset1:value_c1,offset2:value_c2,...}]
-//]}
+// {
+//     input_count: count,  // # of inputs to pass
+//     outputs: [offset_42, offset_63, offset_55],  // indices of the outputs in the witness
+//     constraints: [   // constraints verified by the witness
+//         [
+//             {offset_1: value_a1, offset_2: value_a2, ...},
+//             {offset_1: value_b1, offset_2: value_b2, ...},
+//             {offset_1: value_c1, offset_2: value_c2, ...}
+//         ]
+// }
 #[derive(Serialize, Deserialize, Debug)]
 pub struct R1CS {
-	pub input_count: usize, // # of inputs to pass
-	pub outputs: Vec<usize>, // indices of the outputs in the witness
-    pub constraints: Vec<Constraint>, // constraints verified by the witness
+	pub input_count: usize,
+	pub outputs: Vec<usize>,
+    pub constraints: Vec<Constraint>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

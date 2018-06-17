@@ -92,13 +92,13 @@ pub fn setup<T: Field> (
       let idx_bytes: [u8; IDX_SIZE] = unsafe { transmute(idx.to_le()) };
 
       for x in 0..ROW_SIZE {
-        a_arr[id * 40 + x] = row_bytes[x];
+        a_arr[id * STRUCT_SIZE + x] = row_bytes[x];
       }
       for x in 0..IDX_SIZE {
-        a_arr[id * 40 + x + IDX_OFFSET] = idx_bytes[x];
+        a_arr[id * STRUCT_SIZE + x + IDX_OFFSET] = idx_bytes[x];
       }
       for x in 0..VALUE_SIZE {
-        a_arr[id * 40 + x + VALUE_OFFSET] = val[x];
+        a_arr[id * STRUCT_SIZE + x + VALUE_OFFSET] = val[x];
       }
     }
     for (id, (row, idx, val)) in b_vec.iter().enumerate() {
@@ -106,13 +106,13 @@ pub fn setup<T: Field> (
       let idx_bytes: [u8; IDX_SIZE] = unsafe { transmute(idx.to_le()) };
 
       for x in 0..ROW_SIZE {
-        b_arr[id * 40 + x] = row_bytes[x];
+        b_arr[id * STRUCT_SIZE + x] = row_bytes[x];
       }
       for x in 0..IDX_SIZE {
-        b_arr[id * 40 + x + IDX_OFFSET] = idx_bytes[x];
+        b_arr[id * STRUCT_SIZE + x + IDX_OFFSET] = idx_bytes[x];
       }
       for x in 0..VALUE_SIZE {
-        b_arr[id * 40 + x + VALUE_OFFSET] = val[x];
+        b_arr[id * STRUCT_SIZE + x + VALUE_OFFSET] = val[x];
       }
     }
     for (id, (row, idx, val)) in c_vec.iter().enumerate() {
@@ -120,13 +120,13 @@ pub fn setup<T: Field> (
       let idx_bytes: [u8; IDX_SIZE] = unsafe { transmute(idx.to_le()) };
 
       for x in 0..ROW_SIZE {
-        c_arr[id * 40 + x] = row_bytes[x];
+        c_arr[id * STRUCT_SIZE + x] = row_bytes[x];
       }
       for x in 0..IDX_SIZE {
-        c_arr[id * 40 + x + IDX_OFFSET] = idx_bytes[x];
+        c_arr[id * STRUCT_SIZE + x + IDX_OFFSET] = idx_bytes[x];
       }
       for x in 0..VALUE_SIZE {
-        c_arr[id * 40 + x + VALUE_OFFSET] = val[x];
+        c_arr[id * STRUCT_SIZE + x + VALUE_OFFSET] = val[x];
       }
     }
 
