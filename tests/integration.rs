@@ -13,11 +13,11 @@ mod integration {
     use serde_json::Value;
 
     fn setup() {
-        fs::create_dir("./tests/tmp").unwrap();
+        fs::create_dir(".tmp").unwrap();
     }
 
     fn teardown() {
-        fs::remove_dir_all("./tests/tmp").unwrap();
+        fs::remove_dir_all(".tmp").unwrap();
     } 
     
     #[test]
@@ -53,7 +53,7 @@ mod integration {
     }
 
     fn test_compile_and_witness(program_name: &str, program_path: &Path, expected_flattened_code_path: &Path, arguments_path: &Path, expected_witness_path: &Path) {
-        let tmp_base = Path::new("./tests/tmp/");
+        let tmp_base = Path::new(".tmp/");
         let test_case_path = tmp_base.join(program_name);
     	let flattened_path = tmp_base.join(program_name).join("out");
     	let flattened_code_path = tmp_base.join(program_name).join("out").with_extension("code");
@@ -66,10 +66,16 @@ mod integration {
         // create a tmp folder to store artifacts
         fs::create_dir(test_case_path).unwrap();
 
-        // COMPILE
-        assert_cli::Assert::command(&["cargo", "run", "--", "compile",
-            "-i", program_path.to_str().unwrap(),
-            "-o", flattened_path.to_str().unwrap()])
+        // prepare compile arguments
+        let mut compile = vec!["./target/debug/zokrates", "compile", "-i", program_path.to_str().unwrap(), "-o", flattened_path.to_str().unwrap()];
+
+        if program_name.contains("sha_libsnark") {
+            compile.push("--gadgets");
+            compile.push("--optimized");
+        }
+
+    	// compile
+        assert_cli::Assert::command(&compile)
             .succeeds()
             .unwrap();
 
@@ -133,14 +139,9 @@ mod integration {
         let mut witness = String::new();
 		witness_file.read_to_string(&mut witness).unwrap();
 
-		// check equality
-		assert!(witness.contains(
-            expected_witness.as_str()),
-            "Witness generation failed for {}\n\nExpected\n\n{}\n\nGot\n\n{}",
-                program_path.to_str().unwrap(),
-                expected_witness.as_str(),
-                witness.as_str());
-
+		for line in expected_witness.as_str().split("\n") {
+            assert!(witness.contains(line), "Witness generation failed for {}\n\nLine \"{}\" not found in witness", program_path.to_str().unwrap(), line);
+    }
         // GENERATE-PROOF
         assert_cli::Assert::command(&["cargo", "run", "--", "generate-proof",
             "-w", witness_path.to_str().unwrap(),

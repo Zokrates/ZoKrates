@@ -16,6 +16,10 @@ use optimizer::{Optimizer};
 use flatten::Flattener;
 use std::io::{self};
 
+use libsnark::{get_sha256_constraints};
+use serde_json;
+use standard;
+
 #[derive(Debug)]
 pub enum CompileError<T: Field> {
 	ParserError(parser::Error<T>),
@@ -60,8 +64,8 @@ impl fmt::Display for CompileError<FieldPrime> {
 	}
 }
 
-pub fn compile<T: Field>(path: PathBuf, should_optimize: bool) -> Result<FlatProg<T>, CompileError<T>> {
-	let compiled = compile_aux(path);
+pub fn compile<T: Field>(path: PathBuf, should_optimize: bool, should_include_gadgets: bool) -> Result<FlatProg<T>, CompileError<T>> {
+	let compiled = compile_aux(path, should_include_gadgets);
 
 	match compiled {
 		Ok(c) => match should_optimize {
@@ -72,7 +76,7 @@ pub fn compile<T: Field>(path: PathBuf, should_optimize: bool) -> Result<FlatPro
 	}
 }
 
-fn compile_aux<T: Field>(path: PathBuf) -> Result<FlatProg<T>, CompileError<T>> {
+fn compile_aux<T: Field>(path: PathBuf, should_include_gadgets: bool) -> Result<FlatProg<T>, CompileError<T>> {
 	let file = File::open(&path)?;
 
     let program_ast_without_imports: Prog<T> = parse_program(file, path.to_owned())?;
@@ -81,8 +85,15 @@ fn compile_aux<T: Field>(path: PathBuf) -> Result<FlatProg<T>, CompileError<T>> 
 
     for import in program_ast_without_imports.clone().imports {
     	let path = import.resolve()?;
-    	let compiled = compile_aux(path)?;
+    	let compiled = compile_aux(path, should_include_gadgets)?;
     	compiled_imports.push((compiled, import.alias()));
+    }
+
+    if should_include_gadgets {
+    	// inject globals
+	    let r1cs: standard::R1CS = serde_json::from_str(&get_sha256_constraints()).unwrap();
+
+	    compiled_imports.push((FlatProg::from(r1cs), "sha256libsnark".to_string()));
     }
     	
     let program_ast = Importer::new().apply_imports(compiled_imports, program_ast_without_imports);

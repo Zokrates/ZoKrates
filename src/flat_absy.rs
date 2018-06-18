@@ -13,6 +13,8 @@ use std::collections::{BTreeMap};
 use field::Field;
 use parameter::Parameter;
 use substitution::Substitution;
+use executable::{Executable, Sha256Libsnark};
+use standard;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FlatProg<T: Field> {
@@ -24,13 +26,11 @@ pub struct FlatProg<T: Field> {
 impl<T: Field> FlatProg<T> {
     // only main flattened function is relevant here, as all other functions are unrolled into it
     #[allow(dead_code)] // I don't want to remove this
-    pub fn get_witness(&self, inputs: Vec<T>) -> BTreeMap<String, T> {
+    pub fn get_witness(&self, inputs: Vec<T>) -> Result<BTreeMap<String, T>, Error> {
         let main = self.functions.iter().find(|x| x.id == "main").unwrap();
-        assert!(main.arguments.len() == inputs.len());
         main.get_witness(inputs)
     }
 }
-
 
 impl<T: Field> fmt::Display for FlatProg<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -60,6 +60,15 @@ impl<T: Field> fmt::Debug for FlatProg<T> {
     }
 }
 
+impl<T: Field> From<standard::R1CS> for FlatProg<T> {
+    fn from(r1cs: standard::R1CS) -> Self {
+        FlatProg {
+            functions: vec![r1cs.into()]
+        }
+    }
+}
+
+
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct FlatFunction<T: Field> {
     /// Name of the program
@@ -73,7 +82,7 @@ pub struct FlatFunction<T: Field> {
 }
 
 impl<T: Field> FlatFunction<T> {
-    pub fn get_witness(&self, inputs: Vec<T>) -> BTreeMap<String, T> {
+    pub fn get_witness(&self, inputs: Vec<T>) -> Result<BTreeMap<String, T>, Error> {
         assert!(self.arguments.len() == inputs.len());
         let mut witness = BTreeMap::new();
         witness.insert("~one".to_string(), T::one());
@@ -97,11 +106,31 @@ impl<T: Field> FlatFunction<T> {
                     witness.insert(id.to_string(), s);
                 },
                 FlatStatement::Condition(ref lhs, ref rhs) => {
-                    assert_eq!(lhs.solve(&mut witness), rhs.solve(&mut witness))
+                    if lhs.solve(&mut witness) != rhs.solve(&mut witness) {
+                        return Err(Error {
+                            message: format!("Condition not satisfied: {} should equal {}", lhs, rhs)
+                        });
+                    }
+                },
+                FlatStatement::Directive(ref outputs, ref inputs, ref exe) => {
+                    let input_values: Vec<T> = inputs.into_iter().map(|i| witness.get(i).unwrap().clone()).collect();
+                    match exe.execute(&input_values) {
+                        Ok(res) => {
+                            for (i, o) in outputs.iter().enumerate() {
+                                witness.insert(o.to_string(), res[i].clone());
+                            }
+                            continue;
+                        },
+                        Err(message) => {
+                            return Err(Error {
+                                message: message
+                            })
+                        }
+                    };
                 }
             }
         }
-        witness
+        Ok(witness)
     }
 }
 
@@ -141,12 +170,23 @@ impl<T: Field> fmt::Debug for FlatFunction<T> {
     }
 }
 
+/// Calculates a flattened function based on a R1CS (A, B, C) and returns that flattened function:
+/// * The Rank 1 Constraint System (R1CS) is defined as:
+/// * `<A,x>*<B,x> = <C,x>` for a witness `x`
+/// * Since the matrices in R1CS are usually sparse, the following encoding is used:
+/// * For each constraint (i.e., row in the R1CS), only non-zero values are supplied and encoded as a tuple (index, value).
+///
+/// # Arguments
+///
+/// * r1cs - R1CS in standard JSON data format
+
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub enum FlatStatement<T: Field> {
     Return(FlatExpressionList<T>),
     Condition(FlatExpression<T>, FlatExpression<T>),
     Compiler(String, Expression<T>),
-    Definition(String, FlatExpression<T>)
+    Definition(String, FlatExpression<T>),
+    Directive(Vec<String>, Vec<String>, Sha256Libsnark)
 }
 
 impl<T: Field> fmt::Display for FlatStatement<T> {
@@ -156,6 +196,7 @@ impl<T: Field> fmt::Display for FlatStatement<T> {
             FlatStatement::Return(ref expr) => write!(f, "return {}", expr),
             FlatStatement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             FlatStatement::Compiler(ref lhs, ref rhs) => write!(f, "# {} = {}", lhs, rhs),
+            FlatStatement::Directive(ref outputs, ref inputs, _) => write!(f, "# {} = Sha256Libsnark({})", outputs.join(", "), inputs.join(", ")),
         }
     }
 }
@@ -167,6 +208,7 @@ impl<T: Field> fmt::Debug for FlatStatement<T> {
             FlatStatement::Return(ref expr) => write!(f, "FlatReturn({:?})", expr),
             FlatStatement::Condition(ref lhs, ref rhs) => write!(f, "FlatCondition({:?}, {:?})", lhs, rhs),
             FlatStatement::Compiler(ref lhs, ref rhs) => write!(f, "Compiler({:?}, {:?})", lhs, rhs),
+            FlatStatement::Directive(ref outputs, ref inputs, _) => write!(f, "Sha256Libsnark({:?}, {:?})", outputs, inputs),
         }
     }
 }
@@ -188,6 +230,14 @@ impl<T: Field> FlatStatement<T> {
                 }, rhs.clone().apply_substitution(substitution)),
             FlatStatement::Condition(ref x, ref y) => {
                 FlatStatement::Condition(x.apply_substitution(substitution), y.apply_substitution(substitution))
+            },
+            FlatStatement::Directive(ref outputs, ref inputs, ref exe) => {
+                let new_outputs = outputs.iter().map(|o| match substitution.get(o) {
+                    Some(z) => z.clone(),
+                    None => o.clone()
+                }).collect();
+                let new_inputs = inputs.iter().map(|i| substitution.get(i).unwrap()).collect();
+                FlatStatement::Directive(new_outputs, new_inputs, exe.clone())
             }
         }
     }
@@ -344,5 +394,16 @@ impl<T: Field> FlatExpressionList<T> {
 impl<T: Field> fmt::Debug for FlatExpressionList<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "ExpressionList({:?})", self.expressions)
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct Error {
+    message: String
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.message)
     }
 }

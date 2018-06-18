@@ -13,6 +13,7 @@ nolibsnark = []
 libc = "0.2.0"
 num = "0.1.36"
 lazy_static = "0.1.*"
+reduce = "0.1.1"
 # cli
 clap = "2.26.2"
 # serialization and deserialization

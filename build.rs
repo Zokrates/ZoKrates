@@ -31,6 +31,16 @@ fn main() {
             .file("lib/wraplibsnark.cpp")
             .compile("libwraplibsnark.a");
 
+        gcc::Build::new()
+            .cpp(true)
+            .flag("-std=c++11")
+            .include(libsnark_source_path)
+            .include(libsnark_source_path.join("depends/libff"))
+            .include(libsnark_source_path.join("depends/libfqfft"))
+            .define("CURVE_ALT_BN128", None)
+            .file("lib/wraplibsnarkgadgets.cpp")
+            .compile("libwraplibsnarkgadgets.a");
+
         println!(
             "cargo:rustc-link-search=native={}",
             libsnark.join("lib").display()
