@@ -93,7 +93,7 @@ impl Flattener {
                         box FlatExpression::Mult(box FlatExpression::Number(T::from(2)), box FlatExpression::Identifier(rhs_name.to_string())),
                     ),
                 ));
-                for i in 0..self.bits - 2 {
+                for i in 0..self.bits {
                     let new_name = format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, i);
                     statements_flattened.push(FlatStatement::Definition(
                         new_name.to_string(),
@@ -273,17 +273,17 @@ impl Flattener {
                             }
                         },
                         FlatStatement::Definition(var, rhs) => {
-                            let new_rhs = rhs.apply_substitution(&replacement_map);
                             let new_var: String = format!("{}{}", prefix, var.clone());
                             replacement_map.insert(var, new_var.clone());
+                            let new_rhs = rhs.apply_substitution(&replacement_map);
                             statements_flattened.push(
                                 FlatStatement::Definition(new_var, new_rhs)
                             );
                         },
                         FlatStatement::Compiler(var, rhs) => {
-                            let new_rhs = rhs.apply_substitution(&replacement_map);
                             let new_var: String = format!("{}{}", prefix, var.clone());
                             replacement_map.insert(var, new_var.clone());
+                            let new_rhs = rhs.apply_substitution(&replacement_map);
                             statements_flattened.push(FlatStatement::Compiler(new_var, new_rhs));
                         },
                         FlatStatement::Condition(lhs, rhs) => {
@@ -377,7 +377,7 @@ impl Flattener {
                 );
                 let new_left = if left_flattened.is_linear() {
                     left_flattened
-                } else {                    
+                } else {
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;
                     statements_flattened
@@ -386,7 +386,7 @@ impl Flattener {
                 };
                 let new_right = if right_flattened.is_linear() {
                     right_flattened
-                } else {                    
+                } else {
                     let new_name = format!("sym_{}", self.next_var_idx);
                     self.next_var_idx += 1;
                     statements_flattened
@@ -549,11 +549,11 @@ impl Flattener {
         statements_flattened: &mut Vec<FlatStatement<T>>,
         list: ExpressionList<T>,
     ) -> FlatExpressionList<T> {
-        let flattened_exprs = list.expressions.into_iter().map(|x| 
+        let flattened_exprs = list.expressions.into_iter().map(|x|
             self.flatten_expression(
-                functions_flattened, 
-                arguments_flattened, 
-                statements_flattened, 
+                functions_flattened,
+                arguments_flattened,
+                statements_flattened,
                 x.clone())
             ).collect();
         FlatExpressionList {
@@ -577,7 +577,7 @@ impl Flattener {
                     statements_flattened,
                     exprs_subbed,
                 );
-                
+
                 statements_flattened.push(FlatStatement::Return(rhs));
             }
             Statement::Definition(ref id, ref expr) => {
@@ -797,12 +797,12 @@ mod multiple_definition {
         let mut flattener = Flattener::new(FieldPrime::get_required_bits());
         let mut functions_flattened = vec![
             FlatFunction {
-                id: "foo".to_string(), 
-                arguments: vec![], 
+                id: "foo".to_string(),
+                arguments: vec![],
                 statements: vec![FlatStatement::Return(
-                    FlatExpressionList { 
+                    FlatExpressionList {
                         expressions: vec![
-                            FlatExpression::Number(FieldPrime::from(1)), 
+                            FlatExpression::Number(FieldPrime::from(1)),
                             FlatExpression::Number(FieldPrime::from(2))
                         ]
                     }
@@ -814,7 +814,7 @@ mod multiple_definition {
         let mut statements_flattened = vec![];
         let statement = Statement::MultipleDefinition(
             vec![
-                "a".to_string(), 
+                "a".to_string(),
                 "b".to_string()
             ],
             Expression::FunctionCall("foo".to_string(), vec![])
@@ -845,13 +845,13 @@ mod multiple_definition {
         let mut flattener = Flattener::new(FieldPrime::get_required_bits());
         let mut functions_flattened = vec![
             FlatFunction {
-                id: "dup".to_string(), 
-                arguments: vec![Parameter { id: "x".to_string(), private: true }], 
+                id: "dup".to_string(),
+                arguments: vec![Parameter { id: "x".to_string(), private: true }],
                 statements: vec![FlatStatement::Return(
-                    FlatExpressionList { 
+                    FlatExpressionList {
                         expressions: vec![
-                            FlatExpression::Identifier("x".to_string()), 
-                            FlatExpression::Identifier("x".to_string()), 
+                            FlatExpression::Identifier("x".to_string()),
+                            FlatExpression::Identifier("x".to_string()),
                         ]
                     }
                 )],
@@ -862,9 +862,9 @@ mod multiple_definition {
         let mut statements_flattened = vec![];
         let statement = Statement::MultipleDefinition(
             vec![
-                "a".to_string(), 
+                "a".to_string(),
                 "b".to_string()
-            ], 
+            ],
             Expression::FunctionCall("dup".to_string(), vec![Expression::Number(FieldPrime::from(2))])
         );
 
@@ -893,10 +893,10 @@ mod multiple_definition {
         let mut flattener = Flattener::new(FieldPrime::get_required_bits());
         let mut functions_flattened = vec![
             FlatFunction {
-                id: "foo".to_string(), 
-                arguments: vec![], 
+                id: "foo".to_string(),
+                arguments: vec![],
                 statements: vec![FlatStatement::Return(
-                    FlatExpressionList { 
+                    FlatExpressionList {
                         expressions: vec![
                             FlatExpression::Number(FieldPrime::from(1))
                         ]
@@ -908,7 +908,7 @@ mod multiple_definition {
         let arguments_flattened = vec![];
         let mut statements_flattened = vec![];
         let statement = Statement::Definition(
-            "a".to_string(), 
+            "a".to_string(),
             Expression::FunctionCall("foo".to_string(), vec![])
         );
 
@@ -938,16 +938,16 @@ mod multiple_definition {
         //      b, c = foo()
         //      return 1
         //
-        //      should not panic    
+        //      should not panic
         //
 
         let mut flattener = Flattener::new(FieldPrime::get_required_bits());
         let functions = vec![
             Function {
-                id: "foo".to_string(), 
-                arguments: vec![], 
+                id: "foo".to_string(),
+                arguments: vec![],
                 statements: vec![Statement::Return(
-                    ExpressionList { 
+                    ExpressionList {
                         expressions: vec![
                             Expression::Number(FieldPrime::from(1))
                         ]
@@ -956,10 +956,10 @@ mod multiple_definition {
                 return_count: 1,
             },
             Function {
-                id: "foo".to_string(), 
-                arguments: vec![], 
+                id: "foo".to_string(),
+                arguments: vec![],
                 statements: vec![Statement::Return(
-                    ExpressionList { 
+                    ExpressionList {
                         expressions: vec![
                             Expression::Number(FieldPrime::from(1)),
                             Expression::Number(FieldPrime::from(2))
