@@ -34,6 +34,11 @@ impl<T: Field> Executable<T> for Sha256Libsnark {
 		let (expected_input_count, expected_output_count) = (self as &Executable<T>).get_signature();
 		assert!(inputs.len() == expected_input_count);
 
+		#[cfg(feature = "nolibsnark")] 
+		{	
+			Err(format!("Libsnark is not available"))
+		}
+
 		#[cfg(not(feature = "nolibsnark"))] 
 		{
 			let witness_result: Result<standard::Witness, serde_json::Error> = serde_json::from_str(&get_sha256_witness(inputs));
@@ -51,8 +56,6 @@ impl<T: Field> Executable<T> for Sha256Libsnark {
 				}
 			}
 		}
-
-		Err(format!("Libsnark is not available"))
 	}
 }
 
