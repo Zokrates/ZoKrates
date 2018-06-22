@@ -4,7 +4,9 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
+#[cfg(not(feature = "nolibsnark"))] 
 use libsnark::*;
+
 use field::Field;
 use serde_json;
 use standard;
@@ -31,18 +33,27 @@ impl<T: Field> Executable<T> for Sha256Libsnark {
 	fn execute(&self, inputs: &Vec<T>) -> Result<Vec<T>, String> {
 		let (expected_input_count, expected_output_count) = (self as &Executable<T>).get_signature();
 		assert!(inputs.len() == expected_input_count);
-		let witness_result: Result<standard::Witness, serde_json::Error> = serde_json::from_str(&get_sha256_witness(inputs));
 
-		if let Err(e) = witness_result {
-			return Err(format!("{}", e));
+		#[cfg(feature = "nolibsnark")] 
+		{	
+			Err(format!("Libsnark is not available"))
 		}
 
-		let res: Vec<T> = witness_result.unwrap().variables.iter().map(|&i| T::from(i)).collect();
-		
-		match res.len() {
-			l if l == expected_output_count => Ok(res),
-			_ => {
-				Err(format!("invalid witness size: is {} but should be {}", res.len(), expected_output_count).to_string())
+		#[cfg(not(feature = "nolibsnark"))] 
+		{
+			let witness_result: Result<standard::Witness, serde_json::Error> = serde_json::from_str(&get_sha256_witness(inputs));
+
+			if let Err(e) = witness_result {
+				return Err(format!("{}", e));
+			}
+
+			let res: Vec<T> = witness_result.unwrap().variables.iter().map(|&i| T::from(i)).collect();
+			
+			match res.len() {
+				l if l == expected_output_count => Ok(res),
+				_ => {
+					Err(format!("invalid witness size: is {} but should be {}", res.len(), expected_output_count).to_string())
+				}
 			}
 		}
 	}
