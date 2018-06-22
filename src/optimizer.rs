@@ -87,8 +87,8 @@ impl Optimizer {
 				FlatStatement::Compiler(ref id, _) => {
 					self.substitution.insert(id.clone(), format!("_{}", self.next_var_idx.increment()));
 				},
-				FlatStatement::Directive(ref outputs, _, _) => {
-					for o in outputs {
+				FlatStatement::Directive(ref d) => {
+					for o in d.outputs.iter() {
 						self.substitution.insert(o.clone(), format!("_{}", self.next_var_idx.increment()));
 					}
 				},

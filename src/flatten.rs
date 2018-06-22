@@ -15,6 +15,7 @@ use flat_absy::*;
 use parameter::Parameter;
 use direct_substitution::DirectSubstitution;
 use substitution::Substitution;
+use helpers::{DirectiveStatement};
 
 /// Flattener, computes flattened program.
 pub struct Flattener {
@@ -292,14 +293,22 @@ impl Flattener {
                             statements_flattened
                                 .push(FlatStatement::Condition(new_lhs, new_rhs));
                         },
-                        FlatStatement::Directive(outputs, inputs, exe) => {
-                            let new_outputs = outputs.iter().map(|o| {
+                        FlatStatement::Directive(d) => {
+                            let new_outputs = d.outputs.iter().map(|o| {
                                 let new_o: String = format!("{}{}", prefix, o.clone());
                                 replacement_map.insert(o.to_string(), new_o.clone());
                                 new_o
                             }).collect();
-                            let new_inputs = inputs.iter().map(|i| replacement_map.get(i).unwrap()).collect();
-                            statements_flattened.push(FlatStatement::Directive(new_outputs, new_inputs, exe.clone()))
+                            let new_inputs = d.inputs.iter().map(|i| replacement_map.get(i).unwrap()).collect();
+                            statements_flattened.push(
+                                FlatStatement::Directive(
+                                    DirectiveStatement {
+                                        outputs: new_outputs,
+                                        inputs: new_inputs,
+                                        helper: d.helper.clone()
+                                    }
+                                )
+                            )
                         }
                     }
                 }

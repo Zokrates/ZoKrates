@@ -33,8 +33,8 @@ mod optimizer;
 mod r1cs;
 mod field;
 mod verification;
-mod executable;
 mod standard;
+mod helpers;
 #[cfg(not(feature = "nolibsnark"))]
 mod libsnark;
 

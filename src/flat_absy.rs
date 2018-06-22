@@ -13,8 +13,8 @@ use std::collections::{BTreeMap};
 use field::Field;
 use parameter::Parameter;
 use substitution::Substitution;
-use executable::{Executable, Sha256Libsnark};
 use standard;
+use helpers::{DirectiveStatement, Executable};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FlatProg<T: Field> {
@@ -112,11 +112,11 @@ impl<T: Field> FlatFunction<T> {
                         });
                     }
                 },
-                FlatStatement::Directive(ref outputs, ref inputs, ref exe) => {
-                    let input_values: Vec<T> = inputs.into_iter().map(|i| witness.get(i).unwrap().clone()).collect();
-                    match exe.execute(&input_values) {
+                FlatStatement::Directive(ref d) => {
+                    let input_values: Vec<T> = d.inputs.iter().map(|i| witness.get(i).unwrap().clone()).collect();
+                    match d.helper.execute(&input_values) {
                         Ok(res) => {
-                            for (i, o) in outputs.iter().enumerate() {
+                            for (i, o) in d.outputs.iter().enumerate() {
                                 witness.insert(o.to_string(), res[i].clone());
                             }
                             continue;
@@ -186,7 +186,7 @@ pub enum FlatStatement<T: Field> {
     Condition(FlatExpression<T>, FlatExpression<T>),
     Compiler(String, Expression<T>),
     Definition(String, FlatExpression<T>),
-    Directive(Vec<String>, Vec<String>, Sha256Libsnark)
+    Directive(DirectiveStatement)
 }
 
 impl<T: Field> fmt::Display for FlatStatement<T> {
@@ -196,7 +196,7 @@ impl<T: Field> fmt::Display for FlatStatement<T> {
             FlatStatement::Return(ref expr) => write!(f, "return {}", expr),
             FlatStatement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             FlatStatement::Compiler(ref lhs, ref rhs) => write!(f, "# {} = {}", lhs, rhs),
-            FlatStatement::Directive(ref outputs, ref inputs, _) => write!(f, "# {} = Sha256Libsnark({})", outputs.join(", "), inputs.join(", ")),
+            FlatStatement::Directive(ref d) => write!(f, "{}", d),
         }
     }
 }
@@ -208,7 +208,7 @@ impl<T: Field> fmt::Debug for FlatStatement<T> {
             FlatStatement::Return(ref expr) => write!(f, "FlatReturn({:?})", expr),
             FlatStatement::Condition(ref lhs, ref rhs) => write!(f, "FlatCondition({:?}, {:?})", lhs, rhs),
             FlatStatement::Compiler(ref lhs, ref rhs) => write!(f, "Compiler({:?}, {:?})", lhs, rhs),
-            FlatStatement::Directive(ref outputs, ref inputs, _) => write!(f, "Sha256Libsnark({:?}, {:?})", outputs, inputs),
+            FlatStatement::Directive(ref d) => write!(f, "{:?}", d),
         }
     }
 }
@@ -231,13 +231,19 @@ impl<T: Field> FlatStatement<T> {
             FlatStatement::Condition(ref x, ref y) => {
                 FlatStatement::Condition(x.apply_substitution(substitution), y.apply_substitution(substitution))
             },
-            FlatStatement::Directive(ref outputs, ref inputs, ref exe) => {
-                let new_outputs = outputs.iter().map(|o| match substitution.get(o) {
+            FlatStatement::Directive(ref d) => {
+                let new_outputs = d.outputs.iter().map(|o| match substitution.get(o) {
                     Some(z) => z.clone(),
                     None => o.clone()
                 }).collect();
-                let new_inputs = inputs.iter().map(|i| substitution.get(i).unwrap()).collect();
-                FlatStatement::Directive(new_outputs, new_inputs, exe.clone())
+                let new_inputs = d.inputs.iter().map(|i| substitution.get(i).unwrap()).collect();
+                FlatStatement::Directive(
+                    DirectiveStatement {
+                        outputs: new_outputs,
+                        inputs: new_inputs,
+                        helper: d.helper.clone()
+                    }
+                )
             }
         }
     }
