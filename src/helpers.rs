@@ -1,7 +1,9 @@
 use std::fmt;
 use field::{Field};
 
+#[cfg(not(feature = "nolibsnark"))]
 use libsnark::*;
+
 use serde_json;
 use standard;
 
@@ -72,13 +74,21 @@ impl<T: Field> Executable<T> for LibsnarkGadgetHelper {
 	fn execute(&self, inputs: &Vec<T>) -> Result<Vec<T>, String> {
 		match self {
 			LibsnarkGadgetHelper::Sha256Compress => {
-				let witness_result: Result<standard::Witness, serde_json::Error> = serde_json::from_str(&get_sha256_witness(inputs));
-
-				if let Err(e) = witness_result {
-					return Err(format!("{}", e));
+				#[cfg(feature = "nolibsnark")]
+				{
+					Err(format!("Libsnark is not available"))
 				}
 
-				Ok(witness_result.unwrap().variables.iter().map(|&i| T::from(i)).collect())
+				#[cfg(not(feature = "nolibsnark"))]
+				{
+					let witness_result: Result<standard::Witness, serde_json::Error> = serde_json::from_str(&get_sha256_witness(inputs));
+
+					if let Err(e) = witness_result {
+						return Err(format!("{}", e));
+					}
+
+					Ok(witness_result.unwrap().variables.iter().map(|&i| T::from(i)).collect())
+				}
 			},
 		}
 	}
