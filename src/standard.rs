@@ -2,9 +2,9 @@
 use std::collections::{BTreeMap, HashSet};
 use flat_absy::{FlatStatement, FlatExpression, FlatFunction, FlatExpressionList};
 use field::Field;
-use executable::Sha256Libsnark;
 use parameter::Parameter;
 use reduce::Reduce;
+use helpers::{DirectiveStatement, Helper, LibsnarkGadgetHelper};
 
 // for r1cs import, can be moved.
 // r1cs data strucutre reflecting JSON standard format:
@@ -103,7 +103,13 @@ impl<T: Field> Into<FlatFunction<T>> for R1CS {
         let return_count = outputs.len();
 
         // insert a directive to set the witness based on the inputs
-        statements.insert(0, FlatStatement::Directive(variables, inputs, Sha256Libsnark::new(self.input_count, variables_count)));
+        statements.insert(0, FlatStatement::Directive(
+            DirectiveStatement {
+                outputs: variables,
+                inputs: inputs,
+                helper: Helper::LibsnarkGadget(LibsnarkGadgetHelper::Sha256Compress),
+            })
+        );
 
         // insert a statement to return the subset of the witness
         statements.push(FlatStatement::Return(
