@@ -1,13 +1,13 @@
-#[cfg(not(feature = "nolibsnark"))]
+#[cfg(feature = "libsnark")]
 extern crate gcc;
-#[cfg(not(feature = "nolibsnark"))]
+#[cfg(feature = "libsnark")]
 extern crate cmake;
 
 use std::path::Path;
 use std::env;
 
 fn main() {
-    #[cfg(not(feature = "nolibsnark"))]
+    #[cfg(feature = "libsnark")]
     {
         let libsnark_source_path_string = env::var_os("LIBSNARK_SOURCE_PATH").expect("$LIBSNARK_SOURCE_PATH not set");
         let libsnark_source_path = Path::new(&libsnark_source_path_string);

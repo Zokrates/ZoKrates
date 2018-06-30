@@ -1,0 +1,31 @@
+[package]
+name = "zokrates"
+version = "0.1.0"
+authors = ["Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>", "Dennis Kuhnert <mail@kyroy.com>", "Thibaut Schaeffer <thibaut@schaeff.fr>"]
+repository = "https://github.com/JacobEberhardt/ZoKrates.git"
+build = "build.rs"
+
+[features]
+default = ["libsnark"]
+libsnark = []
+
+[dependencies]
+libc = "0.2.0"
+num = "0.1.36"
+lazy_static = "0.1.*"
+reduce = "0.1.1"
+# cli
+# serialization and deserialization
+serde = "1.0"
+serde_derive = "1.0"
+serde_json = "1.0"
+bincode = "0.8.0"
+regex = "0.2"
+
+[build-dependencies]
+gcc = "0.3.41"
+cmake = "0.1.31"
+
+[lib]
+name = "zokrates"
+path = "src/lib.rs"

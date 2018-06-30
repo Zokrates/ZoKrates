@@ -5,6 +5,7 @@ MAINTAINER JacobEberhardt <jacob.eberhardt@tu-berlin.de>, Dennis Kuhnert <mail@k
 ARG RUST_TOOLCHAIN=nightly-2018-06-04
 ARG LIBSNARK_COMMIT=f7c87b88744ecfd008126d415494d9b34c4c1b20
 ENV LIBSNARK_SOURCE_PATH=/root/libsnark-$LIBSNARK_COMMIT
+ENV WITH_LIBSNARK=1
 
 WORKDIR /root/
 
@@ -34,5 +35,5 @@ WORKDIR /root/
 
 COPY . ZoKrates
 
-RUN cd ZoKrates \
-    && cargo build --release
+#RUN cd ZoKrates \
+#    && ./build.sh

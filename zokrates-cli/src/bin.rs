@@ -1,58 +1,29 @@
 //
-// @file main.rs
+// @file bin.rs
 // @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 // @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
 // @date 2017
 
-#![feature(box_patterns, box_syntax)]
-
 extern crate clap;
-#[macro_use]
-extern crate lazy_static;
-extern crate num; // cli
-extern crate reduce; // better reduce function than Iter.fold
-extern crate serde; // serialization deserialization
-extern crate serde_json;
-#[macro_use]
-extern crate serde_derive;
 extern crate bincode;
 extern crate regex;
-
-mod absy;
-mod flat_absy;
-mod parameter;
-mod parser;
-mod imports;
-mod semantics;
-mod substitution;
-mod prefixed_substitution;
-mod direct_substitution;
-mod flatten;
-mod compile;
-mod optimizer;
-mod r1cs;
-mod field;
-mod verification;
-mod standard;
-mod helpers;
-#[cfg(not(feature = "nolibsnark"))]
-mod libsnark;
+extern crate zokrates;
 
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::io::{BufWriter, Write, BufReader, BufRead, stdin};
 use std::collections::HashMap;
 use std::string::String;
-use compile::compile;
-use field::{Field, FieldPrime};
-use r1cs::{r1cs_program};
-use flat_absy::FlatProg;
+use zokrates::compile::compile;
+use zokrates::field::{Field, FieldPrime};
+use zokrates::r1cs::{r1cs_program};
+use zokrates::flat_absy::FlatProg;
 use clap::{App, AppSettings, Arg, SubCommand};
-#[cfg(not(feature = "nolibsnark"))]
-use libsnark::{setup, generate_proof};
+#[cfg(feature = "libsnark")]
+use zokrates::libsnark::{setup, generate_proof};
 use bincode::{serialize_into, deserialize_from , Infinite};
 use regex::Regex;
-use verification::CONTRACT_TEMPLATE;
+use zokrates::verification::CONTRACT_TEMPLATE;
 
 fn main() {
     const FLATTENED_CODE_DEFAULT_PATH: &str = "out";
@@ -409,7 +380,7 @@ fn main() {
             let vk_path = sub_matches.value_of("verification-key-path").unwrap();
 
             // run setup phase
-            #[cfg(not(feature="nolibsnark"))]{
+            #[cfg(feature="libsnark")]{
                 // number of inputs in the zkSNARK sense, i.e., input variables + output variables
                 let num_inputs = main_flattened.arguments.iter().filter(|x| !x.private).count() + main_flattened.return_count;
                 println!("setup successful: {:?}", setup(variables, a, b, c, num_inputs, pk_path, vk_path));
@@ -543,7 +514,7 @@ fn main() {
             let pk_path = sub_matches.value_of("provingkey").unwrap();
 
             // run libsnark
-            #[cfg(not(feature="nolibsnark"))]{
+            #[cfg(feature="libsnark")]{
                 println!("generate-proof successful: {:?}", generate_proof(pk_path, public_inputs, private_inputs));
             }
 
@@ -557,7 +528,6 @@ fn main() {
 mod tests {
     extern crate glob;
     use super::*;
-    use num::Zero;
     use self::glob::glob;
 
     #[test]
@@ -590,7 +560,7 @@ mod tests {
                 compile(path, true, false).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
-            let _ = program_flattened.get_witness(vec![FieldPrime::zero()]);
+            let _ = program_flattened.get_witness(vec![FieldPrime::from(0)]);
         }
     }
 }

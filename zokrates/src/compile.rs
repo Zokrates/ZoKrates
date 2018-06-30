@@ -16,7 +16,7 @@ use optimizer::{Optimizer};
 use flatten::Flattener;
 use std::io::{self};
 
-#[cfg(not(feature = "nolibsnark"))]
+#[cfg(feature = "libsnark")]
 use libsnark::{get_sha256_constraints};
 
 use serde_json;
@@ -91,7 +91,7 @@ fn compile_aux<T: Field>(path: PathBuf, should_include_gadgets: bool) -> Result<
     	compiled_imports.push((compiled, import.alias()));
     }
 
-    #[cfg(not(feature = "nolibsnark"))]
+    #[cfg(feature = "libsnark")]
     {
 	    if should_include_gadgets {
 	    	// inject globals
