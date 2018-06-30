@@ -3,9 +3,9 @@
 //! @file compile.rs
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
-use std::fs::File;
+use std::io::BufRead;
 use std::fmt;
-use std::path::{PathBuf};
+use std::path::PathBuf;
 use field::{Field, FieldPrime};
 use absy::{Prog};
 use flat_absy::{FlatProg};
@@ -66,8 +66,8 @@ impl fmt::Display for CompileError<FieldPrime> {
 	}
 }
 
-pub fn compile<T: Field>(path: PathBuf, should_optimize: bool, should_include_gadgets: bool) -> Result<FlatProg<T>, CompileError<T>> {
-	let compiled = compile_aux(path, should_include_gadgets);
+pub fn compile<T: Field, R: BufRead>(reader: &mut R, should_optimize: bool, should_include_gadgets: bool) -> Result<FlatProg<T>, CompileError<T>> {
+	let compiled = compile_aux(reader, should_include_gadgets);
 
 	match compiled {
 		Ok(c) => match should_optimize {
@@ -78,18 +78,19 @@ pub fn compile<T: Field>(path: PathBuf, should_optimize: bool, should_include_ga
 	}
 }
 
-fn compile_aux<T: Field>(path: PathBuf, should_include_gadgets: bool) -> Result<FlatProg<T>, CompileError<T>> {
-	let file = File::open(&path)?;
+fn compile_aux<T: Field, R: BufRead>(reader: &mut R, should_include_gadgets: bool) -> Result<FlatProg<T>, CompileError<T>> {
+	//let file = File::open(&path)?;
+	let mut path = PathBuf::new();
 
-    let program_ast_without_imports: Prog<T> = parse_program(file, path.to_owned())?;
+    let program_ast_without_imports: Prog<T> = parse_program(reader, path)?;
 
     let mut compiled_imports: Vec<(FlatProg<T>, String)> = vec![];
 
-    for import in program_ast_without_imports.clone().imports {
-    	let path = import.resolve()?;
-    	let compiled = compile_aux(path, should_include_gadgets)?;
-    	compiled_imports.push((compiled, import.alias()));
-    }
+    // for import in program_ast_without_imports.clone().imports {
+    // 	let path = import.resolve()?;
+    // 	let compiled = compile_aux(path, should_include_gadgets)?;
+    // 	compiled_imports.push((compiled, import.alias()));
+    // }
 
     #[cfg(feature = "libsnark")]
     {
@@ -101,7 +102,9 @@ fn compile_aux<T: Field>(path: PathBuf, should_include_gadgets: bool) -> Result<
 	    }
    	} 
     	
-    let program_ast = Importer::new().apply_imports(compiled_imports, program_ast_without_imports);
+    //let program_ast = Importer::new().apply_imports(compiled_imports, program_ast_without_imports);
+
+    let program_ast = program_ast_without_imports;
 
     // check semantics
     Checker::new().check_program(program_ast.clone())?;

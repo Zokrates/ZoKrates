@@ -196,8 +196,12 @@ fn main() {
             let should_optimize = sub_matches.occurrences_of("optimized") > 0;
 
             let should_include_gadgets = sub_matches.occurrences_of("gadgets") > 0;
+
+            let file = File::open(path).unwrap();
+
+            let mut reader = BufReader::new(file);
             
-            let program_flattened: FlatProg<FieldPrime> = match compile(path, should_optimize, should_include_gadgets) {
+            let program_flattened: FlatProg<FieldPrime> = match compile(&mut reader, should_optimize, should_include_gadgets) {
                 Ok(p) => p,
                 Err(why) => panic!("Compilation failed: {}", why)
             };

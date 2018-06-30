@@ -984,8 +984,8 @@ fn parse_statement1<T: Field>(
     }
 }
 
-fn parse_statement<T: Field>(
-    lines: &mut Lines<BufReader<File>>,
+fn parse_statement<T: Field, R: BufRead>(
+    lines: &mut Lines<R>,
     input: &String,
     pos: &Position,
 ) -> Result<(Statement<T>, String, Position), Error<T>> {
@@ -1175,8 +1175,8 @@ fn parse_statement<T: Field>(
 }
 
 
-fn parse_function<T: Field>(
-    mut lines: &mut Lines<BufReader<File>>,
+fn parse_function<T: Field, R: BufRead>(
+    mut lines: &mut Lines<R>,
     input: &String,
     pos: &Position,
 ) -> Result<(Function<T>, Position), Error<T>> {
@@ -1465,9 +1465,8 @@ fn parse_import<T: Field>(
     }
 }
 
-pub fn parse_program<T: Field>(file: File, path: PathBuf) -> Result<Prog<T>, Error<T>> {
+pub fn parse_program<T: Field, R: BufRead>(reader: &mut R, path: PathBuf) -> Result<Prog<T>, Error<T>> {
     let mut current_line = 1;
-    let reader = BufReader::new(file);
     let mut lines = reader.lines();
     let mut functions = Vec::new();
     let mut imports = Vec::new();
