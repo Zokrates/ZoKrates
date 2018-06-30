@@ -35,5 +35,5 @@ WORKDIR /root/
 
 COPY . ZoKrates
 
-#RUN cd ZoKrates \
-#    && ./build.sh
+RUN cd ZoKrates \
+    && ./build.sh

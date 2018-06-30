@@ -4,7 +4,7 @@
 set -e
 
 cd zokrates-cli
-if [ $WITH_LIBSNARK ]; then
+if [ -n "$WITH_LIBSNARK" ]; then
 	cargo build --features libsnark
 else
 	cargo build

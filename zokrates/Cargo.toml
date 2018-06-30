@@ -6,7 +6,7 @@ repository = "https://github.com/JacobEberhardt/ZoKrates.git"
 build = "build.rs"
 
 [features]
-default = ["libsnark"]
+default = []
 libsnark = []
 
 [dependencies]
