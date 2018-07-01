@@ -197,7 +197,7 @@ contract Verifier {
         )) return 5;
         return 0;
     }
-    event Verified(string);
+    event Verified(string s);
     function verifyTx(
             uint[2] a,
             uint[2] a_p,
