@@ -73,18 +73,6 @@ std::string outputPointG2AffineAsHex(libff::alt_bn128_G2 _p)
                 HexStringFromLibsnarkBigint(aff.Y.c0.as_bigint()) + "]";
 }
 
-// std::string outputPointGTAffineAsHex(libff::alt_bn128_GT _p)
-// {
-//         libff::alt_bn128_GT aff = _p;
-//         aff.to_affine_coordinates();
-//         return
-//                 "[0x" +
-//                 HexStringFromLibsnarkBigint(aff.X.c1.as_bigint()) + ", 0x" +
-//                 HexStringFromLibsnarkBigint(aff.X.c0.as_bigint()) + "], [0x" +
-//                 HexStringFromLibsnarkBigint(aff.Y.c1.as_bigint()) + ", 0x" +
-//                 HexStringFromLibsnarkBigint(aff.Y.c0.as_bigint()) + "]";
-// }
-
 //takes input and puts it into constraint system
 r1cs_gg_ppzksnark_zok_constraint_system<libff::alt_bn128_pp> createConstraintSystem(const uint8_t* A, const uint8_t* B, const uint8_t* C, int constraints, int variables, int inputs)
 {
@@ -176,15 +164,15 @@ r1cs_gg_ppzksnark_zok_proving_key<libff::alt_bn128_pp> deserializeProvingKeyFrom
 void serializeVerificationKeyToFile(r1cs_gg_ppzksnark_zok_verification_key<libff::alt_bn128_pp> vk, const char* vk_path){
   std::stringstream ss;
 
-  unsigned icLength = vk.gamma_ABC_g1.rest.indices.size() + 1;
+  unsigned gammaABClength = vk.gamma_ABC_g1.rest.indices.size() + 1;
   
   ss << "\t\tvk.alpha = " << outputPointG1AffineAsHex(vk.alpha_g1) << endl;
   ss << "\t\tvk.beta = " << outputPointG2AffineAsHex(vk.beta_g2) << endl;
   ss << "\t\tvk.gamma = " << outputPointG2AffineAsHex(vk.gamma_g2) << endl;
   ss << "\t\tvk.delta = " << outputPointG2AffineAsHex(vk.delta_g2) << endl;
-  ss << "\t\tvk.gammaABC.len() = " << icLength << endl;
+  ss << "\t\tvk.gammaABC.len() = " << gammaABClength << endl;
   ss << "\t\tvk.gammaABC[0] = " << outputPointG1AffineAsHex(vk.gamma_ABC_g1.first) << endl;
-  for (size_t i = 1; i < icLength; ++i)
+  for (size_t i = 1; i < gammaABClength; ++i)
   {
           auto vkgammaABCi = outputPointG1AffineAsHex(vk.gamma_ABC_g1.rest.values[i - 1]);
           ss << "\t\tvk.gammaABC[" << i << "] = " << vkgammaABCi << endl;
@@ -200,17 +188,16 @@ void serializeVerificationKeyToFile(r1cs_gg_ppzksnark_zok_verification_key<libff
 
 // compliant with solidty verification example
 void exportVerificationKey(r1cs_gg_ppzksnark_zok_keypair<libff::alt_bn128_pp> keypair){
-
-        unsigned icLength = keypair.vk.gamma_ABC_g1.rest.indices.size() + 1;
+        unsigned gammaABClength = keypair.vk.gamma_ABC_g1.rest.indices.size() + 1;
 
         cout << "\tVerification key in Solidity compliant format:{" << endl;
         cout << "\t\tvk.alpha = Pairing.G1Point(" << outputPointG1AffineAsHex(keypair.vk.alpha_g1) << ");" << endl;
         cout << "\t\tvk.beta = Pairing.G2Point(" << outputPointG2AffineAsHex(keypair.vk.beta_g2) << ");" << endl;
         cout << "\t\tvk.gamma = Pairing.G2Point(" << outputPointG2AffineAsHex(keypair.vk.gamma_g2) << ");" << endl;
         cout << "\t\tvk.delta = Pairing.G2Point(" << outputPointG2AffineAsHex(keypair.vk.delta_g2) << ");" << endl;
-        cout << "\t\tvk.gammaABC = new Pairing.G1Point[](" << icLength << ");" << endl;
+        cout << "\t\tvk.gammaABC = new Pairing.G1Point[](" << gammaABClength << ");" << endl;
         cout << "\t\tvk.gammaABC[0] = Pairing.G1Point(" << outputPointG1AffineAsHex(keypair.vk.gamma_ABC_g1.first) << ");" << endl;
-        for (size_t i = 1; i < icLength; ++i)
+        for (size_t i = 1; i < gammaABClength; ++i)
         {
                 auto vkgammaABCi = outputPointG1AffineAsHex(keypair.vk.gamma_ABC_g1.rest.values[i - 1]);
                 cout << "\t\tvk.gammaABC[" << i << "] = Pairing.G1Point(" << vkgammaABCi << ");" << endl;
