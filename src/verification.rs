@@ -179,7 +179,7 @@ contract Verifier {
              Pairing.negate(vk.a), vk.b)) return 1;
         return 0;
     }
-    event Verified(string);
+    event Verified(string s);
     function verifyTx(
             uint[2] a,
             uint[2][2] b,
