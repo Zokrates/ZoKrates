@@ -144,7 +144,8 @@ library Pairing {
 contract Verifier {
     using Pairing for *;
     struct VerifyingKey {
-        Pairing.G2Point ab;
+        Pairing.G1Point a;
+        Pairing.G2Point b;
         Pairing.G2Point gamma;
         Pairing.G2Point delta;
         Pairing.G1Point[] gammaABC;
@@ -155,7 +156,8 @@ contract Verifier {
         Pairing.G1Point C;
     }
     function verifyingKey() pure internal returns (VerifyingKey vk) {
-        vk.ab = Pairing.G2Point(<%vk_ab%>);
+        vk.a = Pairing.G1Point(<%vk_a%>);
+        vk.b = Pairing.G2Point(<%vk_b%>);
         vk.gamma = Pairing.G2Point(<%vk_gamma%>);
         vk.delta = Pairing.G2Point(<%vk_delta%>);
         vk.gammaABC = new Pairing.G1Point[](<%vk_gammaABC_length%>);
@@ -174,7 +176,7 @@ contract Verifier {
              proof.A, proof.B,
              Pairing.negate(vk_x), vk.gamma,
              Pairing.negate(proof.C), vk.delta,
-             Pairing.negate(Pairing.P1()), vk.ab)) return 1;
+             Pairing.negate(vk.a), vk.b)) return 1;
         return 0;
     }
     event Verified(string);

@@ -429,7 +429,7 @@ fn main() {
             let vk_gamma_abc_repeat_regex = Regex::new(r#"(<%vk_gammaABC_pts%>)"#).unwrap();
             let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
 
-            for _ in 0..3 {
+            for _ in 0..4 {
                 let current_line: String = lines.next().expect("Unexpected end of file in verification key!").unwrap();
                 let current_line_split: Vec<&str> = current_line.split("=").collect();
                 assert_eq!(current_line_split.len(), 2);
