@@ -3,7 +3,7 @@ FROM ubuntu:14.04
 MAINTAINER JacobEberhardt <jacob.eberhardt@tu-berlin.de>, Dennis Kuhnert <mail@kyroy.com>
 
 ARG RUST_TOOLCHAIN=nightly-2018-06-04
-ARG LIBSNARK_COMMIT=groth-without-gt
+ARG LIBSNARK_COMMIT=c13a1e7ba866d7ef417c32d8b62dd64f0adc4288
 ENV LIBSNARK_SOURCE_PATH=/root/libsnark-$LIBSNARK_COMMIT
 
 WORKDIR /root/
