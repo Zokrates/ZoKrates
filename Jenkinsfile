@@ -3,9 +3,16 @@
 def majorVersion
 def minorVersion
 def patchVersion
+def dockerImage
 
 pipeline {
     agent any
+    options {
+        skipStagesAfterUnstable()
+        timeout(time: 2, unit: 'HOURS')
+        timestamps()
+        buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
+    }
     stages {
         stage('Init') {
             steps {
@@ -25,16 +32,25 @@ pipeline {
         }
         stage('Build') {
             steps {
-                withDockerContainer('kyroy/zokrates-test:1') {
-                    sh 'RUSTFLAGS="-D warnings" cargo build'
+                script {
+                    ansiColor('xterm') {
+                        dockerImage = docker.build("kyroy/zokrates")
+                        dockerImage.inside {
+                            sh 'RUSTFLAGS="-D warnings" cargo build'
+                        }
+                    }
                 }
             }
         }
 
         stage('Test') {
             steps {
-                withDockerContainer('kyroy/zokrates-test:1') {
-                    sh 'RUSTFLAGS="-D warnings" cargo test'
+                script {
+                    ansiColor('xterm') {
+                        dockerImage.inside {
+                            sh 'RUSTFLAGS="-D warnings" cargo test'
+                        }
+                    }
                 }
             }
         }
@@ -44,8 +60,12 @@ pipeline {
                 expression { env.BRANCH_NAME == 'master' || env.BRANCH_NAME == 'develop' }
             }
             steps {
-                withDockerContainer('kyroy/zokrates-test:1') {
-                    sh 'RUSTFLAGS="-D warnings" cargo test -- --ignored'
+                script {
+                    ansiColor('xterm') {
+                        dockerImage.inside {
+                            sh 'RUSTFLAGS="-D warnings" cargo test -- --ignored'
+                        }
+                    }
                 }
             }
         }
@@ -56,14 +76,15 @@ pipeline {
             }
             steps {
                 script {
-                    def dockerImage = docker.build("kyroy/zokrates")
-                    docker.withRegistry('https://registry.hub.docker.com', 'dockerhub-kyroy') {
-                        dockerImage.push(patchVersion)
-                        dockerImage.push(minorVersion)
-                        if (majorVersion > '0') {
-                            dockerImage.push(majorVersion)
+                    ansiColor('xterm') {
+                        docker.withRegistry('https://registry.hub.docker.com', 'dockerhub-kyroy') {
+                            dockerImage.push(patchVersion)
+                            dockerImage.push(minorVersion)
+                            if (majorVersion > '0') {
+                                dockerImage.push(majorVersion)
+                            }
+                            dockerImage.push("latest")
                         }
-                        dockerImage.push("latest")
                     }
                 }
             }
