@@ -21,7 +21,7 @@ Zokrates bridges this gap. It helps you create offchain programs and link them t
 Using Docker is currently the recommended way to get started with Zokrates.
 
 ```bash
-docker run -ti kyroy/zokrates /bin/bash
+docker run -ti zokrates/zokrates /bin/bash
 ```
 Or build yourself with the following commands.
 ```bash

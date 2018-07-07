@@ -34,7 +34,7 @@ pipeline {
             steps {
                 script {
                     ansiColor('xterm') {
-                        dockerImage = docker.build("kyroy/zokrates")
+                        dockerImage = docker.build("zokrates/zokrates")
                         dockerImage.inside {
                             sh 'RUSTFLAGS="-D warnings" cargo build'
                         }
