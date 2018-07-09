@@ -12,7 +12,7 @@ libsnark = ["zokrates/libsnark"]
 clap = "2.26.2"
 bincode = "0.8.0"
 regex = "0.2"
-zokrates = { version = "0.1", path = "../zokrates" }
+zokrates = { version = "0.2", path = "../zokrates" }
 
 [dev-dependencies]
 glob = "0.2.11"

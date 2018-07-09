@@ -3,3 +3,4 @@ members = [
     "zokrates",
     "zokrates-cli"
 ]
+

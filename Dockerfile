@@ -2,9 +2,11 @@ FROM ubuntu:14.04
 
 MAINTAINER JacobEberhardt <jacob.eberhardt@tu-berlin.de>, Dennis Kuhnert <mail@kyroy.com>
 
+RUN useradd -u 1000 -m zokrates
+
 ARG RUST_TOOLCHAIN=nightly-2018-06-04
 ARG LIBSNARK_COMMIT=f7c87b88744ecfd008126d415494d9b34c4c1b20
-ENV LIBSNARK_SOURCE_PATH=/root/libsnark-$LIBSNARK_COMMIT
+ENV LIBSNARK_SOURCE_PATH=/home/zokrates/libsnark-$LIBSNARK_COMMIT
 ENV WITH_LIBSNARK=1
 
 WORKDIR /root/
@@ -21,19 +23,25 @@ RUN apt-get update && apt-get install -y \
     python-markdown \
     git
 
+USER zokrates
+
 RUN curl https://sh.rustup.rs -sSf | \
     sh -s -- --default-toolchain $RUST_TOOLCHAIN -y
 
-ENV PATH=/root/.cargo/bin:$PATH
+ENV PATH=/home/zokrates/.cargo/bin:$PATH
+
+WORKDIR /home/zokrates
 
 RUN git clone https://github.com/scipr-lab/libsnark.git $LIBSNARK_SOURCE_PATH
+
 WORKDIR $LIBSNARK_SOURCE_PATH
+
 RUN git checkout $LIBSNARK_COMMIT
 RUN git submodule update --init --recursive
 
-WORKDIR /root/
+WORKDIR /home/zokrates
 
-COPY . ZoKrates
+COPY --chown=zokrates:zokrates . ZoKrates
 
 RUN cd ZoKrates \
     && ./build.sh
