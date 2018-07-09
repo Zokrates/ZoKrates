@@ -3,10 +3,7 @@
 def majorVersion
 def minorVersion
 def patchVersion
-<<<<<<< HEAD
 def dockerImage
-=======
->>>>>>> 89a001daddd1644b4bf19e1e8a58c79f5636d767
 
 pipeline {
     agent any
