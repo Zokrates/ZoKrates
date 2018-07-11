@@ -92,6 +92,16 @@ impl Optimizer {
 						self.substitution.insert(o.clone(), format!("_{}", self.next_var_idx.increment()));
 					}
 				},
+				FlatStatement::Gadget(ref _plugin_path, ref _gadget_name, ref _local, ref _inputs, ref outputs) => {
+					for o in outputs.expressions.iter() {
+						match o {
+							&FlatExpression::Identifier(ref out_id) => {
+								self.substitution.insert(out_id.clone(), format!("_{}", self.next_var_idx.increment()));
+							},
+							_ => panic!("Outputs must be Identifiers.")
+						};
+					}
+				},
 				_ => ()
 			}
 		}
