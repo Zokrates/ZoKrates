@@ -87,7 +87,7 @@ pub fn setup<T: Field> (
     let mut b_arr: Vec<u8> = vec![0u8; STRUCT_SIZE * b_vec.len()];
     let mut c_arr: Vec<u8> = vec![0u8; STRUCT_SIZE * c_vec.len()];
     use std::mem::transmute;
-    for (id, (row, idx, val)) in a_vec.iter().enumerate() {
+    for (id, &(row, idx, val)) in a_vec.iter().enumerate() {
       let row_bytes: [u8; ROW_SIZE] = unsafe { transmute(row.to_le()) };
       let idx_bytes: [u8; IDX_SIZE] = unsafe { transmute(idx.to_le()) };
 
@@ -101,7 +101,7 @@ pub fn setup<T: Field> (
         a_arr[id * STRUCT_SIZE + x + VALUE_OFFSET] = val[x];
       }
     }
-    for (id, (row, idx, val)) in b_vec.iter().enumerate() {
+    for (id, &(row, idx, val)) in b_vec.iter().enumerate() {
       let row_bytes: [u8; ROW_SIZE] = unsafe { transmute(row.to_le()) };
       let idx_bytes: [u8; IDX_SIZE] = unsafe { transmute(idx.to_le()) };
 
@@ -115,7 +115,7 @@ pub fn setup<T: Field> (
         b_arr[id * STRUCT_SIZE + x + VALUE_OFFSET] = val[x];
       }
     }
-    for (id, (row, idx, val)) in c_vec.iter().enumerate() {
+    for (id, &(row, idx, val)) in c_vec.iter().enumerate() {
       let row_bytes: [u8; ROW_SIZE] = unsafe { transmute(row.to_le()) };
       let idx_bytes: [u8; IDX_SIZE] = unsafe { transmute(idx.to_le()) };
 

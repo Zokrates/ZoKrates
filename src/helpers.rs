@@ -73,7 +73,7 @@ pub trait Signed {
 impl<T: Field> Executable<T> for LibsnarkGadgetHelper {
 	fn execute(&self, inputs: &Vec<T>) -> Result<Vec<T>, String> {
 		match self {
-			LibsnarkGadgetHelper::Sha256Compress => {
+			&LibsnarkGadgetHelper::Sha256Compress => {
 				#[cfg(feature = "nolibsnark")]
 				{
 					Err(format!("Libsnark is not available"))
@@ -97,7 +97,7 @@ impl<T: Field> Executable<T> for LibsnarkGadgetHelper {
 impl Signed for LibsnarkGadgetHelper {
 	fn get_signature(&self) -> (usize, usize) {
 		match self {
-			LibsnarkGadgetHelper::Sha256Compress => (512, 25561),
+			&LibsnarkGadgetHelper::Sha256Compress => (512, 25561),
 		}
 	}
 }
@@ -105,7 +105,7 @@ impl Signed for LibsnarkGadgetHelper {
 impl<T: Field> Executable<T> for RustHelper {
 	fn execute(&self, inputs: &Vec<T>) -> Result<Vec<T>, String> {
 		match self {
-			RustHelper::Identity => Ok(inputs.clone()),
+			&RustHelper::Identity => Ok(inputs.clone()),
 		}
 	}
 }
@@ -113,7 +113,7 @@ impl<T: Field> Executable<T> for RustHelper {
 impl Signed for RustHelper {
 	fn get_signature(&self) -> (usize, usize) {
 		match self {
-			RustHelper::Identity => (1, 1),
+			&RustHelper::Identity => (1, 1),
 		}
 	}
 }
@@ -124,8 +124,8 @@ impl<T: Field> Executable<T> for Helper {
 		assert!(inputs.len() == expected_input_count);
 
 		let result = match self {
-			Helper::LibsnarkGadget(helper) => helper.execute(inputs),
-			Helper::Rust(helper) => helper.execute(inputs)
+			&Helper::LibsnarkGadget(ref helper) => helper.execute(inputs),
+			&Helper::Rust(ref helper) => helper.execute(inputs)
 		};
 
 		match result {
@@ -138,8 +138,8 @@ impl<T: Field> Executable<T> for Helper {
 impl Signed for Helper {
 	fn get_signature(&self) -> (usize, usize) {
 		match self {
-			Helper::LibsnarkGadget(helper) => helper.get_signature(),
-			Helper::Rust(helper) => helper.get_signature()
+			&Helper::LibsnarkGadget(ref helper) => helper.get_signature(),
+			&Helper::Rust(ref helper) => helper.get_signature()
 		}
 	}
 }
