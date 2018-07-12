@@ -7,7 +7,6 @@
 
 const BINARY_SEPARATOR: &str = "_b";
 
-use absy::Expression;
 use std::fmt;
 use std::collections::{BTreeMap};
 use field::Field;
@@ -101,10 +100,6 @@ impl<T: Field> FlatFunction<T> {
                     let s = expr.solve(&mut witness);
                     witness.insert(id.to_string(), s);
                 },
-                FlatStatement::Compiler(ref id, ref expr) => {
-                    let s = expr.solve(&mut witness);
-                    witness.insert(id.to_string(), s);
-                },
                 FlatStatement::Condition(ref lhs, ref rhs) => {
                     if lhs.solve(&mut witness) != rhs.solve(&mut witness) {
                         return Err(Error {
@@ -184,7 +179,6 @@ impl<T: Field> fmt::Debug for FlatFunction<T> {
 pub enum FlatStatement<T: Field> {
     Return(FlatExpressionList<T>),
     Condition(FlatExpression<T>, FlatExpression<T>),
-    Compiler(String, Expression<T>),
     Definition(String, FlatExpression<T>),
     Directive(DirectiveStatement)
 }
@@ -195,7 +189,6 @@ impl<T: Field> fmt::Display for FlatStatement<T> {
             FlatStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             FlatStatement::Return(ref expr) => write!(f, "return {}", expr),
             FlatStatement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
-            FlatStatement::Compiler(ref lhs, ref rhs) => write!(f, "# {} = {}", lhs, rhs),
             FlatStatement::Directive(ref d) => write!(f, "{}", d),
         }
     }
@@ -207,7 +200,6 @@ impl<T: Field> fmt::Debug for FlatStatement<T> {
             FlatStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             FlatStatement::Return(ref expr) => write!(f, "FlatReturn({:?})", expr),
             FlatStatement::Condition(ref lhs, ref rhs) => write!(f, "FlatCondition({:?}, {:?})", lhs, rhs),
-            FlatStatement::Compiler(ref lhs, ref rhs) => write!(f, "Compiler({:?}, {:?})", lhs, rhs),
             FlatStatement::Directive(ref d) => write!(f, "{:?}", d),
         }
     }
@@ -224,10 +216,6 @@ impl<T: Field> FlatStatement<T> {
                 x.apply_substitution(substitution)
             ),
             FlatStatement::Return(ref x) => FlatStatement::Return(x.apply_substitution(substitution)),
-            FlatStatement::Compiler(ref lhs, ref rhs) => FlatStatement::Compiler(match substitution.get(lhs) { 
-                    Some(z) => z.clone(), 
-                    None => lhs.clone() 
-                }, rhs.clone().apply_substitution(substitution)),
             FlatStatement::Condition(ref x, ref y) => {
                 FlatStatement::Condition(x.apply_substitution(substitution), y.apply_substitution(substitution))
             },

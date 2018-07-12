@@ -335,7 +335,6 @@ pub fn r1cs_program<T: Field>(
                 b.push(b_row);
                 c.push(c_row);
             },
-            FlatStatement::Compiler(..) => continue,
             FlatStatement::Directive(..) => continue
         }
     }

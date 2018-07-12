@@ -83,10 +83,6 @@ impl Optimizer {
 				FlatStatement::Definition(ref left, _) => {
 					self.substitution.insert(left.clone(), format!("_{}", self.next_var_idx.increment()));
 				},
-				// Compiler statements introduce variables before they are defined, so add them to the substitution
-				FlatStatement::Compiler(ref id, _) => {
-					self.substitution.insert(id.clone(), format!("_{}", self.next_var_idx.increment()));
-				},
 				FlatStatement::Directive(ref d) => {
 					for o in d.outputs.iter() {
 						self.substitution.insert(o.clone(), format!("_{}", self.next_var_idx.increment()));
