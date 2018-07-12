@@ -12,7 +12,7 @@ use std::collections::{HashSet, HashMap};
 use absy::*;
 use field::Field;
 use flat_absy::*;
-use parameter::Parameter;
+use parameter::{Parameter, FlatParameter};
 use direct_substitution::DirectSubstitution;
 use substitution::Substitution;
 use helpers::{DirectiveStatement, Helper, RustHelper};
@@ -57,7 +57,7 @@ impl Flattener {
     fn flatten_condition<T: Field>(
         &mut self,
         functions_flattened: &Vec<FlatFunction<T>>,
-        arguments_flattened: &Vec<Parameter>,
+        arguments_flattened: &Vec<FlatParameter>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
         condition: Condition<T>,
     ) -> (Expression<T>, Expression<T>) {
@@ -199,7 +199,7 @@ impl Flattener {
     fn flatten_function_call<T: Field>(
         &mut self,
         functions_flattened: &Vec<FlatFunction<T>>,
-        arguments_flattened: &Vec<Parameter>,
+        arguments_flattened: &Vec<FlatParameter>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
         id: &String,
         return_count: usize,
@@ -316,7 +316,7 @@ impl Flattener {
     fn flatten_expression<T: Field>(
         &mut self,
         functions_flattened: &Vec<FlatFunction<T>>,
-        arguments_flattened: &Vec<Parameter>,
+        arguments_flattened: &Vec<FlatParameter>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
         expr: Expression<T>,
     ) -> FlatExpression<T> {
@@ -539,7 +539,7 @@ impl Flattener {
     pub fn flatten_expression_list<T: Field>(
         &mut self,
         functions_flattened: &mut Vec<FlatFunction<T>>,
-        arguments_flattened: &Vec<Parameter>,
+        arguments_flattened: &Vec<FlatParameter>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
         list: ExpressionList<T>,
     ) -> FlatExpressionList<T> {
@@ -558,7 +558,7 @@ impl Flattener {
     pub fn flatten_statement<T: Field>(
         &mut self,
         functions_flattened: &mut Vec<FlatFunction<T>>,
-        arguments_flattened: &Vec<Parameter>,
+        arguments_flattened: &Vec<FlatParameter>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
         stat: &Statement<T>,
     ) {
@@ -574,7 +574,7 @@ impl Flattener {
 
                 statements_flattened.push(FlatStatement::Return(rhs));
             }
-            Statement::Definition(ref id, ref expr) => {
+            Statement::Definition(ref v, ref expr) => {
                 let expr_subbed = expr.apply_substitution(&self.substitution);
                 let rhs = self.flatten_expression(
                     functions_flattened,
@@ -582,9 +582,9 @@ impl Flattener {
                     statements_flattened,
                     expr_subbed,
                 );
-                let var = self.use_variable(&id);
+                let var = self.use_variable(&v.id);
                 // handle return of function call
-                let var_to_replace = self.get_latest_var_substitution(&id);
+                let var_to_replace = self.get_latest_var_substitution(&v.id);
                 if !(var == var_to_replace) && self.variables.contains(&var_to_replace) && !self.substitution.contains_key(&var_to_replace){
                     self.substitution.insert(var_to_replace.clone().to_string(),var.clone());
                 }
@@ -633,7 +633,7 @@ impl Flattener {
                 let mut current = start.clone();
                 while &current < end {
                     statements_flattened.push(FlatStatement::Definition(
-                        self.use_variable(&var),
+                        self.use_variable(&var.id),
                         FlatExpression::Number(current.clone()),
                     ));
                     for s in statements {
@@ -647,7 +647,7 @@ impl Flattener {
                     current = T::one() + &current;
                 }
             }
-            Statement::MultipleDefinition(ref ids, ref rhs) => {
+            Statement::MultipleDefinition(ref vars, ref rhs) => {
                 let rhs_subbed = rhs.apply_substitution(&self.substitution);
                 match rhs_subbed {
                     Expression::FunctionCall(ref fun_id, ref exprs) => {
@@ -656,14 +656,14 @@ impl Flattener {
                             arguments_flattened,
                             statements_flattened,
                             fun_id,
-                            ids.len(),
+                            vars.len(),
                             exprs,
                         );
 
-                        for (i, id) in ids.into_iter().enumerate() {
-                            let var = self.use_variable(&id);
+                        for (i, v) in vars.into_iter().enumerate() {
+                            let var = self.use_variable(&v.id);
                             // handle return of function call
-                            let var_to_replace = self.get_latest_var_substitution(&id);
+                            let var_to_replace = self.get_latest_var_substitution(&v.id);
                             if !(var == var_to_replace) && self.variables.contains(&var_to_replace) && !self.substitution.contains_key(&var_to_replace){
                                 self.substitution.insert(var_to_replace.clone().to_string(),var.clone());
                             }
@@ -690,12 +690,12 @@ impl Flattener {
         self.variables = HashSet::new();
         self.substitution = DirectSubstitution::new();
         self.next_var_idx = 0;
-        let mut arguments_flattened: Vec<Parameter> = Vec::new();
+        let mut arguments_flattened: Vec<FlatParameter> = Vec::new();
         let mut statements_flattened: Vec<FlatStatement<T>> = Vec::new();
         // push parameters
         for arg in funct.arguments {
-            arguments_flattened.push(Parameter {
-                id: arg.id.to_string(),
+            arguments_flattened.push(FlatParameter {
+                id: arg.id.id.clone(),
                 private: arg.private
             });
         }
@@ -808,8 +808,8 @@ mod multiple_definition {
         let mut statements_flattened = vec![];
         let statement = Statement::MultipleDefinition(
             vec![
-                "a".to_string(),
-                "b".to_string()
+                Variable::from("a".to_string()),
+                Variable::from("b".to_string())
             ],
             Expression::FunctionCall("foo".to_string(), vec![])
         );
@@ -840,7 +840,7 @@ mod multiple_definition {
         let mut functions_flattened = vec![
             FlatFunction {
                 id: "dup".to_string(),
-                arguments: vec![Parameter { id: "x".to_string(), private: true }],
+                arguments: vec![FlatParameter { id: "x".to_string(), private: true }],
                 statements: vec![FlatStatement::Return(
                     FlatExpressionList {
                         expressions: vec![
@@ -856,8 +856,8 @@ mod multiple_definition {
         let mut statements_flattened = vec![];
         let statement = Statement::MultipleDefinition(
             vec![
-                "a".to_string(),
-                "b".to_string()
+                Variable::from("a".to_string()),
+                Variable::from("b".to_string())
             ],
             Expression::FunctionCall("dup".to_string(), vec![Expression::Number(FieldPrime::from(2))])
         );
@@ -902,7 +902,7 @@ mod multiple_definition {
         let arguments_flattened = vec![];
         let mut statements_flattened = vec![];
         let statement = Statement::Definition(
-            "a".to_string(),
+            Variable::from("a".to_string()),
             Expression::FunctionCall("foo".to_string(), vec![])
         );
 
@@ -966,8 +966,8 @@ mod multiple_definition {
                 id: "main".to_string(),
                 arguments: vec![],
                 statements: vec![
-                    Statement::Definition("a".to_string(), Expression::FunctionCall("foo".to_string(), vec![])),
-                    Statement::MultipleDefinition(vec!["b".to_string(), "c".to_string()], Expression::FunctionCall("foo".to_string(), vec![])),
+                    Statement::Definition(Variable::from("a".to_string()), Expression::FunctionCall("foo".to_string(), vec![])),
+                    Statement::MultipleDefinition(vec![Variable::from("b".to_string()), Variable::from("c".to_string())], Expression::FunctionCall("foo".to_string(), vec![])),
                     Statement::Return(ExpressionList {
                         expressions: vec![Expression::Number(FieldPrime::from(1))]
                     })

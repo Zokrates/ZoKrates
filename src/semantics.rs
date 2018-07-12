@@ -52,6 +52,7 @@ impl Checker {
 	}
 
 	pub fn check_program<T: Field>(&mut self, prog: Prog<T>) -> Result<(), Error> {
+		println!("{}", prog);
 		for func in prog.imported_functions {
 			self.functions.insert(FunctionDeclaration {
 				id: func.id,
@@ -92,7 +93,7 @@ impl Checker {
 		self.level += 1;
 		for arg in funct.arguments.clone() {
 			self.scope.insert(Symbol {
-				id: arg.id.to_string(),
+				id: arg.id.id.to_string(),
 				level: self.level
 			});
 		}
@@ -115,10 +116,10 @@ impl Checker {
 				self.check_expression_list(list)?;
 				Ok(())
 			}
-			Statement::Definition(id, expr) => {
+			Statement::Definition(var, expr) => {
 				self.check_expression(expr)?;
 				self.scope.insert(Symbol {
-					id: id.to_string(),
+					id: var.id.to_string(),
 					level: self.level
 				});
 				Ok(())
@@ -129,10 +130,10 @@ impl Checker {
 				self.check_expression(rhs)?;
 				Ok(())
 			}
-			Statement::For(id, _, _, statements) => {
+			Statement::For(var, _, _, statements) => {
 				self.level += 1;
 				let index = Symbol {
-					id: id.to_string(),
+					id: var.id.to_string(),
 					level: self.level
 				};
 				self.scope.insert(index.clone());
@@ -143,7 +144,7 @@ impl Checker {
 				self.level -= 1;
 				Ok(())
 			},
-            Statement::MultipleDefinition(ids, rhs) => {
+            Statement::MultipleDefinition(vars, rhs) => {
         		// All elements of the left side have to be identifiers
                 match rhs {
                 	// Right side has to be a function call
@@ -152,21 +153,21 @@ impl Checker {
                     		// the function has to be defined
                     		Some(f) => {
                     			// the return count has to match the left side
-                    			if f.return_count == ids.len() {
+                    			if f.return_count == vars.len() {
                     				// check the arguments
                     				for arg in arguments {
                     					self.check_expression(arg.clone())?;
                     				}
 
-                    				for id in ids {
+                    				for var in vars {
                         				self.scope.insert(Symbol {
-											id: id.to_string(),
+											id: var.id.to_string(),
 											level: self.level
 										});
                     				}
                     				return Ok(())
                     			}
-                    			Err(Error { message: format!("{} returns {} values but left side is of size {}", f.id, f.return_count, ids.len()) })
+                    			Err(Error { message: format!("{} returns {} values but left side is of size {}", f.id, f.return_count, vars.len()) })
                     		},
                     		None => Err(Error { message: format!("Function definition for function {} with {} argument(s) not found.", fun_id, arguments.len()) })
                     	}
@@ -179,11 +180,11 @@ impl Checker {
 
 	fn check_expression<T: Field>(&mut self, expr: Expression<T>) -> Result<(), Error> {
 		match expr {
-			Expression::Identifier(id) => {
+			Expression::Identifier(variable) => {
 				// check that `id` is defined in the scope
-				match self.scope.iter().find(|symbol| symbol.id == id.to_string()) {
+				match self.scope.iter().find(|symbol| symbol.id == variable.to_string()) {
 					Some(_) => Ok(()),
-					None => Err(Error { message: format!("{} is undefined", id.to_string()) }),
+					None => Err(Error { message: format!("{} is undefined", variable.to_string()) }),
 				}
 			}
 			Expression::Add(box e1, box e2) | Expression::Sub(box e1, box e2) | Expression::Mult(box e1, box e2) |
@@ -262,7 +263,7 @@ mod tests {
 		// a = b
 		// b undefined
 		let statement: Statement<FieldPrime> = Statement::Definition(
-			String::from("a"),
+			Variable::from("a"),
 			Expression::Identifier(String::from("b"))
 		);
 		let mut checker = Checker::new();
@@ -274,7 +275,7 @@ mod tests {
 		// a = b
 		// b defined
 		let statement: Statement<FieldPrime> = Statement::Definition(
-			String::from("a"),
+			Variable::from("a"),
 			Expression::Identifier(String::from("b"))
 		);
 		let mut scope = HashSet::new();
@@ -296,7 +297,7 @@ mod tests {
 		let foo_args = Vec::<Parameter>::new();
 		let mut foo_statements = Vec::<Statement<FieldPrime>>::new();
 		foo_statements.push(Statement::Definition(
-			String::from("a"),
+			Variable::from("a"),
 			Expression::Number(FieldPrime::from(1)))
 		);
 		let foo = Function {
@@ -346,7 +347,7 @@ mod tests {
 		let foo_args = Vec::<Parameter>::new();
 		let mut foo_statements = Vec::<Statement<FieldPrime>>::new();
 		foo_statements.push(Statement::Definition(
-			String::from("a"),
+			Variable::from("a"),
 			Expression::Number(FieldPrime::from(1)))
 		);
 		let foo = Function {
@@ -359,7 +360,7 @@ mod tests {
         let bar_args = Vec::<Parameter>::new();
 		let mut bar_statements = Vec::<Statement<FieldPrime>>::new();
 		bar_statements.push(Statement::Definition(
-			String::from("a"),
+			Variable::from("a"),
 			Expression::Number(FieldPrime::from(2))
 		));
 		bar_statements.push(Statement::Return(
@@ -411,7 +412,7 @@ mod tests {
 		// should fail
 		let mut foo_statements = Vec::<Statement<FieldPrime>>::new();
 		foo_statements.push(Statement::For(
-			String::from("i"),
+			Variable::from("i"),
 			FieldPrime::from(0),
 			FieldPrime::from(10),
 			Vec::<Statement<FieldPrime>>::new())
@@ -442,11 +443,11 @@ mod tests {
 		let mut foo_statements = Vec::<Statement<FieldPrime>>::new();
 		let mut for_statements = Vec::<Statement<FieldPrime>>::new();
 		for_statements.push(Statement::Definition(
-			String::from("a"),
+			Variable::from("a"),
 			Expression::Identifier(String::from("i"))
 		));
 		foo_statements.push(Statement::For(
-			String::from("i"),
+			Variable::from("i"),
 			FieldPrime::from(0),
 			FieldPrime::from(10),
 			for_statements
@@ -470,7 +471,7 @@ mod tests {
 		//   c = foo()
 		// should fail
 		let bar_statements: Vec<Statement<FieldPrime>> = vec![Statement::MultipleDefinition(
-			vec!["c".to_string()],
+			vec![Variable::from("a")],
 			Expression::FunctionCall("foo".to_string(), vec![])
 		)];
 
@@ -532,7 +533,7 @@ mod tests {
 		//   c = foo()
 		// should fail
 		let bar_statements: Vec<Statement<FieldPrime>> = vec![Statement::MultipleDefinition(
-			vec!["c".to_string()],
+			vec![Variable::from("a")],
 			Expression::FunctionCall("foo".to_string(), vec![])
 		)];
 
@@ -567,14 +568,14 @@ mod tests {
 
 		let foo = Function {
 			id: "foo".to_string(),
-			arguments: vec![Parameter { id: "x".to_string(), private: false}],
+			arguments: vec![Parameter { id: Variable::from("x"), private: false}],
 			statements: foo_statements,
 			return_count: 2
 		};
 
 		let main_statements: Vec<Statement<FieldPrime>> = vec![
 			Statement::MultipleDefinition(
-				vec!["a".to_string(), "b".to_string()],
+				vec![Variable::from("a"), Variable::from("b")],
 				Expression::FunctionCall("foo".to_string(), vec![
 					Expression::Identifier("x".to_string())
 				])
@@ -658,7 +659,7 @@ mod tests {
 		// should pass
 		let bar_statements: Vec<Statement<FieldPrime>> = vec![
 			Statement::MultipleDefinition(
-				vec!["a".to_string(), "b".to_string()],
+				vec![Variable::from("a"), Variable::from("b")],
 				Expression::FunctionCall("foo".to_string(), vec![])
 			),
 			Statement::Return(
@@ -710,8 +711,8 @@ mod tests {
 		];
 
 		let foo2_arguments = vec![
-			Parameter { id: 'c'.to_string(), private: true },
-			Parameter { id: 'd'.to_string(), private: true }
+			Parameter { id: Variable::from("a"), private: true },
+			Parameter { id: Variable::from("b"), private: true }
 		];
 
 		let foo1 = FunctionDeclaration {
@@ -752,7 +753,7 @@ mod tests {
 			)
 		];
 
-		let main1_arguments = vec![Parameter { id: 'a'.to_string(), private: false }];
+		let main1_arguments = vec![Parameter { id: Variable::from("a"), private: false }];
 
 		let main2_statements: Vec<Statement<FieldPrime>> = vec![
 			Statement::Return(

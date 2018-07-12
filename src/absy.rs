@@ -117,13 +117,43 @@ impl<T: Field> fmt::Debug for Function<T> {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Display, Debug)]
-pub struct Variable<T: Field> {
-    id: String,
-    type: Type<T>
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+pub struct Variable {
+    pub id: String,
+    pub _type: Type
 }
 
-// TODO impl display
+impl<S: Into<String>> From<S> for Variable {
+    fn from(s: S) -> Self {
+        Variable {
+            id: s.into(),
+            _type: Type::FieldElement
+        }
+    }
+}
+
+impl fmt::Display for Variable {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{} {}",
+            self._type,
+            self.id,
+        )
+    }
+}
+
+impl fmt::Debug for Variable {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Variable(type: {:?}, id: {:?})",
+            self._type,
+            self.id,
+        )
+    }
+}
+
 // TODO impl debug
 
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
@@ -186,7 +216,7 @@ impl<T: Field> fmt::Debug for Statement<T> {
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub enum Expression<T: Field> {
     Number(T),
-    Identifier(Variable),
+    Identifier(String),
     Add(Box<Expression<T>>, Box<Expression<T>>),
     Sub(Box<Expression<T>>, Box<Expression<T>>),
     Mult(Box<Expression<T>>, Box<Expression<T>>),
@@ -200,8 +230,8 @@ impl<T: Field> Expression<T> {
     pub fn apply_substitution(&self, substitution: &Substitution) -> Expression<T> {
         match *self {
             ref e @ Expression::Number(_) => e.clone(),
-            Expression::Identifier(ref v) => {
-                let mut new_name = v.to_string();
+            Expression::Identifier(ref id) => {
+                let mut new_name = id.clone();
                 loop {
                     match substitution.get(&new_name) {
                         Some(x) => new_name = x.to_string(),

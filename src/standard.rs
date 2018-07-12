@@ -2,7 +2,7 @@
 use std::collections::{BTreeMap, HashSet};
 use flat_absy::{FlatStatement, FlatExpression, FlatFunction, FlatExpressionList};
 use field::Field;
-use parameter::Parameter;
+use parameter::FlatParameter as Parameter;
 use reduce::Reduce;
 use helpers::{DirectiveStatement, Helper, LibsnarkGadgetHelper};
 

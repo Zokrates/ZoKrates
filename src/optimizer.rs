@@ -123,7 +123,7 @@ impl Optimizer {
 mod tests {
 	use super::*;
 	use field::FieldPrime;
-	use parameter::Parameter;
+	use parameter::FlatParameter as Parameter;
 
 	#[test]
 	fn remove_synonyms() {

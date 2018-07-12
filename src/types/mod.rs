@@ -1,14 +1,26 @@
 use field::Field;
 use types::constraints::Constraints;
 use std::string::String;
+use std::fmt;
+
 
 mod boolean;
 pub mod field_element;
 mod constraints;
 
+#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub enum Type {
 	FieldElement,
 	Boolean
+}
+
+impl fmt::Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    	match *self {
+    		Type::FieldElement => write!(f, "field"),
+    		Type::Boolean => write!(f, "boolean"),
+    	}
+    }
 }
 
 impl Type {
@@ -21,8 +33,8 @@ impl Type {
 
 	fn get_primitive_count(&self) -> usize {
 		match self {
-			FieldElement => 1,
-			Boolean => 1
+			Type::FieldElement => 1,
+			Type::Boolean => 1
 		}
 	}
 }

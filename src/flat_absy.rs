@@ -10,7 +10,7 @@ const BINARY_SEPARATOR: &str = "_b";
 use std::fmt;
 use std::collections::{BTreeMap};
 use field::Field;
-use parameter::Parameter;
+use parameter::FlatParameter as Parameter;
 use substitution::Substitution;
 use standard;
 use helpers::{DirectiveStatement, Executable};
