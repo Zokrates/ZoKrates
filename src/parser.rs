@@ -12,7 +12,7 @@ use field::{Field};
 use absy::*;
 use std::path::PathBuf;
 use imports::*;
-use parameter::Parameter;
+use absy::parameter::Parameter;
 
 #[derive(Clone, PartialEq)]
 struct Position {

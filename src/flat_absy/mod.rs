@@ -5,12 +5,14 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
+pub mod flat_parameter;
+
 const BINARY_SEPARATOR: &str = "_b";
 
+use self::flat_parameter::FlatParameter;
 use std::fmt;
 use std::collections::{BTreeMap};
 use field::Field;
-use parameter::FlatParameter as Parameter;
 use substitution::Substitution;
 use standard;
 use helpers::{DirectiveStatement, Executable};
@@ -73,7 +75,7 @@ pub struct FlatFunction<T: Field> {
     /// Name of the program
     pub id: String,
     /// Arguments of the function
-    pub arguments: Vec<Parameter>,
+    pub arguments: Vec<FlatParameter>,
     /// Vector of statements that are executed when running the function
     pub statements: Vec<FlatStatement<T>>,
     /// number of returns

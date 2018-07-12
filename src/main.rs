@@ -20,13 +20,10 @@ extern crate regex;
 
 mod absy;
 mod flat_absy;
-mod parameter;
 mod parser;
 mod imports;
 mod semantics;
 mod substitution;
-mod prefixed_substitution;
-mod direct_substitution;
 mod flatten;
 mod compile;
 mod optimizer;

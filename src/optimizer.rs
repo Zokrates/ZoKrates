@@ -5,7 +5,7 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
-use prefixed_substitution::PrefixedSubstitution;
+use substitution::prefixed_substitution::PrefixedSubstitution;
 use substitution::Substitution;
 use flat_absy::*;
 use field::Field;

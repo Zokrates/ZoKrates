@@ -3,7 +3,6 @@ use types::constraints::Constraints;
 use std::string::String;
 use std::fmt;
 
-
 mod boolean;
 pub mod field_element;
 mod constraints;

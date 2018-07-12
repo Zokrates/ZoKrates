@@ -5,11 +5,13 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
+pub mod parameter;
+
+use self::parameter::Parameter;
 use std::fmt;
 use substitution::Substitution;
 use field::Field;
 use imports::Import;
-use parameter::Parameter;
 use flat_absy::*;
 use types::field_element::*;
 use types::Type;

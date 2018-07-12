@@ -1,3 +1,6 @@
+pub mod direct_substitution;
+pub mod prefixed_substitution;
+
 pub trait Substitution {
 	fn new() -> Self where Self: Sized;
 	fn insert(&mut self, key: String, element: String) -> Option<String>;

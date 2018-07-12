@@ -10,10 +10,11 @@ const BINARY_SEPARATOR: &str = "_b";
 
 use std::collections::{HashSet, HashMap};
 use absy::*;
+use absy::parameter::Parameter;
 use field::Field;
 use flat_absy::*;
-use parameter::{Parameter, FlatParameter};
-use direct_substitution::DirectSubstitution;
+use flat_absy::flat_parameter::FlatParameter;
+use substitution::direct_substitution::DirectSubstitution;
 use substitution::Substitution;
 use helpers::{DirectiveStatement, Helper, RustHelper};
 

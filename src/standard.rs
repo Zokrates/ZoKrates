@@ -2,7 +2,7 @@
 use std::collections::{BTreeMap, HashSet};
 use flat_absy::{FlatStatement, FlatExpression, FlatFunction, FlatExpressionList};
 use field::Field;
-use parameter::FlatParameter as Parameter;
+use flat_absy::flat_parameter::FlatParameter;
 use reduce::Reduce;
 use helpers::{DirectiveStatement, Helper, LibsnarkGadgetHelper};
 
@@ -94,7 +94,7 @@ impl<T: Field> Into<FlatFunction<T>> for R1CS {
 
         // define the inputs with dummy variables: arguments to the function and to the directive
         let inputs: Vec<String> = vec![0; self.input_count].iter().enumerate().map(|(i, _)| format!("input{}", i)).collect();
-        let input_parameters = inputs.iter().map(|i| Parameter { id: i.clone(), private: true }).collect();
+        let input_parameters = inputs.iter().map(|i| FlatParameter { id: i.clone(), private: true }).collect();
 
         // define which subset of the witness is returned
         let outputs: Vec<FlatExpression<T>> = self.outputs.iter()
