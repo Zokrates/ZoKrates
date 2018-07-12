@@ -35,6 +35,7 @@ mod field;
 mod verification;
 mod standard;
 mod helpers;
+mod types;
 #[cfg(not(feature = "nolibsnark"))]
 mod libsnark;
 

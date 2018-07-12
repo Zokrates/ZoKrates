@@ -14,6 +14,8 @@ use field::Field;
 use imports::Import;
 use parameter::Parameter;
 use flat_absy::*;
+use types::field_element::*;
+use types::Type;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct Prog<T: Field> {
@@ -118,13 +120,22 @@ impl<T: Field> fmt::Debug for Function<T> {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, PartialEq, Display, Debug)]
+pub struct Variable<T: Field> {
+    id: String,
+    type: Type<T>
+}
+
+// TODO impl display
+// TODO impl debug
+
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub enum Statement<T: Field> {
     Return(ExpressionList<T>),
-    Definition(String, Expression<T>),
+    Definition(Variable, Expression<T>),
     Condition(Expression<T>, Expression<T>),
-    For(String, T, T, Vec<Statement<T>>),
-    MultipleDefinition(Vec<String>, Expression<T>),
+    For(Variable, T, T, Vec<Statement<T>>),
+    MultipleDefinition(Vec<Variable>, Expression<T>),
 }
 
 impl<T: Field> fmt::Display for Statement<T> {
@@ -178,7 +189,7 @@ impl<T: Field> fmt::Debug for Statement<T> {
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub enum Expression<T: Field> {
     Number(T),
-    Identifier(String),
+    Identifier(Variable),
     Add(Box<Expression<T>>, Box<Expression<T>>),
     Sub(Box<Expression<T>>, Box<Expression<T>>),
     Mult(Box<Expression<T>>, Box<Expression<T>>),
