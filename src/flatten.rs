@@ -694,14 +694,14 @@ impl Flattener {
         let mut arguments_flattened: Vec<FlatParameter> = Vec::new();
         let mut statements_flattened: Vec<FlatStatement<T>> = Vec::new();
         // push parameters
-        for arg in funct.arguments {
+        for arg in &funct.arguments {
             arguments_flattened.push(FlatParameter {
                 id: arg.id.id.clone(),
                 private: arg.private
             });
         }
         // flatten statements in functions and apply substitution
-        for stat in funct.statements {
+        for stat in &funct.statements {
             self.flatten_statement(
                 functions_flattened,
                 &arguments_flattened,
@@ -710,10 +710,10 @@ impl Flattener {
             );
         }
         FlatFunction {
-            id: funct.id,
+            id: funct.id.clone(),
             arguments: arguments_flattened,
             statements: statements_flattened,
-            return_count: funct.return_count
+            return_count: funct.return_count()
         }
     }
 
@@ -780,6 +780,8 @@ impl Flattener {
 mod multiple_definition {
     use super::*;
     use field::FieldPrime;
+    use types::Type;
+    use absy::signature::Signature;
 
     #[test]
     fn multiple_definition() {
@@ -802,7 +804,7 @@ mod multiple_definition {
                         ]
                     }
                 )],
-                return_count: 2,
+                return_count: 2
             }
         ];
         let arguments_flattened = vec![];
@@ -850,7 +852,7 @@ mod multiple_definition {
                         ]
                     }
                 )],
-                return_count: 2,
+                return_count: 2
             }
         ];
         let arguments_flattened = vec![];
@@ -897,7 +899,7 @@ mod multiple_definition {
                         ]
                     }
                 )],
-                return_count: 1,
+                return_count: 1         
             }
         ];
         let arguments_flattened = vec![];
@@ -948,7 +950,10 @@ mod multiple_definition {
                         ]
                     }
                 )],
-                return_count: 1,
+                signature: Signature {
+                    inputs: vec![],
+                    outputs: vec![Type::FieldElement]
+                },
             },
             Function {
                 id: "foo".to_string(),
@@ -961,7 +966,10 @@ mod multiple_definition {
                         ]
                     }
                 )],
-                return_count: 2,
+                signature: Signature {
+                    inputs: vec![],
+                    outputs: vec![Type::FieldElement, Type::FieldElement]
+                },
             },
             Function {
                 id: "main".to_string(),
@@ -973,7 +981,10 @@ mod multiple_definition {
                         expressions: vec![Expression::Number(FieldPrime::from(1))]
                     })
                 ],
-                return_count: 1
+                signature: Signature {
+                    inputs: vec![],
+                    outputs: vec![Type::FieldElement]
+                },
             }
         ];
 

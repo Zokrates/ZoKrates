@@ -10,6 +10,9 @@ use std::collections::HashSet;
 use absy::*;
 use field::Field;
 use std::fmt;
+use absy::signature::Signature;
+
+use types::Type;
 
 #[derive(PartialEq, Debug)]
 pub struct Error {
@@ -31,8 +34,7 @@ pub struct Symbol {
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct FunctionDeclaration {
 	id: String,
-	return_count: usize,
-	arg_count: usize,
+	signature: Signature
 }
 
 // Checker, checks the semantics of a program.
@@ -52,12 +54,15 @@ impl Checker {
 	}
 
 	pub fn check_program<T: Field>(&mut self, prog: Prog<T>) -> Result<(), Error> {
-		println!("{}", prog);
+		println!("{:?}", prog);
+
 		for func in prog.imported_functions {
 			self.functions.insert(FunctionDeclaration {
 				id: func.id,
-				return_count: func.return_count,
-				arg_count: func.arguments.len()
+				signature: Signature { // a bit hacky
+					inputs: vec![Type::FieldElement; func.arguments.len()],
+					outputs: vec![Type::FieldElement; func.return_count]
+				}
 			});
 		}
 
@@ -65,8 +70,7 @@ impl Checker {
 			self.check_function(&func)?;
 			self.functions.insert(FunctionDeclaration {
 				id: func.id,
-				return_count: func.return_count,
-				arg_count: func.arguments.len()
+				signature: func.signature
 			});
 		}
 		self.check_single_main()?;
@@ -82,6 +86,8 @@ impl Checker {
 	}
 
 	fn check_function<T: Field>(&mut self, funct: &Function<T>) -> Result<(), Error> {
+		assert_eq!(funct.arguments.len(), funct.signature.inputs.len());
+
 		match self.find_function(&funct.id, funct.arguments.len()) {
 			Some(_) => {
 				return Err(Error { message: format!("Duplicate definition for function {} with {} arguments", funct.id, funct.arguments.len()) })
@@ -153,7 +159,7 @@ impl Checker {
                     		// the function has to be defined
                     		Some(f) => {
                     			// the return count has to match the left side
-                    			if f.return_count == vars.len() {
+                    			if f.signature.outputs.len() == vars.len() {
                     				// check the arguments
                     				for arg in arguments {
                     					self.check_expression(arg.clone())?;
@@ -167,7 +173,7 @@ impl Checker {
                     				}
                     				return Ok(())
                     			}
-                    			Err(Error { message: format!("{} returns {} values but left side is of size {}", f.id, f.return_count, vars.len()) })
+                    			Err(Error { message: format!("{} returns {} values but left side is of size {}", f.id, f.signature.outputs.len(), vars.len()) })
                     		},
                     		None => Err(Error { message: format!("Function definition for function {} with {} argument(s) not found.", fun_id, arguments.len()) })
                     	}
@@ -203,13 +209,13 @@ impl Checker {
 				match self.find_function(fun_id, arguments.len()) {
 					// the function has to be defined
 					Some(f) => {
-						if f.return_count == 1 { // Functions must return a single value when not in a MultipleDefinition
+						if f.signature.outputs.len() == 1 { // Functions must return a single value when not in a MultipleDefinition
 							for expr in arguments {
 								self.check_expression(expr.clone())?;
 							}
 							return Ok(())
 						}
-						Err(Error { message: format!("{} returns {} values but is called outside of a definition", fun_id, f.return_count) })
+						Err(Error { message: format!("{} returns {} values but is called outside of a definition", fun_id, f.signature.outputs.len()) })
 					},
                    	None => Err(Error { message: format!("Function definition for function {} with {} argument(s) not found.", fun_id, arguments.len()) })
 				}
@@ -240,7 +246,9 @@ impl Checker {
 	}
 
 	fn find_function(&mut self, id: &str, arg_count: usize) -> Option<FunctionDeclaration> {
-		self.functions.clone().into_iter().find(|fun| fun.id == id && fun.arg_count == arg_count)
+		self.functions.clone().into_iter().find(|fun| {
+			fun.id == id && fun.signature.inputs.len() == arg_count
+		})
 	}
 }
 
@@ -248,7 +256,7 @@ impl Checker {
 mod tests {
 	use super::*;
 	use field::FieldPrime;
-	use parameter::Parameter;
+	use absy::parameter::Parameter;
 
 	pub fn new_with_args(scope: HashSet<Symbol>, level: usize, functions: HashSet<FunctionDeclaration>) -> Checker {
 		Checker {
@@ -304,7 +312,10 @@ mod tests {
             id: "foo".to_string(),
             arguments: foo_args,
             statements: foo_statements,
-            return_count: 1,
+            signature: Signature {
+            	inputs: vec![],
+            	outputs: vec![Type::FieldElement]
+            }
         };
 
         let bar_args = Vec::<Parameter>::new();
@@ -318,7 +329,10 @@ mod tests {
             id: "bar".to_string(),
             arguments: bar_args,
             statements: bar_statements,
-            return_count: 1,
+            signature: Signature {
+            	inputs: vec![],
+            	outputs: vec![Type::FieldElement]
+            }
         };
 
         let mut funcs = Vec::<Function<FieldPrime>>::new();
@@ -354,7 +368,10 @@ mod tests {
             id: "foo".to_string(),
             arguments: foo_args,
             statements: foo_statements,
-            return_count: 1,
+            signature: Signature {
+            	inputs: vec![],
+            	outputs: vec![Type::FieldElement]
+            }
         };
 
         let bar_args = Vec::<Parameter>::new();
@@ -372,7 +389,10 @@ mod tests {
             id: "bar".to_string(),
             arguments: bar_args,
             statements: bar_statements,
-            return_count: 1,
+            signature: Signature {
+            	inputs: vec![],
+            	outputs: vec![Type::FieldElement]
+            }
         };
 
         let main_args = Vec::<Parameter>::new();
@@ -386,7 +406,10 @@ mod tests {
             id: "main".to_string(),
             arguments: main_args,
             statements: main_statements,
-            return_count: 1,
+            signature: Signature {
+            	inputs: vec![],
+            	outputs: vec![Type::FieldElement]
+            }
         };
 
         let mut funcs = Vec::<Function<FieldPrime>>::new();
@@ -426,7 +449,10 @@ mod tests {
 			id: "foo".to_string(),
 			arguments: Vec::<Parameter>::new(),
 			statements: foo_statements,
-            return_count: 1,
+            signature: Signature {
+            	inputs: vec![],
+            	outputs: vec![Type::FieldElement]
+            }
 		};
 
 		let mut checker = Checker::new();
@@ -456,7 +482,10 @@ mod tests {
 			id: "foo".to_string(),
 			arguments: Vec::<Parameter>::new(),
 			statements: foo_statements,
-            return_count: 1,
+            signature: Signature {
+            	inputs: vec![],
+            	outputs: vec![Type::FieldElement]
+            }
 		};
 
 		let mut checker = Checker::new();
@@ -477,8 +506,10 @@ mod tests {
 
 		let foo = FunctionDeclaration {
 			id: "foo".to_string(),
-			arg_count: 0,
-            return_count: 2,
+            signature: Signature {
+            	inputs: vec![],
+            	outputs: vec![Type::FieldElement, Type::FieldElement]
+            }
 		};
 
 		let mut functions = HashSet::new();
@@ -488,8 +519,11 @@ mod tests {
 			id: "bar".to_string(),
 			arguments: vec![],
 			statements: bar_statements,
-			return_count: 1
-		};
+            signature: Signature {
+            	inputs: vec![],
+            	outputs: vec![Type::FieldElement]
+            }		
+        };
 
 		let mut checker = new_with_args(HashSet::new(), 0, functions);
 		assert_eq!(checker.check_function(&bar), Err(Error { message: "foo returns 2 values but left side is of size 1".to_string() }));
@@ -509,8 +543,10 @@ mod tests {
 
 		let foo = FunctionDeclaration {
 			id: "foo".to_string(),
-			arg_count: 0,
-            return_count: 2,
+			signature: Signature {
+				inputs: vec![],
+				outputs: vec![Type::FieldElement, Type::FieldElement]
+			}
 		};
 
 		let mut functions = HashSet::new();
@@ -520,7 +556,10 @@ mod tests {
 			id: "bar".to_string(),
 			arguments: vec![],
 			statements: bar_statements,
-			return_count: 1
+			signature: Signature {
+				inputs: vec![],
+				outputs: vec![Type::FieldElement]
+			}
 		};
 
 		let mut checker = new_with_args(HashSet::new(), 0, functions);
@@ -541,7 +580,10 @@ mod tests {
 			id: "bar".to_string(),
 			arguments: vec![],
 			statements: bar_statements,
-			return_count: 1
+			signature: Signature {
+				inputs: vec![],
+				outputs: vec![Type::FieldElement]
+			}
 		};
 
 		let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
@@ -570,7 +612,10 @@ mod tests {
 			id: "foo".to_string(),
 			arguments: vec![Parameter { id: Variable::from("x"), private: false}],
 			statements: foo_statements,
-			return_count: 2
+			signature: Signature {
+				inputs: vec![Type::FieldElement],
+				outputs: vec![Type::FieldElement, Type::FieldElement]
+			}
 		};
 
 		let main_statements: Vec<Statement<FieldPrime>> = vec![
@@ -591,7 +636,10 @@ mod tests {
 			id: "main".to_string(),
 			arguments: vec![],
 			statements: main_statements,
-			return_count: 1
+			signature: Signature {
+				inputs: vec![],
+				outputs: vec![Type::FieldElement, Type::FieldElement]
+			}
 		};
 
 		let program = Prog {
@@ -618,7 +666,10 @@ mod tests {
 			id: "bar".to_string(),
 			arguments: vec![],
 			statements: bar_statements,
-			return_count: 1
+			signature: Signature {
+				inputs: vec![],
+				outputs: vec![Type::FieldElement]
+			}
 		};
 
 		let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
@@ -641,7 +692,10 @@ mod tests {
 			id: "bar".to_string(),
 			arguments: vec![],
 			statements: bar_statements,
-			return_count: 2
+			signature: Signature {
+				inputs: vec![],
+				outputs: vec![Type::FieldElement, Type::FieldElement]
+			}
 		};
 
 		let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
@@ -674,8 +728,10 @@ mod tests {
 
 		let foo = FunctionDeclaration {
 			id: "foo".to_string(),
-			arg_count: 0,
-            return_count: 2,
+			signature: Signature {
+				inputs: vec![],
+				outputs: vec![Type::FieldElement, Type::FieldElement]
+			}
 		};
 
 		let mut functions = HashSet::new();
@@ -685,7 +741,10 @@ mod tests {
 			id: "bar".to_string(),
 			arguments: vec![],
 			statements: bar_statements,
-			return_count: 1
+			signature: Signature {
+				inputs: vec![],
+				outputs: vec![Type::FieldElement]
+			}
 		};
 
 		let mut checker = new_with_args(HashSet::new(), 0, functions);
@@ -717,8 +776,10 @@ mod tests {
 
 		let foo1 = FunctionDeclaration {
 			id: "foo".to_string(),
-			arg_count: 2,
-            return_count: 1,
+			signature: Signature {
+            	inputs: vec![Type::FieldElement, Type::FieldElement],
+            	outputs: vec![Type::FieldElement]
+            }
 		};
 
 		let mut functions = HashSet::new();
@@ -728,7 +789,10 @@ mod tests {
 			id: "foo".to_string(),
 			arguments: foo2_arguments,
 			statements: foo2_statements,
-			return_count: 1
+			signature: Signature {
+            	inputs: vec![Type::FieldElement, Type::FieldElement],
+            	outputs: vec![Type::FieldElement]
+            }
 		};
 
 		let mut checker = new_with_args(HashSet::new(), 0, functions);
@@ -771,14 +835,20 @@ mod tests {
 			id: "main".to_string(),
 			arguments: main1_arguments,
 			statements: main1_statements,
-            return_count: 1,
+			signature: Signature {
+            	inputs: vec![Type::FieldElement],
+            	outputs: vec![Type::FieldElement]
+            }
 		};
 
 		let main2 = Function {
 			id: "main".to_string(),
 			arguments: main2_arguments,
 			statements: main2_statements,
-            return_count: 1,
+			signature: Signature {
+            	inputs: vec![],
+            	outputs: vec![Type::FieldElement]
+            }
 		};
 
 		let prog = Prog {

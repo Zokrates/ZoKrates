@@ -13,6 +13,8 @@ use absy::*;
 use std::path::PathBuf;
 use imports::*;
 use absy::parameter::Parameter;
+use types::Type;
+use absy::signature::Signature;
 
 #[derive(Clone, PartialEq)]
 struct Position {
@@ -1298,12 +1300,18 @@ fn parse_function<T: Field>(
         Some(x) => panic!("Last function statement not Return: {}", x),
         None => panic!("Error while checking last function statement"),
     }
+
+    let input_count = args.len();
+
     Ok((
         Function {
             id: id,
             arguments: args,
             statements: stats,
-            return_count: return_count
+            signature: Signature {
+                inputs: vec![Type::FieldElement; input_count],
+                outputs: vec![Type::FieldElement; return_count]
+            }
         },
         Position {
             line: current_line,

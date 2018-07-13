@@ -6,8 +6,10 @@
 //! @date 2017
 
 pub mod parameter;
+pub mod signature;
 
-use self::parameter::Parameter;
+use absy::signature::Signature;
+use absy::parameter::Parameter;
 use std::fmt;
 use substitution::Substitution;
 use field::Field;
@@ -79,8 +81,14 @@ pub struct Function<T: Field> {
     pub arguments: Vec<Parameter>,
     /// Vector of statements that are executed when running the function
     pub statements: Vec<Statement<T>>,
-    /// number of returns
-    pub return_count: usize,
+    /// function signature
+    pub signature: Signature,
+}
+
+impl<T: Field> Function<T> {
+    pub fn return_count(&self) -> usize {
+        self.signature.outputs.len()
+    }
 }
 
 impl<T: Field> fmt::Display for Function<T> {
