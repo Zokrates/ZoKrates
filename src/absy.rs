@@ -5,10 +5,7 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
-const BINARY_SEPARATOR: &str = "_b";
-
 use std::fmt;
-use std::collections::{BTreeMap};
 use substitution::Substitution;
 use field::Field;
 use imports::Import;
@@ -235,50 +232,6 @@ impl<T: Field> Expression<T> {
         }
     }
 
-    pub fn solve(&self, inputs: &mut BTreeMap<String, T>) -> T {
-        match *self {
-            Expression::Number(ref x) => x.clone(),
-            Expression::Identifier(ref var) => {
-                if let None = inputs.get(var) {
-                    if var.contains(BINARY_SEPARATOR) {
-                        let var_name = var.split(BINARY_SEPARATOR).collect::<Vec<_>>()[0];
-                        let mut num = inputs[var_name].clone();
-                        let bits = T::get_required_bits();
-                        for i in (0..bits).rev() {
-                            if T::from(2).pow(i) <= num {
-                                num = num - T::from(2).pow(i);
-                                inputs.insert(format!("{}{}{}", &var_name, BINARY_SEPARATOR, i), T::one());
-                            } else {
-                                inputs.insert(format!("{}{}{}", &var_name, BINARY_SEPARATOR, i), T::zero());
-                            }
-                        }
-                        assert_eq!(num, T::zero());
-                    } else {
-                        panic!(
-                            "Variable {:?} is undeclared in inputs: {:?}",
-                            var,
-                            inputs
-                        );
-                    }
-                }
-                inputs[var].clone()
-            }
-            Expression::Add(ref x, ref y) => x.solve(inputs) + y.solve(inputs),
-            Expression::Sub(ref x, ref y) => x.solve(inputs) - y.solve(inputs),
-            Expression::Mult(ref x, ref y) => x.solve(inputs) * y.solve(inputs),
-            Expression::Div(ref x, ref y) => x.solve(inputs) / y.solve(inputs),
-            Expression::Pow(ref x, ref y) => x.solve(inputs).pow(y.solve(inputs)),
-            Expression::IfElse(ref condition, ref consequent, ref alternative) => {
-                if condition.solve(inputs) {
-                    consequent.solve(inputs)
-                } else {
-                    alternative.solve(inputs)
-                }
-            }
-            Expression::FunctionCall(_, _) => unimplemented!(), // should not happen, since never part of flattened functions
-        }
-    }
-
     pub fn is_linear(&self) -> bool {
         match *self {
             Expression::Number(_) | Expression::Identifier(_) => true,
@@ -425,16 +378,6 @@ impl<T: Field> Condition<T> {
                 lhs.apply_substitution(substitution),
                 rhs.apply_substitution(substitution),
             ),
-        }
-    }
-
-    fn solve(&self, inputs: &mut BTreeMap<String, T>) -> bool {
-        match *self {
-            Condition::Lt(ref lhs, ref rhs) => lhs.solve(inputs) < rhs.solve(inputs),
-            Condition::Le(ref lhs, ref rhs) => lhs.solve(inputs) <= rhs.solve(inputs),
-            Condition::Eq(ref lhs, ref rhs) => lhs.solve(inputs) == rhs.solve(inputs),
-            Condition::Ge(ref lhs, ref rhs) => lhs.solve(inputs) >= rhs.solve(inputs),
-            Condition::Gt(ref lhs, ref rhs) => lhs.solve(inputs) > rhs.solve(inputs),
         }
     }
 }

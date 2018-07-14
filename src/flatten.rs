@@ -15,7 +15,7 @@ use flat_absy::*;
 use parameter::Parameter;
 use direct_substitution::DirectSubstitution;
 use substitution::Substitution;
-use helpers::{DirectiveStatement};
+use helpers::{DirectiveStatement, Helper, RustHelper};
 
 /// Flattener, computes flattened program.
 pub struct Flattener {
@@ -170,22 +170,13 @@ impl Flattener {
                     Expression::Sub(box lhs, box rhs),
                 );
                 statements_flattened.push(FlatStatement::Definition(name_x.to_string(), x));
-                statements_flattened.push(FlatStatement::Compiler(
-                    name_y.to_string(),
-                    Expression::IfElse(
-                            box Condition::Eq(Expression::Identifier(name_x.to_string()), Expression::Number(T::zero())),
-                            box Expression::Number(T::zero()),
-                            box Expression::Number(T::one()),
-                    ),
-                ));
-                statements_flattened.push(FlatStatement::Compiler(
-                    name_m.to_string(),
-                    Expression::IfElse(
-                            box Condition::Eq(Expression::Identifier(name_x.to_string()), Expression::Number(T::zero())),
-                            box Expression::Number(T::one()),
-                            box Expression::Div(box Expression::Number(T::one()), box Expression::Identifier(name_x.to_string())),
-                    ),
-                ));
+                statements_flattened.push(
+                    FlatStatement::Directive(DirectiveStatement {
+                        outputs: vec![name_y.to_string(), name_m.to_string()],
+                        inputs: vec![name_x.to_string()],
+                        helper: Helper::Rust(RustHelper::ConditionEq)
+                    })
+                );
                 statements_flattened.push(FlatStatement::Condition(
                     FlatExpression::Identifier(name_y.to_string()),
                     FlatExpression::Mult(box FlatExpression::Identifier(name_x.to_string()), box FlatExpression::Identifier(name_m)),
@@ -280,12 +271,6 @@ impl Flattener {
                             statements_flattened.push(
                                 FlatStatement::Definition(new_var, new_rhs)
                             );
-                        },
-                        FlatStatement::Compiler(var, rhs) => {
-                            let new_var: String = format!("{}{}", prefix, var.clone());
-                            replacement_map.insert(var, new_var.clone());
-                            let new_rhs = rhs.apply_substitution(&replacement_map);
-                            statements_flattened.push(FlatStatement::Compiler(new_var, new_rhs));
                         },
                         FlatStatement::Condition(lhs, rhs) => {
                             let new_lhs = lhs.apply_substitution(&replacement_map);
