@@ -10,6 +10,7 @@ use std::io::prelude::*;
 use std::fs::File;
 use field::{Field};
 use absy::*;
+use absy::variable::Variable;
 use std::path::PathBuf;
 use imports::*;
 use absy::parameter::Parameter;

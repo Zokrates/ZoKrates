@@ -7,9 +7,12 @@
 
 pub mod parameter;
 pub mod signature;
+pub mod variable;
 
 use absy::signature::Signature;
 use absy::parameter::Parameter;
+use absy::variable::Variable;
+
 use std::fmt;
 use substitution::Substitution;
 use field::Field;
@@ -123,43 +126,6 @@ impl<T: Field> fmt::Debug for Function<T> {
                 .map(|x| format!("\t{:?}", x))
                 .collect::<Vec<_>>()
                 .join("\n")
-        )
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
-pub struct Variable {
-    pub id: String,
-    pub _type: Type
-}
-
-impl<S: Into<String>> From<S> for Variable {
-    fn from(s: S) -> Self {
-        Variable {
-            id: s.into(),
-            _type: Type::FieldElement
-        }
-    }
-}
-
-impl fmt::Display for Variable {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{} {}",
-            self._type,
-            self.id,
-        )
-    }
-}
-
-impl fmt::Debug for Variable {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Variable(type: {:?}, id: {:?})",
-            self._type,
-            self.id,
         )
     }
 }

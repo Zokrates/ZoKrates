@@ -11,6 +11,7 @@ use absy::*;
 use field::Field;
 use std::fmt;
 use absy::signature::Signature;
+use absy::variable::Variable;
 
 use types::Type;
 
@@ -26,8 +27,8 @@ impl fmt::Display for Error {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-pub struct Symbol {
-	id: String,
+pub struct ScopedVariable {
+	id: Variable,
 	level: usize
 }
 
@@ -39,7 +40,7 @@ pub struct FunctionDeclaration {
 
 // Checker, checks the semantics of a program.
 pub struct Checker {
-	scope: HashSet<Symbol>,
+	scope: HashSet<ScopedVariable>,
 	functions: HashSet<FunctionDeclaration>,
 	level: usize
 }
@@ -54,7 +55,7 @@ impl Checker {
 	}
 
 	pub fn check_program<T: Field>(&mut self, prog: Prog<T>) -> Result<(), Error> {
-		println!("{:?}", prog);
+		println!("{}", prog);
 
 		for func in prog.imported_functions {
 			self.functions.insert(FunctionDeclaration {
@@ -88,7 +89,7 @@ impl Checker {
 	fn check_function<T: Field>(&mut self, funct: &Function<T>) -> Result<(), Error> {
 		assert_eq!(funct.arguments.len(), funct.signature.inputs.len());
 
-		match self.find_function(&funct.id, funct.arguments.len()) {
+		match self.find_function(&funct.id, &funct.arguments.iter().map(|a| a.clone().id._type).collect()) {
 			Some(_) => {
 				return Err(Error { message: format!("Duplicate definition for function {} with {} arguments", funct.id, funct.arguments.len()) })
 			},
@@ -98,8 +99,8 @@ impl Checker {
 		}
 		self.level += 1;
 		for arg in funct.arguments.clone() {
-			self.scope.insert(Symbol {
-				id: arg.id.id.to_string(),
+			self.scope.insert(ScopedVariable {
+				id: arg.id,
 				level: self.level
 			});
 		}
@@ -123,23 +124,33 @@ impl Checker {
 				Ok(())
 			}
 			Statement::Definition(var, expr) => {
-				self.check_expression(expr)?;
-				self.scope.insert(Symbol {
-					id: var.id.to_string(),
+				let expr_type = self.check_expression(expr)?;
+
+				if expr_type != var._type {
+					return Err( Error { message: format!("cannot assign {} to {}", expr_type, var._type) });
+				}
+
+				self.scope.insert(ScopedVariable {
+					id: var,
 					level: self.level
 				});
 				Ok(())
 
 			}
 			Statement::Condition(lhs, rhs) => {
-				self.check_expression(lhs)?;
-				self.check_expression(rhs)?;
+				let lhs_type = self.check_expression(lhs)?;
+				let rhs_type = self.check_expression(rhs)?;
+
+				if lhs_type != rhs_type {
+					return Err( Error { message: format!("cannot compare {} to {}", lhs_type, rhs_type) });
+				}
+
 				Ok(())
 			}
 			Statement::For(var, _, _, statements) => {
 				self.level += 1;
-				let index = Symbol {
-					id: var.id.to_string(),
+				let index = ScopedVariable {
+					id: var,
 					level: self.level
 				};
 				self.scope.insert(index.clone());
@@ -151,23 +162,27 @@ impl Checker {
 				Ok(())
 			},
             Statement::MultipleDefinition(vars, rhs) => {
+            	let vars_types: Vec<Type> = vars.iter().map(|var| var.clone()._type).collect();
+
         		// All elements of the left side have to be identifiers
                 match rhs {
                 	// Right side has to be a function call
                     Expression::FunctionCall(ref fun_id, ref arguments) => {
-                    	match self.find_function(fun_id, arguments.len()) {
+                    	// check the arguments
+                    	let mut argument_types = vec![]; 
+                    	for expr in arguments {
+                    		let argument_type = self.check_expression(expr.clone())?;
+                    		argument_types.push(argument_type);
+                    	}
+
+                    	match self.find_function(fun_id, &argument_types) {
                     		// the function has to be defined
                     		Some(f) => {
                     			// the return count has to match the left side
-                    			if f.signature.outputs.len() == vars.len() {
-                    				// check the arguments
-                    				for arg in arguments {
-                    					self.check_expression(arg.clone())?;
-                    				}
-
+                    			if f.signature.outputs == vars_types {
                     				for var in vars {
-                        				self.scope.insert(Symbol {
-											id: var.id.to_string(),
+                        				self.scope.insert(ScopedVariable {
+											id: var,
 											level: self.level
 										});
                     				}
@@ -184,49 +199,65 @@ impl Checker {
 		}
 	}
 
-	fn check_expression<T: Field>(&mut self, expr: Expression<T>) -> Result<(), Error> {
+	fn check_expression<T: Field>(&mut self, expr: Expression<T>) -> Result<Type, Error> {
 		match expr {
 			Expression::Identifier(variable) => {
 				// check that `id` is defined in the scope
-				match self.scope.iter().find(|symbol| symbol.id == variable.to_string()) {
-					Some(_) => Ok(()),
+				match self.scope.iter().find(|v| v.id.id == variable) {
+					Some(v) => Ok(v.clone().id._type),
 					None => Err(Error { message: format!("{} is undefined", variable.to_string()) }),
 				}
-			}
+			},
 			Expression::Add(box e1, box e2) | Expression::Sub(box e1, box e2) | Expression::Mult(box e1, box e2) |
 			Expression::Div(box e1, box e2) | Expression::Pow(box e1, box e2) => {
-				self.check_expression(e1)?;
-				self.check_expression(e2)?;
-				Ok(())
+				let e1_type = self.check_expression(e1)?;
+				let e2_type = self.check_expression(e2)?;
+
+				match (e1_type, e2_type) {
+					(Type::FieldElement, Type::FieldElement) => {
+						// then we can add with the field element operation which returns a field element
+						Ok(Type::FieldElement)
+					}
+					(t1, t2) => Err(Error { message: format!("Expected only field elements, found {}, {}", t1, t2) })
+				}
 			}
 			Expression::IfElse(box condition, box consequence, box alternative) => {
 				self.check_condition(condition)?;
-				self.check_expression(consequence)?;
-				self.check_expression(alternative)?;
-				Ok(())
+				let consequence_type = self.check_expression(consequence)?;
+				let alternative_type = self.check_expression(alternative)?;
+				
+				match consequence_type == alternative_type {
+					true => Ok(consequence_type),
+					_ => Err(Error { message: format!("") })
+				}
 			}
 			Expression::FunctionCall(ref fun_id, ref arguments) => {
-				match self.find_function(fun_id, arguments.len()) {
+            	// check the arguments
+            	let mut argument_types = vec![]; 
+            	for expr in arguments {
+            		let argument_type = self.check_expression(expr.clone())?;
+            		argument_types.push(argument_type);
+            	}
+
+				match self.find_function(fun_id, &argument_types) {
 					// the function has to be defined
 					Some(f) => {
 						if f.signature.outputs.len() == 1 { // Functions must return a single value when not in a MultipleDefinition
-							for expr in arguments {
-								self.check_expression(expr.clone())?;
-							}
-							return Ok(())
+							let return_type = f.signature.outputs[0].clone();
+							return Ok(return_type)
 						}
 						Err(Error { message: format!("{} returns {} values but is called outside of a definition", fun_id, f.signature.outputs.len()) })
 					},
-                   	None => Err(Error { message: format!("Function definition for function {} with {} argument(s) not found.", fun_id, arguments.len()) })
+                   	None => Err(Error { message: format!("Function definition for function {} with arguments {:?} not found.", fun_id, argument_types) })
 				}
 			}
-			Expression::Number(_) => Ok(())
+			Expression::Number(_) => Ok(Type::FieldElement)
 		}
 	}
 
 	fn check_expression_list<T: Field>(&mut self, list: ExpressionList<T>) -> Result<(), Error> {
 		for expr in list.expressions { // implement Iterator trait?
-			self.check_expression(expr)?
+			self.check_expression(expr)?;
 		}
 		Ok(())
 	}
@@ -238,16 +269,21 @@ impl Checker {
 			Condition::Eq(e1, e2) |
 			Condition::Ge(e1, e2) |
 			Condition::Gt(e1, e2) => {
-				self.check_expression(e1)?;
-				self.check_expression(e2)?;
-				Ok(())
+				let e1_type = self.check_expression(e1)?;
+				let e2_type = self.check_expression(e2)?;
+				match (e1_type, e2_type) {
+					(Type::FieldElement, Type::FieldElement) => {
+						Ok(())
+					}
+					(t1, t2) => Err(Error { message: format!("cannot compare {} to {}", t1, t2) })
+				}
 			}
 		}
 	}
 
-	fn find_function(&mut self, id: &str, arg_count: usize) -> Option<FunctionDeclaration> {
+	fn find_function(&mut self, id: &str, arg_types: &Vec<Type>) -> Option<FunctionDeclaration> {
 		self.functions.clone().into_iter().find(|fun| {
-			fun.id == id && fun.signature.inputs.len() == arg_count
+			fun.id == id && fun.signature.inputs.len() == arg_types.len()
 		})
 	}
 }
@@ -258,7 +294,7 @@ mod tests {
 	use field::FieldPrime;
 	use absy::parameter::Parameter;
 
-	pub fn new_with_args(scope: HashSet<Symbol>, level: usize, functions: HashSet<FunctionDeclaration>) -> Checker {
+	pub fn new_with_args(scope: HashSet<ScopedVariable>, level: usize, functions: HashSet<FunctionDeclaration>) -> Checker {
 		Checker {
 			scope: scope,
 			functions: functions,
@@ -287,8 +323,8 @@ mod tests {
 			Expression::Identifier(String::from("b"))
 		);
 		let mut scope = HashSet::new();
-		scope.insert(Symbol {
-			id: String::from("b"),
+		scope.insert(ScopedVariable {
+			id: Variable::from("b"),
 			level: 0
 		});
 		let mut checker = new_with_args(scope, 1, HashSet::new());
@@ -673,7 +709,7 @@ mod tests {
 		};
 
 		let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
-		assert_eq!(checker.check_function(&bar), Err(Error { message: "Function definition for function foo with 0 argument(s) not found.".to_string() }));
+		assert_eq!(checker.check_function(&bar), Err(Error { message: "Function definition for function foo with arguments [] not found.".to_string() }));
 	}
 
 	#[test]

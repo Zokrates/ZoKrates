@@ -10,6 +10,7 @@ const BINARY_SEPARATOR: &str = "_b";
 
 use std::collections::{HashSet, HashMap};
 use absy::*;
+use absy::variable::Variable;
 use absy::parameter::Parameter;
 use field::Field;
 use flat_absy::*;
