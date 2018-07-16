@@ -200,6 +200,7 @@ pub enum Expression<T: Field> {
     Pow(Box<Expression<T>>, Box<Expression<T>>),
     IfElse(Box<Condition<T>>, Box<Expression<T>>, Box<Expression<T>>),
     FunctionCall(String, Vec<Expression<T>>),
+    Annotated(Box<Expression<T>>, Vec<Type>)
 }
 
 impl<T: Field> Expression<T> {
@@ -245,6 +246,9 @@ impl<T: Field> Expression<T> {
                     param.apply_substitution(substitution);
                 }
                 Expression::FunctionCall(i.clone(), p.clone())
+            },
+            Expression::Annotated(ref e, ref t) => {
+                Expression::Annotated(box e.apply_substitution(substitution), t.clone())
             }
         }
     }
@@ -264,6 +268,20 @@ impl<T: Field> Expression<T> {
                 }
             }
             _ => false,
+        }
+    }
+
+    pub fn with_annotation(&self, t: Type) -> Expression<T> {
+        match self {
+            Expression::Annotated(_, _) => panic!(format!("{} already annotated", self)),
+            e => Expression::Annotated(box e.clone(), vec![t])
+        }
+    }
+
+    pub fn with_annotations(&self, ts: Vec<Type>) -> Expression<T> {
+        match self {
+            Expression::Annotated(_, _) => panic!(format!("{} already annotated", self)),
+            e => Expression::Annotated(box e.clone(), ts)
         }
     }
 }
@@ -294,7 +312,8 @@ impl<T: Field> fmt::Display for Expression<T> {
                     }
                 }
                 write!(f, ")")
-            }
+            },
+            Expression::Annotated(ref e, _) => write!(f, "{}", e),
         }
     }
 }
@@ -320,7 +339,8 @@ impl<T: Field> fmt::Debug for Expression<T> {
                 try!(write!(f, "FunctionCall({:?}, (", i));
                 try!(f.debug_list().entries(p.iter()).finish());
                 write!(f, ")")
-            }
+            },
+            Expression::Annotated(ref e, ref t) => write!(f, "Annotated({:?}, {:?})", t, e),
         }
     }
 }

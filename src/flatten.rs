@@ -535,6 +535,14 @@ impl Flattener {
                 assert!(exprs_flattened.expressions.len() == 1); // outside of MultipleDefinition, FunctionCalls must return a single value
                 exprs_flattened.expressions[0].clone()
             }
+            Expression::Annotated(box e, t) => {
+                self.flatten_expression(
+                    functions_flattened,
+                    arguments_flattened,
+                    statements_flattened,
+                    e
+                )
+            }
         }
     }
 
