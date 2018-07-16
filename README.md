@@ -38,7 +38,7 @@ cd ZoKrates/target/release
 To execute the program, perform the setup for the program, generate a proof
 ```
 def add(a, b, c):
-  return a + b + c
+  return a + b
 ```
 with `add(1, 2, 3)`, call
 ```
