@@ -37,7 +37,7 @@ cd ZoKrates/target/release
 
 To execute the program, perform the setup for the program, generate a proof
 ```
-def add(a, b, c):
+def add(a, b):
   return a + b
 ```
 with `add(1, 2, 3)`, call
@@ -69,7 +69,7 @@ Creates a compiled `.code` file at `./out.code`.
 
 #### `compute-witness`
 ```
-./zokrates compute-witness -a 1 2
+./zokrates compute-witness -a 1 2 3
 ```
 
 Computes a witness for the compiled program found at `./out.code` and arguments to the program.
