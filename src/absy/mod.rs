@@ -257,16 +257,23 @@ impl<T: Field> Expression<T> {
         match *self {
             Expression::Number(_) | Expression::Identifier(_) => true,
             Expression::Add(ref x, ref y) | Expression::Sub(ref x, ref y) => {
-                x.is_linear() && y.is_linear()
+                let x_unpacked = x.unpack();
+                let y_unpacked = y.unpack();
+                x_unpacked.is_linear() && y_unpacked.is_linear()
             }
             Expression::Mult(ref x, ref y) | Expression::Div(ref x, ref y) => {
-                match (x.clone(), y.clone()) {
+                let x_unpacked = x.unpack();
+                let y_unpacked = y.unpack();
+                match (x_unpacked, y_unpacked) {
                     (box Expression::Number(_), box Expression::Number(_)) |
                     (box Expression::Number(_), box Expression::Identifier(_)) |
                     (box Expression::Identifier(_), box Expression::Number(_)) => true,
                     _ => false,
                 }
             }
+            Expression::Annotated(ref e, _) => {
+                e.is_linear()
+            },
             _ => false,
         }
     }
@@ -282,6 +289,13 @@ impl<T: Field> Expression<T> {
         match self {
             Expression::Annotated(_, _) => panic!(format!("{} already annotated", self)),
             e => Expression::Annotated(box e.clone(), ts)
+        }
+    }
+
+    pub fn unpack(&self) -> Box<Expression<T>> {
+        match self {
+            Expression::Annotated(e, _) => e.clone(),
+            e => box self.clone(),
         }
     }
 }

@@ -471,8 +471,12 @@ impl Flattener {
             }
             Expression::Pow(base, exponent) => {
                 // TODO currently assuming that base is number or variable
-                match exponent {
-                    box Expression::Number(ref x) if x > &T::one() => match base {
+
+                let base_unpacked = base.unpack();
+                let exponent_unpacked = exponent.unpack();
+
+                match exponent_unpacked {
+                    box Expression::Number(ref x) if x > &T::one() => match base_unpacked {
                         box Expression::Identifier(ref var) => {
                             let id = if x > &T::from(2) {
                                 let tmp_expression = self.flatten_expression(
@@ -535,7 +539,7 @@ impl Flattener {
                 assert!(exprs_flattened.expressions.len() == 1); // outside of MultipleDefinition, FunctionCalls must return a single value
                 exprs_flattened.expressions[0].clone()
             }
-            Expression::Annotated(box e, t) => {
+            Expression::Annotated(box e, _) => {
                 self.flatten_expression(
                     functions_flattened,
                     arguments_flattened,
@@ -585,6 +589,7 @@ impl Flattener {
                 statements_flattened.push(FlatStatement::Return(rhs));
             }
             Statement::Definition(ref v, ref expr) => {
+                let expr = expr.unpack();
                 let expr_subbed = expr.apply_substitution(&self.substitution);
                 let rhs = self.flatten_expression(
                     functions_flattened,
@@ -602,8 +607,12 @@ impl Flattener {
                 statements_flattened.push(FlatStatement::Definition(var, rhs));
             }
             Statement::Condition(ref expr1, ref expr2) => {
+                let expr1 = expr1.unpack();
+                let expr2 = expr2.unpack();
+
                 let expr1_subbed = expr1.apply_substitution(&self.substitution);
                 let expr2_subbed = expr2.apply_substitution(&self.substitution);
+
                 let (lhs, rhs) = if expr1_subbed.is_linear() {
                     (
                         self.flatten_expression(
@@ -658,6 +667,7 @@ impl Flattener {
                 }
             }
             Statement::MultipleDefinition(ref vars, ref rhs) => {
+                let rhs = rhs.unpack();
                 let rhs_subbed = rhs.apply_substitution(&self.substitution);
                 match rhs_subbed {
                     Expression::FunctionCall(ref fun_id, ref exprs) => {
