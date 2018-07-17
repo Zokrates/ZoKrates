@@ -200,7 +200,8 @@ pub enum Expression<T: Field> {
     Pow(Box<Expression<T>>, Box<Expression<T>>),
     IfElse(Box<Condition<T>>, Box<Expression<T>>, Box<Expression<T>>),
     FunctionCall(String, Vec<Expression<T>>),
-    Annotated(Box<Expression<T>>, Vec<Type>)
+    Annotated(Box<Expression<T>>, Type),
+    MultiAnnotated(Box<Expression<T>>, Vec<Type>),
 }
 
 impl<T: Field> Expression<T> {
@@ -249,6 +250,9 @@ impl<T: Field> Expression<T> {
             },
             Expression::Annotated(ref e, ref t) => {
                 Expression::Annotated(box e.apply_substitution(substitution), t.clone())
+            },
+            Expression::MultiAnnotated(ref e, ref ts) => {
+                Expression::MultiAnnotated(box e.apply_substitution(substitution), ts.clone())
             }
         }
     }
@@ -274,28 +278,39 @@ impl<T: Field> Expression<T> {
             Expression::Annotated(ref e, _) => {
                 e.is_linear()
             },
+            Expression::MultiAnnotated(ref e, _) => {
+                e.is_linear()
+            },
             _ => false,
         }
     }
 
     pub fn with_annotation(&self, t: Type) -> Expression<T> {
         match self {
-            Expression::Annotated(_, _) => panic!(format!("{} already annotated", self)),
-            e => Expression::Annotated(box e.clone(), vec![t])
+            Expression::Annotated(_, _) | Expression::MultiAnnotated(_, _) => panic!(format!("{} already annotated", self)),
+            e => Expression::Annotated(box e.clone(), t)
         }
     }
 
     pub fn with_annotations(&self, ts: Vec<Type>) -> Expression<T> {
         match self {
-            Expression::Annotated(_, _) => panic!(format!("{} already annotated", self)),
-            e => Expression::Annotated(box e.clone(), ts)
+            Expression::Annotated(_, _) | Expression::MultiAnnotated(_, _) => panic!(format!("{} already annotated", self)),
+            e => Expression::MultiAnnotated(box e.clone(), ts)
         }
     }
 
     pub fn unpack(&self) -> Box<Expression<T>> {
         match self {
-            Expression::Annotated(e, _) => e.clone(),
+            Expression::Annotated(e, _) | Expression::MultiAnnotated(e, _) => e.clone(),
             e => box self.clone(),
+        }
+    }
+
+    pub fn is_single_annotation(&self) -> Result<Type, ()> {
+        match self {
+            Expression::Annotated(_, t) => Ok(t.clone()),
+            Expression::MultiAnnotated(_, ts) if ts.len() == 1 => Ok(ts[0].clone()),
+            _ => Err(()),
         }
     }
 }
@@ -328,6 +343,7 @@ impl<T: Field> fmt::Display for Expression<T> {
                 write!(f, ")")
             },
             Expression::Annotated(ref e, _) => write!(f, "{}", e),
+            Expression::MultiAnnotated(ref e, ref ts) => write!(f, "{}", e),
         }
     }
 }
@@ -355,6 +371,7 @@ impl<T: Field> fmt::Debug for Expression<T> {
                 write!(f, ")")
             },
             Expression::Annotated(ref e, ref t) => write!(f, "Annotated({:?}, {:?})", t, e),
+            Expression::MultiAnnotated(ref e, ref ts) => write!(f, "MultiAnnotated({:?}, {:?})", ts, e),
         }
     }
 }

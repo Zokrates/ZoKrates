@@ -547,6 +547,14 @@ impl Flattener {
                     e
                 )
             }
+            Expression::MultiAnnotated(box e, _) => {
+                self.flatten_expression(
+                    functions_flattened,
+                    arguments_flattened,
+                    statements_flattened,
+                    e
+                )
+            }
         }
     }
 
