@@ -4,6 +4,7 @@ use std::string::String;
 use std::fmt;
 
 pub mod field_element;
+pub mod signature;
 mod constraints;
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]

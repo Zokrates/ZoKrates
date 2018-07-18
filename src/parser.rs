@@ -15,7 +15,7 @@ use std::path::PathBuf;
 use imports::*;
 use absy::parameter::Parameter;
 use types::Type;
-use absy::signature::Signature;
+use types::signature::Signature;
 
 #[derive(Clone, PartialEq)]
 struct Position {
