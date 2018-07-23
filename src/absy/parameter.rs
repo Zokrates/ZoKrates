@@ -20,15 +20,3 @@ impl fmt::Debug for Parameter {
         write!(f, "Parameter(variable: {:?})", self.id)
     }
 }
-
-impl Parameter {
-    pub fn apply_substitution(&self, substitution: &Substitution) -> Parameter {
-        Parameter {
-            id: Variable {
-                id: substitution.get(&self.id.id).unwrap().to_string(),
-                _type: self.id._type.clone()
-            },
-            private: self.private
-        }
-    }
-}

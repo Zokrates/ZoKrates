@@ -17,8 +17,6 @@ use substitution::Substitution;
 use field::Field;
 use imports::Import;
 use flat_absy::*;
-use types::field_element::*;
-use types::Type;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct Prog<T: Field> {

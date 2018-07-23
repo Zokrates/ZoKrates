@@ -14,7 +14,6 @@ use substitution::Substitution;
 use field::Field;
 use imports::Import;
 use flat_absy::*;
-use types::field_element::*;
 use types::Type;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
@@ -130,17 +129,58 @@ impl<T: Field> fmt::Debug for AnnotatedFunction<T> {
 
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub enum AnnotatedStatement<T: Field> {
-    Return(AnnotatedExpressionList<T>),
+    Return(Vec<AnnotatedExpression<T>>),
     Definition(Variable, AnnotatedExpression<T>),
     Condition(AnnotatedExpression<T>, AnnotatedExpression<T>),
     For(Variable, T, T, Vec<AnnotatedStatement<T>>),
-    MultipleDefinition(Vec<Variable>, AnnotatedExpression<T>),
+    MultipleDefinition(Vec<Variable>, AnnotatedExpressionList<T>),
 }
+
+impl<T: Field> fmt::Debug for AnnotatedStatement<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            AnnotatedStatement::Return(ref exprs) => {
+                try!(write!(f, "Return("));
+                for (i, expr) in exprs.iter().enumerate() {
+                    try!(write!(f, "{}", expr));
+                    if i < exprs.len() - 1 {
+                        try!(write!(f, ", "));
+                    }
+                }
+                write!(f, ")")
+            },
+            AnnotatedStatement::Definition(ref lhs, ref rhs) => {
+                write!(f, "Definition({:?}, {:?})", lhs, rhs)
+            }
+            AnnotatedStatement::Condition(ref lhs, ref rhs) => write!(f, "Condition({:?}, {:?})", lhs, rhs),
+            AnnotatedStatement::For(ref var, ref start, ref stop, ref list) => {
+                try!(write!(f, "for {:?} in {:?}..{:?} do\n", var, start, stop));
+                for l in list {
+                    try!(write!(f, "\t\t{:?}\n", l));
+                }
+                write!(f, "\tendfor")
+            }
+            AnnotatedStatement::MultipleDefinition(ref lhs, ref rhs) => {
+                write!(f, "MultipleDefinition({:?}, {:?})", lhs, rhs)
+            },
+        }
+    }
+}
+
 
 impl<T: Field> fmt::Display for AnnotatedStatement<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            AnnotatedStatement::Return(ref expr) => write!(f, "return {}", expr),
+            AnnotatedStatement::Return(ref exprs) => {
+                try!(write!(f, "return "));
+                for (i, expr) in exprs.iter().enumerate() {
+                    try!(write!(f, "{}", expr));
+                    if i < exprs.len() - 1 {
+                        try!(write!(f, ", "));
+                    }
+                }
+                write!(f, "")
+            },
             AnnotatedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             AnnotatedStatement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             AnnotatedStatement::For(ref var, ref start, ref stop, ref list) => {
@@ -163,145 +203,218 @@ impl<T: Field> fmt::Display for AnnotatedStatement<T> {
     }
 }
 
-impl<T: Field> fmt::Debug for AnnotatedStatement<T> {
+pub trait Typed
+{
+    fn get_type(&self) -> Type;
+}
+
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+pub enum AnnotatedExpression<T: Field> {
+    Boolean(BooleanExpression<T>),
+    FieldElement(FieldElementExpression<T>),
+}
+
+impl<T: Field> fmt::Display for AnnotatedExpression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            AnnotatedStatement::Return(ref expr) => write!(f, "Return({:?})", expr),
-            AnnotatedStatement::Definition(ref lhs, ref rhs) => {
-                write!(f, "Definition({:?}, {:?})", lhs, rhs)
-            }
-            AnnotatedStatement::Condition(ref lhs, ref rhs) => write!(f, "Condition({:?}, {:?})", lhs, rhs),
-            AnnotatedStatement::For(ref var, ref start, ref stop, ref list) => {
-                try!(write!(f, "for {:?} in {:?}..{:?} do\n", var, start, stop));
-                for l in list {
-                    try!(write!(f, "\t\t{:?}\n", l));
-                }
-                write!(f, "\tendfor")
-            }
-            AnnotatedStatement::MultipleDefinition(ref lhs, ref rhs) => {
-                write!(f, "MultipleDefinition({:?}, {:?})", lhs, rhs)
+            AnnotatedExpression::Boolean(ref e) => {
+                write!(f, "{}", e)
             },
+            AnnotatedExpression::FieldElement(ref e) => {
+                write!(f, "{}", e)
+            }
+        }
+    }
+}
+
+impl<T: Field> fmt::Debug for AnnotatedExpression<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            AnnotatedExpression::Boolean(ref e) => {
+                write!(f, "{:?}", e)
+            },
+            AnnotatedExpression::FieldElement(ref e) => {
+                write!(f, "{:?}", e)
+            }
+        }
+    }
+}
+
+
+impl<T: Field> Typed for AnnotatedExpression<T> {
+    fn get_type(&self) -> Type {
+        match self {
+            AnnotatedExpression::Boolean(e) => Type::Boolean,
+            AnnotatedExpression::FieldElement(e) => Type::FieldElement
+        }
+    }
+}
+
+pub trait MultiTyped
+{
+    fn get_types(&self) -> &Vec<Type>;
+}
+
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+pub enum AnnotatedExpressionList<T: Field> {
+    FunctionCall(String, Vec<AnnotatedExpression<T>>, Vec<Type>)
+}
+
+impl<T: Field> MultiTyped for AnnotatedExpressionList<T> {
+    fn get_types(&self) -> &Vec<Type> {
+        match *self {
+            AnnotatedExpressionList::FunctionCall(_, _, ref types) => types
         }
     }
 }
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub struct AnnotatedExpression<T: Field> {
-    expression: ExpressionRec<T>,
-    annotations: Vec<Type>
-}
-
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub enum ExpressionRec<T: Field> {
+pub enum FieldElementExpression<T: Field> {
     Number(T),
     Identifier(String),
-    Add(Box<AnnotatedExpression<T>>, Box<AnnotatedExpression<T>>),
-    Sub(Box<AnnotatedExpression<T>>, Box<AnnotatedExpression<T>>),
-    Mult(Box<AnnotatedExpression<T>>, Box<AnnotatedExpression<T>>),
-    Div(Box<AnnotatedExpression<T>>, Box<AnnotatedExpression<T>>),
-    Pow(Box<AnnotatedExpression<T>>, Box<AnnotatedExpression<T>>),
-    IfElse(Box<AnnotatedCondition<T>>, Box<AnnotatedExpression<T>>, Box<AnnotatedExpression<T>>),
+    Add(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
+    Sub(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
+    Mult(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
+    Div(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
+    Pow(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
+    IfElse(Box<BooleanExpression<T>>, Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     FunctionCall(String, Vec<AnnotatedExpression<T>>),
 }
 
-impl<T: Field> ExpressionRec<T> {
-    pub fn apply_substitution(&self, substitution: &Substitution) -> ExpressionRec<T> {
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+pub enum BooleanExpression<T: Field> {
+    Identifier(String),
+    Lt(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
+    Le(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
+    Eq(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
+    Ge(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
+    Gt(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
+}
+
+impl<T: Field> BooleanExpression<T> {
+    fn apply_substitution(&self, substitution: &Substitution) -> BooleanExpression<T> {
         match *self {
-            ref e @ ExpressionRec::Number(_) => e.clone(),
-            ExpressionRec::Identifier(ref id) => {
+            BooleanExpression::Identifier(ref id) => {
                 let mut new_name = id.clone();
                 loop {
                     match substitution.get(&new_name) {
                         Some(x) => new_name = x.to_string(),
-                        None => return ExpressionRec::Identifier(new_name),
+                        None => return BooleanExpression::Identifier(new_name),
+                    }
+                }
+            },
+            BooleanExpression::Lt(ref lhs, ref rhs) => BooleanExpression::Lt(
+                box lhs.apply_substitution(substitution),
+                box rhs.apply_substitution(substitution),
+            ),
+            BooleanExpression::Le(ref lhs, ref rhs) => BooleanExpression::Le(
+                box lhs.apply_substitution(substitution),
+                box rhs.apply_substitution(substitution),
+            ),
+            BooleanExpression::Eq(ref lhs, ref rhs) => BooleanExpression::Eq(
+                box lhs.apply_substitution(substitution),
+                box rhs.apply_substitution(substitution),
+            ),
+            BooleanExpression::Ge(ref lhs, ref rhs) => BooleanExpression::Ge(
+                box lhs.apply_substitution(substitution),
+                box rhs.apply_substitution(substitution),
+            ),
+            BooleanExpression::Gt(ref lhs, ref rhs) => BooleanExpression::Gt(
+                box lhs.apply_substitution(substitution),
+                box rhs.apply_substitution(substitution),
+            ),
+        }
+    }
+
+    pub fn is_linear(&self) -> bool {
+        false
+    }
+}
+
+impl<T: Field> FieldElementExpression<T> {
+    pub fn apply_substitution(&self, substitution: &Substitution) -> FieldElementExpression<T> {
+        match *self {
+            ref e @ FieldElementExpression::Number(_) => e.clone(),
+            FieldElementExpression::Identifier(ref id) => {
+                let mut new_name = id.clone();
+                loop {
+                    match substitution.get(&new_name) {
+                        Some(x) => new_name = x.to_string(),
+                        None => return FieldElementExpression::Identifier(new_name),
                     }
                 }
             }
-            ExpressionRec::Add(ref e1, ref e2) => ExpressionRec::Add(
+            FieldElementExpression::Add(ref e1, ref e2) => FieldElementExpression::Add(
                 box e1.apply_substitution(substitution),
                 box e2.apply_substitution(substitution),
             ),
-            ExpressionRec::Sub(ref e1, ref e2) => ExpressionRec::Sub(
+            FieldElementExpression::Sub(ref e1, ref e2) => FieldElementExpression::Sub(
                 box e1.apply_substitution(substitution),
                 box e2.apply_substitution(substitution),
             ),
-            ExpressionRec::Mult(ref e1, ref e2) => ExpressionRec::Mult(
+            FieldElementExpression::Mult(ref e1, ref e2) => FieldElementExpression::Mult(
                 box e1.apply_substitution(substitution),
                 box e2.apply_substitution(substitution),
             ),
-            ExpressionRec::Div(ref e1, ref e2) => ExpressionRec::Div(
+            FieldElementExpression::Div(ref e1, ref e2) => FieldElementExpression::Div(
                 box e1.apply_substitution(substitution),
                 box e2.apply_substitution(substitution),
             ),
-            ExpressionRec::Pow(ref e1, ref e2) => ExpressionRec::Pow(
+            FieldElementExpression::Pow(ref e1, ref e2) => FieldElementExpression::Pow(
                 box e1.apply_substitution(substitution),
                 box e2.apply_substitution(substitution),
             ),
-            ExpressionRec::IfElse(ref c, ref e1, ref e2) => ExpressionRec::IfElse(
+            FieldElementExpression::IfElse(ref c, ref e1, ref e2) => FieldElementExpression::IfElse(
                 box c.apply_substitution(substitution),
                 box e1.apply_substitution(substitution),
                 box e2.apply_substitution(substitution),
             ),
-            ExpressionRec::FunctionCall(ref i, ref p) => {
+            FieldElementExpression::FunctionCall(ref i, ref p) => {
                 for param in p {
                     param.apply_substitution(substitution);
                 }
-                ExpressionRec::FunctionCall(i.clone(), p.clone())
+                FieldElementExpression::FunctionCall(i.clone(), p.clone())
             },
         }
     }
 
     pub fn is_linear(&self) -> bool {
         match *self {
-            ExpressionRec::Number(_) | ExpressionRec::Identifier(_) => true,
-            ExpressionRec::Add(ref x, ref y) | ExpressionRec::Sub(ref x, ref y) => {
+            FieldElementExpression::Number(_) | FieldElementExpression::Identifier(_) => true,
+            FieldElementExpression::Add(ref x, ref y) | FieldElementExpression::Sub(ref x, ref y) => {
                 x.is_linear() && y.is_linear()
             }
-            ExpressionRec::Mult(ref x, ref y) | ExpressionRec::Div(ref x, ref y) => {
-                match (&x.expression, &y.expression) {
-                    (&ExpressionRec::Number(_), &ExpressionRec::Number(_)) |
-                    (&ExpressionRec::Number(_), &ExpressionRec::Identifier(_)) |
-                    (&ExpressionRec::Identifier(_), &ExpressionRec::Number(_)) => true,
+            FieldElementExpression::Mult(ref x, ref y) | FieldElementExpression::Div(ref x, ref y) => {
+                match (x, y) {
+                    (box FieldElementExpression::Number(_), box FieldElementExpression::Number(_)) |
+                    (box FieldElementExpression::Number(_), box FieldElementExpression::Identifier(_)) |
+                    (box FieldElementExpression::Identifier(_), box FieldElementExpression::Number(_)) => true,
                     _ => false,
                 }
             }
             _ => false,
         }
     }
-
-    pub fn with_annotation(&self, t: Type) -> AnnotatedExpression<T> {
-        AnnotatedExpression {
-            expression: self.clone(), 
-            annotations: vec![t]
-        }
-    }
-
-    pub fn with_annotations(&self, ts: Vec<Type>) -> AnnotatedExpression<T> {
-        AnnotatedExpression {
-            expression: self.clone(), 
-            annotations: ts
-        }
-    }
 }
 
-impl<T: Field> fmt::Display for ExpressionRec<T> {
+impl<T: Field> fmt::Display for FieldElementExpression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            ExpressionRec::Number(ref i) => write!(f, "{}", i),
-            ExpressionRec::Identifier(ref var) => write!(f, "{}", var),
-            ExpressionRec::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
-            ExpressionRec::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
-            ExpressionRec::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
-            ExpressionRec::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
-            ExpressionRec::Pow(ref lhs, ref rhs) => write!(f, "{}**{}", lhs, rhs),
-            ExpressionRec::IfElse(ref condition, ref consequent, ref alternative) => write!(
+            FieldElementExpression::Number(ref i) => write!(f, "{}", i),
+            FieldElementExpression::Identifier(ref var) => write!(f, "{}", var),
+            FieldElementExpression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
+            FieldElementExpression::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
+            FieldElementExpression::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
+            FieldElementExpression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
+            FieldElementExpression::Pow(ref lhs, ref rhs) => write!(f, "{}**{}", lhs, rhs),
+            FieldElementExpression::IfElse(ref condition, ref consequent, ref alternative) => write!(
                 f,
                 "if {} then {} else {} fi",
                 condition,
                 consequent,
                 alternative
             ),
-            ExpressionRec::FunctionCall(ref i, ref p) => {
+            FieldElementExpression::FunctionCall(ref i, ref p) => {
                 try!(write!(f, "{}(", i,));
                 for (i, param) in p.iter().enumerate() {
                     try!(write!(f, "{}", param));
@@ -315,24 +428,43 @@ impl<T: Field> fmt::Display for ExpressionRec<T> {
     }
 }
 
-impl<T: Field> fmt::Debug for ExpressionRec<T> {
+impl<T: Field> fmt::Display for BooleanExpression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            ExpressionRec::Number(ref i) => write!(f, "Num({})", i),
-            ExpressionRec::Identifier(ref var) => write!(f, "Ide({})", var),
-            ExpressionRec::Add(ref lhs, ref rhs) => write!(f, "Add({:?}, {:?})", lhs, rhs),
-            ExpressionRec::Sub(ref lhs, ref rhs) => write!(f, "Sub({:?}, {:?})", lhs, rhs),
-            ExpressionRec::Mult(ref lhs, ref rhs) => write!(f, "Mult({:?}, {:?})", lhs, rhs),
-            ExpressionRec::Div(ref lhs, ref rhs) => write!(f, "Div({:?}, {:?})", lhs, rhs),
-            ExpressionRec::Pow(ref lhs, ref rhs) => write!(f, "Pow({:?}, {:?})", lhs, rhs),
-            ExpressionRec::IfElse(ref condition, ref consequent, ref alternative) => write!(
+            BooleanExpression::Identifier(ref var) => write!(f, "{}", var),
+            BooleanExpression::Lt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
+            BooleanExpression::Le(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
+            BooleanExpression::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            BooleanExpression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
+            BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
+        }
+    }
+}
+
+impl<T: Field> fmt::Debug for BooleanExpression<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl<T: Field> fmt::Debug for FieldElementExpression<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            FieldElementExpression::Number(ref i) => write!(f, "Num({})", i),
+            FieldElementExpression::Identifier(ref var) => write!(f, "Ide({})", var),
+            FieldElementExpression::Add(ref lhs, ref rhs) => write!(f, "Add({:?}, {:?})", lhs, rhs),
+            FieldElementExpression::Sub(ref lhs, ref rhs) => write!(f, "Sub({:?}, {:?})", lhs, rhs),
+            FieldElementExpression::Mult(ref lhs, ref rhs) => write!(f, "Mult({:?}, {:?})", lhs, rhs),
+            FieldElementExpression::Div(ref lhs, ref rhs) => write!(f, "Div({:?}, {:?})", lhs, rhs),
+            FieldElementExpression::Pow(ref lhs, ref rhs) => write!(f, "Pow({:?}, {:?})", lhs, rhs),
+            FieldElementExpression::IfElse(ref condition, ref consequent, ref alternative) => write!(
                 f,
                 "IfElse({:?}, {:?}, {:?})",
                 condition,
                 consequent,
                 alternative
             ),
-            ExpressionRec::FunctionCall(ref i, ref p) => {
+            FieldElementExpression::FunctionCall(ref i, ref p) => {
                 try!(write!(f, "FunctionCall({:?}, (", i));
                 try!(f.debug_list().entries(p.iter()).finish());
                 write!(f, ")")
@@ -344,129 +476,55 @@ impl<T: Field> fmt::Debug for ExpressionRec<T> {
 
 impl<T: Field> AnnotatedExpression<T> {
     pub fn apply_substitution(&self, substitution: &Substitution) -> AnnotatedExpression<T> {
-        self.expression.apply_substitution(substitution).with_annotations(self.annotations.clone())
+        match self {
+            AnnotatedExpression::Boolean(e) => AnnotatedExpression::Boolean(e.apply_substitution(substitution)),
+            AnnotatedExpression::FieldElement(e) => AnnotatedExpression::FieldElement(e.apply_substitution(substitution)),
+        }
     }
 
     pub fn is_linear(&self) -> bool {
-        self.expression.is_linear()
+        match self {
+            AnnotatedExpression::Boolean(e) => e.is_linear(),
+            AnnotatedExpression::FieldElement(e) => e.is_linear(),
+        }    
     }
-
-    pub fn is_single_annotation(&self) -> Result<Type, ()> {
-        match self.annotations.len() {
-            1 => Ok(self.annotations[0].clone()),
-            _ => Err(()),
-        }
-    }
-
-    pub fn get_annotations(&self) -> Vec<Type> {
-        self.annotations.clone()
-    }
-
-    pub fn get_expression(&self) -> ExpressionRec<T> {
-        self.expression.clone()
-    }
-}
-
-impl<T: Field> fmt::Display for AnnotatedExpression<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.expression)
-    }
-}
-
-impl<T: Field> fmt::Debug for AnnotatedExpression<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self.expression)
-    }
-}
-
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub struct AnnotatedExpressionList<T: Field> {
-    pub expressions: Vec<AnnotatedExpression<T>>
 }
 
 impl<T: Field> AnnotatedExpressionList<T> {
-    pub fn new() -> AnnotatedExpressionList<T> {
-        AnnotatedExpressionList {
-            expressions: vec![]
-        }
-    }
-
     pub fn apply_substitution(&self, substitution: &Substitution) -> AnnotatedExpressionList<T> {
-        let expressions: Vec<AnnotatedExpression<T>> = self.expressions.iter().map(|e| e.apply_substitution(substitution)).collect();
-        AnnotatedExpressionList {
-            expressions: expressions
+        match *self {
+            AnnotatedExpressionList::FunctionCall(ref id, ref inputs, ref types) => {
+                AnnotatedExpressionList::FunctionCall(id.clone(), inputs.iter().map(|i| i.apply_substitution(substitution)).collect(), types.clone())
+            }
         }
     }
 }
 
 impl<T: Field> fmt::Display for AnnotatedExpressionList<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for (i, param) in self.expressions.iter().enumerate() {
-            try!(write!(f, "{}", param));
-            if i < self.expressions.len() - 1 {
-                try!(write!(f, ", "));
+        match *self {
+            AnnotatedExpressionList::FunctionCall(ref i, ref p, _) => {
+                try!(write!(f, "{}(", i,));
+                for (i, param) in p.iter().enumerate() {
+                    try!(write!(f, "{}", param));
+                    if i < p.len() - 1 {
+                        try!(write!(f, ", "));
+                    }
+                }
+                write!(f, ")")
             }
         }
-        write!(f, "")
     }
 }
 
 impl<T: Field> fmt::Debug for AnnotatedExpressionList<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "AnnotatedExpressionList({:?})", self.expressions)
-    }
-}
-
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub enum AnnotatedCondition<T: Field> {
-    Lt(AnnotatedExpression<T>, AnnotatedExpression<T>),
-    Le(AnnotatedExpression<T>, AnnotatedExpression<T>),
-    Eq(AnnotatedExpression<T>, AnnotatedExpression<T>),
-    Ge(AnnotatedExpression<T>, AnnotatedExpression<T>),
-    Gt(AnnotatedExpression<T>, AnnotatedExpression<T>),
-}
-
-impl<T: Field> AnnotatedCondition<T> {
-    fn apply_substitution(&self, substitution: &Substitution) -> AnnotatedCondition<T> {
         match *self {
-            AnnotatedCondition::Lt(ref lhs, ref rhs) => AnnotatedCondition::Lt(
-                lhs.apply_substitution(substitution),
-                rhs.apply_substitution(substitution),
-            ),
-            AnnotatedCondition::Le(ref lhs, ref rhs) => AnnotatedCondition::Le(
-                lhs.apply_substitution(substitution),
-                rhs.apply_substitution(substitution),
-            ),
-            AnnotatedCondition::Eq(ref lhs, ref rhs) => AnnotatedCondition::Eq(
-                lhs.apply_substitution(substitution),
-                rhs.apply_substitution(substitution),
-            ),
-            AnnotatedCondition::Ge(ref lhs, ref rhs) => AnnotatedCondition::Ge(
-                lhs.apply_substitution(substitution),
-                rhs.apply_substitution(substitution),
-            ),
-            AnnotatedCondition::Gt(ref lhs, ref rhs) => AnnotatedCondition::Gt(
-                lhs.apply_substitution(substitution),
-                rhs.apply_substitution(substitution),
-            ),
+            AnnotatedExpressionList::FunctionCall(ref i, ref p, _) => {
+                try!(write!(f, "FunctionCall({:?}, (", i));
+                try!(f.debug_list().entries(p.iter()).finish());
+                write!(f, ")")
+            }
         }
-    }
-}
-
-impl<T: Field> fmt::Display for AnnotatedCondition<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            AnnotatedCondition::Lt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
-            AnnotatedCondition::Le(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
-            AnnotatedCondition::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
-            AnnotatedCondition::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
-            AnnotatedCondition::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
-        }
-    }
-}
-
-impl<T: Field> fmt::Debug for AnnotatedCondition<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self)
     }
 }

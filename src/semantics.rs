@@ -12,7 +12,7 @@ use field::Field;
 use std::fmt;
 use types::signature::Signature;
 use absy::variable::Variable;
-use annotated_absy::{AnnotatedProg, AnnotatedFunction, AnnotatedStatement, AnnotatedExpression, AnnotatedCondition, AnnotatedExpressionList, ExpressionRec};
+use annotated_absy::{AnnotatedProg, AnnotatedFunction, AnnotatedStatement, AnnotatedExpressionList, AnnotatedExpression, BooleanExpression, FieldElementExpression, Typed};
 
 use types::Type;
 
@@ -137,19 +137,20 @@ impl Checker {
 	fn check_statement<T: Field>(&mut self, stat: Statement<T>) -> Result<AnnotatedStatement<T>, Error> {
 		match stat {
 			Statement::Return(ref list) => {
-				let expression_list_checked = self.check_expression_list(list)?;
+				let mut expression_list_checked = vec![];
+				for e in list.expressions.clone() {
+					let e_checked = self.check_expression(e)?;
+					expression_list_checked.push(e_checked);
+				}
 				Ok(AnnotatedStatement::Return(expression_list_checked))
 			}
 			Statement::Definition(var, expr) => {
 				let checked_expr = self.check_expression(expr)?;
 
-				match checked_expr.is_single_annotation() {
-					Ok(t) => {
-						if t != var._type {
-							return Err( Error { message: format!("cannot assign {:?} to {:?}", t, var._type) });
-						}
-					},
-					_ => panic!("should have a single annotation")
+				let expression_type = checked_expr.get_type();
+
+				if expression_type != var._type {
+					return Err( Error { message: format!("cannot assign {:?} to {:?}", expression_type, var._type) });
 				}
 
 				self.scope.insert(ScopedVariable {
@@ -162,16 +163,10 @@ impl Checker {
 				let checked_lhs = self.check_expression(lhs)?;
 				let checked_rhs = self.check_expression(rhs)?;
 
-				match (checked_lhs.is_single_annotation(), checked_rhs.is_single_annotation()) {
-					(Ok(t1), Ok(t2)) => {
-						if t1 != t2 {
-							return Err( Error { message: format!("cannot compare {:?} to {:?}", t1, t2) });
-						}
-					},
-					_ => panic!("should have a single annotation")
+				match (checked_lhs.clone(), checked_rhs.clone()) {
+					(AnnotatedExpression::FieldElement(_), AnnotatedExpression::FieldElement(_)) => Ok(AnnotatedStatement::Condition(checked_lhs, checked_rhs)),
+					(e1, e2) => Err( Error { message: format!("cannot compare {:?} to {:?}", e1.get_type(), e2.get_type()) })				
 				}
-
-				Ok(AnnotatedStatement::Condition(checked_lhs, checked_rhs))
 			}
 			Statement::For(var, from, to, statements) => {
 				self.level += 1;
@@ -208,12 +203,7 @@ impl Checker {
 
                     	let mut arguments_types = vec![];
                     	for arg in arguments_checked.iter() {
-                    		match arg.is_single_annotation() {
-                    			Ok(t) => {
-                    				arguments_types.push(t.clone());
-                    			},
-                    			_ => panic!("should be annotated")
-                    		}
+                    		arguments_types.push(arg.get_type());
                     	}
 
                     	match self.find_function(fun_id, &arguments_types) {
@@ -227,11 +217,11 @@ impl Checker {
 											level: self.level
 										});
                     				}
-                    				return Ok(AnnotatedStatement::MultipleDefinition(vars, ExpressionRec::FunctionCall(f.id, arguments_checked).with_annotations(f.signature.outputs)))
+                    				return Ok(AnnotatedStatement::MultipleDefinition(vars, AnnotatedExpressionList::FunctionCall(f.id, arguments_checked, f.signature.outputs)))
                     			}
                     			Err(Error { message: format!("{} returns {} values but left side is of size {}", f.id, f.signature.outputs.len(), vars.len()) })
                     		},
-                    		None => Err(Error { message: format!("Function definition for function {} with {} argument(s) not found.", fun_id, arguments.len()) })
+                    		None => Err(Error { message: format!("Function definition for function {} with arguments {:?} not found.", fun_id, arguments_types) })
                     	}
                     },
                     _ => Err(Error { message: format!("{} should be a FunctionCall", rhs) })
@@ -245,7 +235,10 @@ impl Checker {
 			Expression::Identifier(variable) => {
 				// check that `id` is defined in the scope
 				match self.scope.iter().find(|v| v.id.id == variable) {
-					Some(v) => Ok(ExpressionRec::Identifier(variable).with_annotation(v.clone().id._type)),
+					Some(v) => match v.clone().id._type {
+						Type::Boolean => Ok(AnnotatedExpression::Boolean(BooleanExpression::Identifier(variable))),
+						Type::FieldElement => Ok(AnnotatedExpression::FieldElement(FieldElementExpression::Identifier(variable))),
+					},
 					None => Err(Error { message: format!("{} is undefined", variable.to_string()) }),
 				}
 			},
@@ -253,80 +246,55 @@ impl Checker {
 				let e1_checked = self.check_expression(e1)?;
 				let e2_checked = self.check_expression(e2)?;
 
-				match (e1_checked.is_single_annotation(), e2_checked.is_single_annotation()) {
-					(Ok(t1), Ok(t2)) => {
-						match (t1.clone(), t2.clone()) {
-							(Type::FieldElement, Type::FieldElement) => {
-								Ok(ExpressionRec::Add(box e1_checked, box e2_checked).with_annotation(Type::FieldElement))
-							}
-							(t1, t2) => Err(Error { message: format!("Expected only field elements, found {:?}, {:?}", t1, t2) })
-						}							
-					},
-					_ => panic!("should have single annotations")
+				match (e1_checked, e2_checked) {
+					(AnnotatedExpression::FieldElement(e1), AnnotatedExpression::FieldElement(e2)) => {
+						Ok(AnnotatedExpression::FieldElement(FieldElementExpression::Add(box e1, box e2)))
+					}
+					(t1, t2) => Err(Error { message: format!("Expected only field elements, found {:?}, {:?}", t1.get_type(), t2.get_type()) }),
 				}
 			},
 			Expression::Sub(box e1, box e2) => {
 				let e1_checked = self.check_expression(e1)?;
 				let e2_checked = self.check_expression(e2)?;
 
-				match (e1_checked.is_single_annotation(), e2_checked.is_single_annotation()) {
-					(Ok(t1), Ok(t2)) => {
-						match (t1.clone(), t2.clone()) {
-							(Type::FieldElement, Type::FieldElement) => {
-								Ok(ExpressionRec::Sub(box e1_checked, box e2_checked).with_annotation(Type::FieldElement))
-							}
-							(t1, t2) => Err(Error { message: format!("Expected only field elements, found {:?}, {:?}", t1, t2) })
-						}							
-					},
-					_ => panic!("should have single annotations")
+				match (e1_checked, e2_checked) {
+					(AnnotatedExpression::FieldElement(e1), AnnotatedExpression::FieldElement(e2)) => {
+						Ok(AnnotatedExpression::FieldElement(FieldElementExpression::Sub(box e1, box e2)))
+					}
+					(t1, t2) => Err(Error { message: format!("Expected only field elements, found {:?}, {:?}", t1.get_type(), t2.get_type()) }),
 				}
 			},
 			Expression::Mult(box e1, box e2) => {
 				let e1_checked = self.check_expression(e1)?;
 				let e2_checked = self.check_expression(e2)?;
 
-				match (e1_checked.is_single_annotation(), e2_checked.is_single_annotation()) {
-					(Ok(t1), Ok(t2)) => {
-						match (t1.clone(), t2.clone()) {
-							(Type::FieldElement, Type::FieldElement) => {
-								Ok(ExpressionRec::Mult(box e1_checked, box e2_checked).with_annotation(Type::FieldElement))
-							}
-							(t1, t2) => Err(Error { message: format!("Expected only field elements, found {:?}, {:?}", t1, t2) })
-						}							
-					},
-					_ => panic!("should have single annotations")
+				match (e1_checked, e2_checked) {
+					(AnnotatedExpression::FieldElement(e1), AnnotatedExpression::FieldElement(e2)) => {
+						Ok(AnnotatedExpression::FieldElement(FieldElementExpression::Mult(box e1, box e2)))
+					}
+					(t1, t2) => Err(Error { message: format!("Expected only field elements, found {:?}, {:?}", t1.get_type(), t2.get_type()) }),
 				}
 			},
 			Expression::Div(box e1, box e2) => {
 				let e1_checked = self.check_expression(e1)?;
 				let e2_checked = self.check_expression(e2)?;
 
-				match (e1_checked.is_single_annotation(), e2_checked.is_single_annotation()) {
-					(Ok(t1), Ok(t2)) => {
-						match (t1.clone(), t2.clone()) {
-							(Type::FieldElement, Type::FieldElement) => {
-								Ok(ExpressionRec::Div(box e1_checked, box e2_checked).with_annotation(Type::FieldElement))
-							}
-							(t1, t2) => Err(Error { message: format!("Expected only field elements, found {:?}, {:?}", t1, t2) })
-						}							
-					},
-					_ => panic!("should have single annotations")
+				match (e1_checked, e2_checked) {
+					(AnnotatedExpression::FieldElement(e1), AnnotatedExpression::FieldElement(e2)) => {
+						Ok(AnnotatedExpression::FieldElement(FieldElementExpression::Div(box e1, box e2)))
+					}
+					(t1, t2) => Err(Error { message: format!("Expected only field elements, found {:?}, {:?}", t1.get_type(), t2.get_type()) }),
 				}
 			},
 			Expression::Pow(box e1, box e2) => {
 				let e1_checked = self.check_expression(e1)?;
 				let e2_checked = self.check_expression(e2)?;
 
-				match (e1_checked.is_single_annotation(), e2_checked.is_single_annotation()) {
-					(Ok(t1), Ok(t2)) => {
-						match (t1.clone(), t2.clone()) {
-							(Type::FieldElement, Type::FieldElement) => {
-								Ok(ExpressionRec::Pow(box e1_checked, box e2_checked).with_annotation(Type::FieldElement))
-							}
-							(t1, t2) => Err(Error { message: format!("Expected only field elements, found {:?}, {:?}", t1, t2) })
-						}							
-					},
-					_ => panic!("should have single annotations")
+				match (e1_checked, e2_checked) {
+					(AnnotatedExpression::FieldElement(e1), AnnotatedExpression::FieldElement(e2)) => {
+						Ok(AnnotatedExpression::FieldElement(FieldElementExpression::Pow(box e1, box e2)))
+					}
+					(t1, t2) => Err(Error { message: format!("Expected only field elements, found {:?}, {:?}", t1.get_type(), t2.get_type()) }),
 				}
 			},
 			Expression::IfElse(box condition, box consequence, box alternative) => {
@@ -334,21 +302,17 @@ impl Checker {
 				let consequence_checked = self.check_expression(consequence)?;
 				let alternative_checked = self.check_expression(alternative)?;
 				
-				match (consequence_checked.is_single_annotation(), alternative_checked.is_single_annotation()) {
-					(Ok(t1), Ok(t2)) => {
-						if t1 != t2 {
-							return Err(Error { message: format!("") });
-						}
-
-						Ok(ExpressionRec::IfElse(box condition_checked, box consequence_checked, box alternative_checked).with_annotation(t1))
+				match (condition_checked, consequence_checked, alternative_checked) {
+					(condition, AnnotatedExpression::FieldElement(consequence), AnnotatedExpression::FieldElement(alternative)) => {
+						Ok(AnnotatedExpression::FieldElement(FieldElementExpression::IfElse(box condition, box consequence, box alternative)))
 					},
-					_ => panic!("should have single annotations")
+					_ => panic!("id else only for bool fe fe")
 				}
-			}
+			},
+			Expression::Number(n) => Ok(AnnotatedExpression::FieldElement(FieldElementExpression::Number(n))),
 			Expression::FunctionCall(ref fun_id, ref arguments) => {
             	// check the arguments
-            	let mut arguments_checked = vec![];
-
+            	let mut arguments_checked = vec![]; 
             	for arg in arguments {
             		let arg_checked = self.check_expression(arg.clone())?;
             		arguments_checked.push(arg_checked);
@@ -356,118 +320,78 @@ impl Checker {
 
 
             	let mut arguments_types = vec![];
-				for arg in arguments_checked.iter() {
-					match arg.is_single_annotation() {
-            			Ok(t) => {
-            				arguments_types.push(t.clone());
-            			},
-            			_ => panic!("should have single annotation")
-            		}
+            	for arg in arguments_checked.iter() {
+            		arguments_types.push(arg.get_type());
             	}
 
-				match self.find_function(fun_id, &arguments_types) {
-					// the function has to be defined
-					Some(f) => {
-						if f.signature.outputs.len() != 1 { // Functions must return a single value when not in a MultipleDefinition
-							return Err(Error { message: format!("{} returns {} values but is called outside of a definition", fun_id, f.signature.outputs.len()) })
-						}
-						let return_types = f.signature.outputs.clone();
-						Ok(ExpressionRec::FunctionCall(f.id, arguments_checked).with_annotations(return_types))
-					},
-                   	None => Err(Error { message: format!("Function definition for function {} with arguments {:?} not found.", fun_id, arguments_types) })
-				}
-			}
-			Expression::Number(n) => Ok(ExpressionRec::Number(n).with_annotation(Type::FieldElement)),
+            	match self.find_function(fun_id, &arguments_types) {
+            		// the function has to be defined
+            		Some(f) => {
+            			// the return count has to be 1
+            			if f.signature.outputs.len() == 1 {
+            				match f.signature.outputs[0] {
+            					Type::FieldElement => return Ok(AnnotatedExpression::FieldElement(FieldElementExpression::FunctionCall(f.id, arguments_checked))),
+            					_ => panic!("cannot return booleans")
+            				}
+            			}
+            			Err(Error { message: format!("{} returns {} values but is called outside of a definition", f.id, f.signature.outputs.len()) })
+            		},
+            		None => Err(Error { message: format!("Function definition for function {} with arguments {:?} not found.", fun_id, arguments_types) })
+            	}
+            },
 		}
 	}
 
-	fn check_expression_list<T: Field>(&mut self, list: &ExpressionList<T>) -> Result<AnnotatedExpressionList<T>, Error> {
-		let mut expressions_checked = vec![];
-
-		for expr in list.expressions.clone() { // implement Iterator trait?
-			let expr_checked = self.check_expression(expr)?;
-			expressions_checked.push(expr_checked);
-		}
-		Ok(AnnotatedExpressionList {
-			expressions: expressions_checked
-		})
-	}
-
-	fn check_condition<T: Field>(&mut self, cond: &Condition<T>) -> Result<AnnotatedCondition<T>, Error> {
+	fn check_condition<T: Field>(&mut self, cond: &Condition<T>) -> Result<BooleanExpression<T>, Error> {
 		match cond.clone() {
 			Condition::Lt(e1, e2) => {
 				let e1_checked = self.check_expression(e1)?;
 				let e2_checked = self.check_expression(e2)?;
-				match (e1_checked.is_single_annotation(), e2_checked.is_single_annotation()) {
-					(Ok(t1), Ok(t2)) => {
-						match (t1.clone(), t2.clone()) {
-							(Type::FieldElement, Type::FieldElement) => {
-								Ok(AnnotatedCondition::Lt(e1_checked, e2_checked))
-							},
-							_ => Err(Error { message: format!("cannot compare {} to {}", t1, t2) })
-						}
+				match (e1_checked, e2_checked) {
+					(AnnotatedExpression::FieldElement(e1), AnnotatedExpression::FieldElement(e2)) => {
+								Ok(BooleanExpression::Lt(box e1, box e2))
 					},
-					_ => panic!("should have single annotations")
+					(e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
 				}
 			},
 			Condition::Le(e1, e2) => {
 				let e1_checked = self.check_expression(e1)?;
 				let e2_checked = self.check_expression(e2)?;
-				match (e1_checked.is_single_annotation(), e2_checked.is_single_annotation()) {
-					(Ok(t1), Ok(t2)) => {
-						match (t1.clone(), t2.clone()) {
-							(Type::FieldElement, Type::FieldElement) => {
-								Ok(AnnotatedCondition::Le(e1_checked, e2_checked))
-							},
-							_ => Err(Error { message: format!("cannot compare {} to {}", t1, t2) })
-						}
+				match (e1_checked, e2_checked) {
+					(AnnotatedExpression::FieldElement(e1), AnnotatedExpression::FieldElement(e2)) => {
+								Ok(BooleanExpression::Le(box e1, box e2))
 					},
-					_ => panic!("should have single annotations")
+					(e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
 				}
 			},	
 			Condition::Eq(e1, e2) => {
 				let e1_checked = self.check_expression(e1)?;
 				let e2_checked = self.check_expression(e2)?;
-				match (e1_checked.is_single_annotation(), e2_checked.is_single_annotation()) {
-					(Ok(t1), Ok(t2)) => {
-						match (t1.clone(), t2.clone()) {
-							(Type::FieldElement, Type::FieldElement) => {
-								Ok(AnnotatedCondition::Eq(e1_checked, e2_checked))
-							},
-							_ => Err(Error { message: format!("cannot compare {} to {}", t1, t2) })
-						}
+				match (e1_checked, e2_checked) {
+					(AnnotatedExpression::FieldElement(e1), AnnotatedExpression::FieldElement(e2)) => {
+								Ok(BooleanExpression::Eq(box e1, box e2))
 					},
-					_ => panic!("should have single annotations")
+					(e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
 				}
 			},				
 			Condition::Ge(e1, e2) => {
 				let e1_checked = self.check_expression(e1)?;
 				let e2_checked = self.check_expression(e2)?;
-				match (e1_checked.is_single_annotation(), e2_checked.is_single_annotation()) {
-					(Ok(t1), Ok(t2)) => {
-						match (t1.clone(), t2.clone()) {
-							(Type::FieldElement, Type::FieldElement) => {
-								Ok(AnnotatedCondition::Ge(e1_checked, e2_checked))
-							},
-							_ => Err(Error { message: format!("cannot compare {} to {}", t1, t2) })
-						}
+				match (e1_checked, e2_checked) {
+					(AnnotatedExpression::FieldElement(e1), AnnotatedExpression::FieldElement(e2)) => {
+								Ok(BooleanExpression::Ge(box e1, box e2))
 					},
-					_ => panic!("should have single annotations")
+					(e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
 				}
 			},			
 			Condition::Gt(e1, e2) => {
 				let e1_checked = self.check_expression(e1)?;
 				let e2_checked = self.check_expression(e2)?;
-				match (e1_checked.is_single_annotation(), e2_checked.is_single_annotation()) {
-					(Ok(t1), Ok(t2)) => {
-						match (t1.clone(), t2.clone()) {
-							(Type::FieldElement, Type::FieldElement) => {
-								Ok(AnnotatedCondition::Gt(e1_checked, e2_checked))
-							},
-							_ => Err(Error { message: format!("cannot compare {} to {}", t1, t2) })
-						}
+				match (e1_checked, e2_checked) {
+					(AnnotatedExpression::FieldElement(e1), AnnotatedExpression::FieldElement(e2)) => {
+								Ok(BooleanExpression::Gt(box e1, box e2))
 					},
-					_ => panic!("should have single annotations")
+					(e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
 				}
 			}
 		}
@@ -524,7 +448,7 @@ mod tests {
 			Ok(
 				AnnotatedStatement::Definition(
 					Variable::from("a"),
-					ExpressionRec::Identifier(String::from("b")).with_annotation(Type::FieldElement)
+					AnnotatedExpression::FieldElement(FieldElementExpression::Identifier(String::from("b")))
 				)
 			)
 		);
@@ -593,12 +517,13 @@ mod tests {
 		// def main():
 		//   return 1
 		// should pass
-		let foo_args = Vec::<Parameter>::new();
-		let mut foo_statements = Vec::<Statement<FieldPrime>>::new();
-		foo_statements.push(Statement::Definition(
-			Variable::from("a"),
-			Expression::Number(FieldPrime::from(1)))
-		);
+		let foo_args = vec![];
+		let foo_statements = vec![
+			Statement::Definition(
+				Variable::from("a"),
+				Expression::Number(FieldPrime::from(1)))
+		];
+
 		let foo = Function {
             id: "foo".to_string(),
             arguments: foo_args,
@@ -610,16 +535,17 @@ mod tests {
         };
 
         let bar_args = Vec::<Parameter>::new();
-		let mut bar_statements = Vec::<Statement<FieldPrime>>::new();
-		bar_statements.push(Statement::Definition(
-			Variable::from("a"),
-			Expression::Number(FieldPrime::from(2))
-		));
-		bar_statements.push(Statement::Return(
-			ExpressionList {
-				expressions: vec![Expression::Identifier(String::from("a"))]
-			}
-		));
+		let bar_statements = vec![
+			Statement::Definition(
+				Variable::from("a"),
+				Expression::Number(FieldPrime::from(2))
+			),
+			Statement::Return(
+				ExpressionList {
+					expressions: vec![Expression::Identifier(String::from("a"))]
+				}
+			)
+		];
 		let bar = Function {
             id: "bar".to_string(),
             arguments: bar_args,
@@ -630,13 +556,14 @@ mod tests {
             }
         };
 
-        let main_args = Vec::<Parameter>::new();
-		let mut main_statements = Vec::<Statement<FieldPrime>>::new();
-		main_statements.push(Statement::Return(
-			ExpressionList {
-				expressions: vec![Expression::Number(FieldPrime::from(1))]
-			})
-		);
+        let main_args = vec![];
+		let main_statements = vec![
+			Statement::Return(
+				ExpressionList {
+					expressions: vec![Expression::Number(FieldPrime::from(1))]
+				})
+		];
+
 		let main = Function {
             id: "main".to_string(),
             arguments: main_args,
@@ -658,7 +585,7 @@ mod tests {
         };
 
 		let mut checker = Checker::new();
-		//assert_eq!(checker.check_program(prog), Ok(()));
+		assert!(checker.check_program(prog).is_ok());
 	}
 
 	#[test]
@@ -719,7 +646,7 @@ mod tests {
 
 		for_statements_checked.push(AnnotatedStatement::Definition(
 			Variable::from("a"),
-			ExpressionRec::Identifier(String::from("i")).with_annotation(Type::FieldElement)
+			AnnotatedExpression::FieldElement(FieldElementExpression::Identifier(String::from("i")))
 		));
 
 		foo_statements_checked.push(AnnotatedStatement::For(
@@ -849,7 +776,7 @@ mod tests {
 		};
 
 		let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
-		assert_eq!(checker.check_function(&bar), Err(Error { message: "Function definition for function foo with 0 argument(s) not found.".to_string() }));
+		assert_eq!(checker.check_function(&bar), Err(Error { message: "Function definition for function foo with arguments [] not found.".to_string() }));
 	}
 
 	#[test]
@@ -991,15 +918,13 @@ mod tests {
 		let bar_statements_checked: Vec<AnnotatedStatement<FieldPrime>> = vec![
 			AnnotatedStatement::MultipleDefinition(
 				vec![Variable::from("a"), Variable::from("b")],
-				ExpressionRec::FunctionCall("foo".to_string(), vec![]).with_annotations(vec![Type::FieldElement, Type::FieldElement])
+				AnnotatedExpressionList::FunctionCall("foo".to_string(), vec![], vec![Type::FieldElement, Type::FieldElement])
 			),
-			AnnotatedStatement::Return(
-				AnnotatedExpressionList { expressions: vec![
-					ExpressionRec::Add(
-						box ExpressionRec::Identifier("a".to_string()).with_annotation(Type::FieldElement),
-						box ExpressionRec::Identifier("b".to_string()).with_annotation(Type::FieldElement)
-					).with_annotation(Type::FieldElement)]
-				}
+			AnnotatedStatement::Return(vec![
+					AnnotatedExpression::FieldElement(FieldElementExpression::Add(
+						box FieldElementExpression::Identifier("a".to_string()),
+						box FieldElementExpression::Identifier("b".to_string())
+					))]
 			)
 		];
 

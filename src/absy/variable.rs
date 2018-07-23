@@ -7,6 +7,12 @@ pub struct Variable {
     pub _type: Type
 }
 
+impl Variable {
+    pub fn get_type(&self) -> Type {
+        self._type.clone()
+    }
+}
+
 impl<S: Into<String>> From<S> for Variable {
     fn from(s: S) -> Self {
         Variable {
