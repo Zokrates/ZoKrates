@@ -413,19 +413,6 @@ impl Flattener {
         );
     }
 
-    fn flatten_boolean_expression<T: Field>(
-        &mut self,
-        functions_flattened: &Vec<FlatFunction<T>>,
-        arguments_flattened: &Vec<FlatParameter>,
-        statements_flattened: &mut Vec<FlatStatement<T>>,
-        expr: BooleanExpression<T>,
-    ) -> FlatExpression<T> {
-        match expr {
-            BooleanExpression::Identifier(x) => FlatExpression::Identifier(format!("{}_b", x)),
-            _ => panic!("only constants and identifiers are allowed for bool")
-        }
-    }
-
     fn flatten_field_expression<T: Field>(
         &mut self,
         functions_flattened: &Vec<FlatFunction<T>>,
@@ -643,41 +630,6 @@ impl Flattener {
                 );
                 assert!(exprs_flattened.expressions.len() == 1); // outside of MultipleDefinition, FunctionCalls must return a single value
                 exprs_flattened.expressions[0].clone()
-            }
-        }
-    }
-
-    /// Returns a flattened `ExpressionRec` based on the given `expr`.
-    ///
-    /// # Arguments
-    ///
-    /// * `functions_flattened` - Vector containing already flattened functions.
-    /// * `statements_flattened` - Vector where new flattened statements can be added.
-    /// * `expr` - `Expresstion` that will be flattened.
-    fn flatten_expression<T: Field>(
-        &mut self,
-        functions_flattened: &Vec<FlatFunction<T>>,
-        arguments_flattened: &Vec<FlatParameter>,
-        statements_flattened: &mut Vec<FlatStatement<T>>,
-        expr: AnnotatedExpression<T>,
-    ) -> Vec<FlatExpression<T>> {
-        match expr {
-            AnnotatedExpression::FieldElement(e) => {
-                vec![self.flatten_field_expression(
-                    functions_flattened,
-                    arguments_flattened,
-                    statements_flattened,
-                    e,
-                )]
-            },
-            AnnotatedExpression::Boolean(e) => {
-                vec![
-                    self.flatten_boolean_expression(
-                    functions_flattened,
-                    arguments_flattened,
-                    statements_flattened,
-                    e,
-                )]
             }
         }
     }
@@ -1189,7 +1141,7 @@ mod multiple_definition {
     #[test]
     fn if_else() {
 
-        let expression = AnnotatedExpression::FieldElement(
+        let expression = 
             FieldElementExpression::IfElse(
                 box BooleanExpression::Eq(
                     box FieldElementExpression::Number(FieldPrime::from(32)),
@@ -1197,8 +1149,7 @@ mod multiple_definition {
                 ),
                 box FieldElementExpression::Number(FieldPrime::from(12)),
                 box FieldElementExpression::Number(FieldPrime::from(51)),
-            )
-        );
+            );
 
 
         let mut functions_flattened = vec![];
@@ -1206,7 +1157,7 @@ mod multiple_definition {
 
         flattener.load_stdlib(&mut functions_flattened);
 
-        let r = flattener.flatten_expression(
+        let r = flattener.flatten_field_expression(
             &functions_flattened,
             &vec![],
             &mut vec![],

@@ -83,12 +83,6 @@ pub struct AnnotatedFunction<T: Field> {
     pub signature: Signature,
 }
 
-impl<T: Field> AnnotatedFunction<T> {
-    pub fn return_count(&self) -> usize {
-        self.signature.outputs.len()
-    }
-}
-
 impl<T: Field> fmt::Display for AnnotatedFunction<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -238,12 +232,11 @@ impl<T: Field> fmt::Debug for AnnotatedExpression<T> {
     }
 }
 
-
 impl<T: Field> Typed for AnnotatedExpression<T> {
     fn get_type(&self) -> Type {
         match self {
-            AnnotatedExpression::Boolean(e) => Type::Boolean,
-            AnnotatedExpression::FieldElement(e) => Type::FieldElement
+            AnnotatedExpression::Boolean(_) => Type::Boolean,
+            AnnotatedExpression::FieldElement(_) => Type::FieldElement
         }
     }
 }
@@ -322,10 +315,6 @@ impl<T: Field> BooleanExpression<T> {
                 box rhs.apply_substitution(substitution),
             ),
         }
-    }
-
-    pub fn is_linear(&self) -> bool {
-        false
     }
 }
 
@@ -478,13 +467,6 @@ impl<T: Field> AnnotatedExpression<T> {
             AnnotatedExpression::Boolean(e) => AnnotatedExpression::Boolean(e.apply_substitution(substitution)),
             AnnotatedExpression::FieldElement(e) => AnnotatedExpression::FieldElement(e.apply_substitution(substitution)),
         }
-    }
-
-    pub fn is_linear(&self) -> bool {
-        match self {
-            AnnotatedExpression::Boolean(e) => e.is_linear(),
-            AnnotatedExpression::FieldElement(e) => e.is_linear(),
-        }    
     }
 }
 

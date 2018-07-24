@@ -13,7 +13,6 @@ use absy::parameter::Parameter;
 use absy::variable::Variable;
 
 use std::fmt;
-use substitution::Substitution;
 use field::Field;
 use imports::Import;
 use flat_absy::*;
@@ -83,12 +82,6 @@ pub struct Function<T: Field> {
     pub statements: Vec<Statement<T>>,
     /// function signature
     pub signature: Signature,
-}
-
-impl<T: Field> Function<T> {
-    pub fn return_count(&self) -> usize {
-        self.signature.outputs.len()
-    }
 }
 
 impl<T: Field> fmt::Display for Function<T> {
@@ -199,72 +192,6 @@ pub enum Expression<T: Field> {
     FunctionCall(String, Vec<Expression<T>>),
 }
 
-impl<T: Field> Expression<T> {
-    pub fn apply_substitution(&self, substitution: &Substitution) -> Expression<T> {
-        match *self {
-            ref e @ Expression::Number(_) => e.clone(),
-            Expression::Identifier(ref id) => {
-                let mut new_name = id.clone();
-                loop {
-                    match substitution.get(&new_name) {
-                        Some(x) => new_name = x.to_string(),
-                        None => return Expression::Identifier(new_name),
-                    }
-                }
-            }
-            Expression::Add(ref e1, ref e2) => Expression::Add(
-                box e1.apply_substitution(substitution),
-                box e2.apply_substitution(substitution),
-            ),
-            Expression::Sub(ref e1, ref e2) => Expression::Sub(
-                box e1.apply_substitution(substitution),
-                box e2.apply_substitution(substitution),
-            ),
-            Expression::Mult(ref e1, ref e2) => Expression::Mult(
-                box e1.apply_substitution(substitution),
-                box e2.apply_substitution(substitution),
-            ),
-            Expression::Div(ref e1, ref e2) => Expression::Div(
-                box e1.apply_substitution(substitution),
-                box e2.apply_substitution(substitution),
-            ),
-            Expression::Pow(ref e1, ref e2) => Expression::Pow(
-                box e1.apply_substitution(substitution),
-                box e2.apply_substitution(substitution),
-            ),
-            Expression::IfElse(ref c, ref e1, ref e2) => Expression::IfElse(
-                box c.apply_substitution(substitution),
-                box e1.apply_substitution(substitution),
-                box e2.apply_substitution(substitution),
-            ),
-            Expression::FunctionCall(ref i, ref p) => {
-                for param in p {
-                    param.apply_substitution(substitution);
-                }
-                Expression::FunctionCall(i.clone(), p.clone())
-            },
-        }
-    }
-
-    pub fn is_linear(&self) -> bool {
-        match *self {
-            Expression::Number(_) | Expression::Identifier(_) => true,
-            Expression::Add(ref x, ref y) | Expression::Sub(ref x, ref y) => {
-                x.is_linear() && y.is_linear()
-            },
-            Expression::Mult(ref x, ref y) | Expression::Div(ref x, ref y) => {
-                match (x, y) {
-                    (box Expression::Number(_), box Expression::Number(_)) |
-                    (box Expression::Number(_), box Expression::Identifier(_)) |
-                    (box Expression::Identifier(_), box Expression::Number(_)) => true,
-                    _ => false,
-                }
-            },
-            _ => false,
-        }
-    }
-}
-
 impl<T: Field> fmt::Display for Expression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -333,13 +260,6 @@ impl<T: Field> ExpressionList<T> {
             expressions: vec![]
         }
     }
-
-    pub fn apply_substitution(&self, substitution: &Substitution) -> ExpressionList<T> {
-        let expressions: Vec<Expression<T>> = self.expressions.iter().map(|e| e.apply_substitution(substitution)).collect();
-        ExpressionList {
-            expressions: expressions
-        }
-    }
 }
 
 impl<T: Field> fmt::Display for ExpressionList<T> {
@@ -367,33 +287,6 @@ pub enum Condition<T: Field> {
     Eq(Expression<T>, Expression<T>),
     Ge(Expression<T>, Expression<T>),
     Gt(Expression<T>, Expression<T>),
-}
-
-impl<T: Field> Condition<T> {
-    fn apply_substitution(&self, substitution: &Substitution) -> Condition<T> {
-        match *self {
-            Condition::Lt(ref lhs, ref rhs) => Condition::Lt(
-                lhs.apply_substitution(substitution),
-                rhs.apply_substitution(substitution),
-            ),
-            Condition::Le(ref lhs, ref rhs) => Condition::Le(
-                lhs.apply_substitution(substitution),
-                rhs.apply_substitution(substitution),
-            ),
-            Condition::Eq(ref lhs, ref rhs) => Condition::Eq(
-                lhs.apply_substitution(substitution),
-                rhs.apply_substitution(substitution),
-            ),
-            Condition::Ge(ref lhs, ref rhs) => Condition::Ge(
-                lhs.apply_substitution(substitution),
-                rhs.apply_substitution(substitution),
-            ),
-            Condition::Gt(ref lhs, ref rhs) => Condition::Gt(
-                lhs.apply_substitution(substitution),
-                rhs.apply_substitution(substitution),
-            ),
-        }
-    }
 }
 
 impl<T: Field> fmt::Display for Condition<T> {

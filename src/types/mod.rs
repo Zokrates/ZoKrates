@@ -1,6 +1,5 @@
 use field::Field;
 use types::constraints::Constraints;
-use std::string::String;
 use std::fmt;
 
 pub mod signature;

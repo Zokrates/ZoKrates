@@ -1,8 +1,6 @@
 use flat_absy::*;
 use field::Field;
-use absy::variable::Variable;
 use types::Type;
-use types::signature::Signature;
 use flat_absy::flat_parameter::FlatParameter;
 use helpers::{Helper, RustHelper, DirectiveStatement};
 use reduce::Reduce;
