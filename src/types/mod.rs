@@ -4,6 +4,7 @@ use std::string::String;
 use std::fmt;
 
 pub mod signature;
+pub mod conversions;
 mod constraints;
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
@@ -25,7 +26,7 @@ impl Type {
 	fn get_constraints<T: Field>(&self) -> Constraints<T> {
 		match self {
 			Type::FieldElement => Constraints::none(),
-			Type::Boolean => Constraints::none(),
+			Type::Boolean => Constraints::boolean(),
 		}
 	}
 
@@ -35,9 +36,4 @@ impl Type {
 			Type::Boolean => 1
 		}
 	}
-}
-
-trait Typed<T: Field> {
-	fn get_constraints(&self) -> Constraints<T>;
-	fn get_type(&self) -> Type;
 }

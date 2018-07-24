@@ -125,8 +125,6 @@ impl<T: Field> fmt::Debug for AnnotatedFunction<T> {
     }
 }
 
-// TODO impl debug
-
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub enum AnnotatedStatement<T: Field> {
     Return(Vec<AnnotatedExpression<T>>),

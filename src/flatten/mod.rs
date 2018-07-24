@@ -18,6 +18,9 @@ use substitution::Substitution;
 use helpers::{DirectiveStatement, Helper, RustHelper};
 use types::Type;
 use types::signature::Signature;
+use types::conversions::cast;
+use absy::variable::Variable;
+use absy::parameter::Parameter;
 
 /// Flattener, computes flattened program.
 pub struct Flattener {
@@ -46,6 +49,81 @@ impl Flattener {
             function_calls: HashMap::new(),
             next_var_idx: 0,
         }
+    }
+
+    /// Loads the standard library
+    fn load_stdlib<T: Field>(
+        &mut self,
+        functions_flattened: &mut Vec<FlatFunction<T>>,
+    ) -> () {
+
+        // Load type casting functions
+        functions_flattened.push(cast(&Type::Boolean, &Type::FieldElement));
+        functions_flattened.push(cast(&Type::FieldElement, &Type::Boolean));
+
+        // Load IfElse helpers
+        let ief = self.flatten_function(
+            functions_flattened,
+            AnnotatedFunction {
+                id: "_if_else_field".to_string(),
+                arguments: vec![Parameter {
+                    id: Variable {
+                        id: "condition".to_string(),
+                        _type: Type::Boolean
+                    }, 
+                    private: true 
+                },
+                Parameter {
+                    id: Variable {
+                        id: "consequence".to_string(),
+                        _type: Type::FieldElement
+                    }, 
+                    private: true 
+                },
+                Parameter {
+                    id: Variable {
+                        id: "alternative".to_string(),
+                        _type: Type::FieldElement
+                    }, 
+                    private: true 
+                }],
+                statements: vec![
+                    AnnotatedStatement::Definition(
+                        Variable::from("condition_as_field"),
+                        AnnotatedExpression::FieldElement(
+                            FieldElementExpression::FunctionCall(
+                                "_bool_to_field".to_string(), 
+                                vec![
+                                    AnnotatedExpression::FieldElement(
+                                        FieldElementExpression::Identifier("condition".to_string()))
+                                ]
+                            )
+                        )
+                    ),
+                    AnnotatedStatement::Return(
+                        vec![
+                            AnnotatedExpression::FieldElement(
+                                FieldElementExpression::Add(
+                                    box FieldElementExpression::Mult(
+                                        box FieldElementExpression::Identifier("condition_as_field".to_string()),
+                                        box FieldElementExpression::Identifier("consequence".to_string()),
+                                    ),
+                                    box FieldElementExpression::Mult(
+                                        box FieldElementExpression::Identifier("condition_as_field".to_string()),
+                                        box FieldElementExpression::Identifier("alternative".to_string())
+                                    )
+                                )
+                            )
+                        ]
+                    )
+                ],
+                signature: Signature {
+                    inputs: vec![Type::Boolean, Type::FieldElement, Type::FieldElement],
+                    outputs: vec![Type::FieldElement]
+                }
+            });
+
+        functions_flattened.push(ief);
     }
 
     /// Returns (condition true, condition false) `Identifier`s for the given condition.
@@ -269,7 +347,16 @@ impl Flattener {
                                 }
                             }
                         },
-                        _ => panic!("only fe can be function params")
+                        AnnotatedExpression::Boolean(e) => {
+                            match e {
+                                BooleanExpression::Identifier(id) => {
+                                    new_var = format!("{}param_{}", &prefix, id);
+                                    statements_flattened
+                                        .push(FlatStatement::Definition(new_var.clone(), FlatExpression::Identifier(id.clone().to_string())));
+                                },
+                                _ => panic!("only identifiers for booleans in calls")
+                            }
+                        }
                     }
                     replacement_map.insert(funct.arguments.get(i).unwrap().id.clone(), new_var);
                 }
@@ -528,23 +615,22 @@ impl Flattener {
                     _ => panic!("Expected number > 1 as pow exponent"),
                 }
             },
-            FieldElementExpression::IfElse(box condition, consequent, alternative) => {
+            FieldElementExpression::IfElse(box condition, box consequent, box alternative) => {
                 let (cond_true, cond_false) = self.flatten_condition(
                     functions_flattened,
                     arguments_flattened,
                     statements_flattened,
                     condition,
-                ); // cond_true cond_false should be forced to be booleans somehow
-                // (condition_true * consequent) + (condition_false * alternatuve)
-                self.flatten_field_expression(
+                );
+
+                self.flatten_function_call(
                     functions_flattened,
                     arguments_flattened,
                     statements_flattened,
-                    FieldElementExpression::Add(
-                        box FieldElementExpression::Mult(box FieldElementExpression::Number(T::from(1)), consequent), // TODO: use boolean
-                        box FieldElementExpression::Mult(box FieldElementExpression::Number(T::from(0)), alternative), // TODO: use boolean
-                    ),
-                )
+                    &"_if_else_field".to_string(),
+                    1,
+                    &vec![AnnotatedExpression::Boolean(cond_true), AnnotatedExpression::FieldElement(consequent), AnnotatedExpression::FieldElement(alternative)],
+                ).expressions[0].clone()
             },
             FieldElementExpression::FunctionCall(ref id, ref param_expressions) => {
                 let exprs_flattened = self.flatten_function_call(
@@ -790,7 +876,12 @@ impl Flattener {
                         private: arg.private
                     });
                 },
-                _ => panic!("no non fe func arg")
+                Type::Boolean => {
+                    arguments_flattened.push(FlatParameter {
+                        id: arg.id.id.clone(), 
+                        private: arg.private
+                    });
+                },
             }
         }
         // flatten statements in functions and apply substitution
@@ -821,6 +912,8 @@ impl Flattener {
     /// * `prog` - `Prog`ram that will be flattened.
     pub fn flatten_program<T: Field>(&mut self, prog: AnnotatedProg<T>) -> FlatProg<T> {
         let mut functions_flattened = Vec::new();
+
+        self.load_stdlib(&mut functions_flattened);
 
         for func in prog.imported_functions {
             functions_flattened.push(func);
@@ -879,6 +972,7 @@ mod multiple_definition {
     use field::FieldPrime;
     use types::Type;
     use types::signature::Signature;
+    use absy::variable::Variable;
 
     #[test]
     fn multiple_definition() {
@@ -1093,27 +1187,31 @@ mod multiple_definition {
     }
 
     #[test]
-    fn foobar() {
-        let statement = AnnotatedStatement::Return(vec![
-                AnnotatedExpression::FieldElement(FieldElementExpression::Add(
+    fn if_else() {
+
+        let expression = AnnotatedExpression::FieldElement(
+            FieldElementExpression::IfElse(
+                box BooleanExpression::Eq(
                     box FieldElementExpression::Number(FieldPrime::from(32)),
-                    box FieldElementExpression::Number(FieldPrime::from(32)),
-                ))
-            ]
+                    box FieldElementExpression::Number(FieldPrime::from(4))
+                ),
+                box FieldElementExpression::Number(FieldPrime::from(12)),
+                box FieldElementExpression::Number(FieldPrime::from(51)),
+            )
         );
 
-        let mut statements_flattened = vec![];
 
+        let mut functions_flattened = vec![];
         let mut flattener = Flattener::new(FieldPrime::get_required_bits());
-        let r = flattener.flatten_statement(
-            &mut vec![],
+
+        flattener.load_stdlib(&mut functions_flattened);
+
+        let r = flattener.flatten_expression(
+            &functions_flattened,
             &vec![],
-            &mut statements_flattened,
-            &statement
+            &mut vec![],
+            expression
         );
-
-        println!("{:?}", statements_flattened);
-
     }
 
 }
