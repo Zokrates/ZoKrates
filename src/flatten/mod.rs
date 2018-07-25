@@ -350,7 +350,7 @@ impl Flattener {
                                     statements_flattened
                                         .push(FlatStatement::Definition(new_var.clone(), FlatExpression::Identifier(id.clone().to_string())));
                                 },
-                                _ => panic!("only identifiers for booleans in calls")
+                                _ => panic!("A boolean argument to a function has to be a identifier")
                             }
                         }
                     }
@@ -651,7 +651,7 @@ impl Flattener {
                                 expr_subbed,
                             )
                         },
-                        _ => panic!("no non fe return")
+                        _ => panic!("Functions can only return expressions of type FieldElement")
                     }
                 }).collect();
 
@@ -686,7 +686,7 @@ impl Flattener {
 
                         statements_flattened.push(FlatStatement::Definition(var, rhs));
                     },
-                    _ => panic!("no non fe definition")
+                    _ => panic!("Definitions must have type FieldElement")
                 }
             }
             TypedStatement::Condition(ref expr1, ref expr2) => {
@@ -735,7 +735,7 @@ impl Flattener {
                         };
                         statements_flattened.push(FlatStatement::Condition(lhs, rhs));
                     },
-                    _ => panic!("no non fe condition")
+                    _ => panic!("Conditions (Assertions) must be applied to expressions of type FieldElement")
                 }
             }
             TypedStatement::For(ref var, ref start, ref end, ref statements) => {
@@ -787,7 +787,7 @@ impl Flattener {
                                     }
                                     statements_flattened.push(FlatStatement::Definition(var, rhs_flattened.expressions[i].clone()));
                                 },
-                                _ => panic!("no non fe left side of multi")
+                                _ => panic!("MultipleDefinition has to define expressions of type FieldElement")
                             }
                         }
                     },

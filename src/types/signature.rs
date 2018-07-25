@@ -15,6 +15,6 @@ impl fmt::Debug for Signature {
 
 impl fmt::Display for Signature {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "TODO")
+        write!(f, "({:?}) -> ({:?})", self.inputs, self.outputs)
     }
 }

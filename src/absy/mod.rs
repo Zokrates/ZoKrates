@@ -120,8 +120,6 @@ impl<T: Field> fmt::Debug for Function<T> {
     }
 }
 
-// TODO impl debug
-
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub enum Statement<T: Field> {
     Return(ExpressionList<T>),
