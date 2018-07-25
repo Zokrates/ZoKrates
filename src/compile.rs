@@ -104,11 +104,11 @@ fn compile_aux<T: Field>(path: PathBuf, should_include_gadgets: bool) -> Result<
     let program_ast = Importer::new().apply_imports(compiled_imports, program_ast_without_imports);
 
     // check semantics
-    let annotated_ast = Checker::new().check_program(program_ast.clone())?;
+    let typed_ast = Checker::new().check_program(program_ast.clone())?;
 
     // flatten input program
     let program_flattened =
-        Flattener::new(T::get_required_bits()).flatten_program(annotated_ast);
+        Flattener::new(T::get_required_bits()).flatten_program(typed_ast);
 
     Ok(program_flattened)
 }

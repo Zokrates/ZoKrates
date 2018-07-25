@@ -17,14 +17,14 @@ use flat_absy::*;
 use types::Type;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
-pub struct AnnotatedProg<T: Field> {
+pub struct TypedProg<T: Field> {
     /// Functions of the program
-    pub functions: Vec<AnnotatedFunction<T>>,
+    pub functions: Vec<TypedFunction<T>>,
     pub imports: Vec<Import>,
     pub imported_functions: Vec<FlatFunction<T>>
 }
 
-impl<T: Field> fmt::Display for AnnotatedProg<T> {
+impl<T: Field> fmt::Display for TypedProg<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut res = vec![];
         res.extend(self.imports
@@ -47,7 +47,7 @@ impl<T: Field> fmt::Display for AnnotatedProg<T> {
     }
 }
 
-impl<T: Field> fmt::Debug for AnnotatedProg<T> {
+impl<T: Field> fmt::Debug for TypedProg<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -72,18 +72,18 @@ impl<T: Field> fmt::Debug for AnnotatedProg<T> {
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
-pub struct AnnotatedFunction<T: Field> {
+pub struct TypedFunction<T: Field> {
     /// Name of the program
     pub id: String,
     /// Arguments of the function
     pub arguments: Vec<Parameter>,
     /// Vector of statements that are executed when running the function
-    pub statements: Vec<AnnotatedStatement<T>>,
+    pub statements: Vec<TypedStatement<T>>,
     /// function signature
     pub signature: Signature,
 }
 
-impl<T: Field> fmt::Display for AnnotatedFunction<T> {
+impl<T: Field> fmt::Display for TypedFunction<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -103,11 +103,11 @@ impl<T: Field> fmt::Display for AnnotatedFunction<T> {
     }
 }
 
-impl<T: Field> fmt::Debug for AnnotatedFunction<T> {
+impl<T: Field> fmt::Debug for TypedFunction<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "AnnotatedFunction(id: {:?}, arguments: {:?}, ...):\n{}",
+            "TypedFunction(id: {:?}, arguments: {:?}, ...):\n{}",
             self.id,
             self.arguments,
             self.statements
@@ -120,18 +120,18 @@ impl<T: Field> fmt::Debug for AnnotatedFunction<T> {
 }
 
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
-pub enum AnnotatedStatement<T: Field> {
-    Return(Vec<AnnotatedExpression<T>>),
-    Definition(Variable, AnnotatedExpression<T>),
-    Condition(AnnotatedExpression<T>, AnnotatedExpression<T>),
-    For(Variable, T, T, Vec<AnnotatedStatement<T>>),
-    MultipleDefinition(Vec<Variable>, AnnotatedExpressionList<T>),
+pub enum TypedStatement<T: Field> {
+    Return(Vec<TypedExpression<T>>),
+    Definition(Variable, TypedExpression<T>),
+    Condition(TypedExpression<T>, TypedExpression<T>),
+    For(Variable, T, T, Vec<TypedStatement<T>>),
+    MultipleDefinition(Vec<Variable>, TypedExpressionList<T>),
 }
 
-impl<T: Field> fmt::Debug for AnnotatedStatement<T> {
+impl<T: Field> fmt::Debug for TypedStatement<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            AnnotatedStatement::Return(ref exprs) => {
+            TypedStatement::Return(ref exprs) => {
                 try!(write!(f, "Return("));
                 for (i, expr) in exprs.iter().enumerate() {
                     try!(write!(f, "{}", expr));
@@ -141,18 +141,18 @@ impl<T: Field> fmt::Debug for AnnotatedStatement<T> {
                 }
                 write!(f, ")")
             },
-            AnnotatedStatement::Definition(ref lhs, ref rhs) => {
+            TypedStatement::Definition(ref lhs, ref rhs) => {
                 write!(f, "Definition({:?}, {:?})", lhs, rhs)
             }
-            AnnotatedStatement::Condition(ref lhs, ref rhs) => write!(f, "Condition({:?}, {:?})", lhs, rhs),
-            AnnotatedStatement::For(ref var, ref start, ref stop, ref list) => {
+            TypedStatement::Condition(ref lhs, ref rhs) => write!(f, "Condition({:?}, {:?})", lhs, rhs),
+            TypedStatement::For(ref var, ref start, ref stop, ref list) => {
                 try!(write!(f, "for {:?} in {:?}..{:?} do\n", var, start, stop));
                 for l in list {
                     try!(write!(f, "\t\t{:?}\n", l));
                 }
                 write!(f, "\tendfor")
             }
-            AnnotatedStatement::MultipleDefinition(ref lhs, ref rhs) => {
+            TypedStatement::MultipleDefinition(ref lhs, ref rhs) => {
                 write!(f, "MultipleDefinition({:?}, {:?})", lhs, rhs)
             },
         }
@@ -160,10 +160,10 @@ impl<T: Field> fmt::Debug for AnnotatedStatement<T> {
 }
 
 
-impl<T: Field> fmt::Display for AnnotatedStatement<T> {
+impl<T: Field> fmt::Display for TypedStatement<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            AnnotatedStatement::Return(ref exprs) => {
+            TypedStatement::Return(ref exprs) => {
                 try!(write!(f, "return "));
                 for (i, expr) in exprs.iter().enumerate() {
                     try!(write!(f, "{}", expr));
@@ -173,16 +173,16 @@ impl<T: Field> fmt::Display for AnnotatedStatement<T> {
                 }
                 write!(f, "")
             },
-            AnnotatedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
-            AnnotatedStatement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
-            AnnotatedStatement::For(ref var, ref start, ref stop, ref list) => {
+            TypedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
+            TypedStatement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            TypedStatement::For(ref var, ref start, ref stop, ref list) => {
                 try!(write!(f, "for {} in {}..{} do\n", var, start, stop));
                 for l in list {
                     try!(write!(f, "\t\t{}\n", l));
                 }
                 write!(f, "\tendfor")
             }
-            AnnotatedStatement::MultipleDefinition(ref ids, ref rhs) => {
+            TypedStatement::MultipleDefinition(ref ids, ref rhs) => {
                 for (i, id) in ids.iter().enumerate() {
                     try!(write!(f, "{}", id));
                     if i < ids.len() - 1 {
@@ -201,54 +201,54 @@ pub trait Typed
 }
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub enum AnnotatedExpression<T: Field> {
+pub enum TypedExpression<T: Field> {
     Boolean(BooleanExpression<T>),
     FieldElement(FieldElementExpression<T>),
 }
 
-impl<T: Field> From<BooleanExpression<T>> for AnnotatedExpression<T> {
-    fn from(e: BooleanExpression<T>) -> AnnotatedExpression<T> {
-        AnnotatedExpression::Boolean(e)
+impl<T: Field> From<BooleanExpression<T>> for TypedExpression<T> {
+    fn from(e: BooleanExpression<T>) -> TypedExpression<T> {
+        TypedExpression::Boolean(e)
     }
 }
 
-impl<T: Field> From<FieldElementExpression<T>> for AnnotatedExpression<T> {
-    fn from(e: FieldElementExpression<T>) -> AnnotatedExpression<T> {
-        AnnotatedExpression::FieldElement(e)
+impl<T: Field> From<FieldElementExpression<T>> for TypedExpression<T> {
+    fn from(e: FieldElementExpression<T>) -> TypedExpression<T> {
+        TypedExpression::FieldElement(e)
     }
 }
 
-impl<T: Field> fmt::Display for AnnotatedExpression<T> {
+impl<T: Field> fmt::Display for TypedExpression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            AnnotatedExpression::Boolean(ref e) => {
+            TypedExpression::Boolean(ref e) => {
                 write!(f, "{}", e)
             },
-            AnnotatedExpression::FieldElement(ref e) => {
+            TypedExpression::FieldElement(ref e) => {
                 write!(f, "{}", e)
             }
         }
     }
 }
 
-impl<T: Field> fmt::Debug for AnnotatedExpression<T> {
+impl<T: Field> fmt::Debug for TypedExpression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            AnnotatedExpression::Boolean(ref e) => {
+            TypedExpression::Boolean(ref e) => {
                 write!(f, "{:?}", e)
             },
-            AnnotatedExpression::FieldElement(ref e) => {
+            TypedExpression::FieldElement(ref e) => {
                 write!(f, "{:?}", e)
             }
         }
     }
 }
 
-impl<T: Field> Typed for AnnotatedExpression<T> {
+impl<T: Field> Typed for TypedExpression<T> {
     fn get_type(&self) -> Type {
         match self {
-            AnnotatedExpression::Boolean(_) => Type::Boolean,
-            AnnotatedExpression::FieldElement(_) => Type::FieldElement
+            TypedExpression::Boolean(_) => Type::Boolean,
+            TypedExpression::FieldElement(_) => Type::FieldElement
         }
     }
 }
@@ -259,14 +259,14 @@ pub trait MultiTyped
 }
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub enum AnnotatedExpressionList<T: Field> {
-    FunctionCall(String, Vec<AnnotatedExpression<T>>, Vec<Type>)
+pub enum TypedExpressionList<T: Field> {
+    FunctionCall(String, Vec<TypedExpression<T>>, Vec<Type>)
 }
 
-impl<T: Field> MultiTyped for AnnotatedExpressionList<T> {
+impl<T: Field> MultiTyped for TypedExpressionList<T> {
     fn get_types(&self) -> &Vec<Type> {
         match *self {
-            AnnotatedExpressionList::FunctionCall(_, _, ref types) => types
+            TypedExpressionList::FunctionCall(_, _, ref types) => types
         }
     }
 }
@@ -281,7 +281,7 @@ pub enum FieldElementExpression<T: Field> {
     Div(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     Pow(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     IfElse(Box<BooleanExpression<T>>, Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
-    FunctionCall(String, Vec<AnnotatedExpression<T>>),
+    FunctionCall(String, Vec<TypedExpression<T>>),
 }
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
@@ -473,29 +473,29 @@ impl<T: Field> fmt::Debug for FieldElementExpression<T> {
 }
 
 
-impl<T: Field> AnnotatedExpression<T> {
-    pub fn apply_substitution(&self, substitution: &Substitution) -> AnnotatedExpression<T> {
+impl<T: Field> TypedExpression<T> {
+    pub fn apply_substitution(&self, substitution: &Substitution) -> TypedExpression<T> {
         match self {
-            AnnotatedExpression::Boolean(e) => e.apply_substitution(substitution).into(),
-            AnnotatedExpression::FieldElement(e) => e.apply_substitution(substitution).into(),
+            TypedExpression::Boolean(e) => e.apply_substitution(substitution).into(),
+            TypedExpression::FieldElement(e) => e.apply_substitution(substitution).into(),
         }
     }
 }
 
-impl<T: Field> AnnotatedExpressionList<T> {
-    pub fn apply_substitution(&self, substitution: &Substitution) -> AnnotatedExpressionList<T> {
+impl<T: Field> TypedExpressionList<T> {
+    pub fn apply_substitution(&self, substitution: &Substitution) -> TypedExpressionList<T> {
         match *self {
-            AnnotatedExpressionList::FunctionCall(ref id, ref inputs, ref types) => {
-                AnnotatedExpressionList::FunctionCall(id.clone(), inputs.iter().map(|i| i.apply_substitution(substitution)).collect(), types.clone())
+            TypedExpressionList::FunctionCall(ref id, ref inputs, ref types) => {
+                TypedExpressionList::FunctionCall(id.clone(), inputs.iter().map(|i| i.apply_substitution(substitution)).collect(), types.clone())
             }
         }
     }
 }
 
-impl<T: Field> fmt::Display for AnnotatedExpressionList<T> {
+impl<T: Field> fmt::Display for TypedExpressionList<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            AnnotatedExpressionList::FunctionCall(ref i, ref p, _) => {
+            TypedExpressionList::FunctionCall(ref i, ref p, _) => {
                 try!(write!(f, "{}(", i,));
                 for (i, param) in p.iter().enumerate() {
                     try!(write!(f, "{}", param));
@@ -509,10 +509,10 @@ impl<T: Field> fmt::Display for AnnotatedExpressionList<T> {
     }
 }
 
-impl<T: Field> fmt::Debug for AnnotatedExpressionList<T> {
+impl<T: Field> fmt::Debug for TypedExpressionList<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            AnnotatedExpressionList::FunctionCall(ref i, ref p, _) => {
+            TypedExpressionList::FunctionCall(ref i, ref p, _) => {
                 try!(write!(f, "FunctionCall({:?}, (", i));
                 try!(f.debug_list().entries(p.iter()).finish());
                 write!(f, ")")

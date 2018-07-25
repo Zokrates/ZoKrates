@@ -12,7 +12,7 @@ use field::Field;
 use std::fmt;
 use types::signature::Signature;
 use absy::variable::Variable;
-use annotated_absy::{AnnotatedProg, AnnotatedFunction, AnnotatedStatement, AnnotatedExpressionList, AnnotatedExpression, BooleanExpression, FieldElementExpression, Typed};
+use typed_absy::{TypedProg, TypedFunction, TypedStatement, TypedExpressionList, TypedExpression, BooleanExpression, FieldElementExpression, Typed};
 
 use types::Type;
 
@@ -55,7 +55,7 @@ impl Checker {
 		}
 	}
 
-	pub fn check_program<T: Field>(&mut self, prog: Prog<T>) -> Result<AnnotatedProg<T>, Error> {
+	pub fn check_program<T: Field>(&mut self, prog: Prog<T>) -> Result<TypedProg<T>, Error> {
 		for func in &prog.imported_functions {
 			self.functions.insert(FunctionDeclaration {
 				id: func.id.clone(),
@@ -77,7 +77,7 @@ impl Checker {
 			});
 		}
 		self.check_single_main()?;
-		Ok(AnnotatedProg {
+		Ok(TypedProg {
 			functions: checked_functions,
 			imported_functions: prog.imported_functions,
 			imports: prog.imports
@@ -92,7 +92,7 @@ impl Checker {
 		}
 	}
 
-	fn check_function<T: Field>(&mut self, funct: &Function<T>) -> Result<AnnotatedFunction<T>, Error> {
+	fn check_function<T: Field>(&mut self, funct: &Function<T>) -> Result<TypedFunction<T>, Error> {
 		assert_eq!(funct.arguments.len(), funct.signature.inputs.len());
 
 		match self.find_function(&funct.id, &funct.arguments.iter().map(|a| a.clone().id._type).collect()) {
@@ -126,7 +126,7 @@ impl Checker {
 			self.scope.remove(symbol);
 		}
 		self.level -= 1;
-		Ok(AnnotatedFunction {
+		Ok(TypedFunction {
 			id: funct.id.clone(),
 			arguments: funct.arguments.clone(),
 			statements: statements_checked,
@@ -134,7 +134,7 @@ impl Checker {
 		})
 	}
 
-	fn check_statement<T: Field>(&mut self, stat: Statement<T>) -> Result<AnnotatedStatement<T>, Error> {
+	fn check_statement<T: Field>(&mut self, stat: Statement<T>) -> Result<TypedStatement<T>, Error> {
 		match stat {
 			Statement::Return(ref list) => {
 				let mut expression_list_checked = vec![];
@@ -142,7 +142,7 @@ impl Checker {
 					let e_checked = self.check_expression(e)?;
 					expression_list_checked.push(e_checked);
 				}
-				Ok(AnnotatedStatement::Return(expression_list_checked))
+				Ok(TypedStatement::Return(expression_list_checked))
 			}
 			Statement::Definition(var, expr) => {
 				let checked_expr = self.check_expression(expr)?;
@@ -157,14 +157,14 @@ impl Checker {
 					id: var.clone(),
 					level: self.level
 				});
-				Ok(AnnotatedStatement::Definition(var, checked_expr))
+				Ok(TypedStatement::Definition(var, checked_expr))
 			}
 			Statement::Condition(lhs, rhs) => {
 				let checked_lhs = self.check_expression(lhs)?;
 				let checked_rhs = self.check_expression(rhs)?;
 
 				match (checked_lhs.clone(), checked_rhs.clone()) {
-					(AnnotatedExpression::FieldElement(_), AnnotatedExpression::FieldElement(_)) => Ok(AnnotatedStatement::Condition(checked_lhs, checked_rhs)),
+					(TypedExpression::FieldElement(_), TypedExpression::FieldElement(_)) => Ok(TypedStatement::Condition(checked_lhs, checked_rhs)),
 					(e1, e2) => Err( Error { message: format!("cannot compare {:?} to {:?}", e1.get_type(), e2.get_type()) })				
 				}
 			}
@@ -184,7 +184,7 @@ impl Checker {
 				}
 				self.scope.remove(&index);
 				self.level -= 1;
-				Ok(AnnotatedStatement::For(var, from, to, checked_statements))
+				Ok(TypedStatement::For(var, from, to, checked_statements))
 			},
             Statement::MultipleDefinition(vars, rhs) => {
             	let vars_types: Vec<Type> = vars.iter().map(|var| var.clone()._type).collect();
@@ -217,7 +217,7 @@ impl Checker {
 											level: self.level
 										});
                     				}
-                    				return Ok(AnnotatedStatement::MultipleDefinition(vars, AnnotatedExpressionList::FunctionCall(f.id, arguments_checked, f.signature.outputs)))
+                    				return Ok(TypedStatement::MultipleDefinition(vars, TypedExpressionList::FunctionCall(f.id, arguments_checked, f.signature.outputs)))
                     			}
                     			Err(Error { message: format!("{} returns {} values but left side is of size {}", f.id, f.signature.outputs.len(), vars.len()) })
                     		},
@@ -230,7 +230,7 @@ impl Checker {
 		}
 	}
 
-	fn check_expression<T: Field>(&mut self, expr: Expression<T>) -> Result<AnnotatedExpression<T>, Error> {
+	fn check_expression<T: Field>(&mut self, expr: Expression<T>) -> Result<TypedExpression<T>, Error> {
 		match expr {
 			Expression::Identifier(variable) => {
 				// check that `id` is defined in the scope
@@ -247,7 +247,7 @@ impl Checker {
 				let e2_checked = self.check_expression(e2)?;
 
 				match (e1_checked, e2_checked) {
-					(AnnotatedExpression::FieldElement(e1), AnnotatedExpression::FieldElement(e2)) => {
+					(TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
 						Ok(FieldElementExpression::Add(box e1, box e2).into())
 					}
 					(t1, t2) => Err(Error { message: format!("Expected only field elements, found {:?}, {:?}", t1.get_type(), t2.get_type()) }),
@@ -258,7 +258,7 @@ impl Checker {
 				let e2_checked = self.check_expression(e2)?;
 
 				match (e1_checked, e2_checked) {
-					(AnnotatedExpression::FieldElement(e1), AnnotatedExpression::FieldElement(e2)) => {
+					(TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
 						Ok(FieldElementExpression::Sub(box e1, box e2).into())
 					}
 					(t1, t2) => Err(Error { message: format!("Expected only field elements, found {:?}, {:?}", t1.get_type(), t2.get_type()) }),
@@ -269,7 +269,7 @@ impl Checker {
 				let e2_checked = self.check_expression(e2)?;
 
 				match (e1_checked, e2_checked) {
-					(AnnotatedExpression::FieldElement(e1), AnnotatedExpression::FieldElement(e2)) => {
+					(TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
 						Ok(FieldElementExpression::Mult(box e1, box e2).into())
 					}
 					(t1, t2) => Err(Error { message: format!("Expected only field elements, found {:?}, {:?}", t1.get_type(), t2.get_type()) }),
@@ -280,7 +280,7 @@ impl Checker {
 				let e2_checked = self.check_expression(e2)?;
 
 				match (e1_checked, e2_checked) {
-					(AnnotatedExpression::FieldElement(e1), AnnotatedExpression::FieldElement(e2)) => {
+					(TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
 						Ok(FieldElementExpression::Div(box e1, box e2).into())
 					}
 					(t1, t2) => Err(Error { message: format!("Expected only field elements, found {:?}, {:?}", t1.get_type(), t2.get_type()) }),
@@ -291,8 +291,8 @@ impl Checker {
 				let e2_checked = self.check_expression(e2)?;
 
 				match (e1_checked, e2_checked) {
-					(AnnotatedExpression::FieldElement(e1), AnnotatedExpression::FieldElement(e2)) => {
-						Ok(AnnotatedExpression::FieldElement(FieldElementExpression::Pow(box e1, box e2)))
+					(TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
+						Ok(TypedExpression::FieldElement(FieldElementExpression::Pow(box e1, box e2)))
 					}
 					(t1, t2) => Err(Error { message: format!("Expected only field elements, found {:?}, {:?}", t1.get_type(), t2.get_type()) }),
 				}
@@ -303,7 +303,7 @@ impl Checker {
 				let alternative_checked = self.check_expression(alternative)?;
 				
 				match (condition_checked, consequence_checked, alternative_checked) {
-					(condition, AnnotatedExpression::FieldElement(consequence), AnnotatedExpression::FieldElement(alternative)) => {
+					(condition, TypedExpression::FieldElement(consequence), TypedExpression::FieldElement(alternative)) => {
 						Ok(FieldElementExpression::IfElse(box condition, box consequence, box alternative).into())
 					},
 					_ => panic!("id else only for bool fe fe")
@@ -348,7 +348,7 @@ impl Checker {
 				let e1_checked = self.check_expression(e1)?;
 				let e2_checked = self.check_expression(e2)?;
 				match (e1_checked, e2_checked) {
-					(AnnotatedExpression::FieldElement(e1), AnnotatedExpression::FieldElement(e2)) => {
+					(TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
 								Ok(BooleanExpression::Lt(box e1, box e2))
 					},
 					(e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
@@ -358,7 +358,7 @@ impl Checker {
 				let e1_checked = self.check_expression(e1)?;
 				let e2_checked = self.check_expression(e2)?;
 				match (e1_checked, e2_checked) {
-					(AnnotatedExpression::FieldElement(e1), AnnotatedExpression::FieldElement(e2)) => {
+					(TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
 								Ok(BooleanExpression::Le(box e1, box e2))
 					},
 					(e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
@@ -368,7 +368,7 @@ impl Checker {
 				let e1_checked = self.check_expression(e1)?;
 				let e2_checked = self.check_expression(e2)?;
 				match (e1_checked, e2_checked) {
-					(AnnotatedExpression::FieldElement(e1), AnnotatedExpression::FieldElement(e2)) => {
+					(TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
 								Ok(BooleanExpression::Eq(box e1, box e2))
 					},
 					(e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
@@ -378,7 +378,7 @@ impl Checker {
 				let e1_checked = self.check_expression(e1)?;
 				let e2_checked = self.check_expression(e2)?;
 				match (e1_checked, e2_checked) {
-					(AnnotatedExpression::FieldElement(e1), AnnotatedExpression::FieldElement(e2)) => {
+					(TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
 								Ok(BooleanExpression::Ge(box e1, box e2))
 					},
 					(e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
@@ -388,7 +388,7 @@ impl Checker {
 				let e1_checked = self.check_expression(e1)?;
 				let e2_checked = self.check_expression(e2)?;
 				match (e1_checked, e2_checked) {
-					(AnnotatedExpression::FieldElement(e1), AnnotatedExpression::FieldElement(e2)) => {
+					(TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
 								Ok(BooleanExpression::Gt(box e1, box e2))
 					},
 					(e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
@@ -446,7 +446,7 @@ mod tests {
 		let mut checker = new_with_args(scope, 1, HashSet::new());
 		assert_eq!(checker.check_statement(statement), 
 			Ok(
-				AnnotatedStatement::Definition(
+				TypedStatement::Definition(
 					Variable::from("a"),
 					FieldElementExpression::Identifier(String::from("b")).into()
 				)
@@ -641,15 +641,15 @@ mod tests {
 			for_statements
 		));
 
-		let mut foo_statements_checked = Vec::<AnnotatedStatement<FieldPrime>>::new();
-		let mut for_statements_checked = Vec::<AnnotatedStatement<FieldPrime>>::new();
+		let mut foo_statements_checked = Vec::<TypedStatement<FieldPrime>>::new();
+		let mut for_statements_checked = Vec::<TypedStatement<FieldPrime>>::new();
 
-		for_statements_checked.push(AnnotatedStatement::Definition(
+		for_statements_checked.push(TypedStatement::Definition(
 			Variable::from("a"),
 			FieldElementExpression::Identifier(String::from("i")).into()
 		));
 
-		foo_statements_checked.push(AnnotatedStatement::For(
+		foo_statements_checked.push(TypedStatement::For(
 			Variable::from("i"),
 			FieldPrime::from(0),
 			FieldPrime::from(10),
@@ -667,7 +667,7 @@ mod tests {
             }
 		};
 
-		let foo_checked = AnnotatedFunction {
+		let foo_checked = TypedFunction {
 			id: "foo".to_string(),
 			arguments: Vec::<Parameter>::new(),
 			statements: foo_statements_checked,
@@ -915,12 +915,12 @@ mod tests {
 			)
 		];
 
-		let bar_statements_checked: Vec<AnnotatedStatement<FieldPrime>> = vec![
-			AnnotatedStatement::MultipleDefinition(
+		let bar_statements_checked: Vec<TypedStatement<FieldPrime>> = vec![
+			TypedStatement::MultipleDefinition(
 				vec![Variable::from("a"), Variable::from("b")],
-				AnnotatedExpressionList::FunctionCall("foo".to_string(), vec![], vec![Type::FieldElement, Type::FieldElement])
+				TypedExpressionList::FunctionCall("foo".to_string(), vec![], vec![Type::FieldElement, Type::FieldElement])
 			),
-			AnnotatedStatement::Return(vec![
+			TypedStatement::Return(vec![
 					FieldElementExpression::Add(
 						box FieldElementExpression::Identifier("a".to_string()),
 						box FieldElementExpression::Identifier("b".to_string())
@@ -949,7 +949,7 @@ mod tests {
 			}
 		};
 
-		let bar_checked = AnnotatedFunction {
+		let bar_checked = TypedFunction {
 			id: "bar".to_string(),
 			arguments: vec![],
 			statements: bar_statements_checked,

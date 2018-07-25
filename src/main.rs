@@ -20,7 +20,7 @@ extern crate regex;
 
 mod absy;
 mod flat_absy;
-mod annotated_absy;
+mod typed_absy;
 mod parser;
 mod imports;
 mod semantics;
