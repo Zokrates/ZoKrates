@@ -90,30 +90,26 @@ impl Flattener {
                 statements: vec![
                     AnnotatedStatement::Definition(
                         Variable::from("condition_as_field"),
-                        AnnotatedExpression::FieldElement(
-                            FieldElementExpression::FunctionCall(
-                                "_bool_to_field".to_string(), 
-                                vec![
-                                    AnnotatedExpression::FieldElement(
-                                        FieldElementExpression::Identifier("condition".to_string()))
-                                ]
-                            )
-                        )
+                        FieldElementExpression::FunctionCall(
+                            "_bool_to_field".to_string(), 
+                            vec![
+                                AnnotatedExpression::FieldElement(
+                                    FieldElementExpression::Identifier("condition".to_string()))
+                            ]
+                        ).into()
                     ),
                     AnnotatedStatement::Return(
                         vec![
-                            AnnotatedExpression::FieldElement(
-                                FieldElementExpression::Add(
-                                    box FieldElementExpression::Mult(
-                                        box FieldElementExpression::Identifier("condition_as_field".to_string()),
-                                        box FieldElementExpression::Identifier("consequence".to_string()),
-                                    ),
-                                    box FieldElementExpression::Mult(
-                                        box FieldElementExpression::Identifier("condition_as_field".to_string()),
-                                        box FieldElementExpression::Identifier("alternative".to_string())
-                                    )
+                            FieldElementExpression::Add(
+                                box FieldElementExpression::Mult(
+                                    box FieldElementExpression::Identifier("condition_as_field".to_string()),
+                                    box FieldElementExpression::Identifier("consequence".to_string()),
+                                ),
+                                box FieldElementExpression::Mult(
+                                    box FieldElementExpression::Identifier("condition_as_field".to_string()),
+                                    box FieldElementExpression::Identifier("alternative".to_string())
                                 )
-                            )
+                            ).into()
                         ]
                     )
                 ],
@@ -616,7 +612,7 @@ impl Flattener {
                     statements_flattened,
                     &"_if_else_field".to_string(),
                     1,
-                    &vec![AnnotatedExpression::Boolean(cond_true), AnnotatedExpression::FieldElement(consequent), AnnotatedExpression::FieldElement(alternative)],
+                    &vec![cond_true.into(), consequent.into(), alternative.into()],
                 ).expressions[0].clone()
             },
             FieldElementExpression::FunctionCall(ref id, ref param_expressions) => {

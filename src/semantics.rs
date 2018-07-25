@@ -236,8 +236,8 @@ impl Checker {
 				// check that `id` is defined in the scope
 				match self.scope.iter().find(|v| v.id.id == variable) {
 					Some(v) => match v.clone().id._type {
-						Type::Boolean => Ok(AnnotatedExpression::Boolean(BooleanExpression::Identifier(variable))),
-						Type::FieldElement => Ok(AnnotatedExpression::FieldElement(FieldElementExpression::Identifier(variable))),
+						Type::Boolean => Ok(BooleanExpression::Identifier(variable).into()),
+						Type::FieldElement => Ok(FieldElementExpression::Identifier(variable).into()),
 					},
 					None => Err(Error { message: format!("{} is undefined", variable.to_string()) }),
 				}
@@ -248,7 +248,7 @@ impl Checker {
 
 				match (e1_checked, e2_checked) {
 					(AnnotatedExpression::FieldElement(e1), AnnotatedExpression::FieldElement(e2)) => {
-						Ok(AnnotatedExpression::FieldElement(FieldElementExpression::Add(box e1, box e2)))
+						Ok(FieldElementExpression::Add(box e1, box e2).into())
 					}
 					(t1, t2) => Err(Error { message: format!("Expected only field elements, found {:?}, {:?}", t1.get_type(), t2.get_type()) }),
 				}
@@ -259,7 +259,7 @@ impl Checker {
 
 				match (e1_checked, e2_checked) {
 					(AnnotatedExpression::FieldElement(e1), AnnotatedExpression::FieldElement(e2)) => {
-						Ok(AnnotatedExpression::FieldElement(FieldElementExpression::Sub(box e1, box e2)))
+						Ok(FieldElementExpression::Sub(box e1, box e2).into())
 					}
 					(t1, t2) => Err(Error { message: format!("Expected only field elements, found {:?}, {:?}", t1.get_type(), t2.get_type()) }),
 				}
@@ -270,7 +270,7 @@ impl Checker {
 
 				match (e1_checked, e2_checked) {
 					(AnnotatedExpression::FieldElement(e1), AnnotatedExpression::FieldElement(e2)) => {
-						Ok(AnnotatedExpression::FieldElement(FieldElementExpression::Mult(box e1, box e2)))
+						Ok(FieldElementExpression::Mult(box e1, box e2).into())
 					}
 					(t1, t2) => Err(Error { message: format!("Expected only field elements, found {:?}, {:?}", t1.get_type(), t2.get_type()) }),
 				}
@@ -281,7 +281,7 @@ impl Checker {
 
 				match (e1_checked, e2_checked) {
 					(AnnotatedExpression::FieldElement(e1), AnnotatedExpression::FieldElement(e2)) => {
-						Ok(AnnotatedExpression::FieldElement(FieldElementExpression::Div(box e1, box e2)))
+						Ok(FieldElementExpression::Div(box e1, box e2).into())
 					}
 					(t1, t2) => Err(Error { message: format!("Expected only field elements, found {:?}, {:?}", t1.get_type(), t2.get_type()) }),
 				}
@@ -304,12 +304,12 @@ impl Checker {
 				
 				match (condition_checked, consequence_checked, alternative_checked) {
 					(condition, AnnotatedExpression::FieldElement(consequence), AnnotatedExpression::FieldElement(alternative)) => {
-						Ok(AnnotatedExpression::FieldElement(FieldElementExpression::IfElse(box condition, box consequence, box alternative)))
+						Ok(FieldElementExpression::IfElse(box condition, box consequence, box alternative).into())
 					},
 					_ => panic!("id else only for bool fe fe")
 				}
 			},
-			Expression::Number(n) => Ok(AnnotatedExpression::FieldElement(FieldElementExpression::Number(n))),
+			Expression::Number(n) => Ok(FieldElementExpression::Number(n).into()),
 			Expression::FunctionCall(ref fun_id, ref arguments) => {
             	// check the arguments
             	let mut arguments_checked = vec![]; 
@@ -330,7 +330,7 @@ impl Checker {
             			// the return count has to be 1
             			if f.signature.outputs.len() == 1 {
             				match f.signature.outputs[0] {
-            					Type::FieldElement => return Ok(AnnotatedExpression::FieldElement(FieldElementExpression::FunctionCall(f.id, arguments_checked))),
+            					Type::FieldElement => return Ok(FieldElementExpression::FunctionCall(f.id, arguments_checked).into()),
             					_ => panic!("cannot return booleans")
             				}
             			}
@@ -448,7 +448,7 @@ mod tests {
 			Ok(
 				AnnotatedStatement::Definition(
 					Variable::from("a"),
-					AnnotatedExpression::FieldElement(FieldElementExpression::Identifier(String::from("b")))
+					FieldElementExpression::Identifier(String::from("b")).into()
 				)
 			)
 		);
@@ -646,7 +646,7 @@ mod tests {
 
 		for_statements_checked.push(AnnotatedStatement::Definition(
 			Variable::from("a"),
-			AnnotatedExpression::FieldElement(FieldElementExpression::Identifier(String::from("i")))
+			FieldElementExpression::Identifier(String::from("i")).into()
 		));
 
 		foo_statements_checked.push(AnnotatedStatement::For(
@@ -921,10 +921,10 @@ mod tests {
 				AnnotatedExpressionList::FunctionCall("foo".to_string(), vec![], vec![Type::FieldElement, Type::FieldElement])
 			),
 			AnnotatedStatement::Return(vec![
-					AnnotatedExpression::FieldElement(FieldElementExpression::Add(
+					FieldElementExpression::Add(
 						box FieldElementExpression::Identifier("a".to_string()),
 						box FieldElementExpression::Identifier("b".to_string())
-					))]
+					).into()]
 			)
 		];
 

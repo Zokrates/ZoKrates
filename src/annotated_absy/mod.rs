@@ -206,6 +206,18 @@ pub enum AnnotatedExpression<T: Field> {
     FieldElement(FieldElementExpression<T>),
 }
 
+impl<T: Field> From<BooleanExpression<T>> for AnnotatedExpression<T> {
+    fn from(e: BooleanExpression<T>) -> AnnotatedExpression<T> {
+        AnnotatedExpression::Boolean(e)
+    }
+}
+
+impl<T: Field> From<FieldElementExpression<T>> for AnnotatedExpression<T> {
+    fn from(e: FieldElementExpression<T>) -> AnnotatedExpression<T> {
+        AnnotatedExpression::FieldElement(e)
+    }
+}
+
 impl<T: Field> fmt::Display for AnnotatedExpression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -464,8 +476,8 @@ impl<T: Field> fmt::Debug for FieldElementExpression<T> {
 impl<T: Field> AnnotatedExpression<T> {
     pub fn apply_substitution(&self, substitution: &Substitution) -> AnnotatedExpression<T> {
         match self {
-            AnnotatedExpression::Boolean(e) => AnnotatedExpression::Boolean(e.apply_substitution(substitution)),
-            AnnotatedExpression::FieldElement(e) => AnnotatedExpression::FieldElement(e.apply_substitution(substitution)),
+            AnnotatedExpression::Boolean(e) => e.apply_substitution(substitution).into(),
+            AnnotatedExpression::FieldElement(e) => e.apply_substitution(substitution).into(),
         }
     }
 }
