@@ -91,6 +91,7 @@ impl<T: Field> FlatFunction<T> {
             witness.insert(arg.id.to_string(), inputs[i].clone());
         }
         for statement in &self.statements {
+            println!("{}", statement);
             match *statement {
                 FlatStatement::Return(ref list) => {
                     for (i, val) in list.expressions.iter().enumerate() {

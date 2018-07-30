@@ -62,63 +62,68 @@ impl Flattener {
         functions_flattened.push(cast(&Type::FieldElement, &Type::Boolean));
 
         // Load IfElse helpers
+        let ie = TypedFunction {
+            id: "_if_else_field".to_string(),
+            arguments: vec![Parameter {
+                id: Variable {
+                    id: "condition".to_string(),
+                    _type: Type::Boolean
+                }, 
+                private: true 
+            },
+            Parameter {
+                id: Variable {
+                    id: "consequence".to_string(),
+                    _type: Type::FieldElement
+                }, 
+                private: true 
+            },
+            Parameter {
+                id: Variable {
+                    id: "alternative".to_string(),
+                    _type: Type::FieldElement
+                }, 
+                private: true 
+            }],
+            statements: vec![
+                TypedStatement::Definition(
+                    Variable::from("condition_as_field"),
+                    FieldElementExpression::FunctionCall(
+                        "_bool_to_field".to_string(), 
+                        vec![
+                            TypedExpression::FieldElement(
+                                FieldElementExpression::Identifier("condition".to_string()))
+                        ]
+                    ).into()
+                ),
+                TypedStatement::Return(
+                    vec![
+                        FieldElementExpression::Add(
+                            box FieldElementExpression::Mult(
+                                box FieldElementExpression::Identifier("condition_as_field".to_string()),
+                                box FieldElementExpression::Identifier("consequence".to_string()),
+                            ),
+                            box FieldElementExpression::Mult(
+                                box FieldElementExpression::Sub(
+                                    box FieldElementExpression::Number(T::one()),
+                                    box FieldElementExpression::Identifier("condition_as_field".to_string())
+                                ),
+                                box FieldElementExpression::Identifier("alternative".to_string())
+                            )
+                        ).into()
+                    ]
+                )
+            ],
+            signature: Signature {
+                inputs: vec![Type::Boolean, Type::FieldElement, Type::FieldElement],
+                outputs: vec![Type::FieldElement]
+            }
+        };
+
         let ief = self.flatten_function(
             functions_flattened,
-            TypedFunction {
-                id: "_if_else_field".to_string(),
-                arguments: vec![Parameter {
-                    id: Variable {
-                        id: "condition".to_string(),
-                        _type: Type::Boolean
-                    }, 
-                    private: true 
-                },
-                Parameter {
-                    id: Variable {
-                        id: "consequence".to_string(),
-                        _type: Type::FieldElement
-                    }, 
-                    private: true 
-                },
-                Parameter {
-                    id: Variable {
-                        id: "alternative".to_string(),
-                        _type: Type::FieldElement
-                    }, 
-                    private: true 
-                }],
-                statements: vec![
-                    TypedStatement::Definition(
-                        Variable::from("condition_as_field"),
-                        FieldElementExpression::FunctionCall(
-                            "_bool_to_field".to_string(), 
-                            vec![
-                                TypedExpression::FieldElement(
-                                    FieldElementExpression::Identifier("condition".to_string()))
-                            ]
-                        ).into()
-                    ),
-                    TypedStatement::Return(
-                        vec![
-                            FieldElementExpression::Add(
-                                box FieldElementExpression::Mult(
-                                    box FieldElementExpression::Identifier("condition_as_field".to_string()),
-                                    box FieldElementExpression::Identifier("consequence".to_string()),
-                                ),
-                                box FieldElementExpression::Mult(
-                                    box FieldElementExpression::Identifier("condition_as_field".to_string()),
-                                    box FieldElementExpression::Identifier("alternative".to_string())
-                                )
-                            ).into()
-                        ]
-                    )
-                ],
-                signature: Signature {
-                    inputs: vec![Type::Boolean, Type::FieldElement, Type::FieldElement],
-                    outputs: vec![Type::FieldElement]
-                }
-            });
-
+            ie,
+        );
         functions_flattened.push(ief);
     }
 
@@ -136,7 +141,7 @@ impl Flattener {
         arguments_flattened: &Vec<FlatParameter>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
         condition: BooleanExpression<T>,
-    ) -> (BooleanExpression<T>, BooleanExpression<T>) { // those will be booleans in the future
+    ) -> BooleanExpression<T> { // those will be booleans in the future
         match condition {
             BooleanExpression::Lt(box lhs, box rhs) => {
 
@@ -218,14 +223,10 @@ impl Flattener {
                 statements_flattened
                     .push(FlatStatement::Definition(subtraction_result.to_string(), expr));
 
-                let cond_true = format!("{}{}0", &subtraction_result, BINARY_SEPARATOR);
-                let cond_false = format!("sym_{}", self.next_var_idx);
+                let cond_true = format!("{}", &subtraction_result);
                 self.next_var_idx += 1;
-                statements_flattened.push(FlatStatement::Definition(
-                    cond_false.to_string(),
-                    FlatExpression::Sub(box FlatExpression::Number(T::one()), box FlatExpression::Identifier(cond_true.to_string())),
-                ));
-                (BooleanExpression::Identifier(cond_true), BooleanExpression::Identifier(cond_false))
+
+                BooleanExpression::Identifier(cond_true)
             }
             BooleanExpression::Eq(box lhs, box rhs) => {
 
@@ -276,7 +277,7 @@ impl Flattener {
                     FlatExpression::Mult(box FlatExpression::Identifier(name_1_y.to_string()), box FlatExpression::Identifier(name_x)),
                 ));
 
-                (BooleanExpression::Identifier(name_1_y), BooleanExpression::Identifier(name_y))
+                BooleanExpression::Identifier(name_1_y)
             }
             _ => unimplemented!(),
         }
@@ -599,7 +600,7 @@ impl Flattener {
                 }
             },
             FieldElementExpression::IfElse(box condition, box consequent, box alternative) => {
-                let (cond_true, cond_false) = self.flatten_condition(
+                let condition = self.flatten_condition(
                     functions_flattened,
                     arguments_flattened,
                     statements_flattened,
@@ -612,7 +613,7 @@ impl Flattener {
                     statements_flattened,
                     &"_if_else_field".to_string(),
                     1,
-                    &vec![cond_true.into(), consequent.into(), alternative.into()],
+                    &vec![condition.into(), consequent.into(), alternative.into()],
                 ).expressions[0].clone()
             },
             FieldElementExpression::FunctionCall(ref id, ref param_expressions) => {
@@ -791,7 +792,6 @@ impl Flattener {
                             }
                         }
                     },
-                    _ => panic!("Right hand side of a MultipleDefinition should be a FunctionCall")
                 }
             },
         }
@@ -1153,7 +1153,7 @@ mod multiple_definition {
 
         flattener.load_stdlib(&mut functions_flattened);
 
-        let r = flattener.flatten_field_expression(
+        flattener.flatten_field_expression(
             &functions_flattened,
             &vec![],
             &mut vec![],

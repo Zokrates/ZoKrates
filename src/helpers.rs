@@ -162,6 +162,7 @@ mod tests {
 		use super::*;
 
 		#[test]
+		#[cfg(not(feature = "nolibsnark"))]
 		fn execute() {
 			let sha = LibsnarkGadgetHelper::Sha256Compress;
 			// second vector here https://homes.esat.kuleuven.be/~nsmart/MPC/sha-256-test.txt

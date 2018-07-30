@@ -1,5 +1,4 @@
 use std::fmt;
-use substitution::Substitution;
 use absy::Variable;
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]

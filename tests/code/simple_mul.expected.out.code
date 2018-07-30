@@ -1,3 +1,0 @@
-def main(a,b,c):
-	sym_0 = (b * c)
-	return (a * sym_0)

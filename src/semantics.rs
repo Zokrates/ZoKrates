@@ -12,7 +12,7 @@ use field::Field;
 use std::fmt;
 use types::signature::Signature;
 use absy::variable::Variable;
-use typed_absy::{TypedProg, TypedFunction, TypedStatement, TypedExpressionList, TypedExpression, BooleanExpression, FieldElementExpression, Typed};
+use typed_absy::*;
 
 use types::Type;
 
