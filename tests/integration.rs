@@ -55,7 +55,6 @@ mod integration {
         let tmp_base = Path::new(".tmp/");
         let test_case_path = tmp_base.join(program_name);
     	let flattened_path = tmp_base.join(program_name).join("out");
-    	let flattened_code_path = tmp_base.join(program_name).join("out").with_extension("code");
     	let witness_path = tmp_base.join(program_name).join("witness");
         let verification_key_path = tmp_base.join(program_name).join("verification").with_extension("key");
         let proving_key_path = tmp_base.join(program_name).join("proving").with_extension("key");
