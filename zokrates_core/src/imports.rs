@@ -9,10 +9,19 @@ use absy::*;
 use flat_absy::*;
 use field::Field;
 use std::path::PathBuf;
+use std::io;
 
 #[derive(PartialEq, Debug)]
 pub struct Error {
 	message: String
+}
+
+impl Error {
+	pub fn new<T: Into<String>>(message: T) -> Error {
+		Error {
+			message: message.into()
+		}
+	}
 }
 
 impl fmt::Display for Error {
@@ -21,40 +30,41 @@ impl fmt::Display for Error {
 	}
 }
 
+impl From<io::Error> for Error {
+	fn from(error: io::Error) -> Self {
+		Error {
+			message: format!("I/O Error: {:?}", error)
+		}
+	}
+}
+
 #[derive(PartialEq, Clone, Serialize, Deserialize)]
 pub struct Import {
 	source: PathBuf,
 	alias: String,
-	base: PathBuf
 }
 
 impl Import {
-	pub fn new(source: String, base: &PathBuf) -> Import {
+	pub fn new(source: String) -> Import {
 		Import {
 			source: PathBuf::from(source.clone()),
 			alias: PathBuf::from(source).file_stem().unwrap().to_os_string().to_string_lossy().to_string(),
-			base: base.clone()
 		}
-	}
-
-	pub fn resolve(&self) -> Result<PathBuf,Error> {
-		let mut path = self.base.parent().unwrap().to_owned();
-		let source = self.source.strip_prefix("./").unwrap();
-		path.push(&source);
-
-		Ok(path)
 	}
 
 	pub fn alias(&self) -> String {
 		self.alias.clone()
 	}
 
-	pub fn new_with_alias(source: String, base: &PathBuf, alias: &String) -> Import {
+	pub fn new_with_alias(source: String, alias: &String) -> Import {
 		Import {
 			source: PathBuf::from(source.clone()),
 			alias: alias.clone(),
-			base: base.clone()
 		}
+	}
+
+	pub fn get_source(&self) -> &PathBuf {
+		&self.source
 	}
 }
 
@@ -112,19 +122,17 @@ mod tests {
 
 	#[test]
 	fn create_with_no_alias() {
-		assert_eq!(Import::new("./foo/bar/baz.code".to_string(), &PathBuf::from("/path/to/dir")), Import {
+		assert_eq!(Import::new("./foo/bar/baz.code".to_string()), Import {
 			source: PathBuf::from("./foo/bar/baz.code"),
 			alias: "baz".to_string(),
-			base: PathBuf::from("/path/to/dir")
 		});
 	}
 
 	#[test]
 	fn create_with_alias() {
-		assert_eq!(Import::new_with_alias("./foo/bar/baz.code".to_string(), &PathBuf::from("/path/to/dir"), &"myalias".to_string()), Import {
+		assert_eq!(Import::new_with_alias("./foo/bar/baz.code".to_string(), &"myalias".to_string()), Import {
 			source: PathBuf::from("./foo/bar/baz.code"),
 			alias: "myalias".to_string(),
-			base: PathBuf::from("/path/to/dir")
 		});
 	}
 }

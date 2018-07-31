@@ -1,6 +1,7 @@
 [workspace]
 members = [
-    "zokrates",
-    "zokrates-cli"
+    "zokrates_core",
+    "zokrates_cli",
+    "zokrates_fs_resolver",
 ]
 

@@ -7,23 +7,25 @@
 extern crate clap;
 extern crate bincode;
 extern crate regex;
-extern crate zokrates;
+extern crate zokrates_core;
+extern crate zokrates_fs_resolver;
 
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::io::{BufWriter, Write, BufReader, BufRead, stdin};
 use std::collections::HashMap;
 use std::string::String;
-use zokrates::compile::compile;
-use zokrates::field::{Field, FieldPrime};
-use zokrates::r1cs::{r1cs_program};
-use zokrates::flat_absy::FlatProg;
+use zokrates_core::compile::compile;
+use zokrates_core::field::{Field, FieldPrime};
+use zokrates_core::r1cs::{r1cs_program};
+use zokrates_core::flat_absy::FlatProg;
 use clap::{App, AppSettings, Arg, SubCommand};
 #[cfg(feature = "libsnark")]
-use zokrates::libsnark::{setup, generate_proof};
+use zokrates_core::libsnark::{setup, generate_proof};
 use bincode::{serialize_into, deserialize_from , Infinite};
 use regex::Regex;
-use zokrates::verification::CONTRACT_TEMPLATE;
+use zokrates_core::verification::CONTRACT_TEMPLATE;
+use zokrates_fs_resolver::resolve as fs_resolve;
 
 fn main() {
     const FLATTENED_CODE_DEFAULT_PATH: &str = "out";
@@ -193,15 +195,17 @@ fn main() {
 
             let path = PathBuf::from(sub_matches.value_of("input").unwrap());
 
+            let location = path.parent().unwrap().to_path_buf();
+
             let should_optimize = sub_matches.occurrences_of("optimized") > 0;
 
             let should_include_gadgets = sub_matches.occurrences_of("gadgets") > 0;
 
-            let file = File::open(path).unwrap();
+            let file = File::open(path.clone()).unwrap();
 
             let mut reader = BufReader::new(file);
             
-            let program_flattened: FlatProg<FieldPrime> = match compile(&mut reader, should_optimize, should_include_gadgets) {
+            let program_flattened: FlatProg<FieldPrime> = match compile(&mut reader, location, Some(fs_resolve), should_optimize, should_include_gadgets) {
                 Ok(p) => p,
                 Err(why) => panic!("Compilation failed: {}", why)
             };
@@ -544,8 +548,12 @@ mod tests {
 
             println!("Testing {:?}", path);
 
+            let file = File::open(path.clone()).unwrap();
+
+            let mut reader = BufReader::new(file);
+
             let program_flattened: FlatProg<FieldPrime> =
-                compile(path, true, false).unwrap();
+                compile(&mut reader, path, Some(fs_resolve), true, false).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
         }
@@ -560,8 +568,12 @@ mod tests {
             };
             println!("Testing {:?}", path);
 
+            let file = File::open(path.clone()).unwrap();
+
+            let mut reader = BufReader::new(file);
+
             let program_flattened: FlatProg<FieldPrime> =
-                compile(path, true, false).unwrap();
+                compile(&mut reader, path, Some(fs_resolve), true, false).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
             let _ = program_flattened.get_witness(vec![FieldPrime::from(0)]);

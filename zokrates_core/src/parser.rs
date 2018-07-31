@@ -5,12 +5,10 @@
 //! @date 2017
 
 use std::fmt;
-use std::io::{BufReader, Lines};
+use std::io::{Lines};
 use std::io::prelude::*;
-use std::fs::File;
 use field::{Field};
 use absy::*;
-use std::path::PathBuf;
 use imports::*;
 use parameter::Parameter;
 
@@ -1342,7 +1340,6 @@ fn parse_quoted_path<T: Field>(
 fn parse_import<T: Field>(
     input: &String,
     pos: &Position,
-    path: &PathBuf
 ) -> Result<(Import, Position), Error<T>> {
     match next_token(input, pos) {
         (Token::DoubleQuote, s1, p1) => {
@@ -1353,7 +1350,7 @@ fn parse_import<T: Field>(
                             match next_token(&s3, &p3) {
                                 (Token::Ide(id), _, p4) => {
                                     return Ok((
-                                        Import::new_with_alias(code_path, &path, &id),
+                                        Import::new_with_alias(code_path, &id),
                                         p4
                                     ))
                                 },
@@ -1370,7 +1367,7 @@ fn parse_import<T: Field>(
                         },
                         (Token::Unknown(_), _, p3) => {
                             return Ok((
-                                Import::new(code_path, &path),
+                                Import::new(code_path),
                                 p3
                             ))
                         },
@@ -1398,7 +1395,7 @@ fn parse_import<T: Field>(
     }
 }
 
-pub fn parse_program<T: Field, R: BufRead>(reader: &mut R, path: PathBuf) -> Result<Prog<T>, Error<T>> {
+pub fn parse_program<T: Field, R: BufRead>(reader: &mut R) -> Result<Prog<T>, Error<T>> {
     let mut current_line = 1;
     let mut lines = reader.lines();
     let mut functions = Vec::new();
@@ -1414,7 +1411,7 @@ pub fn parse_program<T: Field, R: BufRead>(reader: &mut R, path: PathBuf) -> Res
                     col: 1,
                 },
             ) {
-                (Token::Import, ref s1, ref p1) => match parse_import(s1, p1, &path) {
+                (Token::Import, ref s1, ref p1) => match parse_import(s1, p1) {
                     Ok((import, p2)) => {
                         imports.push(import);
                         current_line = p2.line; // this is the line of the import statement
@@ -1749,33 +1746,31 @@ mod tests {
         #[test]
         fn parse_import_test() {
             let pos = Position { line: 45, col: 121 };
-            let pathbuf = PathBuf::from("examples/bar.code");
             let string = String::from("\"./foo.code\"");
-            let import = Import::new("./foo.code".to_string(), &pathbuf);
+            let import = Import::new("./foo.code".to_string());
             let position = Position {
                 line: 45,
                 col: pos.col + 1 + "./foo.code".len() + 1
             };
             assert_eq!(
                 Ok((import, position)),
-                parse_import::<FieldPrime>(&string, &pos, &pathbuf)
+                parse_import::<FieldPrime>(&string, &pos)
             )
         }
 
         #[test]
         fn parse_import_with_alias_test() {
             let pos = Position { line: 45, col: 121 };
-            let pathbuf = PathBuf::from("examples/bar.code");
             let string = String::from("\"./foo.code\" as myalias");
             let alias = "myalias".to_string();
-            let import = Import::new_with_alias("./foo.code".to_string(), &pathbuf, &alias);
+            let import = Import::new_with_alias("./foo.code".to_string(), &alias);
             let position = Position {
                 line: 45,
                 col: pos.col + string.len()
             };
             assert_eq!(
                 Ok((import, position)),
-                parse_import::<FieldPrime>(&string, &pos, &pathbuf)
+                parse_import::<FieldPrime>(&string, &pos)
             )
         }
     }
