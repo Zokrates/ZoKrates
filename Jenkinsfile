@@ -36,7 +36,7 @@ pipeline {
                     ansiColor('xterm') {
                         dockerImage = docker.build("zokrates/zokrates")
                         dockerImage.inside {
-                            sh 'RUSTFLAGS="-D warnings" cargo build'
+                            sh 'RUSTFLAGS="-D warnings" ./build.sh'
                         }
                     }
                 }
@@ -48,7 +48,7 @@ pipeline {
                 script {
                     ansiColor('xterm') {
                         dockerImage.inside {
-                            sh 'RUSTFLAGS="-D warnings" cargo test'
+                            sh 'RUSTFLAGS="-D warnings" ./test.sh'
                         }
                     }
                 }
@@ -63,7 +63,7 @@ pipeline {
                 script {
                     ansiColor('xterm') {
                         dockerImage.inside {
-                            sh 'RUSTFLAGS="-D warnings" cargo test -- --ignored'
+                            sh 'RUSTFLAGS="-D warnings" ./full_test.sh'
                         }
                     }
                 }
