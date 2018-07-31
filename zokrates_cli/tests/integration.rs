@@ -20,7 +20,7 @@ mod integration {
         fs::remove_dir_all(".tmp").unwrap();
     } 
     
-    #[test]
+    #[test] #[ignore]
     fn run_integration_tests() {
         // see https://medium.com/@ericdreichert/test-setup-and-teardown-in-rust-without-a-framework-ba32d97aa5ab
         setup();
