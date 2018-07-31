@@ -43,20 +43,18 @@ mod integration {
                 if path.extension().unwrap() == "witness" {
                     let program_name = Path::new(Path::new(path.file_stem().unwrap()).file_stem().unwrap());
                     let prog = dir.join(program_name).with_extension("code");
-                    let flat = dir.join(program_name).with_extension("expected.out.code");
                     let witness = dir.join(program_name).with_extension("expected.witness");
                     let args = dir.join(program_name).with_extension("arguments.json");
-                    test_compile_and_witness(program_name.to_str().unwrap(), &prog, &flat, &args, &witness);
+                    test_compile_and_witness(program_name.to_str().unwrap(), &prog, &args, &witness);
                 }
             }
         }
     }
 
-    fn test_compile_and_witness(program_name: &str, program_path: &Path, expected_flattened_code_path: &Path, arguments_path: &Path, expected_witness_path: &Path) {
+    fn test_compile_and_witness(program_name: &str, program_path: &Path, arguments_path: &Path, expected_witness_path: &Path) {
         let tmp_base = Path::new(".tmp/");
         let test_case_path = tmp_base.join(program_name);
     	let flattened_path = tmp_base.join(program_name).join("out");
-    	let flattened_code_path = tmp_base.join(program_name).join("out").with_extension("code");
     	let witness_path = tmp_base.join(program_name).join("witness");
         let verification_key_path = tmp_base.join(program_name).join("verification").with_extension("key");
         let proving_key_path = tmp_base.join(program_name).join("proving").with_extension("key");
@@ -78,19 +76,6 @@ mod integration {
         assert_cli::Assert::command(&compile)
             .succeeds()
             .unwrap();
-
-        // load the expected result
-        let mut expected_flattened_code_file = File::open(&expected_flattened_code_path).unwrap();
-        let mut expected_flattened_code = String::new();
-        expected_flattened_code_file.read_to_string(&mut expected_flattened_code).unwrap();
-
-        // load the actual result
-        let mut flattened_code_file = File::open(&flattened_code_path).unwrap();
-        let mut flattened_code = String::new();
-        flattened_code_file.read_to_string(&mut flattened_code).unwrap();
-
-        // check equality
-        assert_eq!(flattened_code, expected_flattened_code, "Flattening failed for {}\n\nExpected\n\n{}\n\nGot\n\n{}", program_path.to_str().unwrap(), expected_flattened_code.as_str(), flattened_code.as_str());
 
         // SETUP
         assert_cli::Assert::command(&["../target/debug/zokrates-cli", "setup",
