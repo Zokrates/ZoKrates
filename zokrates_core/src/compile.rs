@@ -15,10 +15,6 @@ use semantics::{self, Checker};
 use optimizer::{Optimizer};
 use flatten::Flattener;
 use std::io::{self};
-
-#[cfg(feature = "libsnark")]
-use libsnark::{get_sha256_constraints};
-
 use serde_json;
 use standard;
 
@@ -109,6 +105,8 @@ fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader
 
     #[cfg(feature = "libsnark")]
     {
+    	use libsnark::{get_sha256_constraints};
+
 	    if should_include_gadgets {
 	    	// inject globals
 		    let r1cs: standard::R1CS = serde_json::from_str(&get_sha256_constraints()).unwrap();

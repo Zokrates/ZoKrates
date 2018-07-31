@@ -67,7 +67,7 @@ mod integration {
         fs::create_dir(test_case_path).unwrap();
 
         // prepare compile arguments
-        let mut compile = vec!["./target/debug/zokrates-cli", "compile", "-i", program_path.to_str().unwrap(), "-o", flattened_path.to_str().unwrap()];
+        let mut compile = vec!["../target/debug/zokrates-cli", "compile", "-i", program_path.to_str().unwrap(), "-o", flattened_path.to_str().unwrap()];
 
         if program_name.contains("sha_libsnark") {
             compile.push("--gadgets");
@@ -93,7 +93,7 @@ mod integration {
         assert_eq!(flattened_code, expected_flattened_code, "Flattening failed for {}\n\nExpected\n\n{}\n\nGot\n\n{}", program_path.to_str().unwrap(), expected_flattened_code.as_str(), flattened_code.as_str());
 
         // SETUP
-        assert_cli::Assert::command(&["cargo", "run", "--", "setup",
+        assert_cli::Assert::command(&["../target/debug/zokrates-cli", "setup",
             "-i", flattened_path.to_str().unwrap(),
             "-p", proving_key_path.to_str().unwrap(),
             "-v", verification_key_path.to_str().unwrap(),
@@ -102,7 +102,7 @@ mod integration {
             .unwrap();
 
         // EXPORT-VERIFIER
-        assert_cli::Assert::command(&["cargo", "run", "--", "export-verifier",
+        assert_cli::Assert::command(&["../target/debug/zokrates-cli", "export-verifier",
             "-i", verification_key_path.to_str().unwrap(),
             "-o", verification_contract_path.to_str().unwrap()])
             .succeeds()
@@ -116,7 +116,7 @@ mod integration {
             _ => panic!(format!("Cannot read arguments. Check {}", arguments_path.to_str().unwrap()))
         }).collect();
 
-        let mut compute = vec!["cargo", "run", "--", "compute-witness",
+        let mut compute = vec!["../target/debug/zokrates-cli", "compute-witness",
             "-i", flattened_path.to_str().unwrap(),
             "-o", witness_path.to_str().unwrap(),
             "-a"];
@@ -141,13 +141,14 @@ mod integration {
 
 		for line in expected_witness.as_str().split("\n") {
             assert!(witness.contains(line), "Witness generation failed for {}\n\nLine \"{}\" not found in witness", program_path.to_str().unwrap(), line);
-    }
+        }
         // GENERATE-PROOF
-        assert_cli::Assert::command(&["cargo", "run", "--", "generate-proof",
+        assert_cli::Assert::command(&["../target/debug/zokrates-cli", "generate-proof",
             "-w", witness_path.to_str().unwrap(),
             "-p", proving_key_path.to_str().unwrap(),
             "-i", variable_information_path.to_str().unwrap()])
             .succeeds()
             .unwrap();
+
     }
 }

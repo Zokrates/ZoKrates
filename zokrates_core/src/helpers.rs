@@ -1,9 +1,5 @@
 use std::fmt;
 use field::{Field};
-
-#[cfg(feature = "libsnark")]
-use libsnark::*;
-
 use serde_json;
 use standard;
 
@@ -83,6 +79,8 @@ impl<T: Field> Executable<T> for LibsnarkGadgetHelper {
 
 				#[cfg(feature = "libsnark")]
 				{
+					use libsnark::*;
+
 					let witness_result: Result<standard::Witness, serde_json::Error> = serde_json::from_str(&get_sha256_witness(inputs));
 
 					if let Err(e) = witness_result {
