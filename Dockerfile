@@ -9,8 +9,6 @@ ARG LIBSNARK_COMMIT=f7c87b88744ecfd008126d415494d9b34c4c1b20
 ENV LIBSNARK_SOURCE_PATH=/home/zokrates/libsnark-$LIBSNARK_COMMIT
 ENV WITH_LIBSNARK=1
 
-WORKDIR /root/
-
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
