@@ -694,6 +694,7 @@ impl Flattener {
         let mut statements_flattened: Vec<FlatStatement<T>> = Vec::new();
         // push parameters
         for arg in funct.arguments {
+            self.variables.insert(arg.id.to_string());
             arguments_flattened.push(Parameter {
                 id: arg.id.to_string(),
                 private: arg.private
@@ -917,6 +918,48 @@ mod multiple_definition {
             statements_flattened[0]
             ,
             FlatStatement::Definition("a".to_string(), FlatExpression::Number(FieldPrime::from(1)))
+        );
+    }
+
+    #[test]
+    fn redefine_argument() {
+
+        // def foo(a)
+        //     a = a + 1
+        //     return 1
+
+        // should flatten to no redefinition
+        // def foo(a)
+        //     a_0 = a + 1
+        //     return 1
+
+        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut functions_flattened = vec![];
+
+        let funct = Function {
+            id: "foo".to_string(),
+            arguments: vec![Parameter { id: "a".to_string(), private: true }],
+            statements: vec![
+                Statement::Definition("a".to_string(), Expression::Add(box Expression::Identifier("a".to_string()), box Expression::Number(FieldPrime::from(1)))),
+                Statement::Return(
+                    ExpressionList {
+                        expressions: vec![
+                            Expression::Number(FieldPrime::from(1))
+                        ]
+                    }
+                )
+            ],
+            return_count: 1,
+        };
+
+        let flat_funct = flattener.flatten_function(
+            &mut functions_flattened,
+            funct,
+        );
+
+        assert_eq!(
+            flat_funct.statements[0],
+            FlatStatement::Definition("a_0".to_string(), FlatExpression::Add(box FlatExpression::Identifier("a".to_string()), box FlatExpression::Number(FieldPrime::from(1))))
         );
     }
 
