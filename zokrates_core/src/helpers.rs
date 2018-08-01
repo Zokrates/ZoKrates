@@ -156,6 +156,7 @@ mod tests {
 	use field::FieldPrime;
 	use super::*;
 
+	#[cfg(feature = "libsnark")]
 	mod sha256libsnark {
 		use super::*;
 

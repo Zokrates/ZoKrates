@@ -131,7 +131,7 @@ fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader
 mod test {
 	use super::*;
 	use field::FieldPrime;
-	use std::io::{BufRead, BufReader, Empty};
+	use std::io::{BufReader, Empty};
 
 	#[test]
 	fn no_resolver_with_imports() {
