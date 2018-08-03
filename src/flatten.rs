@@ -694,9 +694,8 @@ impl Flattener {
         let mut statements_flattened: Vec<FlatStatement<T>> = Vec::new();
         // push parameters
         for arg in funct.arguments {
-            self.variables.insert(arg.id.to_string());
             arguments_flattened.push(Parameter {
-                id: arg.id.to_string(),
+                id: self.use_variable(&arg.id),
                 private: arg.private
             });
         }
