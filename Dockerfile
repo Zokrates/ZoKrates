@@ -28,8 +28,6 @@ RUN curl https://sh.rustup.rs -sSf | \
 
 ENV PATH=/home/zokrates/.cargo/bin:$PATH
 
-WORKDIR /home/zokrates
-
 RUN git clone https://github.com/scipr-lab/libsnark.git $LIBSNARK_SOURCE_PATH
 
 WORKDIR $LIBSNARK_SOURCE_PATH

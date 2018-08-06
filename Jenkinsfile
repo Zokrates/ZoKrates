@@ -20,7 +20,7 @@ pipeline {
                     def gitCommitHash = sh(returnStdout: true, script: 'git rev-parse HEAD').trim().take(7)
                     currentBuild.displayName = "#${BUILD_ID}-${gitCommitHash}"
 
-                    patchVersion = sh(returnStdout: true, script: 'cat zokrates-cli/Cargo.toml | grep version | awk \'{print $3}\' | sed -e \'s/"//g\'').trim()
+                    patchVersion = sh(returnStdout: true, script: 'cat zokrates_cli/Cargo.toml | grep version | awk \'{print $3}\' | sed -e \'s/"//g\'').trim()
                     echo "ZoKrates patch version: ${patchVersion}"
                     def (major, minor, patch) = patchVersion.tokenize( '.' )
                     minorVersion = "${major}.${minor}"
