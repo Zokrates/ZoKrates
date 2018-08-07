@@ -87,6 +87,78 @@ impl Flattener {
                 statements_flattened
                     .push(FlatStatement::Definition(rhs_name.to_string(), rhs_flattened));
 
+                // check that lhs and rhs are within the right range, ie, their last two bits are zero
+
+                // lhs
+                {
+                    // bitness checks
+                    for i in 0..self.bits - 2 {
+                        let new_name = format!("{}{}{}", &lhs_name, BINARY_SEPARATOR, i);
+                        statements_flattened.push(FlatStatement::Condition(
+                            FlatExpression::Identifier(new_name.to_string()),
+                            FlatExpression::Mult(
+                                box FlatExpression::Identifier(new_name.to_string()),
+                                box FlatExpression::Identifier(new_name.to_string()),
+                            ),
+                        ));
+                    }
+
+                    // bit decomposition check
+                    let mut lhs_sum = FlatExpression::Number(T::from(0));
+
+                    for i in 0..self.bits - 2 {
+                        lhs_sum = FlatExpression::Add(
+                            box lhs_sum,
+                            box FlatExpression::Mult(
+                                box FlatExpression::Identifier(format!("{}{}{}", &lhs_name, BINARY_SEPARATOR, i)),
+                                box FlatExpression::Number(T::from(2).pow(i)),
+                            ),
+                        );
+                    }
+
+                    statements_flattened
+                        .push(FlatStatement::Condition(
+                                FlatExpression::Identifier(lhs_name.clone()), 
+                                lhs_sum
+                            )
+                        );
+                }
+
+                // rhs
+                {
+                    // bitness checks
+                    for i in 0..self.bits - 2 {
+                        let new_name = format!("{}{}{}", &rhs_name, BINARY_SEPARATOR, i);
+                        statements_flattened.push(FlatStatement::Condition(
+                            FlatExpression::Identifier(new_name.to_string()),
+                            FlatExpression::Mult(
+                                box FlatExpression::Identifier(new_name.to_string()),
+                                box FlatExpression::Identifier(new_name.to_string()),
+                            ),
+                        ));
+                    }
+
+                    // bit decomposition check
+                    let mut rhs_sum = FlatExpression::Number(T::from(0));
+
+                    for i in 0..self.bits - 2 {
+                        rhs_sum = FlatExpression::Add(
+                            box rhs_sum,
+                            box FlatExpression::Mult(
+                                box FlatExpression::Identifier(format!("{}{}{}", &rhs_name, BINARY_SEPARATOR, i)),
+                                box FlatExpression::Number(T::from(2).pow(i)),
+                            ),
+                        );
+                    }
+
+                    statements_flattened
+                        .push(FlatStatement::Condition(
+                                FlatExpression::Identifier(rhs_name.clone()), 
+                                rhs_sum
+                            )
+                        );
+                }
+
                 // sym = (lhs * 2) - (rhs * 2)
                 let subtraction_result = format!("sym_{}", self.next_var_idx);
                 self.next_var_idx += 1;
@@ -99,7 +171,7 @@ impl Flattener {
                     ),
                 ));
 
-                // sym_b{i} = sym0_b{i}**2  (bitness checks)
+                // sym_b{i} = sym_b{i}**2  (bitness checks)
                 for i in 0..self.bits {
                     let new_name = format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, i);
                     statements_flattened.push(FlatStatement::Condition(
@@ -128,21 +200,6 @@ impl Flattener {
                     .push(FlatStatement::Condition(
                             FlatExpression::Identifier(subtraction_result.clone()), 
                             expr
-                        )
-                    );
-
-                // Ensure that the higher order bits are zero so that the number has to be smaller than p/2
-                statements_flattened
-                    .push(FlatStatement::Condition(
-                            FlatExpression::Identifier(format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, (self.bits - 1) - 1)),
-                            FlatExpression::Number(T::from(0))
-                        )
-                    );
-
-                statements_flattened
-                    .push(FlatStatement::Condition(
-                            FlatExpression::Identifier(format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, self.bits - 1)),
-                            FlatExpression::Number(T::from(0))
                         )
                     );
 
