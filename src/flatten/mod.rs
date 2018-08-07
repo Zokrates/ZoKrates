@@ -1077,20 +1077,25 @@ mod multiple_definition {
         let mut flattener = Flattener::new(FieldPrime::get_required_bits());
         let mut functions_flattened = vec![];
 
-        let funct = Function {
+        let funct = TypedFunction {
             id: "foo".to_string(),
-            arguments: vec![Parameter { id: "a".to_string(), private: true }],
+            signature: Signature {
+                inputs: vec![Type::FieldElement],
+                outputs: vec![Type::FieldElement]
+            },
+            arguments: vec![Parameter { id: Variable::from("a"), private: true }],
             statements: vec![
-                Statement::Definition("a".to_string(), Expression::Add(box Expression::Identifier("a".to_string()), box Expression::Number(FieldPrime::from(1)))),
-                Statement::Return(
-                    ExpressionList {
-                        expressions: vec![
-                            Expression::Number(FieldPrime::from(1))
-                        ]
-                    }
+                TypedStatement::Definition(
+                    Variable::from("a".to_string()), 
+                    FieldElementExpression::Add(
+                        box FieldElementExpression::Identifier("a".to_string()), 
+                        box FieldElementExpression::Number(FieldPrime::from(1))
+                    ).into()
+                ),
+                TypedStatement::Return(
+                    vec![FieldElementExpression::Number(FieldPrime::from(1)).into()]
                 )
             ],
-            return_count: 1,
         };
 
         let flat_funct = flattener.flatten_function(
