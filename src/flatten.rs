@@ -75,17 +75,22 @@ impl Flattener {
                     rhs,
                 );
 
+                // lhs
                 let lhs_name = format!("sym_{}", self.next_var_idx);
                 self.next_var_idx += 1;
                 statements_flattened
                     .push(FlatStatement::Definition(lhs_name.to_string(), lhs_flattened));
+
+                // rhs
                 let rhs_name = format!("sym_{}", self.next_var_idx);
                 self.next_var_idx += 1;
                 statements_flattened
                     .push(FlatStatement::Definition(rhs_name.to_string(), rhs_flattened));
 
+                // sym = (lhs * 2) - (rhs * 2)
                 let subtraction_result = format!("sym_{}", self.next_var_idx);
                 self.next_var_idx += 1;
+
                 statements_flattened.push(FlatStatement::Definition(
                     subtraction_result.to_string(),
                     FlatExpression::Sub(
@@ -93,49 +98,53 @@ impl Flattener {
                         box FlatExpression::Mult(box FlatExpression::Number(T::from(2)), box FlatExpression::Identifier(rhs_name.to_string())),
                     ),
                 ));
-                for i in 0..self.bits - 2 {
+
+                // sym_b{i} = sym0_b{i}**2  (bitness checks)
+                for i in 0..self.bits {
                     let new_name = format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, i);
-                    statements_flattened.push(FlatStatement::Definition(
-                        new_name.to_string(),
+                    statements_flattened.push(FlatStatement::Condition(
+                        FlatExpression::Identifier(new_name.to_string()),
                         FlatExpression::Mult(
                             box FlatExpression::Identifier(new_name.to_string()),
                             box FlatExpression::Identifier(new_name.to_string()),
                         ),
                     ));
                 }
-                let mut expr = FlatExpression::Add(
-                    box FlatExpression::Identifier(format!("{}{}0", &subtraction_result, BINARY_SEPARATOR)), // * 2^0
-                    box FlatExpression::Mult(
-                        box FlatExpression::Identifier(format!("{}{}1", &subtraction_result, BINARY_SEPARATOR)),
-                        box FlatExpression::Number(T::from(2)),
-                    ),
-                );
-                for i in 1..self.bits / 2 {
-                    expr = FlatExpression::Add(
-                        box expr,
-                        box FlatExpression::Add(
-                            box FlatExpression::Mult(
-                                box FlatExpression::Identifier(format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, 2 * i)),
-                                box FlatExpression::Number(T::from(2).pow(2 * i)),
-                            ),
-                            box FlatExpression::Mult(
-                                box FlatExpression::Identifier(format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, 2 * i + 1)),
-                                box FlatExpression::Number(T::from(2).pow(2 * i + 1)),
-                            ),
-                        ),
-                    );
-                }
-                if self.bits % 2 == 1 {
+
+                // sum(sym_b{i} * 2**i)
+                let mut expr = FlatExpression::Number(T::from(0));
+
+                for i in 0..self.bits {
                     expr = FlatExpression::Add(
                         box expr,
                         box FlatExpression::Mult(
-                            box FlatExpression::Identifier(format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, self.bits - 3)),
-                            box FlatExpression::Number(T::from(2).pow(self.bits - 1)),
+                            box FlatExpression::Identifier(format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, i)),
+                            box FlatExpression::Number(T::from(2).pow(i)),
                         ),
-                    )
+                    );
                 }
+
                 statements_flattened
-                    .push(FlatStatement::Definition(subtraction_result.to_string(), expr));
+                    .push(FlatStatement::Condition(
+                            FlatExpression::Identifier(subtraction_result.clone()), 
+                            expr
+                        )
+                    );
+
+                // Ensure that the higher order bits are zero so that the number has to be smaller than p/2
+                statements_flattened
+                    .push(FlatStatement::Condition(
+                            FlatExpression::Identifier(format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, (self.bits - 1) - 1)),
+                            FlatExpression::Number(T::from(0))
+                        )
+                    );
+
+                statements_flattened
+                    .push(FlatStatement::Condition(
+                            FlatExpression::Identifier(format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, self.bits - 1)),
+                            FlatExpression::Number(T::from(0))
+                        )
+                    );
 
                 let cond_true = format!("{}{}0", &subtraction_result, BINARY_SEPARATOR);
                 let cond_false = format!("sym_{}", self.next_var_idx);
