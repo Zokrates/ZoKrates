@@ -17,6 +17,7 @@ mod semantics;
 mod substitution;
 mod flatten;
 mod optimizer;
+#[cfg(feature = "libsnark")]
 mod standard;
 mod helpers;
 mod types;
