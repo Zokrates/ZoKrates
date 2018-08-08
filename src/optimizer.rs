@@ -5,7 +5,7 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
-use prefixed_substitution::PrefixedSubstitution;
+use substitution::prefixed_substitution::PrefixedSubstitution;
 use substitution::Substitution;
 use flat_absy::*;
 use field::Field;
@@ -123,13 +123,13 @@ impl Optimizer {
 mod tests {
 	use super::*;
 	use field::FieldPrime;
-	use parameter::Parameter;
+	use flat_absy::flat_parameter::FlatParameter;
 
 	#[test]
 	fn remove_synonyms() {
 		let f: FlatFunction<FieldPrime> = FlatFunction {
             id: "foo".to_string(),
-            arguments: vec![Parameter {id: "a".to_string(), private: false}],
+            arguments: vec![FlatParameter {id: "a".to_string(), private: false}],
             statements: vec![
             	FlatStatement::Definition("b".to_string(), FlatExpression::Identifier("a".to_string())),
             	FlatStatement::Definition("c".to_string(), FlatExpression::Identifier("b".to_string())),
@@ -142,7 +142,7 @@ mod tests {
 
         let optimized: FlatFunction<FieldPrime> = FlatFunction {
             id: "foo".to_string(),
-        	arguments: vec![Parameter {id: "_0".to_string(), private: false}],
+        	arguments: vec![FlatParameter {id: "_0".to_string(), private: false}],
         	statements: vec![
         		FlatStatement::Return(FlatExpressionList {
             		expressions: vec![FlatExpression::Identifier("_0".to_string())]
@@ -160,7 +160,7 @@ mod tests {
 	fn remove_multiple_synonyms() {
 		let f: FlatFunction<FieldPrime> = FlatFunction {
             id: "foo".to_string(),
-            arguments: vec![Parameter {id: "a".to_string(), private: false}],
+            arguments: vec![FlatParameter {id: "a".to_string(), private: false}],
             statements: vec![
             	FlatStatement::Definition("b".to_string(), FlatExpression::Identifier("a".to_string())),
             	FlatStatement::Definition("d".to_string(), FlatExpression::Number(FieldPrime::from(1))),
@@ -175,7 +175,7 @@ mod tests {
 
         let optimized: FlatFunction<FieldPrime> = FlatFunction {
             id: "foo".to_string(),
-        	arguments: vec![Parameter {id: "_0".to_string(), private: false}],
+        	arguments: vec![FlatParameter {id: "_0".to_string(), private: false}],
         	statements: vec![
             	FlatStatement::Definition("_1".to_string(), FlatExpression::Number(FieldPrime::from(1))),
         		FlatStatement::Return(FlatExpressionList {

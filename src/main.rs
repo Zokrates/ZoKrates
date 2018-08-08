@@ -20,13 +20,11 @@ extern crate regex;
 
 mod absy;
 mod flat_absy;
-mod parameter;
+mod typed_absy;
 mod parser;
 mod imports;
 mod semantics;
 mod substitution;
-mod prefixed_substitution;
-mod direct_substitution;
 mod flatten;
 mod compile;
 mod optimizer;
@@ -35,6 +33,7 @@ mod field;
 mod verification;
 mod standard;
 mod helpers;
+mod types;
 #[cfg(not(feature = "nolibsnark"))]
 mod libsnark;
 
