@@ -11,17 +11,16 @@ extern crate serde_derive;
 extern crate bincode;
 extern crate regex;
 
-mod parameter;
 mod parser;
 mod imports;
 mod semantics;
 mod substitution;
-mod prefixed_substitution;
-mod direct_substitution;
 mod flatten;
 mod optimizer;
 mod standard;
 mod helpers;
+mod types;
+mod typed_absy;
 
 pub mod absy;
 pub mod flat_absy;

@@ -57,7 +57,7 @@ impl Substitution for PrefixedSubstitution {
 
 impl PrefixedSubstitution {
     fn split_key<'a>(&self, key: &'a str) -> (&'a str, Option<&'a str>) {
-        match self.regex.find(key) {
+        match self.regex.find_iter(key).last() {
             Some(candidate) => (&key[0..candidate.start()], Some(&key[candidate.start()..])),
             None => (key, None)
         }

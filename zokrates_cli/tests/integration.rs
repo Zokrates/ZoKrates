@@ -70,6 +70,10 @@ mod integration {
         if program_name.contains("sha_libsnark") {
             compile.push("--gadgets");
             compile.push("--optimized");
+
+            // we don't want to test libsnark integrations if libsnark is not available
+            #[cfg(feature = "nolibsnark")]
+            return
         }
 
     	// compile
@@ -77,63 +81,65 @@ mod integration {
             .succeeds()
             .unwrap();
 
-        // SETUP
-        assert_cli::Assert::command(&["../target/debug/zokrates-cli", "setup",
-            "-i", flattened_path.to_str().unwrap(),
-            "-p", proving_key_path.to_str().unwrap(),
-            "-v", verification_key_path.to_str().unwrap(),
-            "-m", variable_information_path.to_str().unwrap()])
-            .succeeds()
-            .unwrap();
+        #[cfg(not(feature = "nolibsnark"))]
+        { 
+            // SETUP
+            assert_cli::Assert::command(&["../target/debug/zokrates-cli", "setup",
+                "-i", flattened_path.to_str().unwrap(),
+                "-p", proving_key_path.to_str().unwrap(),
+                "-v", verification_key_path.to_str().unwrap(),
+                "-m", variable_information_path.to_str().unwrap()])
+                .succeeds()
+                .unwrap();
 
-        // EXPORT-VERIFIER
-        assert_cli::Assert::command(&["../target/debug/zokrates-cli", "export-verifier",
-            "-i", verification_key_path.to_str().unwrap(),
-            "-o", verification_contract_path.to_str().unwrap()])
-            .succeeds()
-            .unwrap();
+            // EXPORT-VERIFIER
+            assert_cli::Assert::command(&["../target/debug/zokrates-cli", "export-verifier",
+                "-i", verification_key_path.to_str().unwrap(),
+                "-o", verification_contract_path.to_str().unwrap()])
+                .succeeds()
+                .unwrap();
 
-        // COMPUTE_WITNESS
-        let arguments: Value = serde_json::from_reader(File::open(arguments_path).unwrap()).unwrap();
+            // COMPUTE_WITNESS
+            let arguments: Value = serde_json::from_reader(File::open(arguments_path).unwrap()).unwrap();
 
-        let arguments_str_list: Vec<String> = arguments.as_array().unwrap().iter().map(|i| match *i {
-            Value::Number(ref n) => n.to_string(),
-            _ => panic!(format!("Cannot read arguments. Check {}", arguments_path.to_str().unwrap()))
-        }).collect();
+            let arguments_str_list: Vec<String> = arguments.as_array().unwrap().iter().map(|i| match *i {
+                Value::Number(ref n) => n.to_string(),
+                _ => panic!(format!("Cannot read arguments. Check {}", arguments_path.to_str().unwrap()))
+            }).collect();
 
-        let mut compute = vec!["../target/debug/zokrates-cli", "compute-witness",
-            "-i", flattened_path.to_str().unwrap(),
-            "-o", witness_path.to_str().unwrap(),
-            "-a"];
+            let mut compute = vec!["../target/debug/zokrates-cli", "compute-witness",
+                "-i", flattened_path.to_str().unwrap(),
+                "-o", witness_path.to_str().unwrap(),
+                "-a"];
 
-        for arg in arguments_str_list.iter() {
-            compute.push(arg);
+            for arg in arguments_str_list.iter() {
+                compute.push(arg);
+            }
+            
+            assert_cli::Assert::command(&compute)
+                .succeeds()
+                .unwrap();
+
+    		// load the expected witness
+    		let mut expected_witness_file = File::open(&expected_witness_path).unwrap();
+    		let mut expected_witness = String::new();
+    		expected_witness_file.read_to_string(&mut expected_witness).unwrap();
+
+    		// load the actual witness
+        	let mut witness_file = File::open(&witness_path).unwrap();
+            let mut witness = String::new();
+    		witness_file.read_to_string(&mut witness).unwrap();
+
+    		for line in expected_witness.as_str().split("\n") {
+                assert!(witness.contains(line), "Witness generation failed for {}\n\nLine \"{}\" not found in witness", program_path.to_str().unwrap(), line);
+            }
+            // GENERATE-PROOF
+            assert_cli::Assert::command(&["../target/debug/zokrates-cli", "generate-proof",
+                "-w", witness_path.to_str().unwrap(),
+                "-p", proving_key_path.to_str().unwrap(),
+                "-i", variable_information_path.to_str().unwrap()])
+                .succeeds()
+                .unwrap();
         }
-        
-        assert_cli::Assert::command(&compute)
-            .succeeds()
-            .unwrap();
-
-		// load the expected witness
-		let mut expected_witness_file = File::open(&expected_witness_path).unwrap();
-		let mut expected_witness = String::new();
-		expected_witness_file.read_to_string(&mut expected_witness).unwrap();
-
-		// load the actual witness
-    	let mut witness_file = File::open(&witness_path).unwrap();
-        let mut witness = String::new();
-		witness_file.read_to_string(&mut witness).unwrap();
-
-		for line in expected_witness.as_str().split("\n") {
-            assert!(witness.contains(line), "Witness generation failed for {}\n\nLine \"{}\" not found in witness", program_path.to_str().unwrap(), line);
-        }
-        // GENERATE-PROOF
-        assert_cli::Assert::command(&["../target/debug/zokrates-cli", "generate-proof",
-            "-w", witness_path.to_str().unwrap(),
-            "-p", proving_key_path.to_str().unwrap(),
-            "-i", variable_information_path.to_str().unwrap()])
-            .succeeds()
-            .unwrap();
-
     }
 }

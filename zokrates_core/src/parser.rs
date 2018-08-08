@@ -9,8 +9,11 @@ use std::io::{Lines};
 use std::io::prelude::*;
 use field::{Field};
 use absy::*;
+use absy::variable::Variable;
 use imports::*;
-use parameter::Parameter;
+use absy::parameter::Parameter;
+use types::Type;
+use types::signature::Signature;
 
 #[derive(Clone, PartialEq)]
 struct Position {
@@ -768,9 +771,9 @@ fn parse_identifier_list1<T: Field>(
     head: String,
     input: String,
     pos: Position,
-) -> Result<(Vec<String>, String, Position), Error<T>> {
+) -> Result<(Vec<Variable>, String, Position), Error<T>> {
     let mut res = Vec::new();
-    res.push(head);
+    res.push(Variable::from(head));
     parse_comma_separated_identifier_list_rec(input, pos, &mut res)
 }
 
@@ -833,11 +836,11 @@ fn parse_statement1<T: Field>(
             Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
                 (Token::InlineComment(_), ref s3, _) => {
                     assert_eq!(s3, "");
-                    Ok((Statement::Definition(ide, e2), s2, p2))
+                    Ok((Statement::Definition(Variable::from(ide), e2), s2, p2))
                 }
                 (Token::Unknown(ref t3), ref s3, _) if t3 == "" => {
                     assert_eq!(s3, "");
-                    Ok((Statement::Definition(ide, e2), s2, p2))
+                    Ok((Statement::Definition(Variable::from(ide), e2), s2, p2))
                 }
                 (t3, _, p3) => {
                     Err(Error {
@@ -1004,11 +1007,11 @@ fn parse_statement<T: Field, R: BufRead>(
                                                 match next_token(&s8, &p8) {
                                                     (Token::InlineComment(_), ref s9, _) => {
                                                         assert_eq!(s9, "");
-                                                        return Ok((Statement::For(x2, x4, x6, statements), s8, p8))
+                                                        return Ok((Statement::For(Variable::from(x2), x4, x6, statements), s8, p8))
                                                     }
                                                     (Token::Unknown(ref t9), ref s9, _) if t9 == "" => {
                                                         assert_eq!(s9, "");
-                                                        return Ok((Statement::For(x2, x4, x6, statements), s8, p8))
+                                                        return Ok((Statement::For(Variable::from(x2), x4, x6, statements), s8, p8))
                                                     },
                                                     (t9, _, p9) => return Err(Error { expected: vec![Token::Unknown("1432567iuhgvfc".to_string())], got: t9 , pos: p9 }),
                                                 }
@@ -1128,7 +1131,7 @@ fn parse_function<T: Field, R: BufRead>(
                             (Token::Private, s4, p4) => {
                                 match next_token(&s4, &p4) {
                                     (Token::Ide(x), s5, p5) => {
-                                        args.push(Parameter { id: x, private: true });
+                                        args.push(Parameter { id: Variable::from(x), private: true });
                                         match next_token(&s5, &p5) {
                                             (Token::Comma, s6, p6) => {
                                                 s = s6;
@@ -1173,7 +1176,7 @@ fn parse_function<T: Field, R: BufRead>(
                                 }
                             }
                             (Token::Ide(x), s4, p4) => {
-                                args.push(Parameter { id: x, private: false });
+                                args.push(Parameter { id: Variable::from(x), private: false });
                                 match next_token(&s4, &p4) {
                                     (Token::Comma, s5, p5) => {
                                         s = s5;
@@ -1296,12 +1299,18 @@ fn parse_function<T: Field, R: BufRead>(
         Some(x) => panic!("Last function statement not Return: {}", x),
         None => panic!("Error while checking last function statement"),
     }
+
+    let input_count = args.len();
+
     Ok((
         Function {
             id: id,
             arguments: args,
             statements: stats,
-            return_count: return_count
+            signature: Signature {
+                inputs: vec![Type::FieldElement; input_count],
+                outputs: vec![Type::FieldElement; return_count]
+            }
         },
         Position {
             line: current_line,
@@ -1463,11 +1472,11 @@ fn parse_comma_separated_expression_list_rec<T: Field>(
 fn parse_comma_separated_identifier_list_rec<T: Field>(
     input: String, 
     pos: Position,
-    mut acc: &mut Vec<String>
-) -> Result<(Vec<String>, String, Position), Error<T>> {
+    mut acc: &mut Vec<Variable>
+) -> Result<(Vec<Variable>, String, Position), Error<T>> {
     match next_token(&input, &pos) {
         (Token::Ide(id), s1, p1) => {
-            acc.push(id);
+            acc.push(Variable::from(id));
             match next_token::<T>(&s1, &p1) {
                 (Token::Comma, s2, p2) => parse_comma_separated_identifier_list_rec(s2, p2, &mut acc),
                 (..) => Ok((acc.to_vec(), s1, p1)),

@@ -15,8 +15,6 @@ use semantics::{self, Checker};
 use optimizer::{Optimizer};
 use flatten::Flattener;
 use std::io::{self};
-use serde_json;
-use standard;
 
 #[derive(Debug)]
 pub enum CompileError<T: Field> {
@@ -106,10 +104,12 @@ fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader
     #[cfg(feature = "libsnark")]
     {
     	use libsnark::{get_sha256_constraints};
+    	use standard::R1CS;
+    	use serde_json::from_str;
 
 	    if should_include_gadgets {
 	    	// inject globals
-		    let r1cs: standard::R1CS = serde_json::from_str(&get_sha256_constraints()).unwrap();
+		    let r1cs: R1CS = from_str(&get_sha256_constraints()).unwrap();
 
 		    compiled_imports.push((FlatProg::from(r1cs), "sha256libsnark".to_string()));
 	    }
@@ -118,11 +118,11 @@ fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader
     let program_ast = Importer::new().apply_imports(compiled_imports, program_ast_without_imports);
 
     // check semantics
-    Checker::new().check_program(program_ast.clone())?;
+    let typed_ast = Checker::new().check_program(program_ast)?;
 
     // flatten input program
     let program_flattened =
-        Flattener::new(T::get_required_bits()).flatten_program(program_ast);
+        Flattener::new(T::get_required_bits()).flatten_program(typed_ast);
 
     Ok(program_flattened)
 }
