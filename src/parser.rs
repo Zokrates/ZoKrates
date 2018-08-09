@@ -879,6 +879,41 @@ fn parse_statement1<T: Field>(
             },
             Err(err) => Err(err)
         },
+        (Token::Open, s1, p1) => match parse_function_call(ide, s1, p1) {
+            Ok((e3, s3, p3)) => match next_token(&s3, &p3) {
+                (Token::Eqeq, s4, p4) => match parse_expr(&s4, &p4) {
+                    Ok((e5, s5, p5)) => match next_token(&s5, &p5) {
+                        (Token::InlineComment(_), ref s6, _) => {
+                            assert_eq!(s6, "");
+                            Ok((Statement::Condition(e3, e5), s5, p5))
+                        }
+                        (Token::Unknown(ref t6), ref s6, _) if t6 == "" => {
+                            assert_eq!(s6, "");
+                            Ok((Statement::Condition(e3, e5), s5, p5))
+                        }
+                        (t6, _, p6) => Err(Error {
+                            expected: vec![
+                                Token::Add,
+                                Token::Sub,
+                                Token::Pow,
+                                Token::Mult,
+                                Token::Div,
+                                Token::Unknown("".to_string()),
+                            ],
+                            got: t6,
+                            pos: p6,
+                        }),
+                    },
+                    Err(err) => Err(err),
+                },
+                (t4, _, p4) => Err(Error {
+                    expected: vec![Token::Eqeq],
+                    got: t4,
+                    pos: p4,
+                }),
+            },
+            Err(err) => Err(err)
+        },
         _ => match parse_term1(Expression::Identifier(ide), input, pos) {
             Ok((e2, s2, p2)) => match parse_expr1(e2, s2, p2) {
                 Ok((e3, s3, p3)) => match next_token(&s3, &p3) {
@@ -1589,6 +1624,22 @@ mod tests {
         fn x_before() {
             let pos = Position { line: 45, col: 121 };
             parse_num::<FieldPrime>(&"x324312".to_string(), &pos);
+        }
+    }
+
+    mod parse_statement1 {
+        use super::*;
+        #[test]
+        fn left_call_in_assertion() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("() == 1");
+            let cond = Statement::Condition(
+                Expression::FunctionCall(String::from("foo"), vec![]),
+                Expression::Number(FieldPrime::from(1))
+            );
+            assert_eq!(Ok((cond, String::from(""), pos.col(string.len() as isize))),
+                parse_statement1(String::from("foo"), string, pos)
+            );
         }
     }
 
