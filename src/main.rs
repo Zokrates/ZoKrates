@@ -570,7 +570,8 @@ mod tests {
     }
 
     #[test]
-    fn examples_with_input() {
+    fn examples_with_input_success() {
+        // these examples should compile and run
         for p in glob("./examples/test*.code").expect("Failed to read glob pattern") {
             let path = match p {
                 Ok(x) => x,
@@ -583,6 +584,28 @@ mod tests {
 
             let (..) = r1cs_program(&program_flattened);
             let _ = program_flattened.get_witness(vec![FieldPrime::zero()]);
+        }
+    }
+
+    #[test]
+    fn examples_with_input_failure() {
+        // these examples should compile but not run
+        for p in glob("./examples/runtime_errors/*.code").expect("Failed to read glob pattern") {
+            let path = match p {
+                Ok(x) => x,
+                Err(why) => panic!("Error: {:?}", why),
+            };
+            println!("Testing {:?}", path);
+
+            let program_flattened: FlatProg<FieldPrime> =
+                compile(path, true).unwrap();
+
+            let (..) = r1cs_program(&program_flattened);
+
+            let result = std::panic::catch_unwind(|| {
+                let _ = program_flattened.get_witness(vec![FieldPrime::zero()]);
+            });
+            assert!(result.is_err());
         }
     }
 }
