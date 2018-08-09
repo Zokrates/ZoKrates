@@ -20,7 +20,7 @@ pipeline {
                     def gitCommitHash = sh(returnStdout: true, script: 'git rev-parse HEAD').trim().take(7)
                     currentBuild.displayName = "#${BUILD_ID}-${gitCommitHash}"
 
-                    patchVersion = sh(returnStdout: true, script: 'cat Cargo.toml | grep version | awk \'{print $3}\' | sed -e \'s/"//g\'').trim()
+                    patchVersion = sh(returnStdout: true, script: 'cat zokrates_cli/Cargo.toml | grep version | awk \'{print $3}\' | sed -e \'s/"//g\'').trim()
                     echo "ZoKrates patch version: ${patchVersion}"
                     def (major, minor, patch) = patchVersion.tokenize( '.' )
                     minorVersion = "${major}.${minor}"
@@ -36,7 +36,7 @@ pipeline {
                     ansiColor('xterm') {
                         dockerImage = docker.build("zokrates/zokrates")
                         dockerImage.inside {
-                            sh 'RUSTFLAGS="-D warnings" cargo build'
+                            sh 'RUSTFLAGS="-D warnings" ./build.sh'
                         }
                     }
                 }
@@ -48,7 +48,7 @@ pipeline {
                 script {
                     ansiColor('xterm') {
                         dockerImage.inside {
-                            sh 'RUSTFLAGS="-D warnings" cargo test'
+                            sh 'RUSTFLAGS="-D warnings" ./test.sh'
                         }
                     }
                 }
@@ -63,7 +63,7 @@ pipeline {
                 script {
                     ansiColor('xterm') {
                         dockerImage.inside {
-                            sh 'RUSTFLAGS="-D warnings" cargo test -- --ignored'
+                            sh 'RUSTFLAGS="-D warnings" ./full_test.sh'
                         }
                     }
                 }

@@ -7,6 +7,7 @@ RUN useradd -u 1000 -m zokrates
 ARG RUST_TOOLCHAIN=nightly-2018-06-04
 ARG LIBSNARK_COMMIT=f7c87b88744ecfd008126d415494d9b34c4c1b20
 ENV LIBSNARK_SOURCE_PATH=/home/zokrates/libsnark-$LIBSNARK_COMMIT
+ENV WITH_LIBSNARK=1
 
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -28,7 +29,9 @@ RUN curl https://sh.rustup.rs -sSf | \
 ENV PATH=/home/zokrates/.cargo/bin:$PATH
 
 RUN git clone https://github.com/scipr-lab/libsnark.git $LIBSNARK_SOURCE_PATH
+
 WORKDIR $LIBSNARK_SOURCE_PATH
+
 RUN git checkout $LIBSNARK_COMMIT
 RUN git submodule update --init --recursive
 
@@ -37,4 +40,4 @@ WORKDIR /home/zokrates
 COPY --chown=zokrates:zokrates . ZoKrates
 
 RUN cd ZoKrates \
-    && cargo build --release
+    && ./build.sh

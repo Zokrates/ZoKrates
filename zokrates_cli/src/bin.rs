@@ -1,57 +1,31 @@
 //
-// @file main.rs
+// @file bin.rs
 // @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 // @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
 // @date 2017
 
-#![feature(box_patterns, box_syntax)]
-
 extern crate clap;
-#[macro_use]
-extern crate lazy_static;
-extern crate num; // cli
-extern crate reduce; // better reduce function than Iter.fold
-extern crate serde; // serialization deserialization
-extern crate serde_json;
-#[macro_use]
-extern crate serde_derive;
 extern crate bincode;
 extern crate regex;
-
-mod absy;
-mod flat_absy;
-mod typed_absy;
-mod parser;
-mod imports;
-mod semantics;
-mod substitution;
-mod flatten;
-mod compile;
-mod optimizer;
-mod r1cs;
-mod field;
-mod verification;
-mod standard;
-mod helpers;
-mod types;
-#[cfg(not(feature = "nolibsnark"))]
-mod libsnark;
+extern crate zokrates_core;
+extern crate zokrates_fs_resolver;
 
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::io::{BufWriter, Write, BufReader, BufRead, stdin};
 use std::collections::HashMap;
 use std::string::String;
-use compile::compile;
-use field::{Field, FieldPrime};
-use r1cs::{r1cs_program};
-use flat_absy::FlatProg;
+use zokrates_core::compile::compile;
+use zokrates_core::field::{Field, FieldPrime};
+use zokrates_core::r1cs::{r1cs_program};
+use zokrates_core::flat_absy::FlatProg;
 use clap::{App, AppSettings, Arg, SubCommand};
-#[cfg(not(feature = "nolibsnark"))]
-use libsnark::{setup, generate_proof};
+#[cfg(feature = "libsnark")]
+use zokrates_core::libsnark::{setup, generate_proof};
 use bincode::{serialize_into, deserialize_from , Infinite};
 use regex::Regex;
-use verification::CONTRACT_TEMPLATE;
+use zokrates_core::verification::CONTRACT_TEMPLATE;
+use zokrates_fs_resolver::resolve as fs_resolve;
 
 fn main() {
     const FLATTENED_CODE_DEFAULT_PATH: &str = "out";
@@ -221,11 +195,17 @@ fn main() {
 
             let path = PathBuf::from(sub_matches.value_of("input").unwrap());
 
+            let location = path.parent().unwrap().to_path_buf();
+
             let should_optimize = sub_matches.occurrences_of("optimized") > 0;
 
             let should_include_gadgets = sub_matches.occurrences_of("gadgets") > 0;
+
+            let file = File::open(path.clone()).unwrap();
+
+            let mut reader = BufReader::new(file);
             
-            let program_flattened: FlatProg<FieldPrime> = match compile(path, should_optimize, should_include_gadgets) {
+            let program_flattened: FlatProg<FieldPrime> = match compile(&mut reader, location, Some(fs_resolve), should_optimize, should_include_gadgets) {
                 Ok(p) => p,
                 Err(why) => panic!("Compilation failed: {}", why)
             };
@@ -408,7 +388,7 @@ fn main() {
             let vk_path = sub_matches.value_of("verification-key-path").unwrap();
 
             // run setup phase
-            #[cfg(not(feature="nolibsnark"))]{
+            #[cfg(feature="libsnark")]{
                 // number of inputs in the zkSNARK sense, i.e., input variables + output variables
                 let num_inputs = main_flattened.arguments.iter().filter(|x| !x.private).count() + main_flattened.return_count;
                 println!("setup successful: {:?}", setup(variables, a, b, c, num_inputs, pk_path, vk_path));
@@ -542,7 +522,7 @@ fn main() {
             let pk_path = sub_matches.value_of("provingkey").unwrap();
 
             // run libsnark
-            #[cfg(not(feature="nolibsnark"))]{
+            #[cfg(feature="libsnark")]{
                 println!("generate-proof successful: {:?}", generate_proof(pk_path, public_inputs, private_inputs));
             }
 
@@ -556,7 +536,6 @@ fn main() {
 mod tests {
     extern crate glob;
     use super::*;
-    use num::Zero;
     use self::glob::glob;
 
     #[test]
@@ -569,8 +548,12 @@ mod tests {
 
             println!("Testing {:?}", path);
 
+            let file = File::open(path.clone()).unwrap();
+
+            let mut reader = BufReader::new(file);
+
             let program_flattened: FlatProg<FieldPrime> =
-                compile(path, true, false).unwrap();
+                compile(&mut reader, path, Some(fs_resolve), true, false).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
         }
@@ -585,11 +568,15 @@ mod tests {
             };
             println!("Testing {:?}", path);
 
+            let file = File::open(path.clone()).unwrap();
+
+            let mut reader = BufReader::new(file);
+
             let program_flattened: FlatProg<FieldPrime> =
-                compile(path, true, false).unwrap();
+                compile(&mut reader, path, Some(fs_resolve), true, false).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
-            let _ = program_flattened.get_witness(vec![FieldPrime::zero()]);
+            let _ = program_flattened.get_witness(vec![FieldPrime::from(0)]);
         }
     }
 }

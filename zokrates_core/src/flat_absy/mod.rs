@@ -14,6 +14,7 @@ use std::fmt;
 use std::collections::{BTreeMap};
 use field::Field;
 use substitution::Substitution;
+#[cfg(feature = "libsnark")]
 use standard;
 use helpers::{DirectiveStatement, Executable};
 
@@ -61,6 +62,7 @@ impl<T: Field> fmt::Debug for FlatProg<T> {
     }
 }
 
+#[cfg(feature = "libsnark")]
 impl<T: Field> From<standard::R1CS> for FlatProg<T> {
     fn from(r1cs: standard::R1CS) -> Self {
         FlatProg {

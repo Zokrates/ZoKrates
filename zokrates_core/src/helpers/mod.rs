@@ -1,11 +1,13 @@
+#[cfg(feature = "libsnark")]
+mod libsnark_gadget;
+mod rust;
+
+#[cfg(feature = "libsnark")]
+pub use self::libsnark_gadget::LibsnarkGadgetHelper;
+pub use self::rust::RustHelper;
 use std::fmt;
 use field::{Field};
 
-#[cfg(not(feature = "nolibsnark"))]
-use libsnark::*;
-
-use serde_json;
-use standard;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct DirectiveStatement {
@@ -22,6 +24,7 @@ impl fmt::Display for DirectiveStatement {
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum Helper {
+	#[cfg(feature = "libsnark")]
 	LibsnarkGadget(LibsnarkGadgetHelper),
 	Rust(RustHelper)
 }
@@ -29,36 +32,9 @@ pub enum Helper {
 impl fmt::Display for Helper {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     	match *self {
+    		#[cfg(feature = "libsnark")]
     		Helper::LibsnarkGadget(ref h) => write!(f, "LibsnarkGadget::{}", h),
     		Helper::Rust(ref h) => write!(f, "Rust::{}", h)
-    	}
-    }
-}
-
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub enum LibsnarkGadgetHelper {
-	Sha256Compress,
-}
-
-impl fmt::Display for LibsnarkGadgetHelper {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    	match *self {
-    		LibsnarkGadgetHelper::Sha256Compress => write!(f, "Sha256Compress"),
-    	}
-    }
-}
-
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub enum RustHelper {
-	Identity,
-	ConditionEq,
-}
-
-impl fmt::Display for RustHelper {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    	match *self {
-    		RustHelper::Identity => write!(f, "Identity"),
-    		RustHelper::ConditionEq => write!(f, "ConditionEq"),
     	}
     }
 }
@@ -72,67 +48,13 @@ pub trait Signed {
 	fn get_signature(&self) -> (usize, usize);
 }
 
-impl<T: Field> Executable<T> for LibsnarkGadgetHelper {
-	fn execute(&self, inputs: &Vec<T>) -> Result<Vec<T>, String> {
-		match self {
-			LibsnarkGadgetHelper::Sha256Compress => {
-				#[cfg(feature = "nolibsnark")]
-				{
-					Err(format!("Libsnark is not available"))
-				}
-
-				#[cfg(not(feature = "nolibsnark"))]
-				{
-					let witness_result: Result<standard::Witness, serde_json::Error> = serde_json::from_str(&get_sha256_witness(inputs));
-
-					if let Err(e) = witness_result {
-						return Err(format!("{}", e));
-					}
-
-					Ok(witness_result.unwrap().variables.iter().map(|&i| T::from(i)).collect())
-				}
-			},
-		}
-	}
-}
-
-impl Signed for LibsnarkGadgetHelper {
-	fn get_signature(&self) -> (usize, usize) {
-		match self {
-			LibsnarkGadgetHelper::Sha256Compress => (512, 25561),
-		}
-	}
-}
-
-impl<T: Field> Executable<T> for RustHelper {
-	fn execute(&self, inputs: &Vec<T>) -> Result<Vec<T>, String> {
-		match self {
-			RustHelper::Identity => Ok(inputs.clone()),
-			RustHelper::ConditionEq => {
-				match inputs[0].is_zero() {
-					true => Ok(vec![T::zero(), T::one()]),
-					false => Ok(vec![T::one(), T::one() / inputs[0].clone()])
-				}
-			},
-		}
-	}
-}
-
-impl Signed for RustHelper {
-	fn get_signature(&self) -> (usize, usize) {
-		match self {
-			RustHelper::Identity => (1, 1),
-			RustHelper::ConditionEq => (1, 2),
-		}
-	}
-}
-
 impl<T: Field> Executable<T> for Helper {
 	fn execute(&self, inputs: &Vec<T>) -> Result<Vec<T>, String> {
 		let (expected_input_count, expected_output_count) = self.get_signature();
 		assert!(inputs.len() == expected_input_count);
 
 		let result = match self {
+			#[cfg(feature = "libsnark")]
 			Helper::LibsnarkGadget(helper) => helper.execute(inputs),
 			Helper::Rust(helper) => helper.execute(inputs)
 		};
@@ -147,6 +69,7 @@ impl<T: Field> Executable<T> for Helper {
 impl Signed for Helper {
 	fn get_signature(&self) -> (usize, usize) {
 		match self {
+			#[cfg(feature = "libsnark")]
 			Helper::LibsnarkGadget(helper) => helper.get_signature(),
 			Helper::Rust(helper) => helper.get_signature()
 		}
@@ -158,11 +81,11 @@ mod tests {
 	use field::FieldPrime;
 	use super::*;
 
+	#[cfg(feature = "libsnark")]
 	mod sha256libsnark {
 		use super::*;
 
 		#[test]
-		#[cfg(not(feature = "nolibsnark"))]
 		fn execute() {
 			let sha = LibsnarkGadgetHelper::Sha256Compress;
 			// second vector here https://homes.esat.kuleuven.be/~nsmart/MPC/sha-256-test.txt

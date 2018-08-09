@@ -20,7 +20,7 @@ mod integration {
         fs::remove_dir_all(".tmp").unwrap();
     } 
     
-    #[test]
+    #[test] #[ignore]
     fn run_integration_tests() {
         // see https://medium.com/@ericdreichert/test-setup-and-teardown-in-rust-without-a-framework-ba32d97aa5ab
         setup();
@@ -65,7 +65,7 @@ mod integration {
         fs::create_dir(test_case_path).unwrap();
 
         // prepare compile arguments
-        let mut compile = vec!["./target/debug/zokrates", "compile", "-i", program_path.to_str().unwrap(), "-o", flattened_path.to_str().unwrap()];
+        let mut compile = vec!["../target/debug/zokrates", "compile", "-i", program_path.to_str().unwrap(), "-o", flattened_path.to_str().unwrap()];
 
         if program_name.contains("sha_libsnark") {
             compile.push("--gadgets");
@@ -84,7 +84,7 @@ mod integration {
         #[cfg(not(feature = "nolibsnark"))]
         { 
             // SETUP
-            assert_cli::Assert::command(&["cargo", "run", "--", "setup",
+            assert_cli::Assert::command(&["../target/debug/zokrates", "setup",
                 "-i", flattened_path.to_str().unwrap(),
                 "-p", proving_key_path.to_str().unwrap(),
                 "-v", verification_key_path.to_str().unwrap(),
@@ -93,7 +93,7 @@ mod integration {
                 .unwrap();
 
             // EXPORT-VERIFIER
-            assert_cli::Assert::command(&["cargo", "run", "--", "export-verifier",
+            assert_cli::Assert::command(&["../target/debug/zokrates", "export-verifier",
                 "-i", verification_key_path.to_str().unwrap(),
                 "-o", verification_contract_path.to_str().unwrap()])
                 .succeeds()
@@ -107,7 +107,7 @@ mod integration {
                 _ => panic!(format!("Cannot read arguments. Check {}", arguments_path.to_str().unwrap()))
             }).collect();
 
-            let mut compute = vec!["cargo", "run", "--", "compute-witness",
+            let mut compute = vec!["../target/debug/zokrates", "compute-witness",
                 "-i", flattened_path.to_str().unwrap(),
                 "-o", witness_path.to_str().unwrap(),
                 "-a"];
@@ -134,7 +134,7 @@ mod integration {
                 assert!(witness.contains(line), "Witness generation failed for {}\n\nLine \"{}\" not found in witness", program_path.to_str().unwrap(), line);
             }
             // GENERATE-PROOF
-            assert_cli::Assert::command(&["cargo", "run", "--", "generate-proof",
+            assert_cli::Assert::command(&["../target/debug/zokrates", "generate-proof",
                 "-w", witness_path.to_str().unwrap(),
                 "-p", proving_key_path.to_str().unwrap(),
                 "-i", variable_information_path.to_str().unwrap()])
