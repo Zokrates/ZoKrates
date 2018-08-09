@@ -17,6 +17,7 @@ extern crate serde_json;
 extern crate serde_derive;
 extern crate bincode;
 extern crate regex;
+extern crate serde_yaml;
 
 mod absy;
 mod flat_absy;
@@ -536,14 +537,48 @@ fn main() {
             let mut public_inputs: Vec<_>= witness.clone();
             let private_inputs: Vec<_> = public_inputs.split_off(private_inputs_offset);
 
+
             println!("Public inputs: {:?}", public_inputs);
             println!("Private inputs: {:?}", private_inputs);
 
             let pk_path = sub_matches.value_of("provingkey").unwrap();
 
+
+            // Export as yaml
+
+            #[derive(Serialize, Deserialize)]
+            struct InputVar {
+                name: String,
+                dec: String,
+            }
+
+            #[derive(Serialize, Deserialize)]
+            struct OutputFormat {
+                public_inputs: Vec<InputVar>,
+                //private_inputs: Option<Vec<InputVar>>,
+            }
+
+            let mut public_str: Vec<_> = variables.iter().map(
+                |name| InputVar {
+                    name: name.to_string(),
+                    dec: FieldPrime::to_dec_string(&witness_map[name]),
+                } ).collect();
+
+            let _private_str = public_str.split_off(private_inputs_offset);
+
+            let output_format = OutputFormat {public_inputs: public_str};
+            let s = serde_yaml::to_string(&output_format).unwrap() + "\n";
+
+            let output_path = Path::new("proof.yaml");
+            let mut output_file = match File::create(&output_path) {
+                Ok(file) => file,
+                Err(why) => panic!("couldn't create {}: {}", output_path.display(), why),
+            };
+            output_file.write_all(&s.as_bytes()).expect("Failed writing output to file.");
+
             // run libsnark
             #[cfg(not(feature="nolibsnark"))]{
-                println!("generate-proof successful: {:?}", generate_proof(pk_path, public_inputs, private_inputs));
+                println!("generate-proof successful: {:?}", generate_proof(pk_path, public_inputs, private_inputs, output_file));
             }
 
         }
