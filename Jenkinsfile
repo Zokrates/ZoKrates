@@ -3,7 +3,6 @@
 def majorVersion
 def minorVersion
 def patchVersion
-def dockerImage
 
 pipeline {
     agent any
@@ -19,7 +18,6 @@ pipeline {
                 script {
                     def gitCommitHash = sh(returnStdout: true, script: 'git rev-parse HEAD').trim().take(7)
                     currentBuild.displayName = "#${BUILD_ID}-${gitCommitHash}"
-
                     patchVersion = sh(returnStdout: true, script: 'cat zokrates_cli/Cargo.toml | grep version | awk \'{print $3}\' | sed -e \'s/"//g\'').trim()
                     echo "ZoKrates patch version: ${patchVersion}"
                     def (major, minor, patch) = patchVersion.tokenize( '.' )
@@ -76,15 +74,14 @@ pipeline {
             }
             steps {
                 script {
-                    ansiColor('xterm') {
-                        docker.withRegistry('https://registry.hub.docker.com', 'dockerhub-kyroy') {
-                            dockerImage.push(patchVersion)
-                            dockerImage.push(minorVersion)
-                            if (majorVersion > '0') {
-                                dockerImage.push(majorVersion)
-                            }
-                            dockerImage.push("latest")
+                    def dockerImage = docker.build("kyroy/zokrates")
+                    docker.withRegistry('https://registry.hub.docker.com', 'dockerhub-kyroy') {
+                        dockerImage.push(patchVersion)
+                        dockerImage.push(minorVersion)
+                        if (majorVersion > '0') {
+                            dockerImage.push(majorVersion)
                         }
+                        dockerImage.push("latest")
                     }
                 }
             }
