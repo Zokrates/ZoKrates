@@ -3,6 +3,7 @@
 def majorVersion
 def minorVersion
 def patchVersion
+def dockerImage
 
 pipeline {
     agent any
@@ -74,14 +75,15 @@ pipeline {
             }
             steps {
                 script {
-                    def dockerImage = docker.build("kyroy/zokrates")
-                    docker.withRegistry('https://registry.hub.docker.com', 'dockerhub-kyroy') {
-                        dockerImage.push(patchVersion)
-                        dockerImage.push(minorVersion)
-                        if (majorVersion > '0') {
-                            dockerImage.push(majorVersion)
+                    ansiColor('xterm') {
+                        docker.withRegistry('https://registry.hub.docker.com', 'dockerhub-kyroy') {
+                            dockerImage.push(patchVersion)
+                            dockerImage.push(minorVersion)
+                            if (majorVersion > '0') {
+                                dockerImage.push(majorVersion)
+                            }
+                            dockerImage.push("latest")
                         }
-                        dockerImage.push("latest")
                     }
                 }
             }
