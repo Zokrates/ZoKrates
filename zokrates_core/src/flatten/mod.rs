@@ -223,7 +223,7 @@ impl Flattener {
                 statements_flattened
                     .push(FlatStatement::Definition(subtraction_result.to_string(), expr));
 
-                let cond_true = format!("{}", &subtraction_result);
+                let cond_true = format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, 0);
                 self.next_var_idx += 1;
 
                 BooleanExpression::Identifier(cond_true)

@@ -576,7 +576,7 @@ mod tests {
                 compile(&mut reader, path, Some(fs_resolve), true, false).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
-            let _ = program_flattened.get_witness(vec![FieldPrime::from(0)]);
+            let _ = program_flattened.get_witness(vec![FieldPrime::from(0)]).unwrap();
         }
     }
 }
