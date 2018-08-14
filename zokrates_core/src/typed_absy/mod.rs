@@ -204,6 +204,7 @@ pub trait Typed
 pub enum TypedExpression<T: Field> {
     Boolean(BooleanExpression<T>),
     FieldElement(FieldElementExpression<T>),
+    Unsigned8(Unsigned8Expression),
 }
 
 impl<T: Field> From<BooleanExpression<T>> for TypedExpression<T> {
@@ -218,6 +219,12 @@ impl<T: Field> From<FieldElementExpression<T>> for TypedExpression<T> {
     }
 }
 
+impl<T: Field> From<Unsigned8Expression> for TypedExpression<T> {
+    fn from(e: Unsigned8Expression) -> TypedExpression<T> {
+        TypedExpression::Unsigned8(e)
+    }
+}
+
 impl<T: Field> fmt::Display for TypedExpression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -226,7 +233,10 @@ impl<T: Field> fmt::Display for TypedExpression<T> {
             },
             TypedExpression::FieldElement(ref e) => {
                 write!(f, "{}", e)
-            }
+            },
+            TypedExpression::Unsigned8(ref e) => {
+                write!(f, "{}", e)
+            },
         }
     }
 }
@@ -239,7 +249,10 @@ impl<T: Field> fmt::Debug for TypedExpression<T> {
             },
             TypedExpression::FieldElement(ref e) => {
                 write!(f, "{:?}", e)
-            }
+            },
+            TypedExpression::Unsigned8(ref e) => {
+                write!(f, "{:?}", e)
+            },
         }
     }
 }
@@ -248,7 +261,8 @@ impl<T: Field> Typed for TypedExpression<T> {
     fn get_type(&self) -> Type {
         match self {
             TypedExpression::Boolean(_) => Type::Boolean,
-            TypedExpression::FieldElement(_) => Type::FieldElement
+            TypedExpression::FieldElement(_) => Type::FieldElement,
+            TypedExpression::Unsigned8(_) => Type::Unsigned8,
         }
     }
 }
@@ -292,6 +306,13 @@ pub enum BooleanExpression<T: Field> {
     Eq(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     Ge(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     Gt(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
+}
+
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+pub enum Unsigned8Expression {
+    Value(u8),
+    Identifier(String),
+    Xor(Box<Unsigned8Expression>, Box<Unsigned8Expression>),
 }
 
 impl<T: Field> BooleanExpression<T> {
@@ -396,6 +417,27 @@ impl<T: Field> FieldElementExpression<T> {
     }
 }
 
+impl Unsigned8Expression {
+    pub fn apply_substitution(&self, substitution: &Substitution) -> Unsigned8Expression {
+        match *self {
+            ref e @ Unsigned8Expression::Value(_) => e.clone(),
+            Unsigned8Expression::Identifier(ref id) => {
+                let mut new_name = id.clone();
+                loop {
+                    match substitution.get(&new_name) {
+                        Some(x) => new_name = x.to_string(),
+                        None => return Unsigned8Expression::Identifier(new_name),
+                    }
+                }
+            },
+            Unsigned8Expression::Xor(ref e1, ref e2) => Unsigned8Expression::Xor(
+                box e1.apply_substitution(substitution),
+                box e2.apply_substitution(substitution),
+            ),
+        }
+    }
+}
+
 impl<T: Field> fmt::Display for FieldElementExpression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -440,6 +482,26 @@ impl<T: Field> fmt::Display for BooleanExpression<T> {
     }
 }
 
+impl fmt::Display for Unsigned8Expression {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Unsigned8Expression::Value(ref var) => write!(f, "0x{:x}", var),
+            Unsigned8Expression::Identifier(ref var) => write!(f, "{}", var),
+            Unsigned8Expression::Xor(ref lhs, ref rhs) => write!(f, "{} ^ {}", lhs, rhs),
+        }
+    }
+}
+
+impl fmt::Debug for Unsigned8Expression {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Unsigned8Expression::Value(ref var) => write!(f, "Val(0x{:x})", var),
+            Unsigned8Expression::Identifier(ref var) => write!(f, "Ide({})", var),
+            Unsigned8Expression::Xor(ref lhs, ref rhs) => write!(f, "Xor({:?}, {:?})", lhs, rhs),
+        }
+    }
+}
+
 impl<T: Field> fmt::Debug for BooleanExpression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self)
@@ -478,6 +540,7 @@ impl<T: Field> TypedExpression<T> {
         match self {
             TypedExpression::Boolean(e) => e.apply_substitution(substitution).into(),
             TypedExpression::FieldElement(e) => e.apply_substitution(substitution).into(),
+            TypedExpression::Unsigned8(e) => e.apply_substitution(substitution).into(),
         }
     }
 }

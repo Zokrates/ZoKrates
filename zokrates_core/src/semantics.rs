@@ -149,12 +149,19 @@ impl Checker {
 
 				let expression_type = checked_expr.get_type();
 
-				if expression_type != var._type {
-					return Err( Error { message: format!("cannot assign {:?} to {:?}", expression_type, var._type) });
-				}
+
+				// without type inference PUT THIS BACK!
+				// if expression_type != var._type {
+				// 	return Err( Error { message: format!("cannot assign {:?} to {:?}", expression_type, var._type) });
+				// }
+
+				// with type inference
 
 				self.scope.insert(ScopedVariable {
-					id: var.clone(),
+					id: Variable {
+						id: var.id.clone(),
+						_type: expression_type // this is where type inference happens
+					},
 					level: self.level
 				});
 				Ok(TypedStatement::Definition(var, checked_expr))
@@ -238,6 +245,7 @@ impl Checker {
 					Some(v) => match v.clone().id._type {
 						Type::Boolean => Ok(BooleanExpression::Identifier(variable).into()),
 						Type::FieldElement => Ok(FieldElementExpression::Identifier(variable).into()),
+						Type::Unsigned8 => Ok(Unsigned8Expression::Identifier(variable).into())
 					},
 					None => Err(Error { message: format!("{} is undefined", variable.to_string()) }),
 				}
@@ -275,6 +283,17 @@ impl Checker {
 					(t1, t2) => Err(Error { message: format!("Expected only field elements, found {:?}, {:?}", t1.get_type(), t2.get_type()) }),
 				}
 			},
+			Expression::Xor(box e1, box e2) => {
+				let e1_checked = self.check_expression(e1)?;
+				let e2_checked = self.check_expression(e2)?;
+
+				match (e1_checked, e2_checked) {
+					(TypedExpression::Unsigned8(e1), TypedExpression::Unsigned8(e2)) => {
+						Ok(Unsigned8Expression::Xor(box e1, box e2).into())
+					},
+					(t1, t2) => Err(Error { message: format!("Expected (uint8, uint8), found ({:?}, {:?})", t1.get_type(), t2.get_type()) }),
+				}
+			},
 			Expression::Div(box e1, box e2) => {
 				let e1_checked = self.check_expression(e1)?;
 				let e2_checked = self.check_expression(e2)?;
@@ -310,6 +329,7 @@ impl Checker {
 				}
 			},
 			Expression::Number(n) => Ok(FieldElementExpression::Number(n).into()),
+			Expression::Hex(h) => Ok(Unsigned8Expression::Value(h).into()),
 			Expression::FunctionCall(ref fun_id, ref arguments) => {
             	// check the arguments
             	let mut arguments_checked = vec![]; 

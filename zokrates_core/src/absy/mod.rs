@@ -179,6 +179,7 @@ impl<T: Field> fmt::Debug for Statement<T> {
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub enum Expression<T: Field> {
+    Hex(u8),
     Number(T),
     Identifier(String),
     Add(Box<Expression<T>>, Box<Expression<T>>),
@@ -186,6 +187,7 @@ pub enum Expression<T: Field> {
     Mult(Box<Expression<T>>, Box<Expression<T>>),
     Div(Box<Expression<T>>, Box<Expression<T>>),
     Pow(Box<Expression<T>>, Box<Expression<T>>),
+    Xor(Box<Expression<T>>, Box<Expression<T>>),
     IfElse(Box<Condition<T>>, Box<Expression<T>>, Box<Expression<T>>),
     FunctionCall(String, Vec<Expression<T>>),
 }
@@ -194,10 +196,12 @@ impl<T: Field> fmt::Display for Expression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Expression::Number(ref i) => write!(f, "{}", i),
+            Expression::Hex(ref i) => write!(f, "0x{:x}", i),
             Expression::Identifier(ref var) => write!(f, "{}", var),
             Expression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
             Expression::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
             Expression::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
+            Expression::Xor(ref lhs, ref rhs) => write!(f, "({} ^ {})", lhs, rhs),
             Expression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
             Expression::Pow(ref lhs, ref rhs) => write!(f, "{}**{}", lhs, rhs),
             Expression::IfElse(ref condition, ref consequent, ref alternative) => write!(
@@ -225,10 +229,12 @@ impl<T: Field> fmt::Debug for Expression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Expression::Number(ref i) => write!(f, "Num({})", i),
+            Expression::Hex(ref i) => write!(f, "Hex(0x{:x})", i),
             Expression::Identifier(ref var) => write!(f, "Ide({})", var),
             Expression::Add(ref lhs, ref rhs) => write!(f, "Add({:?}, {:?})", lhs, rhs),
             Expression::Sub(ref lhs, ref rhs) => write!(f, "Sub({:?}, {:?})", lhs, rhs),
             Expression::Mult(ref lhs, ref rhs) => write!(f, "Mult({:?}, {:?})", lhs, rhs),
+            Expression::Xor(ref lhs, ref rhs) => write!(f, "Xor({:?}, {:?})", lhs, rhs),
             Expression::Div(ref lhs, ref rhs) => write!(f, "Div({:?}, {:?})", lhs, rhs),
             Expression::Pow(ref lhs, ref rhs) => write!(f, "Pow({:?}, {:?})", lhs, rhs),
             Expression::IfElse(ref condition, ref consequent, ref alternative) => write!(

@@ -93,9 +93,11 @@ enum Token<T: Field> {
     Mult,
     Div,
     Pow,
+    Caret,
     Private,
     Ide(String),
     Num(T),
+    Hex(u8),
     Unknown(String),
     InlineComment(String),
     Import,
@@ -136,9 +138,11 @@ impl<T: Field> fmt::Display for Token<T> {
             Token::Mult => write!(f, "*"),
             Token::Div => write!(f, "/"),
             Token::Pow => write!(f, "**"),
+            Token::Caret => write!(f, "^"),
             Token::Private => write!(f, "private"),
             Token::Ide(ref x) => write!(f, "{}", x),
             Token::Num(ref x) => write!(f, "{}", x),
+            Token::Hex(ref x) => write!(f, "0x{:x}", x),
             Token::Unknown(ref x) => write!(f, "{}", x),
             Token::InlineComment(ref x) => write!(f, "// {}", x),
             Token::Import => write!(f, "import"),
@@ -203,6 +207,32 @@ fn parse_ide<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Pos
             line: pos.line,
             col: pos.col + end,
         },
+    )
+}
+
+fn parse_hex<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Position) {
+    assert!(input.chars().nth(0) == Some('0'));
+    assert!(input.chars().nth(1) == Some('x'));
+
+    let mut end = 2;
+
+    loop {
+        match input.chars().nth(end) {
+            Some(x) => match x {
+                '0'...'9' | 'a'...'f' => end += 1,
+                _ => break,
+            },
+            None => break
+        }
+    }
+
+    (
+        Token::Hex(u8::from_str_radix(&input[2..end], 16).unwrap()),
+        input[end..].to_string(),
+        Position {
+            line: pos.line,
+            col: pos.col + end
+        }        
     )
 }
 
@@ -373,6 +403,14 @@ fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Po
                 },
             ),
         },
+        Some('^') => (
+            Token::Caret,
+            input[offset + 1..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 1,
+            },
+        ),
         Some(_) if input[offset..].starts_with("def ") => (
             Token::Def,
             input[offset + 4..].to_string(),
@@ -488,7 +526,40 @@ fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Po
             }
         ),
         Some(x) => match x {
-            '0'...'9' => parse_num(
+            '0' => match input.chars().nth(offset + 1) {
+                Some(y) => match y {
+                    'x' => parse_hex(
+                        &input[offset..].to_string(),
+                        &Position {
+                            line: pos.line,
+                            col: pos.col + offset
+                        }
+                    ),
+                    '0'...'9' => parse_num(
+                        &input[offset..].to_string(),
+                        &Position {
+                            line: pos.line,
+                            col: pos.col + offset,
+                        },
+                    ),
+                    _ => (
+                        Token::Unknown(x.to_string()),
+                        input[offset + 1..].to_string(),
+                        Position {
+                            line: pos.line,
+                            col: pos.col + offset + 1,
+                        },
+                    ),
+                }
+                None => parse_num(
+                    &input[offset..].to_string(),
+                    &Position {
+                        line: pos.line,
+                        col: pos.col + offset,
+                    },
+                ),
+            },
+            '1'...'9' => parse_num(
                 &input[offset..].to_string(),
                 &Position {
                     line: pos.line,
@@ -650,6 +721,7 @@ fn parse_factor<T: Field>(
             _ => parse_factor1(Expression::Identifier(x), s1, p1),
         },
         (Token::Num(x), s1, p1) => parse_factor1(Expression::Number(x), s1, p1),
+        (Token::Hex(x), s1, p1) => parse_factor1(Expression::Hex(x), s1, p1),
         (t1, _, p1) => Err(Error {
             expected: vec![Token::If, Token::Open, Token::ErrIde, Token::ErrNum],
             got: t1,
@@ -670,6 +742,10 @@ fn parse_term1<T: Field>(
         },
         (Token::Div, s1, p1) => match parse_term(&s1, &p1) {
             Ok((e, s2, p2)) => Ok((Expression::Div(box expr, box e), s2, p2)),
+            Err(err) => Err(err),
+        },
+        (Token::Caret, s1, p1) => match parse_term(&s1, &p1) {
+            Ok((e, s2, p2)) => Ok((Expression::Xor(box expr, box e), s2, p2)),
             Err(err) => Err(err),
         },
         _ => Ok((expr, input, pos)),
@@ -817,6 +893,10 @@ fn parse_expr<T: Field>(
             Ok((e2, s2, p2)) => parse_expr1(e2, s2, p2),
             Err(err) => Err(err),
         },
+        (Token::Hex(x), s1, p1) => match parse_term1(Expression::Hex(x), s1, p1) {
+            Ok((e2, s2, p2)) => parse_expr1(e2, s2, p2),
+            Err(err) => Err(err),
+        },
         (t1, _, p1) => Err(Error {
             expected: vec![Token::If, Token::Open, Token::ErrIde, Token::ErrNum],
             got: t1,
@@ -850,6 +930,7 @@ fn parse_statement1<T: Field>(
                             Token::Pow,
                             Token::Mult,
                             Token::Div,
+                            Token::Caret,
                             Token::Unknown("".to_string()),
                         ],
                         got: t3,
@@ -1563,6 +1644,32 @@ mod tests {
         };
         let (token, _, _) = next_token::<FieldPrime>(&" //inline comment".to_string(), &pos);
         assert_eq!(Token::InlineComment("inline comment".to_string()), token);
+    }
+
+    #[cfg(test)]
+    mod parse_hex {
+        use super::*;
+
+        #[test]
+        fn single() {
+            let pos = Position { line: 45, col: 121 };
+            assert_eq!(
+                (
+                    Token::Hex::<FieldPrime>(42),
+                    String::from(""),
+                    pos.col(4)
+                ),
+                parse_hex(&"0x2a".to_string(), &pos)
+            );
+        }
+
+
+        #[test]
+        #[should_panic]
+        fn overflow() {
+            let pos = Position { line: 45, col: 121 };
+            parse_hex::<FieldPrime>(&"0x100".to_string(), &pos);
+        }
     }
 
     #[cfg(test)]

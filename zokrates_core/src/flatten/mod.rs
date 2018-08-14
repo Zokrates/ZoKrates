@@ -60,6 +60,9 @@ impl Flattener {
         // Load type casting functions
         functions_flattened.push(cast(&Type::Boolean, &Type::FieldElement));
         functions_flattened.push(cast(&Type::FieldElement, &Type::Boolean));
+        functions_flattened.push(cast(&Type::Unsigned8, &Type::FieldElement));
+        functions_flattened.push(cast(&Type::FieldElement, &Type::Unsigned8));
+
 
         // Load IfElse helpers
         let ie = TypedFunction {
@@ -353,6 +356,22 @@ impl Flattener {
                                 },
                                 _ => panic!("A boolean argument to a function has to be a identifier")
                             }
+                        },
+                        TypedExpression::Unsigned8(e) => {
+                            match e {
+                                Unsigned8Expression::Identifier(id) => {
+                                    new_var = format!("{}param_{}", &prefix, id);
+                                    for i in 0..8 {
+                                        statements_flattened
+                                            .push(FlatStatement::Definition(
+                                                format!("{}{}{}", new_var, BINARY_SEPARATOR, i), 
+                                                FlatExpression::Identifier(format!("{}{}{}", id, BINARY_SEPARATOR, i))
+                                            )
+                                        );
+                                    }
+                                },
+                                _ => panic!("A uint8 argument to a function has to be a identifier")
+                            }
                         }
                     }
                     replacement_map.insert(funct.arguments.get(i).unwrap().id.clone(), new_var);
@@ -408,6 +427,62 @@ impl Flattener {
             id,
             param_expressions
         );
+    }
+
+    fn flatten_uint8_expression<T: Field>(
+        &mut self,
+        functions_flattened: &Vec<FlatFunction<T>>,
+        arguments_flattened: &Vec<FlatParameter>,
+        statements_flattened: &mut Vec<FlatStatement<T>>,
+        expr: Unsigned8Expression,
+    ) -> [FlatExpression<T>; 8] {
+        match expr {
+            Unsigned8Expression::Value(x) => [
+                FlatExpression::Number(T::from(if x & 0b1000_0000 != 0 {1} else {0})),
+                FlatExpression::Number(T::from(if x & 0b0100_0000 != 0 {1} else {0})),
+                FlatExpression::Number(T::from(if x & 0b0010_0000 != 0 {1} else {0})),
+                FlatExpression::Number(T::from(if x & 0b0001_0000 != 0 {1} else {0})),
+                FlatExpression::Number(T::from(if x & 0b0000_1000 != 0 {1} else {0})),
+                FlatExpression::Number(T::from(if x & 0b0000_0100 != 0 {1} else {0})),
+                FlatExpression::Number(T::from(if x & 0b0000_0010 != 0 {1} else {0})),
+                FlatExpression::Number(T::from(if x & 0b0000_0001 != 0 {1} else {0})),
+            ],
+            Unsigned8Expression::Identifier(x) => [
+                FlatExpression::Identifier(format!("{}{}{}", x, BINARY_SEPARATOR, 0)),
+                FlatExpression::Identifier(format!("{}{}{}", x, BINARY_SEPARATOR, 1)),
+                FlatExpression::Identifier(format!("{}{}{}", x, BINARY_SEPARATOR, 2)),
+                FlatExpression::Identifier(format!("{}{}{}", x, BINARY_SEPARATOR, 3)),
+                FlatExpression::Identifier(format!("{}{}{}", x, BINARY_SEPARATOR, 4)),
+                FlatExpression::Identifier(format!("{}{}{}", x, BINARY_SEPARATOR, 5)),
+                FlatExpression::Identifier(format!("{}{}{}", x, BINARY_SEPARATOR, 6)),
+                FlatExpression::Identifier(format!("{}{}{}", x, BINARY_SEPARATOR, 7)),
+            ],
+            Unsigned8Expression::Xor(box left, box right) => {
+                let left_flattened = self.flatten_uint8_expression(
+                    functions_flattened,
+                    arguments_flattened,
+                    statements_flattened,
+                    left,
+                );
+                let right_flattened = self.flatten_uint8_expression(
+                    functions_flattened,
+                    arguments_flattened,
+                    statements_flattened,
+                    right,
+                );
+
+                [
+                    FlatExpression::Mult(box left_flattened[0].clone(), box right_flattened[0].clone()),
+                    FlatExpression::Mult(box left_flattened[1].clone(), box right_flattened[1].clone()),
+                    FlatExpression::Mult(box left_flattened[2].clone(), box right_flattened[2].clone()),
+                    FlatExpression::Mult(box left_flattened[3].clone(), box right_flattened[3].clone()),
+                    FlatExpression::Mult(box left_flattened[4].clone(), box right_flattened[4].clone()),
+                    FlatExpression::Mult(box left_flattened[5].clone(), box right_flattened[5].clone()),
+                    FlatExpression::Mult(box left_flattened[6].clone(), box right_flattened[6].clone()),
+                    FlatExpression::Mult(box left_flattened[7].clone(), box right_flattened[7].clone()),
+                ]
+            },
+        }
     }
 
     fn flatten_field_expression<T: Field>(
@@ -645,16 +720,25 @@ impl Flattener {
                     match expr {
                         TypedExpression::FieldElement(e) => {
                             let expr_subbed = e.apply_substitution(&self.substitution);
-                            self.flatten_field_expression(
+                            vec![self.flatten_field_expression(
                                 functions_flattened,
                                 arguments_flattened,
                                 statements_flattened,
                                 expr_subbed,
-                            )
+                            )]
                         },
-                        _ => panic!("Functions can only return expressions of type FieldElement")
+                        TypedExpression::Unsigned8(e) => {
+                            let expr_subbed = e.apply_substitution(&self.substitution);
+                            self.flatten_uint8_expression(
+                                functions_flattened,
+                                arguments_flattened,
+                                statements_flattened,
+                                expr_subbed,
+                            ).to_vec()
+                        },
+                        _ => panic!("Functions can only return expressions of type FieldElement or Unsigned8")
                     }
-                }).collect();
+                }).flat_map(|x| x).collect();
 
                 statements_flattened.push(
                     FlatStatement::Return(
@@ -686,6 +770,21 @@ impl Flattener {
                         }
 
                         statements_flattened.push(FlatStatement::Definition(var, rhs));
+                    },
+                    TypedExpression::Unsigned8(expr) => {
+                        let expr_subbed = expr.apply_substitution(&self.substitution);
+                        let rhs_list = self.flatten_uint8_expression(
+                            functions_flattened,
+                            arguments_flattened,
+                            statements_flattened,
+                            expr_subbed,
+                        );
+
+                        let var = self.use_variable(&v.id);
+
+                        for (i, rhs) in rhs_list.iter().enumerate() {
+                            statements_flattened.push(FlatStatement::Definition(format!("{}{}{}", var, BINARY_SEPARATOR, i), rhs.clone()));
+                        }
                     },
                     _ => panic!("Definitions must have type FieldElement")
                 }
@@ -830,6 +929,9 @@ impl Flattener {
                         private: arg.private
                     });
                 },
+                Type::Unsigned8 => {
+
+                }
             }
         }
         // flatten statements in functions and apply substitution
