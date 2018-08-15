@@ -535,19 +535,11 @@ fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Po
                             col: pos.col + offset
                         }
                     ),
-                    '0'...'9' => parse_num(
+                    _ => parse_num(
                         &input[offset..].to_string(),
                         &Position {
                             line: pos.line,
                             col: pos.col + offset,
-                        },
-                    ),
-                    _ => (
-                        Token::Unknown(x.to_string()),
-                        input[offset + 1..].to_string(),
-                        Position {
-                            line: pos.line,
-                            col: pos.col + offset + 1,
                         },
                     ),
                 }
