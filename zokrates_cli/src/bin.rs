@@ -597,10 +597,12 @@ mod tests {
 
             let file = File::open(path.clone()).unwrap();
 
+            let location = path.parent().unwrap().to_path_buf().into_os_string().into_string().unwrap();
+
             let mut reader = BufReader::new(file);
 
             let program_flattened: FlatProg<FieldPrime> =
-                compile(&mut reader, path, Some(fs_resolve), true, false).unwrap();
+                compile(&mut reader, Some(location), Some(fs_resolve), true, false).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
 
