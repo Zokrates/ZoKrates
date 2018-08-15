@@ -8,9 +8,9 @@
 pub mod parameter;
 pub mod variable;
 
-use types::signature::Signature;
-use absy::parameter::Parameter;
-use absy::variable::Variable;
+use types::Signature;
+pub use absy::parameter::Parameter;
+pub use absy::variable::Variable;
 
 use std::fmt;
 use field::Field;

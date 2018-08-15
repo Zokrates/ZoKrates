@@ -17,7 +17,7 @@ use substitution::direct_substitution::DirectSubstitution;
 use substitution::Substitution;
 use helpers::{DirectiveStatement, Helper, RustHelper};
 use types::Type;
-use types::signature::Signature;
+use types::Signature;
 use types::conversions::cast;
 use absy::variable::Variable;
 use absy::parameter::Parameter;
@@ -993,7 +993,7 @@ mod multiple_definition {
     use super::*;
     use field::FieldPrime;
     use types::Type;
-    use types::signature::Signature;
+    use types::Signature;
     use absy::variable::Variable;
 
     #[test]

@@ -10,7 +10,7 @@ use std::collections::HashSet;
 use absy::*;
 use field::Field;
 use std::fmt;
-use types::signature::Signature;
+use types::Signature;
 use absy::variable::Variable;
 use typed_absy::*;
 

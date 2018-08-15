@@ -5,7 +5,7 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
-use types::signature::Signature;
+use types::Signature;
 use absy::parameter::Parameter;
 use absy::variable::Variable;
 
