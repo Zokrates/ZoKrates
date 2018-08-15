@@ -1,8 +1,9 @@
 use field::Field;
 use types::constraints::Constraints;
 use std::fmt;
+pub use types::signature::Signature;
 
-pub mod signature;
+mod signature;
 pub mod conversions;
 mod constraints;
 

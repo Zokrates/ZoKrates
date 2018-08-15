@@ -1,21 +1,17 @@
-use parser::parse::expression_list::parse_identifier_list1;
-use parser::parse::expression::parse_function_call;
-use parser::parse::expression::parse_term1;
-use parser::parse::expression::parse_expr1;
-use parser::parse::expression::parse_expr;
-use parser::parse::expression_list::parse_expression_list;
-use absy::Statement;
-use parser::tokenizer::parse_ide;
-use parser::tokenizer::skip_whitespaces;
+use field::Field;
+
 use std::io::prelude::*;
 use std::io::{Lines};
-use absy::variable::Variable;
-use absy::Expression;
-use parser::error::Error;
-use field::Field;
-use parser::token::Token;
-use parser::position::Position;
-use parser::tokenizer::next_token;
+
+use parser::Error;
+use parser::tokenize::{Token, Position, next_token};
+
+use parser::tokenize::{parse_ide, skip_whitespaces};
+
+use super::expression_list::parse_expression_list;
+use super::expression::{parse_function_call, parse_term1, parse_expr1, parse_expr};
+
+use absy::{Statement, Expression, Variable};
 
 pub fn parse_statement<T: Field, R: BufRead>(
     lines: &mut Lines<R>,
@@ -335,11 +331,43 @@ fn parse_statement1<T: Field>(
     }
 }
 
+// parse an expression list starting with an identifier
+pub fn parse_identifier_list1<T: Field>(
+    head: String,
+    input: String,
+    pos: Position,
+) -> Result<(Vec<Variable>, String, Position), Error<T>> {
+    let mut res = Vec::new();
+    res.push(Variable::from(head));
+    parse_comma_separated_identifier_list_rec(input, pos, &mut res)
+}
+
+fn parse_comma_separated_identifier_list_rec<T: Field>(
+    input: String, 
+    pos: Position,
+    mut acc: &mut Vec<Variable>
+) -> Result<(Vec<Variable>, String, Position), Error<T>> {
+    match next_token(&input, &pos) {
+        (Token::Ide(id), s1, p1) => {
+            acc.push(Variable::from(id));
+            match next_token::<T>(&s1, &p1) {
+                (Token::Comma, s2, p2) => parse_comma_separated_identifier_list_rec(s2, p2, &mut acc),
+                (..) => Ok((acc.to_vec(), s1, p1)),
+            }
+        },
+        (t1, _, p1) => Err(Error {
+            expected: vec![Token::Ide(String::from("ide"))],
+            got: t1,
+            pos: p1,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use field::FieldPrime;
-    
+
     mod parse_statement1 {
         use super::*;
         #[test]

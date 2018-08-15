@@ -4,10 +4,8 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
-mod token;
+mod tokenize;
 mod error;
-mod position;
-mod tokenizer;
 mod parse;
 
 pub use parser::error::Error;

@@ -1,16 +1,15 @@
-use parser::parse::statement::parse_statement;
+use field::Field;
+
 use std::io::prelude::*;
 use std::io::{Lines};
-use absy::variable::Variable;
-use absy::{Function, Statement};
-use absy::parameter::Parameter;
-use parser::error::Error;
-use field::Field;
-use types::signature::Signature;
-use types::Type;
-use parser::token::Token;
-use parser::position::Position;
-use parser::tokenizer::next_token;
+
+use parser::Error;
+use parser::tokenize::{Token, Position, next_token};
+
+use super::statement::parse_statement;
+
+use absy::{Function, Statement, Variable, Parameter};
+use types::{Type, Signature};
 
 pub fn parse_function<T: Field, R: BufRead>(
     mut lines: &mut Lines<R>,

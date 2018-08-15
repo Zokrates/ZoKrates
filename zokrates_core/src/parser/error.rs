@@ -1,6 +1,6 @@
 use field::Field;
-use parser::position::Position;
-use parser::token::Token;
+use parser::tokenize::Position;
+use parser::tokenize::Token;
 use std::fmt;
 
 #[derive(PartialEq)]

@@ -1,11 +1,11 @@
-use parser::tokenizer::parse_num; // suspicious to need this here
 use field::Field;
-use absy::Condition;
-use parser::position::Position;
-use absy::Expression;
-use parser::token::Token;
-use parser::tokenizer::next_token;
-use parser::error::Error;
+
+use parser::Error;
+use parser::tokenize::{Token, Position, next_token};
+
+use absy::{Condition, Expression};
+
+use parser::tokenize::parse_num; // suspicious to need this here
 
 fn parse_then_else<T: Field>(
     cond: Condition<T>,

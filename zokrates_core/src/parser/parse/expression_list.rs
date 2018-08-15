@@ -1,22 +1,11 @@
-use absy::variable::Variable;
-use parser::parse::expression::parse_expr;
 use field::Field;
-use parser::position::Position;
-use absy::ExpressionList;
-use parser::token::Token;
-use parser::error::Error;
-use parser::tokenizer::next_token;
 
-// parse an expression list starting with an identifier
-pub fn parse_identifier_list1<T: Field>(
-    head: String,
-    input: String,
-    pos: Position,
-) -> Result<(Vec<Variable>, String, Position), Error<T>> {
-    let mut res = Vec::new();
-    res.push(Variable::from(head));
-    parse_comma_separated_identifier_list_rec(input, pos, &mut res)
-}
+use parser::Error;
+use parser::tokenize::{Token, Position, next_token};
+
+use super::expression::parse_expr;
+
+use absy::ExpressionList;
 
 // parse an expression list
 pub fn parse_expression_list<T: Field>(
@@ -41,27 +30,6 @@ fn parse_comma_separated_expression_list_rec<T: Field>(
             }                
         },
         Err(err) => Err(err)
-    }
-}
-
-fn parse_comma_separated_identifier_list_rec<T: Field>(
-    input: String, 
-    pos: Position,
-    mut acc: &mut Vec<Variable>
-) -> Result<(Vec<Variable>, String, Position), Error<T>> {
-    match next_token(&input, &pos) {
-        (Token::Ide(id), s1, p1) => {
-            acc.push(Variable::from(id));
-            match next_token::<T>(&s1, &p1) {
-                (Token::Comma, s2, p2) => parse_comma_separated_identifier_list_rec(s2, p2, &mut acc),
-                (..) => Ok((acc.to_vec(), s1, p1)),
-            }
-        },
-        (t1, _, p1) => Err(Error {
-            expected: vec![Token::Ide(String::from("ide"))],
-            got: t1,
-            pos: p1,
-        })
     }
 }
 

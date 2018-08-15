@@ -1,6 +1,6 @@
 use field::Field;
-use parser::token::Token;
-use parser::position::Position;
+use super::token::Token;
+use super::position::Position;
 
 pub fn parse_num<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Position) {
     let mut end = 0;

@@ -1,12 +1,14 @@
-use parser::parse::import::parse_import;
-use parser::parse::function::parse_function;
-use std::io::prelude::*;
 use field::Field;
-use absy::Prog;
+
+use std::io::prelude::*;
+
 use parser::error::Error;
-use parser::position::Position;
-use parser::tokenizer::next_token;
-use parser::token::Token;
+use parser::tokenize::{Position, Token, next_token};
+
+use super::import::parse_import;
+use super::function::parse_function;
+
+use absy::Prog;
 
 pub fn parse_program<T: Field, R: BufRead>(reader: &mut R) -> Result<Prog<T>, Error<T>> {
     let mut current_line = 1;

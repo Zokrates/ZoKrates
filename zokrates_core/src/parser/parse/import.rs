@@ -1,9 +1,10 @@
 use field::Field;
-use parser::token::Token;
-use parser::tokenizer::next_token;
-use parser::tokenizer::parse_quoted_path;
-use parser::position::Position;
-use parser::error::Error;
+
+use parser::Error;
+use parser::tokenize::{Token, Position, next_token};
+
+use parser::tokenize::parse_quoted_path;
+
 use imports::Import;
 
 pub fn parse_import<T: Field>(
