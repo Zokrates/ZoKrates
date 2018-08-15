@@ -5,7 +5,6 @@
 //! @date 2018
 use std::io::{BufRead};
 use std::fmt;
-use std::path::PathBuf;
 use field::{Field};
 use absy::{Prog};
 use flat_absy::{FlatProg};
@@ -60,7 +59,7 @@ impl<T: Field> fmt::Display for CompileError<T> {
 	}
 }
 
-pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader: &mut R, location: PathBuf, resolve_option: Option<fn(&PathBuf) -> Result<S, E>>, should_optimize: bool, should_include_gadgets: bool) -> Result<FlatProg<T>, CompileError<T>> {
+pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader: &mut R, location: Option<String>, resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>, should_optimize: bool, should_include_gadgets: bool) -> Result<FlatProg<T>, CompileError<T>> {
 
 	let compiled = compile_aux(reader, location, resolve_option, should_include_gadgets);
 
@@ -73,7 +72,7 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader
 	}
 }
 
-fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader: &mut R, location: PathBuf, resolve_option: Option<fn(&PathBuf) -> Result<S, E>>, should_include_gadgets: bool) -> Result<FlatProg<T>, CompileError<T>> {
+fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader: &mut R, location: Option<String>, resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>, should_include_gadgets: bool) -> Result<FlatProg<T>, CompileError<T>> {
     let program_ast_without_imports: Prog<T> = parse_program(reader)?;
 
     let mut compiled_imports: Vec<(FlatProg<T>, String)> = vec![];
@@ -83,12 +82,14 @@ fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader
     	Some(resolve) => {
     		// we have a resolver, pass each import through it
 	    	for import in program_ast_without_imports.imports.iter() {
-	    		// find the absolute path for the import, based on the path of the file which imports it
-	    		let absolute_import_path = location.join(import.get_source());
-	    		match resolve(&absolute_import_path) {
-	    			Ok(mut res) => {
-			    		let compiled = compile_aux(&mut res, absolute_import_path.parent().unwrap().to_path_buf(), resolve_option, should_include_gadgets)?;
-				    	compiled_imports.push((compiled, import.alias()));
+			match resolve(&location, import.get_source()) {
+	    			Ok((mut res, file_location, default_alias)) => {
+			    		let compiled = compile_aux(&mut res, Some(file_location), resolve_option, should_include_gadgets)?;
+			    		let alias = match import.get_alias() {
+			    			&Some(ref custom_alias) => custom_alias.clone(),
+			    			&None => default_alias
+			    		};
+				    	compiled_imports.push((compiled, alias));
 			    	},
 	    			Err(err) => return Err(CompileError::ImportError(err.into()))
 	    		}
@@ -140,7 +141,7 @@ mod test {
 			def main():
 			   return foo()
 		"#.as_bytes());
-		let res: Result<FlatProg<FieldPrime>, CompileError<FieldPrime>> = compile(&mut r, PathBuf::from("./path/to/file"), None::<fn(&PathBuf) -> Result<BufReader<Empty>, io::Error>>, false, false);
+		let res: Result<FlatProg<FieldPrime>, CompileError<FieldPrime>> = compile(&mut r, Some(String::from("./path/to/file")), None::<fn(&Option<String>, &String) -> Result<(BufReader<Empty>, String, String), io::Error>>, false, false);
 		assert_eq!(format!("{}", res.unwrap_err()), "Import error: Can't resolve import without a resolver".to_string()); 
 	}
 
@@ -150,7 +151,7 @@ mod test {
 			def main():
 			   return 1
 		"#.as_bytes());
-		let res: Result<FlatProg<FieldPrime>, CompileError<FieldPrime>> = compile(&mut r, PathBuf::from("./path/to/file"), None::<fn(&PathBuf) -> Result<BufReader<Empty>, io::Error>>, false, false);
+		let res: Result<FlatProg<FieldPrime>, CompileError<FieldPrime>> = compile(&mut r, Some(String::from("./path/to/file")), None::<fn(&Option<String>, &String) -> Result<(BufReader<Empty>, String, String), io::Error>>, false, false);
 		assert!(res.is_ok()); 
 	}
 }

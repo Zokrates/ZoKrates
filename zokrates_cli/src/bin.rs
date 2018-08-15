@@ -195,7 +195,7 @@ fn main() {
 
             let path = PathBuf::from(sub_matches.value_of("input").unwrap());
 
-            let location = path.parent().unwrap().to_path_buf();
+            let location = path.parent().unwrap().to_path_buf().into_os_string().into_string().unwrap();
 
             let should_optimize = sub_matches.occurrences_of("optimized") > 0;
 
@@ -205,7 +205,7 @@ fn main() {
 
             let mut reader = BufReader::new(file);
             
-            let program_flattened: FlatProg<FieldPrime> = match compile(&mut reader, location, Some(fs_resolve), should_optimize, should_include_gadgets) {
+            let program_flattened: FlatProg<FieldPrime> = match compile(&mut reader, Some(location), Some(fs_resolve), should_optimize, should_include_gadgets) {
                 Ok(p) => p,
                 Err(why) => panic!("Compilation failed: {}", why)
             };
@@ -550,10 +550,12 @@ mod tests {
 
             let file = File::open(path.clone()).unwrap();
 
+            let location = path.parent().unwrap().to_path_buf().into_os_string().into_string().unwrap();
+
             let mut reader = BufReader::new(file);
 
             let program_flattened: FlatProg<FieldPrime> =
-                compile(&mut reader, path, Some(fs_resolve), true, false).unwrap();
+                compile(&mut reader, Some(location), Some(fs_resolve), true, false).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
         }
@@ -570,10 +572,12 @@ mod tests {
 
             let file = File::open(path.clone()).unwrap();
 
+            let location = path.parent().unwrap().to_path_buf().into_os_string().into_string().unwrap();
+
             let mut reader = BufReader::new(file);
 
             let program_flattened: FlatProg<FieldPrime> =
-                compile(&mut reader, path, Some(fs_resolve), true, false).unwrap();
+                compile(&mut reader, Some(location), Some(fs_resolve), true, false).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
             let _ = program_flattened.get_witness(vec![FieldPrime::from(0)]).unwrap();
