@@ -601,7 +601,7 @@ mod tests {
             let (..) = r1cs_program(&program_flattened);
 
             let result = std::panic::catch_unwind(|| {
-                let _ = program_flattened.get_witness(vec![FieldPrime::from(0)]);
+                let _ = program_flattened.get_witness(vec![FieldPrime::from(0)]).unwrap();
             });
             assert!(result.is_err());
         }
