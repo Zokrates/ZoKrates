@@ -3,6 +3,7 @@
 #[macro_use]
 extern crate lazy_static;
 extern crate num;
+extern crate num_bigint;
 extern crate reduce; // better reduce function than Iter.fold
 extern crate serde; // serialization deserialization
 extern crate serde_json;
