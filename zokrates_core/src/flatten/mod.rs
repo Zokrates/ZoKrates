@@ -17,7 +17,7 @@ use substitution::direct_substitution::DirectSubstitution;
 use substitution::Substitution;
 use helpers::{DirectiveStatement, Helper, RustHelper};
 use types::Type;
-use types::signature::Signature;
+use types::Signature;
 use types::conversions::cast;
 use absy::variable::Variable;
 use absy::parameter::Parameter;
@@ -164,17 +164,94 @@ impl Flattener {
                     rhs,
                 );
 
+                // lhs
                 let lhs_name = format!("sym_{}", self.next_var_idx);
                 self.next_var_idx += 1;
                 statements_flattened
                     .push(FlatStatement::Definition(lhs_name.to_string(), lhs_flattened));
+
+                // rhs
                 let rhs_name = format!("sym_{}", self.next_var_idx);
                 self.next_var_idx += 1;
                 statements_flattened
                     .push(FlatStatement::Definition(rhs_name.to_string(), rhs_flattened));
 
+                // check that lhs and rhs are within the right range, ie, their last two bits are zero
+
+                // lhs
+                {
+                    // bitness checks
+                    for i in 0..self.bits - 2 {
+                        let new_name = format!("{}{}{}", &lhs_name, BINARY_SEPARATOR, i);
+                        statements_flattened.push(FlatStatement::Condition(
+                            FlatExpression::Identifier(new_name.to_string()),
+                            FlatExpression::Mult(
+                                box FlatExpression::Identifier(new_name.to_string()),
+                                box FlatExpression::Identifier(new_name.to_string()),
+                            ),
+                        ));
+                    }
+
+                    // bit decomposition check
+                    let mut lhs_sum = FlatExpression::Number(T::from(0));
+
+                    for i in 0..self.bits - 2 {
+                        lhs_sum = FlatExpression::Add(
+                            box lhs_sum,
+                            box FlatExpression::Mult(
+                                box FlatExpression::Identifier(format!("{}{}{}", &lhs_name, BINARY_SEPARATOR, i)),
+                                box FlatExpression::Number(T::from(2).pow(i)),
+                            ),
+                        );
+                    }
+
+                    statements_flattened
+                        .push(FlatStatement::Condition(
+                                FlatExpression::Identifier(lhs_name.clone()), 
+                                lhs_sum
+                            )
+                        );
+                }
+
+                // rhs
+                {
+                    // bitness checks
+                    for i in 0..self.bits - 2 {
+                        let new_name = format!("{}{}{}", &rhs_name, BINARY_SEPARATOR, i);
+                        statements_flattened.push(FlatStatement::Condition(
+                            FlatExpression::Identifier(new_name.to_string()),
+                            FlatExpression::Mult(
+                                box FlatExpression::Identifier(new_name.to_string()),
+                                box FlatExpression::Identifier(new_name.to_string()),
+                            ),
+                        ));
+                    }
+
+                    // bit decomposition check
+                    let mut rhs_sum = FlatExpression::Number(T::from(0));
+
+                    for i in 0..self.bits - 2 {
+                        rhs_sum = FlatExpression::Add(
+                            box rhs_sum,
+                            box FlatExpression::Mult(
+                                box FlatExpression::Identifier(format!("{}{}{}", &rhs_name, BINARY_SEPARATOR, i)),
+                                box FlatExpression::Number(T::from(2).pow(i)),
+                            ),
+                        );
+                    }
+
+                    statements_flattened
+                        .push(FlatStatement::Condition(
+                                FlatExpression::Identifier(rhs_name.clone()), 
+                                rhs_sum
+                            )
+                        );
+                }
+
+                // sym = (lhs * 2) - (rhs * 2)
                 let subtraction_result = format!("sym_{}", self.next_var_idx);
                 self.next_var_idx += 1;
+
                 statements_flattened.push(FlatStatement::Definition(
                     subtraction_result.to_string(),
                     FlatExpression::Sub(
@@ -182,49 +259,38 @@ impl Flattener {
                         box FlatExpression::Mult(box FlatExpression::Number(T::from(2)), box FlatExpression::Identifier(rhs_name.to_string())),
                     ),
                 ));
+
+                // sym_b{i} = sym_b{i}**2  (bitness checks)
                 for i in 0..self.bits {
                     let new_name = format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, i);
-                    statements_flattened.push(FlatStatement::Definition(
-                        new_name.to_string(),
+                    statements_flattened.push(FlatStatement::Condition(
+                        FlatExpression::Identifier(new_name.to_string()),
                         FlatExpression::Mult(
                             box FlatExpression::Identifier(new_name.to_string()),
                             box FlatExpression::Identifier(new_name.to_string()),
                         ),
                     ));
                 }
-                let mut expr = FlatExpression::Add(
-                    box FlatExpression::Identifier(format!("{}{}0", &subtraction_result, BINARY_SEPARATOR)), // * 2^0
-                    box FlatExpression::Mult(
-                        box FlatExpression::Identifier(format!("{}{}1", &subtraction_result, BINARY_SEPARATOR)),
-                        box FlatExpression::Number(T::from(2)),
-                    ),
-                );
-                for i in 1..self.bits / 2 {
-                    expr = FlatExpression::Add(
-                        box expr,
-                        box FlatExpression::Add(
-                            box FlatExpression::Mult(
-                                box FlatExpression::Identifier(format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, 2 * i)),
-                                box FlatExpression::Number(T::from(2).pow(2 * i)),
-                            ),
-                            box FlatExpression::Mult(
-                                box FlatExpression::Identifier(format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, 2 * i + 1)),
-                                box FlatExpression::Number(T::from(2).pow(2 * i + 1)),
-                            ),
-                        ),
-                    );
-                }
-                if self.bits % 2 == 1 {
+
+                // sum(sym_b{i} * 2**i)
+                let mut expr = FlatExpression::Number(T::from(0));
+
+                for i in 0..self.bits {
                     expr = FlatExpression::Add(
                         box expr,
                         box FlatExpression::Mult(
-                            box FlatExpression::Identifier(format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, self.bits - 3)),
-                            box FlatExpression::Number(T::from(2).pow(self.bits - 1)),
+                            box FlatExpression::Identifier(format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, i)),
+                            box FlatExpression::Number(T::from(2).pow(i)),
                         ),
-                    )
+                    );
                 }
+
                 statements_flattened
-                    .push(FlatStatement::Definition(subtraction_result.to_string(), expr));
+                    .push(FlatStatement::Condition(
+                            FlatExpression::Identifier(subtraction_result.clone()), 
+                            expr
+                        )
+                    );
 
                 // rename output to avoid conflicts with suffixes
                 let cond_true = format!("sym_{}", self.next_var_idx);
@@ -1029,7 +1095,7 @@ mod multiple_definition {
     use super::*;
     use field::FieldPrime;
     use types::Type;
-    use types::signature::Signature;
+    use types::Signature;
     use absy::variable::Variable;
 
     #[test]
