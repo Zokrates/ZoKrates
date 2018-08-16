@@ -87,7 +87,7 @@ impl Flattener {
             }],
             statements: vec![
                 TypedStatement::Definition(
-                    Variable::from("condition_as_field"),
+                    Variable::field_element("condition_as_field"),
                     FieldElementExpression::FunctionCall(
                         "_bool_to_field".to_string(), 
                         vec![
@@ -1024,8 +1024,8 @@ mod multiple_definition {
         let mut statements_flattened = vec![];
         let statement = TypedStatement::MultipleDefinition(
             vec![
-                Variable::from("a".to_string()),
-                Variable::from("b".to_string())
+                Variable::field_element("a".to_string()),
+                Variable::field_element("b".to_string())
             ],
             TypedExpressionList::FunctionCall("foo".to_string(), vec![], vec![Type::FieldElement, Type::FieldElement])
         );
@@ -1072,8 +1072,8 @@ mod multiple_definition {
         let mut statements_flattened = vec![];
         let statement = TypedStatement::MultipleDefinition(
             vec![
-                Variable::from("a".to_string()),
-                Variable::from("b".to_string())
+                Variable::field_element("a".to_string()),
+                Variable::field_element("b".to_string())
             ],
             TypedExpressionList::FunctionCall("dup".to_string(), vec![TypedExpression::FieldElement(FieldElementExpression::Number(FieldPrime::from(2)))], vec![Type::FieldElement, Type::FieldElement])
         );
@@ -1118,7 +1118,7 @@ mod multiple_definition {
         let arguments_flattened = vec![];
         let mut statements_flattened = vec![];
         let statement = TypedStatement::Definition(
-            Variable::from("a".to_string()),
+            Variable::field_element("a".to_string()),
             TypedExpression::FieldElement(FieldElementExpression::FunctionCall("foo".to_string(), vec![]))
         );
 
@@ -1157,10 +1157,10 @@ mod multiple_definition {
                 inputs: vec![Type::FieldElement],
                 outputs: vec![Type::FieldElement]
             },
-            arguments: vec![Parameter { id: Variable::from("a"), private: true }],
+            arguments: vec![Parameter { id: Variable::field_element("a"), private: true }],
             statements: vec![
                 TypedStatement::Definition(
-                    Variable::from("a".to_string()), 
+                    Variable::field_element("a".to_string()), 
                     FieldElementExpression::Add(
                         box FieldElementExpression::Identifier("a".to_string()), 
                         box FieldElementExpression::Number(FieldPrime::from(1))
@@ -1231,8 +1231,8 @@ mod multiple_definition {
                 id: "main".to_string(),
                 arguments: vec![],
                 statements: vec![
-                    TypedStatement::Definition(Variable::from("a".to_string()), TypedExpression::FieldElement(FieldElementExpression::FunctionCall("foo".to_string(), vec![]))),
-                    TypedStatement::MultipleDefinition(vec![Variable::from("b".to_string()), Variable::from("c".to_string())], TypedExpressionList::FunctionCall("foo".to_string(), vec![], vec![Type::FieldElement, Type::FieldElement])),
+                    TypedStatement::Definition(Variable::field_element("a".to_string()), TypedExpression::FieldElement(FieldElementExpression::FunctionCall("foo".to_string(), vec![]))),
+                    TypedStatement::MultipleDefinition(vec![Variable::field_element("b".to_string()), Variable::field_element("c".to_string())], TypedExpressionList::FunctionCall("foo".to_string(), vec![], vec![Type::FieldElement, Type::FieldElement])),
                     TypedStatement::Return(
                         vec![TypedExpression::FieldElement(FieldElementExpression::Number(FieldPrime::from(1)))]
                     )

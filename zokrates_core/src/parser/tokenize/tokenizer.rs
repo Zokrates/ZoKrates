@@ -1,6 +1,7 @@
 use field::Field;
 use super::token::Token;
 use super::position::Position;
+use types::Type;
 
 pub fn parse_num<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Position) {
     let mut end = 0;
@@ -39,14 +40,25 @@ pub fn parse_ide<T: Field>(input: &String, pos: &Position) -> (Token<T>, String,
             None => break,
         }
     }
-    (
-        Token::Ide(input[0..end].to_string()),
-        input[end..].to_string(),
-        Position {
-            line: pos.line,
-            col: pos.col + end,
-        },
-    )
+
+    match &input[0..end] {
+        "field" => (
+            Token::Type(Type::FieldElement),
+            input[end..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + end,
+            },
+        ),
+        _ => (
+            Token::Ide(input[0..end].to_string()),
+            input[end..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + end,
+            },
+        )
+    }
 }
 
 pub fn skip_whitespaces(input: &String) -> usize {
@@ -191,14 +203,24 @@ pub fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String
                 col: pos.col + offset + 1,
             },
         ),
-        Some('-') => (
-            Token::Sub,
-            input[offset + 1..].to_string(),
-            Position {
-                line: pos.line,
-                col: pos.col + offset + 1,
-            },
-        ),
+        Some('-') => match input.chars().nth(offset + 1) {
+            Some('>') => (
+                Token::Arrow,
+                input[offset + 2..].to_string(),
+                Position {
+                    line: pos.line,
+                    col: pos.col + offset + 2,
+                }
+            ),
+            _ => (
+                Token::Sub,
+                input[offset + 1..].to_string(),
+                Position {
+                    line: pos.line,
+                    col: pos.col + offset + 1,
+                }
+            )
+        },
         Some('"') => (
             Token::DoubleQuote,
             input[offset + 1..].to_string(),

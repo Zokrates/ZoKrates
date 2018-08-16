@@ -1,4 +1,4 @@
 // a and b are factorization of c
-def main(c, private a, private b):
+def main(field c, private field a, private field b) -> (field):
   c == a * b
   return 1

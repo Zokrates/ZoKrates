@@ -102,11 +102,11 @@ pub fn parse_statement<T: Field, R: BufRead>(
                                                 match next_token(&s8, &p8) {
                                                     (Token::InlineComment(_), ref s9, _) => {
                                                         assert_eq!(s9, "");
-                                                        return Ok((Statement::For(Variable::from(x2), x4, x6, statements), s8, p8))
+                                                        return Ok((Statement::For(Variable::field_element(x2), x4, x6, statements), s8, p8))
                                                     }
                                                     (Token::Unknown(ref t9), ref s9, _) if t9 == "" => {
                                                         assert_eq!(s9, "");
-                                                        return Ok((Statement::For(Variable::from(x2), x4, x6, statements), s8, p8))
+                                                        return Ok((Statement::For(Variable::field_element(x2), x4, x6, statements), s8, p8))
                                                     },
                                                     (t9, _, p9) => return Err(Error { expected: vec![Token::Unknown("1432567iuhgvfc".to_string())], got: t9 , pos: p9 }),
                                                 }
@@ -214,11 +214,11 @@ fn parse_statement1<T: Field>(
             Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
                 (Token::InlineComment(_), ref s3, _) => {
                     assert_eq!(s3, "");
-                    Ok((Statement::Definition(Variable::from(ide), e2), s2, p2))
+                    Ok((Statement::Definition(Variable::field_element(ide), e2), s2, p2))
                 }
                 (Token::Unknown(ref t3), ref s3, _) if t3 == "" => {
                     assert_eq!(s3, "");
-                    Ok((Statement::Definition(Variable::from(ide), e2), s2, p2))
+                    Ok((Statement::Definition(Variable::field_element(ide), e2), s2, p2))
                 }
                 (t3, _, p3) => {
                     Err(Error {
@@ -338,7 +338,7 @@ pub fn parse_identifier_list1<T: Field>(
     pos: Position,
 ) -> Result<(Vec<Variable>, String, Position), Error<T>> {
     let mut res = Vec::new();
-    res.push(Variable::from(head));
+    res.push(Variable::field_element(head));
     parse_comma_separated_identifier_list_rec(input, pos, &mut res)
 }
 
@@ -349,7 +349,7 @@ fn parse_comma_separated_identifier_list_rec<T: Field>(
 ) -> Result<(Vec<Variable>, String, Position), Error<T>> {
     match next_token(&input, &pos) {
         (Token::Ide(id), s1, p1) => {
-            acc.push(Variable::from(id));
+            acc.push(Variable::field_element(id));
             match next_token::<T>(&s1, &p1) {
                 (Token::Comma, s2, p2) => parse_comma_separated_identifier_list_rec(s2, p2, &mut acc),
                 (..) => Ok((acc.to_vec(), s1, p1)),
