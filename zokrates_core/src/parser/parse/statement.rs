@@ -12,6 +12,7 @@ use super::expression_list::parse_expression_list;
 use super::expression::{parse_function_call, parse_term1, parse_expr1, parse_expr};
 
 use absy::{Statement, Expression, Variable};
+use types::Type;
 
 pub fn parse_statement<T: Field, R: BufRead>(
     lines: &mut Lines<R>,
@@ -19,6 +20,7 @@ pub fn parse_statement<T: Field, R: BufRead>(
     pos: &Position,
 ) -> Result<(Statement<T>, String, Position), Error<T>> {
     match next_token::<T>(input, pos) {
+        (Token::Type(t), s1, p1) => parse_definition(t, s1, p1),
         (Token::Ide(x1), s1, p1) => parse_statement1(x1, s1, p1),
         (Token::If, ..) | (Token::Open, ..) | (Token::Num(_), ..) => match parse_expr(input, pos) {
             Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
@@ -204,39 +206,71 @@ pub fn parse_statement<T: Field, R: BufRead>(
 }
 
 // parse statement that starts with an identifier
+fn parse_definition<T: Field>(
+    t: Type,
+    input: String,
+    pos: Position,
+) -> Result<(Statement<T>, String, Position), Error<T>> {
+    match next_token::<T>(&input, &pos) {
+        (Token::Ide(x), s0, p0) => {
+            match next_token(&s0, &p0) {
+                (Token::Eq, s1, p1) => match parse_expr(&s1, &p1) {
+                    Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
+                        (Token::InlineComment(_), ref s3, _) => {
+                            assert_eq!(s3, "");
+                            Ok((Statement::Definition(Variable::new(x, t), e2), s2, p2))
+                        }
+                        (Token::Unknown(ref t3), ref s3, _) if t3 == "" => {
+                            assert_eq!(s3, "");
+                            Ok((Statement::Definition(Variable::new(x, t), e2), s2, p2))
+                        }
+                        (t3, _, p3) => {
+                            Err(Error {
+                                expected: vec![
+                                    Token::Add,
+                                    Token::Sub,
+                                    Token::Pow,
+                                    Token::Mult,
+                                    Token::Div,
+                                    Token::Unknown("".to_string()),
+                                ],
+                                got: t3,
+                                pos: p3,
+                            })
+                        }
+                    },
+                    Err(err) => Err(err),
+                },
+                (t1, _, p1) => {
+                    Err(Error {
+                        expected: vec![
+                            Token::Eq,
+                        ],
+                        got: t1,
+                        pos: p1,
+                    })
+                } 
+            }
+        },
+        (t0, _, p0) => {
+            Err(Error {
+                expected: vec![
+                    Token::Ide(String::from("identifier")),
+                ],
+                got: t0,
+                pos: p0,
+            })
+        }
+    }
+}
+
+// parse statement that starts with an identifier
 fn parse_statement1<T: Field>(
     ide: String,
     input: String,
     pos: Position,
 ) -> Result<(Statement<T>, String, Position), Error<T>> {
     match next_token::<T>(&input, &pos) {
-        (Token::Eq, s1, p1) => match parse_expr(&s1, &p1) {
-            Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
-                (Token::InlineComment(_), ref s3, _) => {
-                    assert_eq!(s3, "");
-                    Ok((Statement::Definition(Variable::field_element(ide), e2), s2, p2))
-                }
-                (Token::Unknown(ref t3), ref s3, _) if t3 == "" => {
-                    assert_eq!(s3, "");
-                    Ok((Statement::Definition(Variable::field_element(ide), e2), s2, p2))
-                }
-                (t3, _, p3) => {
-                    Err(Error {
-                        expected: vec![
-                            Token::Add,
-                            Token::Sub,
-                            Token::Pow,
-                            Token::Mult,
-                            Token::Div,
-                            Token::Unknown("".to_string()),
-                        ],
-                        got: t3,
-                        pos: p3,
-                    })
-                }
-            },
-            Err(err) => Err(err),
-        },
         (Token::Comma, s1, p1) => match parse_identifier_list1(ide, s1, p1) { // if we find a comma, parse the rest of the destructure
             Ok((e2, s2, p2)) => match next_token(&s2, &p2) { // then we should have an equal sign
                 (Token::Eq, s3, p3) => match parse_expr(&s3, &p3) {

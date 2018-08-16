@@ -41,24 +41,35 @@ pub fn parse_ide<T: Field>(input: &String, pos: &Position) -> (Token<T>, String,
         }
     }
 
-    match &input[0..end] {
-        "field" => (
-            Token::Type(Type::FieldElement),
-            input[end..].to_string(),
-            Position {
-                line: pos.line,
-                col: pos.col + end,
-            },
-        ),
-        _ => (
-            Token::Ide(input[0..end].to_string()),
-            input[end..].to_string(),
-            Position {
-                line: pos.line,
-                col: pos.col + end,
-            },
-        )
-    }
+    let token = match &input[0..end] {
+        "import" => Token::Import,
+        "as" => Token::As,
+        "if" => Token::If,
+        "then" => Token::Then,
+        "else" => Token::Else,
+        "fi" => Token::Fi,
+        "for" => Token::For,
+        "in" => Token::In,
+        "do" => Token::Do,
+        "endfor" => Token::Endfor,
+        "private" => Token::Private,
+        "def" => Token::Def,
+        "return" => Token::Return,
+        "field" => Token::Type(Type::FieldElement),
+        "bool" => Token::Type(Type::Boolean),
+        _ => Token::Ide(input[0..end].to_string())
+    };
+
+    (
+        token,
+        input[end..].to_string(),
+        Position {
+            line: pos.line,
+            col: pos.col + end,
+        },
+    )
+
+
 }
 
 pub fn skip_whitespaces(input: &String) -> usize {
@@ -265,70 +276,6 @@ pub fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String
                 },
             ),
         },
-        Some(_) if input[offset..].starts_with("def ") => (
-            Token::Def,
-            input[offset + 4..].to_string(),
-            Position {
-                line: pos.line,
-                col: pos.col + offset + 4,
-            },
-        ),
-        Some(_) if input[offset..].starts_with("return ") => (
-            Token::Return,
-            input[offset + 7..].to_string(),
-            Position {
-                line: pos.line,
-                col: pos.col + offset + 7,
-            },
-        ),
-        Some(_) if input[offset..].starts_with("if ") => (
-            Token::If,
-            input[offset + 3..].to_string(),
-            Position {
-                line: pos.line,
-                col: pos.col + offset + 3,
-            },
-        ),
-        Some(_) if input[offset..].starts_with("then ") => (
-            Token::Then,
-            input[offset + 5..].to_string(),
-            Position {
-                line: pos.line,
-                col: pos.col + offset + 5,
-            },
-        ),
-        Some(_) if input[offset..].starts_with("else ") => (
-            Token::Else,
-            input[offset + 5..].to_string(),
-            Position {
-                line: pos.line,
-                col: pos.col + offset + 5,
-            },
-        ),
-        Some(_) if input[offset..].starts_with("fi ") || input[offset..].to_string() == "fi" => (
-            Token::Fi,
-            input[offset + 2..].to_string(),
-            Position {
-                line: pos.line,
-                col: pos.col + offset + 2,
-            },
-        ),
-        Some(_) if input[offset..].starts_with("for ") => (
-            Token::For,
-            input[offset + 4..].to_string(),
-            Position {
-                line: pos.line,
-                col: pos.col + offset + 4,
-            },
-        ),
-        Some(_) if input[offset..].starts_with("in ") => (
-            Token::In,
-            input[offset + 3..].to_string(),
-            Position {
-                line: pos.line,
-                col: pos.col + offset + 3,
-            },
-        ),
         Some(_) if input[offset..].starts_with("..") => (
             Token::Dotdot,
             input[offset + 2..].to_string(),
@@ -336,48 +283,6 @@ pub fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String
                 line: pos.line,
                 col: pos.col + offset + 2,
             },
-        ),
-        Some(_) if input[offset..].starts_with("do ") || input[offset..].to_string() == "do" => (
-            Token::Do,
-            input[offset + 2..].to_string(),
-            Position {
-                line: pos.line,
-                col: pos.col + offset + 2,
-            },
-        ),
-        Some(_) if input[offset..].starts_with("endfor ") || input[offset..].to_string() == "endfor" => {
-            (
-                Token::For,
-                input[offset + 6..].to_string(),
-                Position {
-                    line: pos.line,
-                    col: pos.col + offset + 6,
-                },
-            )
-        }
-        Some(_) if input[offset..].starts_with("private ") => (
-            Token::Private,
-            input[offset + 8..].to_string(),
-            Position {
-                line: pos.line,
-                col: pos.col + offset + 8,
-            },
-        ),
-        Some(_) if input[offset..].starts_with("import ") => (
-            Token::Import,
-            input[offset + 7..].to_string(),
-            Position {
-                line: pos.line,
-                col: pos.col + offset + 7
-            }
-        ),
-        Some(_) if input[offset..].starts_with("as ") => (
-            Token::As,
-            input[offset + 2..].to_string(),
-            Position {
-                line: pos.line,
-                col: pos.col + offset + 2
-            }
         ),
         Some(x) => match x {
             '0'...'9' => parse_num(
