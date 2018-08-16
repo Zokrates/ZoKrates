@@ -1,5 +1,6 @@
 use std::fmt;
 use field::{Field};
+use types::Type;
 
 #[derive(PartialEq)]
 pub enum Token<T: Field> {
@@ -44,6 +45,9 @@ pub enum Token<T: Field> {
     // following used for error messages
     ErrIde,
     ErrNum,
+    // types
+    Type(Type),
+    Arrow,
 }
 impl<T: Field> fmt::Display for Token<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -88,6 +92,8 @@ impl<T: Field> fmt::Display for Token<T> {
             Token::As => write!(f, "as"),
             Token::ErrIde => write!(f, "identifier"),
             Token::ErrNum => write!(f, "number"),
+            Token::Type(ref x) => write!(f, "{}", x),
+            Token::Arrow => write!(f, "->"),
         }
     }
 }
