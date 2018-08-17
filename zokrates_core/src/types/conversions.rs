@@ -1,3 +1,4 @@
+use types::signature::Signature;
 use flat_absy::*;
 use field::Field;
 use types::Type;
@@ -129,8 +130,6 @@ pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
 		_ => panic!(format!("can't cast {} to {}", from, to))
 	};
 
-	let return_count = to.get_primitive_count();
-
 	let outputs = directive_outputs.iter().map(|o| FlatExpression::Identifier(o.to_string())).collect();
 
 	let mut statements = conditions;
@@ -151,10 +150,15 @@ pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
 		}
 	));
 
-	FlatFunction {
+	let res = FlatFunction {
 		id: format!("_{}_to_{}", from, to),
 		arguments: arguments,
 		statements: statements,
-		return_count: return_count
-	}
+		signature: Signature {
+			inputs: vec![from.clone()],
+			outputs: vec![to.clone()],
+		}
+	};
+
+	res
 }

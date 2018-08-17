@@ -94,8 +94,7 @@ impl Flattener {
                     FieldElementExpression::FunctionCall(
                         "_bool_to_field".to_string(), 
                         vec![
-                            TypedExpression::FieldElement(
-                                FieldElementExpression::Identifier("condition".to_string()))
+                            BooleanExpression::Identifier("condition".to_string()).into()
                         ]
                     ).into()
                 ),
@@ -123,10 +122,75 @@ impl Flattener {
             }
         };
 
+        let ua = TypedFunction {
+            id: "_uint8_addition".to_string(),
+            arguments: vec![Parameter {
+                id: Variable {
+                    id: "a".to_string(),
+                    _type: Type::Unsigned8
+                }, 
+                private: true 
+            },
+            Parameter {
+                id: Variable {
+                    id: "b".to_string(),
+                    _type: Type::Unsigned8
+                }, 
+                private: true 
+            }],
+            statements: vec![
+                TypedStatement::Definition(
+                    Variable::field_element("a_as_field"),
+                    FieldElementExpression::FunctionCall(
+                        "_uint8_to_field".to_string(), 
+                        vec![
+                            Unsigned8Expression::Identifier("a".to_string()).into()
+                        ]
+                    ).into()
+                ),
+                TypedStatement::Definition(
+                    Variable::field_element("b_as_field"),
+                    FieldElementExpression::FunctionCall(
+                        "_uint8_to_field".to_string(), 
+                        vec![
+                            Unsigned8Expression::Identifier("b".to_string()).into()
+                        ]
+                    ).into()
+                ),
+                TypedStatement::Definition(
+                    Variable::uint8("res"),
+                    Unsigned8Expression::FunctionCall(
+                        "_field_to_uint8".to_string(), 
+                        vec![
+                            FieldElementExpression::Add(
+                                box FieldElementExpression::Identifier("a_as_field".to_string()),
+                                box FieldElementExpression::Identifier("b_as_field".to_string())
+                            ).into()
+                        ]
+                    ).into()
+                ),
+                TypedStatement::Return(
+                    vec![
+                        Unsigned8Expression::Identifier("res".to_string()).into()
+                    ]
+                )
+            ],
+            signature: Signature {
+                inputs: vec![Type::Unsigned8, Type::Unsigned8],
+                outputs: vec![Type::Unsigned8]
+            }
+        };
+
+        let uaf = self.flatten_function(
+            functions_flattened,
+            ua,
+        );
+
         let ief = self.flatten_function(
             functions_flattened,
             ie,
         );
+        functions_flattened.push(uaf);
         functions_flattened.push(ief);
     }
 
@@ -366,11 +430,17 @@ impl Flattener {
         arguments_flattened: &Vec<FlatParameter>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
         id: &String,
-        return_count: usize,
+        return_types: Vec<Type>,
         param_expressions: &Vec<TypedExpression<T>>
     ) -> FlatExpressionList<T> {
+
+        let passed_signature = Signature {
+            inputs: param_expressions.into_iter().map(|e| e.get_type()).collect(),
+            outputs: return_types
+        };
+
         for funct in functions_flattened {
-            if funct.id == *id && funct.arguments.len() == (*param_expressions).len() && funct.return_count == return_count {
+            if funct.id == *id && funct.signature == passed_signature {
                 // funct is now the called function
 
                 // Idea: variables are given a prefix.
@@ -390,36 +460,31 @@ impl Flattener {
                         self.function_calls.insert(funct.id.clone(),1);
                     }
                 }
-                let prefix = format!("{}_i{}o{}_{}_", funct.id.clone(), funct.arguments.len(), funct.return_count, self.function_calls.get(&funct.id).unwrap());
+                let prefix = format!("{}_{}_{}_", funct.id.clone(), funct.signature.to_slug(), self.function_calls.get(&funct.id).unwrap());
 
                 // Handle complex parameters and assign values:
                 // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions
+
+                let mut counter = 0;
                 for (i, param_expr) in param_expressions.iter().enumerate() {
                     let new_var;
                     let param_expr = param_expr.apply_substitution(&self.substitution);
 
                     match param_expr {
                         TypedExpression::FieldElement(e) => {
-                            match e {
-                                FieldElementExpression::Identifier(id) => {
-                                    new_var = format!("{}param_{}", &prefix, id);
-                                    statements_flattened
-                                        .push(FlatStatement::Definition(new_var.clone(), FlatExpression::Identifier(id.clone().to_string())));
-                                },
-                                _ => {
-                                    // for field elements, flatten the input and assign it to a new variable
-                                    let expr_subbed = e.apply_substitution(&self.substitution);
-                                    let rhs = self.flatten_field_expression(
-                                        functions_flattened,
-                                        arguments_flattened,
-                                        statements_flattened,
-                                        expr_subbed,
-                                    );
-                                    new_var = format!("{}param_{}", &prefix, i);
-                                    statements_flattened
-                                        .push(FlatStatement::Definition(new_var.clone(), rhs));
-                                }
-                            }
+                            // for field elements, flatten the input and assign it to a new variable
+                            let expr_subbed = e.apply_substitution(&self.substitution);
+                            let rhs = self.flatten_field_expression(
+                                functions_flattened,
+                                arguments_flattened,
+                                statements_flattened,
+                                expr_subbed,
+                            );
+                            new_var = format!("{}param_{}", &prefix, i);
+                            statements_flattened
+                                .push(FlatStatement::Definition(new_var.clone(), rhs));
+                            replacement_map.insert(funct.arguments.get(counter).unwrap().id.clone(), new_var);
+                            counter = counter + 1;
                         },
                         TypedExpression::Boolean(e) => {
                             match e {
@@ -430,25 +495,31 @@ impl Flattener {
                                 },
                                 _ => panic!("A boolean argument to a function has to be a identifier")
                             }
+                            replacement_map.insert(funct.arguments.get(counter).unwrap().id.clone(), new_var);
+                            counter = counter + 1;
                         },
                         TypedExpression::Unsigned8(e) => {
-                            match e {
-                                Unsigned8Expression::Identifier(id) => {
-                                    new_var = format!("{}param_{}", &prefix, id);
-                                    for i in 0..8 {
-                                        statements_flattened
-                                            .push(FlatStatement::Definition(
-                                                format!("{}{}{}", new_var, BINARY_SEPARATOR, i), 
-                                                FlatExpression::Identifier(format!("{}{}{}", id, BINARY_SEPARATOR, i))
-                                            )
-                                        );
-                                    }
-                                },
-                                _ => panic!("A uint8 argument to a function has to be a identifier")
+                            let expr_subbed = e.apply_substitution(&self.substitution);
+                            let rhs = self.flatten_uint8_expression(
+                                functions_flattened,
+                                arguments_flattened,
+                                statements_flattened,
+                                expr_subbed,
+                            );
+                            new_var = format!("{}param_{}", &prefix, i);
+                            for i in 0..8 {
+                                let new_bin_var = format!("{}{}{}", new_var, BINARY_SEPARATOR, i);
+                                statements_flattened
+                                    .push(FlatStatement::Definition(
+                                        new_bin_var.clone(), 
+                                        rhs[i].clone()
+                                    )
+                                );
+                                replacement_map.insert(funct.arguments.get(counter).unwrap().id.clone(), new_bin_var);
+                                counter = counter + 1;                            
                             }
                         }
                     }
-                    replacement_map.insert(funct.arguments.get(i).unwrap().id.clone(), new_var);
                 }
 
                 // Ensure Renaming and correct returns:
@@ -508,7 +579,7 @@ impl Flattener {
         functions_flattened: &Vec<FlatFunction<T>>,
         arguments_flattened: &Vec<FlatParameter>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
-        expr: Unsigned8Expression,
+        expr: Unsigned8Expression<T>,
     ) -> [FlatExpression<T>; 8] {
         match expr {
             Unsigned8Expression::Value(x) => [
@@ -556,6 +627,48 @@ impl Flattener {
                     FlatExpression::Mult(box left_flattened[7].clone(), box right_flattened[7].clone()),
                 ]
             },
+            Unsigned8Expression::Add(box left, box right) => {
+                let mut res = self.flatten_function_call(
+                    functions_flattened,
+                    arguments_flattened,
+                    statements_flattened,
+                    &"_uint8_addition".to_string(),
+                    vec![Type::Unsigned8],
+                    &vec![left.into(), right.into()],
+                ).expressions;
+
+                [
+                    res.remove(0),
+                    res.remove(0),
+                    res.remove(0),
+                    res.remove(0),
+                    res.remove(0),
+                    res.remove(0),
+                    res.remove(0),
+                    res.remove(0),                    
+                ]
+            },
+            Unsigned8Expression::FunctionCall(ref id, ref param_expressions) => {
+                let mut res = self.flatten_function_call(
+                    functions_flattened,
+                    arguments_flattened,
+                    statements_flattened,
+                    id,
+                    vec![Type::Unsigned8],
+                    param_expressions
+                ).expressions;
+                assert!(res.len() == 8); // outside of MultipleDefinition, FunctionCalls must return a single value
+                [
+                    res.remove(0),
+                    res.remove(0),
+                    res.remove(0),
+                    res.remove(0),
+                    res.remove(0),
+                    res.remove(0),
+                    res.remove(0),
+                    res.remove(0),                    
+                ]            
+            }
         }
     }
 
@@ -761,7 +874,7 @@ impl Flattener {
                     arguments_flattened,
                     statements_flattened,
                     &"_if_else_field".to_string(),
-                    1,
+                    vec![Type::FieldElement],
                     &vec![condition.into(), consequent.into(), alternative.into()],
                 ).expressions[0].clone()
             },
@@ -771,7 +884,7 @@ impl Flattener {
                     arguments_flattened,
                     statements_flattened,
                     id,
-                    1,
+                    vec![Type::FieldElement],
                     param_expressions
                 );
                 assert!(exprs_flattened.expressions.len() == 1); // outside of MultipleDefinition, FunctionCalls must return a single value
@@ -944,7 +1057,7 @@ impl Flattener {
                             arguments_flattened,
                             statements_flattened,
                             fun_id,
-                            vars.len(),
+                            vars.iter().map(|e| e.get_type()).collect(),
                             exprs,
                         );
 
@@ -1004,7 +1117,12 @@ impl Flattener {
                     });
                 },
                 Type::Unsigned8 => {
-
+                    for _ in 0..8 {
+                        arguments_flattened.push(FlatParameter {
+                            id: self.use_variable(&arg.id.id), 
+                            private: arg.private
+                        });
+                    }
                 }
             }
         }
@@ -1018,14 +1136,11 @@ impl Flattener {
             );
         }
 
-        // the flattened return count is the sum of the primitive elements for each type returned
-        let return_count = funct.signature.outputs.iter().map(|output_type| output_type.get_primitive_count()).fold(0, |acc, x| acc + x);
-
         FlatFunction {
             id: funct.id.clone(),
             arguments: arguments_flattened,
             statements: statements_flattened,
-            return_count: return_count
+            signature: funct.signature
         }
     }
 
@@ -1119,7 +1234,10 @@ mod multiple_definition {
                         ]
                     }
                 )],
-                return_count: 2
+                signature: Signature {
+                    inputs: vec![],
+                    outputs: vec![Type::FieldElement, Type::FieldElement]
+                }
             }
         ];
         let arguments_flattened = vec![];
@@ -1167,7 +1285,10 @@ mod multiple_definition {
                         ]
                     }
                 )],
-                return_count: 2
+                signature: Signature {
+                    inputs: vec![Type::FieldElement],
+                    outputs: vec![Type::FieldElement, Type::FieldElement]
+                }
             }
         ];
         let arguments_flattened = vec![];
@@ -1214,7 +1335,10 @@ mod multiple_definition {
                         ]
                     }
                 )],
-                return_count: 1         
+                signature: Signature {
+                    inputs: vec![],
+                    outputs: vec![Type::FieldElement]
+                }      
             }
         ];
         let arguments_flattened = vec![];

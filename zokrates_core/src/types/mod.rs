@@ -47,4 +47,12 @@ impl Type {
 			Type::Unsigned8 => 8,
 		}
 	}
+
+	fn to_slug(&self) -> String {
+		match *self {
+			Type::FieldElement => String::from("f"),
+			Type::Boolean => String::from("b"),
+			Type::Unsigned8 => String::from("u"),
+		}
+	}
 }

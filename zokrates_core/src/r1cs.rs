@@ -291,7 +291,10 @@ pub fn r1cs_program<T: Field>(
 
     // ~out is added after main's arguments as we want variables (columns)
     // in the r1cs to be aligned like "public inputs | private inputs"
-    for i in 0..main.return_count {
+
+    let main_return_count = main.signature.outputs.iter().map(|t| t.get_primitive_count()).fold(0, |acc, x| acc + x);
+
+    for i in 0..main_return_count {
         variables.push(format!("~out_{}", i).to_string());
     }
 

@@ -22,6 +22,13 @@ impl Variable {
         }
     }
 
+    pub fn uint8<S: Into<String>>(id: S) -> Variable {
+        Variable {
+            id: id.into(),
+            _type: Type::Unsigned8
+        }
+    }
+
     pub fn get_type(&self) -> Type {
         self._type.clone()
     }

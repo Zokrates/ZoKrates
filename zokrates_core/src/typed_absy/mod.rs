@@ -204,7 +204,7 @@ pub trait Typed
 pub enum TypedExpression<T: Field> {
     Boolean(BooleanExpression<T>),
     FieldElement(FieldElementExpression<T>),
-    Unsigned8(Unsigned8Expression),
+    Unsigned8(Unsigned8Expression<T>),
 }
 
 impl<T: Field> From<BooleanExpression<T>> for TypedExpression<T> {
@@ -219,8 +219,8 @@ impl<T: Field> From<FieldElementExpression<T>> for TypedExpression<T> {
     }
 }
 
-impl<T: Field> From<Unsigned8Expression> for TypedExpression<T> {
-    fn from(e: Unsigned8Expression) -> TypedExpression<T> {
+impl<T: Field> From<Unsigned8Expression<T>> for TypedExpression<T> {
+    fn from(e: Unsigned8Expression<T>) -> TypedExpression<T> {
         TypedExpression::Unsigned8(e)
     }
 }
@@ -309,10 +309,12 @@ pub enum BooleanExpression<T: Field> {
 }
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub enum Unsigned8Expression {
+pub enum Unsigned8Expression<T: Field> {
     Value(u8),
     Identifier(String),
-    Xor(Box<Unsigned8Expression>, Box<Unsigned8Expression>),
+    Xor(Box<Unsigned8Expression<T>>, Box<Unsigned8Expression<T>>),
+    Add(Box<Unsigned8Expression<T>>, Box<Unsigned8Expression<T>>),
+    FunctionCall(String, Vec<TypedExpression<T>>),
 }
 
 impl<T: Field> BooleanExpression<T> {
@@ -417,8 +419,8 @@ impl<T: Field> FieldElementExpression<T> {
     }
 }
 
-impl Unsigned8Expression {
-    pub fn apply_substitution(&self, substitution: &Substitution) -> Unsigned8Expression {
+impl<T: Field> Unsigned8Expression<T> {
+    pub fn apply_substitution(&self, substitution: &Substitution) -> Unsigned8Expression<T> {
         match *self {
             ref e @ Unsigned8Expression::Value(_) => e.clone(),
             Unsigned8Expression::Identifier(ref id) => {
@@ -434,6 +436,16 @@ impl Unsigned8Expression {
                 box e1.apply_substitution(substitution),
                 box e2.apply_substitution(substitution),
             ),
+            Unsigned8Expression::Add(ref e1, ref e2) => Unsigned8Expression::Add(
+                box e1.apply_substitution(substitution),
+                box e2.apply_substitution(substitution),
+            ),
+            Unsigned8Expression::FunctionCall(ref i, ref p) => {
+                for param in p {
+                    param.apply_substitution(substitution);
+                }
+                Unsigned8Expression::FunctionCall(i.clone(), p.clone())
+            },
         }
     }
 }
@@ -482,22 +494,39 @@ impl<T: Field> fmt::Display for BooleanExpression<T> {
     }
 }
 
-impl fmt::Display for Unsigned8Expression {
+impl<T: Field> fmt::Display for Unsigned8Expression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Unsigned8Expression::Value(ref var) => write!(f, "0x{:x}", var),
             Unsigned8Expression::Identifier(ref var) => write!(f, "{}", var),
             Unsigned8Expression::Xor(ref lhs, ref rhs) => write!(f, "{} ^ {}", lhs, rhs),
+            Unsigned8Expression::Add(ref lhs, ref rhs) => write!(f, "{} * {}", lhs, rhs),
+            Unsigned8Expression::FunctionCall(ref i, ref p) => {
+                try!(write!(f, "{}(", i,));
+                for (i, param) in p.iter().enumerate() {
+                    try!(write!(f, "{}", param));
+                    if i < p.len() - 1 {
+                        try!(write!(f, ", "));
+                    }
+                }
+                write!(f, ")")
+            },
         }
     }
 }
 
-impl fmt::Debug for Unsigned8Expression {
+impl<T: Field> fmt::Debug for Unsigned8Expression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Unsigned8Expression::Value(ref var) => write!(f, "Val(0x{:x})", var),
             Unsigned8Expression::Identifier(ref var) => write!(f, "Ide({})", var),
             Unsigned8Expression::Xor(ref lhs, ref rhs) => write!(f, "Xor({:?}, {:?})", lhs, rhs),
+            Unsigned8Expression::Add(ref lhs, ref rhs) => write!(f, "Add({:?}, {:?})", lhs, rhs),
+            Unsigned8Expression::FunctionCall(ref i, ref p) => {
+                try!(write!(f, "FunctionCall({:?}, (", i));
+                try!(f.debug_list().entries(p.iter()).finish());
+                write!(f, ")")
+            },
         }
     }
 }

@@ -59,10 +59,7 @@ impl Checker {
 		for func in &prog.imported_functions {
 			self.functions.insert(FunctionDeclaration {
 				id: func.id.clone(),
-				signature: Signature { // a bit hacky
-					inputs: vec![Type::FieldElement; func.arguments.len()],
-					outputs: vec![Type::FieldElement; func.return_count]
-				}
+				signature: func.signature.clone(),
 			});
 		}
 
@@ -256,8 +253,11 @@ impl Checker {
 				match (e1_checked, e2_checked) {
 					(TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
 						Ok(FieldElementExpression::Add(box e1, box e2).into())
-					}
-					(t1, t2) => Err(Error { message: format!("Expected only field elements, found {:?}, {:?}", t1.get_type(), t2.get_type()) }),
+					},
+					(TypedExpression::Unsigned8(e1), TypedExpression::Unsigned8(e2)) => {
+						Ok(Unsigned8Expression::Add(box e1, box e2).into())
+					},
+					(t1, t2) => Err(Error { message: format!("Expected field elements or uint8, found {:?}, {:?}", t1.get_type(), t2.get_type()) }),
 				}
 			},
 			Expression::Sub(box e1, box e2) => {
