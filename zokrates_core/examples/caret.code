@@ -1,3 +1,0 @@
-def main():
-	a = 0x55 ^ 0x77
-	return a

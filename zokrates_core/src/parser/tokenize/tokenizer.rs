@@ -57,6 +57,7 @@ pub fn parse_ide<T: Field>(input: &String, pos: &Position) -> (Token<T>, String,
         "return" => Token::Return,
         "field" => Token::Type(Type::FieldElement),
         "bool" => Token::Type(Type::Boolean),
+        "uint8" => Token::Type(Type::Unsigned8),
         _ => Token::Ide(input[0..end].to_string())
     };
 
@@ -302,6 +303,14 @@ pub fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String
                 },
             ),
         },
+        Some('^') => (
+            Token::Caret,
+            input[offset + 1..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 1,
+            },
+        ),
         Some(_) if input[offset..].starts_with("..") => (
             Token::Dotdot,
             input[offset + 2..].to_string(),

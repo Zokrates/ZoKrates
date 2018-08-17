@@ -155,19 +155,12 @@ impl Checker {
 
 				let expression_type = checked_expr.get_type();
 
-
-				// without type inference PUT THIS BACK!
-				// if expression_type != var._type {
-				// 	return Err( Error { message: format!("cannot assign {:?} to {:?}", expression_type, var._type) });
-				// }
-
-				// with type inference
+				if expression_type != var._type {
+					return Err( Error { message: format!("cannot assign {:?} to {:?}", expression_type, var._type) });
+				}
 
 				self.scope.insert(ScopedVariable {
-					id: Variable {
-						id: var.id.clone(),
-						_type: expression_type // this is where type inference happens
-					},
+					id: var.clone(),
 					level: self.level
 				});
 				Ok(TypedStatement::Definition(var, checked_expr))

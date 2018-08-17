@@ -158,6 +158,10 @@ pub fn parse_term1<T: Field>(
             Ok((e, s2, p2)) => Ok((Expression::Div(box expr, box e), s2, p2)),
             Err(err) => Err(err),
         },
+        (Token::Caret, s1, p1) => match parse_term(&s1, &p1) {
+            Ok((e, s2, p2)) => Ok((Expression::Xor(box expr, box e), s2, p2)),
+            Err(err) => Err(err),
+        },
         _ => Ok((expr, input, pos)),
     }
 }
