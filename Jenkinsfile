@@ -33,12 +33,12 @@ pipeline {
         stage('Rustfmt') {
             agent {
                 docker {
-                  image 'rust:latest'
+                  image 'rust:nightly'
                 }
             }
             steps {
                 script {
-                    sh "cargo +nightly fmt --all -- --check"
+                    sh "cargo fmt --all -- --check"
                 }
             }
         }
