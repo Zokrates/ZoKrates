@@ -38,7 +38,7 @@ pipeline {
             }
             steps {
                 script {
-                    cargo +nightly fmt --all -- --check
+                    sh "cargo +nightly fmt --all -- --check"
                 }
             }
         }
