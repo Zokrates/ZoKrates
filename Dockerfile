@@ -21,12 +21,10 @@ RUN apt-get update && apt-get install -y \
     python-markdown \
     git
 
+USER zokrates
+
 RUN curl https://sh.rustup.rs -sSf | \
     sh -s -- --default-toolchain $RUST_TOOLCHAIN -y
-
-ENV PATH /root/.cargo/bin:$PATH
-
-USER zokrates
 
 ENV PATH=/home/zokrates/.cargo/bin:$PATH
 

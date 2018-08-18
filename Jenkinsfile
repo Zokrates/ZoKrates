@@ -33,15 +33,9 @@ pipeline {
         stage('Rustfmt') {
             steps {
                 script {
-                    ansiColor('xterm') {
-                        dockerImage = docker.build("zokrates/zokrates")
-                        dockerImage.inside {
-                            // The build will fail if rustfmt thinks any changes are
-                            // required.
-                            sh 'rustup component add rustfmt-preview'
-                            sh 'cargo fmt --all -- --check'
-                        }
-                    }
+                    curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly
+                    rustup component add rustfmt-preview
+                    cargo fmt --all -- --check
                 }
             }
         }
@@ -49,6 +43,7 @@ pipeline {
             steps {
                 script {
                     ansiColor('xterm') {
+                        dockerImage = docker.build("zokrates/zokrates")
                         dockerImage.inside {
                             sh 'RUSTFLAGS="-D warnings" ./build.sh'
                         }
