@@ -38,7 +38,8 @@ pipeline {
                         dockerImage.inside {
                             // The build will fail if rustfmt thinks any changes are
                             // required.
-                            sh "cargo fmt --all -- --check"
+                            sh 'rustup component add rustfmt-preview'
+                            sh 'cargo fmt --all -- --check'
                         }
                     }
                 }
