@@ -31,11 +31,14 @@ pipeline {
             }
         }
         stage('Rustfmt') {
+            agent {
+                docker {
+                  image 'rust:latest'
+                }
+            }
             steps {
                 script {
-                    curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly
-                    rustup component add rustfmt-preview
-                    cargo fmt --all -- --check
+                    cargo +nightly fmt --all -- --check
                 }
             }
         }
