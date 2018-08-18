@@ -33,7 +33,7 @@ pipeline {
         stage('Rustfmt') {
             agent {
                 docker {
-                  image 'rust:nightly'
+                  image 'rustlang/rust:nightly'
                 }
             }
             steps {
