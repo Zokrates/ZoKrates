@@ -38,6 +38,7 @@ pipeline {
             }
             steps {
                 script {
+                    sh "rustup component add rustfmt-preview"
                     sh "cargo fmt --all -- --check"
                 }
             }
