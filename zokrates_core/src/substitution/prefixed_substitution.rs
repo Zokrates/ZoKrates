@@ -1,36 +1,33 @@
 //! A substitution which attributes the same prefix to related strings:
 //! foo_b12 -> _123_b12  =>  foo_b13 -> _123_b13
-//! 
+//!
 //! @file prefixed_substitution.rs
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
-use substitution::Substitution;
-use std::collections::HashMap;
 use regex::Regex;
+use std::collections::HashMap;
+use substitution::Substitution;
 
 #[derive(Debug, Clone)]
 pub struct PrefixedSubstitution {
     hashmap: HashMap<String, String>,
-    regex: Regex
+    regex: Regex,
 }
 
 impl Substitution for PrefixedSubstitution {
     fn new() -> PrefixedSubstitution {
         PrefixedSubstitution {
-            hashmap: {
-                HashMap::<String, String>::new()
-            },
-            regex: Regex::new(r"_b\d+$").unwrap()
+            hashmap: { HashMap::<String, String>::new() },
+            regex: Regex::new(r"_b\d+$").unwrap(),
         }
     }
 
-    fn insert(&mut self, key: String, element: String) -> Option<String>
-    {
+    fn insert(&mut self, key: String, element: String) -> Option<String> {
         let (p, _) = self.split_key(&key);
         match self.hashmap.get(p) {
             None => self.hashmap.insert(p.to_string(), element),
-            Some(_) => None
+            Some(_) => None,
         }
     }
 
@@ -39,13 +36,13 @@ impl Substitution for PrefixedSubstitution {
 
         let p_val = match self.hashmap.get(p) {
             Some(ref v) => Some(v.to_string()),
-            None => None
+            None => None,
         };
 
         match (s, p_val.clone()) {
             (Some(suffix), Some(v)) => Some(format!("{}{}", v, suffix)),
             (Some(_), None) => None,
-            (None, _) => p_val
+            (None, _) => p_val,
         }
     }
 
@@ -59,7 +56,7 @@ impl PrefixedSubstitution {
     fn split_key<'a>(&self, key: &'a str) -> (&'a str, Option<&'a str>) {
         match self.regex.find_iter(key).last() {
             Some(candidate) => (&key[0..candidate.start()], Some(&key[candidate.start()..])),
-            None => (key, None)
+            None => (key, None),
         }
     }
 }

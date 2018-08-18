@@ -1,7 +1,7 @@
 use field::Field;
 
+use parser::tokenize::{next_token, Position, Token};
 use parser::Error;
-use parser::tokenize::{Token, Position, next_token};
 
 use absy::{Condition, Expression};
 
