@@ -30,7 +30,7 @@ pipeline {
                 }
             }
         }
-        stage('Rustfmt') {
+        stage('Format') {
             agent {
                 docker {
                   image 'rustlang/rust:nightly'
@@ -40,6 +40,19 @@ pipeline {
                 script {
                     sh "rustup component add rustfmt-preview"
                     sh "cargo fmt --all -- --check"
+                }
+            }
+        }
+        stage('Lint') {
+            agent {
+                docker {
+                  image 'rustlang/rust:nightly'
+                }
+            }
+            steps {
+                script {
+                    sh "rustup component add clippy-preview"
+                    sh "cargo clippy"
                 }
             }
         }
