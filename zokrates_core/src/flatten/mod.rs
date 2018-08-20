@@ -508,7 +508,7 @@ impl Flattener {
                             );
                             new_var = format!("{}param_{}", &prefix, i);
                             for i in 0..8 {
-                                let new_bin_var = format!("{}{}{}", new_var, BINARY_SEPARATOR, i);
+                                let new_bin_var = format!("{}_{}", new_var, i);
                                 statements_flattened
                                     .push(FlatStatement::Definition(
                                         new_bin_var.clone(), 
@@ -593,14 +593,14 @@ impl Flattener {
                 FlatExpression::Number(T::from(if x & 0b0000_0001 != 0 {1} else {0})),
             ],
             Unsigned8Expression::Identifier(x) => [
-                FlatExpression::Identifier(format!("{}{}{}", x, BINARY_SEPARATOR, 0)),
-                FlatExpression::Identifier(format!("{}{}{}", x, BINARY_SEPARATOR, 1)),
-                FlatExpression::Identifier(format!("{}{}{}", x, BINARY_SEPARATOR, 2)),
-                FlatExpression::Identifier(format!("{}{}{}", x, BINARY_SEPARATOR, 3)),
-                FlatExpression::Identifier(format!("{}{}{}", x, BINARY_SEPARATOR, 4)),
-                FlatExpression::Identifier(format!("{}{}{}", x, BINARY_SEPARATOR, 5)),
-                FlatExpression::Identifier(format!("{}{}{}", x, BINARY_SEPARATOR, 6)),
-                FlatExpression::Identifier(format!("{}{}{}", x, BINARY_SEPARATOR, 7)),
+                FlatExpression::Identifier(format!("{}_{}", x, 0)),
+                FlatExpression::Identifier(format!("{}_{}", x, 1)),
+                FlatExpression::Identifier(format!("{}_{}", x, 2)),
+                FlatExpression::Identifier(format!("{}_{}", x, 3)),
+                FlatExpression::Identifier(format!("{}_{}", x, 4)),
+                FlatExpression::Identifier(format!("{}_{}", x, 5)),
+                FlatExpression::Identifier(format!("{}_{}", x, 6)),
+                FlatExpression::Identifier(format!("{}_{}", x, 7)),
             ],
             Unsigned8Expression::Xor(box left, box right) => {
                 let left_flattened = self.flatten_uint8_expression(
@@ -970,7 +970,7 @@ impl Flattener {
                         let var = self.use_variable(&v.id);
 
                         for (i, rhs) in rhs_list.iter().enumerate() {
-                            statements_flattened.push(FlatStatement::Definition(format!("{}{}{}", var, BINARY_SEPARATOR, i), rhs.clone()));
+                            statements_flattened.push(FlatStatement::Definition(format!("{}_{}", var, i), rhs.clone()));
                         }
                     },
                     _ => panic!("Definitions must have type FieldElement")
@@ -1117,9 +1117,10 @@ impl Flattener {
                     });
                 },
                 Type::Unsigned8 => {
-                    for _ in 0..8 {
+                    let var = self.use_variable(&arg.id.id);
+                    for i in 0..8 {
                         arguments_flattened.push(FlatParameter {
-                            id: self.use_variable(&arg.id.id), 
+                            id: format!("{}_{}", var, i), 
                             private: arg.private
                         });
                     }
