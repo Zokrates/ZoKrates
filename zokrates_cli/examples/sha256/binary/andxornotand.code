@@ -4,5 +4,5 @@ import "./and.code" as AND
 import "./xor.code" as XOR
 import "./not.code" as NOT
 
-def main(a, b, c):
+def main(field a, field b, field c) -> (field):
 	return XOR(AND(a, b), AND(NOT(a), c))

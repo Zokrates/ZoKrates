@@ -1,5 +1,5 @@
-def sub(a):
-  a = a + 3
+def sub(field a) -> (field):
+  field a = a + 3
   return a
 
 def main():

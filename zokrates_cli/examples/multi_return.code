@@ -1,7 +1,7 @@
-def foo(a):
-	b = 12*a
+def foo(field a) -> (field):
+	field b = 12*a
 	return a, 2*a, 5*b, a*b
 
-def main(i):
+def main(i) -> (field):
 	x, y, z, t = foo(i)
     return 1

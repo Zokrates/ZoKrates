@@ -1,4 +1,4 @@
 import "./foo.code" as d
 
-def main():
+def main() -> (field):
 	return d()
