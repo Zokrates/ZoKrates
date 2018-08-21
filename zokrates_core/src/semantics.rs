@@ -6,7 +6,7 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2017
 
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashSet};
 use absy::*;
 use field::Field;
 use std::fmt;
@@ -15,6 +15,8 @@ use absy::variable::Variable;
 use typed_absy::*;
 
 use types::Type;
+
+use std::hash::{Hash, Hasher};
 
 #[derive(PartialEq, Debug)]
 pub struct Error {
@@ -83,11 +85,25 @@ impl FunctionQuery {
 	}
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Debug)]
+
 pub struct ScopedVariable {
 	id: Variable,
 	level: usize
 }
+
+impl Hash for ScopedVariable {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+impl PartialEq for ScopedVariable {
+    fn eq(&self, other: &ScopedVariable) -> bool {
+        self.id == other.id
+    }
+}
+impl Eq for ScopedVariable {}
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct FunctionDeclaration {
@@ -97,7 +113,7 @@ pub struct FunctionDeclaration {
 
 // Checker, checks the semantics of a program.
 pub struct Checker {
-	scope: HashMap<String, ScopedVariable>,
+	scope: HashSet<ScopedVariable>,
 	functions: HashSet<FunctionDeclaration>,
 	level: usize
 }
@@ -105,7 +121,7 @@ pub struct Checker {
 impl Checker {
 	pub fn new() -> Checker {
 		Checker {
-			scope: HashMap::new(),
+			scope: HashSet::new(),
 			functions: HashSet::new(),
 			level: 0
 		}
@@ -229,7 +245,7 @@ impl Checker {
 				let expression_type = checked_expr.get_type();
 
 				// check that the variable is declared
-				let var = match self.scope.get(variable_name) {
+				let var = match self.scope.get(&ScopedVariable { id: Variable { id: variable_name.clone(), _type: Type::FieldElement }, level: 0 }) {
 					Some(var) => {
 						if expression_type != var.id.get_type() {
 							return Err( Error { message: format!("Expression of type {} cannot be assigned to {} of type {}", expression_type, var.id.id, var.id.get_type()) });
@@ -277,7 +293,7 @@ impl Checker {
 
                     	// find lhs types
                     	let vars_types: Vec<Option<Type>> = var_names.iter().map(|name| 
-		        			match self.scope.get(name) {
+		        			match self.scope.get(&ScopedVariable { id: Variable { id: name.clone(), _type: Type::FieldElement }, level: 0 }) {
 			            		None => None,
 			            		Some(sv) => Some(sv.id.get_type())
 			            	}
@@ -325,7 +341,7 @@ impl Checker {
 		match expr {
 			&Expression::Identifier(ref variable) => {
 				// check that `id` is defined in the scope
-				match self.scope.get(variable) {
+				match self.scope.get(&ScopedVariable { id: Variable { id: variable.clone(), _type: Type::FieldElement }, level: 0 }) {
 					Some(v) => match v.clone().id.get_type() {
 						Type::Boolean => Ok(BooleanExpression::Identifier(variable.to_string()).into()),
 						Type::FieldElement => Ok(FieldElementExpression::Identifier(variable.to_string()).into()),
@@ -496,8 +512,8 @@ impl Checker {
 		}
 	}
 
-	fn insert_scope(&mut self, v: Variable) -> Option<ScopedVariable> {
-		self.scope.insert(v.id.clone(), ScopedVariable {
+	fn insert_scope(&mut self, v: Variable) -> bool {
+		self.scope.insert(ScopedVariable {
 			id: v,
 			level: self.level
 		})
@@ -513,7 +529,7 @@ impl Checker {
 
 	fn exit_scope(&mut self) -> () {
 		let current_level = self.level;
-		self.scope.retain(|_, ref scoped_variable| scoped_variable.level < current_level);
+		self.scope.retain(|ref scoped_variable| scoped_variable.level < current_level);
 		self.level -= 1;
 	}
 }
@@ -524,7 +540,7 @@ mod tests {
 	use field::FieldPrime;
 	use absy::parameter::Parameter;
 
-	pub fn new_with_args(scope: HashMap<String, ScopedVariable>, level: usize, functions: HashSet<FunctionDeclaration>) -> Checker {
+	pub fn new_with_args(scope: HashSet<ScopedVariable>, level: usize, functions: HashSet<FunctionDeclaration>) -> Checker {
 		Checker {
 			scope: scope,
 			functions: functions,
@@ -553,13 +569,14 @@ mod tests {
 			Expression::Identifier(String::from("b"))
 		);
 
-		let mut scope = HashMap::new();
-		scope.insert(String::from("a"), ScopedVariable {
+		let mut scope = HashSet::new();
+		scope.insert(ScopedVariable {
 			id: Variable::field_element("a"),
 			level: 0
 		});
-		scope.insert(String::from("b"), ScopedVariable {
+		scope.insert(ScopedVariable {
 			id: Variable::field_element("b"),
+
 			level: 0
 		});
 		let mut checker = new_with_args(scope, 1, HashSet::new());
@@ -853,7 +870,7 @@ mod tests {
             }		
         };
 
-		let mut checker = new_with_args(HashMap::new(), 0, functions);
+		let mut checker = new_with_args(HashSet::new(), 0, functions);
 		assert_eq!(checker.check_function(&bar), Err(Error { message: "Function definition for function foo with signature () -> (field) not found.".to_string() }));
 	}
 
@@ -890,7 +907,7 @@ mod tests {
 			}
 		};
 
-		let mut checker = new_with_args(HashMap::new(), 0, functions);
+		let mut checker = new_with_args(HashSet::new(), 0, functions);
 		assert_eq!(checker.check_function(&bar), Err(Error { message: "Function definition for function foo with signature () -> (_) not found.".to_string() }));
 	}
 
@@ -918,7 +935,7 @@ mod tests {
 			}
 		};
 
-		let mut checker = new_with_args(HashMap::new(), 0, HashSet::new());
+		let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
 		assert_eq!(checker.check_function(&bar), Err(Error { message: "Function definition for function foo with signature () -> (field) not found.".to_string() }));
 	}
 
@@ -986,7 +1003,7 @@ mod tests {
 			imported_functions: vec![]
 		};
 
-		let mut checker = new_with_args(HashMap::new(), 0, HashSet::new());
+		let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
 		assert_eq!(checker.check_program(program), Err(Error { message: "x is undefined".to_string() }));
 	}
 
@@ -1010,7 +1027,7 @@ mod tests {
 			}
 		};
 
-		let mut checker = new_with_args(HashMap::new(), 0, HashSet::new());
+		let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
 		assert_eq!(checker.check_function(&bar), Err(Error { message: "Function definition for function foo with signature () -> (_) not found.".to_string() }));
 	}
 
@@ -1036,7 +1053,7 @@ mod tests {
 			}
 		};
 
-		let mut checker = new_with_args(HashMap::new(), 0, HashSet::new());
+		let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
 		assert_eq!(checker.check_function(&bar), Err(Error { message: "a is undefined".to_string() }));
 	}
 
@@ -1120,7 +1137,7 @@ mod tests {
 			}
 		};
 
-		let mut checker = new_with_args(HashMap::new(), 0, functions);
+		let mut checker = new_with_args(HashSet::new(), 0, functions);
 		assert_eq!(checker.check_function(&bar), Ok(bar_checked));
 	}
 
@@ -1168,7 +1185,7 @@ mod tests {
             }
 		};
 
-		let mut checker = new_with_args(HashMap::new(), 0, functions);
+		let mut checker = new_with_args(HashSet::new(), 0, functions);
 		assert_eq!(checker.check_function(&foo2), Err(Error { message: "Duplicate definition for function foo with signature (field, field) -> (field)".to_string() }));
 	}
 
