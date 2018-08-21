@@ -388,7 +388,7 @@ impl Flattener {
                     }
                 };
 
-                self.function_calls.insert(funct.id.clone(),counter);
+                self.function_calls.insert(funct.id.clone(), counter);
 
                 let prefix = format!("{}_i{}o{}_{}_", funct.id.clone(), funct.arguments.len(), funct.return_count, counter);
 

@@ -217,6 +217,13 @@ impl Checker {
                 Ok(TypedStatement::Declaration(var.clone()))
             }
 			Statement::Definition(variable_name, expr) => {
+				// we create multidef when rhs is a function call to benefit from inference
+				// check rhs is not a function call here
+				match expr {
+					Expression::FunctionCall(..) => panic!("Parser should not generate Definition where the right hand side is a FunctionCall"),
+					_ => {}
+				}
+
 				// check the expression to be assigned
 				let checked_expr = self.check_expression(&expr)?;
 				let expression_type = checked_expr.get_type();
@@ -225,7 +232,7 @@ impl Checker {
 				let var = match self.scope.get(variable_name) {
 					Some(var) => {
 						if expression_type != var.id.get_type() {
-							return Err( Error { message: format!("cannot assign {:?} to {:?}", expression_type, var.id.get_type()) });
+							return Err( Error { message: format!("Expression of type {} cannot be assigned to {} of type {}", expression_type, var.id.id, var.id.get_type()) });
 						}
 
 						Ok(var.id.clone())
