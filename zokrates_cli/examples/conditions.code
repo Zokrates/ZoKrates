@@ -1,6 +1,6 @@
-def main(field a):
+def main(field a) -> (field):
   field b = (a + 5) * 6
   2 * b == a * 12 + 60
   field c = 7 * (b + a)
-  field c == 7 * b + 7 * a
+  c == 7 * b + 7 * a
   return b + c

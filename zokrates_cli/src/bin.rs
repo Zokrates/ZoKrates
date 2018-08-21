@@ -540,11 +540,15 @@ mod tests {
 
     #[test]
     fn examples() {
-        for p in glob("./examples/*.code").expect("Failed to read glob pattern") {
+        for p in glob("./examples/**/*.code").expect("Failed to read glob pattern") {
             let path = match p {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
             };
+
+            if path.to_str().unwrap().contains("error") {
+                continue
+            }
 
             println!("Testing {:?}", path);
 
@@ -553,7 +557,7 @@ mod tests {
             let mut reader = BufReader::new(file);
 
             let program_flattened: FlatProg<FieldPrime> =
-                compile(&mut reader, path, Some(fs_resolve), true, false).unwrap();
+                compile(&mut reader, path.parent().unwrap().to_path_buf(), Some(fs_resolve), true, false).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
         }
@@ -561,7 +565,7 @@ mod tests {
 
     #[test]
     fn examples_with_input_success() {
-        // these examples should compile and run
+        //these examples should compile and run
         for p in glob("./examples/test*.code").expect("Failed to read glob pattern") {
             let path = match p {
                 Ok(x) => x,
@@ -574,7 +578,7 @@ mod tests {
             let mut reader = BufReader::new(file);
 
             let program_flattened: FlatProg<FieldPrime> =
-                compile(&mut reader, path, Some(fs_resolve), true, false).unwrap();
+                compile(&mut reader, path.parent().unwrap().to_path_buf(), Some(fs_resolve), true, false).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
             let _ = program_flattened.get_witness(vec![FieldPrime::from(0)]).unwrap();
@@ -583,7 +587,7 @@ mod tests {
 
     #[test]
     fn examples_with_input_failure() {
-        // these examples should compile but not run
+        //these examples should compile but not run
         for p in glob("./examples/runtime_errors/*.code").expect("Failed to read glob pattern") {
             let path = match p {
                 Ok(x) => x,
@@ -596,7 +600,7 @@ mod tests {
             let mut reader = BufReader::new(file);
 
             let program_flattened: FlatProg<FieldPrime> =
-                compile(&mut reader, path, Some(fs_resolve), true, false).unwrap();
+                compile(&mut reader, path.parent().unwrap().to_path_buf(), Some(fs_resolve), true, false).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
 

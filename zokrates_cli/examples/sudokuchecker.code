@@ -9,7 +9,7 @@
 // | c21 | c22 || d21 | d22 |
 
 def checkEquality(field e11,field e12,field e21,field e22) -> (field):
-counter = if e11 == e12 then 1 else 0 fi
+field counter = if e11 == e12 then 1 else 0 fi
 counter = counter + if e11 == e21 then 1 else 0 fi
 counter = counter + if e11 == e22 then 1 else 0 fi
 counter = counter + if e12 == e21 then 1 else 0 fi

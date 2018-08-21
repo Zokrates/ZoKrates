@@ -5,6 +5,6 @@ def add(field a,field b) -> (field):
   field a=const()
   return a+b
 
-def main(a,b) -> (field):
+def main(field a,field b) -> (field):
   field c = add(a, b+const())
   return const()

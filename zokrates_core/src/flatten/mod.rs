@@ -738,6 +738,10 @@ impl Flattener {
                     )
                 );
             }
+            TypedStatement::Declaration(_) => {
+                // declarations have already been checked
+                ()
+            }
             TypedStatement::Definition(ref v, ref expr) => {
 
                 // define n variables with n the number of primitive types for v_type

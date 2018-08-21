@@ -85,6 +85,8 @@ fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader
 	    	for import in program_ast_without_imports.imports.iter() {
 	    		// find the absolute path for the import, based on the path of the file which imports it
 	    		let absolute_import_path = location.join(import.get_source());
+	    		println!("compile {:?}", absolute_import_path);
+
 	    		match resolve(&absolute_import_path) {
 	    			Ok(mut res) => {
 			    		let compiled = compile_aux(&mut res, absolute_import_path.parent().unwrap().to_path_buf(), resolve_option, should_include_gadgets)?;
@@ -137,7 +139,7 @@ mod test {
 	fn no_resolver_with_imports() {
 		let mut r = BufReader::new(r#"
 			import "./path/to/file" as foo
-			def main():
+			def main() -> (field):
 			   return foo()
 		"#.as_bytes());
 		let res: Result<FlatProg<FieldPrime>, CompileError<FieldPrime>> = compile(&mut r, PathBuf::from("./path/to/file"), None::<fn(&PathBuf) -> Result<BufReader<Empty>, io::Error>>, false, false);
@@ -147,7 +149,7 @@ mod test {
 	#[test]
 	fn no_resolver_without_imports() {
 		let mut r = BufReader::new(r#"
-			def main():
+			def main() -> (field):
 			   return 1
 		"#.as_bytes());
 		let res: Result<FlatProg<FieldPrime>, CompileError<FieldPrime>> = compile(&mut r, PathBuf::from("./path/to/file"), None::<fn(&PathBuf) -> Result<BufReader<Empty>, io::Error>>, false, false);

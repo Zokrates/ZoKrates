@@ -123,16 +123,18 @@ impl<T: Field> fmt::Debug for Function<T> {
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub enum Statement<T: Field> {
     Return(ExpressionList<T>),
-    Definition(Variable, Expression<T>),
+    Declaration(Variable),
+    Definition(String, Expression<T>),
     Condition(Expression<T>, Expression<T>),
     For(Variable, T, T, Vec<Statement<T>>),
-    MultipleDefinition(Vec<Variable>, Expression<T>),
+    MultipleDefinition(Vec<String>, Expression<T>),
 }
 
 impl<T: Field> fmt::Display for Statement<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Statement::Return(ref expr) => write!(f, "return {}", expr),
+            Statement::Declaration(ref var) => write!(f, "{}", var),
             Statement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             Statement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             Statement::For(ref var, ref start, ref stop, ref list) => {
@@ -159,6 +161,7 @@ impl<T: Field> fmt::Debug for Statement<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Statement::Return(ref expr) => write!(f, "Return({:?})", expr),
+            Statement::Declaration(ref var) => write!(f, "Declaration({:?})", var),
             Statement::Definition(ref lhs, ref rhs) => {
                 write!(f, "Definition({:?}, {:?})", lhs, rhs)
             }

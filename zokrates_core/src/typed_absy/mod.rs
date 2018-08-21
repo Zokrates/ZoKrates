@@ -123,6 +123,7 @@ impl<T: Field> fmt::Debug for TypedFunction<T> {
 pub enum TypedStatement<T: Field> {
     Return(Vec<TypedExpression<T>>),
     Definition(Variable, TypedExpression<T>),
+    Declaration(Variable),
     Condition(TypedExpression<T>, TypedExpression<T>),
     For(Variable, T, T, Vec<TypedStatement<T>>),
     MultipleDefinition(Vec<Variable>, TypedExpressionList<T>),
@@ -141,6 +142,9 @@ impl<T: Field> fmt::Debug for TypedStatement<T> {
                 }
                 write!(f, ")")
             },
+            TypedStatement::Declaration(ref var) => {
+                write!(f, "Declaration({:?})", var)
+            }
             TypedStatement::Definition(ref lhs, ref rhs) => {
                 write!(f, "Definition({:?}, {:?})", lhs, rhs)
             }
@@ -173,6 +177,7 @@ impl<T: Field> fmt::Display for TypedStatement<T> {
                 }
                 write!(f, "")
             },
+            TypedStatement::Declaration(ref var) => write!(f, "{}", var),
             TypedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             TypedStatement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {

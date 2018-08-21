@@ -1,4 +1,4 @@
-def main(field x):
+def main(field x) -> (field):
   field a = x + 5
   field b = a + x
   a = 7

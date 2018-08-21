@@ -299,13 +299,18 @@ pub fn parse_function<T: Field, R: BufRead>(
                     col: 1,
                 },
             ) {
-                Ok((Statement::Return(list), ..)) => {
-                    stats.push(Statement::Return(list));
-                    break;
-                }
-                Ok((statement, _, pos)) => {
-                    stats.push(statement);
-                    current_line = pos.line // update the interal line counter to continue where statement ended.
+                Ok((ref statements, _, ref pos)) => {
+                    for stat in statements {
+                        stats.push(stat.clone());
+                    }
+                    match statements[0] {
+                        Statement::Return(_) => {
+                            break;
+                        },
+                        _ => {
+                            current_line = pos.line // update the interal line counter to continue where statement ended.
+                        }
+                    }
                 }
                 Err(err) => return Err(err),
             },
