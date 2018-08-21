@@ -85,8 +85,6 @@ fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader
 	    	for import in program_ast_without_imports.imports.iter() {
 	    		// find the absolute path for the import, based on the path of the file which imports it
 	    		let absolute_import_path = location.join(import.get_source());
-	    		println!("compile {:?}", absolute_import_path);
-
 	    		match resolve(&absolute_import_path) {
 	    			Ok(mut res) => {
 			    		let compiled = compile_aux(&mut res, absolute_import_path.parent().unwrap().to_path_buf(), resolve_option, should_include_gadgets)?;

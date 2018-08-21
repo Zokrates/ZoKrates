@@ -2,6 +2,6 @@ def main(field a) -> (field):
   field x = 7
   for field i in 0..10 do
     // x = x + a
-    field x = x + a
+    x = x + a
   endfor
   return x

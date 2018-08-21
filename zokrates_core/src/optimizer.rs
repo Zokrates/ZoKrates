@@ -40,6 +40,7 @@ impl Optimizer {
 	}
 
 	pub fn optimize_program<T: Field>(&mut self, prog: FlatProg<T>) -> FlatProg<T> {
+		println!("optimizing");
 		let optimized_program = FlatProg {
 			functions: prog.functions.into_iter().filter_map(|func| {
 				if func.id == "main" {

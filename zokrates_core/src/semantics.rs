@@ -6,7 +6,7 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2017
 
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use absy::*;
 use field::Field;
 use std::fmt;
@@ -31,6 +31,29 @@ pub struct FunctionQuery {
 	id: String,
 	inputs: Vec<Type>,
 	outputs: Vec<Option<Type>>
+}
+
+impl fmt::Display for FunctionQuery {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    	try!(write!(f, "("));
+    	for (i, t) in self.inputs.iter().enumerate() {
+            try!(write!(f, "{}", t));
+            if i < self.inputs.len() - 1 {
+                try!(write!(f, ", "));
+            }
+        }
+        try!(write!(f, ") -> ("));
+        for (i, t) in self.outputs.iter().enumerate() {
+        	match t {
+        		Some(t) => try!(write!(f, "{}", t)),
+        		None => try!(write!(f, "_"))
+        	}
+            if i < self.outputs.len() - 1 {
+                try!(write!(f, ", "));
+            }
+        }
+        write!(f, ")")
+    }
 }
 
 impl FunctionQuery {
@@ -74,7 +97,7 @@ pub struct FunctionDeclaration {
 
 // Checker, checks the semantics of a program.
 pub struct Checker {
-	scope: HashSet<ScopedVariable>,
+	scope: HashMap<String, ScopedVariable>,
 	functions: HashSet<FunctionDeclaration>,
 	level: usize
 }
@@ -82,7 +105,7 @@ pub struct Checker {
 impl Checker {
 	pub fn new() -> Checker {
 		Checker {
-			scope: HashSet::new(),
+			scope: HashMap::new(),
 			functions: HashSet::new(),
 			level: 0
 		}
@@ -110,6 +133,7 @@ impl Checker {
 			});
 		}
 		self.check_single_main()?;
+
 		Ok(TypedProg {
 			functions: checked_functions,
 			imported_functions: prog.imported_functions,
@@ -135,18 +159,21 @@ impl Checker {
 	fn check_function<T: Field>(&mut self, funct: &Function<T>) -> Result<TypedFunction<T>, Error> {
 		assert_eq!(funct.arguments.len(), funct.signature.inputs.len());
 
-		let candidates = self.find_candidates(&funct.id, &funct.signature.inputs, &funct.signature.outputs.clone().into_iter().map(|o| Some(o)).collect());
+		let query = FunctionQuery::new(funct.id.clone(), &funct.signature.inputs, &funct.signature.outputs.clone().into_iter().map(|o| Some(o)).collect());
+
+		let candidates = self.find_candidates(&query);
 
 		match candidates.len() {
 			1 => {
-				return Err(Error { message: format!("Duplicate definition for function {} with {} arguments", funct.id, funct.arguments.len()) })
+				return Err(Error { message: format!("Duplicate definition for function {} with signature {}", funct.id, funct.signature )})
 			},
 			0 => {
 
 			},
 			_ => panic!("dupllicate function declaration should have been caught")
 		}
-		self.level += 1;
+
+		self.enter_scope();
 
 		for arg in funct.arguments.clone() {
 			self.insert_scope(arg.id);
@@ -154,18 +181,13 @@ impl Checker {
 
 		let mut statements_checked = vec![];
 
-		for stat in funct.statements.clone() {
+		for stat in funct.statements.iter() {
 			let checked_stat = self.check_statement(stat, &funct.signature.outputs)?;
 			statements_checked.push(checked_stat);
 		}
 
-		let current_level = self.level.clone();
-		let current_scope = self.scope.clone();
-		let to_remove = current_scope.iter().filter(|symbol| symbol.level == current_level);
-		for symbol in to_remove {
-			self.scope.remove(symbol);
-		}
-		self.level -= 1;
+		self.exit_scope();
+
 		Ok(TypedFunction {
 			id: funct.id.clone(),
 			arguments: funct.arguments.clone(),
@@ -174,7 +196,7 @@ impl Checker {
 		})
 	}
 
-	fn check_statement<T: Field>(&mut self, stat: Statement<T>, header_return_types: &Vec<Type>) -> Result<TypedStatement<T>, Error> {
+	fn check_statement<T: Field>(&mut self, stat: &Statement<T>, header_return_types: &Vec<Type>) -> Result<TypedStatement<T>, Error> {
 		match stat {
 			Statement::Return(ref list) => {
 				let mut expression_list_checked = vec![];
@@ -190,30 +212,30 @@ impl Checker {
 					false => Err( Error { message: format!("Expected {:?} in return statement, found {:?}", header_return_types, return_statement_types)})
 				}
 			}
-            Statement::Declaration(var) => {
+            Statement::Declaration(ref var) => {
                 self.insert_scope(var.clone());
-                Ok(TypedStatement::Declaration(var))
+                Ok(TypedStatement::Declaration(var.clone()))
             }
 			Statement::Definition(variable_name, expr) => {
 				// check the expression to be assigned
 				let checked_expr = self.check_expression(&expr)?;
 				let expression_type = checked_expr.get_type();
 
-				// check that the variable is defined
-				let var = match self.scope.iter().find(|v| v.id.id == variable_name) {
+				// check that the variable is declared
+				let var = match self.scope.get(variable_name) {
 					Some(var) => {
 						if expression_type != var.id.get_type() {
 							return Err( Error { message: format!("cannot assign {:?} to {:?}", expression_type, var.id.get_type()) });
 						}
 
-						Ok(var)
+						Ok(var.id.clone())
 					},
 					None => {
 						Err( Error { message: format!("Undeclared variable: {:?}", variable_name) })
 					}
 				}?;
 
-				Ok(TypedStatement::Definition(var.id.clone(), checked_expr))
+				Ok(TypedStatement::Definition(var, checked_expr))
 			}
 			Statement::Condition(lhs, rhs) => {
 				let checked_lhs = self.check_expression(&lhs)?;
@@ -224,8 +246,8 @@ impl Checker {
 					(e1, e2) => Err( Error { message: format!("cannot compare {:?} to {:?}", e1.get_type(), e2.get_type()) })				
 				}
 			}
-			Statement::For(var, from, to, statements) => {
-				self.level += 1;
+			Statement::For(ref var, ref from, ref to, ref statements) => {
+				self.enter_scope();
 
 				self.check_for_var(&var)?;
 
@@ -238,15 +260,8 @@ impl Checker {
 					checked_statements.push(checked_stat);
 				}
 
-				let current_level = self.level.clone();
-				let current_scope = self.scope.clone();
-				let to_remove = current_scope.iter().filter(|symbol| symbol.level == current_level);
-				for symbol in to_remove {
-					self.scope.remove(symbol);
-				}
-				self.level -= 1;
-
-				Ok(TypedStatement::For(var, from, to, checked_statements))
+				self.exit_scope();
+				Ok(TypedStatement::For(var.clone(), from.clone(), to.clone(), checked_statements))
 			},
             Statement::MultipleDefinition(var_names, rhs) => {
                 match rhs {
@@ -255,7 +270,7 @@ impl Checker {
 
                     	// find lhs types
                     	let vars_types: Vec<Option<Type>> = var_names.iter().map(|name| 
-		        			match self.scope.clone().into_iter().find(|v| &v.id.id == name) {
+		        			match self.scope.get(name) {
 			            		None => None,
 			            		Some(sv) => Some(sv.id.get_type())
 			            	}
@@ -270,7 +285,8 @@ impl Checker {
 
                     	let arguments_types = arguments_checked.iter().map(|a| a.get_type()).collect();
 
-                    	let candidates = self.find_candidates(fun_id, &arguments_types, &vars_types).clone();
+						let query = FunctionQuery::new(fun_id.to_string(), &arguments_types, &vars_types);
+                    	let candidates = self.find_candidates(&query).clone();
 
                     	match candidates.len() {
                     		// the function has to be defined
@@ -288,7 +304,7 @@ impl Checker {
 
                     			Ok(TypedStatement::MultipleDefinition(lhs.collect(), TypedExpressionList::FunctionCall(f.id.clone(), arguments_checked, f.signature.outputs.clone())))
                     		},
-                    		0 => Err(Error { message: format!("Function definition for function {} with arguments {:?} not found.", fun_id, arguments_types) }),
+                    		0 => Err(Error { message: format!("Function definition for function {} with signature {} not found.", fun_id, query) }),
                     		_ => Err(Error { message: format!("Function call for function {} with arguments {:?} is ambiguous.", fun_id, arguments_types) }),
                     	}
                     },
@@ -302,7 +318,7 @@ impl Checker {
 		match expr {
 			&Expression::Identifier(ref variable) => {
 				// check that `id` is defined in the scope
-				match self.scope.iter().find(|v| v.id.id == variable.to_string()) {
+				match self.scope.get(variable) {
 					Some(v) => match v.clone().id.get_type() {
 						Type::Boolean => Ok(BooleanExpression::Identifier(variable.to_string()).into()),
 						Type::FieldElement => Ok(FieldElementExpression::Identifier(variable.to_string()).into()),
@@ -394,7 +410,9 @@ impl Checker {
 
             	// outside of multidef, function calls must have a single return value
             	// we use type inference to determine the type of the return, so we don't specify it
-            	let candidates = self.find_candidates(fun_id, &arguments_types, &vec![None]);
+            	let query = FunctionQuery::new(fun_id.to_string(), &arguments_types, &vec![None]);
+
+            	let candidates = self.find_candidates(&query);
 
             	match candidates.len() {
             		// the function has to be defined
@@ -409,7 +427,7 @@ impl Checker {
             			}
             			Err(Error { message: format!("{} returns {} values but is called outside of a definition", f.id, f.signature.outputs.len()) })
             		},
-            		0 => Err(Error { message: format!("Function definition for function {} with arguments {:?} not found.", fun_id, arguments_types) }),
+            		0 => Err(Error { message: format!("Function definition for function {} with signature {} not found.", fun_id, query) }),
             		_ => panic!("duplicate definition should have been caught before the call")
             	}
             },
@@ -471,19 +489,25 @@ impl Checker {
 		}
 	}
 
-	fn insert_scope(&mut self, v: Variable) -> bool {
-		println!("var!");
-		self.scope.insert(ScopedVariable {
+	fn insert_scope(&mut self, v: Variable) -> Option<ScopedVariable> {
+		self.scope.insert(v.id.clone(), ScopedVariable {
 			id: v,
 			level: self.level
 		})
 	}
 
-	fn find_candidates(&self, id: &str, arg_types: &Vec<Type>, return_types: &Vec<Option<Type>>) -> Vec<FunctionDeclaration> {
-
-		let query = FunctionQuery::new(String::from(id), arg_types, return_types);
-
+	fn find_candidates(&self, query: &FunctionQuery) -> Vec<FunctionDeclaration> {
 		query.match_funcs(self.functions.clone().into_iter().collect())
+	}
+
+	fn enter_scope(&mut self) -> () {
+		self.level += 1;
+	}
+
+	fn exit_scope(&mut self) -> () {
+		let current_level = self.level;
+		self.scope.retain(|_, ref scoped_variable| scoped_variable.level < current_level);
+		self.level -= 1;
 	}
 }
 
@@ -493,7 +517,7 @@ mod tests {
 	use field::FieldPrime;
 	use absy::parameter::Parameter;
 
-	pub fn new_with_args(scope: HashSet<ScopedVariable>, level: usize, functions: HashSet<FunctionDeclaration>) -> Checker {
+	pub fn new_with_args(scope: HashMap<String, ScopedVariable>, level: usize, functions: HashSet<FunctionDeclaration>) -> Checker {
 		Checker {
 			scope: scope,
 			functions: functions,
@@ -510,7 +534,7 @@ mod tests {
 			Expression::Identifier(String::from("b"))
 		);
 		let mut checker = Checker::new();
-		assert_eq!(checker.check_statement(statement, &vec![]), Err(Error { message: "b is undefined".to_string() }));
+		assert_eq!(checker.check_statement(&statement, &vec![]), Err(Error { message: "b is undefined".to_string() }));
 	}
 
 	#[test]
@@ -521,17 +545,18 @@ mod tests {
 			String::from("a"),
 			Expression::Identifier(String::from("b"))
 		);
-		let mut scope = HashSet::new();
-		scope.insert(ScopedVariable {
+
+		let mut scope = HashMap::new();
+		scope.insert(String::from("a"), ScopedVariable {
 			id: Variable::field_element("a"),
 			level: 0
 		});
-		scope.insert(ScopedVariable {
+		scope.insert(String::from("b"), ScopedVariable {
 			id: Variable::field_element("b"),
 			level: 0
 		});
 		let mut checker = new_with_args(scope, 1, HashSet::new());
-		assert_eq!(checker.check_statement(statement, &vec![]), 
+		assert_eq!(checker.check_statement(&statement, &vec![]), 
 			Ok(
 				TypedStatement::Definition(
 					Variable::field_element("a"),
@@ -821,8 +846,8 @@ mod tests {
             }		
         };
 
-		let mut checker = new_with_args(HashSet::new(), 0, functions);
-		assert_eq!(checker.check_function(&bar), Err(Error { message: "foo returns 2 values but left side is of size 1".to_string() }));
+		let mut checker = new_with_args(HashMap::new(), 0, functions);
+		assert_eq!(checker.check_function(&bar), Err(Error { message: "Function definition for function foo with signature () -> (field) not found.".to_string() }));
 	}
 
 	#[test]
@@ -858,8 +883,8 @@ mod tests {
 			}
 		};
 
-		let mut checker = new_with_args(HashSet::new(), 0, functions);
-		assert_eq!(checker.check_function(&bar), Err(Error { message: "foo returns 2 values but is called outside of a definition".to_string() }));
+		let mut checker = new_with_args(HashMap::new(), 0, functions);
+		assert_eq!(checker.check_function(&bar), Err(Error { message: "Function definition for function foo with signature () -> (_) not found.".to_string() }));
 	}
 
 	#[test]
@@ -886,8 +911,8 @@ mod tests {
 			}
 		};
 
-		let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
-		assert_eq!(checker.check_function(&bar), Err(Error { message: "Function definition for function foo with arguments [] not found.".to_string() }));
+		let mut checker = new_with_args(HashMap::new(), 0, HashSet::new());
+		assert_eq!(checker.check_function(&bar), Err(Error { message: "Function definition for function foo with signature () -> (field) not found.".to_string() }));
 	}
 
 	#[test]
@@ -954,14 +979,14 @@ mod tests {
 			imported_functions: vec![]
 		};
 
-		let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
+		let mut checker = new_with_args(HashMap::new(), 0, HashSet::new());
 		assert_eq!(checker.check_program(program), Err(Error { message: "x is undefined".to_string() }));
 	}
 
 	#[test]
 	fn function_undefined() {
 		// def bar():
-		//   1 = foo()
+		//   1 == foo()
 		// should fail
 		let bar_statements: Vec<Statement<FieldPrime>> = vec![Statement::Condition(
 			Expression::Number(FieldPrime::from(1)),
@@ -978,8 +1003,8 @@ mod tests {
 			}
 		};
 
-		let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
-		assert_eq!(checker.check_function(&bar), Err(Error { message: "Function definition for function foo with arguments [] not found.".to_string() }));
+		let mut checker = new_with_args(HashMap::new(), 0, HashSet::new());
+		assert_eq!(checker.check_function(&bar), Err(Error { message: "Function definition for function foo with signature () -> (_) not found.".to_string() }));
 	}
 
 	#[test]
@@ -1004,7 +1029,7 @@ mod tests {
 			}
 		};
 
-		let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
+		let mut checker = new_with_args(HashMap::new(), 0, HashSet::new());
 		assert_eq!(checker.check_function(&bar), Err(Error { message: "a is undefined".to_string() }));
 	}
 
@@ -1039,6 +1064,12 @@ mod tests {
 		];
 
 		let bar_statements_checked: Vec<TypedStatement<FieldPrime>> = vec![
+			TypedStatement::Declaration(
+				Variable::field_element("a")
+			),
+			TypedStatement::Declaration(
+				Variable::field_element("b")
+			),
 			TypedStatement::MultipleDefinition(
 				vec![Variable::field_element("a"), Variable::field_element("b")],
 				TypedExpressionList::FunctionCall("foo".to_string(), vec![], vec![Type::FieldElement, Type::FieldElement])
@@ -1082,7 +1113,7 @@ mod tests {
 			}
 		};
 
-		let mut checker = new_with_args(HashSet::new(), 0, functions);
+		let mut checker = new_with_args(HashMap::new(), 0, functions);
 		assert_eq!(checker.check_function(&bar), Ok(bar_checked));
 	}
 
@@ -1130,8 +1161,8 @@ mod tests {
             }
 		};
 
-		let mut checker = new_with_args(HashSet::new(), 0, functions);
-		assert_eq!(checker.check_function(&foo2), Err(Error { message: "Duplicate definition for function foo with 2 arguments".to_string() }));
+		let mut checker = new_with_args(HashMap::new(), 0, functions);
+		assert_eq!(checker.check_function(&foo2), Err(Error { message: "Duplicate definition for function foo with signature (field, field) -> (field)".to_string() }));
 	}
 
 	#[test]

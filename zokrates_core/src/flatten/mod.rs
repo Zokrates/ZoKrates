@@ -379,15 +379,18 @@ impl Flattener {
                 let mut replacement_map = DirectSubstitution::new();
 
                 // build prefix
-                match self.function_calls.clone().get(&funct.id) {
+                let counter = match self.function_calls.get(&funct.id) {
                     Some(val) => {
-                        self.function_calls.insert(funct.id.clone(),val+1);
+                        val + 1
                     }
                     None => {
-                        self.function_calls.insert(funct.id.clone(),1);
+                        1
                     }
-                }
-                let prefix = format!("{}_i{}o{}_{}_", funct.id.clone(), funct.arguments.len(), funct.return_count, self.function_calls.get(&funct.id).unwrap());
+                };
+
+                self.function_calls.insert(funct.id.clone(),counter);
+
+                let prefix = format!("{}_i{}o{}_{}_", funct.id.clone(), funct.arguments.len(), funct.return_count, counter);
 
                 // Handle complex parameters and assign values:
                 // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions

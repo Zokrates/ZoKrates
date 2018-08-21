@@ -216,7 +216,7 @@ pub fn parse_statement<T: Field, R: BufRead>(
 }
 
 fn parse_definition1<T: Field>(
-    ide: String,
+    x: String,
     input: String,
     pos: Position,
 ) -> Result<(Vec<Statement<T>>, String, Position), Error<T>> {
@@ -224,11 +224,25 @@ fn parse_definition1<T: Field>(
         Ok((e1, s1, p1)) => match next_token(&s1, &p1) {
             (Token::InlineComment(_), ref s2, _) => {
                 assert_eq!(s2, "");
-                Ok((vec![Statement::Definition(ide, e1)], s1, p1))
-            }
+                match e1 {
+                        e @ Expression::FunctionCall(..) => {
+                            Ok((vec![Statement::MultipleDefinition(vec![x], e)], s1, p1))
+                        },
+                        e => {
+                            Ok((vec![Statement::Definition(x, e)], s1, p1))
+                        }
+                    }            
+                }
             (Token::Unknown(ref t2), ref s2, _) if t2 == "" => {
                 assert_eq!(s2, "");
-                Ok((vec![Statement::Definition(ide, e1)], s1, p1))
+                match e1 {
+                    e @ Expression::FunctionCall(..) => {
+                        Ok((vec![Statement::MultipleDefinition(vec![x], e)], s1, p1))
+                    },
+                    e => {
+                        Ok((vec![Statement::Definition(x, e)], s1, p1))
+                    }
+                }            
             }
             (t2, _, p2) => Err(Error {
                 expected: vec![
@@ -253,11 +267,25 @@ fn parse_declaration_definition<T: Field>(
                 Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
                     (Token::InlineComment(_), ref s3, _) => {
                         assert_eq!(s3, "");
-                        Ok((vec![Statement::Declaration(Variable::new(x.clone(), t)), Statement::Definition(x, e2)], s2, p2))
+                        match e2 {
+                            e @ Expression::FunctionCall(..) => {
+                                Ok((vec![Statement::Declaration(Variable::new(x.clone(), t)), Statement::MultipleDefinition(vec![x], e)], s2, p2))
+                            },
+                            e => {
+                                Ok((vec![Statement::Declaration(Variable::new(x.clone(), t)), Statement::Definition(x, e)], s2, p2))
+                            }
+                        }
                     }
                     (Token::Unknown(ref t3), ref s3, _) if t3 == "" => {
                         assert_eq!(s3, "");
-                        Ok((vec![Statement::Declaration(Variable::new(x.clone(), t)), Statement::Definition(x, e2)], s2, p2))
+                        match e2 {
+                            e @ Expression::FunctionCall(..) => {
+                                Ok((vec![Statement::Declaration(Variable::new(x.clone(), t)), Statement::MultipleDefinition(vec![x], e)], s2, p2))
+                            },
+                            e => {
+                                Ok((vec![Statement::Declaration(Variable::new(x.clone(), t)), Statement::Definition(x, e)], s2, p2))
+                            }
+                        }
                     }
                     (t3, _, p3) => Err(Error {
                         expected: vec![
