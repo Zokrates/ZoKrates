@@ -9,6 +9,7 @@ pub mod flat_parameter;
 
 const BINARY_SEPARATOR: &str = "_b";
 
+use types::Signature;
 use self::flat_parameter::FlatParameter;
 use std::fmt;
 use std::collections::{BTreeMap};
@@ -80,8 +81,8 @@ pub struct FlatFunction<T: Field> {
     pub arguments: Vec<FlatParameter>,
     /// Vector of statements that are executed when running the function
     pub statements: Vec<FlatStatement<T>>,
-    /// number of returns
-    pub return_count: usize,
+    /// Typed signature
+    pub signature: Signature,
 }
 
 impl<T: Field> FlatFunction<T> {
@@ -93,7 +94,6 @@ impl<T: Field> FlatFunction<T> {
             witness.insert(arg.id.to_string(), inputs[i].clone());
         }
         for statement in &self.statements {
-            println!("{}", statement);
             match *statement {
                 FlatStatement::Return(ref list) => {
                     for (i, val) in list.expressions.iter().enumerate() {
@@ -158,14 +158,15 @@ impl<T: Field> fmt::Debug for FlatFunction<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "FlatFunction(id: {:?}, arguments: {:?}, ...):\n{}",
+            "FlatFunction(id: {:?}, arguments: {:?}, signature: {:?}):\n{}",
             self.id,
             self.arguments,
+            self.signature,
             self.statements
                 .iter()
                 .map(|x| format!("\t{:?}", x))
                 .collect::<Vec<_>>()
-                .join("\n")
+                .join("\n"),
         )
     }
 }

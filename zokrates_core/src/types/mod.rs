@@ -46,4 +46,11 @@ impl Type {
 			Type::Boolean => 1
 		}
 	}
+
+	fn to_slug(&self) -> String {
+		match *self {
+			Type::FieldElement => String::from("f"),
+			Type::Boolean => String::from("b"),
+		}
+	}
 }

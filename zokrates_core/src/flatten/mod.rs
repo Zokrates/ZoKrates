@@ -91,8 +91,7 @@ impl Flattener {
                     FieldElementExpression::FunctionCall(
                         "_bool_to_field".to_string(), 
                         vec![
-                            TypedExpression::FieldElement(
-                                FieldElementExpression::Identifier("condition".to_string()))
+                                BooleanExpression::Identifier("condition".to_string()).into()
                         ]
                     ).into()
                 ),
@@ -363,11 +362,17 @@ impl Flattener {
         arguments_flattened: &Vec<FlatParameter>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
         id: &String,
-        return_count: usize,
+        return_types: Vec<Type>,
         param_expressions: &Vec<TypedExpression<T>>
     ) -> FlatExpressionList<T> {
+
+        let passed_signature = Signature {
+            inputs: param_expressions.into_iter().map(|e| e.get_type()).collect(),
+            outputs: return_types
+        };
+
         for funct in functions_flattened {
-            if funct.id == *id && funct.arguments.len() == (*param_expressions).len() && funct.return_count == return_count {
+            if funct.id == *id && funct.signature == passed_signature {
                 // funct is now the called function
 
                 // Idea: variables are given a prefix.
@@ -390,7 +395,7 @@ impl Flattener {
 
                 self.function_calls.insert(funct.id.clone(), counter);
 
-                let prefix = format!("{}_i{}o{}_{}_", funct.id.clone(), funct.arguments.len(), funct.return_count, counter);
+                let prefix = format!("{}_{}_{}_", funct.id.clone(), funct.signature.to_slug(), counter);
 
                 // Handle complex parameters and assign values:
                 // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions
@@ -439,7 +444,7 @@ impl Flattener {
                 // add all flattened statements, adapt return statement
                 for stat in funct.statements.clone() {
                     match stat {
-                        // set return statements right side as expression result
+                        // set return statements right sidreturne as expression result
                         FlatStatement::Return(list) => {
                             return FlatExpressionList {
                                 expressions: list.expressions.into_iter().map(|x| x.apply_substitution(&replacement_map)).collect()
@@ -689,7 +694,7 @@ impl Flattener {
                     arguments_flattened,
                     statements_flattened,
                     &"_if_else_field".to_string(),
-                    1,
+                    vec![Type::FieldElement],
                     &vec![condition.into(), consequent.into(), alternative.into()],
                 ).expressions[0].clone()
             },
@@ -699,7 +704,7 @@ impl Flattener {
                     arguments_flattened,
                     statements_flattened,
                     id,
-                    1,
+                    vec![Type::FieldElement],
                     param_expressions
                 );
                 assert!(exprs_flattened.expressions.len() == 1); // outside of MultipleDefinition, FunctionCalls must return a single value
@@ -847,12 +852,14 @@ impl Flattener {
                 
                 match rhs_subbed {
                     TypedExpressionList::FunctionCall(ref fun_id, ref exprs, ref types) => {
+                        let var_types = vars.iter().map(|v| v.get_type()).collect();
+
                         let rhs_flattened = self.flatten_function_call(
                             functions_flattened,
                             arguments_flattened,
                             statements_flattened,
                             fun_id,
-                            vars.len(),
+                            var_types,
                             exprs,
                         );
 
@@ -923,14 +930,11 @@ impl Flattener {
             );
         }
 
-        // the flattened return count is the sum of the primitive elements for each type returned
-        let return_count = funct.signature.outputs.iter().map(|output_type| output_type.get_primitive_count()).fold(0, |acc, x| acc + x);
-
         FlatFunction {
             id: funct.id.clone(),
             arguments: arguments_flattened,
             statements: statements_flattened,
-            return_count: return_count
+            signature: funct.signature
         }
     }
 
@@ -1024,7 +1028,10 @@ mod multiple_definition {
                         ]
                     }
                 )],
-                return_count: 2
+                signature: Signature {
+                    inputs: vec![],
+                    outputs: vec![Type::FieldElement, Type::FieldElement]
+                }
             }
         ];
         let arguments_flattened = vec![];
@@ -1072,7 +1079,10 @@ mod multiple_definition {
                         ]
                     }
                 )],
-                return_count: 2
+                signature: Signature {
+                    inputs: vec![Type::FieldElement],
+                    outputs: vec![Type::FieldElement, Type::FieldElement]
+                }
             }
         ];
         let arguments_flattened = vec![];
@@ -1095,7 +1105,7 @@ mod multiple_definition {
         assert_eq!(
             statements_flattened[0]
             ,
-            FlatStatement::Definition("dup_i1o2_1_param_0".to_string(), FlatExpression::Number(FieldPrime::from(2)))
+            FlatStatement::Definition("dup_ifoff_1_param_0".to_string(), FlatExpression::Number(FieldPrime::from(2)))
         );
     }
 
@@ -1119,7 +1129,10 @@ mod multiple_definition {
                         ]
                     }
                 )],
-                return_count: 1         
+                signature: Signature {
+                    inputs: vec![],
+                    outputs: vec![Type::FieldElement]
+                }         
             }
         ];
         let arguments_flattened = vec![];

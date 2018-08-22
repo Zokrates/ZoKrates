@@ -131,10 +131,7 @@ impl Checker {
 		for func in &prog.imported_functions {
 			self.functions.insert(FunctionDeclaration {
 				id: func.id.clone(),
-				signature: Signature { // a bit hacky
-					inputs: vec![Type::FieldElement; func.arguments.len()],
-					outputs: vec![Type::FieldElement; func.return_count]
-				}
+				signature: func.signature.clone()
 			});
 		}
 
