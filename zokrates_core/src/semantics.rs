@@ -247,7 +247,7 @@ impl Checker {
 				let expression_type = checked_expr.get_type();
 
 				// check that the variable is declared
-				let var = match self.scope.get(&ScopedVariable { id: Variable { id: variable_name.clone(), _type: Type::FieldElement }, level: 0 }) {
+				let var = match self.get_scope(&variable_name) {
 					Some(var) => {
 						if expression_type != var.id.get_type() {
 							return Err( Error { message: format!("Expression of type {} cannot be assigned to {} of type {}", expression_type, var.id.id, var.id.get_type()) });
@@ -267,7 +267,7 @@ impl Checker {
 				let checked_rhs = self.check_expression(&rhs)?;
 
 				match (checked_lhs.clone(), checked_rhs.clone()) {
-					(TypedExpression::FieldElement(_), TypedExpression::FieldElement(_)) => Ok(TypedStatement::Condition(checked_lhs, checked_rhs)),
+					(ref r, ref l) if r.get_type() == l.get_type() => Ok(TypedStatement::Condition(checked_lhs, checked_rhs)),
 					(e1, e2) => Err( Error { message: format!("cannot compare {:?} to {:?}", e1.get_type(), e2.get_type()) })				
 				}
 			}
@@ -295,7 +295,7 @@ impl Checker {
 
                     	// find lhs types
                     	let vars_types: Vec<Option<Type>> = var_names.iter().map(|name| 
-		        			match self.scope.get(&ScopedVariable { id: Variable { id: name.clone(), _type: Type::FieldElement }, level: 0 }) {
+		        			match self.get_scope(&name) {
 			            		None => None,
 			            		Some(sv) => Some(sv.id.get_type())
 			            	}
@@ -341,14 +341,14 @@ impl Checker {
 
 	fn check_expression<T: Field>(&mut self, expr: &Expression<T>) -> Result<TypedExpression<T>, Error> {
 		match expr {
-			&Expression::Identifier(ref variable) => {
+			&Expression::Identifier(ref name) => {
 				// check that `id` is defined in the scope
-				match self.scope.get(&ScopedVariable { id: Variable { id: variable.clone(), _type: Type::FieldElement }, level: 0 }) {
+				match self.get_scope(&name) {
 					Some(v) => match v.clone().id.get_type() {
-						Type::Boolean => Ok(BooleanExpression::Identifier(variable.to_string()).into()),
-						Type::FieldElement => Ok(FieldElementExpression::Identifier(variable.to_string()).into()),
+						Type::Boolean => Ok(BooleanExpression::Identifier(name.to_string()).into()),
+						Type::FieldElement => Ok(FieldElementExpression::Identifier(name.to_string()).into()),
 					},
-					None => Err(Error { message: format!("{} is undefined", variable.to_string()) }),
+					None => Err(Error { message: format!("{} is undefined", name.to_string()) }),
 				}
 			},
 			&Expression::Add(ref e1, ref e2) => {
@@ -512,6 +512,16 @@ impl Checker {
 				}
 			}
 		}
+	}
+
+	fn get_scope(&self, variable_name: &String) -> Option<&ScopedVariable> {
+		self.scope.get(
+			&ScopedVariable 
+				{ 
+					id: Variable::new(variable_name.clone(), Type::FieldElement),
+					level: 0 
+				}
+		)
 	}
 
 	fn insert_scope(&mut self, v: Variable) -> bool {
