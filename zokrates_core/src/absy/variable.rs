@@ -22,6 +22,13 @@ impl Variable {
         }
     }
 
+    pub fn boolean<S: Into<String>>(id: S) -> Variable {
+        Variable {
+            id: id.into(),
+            _type: Type::Boolean
+        }
+    }
+
     pub fn get_type(&self) -> Type {
         self._type.clone()
     }

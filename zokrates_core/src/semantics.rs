@@ -94,13 +94,13 @@ pub struct ScopedVariable {
 
 impl Hash for ScopedVariable {
 	fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
+        self.id.id.hash(state);
     }
 }
 
 impl PartialEq for ScopedVariable {
     fn eq(&self, other: &ScopedVariable) -> bool {
-        self.id == other.id
+        self.id.id == other.id.id
     }
 }
 impl Eq for ScopedVariable {}
@@ -229,8 +229,10 @@ impl Checker {
 				}
 			}
             Statement::Declaration(ref var) => {
-                self.insert_scope(var.clone());
-                Ok(TypedStatement::Declaration(var.clone()))
+                match self.insert_scope(var.clone()) {
+                	true => Ok(TypedStatement::Declaration(var.clone())),
+                	false => Err( Error { message: format!("Duplicate declaration for variable named {}", var.id)})
+                }
             }
 			Statement::Definition(variable_name, expr) => {
 				// we create multidef when rhs is a function call to benefit from inference
@@ -576,7 +578,6 @@ mod tests {
 		});
 		scope.insert(ScopedVariable {
 			id: Variable::field_element("b"),
-
 			level: 0
 		});
 		let mut checker = new_with_args(scope, 1, HashSet::new());
@@ -1249,5 +1250,37 @@ mod tests {
 
 		let mut checker = Checker::new();
 		assert_eq!(checker.check_program(prog), Err(Error { message: "Only one main function allowed, found 2".to_string() }));
+	}
+
+	#[test]
+	fn shadowing_with_same_type() {
+		//   field a
+		//	 field a
+		//
+		// should fail
+
+		let mut checker = Checker::new();
+		let _: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(&Statement::Declaration(Variable::field_element("a")), &vec![]);
+		let s2_checked: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(&Statement::Declaration(Variable::field_element("a")), &vec![]);
+		assert_eq!(
+			s2_checked,
+			Err(Error { message: "Duplicate declaration for variable named a".to_string() })
+		);
+	}
+
+	#[test]
+	fn shadowing_with_different_type() {
+		//   field a
+		//	 bool a
+		//
+		// should fail
+
+		let mut checker = Checker::new();
+		let _: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(&Statement::Declaration(Variable::field_element("a")), &vec![]);
+		let s2_checked: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(&Statement::Declaration(Variable::boolean("a")), &vec![]);
+		assert_eq!(
+			s2_checked,
+			Err(Error { message: "Duplicate declaration for variable named a".to_string() })
+		);
 	}
 }
