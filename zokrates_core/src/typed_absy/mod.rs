@@ -258,6 +258,15 @@ impl<T: Field> Typed for TypedExpression<T> {
     }
 }
 
+impl<T: Field> TypedExpression<T> {
+    pub fn is_linear(&self) -> bool {
+        match self {
+            TypedExpression::Boolean(e) => e.is_linear(),
+            TypedExpression::FieldElement(e) => e.is_linear()
+        }
+    }
+}
+
 pub trait MultiTyped
 {
     fn get_types(&self) -> &Vec<Type>;
@@ -292,6 +301,7 @@ pub enum FieldElementExpression<T: Field> {
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub enum BooleanExpression<T: Field> {
     Identifier(String),
+    Value(bool),
     Lt(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     Le(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     Eq(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
@@ -300,7 +310,7 @@ pub enum BooleanExpression<T: Field> {
 }
 
 impl<T: Field> BooleanExpression<T> {
-    fn apply_substitution(&self, substitution: &Substitution) -> BooleanExpression<T> {
+    pub fn apply_substitution(&self, substitution: &Substitution) -> BooleanExpression<T> {
         match *self {
             BooleanExpression::Identifier(ref id) => {
                 let mut new_name = id.clone();
@@ -331,7 +341,12 @@ impl<T: Field> BooleanExpression<T> {
                 box lhs.apply_substitution(substitution),
                 box rhs.apply_substitution(substitution),
             ),
+            BooleanExpression::Value(b) => BooleanExpression::Value(b),
         }
+    }
+
+    pub fn is_linear(&self) -> bool {
+        false
     }
 }
 
@@ -441,6 +456,7 @@ impl<T: Field> fmt::Display for BooleanExpression<T> {
             BooleanExpression::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
             BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
+            BooleanExpression::Value(b) => write!(f, "{}", b),
         }
     }
 }

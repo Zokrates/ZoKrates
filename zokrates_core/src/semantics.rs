@@ -404,12 +404,12 @@ impl Checker {
 				}
 			},
 			&Expression::IfElse(ref condition, ref consequence, ref alternative) => {
-				let condition_checked = self.check_condition(&condition)?;
+				let condition_checked = self.check_expression(&condition)?;
 				let consequence_checked = self.check_expression(&consequence)?;
 				let alternative_checked = self.check_expression(&alternative)?;
 				
 				match (condition_checked, consequence_checked, alternative_checked) {
-					(condition, TypedExpression::FieldElement(consequence), TypedExpression::FieldElement(alternative)) => {
+					(TypedExpression::Boolean(condition), TypedExpression::FieldElement(consequence), TypedExpression::FieldElement(alternative)) => {
 						Ok(FieldElementExpression::IfElse(box condition, box consequence, box alternative).into())
 					},
 					_ => panic!("id else only for bool fe fe")
@@ -453,57 +453,52 @@ impl Checker {
             		_ => panic!("duplicate definition should have been caught before the call")
             	}
             },
-		}
-	}
-
-	fn check_condition<T: Field>(&mut self, cond: &Condition<T>) -> Result<BooleanExpression<T>, Error> {
-		match cond.clone() {
-			Condition::Lt(e1, e2) => {
+            &Expression::Lt(ref e1, ref e2) => {
 				let e1_checked = self.check_expression(&e1)?;
 				let e2_checked = self.check_expression(&e2)?;
 				match (e1_checked, e2_checked) {
 					(TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-								Ok(BooleanExpression::Lt(box e1, box e2))
+								Ok(BooleanExpression::Lt(box e1, box e2).into())
 					},
 					(e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
 				}
 			},
-			Condition::Le(e1, e2) => {
+			&Expression::Le(ref e1, ref e2) => {
 				let e1_checked = self.check_expression(&e1)?;
 				let e2_checked = self.check_expression(&e2)?;
 				match (e1_checked, e2_checked) {
 					(TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-								Ok(BooleanExpression::Le(box e1, box e2))
+								Ok(BooleanExpression::Le(box e1, box e2).into())
 					},
 					(e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
 				}
 			},	
-			Condition::Eq(e1, e2) => {
+			&Expression::Eq(ref e1, ref e2) => {
 				let e1_checked = self.check_expression(&e1)?;
 				let e2_checked = self.check_expression(&e2)?;
 				match (e1_checked, e2_checked) {
 					(TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-								Ok(BooleanExpression::Eq(box e1, box e2))
+								Ok(BooleanExpression::Eq(box e1, box e2).into())
 					},
 					(e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
 				}
 			},				
-			Condition::Ge(e1, e2) => {
+			&Expression::Ge(ref e1, ref e2) => {
 				let e1_checked = self.check_expression(&e1)?;
 				let e2_checked = self.check_expression(&e2)?;
 				match (e1_checked, e2_checked) {
 					(TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-								Ok(BooleanExpression::Ge(box e1, box e2))
+								Ok(BooleanExpression::Ge(box e1, box e2).into())
 					},
 					(e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
 				}
 			},			
-			Condition::Gt(e1, e2) => {
+			&Expression::Gt(ref e1, ref e2) => {
 				let e1_checked = self.check_expression(&e1)?;
 				let e2_checked = self.check_expression(&e2)?;
 				match (e1_checked, e2_checked) {
 					(TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-								Ok(BooleanExpression::Gt(box e1, box e2))
+								Ok(BooleanExpression::Gt(box e1, box e2).into())
 					},
 					(e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
 				}

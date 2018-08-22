@@ -189,8 +189,13 @@ pub enum Expression<T: Field> {
     Mult(Box<Expression<T>>, Box<Expression<T>>),
     Div(Box<Expression<T>>, Box<Expression<T>>),
     Pow(Box<Expression<T>>, Box<Expression<T>>),
-    IfElse(Box<Condition<T>>, Box<Expression<T>>, Box<Expression<T>>),
+    IfElse(Box<Expression<T>>, Box<Expression<T>>, Box<Expression<T>>),
     FunctionCall(String, Vec<Expression<T>>),
+    Lt(Box<Expression<T>>, Box<Expression<T>>),
+    Le(Box<Expression<T>>, Box<Expression<T>>),
+    Eq(Box<Expression<T>>, Box<Expression<T>>),
+    Ge(Box<Expression<T>>, Box<Expression<T>>),
+    Gt(Box<Expression<T>>, Box<Expression<T>>),
 }
 
 impl<T: Field> fmt::Display for Expression<T> {
@@ -220,6 +225,11 @@ impl<T: Field> fmt::Display for Expression<T> {
                 }
                 write!(f, ")")
             },
+            Expression::Lt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
+            Expression::Le(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
+            Expression::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            Expression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
+            Expression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
         }
     }
 }
@@ -246,6 +256,11 @@ impl<T: Field> fmt::Debug for Expression<T> {
                 try!(f.debug_list().entries(p.iter()).finish());
                 write!(f, ")")
             },
+            Expression::Lt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
+            Expression::Le(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
+            Expression::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            Expression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
+            Expression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
         }
     }
 }
@@ -278,32 +293,5 @@ impl<T: Field> fmt::Display for ExpressionList<T> {
 impl<T: Field> fmt::Debug for ExpressionList<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "ExpressionList({:?})", self.expressions)
-    }
-}
-
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub enum Condition<T: Field> {
-    Lt(Expression<T>, Expression<T>),
-    Le(Expression<T>, Expression<T>),
-    Eq(Expression<T>, Expression<T>),
-    Ge(Expression<T>, Expression<T>),
-    Gt(Expression<T>, Expression<T>),
-}
-
-impl<T: Field> fmt::Display for Condition<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Condition::Lt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
-            Condition::Le(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
-            Condition::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
-            Condition::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
-            Condition::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
-        }
-    }
-}
-
-impl<T: Field> fmt::Debug for Condition<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self)
     }
 }

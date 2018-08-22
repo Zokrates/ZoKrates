@@ -126,26 +126,24 @@ impl Flattener {
         functions_flattened.push(ief);
     }
 
-    /// Returns (condition true, condition false) `Identifier`s for the given condition.
-    /// condition true = 1, if `condition` is true, 0 else
-    /// condition false = 1, if `condition` is false, 0 else
+    /// Flattens a boolean expression
     ///
     /// # Arguments
     ///
     /// * `statements_flattened` - Vector where new flattened statements can be added.
     /// * `condition` - `Condition` that will be flattened.
-    fn flatten_condition<T: Field>(
+    fn flatten_boolean_expression<T: Field>(
         &mut self,
         functions_flattened: &Vec<FlatFunction<T>>,
         arguments_flattened: &Vec<FlatParameter>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
-        condition: BooleanExpression<T>,
-    ) -> BooleanExpression<T> { // those will be booleans in the future
-        match condition {
+        expression: BooleanExpression<T>,
+    ) -> FlatExpression<T> { // those will be booleans in the future
+        match expression {
             BooleanExpression::Lt(box lhs, box rhs) => {
 
                 // We know from semantic checking that lhs and rhs have the same type
-                // What the condition will flatten to depends on that type
+                // What the expression will flatten to depends on that type
 
                 let lhs_flattened = self.flatten_field_expression(
                     functions_flattened,
@@ -299,12 +297,12 @@ impl Flattener {
 
                 self.next_var_idx += 1;
 
-                BooleanExpression::Identifier(cond_true)
+                FlatExpression::Identifier(cond_true)
             }
             BooleanExpression::Eq(box lhs, box rhs) => {
 
                 // We know from semantic checking that lhs and rhs have the same type
-                // What the condition will flatten to depends on that type
+                // What the expression will flatten to depends on that type
 
                 // Wanted: (Y = (X != 0) ? 1 : 0)
                 // X = a - b
@@ -350,7 +348,13 @@ impl Flattener {
                     FlatExpression::Mult(box FlatExpression::Identifier(name_1_y.to_string()), box FlatExpression::Identifier(name_x)),
                 ));
 
-                BooleanExpression::Identifier(name_1_y)
+                FlatExpression::Identifier(name_1_y)
+            },
+            BooleanExpression::Value(b) => {
+                FlatExpression::Number(match b {
+                    true => T::from(1),
+                    false => T::from(0)
+                })
             }
             _ => unimplemented!(),
         }
@@ -433,7 +437,18 @@ impl Flattener {
                                     statements_flattened
                                         .push(FlatStatement::Definition(new_var.clone(), FlatExpression::Identifier(id.clone().to_string())));
                                 },
-                                _ => panic!("A boolean argument to a function has to be a identifier")
+                                _ => {
+                                    let expr_subbed = e.apply_substitution(&self.substitution);
+                                    let rhs = self.flatten_boolean_expression(
+                                        functions_flattened,
+                                        arguments_flattened,
+                                        statements_flattened,
+                                        expr_subbed,
+                                    );
+                                    new_var = format!("{}param_{}", &prefix, i);
+                                    statements_flattened
+                                        .push(FlatStatement::Definition(new_var.clone(), rhs));
+                                }
                             }
                         }
                     }
@@ -682,13 +697,6 @@ impl Flattener {
                 }
             },
             FieldElementExpression::IfElse(box condition, box consequent, box alternative) => {
-                let condition = self.flatten_condition(
-                    functions_flattened,
-                    arguments_flattened,
-                    statements_flattened,
-                    condition,
-                );
-
                 self.flatten_function_call(
                     functions_flattened,
                     arguments_flattened,
@@ -697,6 +705,7 @@ impl Flattener {
                     vec![Type::FieldElement],
                     &vec![condition.into(), consequent.into(), alternative.into()],
                 ).expressions[0].clone()
+
             },
             FieldElementExpression::FunctionCall(ref id, ref param_expressions) => {
                 let exprs_flattened = self.flatten_function_call(
