@@ -62,6 +62,10 @@ fn main() {
             .long("optimized")
             .help("perform optimization.")
             .required(false)
+        ).arg(Arg::with_name("light")
+            .long("light")
+            .help("Skip logs and human readable output")
+            .required(false)
         ).arg(Arg::with_name("gadgets")
             .long("gadgets")
             .help("include libsnark gadgets such as sha256")
@@ -201,6 +205,12 @@ fn main() {
 
             let should_include_gadgets = sub_matches.occurrences_of("gadgets") > 0;
 
+            let light = sub_matches.occurrences_of("light") > 0;
+
+            let bin_output_path = Path::new(sub_matches.value_of("output").unwrap());
+
+            let hr_output_path = bin_output_path.to_path_buf().with_extension("code");
+
             let file = File::open(path.clone()).unwrap();
 
             let mut reader = BufReader::new(file);
@@ -217,7 +227,6 @@ fn main() {
             .unwrap().statements.len();
 
             // serialize flattened program and write to binary file
-            let bin_output_path = Path::new(sub_matches.value_of("output").unwrap());
             let mut bin_output_file = match File::create(&bin_output_path) {
                 Ok(file) => file,
                 Err(why) => panic!("couldn't create {}: {}", bin_output_path.display(), why),
@@ -225,27 +234,30 @@ fn main() {
 
             serialize_into(&mut bin_output_file, &program_flattened, Infinite).expect("Unable to write data to file.");
 
-            // write human-readable output file
-            let hr_output_path = bin_output_path.to_path_buf().with_extension("code");
+            if !light {
+                // write human-readable output file
+                let hr_output_file = match File::create(&hr_output_path) {
+                    Ok(file) => file,
+                    Err(why) => panic!("couldn't create {}: {}", hr_output_path.display(), why),
+                };
 
-            let hr_output_file = match File::create(&hr_output_path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't create {}: {}", hr_output_path.display(), why),
-            };
+                let mut hrofb = BufWriter::new(hr_output_file);
+                write!(&mut hrofb, "{}\n", program_flattened).expect("Unable to write data to file.");
+                hrofb.flush().expect("Unable to flush buffer.");
+            }
 
-            let mut hrofb = BufWriter::new(hr_output_file);
-            write!(&mut hrofb, "{}\n", program_flattened).expect("Unable to write data to file.");
-            hrofb.flush().expect("Unable to flush buffer.");
+            if !light {
+                // debugging output
+                println!("Compiled program:\n{}", program_flattened);
+            }
 
-            // debugging output
-            println!("Compiled program:\n{}", program_flattened);
+            println!("Compiled code written to '{}'", bin_output_path.display());
 
-            println!(
-                "Compiled code written to '{}', \nHuman readable code to '{}'. \nNumber of constraints: {}",
-                bin_output_path.display(),
-                hr_output_path.display(),
-                num_constraints
-            );
+            if !light {
+                println!("Human readable code to '{}'", hr_output_path.display());
+            }
+
+            println!("Number of constraints: {}", num_constraints);
         }
         ("compute-witness", Some(sub_matches)) => {
             println!("Computing witness for:");

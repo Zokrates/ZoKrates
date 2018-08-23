@@ -295,10 +295,10 @@ pub enum BooleanExpression<T: Field> {
 }
 
 impl<T: Field> BooleanExpression<T> {
-    fn apply_substitution(&self, substitution: &Substitution) -> BooleanExpression<T> {
-        match *self {
-            BooleanExpression::Identifier(ref id) => {
-                let mut new_name = id.clone();
+    fn apply_substitution(self, substitution: &Substitution) -> BooleanExpression<T> {
+        match self {
+            BooleanExpression::Identifier(id) => {
+                let mut new_name = id;
                 loop {
                     match substitution.get(&new_name) {
                         Some(x) => new_name = x.to_string(),
@@ -306,23 +306,23 @@ impl<T: Field> BooleanExpression<T> {
                     }
                 }
             },
-            BooleanExpression::Lt(ref lhs, ref rhs) => BooleanExpression::Lt(
+            BooleanExpression::Lt(lhs, rhs) => BooleanExpression::Lt(
                 box lhs.apply_substitution(substitution),
                 box rhs.apply_substitution(substitution),
             ),
-            BooleanExpression::Le(ref lhs, ref rhs) => BooleanExpression::Le(
+            BooleanExpression::Le(lhs, rhs) => BooleanExpression::Le(
                 box lhs.apply_substitution(substitution),
                 box rhs.apply_substitution(substitution),
             ),
-            BooleanExpression::Eq(ref lhs, ref rhs) => BooleanExpression::Eq(
+            BooleanExpression::Eq(lhs, rhs) => BooleanExpression::Eq(
                 box lhs.apply_substitution(substitution),
                 box rhs.apply_substitution(substitution),
             ),
-            BooleanExpression::Ge(ref lhs, ref rhs) => BooleanExpression::Ge(
+            BooleanExpression::Ge(lhs, rhs) => BooleanExpression::Ge(
                 box lhs.apply_substitution(substitution),
                 box rhs.apply_substitution(substitution),
             ),
-            BooleanExpression::Gt(ref lhs, ref rhs) => BooleanExpression::Gt(
+            BooleanExpression::Gt(lhs, rhs) => BooleanExpression::Gt(
                 box lhs.apply_substitution(substitution),
                 box rhs.apply_substitution(substitution),
             ),
@@ -331,10 +331,10 @@ impl<T: Field> BooleanExpression<T> {
 }
 
 impl<T: Field> FieldElementExpression<T> {
-    pub fn apply_substitution(&self, substitution: &Substitution) -> FieldElementExpression<T> {
-        match *self {
-            ref e @ FieldElementExpression::Number(_) => e.clone(),
-            FieldElementExpression::Identifier(ref id) => {
+    pub fn apply_substitution(self, substitution: &Substitution) -> FieldElementExpression<T> {
+        match self {
+            e @ FieldElementExpression::Number(_) => e,
+            FieldElementExpression::Identifier(id) => {
                 let mut new_name = id.clone();
                 loop {
                     match substitution.get(&new_name) {
@@ -343,36 +343,33 @@ impl<T: Field> FieldElementExpression<T> {
                     }
                 }
             }
-            FieldElementExpression::Add(ref e1, ref e2) => FieldElementExpression::Add(
+            FieldElementExpression::Add(e1, e2) => FieldElementExpression::Add(
                 box e1.apply_substitution(substitution),
                 box e2.apply_substitution(substitution),
             ),
-            FieldElementExpression::Sub(ref e1, ref e2) => FieldElementExpression::Sub(
+            FieldElementExpression::Sub(e1, e2) => FieldElementExpression::Sub(
                 box e1.apply_substitution(substitution),
                 box e2.apply_substitution(substitution),
             ),
-            FieldElementExpression::Mult(ref e1, ref e2) => FieldElementExpression::Mult(
+            FieldElementExpression::Mult(e1, e2) => FieldElementExpression::Mult(
                 box e1.apply_substitution(substitution),
                 box e2.apply_substitution(substitution),
             ),
-            FieldElementExpression::Div(ref e1, ref e2) => FieldElementExpression::Div(
+            FieldElementExpression::Div(e1, e2) => FieldElementExpression::Div(
                 box e1.apply_substitution(substitution),
                 box e2.apply_substitution(substitution),
             ),
-            FieldElementExpression::Pow(ref e1, ref e2) => FieldElementExpression::Pow(
+            FieldElementExpression::Pow(e1, e2) => FieldElementExpression::Pow(
                 box e1.apply_substitution(substitution),
                 box e2.apply_substitution(substitution),
             ),
-            FieldElementExpression::IfElse(ref c, ref e1, ref e2) => FieldElementExpression::IfElse(
+            FieldElementExpression::IfElse(c, e1, e2) => FieldElementExpression::IfElse(
                 box c.apply_substitution(substitution),
                 box e1.apply_substitution(substitution),
                 box e2.apply_substitution(substitution),
             ),
-            FieldElementExpression::FunctionCall(ref i, ref p) => {
-                for param in p {
-                    param.apply_substitution(substitution);
-                }
-                FieldElementExpression::FunctionCall(i.clone(), p.clone())
+            FieldElementExpression::FunctionCall(i, p) => {
+                FieldElementExpression::FunctionCall(i, p.into_iter().map(|param| param.apply_substitution(substitution)).collect())
             },
         }
     }
@@ -474,7 +471,7 @@ impl<T: Field> fmt::Debug for FieldElementExpression<T> {
 
 
 impl<T: Field> TypedExpression<T> {
-    pub fn apply_substitution(&self, substitution: &Substitution) -> TypedExpression<T> {
+    pub fn apply_substitution(self, substitution: &Substitution) -> TypedExpression<T> {
         match self {
             TypedExpression::Boolean(e) => e.apply_substitution(substitution).into(),
             TypedExpression::FieldElement(e) => e.apply_substitution(substitution).into(),
@@ -483,10 +480,10 @@ impl<T: Field> TypedExpression<T> {
 }
 
 impl<T: Field> TypedExpressionList<T> {
-    pub fn apply_substitution(&self, substitution: &Substitution) -> TypedExpressionList<T> {
-        match *self {
-            TypedExpressionList::FunctionCall(ref id, ref inputs, ref types) => {
-                TypedExpressionList::FunctionCall(id.clone(), inputs.iter().map(|i| i.apply_substitution(substitution)).collect(), types.clone())
+    pub fn apply_substitution(self, substitution: &Substitution) -> TypedExpressionList<T> {
+        match self {
+            TypedExpressionList::FunctionCall(id, inputs, types) => {
+                TypedExpressionList::FunctionCall(id, inputs.into_iter().map(|i| i.apply_substitution(substitution)).collect(), types)
             }
         }
     }
