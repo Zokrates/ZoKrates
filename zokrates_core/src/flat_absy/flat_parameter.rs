@@ -21,7 +21,7 @@ impl fmt::Debug for FlatParameter {
 }
 
 impl FlatParameter {
-    pub fn apply_substitution(&self, substitution: &Substitution) -> FlatParameter {
+    pub fn apply_substitution(self, substitution: &Substitution) -> FlatParameter {
         FlatParameter {
             id: substitution.get(&self.id).unwrap().to_string(),
             private: self.private

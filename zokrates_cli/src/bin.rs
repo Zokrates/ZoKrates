@@ -210,42 +210,42 @@ fn main() {
                 Err(why) => panic!("Compilation failed: {}", why)
             };
 
-            // number of constraints the flattened program will translate to.
-            let num_constraints = &program_flattened.functions
-            .iter()
-            .find(|x| x.id == "main")
-            .unwrap().statements.len();
+            // // number of constraints the flattened program will translate to.
+            // let num_constraints = &program_flattened.functions
+            // .iter()
+            // .find(|x| x.id == "main")
+            // .unwrap().statements.len();
 
-            // serialize flattened program and write to binary file
-            let bin_output_path = Path::new(sub_matches.value_of("output").unwrap());
-            let mut bin_output_file = match File::create(&bin_output_path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't create {}: {}", bin_output_path.display(), why),
-            };
+            // // serialize flattened program and write to binary file
+            // let bin_output_path = Path::new(sub_matches.value_of("output").unwrap());
+            // let mut bin_output_file = match File::create(&bin_output_path) {
+            //     Ok(file) => file,
+            //     Err(why) => panic!("couldn't create {}: {}", bin_output_path.display(), why),
+            // };
 
-            serialize_into(&mut bin_output_file, &program_flattened, Infinite).expect("Unable to write data to file.");
+            // serialize_into(&mut bin_output_file, &program_flattened, Infinite).expect("Unable to write data to file.");
 
-            // write human-readable output file
-            let hr_output_path = bin_output_path.to_path_buf().with_extension("code");
+            // // write human-readable output file
+            // let hr_output_path = bin_output_path.to_path_buf().with_extension("code");
 
-            let hr_output_file = match File::create(&hr_output_path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't create {}: {}", hr_output_path.display(), why),
-            };
+            // let hr_output_file = match File::create(&hr_output_path) {
+            //     Ok(file) => file,
+            //     Err(why) => panic!("couldn't create {}: {}", hr_output_path.display(), why),
+            // };
 
-            let mut hrofb = BufWriter::new(hr_output_file);
-            write!(&mut hrofb, "{}\n", program_flattened).expect("Unable to write data to file.");
-            hrofb.flush().expect("Unable to flush buffer.");
+            // let mut hrofb = BufWriter::new(hr_output_file);
+            // write!(&mut hrofb, "{}\n", program_flattened).expect("Unable to write data to file.");
+            // hrofb.flush().expect("Unable to flush buffer.");
 
-            // debugging output
-            println!("Compiled program:\n{}", program_flattened);
+            // // debugging output
+            // println!("Compiled program:\n{}", program_flattened);
 
-            println!(
-                "Compiled code written to '{}', \nHuman readable code to '{}'. \nNumber of constraints: {}",
-                bin_output_path.display(),
-                hr_output_path.display(),
-                num_constraints
-            );
+            // println!(
+            //     "Compiled code written to '{}', \nHuman readable code to '{}'. \nNumber of constraints: {}",
+            //     bin_output_path.display(),
+            //     hr_output_path.display(),
+            //     num_constraints
+            // );
         }
         ("compute-witness", Some(sub_matches)) => {
             println!("Computing witness for:");
