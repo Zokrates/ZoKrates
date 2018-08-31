@@ -3,10 +3,10 @@ use field::Field;
 use std::io::prelude::*;
 
 use parser::error::Error;
-use parser::tokenize::{Position, Token, next_token};
+use parser::tokenize::{next_token, Position, Token};
 
-use super::import::parse_import;
 use super::function::parse_function;
+use super::import::parse_import;
 
 use absy::Prog;
 
@@ -55,5 +55,9 @@ pub fn parse_program<T: Field, R: BufRead>(reader: &mut R) -> Result<Prog<T>, Er
         }
     }
 
-    Ok(Prog { functions, imports, imported_functions: vec![] })
+    Ok(Prog {
+        functions,
+        imports,
+        imported_functions: vec![],
+    })
 }

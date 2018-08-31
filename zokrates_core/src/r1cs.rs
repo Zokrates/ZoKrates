@@ -5,10 +5,10 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de
 //! @date 2017
 
-use std::collections::HashMap;
-use flat_absy::*;
-use flat_absy::FlatExpression::*;
 use field::Field;
+use flat_absy::FlatExpression::*;
+use flat_absy::*;
+use std::collections::HashMap;
 
 /// Returns a vector of summands of the given `FlatExpression`.
 ///
@@ -69,8 +69,8 @@ fn count_variables_add<T: Field>(expr: &FlatExpression<T>) -> HashMap<String, T>
                 let num = count.entry("~one".to_string()).or_insert(T::zero());
                 *num = num.clone() + x1 + x2;
             }
-            Mult(box Number(ref x), box Identifier(ref v)) |
-            Mult(box Identifier(ref v), box Number(ref x)) => {
+            Mult(box Number(ref x), box Identifier(ref v))
+            | Mult(box Identifier(ref v), box Number(ref x)) => {
                 let num = count.entry(v.to_string()).or_insert(T::zero());
                 *num = num.clone() + x;
             }
@@ -86,7 +86,10 @@ fn count_variables_add<T: Field>(expr: &FlatExpression<T>) -> HashMap<String, T>
 ///
 /// * `lhs` - Left hand side of the equation
 /// * `rhs` - Right hand side of the equation
-fn swap_sub<T: Field>(lhs: &FlatExpression<T>, rhs: &FlatExpression<T>) -> (FlatExpression<T>, FlatExpression<T>) {
+fn swap_sub<T: Field>(
+    lhs: &FlatExpression<T>,
+    rhs: &FlatExpression<T>,
+) -> (FlatExpression<T>, FlatExpression<T>) {
     let mut left = get_summands(lhs);
     let mut right = get_summands(rhs);
     let mut run = true;
@@ -205,8 +208,8 @@ fn r1cs_expression<T: Field>(
                 box Mult(box Number(ref x1), box Number(ref x2)) => {
                     c_row.push((0, x1.clone() * x2))
                 }
-                box Mult(box Number(ref x), box Identifier(ref v)) |
-                box Mult(box Identifier(ref v), box Number(ref x)) => {
+                box Mult(box Number(ref x), box Identifier(ref v))
+                | box Mult(box Identifier(ref v), box Number(ref x)) => {
                     c_row.push((get_variable_idx(variables, v), x.clone()))
                 }
                 e @ _ => panic!("(lhs) not supported: {:?}", e),
@@ -217,8 +220,8 @@ fn r1cs_expression<T: Field>(
                 box Mult(box Number(ref x1), box Number(ref x2)) => {
                     b_row.push((0, x1.clone() * x2))
                 }
-                box Mult(box Number(ref x), box Identifier(ref v)) |
-                box Mult(box Identifier(ref v), box Number(ref x)) => {
+                box Mult(box Number(ref x), box Identifier(ref v))
+                | box Mult(box Identifier(ref v), box Number(ref x)) => {
                     b_row.push((get_variable_idx(variables, v), x.clone()))
                 }
                 e @ _ => panic!("(rhs) not supported: {:?}", e),
@@ -283,11 +286,17 @@ pub fn r1cs_program<T: Field>(
     let mut c: Vec<Vec<(usize, T)>> = Vec::new();
 
     //Only the main function is relevant in this step, since all calls to other functions were resolved during flattening
-    let main = prog.functions
+    let main = prog
+        .functions
         .iter()
         .find(|x: &&FlatFunction<T>| x.id == "main".to_string())
         .unwrap();
-    variables.extend(main.arguments.iter().filter(|x| !x.private).map(|x| format!("{}", x)));
+    variables.extend(
+        main.arguments
+            .iter()
+            .filter(|x| !x.private)
+            .map(|x| format!("{}", x)),
+    );
 
     // ~out is added after main's arguments as we want variables (columns)
     // in the r1cs to be aligned like "public inputs | private inputs"
@@ -317,7 +326,7 @@ pub fn r1cs_program<T: Field>(
                     b.push(b_row);
                     c.push(c_row);
                 }
-            },
+            }
             FlatStatement::Definition(_, _) => continue,
             FlatStatement::Condition(ref expr1, ref expr2) => {
                 let mut a_row: Vec<(usize, T)> = Vec::new();
@@ -334,8 +343,8 @@ pub fn r1cs_program<T: Field>(
                 a.push(a_row);
                 b.push(b_row);
                 c.push(c_row);
-            },
-            FlatStatement::Directive(..) => continue
+            }
+            FlatStatement::Directive(..) => continue,
         }
     }
     (variables, private_inputs_offset, a, b, c)

@@ -1,15 +1,15 @@
 use field::Field;
 
 use std::io::prelude::*;
-use std::io::{Lines};
+use std::io::Lines;
 
+use parser::tokenize::{next_token, Position, Token};
 use parser::Error;
-use parser::tokenize::{Token, Position, next_token};
 
 use super::statement::parse_statement;
 
-use absy::{Function, Statement, Variable, Parameter};
-use types::{Type, Signature};
+use absy::{Function, Parameter, Statement, Variable};
+use types::{Signature, Type};
 
 pub fn parse_function<T: Field, R: BufRead>(
     mut lines: &mut Lines<R>,
@@ -30,55 +30,61 @@ pub fn parse_function<T: Field, R: BufRead>(
                     let mut p = p3;
                     loop {
                         match next_token(&s, &p) {
-                            (Token::Private, s4, p4) => {
-                                match next_token(&s4, &p4) {
-                                    (Token::Ide(x), s5, p5) => {
-                                        args.push(Parameter { id: Variable::from(x), private: true });
-                                        match next_token(&s5, &p5) {
-                                            (Token::Comma, s6, p6) => {
-                                                s = s6;
-                                                p = p6;
-                                            }
-                                            (Token::Close, s5, p5) => match next_token(&s5, &p5) {
-                                                (Token::Colon, s6, p6) => match next_token(&s6, &p6) {
-                                                    (Token::InlineComment(_), _, _) => break,
-                                                    (Token::Unknown(ref x6), ..) if x6 == "" => break,
-                                                    (t6, _, p6) => {
-                                                        return Err(Error {
-                                                            expected: vec![Token::Unknown("".to_string())],
-                                                            got: t6,
-                                                            pos: p6,
-                                                        })
-                                                    }
-                                                },
+                            (Token::Private, s4, p4) => match next_token(&s4, &p4) {
+                                (Token::Ide(x), s5, p5) => {
+                                    args.push(Parameter {
+                                        id: Variable::from(x),
+                                        private: true,
+                                    });
+                                    match next_token(&s5, &p5) {
+                                        (Token::Comma, s6, p6) => {
+                                            s = s6;
+                                            p = p6;
+                                        }
+                                        (Token::Close, s5, p5) => match next_token(&s5, &p5) {
+                                            (Token::Colon, s6, p6) => match next_token(&s6, &p6) {
+                                                (Token::InlineComment(_), _, _) => break,
+                                                (Token::Unknown(ref x6), ..) if x6 == "" => break,
                                                 (t6, _, p6) => {
                                                     return Err(Error {
-                                                        expected: vec![Token::Colon],
+                                                        expected: vec![Token::Unknown(
+                                                            "".to_string(),
+                                                        )],
                                                         got: t6,
                                                         pos: p6,
                                                     })
                                                 }
                                             },
-                                            (t5, _, p5) => {
+                                            (t6, _, p6) => {
                                                 return Err(Error {
-                                                    expected: vec![Token::Comma, Token::Close],
-                                                    got: t5,
-                                                    pos: p5,
+                                                    expected: vec![Token::Colon],
+                                                    got: t6,
+                                                    pos: p6,
                                                 })
                                             }
+                                        },
+                                        (t5, _, p5) => {
+                                            return Err(Error {
+                                                expected: vec![Token::Comma, Token::Close],
+                                                got: t5,
+                                                pos: p5,
+                                            })
                                         }
                                     }
-                                    (t5, _, p5) => {
-                                        return Err(Error {
-                                            expected: vec![Token::Comma, Token::Close],
-                                            got: t5,
-                                            pos: p5,
-                                        })
-                                    }
                                 }
-                            }
+                                (t5, _, p5) => {
+                                    return Err(Error {
+                                        expected: vec![Token::Comma, Token::Close],
+                                        got: t5,
+                                        pos: p5,
+                                    })
+                                }
+                            },
                             (Token::Ide(x), s4, p4) => {
-                                args.push(Parameter { id: Variable::from(x), private: false });
+                                args.push(Parameter {
+                                    id: Variable::from(x),
+                                    private: false,
+                                });
                                 match next_token(&s4, &p4) {
                                     (Token::Comma, s5, p5) => {
                                         s = s5;
@@ -211,8 +217,8 @@ pub fn parse_function<T: Field, R: BufRead>(
             statements: stats,
             signature: Signature {
                 inputs: vec![Type::FieldElement; input_count],
-                outputs: vec![Type::FieldElement; return_count]
-            }
+                outputs: vec![Type::FieldElement; return_count],
+            },
         },
         Position {
             line: current_line,

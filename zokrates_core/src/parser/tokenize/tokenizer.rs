@@ -1,6 +1,6 @@
-use field::Field;
-use super::token::Token;
 use super::position::Position;
+use super::token::Token;
+use field::Field;
 
 pub fn parse_num<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Position) {
     let mut end = 0;
@@ -59,10 +59,7 @@ pub fn skip_whitespaces(input: &String) -> usize {
     }
 }
 
-pub fn parse_quoted_path<T: Field>(
-    input: &String,
-    pos: &Position
-) -> (Token<T>, String, Position) {
+pub fn parse_quoted_path<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Position) {
     let mut end = 0;
     loop {
         match input.chars().nth(end) {
@@ -72,18 +69,18 @@ pub fn parse_quoted_path<T: Field>(
                     '\"' => break,
                     _ => continue,
                 }
-            },
-            None => {
-                panic!("Invalid import path, should end with '\"'")
             }
+            None => panic!("Invalid import path, should end with '\"'"),
         }
     }
-    (Token::Path(input[0..end - 1].to_string()),
-    input[end..].to_string(),
-    Position {
-        line: pos.line,
-        col: pos.col + end,
-    })
+    (
+        Token::Path(input[0..end - 1].to_string()),
+        input[end..].to_string(),
+        Position {
+            line: pos.line,
+            col: pos.col + end,
+        },
+    )
 }
 
 pub fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Position) {
@@ -323,7 +320,10 @@ pub fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String
                 col: pos.col + offset + 2,
             },
         ),
-        Some(_) if input[offset..].starts_with("endfor ") || input[offset..].to_string() == "endfor" => {
+        Some(_)
+            if input[offset..].starts_with("endfor ")
+                || input[offset..].to_string() == "endfor" =>
+        {
             (
                 Token::For,
                 input[offset + 6..].to_string(),
@@ -346,16 +346,16 @@ pub fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String
             input[offset + 7..].to_string(),
             Position {
                 line: pos.line,
-                col: pos.col + offset + 7
-            }
+                col: pos.col + offset + 7,
+            },
         ),
         Some(_) if input[offset..].starts_with("as ") => (
             Token::As,
             input[offset + 2..].to_string(),
             Position {
                 line: pos.line,
-                col: pos.col + offset + 2
-            }
+                col: pos.col + offset + 2,
+            },
         ),
         Some(x) => match x {
             '0'...'9' => parse_num(

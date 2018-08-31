@@ -1,5 +1,5 @@
+use field::Field;
 use std::fmt;
-use field::{Field};
 
 #[derive(PartialEq)]
 pub enum Token<T: Field> {

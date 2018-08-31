@@ -1,5 +1,5 @@
-use std::fmt;
 use absy::Variable;
+use std::fmt;
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct Parameter {

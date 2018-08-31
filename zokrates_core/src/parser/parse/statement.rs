@@ -1,17 +1,17 @@
 use field::Field;
 
 use std::io::prelude::*;
-use std::io::{Lines};
+use std::io::Lines;
 
+use parser::tokenize::{next_token, Position, Token};
 use parser::Error;
-use parser::tokenize::{Token, Position, next_token};
 
 use parser::tokenize::{parse_ide, skip_whitespaces};
 
+use super::expression::{parse_expr, parse_expr1, parse_function_call, parse_term1};
 use super::expression_list::parse_expression_list;
-use super::expression::{parse_function_call, parse_term1, parse_expr1, parse_expr};
 
-use absy::{Statement, Expression, Variable};
+use absy::{Expression, Statement, Variable};
 
 pub fn parse_statement<T: Field, R: BufRead>(
     lines: &mut Lines<R>,
@@ -73,7 +73,8 @@ pub fn parse_statement<T: Field, R: BufRead>(
                                                                     Token::Unknown(ref t8),
                                                                     ref s8,
                                                                     _,
-                                                                ) if t8 == "" =>
+                                                                )
+                                                                    if t8 == "" =>
                                                                 {
                                                                     assert_eq!(s8, "");
                                                                 }
@@ -220,40 +221,38 @@ fn parse_statement1<T: Field>(
                     assert_eq!(s3, "");
                     Ok((Statement::Definition(Variable::from(ide), e2), s2, p2))
                 }
-                (t3, _, p3) => {
-                    Err(Error {
-                        expected: vec![
-                            Token::Add,
-                            Token::Sub,
-                            Token::Pow,
-                            Token::Mult,
-                            Token::Div,
-                            Token::Unknown("".to_string()),
-                        ],
-                        got: t3,
-                        pos: p3,
-                    })
-                }
-            },
-            Err(err) => Err(err),
-        },
-        (Token::Comma, s1, p1) => match parse_identifier_list1(ide, s1, p1) { // if we find a comma, parse the rest of the destructure
-            Ok((e2, s2, p2)) => match next_token(&s2, &p2) { // then we should have an equal sign
-                (Token::Eq, s3, p3) => match parse_expr(&s3, &p3) {
-                    Ok((e4, s4, p4)) => {
-                        Ok((Statement::MultipleDefinition(e2, e4), s4, p4)) // output a multipledefinition with the destructure and the expression
-                    },
-                    Err(err) => Err(err)
-                },
                 (t3, _, p3) => Err(Error {
                     expected: vec![
-                        Token::Eq
+                        Token::Add,
+                        Token::Sub,
+                        Token::Pow,
+                        Token::Mult,
+                        Token::Div,
+                        Token::Unknown("".to_string()),
                     ],
                     got: t3,
                     pos: p3,
                 }),
             },
-            Err(err) => Err(err)
+            Err(err) => Err(err),
+        },
+        (Token::Comma, s1, p1) => match parse_identifier_list1(ide, s1, p1) {
+            // if we find a comma, parse the rest of the destructure
+            Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
+                // then we should have an equal sign
+                (Token::Eq, s3, p3) => match parse_expr(&s3, &p3) {
+                    Ok((e4, s4, p4)) => {
+                        Ok((Statement::MultipleDefinition(e2, e4), s4, p4)) // output a multipledefinition with the destructure and the expression
+                    }
+                    Err(err) => Err(err),
+                },
+                (t3, _, p3) => Err(Error {
+                    expected: vec![Token::Eq],
+                    got: t3,
+                    pos: p3,
+                }),
+            },
+            Err(err) => Err(err),
         },
         (Token::Open, s1, p1) => match parse_function_call(ide, s1, p1) {
             Ok((e3, s3, p3)) => match next_token(&s3, &p3) {
@@ -288,7 +287,7 @@ fn parse_statement1<T: Field>(
                     pos: p4,
                 }),
             },
-            Err(err) => Err(err)
+            Err(err) => Err(err),
         },
         _ => match parse_term1(Expression::Identifier(ide), input, pos) {
             Ok((e2, s2, p2)) => match parse_expr1(e2, s2, p2) {
@@ -343,23 +342,25 @@ pub fn parse_identifier_list1<T: Field>(
 }
 
 fn parse_comma_separated_identifier_list_rec<T: Field>(
-    input: String, 
+    input: String,
     pos: Position,
-    mut acc: &mut Vec<Variable>
+    mut acc: &mut Vec<Variable>,
 ) -> Result<(Vec<Variable>, String, Position), Error<T>> {
     match next_token(&input, &pos) {
         (Token::Ide(id), s1, p1) => {
             acc.push(Variable::from(id));
             match next_token::<T>(&s1, &p1) {
-                (Token::Comma, s2, p2) => parse_comma_separated_identifier_list_rec(s2, p2, &mut acc),
+                (Token::Comma, s2, p2) => {
+                    parse_comma_separated_identifier_list_rec(s2, p2, &mut acc)
+                }
                 (..) => Ok((acc.to_vec(), s1, p1)),
             }
-        },
+        }
         (t1, _, p1) => Err(Error {
             expected: vec![Token::Ide(String::from("ide"))],
             got: t1,
             pos: p1,
-        })
+        }),
     }
 }
 
@@ -376,9 +377,10 @@ mod tests {
             let string = String::from("() == 1");
             let cond = Statement::Condition(
                 Expression::FunctionCall(String::from("foo"), vec![]),
-                Expression::Number(FieldPrime::from(1))
+                Expression::Number(FieldPrime::from(1)),
             );
-            assert_eq!(Ok((cond, String::from(""), pos.col(string.len() as isize))),
+            assert_eq!(
+                Ok((cond, String::from(""), pos.col(string.len() as isize))),
                 parse_statement1(String::from("foo"), string, pos)
             );
         }

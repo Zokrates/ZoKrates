@@ -5,15 +5,15 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
-use types::Signature;
 use absy::parameter::Parameter;
 use absy::variable::Variable;
+use types::Signature;
 
+use field::Field;
+use flat_absy::*;
+use imports::Import;
 use std::fmt;
 use substitution::Substitution;
-use field::Field;
-use imports::Import;
-use flat_absy::*;
 use types::Type;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
@@ -21,29 +21,31 @@ pub struct TypedProg<T: Field> {
     /// Functions of the program
     pub functions: Vec<TypedFunction<T>>,
     pub imports: Vec<Import>,
-    pub imported_functions: Vec<FlatFunction<T>>
+    pub imported_functions: Vec<FlatFunction<T>>,
 }
 
 impl<T: Field> fmt::Display for TypedProg<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut res = vec![];
-        res.extend(self.imports
+        res.extend(
+            self.imports
                 .iter()
                 .map(|x| format!("{}", x))
-                .collect::<Vec<_>>());
-        res.extend(self.imported_functions
+                .collect::<Vec<_>>(),
+        );
+        res.extend(
+            self.imported_functions
                 .iter()
                 .map(|x| format!("{}", x))
-                .collect::<Vec<_>>());
-        res.extend(self.functions
+                .collect::<Vec<_>>(),
+        );
+        res.extend(
+            self.functions
                 .iter()
                 .map(|x| format!("{}", x))
-                .collect::<Vec<_>>());
-        write!(
-            f,
-            "{}",
-            res.join("\n")
-        )
+                .collect::<Vec<_>>(),
+        );
+        write!(f, "{}", res.join("\n"))
     }
 }
 
@@ -140,11 +142,13 @@ impl<T: Field> fmt::Debug for TypedStatement<T> {
                     }
                 }
                 write!(f, ")")
-            },
+            }
             TypedStatement::Definition(ref lhs, ref rhs) => {
                 write!(f, "Definition({:?}, {:?})", lhs, rhs)
             }
-            TypedStatement::Condition(ref lhs, ref rhs) => write!(f, "Condition({:?}, {:?})", lhs, rhs),
+            TypedStatement::Condition(ref lhs, ref rhs) => {
+                write!(f, "Condition({:?}, {:?})", lhs, rhs)
+            }
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {
                 try!(write!(f, "for {:?} in {:?}..{:?} do\n", var, start, stop));
                 for l in list {
@@ -154,11 +158,10 @@ impl<T: Field> fmt::Debug for TypedStatement<T> {
             }
             TypedStatement::MultipleDefinition(ref lhs, ref rhs) => {
                 write!(f, "MultipleDefinition({:?}, {:?})", lhs, rhs)
-            },
+            }
         }
     }
 }
-
 
 impl<T: Field> fmt::Display for TypedStatement<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -172,7 +175,7 @@ impl<T: Field> fmt::Display for TypedStatement<T> {
                     }
                 }
                 write!(f, "")
-            },
+            }
             TypedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             TypedStatement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {
@@ -190,13 +193,12 @@ impl<T: Field> fmt::Display for TypedStatement<T> {
                     }
                 }
                 write!(f, " = {}", rhs)
-            },
+            }
         }
     }
 }
 
-pub trait Typed
-{
+pub trait Typed {
     fn get_type(&self) -> Type;
 }
 
@@ -221,12 +223,8 @@ impl<T: Field> From<FieldElementExpression<T>> for TypedExpression<T> {
 impl<T: Field> fmt::Display for TypedExpression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            TypedExpression::Boolean(ref e) => {
-                write!(f, "{}", e)
-            },
-            TypedExpression::FieldElement(ref e) => {
-                write!(f, "{}", e)
-            }
+            TypedExpression::Boolean(ref e) => write!(f, "{}", e),
+            TypedExpression::FieldElement(ref e) => write!(f, "{}", e),
         }
     }
 }
@@ -234,12 +232,8 @@ impl<T: Field> fmt::Display for TypedExpression<T> {
 impl<T: Field> fmt::Debug for TypedExpression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            TypedExpression::Boolean(ref e) => {
-                write!(f, "{:?}", e)
-            },
-            TypedExpression::FieldElement(ref e) => {
-                write!(f, "{:?}", e)
-            }
+            TypedExpression::Boolean(ref e) => write!(f, "{:?}", e),
+            TypedExpression::FieldElement(ref e) => write!(f, "{:?}", e),
         }
     }
 }
@@ -248,25 +242,24 @@ impl<T: Field> Typed for TypedExpression<T> {
     fn get_type(&self) -> Type {
         match self {
             TypedExpression::Boolean(_) => Type::Boolean,
-            TypedExpression::FieldElement(_) => Type::FieldElement
+            TypedExpression::FieldElement(_) => Type::FieldElement,
         }
     }
 }
 
-pub trait MultiTyped
-{
+pub trait MultiTyped {
     fn get_types(&self) -> &Vec<Type>;
 }
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub enum TypedExpressionList<T: Field> {
-    FunctionCall(String, Vec<TypedExpression<T>>, Vec<Type>)
+    FunctionCall(String, Vec<TypedExpression<T>>, Vec<Type>),
 }
 
 impl<T: Field> MultiTyped for TypedExpressionList<T> {
     fn get_types(&self) -> &Vec<Type> {
         match *self {
-            TypedExpressionList::FunctionCall(_, _, ref types) => types
+            TypedExpressionList::FunctionCall(_, _, ref types) => types,
         }
     }
 }
@@ -275,23 +268,57 @@ impl<T: Field> MultiTyped for TypedExpressionList<T> {
 pub enum FieldElementExpression<T: Field> {
     Number(T),
     Identifier(String),
-    Add(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
-    Sub(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
-    Mult(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
-    Div(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
-    Pow(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
-    IfElse(Box<BooleanExpression<T>>, Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
+    Add(
+        Box<FieldElementExpression<T>>,
+        Box<FieldElementExpression<T>>,
+    ),
+    Sub(
+        Box<FieldElementExpression<T>>,
+        Box<FieldElementExpression<T>>,
+    ),
+    Mult(
+        Box<FieldElementExpression<T>>,
+        Box<FieldElementExpression<T>>,
+    ),
+    Div(
+        Box<FieldElementExpression<T>>,
+        Box<FieldElementExpression<T>>,
+    ),
+    Pow(
+        Box<FieldElementExpression<T>>,
+        Box<FieldElementExpression<T>>,
+    ),
+    IfElse(
+        Box<BooleanExpression<T>>,
+        Box<FieldElementExpression<T>>,
+        Box<FieldElementExpression<T>>,
+    ),
     FunctionCall(String, Vec<TypedExpression<T>>),
 }
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub enum BooleanExpression<T: Field> {
     Identifier(String),
-    Lt(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
-    Le(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
-    Eq(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
-    Ge(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
-    Gt(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
+    Lt(
+        Box<FieldElementExpression<T>>,
+        Box<FieldElementExpression<T>>,
+    ),
+    Le(
+        Box<FieldElementExpression<T>>,
+        Box<FieldElementExpression<T>>,
+    ),
+    Eq(
+        Box<FieldElementExpression<T>>,
+        Box<FieldElementExpression<T>>,
+    ),
+    Ge(
+        Box<FieldElementExpression<T>>,
+        Box<FieldElementExpression<T>>,
+    ),
+    Gt(
+        Box<FieldElementExpression<T>>,
+        Box<FieldElementExpression<T>>,
+    ),
 }
 
 impl<T: Field> BooleanExpression<T> {
@@ -305,7 +332,7 @@ impl<T: Field> BooleanExpression<T> {
                         None => return BooleanExpression::Identifier(new_name),
                     }
                 }
-            },
+            }
             BooleanExpression::Lt(lhs, rhs) => BooleanExpression::Lt(
                 box lhs.apply_substitution(substitution),
                 box rhs.apply_substitution(substitution),
@@ -368,26 +395,33 @@ impl<T: Field> FieldElementExpression<T> {
                 box e1.apply_substitution(substitution),
                 box e2.apply_substitution(substitution),
             ),
-            FieldElementExpression::FunctionCall(i, p) => {
-                FieldElementExpression::FunctionCall(i, p.into_iter().map(|param| param.apply_substitution(substitution)).collect())
-            },
+            FieldElementExpression::FunctionCall(i, p) => FieldElementExpression::FunctionCall(
+                i,
+                p.into_iter()
+                    .map(|param| param.apply_substitution(substitution))
+                    .collect(),
+            ),
         }
     }
 
     pub fn is_linear(&self) -> bool {
         match *self {
             FieldElementExpression::Number(_) | FieldElementExpression::Identifier(_) => true,
-            FieldElementExpression::Add(ref x, ref y) | FieldElementExpression::Sub(ref x, ref y) => {
-                x.is_linear() && y.is_linear()
-            }
-            FieldElementExpression::Mult(ref x, ref y) | FieldElementExpression::Div(ref x, ref y) => {
-                match (x, y) {
-                    (box FieldElementExpression::Number(_), box FieldElementExpression::Number(_)) |
-                    (box FieldElementExpression::Number(_), box FieldElementExpression::Identifier(_)) |
-                    (box FieldElementExpression::Identifier(_), box FieldElementExpression::Number(_)) => true,
-                    _ => false,
-                }
-            }
+            FieldElementExpression::Add(ref x, ref y)
+            | FieldElementExpression::Sub(ref x, ref y) => x.is_linear() && y.is_linear(),
+            FieldElementExpression::Mult(ref x, ref y)
+            | FieldElementExpression::Div(ref x, ref y) => match (x, y) {
+                (box FieldElementExpression::Number(_), box FieldElementExpression::Number(_))
+                | (
+                    box FieldElementExpression::Number(_),
+                    box FieldElementExpression::Identifier(_),
+                )
+                | (
+                    box FieldElementExpression::Identifier(_),
+                    box FieldElementExpression::Number(_),
+                ) => true,
+                _ => false,
+            },
             _ => false,
         }
     }
@@ -403,13 +437,13 @@ impl<T: Field> fmt::Display for FieldElementExpression<T> {
             FieldElementExpression::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
             FieldElementExpression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
             FieldElementExpression::Pow(ref lhs, ref rhs) => write!(f, "{}**{}", lhs, rhs),
-            FieldElementExpression::IfElse(ref condition, ref consequent, ref alternative) => write!(
-                f,
-                "if {} then {} else {} fi",
-                condition,
-                consequent,
-                alternative
-            ),
+            FieldElementExpression::IfElse(ref condition, ref consequent, ref alternative) => {
+                write!(
+                    f,
+                    "if {} then {} else {} fi",
+                    condition, consequent, alternative
+                )
+            }
             FieldElementExpression::FunctionCall(ref i, ref p) => {
                 try!(write!(f, "{}(", i,));
                 for (i, param) in p.iter().enumerate() {
@@ -419,7 +453,7 @@ impl<T: Field> fmt::Display for FieldElementExpression<T> {
                     }
                 }
                 write!(f, ")")
-            },
+            }
         }
     }
 }
@@ -450,25 +484,26 @@ impl<T: Field> fmt::Debug for FieldElementExpression<T> {
             FieldElementExpression::Identifier(ref var) => write!(f, "Ide({})", var),
             FieldElementExpression::Add(ref lhs, ref rhs) => write!(f, "Add({:?}, {:?})", lhs, rhs),
             FieldElementExpression::Sub(ref lhs, ref rhs) => write!(f, "Sub({:?}, {:?})", lhs, rhs),
-            FieldElementExpression::Mult(ref lhs, ref rhs) => write!(f, "Mult({:?}, {:?})", lhs, rhs),
+            FieldElementExpression::Mult(ref lhs, ref rhs) => {
+                write!(f, "Mult({:?}, {:?})", lhs, rhs)
+            }
             FieldElementExpression::Div(ref lhs, ref rhs) => write!(f, "Div({:?}, {:?})", lhs, rhs),
             FieldElementExpression::Pow(ref lhs, ref rhs) => write!(f, "Pow({:?}, {:?})", lhs, rhs),
-            FieldElementExpression::IfElse(ref condition, ref consequent, ref alternative) => write!(
-                f,
-                "IfElse({:?}, {:?}, {:?})",
-                condition,
-                consequent,
-                alternative
-            ),
+            FieldElementExpression::IfElse(ref condition, ref consequent, ref alternative) => {
+                write!(
+                    f,
+                    "IfElse({:?}, {:?}, {:?})",
+                    condition, consequent, alternative
+                )
+            }
             FieldElementExpression::FunctionCall(ref i, ref p) => {
                 try!(write!(f, "FunctionCall({:?}, (", i));
                 try!(f.debug_list().entries(p.iter()).finish());
                 write!(f, ")")
-            },
+            }
         }
     }
 }
-
 
 impl<T: Field> TypedExpression<T> {
     pub fn apply_substitution(self, substitution: &Substitution) -> TypedExpression<T> {
@@ -483,7 +518,14 @@ impl<T: Field> TypedExpressionList<T> {
     pub fn apply_substitution(self, substitution: &Substitution) -> TypedExpressionList<T> {
         match self {
             TypedExpressionList::FunctionCall(id, inputs, types) => {
-                TypedExpressionList::FunctionCall(id, inputs.into_iter().map(|i| i.apply_substitution(substitution)).collect(), types)
+                TypedExpressionList::FunctionCall(
+                    id,
+                    inputs
+                        .into_iter()
+                        .map(|i| i.apply_substitution(substitution))
+                        .collect(),
+                    types,
+                )
             }
         }
     }

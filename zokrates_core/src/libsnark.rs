@@ -6,9 +6,9 @@
 
 extern crate libc;
 
-use self::libc::{c_int, c_char, uint8_t};
-use std::ffi::{CString};
+use self::libc::{c_char, c_int, uint8_t};
 use std::cmp::max;
+use std::ffi::CString;
 use std::string::String;
 
 use field::Field;
@@ -29,19 +29,20 @@ extern "C" {
         vk_path: *const c_char,
     ) -> bool;
 
-    fn _generate_proof(pk_path: *const c_char,
-                public_inputs: *const uint8_t,
-                public_inputs_length: c_int,
-                private_inputs: *const uint8_t,
-                private_inputs_length: c_int,
-            ) -> bool;
+    fn _generate_proof(
+        pk_path: *const c_char,
+        public_inputs: *const uint8_t,
+        public_inputs_length: c_int,
+        private_inputs: *const uint8_t,
+        private_inputs_length: c_int,
+    ) -> bool;
 
     fn _sha256Constraints() -> *mut c_char;
 
     fn _sha256Witness(inputs: *const uint8_t, inputs_length: c_int) -> *mut c_char;
 }
 
-pub fn setup<T: Field> (
+pub fn setup<T: Field>(
     variables: Vec<String>,
     a: Vec<Vec<(usize, T)>>,
     b: Vec<Vec<(usize, T)>>,
@@ -49,8 +50,7 @@ pub fn setup<T: Field> (
     num_inputs: usize,
     pk_path: &str,
     vk_path: &str,
-    ) -> bool {
-
+) -> bool {
     let num_constraints = a.len();
     let num_variables = variables.len();
 
@@ -59,15 +59,27 @@ pub fn setup<T: Field> (
     let mut b_vec = vec![];
     let mut c_vec = vec![];
     for row in 0..num_constraints {
-      for &(idx, ref val) in &a[row] {
-          a_vec.push((row as i32, idx as i32, vec_as_u8_32_array(&val.into_byte_vector())));
-      }
-      for &(idx, ref val) in &b[row] {
-          b_vec.push((row as i32, idx as i32, vec_as_u8_32_array(&val.into_byte_vector())));
-      }
-      for &(idx, ref val) in &c[row] {
-          c_vec.push((row as i32, idx as i32, vec_as_u8_32_array(&val.into_byte_vector())));
-      }
+        for &(idx, ref val) in &a[row] {
+            a_vec.push((
+                row as i32,
+                idx as i32,
+                vec_as_u8_32_array(&val.into_byte_vector()),
+            ));
+        }
+        for &(idx, ref val) in &b[row] {
+            b_vec.push((
+                row as i32,
+                idx as i32,
+                vec_as_u8_32_array(&val.into_byte_vector()),
+            ));
+        }
+        for &(idx, ref val) in &c[row] {
+            c_vec.push((
+                row as i32,
+                idx as i32,
+                vec_as_u8_32_array(&val.into_byte_vector()),
+            ));
+        }
     }
 
     // Sizes and offsets in bytes for our struct {row, id, value}
@@ -88,46 +100,46 @@ pub fn setup<T: Field> (
     let mut c_arr: Vec<u8> = vec![0u8; STRUCT_SIZE * c_vec.len()];
     use std::mem::transmute;
     for (id, (row, idx, val)) in a_vec.iter().enumerate() {
-      let row_bytes: [u8; ROW_SIZE] = unsafe { transmute(row.to_le()) };
-      let idx_bytes: [u8; IDX_SIZE] = unsafe { transmute(idx.to_le()) };
+        let row_bytes: [u8; ROW_SIZE] = unsafe { transmute(row.to_le()) };
+        let idx_bytes: [u8; IDX_SIZE] = unsafe { transmute(idx.to_le()) };
 
-      for x in 0..ROW_SIZE {
-        a_arr[id * STRUCT_SIZE + x] = row_bytes[x];
-      }
-      for x in 0..IDX_SIZE {
-        a_arr[id * STRUCT_SIZE + x + IDX_OFFSET] = idx_bytes[x];
-      }
-      for x in 0..VALUE_SIZE {
-        a_arr[id * STRUCT_SIZE + x + VALUE_OFFSET] = val[x];
-      }
+        for x in 0..ROW_SIZE {
+            a_arr[id * STRUCT_SIZE + x] = row_bytes[x];
+        }
+        for x in 0..IDX_SIZE {
+            a_arr[id * STRUCT_SIZE + x + IDX_OFFSET] = idx_bytes[x];
+        }
+        for x in 0..VALUE_SIZE {
+            a_arr[id * STRUCT_SIZE + x + VALUE_OFFSET] = val[x];
+        }
     }
     for (id, (row, idx, val)) in b_vec.iter().enumerate() {
-      let row_bytes: [u8; ROW_SIZE] = unsafe { transmute(row.to_le()) };
-      let idx_bytes: [u8; IDX_SIZE] = unsafe { transmute(idx.to_le()) };
+        let row_bytes: [u8; ROW_SIZE] = unsafe { transmute(row.to_le()) };
+        let idx_bytes: [u8; IDX_SIZE] = unsafe { transmute(idx.to_le()) };
 
-      for x in 0..ROW_SIZE {
-        b_arr[id * STRUCT_SIZE + x] = row_bytes[x];
-      }
-      for x in 0..IDX_SIZE {
-        b_arr[id * STRUCT_SIZE + x + IDX_OFFSET] = idx_bytes[x];
-      }
-      for x in 0..VALUE_SIZE {
-        b_arr[id * STRUCT_SIZE + x + VALUE_OFFSET] = val[x];
-      }
+        for x in 0..ROW_SIZE {
+            b_arr[id * STRUCT_SIZE + x] = row_bytes[x];
+        }
+        for x in 0..IDX_SIZE {
+            b_arr[id * STRUCT_SIZE + x + IDX_OFFSET] = idx_bytes[x];
+        }
+        for x in 0..VALUE_SIZE {
+            b_arr[id * STRUCT_SIZE + x + VALUE_OFFSET] = val[x];
+        }
     }
     for (id, (row, idx, val)) in c_vec.iter().enumerate() {
-      let row_bytes: [u8; ROW_SIZE] = unsafe { transmute(row.to_le()) };
-      let idx_bytes: [u8; IDX_SIZE] = unsafe { transmute(idx.to_le()) };
+        let row_bytes: [u8; ROW_SIZE] = unsafe { transmute(row.to_le()) };
+        let idx_bytes: [u8; IDX_SIZE] = unsafe { transmute(idx.to_le()) };
 
-      for x in 0..ROW_SIZE {
-        c_arr[id * STRUCT_SIZE + x] = row_bytes[x];
-      }
-      for x in 0..IDX_SIZE {
-        c_arr[id * STRUCT_SIZE + x + IDX_OFFSET] = idx_bytes[x];
-      }
-      for x in 0..VALUE_SIZE {
-        c_arr[id * STRUCT_SIZE + x + VALUE_OFFSET] = val[x];
-      }
+        for x in 0..ROW_SIZE {
+            c_arr[id * STRUCT_SIZE + x] = row_bytes[x];
+        }
+        for x in 0..IDX_SIZE {
+            c_arr[id * STRUCT_SIZE + x + IDX_OFFSET] = idx_bytes[x];
+        }
+        for x in 0..VALUE_SIZE {
+            c_arr[id * STRUCT_SIZE + x + VALUE_OFFSET] = val[x];
+        }
     }
 
     // convert String slices to 'CString's
@@ -146,7 +158,7 @@ pub fn setup<T: Field> (
             num_variables as i32,
             num_inputs as i32,
             pk_path_cstring.as_ptr(),
-            vk_path_cstring.as_ptr()
+            vk_path_cstring.as_ptr(),
         )
     }
 }
@@ -156,7 +168,6 @@ pub fn generate_proof<T: Field>(
     public_inputs: Vec<T>,
     private_inputs: Vec<T>,
 ) -> bool {
-
     let pk_path_cstring = CString::new(pk_path).unwrap();
 
     let public_inputs_length = public_inputs.len();
@@ -164,7 +175,7 @@ pub fn generate_proof<T: Field>(
 
     let mut public_inputs_arr: Vec<[u8; 32]> = vec![[0u8; 32]; public_inputs_length];
     // length must not be zero here, so we apply the max function
-    let mut private_inputs_arr: Vec<[u8; 32]> = vec![[0u8; 32]; max(private_inputs_length,1)];
+    let mut private_inputs_arr: Vec<[u8; 32]> = vec![[0u8; 32]; max(private_inputs_length, 1)];
 
     //convert inputs
     for (index, value) in public_inputs.into_iter().enumerate() {
@@ -180,7 +191,7 @@ pub fn generate_proof<T: Field>(
             public_inputs_arr[0].as_ptr(),
             public_inputs_length as i32,
             private_inputs_arr[0].as_ptr(),
-            private_inputs_length as i32
+            private_inputs_length as i32,
         )
     }
 }
@@ -190,14 +201,15 @@ pub fn get_sha256_constraints() -> String {
     a.into_string().unwrap()
 }
 
-pub fn get_sha256_witness<T:Field>(inputs: &Vec<T>) -> String {
+pub fn get_sha256_witness<T: Field>(inputs: &Vec<T>) -> String {
     let mut inputs_arr: Vec<[u8; 32]> = vec![[0u8; 32]; inputs.len()];
 
     for (index, value) in inputs.into_iter().enumerate() {
         inputs_arr[index] = vec_as_u8_32_array(&value.into_byte_vector());
     }
 
-    let a = unsafe { CString::from_raw(_sha256Witness(inputs_arr[0].as_ptr(), inputs.len() as i32)) };
+    let a =
+        unsafe { CString::from_raw(_sha256Witness(inputs_arr[0].as_ptr(), inputs.len() as i32)) };
     a.into_string().unwrap()
 }
 
@@ -215,9 +227,9 @@ fn vec_as_u8_32_array(vec: &Vec<u8>) -> [u8; 32] {
 mod tests {
     use super::*;
     use field::FieldPrime;
+    use flat_absy::*;
     use num::bigint::BigUint;
     use serde_json;
-    use flat_absy::*;
     use standard;
 
     #[cfg(test)]
@@ -254,7 +266,7 @@ mod tests {
                     b"5472060717959818805561601436314318772174077789324455915672259473661306552146",
                     10
                 ).unwrap()
-                    .to_bytes_le(),
+                .to_bytes_le(),
                 FieldPrime::from(
                     "5472060717959818805561601436314318772174077789324455915672259473661306552146"
                 ).into_byte_vector()

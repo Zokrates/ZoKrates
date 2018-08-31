@@ -4,26 +4,26 @@
 // @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
 // @date 2017
 
-extern crate clap;
 extern crate bincode;
+extern crate clap;
 extern crate regex;
 extern crate zokrates_core;
 extern crate zokrates_fs_resolver;
 
-use std::fs::File;
-use std::path::{Path, PathBuf};
-use std::io::{BufWriter, Write, BufReader, BufRead, stdin};
+use bincode::{deserialize_from, serialize_into, Infinite};
+use clap::{App, AppSettings, Arg, SubCommand};
+use regex::Regex;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::{stdin, BufRead, BufReader, BufWriter, Write};
+use std::path::{Path, PathBuf};
 use std::string::String;
 use zokrates_core::compile::compile;
 use zokrates_core::field::{Field, FieldPrime};
-use zokrates_core::r1cs::{r1cs_program};
 use zokrates_core::flat_absy::FlatProg;
-use clap::{App, AppSettings, Arg, SubCommand};
 #[cfg(feature = "libsnark")]
-use zokrates_core::libsnark::{setup, generate_proof};
-use bincode::{serialize_into, deserialize_from , Infinite};
-use regex::Regex;
+use zokrates_core::libsnark::{generate_proof, setup};
+use zokrates_core::r1cs::r1cs_program;
 use zokrates_core::verification::CONTRACT_TEMPLATE;
 use zokrates_fs_resolver::resolve as fs_resolve;
 
@@ -214,17 +214,26 @@ fn main() {
             let file = File::open(path.clone()).unwrap();
 
             let mut reader = BufReader::new(file);
-            
-            let program_flattened: FlatProg<FieldPrime> = match compile(&mut reader, location, Some(fs_resolve), should_optimize, should_include_gadgets) {
+
+            let program_flattened: FlatProg<FieldPrime> = match compile(
+                &mut reader,
+                location,
+                Some(fs_resolve),
+                should_optimize,
+                should_include_gadgets,
+            ) {
                 Ok(p) => p,
-                Err(why) => panic!("Compilation failed: {}", why)
+                Err(why) => panic!("Compilation failed: {}", why),
             };
 
             // number of constraints the flattened program will translate to.
-            let num_constraints = &program_flattened.functions
-            .iter()
-            .find(|x| x.id == "main")
-            .unwrap().statements.len();
+            let num_constraints = &program_flattened
+                .functions
+                .iter()
+                .find(|x| x.id == "main")
+                .unwrap()
+                .statements
+                .len();
 
             // serialize flattened program and write to binary file
             let mut bin_output_file = match File::create(&bin_output_path) {
@@ -232,7 +241,8 @@ fn main() {
                 Err(why) => panic!("couldn't create {}: {}", bin_output_path.display(), why),
             };
 
-            serialize_into(&mut bin_output_file, &program_flattened, Infinite).expect("Unable to write data to file.");
+            serialize_into(&mut bin_output_file, &program_flattened, Infinite)
+                .expect("Unable to write data to file.");
 
             if !light {
                 // write human-readable output file
@@ -242,7 +252,8 @@ fn main() {
                 };
 
                 let mut hrofb = BufWriter::new(hr_output_file);
-                write!(&mut hrofb, "{}\n", program_flattened).expect("Unable to write data to file.");
+                write!(&mut hrofb, "{}\n", program_flattened)
+                    .expect("Unable to write data to file.");
                 hrofb.flush().expect("Unable to flush buffer.");
             }
 
@@ -288,51 +299,63 @@ fn main() {
 
             // validate #arguments
             let mut cli_arguments: Vec<FieldPrime> = Vec::new();
-            match sub_matches.values_of("arguments"){
+            match sub_matches.values_of("arguments") {
                 Some(p) => {
                     let arg_strings: Vec<&str> = p.collect();
-                    cli_arguments = arg_strings.into_iter().map(|x| FieldPrime::from(x)).collect();
-                },
-                None => {
+                    cli_arguments = arg_strings
+                        .into_iter()
+                        .map(|x| FieldPrime::from(x))
+                        .collect();
                 }
+                None => {}
             }
 
             // handle interactive and non-interactive modes
             let is_interactive = sub_matches.occurrences_of("interactive") > 0;
 
             // in interactive mode, only public inputs are expected
-            let expected_cli_args_count = main_flattened.arguments.iter().filter(|x| !(x.private && is_interactive)).count();
+            let expected_cli_args_count = main_flattened
+                .arguments
+                .iter()
+                .filter(|x| !(x.private && is_interactive))
+                .count();
 
             if cli_arguments.len() != expected_cli_args_count {
-                println!("Wrong number of arguments. Given: {}, Required: {}.", cli_arguments.len(), expected_cli_args_count);
+                println!(
+                    "Wrong number of arguments. Given: {}, Required: {}.",
+                    cli_arguments.len(),
+                    expected_cli_args_count
+                );
                 std::process::exit(1);
             }
 
             let mut cli_arguments_iter = cli_arguments.into_iter();
-            let arguments = main_flattened.arguments.clone().into_iter().map(|x| {
-                match x.private && is_interactive {
-                    // private inputs are passed interactively when the flag is present
-                    true => {
-                        println!("Please enter a value for {:?}:", x.id);
-                        let mut input = String::new();
-                        let stdin = stdin();
-                        stdin
-                            .lock()
-                            .read_line(&mut input)
-                            .expect("Did not enter a correct String");
-                        FieldPrime::from(input.trim())
-                    }
-                    // otherwise, they are taken from the CLI arguments
-                    false => {
-                        match cli_arguments_iter.next() {
+            let arguments = main_flattened
+                .arguments
+                .clone()
+                .into_iter()
+                .map(|x| {
+                    match x.private && is_interactive {
+                        // private inputs are passed interactively when the flag is present
+                        true => {
+                            println!("Please enter a value for {:?}:", x.id);
+                            let mut input = String::new();
+                            let stdin = stdin();
+                            stdin
+                                .lock()
+                                .read_line(&mut input)
+                                .expect("Did not enter a correct String");
+                            FieldPrime::from(input.trim())
+                        }
+                        // otherwise, they are taken from the CLI arguments
+                        false => match cli_arguments_iter.next() {
                             Some(x) => x,
                             None => {
                                 std::process::exit(1);
                             }
-                        }
+                        },
                     }
-                }
-            }).collect();
+                }).collect();
 
             let witness_map = main_flattened.get_witness(arguments).unwrap();
 
@@ -346,7 +369,8 @@ fn main() {
             };
             let mut bw = BufWriter::new(output_file);
             for (var, val) in &witness_map {
-                write!(&mut bw, "{} {}\n", var, val.to_dec_string()).expect("Unable to write data to file.");
+                write!(&mut bw, "{} {}\n", var, val.to_dec_string())
+                    .expect("Unable to write data to file.");
             }
             bw.flush().expect("Unable to flush buffer.");
         }
@@ -386,24 +410,36 @@ fn main() {
                 Err(why) => panic!("couldn't open {}: {}", var_inf_path.display(), why),
             };
             let mut bw = BufWriter::new(var_inf_file);
-                write!(&mut bw, "Private inputs offset:\n{}\n", private_inputs_offset).expect("Unable to write data to file.");
-                write!(&mut bw, "R1CS variable order:\n").expect("Unable to write data to file.");
+            write!(
+                &mut bw,
+                "Private inputs offset:\n{}\n",
+                private_inputs_offset
+            ).expect("Unable to write data to file.");
+            write!(&mut bw, "R1CS variable order:\n").expect("Unable to write data to file.");
             for var in &variables {
                 write!(&mut bw, "{} ", var).expect("Unable to write data to file.");
             }
             write!(&mut bw, "\n").expect("Unable to write data to file.");
             bw.flush().expect("Unable to flush buffer.");
 
-
             // get paths for proving and verification keys
             let pk_path = sub_matches.value_of("proving-key-path").unwrap();
             let vk_path = sub_matches.value_of("verification-key-path").unwrap();
 
             // run setup phase
-            #[cfg(feature="libsnark")]{
+            #[cfg(feature = "libsnark")]
+            {
                 // number of inputs in the zkSNARK sense, i.e., input variables + output variables
-                let num_inputs = main_flattened.arguments.iter().filter(|x| !x.private).count() + main_flattened.return_count;
-                println!("setup successful: {:?}", setup(variables, a, b, c, num_inputs, pk_path, vk_path));
+                let num_inputs = main_flattened
+                    .arguments
+                    .iter()
+                    .filter(|x| !x.private)
+                    .count()
+                    + main_flattened.return_count;
+                println!(
+                    "setup successful: {:?}",
+                    setup(variables, a, b, c, num_inputs, pk_path, vk_path)
+                );
             }
         }
         ("export-verifier", Some(sub_matches)) => {
@@ -418,7 +454,7 @@ fn main() {
             let mut lines = reader.lines();
 
             let mut template_text = String::from(CONTRACT_TEMPLATE);
-            let ic_template = String::from("vk.IC[index] = Pairing.G1Point(points);");      //copy this for each entry
+            let ic_template = String::from("vk.IC[index] = Pairing.G1Point(points);"); //copy this for each entry
 
             //replace things in template
             let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
@@ -429,34 +465,55 @@ fn main() {
             let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
 
             for _ in 0..7 {
-                let current_line: String = lines.next().expect("Unexpected end of file in verification key!").unwrap();
+                let current_line: String = lines
+                    .next()
+                    .expect("Unexpected end of file in verification key!")
+                    .unwrap();
                 let current_line_split: Vec<&str> = current_line.split("=").collect();
                 assert_eq!(current_line_split.len(), 2);
-                template_text = vk_regex.replace(template_text.as_str(), current_line_split[1].trim()).into_owned();
+                template_text = vk_regex
+                    .replace(template_text.as_str(), current_line_split[1].trim())
+                    .into_owned();
             }
 
-            let current_line: String = lines.next().expect("Unexpected end of file in verification key!").unwrap();
+            let current_line: String = lines
+                .next()
+                .expect("Unexpected end of file in verification key!")
+                .unwrap();
             let current_line_split: Vec<&str> = current_line.split("=").collect();
             assert_eq!(current_line_split.len(), 2);
             let ic_count: i32 = current_line_split[1].trim().parse().unwrap();
 
-            template_text = vk_ic_len_regex.replace(template_text.as_str(), format!("{}", ic_count).as_str()).into_owned();
-            template_text = vk_input_len_regex.replace(template_text.as_str(), format!("{}", ic_count-1).as_str()).into_owned();
+            template_text = vk_ic_len_regex
+                .replace(template_text.as_str(), format!("{}", ic_count).as_str())
+                .into_owned();
+            template_text = vk_input_len_regex
+                .replace(template_text.as_str(), format!("{}", ic_count - 1).as_str())
+                .into_owned();
 
             let mut ic_repeat_text = String::new();
             for x in 0..ic_count {
                 let mut curr_template = ic_template.clone();
-                let current_line: String = lines.next().expect("Unexpected end of file in verification key!").unwrap();
+                let current_line: String = lines
+                    .next()
+                    .expect("Unexpected end of file in verification key!")
+                    .unwrap();
                 let current_line_split: Vec<&str> = current_line.split("=").collect();
                 assert_eq!(current_line_split.len(), 2);
-                curr_template = vk_ic_index_regex.replace(curr_template.as_str(), format!("{}", x).as_str()).into_owned();
-                curr_template = vk_ic_points_regex.replace(curr_template.as_str(), current_line_split[1].trim()).into_owned();
+                curr_template = vk_ic_index_regex
+                    .replace(curr_template.as_str(), format!("{}", x).as_str())
+                    .into_owned();
+                curr_template = vk_ic_points_regex
+                    .replace(curr_template.as_str(), current_line_split[1].trim())
+                    .into_owned();
                 ic_repeat_text.push_str(curr_template.as_str());
                 if x < ic_count - 1 {
                     ic_repeat_text.push_str("\n        ");
                 }
             }
-            template_text = vk_ic_repeat_regex.replace(template_text.as_str(), ic_repeat_text.as_str()).into_owned();
+            template_text = vk_ic_repeat_regex
+                .replace(template_text.as_str(), ic_repeat_text.as_str())
+                .into_owned();
 
             //write output file
             let output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -464,7 +521,9 @@ fn main() {
                 Ok(file) => file,
                 Err(why) => panic!("couldn't create {}: {}", output_path.display(), why),
             };
-            output_file.write_all(&template_text.as_bytes()).expect("Failed writing output to file.");
+            output_file
+                .write_all(&template_text.as_bytes())
+                .expect("Failed writing output to file.");
             println!("Finished exporting verifier.");
         }
         ("generate-proof", Some(sub_matches)) => {
@@ -485,8 +544,11 @@ fn main() {
                 match lines.next() {
                     Some(Ok(ref x)) => {
                         let pairs: Vec<&str> = x.split_whitespace().collect();
-                        witness_map.insert(pairs[0].to_string(),FieldPrime::from_dec_string(pairs[1].to_string()));
-                    },
+                        witness_map.insert(
+                            pairs[0].to_string(),
+                            FieldPrime::from_dec_string(pairs[1].to_string()),
+                        );
+                    }
                     None => break,
                     Some(Err(err)) => panic!("Error reading witness: {}", err),
                 }
@@ -503,7 +565,8 @@ fn main() {
 
             // get private inputs offset
             let private_inputs_offset;
-            if let Some(Ok(ref o)) = var_lines.nth(1){ // consumes first 2 lines
+            if let Some(Ok(ref o)) = var_lines.nth(1) {
+                // consumes first 2 lines
                 private_inputs_offset = o.parse().expect("Failed parsing private inputs offset");
             } else {
                 panic!("Error reading private inputs offset");
@@ -511,10 +574,10 @@ fn main() {
 
             // get variables vector
             let mut variables: Vec<String> = Vec::new();
-            if let Some(Ok(ref v)) = var_lines.nth(1){
+            if let Some(Ok(ref v)) = var_lines.nth(1) {
                 let iter = v.split_whitespace();
                 for i in iter {
-                        variables.push(i.to_string());
+                    variables.push(i.to_string());
                 }
             } else {
                 panic!("Error reading variables.");
@@ -525,7 +588,7 @@ fn main() {
             let witness: Vec<_> = variables.iter().map(|x| witness_map[x].clone()).collect();
 
             // split witness into public and private inputs at offset
-            let mut public_inputs: Vec<_>= witness.clone();
+            let mut public_inputs: Vec<_> = witness.clone();
             let private_inputs: Vec<_> = public_inputs.split_off(private_inputs_offset);
 
             println!("Public inputs: {:?}", public_inputs);
@@ -534,21 +597,23 @@ fn main() {
             let pk_path = sub_matches.value_of("provingkey").unwrap();
 
             // run libsnark
-            #[cfg(feature="libsnark")]{
-                println!("generate-proof successful: {:?}", generate_proof(pk_path, public_inputs, private_inputs));
+            #[cfg(feature = "libsnark")]
+            {
+                println!(
+                    "generate-proof successful: {:?}",
+                    generate_proof(pk_path, public_inputs, private_inputs)
+                );
             }
-
         }
         _ => unimplemented!(), // Either no subcommand or one not tested for...
     }
-
 }
 
 #[cfg(test)]
 mod tests {
     extern crate glob;
-    use super::*;
     use self::glob::glob;
+    use super::*;
 
     #[test]
     fn examples() {
@@ -589,7 +654,9 @@ mod tests {
                 compile(&mut reader, path, Some(fs_resolve), true, false).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
-            let _ = program_flattened.get_witness(vec![FieldPrime::from(0)]).unwrap();
+            let _ = program_flattened
+                .get_witness(vec![FieldPrime::from(0)])
+                .unwrap();
         }
     }
 
@@ -613,7 +680,9 @@ mod tests {
             let (..) = r1cs_program(&program_flattened);
 
             let result = std::panic::catch_unwind(|| {
-                let _ = program_flattened.get_witness(vec![FieldPrime::from(0)]).unwrap();
+                let _ = program_flattened
+                    .get_witness(vec![FieldPrime::from(0)])
+                    .unwrap();
             });
             assert!(result.is_err());
         }
