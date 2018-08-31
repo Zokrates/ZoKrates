@@ -203,8 +203,8 @@ impl Flattener {
                     }
 
                     statements_flattened
-                        .push(FlatStatement::Definition(
-                                lhs_name.clone(), 
+                        .push(FlatStatement::Condition(
+                                FlatExpression::Identifier(lhs_name.clone()), 
                                 lhs_sum
                             )
                         );
@@ -238,8 +238,8 @@ impl Flattener {
                     }
 
                     statements_flattened
-                        .push(FlatStatement::Definition(
-                                rhs_name.clone(), 
+                        .push(FlatStatement::Condition(
+                                FlatExpression::Identifier(rhs_name.clone()), 
                                 rhs_sum
                             )
                         );
