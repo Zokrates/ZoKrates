@@ -43,19 +43,6 @@ pipeline {
                 }
             }
         }
-        stage('Lint') {
-            agent {
-                docker {
-                  image 'rustlang/rust:nightly'
-                }
-            }
-            steps {
-                script {
-                    sh "rustup component add clippy-preview"
-                    sh "cargo clippy"
-                }
-            }
-        }
         stage('Build') {
             steps {
                 script {

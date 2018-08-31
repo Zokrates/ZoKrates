@@ -77,6 +77,7 @@ impl Checker {
                 signature: func.signature,
             });
         }
+
         self.check_single_main()?;
         Ok(TypedProg {
             functions: checked_functions,
@@ -86,13 +87,7 @@ impl Checker {
     }
 
     fn check_single_main(&mut self) -> Result<(), Error> {
-        match self
-            .functions
-            .clone()
-            .into_iter()
-            .filter(|fun| fun.id == "main")
-            .count()
-        {
+        match self.functions.iter().filter(|fun| fun.id == "main").count() {
             1 => Ok(()),
             0 => Err(Error {
                 message: format!("No main function found"),
