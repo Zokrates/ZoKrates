@@ -180,8 +180,8 @@ impl Flattener {
                     // bitness checks
                     for i in 0..self.bits - 2 {
                         let new_name = format!("{}{}{}", &lhs_name, BINARY_SEPARATOR, i);
-                        statements_flattened.push(FlatStatement::Condition(
-                            FlatExpression::Identifier(new_name.to_string()),
+                        statements_flattened.push(FlatStatement::Definition(
+                            new_name.to_string(),
                             FlatExpression::Mult(
                                 box FlatExpression::Identifier(new_name.to_string()),
                                 box FlatExpression::Identifier(new_name.to_string()),
@@ -215,8 +215,8 @@ impl Flattener {
                     // bitness checks
                     for i in 0..self.bits - 2 {
                         let new_name = format!("{}{}{}", &rhs_name, BINARY_SEPARATOR, i);
-                        statements_flattened.push(FlatStatement::Condition(
-                            FlatExpression::Identifier(new_name.to_string()),
+                        statements_flattened.push(FlatStatement::Definition(
+                            new_name.to_string(),
                             FlatExpression::Mult(
                                 box FlatExpression::Identifier(new_name.to_string()),
                                 box FlatExpression::Identifier(new_name.to_string()),
@@ -260,8 +260,8 @@ impl Flattener {
                 // sym_b{i} = sym_b{i}**2  (bitness checks)
                 for i in 0..self.bits {
                     let new_name = format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, i);
-                    statements_flattened.push(FlatStatement::Condition(
-                        FlatExpression::Identifier(new_name.to_string()),
+                    statements_flattened.push(FlatStatement::Definition(
+                        new_name.to_string(),
                         FlatExpression::Mult(
                             box FlatExpression::Identifier(new_name.to_string()),
                             box FlatExpression::Identifier(new_name.to_string()),
