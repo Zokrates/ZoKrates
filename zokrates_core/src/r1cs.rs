@@ -6,6 +6,7 @@
 //! @date 2017
 
 use std::collections::HashMap;
+use std::mem;
 use flat_absy::*;
 use flat_absy::FlatExpression::*;
 use field::Field;
@@ -145,7 +146,7 @@ fn swap_sub<T: Field>(lhs: &FlatExpression<T>, rhs: &FlatExpression<T>) -> (Flat
 fn r1cs_expression<T: Field>(
     linear_expr: FlatExpression<T>,
     expr: FlatExpression<T>,
-    variables: &mut Vec<String>,
+    variables: &mut HashMap<String, usize>,
     a_row: &mut Vec<(usize, T)>,
     b_row: &mut Vec<(usize, T)>,
     c_row: &mut Vec<(usize, T)>,
@@ -244,20 +245,15 @@ fn r1cs_expression<T: Field>(
     }
 }
 
-/// Returns the index of `var` in the vector `variables` or adds `var`.
+/// Returns the index of `var` in `variables`, adding `var` with incremented index if it not yet exists.
 ///
 /// # Arguments
 ///
-/// * `variables` - A mutual vector that contains all existing variables. Not found variables will be added.
+/// * `variables` - A mutual map that maps all existing variables to their index.
 /// * `var` - Variable to be searched for.
-fn get_variable_idx(variables: &mut Vec<String>, var: &String) -> usize {
-    match variables.iter().position(|r| r == var) {
-        Some(x) => x,
-        None => {
-            variables.push(var.to_string());
-            variables.len() - 1
-        }
-    }
+fn get_variable_idx(variables: &mut HashMap<String, usize>, var: &String) -> usize {
+    let index = variables.len();
+    *variables.entry(var.to_string()).or_insert(index)
 }
 
 /// Calculates one R1CS row representation of a program and returns (V, A, B, C) so that:
@@ -276,8 +272,8 @@ pub fn r1cs_program<T: Field>(
     Vec<Vec<(usize, T)>>,
     Vec<Vec<(usize, T)>>,
 ) {
-    let mut variables: Vec<String> = Vec::new();
-    variables.push("~one".to_string());
+    let mut variables: HashMap<String, usize> = HashMap::new();
+    get_variable_idx(&mut variables, &"~one".to_string());
     let mut a: Vec<Vec<(usize, T)>> = Vec::new();
     let mut b: Vec<Vec<(usize, T)>> = Vec::new();
     let mut c: Vec<Vec<(usize, T)>> = Vec::new();
@@ -287,12 +283,14 @@ pub fn r1cs_program<T: Field>(
         .iter()
         .find(|x: &&FlatFunction<T>| x.id == "main".to_string())
         .unwrap();
-    variables.extend(main.arguments.iter().filter(|x| !x.private).map(|x| format!("{}", x)));
+    for x in main.arguments.iter().filter(|x| !x.private) {
+        get_variable_idx(&mut variables, &format!("{}", x));
+    }
 
     // ~out is added after main's arguments as we want variables (columns)
     // in the r1cs to be aligned like "public inputs | private inputs"
     for i in 0..main.return_count {
-        variables.push(format!("~out_{}", i).to_string());
+        get_variable_idx(&mut variables, &format!("~out_{}", i).to_string());
     }
 
     // position where private part of witness starts
@@ -338,7 +336,13 @@ pub fn r1cs_program<T: Field>(
             FlatStatement::Directive(..) => continue
         }
     }
-    (variables, private_inputs_offset, a, b, c)
+    // Convert map back into list ordered by index
+    let mut variables_list = vec!["".to_string(); variables.len()];
+    for (k, v) in variables.drain() {
+        assert_eq!(variables_list[v], "");
+        mem::replace(&mut variables_list[v], k);
+    }
+    (variables_list, private_inputs_offset, a, b, c)
 }
 
 #[cfg(test)]
@@ -369,10 +373,10 @@ mod tests {
                 box Identifier(String::from("y")),
                 box Number(FieldPrime::from(5)),
             );
-            let mut variables: Vec<String> = vec!["~one", "x", "y"]
-                .iter()
-                .map(|&x| String::from(x))
-                .collect();
+            let mut variables: HashMap<String, usize> = HashMap::new();
+            variables.insert("~one".to_string(), 0);
+            variables.insert("x".to_string(), 1);
+            variables.insert("y".to_string(), 2);
             let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut b_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut c_row: Vec<(usize, FieldPrime)> = Vec::new();
@@ -438,10 +442,11 @@ mod tests {
                     ),
                 ),
             );
-            let mut variables: Vec<String> = vec!["~one", "x", "y", "z"]
-                .iter()
-                .map(|&x| String::from(x))
-                .collect();
+            let mut variables: HashMap<String, usize> = HashMap::new();
+            variables.insert("~one".to_string(), 0);
+            variables.insert("x".to_string(), 1);
+            variables.insert("y".to_string(), 2);
+            variables.insert("z".to_string(), 3);
             let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut b_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut c_row: Vec<(usize, FieldPrime)> = Vec::new();
@@ -489,10 +494,11 @@ mod tests {
                     box Number(FieldPrime::from(6)),
                 ),
             );
-            let mut variables: Vec<String> = vec!["~one", "x", "y", "z"]
-                .iter()
-                .map(|&x| String::from(x))
-                .collect();
+            let mut variables: HashMap<String, usize> = HashMap::new();
+            variables.insert("~one".to_string(), 0);
+            variables.insert("x".to_string(), 1);
+            variables.insert("y".to_string(), 2);
+            variables.insert("z".to_string(), 3);
             let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut b_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut c_row: Vec<(usize, FieldPrime)> = Vec::new();
@@ -537,10 +543,12 @@ mod tests {
                 box Identifier(String::from("a")),
                 box Identifier(String::from("x")),
             );
-            let mut variables: Vec<String> = vec!["~one", "x", "y", "z", "a"]
-                .iter()
-                .map(|&x| String::from(x))
-                .collect();
+            let mut variables: HashMap<String, usize> = HashMap::new();
+            variables.insert("~one".to_string(), 0);
+            variables.insert("x".to_string(), 1);
+            variables.insert("y".to_string(), 2);
+            variables.insert("z".to_string(), 3);
+            variables.insert("a".to_string(), 4);
             let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut b_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut c_row: Vec<(usize, FieldPrime)> = Vec::new();
@@ -611,10 +619,11 @@ mod tests {
                     ),
                 ),
             );
-            let mut variables: Vec<String> = vec!["~one", "a", "b", "c"]
-                .iter()
-                .map(|&x| String::from(x))
-                .collect();
+            let mut variables: HashMap<String, usize> = HashMap::new();
+            variables.insert("~one".to_string(), 0);
+            variables.insert("a".to_string(), 1);
+            variables.insert("b".to_string(), 2);
+            variables.insert("c".to_string(), 3);
             let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut b_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut c_row: Vec<(usize, FieldPrime)> = Vec::new();
@@ -659,10 +668,10 @@ mod tests {
                     box Number(FieldPrime::from(6)),
                 ),
             );
-            let mut variables: Vec<String> = vec!["~one", "x", "y"]
-                .iter()
-                .map(|&x| String::from(x))
-                .collect();
+            let mut variables: HashMap<String, usize> = HashMap::new();
+            variables.insert("~one".to_string(), 0);
+            variables.insert("x".to_string(), 1);
+            variables.insert("y".to_string(), 2);
             let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut b_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut c_row: Vec<(usize, FieldPrime)> = Vec::new();
