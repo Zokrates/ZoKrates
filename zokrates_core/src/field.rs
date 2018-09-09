@@ -345,7 +345,7 @@ impl<'de> Deserialize<'de> for FieldPrime {
     }
 }
 
-/// Calculates the gcd using a iterative implementation of the extended euclidian algorithm.
+/// Calculates the gcd using an iterative implementation of the extended euclidian algorithm.
 /// Returning `(d, s, t)` so that `d = s * a + t * b`
 ///
 /// # Arguments

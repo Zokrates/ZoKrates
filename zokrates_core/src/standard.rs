@@ -7,7 +7,7 @@ use reduce::Reduce;
 use helpers::{DirectiveStatement, Helper, LibsnarkGadgetHelper};
 
 // for r1cs import, can be moved.
-// r1cs data strucutre reflecting JSON standard format:
+// r1cs data structure reflecting JSON standard format:
 // {
 //     input_count: count,  // # of inputs to pass
 //     outputs: [offset_42, offset_63, offset_55],  // indices of the outputs in the witness
