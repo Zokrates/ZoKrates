@@ -77,7 +77,7 @@ fn main() {
         .arg(Arg::with_name("input")
             .short("i")
             .long("input")
-            .help("path of comiled code.")
+            .help("path of compiled code.")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
