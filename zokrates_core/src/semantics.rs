@@ -184,7 +184,7 @@ impl Checker {
 			0 => {
 
 			},
-			_ => panic!("dupllicate function declaration should have been caught")
+			_ => panic!("duplicate function declaration should have been caught")
 		}
 
 		self.enter_scope();
@@ -413,7 +413,20 @@ impl Checker {
 					(TypedExpression::Boolean(condition), TypedExpression::FieldElement(consequence), TypedExpression::FieldElement(alternative)) => {
 						Ok(FieldElementExpression::IfElse(box condition, box consequence, box alternative).into())
 					},
-					_ => panic!("id else only for bool fe fe")
+					(condition, consequence, alternative) => 
+						Err(
+							Error { 
+								message: 
+									format!("if {{condition}} then {{consequence}} else {{alternative}} should have types {}, {}, {}, found {}, {}, {}",
+										Type::Boolean,
+										Type::FieldElement,
+										Type::FieldElement,
+										condition.get_type(),
+										consequence.get_type(),
+										alternative.get_type(),
+									)
+							}
+						)
 				}
 			},
 			&Expression::Number(ref n) => Ok(FieldElementExpression::Number(n.clone()).into()),
@@ -443,9 +456,9 @@ impl Checker {
             			let f = &candidates[0];
             			// the return count has to be 1
             			if f.signature.outputs.len() == 1 {
-            				match f.signature.outputs[0] {
-            					Type::FieldElement => return Ok(FieldElementExpression::FunctionCall(f.id.clone(), arguments_checked).into()),
-            					_ => panic!("cannot return booleans")
+            				return match f.signature.outputs[0] {
+            					Type::FieldElement => Ok(FieldElementExpression::FunctionCall(f.id.clone(), arguments_checked).into()),
+            					ref t => Err( Error { message: format!("Outside of assignments, functions must return a single element of type {}, found type {}", Type::FieldElement, t)})
             				}
             			}
             			Err(Error { message: format!("{} returns {} values but is called outside of a definition", f.id, f.signature.outputs.len()) })

@@ -550,31 +550,31 @@ mod tests {
     use super::*;
     use self::glob::glob;
 
-    // #[test]
-    // fn examples() {
-    //     for p in glob("./examples/**/*.code").expect("Failed to read glob pattern") {
-    //         let path = match p {
-    //             Ok(x) => x,
-    //             Err(why) => panic!("Error: {:?}", why),
-    //         };
+    #[test]
+    fn examples() {
+        for p in glob("./examples/**/*.code").expect("Failed to read glob pattern") {
+            let path = match p {
+                Ok(x) => x,
+                Err(why) => panic!("Error: {:?}", why),
+            };
 
-    //         if path.to_str().unwrap().contains("error") {
-    //             continue
-    //         }
+            if path.to_str().unwrap().contains("error") {
+                continue
+            }
 
-    //         println!("Testing {:?}", path);
+            println!("Testing {:?}", path);
 
-    //         let file = File::open(path.clone()).unwrap();
+            let file = File::open(path.clone()).unwrap();
 
-    //         let mut reader = BufReader::new(file);
-            // let location = path.parent().unwrap().to_path_buf().into_os_string().into_string().unwrap();
+            let mut reader = BufReader::new(file);
+            let location = path.parent().unwrap().to_path_buf().into_os_string().into_string().unwrap();
 
-            // let program_flattened: FlatProg<FieldPrime> =
-            //     compile(&mut reader, Some(location), Some(fs_resolve), true, false).unwrap();
+            let program_flattened: FlatProg<FieldPrime> =
+                compile(&mut reader, Some(location), Some(fs_resolve), true, false).unwrap();
 
-    //         let (..) = r1cs_program(&program_flattened);
-    //     }
-    // }
+            let (..) = r1cs_program(&program_flattened);
+        }
+    }
 
     #[test]
     fn examples_with_input_success() {

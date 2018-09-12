@@ -501,7 +501,7 @@ impl Flattener {
             }
         }
         panic!(
-            "TypedFunction definition for function {} with {:?} argument(s) not found.",
+            "TypedFunction definition for function {} with {:?} argument(s) not found. Should have been detected during semantic checking.",
             id,
             param_expressions
         );
@@ -743,7 +743,15 @@ impl Flattener {
                                 expr_subbed,
                             )
                         },
-                        _ => panic!("Functions can only return expressions of type FieldElement")
+                        TypedExpression::Boolean(e) => {
+                            let expr_subbed = e.apply_substitution(&self.substitution);
+                            self.flatten_boolean_expression(
+                                functions_flattened,
+                                arguments_flattened,
+                                statements_flattened,
+                                expr_subbed,
+                            )
+                        }
                     }
                 }).collect();
 
@@ -764,26 +772,35 @@ impl Flattener {
                 // define n variables with n the number of primitive types for v_type
                 // assign them to the n primitive types for expr
 
-                match expr {
+                let rhs = match expr {
                     TypedExpression::FieldElement(expr) => {
                         let expr_subbed = expr.apply_substitution(&self.substitution);
-                        let rhs = self.flatten_field_expression(
+                        self.flatten_field_expression(
                             functions_flattened,
                             arguments_flattened,
                             statements_flattened,
                             expr_subbed,
-                        );
-                        let var = self.use_variable(&v.id);
-                        // handle return of function call
-                        let var_to_replace = self.get_latest_var_substitution(&v.id);
-                        if !(var == var_to_replace) && self.variables.contains(&var_to_replace) && !self.substitution.contains_key(&var_to_replace){
-                            self.substitution.insert(var_to_replace.clone().to_string(),var.clone());
-                        }
-
-                        statements_flattened.push(FlatStatement::Definition(var, rhs));
+                        )
                     },
-                    _ => panic!("Definitions must have type FieldElement")
+                    TypedExpression::Boolean(expr) => {
+                        let expr_subbed = expr.apply_substitution(&self.substitution);
+                        self.flatten_boolean_expression(
+                            functions_flattened,
+                            arguments_flattened,
+                            statements_flattened,
+                            expr_subbed,
+                        )
+                    },
+                };
+
+                let var = self.use_variable(&v.id);
+                // handle return of function call
+                let var_to_replace = self.get_latest_var_substitution(&v.id);
+                if !(var == var_to_replace) && self.variables.contains(&var_to_replace) && !self.substitution.contains_key(&var_to_replace){
+                    self.substitution.insert(var_to_replace.clone().to_string(),var.clone());
                 }
+
+                statements_flattened.push(FlatStatement::Definition(var, rhs));
             }
             TypedStatement::Condition(expr1, expr2) => {
 
@@ -831,7 +848,47 @@ impl Flattener {
                         };
                         statements_flattened.push(FlatStatement::Condition(lhs, rhs));
                     },
-                    _ => panic!("Conditions (Assertions) must be applied to expressions of type FieldElement")
+                    (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
+
+                        let e1_subbed = e1.apply_substitution(&self.substitution);
+                        let e2_subbed = e2.apply_substitution(&self.substitution);
+                        
+                        let (lhs, rhs) = if e1_subbed.is_linear() {
+                            (
+                                self.flatten_boolean_expression(
+                                    functions_flattened,
+                                    arguments_flattened,
+                                    statements_flattened,
+                                    e1_subbed
+                                ),
+                                self.flatten_boolean_expression(
+                                    functions_flattened,
+                                    arguments_flattened,
+                                    statements_flattened,
+                                    e2_subbed,
+                                ),
+                            )
+                        } else if e2_subbed.is_linear() {
+                            (
+                                self.flatten_boolean_expression(
+                                    functions_flattened,
+                                    arguments_flattened,
+                                    statements_flattened,
+                                    e2_subbed,
+                                ),
+                                self.flatten_boolean_expression(
+                                    functions_flattened,
+                                    arguments_flattened,
+                                    statements_flattened,
+                                    e1_subbed,
+                                ),
+                            )
+                        } else {
+                            unimplemented!()
+                        };
+                        statements_flattened.push(FlatStatement::Condition(lhs, rhs));
+                    },
+                    _ => panic!("non matching types in condition should have been caught at semantic stage")
                 }
             }
             TypedStatement::For(var, start, end, statements) => {
@@ -862,7 +919,7 @@ impl Flattener {
                 let rhs_subbed = rhs.apply_substitution(&self.substitution);
                 
                 match rhs_subbed {
-                    TypedExpressionList::FunctionCall(fun_id, exprs, types) => {
+                    TypedExpressionList::FunctionCall(fun_id, exprs, _) => {
                         let rhs_flattened = self.flatten_function_call(
                             functions_flattened,
                             arguments_flattened,
@@ -872,21 +929,15 @@ impl Flattener {
                             &exprs,
                         );
 
+                        // this will change for types that have multiple underlying fe
                         for (i, v) in vars.into_iter().enumerate() {
-                            let var_type = &types[i];
-
-                            match var_type {
-                                Type::FieldElement => {
-                                    let var = self.use_variable(&v.id);
-                                    // handle return of function call
-                                    let var_to_replace = self.get_latest_var_substitution(&v.id);
-                                    if !(var == var_to_replace) && self.variables.contains(&var_to_replace) && !self.substitution.contains_key(&var_to_replace){
-                                        self.substitution.insert(var_to_replace.clone().to_string(),var.clone());
-                                    }
-                                    statements_flattened.push(FlatStatement::Definition(var, rhs_flattened.expressions[i].clone()));
-                                },
-                                _ => panic!("MultipleDefinition has to define expressions of type FieldElement")
+                            let var = self.use_variable(&v.id);
+                            // handle return of function call
+                            let var_to_replace = self.get_latest_var_substitution(&v.id);
+                            if !(var == var_to_replace) && self.variables.contains(&var_to_replace) && !self.substitution.contains_key(&var_to_replace){
+                                self.substitution.insert(var_to_replace.clone().to_string(),var.clone());
                             }
+                            statements_flattened.push(FlatStatement::Definition(var, rhs_flattened.expressions[i].clone()));
                         }
                     },
                 }

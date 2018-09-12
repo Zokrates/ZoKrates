@@ -4,7 +4,7 @@ def add(field a,field b) -> (field):
 
 // Expected for inputs 1,1: c=4, d=7, e=10
 def main(field a,field b) -> (field):
-   field c = add(a*2+3*b-a,b-1)
-   field d = add(a*b+2, a*b*c)
-   field e = add(add(a,d),add(a,b))
+   c = add(a*2+3*b-a,b-1)
+   d = add(a*b+2, a*b*c)
+   e = add(add(a,d),add(a,b))
   return e

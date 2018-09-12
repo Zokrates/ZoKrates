@@ -2,5 +2,5 @@ def add(field f,field g) -> (field):
   return f+g
 
 def main(field a, field b) -> (field):
-  field c = add(a,b)
+  c = add(a,b)
   return c

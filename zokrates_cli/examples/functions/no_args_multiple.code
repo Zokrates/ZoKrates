@@ -2,7 +2,7 @@ def const() -> (field):
   return 123123
 
 def add(field a,field b) -> (field):
-  field a=const()
+  a=const()
   return a+b
 
 def main(field a,field b) -> (field):

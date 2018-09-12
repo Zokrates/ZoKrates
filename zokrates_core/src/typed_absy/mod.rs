@@ -258,15 +258,6 @@ impl<T: Field> Typed for TypedExpression<T> {
     }
 }
 
-impl<T: Field> TypedExpression<T> {
-    pub fn is_linear(&self) -> bool {
-        match self {
-            TypedExpression::Boolean(e) => e.is_linear(),
-            TypedExpression::FieldElement(e) => e.is_linear()
-        }
-    }
-}
-
 pub trait MultiTyped
 {
     fn get_types(&self) -> &Vec<Type>;
