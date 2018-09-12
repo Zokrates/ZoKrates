@@ -157,41 +157,41 @@ fn r1cs_expression<T: Field>(
         e @ Add(..) | e @ Sub(..) => {
             let (lhs, rhs) = swap_sub(&linear_expr, &e);
             for (key, value) in count_variables_add(&rhs) {
-                a_row.push((get_variable_idx(variables, &key), value));
+                a_row.push((provide_variable_idx(variables, &key), value));
             }
             b_row.push((0, T::one()));
             for (key, value) in count_variables_add(&lhs) {
-                c_row.push((get_variable_idx(variables, &key), value));
+                c_row.push((provide_variable_idx(variables, &key), value));
             }
         }
         Mult(lhs, rhs) => {
             match lhs {
                 box Number(x) => a_row.push((0, x)),
-                box Identifier(x) => a_row.push((get_variable_idx(variables, &x), T::one())),
+                box Identifier(x) => a_row.push((provide_variable_idx(variables, &x), T::one())),
                 box e @ Add(..) => for (key, value) in count_variables_add(&e) {
-                    a_row.push((get_variable_idx(variables, &key), value));
+                    a_row.push((provide_variable_idx(variables, &key), value));
                 },
                 e @ _ => panic!("Not flattened: {}", e),
             };
             match rhs {
                 box Number(x) => b_row.push((0, x)),
-                box Identifier(x) => b_row.push((get_variable_idx(variables, &x), T::one())),
+                box Identifier(x) => b_row.push((provide_variable_idx(variables, &x), T::one())),
                 box e @ Add(..) => for (key, value) in count_variables_add(&e) {
-                    b_row.push((get_variable_idx(variables, &key), value));
+                    b_row.push((provide_variable_idx(variables, &key), value));
                 },
                 e @ _ => panic!("Not flattened: {}", e),
             };
             for (key, value) in count_variables_add(&linear_expr) {
-                c_row.push((get_variable_idx(variables, &key), value));
+                c_row.push((provide_variable_idx(variables, &key), value));
             }
         }
         Div(lhs, rhs) => {
             // a / b = c --> c * b = a
             match lhs {
                 box Number(x) => c_row.push((0, x)),
-                box Identifier(x) => c_row.push((get_variable_idx(variables, &x), T::one())),
+                box Identifier(x) => c_row.push((provide_variable_idx(variables, &x), T::one())),
                 box e @ Add(..) => for (key, value) in count_variables_add(&e) {
-                    c_row.push((get_variable_idx(variables, &key), value));
+                    c_row.push((provide_variable_idx(variables, &key), value));
                 },
                 box e @ Sub(..) => {
                     return r1cs_expression(
@@ -208,38 +208,38 @@ fn r1cs_expression<T: Field>(
                 }
                 box Mult(box Number(ref x), box Identifier(ref v)) |
                 box Mult(box Identifier(ref v), box Number(ref x)) => {
-                    c_row.push((get_variable_idx(variables, v), x.clone()))
+                    c_row.push((provide_variable_idx(variables, v), x.clone()))
                 }
                 e @ _ => panic!("(lhs) not supported: {:?}", e),
             };
             match rhs {
                 box Number(x) => b_row.push((0, x)),
-                box Identifier(x) => b_row.push((get_variable_idx(variables, &x), T::one())),
+                box Identifier(x) => b_row.push((provide_variable_idx(variables, &x), T::one())),
                 box Mult(box Number(ref x1), box Number(ref x2)) => {
                     b_row.push((0, x1.clone() * x2))
                 }
                 box Mult(box Number(ref x), box Identifier(ref v)) |
                 box Mult(box Identifier(ref v), box Number(ref x)) => {
-                    b_row.push((get_variable_idx(variables, v), x.clone()))
+                    b_row.push((provide_variable_idx(variables, v), x.clone()))
                 }
                 e @ _ => panic!("(rhs) not supported: {:?}", e),
             };
             for (key, value) in count_variables_add(&linear_expr) {
-                a_row.push((get_variable_idx(variables, &key), value));
+                a_row.push((provide_variable_idx(variables, &key), value));
             }
         }
         Identifier(var) => {
-            a_row.push((get_variable_idx(variables, &var), T::one()));
+            a_row.push((provide_variable_idx(variables, &var), T::one()));
             b_row.push((0, T::one()));
             for (key, value) in count_variables_add(&linear_expr) {
-                c_row.push((get_variable_idx(variables, &key), value));
+                c_row.push((provide_variable_idx(variables, &key), value));
             }
         }
         Number(x) => {
             a_row.push((0, x));
             b_row.push((0, T::one()));
             for (key, value) in count_variables_add(&linear_expr) {
-                c_row.push((get_variable_idx(variables, &key), value));
+                c_row.push((provide_variable_idx(variables, &key), value));
             }
         }
     }
@@ -251,7 +251,7 @@ fn r1cs_expression<T: Field>(
 ///
 /// * `variables` - A mutual map that maps all existing variables to their index.
 /// * `var` - Variable to be searched for.
-fn get_variable_idx(variables: &mut HashMap<String, usize>, var: &String) -> usize {
+fn provide_variable_idx(variables: &mut HashMap<String, usize>, var: &String) -> usize {
     let index = variables.len();
     *variables.entry(var.to_string()).or_insert(index)
 }
@@ -273,7 +273,7 @@ pub fn r1cs_program<T: Field>(
     Vec<Vec<(usize, T)>>,
 ) {
     let mut variables: HashMap<String, usize> = HashMap::new();
-    get_variable_idx(&mut variables, &"~one".to_string());
+    provide_variable_idx(&mut variables, &"~one".to_string());
     let mut a: Vec<Vec<(usize, T)>> = Vec::new();
     let mut b: Vec<Vec<(usize, T)>> = Vec::new();
     let mut c: Vec<Vec<(usize, T)>> = Vec::new();
@@ -284,13 +284,13 @@ pub fn r1cs_program<T: Field>(
         .find(|x: &&FlatFunction<T>| x.id == "main".to_string())
         .unwrap();
     for x in main.arguments.iter().filter(|x| !x.private) {
-        get_variable_idx(&mut variables, &format!("{}", x));
+        provide_variable_idx(&mut variables, x.to_string());
     }
 
     // ~out is added after main's arguments as we want variables (columns)
     // in the r1cs to be aligned like "public inputs | private inputs"
     for i in 0..main.return_count {
-        get_variable_idx(&mut variables, &format!("~out_{}", i).to_string());
+        provide_variable_idx(&mut variables, &format!("~out_{}", i).to_string());
     }
 
     // position where private part of witness starts
