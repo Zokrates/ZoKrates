@@ -72,7 +72,7 @@ mod integration {
             compile.push("--optimized");
 
             // we don't want to test libsnark integrations if libsnark is not available
-            #[cfg(feature = "nolibsnark")]
+            #[cfg(not(feature = "libsnark"))]
             return
         }
 
@@ -81,7 +81,42 @@ mod integration {
             .succeeds()
             .unwrap();
 
-        #[cfg(not(feature = "nolibsnark"))]
+        // COMPUTE_WITNESS
+        let arguments: Value = serde_json::from_reader(File::open(arguments_path).unwrap()).unwrap();
+
+        let arguments_str_list: Vec<String> = arguments.as_array().unwrap().iter().map(|i| match *i {
+            Value::Number(ref n) => n.to_string(),
+            _ => panic!(format!("Cannot read arguments. Check {}", arguments_path.to_str().unwrap()))
+        }).collect();
+
+        let mut compute = vec!["../target/debug/zokrates", "compute-witness",
+            "-i", flattened_path.to_str().unwrap(),
+            "-o", witness_path.to_str().unwrap(),
+            "-a"];
+
+        for arg in arguments_str_list.iter() {
+            compute.push(arg);
+        }
+        
+        assert_cli::Assert::command(&compute)
+            .succeeds()
+            .unwrap();
+
+        // load the expected witness
+        let mut expected_witness_file = File::open(&expected_witness_path).unwrap();
+        let mut expected_witness = String::new();
+        expected_witness_file.read_to_string(&mut expected_witness).unwrap();
+
+        // load the actual witness
+        let mut witness_file = File::open(&witness_path).unwrap();
+        let mut witness = String::new();
+        witness_file.read_to_string(&mut witness).unwrap();
+
+        for line in expected_witness.as_str().split("\n") {
+            assert!(witness.contains(line), "Witness generation failed for {}\n\nLine \"{}\" not found in witness", program_path.to_str().unwrap(), line);
+        }
+
+        #[cfg(feature = "libsnark")]
         { 
             // SETUP
             assert_cli::Assert::command(&["../target/debug/zokrates", "setup",
@@ -99,40 +134,6 @@ mod integration {
                 .succeeds()
                 .unwrap();
 
-            // COMPUTE_WITNESS
-            let arguments: Value = serde_json::from_reader(File::open(arguments_path).unwrap()).unwrap();
-
-            let arguments_str_list: Vec<String> = arguments.as_array().unwrap().iter().map(|i| match *i {
-                Value::Number(ref n) => n.to_string(),
-                _ => panic!(format!("Cannot read arguments. Check {}", arguments_path.to_str().unwrap()))
-            }).collect();
-
-            let mut compute = vec!["../target/debug/zokrates", "compute-witness",
-                "-i", flattened_path.to_str().unwrap(),
-                "-o", witness_path.to_str().unwrap(),
-                "-a"];
-
-            for arg in arguments_str_list.iter() {
-                compute.push(arg);
-            }
-            
-            assert_cli::Assert::command(&compute)
-                .succeeds()
-                .unwrap();
-
-    		// load the expected witness
-    		let mut expected_witness_file = File::open(&expected_witness_path).unwrap();
-    		let mut expected_witness = String::new();
-    		expected_witness_file.read_to_string(&mut expected_witness).unwrap();
-
-    		// load the actual witness
-        	let mut witness_file = File::open(&witness_path).unwrap();
-            let mut witness = String::new();
-    		witness_file.read_to_string(&mut witness).unwrap();
-
-    		for line in expected_witness.as_str().split("\n") {
-                assert!(witness.contains(line), "Witness generation failed for {}\n\nLine \"{}\" not found in witness", program_path.to_str().unwrap(), line);
-            }
             // GENERATE-PROOF
             assert_cli::Assert::command(&["../target/debug/zokrates", "generate-proof",
                 "-w", witness_path.to_str().unwrap(),

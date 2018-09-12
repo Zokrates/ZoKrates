@@ -11,7 +11,6 @@ use std::fmt;
 use absy::*;
 use flat_absy::*;
 use field::Field;
-use std::path::PathBuf;
 use std::io;
 
 pub struct CompiledImport<T: Field> {
@@ -60,44 +59,58 @@ impl From<io::Error> for Error {
 
 #[derive(PartialEq, Clone, Serialize, Deserialize)]
 pub struct Import {
-	source: PathBuf,
-	alias: String,
+	source: String,
+	alias: Option<String>,
 }
 
 impl Import {
 	pub fn new(source: String) -> Import {
 		Import {
-			source: PathBuf::from(source.clone()),
-			alias: PathBuf::from(source).file_stem().unwrap().to_os_string().to_string_lossy().to_string(),
+			source: source,
+			alias: None,
 		}
 	}
 
-	pub fn alias(&self) -> String {
-		self.alias.clone()
+	pub fn get_alias(&self) -> &Option<String> {
+		&self.alias
 	}
 
 	pub fn new_with_alias(source: String, alias: &String) -> Import {
 		Import {
-			source: PathBuf::from(source.clone()),
-			alias: alias.clone(),
+			source: source,
+			alias: Some(alias.clone()),
 		}
 	}
 
-	pub fn get_source(&self) -> &PathBuf {
+	pub fn get_source(&self) -> &String {
 		&self.source
 	}
 }
 
 impl fmt::Display for Import {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "import {} as {}", self.source.clone().into_os_string().into_string().unwrap(), self.alias)
+		match self.alias {
+			Some(ref alias) => {
+				write!(f, "import {} as {}", self.source, alias)
+			},
+			None => {
+				write!(f, "import {}", self.source)
+			}
+		}
 	}
 }
 
 impl fmt::Debug for Import {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "import(source: {}, alias: {})", self.source.clone().into_os_string().into_string().unwrap(), self.alias)
-    }
+    	match self.alias {
+			Some(ref alias) => {
+				write!(f, "import(source: {}, alias: {})", self.source, alias)
+			},
+			None => {
+				write!(f, "import(source: {})", self.source)
+			}
+	    }
+	}
 }
 
 pub struct Importer {
@@ -111,7 +124,7 @@ impl Importer {
 		}
 	}
 
-	pub	fn apply_imports<T: Field, S: BufRead, E: Into<Error>>(&self, destination: Prog<T>, location: PathBuf, resolve_option: Option<fn(&PathBuf) -> Result<S, E>>, should_include_gadgets: bool) -> Result<Prog<T>, CompileError<T>> {
+	pub	fn apply_imports<T: Field, S: BufRead, E: Into<Error>>(&self, destination: Prog<T>, location: Option<String>, resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>, should_include_gadgets: bool) -> Result<Prog<T>, CompileError<T>> {
 
 		let mut origins: Vec<CompiledImport<T>> = vec![];
 
@@ -121,11 +134,14 @@ impl Importer {
 	    		// we have a resolver, pass each import through it
 		    	for import in destination.imports.iter() {
 		    		// find the absolute path for the import, based on the path of the file which imports it
-		    		let absolute_import_path = location.join(import.get_source());
-		    		match resolve(&absolute_import_path) {
-		    			Ok(mut res) => {
-				    		let compiled = compile_aux(&mut res, absolute_import_path.parent().unwrap().to_path_buf(), resolve_option, should_include_gadgets)?;
-					    	origins.push(CompiledImport::new(compiled, import.alias()));
+		    		match resolve(&location, &import.source) {
+		    			Ok((mut reader, location, auto_alias)) => {
+				    		let compiled = compile_aux(&mut reader, Some(location), resolve_option, should_include_gadgets)?;
+				    		let alias = match import.alias {
+				    			Some(ref alias) => alias.clone(),
+				    			None => auto_alias
+				    		};
+					    	origins.push(CompiledImport::new(compiled, alias));
 				    	},
 		    			Err(err) => return Err(CompileError::ImportError(err.into()))
 		    		}
@@ -169,16 +185,16 @@ mod tests {
 	#[test]
 	fn create_with_no_alias() {
 		assert_eq!(Import::new("./foo/bar/baz.code".to_string()), Import {
-			source: PathBuf::from("./foo/bar/baz.code"),
-			alias: "baz".to_string(),
+			source: String::from("./foo/bar/baz.code"),
+			alias: None,
 		});
 	}
 
 	#[test]
 	fn create_with_alias() {
 		assert_eq!(Import::new_with_alias("./foo/bar/baz.code".to_string(), &"myalias".to_string()), Import {
-			source: PathBuf::from("./foo/bar/baz.code"),
-			alias: "myalias".to_string(),
+			source: String::from("./foo/bar/baz.code"),
+			alias: Some("myalias".to_string()),
 		});
 	}
 }

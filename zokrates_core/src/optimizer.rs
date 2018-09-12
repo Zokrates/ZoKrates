@@ -93,8 +93,8 @@ impl Optimizer {
 		}
 
 		// generate optimized statements by removing synonym declarations and renaming variables
-		let optimized_statements = funct.statements.iter().filter_map(|statement| {
-			match *statement {
+		let optimized_statements = funct.statements.into_iter().filter_map(|statement| {
+			match statement {
 				// filter out synonyms definitions
 				FlatStatement::Definition(_, FlatExpression::Identifier(_)) => {
 					None
@@ -107,15 +107,13 @@ impl Optimizer {
 		}).collect();
 
 		// generate optimized arguments by renaming them
-		let optimized_arguments = funct.arguments.iter().map(|arg| arg.apply_substitution(&self.substitution)).collect();
+		let optimized_arguments = funct.arguments.into_iter().map(|arg| arg.apply_substitution(&self.substitution)).collect();
 
-		// clone function
-		let mut optimized_funct = funct.clone();
-		// update statements with optimized ones
-		optimized_funct.statements = optimized_statements;
-		optimized_funct.arguments = optimized_arguments;
-
-		optimized_funct
+		FlatFunction {
+			arguments: optimized_arguments,
+			statements: optimized_statements,
+			..funct
+		}
 	}
 }
 

@@ -212,20 +212,20 @@ impl<T: Field> fmt::Debug for FlatStatement<T> {
 }
 
 impl<T: Field> FlatStatement<T> {
-    pub fn apply_substitution(&self, substitution: &Substitution) -> FlatStatement<T> {
-        match *self {
-            FlatStatement::Definition(ref id, ref x) => FlatStatement::Definition(
-                match substitution.get(id) { 
+    pub fn apply_substitution(self, substitution: &Substitution) -> FlatStatement<T> {
+        match self {
+            FlatStatement::Definition(id, x) => FlatStatement::Definition(
+                match substitution.get(&id) { 
                     Some(z) => z.clone(), 
                     None => id.clone() 
                 }, 
                 x.apply_substitution(substitution)
             ),
-            FlatStatement::Return(ref x) => FlatStatement::Return(x.apply_substitution(substitution)),
-            FlatStatement::Condition(ref x, ref y) => {
+            FlatStatement::Return(x) => FlatStatement::Return(x.apply_substitution(substitution)),
+            FlatStatement::Condition(x, y) => {
                 FlatStatement::Condition(x.apply_substitution(substitution), y.apply_substitution(substitution))
             },
-            FlatStatement::Directive(ref d) => {
+            FlatStatement::Directive(d) => {
                 let new_outputs = d.outputs.iter().map(|o| match substitution.get(o) {
                     Some(z) => z.clone(),
                     None => o.clone()
@@ -235,7 +235,7 @@ impl<T: Field> FlatStatement<T> {
                     DirectiveStatement {
                         outputs: new_outputs,
                         inputs: new_inputs,
-                        helper: d.helper.clone()
+                        helper: d.helper
                     }
                 )
             }
@@ -254,10 +254,10 @@ pub enum FlatExpression<T: Field> {
 }
 
 impl<T: Field> FlatExpression<T> {
-    pub fn apply_substitution(&self, substitution: &Substitution) -> FlatExpression<T> {
-        match *self {
-            ref e @ FlatExpression::Number(_) => e.clone(),
-            FlatExpression::Identifier(ref v) => {
+    pub fn apply_substitution(self, substitution: &Substitution) -> FlatExpression<T> {
+        match self {
+            e @ FlatExpression::Number(_) => e,
+            FlatExpression::Identifier(v) => {
                 let mut new_name = v.to_string();
                 loop {
                     match substitution.get(&new_name) {
@@ -266,19 +266,19 @@ impl<T: Field> FlatExpression<T> {
                     }
                 }
             }
-            FlatExpression::Add(ref e1, ref e2) => FlatExpression::Add(
+            FlatExpression::Add(e1, e2) => FlatExpression::Add(
                 box e1.apply_substitution(substitution),
                 box e2.apply_substitution(substitution),
             ),
-            FlatExpression::Sub(ref e1, ref e2) => FlatExpression::Sub(
+            FlatExpression::Sub(e1, e2) => FlatExpression::Sub(
                 box e1.apply_substitution(substitution),
                 box e2.apply_substitution(substitution),
             ),
-            FlatExpression::Mult(ref e1, ref e2) => FlatExpression::Mult(
+            FlatExpression::Mult(e1, e2) => FlatExpression::Mult(
                 box e1.apply_substitution(substitution),
                 box e2.apply_substitution(substitution),
             ),
-            FlatExpression::Div(ref e1, ref e2) => FlatExpression::Div(
+            FlatExpression::Div(e1, e2) => FlatExpression::Div(
                 box e1.apply_substitution(substitution),
                 box e2.apply_substitution(substitution),
             )
@@ -383,10 +383,9 @@ impl<T: Field> fmt::Display for FlatExpressionList<T> {
 }
 
 impl<T: Field> FlatExpressionList<T> {
-    pub fn apply_substitution(&self, substitution: &Substitution) -> FlatExpressionList<T> {
-        let expressions: Vec<FlatExpression<T>> = self.expressions.iter().map(|e| e.apply_substitution(substitution)).collect();
+    pub fn apply_substitution(self, substitution: &Substitution) -> FlatExpressionList<T> {
         FlatExpressionList {
-            expressions: expressions
+            expressions: self.expressions.into_iter().map(|e| e.apply_substitution(substitution)).collect()
         }
     }
 }

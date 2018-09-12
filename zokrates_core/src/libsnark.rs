@@ -215,7 +215,7 @@ fn vec_as_u8_32_array(vec: &Vec<u8>) -> [u8; 32] {
 mod tests {
     use super::*;
     use field::FieldPrime;
-    use num::bigint::BigUint;
+    use num_bigint::BigUint;
     use serde_json;
     use flat_absy::*;
     use standard;

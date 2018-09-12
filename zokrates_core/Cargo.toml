@@ -12,7 +12,8 @@ libsnark = []
 
 [dependencies]
 libc = "0.2.0"
-num = "0.1.36"
+num = {version = "0.1.36", default-features = false}
+num-bigint = {version = "0.1.36", default-features = false}
 lazy_static = "0.1.*"
 reduce = "0.1.1"
 # cli

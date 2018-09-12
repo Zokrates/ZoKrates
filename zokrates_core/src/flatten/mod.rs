@@ -177,8 +177,8 @@ impl Flattener {
                     // bitness checks
                     for i in 0..self.bits - 2 {
                         let new_name = format!("{}{}{}", &lhs_name, BINARY_SEPARATOR, i);
-                        statements_flattened.push(FlatStatement::Condition(
-                            FlatExpression::Identifier(new_name.to_string()),
+                        statements_flattened.push(FlatStatement::Definition(
+                            new_name.to_string(),
                             FlatExpression::Mult(
                                 box FlatExpression::Identifier(new_name.to_string()),
                                 box FlatExpression::Identifier(new_name.to_string()),
@@ -212,8 +212,8 @@ impl Flattener {
                     // bitness checks
                     for i in 0..self.bits - 2 {
                         let new_name = format!("{}{}{}", &rhs_name, BINARY_SEPARATOR, i);
-                        statements_flattened.push(FlatStatement::Condition(
-                            FlatExpression::Identifier(new_name.to_string()),
+                        statements_flattened.push(FlatStatement::Definition(
+                            new_name.to_string(),
                             FlatExpression::Mult(
                                 box FlatExpression::Identifier(new_name.to_string()),
                                 box FlatExpression::Identifier(new_name.to_string()),
@@ -257,8 +257,8 @@ impl Flattener {
                 // sym_b{i} = sym_b{i}**2  (bitness checks)
                 for i in 0..self.bits {
                     let new_name = format!("{}{}{}", &subtraction_result, BINARY_SEPARATOR, i);
-                    statements_flattened.push(FlatStatement::Condition(
-                        FlatExpression::Identifier(new_name.to_string()),
+                    statements_flattened.push(FlatStatement::Definition(
+                        new_name.to_string(),
                         FlatExpression::Mult(
                             box FlatExpression::Identifier(new_name.to_string()),
                             box FlatExpression::Identifier(new_name.to_string()),
@@ -403,7 +403,7 @@ impl Flattener {
 
                 // Handle complex parameters and assign values:
                 // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions
-                for (i, param_expr) in param_expressions.iter().enumerate() {
+                for (i, param_expr) in param_expressions.clone().into_iter().enumerate() {
                     let new_var;
                     let param_expr = param_expr.apply_substitution(&self.substitution);
 
@@ -727,12 +727,12 @@ impl Flattener {
         functions_flattened: &mut Vec<FlatFunction<T>>,
         arguments_flattened: &Vec<FlatParameter>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
-        stat: &TypedStatement<T>,
+        stat: TypedStatement<T>,
     ) {
-        match *stat {
-            TypedStatement::Return(ref exprs) => {
+        match stat {
+            TypedStatement::Return(exprs) => {
 
-                let flat_expressions = exprs.iter().map(|expr| {
+                let flat_expressions = exprs.into_iter().map(|expr| {
                     match expr {
                         TypedExpression::FieldElement(e) => {
                             let expr_subbed = e.apply_substitution(&self.substitution);
@@ -759,7 +759,7 @@ impl Flattener {
                 // declarations have already been checked
                 ()
             }
-            TypedStatement::Definition(ref v, ref expr) => {
+            TypedStatement::Definition(v, expr) => {
 
                 // define n variables with n the number of primitive types for v_type
                 // assign them to the n primitive types for expr
@@ -785,7 +785,7 @@ impl Flattener {
                     _ => panic!("Definitions must have type FieldElement")
                 }
             }
-            TypedStatement::Condition(ref expr1, ref expr2) => {
+            TypedStatement::Condition(expr1, expr2) => {
 
                 // flatten expr1 and expr2 to n flattened expressions with n the number of primitive types for expr1
                 // add n conditions to check equality of the n expressions
@@ -834,14 +834,14 @@ impl Flattener {
                     _ => panic!("Conditions (Assertions) must be applied to expressions of type FieldElement")
                 }
             }
-            TypedStatement::For(ref var, ref start, ref end, ref statements) => {
-                let mut current = start.clone();
-                while &current < end {
+            TypedStatement::For(var, start, end, statements) => {
+                let mut current = start;
+                while current < end {
                     statements_flattened.push(FlatStatement::Definition(
                         self.use_variable(&var.id),
                         FlatExpression::Number(current.clone()),
                     ));
-                    for s in statements {
+                    for s in statements.clone() {
                         self.flatten_statement(
                             functions_flattened,
                             arguments_flattened,
@@ -852,24 +852,24 @@ impl Flattener {
                     current = T::one() + &current;
                 }
             }
-            TypedStatement::MultipleDefinition(ref vars, ref rhs) => {
+            TypedStatement::MultipleDefinition(vars, rhs) => {
 
                 // flatten the right side to p = sum(var_i.type.primitive_count) expressions
                 // define p new variables to the right side expressions 
 
+                let var_types = vars.iter().map(|v| v.get_type()).collect();
+
                 let rhs_subbed = rhs.apply_substitution(&self.substitution);
                 
                 match rhs_subbed {
-                    TypedExpressionList::FunctionCall(ref fun_id, ref exprs, ref types) => {
-                        let var_types = vars.iter().map(|v| v.get_type()).collect();
-
+                    TypedExpressionList::FunctionCall(fun_id, exprs, types) => {
                         let rhs_flattened = self.flatten_function_call(
                             functions_flattened,
                             arguments_flattened,
                             statements_flattened,
-                            fun_id,
+                            &fun_id,
                             var_types,
-                            exprs,
+                            &exprs,
                         );
 
                         for (i, v) in vars.into_iter().enumerate() {
@@ -930,12 +930,12 @@ impl Flattener {
             }
         }
         // flatten statements in functions and apply substitution
-        for stat in &funct.statements {
+        for stat in funct.statements {
             self.flatten_statement(
                 functions_flattened,
                 &arguments_flattened,
                 &mut statements_flattened,
-                &stat,
+                stat,
             );
         }
 
@@ -1057,7 +1057,7 @@ mod multiple_definition {
             &mut functions_flattened,
             &arguments_flattened,
             &mut statements_flattened,
-            &statement,
+            statement,
         );
 
         assert_eq!(
@@ -1108,7 +1108,7 @@ mod multiple_definition {
             &mut functions_flattened,
             &arguments_flattened,
             &mut statements_flattened,
-            &statement,
+            statement,
         );
 
         assert_eq!(
@@ -1155,7 +1155,7 @@ mod multiple_definition {
             &mut functions_flattened,
             &arguments_flattened,
             &mut statements_flattened,
-            &statement,
+            statement,
         );
 
         assert_eq!(

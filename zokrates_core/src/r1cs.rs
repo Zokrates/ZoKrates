@@ -43,7 +43,7 @@ fn get_summands<T: Field>(expr: &FlatExpression<T>) -> Vec<&FlatExpression<T>> {
     }
 }
 
-/// Returns a `HashMap` containing variables and the number of occurences
+/// Returns a `HashMap` containing variables and the number of occurrences
 ///
 /// # Arguments
 ///
