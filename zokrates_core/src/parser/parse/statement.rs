@@ -322,14 +322,6 @@ fn parse_declaration_definition<T: Field>(
                 },
                 Err(err) => Err(err),
             },
-            (Token::InlineComment(_), ref s1, _) => {
-                assert_eq!(s1, "");
-                Ok((vec![Statement::Declaration(Variable::new(x.clone(), t))], s0, p0))
-            },
-            (Token::Unknown(ref t1), ref s1, _) if t1 == "" => {
-                assert_eq!(s1, "");
-                Ok((vec![Statement::Declaration(Variable::new(x.clone(), t))], s0, p0))
-            },
             (t1, _, p1) => Err(Error {
                 expected: vec![Token::Eq, Token::Unknown("".to_string())],
                 got: t1,
