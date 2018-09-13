@@ -399,10 +399,24 @@ fn main() {
             let pk_path = sub_matches.value_of("proving-key-path").unwrap();
             let vk_path = sub_matches.value_of("verification-key-path").unwrap();
 
+            let public_inputs_indices = main_flattened.arguments.iter().enumerate()
+                .filter_map(|(index, x)| match x.private {
+                    true => None,
+                    false => Some(index),
+                });
+
+            let public_inputs = public_inputs_indices
+                .map(|i| main_flattened.signature.inputs[i].get_primitive_count())
+                .fold(0, |acc, e| acc + e);
+
+            let outputs = main_flattened.signature.outputs.iter().map(|t| t.get_primitive_count())
+                .fold(0, |acc, e| acc + e);
+
+            let num_inputs = public_inputs + outputs;
+
             // run setup phase
             #[cfg(feature="libsnark")]{
                 // number of inputs in the zkSNARK sense, i.e., input variables + output variables
-                let num_inputs = main_flattened.arguments.iter().filter(|x| !x.private).count() + main_flattened.return_count;
                 println!("setup successful: {:?}", setup(variables, a, b, c, num_inputs, pk_path, vk_path));
             }
         }

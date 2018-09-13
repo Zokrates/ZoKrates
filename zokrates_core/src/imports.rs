@@ -21,9 +21,12 @@ impl<T: Field> CompiledImport<T> {
 	fn new(prog: FlatProg<T>, alias: String) -> CompiledImport<T> {
 		match prog.functions.iter().find(|fun| fun.id == "main") {
         	Some(fun) => {
-        		let mut f = fun.clone();
-        		f.id = alias.to_string();
-        		CompiledImport { flat_func: f }
+				CompiledImport { flat_func: 
+					FlatFunction {
+						id: alias,
+						..fun.clone()
+					}
+				}
         	},
         	None => panic!("no main")
         }
@@ -164,7 +167,7 @@ impl Importer {
 		    	// inject globals
 			    let r1cs: R1CS = from_str(&get_sha256_constraints()).unwrap();
 
-			    compiled_imports.push((FlatProg::from(r1cs), "sha256libsnark".to_string()));
+			    origins.push(CompiledImport::new(FlatProg::from(r1cs), "sha256libsnark".to_string()));
 		    }
 	   	}
 
@@ -172,7 +175,7 @@ impl Importer {
 		Ok(Prog {
 			imports: vec![],
 			functions: destination.clone().functions,
-			imported_functions: origins.iter().map(|o| o.flat_func.clone()).collect()
+			imported_functions: origins.into_iter().map(|o| o.flat_func).collect()
 		})
 	}
 }

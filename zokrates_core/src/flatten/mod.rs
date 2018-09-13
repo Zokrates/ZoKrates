@@ -113,10 +113,9 @@ impl Flattener {
                     ]
                 )
             ],
-            signature: Signature {
-                inputs: vec![Type::Boolean, Type::FieldElement, Type::FieldElement],
-                outputs: vec![Type::FieldElement]
-            }
+            signature: Signature::new()
+                .inputs(vec![Type::Boolean, Type::FieldElement, Type::FieldElement])
+                .outputs(vec![Type::FieldElement])
         };
 
         let ief = self.flatten_function(
@@ -370,10 +369,9 @@ impl Flattener {
         param_expressions: &Vec<TypedExpression<T>>
     ) -> FlatExpressionList<T> {
 
-        let passed_signature = Signature {
-            inputs: param_expressions.into_iter().map(|e| e.get_type()).collect(),
-            outputs: return_types
-        };
+        let passed_signature = Signature::new()
+            .inputs(param_expressions.into_iter().map(|e| e.get_type()).collect())
+            .outputs(return_types);
 
         for funct in functions_flattened {
             if funct.id == *id && funct.signature == passed_signature {
@@ -1088,10 +1086,9 @@ mod multiple_definition {
                         ]
                     }
                 )],
-                signature: Signature {
-                    inputs: vec![],
-                    outputs: vec![Type::FieldElement, Type::FieldElement]
-                }
+                signature: Signature::new()
+                    .inputs(vec![])
+                    .outputs(vec![Type::FieldElement, Type::FieldElement])
             }
         ];
         let arguments_flattened = vec![];
@@ -1139,10 +1136,9 @@ mod multiple_definition {
                         ]
                     }
                 )],
-                signature: Signature {
-                    inputs: vec![Type::FieldElement],
-                    outputs: vec![Type::FieldElement, Type::FieldElement]
-                }
+                signature: Signature::new()
+                    .inputs(vec![Type::FieldElement])
+                    .outputs(vec![Type::FieldElement, Type::FieldElement])
             }
         ];
         let arguments_flattened = vec![];
@@ -1165,7 +1161,7 @@ mod multiple_definition {
         assert_eq!(
             statements_flattened[0]
             ,
-            FlatStatement::Definition("dup_ifoff_1_param_0".to_string(), FlatExpression::Number(FieldPrime::from(2)))
+            FlatStatement::Definition("dup_ifo2f_1_param_0".to_string(), FlatExpression::Number(FieldPrime::from(2)))
         );
     }
 
@@ -1189,10 +1185,9 @@ mod multiple_definition {
                         ]
                     }
                 )],
-                signature: Signature {
-                    inputs: vec![],
-                    outputs: vec![Type::FieldElement]
-                }         
+                signature: Signature::new()
+                    .inputs(vec![])
+                    .outputs(vec![Type::FieldElement])
             }
         ];
         let arguments_flattened = vec![];
@@ -1233,10 +1228,10 @@ mod multiple_definition {
 
         let funct = TypedFunction {
             id: "foo".to_string(),
-            signature: Signature {
-                inputs: vec![Type::FieldElement],
-                outputs: vec![Type::FieldElement]
-            },
+            signature: Signature::new()
+                .inputs(vec![Type::FieldElement])
+                .outputs(vec![Type::FieldElement])
+            ,
             arguments: vec![Parameter { id: Variable::field_element("a"), private: true }],
             statements: vec![
                 TypedStatement::Definition(
@@ -1288,10 +1283,10 @@ mod multiple_definition {
                             TypedExpression::FieldElement(FieldElementExpression::Number(FieldPrime::from(1)))
                         ]
                 )],
-                signature: Signature {
-                    inputs: vec![],
-                    outputs: vec![Type::FieldElement]
-                },
+                signature: Signature::new()
+                    .inputs(vec![])
+                    .outputs(vec![Type::FieldElement])
+                ,
             },
             TypedFunction {
                 id: "foo".to_string(),
@@ -1302,10 +1297,10 @@ mod multiple_definition {
                             TypedExpression::FieldElement(FieldElementExpression::Number(FieldPrime::from(2)))
                         ]
                 )],
-                signature: Signature {
-                    inputs: vec![],
-                    outputs: vec![Type::FieldElement, Type::FieldElement]
-                },
+                signature: Signature::new()
+                    .inputs(vec![])
+                    .outputs(vec![Type::FieldElement, Type::FieldElement])
+                ,
             },
             TypedFunction {
                 id: "main".to_string(),
@@ -1317,10 +1312,10 @@ mod multiple_definition {
                         vec![TypedExpression::FieldElement(FieldElementExpression::Number(FieldPrime::from(1)))]
                     )
                 ],
-                signature: Signature {
-                    inputs: vec![],
-                    outputs: vec![Type::FieldElement]
-                },
+                signature: Signature::new()
+                    .inputs(vec![])
+                    .outputs(vec![Type::FieldElement])
+                ,
             }
         ];
 

@@ -47,10 +47,10 @@ impl Type {
 		}
 	}
 
-	fn to_slug(&self) -> String {
+	fn to_slug(&self) -> &'static str {
 		match *self {
-			Type::FieldElement => String::from("f"),
-			Type::Boolean => String::from("b"),
+			Type::FieldElement => "f",
+			Type::Boolean => "b",
 		}
 	}
 }

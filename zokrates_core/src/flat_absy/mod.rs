@@ -216,8 +216,8 @@ impl<T: Field> FlatStatement<T> {
         match self {
             FlatStatement::Definition(id, x) => FlatStatement::Definition(
                 match substitution.get(&id) { 
-                    Some(z) => z.clone(), 
-                    None => id.clone() 
+                    Some(z) => z,
+                    None => id
                 }, 
                 x.apply_substitution(substitution)
             ),
@@ -227,7 +227,7 @@ impl<T: Field> FlatStatement<T> {
             },
             FlatStatement::Directive(d) => {
                 let new_outputs = d.outputs.iter().map(|o| match substitution.get(o) {
-                    Some(z) => z.clone(),
+                    Some(z) => z,
                     None => o.clone()
                 }).collect();
                 let new_inputs = d.inputs.iter().map(|i| substitution.get(i).unwrap()).collect();
@@ -258,10 +258,10 @@ impl<T: Field> FlatExpression<T> {
         match self {
             e @ FlatExpression::Number(_) => e,
             FlatExpression::Identifier(v) => {
-                let mut new_name = v.to_string();
+                let mut new_name = v;
                 loop {
                     match substitution.get(&new_name) {
-                        Some(x) => new_name = x.to_string(),
+                        Some(x) => new_name = x,
                         None => return FlatExpression::Identifier(new_name),
                     }
                 }
