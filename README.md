@@ -35,12 +35,12 @@ cd ZoKrates/target/release
 
 # Example
 
-To execute the program, perform the setup for the program, generate a proof
+First, create a file that describes the problem to proof:
 ```
-def add(a, b, c):
+def main(a, b, c):
   return a + b + c
 ```
-with `add(1, 2, 3)`, call
+then run the different phases of the protocol:
 ```
 ./zokrates compile -i 'add.code_path'
 ./zokrates compute-witness -a 1 2 3
