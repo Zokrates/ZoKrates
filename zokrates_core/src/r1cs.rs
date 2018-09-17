@@ -284,7 +284,7 @@ pub fn r1cs_program<T: Field>(
         .find(|x: &&FlatFunction<T>| x.id == "main".to_string())
         .unwrap();
     for x in main.arguments.iter().filter(|x| !x.private) {
-        provide_variable_idx(&mut variables, x.to_string());
+        provide_variable_idx(&mut variables, &x.id.to_string());
     }
 
     // ~out is added after main's arguments as we want variables (columns)
