@@ -132,4 +132,13 @@ mod tests {
 
         assert_eq!(s.to_slug(), String::from("i3fofbf"));
     }
+
+    #[test]
+    fn array_slug() {
+        let s = Signature::new()
+            .inputs(vec![Type::Array(42, box Type::FieldElement), Type::Array(21, box Type::Boolean)])
+            .outputs(vec![]);
+
+        assert_eq!(s.to_slug(), String::from("i2[]o"));
+    }
 }

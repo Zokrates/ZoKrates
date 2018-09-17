@@ -976,6 +976,15 @@ impl Flattener {
                         private: arg.private
                     });
                 },
+                Type::Array(size, box t) => {
+                    let name = self.use_variable(&arg.id.id);
+                    for i in 0..size {
+                        arguments_flattened.push(FlatParameter {
+                            id: format!("{}_{}", name, i),
+                            private: arg.private
+                        })
+                    }
+                }
             }
         }
         // flatten statements in functions and apply substitution
