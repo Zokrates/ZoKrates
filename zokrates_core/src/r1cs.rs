@@ -321,7 +321,22 @@ pub fn r1cs_program<T: Field>(
                     c.push(c_row);
                 }
             },
-            FlatStatement::Definition(_, _) => continue,
+            FlatStatement::Definition(ref id, ref rhs) => {
+                let mut a_row: Vec<(usize, T)> = Vec::new();
+                let mut b_row: Vec<(usize, T)> = Vec::new();
+                let mut c_row: Vec<(usize, T)> = Vec::new();
+                r1cs_expression(
+                    FlatExpression::Identifier(id.to_string()),
+                    rhs.clone(),
+                    &mut variables,
+                    &mut a_row,
+                    &mut b_row,
+                    &mut c_row,
+                );
+                a.push(a_row);
+                b.push(b_row);
+                c.push(c_row);
+            },
             FlatStatement::Condition(ref expr1, ref expr2) => {
                 let mut a_row: Vec<(usize, T)> = Vec::new();
                 let mut b_row: Vec<(usize, T)> = Vec::new();
