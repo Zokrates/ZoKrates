@@ -342,9 +342,10 @@ impl Checker {
 			&Expression::Identifier(ref name) => {
 				// check that `id` is defined in the scope
 				match self.get_scope(&name) {
-					Some(v) => match v.clone().id.get_type() {
+					Some(v) => match v.id.get_type() {
 						Type::Boolean => Ok(BooleanExpression::Identifier(name.to_string()).into()),
 						Type::FieldElement => Ok(FieldElementExpression::Identifier(name.to_string()).into()),
+						Type::FieldElementArray(n) => Ok(FieldElementArrayExpression::Identifier(n, name.to_string()).into()),
 					},
 					None => Err(Error { message: format!("{} is undefined", name.to_string()) }),
 				}
@@ -516,7 +517,25 @@ impl Checker {
 					},
 					(e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
 				}
-			}
+			},
+			&Expression::Select(ref array, ref index) => {
+				let array = self.check_expression(&array)?;
+				let index = self.check_expression(&index)?;
+				match (array.clone(), index.clone()) {
+					(TypedExpression::FieldElementArray(ref a), TypedExpression::FieldElement(ref i)) => {
+						// we only support field element arrays and constant index smaller than the size
+						match (a, i) {
+							(FieldElementArrayExpression::Identifier(size, ref id), FieldElementExpression::Number(ref n)) if n < &T::from(*size) => {
+								Ok(FieldElementExpression::Select(id.clone(), box i.clone()).into())
+							},
+							_ => {
+								Err(Error { message: format!("cannot take element {} on expression {}", index, array)})
+							},
+						}
+					},
+					(a, e) => Err(Error { message: format!("cannot take element {} on expression {}", e, a)})
+				}
+			},
 		}
 	}
 

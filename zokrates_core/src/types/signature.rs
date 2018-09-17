@@ -136,7 +136,7 @@ mod tests {
     #[test]
     fn array_slug() {
         let s = Signature::new()
-            .inputs(vec![Type::Array(42, box Type::FieldElement), Type::Array(21, box Type::Boolean)])
+            .inputs(vec![Type::FieldElementArray(42), Type::FieldElementArray(21)])
             .outputs(vec![]);
 
         assert_eq!(s.to_slug(), String::from("i2[]o"));

@@ -11,7 +11,7 @@ mod constraints;
 pub enum Type {
 	FieldElement,
 	Boolean,
-	Array(usize, Box<Type>),
+	FieldElementArray(usize),
 }
 
 impl fmt::Display for Type {
@@ -19,7 +19,7 @@ impl fmt::Display for Type {
     	match *self {
     		Type::FieldElement => write!(f, "field"),
     		Type::Boolean => write!(f, "bool"),
-    		Type::Array(size, box t) => write!(f, "{}[{}]", t, size)
+    		Type::FieldElementArray(size) => write!(f, "{}[{}]", Type::FieldElement, size)
     	}
     }
 }
@@ -29,7 +29,7 @@ impl fmt::Debug for Type {
     	match *self {
     		Type::FieldElement => write!(f, "field"),
     		Type::Boolean => write!(f, "bool"),
-    		Type::Array(size, box t) => write!(f, "{}[{}]", t, size),
+    		Type::FieldElementArray(size) => write!(f, "{}[{}]", Type::FieldElement, size),
     	}
     }
 }
@@ -39,7 +39,7 @@ impl Type {
 		match self {
 			Type::FieldElement => Constraints::none(),
 			Type::Boolean => Constraints::boolean(),
-			Type::Array(_, box t) => t.get_constraints(),
+			Type::FieldElementArray(_) => Type::FieldElement.get_constraints(),
 		}
 	}
 
@@ -48,7 +48,7 @@ impl Type {
 		match self {
 			Type::FieldElement => 1,
 			Type::Boolean => 1,
-			Type::Array(size, box t) => size * t.get_primitive_count(),
+			Type::FieldElementArray(size) => size * Type::FieldElement.get_primitive_count(),
 		}
 	}
 
@@ -56,7 +56,7 @@ impl Type {
 		match *self {
 			Type::FieldElement => "f",
 			Type::Boolean => "b",
-			Type::Array(..) => "[]", // TODO differentiate types?
+			Type::FieldElementArray(..) => "[]", // TODO differentiate types?
 		}
 	}
 }
@@ -68,17 +68,17 @@ mod tests {
 
 	#[test]
 	fn array() {
-		let t = Type::Array(42, box Type::FieldElement);
+		let t = Type::FieldElementArray(42);
 		assert_eq!(t.get_primitive_count(), 1);
 		assert_eq!(t.get_constraints::<FieldPrime>(), Constraints::none());
 		assert_eq!(t.to_slug(), "[]");
 	}
 
-	#[test]
-	fn array_of_arrays() {
-		let t = Type::Array(42, box Type::Array(33, box Type::Boolean));
-		assert_eq!(t.get_primitive_count(), 1);
-		assert_eq!(t.get_constraints::<FieldPrime>(), Constraints::boolean());
-		assert_eq!(t.to_slug(), "[]");
-	}
+	// #[test]
+	// fn array_of_arrays() {
+	// 	let t = Type::FieldElementArray(42, box Type::FieldElementArray(33, box Type::Boolean));
+	// 	assert_eq!(t.get_primitive_count(), 1);
+	// 	assert_eq!(t.get_constraints::<FieldPrime>(), Constraints::boolean());
+	// 	assert_eq!(t.to_slug(), "[]");
+	// }
 }

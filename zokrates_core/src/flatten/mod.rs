@@ -427,6 +427,7 @@ impl Flattener {
                                         .push(FlatStatement::Definition(new_var.clone(), rhs));
                                 }
                             }
+                            replacement_map.insert(funct.arguments.get(i).unwrap().id.clone(), new_var);
                         },
                         TypedExpression::Boolean(e) => {
                             match e {
@@ -448,9 +449,22 @@ impl Flattener {
                                         .push(FlatStatement::Definition(new_var.clone(), rhs));
                                 }
                             }
+                            replacement_map.insert(funct.arguments.get(i).unwrap().id.clone(), new_var);
+                        }
+                        TypedExpression::FieldElementArray(e) => {
+                            match e {
+                                FieldElementArrayExpression::Identifier(size, id) => {
+                                    for i in 0..size {
+                                        let new_var = format!("{}param_{}_{}_", &prefix, id, i);
+                                        let arg = format!("{}_{}", funct.arguments.get(i).unwrap().id, i);
+                                        statements_flattened
+                                            .push(FlatStatement::Definition(new_var.clone(), FlatExpression::Identifier(id.clone().to_string())));                                        
+                                        replacement_map.insert(arg, new_var);
+                                    }
+                                },
+                            }
                         }
                     }
-                    replacement_map.insert(funct.arguments.get(i).unwrap().id.clone(), new_var);
                 }
 
                 // Ensure Renaming and correct returns:
@@ -716,7 +730,33 @@ impl Flattener {
                 );
                 assert!(exprs_flattened.expressions.len() == 1); // outside of MultipleDefinition, FunctionCalls must return a single value
                 exprs_flattened.expressions[0].clone()
+            },
+            FieldElementExpression::Select(id, box index) => {
+                let index_flattened = self.flatten_field_expression(
+                    functions_flattened,
+                    arguments_flattened,
+                    statements_flattened,
+                    index
+                );
+                match index_flattened {
+                    FlatExpression::Number(n) => {
+                        FlatExpression::Identifier(format!("id_{}", n))
+                    },
+                    _ => panic!("index is not a constant, should have been caught at semantic phase")
+                }
             }
+        }
+    }
+
+    fn flatten_field_array_expression<T: Field>(
+        &mut self,
+        functions_flattened: &Vec<FlatFunction<T>>,
+        arguments_flattened: &Vec<FlatParameter>,
+        statements_flattened: &mut Vec<FlatStatement<T>>,
+        expr: FieldElementArrayExpression,
+    ) -> Vec<FlatExpression<T>> {
+        match expr {
+            FieldElementArrayExpression::Identifier(size, x) => (0..size).map(|index| FlatExpression::Identifier(format!("{}{}", x, index))).collect(),
         }
     }
 
@@ -734,24 +774,33 @@ impl Flattener {
                     match expr {
                         TypedExpression::FieldElement(e) => {
                             let expr_subbed = e.apply_substitution(&self.substitution);
-                            self.flatten_field_expression(
+                            vec![self.flatten_field_expression(
+                                functions_flattened,
+                                arguments_flattened,
+                                statements_flattened,
+                                expr_subbed,
+                            )]
+                        },
+                        TypedExpression::Boolean(e) => {
+                            let expr_subbed = e.apply_substitution(&self.substitution);
+                            vec![self.flatten_boolean_expression(
+                                functions_flattened,
+                                arguments_flattened,
+                                statements_flattened,
+                                expr_subbed,
+                            )]
+                        },
+                        TypedExpression::FieldElementArray(e) => {
+                            let expr_subbed = e.apply_substitution(&self.substitution);
+                            self.flatten_field_array_expression(
                                 functions_flattened,
                                 arguments_flattened,
                                 statements_flattened,
                                 expr_subbed,
                             )
                         },
-                        TypedExpression::Boolean(e) => {
-                            let expr_subbed = e.apply_substitution(&self.substitution);
-                            self.flatten_boolean_expression(
-                                functions_flattened,
-                                arguments_flattened,
-                                statements_flattened,
-                                expr_subbed,
-                            )
-                        }
                     }
-                }).collect();
+                }).flat_map(|x| x).collect();
 
                 statements_flattened.push(
                     FlatStatement::Return(
@@ -773,16 +822,25 @@ impl Flattener {
                 let rhs = match expr {
                     TypedExpression::FieldElement(expr) => {
                         let expr_subbed = expr.apply_substitution(&self.substitution);
-                        self.flatten_field_expression(
+                        vec![self.flatten_field_expression(
                             functions_flattened,
                             arguments_flattened,
                             statements_flattened,
                             expr_subbed,
-                        )
+                        )]
                     },
                     TypedExpression::Boolean(expr) => {
                         let expr_subbed = expr.apply_substitution(&self.substitution);
-                        self.flatten_boolean_expression(
+                        vec![self.flatten_boolean_expression(
+                            functions_flattened,
+                            arguments_flattened,
+                            statements_flattened,
+                            expr_subbed,
+                        )]
+                    },
+                    TypedExpression::FieldElementArray(expr) => {
+                        let expr_subbed = expr.apply_substitution(&self.substitution);
+                        self.flatten_field_array_expression(
                             functions_flattened,
                             arguments_flattened,
                             statements_flattened,
@@ -798,7 +856,10 @@ impl Flattener {
                     self.substitution.insert(var_to_replace.clone().to_string(),var.clone());
                 }
 
-                statements_flattened.push(FlatStatement::Definition(var, rhs));
+                for (index, r) in rhs.into_iter().enumerate() {
+                    let name = format!("{}_{}", var, index);
+                    statements_flattened.push(FlatStatement::Definition(name, r));
+                }
             }
             TypedStatement::Condition(expr1, expr2) => {
 
@@ -976,7 +1037,7 @@ impl Flattener {
                         private: arg.private
                     });
                 },
-                Type::Array(size, box t) => {
+                Type::FieldElementArray(size) => {
                     let name = self.use_variable(&arg.id.id);
                     for i in 0..size {
                         arguments_flattened.push(FlatParameter {
