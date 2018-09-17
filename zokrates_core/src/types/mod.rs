@@ -52,11 +52,11 @@ impl Type {
 		}
 	}
 
-	fn to_slug(&self) -> &'static str {
+	fn to_slug(&self) -> String {
 		match *self {
-			Type::FieldElement => "f",
-			Type::Boolean => "b",
-			Type::FieldElementArray(..) => "[]", // TODO differentiate types?
+			Type::FieldElement => String::from("f"),
+			Type::Boolean => String::from("b"),
+			Type::FieldElementArray(size) => format!("{}[{}]", Type::FieldElement.to_slug(), size), // TODO differentiate types?
 		}
 	}
 }
@@ -69,7 +69,7 @@ mod tests {
 	#[test]
 	fn array() {
 		let t = Type::FieldElementArray(42);
-		assert_eq!(t.get_primitive_count(), 1);
+		assert_eq!(t.get_primitive_count(), 42);
 		assert_eq!(t.get_constraints::<FieldPrime>(), Constraints::none());
 		assert_eq!(t.to_slug(), "[]");
 	}

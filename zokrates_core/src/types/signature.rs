@@ -61,10 +61,11 @@ impl Signature {
             }
             res.into_iter().map(|(n, t) : (usize, &Type)| {
                 let mut r = String::new();
+
                 if n > 1 {
                     r.push_str(&format!("{}", n));
                 }
-                r.push_str(t.to_slug());
+                r.push_str(&t.to_slug());
                 r
             }).fold(String::new(), |mut acc, e| {
                 acc.push_str(&e);
@@ -139,6 +140,6 @@ mod tests {
             .inputs(vec![Type::FieldElementArray(42), Type::FieldElementArray(21)])
             .outputs(vec![]);
 
-        assert_eq!(s.to_slug(), String::from("i2[]o"));
+        assert_eq!(s.to_slug(), String::from("if[42]f[21]o"));
     }
 }

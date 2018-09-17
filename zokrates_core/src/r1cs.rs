@@ -53,6 +53,7 @@ fn get_summands<T: Field>(expr: &FlatExpression<T>) -> Vec<&FlatExpression<T>> {
 ///
 /// `7 * x + 4 * y + x` -> { x => 8, y = 4 }
 fn count_variables_add<T: Field>(expr: &FlatExpression<T>) -> HashMap<String, T> {
+    println!("COUNT {}", expr);
     let summands = get_summands(expr);
     let mut count = HashMap::new();
     for s in summands {
@@ -283,9 +284,9 @@ pub fn r1cs_program<T: Field>(
     let mut c: Vec<Vec<(usize, T)>> = Vec::new();
 
     //Only the main function is relevant in this step, since all calls to other functions were resolved during flattening
-    let main = prog.functions
-        .iter()
-        .find(|x: &&FlatFunction<T>| x.id == "main".to_string())
+    let main = prog.clone().functions
+        .into_iter()
+        .find(|x: &FlatFunction<T>| x.id == "main".to_string())
         .unwrap();
     variables.extend(main.arguments.iter().filter(|x| !x.private).map(|x| format!("{}", x)));
 
@@ -301,16 +302,16 @@ pub fn r1cs_program<T: Field>(
     // position where private part of witness starts
     let private_inputs_offset = variables.len();
 
-    for def in &main.statements {
-        match *def {
-            FlatStatement::Return(ref list) => {
-                for (i, val) in list.expressions.iter().enumerate() {
+    for def in main.statements {
+        match def {
+            FlatStatement::Return(list) => {
+                for (i, val) in list.expressions.into_iter().enumerate() {
                     let mut a_row: Vec<(usize, T)> = Vec::new();
                     let mut b_row: Vec<(usize, T)> = Vec::new();
                     let mut c_row: Vec<(usize, T)> = Vec::new();
                     r1cs_expression(
                         Identifier(format!("~out_{}", i).to_string()),
-                        val.clone(),
+                        val,
                         &mut variables,
                         &mut a_row,
                         &mut b_row,
@@ -321,13 +322,13 @@ pub fn r1cs_program<T: Field>(
                     c.push(c_row);
                 }
             },
-            FlatStatement::Definition(ref id, ref rhs) => {
+            FlatStatement::Definition(id, rhs) => {
                 let mut a_row: Vec<(usize, T)> = Vec::new();
                 let mut b_row: Vec<(usize, T)> = Vec::new();
                 let mut c_row: Vec<(usize, T)> = Vec::new();
                 r1cs_expression(
-                    FlatExpression::Identifier(id.to_string()),
-                    rhs.clone(),
+                    FlatExpression::Identifier(id),
+                    rhs,
                     &mut variables,
                     &mut a_row,
                     &mut b_row,
@@ -337,13 +338,13 @@ pub fn r1cs_program<T: Field>(
                 b.push(b_row);
                 c.push(c_row);
             },
-            FlatStatement::Condition(ref expr1, ref expr2) => {
+            FlatStatement::Condition(expr1, expr2) => {
                 let mut a_row: Vec<(usize, T)> = Vec::new();
                 let mut b_row: Vec<(usize, T)> = Vec::new();
                 let mut c_row: Vec<(usize, T)> = Vec::new();
                 r1cs_expression(
-                    expr1.clone(),
-                    expr2.clone(),
+                    expr1,
+                    expr2,
                     &mut variables,
                     &mut a_row,
                     &mut b_row,

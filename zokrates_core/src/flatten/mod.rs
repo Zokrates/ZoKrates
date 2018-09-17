@@ -856,9 +856,18 @@ impl Flattener {
                     self.substitution.insert(var_to_replace.clone().to_string(),var.clone());
                 }
 
-                for (index, r) in rhs.into_iter().enumerate() {
-                    let name = format!("{}_{}", var, index);
-                    statements_flattened.push(FlatStatement::Definition(name, r));
+                match rhs.len() {
+                    // no suffix if there's only one underlying field element
+                    1 => {
+                        statements_flattened.push(FlatStatement::Definition(var, rhs[0].clone()));
+                    },
+                    // indexed suffixes otherwise
+                    _ => {
+                        for (index, r) in rhs.into_iter().enumerate() {
+                            let name = format!("{}_{}", var, index);
+                            statements_flattened.push(FlatStatement::Definition(name, r));
+                        }
+                    }
                 }
             }
             TypedStatement::Condition(expr1, expr2) => {
@@ -1048,6 +1057,7 @@ impl Flattener {
                 }
             }
         }
+
         // flatten statements in functions and apply substitution
         for stat in funct.statements {
             self.flatten_statement(
@@ -1081,6 +1091,7 @@ impl Flattener {
         }
 
         for func in prog.functions {
+            println!("flatten {:?}", func.id);
             let flattened_func = self.flatten_function(&mut functions_flattened, func);
             functions_flattened.push(flattened_func);
         }
