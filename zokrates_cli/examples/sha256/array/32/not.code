@@ -1,0 +1,6 @@
+// NOT
+
+import "./../../binary/not.code" as NOT
+
+def main(field[32] b) -> (field[32]):
+	return [NOT(b[0]), NOT(b[1]), NOT(b[2]), NOT(b[3]), NOT(b[4]), NOT(b[5]), NOT(b[6]), NOT(b[7]), NOT(b[8]), NOT(b[9]), NOT(b[10]), NOT(b[11]), NOT(b[12]), NOT(b[13]), NOT(b[14]), NOT(b[15]), NOT(b[16]), NOT(b[17]), NOT(b[18]), NOT(b[19]), NOT(b[20]), NOT(b[21]), NOT(b[22]), NOT(b[23]), NOT(b[24]), NOT(b[25]), NOT(b[26]), NOT(b[27]), NOT(b[28]), NOT(b[29]), NOT(b[30]), NOT(b[31])]

@@ -462,6 +462,22 @@ impl Flattener {
                                         replacement_map.insert(arg, new_var);
                                     }
                                 },
+                                _ => {
+                                    let expr_subbed = e.apply_substitution(&self.substitution);
+                                    let rhs = self.flatten_field_array_expression(
+                                        functions_flattened,
+                                        arguments_flattened,
+                                        statements_flattened,
+                                        expr_subbed,
+                                    );
+                                    for (index, r) in rhs.into_iter().enumerate() {
+                                        let name = format!("{}{}", funct.arguments.get(i).unwrap().id.clone(), index);
+                                        let new_var = format!("{}param_{}_{}", &prefix, i, index);
+                                        statements_flattened
+                                            .push(FlatStatement::Definition(new_var.clone(), r));
+                                        replacement_map.insert(name, new_var);
+                                    }
+                                }
                             }
                         }
                     }
@@ -740,7 +756,7 @@ impl Flattener {
                 );
                 match index_flattened {
                     FlatExpression::Number(n) => {
-                        FlatExpression::Identifier(format!("id_{}", n))
+                        FlatExpression::Identifier(format!("{}_{}", id, n))
                     },
                     _ => panic!("index is not a constant, should have been caught at semantic phase")
                 }
@@ -753,10 +769,17 @@ impl Flattener {
         functions_flattened: &Vec<FlatFunction<T>>,
         arguments_flattened: &Vec<FlatParameter>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
-        expr: FieldElementArrayExpression,
+        expr: FieldElementArrayExpression<T>,
     ) -> Vec<FlatExpression<T>> {
         match expr {
-            FieldElementArrayExpression::Identifier(size, x) => (0..size).map(|index| FlatExpression::Identifier(format!("{}{}", x, index))).collect(),
+            FieldElementArrayExpression::Identifier(size, x) => (0..size).map(|index| FlatExpression::Identifier(format!("{}_{}", x, index))).collect(),
+            FieldElementArrayExpression::Value(size, values) => values.into_iter().map(|v| 
+                self.flatten_field_expression(
+                    functions_flattened,
+                    arguments_flattened,
+                    statements_flattened,
+                    v
+            )).collect()
         }
     }
 
@@ -997,16 +1020,37 @@ impl Flattener {
                             &exprs,
                         );
 
-                        // this will change for types that have multiple underlying fe
-                        for (i, v) in vars.into_iter().enumerate() {
+                        let mut iterator = rhs_flattened.expressions.into_iter();
+
+                        // take each new variable being assigned
+                        for v in vars {
+
+                            // determine the real name it should have to avoid conflict with existing variables
                             let var = self.use_variable(&v.id);
-                            // handle return of function call
+
                             let var_to_replace = self.get_latest_var_substitution(&v.id);
                             if !(var == var_to_replace) && self.variables.contains(&var_to_replace) && !self.substitution.contains_key(&var_to_replace){
                                 self.substitution.insert(var_to_replace.clone().to_string(),var.clone());
                             }
-                            statements_flattened.push(FlatStatement::Definition(var, rhs_flattened.expressions[i].clone()));
+
+                            // determine how many field elements it carries
+                            match v.get_type().get_primitive_count() {
+                                // no suffix if there's only one underlying field element
+                                1 => {
+                                    statements_flattened.push(FlatStatement::Definition(var, iterator.next().unwrap()));
+                                },
+                                // indexed suffixes otherwise
+                                n => {
+                                    for index in 0..n {
+                                        let name = format!("{}_{}", var, index);
+                                        statements_flattened.push(FlatStatement::Definition(name, iterator.next().unwrap()));
+                                    }
+                                }
+                            }
                         }
+                        
+                        // we should have exhausted the return values
+                        assert_eq!(iterator.next(), None);
                     },
                 }
             },
@@ -1438,4 +1482,170 @@ mod multiple_definition {
         );
     }
 
+    #[test]
+    fn field_array() {
+
+        // foo = [ , , ]
+
+        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut functions_flattened = vec![];
+        let arguments_flattened = vec![];
+        let mut statements_flattened = vec![];
+        let expression = FieldElementArrayExpression::Identifier(3, String::from("foo"));
+
+        let expressions = flattener.flatten_field_array_expression::<FieldPrime>(
+            &mut functions_flattened,
+            &arguments_flattened,
+            &mut statements_flattened,
+            expression,
+        );
+
+        assert_eq!(
+            expressions
+            ,
+            vec![
+                FlatExpression::Identifier(String::from("foo_0")),
+                FlatExpression::Identifier(String::from("foo_1")),
+                FlatExpression::Identifier(String::from("foo_2")),
+            ]
+        );
+    }
+
+    #[test]
+    fn array_definition() {
+
+        // field[3] foo = [1, 2, 3]
+
+        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut functions_flattened = vec![];
+        let arguments_flattened = vec![];
+        let mut statements_flattened = vec![];
+        let statement = TypedStatement::Definition(
+            Variable::field_array("foo", 3),
+            FieldElementArrayExpression::Value(3, vec![
+                FieldElementExpression::Number(FieldPrime::from(1)),
+                FieldElementExpression::Number(FieldPrime::from(2)),
+                FieldElementExpression::Number(FieldPrime::from(3)),
+            ]).into()
+        );
+
+        flattener.flatten_statement::<FieldPrime>(
+            &mut functions_flattened,
+            &arguments_flattened,
+            &mut statements_flattened,
+            statement,
+        );
+
+        assert_eq!(
+            statements_flattened
+            ,
+            vec![
+                FlatStatement::Definition(String::from("foo_0"), FlatExpression::Number(FieldPrime::from(1))),
+                FlatStatement::Definition(String::from("foo_1"), FlatExpression::Number(FieldPrime::from(2))),
+                FlatStatement::Definition(String::from("foo_2"), FlatExpression::Number(FieldPrime::from(3))),
+            ]
+        );
+    }
+
+    #[test]
+    fn array_selection() {
+
+        // field[3] foo = [1, 2, 3]
+        // foo[1]
+
+        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut functions_flattened = vec![];
+        let arguments_flattened = vec![];
+        let mut statements_flattened = vec![];
+        let statement = TypedStatement::Definition(
+            Variable::field_array("foo", 3),
+            FieldElementArrayExpression::Value(3, vec![
+                FieldElementExpression::Number(FieldPrime::from(1)),
+                FieldElementExpression::Number(FieldPrime::from(2)),
+                FieldElementExpression::Number(FieldPrime::from(3)),
+            ]).into()
+        );
+
+        let expression = FieldElementExpression::Select(String::from("foo"), box FieldElementExpression::Number(FieldPrime::from(1)));
+
+        flattener.flatten_statement::<FieldPrime>(
+            &mut functions_flattened,
+            &arguments_flattened,
+            &mut statements_flattened,
+            statement,
+        );
+
+        let flat_expression = flattener.flatten_field_expression::<FieldPrime>(
+            &mut functions_flattened,
+            &arguments_flattened,
+            &mut statements_flattened,
+            expression,
+        );
+
+        assert_eq!(
+            flat_expression
+            ,
+            FlatExpression::Identifier(String::from("foo_1")),
+        );
+    }
+
+    #[test]
+    fn array_sum() {
+
+        // field[3] foo = [1, 2, 3]
+        // bar = foo[0] + foo[1] + foo[2]
+        // we don't optimise detecting constants, this will be done in an optimiser pass
+
+        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut functions_flattened = vec![];
+        let arguments_flattened = vec![];
+        let mut statements_flattened = vec![];
+        let def = TypedStatement::Definition(
+            Variable::field_array("foo", 3),
+            FieldElementArrayExpression::Value(3, vec![
+                FieldElementExpression::Number(FieldPrime::from(1)),
+                FieldElementExpression::Number(FieldPrime::from(2)),
+                FieldElementExpression::Number(FieldPrime::from(3)),
+            ]).into()
+        );
+
+        let sum = TypedStatement::Definition(
+            Variable::field_element("bar"),
+            FieldElementExpression::Add(
+                box FieldElementExpression::Add(
+                    box FieldElementExpression::Select(String::from("foo"), box FieldElementExpression::Number(FieldPrime::from(0))),
+                    box FieldElementExpression::Select(String::from("foo"), box FieldElementExpression::Number(FieldPrime::from(1))),
+                ),
+                box FieldElementExpression::Select(String::from("foo"), box FieldElementExpression::Number(FieldPrime::from(2)))
+            ).into()
+        );
+
+        flattener.flatten_statement::<FieldPrime>(
+            &mut functions_flattened,
+            &arguments_flattened,
+            &mut statements_flattened,
+            def,
+        );
+
+        flattener.flatten_statement::<FieldPrime>(
+            &mut functions_flattened,
+            &arguments_flattened,
+            &mut statements_flattened,
+            sum,
+        );
+
+        assert_eq!(
+            statements_flattened[3]
+            ,
+            FlatStatement::Definition(
+                String::from("bar"),
+                FlatExpression::Add(
+                    box FlatExpression::Add(
+                        box FlatExpression::Identifier(String::from("foo_0")),
+                        box FlatExpression::Identifier(String::from("foo_1")),
+                    ),
+                box FlatExpression::Identifier(String::from("foo_2")),
+            )
+        ));
+    }
 }

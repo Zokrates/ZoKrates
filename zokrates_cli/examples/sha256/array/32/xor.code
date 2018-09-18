@@ -1,0 +1,6 @@
+// XOR
+
+import "./../../binary/xor.code" as XOR
+
+def main(field[32] b, field[32] c) -> (field[32]):
+	return [XOR(b[0], c[0]), XOR(b[1], c[1]), XOR(b[2], c[2]), XOR(b[3], c[3]), XOR(b[4], c[4]), XOR(b[5], c[5]), XOR(b[6], c[6]), XOR(b[7], c[7]), XOR(b[8], c[8]), XOR(b[9], c[9]), XOR(b[10], c[10]), XOR(b[11], c[11]), XOR(b[12], c[12]), XOR(b[13], c[13]), XOR(b[14], c[14]), XOR(b[15], c[15]), XOR(b[16], c[16]), XOR(b[17], c[17]), XOR(b[18], c[18]), XOR(b[19], c[19]), XOR(b[20], c[20]), XOR(b[21], c[21]), XOR(b[22], c[22]), XOR(b[23], c[23]), XOR(b[24], c[24]), XOR(b[25], c[25]), XOR(b[26], c[26]), XOR(b[27], c[27]), XOR(b[28], c[28]), XOR(b[29], c[29]), XOR(b[30], c[30]), XOR(b[31], c[31])]

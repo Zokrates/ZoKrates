@@ -505,7 +505,7 @@ impl Checker {
 					(TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
 								Ok(BooleanExpression::Ge(box e1, box e2).into())
 					},
-					(e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
+					(e1, e2) => Err(Error { message: format!("Cannot compare {} to {}", e1.get_type(), e2.get_type()) })
 				}
 			},			
 			&Expression::Gt(ref e1, ref e2) => {
@@ -515,7 +515,7 @@ impl Checker {
 					(TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
 								Ok(BooleanExpression::Gt(box e1, box e2).into())
 					},
-					(e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
+					(e1, e2) => Err(Error { message: format!("Cannot compare {} to {}", e1.get_type(), e2.get_type()) })
 				}
 			},
 			&Expression::Select(ref array, ref index) => {
@@ -529,13 +529,44 @@ impl Checker {
 								Ok(FieldElementExpression::Select(id.clone(), box i.clone()).into())
 							},
 							_ => {
-								Err(Error { message: format!("cannot take element {} on expression {}", index, array)})
+								Err(Error { message: format!("Cannot take element {} on expression of type {}", index, array.get_type())})
 							},
 						}
 					},
-					(a, e) => Err(Error { message: format!("cannot take element {} on expression {}", e, a)})
+					(a, e) => Err(Error { message: format!("Cannot take element {} on expression of type {}", e, a.get_type())})
 				}
 			},
+			&Expression::InlineArray(ref expressions) => {
+				// we should have at least one expression
+				let size = expressions.len();
+				assert!(size > 0);
+				// check each expression, getting its type
+				let mut expressions_checked = vec![];
+				for e in expressions {
+					let e_checked = self.check_expression(e)?;
+					expressions_checked.push(e_checked);
+				}
+				// we infer the type to be the type of the first element
+				let inferred_type = expressions_checked.get(0).unwrap().get_type();
+
+				match inferred_type {
+					Type::FieldElement => {
+						// we check all expressions have that same type
+						let mut unwrapped_expressions = vec![];
+
+						for e in expressions_checked {
+							let unwrapped_e = match e {
+								TypedExpression::FieldElement(e) => Ok(e),
+								e => Err(Error { message: format!("Expected {} to have type {}, but type is {}", e, inferred_type, e.get_type())})
+							}?;
+							unwrapped_expressions.push(unwrapped_e);
+						}
+
+						Ok(FieldElementArrayExpression::Value(size, unwrapped_expressions).into())
+					},
+					_ => Err(Error { message: format!("Only arrays of {} are supported, found {}", Type::FieldElement, inferred_type)})
+				}
+			}
 		}
 	}
 

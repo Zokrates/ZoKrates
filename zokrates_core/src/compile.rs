@@ -63,8 +63,6 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader
 
 	let compiled = compile_aux(reader, location, resolve_option, should_include_gadgets);
 
-	println!("optimize");
-
 	match compiled {
 		Ok(c) => match should_optimize {
 			true => Ok(Optimizer::new().optimize_program(c)),
@@ -76,19 +74,11 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader
 
 pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader: &mut R, location: Option<String>, resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>, should_include_gadgets: bool) -> Result<FlatProg<T>, CompileError<T>> {
     let program_ast_without_imports: Prog<T> = parse_program(reader)?;
-    
-    println!("import");
 
     let program_ast = Importer::new().apply_imports(program_ast_without_imports, location.clone(), resolve_option, should_include_gadgets)?;
 
-
-    println!("check");
-
     // check semantics
     let typed_ast = Checker::new().check_program(program_ast)?;
-
-
-    println!("flatten");
 
     // flatten input program
     let program_flattened =

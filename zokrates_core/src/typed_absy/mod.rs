@@ -209,7 +209,7 @@ pub trait Typed
 pub enum TypedExpression<T: Field> {
     Boolean(BooleanExpression<T>),
     FieldElement(FieldElementExpression<T>),
-    FieldElementArray(FieldElementArrayExpression),
+    FieldElementArray(FieldElementArrayExpression<T>),
 }
 
 impl<T: Field> From<BooleanExpression<T>> for TypedExpression<T> {
@@ -224,8 +224,8 @@ impl<T: Field> From<FieldElementExpression<T>> for TypedExpression<T> {
     }
 }
 
-impl<T: Field> From<FieldElementArrayExpression> for TypedExpression<T> {
-    fn from(e: FieldElementArrayExpression) -> TypedExpression<T> {
+impl<T: Field> From<FieldElementArrayExpression<T>> for TypedExpression<T> {
+    fn from(e: FieldElementArrayExpression<T>) -> TypedExpression<T> {
         TypedExpression::FieldElementArray(e)
     }
 }
@@ -268,6 +268,7 @@ impl<T: Field> Typed for TypedExpression<T> {
             TypedExpression::Boolean(_) => Type::Boolean,
             TypedExpression::FieldElement(_) => Type::FieldElement,
             TypedExpression::FieldElementArray(FieldElementArrayExpression::Identifier(n, _)) => Type::FieldElementArray(n),
+            TypedExpression::FieldElementArray(FieldElementArrayExpression::Value(n, _)) => Type::FieldElementArray(n),
         }
     }
 }
@@ -316,8 +317,9 @@ pub enum BooleanExpression<T: Field> {
 }
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub enum FieldElementArrayExpression {
+pub enum FieldElementArrayExpression<T: Field> {
     Identifier(usize, String),
+    Value(usize, Vec<FieldElementExpression<T>>),
 }
 
 impl<T: Field> BooleanExpression<T> {
@@ -427,8 +429,8 @@ impl<T: Field> FieldElementExpression<T> {
     }
 }
 
-impl FieldElementArrayExpression {
-    pub fn apply_substitution(self, substitution: &Substitution) -> FieldElementArrayExpression {
+impl<T: Field> FieldElementArrayExpression<T> {
+    pub fn apply_substitution(self, substitution: &Substitution) -> FieldElementArrayExpression<T> {
         match self {
             FieldElementArrayExpression::Identifier(size, id) => {
                 let mut new_name = id.clone();
@@ -439,6 +441,7 @@ impl FieldElementArrayExpression {
                     }
                 }
             }
+            a => a
         }
     }
 }
@@ -491,10 +494,11 @@ impl<T: Field> fmt::Display for BooleanExpression<T> {
     }
 }
 
-impl fmt::Display for FieldElementArrayExpression {
+impl<T: Field> fmt::Display for FieldElementArrayExpression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             FieldElementArrayExpression::Identifier(_, ref var) => write!(f, "{}", var),
+            FieldElementArrayExpression::Value(_, ref values) => write!(f, "{:?}", values),
         }
     }
 }
@@ -534,10 +538,11 @@ impl<T: Field> fmt::Debug for FieldElementExpression<T> {
     }
 }
 
-impl fmt::Debug for FieldElementArrayExpression {
+impl<T: Field> fmt::Debug for FieldElementArrayExpression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             FieldElementArrayExpression::Identifier(_, ref var) => write!(f, "{:?}", var),
+            FieldElementArrayExpression::Value(_, ref values) => write!(f, "{:?}", values),
         }
     }
 }

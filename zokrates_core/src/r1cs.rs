@@ -53,7 +53,6 @@ fn get_summands<T: Field>(expr: &FlatExpression<T>) -> Vec<&FlatExpression<T>> {
 ///
 /// `7 * x + 4 * y + x` -> { x => 8, y = 4 }
 fn count_variables_add<T: Field>(expr: &FlatExpression<T>) -> HashMap<String, T> {
-    println!("COUNT {}", expr);
     let summands = get_summands(expr);
     let mut count = HashMap::new();
     for s in summands {

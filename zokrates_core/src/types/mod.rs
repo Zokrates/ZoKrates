@@ -71,7 +71,7 @@ mod tests {
 		let t = Type::FieldElementArray(42);
 		assert_eq!(t.get_primitive_count(), 42);
 		assert_eq!(t.get_constraints::<FieldPrime>(), Constraints::none());
-		assert_eq!(t.to_slug(), "[]");
+		assert_eq!(t.to_slug(), "f[42]");
 	}
 
 	// #[test]
