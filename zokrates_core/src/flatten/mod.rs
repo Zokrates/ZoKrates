@@ -639,41 +639,54 @@ impl Flattener {
                 FlatExpression::Div(box new_left, box new_right)
             },
             FieldElementExpression::Pow(box base, box exponent) => {
-                // TODO currently assuming that base is number or variable
                 match exponent {
-                    FieldElementExpression::Number(ref x) if x > &T::one() => {
+                    FieldElementExpression::Number(ref e) => {
+                        // flatten the base expression
                         let base_flattened = self.flatten_field_expression(
                                 functions_flattened,
                                 arguments_flattened,
                                 statements_flattened,
                                 base.clone(),
                             );
+                        match e {
+                            // flatten(base ** 1) == flatten(base)
+                            e if *e == T::one() => {
+                                base_flattened
+                            },
+                            // flatten(base ** 2) == flatten(base) * flatten(base)
+                            // in this case, no need to define an intermediate variable
+                            // as if a is linear, a ** 2 quadratic
+                            e if *e == T::from(2) => {
+                                FlatExpression::Mult(box base_flattened.clone(), box base_flattened)
+                            },
+                            // flatten(base ** n) = flatten(base) * flatten(base ** (n-1))
+                            e => {
+                                // flatten(base ** (n-1))
+                                let tmp_expression = self.flatten_field_expression(
+                                    functions_flattened,
+                                    arguments_flattened,
+                                    statements_flattened,
+                                    FieldElementExpression::Pow(
+                                        box base,
+                                        box FieldElementExpression::Number(e.clone() - T::one()),
+                                    ),
+                                );
 
-                        let tmp_result = if x > &T::from(2) {
-                            let tmp_expression = self.flatten_field_expression(
-                                functions_flattened,
-                                arguments_flattened,
-                                statements_flattened,
-                                FieldElementExpression::Pow(
-                                    box base,
-                                    box FieldElementExpression::Number(x.clone() - T::one()),
-                                ),
-                            );
-                            let new_name = format!("sym_{}", self.next_var_idx);
-                            self.next_var_idx += 1;
-                            statements_flattened.push(
-                                FlatStatement::Definition(new_name.to_string(), tmp_expression.clone()),
-                            );
-                            tmp_expression
-                        } else {
-                            base_flattened.clone()
-                        };
-                        FlatExpression::Mult(
-                            box tmp_result,
-                            box base_flattened,
-                        )
+                                // introduce an intermediate variable
+                                let new_name = format!("sym_{}", self.next_var_idx);
+                                self.next_var_idx += 1;
+                                statements_flattened.push(
+                                    FlatStatement::Definition(new_name.to_string(), tmp_expression.clone()),
+                                );
+
+                                FlatExpression::Mult(
+                                    box base_flattened,
+                                    box FlatExpression::Identifier(new_name),
+                                )
+                            }
+                        }
                     },
-                    _ => panic!("Expected number > 1 as pow exponent"),
+                    _ => panic!("Expected number as pow exponent"),
                 }
             },
             FieldElementExpression::IfElse(box condition, box consequent, box alternative) => {
