@@ -7,18 +7,23 @@ pub use self::libsnark_gadget::LibsnarkGadgetHelper;
 pub use self::rust::RustHelper;
 use std::fmt;
 use field::{Field};
+use flat_absy::flat_variable::FlatVariable;
 
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct DirectiveStatement {
-	pub inputs: Vec<String>,
-	pub outputs: Vec<String>,
+	pub inputs: Vec<FlatVariable>,
+	pub outputs: Vec<FlatVariable>,
 	pub helper: Helper
 }
 
 impl fmt::Display for DirectiveStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    	write!(f, "# {} = {}({})", self.outputs.join(", "), self.helper, self.inputs.join(", "))
+    	write!(f, "# {} = {}({})",
+    		self.outputs.iter().map(|o| o.to_string()).collect().join(", "),
+    		self.helper,
+    		self.inputs.map(|i| i.to_string()).collect().join(", ")
+    	)
     }
 }
 

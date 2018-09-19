@@ -3,7 +3,7 @@ use substitution::Substitution;
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct FlatParameter {
-    pub id: String,
+    pub id: usize,
     pub private: bool,
 }
 
@@ -22,9 +22,10 @@ impl fmt::Debug for FlatParameter {
 
 impl FlatParameter {
     pub fn apply_substitution(self, substitution: &Substitution) -> FlatParameter {
-        FlatParameter {
-            id: substitution.get(&self.id).unwrap().to_string(),
-            private: self.private
-        }
+        panic!("TODO: substitution")
+        // FlatParameter {
+        //     id: substitution.get(&self.id).unwrap().to_string(),
+        //     private: self.private
+        // }
     }
 }

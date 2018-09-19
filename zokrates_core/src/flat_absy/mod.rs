@@ -6,10 +6,12 @@
 //! @date 2017
 
 pub mod flat_parameter;
+pub mod flat_variable;
 
 const BINARY_SEPARATOR: &str = "_b";
 
 use self::flat_parameter::FlatParameter;
+use self::flat_variable::FlatVariable;
 use std::fmt;
 use std::collections::{BTreeMap};
 use field::Field;
@@ -17,6 +19,7 @@ use substitution::Substitution;
 #[cfg(feature = "libsnark")]
 use standard;
 use helpers::{DirectiveStatement, Executable};
+use bimap::BiMap;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FlatProg<T: Field> {
@@ -82,6 +85,8 @@ pub struct FlatFunction<T: Field> {
     pub statements: Vec<FlatStatement<T>>,
     /// number of returns
     pub return_count: usize,
+    /// map to get variable name from index and back
+    pub bijection: BiMap<String, FlatVariable>
 }
 
 impl<T: Field> FlatFunction<T> {
@@ -184,7 +189,7 @@ impl<T: Field> fmt::Debug for FlatFunction<T> {
 pub enum FlatStatement<T: Field> {
     Return(FlatExpressionList<T>),
     Condition(FlatExpression<T>, FlatExpression<T>),
-    Definition(String, FlatExpression<T>),
+    Definition(FlatVariable, FlatExpression<T>),
     Directive(DirectiveStatement)
 }
 
@@ -245,7 +250,7 @@ impl<T: Field> FlatStatement<T> {
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub enum FlatExpression<T: Field> {
     Number(T),
-    Identifier(String),
+    Identifier(FlatVariable),
     Add(Box<FlatExpression<T>>, Box<FlatExpression<T>>),
     Sub(Box<FlatExpression<T>>, Box<FlatExpression<T>>),
     Div(Box<FlatExpression<T>>, Box<FlatExpression<T>>),
@@ -290,25 +295,31 @@ impl<T: Field> FlatExpression<T> {
             FlatExpression::Number(ref x) => x.clone(),
             FlatExpression::Identifier(ref var) => {
                 if let None = inputs.get(var) {
-                    if var.contains(BINARY_SEPARATOR) {
-                        let var_name = var.split(BINARY_SEPARATOR).collect::<Vec<_>>()[0];
-                        let mut num = inputs[var_name].clone();
-                        let bits = T::get_required_bits();
-                        for i in (0..bits).rev() {
-                            if T::from(2).pow(i) <= num {
-                                num = num - T::from(2).pow(i);
-                                inputs.insert(format!("{}{}{}", &var_name, BINARY_SEPARATOR, i), T::one());
-                            } else {
-                                inputs.insert(format!("{}{}{}", &var_name, BINARY_SEPARATOR, i), T::zero());
+                    match var.binary {
+                        // if the variable reprensents a bit from x, we can get its value from x
+                        Some(b) => {
+                            let var_name = var.id;
+                            // TODO id => name
+                            let var_name = String::from("TODO"); // remove
+                            let mut num = inputs[var_name].clone();
+                            let bits = T::get_required_bits();
+                            for i in (0..bits).rev() {
+                                if T::from(2).pow(i) <= num {
+                                    num = num - T::from(2).pow(i);
+                                    inputs.insert(format!("{}{}{}", &var_name, BINARY_SEPARATOR, i), T::one());
+                                } else {
+                                    inputs.insert(format!("{}{}{}", &var_name, BINARY_SEPARATOR, i), T::zero());
+                                }
                             }
+                            assert_eq!(num, T::zero());
                         }
-                        assert_eq!(num, T::zero());
-                    } else {
-                        panic!(
-                            "Variable {:?} is undeclared in inputs: {:?}",
-                            var,
-                            inputs
-                        );
+                        None => {
+                            panic!(
+                                "Variable {:?} is undeclared in inputs: {:?}",
+                                var,
+                                inputs
+                            );
+                        }
                     }
                 }
                 inputs[var].clone()

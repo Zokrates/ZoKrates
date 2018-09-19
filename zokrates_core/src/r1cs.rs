@@ -5,6 +5,7 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de
 //! @date 2017
 
+use flat_absy::flat_variable::FlatVariable;
 use std::collections::HashMap;
 use flat_absy::*;
 use flat_absy::FlatExpression::*;
@@ -52,26 +53,26 @@ fn get_summands<T: Field>(expr: &FlatExpression<T>) -> Vec<&FlatExpression<T>> {
 /// # Example
 ///
 /// `7 * x + 4 * y + x` -> { x => 8, y = 4 }
-fn count_variables_add<T: Field>(expr: &FlatExpression<T>) -> HashMap<String, T> {
+fn count_variables_add<T: Field>(expr: &FlatExpression<T>) -> HashMap<FlatVariable, T> {
     let summands = get_summands(expr);
     let mut count = HashMap::new();
     for s in summands {
         match *s {
             Number(ref x) => {
-                let num = count.entry("~one".to_string()).or_insert(T::zero());
+                let num = count.entry(FlatVariable::one()).or_insert(T::zero());
                 *num = num.clone() + x;
             }
             Identifier(ref v) => {
-                let num = count.entry(v.to_string()).or_insert(T::zero());
+                let num = count.entry(*v).or_insert(T::zero());
                 *num = num.clone() + T::one();
             }
             Mult(box Number(ref x1), box Number(ref x2)) => {
-                let num = count.entry("~one".to_string()).or_insert(T::zero());
+                let num = count.entry(FlatVariable::one()).or_insert(T::zero());
                 *num = num.clone() + x1 + x2;
             }
             Mult(box Number(ref x), box Identifier(ref v)) |
             Mult(box Identifier(ref v), box Number(ref x)) => {
-                let num = count.entry(v.to_string()).or_insert(T::zero());
+                let num = count.entry(*v).or_insert(T::zero());
                 *num = num.clone() + x;
             }
             ref e => panic!("Not covered: {}", e),
@@ -145,7 +146,7 @@ fn swap_sub<T: Field>(lhs: &FlatExpression<T>, rhs: &FlatExpression<T>) -> (Flat
 fn r1cs_expression<T: Field>(
     linear_expr: FlatExpression<T>,
     expr: FlatExpression<T>,
-    variables: &mut Vec<String>,
+    variables: &mut Vec<FlatVariable>,
     a_row: &mut Vec<(usize, T)>,
     b_row: &mut Vec<(usize, T)>,
     c_row: &mut Vec<(usize, T)>,
@@ -250,11 +251,11 @@ fn r1cs_expression<T: Field>(
 ///
 /// * `variables` - A mutual vector that contains all existing variables. Not found variables will be added.
 /// * `var` - Variable to be searched for.
-fn get_variable_idx(variables: &mut Vec<String>, var: &String) -> usize {
+fn get_variable_idx(variables: &mut Vec<FlatVariable>, var: &FlatVariable) -> usize {
     match variables.iter().position(|r| r == var) {
         Some(x) => x,
         None => {
-            variables.push(var.to_string());
+            variables.push(var.clone());
             variables.len() - 1
         }
     }
@@ -268,16 +269,16 @@ fn get_variable_idx(variables: &mut Vec<String>, var: &String) -> usize {
 ///
 /// * `prog` - The program the representation is calculated for.
 pub fn r1cs_program<T: Field>(
-    prog: &FlatProg<T>,
+    prog: &mut FlatProg<T>,
 ) -> (
-    Vec<String>,
+    Vec<FlatVariable>,
     usize,
     Vec<Vec<(usize, T)>>,
     Vec<Vec<(usize, T)>>,
     Vec<Vec<(usize, T)>>,
 ) {
-    let mut variables: Vec<String> = Vec::new();
-    variables.push("~one".to_string());
+    let mut variables = Vec::new();
+    variables.push(FlatVariable::one());
     let mut a: Vec<Vec<(usize, T)>> = Vec::new();
     let mut b: Vec<Vec<(usize, T)>> = Vec::new();
     let mut c: Vec<Vec<(usize, T)>> = Vec::new();
@@ -287,12 +288,12 @@ pub fn r1cs_program<T: Field>(
         .iter()
         .find(|x: &&FlatFunction<T>| x.id == "main".to_string())
         .unwrap();
-    variables.extend(main.arguments.iter().filter(|x| !x.private).map(|x| format!("{}", x)));
+    variables.extend(main.arguments.iter().filter(|x| !x.private).map(|x| FlatVariable::new(x.id))); // TODO hacky for binary values
 
     // ~out is added after main's arguments as we want variables (columns)
     // in the r1cs to be aligned like "public inputs | private inputs"
     for i in 0..main.return_count {
-        variables.push(format!("~out_{}", i).to_string());
+        variables.push(FlatVariable::new(42));
     }
 
     // position where private part of witness starts
@@ -306,7 +307,7 @@ pub fn r1cs_program<T: Field>(
                     let mut b_row: Vec<(usize, T)> = Vec::new();
                     let mut c_row: Vec<(usize, T)> = Vec::new();
                     r1cs_expression(
-                        Identifier(format!("~out_{}", i).to_string()),
+                        Identifier(FlatVariable::new(42)), // should inject in the constraint system, possibly at flattening
                         val.clone(),
                         &mut variables,
                         &mut a_row,
@@ -323,7 +324,7 @@ pub fn r1cs_program<T: Field>(
                 let mut b_row: Vec<(usize, T)> = Vec::new();
                 let mut c_row: Vec<(usize, T)> = Vec::new();
                 r1cs_expression(
-                    FlatExpression::Identifier(id.to_string()),
+                    FlatExpression::Identifier(*id),
                     rhs.clone(),
                     &mut variables,
                     &mut a_row,
