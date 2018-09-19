@@ -676,7 +676,7 @@ impl Flattener {
                                 let new_name = format!("sym_{}", self.next_var_idx);
                                 self.next_var_idx += 1;
                                 statements_flattened.push(
-                                    FlatStatement::Definition(new_name.to_string(), tmp_expression.clone()),
+                                    FlatStatement::Definition(new_name.to_string(), tmp_expression),
                                 );
 
                                 FlatExpression::Mult(
