@@ -648,6 +648,11 @@ impl Flattener {
                                 statements_flattened,
                                 base.clone(),
                             );
+
+                        // we require from the base to be linear
+                        // TODO change that
+                        assert!(base.is_linear());
+
                         match e {
                             // flatten(base ** 1) == flatten(base)
                             e if *e == T::one() => {
