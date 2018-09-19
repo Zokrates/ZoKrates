@@ -1,0 +1,7 @@
+// HALFADD
+
+import "./xor.code" as XOR
+import "./and.code" as AND
+
+def main(a, b):
+	return XOR(a, b), AND(a, b)

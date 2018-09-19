@@ -1,20 +1,56 @@
 #!/usr/bin/env groovy
 
+def majorVersion
+def minorVersion
+def patchVersion
+def dockerImage
+
 pipeline {
     agent any
+    options {
+        skipStagesAfterUnstable()
+        timeout(time: 2, unit: 'HOURS')
+        timestamps()
+        buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
+    }
     stages {
+        stage('Init') {
+            steps {
+                script {
+                    def gitCommitHash = sh(returnStdout: true, script: 'git rev-parse HEAD').trim().take(7)
+                    currentBuild.displayName = "#${BUILD_ID}-${gitCommitHash}"
+
+                    patchVersion = sh(returnStdout: true, script: 'cat zokrates_cli/Cargo.toml | grep version | awk \'{print $3}\' | sed -e \'s/"//g\'').trim()
+                    echo "ZoKrates patch version: ${patchVersion}"
+                    def (major, minor, patch) = patchVersion.tokenize( '.' )
+                    minorVersion = "${major}.${minor}"
+                    majorVersion = major
+                    echo "ZoKrates minor version: ${minorVersion}"
+                    echo "ZoKrates major version: ${majorVersion}"
+                }
+            }
+        }
         stage('Build') {
             steps {
-                withDockerContainer('kyroy/zokrates-test') {
-                    sh 'RUSTFLAGS="-D warnings" cargo build'
+                script {
+                    ansiColor('xterm') {
+                        dockerImage = docker.build("zokrates/zokrates")
+                        dockerImage.inside {
+                            sh 'RUSTFLAGS="-D warnings" ./build.sh'
+                        }
+                    }
                 }
             }
         }
 
         stage('Test') {
             steps {
-                withDockerContainer('kyroy/zokrates-test') {
-                    sh 'RUSTFLAGS="-D warnings" cargo test'
+                script {
+                    ansiColor('xterm') {
+                        dockerImage.inside {
+                            sh 'RUSTFLAGS="-D warnings" ./test.sh'
+                        }
+                    }
                 }
             }
         }
@@ -24,8 +60,12 @@ pipeline {
                 expression { env.BRANCH_NAME == 'master' || env.BRANCH_NAME == 'develop' }
             }
             steps {
-                withDockerContainer('kyroy/zokrates-test') {
-                    sh 'RUSTFLAGS="-D warnings" cargo test -- --ignored'
+                script {
+                    ansiColor('xterm') {
+                        dockerImage.inside {
+                            sh 'RUSTFLAGS="-D warnings" ./full_test.sh'
+                        }
+                    }
                 }
             }
         }
@@ -36,9 +76,15 @@ pipeline {
             }
             steps {
                 script {
-                    def dockerImage = docker.build("kyroy/zokrates")
-                    docker.withRegistry('https://registry.hub.docker.com', 'dockerhub-kyroy') {
-                        dockerImage.push("latest")
+                    ansiColor('xterm') {
+                        docker.withRegistry('https://registry.hub.docker.com', 'dockerhub-kyroy') {
+                            dockerImage.push(patchVersion)
+                            dockerImage.push(minorVersion)
+                            if (majorVersion > '0') {
+                                dockerImage.push(majorVersion)
+                            }
+                            dockerImage.push("latest")
+                        }
                     }
                 }
             }

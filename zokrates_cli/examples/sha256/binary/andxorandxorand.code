@@ -1,0 +1,7 @@
+// ANDXORANDXORAND
+
+import "./xor.code" as XOR
+import "./and.code" as AND
+
+def main(a, b, c):
+	return XOR(XOR(AND(a, b), AND(a, c)), AND(b, c))

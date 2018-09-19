@@ -1,0 +1,6 @@
+def sub(a):
+  a = a + 3
+  return a
+
+def main():
+   return sub(4)

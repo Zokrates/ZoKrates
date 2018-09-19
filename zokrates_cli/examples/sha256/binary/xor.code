@@ -1,0 +1,4 @@
+// XOR
+
+def main(x, y):
+	return x + y - 2 * x * y

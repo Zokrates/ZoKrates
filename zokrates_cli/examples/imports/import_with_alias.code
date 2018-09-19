@@ -1,0 +1,4 @@
+import "./foo.code" as d
+
+def main():
+	return d()
