@@ -5,9 +5,6 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
-const BINARY_SEPARATOR: &str = "_b";
-
-
 use std::collections::{HashSet, HashMap};
 use typed_absy::*;
 use field::Field;
@@ -423,7 +420,7 @@ impl Flattener {
                                     statements_flattened
                                         .push(FlatStatement::Definition(new_var, FlatExpression::Identifier(self.bijection.get_by_left(&id).unwrap().clone())));
                                 },
-                                _ => panic!("A boolean argument to a function has to be a identifier")
+                                _ => panic!("a boolean argument to a function has to be a identifier")
                             }
                         }
                     }
@@ -940,10 +937,8 @@ impl Flattener {
     /// Checks if the given name is a not used variable and returns a fresh variable.
     /// # Arguments
     ///
-    /// * `name` - A String that holds the name of the variable
-    fn use_variable(&mut self, name: &String) -> FlatVariable {
-        self.next_var_idx += 1;
-        
+    /// * `name` - a String that holds the name of the variable
+    fn use_variable(&mut self, name: &String) -> FlatVariable {        
         let var = {
             let id = self.bijection.get_by_left(name);
 
@@ -975,7 +970,7 @@ impl Flattener {
         };
 
         self.bijection.insert(name.to_string(), var);
-
+        self.next_var_idx += 1;
         var
     }
 
@@ -1055,10 +1050,12 @@ mod multiple_definition {
             statement,
         );
 
+        let a = FlatVariable::new(0);
+
         assert_eq!(
             statements_flattened[0]
             ,
-            FlatStatement::Definition("a".to_string(), FlatExpression::Number(FieldPrime::from(1)))
+            FlatStatement::Definition(a, FlatExpression::Number(FieldPrime::from(1)))
         );
     }
 
@@ -1070,16 +1067,18 @@ mod multiple_definition {
         // def main()
         //     a, b = dup(2)
 
+        let a = FlatVariable::new(0);
+
         let mut flattener = Flattener::new(FieldPrime::get_required_bits());
         let mut functions_flattened = vec![
             FlatFunction {
                 id: "dup".to_string(),
-                arguments: vec![FlatParameter { id: "x".to_string(), private: true }],
+                arguments: vec![FlatParameter { id: a, private: true }],
                 statements: vec![FlatStatement::Return(
                     FlatExpressionList {
                         expressions: vec![
-                            FlatExpression::Identifier("x".to_string()),
-                            FlatExpression::Identifier("x".to_string()),
+                            FlatExpression::Identifier(a),
+                            FlatExpression::Identifier(a),
                         ]
                     }
                 )],
@@ -1103,10 +1102,12 @@ mod multiple_definition {
             statement,
         );
 
+        let a = FlatVariable::new(0);
+
         assert_eq!(
             statements_flattened[0]
             ,
-            FlatStatement::Definition("dup_i1o2_1_param_0".to_string(), FlatExpression::Number(FieldPrime::from(2)))
+            FlatStatement::Definition(a, FlatExpression::Number(FieldPrime::from(2)))
         );
     }
 
@@ -1147,10 +1148,12 @@ mod multiple_definition {
             statement,
         );
 
+        let a = FlatVariable::new(0);
+
         assert_eq!(
             statements_flattened[0]
             ,
-            FlatStatement::Definition("a".to_string(), FlatExpression::Number(FieldPrime::from(1)))
+            FlatStatement::Definition(a, FlatExpression::Number(FieldPrime::from(1)))
         );
     }
 
@@ -1195,9 +1198,12 @@ mod multiple_definition {
             funct,
         );
 
+        let a = FlatVariable::new(0);
+        let a_0 = FlatVariable::new(1);
+
         assert_eq!(
             flat_funct.statements[0],
-            FlatStatement::Definition("a_0".to_string(), FlatExpression::Add(box FlatExpression::Identifier("a".to_string()), box FlatExpression::Number(FieldPrime::from(1))))
+            FlatStatement::Definition(a_0, FlatExpression::Add(box FlatExpression::Identifier(a), box FlatExpression::Number(FieldPrime::from(1))))
         );
     }
 

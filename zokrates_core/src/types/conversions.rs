@@ -16,7 +16,7 @@ fn use_variable(bijection: &mut BiMap<String, FlatVariable>, name: String, mut i
 
 pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
 
-	let mut counter = 0;
+	let counter = 0;
 
 	let mut bijection = BiMap::new();
 

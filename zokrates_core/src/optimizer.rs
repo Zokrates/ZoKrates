@@ -126,14 +126,24 @@ mod tests {
 
 	#[test]
 	fn remove_synonyms() {
+
+		// def main(x):
+		//    y = x
+		//    z = y
+		//    return z
+
+		let x = FlatVariable::new(0);
+		let y = FlatVariable::new(1);
+		let z = FlatVariable::new(2);
+
 		let f: FlatFunction<FieldPrime> = FlatFunction {
             id: "foo".to_string(),
-            arguments: vec![FlatParameter {id: "a".to_string(), private: false}],
+            arguments: vec![FlatParameter {id: x, private: false}],
             statements: vec![
-            	FlatStatement::Definition("b".to_string(), FlatExpression::Identifier("a".to_string())),
-            	FlatStatement::Definition("c".to_string(), FlatExpression::Identifier("b".to_string())),
+            	FlatStatement::Definition(y, FlatExpression::Identifier(x)),
+            	FlatStatement::Definition(z, FlatExpression::Identifier(y)),
             	FlatStatement::Return(FlatExpressionList {
-            		expressions: vec![FlatExpression::Identifier("c".to_string())]
+            		expressions: vec![FlatExpression::Identifier(z)]
             	})
             ],
             return_count: 1
@@ -141,10 +151,10 @@ mod tests {
 
         let optimized: FlatFunction<FieldPrime> = FlatFunction {
             id: "foo".to_string(),
-        	arguments: vec![FlatParameter {id: "_0".to_string(), private: false}],
+        	arguments: vec![FlatParameter {id: x, private: false}],
         	statements: vec![
         		FlatStatement::Return(FlatExpressionList {
-            		expressions: vec![FlatExpression::Identifier("_0".to_string())]
+            		expressions: vec![FlatExpression::Identifier(x)]
             	})
         	],
         	return_count: 1
@@ -157,16 +167,30 @@ mod tests {
 
 	#[test]
 	fn remove_multiple_synonyms() {
+
+		// def main(x):
+		//    y = x
+		//    t = 1
+		//    z = y
+		//    w = t
+		//    return z, w
+
+		let x = FlatVariable::new(0);
+		let y = FlatVariable::new(1);
+		let z = FlatVariable::new(2);
+		let t = FlatVariable::new(3);
+		let w = FlatVariable::new(4);
+
 		let f: FlatFunction<FieldPrime> = FlatFunction {
             id: "foo".to_string(),
-            arguments: vec![FlatParameter {id: "a".to_string(), private: false}],
+            arguments: vec![FlatParameter {id: x, private: false}],
             statements: vec![
-            	FlatStatement::Definition("b".to_string(), FlatExpression::Identifier("a".to_string())),
-            	FlatStatement::Definition("d".to_string(), FlatExpression::Number(FieldPrime::from(1))),
-            	FlatStatement::Definition("c".to_string(), FlatExpression::Identifier("b".to_string())),
-            	FlatStatement::Definition("e".to_string(), FlatExpression::Identifier("d".to_string())),
+            	FlatStatement::Definition(y, FlatExpression::Identifier(x)),
+            	FlatStatement::Definition(t, FlatExpression::Number(FieldPrime::from(1))),
+            	FlatStatement::Definition(z, FlatExpression::Identifier(y)),
+            	FlatStatement::Definition(w, FlatExpression::Identifier(t)),
             	FlatStatement::Return(FlatExpressionList {
-            		expressions: vec![FlatExpression::Identifier("c".to_string()), FlatExpression::Identifier("e".to_string())]
+            		expressions: vec![FlatExpression::Identifier(z), FlatExpression::Identifier(w)]
             	})
             ],
             return_count: 2
@@ -174,11 +198,11 @@ mod tests {
 
         let optimized: FlatFunction<FieldPrime> = FlatFunction {
             id: "foo".to_string(),
-        	arguments: vec![FlatParameter {id: "_0".to_string(), private: false}],
+        	arguments: vec![FlatParameter {id: x, private: false}],
         	statements: vec![
-            	FlatStatement::Definition("_1".to_string(), FlatExpression::Number(FieldPrime::from(1))),
+            	FlatStatement::Definition(y, FlatExpression::Number(FieldPrime::from(1))),
         		FlatStatement::Return(FlatExpressionList {
-            		expressions: vec![FlatExpression::Identifier("_0".to_string()), FlatExpression::Identifier("_1".to_string())]
+            		expressions: vec![FlatExpression::Identifier(x), FlatExpression::Identifier(y)]
             	})
         	],
         	return_count: 2

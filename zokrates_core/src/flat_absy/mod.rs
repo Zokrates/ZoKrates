@@ -8,8 +8,6 @@
 pub mod flat_parameter;
 pub mod flat_variable;
 
-const BINARY_SEPARATOR: &str = "_b";
-
 use self::flat_parameter::FlatParameter;
 use self::flat_variable::FlatVariable;
 use std::fmt;
@@ -216,8 +214,8 @@ impl<T: Field> FlatStatement<T> {
         match self {
             FlatStatement::Definition(id, x) => FlatStatement::Definition(
                 match substitution.get(&id) { 
-                    Some(z) => z.clone(), 
-                    None => id.clone() 
+                    Some(z) => z, 
+                    None => id 
                 }, 
                 x.apply_substitution(substitution)
             ),
@@ -259,11 +257,9 @@ impl<T: Field> FlatExpression<T> {
             e @ FlatExpression::Number(_) => e,
             FlatExpression::Identifier(id) => {
                 let mut new_id = id;
-                loop {
-                    match substitution.get(&new_id) {
-                        Some(x) => new_id = x,
-                        None => return FlatExpression::Identifier(new_id),
-                    }
+                match substitution.get(&new_id) {
+                    Some(x) => FlatExpression::Identifier(x),
+                    None => FlatExpression::Identifier(new_id),
                 }
             }
             FlatExpression::Add(e1, e2) => FlatExpression::Add(
@@ -293,9 +289,9 @@ impl<T: Field> FlatExpression<T> {
                 if let None = inputs.get(var) {
                     match var.binary {
                         // if the variable reprensents a bit from `x`, we can get its value from `x
-                        Some(b) => {
+                        Some(_) => {
                             // find the full variable
-                            let mut num = inputs.iter().find(|(variable, value)| variable.id == var.id && variable.binary == None).unwrap().1.clone();
+                            let mut num = inputs.iter().find(|(variable, _)| variable.id == var.id && variable.binary == None).unwrap().1.clone();
                             let bits = T::get_required_bits();
                             for i in (0..bits).rev() {
                                 if T::from(2).pow(i) <= num {

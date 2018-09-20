@@ -133,14 +133,14 @@ fn swap_sub<T: Field>(lhs: &FlatExpression<T>, rhs: &FlatExpression<T>) -> (Flat
 }
 
 /// Calculates one R1CS row representation for `linear_expr` = `expr`.
-/// (<C,x> = <A,x>*<B,x>)
+/// (<C,x> = <a,x>*<B,x>)
 ///
 /// # Arguments
 ///
 /// * `linear_expr` - Left hand side of the equation, has to be linear
 /// * `expr` - Right hand side of the equation
-/// * `variables` - A mutual vector that contains all existing variables. Not found variables will be added.
-/// * `a_row` - Result row of matrix A
+/// * `variables` - a mutual vector that contains all existing variables. Not found variables will be added.
+/// * `a_row` - Result row of matrix a
 /// * `b_row` - Result row of matrix B
 /// * `c_row` - Result row of matrix C
 fn r1cs_expression<T: Field>(
@@ -249,7 +249,7 @@ fn r1cs_expression<T: Field>(
 ///
 /// # Arguments
 ///
-/// * `variables` - A mutual vector that contains all existing variables. Not found variables will be added.
+/// * `variables` - a mutual vector that contains all existing variables. Not found variables will be added.
 /// * `var` - Variable to be searched for.
 fn get_variable_idx(variables: &mut Vec<FlatVariable>, var: &FlatVariable) -> usize {
     match variables.iter().position(|r| r == var) {
@@ -261,9 +261,9 @@ fn get_variable_idx(variables: &mut Vec<FlatVariable>, var: &FlatVariable) -> us
     }
 }
 
-/// Calculates one R1CS row representation of a program and returns (V, A, B, C) so that:
-/// * `V` contains all used variables and the index in the vector represents the used number in `A`, `B`, `C`
-/// * `<A,x>*<B,x> = <C,x>` for a witness `x`
+/// Calculates one R1CS row representation of a program and returns (V, a, B, C) so that:
+/// * `V` contains all used variables and the index in the vector represents the used number in `a`, `B`, `C`
+/// * `<a,x>*<B,x> = <C,x>` for a witness `x`
 ///
 /// # Arguments
 ///
@@ -293,7 +293,7 @@ pub fn r1cs_program<T: Field>(
     // ~out is added after main's arguments as we want variables (columns)
     // in the r1cs to be aligned like "public inputs | private inputs"
     for i in 0..main.return_count {
-        variables.push(FlatVariable::new(42));
+        variables.push(FlatVariable::new(101));
     }
 
     // position where private part of witness starts
@@ -303,11 +303,11 @@ pub fn r1cs_program<T: Field>(
         match *def {
             FlatStatement::Return(ref list) => {
                 for (i, val) in list.expressions.iter().enumerate() {
-                    let mut a_row: Vec<(usize, T)> = Vec::new();
-                    let mut b_row: Vec<(usize, T)> = Vec::new();
-                    let mut c_row: Vec<(usize, T)> = Vec::new();
+                    let mut a_row = Vec::new();
+                    let mut b_row = Vec::new();
+                    let mut c_row = Vec::new();
                     r1cs_expression(
-                        Identifier(FlatVariable::new(42)), // should inject in the constraint system, possibly at flattening
+                        Identifier(FlatVariable::new(101)), // should inject in the constraint system, possibly at flattening
                         val.clone(),
                         &mut variables,
                         &mut a_row,
@@ -320,9 +320,9 @@ pub fn r1cs_program<T: Field>(
                 }
             },
             FlatStatement::Definition(ref id, ref rhs) => {
-                let mut a_row: Vec<(usize, T)> = Vec::new();
-                let mut b_row: Vec<(usize, T)> = Vec::new();
-                let mut c_row: Vec<(usize, T)> = Vec::new();
+                let mut a_row = Vec::new();
+                let mut b_row = Vec::new();
+                let mut c_row = Vec::new();
                 r1cs_expression(
                     FlatExpression::Identifier(*id),
                     rhs.clone(),
@@ -336,9 +336,9 @@ pub fn r1cs_program<T: Field>(
                 c.push(c_row);
             },
             FlatStatement::Condition(ref expr1, ref expr2) => {
-                let mut a_row: Vec<(usize, T)> = Vec::new();
-                let mut b_row: Vec<(usize, T)> = Vec::new();
-                let mut c_row: Vec<(usize, T)> = Vec::new();
+                let mut a_row = Vec::new();
+                let mut b_row = Vec::new();
+                let mut c_row = Vec::new();
                 r1cs_expression(
                     expr1.clone(),
                     expr2.clone(),
@@ -380,15 +380,18 @@ mod tests {
         #[test]
         fn add() {
             // x = y + 5
-            let lhs = Identifier(String::from("x"));
+
+            let one = FlatVariable::new(0);
+            let x = FlatVariable::new(1);
+            let y = FlatVariable::new(2);
+
+            let lhs = Identifier(x);
             let rhs = Add(
-                box Identifier(String::from("y")),
+                box Identifier(y),
                 box Number(FieldPrime::from(5)),
             );
-            let mut variables: Vec<String> = vec!["~one", "x", "y"]
-                .iter()
-                .map(|&x| String::from(x))
-                .collect();
+            let mut variables = vec![one, x, y];
+
             let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut b_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut c_row: Vec<(usize, FieldPrime)> = Vec::new();
@@ -410,54 +413,57 @@ mod tests {
             // (x + y) - ((z + 3*x) - y) == (x - y) + ((2*x - 4*y) + (4*y - 2*z))
             // --> (x + y) + y + 4y + 2z + y == x + 2x + 4y + (z + 3x)
             // <=> x + 7*y + 2*z == 6*x + 4y + z
+
+            let one = FlatVariable::new(0);
+            let x = FlatVariable::new(1);
+            let y = FlatVariable::new(2);
+            let z = FlatVariable::new(3);
+
             let lhs = Sub(
                 box Add(
-                    box Identifier(String::from("x")),
-                    box Identifier(String::from("y")),
+                    box Identifier(x),
+                    box Identifier(y),
                 ),
                 box Sub(
                     box Add(
-                        box Identifier(String::from("z")),
+                        box Identifier(z),
                         box Mult(
                             box Number(FieldPrime::from(3)),
-                            box Identifier(String::from("x")),
+                            box Identifier(x),
                         ),
                     ),
-                    box Identifier(String::from("y")),
+                    box Identifier(y),
                 ),
             );
             let rhs = Add(
                 box Sub(
-                    box Identifier(String::from("x")),
-                    box Identifier(String::from("y")),
+                    box Identifier(x),
+                    box Identifier(y),
                 ),
                 box Add(
                     box Sub(
                         box Mult(
                             box Number(FieldPrime::from(2)),
-                            box Identifier(String::from("x")),
+                            box Identifier(x),
                         ),
                         box Mult(
                             box Number(FieldPrime::from(4)),
-                            box Identifier(String::from("y")),
+                            box Identifier(y),
                         ),
                     ),
                     box Sub(
                         box Mult(
                             box Number(FieldPrime::from(4)),
-                            box Identifier(String::from("y")),
+                            box Identifier(y),
                         ),
                         box Mult(
                             box Number(FieldPrime::from(2)),
-                            box Identifier(String::from("z")),
+                            box Identifier(z),
                         ),
                     ),
                 ),
             );
-            let mut variables: Vec<String> = vec!["~one", "x", "y", "z"]
-                .iter()
-                .map(|&x| String::from(x))
-                .collect();
+            let mut variables = vec![one, x, y, z];
             let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut b_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut c_row: Vec<(usize, FieldPrime)> = Vec::new();
@@ -488,27 +494,31 @@ mod tests {
         #[test]
         fn sub() {
             // 7 * x + y == 3 * y - z * 6
+
+            let one = FlatVariable::new(0);
+            let x = FlatVariable::new(1);
+            let y = FlatVariable::new(2);
+            let z = FlatVariable::new(3);
+
             let lhs = Add(
                 box Mult(
                     box Number(FieldPrime::from(7)),
-                    box Identifier(String::from("x")),
+                    box Identifier(x),
                 ),
-                box Identifier(String::from("y")),
+                box Identifier(y),
             );
             let rhs = Sub(
                 box Mult(
                     box Number(FieldPrime::from(3)),
-                    box Identifier(String::from("y")),
+                    box Identifier(y),
                 ),
                 box Mult(
-                    box Identifier(String::from("z")),
+                    box Identifier(z),
                     box Number(FieldPrime::from(6)),
                 ),
             );
-            let mut variables: Vec<String> = vec!["~one", "x", "y", "z"]
-                .iter()
-                .map(|&x| String::from(x))
-                .collect();
+            let mut variables = vec![one, x, y, z];
+
             let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut b_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut c_row: Vec<(usize, FieldPrime)> = Vec::new();
@@ -533,30 +543,34 @@ mod tests {
         fn sub_multiple() {
             // (((3 * y) - (z * 2)) - (x * 12)) == (a - x)
             // --> 3*y + x == a + 12*x + 2*z
+
+            let one = FlatVariable::new(0);
+            let x = FlatVariable::new(1);
+            let y = FlatVariable::new(2);
+            let z = FlatVariable::new(3);
+            let a = FlatVariable::new(4);
+
             let lhs = Sub(
                 box Sub(
                     box Mult(
                         box Number(FieldPrime::from(3)),
-                        box Identifier(String::from("y")),
+                        box Identifier(y),
                     ),
                     box Mult(
-                        box Identifier(String::from("z")),
+                        box Identifier(z),
                         box Number(FieldPrime::from(2)),
                     ),
                 ),
                 box Mult(
-                    box Identifier(String::from("x")),
+                    box Identifier(x),
                     box Number(FieldPrime::from(12)),
                 ),
             );
             let rhs = Sub(
-                box Identifier(String::from("a")),
-                box Identifier(String::from("x")),
+                box Identifier(a),
+                box Identifier(x),
             );
-            let mut variables: Vec<String> = vec!["~one", "x", "y", "z", "a"]
-                .iter()
-                .map(|&x| String::from(x))
-                .collect();
+            let mut variables = vec![one, x, y, z, a];
             let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut b_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut c_row: Vec<(usize, FieldPrime)> = Vec::new();
@@ -582,21 +596,27 @@ mod tests {
 
         #[test]
         fn add_mult() {
-            // 4 * b + 3 * a + 3 * c == (3 * a + 6 * b + 4 * c) * (31 * a + 4 * c)
+            // 4 * y + 3 * x + 3 * z == (3 * x + 6 * y + 4 * z) * (31 * x + 4 * z)
+
+            let one = FlatVariable::new(0);
+            let x = FlatVariable::new(1);
+            let y = FlatVariable::new(2);
+            let z = FlatVariable::new(3);
+
             let lhs = Add(
                 box Add(
                     box Mult(
                         box Number(FieldPrime::from(4)),
-                        box Identifier(String::from("b")),
+                        box Identifier(y),
                     ),
                     box Mult(
                         box Number(FieldPrime::from(3)),
-                        box Identifier(String::from("a")),
+                        box Identifier(x),
                     ),
                 ),
                 box Mult(
                     box Number(FieldPrime::from(3)),
-                    box Identifier(String::from("c")),
+                    box Identifier(z),
                 ),
             );
             let rhs = Mult(
@@ -604,33 +624,30 @@ mod tests {
                     box Add(
                         box Mult(
                             box Number(FieldPrime::from(3)),
-                            box Identifier(String::from("a")),
+                            box Identifier(x),
                         ),
                         box Mult(
                             box Number(FieldPrime::from(6)),
-                            box Identifier(String::from("b")),
+                            box Identifier(y),
                         ),
                     ),
                     box Mult(
                         box Number(FieldPrime::from(4)),
-                        box Identifier(String::from("c")),
+                        box Identifier(z),
                     ),
                 ),
                 box Add(
                     box Mult(
                         box Number(FieldPrime::from(31)),
-                        box Identifier(String::from("a")),
+                        box Identifier(x),
                     ),
                     box Mult(
                         box Number(FieldPrime::from(4)),
-                        box Identifier(String::from("c")),
+                        box Identifier(z),
                     ),
                 ),
             );
-            let mut variables: Vec<String> = vec!["~one", "a", "b", "c"]
-                .iter()
-                .map(|&x| String::from(x))
-                .collect();
+            let mut variables = vec![one, x, y, z];
             let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut b_row: Vec<(usize, FieldPrime)> = Vec::new();
             let mut c_row: Vec<(usize, FieldPrime)> = Vec::new();
@@ -664,24 +681,26 @@ mod tests {
         #[test]
         fn div() {
             // x = (3 * x) / (y * 6) --> x * (y * 6) = 3 * x
-            let lhs = Identifier(String::from("x"));
+
+            let one = FlatVariable::new(0);
+            let x = FlatVariable::new(1);
+            let y = FlatVariable::new(2);
+
+            let lhs = Identifier(x);
             let rhs = Div(
                 box Mult(
                     box Number(FieldPrime::from(3)),
-                    box Identifier(String::from("x")),
+                    box Identifier(x),
                 ),
                 box Mult(
-                    box Identifier(String::from("y")),
+                    box Identifier(y),
                     box Number(FieldPrime::from(6)),
                 ),
             );
-            let mut variables: Vec<String> = vec!["~one", "x", "y"]
-                .iter()
-                .map(|&x| String::from(x))
-                .collect();
-            let mut a_row: Vec<(usize, FieldPrime)> = Vec::new();
-            let mut b_row: Vec<(usize, FieldPrime)> = Vec::new();
-            let mut c_row: Vec<(usize, FieldPrime)> = Vec::new();
+            let mut variables = vec![one, x, y];
+            let mut a_row = Vec::new();
+            let mut b_row = Vec::new();
+            let mut c_row = Vec::new();
 
             r1cs_expression(lhs, rhs, &mut variables, &mut a_row, &mut b_row, &mut c_row);
             a_row.sort_by(sort_tup);

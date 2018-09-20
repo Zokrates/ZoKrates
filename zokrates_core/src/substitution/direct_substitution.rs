@@ -56,8 +56,6 @@ mod tests {
     #[test]
     fn insert_twice_with_same_prefix() {
         let mut s = DirectSubstitution::new();
-
-        let mut s = DirectSubstitution::new();
         let key1 = FlatVariable::binary(1, 23);
         let value1 = FlatVariable::new(123);
         let key2 = FlatVariable::binary(1, 24);
