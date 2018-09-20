@@ -409,16 +409,20 @@ impl Flattener {
                         },
                         TypedExpression::Boolean(e) => {
                             match e {
-                                e @ BooleanExpression::Identifier(..) => {
+                                BooleanExpression::Identifier(id) => {
                                     // a bit hacky for now, to be removed when flatten_condition returns a flatexpression
-                                    match e.apply_substitution(&self.substitution) {
-                                        BooleanExpression::Identifier(id) => {
-                                            new_var = format!("{}param_{}", &prefix, id);
-                                            statements_flattened
-                                                .push(FlatStatement::Definition(new_var.clone(), FlatExpression::Identifier(id.clone().to_string())));
-                                        },
-                                        _ => unreachable!()
-                                    }                                
+                                    // basically extracted the bit of apply_substitution that handles identifiers
+                                    let mut id = id;
+                                    loop {
+                                        match self.substitution.get(&id) {
+                                            Some(x) => id = x.to_string(),
+                                            None => break,
+                                        }
+                                    }
+
+                                    new_var = format!("{}param_{}", &prefix, id);
+                                    statements_flattened
+                                        .push(FlatStatement::Definition(new_var.clone(), FlatExpression::Identifier(id.clone().to_string())));
                                 },
                                 _ => panic!("A boolean argument to a function has to be a identifier")
                             }
