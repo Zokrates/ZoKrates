@@ -295,7 +295,7 @@ pub enum BooleanExpression<T: Field> {
 }
 
 impl<T: Field> BooleanExpression<T> {
-    fn apply_substitution(self, substitution: &Substitution) -> BooleanExpression<T> {
+    pub fn apply_substitution(self, substitution: &Substitution) -> BooleanExpression<T> {
         match self {
             BooleanExpression::Identifier(id) => {
                 let mut new_name = id;
@@ -475,16 +475,6 @@ impl<T: Field> TypedExpression<T> {
         match self {
             TypedExpression::Boolean(e) => e.apply_substitution(substitution).into(),
             TypedExpression::FieldElement(e) => e.apply_substitution(substitution).into(),
-        }
-    }
-}
-
-impl<T: Field> TypedExpressionList<T> {
-    pub fn apply_substitution(self, substitution: &Substitution) -> TypedExpressionList<T> {
-        match self {
-            TypedExpressionList::FunctionCall(id, inputs, types) => {
-                TypedExpressionList::FunctionCall(id, inputs.into_iter().map(|i| i.apply_substitution(substitution)).collect(), types)
-            }
         }
     }
 }

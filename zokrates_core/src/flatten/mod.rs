@@ -393,37 +393,32 @@ impl Flattener {
                 // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions
                 for (i, param_expr) in param_expressions.clone().into_iter().enumerate() {
                     let new_var;
-                    let param_expr = param_expr.apply_substitution(&self.substitution);
 
                     match param_expr {
                         TypedExpression::FieldElement(e) => {
-                            match e {
-                                FieldElementExpression::Identifier(id) => {
-                                    new_var = format!("{}param_{}", &prefix, id);
-                                    statements_flattened
-                                        .push(FlatStatement::Definition(new_var.clone(), FlatExpression::Identifier(id.clone().to_string())));
-                                },
-                                _ => {
-                                    // for field elements, flatten the input and assign it to a new variable
-                                    let expr_subbed = e.apply_substitution(&self.substitution);
-                                    let rhs = self.flatten_field_expression(
-                                        functions_flattened,
-                                        arguments_flattened,
-                                        statements_flattened,
-                                        expr_subbed,
-                                    );
-                                    new_var = format!("{}param_{}", &prefix, i);
-                                    statements_flattened
-                                        .push(FlatStatement::Definition(new_var.clone(), rhs));
-                                }
-                            }
+                            // for field elements, flatten the input and assign it to a new variable
+                            let rhs = self.flatten_field_expression(
+                                functions_flattened,
+                                arguments_flattened,
+                                statements_flattened,
+                                e,
+                            ).apply_substitution(&self.substitution);
+                            new_var = format!("{}param_{}", &prefix, i);
+                            statements_flattened
+                                .push(FlatStatement::Definition(new_var.clone(), rhs));
                         },
                         TypedExpression::Boolean(e) => {
                             match e {
-                                BooleanExpression::Identifier(id) => {
-                                    new_var = format!("{}param_{}", &prefix, id);
-                                    statements_flattened
-                                        .push(FlatStatement::Definition(new_var.clone(), FlatExpression::Identifier(id.clone().to_string())));
+                                e @ BooleanExpression::Identifier(..) => {
+                                    // a bit hacky for now, to be removed when flatten_condition returns a flatexpression
+                                    match e.apply_substitution(&self.substitution) {
+                                        BooleanExpression::Identifier(id) => {
+                                            new_var = format!("{}param_{}", &prefix, id);
+                                            statements_flattened
+                                                .push(FlatStatement::Definition(new_var.clone(), FlatExpression::Identifier(id.clone().to_string())));
+                                        },
+                                        _ => unreachable!()
+                                    }                                
                                 },
                                 _ => panic!("A boolean argument to a function has to be a identifier")
                             }
@@ -718,13 +713,12 @@ impl Flattener {
                 let flat_expressions = exprs.into_iter().map(|expr| {
                     match expr {
                         TypedExpression::FieldElement(e) => {
-                            let expr_subbed = e.apply_substitution(&self.substitution);
                             self.flatten_field_expression(
                                 functions_flattened,
                                 arguments_flattened,
                                 statements_flattened,
-                                expr_subbed,
-                            )
+                                e,
+                            ).apply_substitution(&self.substitution)
                         },
                         _ => panic!("Functions can only return expressions of type FieldElement")
                     }
@@ -745,13 +739,12 @@ impl Flattener {
 
                 match expr {
                     TypedExpression::FieldElement(expr) => {
-                        let expr_subbed = expr.apply_substitution(&self.substitution);
                         let rhs = self.flatten_field_expression(
                             functions_flattened,
                             arguments_flattened,
                             statements_flattened,
-                            expr_subbed,
-                        );
+                            expr,
+                        ).apply_substitution(&self.substitution);
                         let var = self.use_variable(&v.id);
                         // handle return of function call
                         let var_to_replace = self.get_latest_var_substitution(&v.id);
@@ -771,39 +764,36 @@ impl Flattener {
 
                 match (expr1, expr2) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-
-                        let e1_subbed = e1.apply_substitution(&self.substitution);
-                        let e2_subbed = e2.apply_substitution(&self.substitution);
                         
-                        let (lhs, rhs) = if e1_subbed.is_linear() {
+                        let (lhs, rhs) = if e1.is_linear() {
                             (
                                 self.flatten_field_expression(
                                     functions_flattened,
                                     arguments_flattened,
                                     statements_flattened,
-                                    e1_subbed
-                                ),
+                                    e1
+                                ).apply_substitution(&self.substitution),
                                 self.flatten_field_expression(
                                     functions_flattened,
                                     arguments_flattened,
                                     statements_flattened,
-                                    e2_subbed,
-                                ),
+                                    e2,
+                                ).apply_substitution(&self.substitution),
                             )
-                        } else if e2_subbed.is_linear() {
+                        } else if e2.is_linear() {
                             (
                                 self.flatten_field_expression(
                                     functions_flattened,
                                     arguments_flattened,
                                     statements_flattened,
-                                    e2_subbed,
-                                ),
+                                    e2,
+                                ).apply_substitution(&self.substitution),
                                 self.flatten_field_expression(
                                     functions_flattened,
                                     arguments_flattened,
                                     statements_flattened,
-                                    e1_subbed,
-                                ),
+                                    e1,
+                                ).apply_substitution(&self.substitution),
                             )
                         } else {
                             unimplemented!()
@@ -835,10 +825,8 @@ impl Flattener {
 
                 // flatten the right side to p = sum(var_i.type.primitive_count) expressions
                 // define p new variables to the right side expressions 
-
-                let rhs_subbed = rhs.apply_substitution(&self.substitution);
                 
-                match rhs_subbed {
+                match rhs {
                     TypedExpressionList::FunctionCall(fun_id, exprs, types) => {
                         let rhs_flattened = self.flatten_function_call(
                             functions_flattened,
@@ -847,7 +835,7 @@ impl Flattener {
                             &fun_id,
                             vars.len(),
                             &exprs,
-                        );
+                        ).apply_substitution(&self.substitution);
 
                         for (i, v) in vars.into_iter().enumerate() {
                             let var_type = &types[i];
