@@ -1,9 +1,10 @@
+use flat_absy::flat_variable::FlatVariable;
 use std::collections::HashMap;
 use substitution::Substitution;
 
 #[derive(Debug, Clone)]
 pub struct DirectSubstitution {
-    hashmap: HashMap<String, String>
+    hashmap: HashMap<FlatVariable, FlatVariable>
 }
 
 impl Substitution for DirectSubstitution {
@@ -13,18 +14,18 @@ impl Substitution for DirectSubstitution {
 		}
     }
 
-    fn insert(&mut self, key: String, element: String) -> Option<String> {
+    fn insert(&mut self, key: FlatVariable, element: FlatVariable) -> Option<FlatVariable> {
     	self.hashmap.insert(key, element)
     }
 
-    fn get(&self, key: &str) -> Option<String> {
+    fn get(&self, key: &FlatVariable) -> Option<FlatVariable> {
     	match self.hashmap.get(key) {
-    		Some(ref v) => Some(v.to_string()),
-    		None => None
-    	}
+            Some(value) => Some(value.clone()),
+            None => None
+        }
     }
 
-    fn contains_key(&mut self, key: &str) -> bool {
+    fn contains_key(&mut self, key: &FlatVariable) -> bool {
     	self.hashmap.contains_key(key)
     }
 }
@@ -37,28 +38,34 @@ mod tests {
     #[test]
     fn insert_simple_variable() {
         let mut s = DirectSubstitution::new();
-        s.insert("abc_de".to_string(), "_123".to_string());
-        assert_eq!(s.get("abc_de").unwrap(), "_123".to_string());
+        let key = FlatVariable::new(1);
+        let value = FlatVariable::new(123);
+        s.insert(key, value);
+        assert_eq!(s.get(&key).unwrap(), value);
     }
 
     #[test]
     fn insert_binary_variable() {
         let mut s = DirectSubstitution::new();
-        s.insert("abc_de_b23".to_string(), "_123".to_string());
-        assert_eq!(s.get("abc_de_b23").unwrap(), "_123".to_string());
+        let key = FlatVariable::binary(1, 23);
+        let value = FlatVariable::new(123);
+        s.insert(key, value);
+        assert_eq!(s.get(&key).unwrap(), value);
     }
 
     #[test]
     fn insert_twice_with_same_prefix() {
         let mut s = DirectSubstitution::new();
-        s.insert("abc_de_b23".to_string(), "_123".to_string());
-        s.insert("abc_de_b24".to_string(), "_456".to_string());
-        assert_eq!(s.get("abc_de_b24").unwrap(), "_456".to_string());
-    }
 
-    #[test]
-    fn two_separators() {
         let mut s = DirectSubstitution::new();
-        s.insert("abc_b21_b33".to_string(), "_123".to_string());
+        let key1 = FlatVariable::binary(1, 23);
+        let value1 = FlatVariable::new(123);
+        let key2 = FlatVariable::binary(1, 24);
+        let value2 = FlatVariable::new(456);
+        s.insert(key1, value1);
+        s.insert(key2, value2);
+
+        assert_eq!(s.get(&key1).unwrap(), value1);
+        assert_eq!(s.get(&key2).unwrap(), value2);
     }
 }

@@ -186,7 +186,7 @@ impl Flattener {
                         statements_flattened.push(FlatStatement::Definition(
                             new_id,
                             FlatExpression::Mult(
-                                box FlatExpression::Identifier(new_id),
+                                box FlatExpression::Identifier(new_id.clone()),
                                 box FlatExpression::Identifier(new_id),
                             ),
                         ));
@@ -391,35 +391,35 @@ impl Flattener {
                 // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions
                 for (i, param_expr) in param_expressions.clone().into_iter().enumerate() {
                     let new_var;
-                    let param_expr = param_expr.apply_substitution(&self.substitution);
 
                     match param_expr {
                         TypedExpression::FieldElement(e) => {
-                            match e {
-                                FieldElementExpression::Identifier(id) => {
-                                    new_var = self.use_variable(&format!("{}param_{}", &prefix, id));
-                                    statements_flattened
-                                        .push(FlatStatement::Definition(new_var, FlatExpression::Identifier(self.bijection.get_by_left(&id).unwrap().clone())));
-                                },
-                                _ => {
-                                    // for field elements, flatten the input and assign it to a new variable
-                                    let expr_subbed = e.apply_substitution(&self.substitution);
-                                    let rhs = self.flatten_field_expression(
-                                        functions_flattened,
-                                        arguments_flattened,
-                                        statements_flattened,
-                                        expr_subbed,
-                                    );
-                                    new_var = self.use_variable(&format!("{}param_{}", &prefix, i));
-                                    statements_flattened
-                                        .push(FlatStatement::Definition(new_var, rhs));
-                                }
-                            }
+
+                            // for field elements, flatten the input and assign it to a new variable
+                            let rhs = self.flatten_field_expression(
+                                functions_flattened,
+                                arguments_flattened,
+                                statements_flattened,
+                                e,
+                            ).apply_substitution(&self.substitution);
+                            new_var = self.use_variable(&format!("{}param_{}", &prefix, i));
+                            statements_flattened
+                                .push(FlatStatement::Definition(new_var, rhs));
                         },
                         TypedExpression::Boolean(e) => {
                             match e {
                                 BooleanExpression::Identifier(id) => {
-                                    new_var = self.use_variable(&format!("{}param_{}", &prefix, id));
+                                    new_var = self.use_variable(&format!("{}param_{}", &prefix, i));
+                                    // a bit hacky for now, to be removed when flatten_condition returns a flatexpression
+                                    // basically extracted the bit of apply_substitution that handles identifiers
+                                    let mut id = id;
+                                    loop {
+                                        match self.substitution.get(&self.bijection.get_by_left(&id).unwrap()) {
+                                            Some(x) => id = x.to_string(),
+                                            None => break,
+                                        }
+                                    }
+
                                     statements_flattened
                                         .push(FlatStatement::Definition(new_var, FlatExpression::Identifier(self.bijection.get_by_left(&id).unwrap().clone())));
                                 },
@@ -427,7 +427,7 @@ impl Flattener {
                             }
                         }
                     }
-                    replacement_map.insert(funct.arguments.get(i).unwrap().id.to_string(), new_var.to_string());
+                    replacement_map.insert(FlatVariable::new(funct.arguments.get(i).unwrap().id.id), new_var);
                 }
 
                 // Ensure Renaming and correct returns:
@@ -441,8 +441,9 @@ impl Flattener {
                             }
                         },
                         FlatStatement::Definition(var, rhs) => {
-                            let new_var = self.use_variable(&format!("{}{}", prefix, self.bijection.get_by_right(&var).unwrap()));
-                            replacement_map.insert(var.to_string(), new_var.to_string());
+                            //let var_name = self.bijection.get_by_right(&var).unwrap();
+                            let new_var = self.use_variable(&format!("{}{}", prefix, "dummy"));
+                            replacement_map.insert(var, new_var);
                             let new_rhs = rhs.apply_substitution(&replacement_map);
                             statements_flattened.push(
                                 FlatStatement::Definition(new_var, new_rhs)
@@ -455,12 +456,13 @@ impl Flattener {
                                 .push(FlatStatement::Condition(new_lhs, new_rhs));
                         },
                         FlatStatement::Directive(d) => {
-                            let new_outputs = d.outputs.iter().map(|o| {
-                            let new_o = self.use_variable(&format!("{}{}", prefix, self.bijection.get_by_right(&o).unwrap()));
-                                replacement_map.insert(o.to_string(), new_o.to_string());
+                            let new_outputs = d.outputs.into_iter().map(|o| {
+                            //let var_name = self.bijection.get_by_right(&o).unwrap();
+                            let new_o = self.use_variable(&format!("{}{}", prefix, "dummy"));
+                                replacement_map.insert(o, new_o);
                                 new_o
                             }).collect();
-                            let new_inputs = d.inputs.iter().map(|i| replacement_map.get(&i.to_string()).unwrap()).collect();
+                            let new_inputs = d.inputs.iter().map(|i| replacement_map.get(&i).unwrap()).collect();
                             statements_flattened.push(
                                 FlatStatement::Directive(
                                     DirectiveStatement {
@@ -705,13 +707,12 @@ impl Flattener {
                 let flat_expressions = exprs.into_iter().map(|expr| {
                     match expr {
                         TypedExpression::FieldElement(e) => {
-                            let expr_subbed = e.apply_substitution(&self.substitution);
                             self.flatten_field_expression(
                                 functions_flattened,
                                 arguments_flattened,
                                 statements_flattened,
-                                expr_subbed,
-                            )
+                                e,
+                            ).apply_substitution(&self.substitution)
                         },
                         _ => panic!("Functions can only return expressions of type FieldElement")
                     }
@@ -732,18 +733,17 @@ impl Flattener {
 
                 match expr {
                     TypedExpression::FieldElement(expr) => {
-                        let expr_subbed = expr.apply_substitution(&self.substitution);
                         let rhs = self.flatten_field_expression(
                             functions_flattened,
                             arguments_flattened,
                             statements_flattened,
-                            expr_subbed,
-                        );
+                            expr,
+                        ).apply_substitution(&self.substitution);
                         let var = self.use_variable(&v.id);
                         // handle return of function call
                         let var_to_replace = self.get_latest_var_substitution(&v.id);
                         if !(var == var_to_replace) && self.variables.contains(&var_to_replace) && !self.substitution.contains_key(&var_to_replace){
-                            self.substitution.insert(var_to_replace.clone().to_string(),var.clone());
+                            self.substitution.insert(var_to_replace.clone(),var.clone());
                         }
 
                         statements_flattened.push(FlatStatement::Definition(var, rhs));
@@ -758,39 +758,36 @@ impl Flattener {
 
                 match (expr1, expr2) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-
-                        let e1_subbed = e1.apply_substitution(&self.substitution);
-                        let e2_subbed = e2.apply_substitution(&self.substitution);
                         
-                        let (lhs, rhs) = if e1_subbed.is_linear() {
+                        let (lhs, rhs) = if e1.is_linear() {
                             (
                                 self.flatten_field_expression(
                                     functions_flattened,
                                     arguments_flattened,
                                     statements_flattened,
-                                    e1_subbed
-                                ),
+                                    e1
+                                ).apply_substitution(&self.substitution),
                                 self.flatten_field_expression(
                                     functions_flattened,
                                     arguments_flattened,
                                     statements_flattened,
-                                    e2_subbed,
-                                ),
+                                    e2,
+                                ).apply_substitution(&self.substitution),
                             )
-                        } else if e2_subbed.is_linear() {
+                        } else if e2.is_linear() {
                             (
                                 self.flatten_field_expression(
                                     functions_flattened,
                                     arguments_flattened,
                                     statements_flattened,
-                                    e2_subbed,
-                                ),
+                                    e2,
+                                ).apply_substitution(&self.substitution),
                                 self.flatten_field_expression(
                                     functions_flattened,
                                     arguments_flattened,
                                     statements_flattened,
-                                    e1_subbed,
-                                ),
+                                    e1,
+                                ).apply_substitution(&self.substitution),
                             )
                         } else {
                             unimplemented!()
@@ -822,10 +819,8 @@ impl Flattener {
 
                 // flatten the right side to p = sum(var_i.type.primitive_count) expressions
                 // define p new variables to the right side expressions 
-
-                let rhs_subbed = rhs.apply_substitution(&self.substitution);
                 
-                match rhs_subbed {
+                match rhs {
                     TypedExpressionList::FunctionCall(fun_id, exprs, types) => {
                         let rhs_flattened = self.flatten_function_call(
                             functions_flattened,
@@ -834,7 +829,7 @@ impl Flattener {
                             &fun_id,
                             vars.len(),
                             &exprs,
-                        );
+                        ).apply_substitution(&self.substitution);
 
                         for (i, v) in vars.into_iter().enumerate() {
                             let var_type = &types[i];
@@ -845,7 +840,7 @@ impl Flattener {
                                     // handle return of function call
                                     let var_to_replace = self.get_latest_var_substitution(&v.id);
                                     if !(var == var_to_replace) && self.variables.contains(&var_to_replace) && !self.substitution.contains_key(&var_to_replace){
-                                        self.substitution.insert(var_to_replace.to_string(), var.to_string());
+                                        self.substitution.insert(var_to_replace, var);
                                     }
                                     statements_flattened.push(FlatStatement::Definition(var, rhs_flattened.expressions[i].clone()));
                                 },
@@ -884,13 +879,13 @@ impl Flattener {
             match arg_type {
                 Type::FieldElement => {
                     arguments_flattened.push(FlatParameter {
-                        id: self.use_variable(&arg.id.id).id,
+                        id: self.use_variable(&arg.id.id),
                         private: arg.private
                     });
                 },
                 Type::Boolean => {
                     arguments_flattened.push(FlatParameter {
-                        id: self.use_variable(&arg.id.id).id, 
+                        id: self.use_variable(&arg.id.id), 
                         private: arg.private
                     });
                 },
@@ -914,7 +909,6 @@ impl Flattener {
             arguments: arguments_flattened,
             statements: statements_flattened,
             return_count: return_count,
-            bijection: self.bijection,
         }
     }
 
@@ -949,27 +943,40 @@ impl Flattener {
     /// * `name` - A String that holds the name of the variable
     fn use_variable(&mut self, name: &String) -> FlatVariable {
         self.next_var_idx += 1;
+        
+        let var = {
+            let id = self.bijection.get_by_left(name);
 
-        let mut i = 0;
-        let mut new_name = name.to_string();
-        loop {
-            if self.variables.contains(&new_name) {
-                new_name = format!("{}_{}", &name, i);
-                i += 1;
-            } else {
-                self.variables.insert(new_name.to_string());
-                if i == 1 {
-                    self.substitution
-                        .insert(name.to_string(), new_name.to_string());
-                } else if i > 1 {
-                    self.substitution
-                        .insert(format!("{}_{}", name, i - 2), new_name.to_string());
+            match id {
+                Some(id) => {
+                    // the name was already registered. We need to find its latest substitution
+                    let mut id = *id;
+                    loop {
+                        match self.substitution.get(&id) {
+                            Some(x) => id = x,
+                            None => break,
+                        }
+                    }
+                    // now `id` is the latest substitution of `name`
+                    // introduce a new variable with the current index
+                    let var = FlatVariable::new(self.next_var_idx);
+                    // link it to the previous one
+                    self.substitution.insert(id, var);
+                    // return the new var
+                    var
+                },
+                None => {
+                    // the name was not already registered.
+                    // register it
+                    let var = FlatVariable::new(self.next_var_idx);
+                    var
                 }
-                let var = FlatVariable::new(self.next_var_idx);
-                self.bijection.insert(new_name, var);
-                return var;
             }
-        }
+        };
+
+        self.bijection.insert(name.to_string(), var);
+
+        var
     }
 
     fn use_binary_variable(&mut self, var: &FlatVariable, bit: usize) -> FlatVariable {
@@ -991,7 +998,7 @@ impl Flattener {
     fn get_latest_var_substitution(&mut self, name: &String) -> FlatVariable {
         let mut latest_var = self.bijection.get_by_left(name).unwrap().clone();
         loop {
-            match self.substitution.get(&latest_var.to_string()) {
+            match self.substitution.get(&latest_var) {
                 Some(x) => latest_var = x,
                 None => return latest_var,
             }

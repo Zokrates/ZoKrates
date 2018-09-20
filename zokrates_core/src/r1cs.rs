@@ -269,7 +269,7 @@ fn get_variable_idx(variables: &mut Vec<FlatVariable>, var: &FlatVariable) -> us
 ///
 /// * `prog` - The program the representation is calculated for.
 pub fn r1cs_program<T: Field>(
-    prog: &mut FlatProg<T>,
+    prog: &FlatProg<T>,
 ) -> (
     Vec<FlatVariable>,
     usize,
@@ -288,7 +288,7 @@ pub fn r1cs_program<T: Field>(
         .iter()
         .find(|x: &&FlatFunction<T>| x.id == "main".to_string())
         .unwrap();
-    variables.extend(main.arguments.iter().filter(|x| !x.private).map(|x| FlatVariable::new(x.id))); // TODO hacky for binary values
+    variables.extend(main.arguments.iter().filter(|x| !x.private).map(|x| x.id));
 
     // ~out is added after main's arguments as we want variables (columns)
     // in the r1cs to be aligned like "public inputs | private inputs"

@@ -1,9 +1,10 @@
+use flat_absy::flat_variable::FlatVariable;
 use std::fmt;
 use substitution::Substitution;
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct FlatParameter {
-    pub id: usize,
+    pub id: FlatVariable,
     pub private: bool,
 }
 
@@ -22,10 +23,9 @@ impl fmt::Debug for FlatParameter {
 
 impl FlatParameter {
     pub fn apply_substitution(self, substitution: &Substitution) -> FlatParameter {
-        panic!("TODO: substitution")
-        // FlatParameter {
-        //     id: substitution.get(&self.id).unwrap().to_string(),
-        //     private: self.private
-        // }
+        FlatParameter {
+            id: substitution.get(&self.id).unwrap(),
+            private: self.private
+        }
     }
 }

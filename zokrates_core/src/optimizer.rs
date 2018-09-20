@@ -9,6 +9,7 @@ use substitution::prefixed_substitution::PrefixedSubstitution;
 use substitution::Substitution;
 use flat_absy::*;
 use field::Field;
+use flat_absy::flat_variable::FlatVariable;
 
 pub struct Optimizer {
 	/// Map of renamings for reassigned variables while processing the program.
@@ -54,8 +55,8 @@ impl Optimizer {
 	pub fn optimize_function<T: Field>(&mut self, funct: FlatFunction<T>) -> FlatFunction<T> {
 
 		// Add arguments to substitution map
-		for arg in &funct.arguments {
-			self.substitution.insert(arg.id.clone(), format!("_{}", self.next_var_idx.increment()));
+		for arg in funct.arguments.clone() {
+			self.substitution.insert(arg.id, FlatVariable::new(self.next_var_idx.increment()));
 		};
 
 		// generate substitution map
@@ -74,18 +75,18 @@ impl Optimizer {
 							value.clone()
 						},
 						None => {
-							format!("_{}", self.next_var_idx.increment())
+							FlatVariable::new(self.next_var_idx.increment())
 						}
 					};
 					self.substitution.insert(left.clone(), r);
 				},
 				// Other definitions
 				FlatStatement::Definition(ref left, _) => {
-					self.substitution.insert(left.clone(), format!("_{}", self.next_var_idx.increment()));
+					self.substitution.insert(left.clone(), FlatVariable::new(self.next_var_idx.increment()));
 				},
 				FlatStatement::Directive(ref d) => {
 					for o in d.outputs.iter() {
-						self.substitution.insert(o.clone(), format!("_{}", self.next_var_idx.increment()));
+						self.substitution.insert(o.clone(), FlatVariable::new(self.next_var_idx.increment()));
 					}
 				},
 				_ => ()
@@ -110,10 +111,9 @@ impl Optimizer {
 		let optimized_arguments = funct.arguments.into_iter().map(|arg| arg.apply_substitution(&self.substitution)).collect();
 
 		FlatFunction {
-			id: funct.id,
 			arguments: optimized_arguments,
 			statements: optimized_statements,
-			return_count: funct.return_count
+			..funct
 		}
 	}
 }

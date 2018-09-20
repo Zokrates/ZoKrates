@@ -20,9 +20,9 @@ pub struct DirectiveStatement {
 impl fmt::Display for DirectiveStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     	write!(f, "# {} = {}({})",
-    		self.outputs.iter().map(|o| o.to_string()).collect().join(", "),
+    		self.outputs.iter().map(|o| o.to_string()).collect::<Vec<String>>().join(", "),
     		self.helper,
-    		self.inputs.map(|i| i.to_string()).collect().join(", ")
+    		self.inputs.iter().map(|i| i.to_string()).collect::<Vec<String>>().join(", ")
     	)
     }
 }

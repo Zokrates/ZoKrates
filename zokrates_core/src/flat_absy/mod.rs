@@ -19,7 +19,6 @@ use substitution::Substitution;
 #[cfg(feature = "libsnark")]
 use standard;
 use helpers::{DirectiveStatement, Executable};
-use bimap::BiMap;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FlatProg<T: Field> {
@@ -31,7 +30,7 @@ pub struct FlatProg<T: Field> {
 impl<T: Field> FlatProg<T> {
     // only main flattened function is relevant here, as all other functions are unrolled into it
     #[allow(dead_code)] // I don't want to remove this
-    pub fn get_witness(&self, inputs: Vec<T>) -> Result<BTreeMap<String, T>, Error> {
+    pub fn get_witness(&self, inputs: Vec<T>) -> Result<BTreeMap<FlatVariable, T>, Error> {
         let main = self.functions.iter().find(|x| x.id == "main").unwrap();
         main.get_witness(inputs)
     }
@@ -85,30 +84,27 @@ pub struct FlatFunction<T: Field> {
     pub statements: Vec<FlatStatement<T>>,
     /// number of returns
     pub return_count: usize,
-    /// map to get variable name from index and back
-    pub bijection: BiMap<String, FlatVariable>
 }
 
 impl<T: Field> FlatFunction<T> {
-    pub fn get_witness(&self, inputs: Vec<T>) -> Result<BTreeMap<String, T>, Error> {
+    pub fn get_witness(&self, inputs: Vec<T>) -> Result<BTreeMap<FlatVariable, T>, Error> {
         assert!(self.arguments.len() == inputs.len());
         let mut witness = BTreeMap::new();
-        witness.insert("~one".to_string(), T::one());
+        witness.insert(FlatVariable::one(), T::one());
         for (i, arg) in self.arguments.iter().enumerate() {
-            witness.insert(arg.id.to_string(), inputs[i].clone());
+            witness.insert(arg.id, inputs[i].clone());
         }
         for statement in &self.statements {
-            println!("{}", statement);
             match *statement {
                 FlatStatement::Return(ref list) => {
                     for (i, val) in list.expressions.iter().enumerate() {
                         let s = val.solve(&mut witness);
-                        witness.insert(format!("~out_{}", i).to_string(), s);
+                        witness.insert(FlatVariable::new(i), s);
                     }
                 }
                 FlatStatement::Definition(ref id, ref expr) => {
                     let s = expr.solve(&mut witness);
-                    witness.insert(id.to_string(), s);
+                    witness.insert(id.clone(), s);
                 },
                 FlatStatement::Condition(ref lhs, ref rhs) => {
                     if lhs.solve(&mut witness) != rhs.solve(&mut witness) {
@@ -122,7 +118,7 @@ impl<T: Field> FlatFunction<T> {
                     match d.helper.execute(&input_values) {
                         Ok(res) => {
                             for (i, o) in d.outputs.iter().enumerate() {
-                                witness.insert(o.to_string(), res[i].clone());
+                                witness.insert(o.clone(), res[i].clone());
                             }
                             continue;
                         },
@@ -261,12 +257,12 @@ impl<T: Field> FlatExpression<T> {
     pub fn apply_substitution(self, substitution: &Substitution) -> FlatExpression<T> {
         match self {
             e @ FlatExpression::Number(_) => e,
-            FlatExpression::Identifier(v) => {
-                let mut new_name = v.to_string();
+            FlatExpression::Identifier(id) => {
+                let mut new_id = id;
                 loop {
-                    match substitution.get(&new_name) {
-                        Some(x) => new_name = x.to_string(),
-                        None => return FlatExpression::Identifier(new_name),
+                    match substitution.get(&new_id) {
+                        Some(x) => new_id = x,
+                        None => return FlatExpression::Identifier(new_id),
                     }
                 }
             }
@@ -290,25 +286,23 @@ impl<T: Field> FlatExpression<T> {
         }
     }
 
-    fn solve(&self, inputs: &mut BTreeMap<String, T>) -> T {
+    fn solve(&self, inputs: &mut BTreeMap<FlatVariable, T>) -> T {
         match *self {
             FlatExpression::Number(ref x) => x.clone(),
             FlatExpression::Identifier(ref var) => {
                 if let None = inputs.get(var) {
                     match var.binary {
-                        // if the variable reprensents a bit from x, we can get its value from x
+                        // if the variable reprensents a bit from `x`, we can get its value from `x
                         Some(b) => {
-                            let var_name = var.id;
-                            // TODO id => name
-                            let var_name = String::from("TODO"); // remove
-                            let mut num = inputs[var_name].clone();
+                            // find the full variable
+                            let mut num = inputs.iter().find(|(variable, value)| variable.id == var.id && variable.binary == None).unwrap().1.clone();
                             let bits = T::get_required_bits();
                             for i in (0..bits).rev() {
                                 if T::from(2).pow(i) <= num {
                                     num = num - T::from(2).pow(i);
-                                    inputs.insert(format!("{}{}{}", &var_name, BINARY_SEPARATOR, i), T::one());
+                                    inputs.insert(FlatVariable::binary(var.id, i), T::one());
                                 } else {
-                                    inputs.insert(format!("{}{}{}", &var_name, BINARY_SEPARATOR, i), T::zero());
+                                    inputs.insert(FlatVariable::binary(var.id, i), T::zero());
                                 }
                             }
                             assert_eq!(num, T::zero());

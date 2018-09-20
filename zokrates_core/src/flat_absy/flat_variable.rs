@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Hash, Eq)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Hash, Eq, Ord, PartialOrd, Copy)]
 pub struct FlatVariable {
     pub id: usize,
     pub binary: Option<usize>
@@ -29,8 +29,8 @@ impl FlatVariable {
 impl fmt::Display for FlatVariable {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.binary {
-            Some(b) => write!(f, "{}_b{}", self.id, b),
-            None => write!(f, "{}", self.id),
+            Some(b) => write!(f, "_{}_b{}", self.id, b),
+            None => write!(f, "_{}", self.id),
         }
     }
 }
