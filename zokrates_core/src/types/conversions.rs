@@ -10,6 +10,7 @@ use bimap::BiMap;
 
 fn use_variable(bijection: &mut BiMap<String, FlatVariable>, name: String, mut index: usize) -> FlatVariable {
 	let var = FlatVariable::new(index);
+	bijection.insert(name, var);
 	index = index + 1;
 	var
 }

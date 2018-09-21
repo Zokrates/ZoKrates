@@ -293,7 +293,7 @@ pub fn r1cs_program<T: Field>(
     // ~out is added after main's arguments as we want variables (columns)
     // in the r1cs to be aligned like "public inputs | private inputs"
     for i in 0..main.return_count {
-        variables.push(FlatVariable::new(101));
+        variables.push(FlatVariable::public(i));
     }
 
     // position where private part of witness starts
@@ -307,7 +307,7 @@ pub fn r1cs_program<T: Field>(
                     let mut b_row = Vec::new();
                     let mut c_row = Vec::new();
                     r1cs_expression(
-                        Identifier(FlatVariable::new(101)), // should inject in the constraint system, possibly at flattening
+                        Identifier(FlatVariable::public(i)), // should inject in the constraint system, possibly at flattening
                         val.clone(),
                         &mut variables,
                         &mut a_row,
@@ -354,6 +354,9 @@ pub fn r1cs_program<T: Field>(
             FlatStatement::Directive(..) => continue
         }
     }
+
+    println!("{:?}\n {:?}\n {:?}\n {:?}\n {:?}", variables, private_inputs_offset, a, b, c);
+
     (variables, private_inputs_offset, a, b, c)
 }
 

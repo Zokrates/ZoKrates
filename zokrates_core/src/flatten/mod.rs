@@ -293,7 +293,7 @@ impl Flattener {
                 statements_flattened
                     .push(FlatStatement::Definition(
                         cond_true_id,
-                        FlatExpression::Identifier(FlatVariable::binary(subtraction_result_id.id, 0)))
+                        FlatExpression::Identifier(subtraction_result_id.with_binary(0)))
                     );
 
                 self.next_var_idx += 1;
@@ -409,6 +409,10 @@ impl Flattener {
                                     new_var = self.use_variable(&format!("{}param_{}", &prefix, i));
                                     // a bit hacky for now, to be removed when flatten_condition returns a flatexpression
                                     // basically extracted the bit of apply_substitution that handles identifiers
+
+                                    println!("SUB {:?}", self.substitution);
+                                    println!("\nBIJ {:?}", self.bijection);
+
                                     let mut id = id;
                                     loop {
                                         match self.substitution.get(&self.bijection.get_by_left(&id).unwrap()) {
@@ -424,7 +428,7 @@ impl Flattener {
                             }
                         }
                     }
-                    replacement_map.insert(FlatVariable::new(funct.arguments.get(i).unwrap().id.id), new_var);
+                    replacement_map.insert(FlatVariable::new(funct.arguments.get(i).unwrap().id.id()), new_var);
                 }
 
                 // Ensure Renaming and correct returns:
@@ -438,8 +442,8 @@ impl Flattener {
                             }
                         },
                         FlatStatement::Definition(var, rhs) => {
-                            //let var_name = self.bijection.get_by_right(&var).unwrap();
-                            let new_var = self.use_variable(&format!("{}{}", prefix, "dummy"));
+                            let var_name = self.bijection.get_by_right(&var).unwrap().clone();
+                            let new_var = self.use_variable(&format!("{}{}", prefix, var_name));
                             replacement_map.insert(var, new_var);
                             let new_rhs = rhs.apply_substitution(&replacement_map);
                             statements_flattened.push(
@@ -454,8 +458,8 @@ impl Flattener {
                         },
                         FlatStatement::Directive(d) => {
                             let new_outputs = d.outputs.into_iter().map(|o| {
-                            //let var_name = self.bijection.get_by_right(&o).unwrap();
-                            let new_o = self.use_variable(&format!("{}{}", prefix, "dummy"));
+                            let var_name = self.bijection.get_by_right(&o).unwrap().clone();
+                            let new_o = self.use_variable(&format!("{}{}", prefix, var_name));
                                 replacement_map.insert(o, new_o);
                                 new_o
                             }).collect();
@@ -975,10 +979,7 @@ impl Flattener {
     }
 
     fn use_binary_variable(&mut self, var: &FlatVariable, bit: usize) -> FlatVariable {
-        FlatVariable {
-            binary: Some(bit),
-            ..var.clone()
-        }
+        var.with_binary(bit)
     }
 
     fn use_sym(&mut self) -> FlatVariable {

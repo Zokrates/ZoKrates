@@ -87,6 +87,7 @@ pub struct FlatFunction<T: Field> {
 impl<T: Field> FlatFunction<T> {
     pub fn get_witness(&self, inputs: Vec<T>) -> Result<BTreeMap<FlatVariable, T>, Error> {
         assert!(self.arguments.len() == inputs.len());
+        assert!(self.id == "main");
         let mut witness = BTreeMap::new();
         witness.insert(FlatVariable::one(), T::one());
         for (i, arg) in self.arguments.iter().enumerate() {
@@ -97,7 +98,7 @@ impl<T: Field> FlatFunction<T> {
                 FlatStatement::Return(ref list) => {
                     for (i, val) in list.expressions.iter().enumerate() {
                         let s = val.solve(&mut witness);
-                        witness.insert(FlatVariable::new(i), s);
+                        witness.insert(FlatVariable::public(i), s);
                     }
                 }
                 FlatStatement::Definition(ref id, ref expr) => {
@@ -287,18 +288,18 @@ impl<T: Field> FlatExpression<T> {
             FlatExpression::Number(ref x) => x.clone(),
             FlatExpression::Identifier(ref var) => {
                 if let None = inputs.get(var) {
-                    match var.binary {
+                    match var.binary() {
                         // if the variable reprensents a bit from `x`, we can get its value from `x
                         Some(_) => {
                             // find the full variable
-                            let mut num = inputs.iter().find(|(variable, _)| variable.id == var.id && variable.binary == None).unwrap().1.clone();
+                            let mut num = inputs.iter().find(|(variable, _)| variable.id() == var.id() && variable.binary() == None).unwrap().1.clone();
                             let bits = T::get_required_bits();
                             for i in (0..bits).rev() {
                                 if T::from(2).pow(i) <= num {
                                     num = num - T::from(2).pow(i);
-                                    inputs.insert(FlatVariable::binary(var.id, i), T::one());
+                                    inputs.insert(var.with_binary(i), T::one());
                                 } else {
-                                    inputs.insert(FlatVariable::binary(var.id, i), T::zero());
+                                    inputs.insert(var.with_binary(i), T::zero());
                                 }
                             }
                             assert_eq!(num, T::zero());
