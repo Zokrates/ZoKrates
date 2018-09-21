@@ -169,24 +169,13 @@ impl Flattener {
                 statements_flattened
                     .push(FlatStatement::Definition(lhs_id, lhs_flattened));
 
-                let mut lhs_bits = vec![];
-
-                // rhs
-                let rhs_id = self.use_sym();
-                statements_flattened
-                    .push(FlatStatement::Definition(rhs_id, rhs_flattened));
-
-                let mut rhs_bits = vec![];
-
                 // check that lhs and rhs are within the right range, ie, their last two bits are zero
 
                 // lhs
                 {
                     // define variables for the bits
-                    for i in 0..self.bits {
-                        lhs_bits.push(self.use_sym());
-                    }
-
+                    let lhs_bits: Vec<FlatVariable> = (0..self.bits).map(|_| self.use_sym()).collect();
+                    
                     // add a directive to get the bits
                     statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
                         lhs_bits.clone(),
@@ -197,10 +186,10 @@ impl Flattener {
                     // bitness checks
                     for i in 0..self.bits - 2 {
                         statements_flattened.push(FlatStatement::Definition(
-                            lhs_bits[i],
+                            lhs_bits[i + 2],
                             FlatExpression::Mult(
-                                box FlatExpression::Identifier(lhs_bits[i]),
-                                box FlatExpression::Identifier(lhs_bits[i]),
+                                box FlatExpression::Identifier(lhs_bits[i + 2]),
+                                box FlatExpression::Identifier(lhs_bits[i + 2]),
                             ),
                         ));
                     }
@@ -212,8 +201,8 @@ impl Flattener {
                         lhs_sum = FlatExpression::Add(
                             box lhs_sum,
                             box FlatExpression::Mult(
-                                box FlatExpression::Identifier(lhs_bits[i]),
-                                box FlatExpression::Number(T::from(2).pow(i)),
+                                box FlatExpression::Identifier(lhs_bits[i + 2]),
+                                box FlatExpression::Number(T::from(2).pow(self.bits - 2 - i - 1)),
                             ),
                         );
                     }
@@ -227,12 +216,14 @@ impl Flattener {
                 }
 
                 // rhs
-                {
+                let rhs_id = self.use_sym();
+                statements_flattened
+                    .push(FlatStatement::Definition(rhs_id, rhs_flattened));
 
+                // rhs
+                {
                     // define variables for the bits
-                    for i in 0..self.bits {
-                        rhs_bits.push(self.use_sym());
-                    }
+                    let rhs_bits: Vec<FlatVariable> = (0..self.bits).map(|_| self.use_sym()).collect();
 
                     // add a directive to get the bits
                     statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
@@ -244,10 +235,10 @@ impl Flattener {
                     // bitness checks
                     for i in 0..self.bits - 2 {
                         statements_flattened.push(FlatStatement::Definition(
-                            rhs_bits[i],
+                            rhs_bits[i + 2],
                             FlatExpression::Mult(
-                                box FlatExpression::Identifier(rhs_bits[i]),
-                                box FlatExpression::Identifier(rhs_bits[i]),
+                                box FlatExpression::Identifier(rhs_bits[i + 2]),
+                                box FlatExpression::Identifier(rhs_bits[i + 2]),
                             ),
                         ));
                     }
@@ -259,8 +250,8 @@ impl Flattener {
                         rhs_sum = FlatExpression::Add(
                             box rhs_sum,
                             box FlatExpression::Mult(
-                                box FlatExpression::Identifier(rhs_bits[i]),
-                                box FlatExpression::Number(T::from(2).pow(i)),
+                                box FlatExpression::Identifier(rhs_bits[i + 2]),
+                                box FlatExpression::Number(T::from(2).pow(self.bits - 2 - i - 1)),
                             ),
                         );
                     }
@@ -275,7 +266,6 @@ impl Flattener {
 
                 // sym = (lhs * 2) - (rhs * 2)
                 let subtraction_result_id = self.use_sym();
-                let mut sub_bits = vec![];
 
                 statements_flattened.push(FlatStatement::Definition(
                     subtraction_result_id,
@@ -286,9 +276,7 @@ impl Flattener {
                 ));
 
                 // define variables for the bits
-                for i in 0..self.bits {
-                    sub_bits.push(self.use_sym());
-                }
+                let sub_bits: Vec<FlatVariable> = (0..self.bits).map(|_| self.use_sym()).collect();
 
                 // add a directive to get the bits
                 statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
@@ -316,7 +304,7 @@ impl Flattener {
                         box expr,
                         box FlatExpression::Mult(
                             box FlatExpression::Identifier(sub_bits[i]),
-                            box FlatExpression::Number(T::from(2).pow(i)),
+                            box FlatExpression::Number(T::from(2).pow(self.bits - i - 1)),
                         ),
                     );
                 }

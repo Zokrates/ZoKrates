@@ -58,3 +58,32 @@ impl<T: Field> Executable<T> for RustHelper {
 		}
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use field::FieldPrime;
+	use super::*;
+
+	#[test]
+	fn bits_of_one() {
+		let inputs = vec![FieldPrime::from(1)];
+		let res = RustHelper::Bits.execute(&inputs).unwrap();
+		assert_eq!(res[253], FieldPrime::from(1));
+		for i in 0..252 {
+			assert_eq!(res[i], FieldPrime::from(0));
+		}
+	}
+
+	#[test]
+	fn bits_of_42() {
+		let inputs = vec![FieldPrime::from(42)];
+		let res = RustHelper::Bits.execute(&inputs).unwrap();
+		assert_eq!(res[253], FieldPrime::from(0));
+		assert_eq!(res[252], FieldPrime::from(1));
+		assert_eq!(res[251], FieldPrime::from(0));
+		assert_eq!(res[250], FieldPrime::from(1));
+		assert_eq!(res[249], FieldPrime::from(0));
+		assert_eq!(res[248], FieldPrime::from(1));
+		assert_eq!(res[247], FieldPrime::from(0));
+	}
+}

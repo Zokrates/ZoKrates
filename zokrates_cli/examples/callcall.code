@@ -1,10 +1,3 @@
-def bar(a):
-	return a + 42
-
-def foo():
-	a = 3
-	return bar(a)
-
 def main():
-	a = foo()
-	return a
+	return if 333 < 77 then 1 else 2 fi
+	
