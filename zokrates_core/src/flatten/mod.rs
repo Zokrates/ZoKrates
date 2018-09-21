@@ -22,6 +22,7 @@ use absy::parameter::Parameter;
 use bimap::BiMap;
 
 /// Flattener, computes flattened program.
+#[derive(Debug)]
 pub struct Flattener {
     /// Number of bits needed to represent the maximum value.
     bits: usize,
@@ -33,8 +34,8 @@ pub struct Flattener {
     function_calls: HashMap<String, usize>,
     /// Index of the next introduced variable while processing the program.
     next_var_idx: usize,
-    /// bijection for name <=> id
-    bijection: BiMap<String, FlatVariable>
+    ///
+    bijection: BiMap<String, FlatVariable>,
 }
 impl Flattener {
     /// Returns a `Flattener` with fresh a fresh [substitution] and [variables].
@@ -49,7 +50,7 @@ impl Flattener {
             substitution: DirectSubstitution::new(),
             function_calls: HashMap::new(),
             next_var_idx: 0,
-            bijection: BiMap::new()
+            bijection: BiMap::new(),
         }
     }
 
@@ -168,23 +169,38 @@ impl Flattener {
                 statements_flattened
                     .push(FlatStatement::Definition(lhs_id, lhs_flattened));
 
+                let mut lhs_bits = vec![];
+
                 // rhs
                 let rhs_id = self.use_sym();
                 statements_flattened
                     .push(FlatStatement::Definition(rhs_id, rhs_flattened));
 
+                let mut rhs_bits = vec![];
+
                 // check that lhs and rhs are within the right range, ie, their last two bits are zero
 
                 // lhs
                 {
+                    // define variables for the bits
+                    for i in 0..self.bits {
+                        lhs_bits.push(self.use_sym());
+                    }
+
+                    // add a directive to get the bits
+                    statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
+                        lhs_bits.clone(),
+                        Helper::Rust(RustHelper::Bits),
+                        vec![lhs_id]
+                    )));
+
                     // bitness checks
                     for i in 0..self.bits - 2 {
-                        let new_id = self.use_binary_variable(&lhs_id, i);
                         statements_flattened.push(FlatStatement::Definition(
-                            new_id,
+                            lhs_bits[i],
                             FlatExpression::Mult(
-                                box FlatExpression::Identifier(new_id.clone()),
-                                box FlatExpression::Identifier(new_id),
+                                box FlatExpression::Identifier(lhs_bits[i]),
+                                box FlatExpression::Identifier(lhs_bits[i]),
                             ),
                         ));
                     }
@@ -196,7 +212,7 @@ impl Flattener {
                         lhs_sum = FlatExpression::Add(
                             box lhs_sum,
                             box FlatExpression::Mult(
-                                box FlatExpression::Identifier(self.use_binary_variable(&lhs_id, i)),
+                                box FlatExpression::Identifier(lhs_bits[i]),
                                 box FlatExpression::Number(T::from(2).pow(i)),
                             ),
                         );
@@ -212,14 +228,26 @@ impl Flattener {
 
                 // rhs
                 {
+
+                    // define variables for the bits
+                    for i in 0..self.bits {
+                        rhs_bits.push(self.use_sym());
+                    }
+
+                    // add a directive to get the bits
+                    statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
+                        rhs_bits.clone(),
+                        Helper::Rust(RustHelper::Bits),
+                        vec![rhs_id]
+                    )));
+
                     // bitness checks
                     for i in 0..self.bits - 2 {
-                        let new_id = self.use_binary_variable(&lhs_id, i);
                         statements_flattened.push(FlatStatement::Definition(
-                            new_id,
+                            rhs_bits[i],
                             FlatExpression::Mult(
-                                box FlatExpression::Identifier(new_id),
-                                box FlatExpression::Identifier(new_id),
+                                box FlatExpression::Identifier(rhs_bits[i]),
+                                box FlatExpression::Identifier(rhs_bits[i]),
                             ),
                         ));
                     }
@@ -231,7 +259,7 @@ impl Flattener {
                         rhs_sum = FlatExpression::Add(
                             box rhs_sum,
                             box FlatExpression::Mult(
-                                box FlatExpression::Identifier(self.use_binary_variable(&rhs_id, i)),
+                                box FlatExpression::Identifier(rhs_bits[i]),
                                 box FlatExpression::Number(T::from(2).pow(i)),
                             ),
                         );
@@ -247,6 +275,7 @@ impl Flattener {
 
                 // sym = (lhs * 2) - (rhs * 2)
                 let subtraction_result_id = self.use_sym();
+                let mut sub_bits = vec![];
 
                 statements_flattened.push(FlatStatement::Definition(
                     subtraction_result_id,
@@ -256,14 +285,25 @@ impl Flattener {
                     ),
                 ));
 
-                // sym_b{i} = sym_b{i}**2  (bitness checks)
+                // define variables for the bits
                 for i in 0..self.bits {
-                    let new_id = self.use_binary_variable(&subtraction_result_id, i);
+                    sub_bits.push(self.use_sym());
+                }
+
+                // add a directive to get the bits
+                statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
+                    sub_bits.clone(),
+                    Helper::Rust(RustHelper::Bits),
+                    vec![subtraction_result_id]
+                )));
+
+                // bitness checks
+                for i in 0..self.bits {
                     statements_flattened.push(FlatStatement::Definition(
-                        new_id,
+                        sub_bits[i],
                         FlatExpression::Mult(
-                            box FlatExpression::Identifier(new_id),
-                            box FlatExpression::Identifier(new_id),
+                            box FlatExpression::Identifier(sub_bits[i]),
+                            box FlatExpression::Identifier(sub_bits[i]),
                         ),
                     ));
                 }
@@ -275,7 +315,7 @@ impl Flattener {
                     expr = FlatExpression::Add(
                         box expr,
                         box FlatExpression::Mult(
-                            box FlatExpression::Identifier(self.use_binary_variable(&subtraction_result_id, i)),
+                            box FlatExpression::Identifier(sub_bits[i]),
                             box FlatExpression::Number(T::from(2).pow(i)),
                         ),
                     );
@@ -293,7 +333,7 @@ impl Flattener {
                 statements_flattened
                     .push(FlatStatement::Definition(
                         cond_true_id,
-                        FlatExpression::Identifier(subtraction_result_id.with_binary(0)))
+                        FlatExpression::Identifier(sub_bits[0]))
                     );
 
                 self.next_var_idx += 1;
@@ -382,7 +422,6 @@ impl Flattener {
                         self.function_calls.insert(funct.id.clone(),1);
                     }
                 }
-                let prefix = format!("{}_i{}o{}_{}_", funct.id.clone(), funct.arguments.len(), funct.return_count, self.function_calls.get(&funct.id).unwrap());
 
                 // Handle complex parameters and assign values:
                 // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions
@@ -399,19 +438,17 @@ impl Flattener {
                                 statements_flattened,
                                 e,
                             ).apply_substitution(&self.substitution);
-                            new_var = self.use_variable(&format!("{}param_{}", &prefix, i));
+
+                            new_var = self.use_next_variable();
                             statements_flattened
                                 .push(FlatStatement::Definition(new_var, rhs));
                         },
                         TypedExpression::Boolean(e) => {
                             match e {
                                 BooleanExpression::Identifier(id) => {
-                                    new_var = self.use_variable(&format!("{}param_{}", &prefix, i));
+                                    new_var = self.use_next_variable();
                                     // a bit hacky for now, to be removed when flatten_condition returns a flatexpression
                                     // basically extracted the bit of apply_substitution that handles identifiers
-
-                                    println!("SUB {:?}", self.substitution);
-                                    println!("\nBIJ {:?}", self.bijection);
 
                                     let mut id = id;
                                     loop {
@@ -428,6 +465,7 @@ impl Flattener {
                             }
                         }
                     }
+
                     replacement_map.insert(FlatVariable::new(funct.arguments.get(i).unwrap().id.id()), new_var);
                 }
 
@@ -442,8 +480,7 @@ impl Flattener {
                             }
                         },
                         FlatStatement::Definition(var, rhs) => {
-                            let var_name = self.bijection.get_by_right(&var).unwrap().clone();
-                            let new_var = self.use_variable(&format!("{}{}", prefix, var_name));
+                            let new_var = self.use_next_variable();
                             replacement_map.insert(var, new_var);
                             let new_rhs = rhs.apply_substitution(&replacement_map);
                             statements_flattened.push(
@@ -458,8 +495,7 @@ impl Flattener {
                         },
                         FlatStatement::Directive(d) => {
                             let new_outputs = d.outputs.into_iter().map(|o| {
-                            let var_name = self.bijection.get_by_right(&o).unwrap().clone();
-                            let new_o = self.use_variable(&format!("{}{}", prefix, var_name));
+                            let new_o = self.use_next_variable();
                                 replacement_map.insert(o, new_o);
                                 new_o
                             }).collect();
@@ -823,6 +859,7 @@ impl Flattener {
                 
                 match rhs {
                     TypedExpressionList::FunctionCall(fun_id, exprs, types) => {
+
                         let rhs_flattened = self.flatten_function_call(
                             functions_flattened,
                             arguments_flattened,
@@ -871,6 +908,7 @@ impl Flattener {
         self.bijection = BiMap::new();
 
         self.next_var_idx = 0;
+
         let mut arguments_flattened: Vec<FlatParameter> = Vec::new();
         let mut statements_flattened: Vec<FlatStatement<T>> = Vec::new();
         // push parameters
@@ -892,6 +930,7 @@ impl Flattener {
                 },
             }
         }
+
         // flatten statements in functions and apply substitution
         for stat in funct.statements {
             self.flatten_statement(
@@ -960,6 +999,7 @@ impl Flattener {
                     // introduce a new variable with the current index
                     let var = FlatVariable::new(self.next_var_idx);
                     // link it to the previous one
+                    assert!(!(id == var));
                     self.substitution.insert(id, var);
                     // return the new var
                     var
@@ -978,8 +1018,11 @@ impl Flattener {
         var
     }
 
-    fn use_binary_variable(&mut self, var: &FlatVariable, bit: usize) -> FlatVariable {
-        var.with_binary(bit)
+    // used in function call resolution, when everything is already there
+    fn use_next_variable(&mut self) -> FlatVariable {
+        let var = FlatVariable::new(self.next_var_idx);
+        self.next_var_idx += 1;
+        var
     }
 
     fn use_sym(&mut self) -> FlatVariable {
@@ -1003,7 +1046,7 @@ impl Flattener {
 }
 
 #[cfg(test)]
-mod multiple_definition {
+mod tests {
     use super::*;
     use field::FieldPrime;
     use types::Type;
@@ -1086,8 +1129,6 @@ mod multiple_definition {
                 return_count: 2
             }
         ];
-        let arguments_flattened = vec![];
-        let mut statements_flattened = vec![];
         let statement = TypedStatement::MultipleDefinition(
             vec![
                 Variable::from("a".to_string()),
@@ -1096,17 +1137,25 @@ mod multiple_definition {
             TypedExpressionList::FunctionCall("dup".to_string(), vec![TypedExpression::FieldElement(FieldElementExpression::Number(FieldPrime::from(2)))], vec![Type::FieldElement, Type::FieldElement])
         );
 
-        flattener.flatten_statement(
+        let fun = TypedFunction {
+            id: String::from("main"),
+            arguments: vec![],
+            statements: vec![statement],
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![]
+            }
+        };
+
+        let f = flattener.flatten_function(
             &mut functions_flattened,
-            &arguments_flattened,
-            &mut statements_flattened,
-            statement,
+            fun,
         );
 
         let a = FlatVariable::new(0);
 
         assert_eq!(
-            statements_flattened[0]
+            f.statements[0]
             ,
             FlatStatement::Definition(a, FlatExpression::Number(FieldPrime::from(2)))
         );

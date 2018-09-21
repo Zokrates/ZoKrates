@@ -17,6 +17,19 @@ pub struct DirectiveStatement {
 	pub helper: Helper
 }
 
+impl DirectiveStatement {
+	pub fn new(outputs: Vec<FlatVariable>, helper: Helper, inputs: Vec<FlatVariable>) -> Self {
+		let (in_len, out_len) = helper.get_signature();
+		assert_eq!(in_len, inputs.len());
+		assert_eq!(out_len, outputs.len());
+		DirectiveStatement {
+			helper,
+			inputs,
+			outputs,
+		}
+	}
+}
+
 impl fmt::Display for DirectiveStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     	write!(f, "# {} = {}({})",

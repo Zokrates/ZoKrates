@@ -8,6 +8,23 @@ pub struct FlatParameter {
     pub private: bool,
 }
 
+impl FlatParameter {
+    fn new(id: FlatVariable, private: bool) -> Self {
+        FlatParameter {
+            id,
+            private
+        }
+    }
+
+    pub fn public(v: FlatVariable) -> Self {
+        Self::new(v, false)
+    }
+
+    pub fn private(v: FlatVariable) -> Self {
+        Self::new(v, true)
+    }
+}
+
 impl fmt::Display for FlatParameter {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let visibility = if self.private { "private " } else { "" };

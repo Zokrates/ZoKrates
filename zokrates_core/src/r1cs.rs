@@ -293,7 +293,7 @@ pub fn r1cs_program<T: Field>(
     // ~out is added after main's arguments as we want variables (columns)
     // in the r1cs to be aligned like "public inputs | private inputs"
     for i in 0..main.return_count {
-        variables.push(FlatVariable::public(i));
+        variables.push(FlatVariable::public(i)); // TODO possible conflict
     }
 
     // position where private part of witness starts

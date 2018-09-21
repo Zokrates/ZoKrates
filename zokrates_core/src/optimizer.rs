@@ -5,7 +5,7 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
-use substitution::prefixed_substitution::PrefixedSubstitution;
+use substitution::direct_substitution::DirectSubstitution;
 use substitution::Substitution;
 use flat_absy::*;
 use field::Field;
@@ -13,7 +13,7 @@ use flat_absy::flat_variable::FlatVariable;
 
 pub struct Optimizer {
 	/// Map of renamings for reassigned variables while processing the program.
-	substitution: PrefixedSubstitution,
+	substitution: DirectSubstitution,
 	/// Index of the next introduced variable while processing the program.
 	next_var_idx: Counter
 }
@@ -33,7 +33,7 @@ impl Counter {
 impl Optimizer {
 	pub fn new() -> Optimizer {
 		Optimizer {
-			substitution: PrefixedSubstitution::new(),
+			substitution: DirectSubstitution::new(),
     		next_var_idx: Counter {
     			value: 0
     		}

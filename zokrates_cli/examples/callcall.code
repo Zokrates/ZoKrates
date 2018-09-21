@@ -1,0 +1,10 @@
+def bar(a):
+	return a + 42
+
+def foo():
+	a = 3
+	return bar(a)
+
+def main():
+	a = foo()
+	return a

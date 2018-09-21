@@ -258,9 +258,12 @@ impl<T: Field> FlatExpression<T> {
             e @ FlatExpression::Number(_) => e,
             FlatExpression::Identifier(id) => {
                 let mut new_id = id;
-                match substitution.get(&new_id) {
-                    Some(x) => FlatExpression::Identifier(x),
-                    None => FlatExpression::Identifier(new_id),
+                loop {
+                    match substitution.get(&new_id) {
+                        Some(x) if x == new_id => return FlatExpression::Identifier(new_id), // detect loop
+                        Some(x) => new_id = x,
+                        None => return FlatExpression::Identifier(new_id),
+                    }
                 }
             }
             FlatExpression::Add(e1, e2) => FlatExpression::Add(
@@ -279,7 +282,6 @@ impl<T: Field> FlatExpression<T> {
                 box e1.apply_substitution(substitution),
                 box e2.apply_substitution(substitution),
             )
-
         }
     }
 
@@ -287,33 +289,15 @@ impl<T: Field> FlatExpression<T> {
         match *self {
             FlatExpression::Number(ref x) => x.clone(),
             FlatExpression::Identifier(ref var) => {
-                if let None = inputs.get(var) {
-                    match var.binary() {
-                        // if the variable reprensents a bit from `x`, we can get its value from `x
-                        Some(_) => {
-                            // find the full variable
-                            let mut num = inputs.iter().find(|(variable, _)| variable.id() == var.id() && variable.binary() == None).unwrap().1.clone();
-                            let bits = T::get_required_bits();
-                            for i in (0..bits).rev() {
-                                if T::from(2).pow(i) <= num {
-                                    num = num - T::from(2).pow(i);
-                                    inputs.insert(var.with_binary(i), T::one());
-                                } else {
-                                    inputs.insert(var.with_binary(i), T::zero());
-                                }
-                            }
-                            assert_eq!(num, T::zero());
-                        }
-                        None => {
-                            panic!(
-                                "Variable {:?} is undeclared in inputs: {:?}",
-                                var,
-                                inputs
-                            );
-                        }
-                    }
+                match inputs.get(var) {
+                    Some(v) => v.clone(),
+                    None => 
+                        panic!(
+                            "Variable {:?} is undeclared in inputs: {:?}",
+                            var,
+                            inputs
+                        )
                 }
-                inputs[var].clone()
             }
             FlatExpression::Add(ref x, ref y) => x.solve(inputs) + y.solve(inputs),
             FlatExpression::Sub(ref x, ref y) => x.solve(inputs) - y.solve(inputs),

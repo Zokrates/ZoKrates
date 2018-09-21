@@ -6,6 +6,7 @@ use field::{Field};
 pub enum RustHelper {
 	Identity,
 	ConditionEq,
+	Bits,
 }
 
 impl fmt::Display for RustHelper {
@@ -13,6 +14,7 @@ impl fmt::Display for RustHelper {
     	match *self {
     		RustHelper::Identity => write!(f, "Identity"),
     		RustHelper::ConditionEq => write!(f, "ConditionEq"),
+    		RustHelper::Bits => write!(f, "Bits"),
     	}
     }
 }
@@ -22,6 +24,7 @@ impl Signed for RustHelper {
 		match self {
 			RustHelper::Identity => (1, 1),
 			RustHelper::ConditionEq => (1, 2),
+			RustHelper::Bits => (1, 254),
 		}
 	}
 }
@@ -37,6 +40,21 @@ impl<T: Field> Executable<T> for RustHelper {
 					false => Ok(vec![T::one(), T::one() / inputs[0].clone()])
 				}
 			},
+			RustHelper::Bits => {
+				let mut num = inputs[0].clone();
+				let mut res = vec![];
+                let bits = 254;
+                for i in (0..bits).rev() {
+                    if T::from(2).pow(i) <= num {
+                        num = num - T::from(2).pow(i);
+                        res.push(T::one());
+                    } else {
+                        res.push(T::zero());
+                    }
+                }
+                assert_eq!(num, T::zero());
+                Ok(res)
+            }
 		}
 	}
 }
