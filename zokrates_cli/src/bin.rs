@@ -336,7 +336,12 @@ fn main() {
 
             let witness_map = main_flattened.get_witness(arguments).unwrap();
 
-            println!("Witness: {:?}", witness_map);
+            println!("\nWitness: \n\n{}", witness_map
+                .iter()
+                .filter_map(|(variable, value)| match variable {
+                    variable if variable.is_public() => Some(format!("{} {}", variable, value)),
+                    _ => None
+                }).collect::<Vec<String>>().join("\n"));
 
             // write witness to file
             let output_path = Path::new(sub_matches.value_of("output").unwrap());

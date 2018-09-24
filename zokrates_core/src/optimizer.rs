@@ -53,7 +53,6 @@ impl Optimizer {
 	}
 
 	pub fn optimize_function<T: Field>(&mut self, funct: FlatFunction<T>) -> FlatFunction<T> {
-
 		// Add arguments to substitution map
 		for arg in funct.arguments.clone() {
 			self.substitution.insert(arg.id, FlatVariable::new(self.next_var_idx.increment()));
@@ -102,13 +101,13 @@ impl Optimizer {
 				},
 				// substitute all other statements
 				_ => {
-					Some(statement.apply_substitution(&self.substitution))
+					Some(statement.apply_direct_substitution(&self.substitution))
 				}
 			}
 		}).collect();
 
 		// generate optimized arguments by renaming them
-		let optimized_arguments = funct.arguments.into_iter().map(|arg| arg.apply_substitution(&self.substitution)).collect();
+		let optimized_arguments = funct.arguments.into_iter().map(|arg| arg.apply_direct_substitution(&self.substitution)).collect();
 
 		FlatFunction {
 			arguments: optimized_arguments,

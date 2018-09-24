@@ -293,7 +293,7 @@ pub fn r1cs_program<T: Field>(
     // ~out is added after main's arguments as we want variables (columns)
     // in the r1cs to be aligned like "public inputs | private inputs"
     for i in 0..main.return_count {
-        variables.push(FlatVariable::public(i)); // TODO possible conflict
+        variables.push(FlatVariable::public(i));
     }
 
     // position where private part of witness starts
@@ -354,8 +354,6 @@ pub fn r1cs_program<T: Field>(
             FlatStatement::Directive(..) => continue
         }
     }
-
-    println!("{:?}\n {:?}\n {:?}\n {:?}\n {:?}", variables, private_inputs_offset, a, b, c);
 
     (variables, private_inputs_offset, a, b, c)
 }

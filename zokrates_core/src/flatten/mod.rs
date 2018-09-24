@@ -185,8 +185,8 @@ impl Flattener {
 
                     // bitness checks
                     for i in 0..self.bits - 2 {
-                        statements_flattened.push(FlatStatement::Definition(
-                            lhs_bits[i + 2],
+                        statements_flattened.push(FlatStatement::Condition(
+                            FlatExpression::Identifier(lhs_bits[i + 2]),
                             FlatExpression::Mult(
                                 box FlatExpression::Identifier(lhs_bits[i + 2]),
                                 box FlatExpression::Identifier(lhs_bits[i + 2]),
@@ -234,8 +234,8 @@ impl Flattener {
 
                     // bitness checks
                     for i in 0..self.bits - 2 {
-                        statements_flattened.push(FlatStatement::Definition(
-                            rhs_bits[i + 2],
+                        statements_flattened.push(FlatStatement::Condition(
+                            FlatExpression::Identifier(rhs_bits[i + 2]),
                             FlatExpression::Mult(
                                 box FlatExpression::Identifier(rhs_bits[i + 2]),
                                 box FlatExpression::Identifier(rhs_bits[i + 2]),
@@ -287,8 +287,8 @@ impl Flattener {
 
                 // bitness checks
                 for i in 0..self.bits {
-                    statements_flattened.push(FlatStatement::Definition(
-                        sub_bits[i],
+                    statements_flattened.push(FlatStatement::Condition(
+                        FlatExpression::Identifier(sub_bits[i]),
                         FlatExpression::Mult(
                             box FlatExpression::Identifier(sub_bits[i]),
                             box FlatExpression::Identifier(sub_bits[i]),
@@ -316,18 +316,8 @@ impl Flattener {
                         )
                     );
 
-                // rename output to avoid conflicts with suffixes
-                let cond_true_id = self.use_sym();
-                statements_flattened
-                    .push(FlatStatement::Definition(
-                        cond_true_id,
-                        FlatExpression::Identifier(sub_bits[0]))
-                    );
-
-                self.next_var_idx += 1;
-
                 // we need to return string-based variables for the rest of flattening, so we use the bijection
-                BooleanExpression::Identifier(self.bijection.get_by_right(&cond_true_id).unwrap().to_string())
+                BooleanExpression::Identifier(self.bijection.get_by_right(&sub_bits[0]).unwrap().to_string())
             }
             BooleanExpression::Eq(box lhs, box rhs) => {
 
@@ -425,16 +415,16 @@ impl Flattener {
                                 arguments_flattened,
                                 statements_flattened,
                                 e,
-                            ).apply_substitution(&self.substitution);
+                            ).apply_recursive_substitution(&self.substitution);
 
-                            new_var = self.use_next_variable();
+                            new_var = self.issue_new_variable();
                             statements_flattened
                                 .push(FlatStatement::Definition(new_var, rhs));
                         },
                         TypedExpression::Boolean(e) => {
                             match e {
                                 BooleanExpression::Identifier(id) => {
-                                    new_var = self.use_next_variable();
+                                    new_var = self.issue_new_variable();
                                     // a bit hacky for now, to be removed when flatten_condition returns a flatexpression
                                     // basically extracted the bit of apply_substitution that handles identifiers
 
@@ -464,26 +454,26 @@ impl Flattener {
                         // set return statements right side as expression result
                         FlatStatement::Return(list) => {
                             return FlatExpressionList {
-                                expressions: list.expressions.into_iter().map(|x| x.apply_substitution(&replacement_map)).collect()
+                                expressions: list.expressions.into_iter().map(|x| x.apply_direct_substitution(&replacement_map)).collect()
                             }
                         },
                         FlatStatement::Definition(var, rhs) => {
-                            let new_var = self.use_next_variable();
+                            let new_var = self.issue_new_variable();
                             replacement_map.insert(var, new_var);
-                            let new_rhs = rhs.apply_substitution(&replacement_map);
+                            let new_rhs = rhs.apply_direct_substitution(&replacement_map);
                             statements_flattened.push(
                                 FlatStatement::Definition(new_var, new_rhs)
                             );
                         },
                         FlatStatement::Condition(lhs, rhs) => {
-                            let new_lhs = lhs.apply_substitution(&replacement_map);
-                            let new_rhs = rhs.apply_substitution(&replacement_map);
+                            let new_lhs = lhs.apply_direct_substitution(&replacement_map);
+                            let new_rhs = rhs.apply_direct_substitution(&replacement_map);
                             statements_flattened
                                 .push(FlatStatement::Condition(new_lhs, new_rhs));
                         },
                         FlatStatement::Directive(d) => {
                             let new_outputs = d.outputs.into_iter().map(|o| {
-                            let new_o = self.use_next_variable();
+                                let new_o = self.issue_new_variable();
                                 replacement_map.insert(o, new_o);
                                 new_o
                             }).collect();
@@ -737,7 +727,7 @@ impl Flattener {
                                 arguments_flattened,
                                 statements_flattened,
                                 e,
-                            ).apply_substitution(&self.substitution)
+                            ).apply_recursive_substitution(&self.substitution)
                         },
                         _ => panic!("Functions can only return expressions of type FieldElement")
                     }
@@ -763,7 +753,7 @@ impl Flattener {
                             arguments_flattened,
                             statements_flattened,
                             expr,
-                        ).apply_substitution(&self.substitution);
+                        ).apply_recursive_substitution(&self.substitution);
                         let var = self.use_variable(&v.id);
                         // handle return of function call
                         let var_to_replace = self.get_latest_var_substitution(&v.id);
@@ -791,13 +781,13 @@ impl Flattener {
                                     arguments_flattened,
                                     statements_flattened,
                                     e1
-                                ).apply_substitution(&self.substitution),
+                                ).apply_recursive_substitution(&self.substitution),
                                 self.flatten_field_expression(
                                     functions_flattened,
                                     arguments_flattened,
                                     statements_flattened,
                                     e2,
-                                ).apply_substitution(&self.substitution),
+                                ).apply_recursive_substitution(&self.substitution),
                             )
                         } else if e2.is_linear() {
                             (
@@ -806,13 +796,13 @@ impl Flattener {
                                     arguments_flattened,
                                     statements_flattened,
                                     e2,
-                                ).apply_substitution(&self.substitution),
+                                ).apply_recursive_substitution(&self.substitution),
                                 self.flatten_field_expression(
                                     functions_flattened,
                                     arguments_flattened,
                                     statements_flattened,
                                     e1,
-                                ).apply_substitution(&self.substitution),
+                                ).apply_recursive_substitution(&self.substitution),
                             )
                         } else {
                             unimplemented!()
@@ -855,7 +845,7 @@ impl Flattener {
                             &fun_id,
                             vars.len(),
                             &exprs,
-                        ).apply_substitution(&self.substitution);
+                        ).apply_recursive_substitution(&self.substitution);
 
                         for (i, v) in vars.into_iter().enumerate() {
                             let var_type = &types[i];
@@ -969,67 +959,64 @@ impl Flattener {
     /// # Arguments
     ///
     /// * `name` - a String that holds the name of the variable
-    fn use_variable(&mut self, name: &String) -> FlatVariable {        
-        let var = {
-            let id = self.bijection.get_by_left(name);
+    fn use_variable(&mut self, name: &String) -> FlatVariable {
+        // issue the variable we'll use
+        let var = self.issue_new_variable();
 
-            match id {
-                Some(id) => {
-                    // the name was already registered. We need to find its latest substitution
-                    let mut id = *id;
-                    loop {
-                        match self.substitution.get(&id) {
-                            Some(x) => id = x,
-                            None => break,
-                        }
-                    }
-                    // now `id` is the latest substitution of `name`
-                    // introduce a new variable with the current index
-                    let var = FlatVariable::new(self.next_var_idx);
-                    // link it to the previous one
-                    assert!(!(id == var));
-                    self.substitution.insert(id, var);
-                    // return the new var
-                    var
-                },
-                None => {
-                    // the name was not already registered.
-                    // register it
-                    let var = FlatVariable::new(self.next_var_idx);
-                    var
-                }
-            }
-        };
+        // {
+        //     // we check if the name was already given a variable
+        //     let id = self.bijection.get_by_left(name);
+
+        //     match id {
+        //         Some(id) => {
+        //             // the name was already registered. We need to find its latest substitution
+        //             let mut id = *id;
+        //             // loop {
+        //             //     match self.substitution.get(&id) {
+        //             //         Some(x) => id = x,
+        //             //         None => break,
+        //             //     }
+        //             // }
+        //             // now `id` is the latest substitution of `name`
+
+        //             // link it to the previous one
+        //             //assert!(!(id == var));
+        //             //self.bijection.insert(name.to_string(), var);
+        //         },
+        //         None => {
+
+        //         }
+        //     }
+        // }
 
         self.bijection.insert(name.to_string(), var);
-        self.next_var_idx += 1;
         var
     }
 
-    // used in function call resolution, when everything is already there
-    fn use_next_variable(&mut self) -> FlatVariable {
+    fn issue_new_variable(&mut self) -> FlatVariable {
         let var = FlatVariable::new(self.next_var_idx);
         self.next_var_idx += 1;
         var
     }
 
     fn use_sym(&mut self) -> FlatVariable {
-        self.next_var_idx += 1;
-
         let name = format!("sym_{}", self.next_var_idx);
-        let var = FlatVariable::new(self.next_var_idx);
+        let var = self.issue_new_variable();
         self.bijection.insert(name, var);
         var
     }
 
     fn get_latest_var_substitution(&mut self, name: &String) -> FlatVariable {
-        let mut latest_var = self.bijection.get_by_left(name).unwrap().clone();
-        loop {
-            match self.substitution.get(&latest_var) {
-                Some(x) => latest_var = x,
-                None => return latest_var,
-            }
-        }
+        // start with the variable name
+        let latest_var = self.bijection.get_by_left(name).unwrap().clone();
+        // loop {
+        //     // walk the substitutions
+        //     match self.substitution.get(&latest_var) {
+        //         Some(x) => latest_var = x,
+        //         None => break,
+        //     }
+        // }
+        latest_var
     }
 }
 
@@ -1246,6 +1233,128 @@ mod tests {
     }
 
     #[test]
+    fn call_with_def() {
+        // def foo():
+        //     a = 3
+        //     return a
+
+        // def main():
+        //     return foo()
+
+        let foo = TypedFunction {
+            id: String::from("foo"),
+            arguments: vec![],
+            statements: vec![
+                TypedStatement::Definition(Variable::from("a"), FieldElementExpression::Number(FieldPrime::from(3)).into()),
+                TypedStatement::Return(vec![
+                    FieldElementExpression::Identifier(String::from("a")).into()
+                    ]
+                )
+            ],
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement]
+            }
+        };
+
+        let main = TypedFunction {
+            id: String::from("main"),
+            arguments: vec![],
+            statements: vec![
+                TypedStatement::Return(vec![
+                        FieldElementExpression::FunctionCall(String::from("foo"), vec![]).into()
+                    ]
+                )
+            ],
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement]
+            }
+        };
+
+        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+
+        let foo_flattened = flattener.flatten_function(
+            &mut vec![],
+            foo
+        );
+
+        let expected = FlatFunction {
+            id: String::from("main"),
+            arguments: vec![],
+            statements: vec![
+                FlatStatement::Definition(FlatVariable::new(0), FlatExpression::Number(FieldPrime::from(3))),
+                FlatStatement::Return(FlatExpressionList { 
+                    expressions: vec![FlatExpression::Identifier(FlatVariable::new(0))]
+                })
+            ],
+            return_count: 1
+        };
+
+
+        let main_flattened = flattener.flatten_function(
+            &mut vec![foo_flattened],
+            main
+        );
+
+        assert_eq!(main_flattened, expected);
+    }
+
+
+    #[test]
+    fn powers() {
+        // def main():
+        //     _0 = 7
+        //     _1 = (_0 * _0)
+        //     _2 = (_1 * _0)
+        //     _3 = (_2 * _0)
+        //     return _3
+
+        let function = TypedFunction {
+            id: String::from("main"),
+            arguments: vec![],
+            statements: vec![
+                TypedStatement::Definition(Variable::from("a"), FieldElementExpression::Number(FieldPrime::from(7)).into()),
+                TypedStatement::Definition(Variable::from("b"), FieldElementExpression::Pow(box FieldElementExpression::Identifier(String::from("a")), box FieldElementExpression::Number(FieldPrime::from(4))).into()),
+                TypedStatement::Return(vec![
+                    FieldElementExpression::Identifier(String::from("b")).into()
+                    ]
+                )
+            ],
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement]
+            }
+        };
+
+        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+
+        let expected = FlatFunction {
+            id: String::from("main"),
+            arguments: vec![],
+            statements: vec![
+                FlatStatement::Definition(FlatVariable::new(0), FlatExpression::Number(FieldPrime::from(7))),
+                FlatStatement::Definition(FlatVariable::new(1), FlatExpression::Mult(box FlatExpression::Identifier(FlatVariable::new(0)), box FlatExpression::Identifier(FlatVariable::new(0)))),
+                FlatStatement::Definition(FlatVariable::new(2), FlatExpression::Mult(box FlatExpression::Identifier(FlatVariable::new(1)), box FlatExpression::Identifier(FlatVariable::new(0)))),
+                FlatStatement::Definition(FlatVariable::new(3), FlatExpression::Mult(box FlatExpression::Identifier(FlatVariable::new(2)), box FlatExpression::Identifier(FlatVariable::new(0)))),
+                FlatStatement::Return(FlatExpressionList {
+                    expressions: vec![
+                        FlatExpression::Identifier(FlatVariable::new(3))
+                    ]
+                })                
+            ],
+            return_count: 1
+        };
+
+        let flattened = flattener.flatten_function(
+            &mut vec![],
+            function
+        );
+
+        assert_eq!(flattened, expected);
+    }
+
+    #[test]
     fn overload() {
 
         // def foo()
@@ -1344,4 +1453,14 @@ mod tests {
         );
     }
 
+    #[test]
+    fn next_variable() {
+        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        assert_eq!(FlatVariable::new(0), flattener.use_variable(&String::from("a")));
+        assert_eq!(flattener.get_latest_var_substitution(&String::from("a")), FlatVariable::new(0));
+        assert_eq!(FlatVariable::new(1), flattener.use_variable(&String::from("a")));
+        assert_eq!(flattener.get_latest_var_substitution(&String::from("a")), FlatVariable::new(1));
+        assert_eq!(FlatVariable::new(2), flattener.use_variable(&String::from("a")));
+        assert_eq!(flattener.get_latest_var_substitution(&String::from("a")), FlatVariable::new(2));
+    }
 }

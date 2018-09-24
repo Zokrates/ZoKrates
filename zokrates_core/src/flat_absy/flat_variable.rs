@@ -1,4 +1,5 @@
 use std::fmt;
+use substitution::Substitution;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Hash, Eq, Ord, PartialOrd, Copy)]
 pub struct FlatVariable {
@@ -45,5 +46,18 @@ impl fmt::Display for FlatVariable {
 impl fmt::Debug for FlatVariable {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "FlatVariable(id: {})", self.id)
+    }
+}
+
+impl FlatVariable {
+    pub fn apply_substitution(self, substitution: &Substitution, should_fallback: bool) -> Self {
+        match should_fallback {
+            true => substitution.get(&self).unwrap_or(self),
+            false => substitution.get(&self).unwrap()
+        }
+    }
+
+    pub fn is_public(&self) -> bool {
+        self.id < 0
     }
 }
