@@ -339,7 +339,7 @@ fn main() {
             println!("\nWitness: \n\n{}", witness_map
                 .iter()
                 .filter_map(|(variable, value)| match variable {
-                    variable if variable.is_public() => Some(format!("{} {}", variable, value)),
+                    variable if variable.is_output() => Some(format!("{} {}", variable, value)),
                     _ => None
                 }).collect::<Vec<String>>().join("\n"));
 

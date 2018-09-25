@@ -257,9 +257,9 @@ fn provide_variable_idx(variables: &mut HashMap<FlatVariable, usize>, var: &Flat
     *variables.entry(*var).or_insert(index)
 }
 
-/// Calculates one R1CS row representation of a program and returns (V, a, B, C) so that:
-/// * `V` contains all used variables and the index in the vector represents the used number in `a`, `B`, `C`
-/// * `<a,x>*<B,x> = <C,x>` for a witness `x`
+/// Calculates one R1CS row representation of a program and returns (V, A, B, C) so that:
+/// * `V` contains all used variables and the index in the vector represents the used number in `A`, `B`, `C`
+/// * `<A,x>*<B,x> = <C,x>` for a witness `x`
 ///
 /// # Arguments
 ///
@@ -306,7 +306,7 @@ pub fn r1cs_program<T: Field>(
                     let mut b_row = Vec::new();
                     let mut c_row = Vec::new();
                     r1cs_expression(
-                        Identifier(FlatVariable::public(i)), // should inject in the constraint system, possibly at flattening
+                        Identifier(FlatVariable::public(i)),
                         val.clone(),
                         &mut variables,
                         &mut a_row,
@@ -387,9 +387,9 @@ mod tests {
         fn add() {
             // x = y + 5
 
-            let one = FlatVariable::new(0);
-            let x = FlatVariable::new(1);
-            let y = FlatVariable::new(2);
+            let one = FlatVariable::one();
+            let x = FlatVariable::new(0);
+            let y = FlatVariable::new(1);
 
             let lhs = Identifier(x);
             let rhs = Add(
@@ -423,10 +423,10 @@ mod tests {
             // --> (x + y) + y + 4y + 2z + y == x + 2x + 4y + (z + 3x)
             // <=> x + 7*y + 2*z == 6*x + 4y + z
 
-            let one = FlatVariable::new(0);
-            let x = FlatVariable::new(1);
-            let y = FlatVariable::new(2);
-            let z = FlatVariable::new(3);
+            let one = FlatVariable::one();
+            let x = FlatVariable::new(0);
+            let y = FlatVariable::new(1);
+            let z = FlatVariable::new(2);
 
             let lhs = Sub(
                 box Add(
@@ -510,10 +510,10 @@ mod tests {
         fn sub() {
             // 7 * x + y == 3 * y - z * 6
 
-            let one = FlatVariable::new(0);
-            let x = FlatVariable::new(1);
-            let y = FlatVariable::new(2);
-            let z = FlatVariable::new(3);
+            let one = FlatVariable::one();
+            let x = FlatVariable::new(0);
+            let y = FlatVariable::new(1);
+            let z = FlatVariable::new(2);
 
             let lhs = Add(
                 box Mult(
@@ -564,11 +564,11 @@ mod tests {
             // (((3 * y) - (z * 2)) - (x * 12)) == (a - x)
             // --> 3*y + x == a + 12*x + 2*z
 
-            let one = FlatVariable::new(0);
-            let x = FlatVariable::new(1);
-            let y = FlatVariable::new(2);
-            let z = FlatVariable::new(3);
-            let a = FlatVariable::new(4);
+            let one = FlatVariable::one();
+            let x = FlatVariable::new(0);
+            let y = FlatVariable::new(1);
+            let z = FlatVariable::new(2);
+            let a = FlatVariable::new(3);
 
             let lhs = Sub(
                 box Sub(
@@ -625,10 +625,10 @@ mod tests {
         fn add_mult() {
             // 4 * y + 3 * x + 3 * z == (3 * x + 6 * y + 4 * z) * (31 * x + 4 * z)
 
-            let one = FlatVariable::new(0);
-            let x = FlatVariable::new(1);
-            let y = FlatVariable::new(2);
-            let z = FlatVariable::new(3);
+            let one = FlatVariable::one();
+            let x = FlatVariable::new(0);
+            let y = FlatVariable::new(1);
+            let z = FlatVariable::new(2);
 
             let lhs = Add(
                 box Add(
@@ -715,9 +715,9 @@ mod tests {
         fn div() {
             // x = (3 * x) / (y * 6) --> x * (y * 6) = 3 * x
 
-            let one = FlatVariable::new(0);
-            let x = FlatVariable::new(1);
-            let y = FlatVariable::new(2);
+            let one = FlatVariable::one();
+            let x = FlatVariable::new(0);
+            let y = FlatVariable::new(1);
 
             let lhs = Identifier(x);
             let rhs = Div(

@@ -7,7 +7,7 @@ pub use self::libsnark_gadget::LibsnarkGadgetHelper;
 pub use self::rust::RustHelper;
 use std::fmt;
 use field::{Field};
-use flat_absy::flat_variable::FlatVariable;
+use flat_absy::FlatVariable;
 
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

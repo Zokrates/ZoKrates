@@ -2,7 +2,7 @@
 use std::collections::{BTreeMap, HashSet};
 use flat_absy::{FlatStatement, FlatExpression, FlatFunction, FlatExpressionList};
 use field::Field;
-use flat_absy::flat_parameter::FlatParameter;
+use flat_absy::{FlatParameter, FlatVariable};
 use reduce::Reduce;
 use helpers::{DirectiveStatement, Helper, LibsnarkGadgetHelper};
 
@@ -32,31 +32,31 @@ pub struct Witness {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Constraint {
-	a: BTreeMap<String, String>,
-	b: BTreeMap<String, String>,
-	c: BTreeMap<String, String>,
+	a: BTreeMap<usize, String>,
+	b: BTreeMap<usize, String>,
+	c: BTreeMap<usize, String>,
 }
 
 impl<T: Field> Into<FlatStatement<T>> for Constraint {
 	fn into(self: Constraint) -> FlatStatement<T> {
-		let rhs_a = match self.a.iter()
-			.map(|(key, val)| FlatExpression::Mult(box FlatExpression::Number(T::from_dec_string(val.to_string())), box FlatExpression::Identifier(format!("inter{}",key.clone()))))
+		let rhs_a = match self.a.into_iter()
+			.map(|(key, val)| FlatExpression::Mult(box FlatExpression::Number(T::from_dec_string(val.to_string())), box FlatExpression::Identifier(FlatVariable::new(key))))
 			.reduce(|acc, e| FlatExpression::Add(box acc, box e)) {
                 Some(e @ FlatExpression::Mult(..)) => FlatExpression::Add(box FlatExpression::Number(T::zero()), box e), // the R1CS serializer only recognizes Add
                 Some(e) => e,
                 None => FlatExpression::Number(T::zero())
             };
 		
-		let rhs_b = match self.b.iter()
-			.map(|(key, val)| FlatExpression::Mult(box FlatExpression::Number(T::from_dec_string(val.to_string())), box FlatExpression::Identifier(format!("inter{}",key.clone()))))
+		let rhs_b = match self.b.into_iter()
+			.map(|(key, val)| FlatExpression::Mult(box FlatExpression::Number(T::from_dec_string(val.to_string())), box FlatExpression::Identifier(FlatVariable::new(key))))
 			.reduce(|acc, e| FlatExpression::Add(box acc, box e)) {
                 Some(e @ FlatExpression::Mult(..)) => FlatExpression::Add(box FlatExpression::Number(T::zero()), box e), // the R1CS serializer only recognizes Add
                 Some(e) => e,
                 None => FlatExpression::Number(T::zero())
             };
 		
-		let lhs = match self.c.iter()
-			.map(|(key, val)| FlatExpression::Mult(box FlatExpression::Number(T::from_dec_string(val.to_string())), box FlatExpression::Identifier(format!("inter{}",key.clone()))))
+		let lhs = match self.c.into_iter()
+			.map(|(key, val)| FlatExpression::Mult(box FlatExpression::Number(T::from_dec_string(val.to_string())), box FlatExpression::Identifier(FlatVariable::new(key))))
 			.reduce(|acc, e| FlatExpression::Add(box acc, box e)) {
                 Some(e @ FlatExpression::Mult(..)) => FlatExpression::Add(box FlatExpression::Number(T::zero()), box e), // the R1CS serializer only recognizes Add
                 Some(e) => e,
@@ -90,15 +90,15 @@ impl<T: Field> Into<FlatFunction<T>> for R1CS {
         let mut statements: Vec<FlatStatement<T>> = self.constraints.into_iter().map(|c| c.into()).collect();
 
         // define the entire witness
-        let variables = vec![0; variables_count].iter().enumerate().map(|(i, _)| format!("inter{}", i)).collect();
+        let variables = vec![0; variables_count].iter().enumerate().map(|(i, _)| FlatVariable::new(i)).collect();
 
         // define the inputs with dummy variables: arguments to the function and to the directive
-        let inputs: Vec<String> = vec![0; self.input_count].iter().enumerate().map(|(i, _)| format!("input{}", i)).collect();
+        let inputs: Vec<FlatVariable> = vec![0; self.input_count].iter().enumerate().map(|(i, _)| FlatVariable::new(i + variables_count)).collect();
         let input_parameters = inputs.iter().map(|i| FlatParameter { id: i.clone(), private: true }).collect();
 
         // define which subset of the witness is returned
-        let outputs: Vec<FlatExpression<T>> = self.outputs.iter()
-         				.map(|o| FlatExpression::Identifier(format!("inter{}", o))).collect();
+        let outputs: Vec<FlatExpression<T>> = self.outputs.into_iter()
+         				.map(|o| FlatExpression::Identifier(FlatVariable::new(o))).collect();
 
         let return_count = outputs.len();
 

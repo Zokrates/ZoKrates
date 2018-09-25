@@ -9,8 +9,6 @@ use std::collections::{HashSet, HashMap};
 use typed_absy::*;
 use field::Field;
 use flat_absy::*;
-use flat_absy::flat_parameter::FlatParameter;
-use flat_absy::flat_variable::FlatVariable;
 use substitution::direct_substitution::DirectSubstitution;
 use substitution::Substitution;
 use helpers::{DirectiveStatement, Helper, RustHelper};

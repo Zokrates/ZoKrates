@@ -8,8 +8,8 @@
 pub mod flat_parameter;
 pub mod flat_variable;
 
-use self::flat_parameter::FlatParameter;
-use self::flat_variable::FlatVariable;
+pub use self::flat_parameter::FlatParameter;
+pub use self::flat_variable::FlatVariable;
 use std::fmt;
 use std::collections::{BTreeMap};
 use field::Field;
