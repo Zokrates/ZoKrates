@@ -65,7 +65,10 @@ impl FlatVariable {
     }
 }
 
+#[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     fn one() {
         assert_eq!(FlatVariable::one().id, 0);
