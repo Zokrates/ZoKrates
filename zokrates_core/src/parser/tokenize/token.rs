@@ -78,6 +78,7 @@ impl<T: Field> fmt::Display for Token<T> {
             Token::Mult => write!(f, "*"),
             Token::Div => write!(f, "/"),
             Token::Pow => write!(f, "**"),
+            Token::And => write!(f, "&"),
             Token::Private => write!(f, "private"),
             Token::Ide(ref x) => write!(f, "{}", x),
             Token::Num(ref x) => write!(f, "{}", x),
