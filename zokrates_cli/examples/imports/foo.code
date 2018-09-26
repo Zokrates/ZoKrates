@@ -1,4 +1,4 @@
 import "./baz.code"
 
-def main():
+def main() -> (field):
 	return baz()

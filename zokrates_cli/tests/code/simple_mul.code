@@ -1,2 +1,2 @@
-def main(a, b, c):
+def main(field a, field b, field c) -> (field):
   return a * b * c

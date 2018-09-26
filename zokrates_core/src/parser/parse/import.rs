@@ -87,7 +87,7 @@ mod tests {
         let string = String::from("import \"./foo.code\"");
         let import: Token<FieldPrime> = Token::Import;
         assert_eq!(
-            (import, "\"./foo.code\"".to_string(), pos.col(7 as isize)),
+            (import, " \"./foo.code\"".to_string(), pos.col(6 as isize)),
             next_token(&string, &pos)
         )
     }

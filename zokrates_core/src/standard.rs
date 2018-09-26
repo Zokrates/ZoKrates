@@ -1,4 +1,4 @@
-
+use types::{Signature, Type};
 use std::collections::{BTreeMap, HashSet};
 use flat_absy::{FlatStatement, FlatExpression, FlatFunction, FlatExpressionList};
 use field::Field;
@@ -94,13 +94,16 @@ impl<T: Field> Into<FlatFunction<T>> for R1CS {
 
         // define the inputs with dummy variables: arguments to the function and to the directive
         let inputs: Vec<String> = vec![0; self.input_count].iter().enumerate().map(|(i, _)| format!("input{}", i)).collect();
-        let input_parameters = inputs.iter().map(|i| FlatParameter { id: i.clone(), private: true }).collect();
+        let arguments = inputs.iter().map(|i| FlatParameter { id: i.clone(), private: true }).collect();
 
         // define which subset of the witness is returned
         let outputs: Vec<FlatExpression<T>> = self.outputs.iter()
          				.map(|o| FlatExpression::Identifier(format!("inter{}", o))).collect();
 
-        let return_count = outputs.len();
+        let signature = Signature {
+            inputs: vec![Type::FieldElement; inputs.len()],
+            outputs: vec![Type::FieldElement; outputs.len()],
+        };
 
         // insert a directive to set the witness based on the inputs
         statements.insert(0, FlatStatement::Directive(
@@ -120,9 +123,9 @@ impl<T: Field> Into<FlatFunction<T>> for R1CS {
         
         FlatFunction { 
             id: "main".to_owned(), 
-            arguments: input_parameters, 
-            statements: statements, 
-            return_count: return_count
+            arguments, 
+            statements, 
+            signature,
         }
 	}
 } 

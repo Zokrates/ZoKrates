@@ -1,10 +1,10 @@
-def const():
+def const() -> (field):
   return 123123
 
-def add(a,b):
+def add(field a,field b) -> (field):
   a=const()
   return a+b
 
-def main(a,b):
-  c = add(a, b+const())
+def main(field a,field b) -> (field):
+  field c = add(a, b+const())
   return const()

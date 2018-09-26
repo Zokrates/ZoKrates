@@ -123,6 +123,7 @@ impl<T: Field> fmt::Debug for TypedFunction<T> {
 pub enum TypedStatement<T: Field> {
     Return(Vec<TypedExpression<T>>),
     Definition(Variable, TypedExpression<T>),
+    Declaration(Variable),
     Condition(TypedExpression<T>, TypedExpression<T>),
     For(Variable, T, T, Vec<TypedStatement<T>>),
     MultipleDefinition(Vec<Variable>, TypedExpressionList<T>),
@@ -141,6 +142,9 @@ impl<T: Field> fmt::Debug for TypedStatement<T> {
                 }
                 write!(f, ")")
             },
+            TypedStatement::Declaration(ref var) => {
+                write!(f, "Declaration({:?})", var)
+            }
             TypedStatement::Definition(ref lhs, ref rhs) => {
                 write!(f, "Definition({:?}, {:?})", lhs, rhs)
             }
@@ -173,6 +177,7 @@ impl<T: Field> fmt::Display for TypedStatement<T> {
                 }
                 write!(f, "")
             },
+            TypedStatement::Declaration(ref var) => write!(f, "{}", var),
             TypedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             TypedStatement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {
@@ -287,6 +292,7 @@ pub enum FieldElementExpression<T: Field> {
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub enum BooleanExpression<T: Field> {
     Identifier(String),
+    Value(bool),
     Lt(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     Le(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     Eq(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
@@ -295,7 +301,7 @@ pub enum BooleanExpression<T: Field> {
 }
 
 impl<T: Field> BooleanExpression<T> {
-    fn apply_substitution(self, substitution: &Substitution) -> BooleanExpression<T> {
+    pub fn apply_substitution(self, substitution: &Substitution) -> BooleanExpression<T> {
         match self {
             BooleanExpression::Identifier(id) => {
                 let mut new_name = id;
@@ -326,7 +332,12 @@ impl<T: Field> BooleanExpression<T> {
                 box lhs.apply_substitution(substitution),
                 box rhs.apply_substitution(substitution),
             ),
+            BooleanExpression::Value(b) => BooleanExpression::Value(b),
         }
+    }
+
+    pub fn is_linear(&self) -> bool {
+        false
     }
 }
 
@@ -433,6 +444,7 @@ impl<T: Field> fmt::Display for BooleanExpression<T> {
             BooleanExpression::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
             BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
+            BooleanExpression::Value(b) => write!(f, "{}", b),
         }
     }
 }
