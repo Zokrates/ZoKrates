@@ -3,12 +3,12 @@ use field::Field;
 use parser::Error;
 use parser::tokenize::{Token, Position, next_token};
 
-use absy::{Condition, Expression};
+use absy::{Expression};
 
 use parser::tokenize::parse_num;
 
 fn parse_then_else<T: Field>(
-    cond: Condition<T>,
+    cond: Expression<T>,
     input: &String,
     pos: &Position,
 ) -> Result<(Expression<T>, String, Position), Error<T>> {
@@ -52,23 +52,23 @@ fn parse_if_then_else<T: Field>(
         (Token::If, s1, p1) => match parse_expr(&s1, &p1) {
             Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
                 (Token::Lt, s3, p3) => match parse_expr(&s3, &p3) {
-                    Ok((e4, s4, p4)) => parse_then_else(Condition::Lt(e2, e4), &s4, &p4),
+                    Ok((e4, s4, p4)) => parse_then_else(Expression::Lt(box e2, box e4), &s4, &p4),
                     Err(err) => Err(err),
                 },
                 (Token::Le, s3, p3) => match parse_expr(&s3, &p3) {
-                    Ok((e4, s4, p4)) => parse_then_else(Condition::Le(e2, e4), &s4, &p4),
+                    Ok((e4, s4, p4)) => parse_then_else(Expression::Le(box e2, box e4), &s4, &p4),
                     Err(err) => Err(err),
                 },
                 (Token::Eqeq, s3, p3) => match parse_expr(&s3, &p3) {
-                    Ok((e4, s4, p4)) => parse_then_else(Condition::Eq(e2, e4), &s4, &p4),
+                    Ok((e4, s4, p4)) => parse_then_else(Expression::Eq(box e2, box e4), &s4, &p4),
                     Err(err) => Err(err),
                 },
                 (Token::Ge, s3, p3) => match parse_expr(&s3, &p3) {
-                    Ok((e4, s4, p4)) => parse_then_else(Condition::Ge(e2, e4), &s4, &p4),
+                    Ok((e4, s4, p4)) => parse_then_else(Expression::Ge(box e2, box e4), &s4, &p4),
                     Err(err) => Err(err),
                 },
                 (Token::Gt, s3, p3) => match parse_expr(&s3, &p3) {
-                    Ok((e4, s4, p4)) => parse_then_else(Condition::Gt(e2, e4), &s4, &p4),
+                    Ok((e4, s4, p4)) => parse_then_else(Expression::Gt(box e2, box e4), &s4, &p4),
                     Err(err) => Err(err),
                 },
                 (t3, _, p3) => Err(Error {
@@ -300,9 +300,9 @@ mod tests {
         let pos = Position { line: 45, col: 121 };
         let string = String::from("if a < b then c else d fi");
         let expr = Expression::IfElse::<FieldPrime>(
-            box Condition::Lt(
-                Expression::Identifier(String::from("a")),
-                Expression::Identifier(String::from("b")),
+            box Expression::Lt(
+                box Expression::Identifier(String::from("a")),
+                box Expression::Identifier(String::from("b")),
             ),
             box Expression::Identifier(String::from("c")),
             box Expression::Identifier(String::from("d")),
@@ -320,9 +320,9 @@ mod tests {
             let pos = Position { line: 45, col: 121 };
             let string = String::from("if a < b then c else d fi");
             let expr = Expression::IfElse::<FieldPrime>(
-                box Condition::Lt(
-                    Expression::Identifier(String::from("a")),
-                    Expression::Identifier(String::from("b")),
+                box Expression::Lt(
+                    box Expression::Identifier(String::from("a")),
+                    box Expression::Identifier(String::from("b")),
                 ),
                 box Expression::Identifier(String::from("c")),
                 box Expression::Identifier(String::from("d")),

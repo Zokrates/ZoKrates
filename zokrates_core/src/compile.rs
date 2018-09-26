@@ -72,51 +72,10 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader
 	}
 }
 
-fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader: &mut R, location: Option<String>, resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>, should_include_gadgets: bool) -> Result<FlatProg<T>, CompileError<T>> {
+pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader: &mut R, location: Option<String>, resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>, should_include_gadgets: bool) -> Result<FlatProg<T>, CompileError<T>> {
     let program_ast_without_imports: Prog<T> = parse_program(reader)?;
-
-    let mut compiled_imports: Vec<(FlatProg<T>, String)> = vec![];
-
-    // to resolve imports, we need a resolver
-    match resolve_option {
-    	Some(resolve) => {
-    		// we have a resolver, pass each import through it
-	    	for import in program_ast_without_imports.imports.iter() {
-			match resolve(&location, import.get_source()) {
-	    			Ok((mut res, file_location, default_alias)) => {
-			    		let compiled = compile_aux(&mut res, Some(file_location), resolve_option, should_include_gadgets)?;
-			    		let alias = match import.get_alias() {
-			    			&Some(ref custom_alias) => custom_alias.clone(),
-			    			&None => default_alias
-			    		};
-				    	compiled_imports.push((compiled, alias));
-			    	},
-	    			Err(err) => return Err(CompileError::ImportError(err.into()))
-	    		}
-	    	}
-    	},
-    	None => {
-    		if program_ast_without_imports.imports.len() > 0 {
-    			return Err(imports::Error::new("Can't resolve import without a resolver").into())
-    		}
-    	}
-    }
-
-    #[cfg(feature = "libsnark")]
-    {
-    	use libsnark::{get_sha256_constraints};
-    	use standard::R1CS;
-    	use serde_json::from_str;
-
-	    if should_include_gadgets {
-	    	// inject globals
-		    let r1cs: R1CS = from_str(&get_sha256_constraints()).unwrap();
-
-		    compiled_imports.push((FlatProg::from(r1cs), "sha256libsnark".to_string()));
-	    }
-   	} 
-    	
-    let program_ast = Importer::new().apply_imports(compiled_imports, program_ast_without_imports);
+    
+    let program_ast = Importer::new().apply_imports(program_ast_without_imports, location.clone(), resolve_option, should_include_gadgets)?;
 
     // check semantics
     let typed_ast = Checker::new().check_program(program_ast)?;
@@ -138,7 +97,7 @@ mod test {
 	fn no_resolver_with_imports() {
 		let mut r = BufReader::new(r#"
 			import "./path/to/file" as foo
-			def main():
+			def main() -> (field):
 			   return foo()
 		"#.as_bytes());
 		let res: Result<FlatProg<FieldPrime>, CompileError<FieldPrime>> = compile(&mut r, Some(String::from("./path/to/file")), None::<fn(&Option<String>, &String) -> Result<(BufReader<Empty>, String, String), io::Error>>, false, false);
@@ -148,7 +107,7 @@ mod test {
 	#[test]
 	fn no_resolver_without_imports() {
 		let mut r = BufReader::new(r#"
-			def main():
+			def main() -> (field):
 			   return 1
 		"#.as_bytes());
 		let res: Result<FlatProg<FieldPrime>, CompileError<FieldPrime>> = compile(&mut r, Some(String::from("./path/to/file")), None::<fn(&Option<String>, &String) -> Result<(BufReader<Empty>, String, String), io::Error>>, false, false);

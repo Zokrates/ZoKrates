@@ -1,7 +1,7 @@
-def main():
-	a = 1
-	b = a
-	c = b
-	d = c
-	e = d
+def main() -> (field):
+	field a = 1
+	field b = a
+	field c = b
+	field d = c
+	field e = d
 	return e

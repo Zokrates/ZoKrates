@@ -122,6 +122,7 @@ impl<T: Field> fmt::Debug for TypedFunction<T> {
 pub enum TypedStatement<T: Field> {
     Return(Vec<TypedExpression<T>>),
     Definition(Variable, TypedExpression<T>),
+    Declaration(Variable),
     Condition(TypedExpression<T>, TypedExpression<T>),
     For(Variable, T, T, Vec<TypedStatement<T>>),
     MultipleDefinition(Vec<Variable>, TypedExpressionList<T>),
@@ -140,6 +141,9 @@ impl<T: Field> fmt::Debug for TypedStatement<T> {
                 }
                 write!(f, ")")
             },
+            TypedStatement::Declaration(ref var) => {
+                write!(f, "Declaration({:?})", var)
+            }
             TypedStatement::Definition(ref lhs, ref rhs) => {
                 write!(f, "Definition({:?}, {:?})", lhs, rhs)
             }
@@ -172,6 +176,7 @@ impl<T: Field> fmt::Display for TypedStatement<T> {
                 }
                 write!(f, "")
             },
+            TypedStatement::Declaration(ref var) => write!(f, "{}", var),
             TypedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             TypedStatement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {
@@ -286,31 +291,12 @@ pub enum FieldElementExpression<T: Field> {
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub enum BooleanExpression<T: Field> {
     Identifier(String),
+    Value(bool),
     Lt(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     Le(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     Eq(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     Ge(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     Gt(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
-}
-
-impl<T: Field> FieldElementExpression<T> {
-    pub fn is_linear(&self) -> bool {
-        match *self {
-            FieldElementExpression::Number(_) | FieldElementExpression::Identifier(_) => true,
-            FieldElementExpression::Add(ref x, ref y) | FieldElementExpression::Sub(ref x, ref y) => {
-                x.is_linear() && y.is_linear()
-            }
-            FieldElementExpression::Mult(ref x, ref y) | FieldElementExpression::Div(ref x, ref y) => {
-                match (x, y) {
-                    (box FieldElementExpression::Number(_), box FieldElementExpression::Number(_)) |
-                    (box FieldElementExpression::Number(_), box FieldElementExpression::Identifier(_)) |
-                    (box FieldElementExpression::Identifier(_), box FieldElementExpression::Number(_)) => true,
-                    _ => false,
-                }
-            }
-            _ => false,
-        }
-    }
 }
 
 impl<T: Field> fmt::Display for FieldElementExpression<T> {
@@ -353,6 +339,7 @@ impl<T: Field> fmt::Display for BooleanExpression<T> {
             BooleanExpression::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
             BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
+            BooleanExpression::Value(b) => write!(f, "{}", b),
         }
     }
 }

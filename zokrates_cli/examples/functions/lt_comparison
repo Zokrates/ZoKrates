@@ -1,11 +1,11 @@
-def lt(a,b):
+def lt(field a,field b) -> (field):
     return if a < b then 1 else 0 fi
 
-def cutoff():
+def cutoff() -> (field):
     return 31337
 
-def getThing(index):
-    result = 3
+def getThing(index) -> (field):
+    field result = 3
     result = if index == 0 then 13 else result fi
     result = if index == 1 then 23 else result fi
     result = if index == 2 then 43 else result fi
@@ -14,10 +14,10 @@ def getThing(index):
     result = if index == 5 then 83 else result fi
     return result
 
-def cubeThing(thing):
+def cubeThing(field thing) -> (field):
     return thing**3
 
-def main(index):
-    thing = getThing(index)
+def main(field index) -> (field):
+    field thing = getThing(index)
     thing = cubeThing(thing)
     return lt(cutoff(), thing)

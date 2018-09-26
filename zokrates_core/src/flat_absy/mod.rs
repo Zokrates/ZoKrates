@@ -10,6 +10,8 @@ pub mod flat_variable;
 
 pub use self::flat_parameter::FlatParameter;
 pub use self::flat_variable::FlatVariable;
+
+use types::Signature;
 use std::fmt;
 use std::collections::{BTreeMap};
 use field::Field;
@@ -80,8 +82,8 @@ pub struct FlatFunction<T: Field> {
     pub arguments: Vec<FlatParameter>,
     /// Vector of statements that are executed when running the function
     pub statements: Vec<FlatStatement<T>>,
-    /// number of returns
-    pub return_count: usize,
+    /// Typed signature
+    pub signature: Signature,
 }
 
 impl<T: Field> FlatFunction<T> {
@@ -158,14 +160,15 @@ impl<T: Field> fmt::Debug for FlatFunction<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "FlatFunction(id: {:?}, arguments: {:?}, ...):\n{}",
+            "FlatFunction(id: {:?}, arguments: {:?}, signature: {:?}):\n{}",
             self.id,
             self.arguments,
+            self.signature,
             self.statements
                 .iter()
                 .map(|x| format!("\t{:?}", x))
                 .collect::<Vec<_>>()
-                .join("\n")
+                .join("\n"),
         )
     }
 }
@@ -222,7 +225,7 @@ impl<T: Field> FlatStatement<T> {
     fn apply_substitution(self, substitution: &Substitution, should_fallback: bool) -> FlatStatement<T> {
         match self {
             FlatStatement::Definition(id, x) => FlatStatement::Definition(
-                substitution.get(&id).unwrap_or(id), 
+                id.apply_substitution(substitution, should_fallback), 
                 x.apply_substitution(substitution, should_fallback)
             ),
             FlatStatement::Return(x) => FlatStatement::Return(
@@ -237,6 +240,7 @@ impl<T: Field> FlatStatement<T> {
             FlatStatement::Directive(d) => {
                 let outputs = d.outputs.into_iter().map(|o| substitution.get(&o).unwrap_or(o)).collect();
                 let inputs = d.inputs.into_iter().map(|i| substitution.get(&i).unwrap()).collect();
+
                 FlatStatement::Directive(
                     DirectiveStatement {
                         outputs,
@@ -290,30 +294,6 @@ impl<T: Field> FlatExpression<T> {
             )
         }
     }
-
-    pub fn apply(self, f: &Fn(FlatVariable) -> (FlatVariable)) -> Self {
-        match self {
-            e @ FlatExpression::Number(_) => e,
-            FlatExpression::Identifier(id) => FlatExpression::Identifier(f(id)),
-            FlatExpression::Add(e1, e2) => FlatExpression::Add(
-                box e1.apply(&f),
-                box e2.apply(&f),
-            ),
-            FlatExpression::Sub(e1, e2) => FlatExpression::Sub(
-                box e1.apply(&f),
-                box e2.apply(&f),
-            ),
-            FlatExpression::Mult(e1, e2) => FlatExpression::Mult(
-                box e1.apply(&f),
-                box e2.apply(&f),
-            ),
-            FlatExpression::Div(e1, e2) => FlatExpression::Div(
-                box e1.apply(&f),
-                box e2.apply(&f),
-            )
-        }
-    }
-
 
     fn solve(&self, inputs: &mut BTreeMap<FlatVariable, T>) -> T {
         match *self {

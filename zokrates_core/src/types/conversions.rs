@@ -1,3 +1,4 @@
+use types::signature::Signature;
 use flat_absy::*;
 use flat_absy::flat_variable::FlatVariable;
 use field::Field;
@@ -77,7 +78,10 @@ pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
 		_ => panic!(format!("can't cast {} to {}", from, to))
 	};
 
-	let return_count = to.get_primitive_count();
+	let signature = Signature {
+			inputs: vec![from.clone()],
+			outputs: vec![to.clone()],
+		};
 
 	let outputs = directive_outputs.iter().map(|o| FlatExpression::Identifier(o.clone())).collect();
 
@@ -101,7 +105,7 @@ pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
 		id: format!("_{}_to_{}", from, to),
 		arguments,
 		statements,
-		return_count,
+		signature
 	}
 }
 
@@ -134,7 +138,7 @@ mod tests {
 				}
 			)
 		);
-		assert_eq!(f2b.return_count, 1);
+		assert_eq!(f2b.signature.outputs.len(), 1);
 	}
 
 	#[test]
@@ -161,6 +165,6 @@ mod tests {
 				}
 			)
 		);
-		assert_eq!(b2f.return_count, 1);
+		assert_eq!(b2f.signature.outputs.len(), 1);
 	}
 }
