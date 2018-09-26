@@ -1,5 +1,0 @@
-// as p - 1 is greater than p/2, comparing to it should fail
-
-def main(a):
-  p = 21888242871839275222246405745257275088548364400416034343698204186575808495617
-  return if 0 < p - 1 then 1 else 0 fi
