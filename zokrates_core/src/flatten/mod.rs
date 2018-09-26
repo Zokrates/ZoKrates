@@ -139,6 +139,7 @@ impl Flattener {
         expression: BooleanExpression<T>,
     ) -> FlatExpression<T> { // those will be booleans in the future
         match expression {
+            BooleanExpression::Identifier(id) => FlatExpression::Identifier(id),
             BooleanExpression::Lt(box lhs, box rhs) => {
 
                 // We know from semantic checking that lhs and rhs have the same type
@@ -402,52 +403,29 @@ impl Flattener {
                 // Handle complex parameters and assign values:
                 // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions
                 for (i, param_expr) in param_expressions.clone().into_iter().enumerate() {
-                    let new_var;
-
-                    match param_expr {
+                    let rhs = match param_expr {
                         TypedExpression::FieldElement(e) => {
                             // for field elements, flatten the input and assign it to a new variable
-                            let rhs = self.flatten_field_expression(
+                            self.flatten_field_expression(
                                 functions_flattened,
                                 arguments_flattened,
                                 statements_flattened,
                                 e,
-                            ).apply_substitution(&self.substitution);
-                            new_var = format!("{}param_{}", &prefix, i);
-                            statements_flattened
-                                .push(FlatStatement::Definition(new_var.clone(), rhs));
+                            ).apply_substitution(&self.substitution)
                         },
                         TypedExpression::Boolean(e) => {
-                            match e {
-                                BooleanExpression::Identifier(id) => {
-                                    // a bit hacky for now, to be removed when flatten_condition returns a flatexpression
-                                    // basically extracted the bit of apply_substitution that handles identifiers
-                                    let mut id = id;
-                                    loop {
-                                        match self.substitution.get(&id) {
-                                            Some(x) => id = x.to_string(),
-                                            None => break,
-                                        }
-                                    }
-
-                                    new_var = format!("{}param_{}", &prefix, id);
-                                    statements_flattened
-                                        .push(FlatStatement::Definition(new_var.clone(), FlatExpression::Identifier(id.clone().to_string())));
-                                },
-                                _ => {
-                                    let rhs = self.flatten_boolean_expression(
-                                        functions_flattened,
-                                        arguments_flattened,
-                                        statements_flattened,
-                                        e,
-                                    ).apply_substitution(&self.substitution);
-                                    new_var = format!("{}param_{}", &prefix, i);
-                                    statements_flattened
-                                        .push(FlatStatement::Definition(new_var.clone(), rhs));
-                                }
-                            }
+                            self.flatten_boolean_expression(
+                                functions_flattened,
+                                arguments_flattened,
+                                statements_flattened,
+                                e,
+                            ).apply_substitution(&self.substitution)
                         }
-                    }
+                    };
+
+                    let new_var = format!("{}param_{}", &prefix, i);
+                    statements_flattened
+                        .push(FlatStatement::Definition(new_var.clone(), rhs));
                     replacement_map.insert(funct.arguments.get(i).unwrap().id.clone(), new_var);
                 }
 
@@ -501,6 +479,31 @@ impl Flattener {
             id,
             param_expressions
         );
+    }
+
+    fn flatten_expression<T: Field>(
+        &mut self,
+        functions_flattened: &Vec<FlatFunction<T>>,
+        arguments_flattened: &Vec<FlatParameter>,
+        statements_flattened: &mut Vec<FlatStatement<T>>,
+        expr: TypedExpression<T>,
+    ) -> FlatExpression<T> {
+        match expr {
+            TypedExpression::FieldElement(e) => 
+                self.flatten_field_expression(
+                    functions_flattened,
+                    arguments_flattened,
+                    statements_flattened,
+                    e,
+                ),
+            TypedExpression::Boolean(e) => 
+                self.flatten_boolean_expression(
+                    functions_flattened,
+                    arguments_flattened,
+                    statements_flattened,
+                    e,
+                ),        
+        }
     }
 
     fn flatten_field_expression<T: Field>(
@@ -749,26 +752,14 @@ impl Flattener {
         match stat {
             TypedStatement::Return(exprs) => {
 
-                let flat_expressions = exprs.into_iter().map(|expr| {
-                    match expr {
-                        TypedExpression::FieldElement(e) => {
-                            self.flatten_field_expression(
-                                functions_flattened,
-                                arguments_flattened,
-                                statements_flattened,
-                                e,
-                            ).apply_substitution(&self.substitution)
-                        },
-                        TypedExpression::Boolean(e) => {
-                            self.flatten_boolean_expression(
-                                functions_flattened,
-                                arguments_flattened,
-                                statements_flattened,
-                                e,
-                            ).apply_substitution(&self.substitution)
-                        }
-                    }
-                }).collect();
+                let flat_expressions = exprs.into_iter().map(|expr| 
+                    self.flatten_expression(
+                        functions_flattened,
+                        arguments_flattened,
+                        statements_flattened,
+                        expr
+                    ).apply_substitution(&self.substitution)
+                ).collect();
 
                 statements_flattened.push(
                     FlatStatement::Return(
@@ -787,24 +778,12 @@ impl Flattener {
                 // define n variables with n the number of primitive types for v_type
                 // assign them to the n primitive types for expr
 
-                let rhs = match expr {
-                    TypedExpression::FieldElement(expr) => {
-                        self.flatten_field_expression(
-                            functions_flattened,
-                            arguments_flattened,
-                            statements_flattened,
-                            expr,
-                        ).apply_substitution(&self.substitution)
-                    },
-                    TypedExpression::Boolean(expr) => {
-                        self.flatten_boolean_expression(
-                            functions_flattened,
-                            arguments_flattened,
-                            statements_flattened,
-                            expr,
-                        ).apply_substitution(&self.substitution)
-                    },
-                };
+                let rhs = self.flatten_expression(
+                        functions_flattened,
+                        arguments_flattened,
+                        statements_flattened,
+                        expr
+                    ).apply_substitution(&self.substitution);
 
                 let var = self.use_variable(&v.id);
                 // handle return of function call
