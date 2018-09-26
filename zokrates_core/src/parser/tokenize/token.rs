@@ -31,6 +31,7 @@ pub enum Token<T: Field> {
     Mult,
     Div,
     Pow,
+    And,
     Private,
     Ide(String),
     Num(T),
