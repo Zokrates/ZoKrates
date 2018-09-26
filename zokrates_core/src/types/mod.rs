@@ -46,4 +46,11 @@ impl Type {
 			Type::Boolean => 1
 		}
 	}
+
+	fn to_slug(&self) -> &'static str {
+		match *self {
+			Type::FieldElement => "f",
+			Type::Boolean => "b",
+		}
+	}
 }

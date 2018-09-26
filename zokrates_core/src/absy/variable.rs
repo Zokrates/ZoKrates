@@ -8,17 +8,29 @@ pub struct Variable {
 }
 
 impl Variable {
-    pub fn get_type(&self) -> Type {
-        self._type.clone()
-    }
-}
-
-impl<S: Into<String>> From<S> for Variable {
-    fn from(s: S) -> Self {
+    pub fn new<S: Into<String>>(id: S, t: Type) -> Variable {
         Variable {
-            id: s.into(),
+            id: id.into(),
+            _type: t
+        }
+    }
+
+    pub fn field_element<S: Into<String>>(id: S) -> Variable {
+        Variable {
+            id: id.into(),
             _type: Type::FieldElement
         }
+    }
+
+    pub fn boolean<S: Into<String>>(id: S) -> Variable {
+        Variable {
+            id: id.into(),
+            _type: Type::Boolean
+        }
+    }
+
+    pub fn get_type(&self) -> Type {
+        self._type.clone()
     }
 }
 

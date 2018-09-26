@@ -1,5 +1,5 @@
-def foo():
+def foo() -> (field, field):
    return 1, 2
-def main():
-   a, b = foo()
+def main() -> (field, field):
+   field a, field b = foo()
    return a + b, b - a

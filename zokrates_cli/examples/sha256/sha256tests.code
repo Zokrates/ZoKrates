@@ -15,21 +15,21 @@ import "./bitwise/32/andxorandxorand.code" as ANDXORANDXORAND
 import "./bitwise/32/copy.code" as COPY
 import "./utils/32/extend.code" as EXTEND
 
-def ANDtest():
+def ANDtest() -> (field):
 	1 == AND(1, 1)
  	0 == AND(1, 0)
  	0 == AND(0, 1)
  	0 == AND(0, 0)
  	return 1
 
-def ORtest():
+def ORtest() -> (field):
  	1 == OR(1, 0)
  	1 == OR(0, 1)
  	0 == OR(0, 0)
  	1 == OR(1, 1)
  	return 1
 
-def XORtest():
+def XORtest() -> (field):
  	1 == XOR(1, 0)
  	0 == XOR(0, 0)
  	1 == XOR(0, 1)
@@ -37,7 +37,7 @@ def XORtest():
  	return 1
 
 
-def NOTtest():
+def NOTtest() -> (field):
  	b31, b30, b29, b28, b27, b26, b25, b24, b23, b22, b21, b20, b19, b18, b17, b16, b15, b14, b13, b12, b11, b10, b9, b8, b7, b6, b5, b4, b3, b2, b1, b0 = NOT(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
  	b18 == 1
  	b17 == 1
@@ -47,7 +47,7 @@ def NOTtest():
  	b13 == 1
  	return 1
 
-def FULLADDtest():
+def FULLADDtest() -> (field):
 	a, b = FULLADD(0,0,0)
  	a == 0
  	b == 0
@@ -73,7 +73,7 @@ def FULLADDtest():
  	a == 1
  	b == 1
  	return 1
-def AR6XORAR11XORAR25test():
+def AR6XORAR11XORAR25test() -> (field):
 	b31, b30, b29, b28, b27, b26, b25, b24, b23, b22, b21, b20, b19, b18, b17, b16, b15, b14, b13, b12, b11, b10, b9, b8, b7, b6, b5, b4, b3, b2, b1, b0 = AR6XAR11XAR25(0,1,0,1,0,1,0,0,0,1,0,1,0,1,1,0,0,0,1,0,0,0,1,0,0,1,1,0,1,1,0,1)
 	b31 == 1
 	b30 == 1
@@ -109,7 +109,7 @@ def AR6XORAR11XORAR25test():
 	b0 == 1
 	return 1
 
-def AR2XORAR13XORAR22test():
+def AR2XORAR13XORAR22test() -> (field):
 	b31, b30, b29, b28, b27, b26, b25, b24, b23, b22, b21, b20, b19, b18, b17, b16, b15, b14, b13, b12, b11, b10, b9, b8, b7, b6, b5, b4, b3, b2, b1, b0 = AR2XAR13XAR22(0,1,0,1,0,1,0,0,0,1,0,1,0,1,1,0,0,0,1,0,0,0,1,0,0,1,1,0,1,1,0,1)
 	b31 == 0
 	b30 == 0
@@ -145,7 +145,7 @@ def AR2XORAR13XORAR22test():
 	b0 == 1
 	return 1
 
-def AR7XORAR18XORAR3test():
+def AR7XORAR18XORAR3test() -> (field):
 	// s0 of last digest message of empty message
 	b31, b30, b29, b28, b27, b26, b25, b24, b23, b22, b21, b20, b19, b18, b17, b16, b15, b14, b13, b12, b11, b10, b9, b8, b7, b6, b5, b4, b3, b2, b1, b0 = AR7XAR18XAR3(1,1,0,1,1,1,1,0,1,1,1,1,1,1,1,0,1,1,0,0,1,1,1,0,0,1,1,0,0,1,0,1)
 	b31 == 0
@@ -182,7 +182,7 @@ def AR7XORAR18XORAR3test():
 	b0 == 1
 	return 1
 
-def AR17XORAR19XORAR10test():
+def AR17XORAR19XORAR10test() -> (field):
  	b31, b30, b29, b28, b27, b26, b25, b24, b23, b22, b21, b20, b19, b18, b17, b16, b15, b14, b13, b12, b11, b10, b9, b8, b7, b6, b5, b4, b3, b2, b1, b0 = AR17XAR19XAR10(1,1,0,1,0,1,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,1,0,1,1,0,0,0,0,0,0,0)
  	b31 == 0
 	b30 == 1
@@ -221,7 +221,7 @@ def AR17XORAR19XORAR10test():
 // 00000101000010001001010101000010 -> 01011000000010000000000000000000 DOESN'T PASS
 // 00100010000000000000100000000000 -> 00000101000010001001010101000010 PASSES
 
-def AR17XORAR19XORAR10testnull():
+def AR17XORAR19XORAR10testnull() -> (field):
  	b31, b30, b29, b28, b27, b26, b25, b24, b23, b22, b21, b20, b19, b18, b17, b16, b15, b14, b13, b12, b11, b10, b9, b8, b7, b6, b5, b4, b3, b2, b1, b0 = AR17XAR19XAR10(0,0,0,0,0,1,0,1,0,0,0,0,1,0,0,0,1,0,0,1,0,1,0,1,0,1,0,0,0,0,1,0)
  	b31 == 0
 	b30 == 1
@@ -257,7 +257,7 @@ def AR17XORAR19XORAR10testnull():
 	b0 == 0
 	return 1
 
-def ADDtest():
+def ADDtest() -> (field):
 	b31, b30, b29, b28, b27, b26, b25, b24, b23, b22, b21, b20, b19, b18, b17, b16, b15, b14, b13, b12, b11, b10, b9, b8, b7, b6, b5, b4, b3, b2, b1, b0 = ADD(0,1,0,1,0,1,0,0,0,1,0,1,0,1,1,0,0,0,1,0,0,0,1,0,0,1,1,0,1,1,0,1,0,1,0,1,0,1,0,0,0,1,0,1,0,1,1,0,0,0,1,0,0,0,1,0,0,1,1,0,1,1,0,1)
 	b31 == 1
 	b30 == 0
@@ -293,7 +293,7 @@ def ADDtest():
 	b0 == 0
 	return 1
 
-def COPYtest():
+def COPYtest() -> (field):
 	b31, b30, b29, b28, b27, b26, b25, b24, b23, b22, b21, b20, b19, b18, b17, b16, b15, b14, b13, b12, b11, b10, b9, b8, b7, b6, b5, b4, b3, b2, b1, b0 = COPY(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0)
  	b18 == 0
  	b17 == 0
@@ -303,7 +303,7 @@ def COPYtest():
  	b13 == 1
  	return 1
 
-def ANDXORANDXORANDtest():
+def ANDXORANDXORANDtest() -> (field):
 	b31, b30, b29, b28, b27, b26, b25, b24, b23, b22, b21, b20, b19, b18, b17, b16, b15, b14, b13, b12, b11, b10, b9, b8, b7, b6, b5, b4, b3, b2, b1, b0 = ANDXORANDXORAND(0,1,0,1,0,1,0,0,0,1,0,1,0,1,1,0,0,0,1,0,0,0,1,0,0,1,1,0,1,1,0,1,0,1,0,1,0,1,0,0,0,1,0,1,0,1,1,0,0,0,1,0,0,0,1,0,0,1,1,0,1,1,0,1,0,1,1,1,0,0,0,1,1,0,0,0,0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,0,0,0,1)
 	b31 == 0
 	b30 == 1
@@ -339,7 +339,7 @@ def ANDXORANDXORANDtest():
 	b0 == 1
 	return 1
 
-def ANDXORNOTANDtest():
+def ANDXORNOTANDtest() -> (field):
 	b31, b30, b29, b28, b27, b26, b25, b24, b23, b22, b21, b20, b19, b18, b17, b16, b15, b14, b13, b12, b11, b10, b9, b8, b7, b6, b5, b4, b3, b2, b1, b0 = ANDXORNOTAND(0,1,0,1,0,1,0,0,0,1,0,1,0,1,1,0,0,0,1,0,0,0,1,0,0,1,1,0,1,1,0,1,0,1,0,1,0,1,0,0,0,1,0,1,0,1,1,0,0,0,1,0,0,0,1,0,0,1,1,0,1,1,0,1,0,1,1,1,0,0,0,1,1,0,0,0,0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,0,0,0,1)
 	b31 == 0
 	b30 == 1
@@ -375,7 +375,7 @@ def ANDXORNOTANDtest():
 	b0 == 1
 	return 1
 
-def EXTENDtest():
+def EXTENDtest() -> (field):
 	wfb31, wfb30, wfb29, wfb28, wfb27, wfb26, wfb25, wfb24, wfb23, wfb22, wfb21, wfb20, wfb19, wfb18, wfb17, wfb16, wfb15, wfb14, wfb13, wfb12, wfb11, wfb10, wfb9, wfb8, wfb7, wfb6, wfb5, wfb4, wfb3, wfb2, wfb1, wfb0 = EXTEND(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
 	wfb31 == 1
 	wfb30 == 0
@@ -412,19 +412,19 @@ def EXTENDtest():
 	return 1
 
 
-def main():
-	a = ANDtest()
-	b = ORtest()
-	c = XORtest()
-	d = NOTtest()
-	e = FULLADDtest()
-	h = AR6XORAR11XORAR25test()
-	i = AR2XORAR13XORAR22test()
-	j = AR7XORAR18XORAR3test()
-	k = AR17XORAR19XORAR10testnull()
-	l = ADDtest()
-	m = COPYtest()
-	n = ANDXORANDXORANDtest()
-	o = ANDXORNOTANDtest()	
-	p = EXTENDtest()
+def main() -> (field):
+	field a = ANDtest()
+	field b = ORtest()
+	field c = XORtest()
+	field d = NOTtest()
+	field e = FULLADDtest()
+	field h = AR6XORAR11XORAR25test()
+	field i = AR2XORAR13XORAR22test()
+	field j = AR7XORAR18XORAR3test()
+	field k = AR17XORAR19XORAR10testnull()
+	field l = ADDtest()
+	field m = COPYtest()
+	field n = ANDXORANDXORANDtest()
+	field o = ANDXORNOTANDtest()	
+	field p = EXTENDtest()
  	return 1

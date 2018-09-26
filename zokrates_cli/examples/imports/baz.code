@@ -1,2 +1,2 @@
-def main():
+def main() -> (field):
 	return 123

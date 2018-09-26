@@ -8,8 +8,8 @@
 // --------------------------
 // | c21 | c22 || d21 | d22 |
 
-def checkEquality(e11,e12,e21,e22):
-counter = if e11 == e12 then 1 else 0 fi
+def checkEquality(field e11,field e12,field e21,field e22) -> (field):
+field counter = if e11 == e12 then 1 else 0 fi
 counter = counter + if e11 == e21 then 1 else 0 fi
 counter = counter + if e11 == e22 then 1 else 0 fi
 counter = counter + if e12 == e21 then 1 else 0 fi
@@ -18,11 +18,11 @@ counter = counter + if e21 == e22 then 1 else 0 fi
 return counter
 
 // returns 0 for x in (1..4)
-def validateInput(x):
+def validateInput(field x) -> (field):
 return (x-1)*(x-2)*(x-3)*(x-4)
 
 // variables naming: box'row''column'
-def main(a21, b11, b22, c11, c22, d21, private a11, private a12, private a22, private b12, private b21, private c12, private c21, private d11, private d12, private d22):
+def main(field a21, field b11, field b22, field c11, field c22, field d21, private field a11, private field a12, private field a22, private field b12, private field b21, private field c12, private field c21, private field d11, private field d12, private field d22) -> (field):
 
 // validate inputs
 0 == validateInput(a11)
@@ -45,7 +45,7 @@ def main(a21, b11, b22, c11, c22, d21, private a11, private a12, private a22, pr
 0 == validateInput(d21)
 0 == validateInput(d22)
 
-counter = 0 // globally counts duplicate entries in boxes, rows and columns
+field counter = 0 // globally counts duplicate entries in boxes, rows and columns
 
 // check box correctness
 
