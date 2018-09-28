@@ -71,6 +71,10 @@ fn parse_if_then_else<T: Field>(
                     Ok((e4, s4, p4)) => parse_then_else(Expression::Gt(box e2, box e4), &s4, &p4),
                     Err(err) => Err(err),
                 },
+                (Token::AndAnd, s3, p3) => match parse_expr(&s3, &p3){
+                    Ok((e4, s4, p4)) => parse_then_else(Expression::AndAnd(box e2, box e4), &s4, &p4),
+                    Err(err) => Err(err),
+                }
                 (t3, _, p3) => Err(Error {
                     expected: vec![Token::Lt, Token::Le, Token::Eqeq, Token::Ge, Token::Gt],
                     got: t3,

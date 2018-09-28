@@ -196,6 +196,7 @@ pub enum Expression<T: Field> {
     Eq(Box<Expression<T>>, Box<Expression<T>>),
     Ge(Box<Expression<T>>, Box<Expression<T>>),
     Gt(Box<Expression<T>>, Box<Expression<T>>),
+    AndAnd(Box<Expression<T>>, Box<Expression<T>>),
 }
 
 impl<T: Field> fmt::Display for Expression<T> {
@@ -230,6 +231,7 @@ impl<T: Field> fmt::Display for Expression<T> {
             Expression::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             Expression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
             Expression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
+            Expression::AndAnd(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
         }
     }
 }
@@ -261,6 +263,7 @@ impl<T: Field> fmt::Debug for Expression<T> {
             Expression::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             Expression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
             Expression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
+            Expression::AndAnd(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
         }
     }
 }
