@@ -110,16 +110,16 @@ impl Optimizer {
 		let optimized_arguments = funct.arguments.into_iter().map(|arg| arg.apply_substitution(&self.substitution)).collect();
 
 		FlatFunction {
-			id: funct.id,
 			arguments: optimized_arguments,
 			statements: optimized_statements,
-			return_count: funct.return_count
+			..funct
 		}
 	}
 }
 
 #[cfg(test)]
 mod tests {
+	use types::{Type, Signature};
 	use super::*;
 	use field::FieldPrime;
 	use flat_absy::flat_parameter::FlatParameter;
@@ -136,7 +136,10 @@ mod tests {
             		expressions: vec![FlatExpression::Identifier("c".to_string())]
             	})
             ],
-            return_count: 1
+            signature: Signature {
+            	inputs: vec![Type::FieldElement],
+            	outputs: vec![Type::FieldElement]
+            }
         };
 
         let optimized: FlatFunction<FieldPrime> = FlatFunction {
@@ -147,7 +150,10 @@ mod tests {
             		expressions: vec![FlatExpression::Identifier("_0".to_string())]
             	})
         	],
-        	return_count: 1
+        	signature: Signature {
+            	inputs: vec![Type::FieldElement],
+            	outputs: vec![Type::FieldElement]
+            }
         };
 
         let mut optimizer = Optimizer::new();
@@ -169,7 +175,10 @@ mod tests {
             		expressions: vec![FlatExpression::Identifier("c".to_string()), FlatExpression::Identifier("e".to_string())]
             	})
             ],
-            return_count: 2
+        	signature: Signature {
+            	inputs: vec![Type::FieldElement],
+            	outputs: vec![Type::FieldElement, Type::FieldElement]
+            }
         };
 
         let optimized: FlatFunction<FieldPrime> = FlatFunction {
@@ -181,7 +190,10 @@ mod tests {
             		expressions: vec![FlatExpression::Identifier("_0".to_string()), FlatExpression::Identifier("_1".to_string())]
             	})
         	],
-        	return_count: 2
+        	signature: Signature {
+            	inputs: vec![Type::FieldElement],
+            	outputs: vec![Type::FieldElement, Type::FieldElement]
+            }
         };
 
         let mut optimizer = Optimizer::new();

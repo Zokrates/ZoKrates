@@ -1,7 +1,7 @@
-def wtax(debt,wealth):
-  x = if wealth < debt then 0 else (wealth-debt) fi
+def wtax(field debt, field wealth) -> (field):
+  field x = if wealth < debt then 0 else (wealth-debt) fi
   return x
 
-def main(debt, wealth):
-  tax = wtax(debt,wealth)
+def main(private field debt, private field wealth) -> (field):
+  field tax = wtax(debt,wealth)
   return tax
