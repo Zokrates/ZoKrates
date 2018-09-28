@@ -298,6 +298,7 @@ pub enum BooleanExpression<T: Field> {
     Eq(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     Ge(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     Gt(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
+    AndAnd(Box<BooleanExpression<T>>, Box<BooleanExpression<T>>),
 }
 
 impl<T: Field> BooleanExpression<T> {
@@ -329,6 +330,10 @@ impl<T: Field> BooleanExpression<T> {
                 box rhs.apply_substitution(substitution),
             ),
             BooleanExpression::Gt(lhs, rhs) => BooleanExpression::Gt(
+                box lhs.apply_substitution(substitution),
+                box rhs.apply_substitution(substitution),
+            ),
+            BooleanExpression::AndAnd(lhs, rhs) => BooleanExpression::AndAnd(
                 box lhs.apply_substitution(substitution),
                 box rhs.apply_substitution(substitution),
             ),
@@ -444,6 +449,7 @@ impl<T: Field> fmt::Display for BooleanExpression<T> {
             BooleanExpression::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
             BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
+            BooleanExpression::AndAnd(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             BooleanExpression::Value(b) => write!(f, "{}", b),
         }
     }
