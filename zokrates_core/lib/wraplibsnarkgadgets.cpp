@@ -1,19 +1,180 @@
-//https://gist.github.com/kobigurk/24c25e68219df87c348f1a78db51bb52
-
 #include <iostream>
 
+#include "wraplibsnarkgadgets.hpp"
+
 #include "libsnark/gadgetlib1/gadget.hpp"
+#include "libsnark/gadgetlib1/protoboard.hpp"
 #include "libff/common/default_types/ec_pp.hpp"
+#include "libsnark/reductions/r1cs_to_qap/r1cs_to_qap.hpp"
+
+
+#include <libsnark/common/data_structures/merkle_tree.hpp>
+#include <libsnark/gadgetlib1/gadgets/basic_gadgets.hpp>
+#include <libsnark/gadgetlib1/gadgets/hashes/hash_io.hpp>
+#include <libsnark/gadgetlib1/gadgets/hashes/sha256/sha256_components.hpp>
+#include <libsnark/gadgetlib1/gadgets/hashes/sha256/sha256_gadget.hpp>
 
 using namespace libsnark;
 using namespace libff;
 using std::vector;
 
-#include "wraplibsnarkgadgets.hpp"
-#include <libsnark/gadgetlib1/gadgets/hashes/sha256/sha256_gadget.hpp>
-#include <libsnark/zk_proof_systems/ppzksnark/r1cs_ppzksnark/r1cs_ppzksnark.hpp>
 
 typedef libff::Fr<alt_bn128_pp> FieldT;
+
+pb_variable_array<FieldT> from_bits(std::vector<bool> bits, pb_variable<FieldT>& ZERO) {
+    pb_variable_array<FieldT> acc;
+
+    for (size_t i = 0; i < bits.size(); i++) {
+        bool bit = bits[i];
+        acc.emplace_back(bit ? ONE : ZERO);
+    }
+
+    return acc;
+}
+
+vector<unsigned long> bit_list_to_ints(vector<bool> bit_list, const size_t wordsize) {
+    vector<unsigned long> res;
+    size_t iterations = bit_list.size()/wordsize+1;
+    for (size_t i = 0; i < iterations; ++i) {
+        unsigned long current = 0;
+        for (size_t j = 0; j < wordsize; ++j) {
+            if (bit_list.size() == (i*wordsize+j)) break;
+            current += (bit_list[i*wordsize+j] * (1ul<<(wordsize-1-j)));
+        }
+        res.push_back(current);
+    }
+    return res;
+}
+
+class ethereum_sha256 : gadget<FieldT> {
+private:
+    std::shared_ptr<block_variable<FieldT>> block1;
+    std::shared_ptr<block_variable<FieldT>> block2;
+    std::shared_ptr<digest_variable<FieldT>> intermediate_hash;
+
+public:
+    std::shared_ptr<sha256_compression_function_gadget<FieldT>> hasher2;
+    std::shared_ptr<sha256_compression_function_gadget<FieldT>> hasher1;
+    ethereum_sha256(
+        protoboard<FieldT> &pb,
+        pb_variable<FieldT>& ZERO,
+        pb_variable_array<FieldT>& a,
+        pb_variable_array<FieldT>& b,
+        std::shared_ptr<digest_variable<FieldT>> result
+    ) : gadget<FieldT>(pb, "ethereum_sha256") {
+
+        intermediate_hash.reset(new digest_variable<FieldT>(pb, 256, "intermediate"));
+
+        // final padding
+        pb_variable_array<FieldT> length_padding =
+            from_bits({
+                // padding
+                1,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+
+                // length of message (512 bits)
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,1,0,
+                0,0,0,0,0,0,0,0
+            }, ZERO);
+
+        block1.reset(new block_variable<FieldT>(pb, {
+            a,
+            b
+        }, "block1"));
+
+        block2.reset(new block_variable<FieldT>(pb, {
+            length_padding
+        }, "block2"));
+
+        pb_linear_combination_array<FieldT> IV = SHA256_default_IV(pb);
+
+        hasher1.reset(new sha256_compression_function_gadget<FieldT>(
+            pb,
+            IV,
+            block1->bits,
+            *intermediate_hash,
+            "hasher1"));
+
+        pb_linear_combination_array<FieldT> IV2(intermediate_hash->bits);
+
+        hasher2.reset(new sha256_compression_function_gadget<FieldT>(
+            pb,
+            IV2,
+            block2->bits,
+            *result,
+            "hasher2"));
+    }
+
+    void generate_r1cs_constraints() {
+        hasher1->generate_r1cs_constraints();
+        hasher2->generate_r1cs_constraints();
+    }
+
+    void generate_r1cs_witness() {
+        hasher1->generate_r1cs_witness();
+        hasher2->generate_r1cs_witness();
+    }
+};
 
 // conversion byte[32] <-> libsnark bigint.
 libff::bigint<libff::alt_bn128_r_limbs> libsnarkBigintFromBytesAux(const uint8_t* _x)
@@ -58,7 +219,7 @@ std::string r1cs_to_json(protoboard<FieldT> pb)
         constraint_to_json(constraints.constraints[c].a, ss);
         ss << ",";// << "\"B\"=";
         constraint_to_json(constraints.constraints[c].b, ss);
-        ss << ",";// << "\"A\"=";;
+        ss << ",";// << "\"C\"=";;
         constraint_to_json(constraints.constraints[c].c, ss);
         if (c == constraints.num_constraints()-1 ) {
             ss << "]\n";
@@ -76,12 +237,21 @@ char* _sha256Constraints()
     libff::alt_bn128_pp::init_public_params();
     protoboard<FieldT> pb;
 
-    digest_variable<FieldT> left(pb, SHA256_digest_size, "left");
-    digest_variable<FieldT> right(pb, SHA256_digest_size, "right");
-    digest_variable<FieldT> output(pb, SHA256_digest_size, "output");
+    pb_variable_array<FieldT> left;
+    left.allocate(pb, 256, "left");
 
-    sha256_two_to_one_hash_gadget<FieldT> f(pb, left, right, output, "f");
-    f.generate_r1cs_constraints();
+    pb_variable_array<FieldT> right;
+    right.allocate(pb, 256, "right");
+
+    std::shared_ptr<digest_variable<FieldT>> output;
+    output.reset(new digest_variable<FieldT>(pb, 256, "output"));
+
+    pb_variable<FieldT> ZERO;
+    ZERO.allocate(pb, "ZERO");
+    pb.val(ZERO) = 0;
+
+    ethereum_sha256 g(pb, ZERO, left, right, output);
+    g.generate_r1cs_constraints();
     
     auto json = r1cs_to_json(pb);
 
@@ -110,48 +280,49 @@ std::string array_to_json(protoboard<FieldT> pb)
     return(ss.str());
 }
 
-pb_variable_array<FieldT> from_bits(std::vector<bool> bits, pb_variable<FieldT>& ZERO) {
-    pb_variable_array<FieldT> acc;
-
-    for (size_t i = 0; i < bits.size(); i++) {
-        bool bit = bits[i];
-        acc.emplace_back(bit ? ONE : ZERO);
-    }
-    return acc;
-    }
-
 char* _sha256Witness(const uint8_t* inputs, int inputs_length)
 {
 
     libff::alt_bn128_pp::init_public_params();
-    
     protoboard<FieldT> pb;
 
-    digest_variable<FieldT> left(pb, SHA256_digest_size, "left");
-    digest_variable<FieldT> right(pb, SHA256_digest_size, "right");
-    digest_variable<FieldT> output(pb, SHA256_digest_size, "output");
+    pb_variable_array<FieldT> left;
+    left.allocate(pb, 256, "left");
+    pb_variable_array<FieldT> right;
+    right.allocate(pb, 256, "right");
 
-    sha256_two_to_one_hash_gadget<FieldT> f(pb, left, right, output, "f");
-    f.generate_r1cs_constraints(true);
+    std::shared_ptr<digest_variable<FieldT>> output;
+    output.reset(new digest_variable<FieldT>(pb, 256, "output"));
+
+    pb_variable<FieldT> ZERO;
+    ZERO.allocate(pb, "ZERO");
+    pb.val(ZERO) = 0;
 
     libff::bit_vector left_bv;
     libff::bit_vector right_bv;
 
     for (int i = 0; i < inputs_length / 2; i++) {
+        std::cerr << libsnarkBigintFromBytesAux(inputs + i*32) << "\n";
         left_bv.push_back(libsnarkBigintFromBytesAux(inputs + i*32) == 1);
     }
+    
     for (int i = inputs_length / 2; i < inputs_length; i++) {
+        std::cerr << libsnarkBigintFromBytesAux(inputs + i*32) << "\n";
         right_bv.push_back(libsnarkBigintFromBytesAux(inputs + i*32) == 1);
     }
 
-    left.generate_r1cs_witness(left_bv);
-    right.generate_r1cs_witness(right_bv);
+    left.fill_with_bits(pb, left_bv);
+    right.fill_with_bits(pb, right_bv);
 
-    f.generate_r1cs_witness();
-    
+
+    ethereum_sha256 g(pb, ZERO, left, right, output);
+    g.generate_r1cs_constraints();
+    g.generate_r1cs_witness();
+
     assert(pb.is_satisfied());
 
     auto json = array_to_json(pb);
+
     auto result = new char[json.size()];
     memcpy(result, json.c_str(), json.size() + 1);
     return result;

@@ -37,7 +37,7 @@ impl<T: Field> Executable<T> for LibsnarkGadgetHelper {
 impl Signed for LibsnarkGadgetHelper {
 	fn get_signature(&self) -> (usize, usize) {
 		match self {
-			LibsnarkGadgetHelper::Sha256Compress => (512, 25561),
+			LibsnarkGadgetHelper::Sha256Compress => (512, 50610),
 		}
 	}
 }
