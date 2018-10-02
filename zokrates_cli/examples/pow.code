@@ -1,13 +1,13 @@
-def main():
-  x = 2**4
+def main() -> (field):
+  field x = 2**4
   x == 16
   x = x**2
   x == 256
-  y = 3**3
+  field y = 3**3
   y == 27
-  z = y**2
+  field z = y**2
   z == 729
-  a = 5**2
+  field a = 5**2
   a == 25
   a = a**2
   a == 625
