@@ -354,7 +354,7 @@ mod tests {
                     box Expression::Identifier(String::from("b")),
                 ),
                 box Expression::Gt(
-                    box Expression::Mul(
+                    box Expression::Mult(
                         box Expression::Number(FieldPrime::from(-1)),
                         box Expression::Identifier(String::from("a")),
                     ),
