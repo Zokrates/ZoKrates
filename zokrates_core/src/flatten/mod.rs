@@ -349,12 +349,33 @@ impl Flattener {
 
                 FlatExpression::Identifier(name_1_y)
             },
+            BooleanExpression::AndAnd(box lhs, box rhs) => {
+                let x = self.flatten_boolean_expression(
+                    functions_flattened,
+                    arguments_flattened,
+                    statements_flattened,
+                    lhs
+                );
+                let y = self.flatten_boolean_expression(
+                    functions_flattened,
+                    arguments_flattened,
+                    statements_flattened,
+                    rhs
+                );
+                let name_new = format!("sym_{}", self.next_var_idx);
+
+                statements_flattened.push(FlatStatement::Definition(
+                    name_new.to_string(), FlatExpression::Mult(box x, box y))
+                );
+
+                FlatExpression::Identifier(name_new)
+            },
             BooleanExpression::Value(b) => {
                 FlatExpression::Number(match b {
                     true => T::from(1),
                     false => T::from(0)
                 })
-            }
+            },
             _ => unimplemented!(),
         }
     }
