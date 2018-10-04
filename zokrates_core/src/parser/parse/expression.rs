@@ -345,21 +345,27 @@ mod tests {
     #[test]
     fn parse_boolean_and() {
         let pos = Position{line: 45, col: 121};
-        let string = String::from("if a < b && -1*a > b then c else d fi");
+        let string = String::from("if a < b && 2*a > b && b > a then c else d fi");
 
         let expr = Expression::IfElse::<FieldPrime>(
             box Expression::AndAnd(
-                box Expression::Lt(
-                    box Expression::Identifier(String::from("a")),
-                    box Expression::Identifier(String::from("b")),
+                box Expression::AndAnd(
+                    box Expression::Lt(
+                        box Expression::Identifier(String::from("a")),
+                        box Expression::Identifier(String::from("b")),
+                    ),
+                    box Expression::Gt(
+                        box Expression::Mult(
+                            box Expression::Number(FieldPrime::from(2)),
+                            box Expression::Identifier(String::from("a")),
+                        ),
+                        box Expression::Identifier(String::from("b")),
+                    ),
                 ),
                 box Expression::Gt(
-                    box Expression::Mult(
-                        box Expression::Number(FieldPrime::from(-1)),
-                        box Expression::Identifier(String::from("a")),
-                    ),
                     box Expression::Identifier(String::from("b")),
-                )
+                    box Expression::Identifier(String::from("a")),
+                ),
             ),
             box Expression::Identifier(String::from("c")),
             box Expression::Identifier(String::from("d")),
