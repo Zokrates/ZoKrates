@@ -1399,4 +1399,35 @@ mod multiple_definition {
         );
     }
 
+    #[test]
+    fn andand() {
+        let expression =
+            FieldElementExpression::IfElse(
+                box BooleanExpression::AndAnd(
+                    box BooleanExpression::Eq(
+                        box FieldElementExpression::Number(FieldPrime::from(4)),
+                        box FieldElementExpression::Number(FieldPrime::from(4))
+                    ),
+                    box BooleanExpression::Lt(
+                        box FieldElementExpression::Number(FieldPrime::from(4)),
+                        box FieldElementExpression::Number(FieldPrime::from(20))
+                    ),
+                ),
+                box FieldElementExpression::Number(FieldPrime::from(12)),
+                box FieldElementExpression::Number(FieldPrime::from(51)),
+            );
+
+
+        let mut functions_flattened = vec![];
+        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+
+        flattener.load_stdlib(&mut functions_flattened);
+
+        flattener.flatten_field_expression(
+            &functions_flattened,
+            &vec![],
+            &mut vec![],
+            expression
+        );
+    }
 }
