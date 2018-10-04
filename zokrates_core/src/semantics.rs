@@ -524,7 +524,7 @@ impl Checker {
 					(TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
 						Ok(BooleanExpression::AndAnd(box e1, box e2).into())
 					},
-					(e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
+					(e1, e2) => Err(Error { message: format!("cannot apply boolean operators to {} and {}", e1.get_type(), e2.get_type()) })
 				}
 			}
 		}
