@@ -364,6 +364,8 @@ impl Flattener {
                 );
                 let name_new = format!("sym_{}", self.next_var_idx);
 
+                // flatten_boolean_expression always returns a linear term
+                assert!(x.is_linear() && y.is_linear());
                 statements_flattened.push(FlatStatement::Definition(
                     name_new.to_string(), FlatExpression::Mult(box x, box y))
                 );
