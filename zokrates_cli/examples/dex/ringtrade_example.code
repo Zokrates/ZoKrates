@@ -1,0 +1,118 @@
+import "./decodeOrder.code"
+import "./limitLessThanPrice.code"
+
+def tupleForTokensWithValue(field value) -> (field[3]):
+  return [value, value, value]
+
+def tupleForTokenPairsWithValue(field value) -> (field, field, field, field, field, field):
+  return value, value, value, value, value, value
+
+def findPairInTokenPairList(field pairToken0Token1, field pairToken0Token2, field pairToken1Token0, field pairToken1Token2, field pairToken2Token0, field pairToken2Token1, field sourceToken, field targetToken) -> (field):
+  field pair = 0
+  pair = if sourceToken == 0 then if targetToken == 1 then pairToken0Token1 else pair fi else pair fi
+  pair = if sourceToken == 0 then if targetToken == 2 then pairToken0Token2 else pair fi else pair fi
+  pair = if sourceToken == 1 then if targetToken == 0 then pairToken1Token0 else pair fi else pair fi
+  pair = if sourceToken == 1 then if targetToken == 2 then pairToken1Token2 else pair fi else pair fi
+  pair = if sourceToken == 2 then if targetToken == 0 then pairToken2Token0 else pair fi else pair fi
+  pair = if sourceToken == 2 then if targetToken == 1 then pairToken2Token1 else pair fi else pair fi
+  return pair
+
+def lookupPrice(field sourceToken, field priceToken1, field priceToken2) -> (field):
+  field price = if sourceToken == 0 then 1000000000000000000 else 0 fi
+  price = price + if sourceToken == 1 then priceToken1 else 0 fi
+  price = price + if sourceToken == 2 then priceToken2 else 0 fi
+  return price
+
+def addVolumesForOrder(field[3] volumeToken, field token, field volume) -> (field[3]):
+  field txVolumeToken1 = volumeToken[0] + if token == 0 then volume else 0 fi
+  field txVolumeToken2 = volumeToken[1] + if token == 1 then volume else 0 fi
+  field txVolumeToken3 = volumeToken[2] + if token == 2 then volume else 0 fi
+  return [txVolumeToken1, txVolumeToken2, txVolumeToken3]
+
+def updateHighestTouchedOrder(field highestTouchedOrderToken0Token1, field highestTouchedOrderToken0Token2, field highestTouchedOrderToken1Token0, field highestTouchedOrderToken1Token2, field highestTouchedOrderToken2Token0, field highestTouchedOrderToken2Token1, field sourceToken, field targetToken, field limit, field volume) -> (field, field, field, field, field, field):
+
+  field highestTouchedOrder = findPairInTokenPairList(highestTouchedOrderToken0Token1, highestTouchedOrderToken0Token2, highestTouchedOrderToken1Token0, highestTouchedOrderToken1Token2, highestTouchedOrderToken2Token0, highestTouchedOrderToken2Token1, sourceToken, targetToken)
+
+  field shouldUpdate = if 0 < volume then 1 else 0 fi
+  shouldUpdate = if highestTouchedOrder < limit then shouldUpdate else 0 fi
+
+  highestTouchedOrderToken0Token1 = if shouldUpdate == 1 then if sourceToken == 0 then if targetToken == 1 then limit else highestTouchedOrderToken0Token1 fi else highestTouchedOrderToken0Token1 fi else highestTouchedOrderToken0Token1 fi
+  highestTouchedOrderToken0Token2 = if shouldUpdate == 1 then if sourceToken == 0 then if targetToken == 2 then limit else highestTouchedOrderToken0Token2 fi else highestTouchedOrderToken0Token2 fi else highestTouchedOrderToken0Token2 fi
+  highestTouchedOrderToken1Token0 = if shouldUpdate == 1 then if sourceToken == 1 then if targetToken == 0 then limit else highestTouchedOrderToken1Token0 fi else highestTouchedOrderToken1Token0 fi else highestTouchedOrderToken1Token0 fi
+  highestTouchedOrderToken1Token2 = if shouldUpdate == 1 then if sourceToken == 1 then if targetToken == 2 then limit else highestTouchedOrderToken1Token2 fi else highestTouchedOrderToken1Token2 fi else highestTouchedOrderToken1Token2 fi
+  highestTouchedOrderToken2Token0 = if shouldUpdate == 1 then if sourceToken == 2 then if targetToken == 0 then limit else highestTouchedOrderToken2Token0 fi else highestTouchedOrderToken2Token0 fi else highestTouchedOrderToken2Token0 fi
+  highestTouchedOrderToken2Token1 = if shouldUpdate == 1 then if sourceToken == 2 then if targetToken == 1 then limit else highestTouchedOrderToken2Token1 fi else highestTouchedOrderToken2Token1 fi else highestTouchedOrderToken2Token1 fi
+
+  return highestTouchedOrderToken0Token1, highestTouchedOrderToken0Token2, highestTouchedOrderToken1Token0, highestTouchedOrderToken1Token2, highestTouchedOrderToken2Token0, highestTouchedOrderToken2Token1
+
+def verifyCompletelyFulfilledIfLimitLowerHighestTouchedOrder(field highestTouchedOrderToken0Token1, field highestTouchedOrderToken0Token2, field highestTouchedOrderToken1Token0, field highestTouchedOrderToken1Token2, field highestTouchedOrderToken2Token0, field highestTouchedOrderToken2Token1, field sourceAmount, field sourceToken, field targetToken, field limit, field volume) -> (field):
+
+  field highestTouchedOrder = findPairInTokenPairList(highestTouchedOrderToken0Token1, highestTouchedOrderToken0Token2, highestTouchedOrderToken1Token0, highestTouchedOrderToken1Token2, highestTouchedOrderToken2Token0, highestTouchedOrderToken2Token1, sourceToken, targetToken)
+
+  field valid = if limit < highestTouchedOrder then 1 - (sourceAmount - volume) else 1 fi
+  return valid
+
+def checkConstraints(field amount1, field sourceToken1, field targetToken1, field limit1, field amount2, field sourceToken2, field targetToken2, field limit2, field amount3, field sourceToken3, field targetToken3, field limit3, field[3] volume, field priceToken1, field priceToken2) -> (field):
+  // volumes are not larger than in original offer
+  field validVolumesLowerAmount1 = if amount1 < volume[0] then 0 else 1 fi
+  validVolumesLowerAmount1 == 1
+  field validVolumesLowerAmount2 = if amount2 < volume[1] then 0 else 1 fi
+  validVolumesLowerAmount2 == 1
+  field validVolumesLowerAmount3 = if amount3 < volume[2] then 0 else 1 fi
+  validVolumesLowerAmount3 == 1
+
+  sourceTokenPriceOrder1 = lookupPrice(sourceToken1, priceToken1, priceToken2)
+  targetTokenPriceOrder1 = lookupPrice(targetToken1, priceToken1, priceToken2)
+  sourceTokenPriceOrder2 = lookupPrice(sourceToken2, priceToken1, priceToken2)
+  targetTokenPriceOrder2 = lookupPrice(targetToken2, priceToken1, priceToken2)
+  sourceTokenPriceOrder3 = lookupPrice(sourceToken3, priceToken1, priceToken2)
+  targetTokenPriceOrder3 = lookupPrice(targetToken3, priceToken1, priceToken2)
+
+  // orders are only touched, if the limit price is below the calculated price:
+  field validLimitLessThanPrice1 = if volume[0] == 0 then 1 else limitLessThanPrice(sourceTokenPriceOrder1, targetTokenPriceOrder1, limit1) fi
+  validLimitLessThanPrice1 == 1
+  field validLimitLessThanPrice2 = if volume[1] == 0 then 1 else limitLessThanPrice(sourceTokenPriceOrder2, targetTokenPriceOrder2, limit2) fi
+  validLimitLessThanPrice2 == 1
+  field validLimitLessThanPrice3 = if volume[2] == 0 then 1 else limitLessThanPrice(sourceTokenPriceOrder3, targetTokenPriceOrder3, limit3) fi
+  validLimitLessThanPrice3 == 1
+
+  // the amount of sell volume for a token equals its buy volume:
+  buyVolumeToken = tupleForTokensWithValue(0)
+  sellVolumeToken = tupleForTokensWithValue(0)
+
+  buyVolumeToken = addVolumesForOrder(buyVolumeToken, targetToken1, volume[0] * sourceTokenPriceOrder1)
+  sellVolumeToken = addVolumesForOrder(sellVolumeToken, sourceToken1, volume[0] * sourceTokenPriceOrder1)
+
+  buyVolumeToken = addVolumesForOrder(buyVolumeToken, targetToken2, volume[1] * sourceTokenPriceOrder2)
+  sellVolumeToken = addVolumesForOrder(sellVolumeToken, sourceToken2, volume[1] * sourceTokenPriceOrder2)
+
+  buyVolumeToken = addVolumesForOrder(buyVolumeToken, targetToken3, volume[2] * sourceTokenPriceOrder3)
+  sellVolumeToken = addVolumesForOrder(sellVolumeToken, sourceToken3, volume[2] * sourceTokenPriceOrder3)
+
+  buyVolumeToken == sellVolumeToken
+
+  // If an order σ ∈ Oi→j with a limit price p has a positive trading volume, then every order in Oi→j with a lower limit price should be completely fulfilled.
+  highestTouchedOrderToken0Token1, highestTouchedOrderToken0Token2, highestTouchedOrderToken1Token0, highestTouchedOrderToken1Token2, highestTouchedOrderToken2Token0, highestTouchedOrderToken2Token1 = tupleForTokenPairsWithValue(0)
+  highestTouchedOrderToken0Token1, highestTouchedOrderToken0Token2, highestTouchedOrderToken1Token0, highestTouchedOrderToken1Token2, highestTouchedOrderToken2Token0, highestTouchedOrderToken2Token1 = updateHighestTouchedOrder(highestTouchedOrderToken0Token1, highestTouchedOrderToken0Token2, highestTouchedOrderToken1Token0, highestTouchedOrderToken1Token2, highestTouchedOrderToken2Token0, highestTouchedOrderToken2Token1, sourceToken1, targetToken1, limit1, volume[0])
+  highestTouchedOrderToken0Token1, highestTouchedOrderToken0Token2, highestTouchedOrderToken1Token0, highestTouchedOrderToken1Token2, highestTouchedOrderToken2Token0, highestTouchedOrderToken2Token1 = updateHighestTouchedOrder(highestTouchedOrderToken0Token1, highestTouchedOrderToken0Token2, highestTouchedOrderToken1Token0, highestTouchedOrderToken1Token2, highestTouchedOrderToken2Token0, highestTouchedOrderToken2Token1, sourceToken2, targetToken2, limit2, volume[1])
+  highestTouchedOrderToken0Token1, highestTouchedOrderToken0Token2, highestTouchedOrderToken1Token0, highestTouchedOrderToken1Token2, highestTouchedOrderToken2Token0, highestTouchedOrderToken2Token1 = updateHighestTouchedOrder(highestTouchedOrderToken0Token1, highestTouchedOrderToken0Token2, highestTouchedOrderToken1Token0, highestTouchedOrderToken1Token2, highestTouchedOrderToken2Token0, highestTouchedOrderToken2Token1, sourceToken3, targetToken3, limit3, volume[2])
+
+  valid = verifyCompletelyFulfilledIfLimitLowerHighestTouchedOrder(highestTouchedOrderToken0Token1, highestTouchedOrderToken0Token2, highestTouchedOrderToken1Token0, highestTouchedOrderToken1Token2, highestTouchedOrderToken2Token0, highestTouchedOrderToken2Token1, amount1, sourceToken1, targetToken1, limit1, volume[0])
+  valid == 1
+  valid = verifyCompletelyFulfilledIfLimitLowerHighestTouchedOrder(highestTouchedOrderToken0Token1, highestTouchedOrderToken0Token2, highestTouchedOrderToken1Token0, highestTouchedOrderToken1Token2, highestTouchedOrderToken2Token0, highestTouchedOrderToken2Token1, amount2, sourceToken2, targetToken2, limit2, volume[1])
+  valid == 1
+  valid = verifyCompletelyFulfilledIfLimitLowerHighestTouchedOrder(highestTouchedOrderToken0Token1, highestTouchedOrderToken0Token2, highestTouchedOrderToken1Token0, highestTouchedOrderToken1Token2, highestTouchedOrderToken2Token0, highestTouchedOrderToken2Token1, amount3, sourceToken3, targetToken3, limit3, volume[2])
+  valid == 1
+
+  return 1 // Could return total volume to maximize for
+
+def main(private field[3] encodedOrder, private field[3] bitmapOrder, private field[3] volume, private field priceToken1, private field priceToken2) -> (field):
+  // Remove orders that are not double signed
+  encodedOrder = [if bitmapOrder[0] == 1 then encodedOrder[0] else 0 fi, if bitmapOrder[1] == 1 then encodedOrder[1] else 0 fi, if bitmapOrder[2] == 1 then encodedOrder[2] else 0 fi]
+
+  // Decode orders
+  amount1, sourceToken1, targetToken1, limit1 = decodeOrder(encodedOrder[0])
+  amount2, sourceToken2, targetToken2, limit2 = decodeOrder(encodedOrder[1])
+  amount3, sourceToken3, targetToken3, limit3 = decodeOrder(encodedOrder[2])
+
+  return checkConstraints(amount1, sourceToken1, targetToken1, limit1, amount2, sourceToken2, targetToken2, limit2, amount3, sourceToken3, targetToken3, limit3, volume, priceToken1, priceToken2)

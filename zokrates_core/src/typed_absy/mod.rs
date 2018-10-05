@@ -301,7 +301,7 @@ pub enum FieldElementExpression<T: Field> {
     Pow(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     IfElse(Box<BooleanExpression<T>>, Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     FunctionCall(String, Vec<TypedExpression<T>>),
-    Select(String, Box<FieldElementExpression<T>>),
+    Select(Box<FieldElementArrayExpression<T>>, Box<FieldElementExpression<T>>),
 }
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
@@ -315,10 +315,19 @@ pub enum BooleanExpression<T: Field> {
     Gt(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
 }
 
+// for now we store the array size in the variants
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub enum FieldElementArrayExpression<T: Field> {
     Identifier(usize, String),
     Value(usize, Vec<FieldElementExpression<T>>),
+}
+
+impl<T: Field> FieldElementArrayExpression<T> {
+    pub fn size(&self) -> usize {
+        match *self {
+            FieldElementArrayExpression::Identifier(s, _) | FieldElementArrayExpression::Value(s, _) => s
+        }
+    }
 }
 
 impl<T: Field> fmt::Display for FieldElementExpression<T> {

@@ -523,15 +523,7 @@ impl Checker {
 				let index = self.check_expression(&index)?;
 				match (array.clone(), index.clone()) {
 					(TypedExpression::FieldElementArray(ref a), TypedExpression::FieldElement(ref i)) => {
-						// we only support field element arrays and constant index smaller than the size
-						match (a, i) {
-							(FieldElementArrayExpression::Identifier(size, ref id), FieldElementExpression::Number(ref n)) if n < &T::from(*size) => {
-								Ok(FieldElementExpression::Select(id.clone(), box i.clone()).into())
-							},
-							_ => {
-								Err(Error { message: format!("Cannot take element {} on expression of type {}", index, array.get_type())})
-							},
-						}
+						Ok(FieldElementExpression::Select(box a.clone(), box i.clone()).into())
 					},
 					(a, e) => Err(Error { message: format!("Cannot take element {} on expression of type {}", e, a.get_type())})
 				}
