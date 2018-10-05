@@ -8,7 +8,7 @@ use parser::Error;
 
 use parser::tokenize::skip_whitespaces;
 
-use super::expression::{parse_expr, parse_expr1, parse_function_call, parse_term1};
+use super::expression::{parse_expr, parse_expr1, parse_function_call, parse_term1, parse_array_select};
 use super::expression_list::parse_expression_list;
 
 use absy::{Expression, Statement, Variable};
@@ -398,6 +398,41 @@ fn parse_statement1<T: Field>(
                 }),
             },
             Err(err) => Err(err),
+        },
+        (Token::LeftBracket, s1, p1) => match parse_array_select(ide, s1, p1) {
+            Ok((e3, s3, p3)) => match next_token(&s3, &p3) {
+                (Token::Eqeq, s4, p4) => match parse_expr(&s4, &p4) {
+                    Ok((e5, s5, p5)) => match next_token(&s5, &p5) {
+                        (Token::InlineComment(_), ref s6, _) => {
+                            assert_eq!(s6, "");
+                            Ok((vec![Statement::Condition(e3, e5)], s5, p5))
+                        }
+                        (Token::Unknown(ref t6), ref s6, _) if t6 == "" => {
+                            assert_eq!(s6, "");
+                            Ok((vec![Statement::Condition(e3, e5)], s5, p5))
+                        }
+                        (t6, _, p6) => Err(Error {
+                            expected: vec![
+                                Token::Add,
+                                Token::Sub,
+                                Token::Pow,
+                                Token::Mult,
+                                Token::Div,
+                                Token::Unknown("".to_string()),
+                            ],
+                            got: t6,
+                            pos: p6,
+                        }),
+                    },
+                    Err(err) => Err(err),
+                },
+                (t4, _, p4) => Err(Error {
+                    expected: vec![Token::Eqeq],
+                    got: t4,
+                    pos: p4,
+                }),
+            },
+            Err(err) => Err(err)
         },
         _ => match parse_term1(Expression::Identifier(ide), input, pos) {
             Ok((e2, s2, p2)) => match parse_expr1(e2, s2, p2) {

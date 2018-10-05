@@ -885,6 +885,43 @@ impl Flattener {
                             unimplemented!()
                         }
                     },
+                    (TypedExpression::FieldElementArray(e1), TypedExpression::FieldElementArray(e2)) => {
+
+                        let (lhs, rhs) =
+                            (
+                                self.flatten_field_array_expression(
+                                    functions_flattened,
+                                    arguments_flattened,
+                                    statements_flattened,
+                                    e1
+                                ),
+                                self.flatten_field_array_expression(
+                                    functions_flattened,
+                                    arguments_flattened,
+                                    statements_flattened,
+                                    e2,
+                                )
+                            );
+
+                        let (lhs, rhs) = 
+                            (
+                                lhs.into_iter().map(|e| e.apply_recursive_substitution(&self.substitution)),
+                                rhs.into_iter().map(|e| e.apply_recursive_substitution(&self.substitution)),
+                            );
+
+                        assert_eq!(lhs.len(), rhs.len());
+
+                        for (l, r) in lhs.into_iter().zip(rhs.into_iter()) {
+                            if l.is_linear() {
+                                statements_flattened.push(FlatStatement::Condition(l, r));
+                            } else if r.is_linear() {
+                                // swap so that left side is linear
+                                statements_flattened.push(FlatStatement::Condition(r, l));
+                            } else {
+                                unimplemented!()
+                            }
+                        }
+                    },
                     _ => panic!("non matching types in condition should have been caught at semantic stage")
                 }
             }
