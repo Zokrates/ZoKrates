@@ -10,6 +10,7 @@ use self::libc::{c_int, c_char, uint8_t};
 use std::ffi::{CString};
 use std::cmp::max;
 use std::string::String;
+use flat_absy::flat_variable::FlatVariable;
 
 use field::Field;
 
@@ -42,7 +43,7 @@ extern "C" {
 }
 
 pub fn setup<T: Field> (
-    variables: Vec<String>,
+    variables: Vec<FlatVariable>,
     a: Vec<Vec<(usize, T)>>,
     b: Vec<Vec<(usize, T)>>,
     c: Vec<Vec<(usize, T)>>,
