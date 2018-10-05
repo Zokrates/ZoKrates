@@ -11,6 +11,7 @@ extern crate serde_json;
 extern crate serde_derive;
 extern crate bincode;
 extern crate regex;
+extern crate bimap;
 
 mod parser;
 mod imports;

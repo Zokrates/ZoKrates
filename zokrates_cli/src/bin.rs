@@ -38,7 +38,7 @@ fn main() {
     // cli specification using clap library
     let matches = App::new("ZoKrates")
     .setting(AppSettings::SubcommandRequiredElseHelp)
-    .version("0.1")
+    .version("0.2")
     .author("Jacob Eberhardt, Dennis Kuhnert")
     .about("Supports generation of zkSNARKs from high level language code including Smart Contracts for proof verification on the Ethereum Blockchain.\n'I know that I show nothing!'")
     .subcommand(SubCommand::with_name("compile")
@@ -336,7 +336,12 @@ fn main() {
 
             let witness_map = main_flattened.get_witness(arguments).unwrap();
 
-            println!("Witness: {:?}", witness_map);
+            println!("\nWitness: \n\n{}", witness_map
+                .iter()
+                .filter_map(|(variable, value)| match variable {
+                    variable if variable.is_output() => Some(format!("{} {}", variable, value)),
+                    _ => None
+                }).collect::<Vec<String>>().join("\n"));
 
             // write witness to file
             let output_path = Path::new(sub_matches.value_of("output").unwrap());
