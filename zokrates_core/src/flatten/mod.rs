@@ -139,6 +139,7 @@ impl Flattener {
         expression: BooleanExpression<T>,
     ) -> FlatExpression<T> { // those will be booleans in the future
         match expression {
+            BooleanExpression::Identifier(id) => FlatExpression::Identifier(id),
             BooleanExpression::Lt(box lhs, box rhs) => {
 
                 // We know from semantic checking that lhs and rhs have the same type
@@ -402,54 +403,29 @@ impl Flattener {
                 // Handle complex parameters and assign values:
                 // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions
                 for (i, param_expr) in param_expressions.clone().into_iter().enumerate() {
-                    let new_var;
-                    let param_expr = param_expr.apply_substitution(&self.substitution);
-
-                    match param_expr {
+                    let rhs = match param_expr {
                         TypedExpression::FieldElement(e) => {
-                            match e {
-                                FieldElementExpression::Identifier(id) => {
-                                    new_var = format!("{}param_{}", &prefix, id);
-                                    statements_flattened
-                                        .push(FlatStatement::Definition(new_var.clone(), FlatExpression::Identifier(id.clone().to_string())));
-                                },
-                                _ => {
-                                    // for field elements, flatten the input and assign it to a new variable
-                                    let expr_subbed = e.apply_substitution(&self.substitution);
-                                    let rhs = self.flatten_field_expression(
-                                        functions_flattened,
-                                        arguments_flattened,
-                                        statements_flattened,
-                                        expr_subbed,
-                                    );
-                                    new_var = format!("{}param_{}", &prefix, i);
-                                    statements_flattened
-                                        .push(FlatStatement::Definition(new_var.clone(), rhs));
-                                }
-                            }
+                            // for field elements, flatten the input and assign it to a new variable
+                            self.flatten_field_expression(
+                                functions_flattened,
+                                arguments_flattened,
+                                statements_flattened,
+                                e,
+                            ).apply_substitution(&self.substitution)
                         },
                         TypedExpression::Boolean(e) => {
-                            match e {
-                                BooleanExpression::Identifier(id) => {
-                                    new_var = format!("{}param_{}", &prefix, id);
-                                    statements_flattened
-                                        .push(FlatStatement::Definition(new_var.clone(), FlatExpression::Identifier(id.clone().to_string())));
-                                },
-                                _ => {
-                                    let expr_subbed = e.apply_substitution(&self.substitution);
-                                    let rhs = self.flatten_boolean_expression(
-                                        functions_flattened,
-                                        arguments_flattened,
-                                        statements_flattened,
-                                        expr_subbed,
-                                    );
-                                    new_var = format!("{}param_{}", &prefix, i);
-                                    statements_flattened
-                                        .push(FlatStatement::Definition(new_var.clone(), rhs));
-                                }
-                            }
+                            self.flatten_boolean_expression(
+                                functions_flattened,
+                                arguments_flattened,
+                                statements_flattened,
+                                e,
+                            ).apply_substitution(&self.substitution)
                         }
-                    }
+                    };
+
+                    let new_var = format!("{}param_{}", &prefix, i);
+                    statements_flattened
+                        .push(FlatStatement::Definition(new_var.clone(), rhs));
                     replacement_map.insert(funct.arguments.get(i).unwrap().id.clone(), new_var);
                 }
 
@@ -503,6 +479,31 @@ impl Flattener {
             id,
             param_expressions
         );
+    }
+
+    fn flatten_expression<T: Field>(
+        &mut self,
+        functions_flattened: &Vec<FlatFunction<T>>,
+        arguments_flattened: &Vec<FlatParameter>,
+        statements_flattened: &mut Vec<FlatStatement<T>>,
+        expr: TypedExpression<T>,
+    ) -> FlatExpression<T> {
+        match expr {
+            TypedExpression::FieldElement(e) => 
+                self.flatten_field_expression(
+                    functions_flattened,
+                    arguments_flattened,
+                    statements_flattened,
+                    e,
+                ),
+            TypedExpression::Boolean(e) => 
+                self.flatten_boolean_expression(
+                    functions_flattened,
+                    arguments_flattened,
+                    statements_flattened,
+                    e,
+                ),        
+        }
     }
 
     fn flatten_field_expression<T: Field>(
@@ -672,7 +673,7 @@ impl Flattener {
 
                         // we require from the base to be linear
                         // TODO change that
-                        assert!(base.is_linear());
+                        assert!(base_flattened.is_linear());
 
                         match e {
                             // flatten(base ** 1) == flatten(base)
@@ -751,28 +752,14 @@ impl Flattener {
         match stat {
             TypedStatement::Return(exprs) => {
 
-                let flat_expressions = exprs.into_iter().map(|expr| {
-                    match expr {
-                        TypedExpression::FieldElement(e) => {
-                            let expr_subbed = e.apply_substitution(&self.substitution);
-                            self.flatten_field_expression(
-                                functions_flattened,
-                                arguments_flattened,
-                                statements_flattened,
-                                expr_subbed,
-                            )
-                        },
-                        TypedExpression::Boolean(e) => {
-                            let expr_subbed = e.apply_substitution(&self.substitution);
-                            self.flatten_boolean_expression(
-                                functions_flattened,
-                                arguments_flattened,
-                                statements_flattened,
-                                expr_subbed,
-                            )
-                        }
-                    }
-                }).collect();
+                let flat_expressions = exprs.into_iter().map(|expr| 
+                    self.flatten_expression(
+                        functions_flattened,
+                        arguments_flattened,
+                        statements_flattened,
+                        expr
+                    ).apply_substitution(&self.substitution)
+                ).collect();
 
                 statements_flattened.push(
                     FlatStatement::Return(
@@ -791,26 +778,12 @@ impl Flattener {
                 // define n variables with n the number of primitive types for v_type
                 // assign them to the n primitive types for expr
 
-                let rhs = match expr {
-                    TypedExpression::FieldElement(expr) => {
-                        let expr_subbed = expr.apply_substitution(&self.substitution);
-                        self.flatten_field_expression(
-                            functions_flattened,
-                            arguments_flattened,
-                            statements_flattened,
-                            expr_subbed,
-                        )
-                    },
-                    TypedExpression::Boolean(expr) => {
-                        let expr_subbed = expr.apply_substitution(&self.substitution);
-                        self.flatten_boolean_expression(
-                            functions_flattened,
-                            arguments_flattened,
-                            statements_flattened,
-                            expr_subbed,
-                        )
-                    },
-                };
+                let rhs = self.flatten_expression(
+                        functions_flattened,
+                        arguments_flattened,
+                        statements_flattened,
+                        expr
+                    ).apply_substitution(&self.substitution);
 
                 let var = self.use_variable(&v.id);
                 // handle return of function call
@@ -829,83 +802,54 @@ impl Flattener {
                 match (expr1, expr2) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
 
-                        let e1_subbed = e1.apply_substitution(&self.substitution);
-                        let e2_subbed = e2.apply_substitution(&self.substitution);
-                        
-                        let (lhs, rhs) = if e1_subbed.is_linear() {
+                        let (lhs, rhs) =
                             (
                                 self.flatten_field_expression(
                                     functions_flattened,
                                     arguments_flattened,
                                     statements_flattened,
-                                    e1_subbed
-                                ),
+                                    e1
+                                ).apply_substitution(&self.substitution),
                                 self.flatten_field_expression(
                                     functions_flattened,
                                     arguments_flattened,
                                     statements_flattened,
-                                    e2_subbed,
-                                ),
-                            )
-                        } else if e2_subbed.is_linear() {
-                            (
-                                self.flatten_field_expression(
-                                    functions_flattened,
-                                    arguments_flattened,
-                                    statements_flattened,
-                                    e2_subbed,
-                                ),
-                                self.flatten_field_expression(
-                                    functions_flattened,
-                                    arguments_flattened,
-                                    statements_flattened,
-                                    e1_subbed,
-                                ),
-                            )
-                        } else {
-                            unimplemented!()
-                        };
-                        statements_flattened.push(FlatStatement::Condition(lhs, rhs));
+                                    e2,
+                                ).apply_substitution(&self.substitution),
+                            );
+
+                        if lhs.is_linear() {
+                            statements_flattened.push(FlatStatement::Condition(lhs, rhs));
+                        } else if rhs.is_linear() {
+                            // swap so that left side is linear
+                            statements_flattened.push(FlatStatement::Condition(rhs, lhs));
+                        }
+
                     },
                     (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
-
-                        let e1_subbed = e1.apply_substitution(&self.substitution);
-                        let e2_subbed = e2.apply_substitution(&self.substitution);
                         
-                        let (lhs, rhs) = if e1_subbed.is_linear() {
+                        let (lhs, rhs) =
                             (
                                 self.flatten_boolean_expression(
                                     functions_flattened,
                                     arguments_flattened,
                                     statements_flattened,
-                                    e1_subbed
-                                ),
+                                    e1
+                                ).apply_substitution(&self.substitution),
                                 self.flatten_boolean_expression(
                                     functions_flattened,
                                     arguments_flattened,
                                     statements_flattened,
-                                    e2_subbed,
-                                ),
-                            )
-                        } else if e2_subbed.is_linear() {
-                            (
-                                self.flatten_boolean_expression(
-                                    functions_flattened,
-                                    arguments_flattened,
-                                    statements_flattened,
-                                    e2_subbed,
-                                ),
-                                self.flatten_boolean_expression(
-                                    functions_flattened,
-                                    arguments_flattened,
-                                    statements_flattened,
-                                    e1_subbed,
-                                ),
-                            )
-                        } else {
-                            unimplemented!()
-                        };
-                        statements_flattened.push(FlatStatement::Condition(lhs, rhs));
+                                    e2,
+                                ).apply_substitution(&self.substitution),
+                            );
+
+                        if lhs.is_linear() {
+                            statements_flattened.push(FlatStatement::Condition(lhs, rhs));
+                        } else if rhs.is_linear() {
+                            // swap so that left side is linear
+                            statements_flattened.push(FlatStatement::Condition(rhs, lhs));
+                        }
                     },
                     _ => panic!("non matching types in condition should have been caught at semantic stage")
                 }
@@ -934,10 +878,8 @@ impl Flattener {
                 // define p new variables to the right side expressions 
 
                 let var_types = vars.iter().map(|v| v.get_type()).collect();
-
-                let rhs_subbed = rhs.apply_substitution(&self.substitution);
                 
-                match rhs_subbed {
+                match rhs {
                     TypedExpressionList::FunctionCall(fun_id, exprs, _) => {
                         let rhs_flattened = self.flatten_function_call(
                             functions_flattened,
@@ -946,7 +888,7 @@ impl Flattener {
                             &fun_id,
                             var_types,
                             &exprs,
-                        );
+                        ).apply_substitution(&self.substitution);
 
                         // this will change for types that have multiple underlying fe
                         for (i, v) in vars.into_iter().enumerate() {
