@@ -108,9 +108,18 @@ impl<T: Field> Into<FlatFunction<T>> for R1CS {
         // insert a directive to set the witness based on the inputs
         statements.insert(0, FlatStatement::Directive(
             DirectiveStatement {
-                outputs: variables,
-                inputs: inputs,
+                outputs: variables.clone(),
+                inputs: inputs.clone(),
                 helper: Helper::LibsnarkGadget(LibsnarkGadgetHelper::Sha256Compress),
+            })
+        );
+
+        // insert a directive to set the witness based on the inputs
+        statements.insert(0, FlatStatement::Directive(
+            DirectiveStatement {
+                outputs: variables.clone(),
+                inputs: inputs.clone(),
+                helper: Helper::LibsnarkGadget(LibsnarkGadgetHelper::Sha256Ethereum),
             })
         );
 

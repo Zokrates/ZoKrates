@@ -159,18 +159,20 @@ impl Importer {
 
 	    #[cfg(feature = "libsnark")]
 	    {
-	    	use libsnark::{get_sha256_constraints};
+	    	use libsnark::{get_sha256_constraints, get_ethsha256_constraints};
 	    	use standard::R1CS;
 	    	use serde_json::from_str;
 
 		    if should_include_gadgets {
 		    	// inject globals
 			    let r1cs: R1CS = from_str(&get_sha256_constraints()).unwrap();
-
 			    origins.push(CompiledImport::new(FlatProg::from(r1cs), "sha256libsnark".to_string()));
+
+			    let r1cs: R1CS = from_str(&get_ethsha256_constraints()).unwrap();
+			    origins.push(CompiledImport::new(FlatProg::from(r1cs), "ethSha256libsnark".to_string()));
 		    }
 	   	}
-
+	  
 
 		Ok(Prog {
 			imports: vec![],

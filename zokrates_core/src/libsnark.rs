@@ -38,8 +38,10 @@ extern "C" {
             ) -> bool;
 
     fn _sha256Constraints() -> *mut c_char;
-
     fn _sha256Witness(inputs: *const uint8_t, inputs_length: c_int) -> *mut c_char;
+    
+    fn _shaEth256Constraints() -> *mut c_char;
+    fn _shaEth256Witness(inputs: *const uint8_t, inputs_length: c_int) -> *mut c_char;
 }
 
 pub fn setup<T: Field> (
@@ -201,6 +203,23 @@ pub fn get_sha256_witness<T:Field>(inputs: &Vec<T>) -> String {
     let a = unsafe { CString::from_raw(_sha256Witness(inputs_arr[0].as_ptr(), inputs.len() as i32)) };
     a.into_string().unwrap()
 }
+
+pub fn get_ethsha256_constraints() -> String {
+    let a = unsafe { CString::from_raw(_shaEth256Constraints()) };
+    a.into_string().unwrap()
+}
+
+pub fn get_ethsha256_witness<T:Field>(inputs: &Vec<T>) -> String {
+    let mut inputs_arr: Vec<[u8; 32]> = vec![[0u8; 32]; inputs.len()];
+
+    for (index, value) in inputs.into_iter().enumerate() {
+        inputs_arr[index] = vec_as_u8_32_array(&value.into_byte_vector());
+    }
+
+    let a = unsafe { CString::from_raw(_shaEth256Witness(inputs_arr[0].as_ptr(), inputs.len() as i32)) };
+    a.into_string().unwrap()
+}
+
 
 // utility function. Converts a Fields vector-based byte representation to fixed size array.
 fn vec_as_u8_32_array(vec: &Vec<u8>) -> [u8; 32] {

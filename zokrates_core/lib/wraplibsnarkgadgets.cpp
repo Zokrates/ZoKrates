@@ -1,3 +1,4 @@
+//https://gist.github.com/kobigurk/24c25e68219df87c348f1a78db51bb52	
 #include <iostream>
 
 #include "wraplibsnarkgadgets.hpp"
@@ -232,7 +233,7 @@ std::string r1cs_to_json(protoboard<FieldT> pb)
     return ss.str();
 }
 
-char* _sha256Constraints()
+char* _shaEth256Constraints()
 {
     libff::alt_bn128_pp::init_public_params();
     protoboard<FieldT> pb;
@@ -280,7 +281,7 @@ std::string array_to_json(protoboard<FieldT> pb)
     return(ss.str());
 }
 
-char* _sha256Witness(const uint8_t* inputs, int inputs_length)
+char* _shaEth256Witness(const uint8_t* inputs, int inputs_length)
 {
 
     libff::alt_bn128_pp::init_public_params();
@@ -328,3 +329,58 @@ char* _sha256Witness(const uint8_t* inputs, int inputs_length)
     return result;
 }
 
+char* _sha256Constraints()
+{
+    libff::alt_bn128_pp::init_public_params();
+    protoboard<FieldT> pb;
+
+    digest_variable<FieldT> left(pb, SHA256_digest_size, "left");
+    digest_variable<FieldT> right(pb, SHA256_digest_size, "right");
+    digest_variable<FieldT> output(pb, SHA256_digest_size, "output");
+
+    sha256_two_to_one_hash_gadget<FieldT> f(pb, left, right, output, "f");
+    f.generate_r1cs_constraints();
+    
+    auto json = r1cs_to_json(pb);
+
+    auto result = new char[json.size()];
+    memcpy(result, json.c_str(), json.size() + 1);
+    return result;
+}
+
+char* _sha256Witness(const uint8_t* inputs, int inputs_length)
+{
+
+    libff::alt_bn128_pp::init_public_params();
+    
+    protoboard<FieldT> pb;
+
+    digest_variable<FieldT> left(pb, SHA256_digest_size, "left");
+    digest_variable<FieldT> right(pb, SHA256_digest_size, "right");
+    digest_variable<FieldT> output(pb, SHA256_digest_size, "output");
+
+    sha256_two_to_one_hash_gadget<FieldT> f(pb, left, right, output, "f");
+    f.generate_r1cs_constraints(true);
+
+    libff::bit_vector left_bv;
+    libff::bit_vector right_bv;
+
+    for (int i = 0; i < inputs_length / 2; i++) {
+        left_bv.push_back(libsnarkBigintFromBytesAux(inputs + i*32) == 1);
+    }
+    for (int i = inputs_length / 2; i < inputs_length; i++) {
+        right_bv.push_back(libsnarkBigintFromBytesAux(inputs + i*32) == 1);
+    }
+
+    left.generate_r1cs_witness(left_bv);
+    right.generate_r1cs_witness(right_bv);
+
+    f.generate_r1cs_witness();
+    
+    assert(pb.is_satisfied());
+
+    auto json = array_to_json(pb);
+    auto result = new char[json.size()];
+    memcpy(result, json.c_str(), json.size() + 1);
+    return result;
+}
