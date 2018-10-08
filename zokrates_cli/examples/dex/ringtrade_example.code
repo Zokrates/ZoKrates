@@ -12,10 +12,10 @@ def findPairInTokenPairList(field[9] pairs, field sourceToken, field targetToken
 
 // add `volume` to element `token` in `volumeToken`
 def addVolumesForOrder(field[3] volumeToken, field token, field volume) -> (field[3]):
-  field txVolumeToken1 = volumeToken[0] + if token == 0 then volume else 0 fi
-  field txVolumeToken2 = volumeToken[1] + if token == 1 then volume else 0 fi
-  field txVolumeToken3 = volumeToken[2] + if token == 2 then volume else 0 fi
-  return [txVolumeToken1, txVolumeToken2, txVolumeToken3]
+  for field i in 0..3 do
+    volumeToken[i] = volumeToken[i] + if token == i then volume else 0 fi
+  endfor
+  return volumeToken
 
 def updateHighestTouchedOrder(field[9] highestTouchedOrder, field sourceToken, field targetToken, field limit, field volume) -> (field[9]):
 

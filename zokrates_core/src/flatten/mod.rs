@@ -894,11 +894,13 @@ impl Flattener {
                                         }
                                     },
                                     box TypedExpression::FieldElement(ref e) => {
-                                        //let size = array.size();
-                                        let size = 9; // TODO change
                                         // we have array[e] with e an arbitrary expression
                                         // first we check that e is in 0..array.len(), so we check that sum(if e == i then 1 else 0) == 1
                                         // here depending on the size, we could use a proper range check based on bits
+                                        let size = match array.get_type() {
+                                            Type::FieldElementArray(n) => n,
+                                            _ => panic!("checker should generate array element based on non array")
+                                        };
                                         let range_check = (0..size)
                                             .map(|i| 
                                                 FieldElementExpression::IfElse(
@@ -1425,7 +1427,7 @@ mod tests {
         let arguments_flattened = vec![];
         let mut statements_flattened = vec![];
         let statement = TypedStatement::Definition(
-            Variable::field_element("a".to_string()),
+            TypedAssignee::Identifier(Variable::field_element("a")),
             TypedExpression::FieldElement(FieldElementExpression::FunctionCall("foo".to_string(), vec![]))
         );
 
@@ -1469,7 +1471,7 @@ mod tests {
             arguments: vec![Parameter { id: Variable::field_element("a"), private: true }],
             statements: vec![
                 TypedStatement::Definition(
-                    Variable::field_element("a".to_string()), 
+                    TypedAssignee::Identifier(Variable::field_element("a")),
                     FieldElementExpression::Add(
                         box FieldElementExpression::Identifier("a".to_string()), 
                         box FieldElementExpression::Number(FieldPrime::from(1))
@@ -1508,7 +1510,9 @@ mod tests {
             id: String::from("foo"),
             arguments: vec![],
             statements: vec![
-                TypedStatement::Definition(Variable::field_element("a"), FieldElementExpression::Number(FieldPrime::from(3)).into()),
+                TypedStatement::Definition(
+                    TypedAssignee::Identifier(Variable::field_element("a")),
+                    FieldElementExpression::Number(FieldPrime::from(3)).into()),
                 TypedStatement::Return(vec![
                     FieldElementExpression::Identifier(String::from("a")).into()
                     ]
@@ -1566,6 +1570,12 @@ mod tests {
 
     #[test]
     fn powers() {
+
+        // def main():
+        //     field a = 7
+        //     field b = a**4
+        //     return b
+
         // def main():
         //     _0 = 7
         //     _1 = (_0 * _0)
@@ -1577,8 +1587,11 @@ mod tests {
             id: String::from("main"),
             arguments: vec![],
             statements: vec![
-                TypedStatement::Definition(Variable::field_element("a"), FieldElementExpression::Number(FieldPrime::from(7)).into()),
-                TypedStatement::Definition(Variable::field_element("b"), FieldElementExpression::Pow(box FieldElementExpression::Identifier(String::from("a")), box FieldElementExpression::Number(FieldPrime::from(4))).into()),
+                TypedStatement::Definition(
+                    TypedAssignee::Identifier(Variable::field_element("a")),
+                    FieldElementExpression::Number(FieldPrime::from(7)).into()
+                ),
+                TypedStatement::Definition(TypedAssignee::Identifier(Variable::field_element("b")), FieldElementExpression::Pow(box FieldElementExpression::Identifier(String::from("a")), box FieldElementExpression::Number(FieldPrime::from(4))).into()),
                 TypedStatement::Return(vec![
                     FieldElementExpression::Identifier(String::from("b")).into()
                     ]
@@ -1665,7 +1678,7 @@ mod tests {
                 id: "main".to_string(),
                 arguments: vec![],
                 statements: vec![
-                    TypedStatement::Definition(Variable::field_element("a".to_string()), TypedExpression::FieldElement(FieldElementExpression::FunctionCall("foo".to_string(), vec![]))),
+                    TypedStatement::Definition(TypedAssignee::Identifier(Variable::field_element("a")), TypedExpression::FieldElement(FieldElementExpression::FunctionCall("foo".to_string(), vec![]))),
                     TypedStatement::MultipleDefinition(vec![Variable::field_element("b".to_string()), Variable::field_element("c".to_string())], TypedExpressionList::FunctionCall("foo".to_string(), vec![], vec![Type::FieldElement, Type::FieldElement])),
                     TypedStatement::Return(
                         vec![TypedExpression::FieldElement(FieldElementExpression::Number(FieldPrime::from(1)))]
@@ -1725,7 +1738,7 @@ mod tests {
         let mut functions_flattened = vec![];
         let arguments_flattened = vec![];
         let mut statements_flattened = vec![];
-        let statement = TypedStatement::Definition(Variable::field_array("foo", 3), FieldElementArrayExpression::Value(3, vec![
+        let statement = TypedStatement::Definition(TypedAssignee::Identifier(Variable::field_array("foo", 3)), FieldElementArrayExpression::Value(3, vec![
                 FieldElementExpression::Number(FieldPrime::from(1)),
                 FieldElementExpression::Number(FieldPrime::from(2)),
                 FieldElementExpression::Number(FieldPrime::from(3)),
@@ -1768,7 +1781,7 @@ mod tests {
         let arguments_flattened = vec![];
         let mut statements_flattened = vec![];
         let statement = TypedStatement::Definition(
-            Variable::field_array("foo", 3),
+            TypedAssignee::Identifier(Variable::field_array("foo", 3)),
             FieldElementArrayExpression::Value(3, vec![
                 FieldElementExpression::Number(FieldPrime::from(1)),
                 FieldElementExpression::Number(FieldPrime::from(2)),
@@ -1805,7 +1818,7 @@ mod tests {
         let arguments_flattened = vec![];
         let mut statements_flattened = vec![];
         let statement = TypedStatement::Definition(
-            Variable::field_array("foo", 3),
+            TypedAssignee::Identifier(Variable::field_array("foo", 3)),
             FieldElementArrayExpression::Value(3, vec![
                 FieldElementExpression::Number(FieldPrime::from(1)),
                 FieldElementExpression::Number(FieldPrime::from(2)),
@@ -1848,7 +1861,7 @@ mod tests {
         let arguments_flattened = vec![];
         let mut statements_flattened = vec![];
         let def = TypedStatement::Definition(
-            Variable::field_array("foo", 3),
+            TypedAssignee::Identifier(Variable::field_array("foo", 3)),
             FieldElementArrayExpression::Value(3, vec![
                 FieldElementExpression::Number(FieldPrime::from(1)),
                 FieldElementExpression::Number(FieldPrime::from(2)),
@@ -1857,7 +1870,7 @@ mod tests {
         );
 
         let sum = TypedStatement::Definition(
-            Variable::field_element("bar"),
+            TypedAssignee::Identifier(Variable::field_element("bar")),
             FieldElementExpression::Add(
                 box FieldElementExpression::Add(
                     box FieldElementExpression::Select(box FieldElementArrayExpression::Identifier(3, String::from("foo")), box FieldElementExpression::Number(FieldPrime::from(0))),

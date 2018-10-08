@@ -124,6 +124,21 @@ pub enum TypedAssignee<T: Field> {
     ArrayElement(Box<TypedAssignee<T>>, Box<TypedExpression<T>>)
 }
 
+impl<T: Field> Typed for TypedAssignee<T> {
+    fn get_type(&self) -> Type {
+        match *self {
+            TypedAssignee::Identifier(ref v) => v.get_type(),
+            TypedAssignee::ArrayElement(ref a, _) => {
+                let a_type = a.get_type();
+                match a_type {
+                    Type::FieldElementArray(_) => Type::FieldElement,
+                    _ => panic!("array element has to take array")
+                }
+            }
+        }
+    }
+}
+
 impl<T: Field> fmt::Debug for TypedAssignee<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {

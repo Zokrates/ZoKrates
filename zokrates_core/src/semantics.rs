@@ -244,10 +244,16 @@ impl Checker {
 				let checked_expr = self.check_expression(&expr)?;
 				let expression_type = checked_expr.get_type();
 
-				// check that the variable is declared, has the right type and is well formed
-				let var = self.check_assignee(&assignee, &expression_type)?;
+				// check that the assignee is declared and is well formed
+				let var = self.check_assignee(&assignee)?;
 
-				Ok(TypedStatement::Definition(var, checked_expr))
+				let var_type = var.get_type();
+
+				// make sure the assignee has the same type as the rhs
+				match var_type == expression_type {
+					true => Ok(TypedStatement::Definition(var, checked_expr)),
+					false => Err( Error { message: format!("Expression of type {} cannot be assigned to {} of type {}", expression_type, var, var_type) }),
+				}
 			}
 			Statement::Condition(lhs, rhs) => {
 				let checked_lhs = self.check_expression(&lhs)?;
@@ -335,16 +341,12 @@ impl Checker {
 		}
 	}
 
-	fn check_assignee<T: Field>(&mut self, assignee: &Assignee<T>, t: &Type) -> Result<TypedAssignee<T>, Error> {
+	fn check_assignee<T: Field>(&mut self, assignee: &Assignee<T>) -> Result<TypedAssignee<T>, Error> {
 		// check that the assignee is declared
 		match assignee {
 			Assignee::Identifier(variable_name) => {
 				match self.get_scope(&variable_name) {
 					Some(var) => {
-						if *t != var.id.get_type() {
-							return Err( Error { message: format!("Expression of type {} cannot be assigned to {} of type {}", *t, var.id.id, var.id.get_type()) });
-						}
-
 						Ok(TypedAssignee::Identifier(var.id.clone()))
 					},
 					None => {
@@ -353,11 +355,8 @@ impl Checker {
 				}
 			},
 			Assignee::ArrayElement(box assignee, box index) => {
-				let expected_type = match t {
-					Type::FieldElement => Type::FieldElementArray(9), // TODO CHANGE
-					_ => panic!("cannot have brackets if its not a field element")
-				};
-				let checked_assignee = self.check_assignee(&assignee, &expected_type)?;
+
+				let checked_assignee = self.check_assignee(&assignee)?;
 				let checked_index = self.check_expression(&index)?;
 
 				Ok(TypedAssignee::ArrayElement(box checked_assignee, box checked_index))
@@ -932,7 +931,7 @@ mod tests {
 				Variable::field_element("a")
 			),
 			Statement::MultipleDefinition(
-				vec![String::from("a")],
+				vec![Assignee::Identifier(String::from("a"))],
 				Expression::FunctionCall("foo".to_string(), vec![]))
 		];
 
@@ -1008,7 +1007,7 @@ mod tests {
 				Variable::field_element("a")
 			),
 			Statement::MultipleDefinition(
-				vec![String::from("a")],
+				vec![Assignee::Identifier(String::from("a"))],
 				Expression::FunctionCall("foo".to_string(), vec![]))
 		];
 
@@ -1062,7 +1061,7 @@ mod tests {
 				Variable::field_element("b")
 			),
 			Statement::MultipleDefinition(
-				vec![String::from("a"), String::from("b")],
+				vec![Assignee::Identifier(String::from("a")), Assignee::Identifier(String::from("b"))],
 				Expression::FunctionCall("foo".to_string(), vec![
 					Expression::Identifier("x".to_string())
 				])
@@ -1161,7 +1160,7 @@ mod tests {
 				Variable::field_element("b")
 			),
 			Statement::MultipleDefinition(
-				vec![String::from("a"), String::from("b")],
+				vec![Assignee::Identifier(String::from("a")), Assignee::Identifier(String::from("b"))],
 				Expression::FunctionCall("foo".to_string(), vec![])
 			),
 			Statement::Return(
@@ -1368,5 +1367,47 @@ mod tests {
 			s2_checked,
 			Err(Error { message: "Duplicate declaration for variable named a".to_string() })
 		);
+	}
+
+	mod assignee {
+		use super::*;
+
+		#[test]
+		fn identifier() {
+			// a = 42
+			let a = Assignee::Identifier::<FieldPrime>(String::from("a"));
+
+			let mut checker: Checker = Checker::new();
+			checker.check_statement::<FieldPrime>(
+				&Statement::Declaration(Variable::field_element("a")),
+				&vec![],
+			).unwrap();
+
+			assert_eq!(
+				checker.check_assignee(&a),
+				Ok(TypedAssignee::Identifier(Variable::field_element("a")))
+			);
+		}
+
+		#[test]
+		fn array_element() {
+			// field[33] a
+			// a[2] = 42
+			let a = Assignee::ArrayElement(box Assignee::Identifier(String::from("a")), box Expression::Number(FieldPrime::from(2)));
+
+			let mut checker: Checker = Checker::new();
+			checker.check_statement::<FieldPrime>(
+				&Statement::Declaration(Variable::field_array("a", 33)),
+				&vec![],
+			).unwrap();
+
+			assert_eq!(
+				checker.check_assignee(&a),
+				Ok(TypedAssignee::ArrayElement(
+					box TypedAssignee::Identifier(Variable::field_array("a",33)),
+					box FieldElementExpression::Number(FieldPrime::from(2)).into())
+				)
+			);
+		}
 	}
 }
