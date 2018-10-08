@@ -37,6 +37,11 @@ pub struct Constraint {
 	c: BTreeMap<usize, String>,
 }
 
+pub struct DirectiveR1CS {
+    pub r1cs : R1CS,
+    pub directive : Option<LibsnarkGadgetHelper>
+}
+
 impl<T: Field> Into<FlatStatement<T>> for Constraint {
 	fn into(self: Constraint) -> FlatStatement<T> {
 		let rhs_a = match self.a.into_iter()
@@ -65,11 +70,6 @@ impl<T: Field> Into<FlatStatement<T>> for Constraint {
 
 		FlatStatement::Condition(lhs, FlatExpression::Mult(box rhs_a, box rhs_b))
 	}
-}
-
-pub struct DirectiveR1CS {
-    pub r1cs : R1CS,
-    pub directive : Option<LibsnarkGadgetHelper>
 }
 
 impl<T: Field> Into<FlatFunction<T>> for DirectiveR1CS {
@@ -112,7 +112,7 @@ impl<T: Field> Into<FlatFunction<T>> for DirectiveR1CS {
             outputs: vec![Type::FieldElement; outputs.len()],
         };
 
-        // insert a directive to set the witness based on the inputs
+        // insert a directive to set the witness based on the libsnark gadget and  inputs
         match self.directive {
 
             Some(LibsnarkGadgetHelper::Sha256Compress) => {
@@ -134,7 +134,8 @@ impl<T: Field> Into<FlatFunction<T>> for DirectiveR1CS {
                     })
                 );
             },
-            _ => {}
+
+            None => {}
         }
 
         // insert a statement to return the subset of the witness

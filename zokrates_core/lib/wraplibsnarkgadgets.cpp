@@ -7,10 +7,6 @@
 #include "libsnark/gadgetlib1/protoboard.hpp"
 #include "libff/common/default_types/ec_pp.hpp"
 #include "libsnark/reductions/r1cs_to_qap/r1cs_to_qap.hpp"
-
-
-#include <libsnark/gadgetlib1/gadgets/basic_gadgets.hpp>
-#include <libsnark/gadgetlib1/gadgets/hashes/hash_io.hpp>
 #include <libsnark/gadgetlib1/gadgets/hashes/sha256/sha256_components.hpp>
 #include <libsnark/gadgetlib1/gadgets/hashes/sha256/sha256_gadget.hpp>
 
@@ -65,10 +61,11 @@ public:
 
         intermediate_hash.reset(new digest_variable<FieldT>(pb, 256, "intermediate"));
 
-        // final padding
+        // Since we compute the hash on all 512bits we need to add an
+        // empty block (single "1" followed by "0") for the correct padding in SHA
         pb_variable_array<FieldT> length_padding =
             from_bits({
-                // padding
+                // emtpy padding block
                 1,0,0,0,0,0,0,0,
                 0,0,0,0,0,0,0,0,
                 0,0,0,0,0,0,0,0,
@@ -126,7 +123,7 @@ public:
                 0,0,0,0,0,0,0,0,
                 0,0,0,0,0,0,0,0,
 
-                // length of message (512 bits)
+                //Specify the total length of message (512 bits)
                 0,0,0,0,0,0,0,0,
                 0,0,0,0,0,0,0,0,
                 0,0,0,0,0,0,0,0,

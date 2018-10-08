@@ -259,7 +259,7 @@ mod tests {
         fn can_generate_flattened_code() {
             let constraints = get_sha256_constraints();
             let r1cs: standard::R1CS = serde_json::from_str(&constraints).unwrap();
-            let _prog: FlatProg<FieldPrime> = FlatProg::from(r1cs);
+            let _prog: FlatProg<FieldPrime> = FlatProg::from(standard::DirectiveR1CS{r1cs, directive: None});
         }
     }
 

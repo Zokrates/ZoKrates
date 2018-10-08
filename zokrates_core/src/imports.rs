@@ -167,15 +167,11 @@ impl Importer {
 		    if should_include_gadgets {
 		    	// inject globals
 			    let r1cs : R1CS = from_str(&get_sha256_constraints()).unwrap();
-				let dr1cs : DirectiveR1CS = DirectiveR1CS { r1cs: r1cs,
-					directive : Some(LibsnarkGadgetHelper::Sha256Compress) 
-				};
+				let dr1cs : DirectiveR1CS = DirectiveR1CS { r1cs, directive : Some(LibsnarkGadgetHelper::Sha256Compress) };
 			    origins.push(CompiledImport::new(FlatProg::from(dr1cs), "sha256libsnark".to_string()));
 
 			    let r1cs: R1CS = from_str(&get_ethsha256_constraints()).unwrap();
-				let dr1cs : DirectiveR1CS = DirectiveR1CS { r1cs: r1cs,
-					directive : Some(LibsnarkGadgetHelper::Sha256Ethereum)
-				};
+				let dr1cs : DirectiveR1CS = DirectiveR1CS { r1cs, directive : Some(LibsnarkGadgetHelper::Sha256Ethereum) };
 			    origins.push(CompiledImport::new(FlatProg::from(dr1cs), "ethSha256libsnark".to_string()));
 		    }
 	   	}
