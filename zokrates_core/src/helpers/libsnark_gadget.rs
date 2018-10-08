@@ -15,7 +15,7 @@ impl fmt::Display for LibsnarkGadgetHelper {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     	match *self {
     		LibsnarkGadgetHelper::Sha256Compress => write!(f, "Sha256Compress"),
-			LibsnarkGadgetHelper::Sha256Ethereum => write!(f, "Sha256Etherem"),
+			LibsnarkGadgetHelper::Sha256Ethereum => write!(f, "Sha256Ethereum"),
     	}
     }
 }
