@@ -67,9 +67,6 @@ impl<T: Field> fmt::Debug for FlatProg<T> {
 #[cfg(feature = "libsnark")]
 impl<T: Field> From<standard::DirectiveR1CS> for FlatProg<T> {
     fn from(dr1cs: standard::DirectiveR1CS) -> Self {
-
-        // let dr1cs: standard::DirectiveR1CS  = standard::DirectiveR1CS { r1cs: r1cs, directive: None };
-
         FlatProg {
             functions: vec![dr1cs.into()]
         }

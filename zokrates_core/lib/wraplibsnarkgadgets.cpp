@@ -9,7 +9,6 @@
 #include "libsnark/reductions/r1cs_to_qap/r1cs_to_qap.hpp"
 
 
-#include <libsnark/common/data_structures/merkle_tree.hpp>
 #include <libsnark/gadgetlib1/gadgets/basic_gadgets.hpp>
 #include <libsnark/gadgetlib1/gadgets/hashes/hash_io.hpp>
 #include <libsnark/gadgetlib1/gadgets/hashes/sha256/sha256_components.hpp>

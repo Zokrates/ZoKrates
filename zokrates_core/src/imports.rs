@@ -162,7 +162,7 @@ impl Importer {
 	    	use libsnark::{get_sha256_constraints, get_ethsha256_constraints};
 	    	use standard::{R1CS,DirectiveR1CS};
 	    	use serde_json::from_str;
-			use helpers::{DirectiveStatement, Helper, LibsnarkGadgetHelper};
+			use helpers::LibsnarkGadgetHelper;
 
 		    if should_include_gadgets {
 		    	// inject globals
