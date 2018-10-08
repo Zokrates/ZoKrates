@@ -119,9 +119,30 @@ impl<T: Field> fmt::Debug for TypedFunction<T> {
 }
 
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
+pub enum TypedAssignee<T: Field> {
+    Identifier(Variable),
+    ArrayElement(Box<TypedAssignee<T>>, Box<TypedExpression<T>>)
+}
+
+impl<T: Field> fmt::Debug for TypedAssignee<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            TypedAssignee::Identifier(ref s) => write!(f, "{}", s),
+            TypedAssignee::ArrayElement(ref a, ref e) => write!(f, "{}[{}]", a, e),
+        }
+    }
+}
+
+impl<T: Field> fmt::Display for TypedAssignee<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub enum TypedStatement<T: Field> {
     Return(Vec<TypedExpression<T>>),
-    Definition(Variable, TypedExpression<T>),
+    Definition(TypedAssignee<T>, TypedExpression<T>),
     Declaration(Variable),
     Condition(TypedExpression<T>, TypedExpression<T>),
     For(Variable, T, T, Vec<TypedStatement<T>>),

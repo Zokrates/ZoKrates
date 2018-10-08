@@ -232,7 +232,7 @@ impl Checker {
                 	false => Err( Error { message: format!("Duplicate declaration for variable named {}", var.id)})
                 }
             }
-			Statement::Definition(variable_name, expr) => {
+			Statement::Definition(assignee, expr) => {
 				// we create multidef when rhs is a function call to benefit from inference
 				// check rhs is not a function call here
 				match expr {
@@ -244,19 +244,8 @@ impl Checker {
 				let checked_expr = self.check_expression(&expr)?;
 				let expression_type = checked_expr.get_type();
 
-				// check that the variable is declared
-				let var = match self.get_scope(&variable_name) {
-					Some(var) => {
-						if expression_type != var.id.get_type() {
-							return Err( Error { message: format!("Expression of type {} cannot be assigned to {} of type {}", expression_type, var.id.id, var.id.get_type()) });
-						}
-
-						Ok(var.id.clone())
-					},
-					None => {
-						Err( Error { message: format!("Undeclared variable: {:?}", variable_name) })
-					}
-				}?;
+				// check that the variable is declared, has the right type and is well formed
+				let var = self.check_assignee(&assignee, &expression_type)?;
 
 				Ok(TypedStatement::Definition(var, checked_expr))
 			}
@@ -286,18 +275,27 @@ impl Checker {
 				self.exit_scope();
 				Ok(TypedStatement::For(var.clone(), from.clone(), to.clone(), checked_statements))
 			},
-            Statement::MultipleDefinition(var_names, rhs) => {
+            Statement::MultipleDefinition(assignees, rhs) => {
                 match rhs {
                 	// Right side has to be a function call
                     Expression::FunctionCall(ref fun_id, ref arguments) => {
 
                     	// find lhs types
-                    	let vars_types: Vec<Option<Type>> = var_names.iter().map(|name| 
-		        			match self.get_scope(&name) {
-			            		None => None,
-			            		Some(sv) => Some(sv.id.get_type())
-			            	}
-		            	).collect();
+                    	let mut vars_types : Vec<Option<Type>> = vec![];
+                    	let mut var_names = vec![];
+                    	for assignee in assignees {
+                    		let (name, t) = match assignee {
+                    			Assignee::Identifier(name) => {
+                    				Ok((name, match self.get_scope(&name) {
+					            		None => None,
+					            		Some(sv) => Some(sv.id.get_type())
+					            	}))
+                    			}
+                    			a => Err(Error { message: format!("Left hand side of function return assignment must be a list of identifiers, found {}", a)})
+                    		}?;
+                    		vars_types.push(t);
+                    		var_names.push(name);
+		            	}
 
                     	// find arguments types
                     	let mut arguments_checked = vec![]; 
@@ -334,6 +332,36 @@ impl Checker {
                     _ => Err(Error { message: format!("{} should be a FunctionCall", rhs) })
                 }
             },
+		}
+	}
+
+	fn check_assignee<T: Field>(&mut self, assignee: &Assignee<T>, t: &Type) -> Result<TypedAssignee<T>, Error> {
+		// check that the assignee is declared
+		match assignee {
+			Assignee::Identifier(variable_name) => {
+				match self.get_scope(&variable_name) {
+					Some(var) => {
+						if *t != var.id.get_type() {
+							return Err( Error { message: format!("Expression of type {} cannot be assigned to {} of type {}", *t, var.id.id, var.id.get_type()) });
+						}
+
+						Ok(TypedAssignee::Identifier(var.id.clone()))
+					},
+					None => {
+						Err( Error { message: format!("Undeclared variable: {:?}", variable_name) })
+					}
+				}
+			},
+			Assignee::ArrayElement(box assignee, box index) => {
+				let expected_type = match t {
+					Type::FieldElement => Type::FieldElementArray(9), // TODO CHANGE
+					_ => panic!("cannot have brackets if its not a field element")
+				};
+				let checked_assignee = self.check_assignee(&assignee, &expected_type)?;
+				let checked_index = self.check_expression(&index)?;
+
+				Ok(TypedAssignee::ArrayElement(box checked_assignee, box checked_index))
+			}
 		}
 	}
 
@@ -613,7 +641,7 @@ mod tests {
 		// a = b
 		// b undefined
 		let statement: Statement<FieldPrime> = Statement::Definition(
-			String::from("a"),
+			Assignee::Identifier(String::from("a")),
 			Expression::Identifier(String::from("b"))
 		);
 		let mut checker = Checker::new();
@@ -625,7 +653,7 @@ mod tests {
 		// a = b
 		// b defined
 		let statement: Statement<FieldPrime> = Statement::Definition(
-			String::from("a"),
+			Assignee::Identifier(String::from("a")),
 			Expression::Identifier(String::from("b"))
 		);
 
@@ -642,7 +670,7 @@ mod tests {
 		assert_eq!(checker.check_statement(&statement, &vec![]), 
 			Ok(
 				TypedStatement::Definition(
-					Variable::field_element("a"),
+					TypedAssignee::Identifier(Variable::field_element("a")),
 					FieldElementExpression::Identifier(String::from("b")).into()
 				)
 			)
@@ -662,7 +690,7 @@ mod tests {
 			Variable::field_element("a")
 		));
 		foo_statements.push(Statement::Definition(
-			String::from("a"),
+			Assignee::Identifier(String::from("a")),
 			Expression::Number(FieldPrime::from(1)))
 		);
 		let foo = Function {
@@ -721,7 +749,7 @@ mod tests {
 				Variable::field_element("a")
 			),
 			Statement::Definition(
-				String::from("a"),
+				Assignee::Identifier(String::from("a")),
 				Expression::Number(FieldPrime::from(1)))
 		];
 
@@ -741,7 +769,7 @@ mod tests {
 				Variable::field_element("a")
 			),
 			Statement::Definition(
-				String::from("a"),
+				Assignee::Identifier(String::from("a")),
 				Expression::Number(FieldPrime::from(2))
 			),
 			Statement::Return(
@@ -838,7 +866,7 @@ mod tests {
 			Variable::field_element("a")
 		));
 		for_statements.push(Statement::Definition(
-			String::from("a"),
+			Assignee::Identifier(String::from("a")),
 			Expression::Identifier(String::from("i"))
 		));
 		foo_statements.push(Statement::For(
@@ -856,7 +884,7 @@ mod tests {
 		));
 
 		for_statements_checked.push(TypedStatement::Definition(
-			Variable::field_element("a"),
+			TypedAssignee::Identifier(Variable::field_element("a")),
 			FieldElementExpression::Identifier(String::from("i")).into()
 		));
 

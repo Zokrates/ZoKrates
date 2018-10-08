@@ -11,7 +11,7 @@ use parser::tokenize::skip_whitespaces;
 use super::expression::{parse_expr, parse_expr1, parse_function_call, parse_term1, parse_array_select};
 use super::expression_list::parse_expression_list;
 
-use absy::{Expression, Statement, Variable};
+use absy::{Expression, Statement, Variable, Assignee};
 use types::Type;
 
 pub fn parse_statement<T: Field, R: BufRead>(
@@ -216,7 +216,7 @@ pub fn parse_statement<T: Field, R: BufRead>(
 }
 
 fn parse_definition1<T: Field>(
-    x: String,
+    x: Assignee<T>,
     input: String,
     pos: Position,
 ) -> Result<(Vec<Statement<T>>, String, Position), Error<T>> {
@@ -269,10 +269,10 @@ fn parse_declaration_definition<T: Field>(
                         assert_eq!(s3, "");
                         match e2 {
                             e @ Expression::FunctionCall(..) => {
-                                Ok((vec![Statement::Declaration(Variable::new(x.clone(), t)), Statement::MultipleDefinition(vec![x], e)], s2, p2))
+                                Ok((vec![Statement::Declaration(Variable::new(x.clone(), t)), Statement::MultipleDefinition(vec![Assignee::Identifier(x)], e)], s2, p2))
                             },
                             e => {
-                                Ok((vec![Statement::Declaration(Variable::new(x.clone(), t)), Statement::Definition(x, e)], s2, p2))
+                                Ok((vec![Statement::Declaration(Variable::new(x.clone(), t)), Statement::Definition(Assignee::Identifier(x), e)], s2, p2))
                             }
                         }
                     }
@@ -280,10 +280,10 @@ fn parse_declaration_definition<T: Field>(
                         assert_eq!(s3, "");
                         match e2 {
                             e @ Expression::FunctionCall(..) => {
-                                Ok((vec![Statement::Declaration(Variable::new(x.clone(), t)), Statement::MultipleDefinition(vec![x], e)], s2, p2))
+                                Ok((vec![Statement::Declaration(Variable::new(x.clone(), t)), Statement::MultipleDefinition(vec![Assignee::Identifier(x)], e)], s2, p2))
                             },
                             e => {
-                                Ok((vec![Statement::Declaration(Variable::new(x.clone(), t)), Statement::Definition(x, e)], s2, p2))
+                                Ok((vec![Statement::Declaration(Variable::new(x.clone(), t)), Statement::Definition(Assignee::Identifier(x), e)], s2, p2))
                             }
                         }
                     }
@@ -309,7 +309,7 @@ fn parse_declaration_definition<T: Field>(
                     (Token::Eq, s3, p3) => match parse_expr(&s3, &p3) {
                         Ok((e4, s4, p4)) => {
                             let mut statements: Vec<Statement<T>> = d2.into_iter().map(|v| Statement::Declaration(v)).collect();
-                            statements.push(Statement::MultipleDefinition(e2, e4));
+                            statements.push(Statement::MultipleDefinition(e2.into_iter().map(|e| Assignee::Identifier(e)).collect(), e4));
                             Ok((statements, s4, p4)) // output a multipledefinition with the destructure and the expression
                         }
                         Err(err) => Err(err),
@@ -343,7 +343,7 @@ fn parse_statement1<T: Field>(
     pos: Position,
 ) -> Result<(Vec<Statement<T>>, String, Position), Error<T>> {
     match next_token::<T>(&input, &pos) {
-        (Token::Eq, s1, p1) => parse_definition1(ide, s1, p1),
+        (Token::Eq, s1, p1) => parse_definition1(Assignee::Identifier(ide), s1, p1),
         (Token::Comma, s1, p1) => match parse_identifier_list1(ide, None, s1, p1) {
             // if we find a comma, parse the rest of the destructure
             Ok((e2, d2, s2, p2)) => match next_token(&s2, &p2) {
@@ -351,7 +351,7 @@ fn parse_statement1<T: Field>(
                 (Token::Eq, s3, p3) => match parse_expr(&s3, &p3) {
                     Ok((e4, s4, p4)) => {
                         let mut statements: Vec<Statement<T>> = d2.into_iter().map(|v| Statement::Declaration(v)).collect();
-                        statements.push(Statement::MultipleDefinition(e2, e4));
+                        statements.push(Statement::MultipleDefinition(e2.into_iter().map(|e| Assignee::Identifier(e)).collect(), e4));
                         Ok((statements, s4, p4)) // output a multipledefinition with the destructure and the expression
                     }
                     Err(err) => Err(err),
@@ -426,6 +426,7 @@ fn parse_statement1<T: Field>(
                     },
                     Err(err) => Err(err),
                 },
+                (Token::Eq, s4, p4) => parse_definition1(Assignee::from(e3), s4, p4),
                 (t4, _, p4) => Err(Error {
                     expected: vec![Token::Eqeq],
                     got: t4,
