@@ -19,18 +19,18 @@ pub struct CompiledImport<T: Field> {
 
 impl<T: Field> CompiledImport<T> {
 	fn new(prog: FlatProg<T>, alias: String) -> CompiledImport<T> {
-		match prog.functions.iter().find(|fun| fun.id == "main") {
-        	Some(fun) => {
-				CompiledImport { flat_func: 
-					FlatFunction {
-						id: alias,
-						..fun.clone()
-					}
-				}
-        	},
-        	None => panic!("no main")
+                match prog.functions.iter().find(|fun| fun.id == "main") {
+                        Some(fun) => {
+                                CompiledImport { flat_func:
+                                        FlatFunction {
+                                            id: alias,
+                                            ..fun.clone()
+                                        }
+                                }
+                        },
+                        None => panic!("no main")
+                }
         }
-	}
 }
 
 #[derive(PartialEq, Debug)]
@@ -162,16 +162,16 @@ impl Importer {
 	    	use libsnark::{get_sha256_constraints, get_ethsha256_constraints};
 	    	use standard::{R1CS,DirectiveR1CS};
 	    	use serde_json::from_str;
-			use helpers::LibsnarkGadgetHelper;
+		use helpers::LibsnarkGadgetHelper;
 
 		    if should_include_gadgets {
-		    	// inject globals
+                            // inject globals
 			    let r1cs : R1CS = from_str(&get_sha256_constraints()).unwrap();
-				let dr1cs : DirectiveR1CS = DirectiveR1CS { r1cs, directive : Some(LibsnarkGadgetHelper::Sha256Compress) };
+		            let dr1cs : DirectiveR1CS = DirectiveR1CS { r1cs, directive : Some(LibsnarkGadgetHelper::Sha256Compress) };
 			    origins.push(CompiledImport::new(FlatProg::from(dr1cs), "sha256libsnark".to_string()));
 
 			    let r1cs: R1CS = from_str(&get_ethsha256_constraints()).unwrap();
-				let dr1cs : DirectiveR1CS = DirectiveR1CS { r1cs, directive : Some(LibsnarkGadgetHelper::Sha256Ethereum) };
+			    let dr1cs : DirectiveR1CS = DirectiveR1CS { r1cs, directive : Some(LibsnarkGadgetHelper::Sha256Ethereum) };
 			    origins.push(CompiledImport::new(FlatProg::from(dr1cs), "ethSha256libsnark".to_string()));
 		    }
 	   	}
