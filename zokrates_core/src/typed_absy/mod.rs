@@ -142,7 +142,7 @@ impl<T: Field> Typed for TypedAssignee<T> {
 impl<T: Field> fmt::Debug for TypedAssignee<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            TypedAssignee::Identifier(ref s) => write!(f, "{}", s),
+            TypedAssignee::Identifier(ref s) => write!(f, "{}", s.id),
             TypedAssignee::ArrayElement(ref a, ref e) => write!(f, "{}[{}]", a, e),
         }
     }

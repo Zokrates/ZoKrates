@@ -35,60 +35,46 @@ def verifyCompletelyFulfilledIfLimitLowerHighestTouchedOrder(field[9] highestTou
   field valid = if limit < highest then 1 - (sourceAmount - volume) else 1 fi
   return valid
 
-def checkConstraints(field amount1, field sourceToken1, field targetToken1, field limit1, field amount2, field sourceToken2, field targetToken2, field limit2, field amount3, field sourceToken3, field targetToken3, field limit3, field[3] volume, field[3] priceToken) -> (field):
+def checkConstraints(field[3] amount, field[3] sourceToken, field[3] targetToken, field[3] limit, field[3] volume, field[3] priceToken) -> (field):
   // volumes are not larger than in original offer
-  field validVolumesLowerAmount1 = if amount1 < volume[0] then 0 else 1 fi
-  validVolumesLowerAmount1 == 1
-  field validVolumesLowerAmount2 = if amount2 < volume[1] then 0 else 1 fi
-  validVolumesLowerAmount2 == 1
-  field validVolumesLowerAmount3 = if amount3 < volume[2] then 0 else 1 fi
-  validVolumesLowerAmount3 == 1
+  for field i in 0..3 do
+    1 == if amount[i] < volume[i] then 0 else 1 fi
+  endfor
 
-  field sourceTokenPriceOrder1 = priceToken[sourceToken1]
-  field targetTokenPriceOrder1 = priceToken[targetToken1]
-  field sourceTokenPriceOrder2 = priceToken[sourceToken2]
-  field targetTokenPriceOrder2 = priceToken[targetToken2]
-  field sourceTokenPriceOrder3 = priceToken[sourceToken3]
-  field targetTokenPriceOrder3 = priceToken[targetToken3]
+  field[3] sourceTokenPriceOrder = [0, 0, 0]
+  field[3] targetTokenPriceOrder = [0, 0, 0]
+  
+  for field i in 0..3 do
+    sourceTokenPriceOrder[i] = priceToken[sourceToken[i]]
+    targetTokenPriceOrder[i] = priceToken[targetToken[i]]
+  endfor
 
   // orders are only touched, if the limit price is below the calculated price:
-  field validLimitLessThanPrice1 = if volume[0] == 0 then 1 else limitLessThanPrice(sourceTokenPriceOrder1, targetTokenPriceOrder1, limit1) fi
-  validLimitLessThanPrice1 == 1
-  field validLimitLessThanPrice2 = if volume[1] == 0 then 1 else limitLessThanPrice(sourceTokenPriceOrder2, targetTokenPriceOrder2, limit2) fi
-  validLimitLessThanPrice2 == 1
-  field validLimitLessThanPrice3 = if volume[2] == 0 then 1 else limitLessThanPrice(sourceTokenPriceOrder3, targetTokenPriceOrder3, limit3) fi
-  validLimitLessThanPrice3 == 1
+  for field i in 0..3 do
+    1 == if volume[i] == 0 then 1 else limitLessThanPrice(sourceTokenPriceOrder[i], targetTokenPriceOrder[i], limit[i]) fi
+  endfor
 
   // the amount of sell volume for a token equals its buy volume:
   buyVolumeToken = tupleForTokensWithValue(0)
   sellVolumeToken = tupleForTokensWithValue(0)
 
-  buyVolumeToken = addVolumesForOrder(buyVolumeToken, targetToken1, volume[0] * sourceTokenPriceOrder1)
-  sellVolumeToken = addVolumesForOrder(sellVolumeToken, sourceToken1, volume[0] * sourceTokenPriceOrder1)
-
-  buyVolumeToken = addVolumesForOrder(buyVolumeToken, targetToken2, volume[1] * sourceTokenPriceOrder2)
-  sellVolumeToken = addVolumesForOrder(sellVolumeToken, sourceToken2, volume[1] * sourceTokenPriceOrder2)
-
-  buyVolumeToken = addVolumesForOrder(buyVolumeToken, targetToken3, volume[2] * sourceTokenPriceOrder3)
-  sellVolumeToken = addVolumesForOrder(sellVolumeToken, sourceToken3, volume[2] * sourceTokenPriceOrder3)
+  for field i in 0..3 do
+    buyVolumeToken = addVolumesForOrder(buyVolumeToken, targetToken[i], volume[i] * sourceTokenPriceOrder[i])
+    sellVolumeToken = addVolumesForOrder(sellVolumeToken, sourceToken[i], volume[i] * sourceTokenPriceOrder[i])
+  endfor
 
   buyVolumeToken == sellVolumeToken
 
   // If an order σ ∈ Oi→j with a limit price p has a positive trading volume, then every order in Oi→j with a lower limit price should be completely fulfilled.
   highestTouchedOrder = tupleForTokenPairsWithValue(0)
 
-  highestTouchedOrder = updateHighestTouchedOrder(highestTouchedOrder, sourceToken1, targetToken1, limit1, volume[0])
+  for field i in 0..3 do 
+    highestTouchedOrder = updateHighestTouchedOrder(highestTouchedOrder, sourceToken[i], targetToken[i], limit[i], volume[i])
+  endfor
 
-  highestTouchedOrder = updateHighestTouchedOrder(highestTouchedOrder, sourceToken2, targetToken2, limit2, volume[1])
-
-  highestTouchedOrder = updateHighestTouchedOrder(highestTouchedOrder, sourceToken3, targetToken3, limit3, volume[2])
-
-  valid = verifyCompletelyFulfilledIfLimitLowerHighestTouchedOrder(highestTouchedOrder, amount1, sourceToken1, targetToken1, limit1, volume[0])
-  valid == 1
-  valid = verifyCompletelyFulfilledIfLimitLowerHighestTouchedOrder(highestTouchedOrder, amount2, sourceToken2, targetToken2, limit2, volume[1])
-  valid == 1
-  valid = verifyCompletelyFulfilledIfLimitLowerHighestTouchedOrder(highestTouchedOrder, amount3, sourceToken3, targetToken3, limit3, volume[2])
-  valid == 1
+  for field i in 0..3 do
+    1 == verifyCompletelyFulfilledIfLimitLowerHighestTouchedOrder(highestTouchedOrder, amount[i], sourceToken[i], targetToken[i], limit[i], volume[i])
+  endfor
 
   return 1 // Could return total volume to maximize for
 
@@ -96,9 +82,18 @@ def main(private field[3] encodedOrder, private field[3] bitmapOrder, private fi
   // Remove orders that are not double signed
   encodedOrder = [if bitmapOrder[0] == 1 then encodedOrder[0] else 0 fi, if bitmapOrder[1] == 1 then encodedOrder[1] else 0 fi, if bitmapOrder[2] == 1 then encodedOrder[2] else 0 fi]
 
-  // Decode orders
-  amount1, sourceToken1, targetToken1, limit1 = decodeOrder(encodedOrder[0])
-  amount2, sourceToken2, targetToken2, limit2 = decodeOrder(encodedOrder[1])
-  amount3, sourceToken3, targetToken3, limit3 = decodeOrder(encodedOrder[2])
+  field[3] amount = [0, 0, 0]
+  field[3] sourceToken = [0, 0, 0]
+  field[3] targetToken = [0, 0, 0]
+  field[3] limit = [0, 0, 0]
 
-  return checkConstraints(amount1, sourceToken1, targetToken1, limit1, amount2, sourceToken2, targetToken2, limit2, amount3, sourceToken3, targetToken3, limit3, volume, priceToken)
+  // Decode orders
+  for field i in 0..3 do 
+    a, s, t, l = decodeOrder(encodedOrder[i])
+    amount[i] = a
+    sourceToken[i] = s
+    targetToken[i] = t
+    limit[i] = l
+  endfor
+
+  return checkConstraints(amount, sourceToken, targetToken, limit, volume, priceToken)

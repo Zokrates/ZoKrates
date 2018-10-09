@@ -3,4 +3,9 @@
 import "./../../binary/and.code" as AND
 
 def main(field[32] b, field[32] c) -> (field[32]):
-	return [AND(b[0], c[0]), AND(b[1], c[1]), AND(b[2], c[2]), AND(b[3], c[3]), AND(b[4], c[4]), AND(b[5], c[5]), AND(b[6], c[6]), AND(b[7], c[7]), AND(b[8], c[8]), AND(b[9], c[9]), AND(b[10], c[10]), AND(b[11], c[11]), AND(b[12], c[12]), AND(b[13], c[13]), AND(b[14], c[14]), AND(b[15], c[15]), AND(b[16], c[16]), AND(b[17], c[17]), AND(b[18], c[18]), AND(b[19], c[19]), AND(b[20], c[20]), AND(b[21], c[21]), AND(b[22], c[22]), AND(b[23], c[23]), AND(b[24], c[24]), AND(b[25], c[25]), AND(b[26], c[26]), AND(b[27], c[27]), AND(b[28], c[28]), AND(b[29], c[29]), AND(b[30], c[30]), AND(b[31], c[31])]
+	field[32] result = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+	for field i in 0..32 do
+		r = AND(b[i], c[i])
+		result[i] = r
+	endfor
+	return result
