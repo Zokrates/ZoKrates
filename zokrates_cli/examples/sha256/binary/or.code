@@ -3,5 +3,5 @@
 import "./and.code" as AND
 import "./not.code" as NOT
 
-def main(x, y):
+def main(field x, field y) -> (field):
 	return NOT(AND(NOT(x), NOT(y)))

@@ -4,11 +4,34 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
+use compile::CompileError;
+use std::io::BufRead;
+use compile::compile_aux;
 use std::fmt;
 use absy::*;
 use flat_absy::*;
 use field::Field;
 use std::io;
+
+pub struct CompiledImport<T: Field> {
+	pub flat_func: FlatFunction<T>,
+}
+
+impl<T: Field> CompiledImport<T> {
+	fn new(prog: FlatProg<T>, alias: String) -> CompiledImport<T> {
+		match prog.functions.iter().find(|fun| fun.id == "main") {
+        	Some(fun) => {
+				CompiledImport { flat_func: 
+					FlatFunction {
+						id: alias,
+						..fun.clone()
+					}
+				}
+        	},
+        	None => panic!("no main")
+        }
+	}
+}
 
 #[derive(PartialEq, Debug)]
 pub struct Error {
@@ -104,27 +127,56 @@ impl Importer {
 		}
 	}
 
-	pub	fn apply_imports<T: Field>(&self, origins: Vec<(FlatProg<T>, String)>, destination: Prog<T>) -> Prog<T> {
-		let imported_mains = origins.iter().map(|origin| {
-			match origin {
-				&(ref program, ref alias) => {
-					match program.functions.iter().find(|fun| fun.id == "main") {
-			        	Some(fun) => {
-			        		let mut f = fun.clone();
-			        		f.id = alias.to_string();
-			        		f
-			        	},
-			        	None => panic!("no main")
-			        }
-				}
-			}
-		}).collect();
+	pub	fn apply_imports<T: Field, S: BufRead, E: Into<Error>>(&self, destination: Prog<T>, location: Option<String>, resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>, should_include_gadgets: bool) -> Result<Prog<T>, CompileError<T>> {
 
-		Prog {
+		let mut origins: Vec<CompiledImport<T>> = vec![];
+
+	    // to resolve imports, we need a resolver
+	    match resolve_option {
+	    	Some(resolve) => {
+	    		// we have a resolver, pass each import through it
+		    	for import in destination.imports.iter() {
+		    		// find the absolute path for the import, based on the path of the file which imports it
+		    		match resolve(&location, &import.source) {
+		    			Ok((mut reader, location, auto_alias)) => {
+				    		let compiled = compile_aux(&mut reader, Some(location), resolve_option, should_include_gadgets)?;
+				    		let alias = match import.alias {
+				    			Some(ref alias) => alias.clone(),
+				    			None => auto_alias
+				    		};
+					    	origins.push(CompiledImport::new(compiled, alias));
+				    	},
+		    			Err(err) => return Err(CompileError::ImportError(err.into()))
+		    		}
+		    	}
+	    	},
+	    	None => {
+	    		if destination.imports.len() > 0 {
+	    			return Err(Error::new("Can't resolve import without a resolver").into())
+	    		}
+	    	}
+	    }
+
+	    #[cfg(feature = "libsnark")]
+	    {
+	    	use libsnark::{get_sha256_constraints};
+	    	use standard::R1CS;
+	    	use serde_json::from_str;
+
+		    if should_include_gadgets {
+		    	// inject globals
+			    let r1cs: R1CS = from_str(&get_sha256_constraints()).unwrap();
+
+			    origins.push(CompiledImport::new(FlatProg::from(r1cs), "sha256libsnark".to_string()));
+		    }
+	   	}
+
+
+		Ok(Prog {
 			imports: vec![],
 			functions: destination.clone().functions,
-			imported_functions: imported_mains
-		}
+			imported_functions: origins.into_iter().map(|o| o.flat_func).collect()
+		})
 	}
 }
 

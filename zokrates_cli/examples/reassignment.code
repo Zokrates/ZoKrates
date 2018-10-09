@@ -1,7 +1,7 @@
-def main(x):
-  a = x + 5
-  b = a + x
+def main(field x) -> (field):
+  field a = x + 5
+  field b = a + x
   a = 7
-  c = a + b
+  field c = a + b
   a = a + 5
   return a + c

@@ -2,7 +2,7 @@
 
 import "./../../binary/fulladd.code" as FULLADD
 
-def main(b31, b30, b29, b28, b27, b26, b25, b24, b23, b22, b21, b20, b19, b18, b17, b16, b15, b14, b13, b12, b11, b10, b9, b8, b7, b6, b5, b4, b3, b2, b1, b0, c31, c30, c29, c28, c27, c26, c25, c24, c23, c22, c21, c20, c19, c18, c17, c16, c15, c14, c13, c12, c11, c10, c9, c8, c7, c6, c5, c4, c3, c2, c1, c0):
+def main(field b31, field b30, field b29, field b28, field b27, field b26, field b25, field b24, field b23, field b22, field b21, field b20, field b19, field b18, field b17, field b16, field b15, field b14, field b13, field b12, field b11, field b10, field b9, field b8, field b7, field b6, field b5, field b4, field b3, field b2, field b1, field b0, field c31, field c30, field c29, field c28, field c27, field c26, field c25, field c24, field c23, field c22, field c21, field c20, field c19, field c18, field c17, field c16, field c15, field c14, field c13, field c12, field c11, field c10, field c9, field c8, field c7, field c6, field c5, field c4, field c3, field c2, field c1, field c0) -> (field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field):
 	d0, car1 = FULLADD(b0, c0, 0)
 	d1, car2 = FULLADD(b1, c1, car1)
 	d2, car3 = FULLADD(b2, c2, car2)

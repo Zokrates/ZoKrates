@@ -38,7 +38,7 @@ fn main() {
     // cli specification using clap library
     let matches = App::new("ZoKrates")
     .setting(AppSettings::SubcommandRequiredElseHelp)
-    .version("0.1")
+    .version("0.2")
     .author("Jacob Eberhardt, Dennis Kuhnert")
     .about("Supports generation of zkSNARKs from high level language code including Smart Contracts for proof verification on the Ethereum Blockchain.\n'I know that I show nothing!'")
     .subcommand(SubCommand::with_name("compile")
@@ -336,7 +336,12 @@ fn main() {
 
             let witness_map = main_flattened.get_witness(arguments).unwrap();
 
-            println!("Witness: {:?}", witness_map);
+            println!("\nWitness: \n\n{}", witness_map
+                .iter()
+                .filter_map(|(variable, value)| match variable {
+                    variable if variable.is_output() => Some(format!("{} {}", variable, value)),
+                    _ => None
+                }).collect::<Vec<String>>().join("\n"));
 
             // write witness to file
             let output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -399,10 +404,24 @@ fn main() {
             let pk_path = sub_matches.value_of("proving-key-path").unwrap();
             let vk_path = sub_matches.value_of("verification-key-path").unwrap();
 
+            let public_inputs_indices = main_flattened.arguments.iter().enumerate()
+                .filter_map(|(index, x)| match x.private {
+                    true => None,
+                    false => Some(index),
+                });
+
+            let public_inputs = public_inputs_indices
+                .map(|i| main_flattened.signature.inputs[i].get_primitive_count())
+                .fold(0, |acc, e| acc + e);
+
+            let outputs = main_flattened.signature.outputs.iter().map(|t| t.get_primitive_count())
+                .fold(0, |acc, e| acc + e);
+
+            let num_inputs = public_inputs + outputs;
+
             // run setup phase
             #[cfg(feature="libsnark")]{
                 // number of inputs in the zkSNARK sense, i.e., input variables + output variables
-                let num_inputs = main_flattened.arguments.iter().filter(|x| !x.private).count() + main_flattened.return_count;
                 println!("setup successful: {:?}", setup(variables, a, b, c, num_inputs, pk_path, vk_path));
             }
         }
@@ -552,19 +571,22 @@ mod tests {
 
     #[test]
     fn examples() {
-        for p in glob("./examples/*.code").expect("Failed to read glob pattern") {
+        for p in glob("./examples/**/*.code").expect("Failed to read glob pattern") {
             let path = match p {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
             };
 
+            if path.to_str().unwrap().contains("error") {
+                continue
+            }
+
             println!("Testing {:?}", path);
 
             let file = File::open(path.clone()).unwrap();
 
-            let location = path.parent().unwrap().to_path_buf().into_os_string().into_string().unwrap();
-
             let mut reader = BufReader::new(file);
+            let location = path.parent().unwrap().to_path_buf().into_os_string().into_string().unwrap();
 
             let program_flattened: FlatProg<FieldPrime> =
                 compile(&mut reader, Some(location), Some(fs_resolve), true, false).unwrap();
@@ -575,7 +597,7 @@ mod tests {
 
     #[test]
     fn examples_with_input_success() {
-        // these examples should compile and run
+        //these examples should compile and run
         for p in glob("./examples/test*.code").expect("Failed to read glob pattern") {
             let path = match p {
                 Ok(x) => x,
@@ -590,7 +612,8 @@ mod tests {
             let mut reader = BufReader::new(file);
 
             let program_flattened: FlatProg<FieldPrime> =
-                compile(&mut reader, Some(location), Some(fs_resolve), true, false).unwrap();
+
+            compile(&mut reader, Some(location), Some(fs_resolve), true, false).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
             let _ = program_flattened.get_witness(vec![FieldPrime::from(0)]).unwrap();
@@ -599,7 +622,7 @@ mod tests {
 
     #[test]
     fn examples_with_input_failure() {
-        // these examples should compile but not run
+        //these examples should compile but not run
         for p in glob("./examples/runtime_errors/*.code").expect("Failed to read glob pattern") {
             let path = match p {
                 Ok(x) => x,
@@ -614,7 +637,8 @@ mod tests {
             let mut reader = BufReader::new(file);
 
             let program_flattened: FlatProg<FieldPrime> =
-                compile(&mut reader, Some(location), Some(fs_resolve), true, false).unwrap();
+
+            compile(&mut reader, Some(location), Some(fs_resolve), true, false).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
 

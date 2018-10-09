@@ -16,14 +16,13 @@ num = {version = "0.1.36", default-features = false}
 num-bigint = {version = "0.1.36", default-features = false}
 lazy_static = "0.1.*"
 reduce = "0.1.1"
-# cli
-clap = "2.26.2"
 # serialization and deserialization
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
 bincode = "0.8.0"
 regex = "0.2"
+bimap = "0.1"
 
 [dev-dependencies]
 glob = "0.2.11"

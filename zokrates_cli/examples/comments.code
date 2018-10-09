@@ -1,7 +1,7 @@
 // only using add, no need to flatten
-def main(a): // a needs to be 1
-  b = a + 5 // inline comment
-  c = a + b + a + 4
+def main(field a) -> (field): // a needs to be 1
+  field b = a + 5 // inline comment
+  field c = a + b + a + 4
   a == 1 // another inline comment
-  d = a + c + a + b
+  field d = a + c + a + b
   return b + c + d

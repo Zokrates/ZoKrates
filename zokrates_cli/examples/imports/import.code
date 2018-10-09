@@ -1,5 +1,5 @@
 import "./foo.code"
 import "./bar.code"
 
-def main():
+def main() -> (field):
 	return foo() + bar()

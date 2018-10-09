@@ -1,6 +1,6 @@
 // only using add, no need to flatten
-def main(a):
-  b = a + 5
-  c = a + b + a + 4
-  d = a + c + a + b
+def main(field a) -> (field):
+  field b = a + 5
+  field c = a + b + a + 4
+  field d = a + c + a + b
   return b + c + d
