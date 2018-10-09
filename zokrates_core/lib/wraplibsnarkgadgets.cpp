@@ -61,11 +61,12 @@ public:
 
         intermediate_hash.reset(new digest_variable<FieldT>(pb, 256, "intermediate"));
 
-        // Since we compute the hash on all 512bits we need to add an
-        // empty block (single "1" followed by "0") for the correct padding in SHA
+        // As the hash is computed on the full 512bit block size 
+        // padding does not fit in the primary block
+        // => add dummy block (single "1" followed by "0" + total length) 
         pb_variable_array<FieldT> length_padding =
             from_bits({
-                // emtpy padding block
+                //dummy padding block
                 1,0,0,0,0,0,0,0,
                 0,0,0,0,0,0,0,0,
                 0,0,0,0,0,0,0,0,
@@ -123,7 +124,7 @@ public:
                 0,0,0,0,0,0,0,0,
                 0,0,0,0,0,0,0,0,
 
-                //Specify the total length of message (512 bits)
+                //total length of message (512 bits)
                 0,0,0,0,0,0,0,0,
                 0,0,0,0,0,0,0,0,
                 0,0,0,0,0,0,0,0,
