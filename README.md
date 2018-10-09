@@ -35,19 +35,29 @@ cd ZoKrates/target/release
 
 # Example
 
-First, create a file that describes the problem to proof:
+First, create the textfile `add.code` and implement your program:
 ```
-def main(a, b, c):
+def main(field a, field b, field c) -> (field):
   return a + b + c
 ```
-then run the different phases of the protocol:
+The keyword `field` declares the type of the parameters used as elements of the underlying finite field.
+
+Then run the different phases of the protocol:
 ```
-./zokrates compile -i 'add.code_path'
-./zokrates compute-witness -a 1 2 3
+./zokrates compile -i 'add.code'
 ./zokrates setup
+./zokrates compute-witness -a 1 2 3
 ./zokrates generate-proof
 ./zokrates export-verifier
 ```
+`compile` takes the text files and compiles it into  ZoKrates internal representation of arithmetic circuits.
+
+ `setup` generates the proving key and verification key for the given program. These keys are derived from a source of randomness, commonly referred to as “toxic waste”. Anyone having access to the source of randomness can produce fake proofs that will be accepted by a verifier following the protocol.
+
+`compute-witness` creates a "witness" using a valid assignment for the specified input parameters of the program.
+
+`export-verifier` creates a Solidity contract `verifier.sol` that contains the generated verification key and a public function to verify a solution to the program using the `generate-proof` output.
+
 
 # API reference
 
