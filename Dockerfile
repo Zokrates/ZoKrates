@@ -35,6 +35,8 @@ WORKDIR $LIBSNARK_SOURCE_PATH
 RUN git checkout $LIBSNARK_COMMIT
 RUN git submodule update --init --recursive
 
+ENV CARGO_TARGET_DIR=/home/zokrates/target
+
 WORKDIR /home/zokrates
 
 COPY --chown=zokrates:zokrates . ZoKrates

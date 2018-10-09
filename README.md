@@ -50,14 +50,6 @@ Then run the different phases of the protocol:
 ./zokrates generate-proof
 ./zokrates export-verifier
 ```
-`compile` takes the text files and compiles it into  ZoKrates internal representation of arithmetic circuits.
-
- `setup` generates the proving key and verification key for the given program. These keys are derived from a source of randomness, commonly referred to as “toxic waste”. Anyone having access to the source of randomness can produce fake proofs that will be accepted by a verifier following the protocol.
-
-`compute-witness` creates a "witness" using a valid assignment for the specified input parameters of the program.
-
-`export-verifier` creates a Solidity contract `verifier.sol` that contains the generated verification key and a public function to verify a solution to the program using the `generate-proof` output.
-
 
 # API reference
 
@@ -73,13 +65,13 @@ You can see an overview of the available subcommands by running
 ./zokrates compile -i /path/to/add.code
 ```
 
-Compile a `.code` file.
+Compiles a `.code` file into  ZoKrates internal representation of arithmetic circuits. Use the `--gadgets` flag if libsnark gadgets are being used in your code (e.g. sha256 hashing). 
 
 Creates a compiled `.code` file at `./out.code`.
 
 #### `compute-witness`
 ```
-./zokrates compute-witness -a 1 2
+./zokrates compute-witness -a 1 2 3
 ```
 
 Computes a witness for the compiled program found at `./out.code` and arguments to the program.
@@ -95,15 +87,16 @@ Creates a witness file at `./witness`
 Generates a trusted setup for the compiled program found at `./out.code`.
 
 Creates a proving key and a verifying key at `./proving.key` and `./verifying.key`.
+These keys are derived from a source of randomness, commonly referred to as “toxic waste”. Anyone having access to the source of randomness can produce fake proofs that will be accepted by a verifier following the protocol.
 
 #### `export-verifier`
 ```
 ./zokrates export-verifier
 ```
 
-Using the verifying key at `./verifying.key`, generates a Solidity contract enabling to verify proofs for computations of the compiled program at `./out.code`.
+Using the verifying key at `./verifying.key`, generates a Solidity contract which contains the generated verification key and a public function to verify a solution to the compiled program at `./out.code`.
 
-Creates a verifier contract at `./verifier.sol`
+Creates a verifier contract at `./verifier.sol`.
 
 #### `generate-proof`
 ```
