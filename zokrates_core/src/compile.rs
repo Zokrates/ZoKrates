@@ -14,6 +14,7 @@ use semantics::{self, Checker};
 use optimizer::{Optimizer};
 use flatten::Flattener;
 use std::io::{self};
+use propagation::Propagate;
 
 #[derive(Debug)]
 pub enum CompileError<T: Field> {
@@ -79,6 +80,9 @@ pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(re
 
     // check semantics
     let typed_ast = Checker::new().check_program(program_ast)?;
+
+    // optimize (constant propagation)
+    let typed_ast = typed_ast.propagate();
 
     // flatten input program
     let program_flattened =

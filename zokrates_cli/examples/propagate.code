@@ -1,0 +1,5 @@
+def main() -> (field):
+	field a = 1 + 2 + 3
+	field b = if 1 < 2 then 3 else 4 fi
+	field c = if 1 + 1 == 2 then 1 else 0 fi
+	return a
