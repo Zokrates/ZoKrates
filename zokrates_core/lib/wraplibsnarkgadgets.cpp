@@ -17,7 +17,8 @@ using std::vector;
 
 typedef libff::Fr<alt_bn128_pp> FieldT;
 
-pb_variable_array<FieldT> from_bits(std::vector<bool> bits, pb_variable<FieldT>& ZERO) {
+pb_variable_array<FieldT> from_bits(std::vector<bool> bits, pb_variable<FieldT>& ZERO) 
+{
     pb_variable_array<FieldT> acc;
 
     for (size_t i = 0; i < bits.size(); i++) {
@@ -28,7 +29,8 @@ pb_variable_array<FieldT> from_bits(std::vector<bool> bits, pb_variable<FieldT>&
     return acc;
 }
 
-vector<unsigned long> bit_list_to_ints(vector<bool> bit_list, const size_t wordsize) {
+vector<unsigned long> bit_list_to_ints(vector<bool> bit_list, const size_t wordsize) 
+{
     vector<unsigned long> res;
     size_t iterations = bit_list.size()/wordsize+1;
     for (size_t i = 0; i < iterations; ++i) {
@@ -42,7 +44,8 @@ vector<unsigned long> bit_list_to_ints(vector<bool> bit_list, const size_t words
     return res;
 }
 
-class ethereum_sha256 : gadget<FieldT> {
+class ethereum_sha256 : gadget<FieldT> 
+{
 private:
     std::shared_ptr<block_variable<FieldT>> block1;
     std::shared_ptr<block_variable<FieldT>> block2;

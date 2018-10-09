@@ -176,7 +176,6 @@ impl Importer {
 		    }
 	   	}
 	  
-
 		Ok(Prog {
 			imports: vec![],
 			functions: destination.clone().functions,
