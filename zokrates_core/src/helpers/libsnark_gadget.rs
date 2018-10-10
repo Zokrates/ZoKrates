@@ -22,26 +22,18 @@ impl fmt::Display for LibsnarkGadgetHelper {
 
 impl<T: Field> Executable<T> for LibsnarkGadgetHelper {
 	fn execute(&self, inputs: &Vec<T>) -> Result<Vec<T>, String> {
-		match self {
-			LibsnarkGadgetHelper::Sha256Compress => {
-				let witness_result: Result<standard::Witness, serde_json::Error> = serde_json::from_str(&get_sha256_witness(inputs));
+                let witness_result: Result<standard::Witness, serde_json::Error> = match self {
+			LibsnarkGadgetHelper::Sha256Compress =>
+				serde_json::from_str(&get_sha256_witness(inputs)),
+			LibsnarkGadgetHelper::Sha256Ethereum =>
+				serde_json::from_str(&get_ethsha256_witness(inputs)),
+		};
 
-				if let Err(e) = witness_result {
-					return Err(format!("{}", e));
-				}
+                if let Err(e) = witness_result {
+                        return Err(format!("{}", e));
+                }
 
-				Ok(witness_result.unwrap().variables.iter().map(|&i| T::from(i)).collect())
-			},
-			LibsnarkGadgetHelper::Sha256Ethereum => {
-				let witness_result: Result<standard::Witness, serde_json::Error> = serde_json::from_str(&get_ethsha256_witness(inputs));
-
-				if let Err(e) = witness_result {
-					return Err(format!("{}", e));
-				}
-
-				Ok(witness_result.unwrap().variables.iter().map(|&i| T::from(i)).collect())
-			},
-		}
+                Ok(witness_result.unwrap().variables.iter().map(|&i| T::from(i)).collect())
 	}
 }
 
