@@ -39,7 +39,7 @@ pub struct Constraint {
 
 pub struct DirectiveR1CS {
     pub r1cs : R1CS,
-    pub directive : Option<LibsnarkGadgetHelper>
+    pub directive : LibsnarkGadgetHelper
 }
 
 impl<T: Field> Into<FlatStatement<T>> for Constraint {
@@ -115,7 +115,7 @@ impl<T: Field> Into<FlatFunction<T>> for DirectiveR1CS {
         // insert a directive to set the witness based on the libsnark gadget and  inputs
         match self.directive {
 
-            Some(LibsnarkGadgetHelper::Sha256Compress) => {
+            LibsnarkGadgetHelper::Sha256Compress => {
                 statements.insert(0, FlatStatement::Directive(
                     DirectiveStatement {
                         outputs: variables,
@@ -125,7 +125,7 @@ impl<T: Field> Into<FlatFunction<T>> for DirectiveR1CS {
                 );
             },
 
-            Some(LibsnarkGadgetHelper::Sha256Ethereum) => {
+            LibsnarkGadgetHelper::Sha256Ethereum => {
                 statements.insert(0, FlatStatement::Directive(
                     DirectiveStatement {
                         outputs: variables,
@@ -133,9 +133,7 @@ impl<T: Field> Into<FlatFunction<T>> for DirectiveR1CS {
                         helper: Helper::LibsnarkGadget(LibsnarkGadgetHelper::Sha256Ethereum),
                     })
                 );
-            },
-
-            None => {}
+            }
         }
 
         // insert a statement to return the subset of the witness

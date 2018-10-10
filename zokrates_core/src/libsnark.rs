@@ -239,6 +239,7 @@ mod tests {
     use serde_json;
     use flat_absy::*;
     use standard;
+    use helpers;
 
     #[cfg(test)]
     mod sha256_gadget {
@@ -259,7 +260,7 @@ mod tests {
         fn can_generate_flattened_code() {
             let constraints = get_sha256_constraints();
             let r1cs: standard::R1CS = serde_json::from_str(&constraints).unwrap();
-            let _prog: FlatProg<FieldPrime> = FlatProg::from(standard::DirectiveR1CS{r1cs, directive: None});
+            let _prog: FlatProg<FieldPrime> = FlatProg::from(standard::DirectiveR1CS{r1cs, directive: helpers::LibsnarkGadgetHelper::Sha256Compress});
         }
     }
 
