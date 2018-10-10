@@ -6,9 +6,8 @@
 #include "libsnark/gadgetlib1/gadget.hpp"
 #include "libsnark/gadgetlib1/protoboard.hpp"
 #include "libff/common/default_types/ec_pp.hpp"
-#include "libsnark/reductions/r1cs_to_qap/r1cs_to_qap.hpp"
-#include <libsnark/gadgetlib1/gadgets/hashes/sha256/sha256_components.hpp>
-#include <libsnark/gadgetlib1/gadgets/hashes/sha256/sha256_gadget.hpp>
+#include "libsnark/gadgetlib1/gadgets/hashes/sha256/sha256_components.hpp"
+#include "libsnark/gadgetlib1/gadgets/hashes/sha256/sha256_gadget.hpp"
 
 using namespace libsnark;
 using namespace libff;
