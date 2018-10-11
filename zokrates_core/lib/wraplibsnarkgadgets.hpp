@@ -15,6 +15,8 @@ extern "C" {
 char* _sha256Constraints();
 char* _sha256Witness(const uint8_t* input, int input_length);
 
+char* _shaEth256Constraints();
+char* _shaEth256Witness(const uint8_t* input, int input_length);
 
 #ifdef __cplusplus
 } // extern "C"
