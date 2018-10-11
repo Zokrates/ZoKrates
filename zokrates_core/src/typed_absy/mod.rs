@@ -299,6 +299,7 @@ pub enum BooleanExpression<T: Field> {
     Ge(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     Gt(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     AndAnd(Box<BooleanExpression<T>>, Box<BooleanExpression<T>>),
+    Or(Box<BooleanExpression<T>>, Box<BooleanExpression<T>>),
 }
 
 impl<T: Field> BooleanExpression<T> {
@@ -337,9 +338,14 @@ impl<T: Field> BooleanExpression<T> {
                 box lhs.apply_substitution(substitution),
                 box rhs.apply_substitution(substitution),
             ),
-            BooleanExpression::Value(b) => BooleanExpression::Value(b),
+            BooleanExpression::Or(lhs, rhs) => BooleanExpression::Or(
+                box lhs.apply_substitution(substitution),
+                box rhs.apply_substitution(substitution),
+            ),
+                BooleanExpression::Value(b) => BooleanExpression::Value(b),
         }
     }
+
 
     pub fn is_linear(&self) -> bool {
         false
@@ -450,6 +456,7 @@ impl<T: Field> fmt::Display for BooleanExpression<T> {
             BooleanExpression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
             BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
             BooleanExpression::AndAnd(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
+            BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
             BooleanExpression::Value(b) => write!(f, "{}", b),
         }
     }
