@@ -115,7 +115,7 @@ impl<T: Field> FlatFunction<T> {
                     }
                 },
                 FlatStatement::Directive(ref d) => {
-                    let input_values: Vec<T> = d.inputs.iter().map(|i| witness.get(i).unwrap().clone()).collect();
+                    let input_values: Vec<T> = d.inputs.iter().map(|i| i.solve(&mut witness)).collect();
                     match d.helper.execute(&input_values) {
                         Ok(res) => {
                             for (i, o) in d.outputs.iter().enumerate() {
@@ -188,7 +188,7 @@ pub enum FlatStatement<T: Field> {
     Return(FlatExpressionList<T>),
     Condition(FlatExpression<T>, FlatExpression<T>),
     Definition(FlatVariable, FlatExpression<T>),
-    Directive(DirectiveStatement)
+    Directive(DirectiveStatement<T>)
 }
 
 impl<T: Field> fmt::Display for FlatStatement<T> {
@@ -239,7 +239,7 @@ impl<T: Field> FlatStatement<T> {
             },
             FlatStatement::Directive(d) => {
                 let outputs = d.outputs.into_iter().map(|o| substitution.get(&o).unwrap_or(o)).collect();
-                let inputs = d.inputs.into_iter().map(|i| substitution.get(&i).unwrap()).collect();
+                let inputs = d.inputs.into_iter().map(|i| i.apply_substitution(substitution, should_fallback)).collect();
 
                 FlatStatement::Directive(
                     DirectiveStatement {
@@ -295,7 +295,7 @@ impl<T: Field> FlatExpression<T> {
         }
     }
 
-    fn solve(&self, inputs: &mut BTreeMap<FlatVariable, T>) -> T {
+    pub fn solve(&self, inputs: &mut BTreeMap<FlatVariable, T>) -> T {
         match *self {
             FlatExpression::Number(ref x) => x.clone(),
             FlatExpression::Identifier(ref var) => {

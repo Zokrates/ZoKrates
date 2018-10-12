@@ -336,11 +336,11 @@ impl Flattener {
 
                 statements_flattened.push(FlatStatement::Definition(name_x, x));
                 statements_flattened.push(
-                    FlatStatement::Directive(DirectiveStatement {
-                        outputs: vec![name_y, name_m],
-                        inputs: vec![name_x],
-                        helper: Helper::Rust(RustHelper::ConditionEq)
-                    })
+                    FlatStatement::Directive(DirectiveStatement::new(
+                        vec![name_y, name_m],
+                        Helper::Rust(RustHelper::ConditionEq),
+                        vec![name_x],
+                    ))
                 );
                 statements_flattened.push(FlatStatement::Condition(
                     FlatExpression::Identifier(name_y),
@@ -438,13 +438,13 @@ impl Flattener {
                                 replacement_map.insert(o, new_o);
                                 new_o
                             }).collect();
-                            let new_inputs = d.inputs.iter().map(|i| replacement_map.get(&i).unwrap()).collect();
+                            let new_inputs = d.inputs.into_iter().map(|i| i.apply_direct_substitution(&replacement_map)).collect();
                             statements_flattened.push(
                                 FlatStatement::Directive(
                                     DirectiveStatement {
                                         outputs: new_outputs,
+                                        helper: d.helper.clone(),
                                         inputs: new_inputs,
-                                        helper: d.helper.clone()
                                     }
                                 )
                             )

@@ -117,7 +117,7 @@ pub fn parse_statement<T: Field, R: BufRead>(
                                                         }
                                                     },
                                                     Some(Ok(ref x)) if !x.trim().starts_with("return") => match parse_statement(lines, x, &Position { line: current_line, col: 1 }) {
-                                                        Ok((statement, ..)) => statements.push(statement[0].clone()),
+                                                        Ok((mut statement, ..)) => statements.append(&mut statement),
                                                         Err(err) => return Err(err),
                                                     },
                                                     Some(Err(err)) => panic!("Error while reading Definitions: {}", err),

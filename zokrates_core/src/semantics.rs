@@ -80,8 +80,8 @@ impl FunctionQuery {
 		})
 	}
 
-	fn match_funcs(&self, funcs: Vec<FunctionDeclaration>) -> Vec<FunctionDeclaration> {
-		funcs.into_iter().filter(|func| self.match_func(func)).collect()
+	fn match_funcs(&self, funcs: &HashSet<FunctionDeclaration>) -> Vec<FunctionDeclaration> {
+		funcs.iter().filter(|func| self.match_func(func)).cloned().collect()
 	}
 }
 
@@ -607,7 +607,7 @@ impl Checker {
 	}
 
 	fn find_candidates(&self, query: &FunctionQuery) -> Vec<FunctionDeclaration> {
-		query.match_funcs(self.functions.clone().into_iter().collect())
+		query.match_funcs(&self.functions)
 	}
 
 	fn enter_scope(&mut self) -> () {
