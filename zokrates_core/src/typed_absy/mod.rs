@@ -118,7 +118,7 @@ impl<T: Field> fmt::Debug for TypedFunction<T> {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Hash, Eq)]
 pub enum TypedAssignee<T: Field> {
     Identifier(Variable),
     ArrayElement(Box<TypedAssignee<T>>, Box<TypedExpression<T>>)
@@ -240,7 +240,7 @@ pub trait Typed
     fn get_type(&self) -> Type;
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, Hash, Eq)]
 pub enum TypedExpression<T: Field> {
     Boolean(BooleanExpression<T>),
     FieldElement(FieldElementExpression<T>),
@@ -326,7 +326,7 @@ impl<T: Field> MultiTyped for TypedExpressionList<T> {
     }
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, Hash, Eq)]
 pub enum FieldElementExpression<T: Field> {
     Number(T),
     Identifier(String),
@@ -340,7 +340,7 @@ pub enum FieldElementExpression<T: Field> {
     Select(Box<FieldElementArrayExpression<T>>, Box<FieldElementExpression<T>>),
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, Hash, Eq)]
 pub enum BooleanExpression<T: Field> {
     Identifier(String),
     Value(bool),
@@ -352,7 +352,7 @@ pub enum BooleanExpression<T: Field> {
 }
 
 // for now we store the array size in the variants
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, Hash, Eq)]
 pub enum FieldElementArrayExpression<T: Field> {
     Identifier(usize, String),
     Value(usize, Vec<FieldElementExpression<T>>),
@@ -418,7 +418,7 @@ impl<T: Field> fmt::Display for FieldElementArrayExpression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             FieldElementArrayExpression::Identifier(_, ref var) => write!(f, "{}", var),
-            FieldElementArrayExpression::Value(_, ref values) => write!(f, "{:?}", values),
+            FieldElementArrayExpression::Value(_, ref values) => write!(f, "[{}]", values.iter().map(|o| o.to_string()).collect::<Vec<String>>().join(", ")),
         }
     }
 }

@@ -14,23 +14,24 @@ pub trait Propagate<T: Field> {
 }
 
 pub trait PropagateWithContext<T: Field> {
-	fn propagate(self, constants: &mut HashMap<Variable, TypedExpression<T>>, functions: &Vec<TypedFunction<T>>) -> Self;
+	fn propagate(self, constants: &mut HashMap<TypedAssignee<T>, TypedExpression<T>>, functions: &Vec<TypedFunction<T>>) -> Self;
 }
 
 impl<T: Field> PropagateWithContext<T> for TypedExpression<T> {
-	fn propagate(self, constants: &mut HashMap<Variable, TypedExpression<T>>, functions: &Vec<TypedFunction<T>>) -> TypedExpression<T> {
+	fn propagate(self, constants: &mut HashMap<TypedAssignee<T>, TypedExpression<T>>, functions: &Vec<TypedFunction<T>>) -> TypedExpression<T> {
 		match self {
 			TypedExpression::FieldElement(e) => e.propagate(constants, functions).into(),
 			TypedExpression::Boolean(e) => e.propagate(constants, functions).into(),
+			TypedExpression::FieldElementArray(e) => e.propagate(constants, functions).into(),
 		}
 	}
 }
 
 impl<T: Field> PropagateWithContext<T> for FieldElementExpression<T> {
-	fn propagate(self, constants: &mut HashMap<Variable, TypedExpression<T>>, functions: &Vec<TypedFunction<T>>) -> FieldElementExpression<T> {
+	fn propagate(self, constants: &mut HashMap<TypedAssignee<T>, TypedExpression<T>>, functions: &Vec<TypedFunction<T>>) -> FieldElementExpression<T> {
 		match self {
 			FieldElementExpression::Identifier(id) => {
-				match constants.get(&Variable::field_element(id.clone())) {
+				match constants.get(&TypedAssignee::Identifier(Variable::field_element(id.clone()))) {
 					Some(e) => match e {
 						TypedExpression::FieldElement(e) => e.clone(),
 						_ => panic!("")
@@ -78,53 +79,64 @@ impl<T: Field> PropagateWithContext<T> for FieldElementExpression<T> {
 				}
 			},
 			FieldElementExpression::FunctionCall(id, arguments) => {
-				// We only cover the case where all arguments are constants, therefore the call is guaranteed to be constant
-				// Propagate the arguments, then return Ok if they're constant, Err otherwise
-
+				// propagation through function calls is handled after flattening, we only propagate arguments
 				let arguments = arguments.into_iter().map(|a| a.propagate(constants, functions)).collect();
 
-				// let f = functions[0]; // TODO find functon based on id
-				// match f.execute(arguments) {
-				// 	Ok(expressions) => expressions,
-				// 	_ => FieldElementExpression::FunctionCall(id, arguments),
-				// }
-
 				FieldElementExpression::FunctionCall(id, arguments)
-
-				// let each_argument_constant = arguments.into_iter().map(|a| a.propagate(constants, functions)).map(|a| match a {
-				// 	a @ TypedExpression::FieldElement(FieldElementExpression::Number(..)) => Ok(a),
-				// 	a @ TypedExpression::Boolean(BooleanExpression::Value(..)) => Ok(a),
-				// 	a => Err(a)
-				// });
-
-				// let all_arguments_constant = each_argument_constant.collect::<Result<Vec<_>, _>>();
-
-				// match all_arguments_constant {
-				// 	Ok(arguments) => {
-				// 		// all arguments are constant, we can execute the function now
-				// 		unimplemented!()
-				// 	},
-				// 	Err(_) => {
-				// 		// not all arguments are constant, keep the function call
-				// 		let arguments = each_argument_constant.into_iter().map(|a| match a {
-				// 			Ok(a) => a,
-				// 			Err(a) => a
-				// 		}).collect();
-
-				// 		
-				// 	}
-				// }
+			}
+			FieldElementExpression::Select(box array, box index) => {
+				let array = array.propagate(constants, functions);
+				let index = index.propagate(constants, functions);
+				match (array, index) {
+					(FieldElementArrayExpression::Value(size, v), FieldElementExpression::Number(n)) => {
+						let n_as_usize = n.to_dec_string().parse::<usize>().unwrap();
+						if n_as_usize < size {
+							v[n_as_usize].clone()
+						} else {
+							panic!("out of bounds");
+						}
+					},
+					(FieldElementArrayExpression::Identifier(size, id), FieldElementExpression::Number(n)) => {
+						match constants.get(&TypedAssignee::ArrayElement(box TypedAssignee::Identifier(Variable::field_array(id.clone(), size)), box FieldElementExpression::Number(n.clone()).into())) {
+							Some(e) => match e {
+								TypedExpression::FieldElement(e) => e.clone(),
+								_ => panic!("")
+							},
+							None => FieldElementExpression::Select(box FieldElementArrayExpression::Identifier(size, id), box FieldElementExpression::Number(n))
+						}
+					},
+					(a, i) => FieldElementExpression::Select(box a, box i),
+				}
 			}
 			_ => self
 		}
 	}
 }
 
+impl<T: Field> PropagateWithContext<T> for FieldElementArrayExpression<T> {
+	fn propagate(self, constants: &mut HashMap<TypedAssignee<T>, TypedExpression<T>>, functions: &Vec<TypedFunction<T>>) -> FieldElementArrayExpression<T> {
+		match self {
+			FieldElementArrayExpression::Identifier(size, id) => {
+				match constants.get(&TypedAssignee::Identifier(Variable::field_array(id.clone(), size))) {
+					Some(e) => match e {
+						TypedExpression::FieldElementArray(e) => e.clone(),
+						_ => panic!("")
+					},
+					None => FieldElementArrayExpression::Identifier(size, id)
+				}
+			},
+			FieldElementArrayExpression::Value(size, exprs) => {
+				FieldElementArrayExpression::Value(size, exprs.into_iter().map(|e| e.propagate(constants, functions)).collect())
+			}
+		}
+	}
+}
+
 impl<T: Field> PropagateWithContext<T> for BooleanExpression<T> {
-	fn propagate(self, constants: &mut HashMap<Variable, TypedExpression<T>>, functions: &Vec<TypedFunction<T>>) -> BooleanExpression<T> {
+	fn propagate(self, constants: &mut HashMap<TypedAssignee<T>, TypedExpression<T>>, functions: &Vec<TypedFunction<T>>) -> BooleanExpression<T> {
 		match self {
 			BooleanExpression::Identifier(id) => {
-				match constants.get(&Variable::boolean(id.clone())) {
+				match constants.get(&TypedAssignee::Identifier(Variable::boolean(id.clone()))) {
 					Some(e) => match e {
 						TypedExpression::Boolean(e) => e.clone(),
 						_ => panic!("")
@@ -193,7 +205,7 @@ impl<T: Field> PropagateWithContext<T> for BooleanExpression<T> {
 }
 
 impl<T: Field> TypedExpressionList<T> {
-	fn propagate(self, constants: &mut HashMap<Variable, TypedExpression<T>>, functions: &Vec<TypedFunction<T>>) -> TypedExpressionList<T> {
+	fn propagate(self, constants: &mut HashMap<TypedAssignee<T>, TypedExpression<T>>, functions: &Vec<TypedFunction<T>>) -> TypedExpressionList<T> {
 		match self {
 			TypedExpressionList::FunctionCall(id, arguments, types) => {
 				TypedExpressionList::FunctionCall(id, arguments.into_iter().map(|e| e.propagate(constants, functions)).collect(), types)
@@ -203,17 +215,47 @@ impl<T: Field> TypedExpressionList<T> {
 }
 
 impl<T: Field> TypedStatement<T> {
-	fn propagate(self, constants: &mut HashMap<Variable, TypedExpression<T>>, functions: &Vec<TypedFunction<T>>) -> Option<TypedStatement<T>> {
+	fn propagate(self, constants: &mut HashMap<TypedAssignee<T>, TypedExpression<T>>, functions: &Vec<TypedFunction<T>>) -> Option<TypedStatement<T>> {
 		match self {
 			TypedStatement::Return(expressions) => Some(TypedStatement::Return(expressions.into_iter().map(|e| e.propagate(constants, functions)).collect())),
-			TypedStatement::Definition(var, expr) => {
+			TypedStatement::Definition(TypedAssignee::Identifier(var), expr) => {
 				match expr.propagate(constants, functions) {
-					e @ TypedExpression::Boolean(BooleanExpression::Value(..)) | e @ TypedExpression::FieldElement(FieldElementExpression::Number(..)) => {
-						constants.insert(var, e);
+					e @ TypedExpression::Boolean(BooleanExpression::Value(..)) | e @ TypedExpression::FieldElement(FieldElementExpression::Number(..)) | e @ TypedExpression::FieldElementArray(FieldElementArrayExpression::Value(..)) => {
+						constants.insert(TypedAssignee::Identifier(var), e);
 						None
 					},
 					e => {
-						Some(TypedStatement::Definition(var, e))
+						Some(TypedStatement::Definition(TypedAssignee::Identifier(var), e))
+					}
+				}
+			},
+			TypedStatement::Definition(TypedAssignee::ArrayElement(box TypedAssignee::Identifier(var), box index), expr) => {
+				let index = index.propagate(constants, functions);
+
+				match expr.propagate(constants, functions) {
+					TypedExpression::FieldElement(expr @ FieldElementExpression::Number(..)) => {
+						match index {
+							TypedExpression::FieldElement(FieldElementExpression::Number(n)) => {
+								constants.entry(TypedAssignee::Identifier(var)).and_modify(|e| {
+									match *e {
+										TypedExpression::FieldElementArray(FieldElementArrayExpression::Value(size, ref mut v)) => {
+											let n_as_usize = n.to_dec_string().parse::<usize>().unwrap();
+											if n_as_usize < size {
+												v[n_as_usize] = expr;
+											} else {
+												panic!("outofbounds");
+											}
+										},
+										_ => panic!("constants should only store constants")
+									}
+								});
+								None
+							},
+							index => Some(TypedStatement::Definition(TypedAssignee::ArrayElement(box TypedAssignee::Identifier(var), box index), expr.into()))
+						}
+					},
+					expr => {
+						Some(TypedStatement::Definition(TypedAssignee::ArrayElement(box TypedAssignee::Identifier(var), box index), expr))
 					}
 				}
 			},
@@ -245,7 +287,6 @@ impl<T: Field> Propagate<T> for TypedFunction<T> {
 
 impl<T: Field> TypedProg<T> {
 	pub fn propagate(self) -> TypedProg<T> {
-
 		let mut functions = vec![];
 
 		for f in self.functions {
@@ -340,6 +381,19 @@ mod tests {
 					box BooleanExpression::Value(false),
 					box FieldElementExpression::Number(FieldPrime::from(2)),
 					box FieldElementExpression::Number(FieldPrime::from(3))
+				);
+
+				assert_eq!(e.propagate(&mut HashMap::new(), &mut vec![]), FieldElementExpression::Number(FieldPrime::from(3)));
+			}
+
+			#[test]
+			fn select() {
+				let e = FieldElementExpression::Select(
+					box FieldElementArrayExpression::Value(3, vec![FieldElementExpression::Number(FieldPrime::from(1)), FieldElementExpression::Number(FieldPrime::from(2)), FieldElementExpression::Number(FieldPrime::from(3))]),
+					box FieldElementExpression::Add(
+						box FieldElementExpression::Number(FieldPrime::from(1)),
+						box FieldElementExpression::Number(FieldPrime::from(1))
+					),
 				);
 
 				assert_eq!(e.propagate(&mut HashMap::new(), &mut vec![]), FieldElementExpression::Number(FieldPrime::from(3)));

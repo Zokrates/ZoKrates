@@ -9,6 +9,7 @@ use absy::variable::Variable;
 use std::collections::HashMap;
 use field::Field;
 use typed_absy::*;
+use types::Type;
 
 pub trait Unroll {
 	fn unroll(self) -> Self;
@@ -23,6 +24,7 @@ impl<T: Field> TypedExpression<T> {
 		match self {
 			TypedExpression::FieldElement(e) => e.unroll(substitution).into(),
 			TypedExpression::Boolean(e) => e.unroll(substitution).into(),
+			TypedExpression::FieldElementArray(e) => e.unroll(substitution).into(),
 		}
 	}
 }
@@ -39,6 +41,16 @@ impl<T: Field> FieldElementExpression<T> {
 			FieldElementExpression::Pow(box e1, box e2) => FieldElementExpression::Div(box e1.unroll(substitution), box e2.unroll(substitution)),
 			FieldElementExpression::IfElse(box cond, box cons, box alt) => FieldElementExpression::IfElse(box cond.unroll(substitution), box cons.unroll(substitution), box alt.unroll(substitution)),
 			FieldElementExpression::FunctionCall(id, args) => FieldElementExpression::FunctionCall(id, args.into_iter().map(|a| a.unroll(substitution)).collect()),
+			FieldElementExpression::Select(box array, box index) => FieldElementExpression::Select(box array.unroll(substitution), box index.unroll(substitution)),
+		}
+	}
+}
+
+impl<T: Field> FieldElementArrayExpression<T> {
+	fn unroll(self, substitution: &HashMap<String, usize>) -> FieldElementArrayExpression<T> {
+		match self {
+			FieldElementArrayExpression::Identifier(size, id) => FieldElementArrayExpression::Identifier(size, format!("{}_{}", id, substitution.get(&id).unwrap().clone())),
+			FieldElementArrayExpression::Value(size, v) => FieldElementArrayExpression::Value(size, v.into_iter().map(|e| e.unroll(substitution)).collect()),
 		}
 	}
 }
@@ -74,15 +86,48 @@ impl<T: Field> TypedStatement<T> {
 			TypedStatement::Declaration(_) => {
 				vec![]
 			},
-			TypedStatement::Definition(variable, expr) => {
+			TypedStatement::Definition(TypedAssignee::Identifier(variable), expr) => {
 				let expr = expr.unroll(substitution);
 
 				let res = match substitution.get(&variable.id) {
 					Some(i) => {
-						vec![TypedStatement::Definition(Variable { id: format!("{}_{}", variable.id, i + 1), ..variable}, expr)]
+						vec![TypedStatement::Definition(TypedAssignee::Identifier(Variable { id: format!("{}_{}", variable.id, i + 1), ..variable}), expr)]
 					},
 					None => {
-						vec![TypedStatement::Definition(Variable { id: format!("{}_{}", variable.id, 0), ..variable}, expr)]
+						vec![TypedStatement::Definition(TypedAssignee::Identifier(Variable { id: format!("{}_{}", variable.id, 0), ..variable}), expr)]
+					}
+				};
+				substitution.entry(variable.id)
+				   .and_modify(|e| { *e += 1 })
+				   .or_insert(0);
+				res
+			},
+			TypedStatement::Definition(TypedAssignee::ArrayElement(box TypedAssignee::Identifier(variable), box index), expr) => {
+				let expr = expr.unroll(substitution);
+				let index = index.unroll(substitution);
+
+				let array_size = match variable.get_type() {
+					Type::FieldElementArray(size) => size,
+					_ => panic!("array identifier has to be a field element array")
+				};
+
+				let res = match substitution.get(&variable.id) {
+					Some(i) => {
+						let old_array = FieldElementArrayExpression::Value(array_size, (0..array_size)
+							.map(|index| 
+								FieldElementExpression::Select(
+									box FieldElementArrayExpression::Identifier(array_size, format!("{}_{}", variable.id, i)),
+									box FieldElementExpression::Number(T::from(index))
+								)
+							)
+							.collect());
+						vec![
+							TypedStatement::Definition(TypedAssignee::Identifier(Variable { id: format!("{}_{}", variable.id, i + 1), ..variable.clone()}), old_array.into()),
+							TypedStatement::Definition(TypedAssignee::ArrayElement(box TypedAssignee::Identifier(Variable { id: format!("{}_{}", variable.id, i + 1), ..variable}), box index), expr)
+						]
+					},
+					None => {
+						vec![TypedStatement::Definition(TypedAssignee::Identifier(Variable { id: format!("{}_{}", variable.id, 0), ..variable}), expr)]
 					}
 				};
 				substitution.entry(variable.id)
@@ -122,7 +167,7 @@ impl<T: Field> TypedStatement<T> {
 					vec![
 						vec![
 							TypedStatement::Declaration(v.clone()),
-							TypedStatement::Definition(v.clone(), FieldElementExpression::Number(index).into()),
+							TypedStatement::Definition(TypedAssignee::Identifier(v.clone()), FieldElementExpression::Number(index).into()),
 						],
 						stats.clone()
 					].into_iter().flat_map(|x| x)
@@ -132,7 +177,8 @@ impl<T: Field> TypedStatement<T> {
 			}
 			TypedStatement::Return(exprs) => {
 				vec![TypedStatement::Return(exprs.into_iter().map(|e| e.unroll(substitution)).collect())]
-			}
+			},
+			_ => vec![self]
 		}
 	}
 }
@@ -184,18 +230,18 @@ mod tests {
 		fn for_loop() {
 			let s = TypedStatement::For(Variable::field_element("i"), FieldPrime::from(2), FieldPrime::from(5), vec![
 						TypedStatement::Declaration(Variable::field_element("foo")),
-						TypedStatement::Definition(Variable::field_element("foo"), FieldElementExpression::Identifier(String::from("i")).into())]
+						TypedStatement::Definition(TypedAssignee::Identifier(Variable::field_element("foo")), FieldElementExpression::Identifier(String::from("i")).into())]
 					);
 
 			let expected =  vec![
-					TypedStatement::Definition(Variable::field_element("i_0"), FieldElementExpression::Number(FieldPrime::from(2)).into()),
-					TypedStatement::Definition(Variable::field_element("foo_0"), FieldElementExpression::Identifier(String::from("i_0")).into()),
+					TypedStatement::Definition(TypedAssignee::Identifier(Variable::field_element("i_0")), FieldElementExpression::Number(FieldPrime::from(2)).into()),
+					TypedStatement::Definition(TypedAssignee::Identifier(Variable::field_element("foo_0")), FieldElementExpression::Identifier(String::from("i_0")).into()),
 
-					TypedStatement::Definition(Variable::field_element("i_1"), FieldElementExpression::Number(FieldPrime::from(3)).into()),
-					TypedStatement::Definition(Variable::field_element("foo_1"), FieldElementExpression::Identifier(String::from("i_1")).into()),
+					TypedStatement::Definition(TypedAssignee::Identifier(Variable::field_element("i_1")), FieldElementExpression::Number(FieldPrime::from(3)).into()),
+					TypedStatement::Definition(TypedAssignee::Identifier(Variable::field_element("foo_1")), FieldElementExpression::Identifier(String::from("i_1")).into()),
 
-					TypedStatement::Definition(Variable::field_element("i_2"), FieldElementExpression::Number(FieldPrime::from(4)).into()),
-					TypedStatement::Definition(Variable::field_element("foo_2"), FieldElementExpression::Identifier(String::from("i_2")).into()),
+					TypedStatement::Definition(TypedAssignee::Identifier(Variable::field_element("i_2")), FieldElementExpression::Number(FieldPrime::from(4)).into()),
+					TypedStatement::Definition(TypedAssignee::Identifier(Variable::field_element("foo_2")), FieldElementExpression::Identifier(String::from("i_2")).into()),
 				];
 
 			assert_eq!(s.unroll(&mut HashMap::new()), expected);
@@ -219,11 +265,11 @@ mod tests {
 			let s: TypedStatement<FieldPrime> = TypedStatement::Declaration(Variable::field_element("a"));
 			assert_eq!(s.unroll(&mut substitution), vec![]);
 
-			let s = TypedStatement::Definition(Variable::field_element("a"), FieldElementExpression::Number(FieldPrime::from(5)).into());
-			assert_eq!(s.unroll(&mut substitution), vec![TypedStatement::Definition(Variable::field_element("a_0"), FieldElementExpression::Number(FieldPrime::from(5)).into())]);
+			let s = TypedStatement::Definition(TypedAssignee::Identifier(Variable::field_element("a")), FieldElementExpression::Number(FieldPrime::from(5)).into());
+			assert_eq!(s.unroll(&mut substitution), vec![TypedStatement::Definition(TypedAssignee::Identifier(Variable::field_element("a_0")), FieldElementExpression::Number(FieldPrime::from(5)).into())]);
 			
-			let s = TypedStatement::Definition(Variable::field_element("a"), FieldElementExpression::Number(FieldPrime::from(6)).into());
-			assert_eq!(s.unroll(&mut substitution), vec![TypedStatement::Definition(Variable::field_element("a_1"), FieldElementExpression::Number(FieldPrime::from(6)).into())]);
+			let s = TypedStatement::Definition(TypedAssignee::Identifier(Variable::field_element("a")), FieldElementExpression::Number(FieldPrime::from(6)).into());
+			assert_eq!(s.unroll(&mut substitution), vec![TypedStatement::Definition(TypedAssignee::Identifier(Variable::field_element("a_1")), FieldElementExpression::Number(FieldPrime::from(6)).into())]);
 			
 			let e: FieldElementExpression<FieldPrime> = FieldElementExpression::Identifier(String::from("a"));
 			assert_eq!(e.unroll(&mut substitution), FieldElementExpression::Identifier(String::from("a_1")));
@@ -245,11 +291,11 @@ mod tests {
 			let s: TypedStatement<FieldPrime> = TypedStatement::Declaration(Variable::field_element("a"));
 			assert_eq!(s.unroll(&mut substitution), vec![]);
 
-			let s = TypedStatement::Definition(Variable::field_element("a"), FieldElementExpression::Number(FieldPrime::from(5)).into());
-			assert_eq!(s.unroll(&mut substitution), vec![TypedStatement::Definition(Variable::field_element("a_0"), FieldElementExpression::Number(FieldPrime::from(5)).into())]);
+			let s = TypedStatement::Definition(TypedAssignee::Identifier(Variable::field_element("a")), FieldElementExpression::Number(FieldPrime::from(5)).into());
+			assert_eq!(s.unroll(&mut substitution), vec![TypedStatement::Definition(TypedAssignee::Identifier(Variable::field_element("a_0")), FieldElementExpression::Number(FieldPrime::from(5)).into())]);
 			
 			let s = TypedStatement::Definition(
-				Variable::field_element("a"),
+				TypedAssignee::Identifier(Variable::field_element("a")),
 				FieldElementExpression::Add(
 					box FieldElementExpression::Identifier(String::from("a")),
 					box FieldElementExpression::Number(FieldPrime::from(1))
@@ -259,7 +305,7 @@ mod tests {
 				s.unroll(&mut substitution),
 				vec![
 					TypedStatement::Definition(
-						Variable::field_element("a_1"),
+						TypedAssignee::Identifier(Variable::field_element("a_1")),
 						FieldElementExpression::Add(
 							box FieldElementExpression::Identifier(String::from("a_0")),
 							box FieldElementExpression::Number(FieldPrime::from(1))
@@ -287,8 +333,8 @@ mod tests {
 			let s: TypedStatement<FieldPrime> = TypedStatement::Declaration(Variable::field_element("a"));
 			assert_eq!(s.unroll(&mut substitution), vec![]);
 
-			let s = TypedStatement::Definition(Variable::field_element("a"), FieldElementExpression::Number(FieldPrime::from(2)).into());
-			assert_eq!(s.unroll(&mut substitution), vec![TypedStatement::Definition(Variable::field_element("a_0"), FieldElementExpression::Number(FieldPrime::from(2)).into())]);
+			let s = TypedStatement::Definition(TypedAssignee::Identifier(Variable::field_element("a")), FieldElementExpression::Number(FieldPrime::from(2)).into());
+			assert_eq!(s.unroll(&mut substitution), vec![TypedStatement::Definition(TypedAssignee::Identifier(Variable::field_element("a_0")), FieldElementExpression::Number(FieldPrime::from(2)).into())]);
 			
 			let s: TypedStatement<FieldPrime> = TypedStatement::MultipleDefinition(
 				vec![Variable::field_element("a")],
