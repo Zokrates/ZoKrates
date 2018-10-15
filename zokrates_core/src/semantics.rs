@@ -359,7 +359,12 @@ impl Checker {
 				let checked_assignee = self.check_assignee(&assignee)?;
 				let checked_index = self.check_expression(&index)?;
 
-				Ok(TypedAssignee::ArrayElement(box checked_assignee, box checked_index))
+				let checked_typed_index = match checked_index {
+					TypedExpression::FieldElement(e) => Ok(e),
+					e => Err( Error { message: format!("Expected array {} index to have type field, found {}", assignee, e.get_type())})
+				}?;
+
+				Ok(TypedAssignee::ArrayElement(box checked_assignee, box checked_typed_index))
 			}
 		}
 	}

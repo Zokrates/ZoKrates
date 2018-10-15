@@ -121,7 +121,7 @@ impl<T: Field> fmt::Debug for TypedFunction<T> {
 #[derive(Clone, Serialize, Deserialize, PartialEq, Hash, Eq)]
 pub enum TypedAssignee<T: Field> {
     Identifier(Variable),
-    ArrayElement(Box<TypedAssignee<T>>, Box<TypedExpression<T>>)
+    ArrayElement(Box<TypedAssignee<T>>, Box<FieldElementExpression<T>>)
 }
 
 impl<T: Field> Typed for TypedAssignee<T> {

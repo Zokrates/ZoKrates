@@ -878,7 +878,7 @@ impl Flattener {
                                     _ => panic!("not a field element as rhs of array element update, should have been caught at semantic")
                                 };
                                 match index {
-                                    box TypedExpression::FieldElement(FieldElementExpression::Number(n)) => {
+                                    box FieldElementExpression::Number(n) => {
                                         match array {
                                             box TypedAssignee::Identifier(id) => {
                                                 let debug_name = format!("{}_c{}", id.id, n);
@@ -893,7 +893,7 @@ impl Flattener {
                                             _ => panic!("no multidimension array for now")
                                         }
                                     },
-                                    box TypedExpression::FieldElement(ref e) => {
+                                    box e => {
                                         // we have array[e] with e an arbitrary expression
                                         // first we check that e is in 0..array.len(), so we check that sum(if e == i then 1 else 0) == 1
                                         // here depending on the size, we could use a proper range check based on bits
@@ -949,7 +949,6 @@ impl Flattener {
                                                 );
                                         }
                                     }
-                                    _ => panic!("only constants in array index lhs for now")
                                 }
                             }
                         }
