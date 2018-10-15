@@ -295,7 +295,7 @@ impl<T: Field> FlatExpression<T> {
         }
     }
 
-    pub fn solve(&self, inputs: &mut BTreeMap<FlatVariable, T>) -> T {
+    fn solve(&self, inputs: &mut BTreeMap<FlatVariable, T>) -> T {
         match *self {
             FlatExpression::Number(ref x) => x.clone(),
             FlatExpression::Identifier(ref var) => {

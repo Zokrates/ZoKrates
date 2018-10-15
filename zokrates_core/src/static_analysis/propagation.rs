@@ -1,4 +1,4 @@
-//! Module containing constant propagation
+//! Module containing constant propagation for the typed AST
 //!
 //! @file propagation.rs
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
@@ -29,6 +29,7 @@ impl<T: Field> PropagateWithContext<T> for TypedExpression<T> {
 impl<T: Field> PropagateWithContext<T> for FieldElementExpression<T> {
 	fn propagate(self, constants: &mut HashMap<Variable, TypedExpression<T>>, functions: &Vec<TypedFunction<T>>) -> FieldElementExpression<T> {
 		match self {
+			FieldElementExpression::Number(n) => FieldElementExpression::Number(n),
 			FieldElementExpression::Identifier(id) => {
 				match constants.get(&Variable::field_element(id.clone())) {
 					Some(e) => match e {
@@ -78,44 +79,9 @@ impl<T: Field> PropagateWithContext<T> for FieldElementExpression<T> {
 				}
 			},
 			FieldElementExpression::FunctionCall(id, arguments) => {
-				// We only cover the case where all arguments are constants, therefore the call is guaranteed to be constant
-				// Propagate the arguments, then return Ok if they're constant, Err otherwise
-
 				let arguments = arguments.into_iter().map(|a| a.propagate(constants, functions)).collect();
-
-				// let f = functions[0]; // TODO find functon based on id
-				// match f.execute(arguments) {
-				// 	Ok(expressions) => expressions,
-				// 	_ => FieldElementExpression::FunctionCall(id, arguments),
-				// }
-
 				FieldElementExpression::FunctionCall(id, arguments)
-
-				// let each_argument_constant = arguments.into_iter().map(|a| a.propagate(constants, functions)).map(|a| match a {
-				// 	a @ TypedExpression::FieldElement(FieldElementExpression::Number(..)) => Ok(a),
-				// 	a @ TypedExpression::Boolean(BooleanExpression::Value(..)) => Ok(a),
-				// 	a => Err(a)
-				// });
-
-				// let all_arguments_constant = each_argument_constant.collect::<Result<Vec<_>, _>>();
-
-				// match all_arguments_constant {
-				// 	Ok(arguments) => {
-				// 		// all arguments are constant, we can execute the function now
-				// 		unimplemented!()
-				// 	},
-				// 	Err(_) => {
-				// 		// not all arguments are constant, keep the function call
-				// 		let arguments = each_argument_constant.into_iter().map(|a| match a {
-				// 			Ok(a) => a,
-				// 			Err(a) => a
-				// 		}).collect();
-
-				// 		
-				// 	}
-				// }
 			}
-			_ => self
 		}
 	}
 }
@@ -123,6 +89,7 @@ impl<T: Field> PropagateWithContext<T> for FieldElementExpression<T> {
 impl<T: Field> PropagateWithContext<T> for BooleanExpression<T> {
 	fn propagate(self, constants: &mut HashMap<Variable, TypedExpression<T>>, functions: &Vec<TypedFunction<T>>) -> BooleanExpression<T> {
 		match self {
+			BooleanExpression::Value(v) => BooleanExpression::Value(v),
 			BooleanExpression::Identifier(id) => {
 				match constants.get(&Variable::boolean(id.clone())) {
 					Some(e) => match e {
@@ -187,7 +154,6 @@ impl<T: Field> PropagateWithContext<T> for BooleanExpression<T> {
 					(e1, e2) => BooleanExpression::Ge(box e1, box e2)
 				}
 			}
-			_ => self
 		}
 	}
 }
@@ -205,6 +171,7 @@ impl<T: Field> TypedExpressionList<T> {
 impl<T: Field> TypedStatement<T> {
 	fn propagate(self, constants: &mut HashMap<Variable, TypedExpression<T>>, functions: &Vec<TypedFunction<T>>) -> Option<TypedStatement<T>> {
 		match self {
+			TypedStatement::Declaration(v) => Some(TypedStatement::Declaration(v)),
 			TypedStatement::Return(expressions) => Some(TypedStatement::Return(expressions.into_iter().map(|e| e.propagate(constants, functions)).collect())),
 			TypedStatement::Definition(var, expr) => {
 				match expr.propagate(constants, functions) {
@@ -226,7 +193,6 @@ impl<T: Field> TypedStatement<T> {
 				let expression_list = expression_list.propagate(constants, functions);
 				Some(TypedStatement::MultipleDefinition(variables, expression_list))
 			}
-			_ => Some(self)
 		}
 	}
 }
