@@ -37,6 +37,11 @@ pub struct Constraint {
 	c: BTreeMap<usize, String>,
 }
 
+pub struct DirectiveR1CS {
+    pub r1cs : R1CS,
+    pub directive : LibsnarkGadgetHelper
+}
+
 impl<T: Field> Into<FlatStatement<T>> for Constraint {
 	fn into(self: Constraint) -> FlatStatement<T> {
 		let rhs_a = match self.a.into_iter()
@@ -67,12 +72,14 @@ impl<T: Field> Into<FlatStatement<T>> for Constraint {
 	}
 }
 
-impl<T: Field> Into<FlatFunction<T>> for R1CS {
-	fn into(self: R1CS) -> FlatFunction<T> {
+impl<T: Field> Into<FlatFunction<T>> for DirectiveR1CS {
+	fn into(self: DirectiveR1CS) -> FlatFunction<T> {
+
+        let r1cs = self.r1cs;
 
 		// determine the number of variables, assuming there is no i so that column i is only zeroes in a, b and c
         let mut variables_set = HashSet::new();
-        for constraint in self.constraints.iter() {
+        for constraint in r1cs.constraints.iter() {
         	for (key, _) in &constraint.a {
         		variables_set.insert(key.clone());
         	}
@@ -87,18 +94,18 @@ impl<T: Field> Into<FlatFunction<T>> for R1CS {
         let variables_count = variables_set.len();
 
 		// insert flattened statements to represent constraints
-        let mut statements: Vec<FlatStatement<T>> = self.constraints.into_iter().map(|c| c.into()).collect();
+        let mut statements: Vec<FlatStatement<T>> = r1cs.constraints.into_iter().map(|c| c.into()).collect();
 
         // define the entire witness
         let variables = vec![0; variables_count].iter().enumerate().map(|(i, _)| FlatVariable::new(i)).collect();
 
         // define the inputs with dummy variables: arguments to the function and to the directive
-        let input_variables: Vec<FlatVariable> = vec![0; self.input_count].iter().enumerate().map(|(i, _)| FlatVariable::new(i + variables_count)).collect();
+        let input_variables: Vec<FlatVariable> = vec![0; r1cs.input_count].iter().enumerate().map(|(i, _)| FlatVariable::new(i + variables_count)).collect();
         let arguments = input_variables.iter().map(|i| FlatParameter { id: i.clone(), private: true }).collect();
         let inputs: Vec<FlatExpression<T>> = input_variables.into_iter().map(|i| FlatExpression::Identifier(i)).collect();
 
         // define which subset of the witness is returned
-        let outputs: Vec<FlatExpression<T>> = self.outputs.into_iter()
+        let outputs: Vec<FlatExpression<T>> = r1cs.outputs.into_iter()
          				.map(|o| FlatExpression::Identifier(FlatVariable::new(o))).collect();
 
         let signature = Signature {
@@ -106,14 +113,29 @@ impl<T: Field> Into<FlatFunction<T>> for R1CS {
             outputs: vec![Type::FieldElement; outputs.len()],
         };
 
-        // insert a directive to set the witness based on the inputs
-        statements.insert(0, FlatStatement::Directive(
-            DirectiveStatement {
-                outputs: variables,
-                inputs: inputs,
-                helper: Helper::LibsnarkGadget(LibsnarkGadgetHelper::Sha256Compress),
-            })
-        );
+        // insert a directive to set the witness based on the libsnark gadget and  inputs
+        match self.directive {
+
+            LibsnarkGadgetHelper::Sha256Compress => {
+                statements.insert(0, FlatStatement::Directive(
+                    DirectiveStatement {
+                        outputs: variables,
+                        inputs: inputs ,
+                        helper: Helper::LibsnarkGadget(LibsnarkGadgetHelper::Sha256Compress),
+                    })
+                );
+            },
+
+            LibsnarkGadgetHelper::Sha256Ethereum => {
+                statements.insert(0, FlatStatement::Directive(
+                    DirectiveStatement {
+                        outputs: variables,
+                        inputs: inputs ,
+                        helper: Helper::LibsnarkGadget(LibsnarkGadgetHelper::Sha256Ethereum),
+                    })
+                );
+            }
+        }
 
         // insert a statement to return the subset of the witness
         statements.push(FlatStatement::Return(
