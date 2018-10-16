@@ -1,4 +1,4 @@
-//! Module containing constant propagation
+//! Module containing constant propagation for the typed AST
 //!
 //! @file propagation.rs
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
@@ -218,7 +218,7 @@ impl<T: Field> TypedExpressionList<T> {
 impl<T: Field> TypedStatement<T> {
 	fn propagate(self, constants: &mut HashMap<TypedAssignee<T>, TypedExpression<T>>, functions: &Vec<TypedFunction<T>>) -> Option<TypedStatement<T>> {
 		match self {
-			// simple propagation through return statements
+			TypedStatement::Declaration(v) => Some(TypedStatement::Declaration(v)),
 			TypedStatement::Return(expressions) => Some(TypedStatement::Return(expressions.into_iter().map(|e| e.propagate(constants, functions)).collect())),
 			// propagation to the defined variable if rhs is a constant
 			TypedStatement::Definition(TypedAssignee::Identifier(var), expr) => {
@@ -282,6 +282,7 @@ impl<T: Field> TypedStatement<T> {
 					}
 				}
 			},
+			TypedStatement::Definition(..) => panic!("multi dimensinal arrays are not supported, this should have been caught during semantic checking"),
 			// propagate lhs and rhs for conditions
 			TypedStatement::Condition(e1, e2) => {
 				// could stop execution here if condition is known to fail
@@ -293,7 +294,6 @@ impl<T: Field> TypedStatement<T> {
 				let expression_list = expression_list.propagate(constants, functions);
 				Some(TypedStatement::MultipleDefinition(variables, expression_list))
 			}
-			_ => Some(self)
 		}
 	}
 }

@@ -1,4 +1,4 @@
-//! Module containing constant propagation
+//! Module containing constant propagation for the flat AST
 //!
 //! @file propagation.rs
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
@@ -20,6 +20,7 @@ pub trait PropagateWithContext<T: Field> {
 impl<T: Field> PropagateWithContext<T> for FlatExpression<T> {
 	fn propagate(self, constants: &mut HashMap<FlatVariable, T>) -> FlatExpression<T> {
 		match self {
+			FlatExpression::Number(n) => FlatExpression::Number(n),
 			FlatExpression::Identifier(id) => {
 				match constants.get(&id) {
 					Some(c) => FlatExpression::Number(c.clone()),
@@ -50,7 +51,6 @@ impl<T: Field> PropagateWithContext<T> for FlatExpression<T> {
 					(e1, e2) => FlatExpression::Div(box e1, box e2),
 				}
 			},
-			_ => self
 		}
 	}
 }
@@ -73,7 +73,6 @@ impl<T: Field> FlatStatement<T> {
 				}
 			},
 			FlatStatement::Condition(e1, e2) => {
-				// could stop execution here if condition is known to fail...
 				Some(FlatStatement::Condition(e1.propagate(constants), e2.propagate(constants)))
 			},
 			FlatStatement::Directive(d) => {
