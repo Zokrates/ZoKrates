@@ -86,13 +86,18 @@ impl<T: Field> fmt::Display for TypedFunction<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "def {}({}):\n{}",
+            "def {}({}) -> ({}):\n{}",
             self.id,
             self.arguments
                 .iter()
                 .map(|x| format!("{}", x))
                 .collect::<Vec<_>>()
-                .join(","),
+                .join(", "),
+            self.signature.outputs
+                .iter()
+                .map(|x| format!("{}", x))
+                .collect::<Vec<_>>()
+                .join(", "),
             self.statements
                 .iter()
                 .map(|x| format!("\t{}", x))

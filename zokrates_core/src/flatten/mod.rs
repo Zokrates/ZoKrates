@@ -820,6 +820,7 @@ impl Flattener {
         statements_flattened: &mut Vec<FlatStatement<T>>,
         stat: TypedStatement<T>,
     ) {
+        println!("{}", stat);
         match stat {
             TypedStatement::Return(exprs) => {
                 let flat_expressions = exprs.into_iter().map(|expr| 

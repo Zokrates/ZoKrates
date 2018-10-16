@@ -111,23 +111,34 @@ impl<T: Field> TypedStatement<T> {
 					_ => panic!("array identifier has to be a field element array")
 				};
 
+				let expr = match expr {
+					TypedExpression::FieldElement(e) => e,
+					_ => panic!("right side of array element definition must be a field element")
+				};
+
 				let res = match substitution.get(&variable.id) {
-					Some(i) => {
-						let old_array = FieldElementArrayExpression::Value(array_size, (0..array_size)
-							.map(|index| 
-								FieldElementExpression::Select(
-									box FieldElementArrayExpression::Identifier(array_size, format!("{}_{}", variable.id, i)),
-									box FieldElementExpression::Number(T::from(index))
+					Some(ssa_id) => {
+						let new_array = FieldElementArrayExpression::Value(array_size, (0..array_size)
+							.map(|i| 
+								FieldElementExpression::IfElse(
+									box BooleanExpression::Eq(
+										box index.clone(),
+										box FieldElementExpression::Number(T::from(i))
+									),
+									box expr.clone(),
+									box FieldElementExpression::Select(
+										box FieldElementArrayExpression::Identifier(array_size, format!("{}_{}", variable.id, ssa_id)),
+										box FieldElementExpression::Number(T::from(i))
+									)
 								)
 							)
 							.collect());
 						vec![
-							TypedStatement::Definition(TypedAssignee::Identifier(Variable { id: format!("{}_{}", variable.id, i + 1), ..variable.clone()}), old_array.into()),
-							TypedStatement::Definition(TypedAssignee::ArrayElement(box TypedAssignee::Identifier(Variable { id: format!("{}_{}", variable.id, i + 1), ..variable}), box index), expr)
+							TypedStatement::Definition(TypedAssignee::Identifier(Variable { id: format!("{}_{}", variable.id, ssa_id + 1), ..variable.clone()}), new_array.into()),
 						]
 					},
 					None => {
-						vec![TypedStatement::Definition(TypedAssignee::Identifier(Variable { id: format!("{}_{}", variable.id, 0), ..variable}), expr)]
+						vec![TypedStatement::Definition(TypedAssignee::Identifier(Variable { id: format!("{}_{}", variable.id, 0), ..variable}), expr.into())]
 					}
 				};
 				substitution.entry(variable.id)

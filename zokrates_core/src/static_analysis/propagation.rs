@@ -88,6 +88,7 @@ impl<T: Field> PropagateWithContext<T> for FieldElementExpression<T> {
 			FieldElementExpression::Select(box array, box index) => {
 				let array = array.propagate(constants, functions);
 				let index = index.propagate(constants, functions);
+
 				match (array, index) {
 					(FieldElementArrayExpression::Value(size, v), FieldElementExpression::Number(n)) => {
 						let n_as_usize = n.to_dec_string().parse::<usize>().unwrap();
@@ -222,9 +223,24 @@ impl<T: Field> TypedStatement<T> {
 			// propagation to the defined variable if rhs is a constant
 			TypedStatement::Definition(TypedAssignee::Identifier(var), expr) => {
 				match expr.propagate(constants, functions) {
-					e @ TypedExpression::Boolean(BooleanExpression::Value(..)) | e @ TypedExpression::FieldElement(FieldElementExpression::Number(..)) | e @ TypedExpression::FieldElementArray(FieldElementArrayExpression::Value(..)) => {
+					e @ TypedExpression::Boolean(BooleanExpression::Value(..)) | e @ TypedExpression::FieldElement(FieldElementExpression::Number(..)) => {
 						constants.insert(TypedAssignee::Identifier(var), e);
 						None
+					},
+					TypedExpression::FieldElementArray(FieldElementArrayExpression::Value(size, array)) => {
+						match array.iter().all(|e| match e {
+							FieldElementExpression::Number(..) => true,
+							_ => false
+						}) {
+							true => {
+								// all elements of the array are constants
+								constants.insert(TypedAssignee::Identifier(var), FieldElementArrayExpression::Value(size, array).into());
+								return None;
+							},
+							false => {
+								return Some(TypedStatement::Definition(TypedAssignee::Identifier(var), FieldElementArrayExpression::Value(size, array).into()));
+							}
+						}
 					},
 					e => {
 						Some(TypedStatement::Definition(TypedAssignee::Identifier(var), e))
@@ -259,6 +275,9 @@ impl<T: Field> TypedStatement<T> {
 						None
 					},
 					(index, expr) => {
+						// a[42] = e
+						// -> remove a from the constants as one of its elements is not constant
+						constants.remove(&TypedAssignee::Identifier(var.clone()));
 						Some(TypedStatement::Definition(TypedAssignee::ArrayElement(box TypedAssignee::Identifier(var), box index), expr))
 					}
 				}
