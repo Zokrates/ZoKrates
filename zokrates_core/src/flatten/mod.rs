@@ -820,7 +820,7 @@ impl Flattener {
         statements_flattened: &mut Vec<FlatStatement<T>>,
         stat: TypedStatement<T>,
     ) {
-        println!("{}", stat);
+        println!("a statement... {}", statements_flattened.len());
         match stat {
             TypedStatement::Return(exprs) => {
                 let flat_expressions = exprs.into_iter().map(|expr| 
@@ -1160,6 +1160,7 @@ impl Flattener {
         functions_flattened: &mut Vec<FlatFunction<T>>,
         funct: TypedFunction<T>,
     ) -> FlatFunction<T> {
+        println!("FLATTEN {}", funct.id);
         self.variables = HashSet::new();
         self.substitution = DirectSubstitution::new();
 

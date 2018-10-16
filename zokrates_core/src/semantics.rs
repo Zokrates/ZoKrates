@@ -488,13 +488,10 @@ impl Checker {
             		1 => {
             			let f = &candidates[0];
             			// the return count has to be 1
-            			if f.signature.outputs.len() == 1 {
-            				return match f.signature.outputs[0] {
-            					Type::FieldElement => Ok(FieldElementExpression::FunctionCall(f.id.clone(), arguments_checked).into()),
-            					ref t => Err( Error { message: format!("Outside of assignments, functions must return a single element of type {}, found type {}", Type::FieldElement, t)})
-            				}
+            			match f.signature.outputs.len() {
+            				1 => Ok(FieldElementExpression::FunctionCall(f.id.clone(), arguments_checked).into()),
+            				n => Err(Error { message: format!("{} returns {} values but is called outside of a definition", f.id, n) })
             			}
-            			Err(Error { message: format!("{} returns {} values but is called outside of a definition", f.id, f.signature.outputs.len()) })
             		},
             		0 => Err(Error { message: format!("Function definition for function {} with signature {} not found.", fun_id, query) }),
             		_ => panic!("duplicate definition should have been caught before the call")

@@ -1,23 +1,21 @@
 // AR17XAR19XAR10
 
-import "./../../array/32/xor.code" as XOR
+import "./../../bitwise/32/xor.code" as XOR
 
 def RR17(field[32] b) -> (field[32]):
-	return [b[17], b[18], b[19], b[20], b[21], b[22], b[23], b[24], b[25], b[26], b[27], b[28], b[29], b[30], b[31], b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11], b[12], b[13], b[14], b[15], b[16]]
+	return [b[15], b[16], b[17], b[18], b[19], b[20], b[21], b[22], b[23], b[24], b[25], b[26], b[27], b[28], b[29], b[30], b[31], b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11], b[12], b[13], b[14]]
 
 def RR19(field[32] b) -> (field[32]):
-	return [b[19], b[20], b[21], b[22], b[23], b[24], b[25], b[26], b[27], b[28], b[29], b[30], b[31], b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11], b[12], b[13], b[14], b[15], b[16], b[17], b[18]]
+	return [b[13], b[14], b[15], b[16], b[17], b[18], b[19], b[20], b[21], b[22], b[23], b[24], b[25], b[26], b[27], b[28], b[29], b[30], b[31], b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11], b[12]]
 
 def RS10(field[32] b) -> (field[32]):
 	return [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11], b[12], b[13], b[14], b[15], b[16], b[17], b[18], b[19], b[20], b[21]]
 
-def main(field a31, field a30, field a29, field a28, field a27, field a26, field a25, field a24, field a23, field a22, field a21, field a20, field a19, field a18, field a17, field a16, field a15, field a14, field a13, field a12, field a11, field a10, field a9, field a8, field a7, field a6, field a5, field a4, field a3, field a2, field a1, field a0) -> (field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field):
-	
-	field[32] a = [a31, a30, a29, a28, a27, a26, a25, a24, a23, a22, a21, a20, a19, a18, a17, a16, a15, a14, a13, a12, a11, a10, a9, a8, a7, a6, a5, a4, a3, a2, a1, a0]
+def main(field[32] a) -> (field[32]):
 	u = RR17(a)
 	v = RR19(a)
 	w = RS10(a)
 	x = XOR(u, v)
 	z = XOR(w, x)
-	return z[0], z[1], z[2], z[3], z[4], z[5], z[6], z[7], z[8], z[9], z[10], z[11], z[12], z[13], z[14], z[15], z[16], z[17], z[18], z[19], z[20], z[21], z[22], z[23], z[24], z[25], z[26], z[27], z[28], z[29], z[30], z[31]
+	return z
 

@@ -1,4 +1,0 @@
-// COPY
-
-def main(field[32] b) -> (field[32]):
-	return b

@@ -19,7 +19,11 @@ pub trait Analyse {
 
 impl<T: Field> Analyse for TypedProg<T> {
 	fn analyse(self) -> Self {
-		self.unroll().propagate()
+		//self.unroll().propagate()
+		let r = self.unroll();
+		let r = r.propagate();
+		print!("propagated! {}", r);
+		r
 	}
 }
 
