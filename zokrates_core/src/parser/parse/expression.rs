@@ -324,7 +324,7 @@ mod tests {
     #[test]
     fn parse_boolean_or() {
         let pos = Position{line: 45, col: 121};
-        let string = String::from("if a < b or 2*a > b then c else d fi");
+        let string = String::from("if a < b || 2*a > b then c else d fi");
 
         let expr = Expression::IfElse::<FieldPrime>(
             box Expression::Or(
