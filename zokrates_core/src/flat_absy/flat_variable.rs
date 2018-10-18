@@ -1,6 +1,5 @@
+use std::collections::HashMap;
 use std::fmt;
-use substitution::Substitution;
-
 
 // A variable in a constraint system
 // id > 0 for intermediate variables
@@ -53,10 +52,10 @@ impl fmt::Debug for FlatVariable {
 }
 
 impl FlatVariable {
-    pub fn apply_substitution(self, substitution: &Substitution, should_fallback: bool) -> Self {
+    pub fn apply_substitution(self, substitution: &HashMap<FlatVariable, FlatVariable>, should_fallback: bool) -> Self {
         match should_fallback {
-            true => substitution.get(&self).unwrap_or(self),
-            false => substitution.get(&self).unwrap()
+            true => substitution.get(&self).unwrap_or(&self).clone(),
+            false => substitution.get(&self).unwrap().clone()
         }
     }
 
