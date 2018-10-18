@@ -5,12 +5,10 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
-use std::collections::{HashSet};
+use std::collections::{HashMap, HashSet};
 use typed_absy::*;
 use field::Field;
 use flat_absy::*;
-use substitution::direct_substitution::DirectSubstitution;
-use substitution::Substitution;
 use helpers::{DirectiveStatement, Helper, RustHelper};
 use types::Type;
 use types::Signature;
@@ -27,7 +25,7 @@ pub struct Flattener {
     /// Vector containing all used variables while processing the program.
     variables: HashSet<FlatVariable>,
     /// Map of renamings for reassigned variables while processing the program.
-    substitution: DirectSubstitution,
+    substitution: HashMap<FlatVariable, FlatVariable>,
     /// Index of the next introduced variable while processing the program.
     next_var_idx: usize,
     ///
@@ -43,7 +41,7 @@ impl Flattener {
         Flattener {
             bits: bits,
             variables: HashSet::new(),
-            substitution: DirectSubstitution::new(),
+            substitution: HashMap::new(),
             next_var_idx: 0,
             bijection: BiMap::new(),
         }
@@ -386,7 +384,7 @@ impl Flattener {
 
                 // Stores prefixed variables
 
-                let mut replacement_map = DirectSubstitution::new();
+                let mut replacement_map = HashMap::new();
 
                 // Handle complex parameters and assign values:
                 // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions
@@ -820,7 +818,6 @@ impl Flattener {
         statements_flattened: &mut Vec<FlatStatement<T>>,
         stat: TypedStatement<T>,
     ) {
-        println!("a statement... {}", statements_flattened.len());
         match stat {
             TypedStatement::Return(exprs) => {
                 let flat_expressions = exprs.into_iter().map(|expr| 
@@ -1160,9 +1157,8 @@ impl Flattener {
         functions_flattened: &mut Vec<FlatFunction<T>>,
         funct: TypedFunction<T>,
     ) -> FlatFunction<T> {
-        println!("FLATTEN {}", funct.id);
         self.variables = HashSet::new();
-        self.substitution = DirectSubstitution::new();
+        self.substitution = HashMap::new();
 
         self.bijection = BiMap::new();
 

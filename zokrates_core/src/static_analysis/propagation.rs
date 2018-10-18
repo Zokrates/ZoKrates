@@ -217,7 +217,6 @@ impl<T: Field> TypedExpressionList<T> {
 
 impl<T: Field> TypedStatement<T> {
 	fn propagate(self, constants: &mut HashMap<TypedAssignee<T>, TypedExpression<T>>, functions: &Vec<TypedFunction<T>>) -> Option<TypedStatement<T>> {
-		println!("PROPAGATE {}", self);
 		match self {
 			TypedStatement::Declaration(v) => Some(TypedStatement::Declaration(v)),
 			TypedStatement::Return(expressions) => Some(TypedStatement::Return(expressions.into_iter().map(|e| e.propagate(constants, functions)).collect())),

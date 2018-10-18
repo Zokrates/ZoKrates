@@ -16,7 +16,6 @@ extern crate bimap;
 mod parser;
 mod imports;
 mod semantics;
-mod substitution;
 mod flatten;
 mod optimizer;
 #[cfg(feature = "libsnark")]

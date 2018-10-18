@@ -5,15 +5,14 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
-use substitution::direct_substitution::DirectSubstitution;
-use substitution::Substitution;
+use std::collections::HashMap;
 use flat_absy::*;
 use field::Field;
 use flat_absy::flat_variable::FlatVariable;
 
 pub struct Optimizer {
 	/// Map of renamings for reassigned variables while processing the program.
-	substitution: DirectSubstitution,
+	substitution: HashMap<FlatVariable, FlatVariable>,
 	/// Index of the next introduced variable while processing the program.
 	next_var_idx: Counter
 }
@@ -33,7 +32,7 @@ impl Counter {
 impl Optimizer {
 	pub fn new() -> Optimizer {
 		Optimizer {
-			substitution: DirectSubstitution::new(),
+			substitution: HashMap::new(),
     		next_var_idx: Counter {
     			value: 0
     		}
