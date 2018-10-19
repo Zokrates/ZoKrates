@@ -1,21 +1,26 @@
-# CLI
+# Command Line Tool
 
 Zokrates provides a command line interface.
 You can see an overview of the available subcommands by running
 
-```
+```sh
 ./zokrates
 ```
-## compile
-```
+
+## `compile`
+
+```sh
 ./zokrates compile -i /path/to/add.code
 ```
-Compile a `.code` file.
+
+Compiles a `.code` file into  ZoKrates internal representation of arithmetic circuits. Use the `--gadgets` flag if libsnark gadgets are being used in your code (e.g. SHA256 hashing). 
+
 Creates a compiled `.code` file at `./out.code`.
 
-## compute-witness
-```
-./zokrates compute-witness -a 1 2
+## `compute-witness`
+
+```sh
+./zokrates compute-witness -a 1 2 3
 ```
 
 Computes a witness for the compiled program found at `./out.code` and arguments to the program.
@@ -23,33 +28,38 @@ A witness is a valid assignment of the variables, which include the results of t
 
 Creates a witness file at `./witness`
 
-## setup
-```
+## `setup`
+
+```sh
 ./zokrates setup
 ```
 
 Generates a trusted setup for the compiled program found at `./out.code`.
 
 Creates a proving key and a verifying key at `./proving.key` and `./verifying.key`.
+These keys are derived from a source of randomness, commonly referred to as “toxic waste”. Anyone having access to the source of randomness can produce fake proofs that will be accepted by a verifier following the protocol.
 
-## export-verifier
-```
+## `export-verifier`
+
+```sh
 ./zokrates export-verifier
 ```
 
-Using the verifying key at `./verifying.key`, generates a Solidity contract enabling to verify proofs for computations of the compiled program at `./out.code`.
+Using the verifying key at `./verifying.key`, generates a Solidity contract which contains the generated verification key and a public function to verify a solution to the compiled program at `./out.code`.
 
-Creates a verifier contract at `./verifier.sol`
+Creates a verifier contract at `./verifier.sol`.
 
-## generate-proof
-```
+## `generate-proof`
+
+```sh
 ./zokrates generate-proof
 ```
 
 Using the proving key at `./proving.key`, generates a proof for a computation of the compiled program `./out.code` resulting in `./witness`.
 
 Returns the proof, for example:
-```
+
+```k
 A = 0x45582d7906c967b1fd1cac0aad3efefa526e4cd888b8ecb5907b46c2eb1f781, 0x8158089a63a6aafa4afc3bbfd5ebf392e5ef61d0c5faf2e2445c9112450f29c
 A_p = 0x5e4fe0bfa79a571b8918138ee5d7b3d0ad394c9bb8f7d2e1549f7e3c3bab7e9, 0x1708b5ba3d138e433406c792f679ae6902fc9f7c6131305a9a5f826dbe2d71fb
 B = [0x34f5c5b7518597452e55a69bf9171a63837a98a1c1c1870b610b2cfe79c4573, 0x18e56afd179d67960db838a8fdb128eb78d5dd2c1ffcd564f9d0dada928ed71f], [0xf160ea8d2dc33b564a45c0998309b4bf5a050cc8f6288793b7401b37d1eb1a2, 0x23ade8ba2c64300b5ff90e18641516407054a21179829252fd87f1bd61a3be34]
@@ -62,7 +72,8 @@ K = 0x1868436121f271e9fbf78a8f75bb4077e2d4f208891793fd5b468afc3b05c0e4, 0x1021c3
 
 Passed to the verifier contract, this proof can be checked.
 For example, using `web3`, a call would look like the following:
-```
+
+```k
 Verifier.at(<verifier contract address>).verifyTx(A, A_p, B, B_p, C, C_p, H, K, [...publicInputs, ...outputs])
 ```
 
