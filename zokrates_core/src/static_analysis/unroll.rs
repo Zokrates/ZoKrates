@@ -51,6 +51,7 @@ impl<T: Field> FieldElementArrayExpression<T> {
 		match self {
 			FieldElementArrayExpression::Identifier(size, id) => FieldElementArrayExpression::Identifier(size, format!("{}_{}", id, substitution.get(&id).unwrap().clone())),
 			FieldElementArrayExpression::Value(size, v) => FieldElementArrayExpression::Value(size, v.into_iter().map(|e| e.unroll(substitution)).collect()),
+			FieldElementArrayExpression::FunctionCall(size, id, args) => FieldElementArrayExpression::FunctionCall(size, id, args.into_iter().map(|a| a.unroll(substitution)).collect()),
 		}
 	}
 }

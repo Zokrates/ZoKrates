@@ -80,7 +80,6 @@ impl<T: Field> PropagateWithContext<T> for FieldElementExpression<T> {
 				}
 			},
 			FieldElementExpression::FunctionCall(id, arguments) => {
-				// propagation through function calls is handled after flattening, we only propagate arguments
 				let arguments = arguments.into_iter().map(|a| a.propagate(constants, functions)).collect();
 
 				FieldElementExpression::FunctionCall(id, arguments)
@@ -125,6 +124,11 @@ impl<T: Field> PropagateWithContext<T> for FieldElementArrayExpression<T> {
 					},
 					None => FieldElementArrayExpression::Identifier(size, id)
 				}
+			},
+			FieldElementArrayExpression::FunctionCall(size, id, arguments) => {
+				let arguments = arguments.into_iter().map(|a| a.propagate(constants, functions)).collect();
+
+				FieldElementArrayExpression::FunctionCall(size, id, arguments)
 			},
 			FieldElementArrayExpression::Value(size, exprs) => {
 				FieldElementArrayExpression::Value(size, exprs.into_iter().map(|e| e.propagate(constants, functions)).collect())

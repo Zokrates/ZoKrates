@@ -67,14 +67,7 @@ pub trait Folder<T: Field> : Sized {
         fold_boolean_expression(self, e)
     }
     fn fold_field_array_expression(&mut self, e: FieldElementArrayExpression<T>) -> FieldElementArrayExpression<T> {
-        match e {
-            FieldElementArrayExpression::Identifier(size, id) => {
-                FieldElementArrayExpression::Identifier(size, self.fold_name(id))
-            },
-            FieldElementArrayExpression::Value(size, exprs) => {
-                FieldElementArrayExpression::Value(size, exprs.into_iter().map(|e| self.fold_field_expression(e)).collect())
-            }
-        }
+        fold_field_array_expression(self, e)
     }
 }
 
@@ -95,6 +88,21 @@ pub fn fold_statement<T: Field, F: Folder<T>>(f: &mut F, s: TypedStatement<T>) -
         TypedStatement::MultipleDefinition(variables, elist) => TypedStatement::MultipleDefinition(variables.into_iter().map(|v| f.fold_variable(v)).collect(), f.fold_expression_list(elist)),
     };
     vec![res]
+}
+
+pub fn fold_field_array_expression<T: Field, F: Folder<T>>(f: &mut F, e: FieldElementArrayExpression<T>) -> FieldElementArrayExpression<T> {
+    match e {
+        FieldElementArrayExpression::Identifier(size, id) => {
+            FieldElementArrayExpression::Identifier(size, f.fold_name(id))
+        },
+        FieldElementArrayExpression::Value(size, exprs) => {
+            FieldElementArrayExpression::Value(size, exprs.into_iter().map(|e| f.fold_field_expression(e)).collect())
+        }
+        FieldElementArrayExpression::FunctionCall(size, id, exps) => {
+            let exps = exps.into_iter().map(|e| f.fold_expression(e)).collect();
+            FieldElementArrayExpression::FunctionCall(size, id, exps)
+        }
+    }
 }
 
 pub fn fold_field_expression<T: Field, F: Folder<T>>(f: &mut F, e: FieldElementExpression<T>) -> FieldElementExpression<T> {

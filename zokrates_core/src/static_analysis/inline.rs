@@ -22,13 +22,16 @@ impl<T: Field> Inliner<T> {
         }
     }
 
-    fn should_inline(&self, _function: &TypedFunction<T>, _arguments: &Vec<TypedExpression<T>>) -> bool {
+    fn should_inline(&self, function: &Option<TypedFunction<T>>, _arguments: &Vec<TypedExpression<T>>) -> bool {
     	// we should define a heuristic here
     	// currently it doesn't seem like there's a tradeoff as everything gets inlined in flattening anyway
     	// however, using backends such as bellman, we could avoid flattening and "stream" the computation
     	// at proving time, the tradeoff becomes code size (not inlining keeps only one copy of each function) vs optimisation
     	// (inlining enables constant propagation through function calls, which cannot be achieved by our final optimiser in some cases) 
-    	true
+    	match function {
+    		Some(..) => true,
+    		None => false
+    	}
     }
 
     // inline a call to `function` taking `expressions` as inputs
@@ -83,6 +86,7 @@ impl<T: Field> Folder<T> for Inliner<T> {
 	        TypedStatement::MultipleDefinition(variables, elist) => {
 	        	match elist {
 	        		TypedExpressionList::FunctionCall(id, exps, types) => {
+	        			let variables: Vec<_> = variables.into_iter().map(|a| self.fold_variable(a)).collect();
 	        			let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
 
 						let passed_signature = Signature::new()
@@ -90,11 +94,11 @@ impl<T: Field> Folder<T> for Inliner<T> {
 				            .outputs(types.clone());
 
 				        // find the function
-		        		let function = self.functions.iter().find(|f| f.id == id && f.signature == passed_signature).expect("function should exist").clone();
+		        		let function = self.functions.iter().find(|f| f.id == id && f.signature == passed_signature).cloned();
 
 		        		match self.should_inline(&function, &exps) {
 		        			true => {
-		        				let ret = self.inline_call(&function, exps);
+		        				let ret = self.inline_call(&function.unwrap(), exps);
 		        				variables.into_iter().zip(ret.into_iter()).map(|(v, e)| TypedStatement::Definition(TypedAssignee::Identifier(v), e)).collect()
 		        			},
 		        			false => {
@@ -139,11 +143,11 @@ impl<T: Field> Folder<T> for Inliner<T> {
 		            .outputs(vec![Type::FieldElement]);
 
 		        // find the function
-		        let function = self.functions.iter().find(|f| f.id == id && f.signature == passed_signature).expect("function should exist").clone();
+		        let function = self.functions.iter().find(|f| f.id == id && f.signature == passed_signature).cloned();
 
                 match self.should_inline(&function, &exps) {
                 	true => {
-                		let ret = self.inline_call(&function, exps);
+                		let ret = self.inline_call(&function.unwrap(), exps);
                 		// unwrap the result to return a field element
 						match ret[0].clone() {
             				TypedExpression::FieldElement(e) => e,
@@ -155,6 +159,36 @@ impl<T: Field> Folder<T> for Inliner<T> {
             },
             // default
             e => fold_field_expression(self, e)
+        }
+	}
+
+	// inline calls which return a field element array
+	fn fold_field_array_expression(&mut self, e: FieldElementArrayExpression<T>) -> FieldElementArrayExpression<T> {
+        match e {
+            FieldElementArrayExpression::FunctionCall(size, id, exps) => {
+                let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
+
+		        let passed_signature = Signature::new()
+		            .inputs(exps.iter().map(|e| e.get_type()).collect())
+		            .outputs(vec![Type::FieldElementArray(size)]);
+
+		        // find the function
+		        let function = self.functions.iter().find(|f| f.id == id && f.signature == passed_signature).cloned();
+
+                match self.should_inline(&function, &exps) {
+                	true => {
+                		let ret = self.inline_call(&function.unwrap(), exps);
+                		// unwrap the result to return a field element
+						match ret[0].clone() {
+            				TypedExpression::FieldElementArray(e) => e,
+            				_ => panic!("")
+            			}
+                	},
+                	false => FieldElementArrayExpression::FunctionCall(size, id, exps)
+                }
+            },
+            // default
+            e => fold_field_array_expression(self, e)
         }
 	}
 }

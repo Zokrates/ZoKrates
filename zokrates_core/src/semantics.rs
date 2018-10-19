@@ -489,7 +489,11 @@ impl Checker {
             			let f = &candidates[0];
             			// the return count has to be 1
             			match f.signature.outputs.len() {
-            				1 => Ok(FieldElementExpression::FunctionCall(f.id.clone(), arguments_checked).into()),
+            				1 => match f.signature.outputs[0] {
+	            					Type::FieldElement => Ok(FieldElementExpression::FunctionCall(f.id.clone(), arguments_checked).into()),
+	            					Type::FieldElementArray(size) => Ok(FieldElementArrayExpression::FunctionCall(size, f.id.clone(), arguments_checked).into()),
+	            					_ => unimplemented!()
+	            				}
             				n => Err(Error { message: format!("{} returns {} values but is called outside of a definition", f.id, n) })
             			}
             		},

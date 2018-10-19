@@ -727,6 +727,9 @@ impl Flattener {
                                     statements_flattened,
                                     expressions[n.to_dec_string().parse::<usize>().unwrap()].clone()
                                 ).apply_recursive_substitution(&self.substitution)
+                            },
+                            FieldElementArrayExpression::FunctionCall(size, id, args) => {
+                                unimplemented!()
                             }
                         }
                     }
@@ -770,6 +773,9 @@ impl Flattener {
                                         FieldElementArrayExpression::Value(size, expressions) => {
                                             assert_eq!(size, expressions.len());
                                             expressions[i].clone()
+                                        },
+                                        FieldElementArrayExpression::FunctionCall(size, id, args) => {
+                                            unimplemented!()
                                         }
                                     },
                                     box FieldElementExpression::Number(T::from(0)),
@@ -807,6 +813,18 @@ impl Flattener {
                         statements_flattened,
                         v
                 )).collect()
+            },
+            FieldElementArrayExpression::FunctionCall(size, ref id, ref param_expressions) => {
+                let exprs_flattened = self.flatten_function_call(
+                    functions_flattened,
+                    arguments_flattened,
+                    statements_flattened,
+                    id,
+                    vec![Type::FieldElementArray(size)],
+                    param_expressions
+                );
+                assert!(exprs_flattened.expressions.len() == size); // outside of MultipleDefinition, FunctionCalls must return a single value
+                exprs_flattened.expressions
             }
         }
     }
@@ -857,8 +875,8 @@ impl Flattener {
 
                 let rhs = rhs.into_iter().map(|e| e.apply_recursive_substitution(&self.substitution)).collect::<Vec<_>>();
 
-                match rhs.len() {
-                    1 => {
+                match expr.get_type() {
+                    Type::FieldElement | Type::Boolean => {
                         match assignee {
                             TypedAssignee::Identifier(ref v) => {
                                 let debug_name = v.clone().id;
@@ -951,7 +969,7 @@ impl Flattener {
                             }
                         }
                     },
-                    _ => {
+                    Type::FieldElementArray(..) => {
                         for (index, r) in rhs.into_iter().enumerate() {
                             let debug_name = match assignee {
                                 TypedAssignee::Identifier(ref v) => format!("{}_c{}", v.id, index),
@@ -1110,21 +1128,9 @@ impl Flattener {
                         // take each new variable being assigned
                         for v in vars {
                             // determine how many field elements it carries
-                            let n = v.get_type().get_primitive_count();
-
-                            match n {
-                                1 => {
-                                    let debug_name = v.id;
-                                    let var = self.use_variable(&debug_name);
-                                    // handle return of function call
-                                    let var_to_replace = self.get_latest_var_substitution(&debug_name);
-                                    if !(var == var_to_replace) && self.variables.contains(&var_to_replace) && !self.substitution.contains_key(&var_to_replace){
-                                        self.substitution.insert(var_to_replace.clone(),var.clone());
-                                    }
-                                    statements_flattened.push(FlatStatement::Definition(var, iterator.next().unwrap()));
-                                },
-                                n => {
-                                    for index in 0..n {
+                            match v.get_type() {
+                                Type::FieldElementArray(size) => {
+                                    for index in 0..size {
                                         let debug_name = format!("{}_c{}", v.id, index);
                                         let var = self.use_variable(&debug_name);
                                         // handle return of function call
@@ -1134,7 +1140,17 @@ impl Flattener {
                                         }
                                         statements_flattened.push(FlatStatement::Definition(var, iterator.next().unwrap()));
                                     }
-                                }
+                                },
+                                Type::Boolean | Type::FieldElement => {
+                                    let debug_name = v.id;
+                                    let var = self.use_variable(&debug_name);
+                                    // handle return of function call
+                                    let var_to_replace = self.get_latest_var_substitution(&debug_name);
+                                    if !(var == var_to_replace) && self.variables.contains(&var_to_replace) && !self.substitution.contains_key(&var_to_replace){
+                                        self.substitution.insert(var_to_replace.clone(),var.clone());
+                                    }
+                                    statements_flattened.push(FlatStatement::Definition(var, iterator.next().unwrap()));
+                                },
                             }
                         }
                         
@@ -1218,6 +1234,7 @@ impl Flattener {
     ///
     /// * `prog` - `Prog`ram that will be flattened.
     pub fn flatten_program<T: Field>(&mut self, prog: TypedProg<T>) -> FlatProg<T> {
+
         let mut functions_flattened = Vec::new();
 
         self.load_stdlib(&mut functions_flattened);
