@@ -7,11 +7,13 @@
 mod propagation;
 mod unroll;
 mod flat_propagation;
+mod inline;
 
 use flat_absy::FlatProg;
 use field::Field;
 use typed_absy::TypedProg;
 use self::unroll::Unroll;
+use self::inline::Inliner;
 
 pub trait Analyse {
 	fn analyse(self) -> Self;
@@ -19,11 +21,10 @@ pub trait Analyse {
 
 impl<T: Field> Analyse for TypedProg<T> {
 	fn analyse(self) -> Self {
-		//self.unroll().propagate()
-		let r = self.unroll();
-		let r = r.propagate();
-		print!("propagated! {}", r);
-		r
+		// unroll and propagate a first time for constants to reach function calls
+		let r = self.unroll().propagate();
+		// apply inlining strategy and propagate again
+		Inliner::inline(r).propagate()
 	}
 }
 

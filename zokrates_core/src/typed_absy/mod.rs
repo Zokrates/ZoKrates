@@ -5,6 +5,8 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
+pub mod folder;
+
 use types::Signature;
 use absy::parameter::Parameter;
 use absy::variable::Variable;
@@ -14,6 +16,8 @@ use field::Field;
 use imports::Import;
 use flat_absy::*;
 use types::Type;
+
+pub use self::folder::Folder;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct TypedProg<T: Field> {
@@ -498,5 +502,11 @@ impl<T: Field> fmt::Debug for TypedExpressionList<T> {
                 write!(f, ")")
             }
         }
+    }
+}
+
+impl<T: Field> TypedFunction<T> {
+    pub fn to_slug(&self) -> String {
+        format!("{}_{}", self.id, self.signature.to_slug())
     }
 }
