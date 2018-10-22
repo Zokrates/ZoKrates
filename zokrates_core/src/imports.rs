@@ -160,19 +160,28 @@ impl Importer {
 	    #[cfg(feature = "libsnark")]
 	    {
 	    	use libsnark::{get_sha256_constraints, get_ethsha256_constraints};
-	    	use standard::{R1CS,DirectiveR1CS};
+	    	use standard::{R1CS, DirectiveR1CS};
 	    	use serde_json::from_str;
-		use helpers::LibsnarkGadgetHelper;
+			use helpers::LibsnarkGadgetHelper;
+			use types::conversions::{pack, unpack};
 
 		    if should_include_gadgets {
-                            // inject globals
+                // inject globals
 			    let r1cs : R1CS = from_str(&get_sha256_constraints()).unwrap();
-		            let dr1cs : DirectiveR1CS = DirectiveR1CS { r1cs, directive : LibsnarkGadgetHelper::Sha256Compress };
+		        let dr1cs : DirectiveR1CS = DirectiveR1CS { r1cs, directive : LibsnarkGadgetHelper::Sha256Compress };
 			    origins.push(CompiledImport::new(FlatProg::from(dr1cs), "sha256libsnark".to_string()));
 
 			    let r1cs: R1CS = from_str(&get_ethsha256_constraints()).unwrap();
 			    let dr1cs : DirectiveR1CS = DirectiveR1CS { r1cs, directive : LibsnarkGadgetHelper::Sha256Ethereum };
 			    origins.push(CompiledImport::new(FlatProg::from(dr1cs), "ethSha256libsnark".to_string()));
+
+			    origins.push(CompiledImport {
+			    	flat_func: pack(T::get_required_bits())
+			    });
+
+				origins.push(CompiledImport {
+			    	flat_func: unpack(T::get_required_bits())
+			    });
 		    }
 	   	}
 	  

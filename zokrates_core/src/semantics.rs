@@ -127,6 +127,71 @@ impl Checker {
 		}
 	}
 
+	#[cfg(feature = "libsnark")]
+	fn load_stdlib<T: Field>(&self) -> Vec<TypedFunction<T>> {
+		// predefine the inputs to sha: [a_0, a_1, ..., a_255, b_0, b_1, ..., b_255]
+		let mut inputs: Vec<TypedExpression<T>> = (0..256).map(|i| FieldElementExpression::Identifier(format!("a_{}", i)).into()).collect();
+		let mut b: Vec<TypedExpression<T>> = (0..256).map(|i| FieldElementExpression::Identifier(format!("b_{}", i)).into()).collect();
+
+		inputs.append(&mut b);
+		
+		let sha256_packed = TypedFunction {
+			id: String::from("sha256packed"),
+			signature: Signature::new()
+				.inputs(vec![Type::FieldElement, Type::FieldElement])
+				.outputs(vec![Type::FieldElement]),
+			arguments: vec![
+				Parameter {
+					id: Variable::field_element("a"),
+					private: true
+				},
+				Parameter {
+					id: Variable::field_element("b"),
+					private: true
+				}
+			],
+			statements: vec![
+				// field to bits		
+				TypedStatement::Definition(Variable::field_element("a_0"), FieldElementExpression::Number(T::from(0)).into()),
+				TypedStatement::Definition(Variable::field_element("a_1"), FieldElementExpression::Number(T::from(0)).into()),
+				TypedStatement::MultipleDefinition(
+					(0..T::get_required_bits()).map(|i| Variable::field_element(format!("a_{}", i + 2))).collect(),
+					TypedExpressionList::FunctionCall(
+						format!("_unpack_{}", T::get_required_bits()),
+						vec![
+							FieldElementExpression::Identifier(String::from("a")).into(),
+						],
+						vec![Type::FieldElement]
+					)
+				),
+				TypedStatement::Definition(Variable::field_element("b_0"), FieldElementExpression::Number(T::from(0)).into()),
+				TypedStatement::Definition(Variable::field_element("b_1"), FieldElementExpression::Number(T::from(0)).into()),
+				TypedStatement::MultipleDefinition(
+					(0..T::get_required_bits()).map(|i| Variable::field_element(format!("b_{}", i + 2))).collect(),
+					TypedExpressionList::FunctionCall(
+						format!("_unpack_{}", T::get_required_bits()),
+						vec![
+							FieldElementExpression::Identifier(String::from("b")).into(),
+						],
+						vec![Type::FieldElement; 254]
+					)
+				),
+				// hash
+				TypedStatement::MultipleDefinition(
+					(0..256).map(|i| Variable::field_element(format!("hashed_{}", i))).collect(),
+					TypedExpressionList::FunctionCall(
+						String::from("ethSha256libsnark"),
+						inputs,
+						vec![Type::FieldElement; 256]
+					),
+				),
+				TypedStatement::Return(vec![FieldElementExpression::FunctionCall(String::from("_pack_254"), (2..256).map(|i| FieldElementExpression::Identifier(format!("hashed_{}", i)).into()).collect()).into()])
+			]
+		};
+
+		vec![sha256_packed]
+	}
+
 	pub fn check_program<T: Field>(&mut self, prog: Prog<T>) -> Result<TypedProg<T>, Error> {
 		for func in &prog.imported_functions {
 			self.functions.insert(FunctionDeclaration {
@@ -136,6 +201,18 @@ impl Checker {
 		}
 
 		let mut checked_functions = vec![];
+	    
+	    #[cfg(feature = "libsnark")]
+	    {
+			let std = self.load_stdlib();
+			for func in std {
+				self.functions.insert(FunctionDeclaration {
+					id: func.id.clone(),
+					signature: func.signature.clone()
+				});
+				checked_functions.push(func);
+			}
+		}
 
 		for func in prog.functions {
 			let checked_func = self.check_function(&func)?;

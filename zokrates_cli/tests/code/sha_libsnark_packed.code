@@ -1,0 +1,8 @@
+// sha256 called with two 254 bits inputs, padded to 256 bits with zeros for most significant bits:
+// [0, 0, a_0, ..., a_254, 0, 0, b_0, ..., b_254]
+// output is truncated of the two most significant bits, and packed in a field element
+// output_packed = 0 + 0 + output_2 * 2**253 + ... + output_256 * 2**0
+
+def main(field a, field b) -> (field):
+	c = sha256packed(a, b)
+	return c
