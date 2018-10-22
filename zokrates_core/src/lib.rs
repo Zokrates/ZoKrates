@@ -23,6 +23,7 @@ mod standard;
 mod helpers;
 mod types;
 mod typed_absy;
+mod static_analysis;
 
 pub mod absy;
 pub mod flat_absy;

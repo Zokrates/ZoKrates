@@ -100,8 +100,9 @@ impl<T: Field> Into<FlatFunction<T>> for DirectiveR1CS {
         let variables = vec![0; variables_count].iter().enumerate().map(|(i, _)| FlatVariable::new(i)).collect();
 
         // define the inputs with dummy variables: arguments to the function and to the directive
-        let inputs: Vec<FlatVariable> = vec![0; r1cs.input_count].iter().enumerate().map(|(i, _)| FlatVariable::new(i + variables_count)).collect();
-        let arguments = inputs.iter().map(|i| FlatParameter { id: i.clone(), private: true }).collect();
+        let input_variables: Vec<FlatVariable> = vec![0; r1cs.input_count].iter().enumerate().map(|(i, _)| FlatVariable::new(i + variables_count)).collect();
+        let arguments = input_variables.iter().map(|i| FlatParameter { id: i.clone(), private: true }).collect();
+        let inputs: Vec<FlatExpression<T>> = input_variables.into_iter().map(|i| FlatExpression::Identifier(i)).collect();
 
         // define which subset of the witness is returned
         let outputs: Vec<FlatExpression<T>> = r1cs.outputs.into_iter()
