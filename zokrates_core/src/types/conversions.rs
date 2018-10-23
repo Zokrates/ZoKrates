@@ -66,7 +66,7 @@ pub fn unpack<T: Field>(nbits: usize) -> FlatFunction<T> {
 		private: true
 	}];
 
-	let directive_inputs = vec![use_variable(&mut bijection, format!("i0"), &mut counter)];
+	let directive_inputs = vec![FlatExpression::Identifier(use_variable(&mut bijection, format!("i0"), &mut counter))];
 	let directive_outputs: Vec<FlatVariable> = (0..nbits).map(|index| use_variable(&mut bijection, format!("o{}", index), &mut counter)).collect();
 
 	let helper = Helper::Rust(RustHelper::Bits);
