@@ -61,6 +61,17 @@ std::string outputPointG1AffineAsHex(libff::alt_bn128_G1 _p)
                 HexStringFromLibsnarkBigint(aff.Y.as_bigint());
 }
 
+std::string outputPointG1AffineAsHexJson(libff::alt_bn128_G1 _p)
+{
+        libff::alt_bn128_G1 aff = _p;
+        aff.to_affine_coordinates();
+        return
+                "[\"0x" +
+                HexStringFromLibsnarkBigint(aff.X.as_bigint()) +
+                "\", \"0x" +
+                HexStringFromLibsnarkBigint(aff.Y.as_bigint())+"\"]";
+}
+
 std::string outputPointG2AffineAsHex(libff::alt_bn128_G2 _p)
 {
         libff::alt_bn128_G2 aff = _p;
@@ -71,6 +82,18 @@ std::string outputPointG2AffineAsHex(libff::alt_bn128_G2 _p)
                 HexStringFromLibsnarkBigint(aff.X.c0.as_bigint()) + "], [0x" +
                 HexStringFromLibsnarkBigint(aff.Y.c1.as_bigint()) + ", 0x" +
                 HexStringFromLibsnarkBigint(aff.Y.c0.as_bigint()) + "]";
+}
+
+std::string outputPointG2AffineAsHexJson(libff::alt_bn128_G2 _p)
+{
+        libff::alt_bn128_G2 aff = _p;
+        aff.to_affine_coordinates();
+        return
+                "[[\"0x" +
+                HexStringFromLibsnarkBigint(aff.X.c1.as_bigint()) + "\", \"0x" +
+                HexStringFromLibsnarkBigint(aff.X.c0.as_bigint()) + "\"], [\"0x" +
+                HexStringFromLibsnarkBigint(aff.Y.c1.as_bigint()) + "\", \"0x" +
+                HexStringFromLibsnarkBigint(aff.Y.c0.as_bigint()) + "\"]]";
 }
 
 //takes input and puts it into constraint system
