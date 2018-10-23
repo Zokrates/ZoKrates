@@ -207,11 +207,11 @@ pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
 	let mut statements = conditions;
 
 	statements.insert(0, FlatStatement::Directive(
-		DirectiveStatement {
-			inputs: directive_inputs,
-			outputs: directive_outputs,
-			helper: helper
-		}
+		DirectiveStatement::new(
+			directive_outputs,
+			helper,
+			directive_inputs,
+		)
 	));
 
 	statements.push(FlatStatement::Return(
