@@ -34,7 +34,8 @@ fn main() {
     const VERIFICATION_CONTRACT_DEFAULT_PATH: &str = "verifier.sol";
     const WITNESS_DEFAULT_PATH: &str = "witness";
     const VARIABLES_INFORMATION_KEY_DEFAULT_PATH: &str = "variables.inf";
-
+    const JSON_PROOF_PATH: &str = "proof.json";
+    
     // cli specification using clap library
     let matches = App::new("ZoKrates")
     .setting(AppSettings::SubcommandRequiredElseHelp)
@@ -181,6 +182,14 @@ fn main() {
             .takes_value(true)
             .required(false)
             .default_value(PROVING_KEY_DEFAULT_PATH)
+        ).arg(Arg::with_name("proofpath")
+            .short("j")
+            .long("proofpath")
+            .help("Path of the json proof file")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(JSON_PROOF_PATH)
         ).arg(Arg::with_name("meta-information")
             .short("i")
             .long("meta-information")
@@ -551,10 +560,11 @@ fn main() {
             println!("Private inputs: {:?}", private_inputs);
 
             let pk_path = sub_matches.value_of("provingkey").unwrap();
+            let proof_path = sub_matches.value_of("proofpath").unwrap();
 
             // run libsnark
             #[cfg(feature="libsnark")]{
-                println!("generate-proof successful: {:?}", generate_proof(pk_path, public_inputs, private_inputs));
+                println!("generate-proof successful: {:?}", generate_proof(pk_path, proof_path, public_inputs, private_inputs));
             }
 
         }
