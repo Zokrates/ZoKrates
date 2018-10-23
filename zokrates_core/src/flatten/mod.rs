@@ -12,7 +12,7 @@ use flat_absy::*;
 use helpers::{DirectiveStatement, Helper, RustHelper};
 use types::Type;
 use types::Signature;
-use types::conversions::cast;
+use types::conversions::{cast};
 use absy::variable::Variable;
 use absy::parameter::Parameter;
 use bimap::BiMap;
@@ -47,8 +47,8 @@ impl Flattener {
         }
     }
 
-    /// Loads the standard library
-    fn load_stdlib<T: Field>(
+    /// Loads the code library
+    fn load_corelib<T: Field>(
         &mut self,
         functions_flattened: &mut Vec<FlatFunction<T>>,
     ) -> () {
@@ -57,7 +57,7 @@ impl Flattener {
         functions_flattened.push(cast(&Type::Boolean, &Type::FieldElement));
         functions_flattened.push(cast(&Type::FieldElement, &Type::Boolean));
 
-        // Load IfElse helpers
+        // Load IfElse helper
         let ie = TypedFunction {
             id: "_if_else_field".to_string(),
             arguments: vec![Parameter {
@@ -937,7 +937,7 @@ impl Flattener {
     pub fn flatten_program<T: Field>(&mut self, prog: TypedProg<T>) -> FlatProg<T> {
         let mut functions_flattened = Vec::new();
 
-        self.load_stdlib(&mut functions_flattened);
+        self.load_corelib(&mut functions_flattened);
 
         for func in prog.imported_functions {
             functions_flattened.push(func);
@@ -1448,7 +1448,7 @@ mod tests {
         let mut functions_flattened = vec![];
         let mut flattener = Flattener::new(FieldPrime::get_required_bits());
 
-        flattener.load_stdlib(&mut functions_flattened);
+        flattener.load_corelib(&mut functions_flattened);
 
         flattener.flatten_field_expression(
             &functions_flattened,

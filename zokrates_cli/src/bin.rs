@@ -67,10 +67,6 @@ fn main() {
             .long("light")
             .help("Skip logs and human readable output")
             .required(false)
-        ).arg(Arg::with_name("gadgets")
-            .long("gadgets")
-            .help("include libsnark gadgets such as sha256")
-            .required(false)
         )
      )
     .subcommand(SubCommand::with_name("setup")
@@ -212,8 +208,6 @@ fn main() {
 
             let should_optimize = sub_matches.occurrences_of("optimized") > 0;
 
-            let should_include_gadgets = sub_matches.occurrences_of("gadgets") > 0;
-
             let light = sub_matches.occurrences_of("light") > 0;
 
             let bin_output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -224,7 +218,7 @@ fn main() {
 
             let mut reader = BufReader::new(file);
             
-            let program_flattened: FlatProg<FieldPrime> = match compile(&mut reader, Some(location), Some(fs_resolve), should_optimize, should_include_gadgets) {
+            let program_flattened: FlatProg<FieldPrime> = match compile(&mut reader, Some(location), Some(fs_resolve), should_optimize) {
                 Ok(p) => p,
                 Err(why) => panic!("Compilation failed: {}", why)
             };
@@ -599,7 +593,7 @@ mod tests {
             let location = path.parent().unwrap().to_path_buf().into_os_string().into_string().unwrap();
 
             let program_flattened: FlatProg<FieldPrime> =
-                compile(&mut reader, Some(location), Some(fs_resolve), true, false).unwrap();
+                compile(&mut reader, Some(location), Some(fs_resolve), true).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
         }
@@ -623,7 +617,7 @@ mod tests {
 
             let program_flattened: FlatProg<FieldPrime> =
 
-            compile(&mut reader, Some(location), Some(fs_resolve), true, false).unwrap();
+            compile(&mut reader, Some(location), Some(fs_resolve), true).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
             let _ = program_flattened.get_witness(vec![FieldPrime::from(0)]).unwrap();
@@ -648,7 +642,7 @@ mod tests {
 
             let program_flattened: FlatProg<FieldPrime> =
 
-            compile(&mut reader, Some(location), Some(fs_resolve), true, false).unwrap();
+            compile(&mut reader, Some(location), Some(fs_resolve), true).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
 
