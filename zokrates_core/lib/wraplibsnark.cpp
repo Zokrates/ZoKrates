@@ -233,7 +233,8 @@ void exportInput(r1cs_primary_input<libff::Fr<libff::alt_bn128_pp>> input){
 }
 
 
-void printProof(r1cs_ppzksnark_proof<libff::alt_bn128_pp> proof){
+void printProof(r1cs_ppzksnark_proof<libff::alt_bn128_pp> proof, const char* proof_path, const uint8_t* public_inputs,
+            int public_inputs_length){
                 cout << "Proof:"<< endl;
                 cout << "A = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_A.g)<< ");" << endl;
                 cout << "A_p = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_A.h)<< ");" << endl;
@@ -243,6 +244,37 @@ void printProof(r1cs_ppzksnark_proof<libff::alt_bn128_pp> proof){
                 cout << "C_p = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_C.h)<<");" << endl;
                 cout << "H = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_H)<<");"<< endl;
                 cout << "K = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.g_K)<<");"<< endl;
+
+                //create JSON file
+                std::stringstream ss;
+                ss << "{" << "\n";
+                  ss << "\t\"proof\":" << "\n";
+                    ss << "\t{" << "\n";
+                      ss << "\t\t\"A\":" <<outputPointG1AffineAsHexJson(proof.g_A.g) << ",\n";
+                      ss << "\t\t\"A_p\":" <<outputPointG1AffineAsHexJson(proof.g_A.h) << ",\n";
+                      ss << "\t\t\"B\":" << "\n";
+                        ss << "\t\t\t" << outputPointG2AffineAsHexJson(proof.g_B.g) << ",\n";
+                      ss << "\t\t\n";
+                      ss << "\t\t\"B_p\":" <<outputPointG1AffineAsHexJson(proof.g_B.h) << ",\n";
+                      ss << "\t\t\"C\":" <<outputPointG1AffineAsHexJson(proof.g_C.g) << ",\n";
+                      ss << "\t\t\"C_p\":" <<outputPointG1AffineAsHexJson(proof.g_C.h) << ",\n";
+                      ss << "\t\t\"H\":" <<outputPointG1AffineAsHexJson(proof.g_H) << ",\n";
+                      ss << "\t\t\"K\":" <<outputPointG1AffineAsHexJson(proof.g_K) << "\n";
+                    ss << "\t}," << "\n";
+                  //add input to json
+                  ss << "\t\"input\":" << "[";
+                  for (int i = 1; i < public_inputs_length; i++) {
+                    if(i!=1){
+                      ss << ",";
+                    }
+                    ss << libsnarkBigintFromBytes(public_inputs + i*32);
+                  }
+                  ss << "]";
+                ss << "}";
+
+                std::string s = ss.str();
+                //write json string to proof_path
+                writeToFile(proof_path, s);
 }
 
 bool _setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int A_len, int B_len, int C_len, int constraints, int variables, int inputs, const char* pk_path, const char* vk_path)
@@ -272,7 +304,7 @@ bool _setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int A_len, int
   return true;
 }
 
-bool _generate_proof(const char* pk_path, const uint8_t* public_inputs, int public_inputs_length, const uint8_t* private_inputs, int private_inputs_length)
+bool _generate_proof(const char* pk_path, const char* proof_path, const uint8_t* public_inputs, int public_inputs_length, const uint8_t* private_inputs, int private_inputs_length)
 {
   libff::inhibit_profiling_info = true;
   libff::inhibit_profiling_counters = true;
@@ -304,7 +336,7 @@ bool _generate_proof(const char* pk_path, const uint8_t* public_inputs, int publ
   auto proof = r1cs_ppzksnark_prover<libff::alt_bn128_pp>(pk, primary_input, auxiliary_input);
 
   // print proof
-  printProof(proof);
+  printProof(proof, proof_path, public_inputs, public_inputs_length);
   // TODO? print inputs
 
   return true;

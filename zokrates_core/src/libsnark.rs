@@ -31,6 +31,7 @@ extern "C" {
     ) -> bool;
 
     fn _generate_proof(pk_path: *const c_char,
+                proof_path: *const c_char,
                 public_inputs: *const uint8_t,
                 public_inputs_length: c_int,
                 private_inputs: *const uint8_t,
@@ -156,11 +157,13 @@ pub fn setup<T: Field> (
 
 pub fn generate_proof<T: Field>(
     pk_path: &str,
+    proof_path: &str,
     public_inputs: Vec<T>,
     private_inputs: Vec<T>,
 ) -> bool {
 
     let pk_path_cstring = CString::new(pk_path).unwrap();
+    let proof_path_cstring = CString::new(proof_path).unwrap();
 
     let public_inputs_length = public_inputs.len();
     let private_inputs_length = private_inputs.len();
@@ -180,6 +183,7 @@ pub fn generate_proof<T: Field>(
     unsafe {
         _generate_proof(
             pk_path_cstring.as_ptr(),
+            proof_path_cstring.as_ptr(),
             public_inputs_arr[0].as_ptr(),
             public_inputs_length as i32,
             private_inputs_arr[0].as_ptr(),
