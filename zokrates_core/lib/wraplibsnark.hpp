@@ -26,7 +26,7 @@ bool _setup(const uint8_t* A,
           );
 
 bool _generate_proof(const char* pk_path,
-            const char* proof_path
+            const char* proof_path,
             const uint8_t* public_inputs,
             int public_inputs_length,
             const uint8_t* private_inputs,
