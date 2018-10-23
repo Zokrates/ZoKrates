@@ -1,3 +1,0 @@
-def main(field a, field b) -> (field):
-	c = sha256packed(a, b)
-	return c

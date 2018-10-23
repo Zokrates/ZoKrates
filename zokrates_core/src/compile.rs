@@ -60,9 +60,9 @@ impl<T: Field> fmt::Display for CompileError<T> {
 	}
 }
 
-pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader: &mut R, location: Option<String>, resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>, should_optimize: bool, should_include_gadgets: bool) -> Result<FlatProg<T>, CompileError<T>> {
+pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader: &mut R, location: Option<String>, resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>, should_optimize: bool) -> Result<FlatProg<T>, CompileError<T>> {
 
-	let compiled = compile_aux(reader, location, resolve_option, should_include_gadgets);
+	let compiled = compile_aux(reader, location, resolve_option);
 
 	match compiled {
 		Ok(c) => match should_optimize {
@@ -73,10 +73,10 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader
 	}
 }
 
-pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader: &mut R, location: Option<String>, resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>, should_include_gadgets: bool) -> Result<FlatProg<T>, CompileError<T>> {
+pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader: &mut R, location: Option<String>, resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>) -> Result<FlatProg<T>, CompileError<T>> {
     let program_ast_without_imports: Prog<T> = parse_program(reader)?;
     
-    let program_ast = Importer::new().apply_imports(program_ast_without_imports, location.clone(), resolve_option, should_include_gadgets)?;
+    let program_ast = Importer::new().apply_imports(program_ast_without_imports, location.clone(), resolve_option)?;
 
     // check semantics
     let typed_ast = Checker::new().check_program(program_ast)?;
@@ -107,7 +107,7 @@ mod test {
 			def main() -> (field):
 			   return foo()
 		"#.as_bytes());
-		let res: Result<FlatProg<FieldPrime>, CompileError<FieldPrime>> = compile(&mut r, Some(String::from("./path/to/file")), None::<fn(&Option<String>, &String) -> Result<(BufReader<Empty>, String, String), io::Error>>, false, false);
+		let res: Result<FlatProg<FieldPrime>, CompileError<FieldPrime>> = compile(&mut r, Some(String::from("./path/to/file")), None::<fn(&Option<String>, &String) -> Result<(BufReader<Empty>, String, String), io::Error>>, false);
 		assert_eq!(format!("{}", res.unwrap_err()), "Import error: Can't resolve import without a resolver".to_string()); 
 	}
 
@@ -117,7 +117,7 @@ mod test {
 			def main() -> (field):
 			   return 1
 		"#.as_bytes());
-		let res: Result<FlatProg<FieldPrime>, CompileError<FieldPrime>> = compile(&mut r, Some(String::from("./path/to/file")), None::<fn(&Option<String>, &String) -> Result<(BufReader<Empty>, String, String), io::Error>>, false, false);
+		let res: Result<FlatProg<FieldPrime>, CompileError<FieldPrime>> = compile(&mut r, Some(String::from("./path/to/file")), None::<fn(&Option<String>, &String) -> Result<(BufReader<Empty>, String, String), io::Error>>, false);
 		assert!(res.is_ok()); 
 	}
 }

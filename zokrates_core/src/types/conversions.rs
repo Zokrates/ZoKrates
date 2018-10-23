@@ -16,7 +16,7 @@ fn use_variable(bijection: &mut BiMap<String, FlatVariable>, name: String, index
 	var
 }
 
-pub fn pack<T: Field>(nbits: usize) -> FlatFunction<T> {
+pub fn pack<T: Field>(nbits: usize) -> FlatProg<T> {
 	assert!(nbits <= T::get_required_bits()); // we cannot pack more bits than the field
 
 	let arguments = (0..nbits).map(|i| FlatParameter {
@@ -48,15 +48,19 @@ pub fn pack<T: Field>(nbits: usize) -> FlatFunction<T> {
 		}
 	)];
 	
-	FlatFunction {
-		id: format!("_pack_{}", nbits),
-		arguments,
-		statements,
-		signature
+	FlatProg {
+		functions: vec![
+			FlatFunction {
+				id: String::from("main"),
+				arguments,
+				statements,
+				signature
+			}
+		]
 	}
 }
 
-pub fn unpack<T: Field>(nbits: usize) -> FlatFunction<T> {
+pub fn unpack<T: Field>(nbits: usize) -> FlatProg<T> {
 	let mut counter = 0;
 
 	let mut bijection = BiMap::new();
@@ -127,11 +131,15 @@ pub fn unpack<T: Field>(nbits: usize) -> FlatFunction<T> {
 		}
 	));
 	
-	FlatFunction {
-		id: format!("_unpack_{}", nbits),
-		arguments,
-		statements,
-		signature
+	FlatProg {
+		functions: vec![
+			FlatFunction {
+				id: String::from("main"),
+				arguments,
+				statements,
+				signature
+			}
+		]
 	}
 }
 
@@ -298,9 +306,10 @@ mod tests {
 
 		#[test]
 		fn unpack254() {
-			let unpack: FlatFunction<FieldPrime> = unpack(254);
+			let unpack: FlatProg<FieldPrime> = unpack(254);
+			let unpack = &unpack.functions[0];
 
-			assert_eq!(unpack.id, String::from("_unpack_254"));
+			assert_eq!(unpack.id, String::from("main"));
 			assert_eq!(unpack.arguments, vec![FlatParameter::private(FlatVariable::new(0))]);
 			assert_eq!(unpack.statements.len(), 254 + 1 + 1 + 1); // 254 bit checks, 1 directive, 1 sum check, 1 return
 			assert_eq!(
@@ -325,9 +334,10 @@ mod tests {
 
 		#[test]
 		fn pack254() {
-			let unpack: FlatFunction<FieldPrime> = pack(254);
+			let unpack: FlatProg<FieldPrime> = pack(254);
+			let unpack = &unpack.functions[0];
 
-			assert_eq!(unpack.id, String::from("_pack_254"));
+			assert_eq!(unpack.id, String::from("main"));
 			assert_eq!(unpack.arguments.len(), 254);
 			assert_eq!(unpack.statements.len(), 1); // just sum bits * 2**i
 		}
