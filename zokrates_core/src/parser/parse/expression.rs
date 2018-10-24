@@ -44,47 +44,68 @@ fn parse_then_else<T: Field>(
     }
 }
 
+fn parse_prim_cond<T: Field>(
+    input: &String,
+    pos: &Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
+    match parse_expr(input, pos) {
+        Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
+            (Token::Lt, s3, p3) => match parse_expr(&s3, &p3) {
+                Ok((e4, s4, p4)) => Ok((Expression::Lt(box e2, box e4), s4, p4)),
+                Err(err) => Err(err),
+            },
+            (Token::Le, s3, p3) => match parse_expr(&s3, &p3) {
+                Ok((e4, s4, p4)) => Ok((Expression::Le(box e2, box e4), s4, p4)),
+                Err(err) => Err(err),
+            },
+            (Token::Eqeq, s3, p3) => match parse_expr(&s3, &p3) {
+                Ok((e4, s4, p4)) => Ok((Expression::Eq(box e2, box e4), s4, p4)),
+                Err(err) => Err(err),
+            },
+            (Token::Ge, s3, p3) => match parse_expr(&s3, &p3) {
+                Ok((e4, s4, p4)) => Ok((Expression::Ge(box e2, box e4), s4, p4)),
+                Err(err) => Err(err),
+            },
+            (Token::Gt, s3, p3) => match parse_expr(&s3, &p3) {
+                Ok((e4, s4, p4)) => Ok((Expression::Gt(box e2, box e4), s4, p4)),
+                Err(err) => Err(err),
+            },
+            (t3, _, p3) => Err(Error {
+                expected: vec![Token::Lt, Token::Le, Token::Eqeq, Token::Ge, Token::Gt],
+                got: t3,
+                pos: p3,
+            }),
+        },
+        Err(err) => Err(err)
+    }
+}
+
+fn parse_condition<T: Field>(
+    cond: Expression<T>,
+    input: &String,
+    pos: &Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
+    match next_token(input, pos) {
+        (Token::AndAnd, s1, p1) => match parse_prim_cond(&s1, &p1) {
+            Ok((e2, s2, p2)) => parse_condition(Expression::AndAnd(box cond, box e2), &s2, &p2),
+            Err(err) => Err(err),
+        },
+        (Token::Then, _, _) => parse_then_else(cond, input, pos),
+        (t1, _, p1) => Err(Error {
+            expected: vec![Token::AndAnd, Token::Then],
+            got: t1,
+            pos: p1,
+        }),
+    }
+}
+
 fn parse_if_then_else<T: Field>(
     input: &String,
     pos: &Position,
 ) -> Result<(Expression<T>, String, Position), Error<T>> {
     match next_token(input, pos) {
-        (Token::If, s1, p1) => match parse_expr(&s1, &p1) {
-            Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
-                (Token::Lt, s3, p3) => match parse_expr(&s3, &p3) {
-                    Ok((e4, s4, p4)) => parse_then_else(Expression::Lt(box e2, box e4), &s4, &p4),
-                    Err(err) => Err(err),
-                },
-                (Token::Le, s3, p3) => match parse_expr(&s3, &p3) {
-                    Ok((e4, s4, p4)) => parse_then_else(Expression::Le(box e2, box e4), &s4, &p4),
-                    Err(err) => Err(err),
-                },
-                (Token::Eqeq, s3, p3) => match parse_expr(&s3, &p3) {
-                    Ok((e4, s4, p4)) => parse_then_else(Expression::Eq(box e2, box e4), &s4, &p4),
-                    Err(err) => Err(err),
-                },
-                (Token::Ge, s3, p3) => match parse_expr(&s3, &p3) {
-                    Ok((e4, s4, p4)) => parse_then_else(Expression::Ge(box e2, box e4), &s4, &p4),
-                    Err(err) => Err(err),
-                },
-                (Token::Gt, s3, p3) => match parse_expr(&s3, &p3) {
-                    Ok((e4, s4, p4)) => parse_then_else(Expression::Gt(box e2, box e4), &s4, &p4),
-                    Err(err) => Err(err),
-                },
-                (Token::AndAnd, s3, p3) => match parse_expr(&s3, &p3){
-                    Ok((e4, s4, p4)) => parse_then_else(Expression::AndAnd(box e2, box e4), &s4, &p4),
-                    Err(err) => Err(err),
-                },
-                (Token::Or, s3, p3) => match parse_expr(&s3, &p3) {
-                    Ok((e4, s4, p4)) => parse_then_else(Expression::Or(box e2, box e4), &s4, &p4),
-                    Err(err) => Err(err),
-                },
-                (t3, _, p3) => Err(Error {
-                    expected: vec![Token::Lt, Token::Le, Token::Eqeq, Token::Ge, Token::Gt],
-                    got: t3,
-                    pos: p3,
-                }),
-            },
+        (Token::If, s1, p1) => match parse_prim_cond(&s1, &p1) {
+            Ok((e2, s2, p2)) => parse_condition(e2, &s2, &p2),
             Err(err) => Err(err),
         },
         (t1, _, p1) => Err(Error {
@@ -315,6 +336,41 @@ mod tests {
             box Expression::Identifier(String::from("c")),
             box Expression::Identifier(String::from("d")),
         );
+        assert_eq!(
+            Ok((expr, String::from(""), pos.col(string.len() as isize))),
+            parse_if_then_else(&string, &pos)
+        );
+    }
+
+    #[test]
+    fn parse_boolean_and() {
+        let pos = Position{line: 45, col: 121};
+        let string = String::from("if a < b && 2*a > b && b > a then c else d fi");
+
+        let expr = Expression::IfElse::<FieldPrime>(
+            box Expression::AndAnd(
+                box Expression::AndAnd(
+                    box Expression::Lt(
+                        box Expression::Identifier(String::from("a")),
+                        box Expression::Identifier(String::from("b")),
+                    ),
+                    box Expression::Gt(
+                        box Expression::Mult(
+                            box Expression::Number(FieldPrime::from(2)),
+                            box Expression::Identifier(String::from("a")),
+                        ),
+                        box Expression::Identifier(String::from("b")),
+                    ),
+                ),
+                box Expression::Gt(
+                    box Expression::Identifier(String::from("b")),
+                    box Expression::Identifier(String::from("a")),
+                ),
+            ),
+            box Expression::Identifier(String::from("c")),
+            box Expression::Identifier(String::from("d")),
+        );
+
         assert_eq!(
             Ok((expr, String::from(""), pos.col(string.len() as isize))),
             parse_if_then_else(&string, &pos)

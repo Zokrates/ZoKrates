@@ -10,7 +10,6 @@ use absy::parameter::Parameter;
 use absy::variable::Variable;
 
 use std::fmt;
-use substitution::Substitution;
 use field::Field;
 use imports::Import;
 use flat_absy::*;
@@ -298,121 +297,8 @@ pub enum BooleanExpression<T: Field> {
     Eq(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     Ge(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     Gt(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
-    AndAnd(Box<BooleanExpression<T>>, Box<BooleanExpression<T>>),
-    Or(Box<BooleanExpression<T>>, Box<BooleanExpression<T>>),
-}
-
-impl<T: Field> BooleanExpression<T> {
-    pub fn apply_substitution(self, substitution: &Substitution) -> BooleanExpression<T> {
-        match self {
-            BooleanExpression::Identifier(id) => {
-                let mut new_name = id;
-                loop {
-                    match substitution.get(&new_name) {
-                        Some(x) => new_name = x.to_string(),
-                        None => return BooleanExpression::Identifier(new_name),
-                    }
-                }
-            },
-            BooleanExpression::Lt(lhs, rhs) => BooleanExpression::Lt(
-                box lhs.apply_substitution(substitution),
-                box rhs.apply_substitution(substitution),
-            ),
-            BooleanExpression::Le(lhs, rhs) => BooleanExpression::Le(
-                box lhs.apply_substitution(substitution),
-                box rhs.apply_substitution(substitution),
-            ),
-            BooleanExpression::Eq(lhs, rhs) => BooleanExpression::Eq(
-                box lhs.apply_substitution(substitution),
-                box rhs.apply_substitution(substitution),
-            ),
-            BooleanExpression::Ge(lhs, rhs) => BooleanExpression::Ge(
-                box lhs.apply_substitution(substitution),
-                box rhs.apply_substitution(substitution),
-            ),
-            BooleanExpression::Gt(lhs, rhs) => BooleanExpression::Gt(
-                box lhs.apply_substitution(substitution),
-                box rhs.apply_substitution(substitution),
-            ),
-            BooleanExpression::AndAnd(lhs, rhs) => BooleanExpression::AndAnd(
-                box lhs.apply_substitution(substitution),
-                box rhs.apply_substitution(substitution),
-            ),
-            BooleanExpression::Or(lhs, rhs) => BooleanExpression::Or(
-                box lhs.apply_substitution(substitution),
-                box rhs.apply_substitution(substitution),
-            ),
-                BooleanExpression::Value(b) => BooleanExpression::Value(b),
-        }
-    }
-
-
-    pub fn is_linear(&self) -> bool {
-        false
-    }
-}
-
-impl<T: Field> FieldElementExpression<T> {
-    pub fn apply_substitution(self, substitution: &Substitution) -> FieldElementExpression<T> {
-        match self {
-            e @ FieldElementExpression::Number(_) => e,
-            FieldElementExpression::Identifier(id) => {
-                let mut new_name = id.clone();
-                loop {
-                    match substitution.get(&new_name) {
-                        Some(x) => new_name = x.to_string(),
-                        None => return FieldElementExpression::Identifier(new_name),
-                    }
-                }
-            }
-            FieldElementExpression::Add(e1, e2) => FieldElementExpression::Add(
-                box e1.apply_substitution(substitution),
-                box e2.apply_substitution(substitution),
-            ),
-            FieldElementExpression::Sub(e1, e2) => FieldElementExpression::Sub(
-                box e1.apply_substitution(substitution),
-                box e2.apply_substitution(substitution),
-            ),
-            FieldElementExpression::Mult(e1, e2) => FieldElementExpression::Mult(
-                box e1.apply_substitution(substitution),
-                box e2.apply_substitution(substitution),
-            ),
-            FieldElementExpression::Div(e1, e2) => FieldElementExpression::Div(
-                box e1.apply_substitution(substitution),
-                box e2.apply_substitution(substitution),
-            ),
-            FieldElementExpression::Pow(e1, e2) => FieldElementExpression::Pow(
-                box e1.apply_substitution(substitution),
-                box e2.apply_substitution(substitution),
-            ),
-            FieldElementExpression::IfElse(c, e1, e2) => FieldElementExpression::IfElse(
-                box c.apply_substitution(substitution),
-                box e1.apply_substitution(substitution),
-                box e2.apply_substitution(substitution),
-            ),
-            FieldElementExpression::FunctionCall(i, p) => {
-                FieldElementExpression::FunctionCall(i, p.into_iter().map(|param| param.apply_substitution(substitution)).collect())
-            },
-        }
-    }
-
-    pub fn is_linear(&self) -> bool {
-        match *self {
-            FieldElementExpression::Number(_) | FieldElementExpression::Identifier(_) => true,
-            FieldElementExpression::Add(ref x, ref y) | FieldElementExpression::Sub(ref x, ref y) => {
-                x.is_linear() && y.is_linear()
-            }
-            FieldElementExpression::Mult(ref x, ref y) | FieldElementExpression::Div(ref x, ref y) => {
-                match (x, y) {
-                    (box FieldElementExpression::Number(_), box FieldElementExpression::Number(_)) |
-                    (box FieldElementExpression::Number(_), box FieldElementExpression::Identifier(_)) |
-                    (box FieldElementExpression::Identifier(_), box FieldElementExpression::Number(_)) => true,
-                    _ => false,
-                }
-            }
-            _ => false,
-        }
-    }
+    Or(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
+    And(Box<BooleanExpression<T>>, Box<BooleanExpression<T>>),
 }
 
 impl<T: Field> fmt::Display for FieldElementExpression<T> {
@@ -455,8 +341,8 @@ impl<T: Field> fmt::Display for BooleanExpression<T> {
             BooleanExpression::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
             BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
-            BooleanExpression::AndAnd(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
+            BooleanExpression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             BooleanExpression::Value(b) => write!(f, "{}", b),
         }
     }
@@ -490,26 +376,6 @@ impl<T: Field> fmt::Debug for FieldElementExpression<T> {
                 try!(f.debug_list().entries(p.iter()).finish());
                 write!(f, ")")
             },
-        }
-    }
-}
-
-
-impl<T: Field> TypedExpression<T> {
-    pub fn apply_substitution(self, substitution: &Substitution) -> TypedExpression<T> {
-        match self {
-            TypedExpression::Boolean(e) => e.apply_substitution(substitution).into(),
-            TypedExpression::FieldElement(e) => e.apply_substitution(substitution).into(),
-        }
-    }
-}
-
-impl<T: Field> TypedExpressionList<T> {
-    pub fn apply_substitution(self, substitution: &Substitution) -> TypedExpressionList<T> {
-        match self {
-            TypedExpressionList::FunctionCall(id, inputs, types) => {
-                TypedExpressionList::FunctionCall(id, inputs.into_iter().map(|i| i.apply_substitution(substitution)).collect(), types)
-            }
         }
     }
 }

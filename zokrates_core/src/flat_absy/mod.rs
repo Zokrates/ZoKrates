@@ -6,11 +6,12 @@
 //! @date 2017
 
 pub mod flat_parameter;
+pub mod flat_variable;
 
-const BINARY_SEPARATOR: &str = "_b";
+pub use self::flat_parameter::FlatParameter;
+pub use self::flat_variable::FlatVariable;
 
 use types::Signature;
-use self::flat_parameter::FlatParameter;
 use std::fmt;
 use std::collections::{BTreeMap};
 use field::Field;
@@ -29,7 +30,7 @@ pub struct FlatProg<T: Field> {
 impl<T: Field> FlatProg<T> {
     // only main flattened function is relevant here, as all other functions are unrolled into it
     #[allow(dead_code)] // I don't want to remove this
-    pub fn get_witness(&self, inputs: Vec<T>) -> Result<BTreeMap<String, T>, Error> {
+    pub fn get_witness(&self, inputs: Vec<T>) -> Result<BTreeMap<FlatVariable, T>, Error> {
         let main = self.functions.iter().find(|x| x.id == "main").unwrap();
         main.get_witness(inputs)
     }
@@ -86,24 +87,25 @@ pub struct FlatFunction<T: Field> {
 }
 
 impl<T: Field> FlatFunction<T> {
-    pub fn get_witness(&self, inputs: Vec<T>) -> Result<BTreeMap<String, T>, Error> {
+    pub fn get_witness(&self, inputs: Vec<T>) -> Result<BTreeMap<FlatVariable, T>, Error> {
         assert!(self.arguments.len() == inputs.len());
+        assert!(self.id == "main");
         let mut witness = BTreeMap::new();
-        witness.insert("~one".to_string(), T::one());
+        witness.insert(FlatVariable::one(), T::one());
         for (i, arg) in self.arguments.iter().enumerate() {
-            witness.insert(arg.id.to_string(), inputs[i].clone());
+            witness.insert(arg.id, inputs[i].clone());
         }
         for statement in &self.statements {
             match *statement {
                 FlatStatement::Return(ref list) => {
                     for (i, val) in list.expressions.iter().enumerate() {
                         let s = val.solve(&mut witness);
-                        witness.insert(format!("~out_{}", i).to_string(), s);
+                        witness.insert(FlatVariable::public(i), s);
                     }
                 }
                 FlatStatement::Definition(ref id, ref expr) => {
                     let s = expr.solve(&mut witness);
-                    witness.insert(id.to_string(), s);
+                    witness.insert(id.clone(), s);
                 },
                 FlatStatement::Condition(ref lhs, ref rhs) => {
                     if lhs.solve(&mut witness) != rhs.solve(&mut witness) {
@@ -117,7 +119,7 @@ impl<T: Field> FlatFunction<T> {
                     match d.helper.execute(&input_values) {
                         Ok(res) => {
                             for (i, o) in d.outputs.iter().enumerate() {
-                                witness.insert(o.to_string(), res[i].clone());
+                                witness.insert(o.clone(), res[i].clone());
                             }
                             continue;
                         },
@@ -185,7 +187,7 @@ impl<T: Field> fmt::Debug for FlatFunction<T> {
 pub enum FlatStatement<T: Field> {
     Return(FlatExpressionList<T>),
     Condition(FlatExpression<T>, FlatExpression<T>),
-    Definition(String, FlatExpression<T>),
+    Definition(FlatVariable, FlatExpression<T>),
     Directive(DirectiveStatement)
 }
 
@@ -212,30 +214,38 @@ impl<T: Field> fmt::Debug for FlatStatement<T> {
 }
 
 impl<T: Field> FlatStatement<T> {
-    pub fn apply_substitution(self, substitution: &Substitution) -> FlatStatement<T> {
+    pub fn apply_recursive_substitution(self, substitution: &Substitution) -> FlatStatement<T> {
+        self.apply_substitution(substitution, true)
+    }
+
+    pub fn apply_direct_substitution(self, substitution: &Substitution) -> FlatStatement<T> {
+        self.apply_substitution(substitution, false)
+    }
+
+    fn apply_substitution(self, substitution: &Substitution, should_fallback: bool) -> FlatStatement<T> {
         match self {
             FlatStatement::Definition(id, x) => FlatStatement::Definition(
-                match substitution.get(&id) { 
-                    Some(z) => z,
-                    None => id
-                }, 
-                x.apply_substitution(substitution)
+                id.apply_substitution(substitution, should_fallback), 
+                x.apply_substitution(substitution, should_fallback)
             ),
-            FlatStatement::Return(x) => FlatStatement::Return(x.apply_substitution(substitution)),
+            FlatStatement::Return(x) => FlatStatement::Return(
+                x.apply_substitution(substitution, should_fallback)
+            ),
             FlatStatement::Condition(x, y) => {
-                FlatStatement::Condition(x.apply_substitution(substitution), y.apply_substitution(substitution))
+                FlatStatement::Condition(
+                    x.apply_substitution(substitution, should_fallback),
+                    y.apply_substitution(substitution, should_fallback)
+                )
             },
             FlatStatement::Directive(d) => {
-                let new_outputs = d.outputs.iter().map(|o| match substitution.get(o) {
-                    Some(z) => z,
-                    None => o.clone()
-                }).collect();
-                let new_inputs = d.inputs.iter().map(|i| substitution.get(i).unwrap()).collect();
+                let outputs = d.outputs.into_iter().map(|o| substitution.get(&o).unwrap_or(o)).collect();
+                let inputs = d.inputs.into_iter().map(|i| substitution.get(&i).unwrap()).collect();
+
                 FlatStatement::Directive(
                     DirectiveStatement {
-                        outputs: new_outputs,
-                        inputs: new_inputs,
-                        helper: d.helper
+                        outputs,
+                        inputs,
+                        ..d
                     }
                 )
             }
@@ -246,7 +256,7 @@ impl<T: Field> FlatStatement<T> {
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub enum FlatExpression<T: Field> {
     Number(T),
-    Identifier(String),
+    Identifier(FlatVariable),
     Add(Box<FlatExpression<T>>, Box<FlatExpression<T>>),
     Sub(Box<FlatExpression<T>>, Box<FlatExpression<T>>),
     Div(Box<FlatExpression<T>>, Box<FlatExpression<T>>),
@@ -254,65 +264,50 @@ pub enum FlatExpression<T: Field> {
 }
 
 impl<T: Field> FlatExpression<T> {
-    pub fn apply_substitution(self, substitution: &Substitution) -> FlatExpression<T> {
+    pub fn apply_recursive_substitution(self, substitution: &Substitution) -> FlatExpression<T> {
+        self.apply_substitution(substitution, true)
+    }
+
+    pub fn apply_direct_substitution(self, substitution: &Substitution) -> FlatExpression<T> {
+        self.apply_substitution(substitution, false)
+    }
+
+    fn apply_substitution(self, substitution: &Substitution, should_fallback: bool) -> FlatExpression<T> {
         match self {
             e @ FlatExpression::Number(_) => e,
-            FlatExpression::Identifier(v) => {
-                let mut new_name = v;
-                loop {
-                    match substitution.get(&new_name) {
-                        Some(x) => new_name = x,
-                        None => return FlatExpression::Identifier(new_name),
-                    }
-                }
-            }
+            FlatExpression::Identifier(id) => FlatExpression::Identifier(id.apply_substitution(substitution, should_fallback)),
             FlatExpression::Add(e1, e2) => FlatExpression::Add(
-                box e1.apply_substitution(substitution),
-                box e2.apply_substitution(substitution),
+                box e1.apply_substitution(substitution, should_fallback),
+                box e2.apply_substitution(substitution, should_fallback),
             ),
             FlatExpression::Sub(e1, e2) => FlatExpression::Sub(
-                box e1.apply_substitution(substitution),
-                box e2.apply_substitution(substitution),
+                box e1.apply_substitution(substitution, should_fallback),
+                box e2.apply_substitution(substitution, should_fallback),
             ),
             FlatExpression::Mult(e1, e2) => FlatExpression::Mult(
-                box e1.apply_substitution(substitution),
-                box e2.apply_substitution(substitution),
+                box e1.apply_substitution(substitution, should_fallback),
+                box e2.apply_substitution(substitution, should_fallback),
             ),
             FlatExpression::Div(e1, e2) => FlatExpression::Div(
-                box e1.apply_substitution(substitution),
-                box e2.apply_substitution(substitution),
+                box e1.apply_substitution(substitution, should_fallback),
+                box e2.apply_substitution(substitution, should_fallback),
             )
-
         }
     }
 
-    fn solve(&self, inputs: &mut BTreeMap<String, T>) -> T {
+    fn solve(&self, inputs: &mut BTreeMap<FlatVariable, T>) -> T {
         match *self {
             FlatExpression::Number(ref x) => x.clone(),
             FlatExpression::Identifier(ref var) => {
-                if let None = inputs.get(var) {
-                    if var.contains(BINARY_SEPARATOR) {
-                        let var_name = var.split(BINARY_SEPARATOR).collect::<Vec<_>>()[0];
-                        let mut num = inputs[var_name].clone();
-                        let bits = T::get_required_bits();
-                        for i in (0..bits).rev() {
-                            if T::from(2).pow(i) <= num {
-                                num = num - T::from(2).pow(i);
-                                inputs.insert(format!("{}{}{}", &var_name, BINARY_SEPARATOR, i), T::one());
-                            } else {
-                                inputs.insert(format!("{}{}{}", &var_name, BINARY_SEPARATOR, i), T::zero());
-                            }
-                        }
-                        assert_eq!(num, T::zero());
-                    } else {
+                match inputs.get(var) {
+                    Some(v) => v.clone(),
+                    None => 
                         panic!(
-                            "Variable {:?} is undeclared in inputs: {:?}",
+                            "Variable {:?} is undeclared in witness: {:?}",
                             var,
                             inputs
-                        );
-                    }
+                        )
                 }
-                inputs[var].clone()
             }
             FlatExpression::Add(ref x, ref y) => x.solve(inputs) + y.solve(inputs),
             FlatExpression::Sub(ref x, ref y) => x.solve(inputs) - y.solve(inputs),
@@ -383,10 +378,18 @@ impl<T: Field> fmt::Display for FlatExpressionList<T> {
 }
 
 impl<T: Field> FlatExpressionList<T> {
-    pub fn apply_substitution(self, substitution: &Substitution) -> FlatExpressionList<T> {
+    fn apply_substitution(self, substitution: &Substitution, should_fallback: bool) -> FlatExpressionList<T> {
         FlatExpressionList {
-            expressions: self.expressions.into_iter().map(|e| e.apply_substitution(substitution)).collect()
+            expressions: self.expressions.into_iter().map(|e| e.apply_substitution(substitution, should_fallback)).collect()
         }
+    }
+
+    pub fn apply_recursive_substitution(self, substitution: &Substitution) -> FlatExpressionList<T> {
+        self.apply_substitution(substitution, true)
+    }
+
+    pub fn apply_direct_substitution(self, substitution: &Substitution) -> FlatExpressionList<T> {
+        self.apply_substitution(substitution, false)
     }
 }
 

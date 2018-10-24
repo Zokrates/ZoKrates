@@ -522,9 +522,9 @@ impl Checker {
 				let e2_checked = self.check_expression(&e2)?;
 				match (e1_checked, e2_checked) {
 					(TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
-						Ok(BooleanExpression::AndAnd(box e1, box e2).into())
+						Ok(BooleanExpression::And(box e1, box e2).into())
 					},
-					(e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
+					(e1, e2) => Err(Error { message: format!("cannot apply boolean operators to {} and {}", e1.get_type(), e2.get_type()) })
 				}
 			}
             &Expression::Or(ref e1, ref e2) => {
