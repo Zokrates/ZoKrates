@@ -4,7 +4,7 @@
 set -e
 
 if [ -n "$WITH_LIBSNARK" ]; then
-	cargo test -- --ignored
+	cargo test --release -- --ignored
 else
-	cargo -Z package-features test --no-default-features -- --ignored
+	cargo -Z package-features test --release --no-default-features -- --ignored
 fi

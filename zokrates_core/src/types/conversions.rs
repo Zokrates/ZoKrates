@@ -16,6 +16,133 @@ fn use_variable(bijection: &mut BiMap<String, FlatVariable>, name: String, index
 	var
 }
 
+pub fn pack<T: Field>(nbits: usize) -> FlatProg<T> {
+	assert!(nbits <= T::get_required_bits()); // we cannot pack more bits than the field
+
+	let arguments = (0..nbits).map(|i| FlatParameter {
+		id: FlatVariable::new(i),
+		private: true
+	}).collect();
+
+	let signature = Signature {
+			inputs: vec![Type::FieldElement; nbits],
+			outputs: vec![Type::FieldElement],
+		};
+
+    // sum check
+    let mut ret = FlatExpression::Number(T::from(0));
+
+    for i in 0..nbits {
+        ret = FlatExpression::Add(
+            box ret,
+            box FlatExpression::Mult(
+                box FlatExpression::Identifier(FlatVariable::new(i)),
+                box FlatExpression::Number(T::from(2).pow(nbits - i - 1)),
+            ),
+        );
+    }
+
+	let statements = vec![FlatStatement::Return(
+		FlatExpressionList {
+			expressions: vec![ret]		
+		}
+	)];
+	
+	FlatProg {
+		functions: vec![
+			FlatFunction {
+				id: String::from("main"),
+				arguments,
+				statements,
+				signature
+			}
+		]
+	}
+}
+
+pub fn unpack<T: Field>(nbits: usize) -> FlatProg<T> {
+	let mut counter = 0;
+
+	let mut bijection = BiMap::new();
+
+	let arguments = vec![FlatParameter {
+		id: FlatVariable::new(0),
+		private: true
+	}];
+
+	let directive_inputs = vec![FlatExpression::Identifier(use_variable(&mut bijection, format!("i0"), &mut counter))];
+	let directive_outputs: Vec<FlatVariable> = (0..nbits).map(|index| use_variable(&mut bijection, format!("o{}", index), &mut counter)).collect();
+
+	let helper = Helper::Rust(RustHelper::Bits);
+
+	let signature = Signature {
+			inputs: vec![Type::FieldElement],
+			outputs: vec![Type::FieldElement; nbits],
+		};
+
+	let outputs = directive_outputs.iter().map(|o| FlatExpression::Identifier(o.clone())).collect();
+
+	let mut statements: Vec<FlatStatement<T>> = (0..nbits)
+		.map(|index| {
+			let bit = FlatExpression::Identifier(FlatVariable::new(index + 1));
+			FlatStatement::Condition(
+				bit.clone(),
+				FlatExpression::Mult(
+					box bit.clone(),
+					box bit.clone()
+				)
+			)
+		}).collect();
+
+    // sum check
+    let mut lhs_sum = FlatExpression::Number(T::from(0));
+
+    for i in 0..nbits {
+        lhs_sum = FlatExpression::Add(
+            box lhs_sum,
+            box FlatExpression::Mult(
+                box FlatExpression::Identifier(FlatVariable::new(i + 1)),
+                box FlatExpression::Number(T::from(2).pow(nbits - i - 1)),
+            ),
+        );
+    }
+
+	statements.push(
+		FlatStatement::Condition(
+			lhs_sum,
+			FlatExpression::Mult(
+				box FlatExpression::Identifier(FlatVariable::new(0)),
+				box FlatExpression::Number(T::from(1))
+			)
+		)
+	);
+
+	statements.insert(0, FlatStatement::Directive(
+		DirectiveStatement {
+			inputs: directive_inputs,
+			outputs: directive_outputs,
+			helper: helper
+		}
+	));
+
+	statements.push(FlatStatement::Return(
+		FlatExpressionList {
+			expressions: outputs		
+		}
+	));
+	
+	FlatProg {
+		functions: vec![
+			FlatFunction {
+				id: String::from("main"),
+				arguments,
+				statements,
+				signature
+			}
+		]
+	}
+}
+
 pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
 
 	let mut counter = 0;
@@ -114,57 +241,105 @@ mod tests {
 	use field::FieldPrime;
 	use super::*;
 
-	#[test]
-	fn field_to_bool() {
-		let f2b: FlatFunction<FieldPrime> = cast(&Type::FieldElement, &Type::Boolean);
-		assert_eq!(f2b.id, String::from("_field_to_bool"));
-		assert_eq!(f2b.arguments, vec![FlatParameter::private(FlatVariable::new(0))]);
-		assert_eq!(f2b.statements.len(), 3); // 1 directive, 1 constraint, 1 return
-		assert_eq!(
-			f2b.statements[0], 
-			FlatStatement::Directive(
-				DirectiveStatement::new(
-					vec![FlatVariable::new(1)],
-					Helper::Rust(RustHelper::Identity),
-					vec![FlatVariable::new(0)]
+	#[cfg(test)]
+	mod cast {
+		use super::*;
+
+		#[test]
+		fn field_to_bool() {
+			let f2b: FlatFunction<FieldPrime> = cast(&Type::FieldElement, &Type::Boolean);
+			assert_eq!(f2b.id, String::from("_field_to_bool"));
+			assert_eq!(f2b.arguments, vec![FlatParameter::private(FlatVariable::new(0))]);
+			assert_eq!(f2b.statements.len(), 3); // 1 directive, 1 constraint, 1 return
+			assert_eq!(
+				f2b.statements[0], 
+				FlatStatement::Directive(
+					DirectiveStatement::new(
+						vec![FlatVariable::new(1)],
+						Helper::Rust(RustHelper::Identity),
+						vec![FlatVariable::new(0)]
+					)
 				)
-			)
-		);
-		assert_eq!(
-			f2b.statements[2], 
-			FlatStatement::Return(
-				FlatExpressionList {
-					expressions: vec![FlatExpression::Identifier(FlatVariable::new(1))]
-				}
-			)
-		);
-		assert_eq!(f2b.signature.outputs.len(), 1);
+			);
+			assert_eq!(
+				f2b.statements[2], 
+				FlatStatement::Return(
+					FlatExpressionList {
+						expressions: vec![FlatExpression::Identifier(FlatVariable::new(1))]
+					}
+				)
+			);
+			assert_eq!(f2b.signature.outputs.len(), 1);
+		}
+
+		#[test]
+		fn bool_to_field() {
+			let b2f: FlatFunction<FieldPrime> = cast(&Type::Boolean, &Type::FieldElement);
+			assert_eq!(b2f.id, String::from("_bool_to_field"));
+			assert_eq!(b2f.arguments, vec![FlatParameter::private(FlatVariable::new(0))]);
+			assert_eq!(b2f.statements.len(), 2); // 1 directive, 1 return
+			assert_eq!(
+				b2f.statements[0], 
+				FlatStatement::Directive(
+					DirectiveStatement::new(
+						vec![FlatVariable::new(1)],
+						Helper::Rust(RustHelper::Identity),
+						vec![FlatVariable::new(0)]
+					)
+				)
+			);
+			assert_eq!(
+				b2f.statements[1], 
+				FlatStatement::Return(
+					FlatExpressionList {
+						expressions: vec![FlatExpression::Identifier(FlatVariable::new(1))]
+					}
+				)
+			);
+			assert_eq!(b2f.signature.outputs.len(), 1);
+		}
 	}
 
-	#[test]
-	fn bool_to_field() {
-		let b2f: FlatFunction<FieldPrime> = cast(&Type::Boolean, &Type::FieldElement);
-		assert_eq!(b2f.id, String::from("_bool_to_field"));
-		assert_eq!(b2f.arguments, vec![FlatParameter::private(FlatVariable::new(0))]);
-		assert_eq!(b2f.statements.len(), 2); // 1 directive, 1 return
-		assert_eq!(
-			b2f.statements[0], 
-			FlatStatement::Directive(
-				DirectiveStatement::new(
-					vec![FlatVariable::new(1)],
-					Helper::Rust(RustHelper::Identity),
-					vec![FlatVariable::new(0)]
+	#[cfg(test)]
+	mod unpack {
+		use super::*;
+
+		#[test]
+		fn unpack254() {
+			let unpack: FlatProg<FieldPrime> = unpack(254);
+			let unpack = &unpack.functions[0];
+
+			assert_eq!(unpack.id, String::from("main"));
+			assert_eq!(unpack.arguments, vec![FlatParameter::private(FlatVariable::new(0))]);
+			assert_eq!(unpack.statements.len(), 254 + 1 + 1 + 1); // 254 bit checks, 1 directive, 1 sum check, 1 return
+			assert_eq!(
+				unpack.statements[0],
+				FlatStatement::Directive(
+					DirectiveStatement::new(
+						(0..254).map(|i| FlatVariable::new(i + 1)).collect(),
+						Helper::Rust(RustHelper::Bits),
+						vec![FlatVariable::new(0)]
+					)
 				)
-			)
-		);
-		assert_eq!(
-			b2f.statements[1], 
-			FlatStatement::Return(
-				FlatExpressionList {
-					expressions: vec![FlatExpression::Identifier(FlatVariable::new(1))]
-				}
-			)
-		);
-		assert_eq!(b2f.signature.outputs.len(), 1);
+			);
+			assert_eq!(
+				unpack.statements[256],
+				FlatStatement::Return(
+					FlatExpressionList {
+						expressions: (0..254).map(|i| FlatExpression::Identifier(FlatVariable::new(i + 1))).collect()
+					}
+				)
+			);
+		}
+
+		#[test]
+		fn pack254() {
+			let unpack: FlatProg<FieldPrime> = pack(254);
+			let unpack = &unpack.functions[0];
+
+			assert_eq!(unpack.id, String::from("main"));
+			assert_eq!(unpack.arguments.len(), 254);
+			assert_eq!(unpack.statements.len(), 1); // just sum bits * 2**i
+		}
 	}
 }

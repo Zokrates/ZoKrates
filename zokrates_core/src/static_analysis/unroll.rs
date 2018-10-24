@@ -22,13 +22,6 @@ impl Unroller {
 		}
 	}
 
-	fn get_current_ssa_variable(&self, v: Variable) -> Variable {
-		Variable {
-			id: format!("{}_{}", v.id, self.substitution.get(&v.id).unwrap()),
-			..v
-		}
-	}
-
 	fn issue_next_ssa_variable(&mut self, v: Variable) -> Variable {
 		let res = match self.substitution.get(&v.id) {
 			Some(i) => {
