@@ -22,14 +22,25 @@ impl<T: Field> Inliner<T> {
         }
     }
 
-    fn should_inline(&self, function: &Option<TypedFunction<T>>, _arguments: &Vec<TypedExpression<T>>) -> bool {
+    fn should_inline(&self, function: &Option<TypedFunction<T>>, arguments: &Vec<TypedExpression<T>>) -> bool {
     	// we should define a heuristic here
-    	// currently it doesn't seem like there's a tradeoff as everything gets inlined in flattening anyway
+    	// currently it doesn't seem like there's a tradeoff as everything gets inlined in flattening anyway (apart from compiling performance, as inlining
+    	// in flattening should be faster and less memory intensive)
     	// however, using backends such as bellman, we could avoid flattening and "stream" the computation
     	// at proving time, the tradeoff becomes code size (not inlining keeps only one copy of each function) vs optimisation
     	// (inlining enables constant propagation through function calls, which cannot be achieved by our final optimiser in some cases) 
+    	// for now, we inline functions whose non-array parameters are constant, as this covers our main use case for inlining: propagation of
+    	// constant array indices
     	match function {
-    		Some(..) => true,
+    		Some(..) => {
+    			// check whether non-array arguments are constant
+    			arguments.iter().all(|e| match e {
+    				TypedExpression::FieldElementArray(..) => true,
+    				TypedExpression::FieldElement(FieldElementExpression::Number(..)) => true,
+    				TypedExpression::Boolean(BooleanExpression::Value(..)) => true,
+    				_ => false
+    			})
+    		},
     		None => false
     	}
     }
@@ -190,5 +201,67 @@ impl<T: Field> Folder<T> for Inliner<T> {
             // default
             e => fold_field_array_expression(self, e)
         }
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use field::FieldPrime;
+	
+	#[cfg(test)]
+	mod heuristics {
+		use super::*;
+		use absy::{Parameter, Variable};
+
+		#[test]
+		fn inline_constant_field() {
+			let f: TypedFunction<FieldPrime> = TypedFunction {
+				id: String::from("foo"),
+				arguments: vec![Parameter::private(Variable::field_element("a")), Parameter::private(Variable::field_array("b", 3))],
+				statements: vec![
+					TypedStatement::Return(
+						vec![
+							FieldElementExpression::Select(
+								box FieldElementArrayExpression::Identifier(3, String::from("b")),
+								box FieldElementExpression::Identifier(String::from("a"))
+							).into()
+						]
+					)
+				],
+				signature: Signature::new().inputs(vec![Type::FieldElement, Type::FieldElementArray(3)]).outputs(vec![Type::FieldElement])
+			};
+
+			let arguments = vec![FieldElementExpression::Number(FieldPrime::from(0)).into(), FieldElementArrayExpression::Identifier(3, String::from("random")).into()];
+
+			let i = Inliner::new();
+
+			assert!(i.should_inline(&Some(f), &arguments));
+		}
+
+		#[test]
+		fn no_inline_non_constant_field() {
+			let f: TypedFunction<FieldPrime> = TypedFunction {
+				id: String::from("foo"),
+				arguments: vec![Parameter::private(Variable::field_element("a")), Parameter::private(Variable::field_array("b", 3))],
+				statements: vec![
+					TypedStatement::Return(
+						vec![
+							FieldElementExpression::Select(
+								box FieldElementArrayExpression::Identifier(3, String::from("b")),
+								box FieldElementExpression::Identifier(String::from("a"))
+							).into()
+						]
+					)
+				],
+				signature: Signature::new().inputs(vec![Type::FieldElement, Type::FieldElementArray(3)]).outputs(vec![Type::FieldElement])
+			};
+
+			let arguments = vec![FieldElementExpression::Identifier(String::from("notconstant")).into(), FieldElementArrayExpression::Identifier(3, String::from("random")).into()];
+
+			let i = Inliner::new();
+
+			assert!(!i.should_inline(&Some(f), &arguments));
+		}
 	}
 }
