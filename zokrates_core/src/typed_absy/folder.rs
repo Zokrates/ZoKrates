@@ -10,11 +10,7 @@ pub trait Folder<T: Field> : Sized {
     }
 
     fn fold_function(&mut self, f: TypedFunction<T>) -> TypedFunction<T> {
-        TypedFunction {
-            arguments: f.arguments.into_iter().map(|a| self.fold_parameter(a)).collect(),
-            statements: f.statements.into_iter().flat_map(|s| self.fold_statement(s)).collect(),
-            ..f
-        }
+        fold_function(self, f)
     }
 
     fn fold_parameter(&mut self, p: Parameter) -> Parameter {
@@ -181,5 +177,13 @@ pub fn fold_boolean_expression<T: Field, F: Folder<T>>(f: &mut F, e: BooleanExpr
             let e2 = f.fold_field_expression(e2);
             BooleanExpression::Ge(box e1, box e2)
         }
+    }
+}
+
+pub fn fold_function<T: Field, F: Folder<T>>(f: &mut F, fun: TypedFunction<T>) -> TypedFunction<T> {
+    TypedFunction {
+        arguments: fun.arguments.into_iter().map(|a| f.fold_parameter(a)).collect(),
+        statements: fun.statements.into_iter().flat_map(|s| f.fold_statement(s)).collect(),
+        ..fun
     }
 }
