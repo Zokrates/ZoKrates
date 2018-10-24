@@ -10,7 +10,8 @@ mod constraints;
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Type {
 	FieldElement,
-	Boolean
+	Boolean,
+	FieldElementArray(usize),
 }
 
 impl fmt::Display for Type {
@@ -18,6 +19,7 @@ impl fmt::Display for Type {
     	match *self {
     		Type::FieldElement => write!(f, "field"),
     		Type::Boolean => write!(f, "bool"),
+    		Type::FieldElementArray(size) => write!(f, "{}[{}]", Type::FieldElement, size)
     	}
     }
 }
@@ -27,6 +29,7 @@ impl fmt::Debug for Type {
     	match *self {
     		Type::FieldElement => write!(f, "field"),
     		Type::Boolean => write!(f, "bool"),
+    		Type::FieldElementArray(size) => write!(f, "{}[{}]", Type::FieldElement, size),
     	}
     }
 }
@@ -36,6 +39,7 @@ impl Type {
 		match self {
 			Type::FieldElement => Constraints::none(),
 			Type::Boolean => Constraints::boolean(),
+			Type::FieldElementArray(_) => Type::FieldElement.get_constraints(),
 		}
 	}
 
@@ -43,14 +47,38 @@ impl Type {
 	pub fn get_primitive_count(&self) -> usize {
 		match self {
 			Type::FieldElement => 1,
-			Type::Boolean => 1
+			Type::Boolean => 1,
+			Type::FieldElementArray(size) => size * Type::FieldElement.get_primitive_count(),
 		}
 	}
 
-	fn to_slug(&self) -> &'static str {
+	fn to_slug(&self) -> String {
 		match *self {
-			Type::FieldElement => "f",
-			Type::Boolean => "b",
+			Type::FieldElement => String::from("f"),
+			Type::Boolean => String::from("b"),
+			Type::FieldElementArray(size) => format!("{}[{}]", Type::FieldElement.to_slug(), size), // TODO differentiate types?
 		}
 	}
+}
+
+#[cfg(test)]
+mod tests {
+	use field::FieldPrime;
+	use super::*;
+
+	#[test]
+	fn array() {
+		let t = Type::FieldElementArray(42);
+		assert_eq!(t.get_primitive_count(), 42);
+		assert_eq!(t.get_constraints::<FieldPrime>(), Constraints::none());
+		assert_eq!(t.to_slug(), "f[42]");
+	}
+
+	// #[test]
+	// fn array_of_arrays() {
+	// 	let t = Type::FieldElementArray(42, box Type::FieldElementArray(33, box Type::Boolean));
+	// 	assert_eq!(t.get_primitive_count(), 1);
+	// 	assert_eq!(t.get_constraints::<FieldPrime>(), Constraints::boolean());
+	// 	assert_eq!(t.to_slug(), "[]");
+	// }
 }

@@ -5,6 +5,8 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
+pub mod folder;
+
 use types::Signature;
 use absy::parameter::Parameter;
 use absy::variable::Variable;
@@ -14,6 +16,8 @@ use field::Field;
 use imports::Import;
 use flat_absy::*;
 use types::Type;
+
+pub use self::folder::Folder;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct TypedProg<T: Field> {
@@ -123,10 +127,46 @@ impl<T: Field> fmt::Debug for TypedFunction<T> {
     }
 }
 
+#[derive(Clone, Serialize, Deserialize, PartialEq, Hash, Eq)]
+pub enum TypedAssignee<T: Field> {
+    Identifier(Variable),
+    ArrayElement(Box<TypedAssignee<T>>, Box<FieldElementExpression<T>>)
+}
+
+impl<T: Field> Typed for TypedAssignee<T> {
+    fn get_type(&self) -> Type {
+        match *self {
+            TypedAssignee::Identifier(ref v) => v.get_type(),
+            TypedAssignee::ArrayElement(ref a, _) => {
+                let a_type = a.get_type();
+                match a_type {
+                    Type::FieldElementArray(_) => Type::FieldElement,
+                    _ => panic!("array element has to take array")
+                }
+            }
+        }
+    }
+}
+
+impl<T: Field> fmt::Debug for TypedAssignee<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            TypedAssignee::Identifier(ref s) => write!(f, "{}", s.id),
+            TypedAssignee::ArrayElement(ref a, ref e) => write!(f, "{}[{}]", a, e),
+        }
+    }
+}
+
+impl<T: Field> fmt::Display for TypedAssignee<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub enum TypedStatement<T: Field> {
     Return(Vec<TypedExpression<T>>),
-    Definition(Variable, TypedExpression<T>),
+    Definition(TypedAssignee<T>, TypedExpression<T>),
     Declaration(Variable),
     Condition(TypedExpression<T>, TypedExpression<T>),
     For(Variable, T, T, Vec<TypedStatement<T>>),
@@ -209,10 +249,11 @@ pub trait Typed
     fn get_type(&self) -> Type;
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, Hash, Eq)]
 pub enum TypedExpression<T: Field> {
     Boolean(BooleanExpression<T>),
     FieldElement(FieldElementExpression<T>),
+    FieldElementArray(FieldElementArrayExpression<T>),
 }
 
 impl<T: Field> From<BooleanExpression<T>> for TypedExpression<T> {
@@ -227,6 +268,12 @@ impl<T: Field> From<FieldElementExpression<T>> for TypedExpression<T> {
     }
 }
 
+impl<T: Field> From<FieldElementArrayExpression<T>> for TypedExpression<T> {
+    fn from(e: FieldElementArrayExpression<T>) -> TypedExpression<T> {
+        TypedExpression::FieldElementArray(e)
+    }
+}
+
 impl<T: Field> fmt::Display for TypedExpression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -234,6 +281,9 @@ impl<T: Field> fmt::Display for TypedExpression<T> {
                 write!(f, "{}", e)
             },
             TypedExpression::FieldElement(ref e) => {
+                write!(f, "{}", e)
+            },
+            TypedExpression::FieldElementArray(ref e) => {
                 write!(f, "{}", e)
             }
         }
@@ -249,15 +299,21 @@ impl<T: Field> fmt::Debug for TypedExpression<T> {
             TypedExpression::FieldElement(ref e) => {
                 write!(f, "{:?}", e)
             }
+            TypedExpression::FieldElementArray(ref e) => {
+                write!(f, "{:?}", e)
+            }
         }
     }
 }
 
 impl<T: Field> Typed for TypedExpression<T> {
     fn get_type(&self) -> Type {
-        match self {
+        match *self {
             TypedExpression::Boolean(_) => Type::Boolean,
-            TypedExpression::FieldElement(_) => Type::FieldElement
+            TypedExpression::FieldElement(_) => Type::FieldElement,
+            TypedExpression::FieldElementArray(FieldElementArrayExpression::Identifier(n, _)) => Type::FieldElementArray(n),
+            TypedExpression::FieldElementArray(FieldElementArrayExpression::Value(n, _)) => Type::FieldElementArray(n),
+            TypedExpression::FieldElementArray(FieldElementArrayExpression::FunctionCall(n, ..)) => Type::FieldElementArray(n),
         }
     }
 }
@@ -280,7 +336,7 @@ impl<T: Field> MultiTyped for TypedExpressionList<T> {
     }
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, Hash, Eq)]
 pub enum FieldElementExpression<T: Field> {
     Number(T),
     Identifier(String),
@@ -291,9 +347,10 @@ pub enum FieldElementExpression<T: Field> {
     Pow(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     IfElse(Box<BooleanExpression<T>>, Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     FunctionCall(String, Vec<TypedExpression<T>>),
+    Select(Box<FieldElementArrayExpression<T>>, Box<FieldElementExpression<T>>),
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, Hash, Eq)]
 pub enum BooleanExpression<T: Field> {
     Identifier(String),
     Value(bool),
@@ -302,6 +359,22 @@ pub enum BooleanExpression<T: Field> {
     Eq(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     Ge(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     Gt(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
+}
+
+// for now we store the array size in the variants
+#[derive(Clone, PartialEq, Serialize, Deserialize, Hash, Eq)]
+pub enum FieldElementArrayExpression<T: Field> {
+    Identifier(usize, String),
+    Value(usize, Vec<FieldElementExpression<T>>),
+    FunctionCall(usize, String, Vec<TypedExpression<T>>),
+}
+
+impl<T: Field> FieldElementArrayExpression<T> {
+    pub fn size(&self) -> usize {
+        match *self {
+            FieldElementArrayExpression::Identifier(s, _) | FieldElementArrayExpression::Value(s, _) | FieldElementArrayExpression::FunctionCall(s, ..) => s
+        }
+    }
 }
 
 impl<T: Field> fmt::Display for FieldElementExpression<T> {
@@ -331,6 +404,9 @@ impl<T: Field> fmt::Display for FieldElementExpression<T> {
                 }
                 write!(f, ")")
             },
+            FieldElementExpression::Select(ref id, ref index) => {
+                write!(f, "{}[{}]", id, index)
+            },
         }
     }
 }
@@ -345,6 +421,25 @@ impl<T: Field> fmt::Display for BooleanExpression<T> {
             BooleanExpression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
             BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
             BooleanExpression::Value(b) => write!(f, "{}", b),
+        }
+    }
+}
+
+impl<T: Field> fmt::Display for FieldElementArrayExpression<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            FieldElementArrayExpression::Identifier(_, ref var) => write!(f, "{}", var),
+            FieldElementArrayExpression::Value(_, ref values) => write!(f, "[{}]", values.iter().map(|o| o.to_string()).collect::<Vec<String>>().join(", ")),
+            FieldElementArrayExpression::FunctionCall(_, ref i, ref p) => {
+                try!(write!(f, "{}(", i,));
+                for (i, param) in p.iter().enumerate() {
+                    try!(write!(f, "{}", param));
+                    if i < p.len() - 1 {
+                        try!(write!(f, ", "));
+                    }
+                }
+                write!(f, ")")
+            },
         }
     }
 }
@@ -377,6 +472,23 @@ impl<T: Field> fmt::Debug for FieldElementExpression<T> {
                 try!(f.debug_list().entries(p.iter()).finish());
                 write!(f, ")")
             },
+            FieldElementExpression::Select(ref id, ref index) => {
+                write!(f, "Select({:?}, {:?})", id, index)
+            },
+        }
+    }
+}
+
+impl<T: Field> fmt::Debug for FieldElementArrayExpression<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            FieldElementArrayExpression::Identifier(_, ref var) => write!(f, "{:?}", var),
+            FieldElementArrayExpression::Value(_, ref values) => write!(f, "{:?}", values),
+            FieldElementArrayExpression::FunctionCall(_, ref i, ref p) => {
+                try!(write!(f, "FunctionCall({:?}, (", i));
+                try!(f.debug_list().entries(p.iter()).finish());
+                write!(f, ")")
+            }
         }
     }
 }
@@ -407,5 +519,11 @@ impl<T: Field> fmt::Debug for TypedExpressionList<T> {
                 write!(f, ")")
             }
         }
+    }
+}
+
+impl<T: Field> TypedFunction<T> {
+    pub fn to_slug(&self) -> String {
+        format!("{}_{}", self.id, self.signature.to_slug())
     }
 }

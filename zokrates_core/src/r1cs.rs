@@ -280,9 +280,9 @@ pub fn r1cs_program<T: Field>(
     let mut c: Vec<Vec<(usize, T)>> = Vec::new();
 
     //Only the main function is relevant in this step, since all calls to other functions were resolved during flattening
-    let main = prog.functions
-        .iter()
-        .find(|x: &&FlatFunction<T>| x.id == "main".to_string())
+    let main = prog.clone().functions
+        .into_iter()
+        .find(|x: &FlatFunction<T>| x.id == "main".to_string())
         .unwrap();
 
     for x in main.arguments.iter().filter(|x| !x.private) {

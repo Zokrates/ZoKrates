@@ -2,5 +2,10 @@
 
 import "./../../binary/xor.code" as XOR
 
-def main(field b31, field b30, field b29, field b28, field b27, field b26, field b25, field b24, field b23, field b22, field b21, field b20, field b19, field b18, field b17, field b16, field b15, field b14, field b13, field b12, field b11, field b10, field b9, field b8, field b7, field b6, field b5, field b4, field b3, field b2, field b1, field b0, field c31, field c30, field c29, field c28, field c27, field c26, field c25, field c24, field c23, field c22, field c21, field c20, field c19, field c18, field c17, field c16, field c15, field c14, field c13, field c12, field c11, field c10, field c9, field c8, field c7, field c6, field c5, field c4, field c3, field c2, field c1, field c0) -> (field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field):
-	return XOR(b31, c31), XOR(b30, c30), XOR(b29, c29), XOR(b28, c28), XOR(b27, c27), XOR(b26, c26), XOR(b25, c25), XOR(b24, c24), XOR(b23, c23), XOR(b22, c22), XOR(b21, c21), XOR(b20, c20), XOR(b19, c19), XOR(b18, c18), XOR(b17, c17), XOR(b16, c16), XOR(b15, c15), XOR(b14, c14), XOR(b13, c13), XOR(b12, c12), XOR(b11, c11), XOR(b10, c10), XOR(b9, c9), XOR(b8, c8), XOR(b7, c7), XOR(b6, c6), XOR(b5, c5), XOR(b4, c4), XOR(b3, c3), XOR(b2, c2), XOR(b1, c1), XOR(b0, c0)
+def main(field[32] b, field[32] c) -> (field[32]):
+	field[32] result = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+	for field i in 0..32 do
+		r = XOR(b[i], c[i])
+		result[i] = r
+	endfor
+	return result

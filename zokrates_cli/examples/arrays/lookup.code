@@ -1,0 +1,2 @@
+def main(field index, field[5] array) -> (field):
+	return array[index]

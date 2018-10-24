@@ -40,6 +40,8 @@ pub enum Token<T: Field> {
     DoubleQuote,
     Path(String),
     As,
+    LeftBracket,
+    RightBracket,
     // following used for error messages
     ErrIde,
     ErrNum,
@@ -90,6 +92,8 @@ impl<T: Field> fmt::Display for Token<T> {
             Token::ErrNum => write!(f, "number"),
             Token::Type(ref x) => write!(f, "{}", x),
             Token::Arrow => write!(f, "->"),
+            Token::LeftBracket => write!(f, "["),
+            Token::RightBracket => write!(f, "]"),
         }
     }
 }

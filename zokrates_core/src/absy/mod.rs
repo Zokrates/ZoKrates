@@ -121,13 +121,45 @@ impl<T: Field> fmt::Debug for Function<T> {
 }
 
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
+pub enum Assignee<T: Field> {
+    Identifier(String),
+    ArrayElement(Box<Assignee<T>>, Box<Expression<T>>)
+}
+
+impl<T: Field> fmt::Debug for Assignee<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Assignee::Identifier(ref s) => write!(f, "{}", s),
+            Assignee::ArrayElement(ref a, ref e) => write!(f, "{}[{}]", a, e),
+        }
+    }
+}
+
+impl<T: Field> fmt::Display for Assignee<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl<T: Field> From<Expression<T>> for Assignee<T> {
+    fn from(e: Expression<T>) -> Self {
+        match e {
+            Expression::Select(box Expression::Identifier(id), box e2) => {
+                Assignee::ArrayElement(box Assignee::Identifier(id), box e2)
+            },
+            _ => panic!("only use expression to assignee for elements like foo[bar]")
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub enum Statement<T: Field> {
     Return(ExpressionList<T>),
     Declaration(Variable),
-    Definition(String, Expression<T>),
+    Definition(Assignee<T>, Expression<T>),
     Condition(Expression<T>, Expression<T>),
     For(Variable, T, T, Vec<Statement<T>>),
-    MultipleDefinition(Vec<String>, Expression<T>),
+    MultipleDefinition(Vec<Assignee<T>>, Expression<T>),
 }
 
 impl<T: Field> fmt::Display for Statement<T> {
@@ -196,6 +228,8 @@ pub enum Expression<T: Field> {
     Eq(Box<Expression<T>>, Box<Expression<T>>),
     Ge(Box<Expression<T>>, Box<Expression<T>>),
     Gt(Box<Expression<T>>, Box<Expression<T>>),
+    InlineArray(Vec<Expression<T>>),
+    Select(Box<Expression<T>>, Box<Expression<T>>),
 }
 
 impl<T: Field> fmt::Display for Expression<T> {
@@ -230,6 +264,17 @@ impl<T: Field> fmt::Display for Expression<T> {
             Expression::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             Expression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
             Expression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
+            Expression::InlineArray(ref exprs) => {
+                try!(write!(f, "["));
+                for (i, e) in exprs.iter().enumerate() {
+                    try!(write!(f, "{}", e));
+                    if i < exprs.len() - 1 {
+                        try!(write!(f, ", "));
+                    }
+                }
+                write!(f, "]")
+            },
+            Expression::Select(ref array, ref index) => write!(f, "{}[{}]", array, index),
         }
     }
 }
@@ -261,6 +306,12 @@ impl<T: Field> fmt::Debug for Expression<T> {
             Expression::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             Expression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
             Expression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
+            Expression::InlineArray(ref exprs) => {
+                try!(write!(f, "InlineArray(["));
+                try!(f.debug_list().entries(exprs.iter()).finish());
+                write!(f, "]")
+            },
+            Expression::Select(ref array, ref index) => write!(f, "{}[{}]", array, index),
         }
     }
 }
