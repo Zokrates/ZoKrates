@@ -61,6 +61,8 @@ pub fn pack<T: Field>(nbits: usize) -> FlatProg<T> {
 }
 
 pub fn unpack<T: Field>(nbits: usize) -> FlatProg<T> {
+	assert!(nbits <= T::get_required_bits()); // we cannot pack more bits than the field
+
 	let mut counter = 0;
 
 	let mut bijection = BiMap::new();
@@ -70,8 +72,10 @@ pub fn unpack<T: Field>(nbits: usize) -> FlatProg<T> {
 		private: true
 	}];
 
+	// o0, ..., o253 = ToBits(i0)
+
 	let directive_inputs = vec![FlatExpression::Identifier(use_variable(&mut bijection, format!("i0"), &mut counter))];
-	let directive_outputs: Vec<FlatVariable> = (0..nbits).map(|index| use_variable(&mut bijection, format!("o{}", index), &mut counter)).collect();
+	let directive_outputs: Vec<FlatVariable> = (0..T::get_required_bits()).map(|index| use_variable(&mut bijection, format!("o{}", index), &mut counter)).collect();
 
 	let helper = Helper::Rust(RustHelper::Bits);
 
@@ -80,11 +84,12 @@ pub fn unpack<T: Field>(nbits: usize) -> FlatProg<T> {
 			outputs: vec![Type::FieldElement; nbits],
 		};
 
-	let outputs = directive_outputs.iter().map(|o| FlatExpression::Identifier(o.clone())).collect();
+	let outputs = directive_outputs.iter().enumerate().filter(|(index, _)| *index >= T::get_required_bits() - nbits).map(|(_, o)| FlatExpression::Identifier(o.clone())).collect();
 
+	// o253, o252, ... o{253 - (nbits - 1)} are bits
 	let mut statements: Vec<FlatStatement<T>> = (0..nbits)
 		.map(|index| {
-			let bit = FlatExpression::Identifier(FlatVariable::new(index + 1));
+			let bit = FlatExpression::Identifier(FlatVariable::new(T::get_required_bits() - index));
 			FlatStatement::Condition(
 				bit.clone(),
 				FlatExpression::Mult(
@@ -94,15 +99,15 @@ pub fn unpack<T: Field>(nbits: usize) -> FlatProg<T> {
 			)
 		}).collect();
 
-    // sum check
+    // sum check: o253 + o252 * 2 + ... + o{253 - (nbits - 1)} * 2**(nbits - 1)
     let mut lhs_sum = FlatExpression::Number(T::from(0));
 
     for i in 0..nbits {
         lhs_sum = FlatExpression::Add(
             box lhs_sum,
             box FlatExpression::Mult(
-                box FlatExpression::Identifier(FlatVariable::new(i + 1)),
-                box FlatExpression::Number(T::from(2).pow(nbits - i - 1)),
+                box FlatExpression::Identifier(FlatVariable::new(T::get_required_bits() - i)),
+                box FlatExpression::Number(T::from(2).pow(i)),
             ),
         );
     }
@@ -305,41 +310,47 @@ mod tests {
 		use super::*;
 
 		#[test]
-		fn unpack254() {
-			let unpack: FlatProg<FieldPrime> = unpack(254);
+		fn unpack128() {
+			let nbits = 128;
+
+			let unpack: FlatProg<FieldPrime> = unpack(nbits);
 			let unpack = &unpack.functions[0];
+
+			println!("{}", unpack);
 
 			assert_eq!(unpack.id, String::from("main"));
 			assert_eq!(unpack.arguments, vec![FlatParameter::private(FlatVariable::new(0))]);
-			assert_eq!(unpack.statements.len(), 254 + 1 + 1 + 1); // 254 bit checks, 1 directive, 1 sum check, 1 return
+			assert_eq!(unpack.statements.len(), nbits + 1 + 1 + 1); // 128 bit checks, 1 directive, 1 sum check, 1 return
 			assert_eq!(
 				unpack.statements[0],
 				FlatStatement::Directive(
 					DirectiveStatement::new(
-						(0..254).map(|i| FlatVariable::new(i + 1)).collect(),
+						(0..FieldPrime::get_required_bits()).map(|i| FlatVariable::new(i + 1)).collect(),
 						Helper::Rust(RustHelper::Bits),
 						vec![FlatVariable::new(0)]
 					)
 				)
 			);
 			assert_eq!(
-				unpack.statements[256],
+				*unpack.statements.last().unwrap(),
 				FlatStatement::Return(
 					FlatExpressionList {
-						expressions: (0..254).map(|i| FlatExpression::Identifier(FlatVariable::new(i + 1))).collect()
+						expressions: (FieldPrime::get_required_bits() - nbits..FieldPrime::get_required_bits()).map(|i| FlatExpression::Identifier(FlatVariable::new(i + 1))).collect()
 					}
 				)
 			);
 		}
 
 		#[test]
-		fn pack254() {
-			let unpack: FlatProg<FieldPrime> = pack(254);
-			let unpack = &unpack.functions[0];
+		fn pack128() {
+			let pack: FlatProg<FieldPrime> = pack(128);
+			let pack = &pack.functions[0];
 
-			assert_eq!(unpack.id, String::from("main"));
-			assert_eq!(unpack.arguments.len(), 254);
-			assert_eq!(unpack.statements.len(), 1); // just sum bits * 2**i
+			println!("{}", pack);
+
+			assert_eq!(pack.id, String::from("main"));
+			assert_eq!(pack.arguments.len(), 128);
+			assert_eq!(pack.statements.len(), 1); // just sum bits * 2**i
 		}
 	}
 }
