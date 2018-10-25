@@ -3,7 +3,8 @@
 def majorVersion
 def minorVersion
 def patchVersion
-def dockerImage
+def testImage
+def prodImage
 
 pipeline {
     agent any
@@ -34,8 +35,9 @@ pipeline {
             steps {
                 script {
                     ansiColor('xterm') {
-                        dockerImage = docker.build("zokrates/zokrates")
-                        dockerImage.inside {
+                        def testDockerfile = 'dev.Dockerfile'
+                        testImage = docker.build("zokrates/zokrates", "-f ${testDockerfile} .")
+                        testImage.inside {
                             sh 'RUSTFLAGS="-D warnings" ./build.sh'
                         }
                     }
@@ -47,7 +49,7 @@ pipeline {
             steps {
                 script {
                     ansiColor('xterm') {
-                        dockerImage.inside {
+                        testImage.inside {
                             sh 'RUSTFLAGS="-D warnings" ./test.sh'
                         }
                     }
@@ -62,7 +64,7 @@ pipeline {
             steps {
                 script {
                     ansiColor('xterm') {
-                        dockerImage.inside {
+                        testImage.inside {
                             sh 'RUSTFLAGS="-D warnings" ./full_test.sh'
                         }
                     }
@@ -77,13 +79,14 @@ pipeline {
             steps {
                 script {
                     ansiColor('xterm') {
+                        prodImage = docker.build("zokrates/zokrates"
                         docker.withRegistry('https://registry.hub.docker.com', 'dockerhub-kyroy') {
-                            dockerImage.push(patchVersion)
-                            dockerImage.push(minorVersion)
+                            prodImage.push(patchVersion)
+                            prodImage.push(minorVersion)
                             if (majorVersion > '0') {
-                                dockerImage.push(majorVersion)
+                                prodImage.push(majorVersion)
                             }
-                            dockerImage.push("latest")
+                            prodImage.push("latest")
                         }
                     }
                 }

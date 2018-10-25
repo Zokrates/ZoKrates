@@ -1,4 +1,4 @@
-FROM ubuntu:14.04
+FROM ubuntu:18.04
 
 MAINTAINER JacobEberhardt <jacob.eberhardt@tu-berlin.de>, Dennis Kuhnert <mail@kyroy.com>
 
@@ -9,35 +9,35 @@ ARG LIBSNARK_COMMIT=f7c87b88744ecfd008126d415494d9b34c4c1b20
 ENV LIBSNARK_SOURCE_PATH=/home/zokrates/libsnark-$LIBSNARK_COMMIT
 ENV WITH_LIBSNARK=1
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
     build-essential \
     cmake \
     curl \
-    libboost-all-dev \
+    libboost-dev \
+    libboost-program-options-dev \
     libgmp3-dev \
-    libprocps3-dev \
+    libprocps-dev \
     libssl-dev \
     pkg-config \
     python-markdown \
-    git
+    git \
+    && rm -rf /var/lib/apt/lists/* \
+    && git clone https://github.com/scipr-lab/libsnark.git $LIBSNARK_SOURCE_PATH \
+    && git -C $LIBSNARK_SOURCE_PATH checkout $LIBSNARK_COMMIT \
+    && git -C $LIBSNARK_SOURCE_PATH submodule update --init --recursive \
+    && chown -R zokrates:zokrates $LIBSNARK_SOURCE_PATH
 
 USER zokrates
 
-RUN curl https://sh.rustup.rs -sSf | \
-    sh -s -- --default-toolchain $RUST_TOOLCHAIN -y
-
-ENV PATH=/home/zokrates/.cargo/bin:$PATH
-
-RUN git clone https://github.com/scipr-lab/libsnark.git $LIBSNARK_SOURCE_PATH
-
-WORKDIR $LIBSNARK_SOURCE_PATH
-
-RUN git checkout $LIBSNARK_COMMIT
-RUN git submodule update --init --recursive
-
 WORKDIR /home/zokrates
 
-COPY --chown=zokrates:zokrates . ZoKrates
+COPY --chown=zokrates:zokrates . src
 
-RUN cd ZoKrates \
-    && ./build.sh
+RUN curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain $RUST_TOOLCHAIN -y \
+    && export PATH=/home/zokrates/.cargo/bin:$PATH \
+    && (cd src;./build_release.sh) \
+    && mv ./src/target/release/zokrates . \
+    && mv ./src/zokrates_cli/examples . \
+    && rustup self uninstall -y \
+    && rm -rf $LIBSNARK_SOURCE_PATH src
