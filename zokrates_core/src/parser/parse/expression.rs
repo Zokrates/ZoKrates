@@ -80,6 +80,112 @@ fn parse_prim_cond<T: Field>(
     }
 }
 
+fn parse_bfactor1<T: Field>(
+    expr: Expression<T>,
+    input: String,
+    pos: Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
+    match parse_bterm1(expr.clone(), input.clone(), pos.clone()) {
+        Ok((e1, s1, p1)) =>  parse_bexpr1(e1, s1, p1),
+        Err(err) => Err(err),
+    }
+}
+
+fn parse_bfactor<T: Field>(
+    input: &String,
+    pos: &Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
+    match next_token(input, pos) {
+        (Token::Open, s1, p1) => match parse_bexpr(&s1, &p1) {
+            Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
+                (Token::Close, s3, p3) => parse_bfactor1(e2, s3, p3),
+                (t3, _, p3) => Err(Error {
+                    expected: vec![Token::Close],
+                    got: t3,
+                    pos: p3,
+                }),
+            },
+            Err(err) => Err(err),
+        },
+        (Token::Ide(x), s1, p1) => parse_bfactor1(Expression::Identifier(x), s1, p1),
+        (Token::Num(x), s1, p1) => parse_bfactor1(Expression::Number(x), s1, p1),
+        (t1, _, p1) => Err(Error {
+            expected: vec![Token::Open, Token::ErrIde, Token::ErrNum],
+            got: t1,
+            pos: p1,
+        }),
+    }
+}
+
+pub fn parse_bterm1<T: Field>(
+    expr: Expression<T>,
+    input: String,
+    pos: Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
+    match next_token::<T>(&input, &pos) {
+        (Token::And, s1, p1) => match parse_bterm(&s1, &p1) {
+            Ok((e, s2, p2)) => Ok((Expression::And(box expr, box e), s2, p2)),
+            Err(err) => Err(err),
+        },
+        _ => Ok((expr, input, pos)),
+    }
+}
+
+fn parse_bterm<T: Field>(
+    input: &String,
+    pos: &Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
+    match parse_bfactor(input, pos) {
+        Ok((e, s1, p1)) => parse_bterm1(e, s1, p1),
+        Err(err) => Err(err),
+    }
+}
+
+fn parse_bexpr1<T: Field>(
+    expr: Expression<T>,
+    input: String,
+    pos: Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
+    match next_token::<T>(&input, &pos) {
+        (Token::Or, s1, p1) => match parse_bterm(&s1, &p1) {
+            Ok((e2, s2, p2)) => parse_bexpr1(Expression::Or(box expr, box e2), s2, p2),
+            Err(err) => Err(err),
+        },
+        _ => Ok((expr, input, pos)),
+    }
+}
+
+fn parse_bexpr<T: Field>(
+    input: &String,
+    pos: &Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
+    match next_token::<T>(input, pos) {
+        (Token::Open, s1, p1) => match parse_bexpr(&s1, &p1) {
+            Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
+                (Token::Close, s3, p3) => match parse_bterm1(e2, s3, p3) {
+                    Ok((e4, s4, p4)) => parse_bexpr1(e4, s4, p4),
+                    Err(err) => Err(err),
+                },
+                (t3, _, p3) => Err(Error {
+                    expected: vec![Token::Close],
+                    got: t3,
+                    pos: p3,
+                }),
+            },
+            Err(err) => Err(err),
+        },
+        (Token::Ide(x), s1, p1) => match parse_bterm1(Expression::Identifier(x), s1, p1) {
+            Ok((e2, s2, p2)) => parse_bexpr1(e2, s2, p2),
+            Err(err) => Err(err),
+        },
+        (Token::Num(x), s1, p1) => match parse_bterm1(Expression::Number(x), s1, p1) {
+            Ok((e2, s2, p2)) => parse_bexpr1(e2, s2, p2),
+            Err(err) => Err(err),
+        },
+    }
+}
+
+
 fn parse_condition<T: Field>(
     cond: Expression<T>,
     input: &String,
