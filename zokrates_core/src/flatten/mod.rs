@@ -1235,8 +1235,6 @@ impl Flattener {
     /// * `prog` - `Prog`ram that will be flattened.
     pub fn flatten_program<T: Field>(&mut self, prog: TypedProg<T>) -> FlatProg<T> {
 
-        println!("{}", prog);
-
         let mut functions_flattened = Vec::new();
 
         self.load_corelib(&mut functions_flattened);
