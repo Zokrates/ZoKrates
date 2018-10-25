@@ -13,7 +13,7 @@ You can see an overview of the available subcommands by running
 ./zokrates compile -i /path/to/add.code
 ```
 
-Compiles a `.code` file into  ZoKrates internal representation of arithmetic circuits. Use the `--gadgets` flag if libsnark gadgets are being used in your code (e.g. SHA256 hashing). 
+Compiles a `.code` file into  ZoKrates internal representation of arithmetic circuits. 
 
 Creates a compiled `.code` file at `./out.code`.
 
