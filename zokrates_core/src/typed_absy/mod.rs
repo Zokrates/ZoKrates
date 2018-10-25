@@ -297,7 +297,7 @@ pub enum BooleanExpression<T: Field> {
     Eq(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     Ge(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     Gt(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
-    Or(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
+    Or(Box<BooleanExpression<T>>, Box<BooleanExpression<T>>),
     And(Box<BooleanExpression<T>>, Box<BooleanExpression<T>>),
 }
 
