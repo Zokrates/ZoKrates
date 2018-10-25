@@ -10,5 +10,4 @@
 - [ZoKrates Reference](reference/index.md)
     - [Grammar](reference/grammar.md)
     - [CLI](reference/cli.md)
-    - [Gadgets](reference/gadgets.md)
     - [Verification](reference/verification.md)
