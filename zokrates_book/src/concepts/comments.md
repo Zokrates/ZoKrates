@@ -1,0 +1,10 @@
+## Comments
+
+Comments can be added with double-slashes.
+
+```zokrates
+def main() -> (field):
+    field a = 42 // this is an end of line comment
+    // this is a full line comment
+    return a
+```
