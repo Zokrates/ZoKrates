@@ -2,15 +2,19 @@
 
 ## Installation
 
+### Docker
+
 Using Docker is currently the recommended way to get started with ZoKrates.
 
 ```bash
 docker run -ti zokrates/zokrates /bin/bash
 ```
 
-Now you should be dropped into a shell and can find the `zokrates` executable in the following folder `ZoKrates/target/release`.
+From there on, you can use the `zokrates` CLI.
 
-Alternatively you can build the container yourself with the following commands:
+### From source
+
+You can build the container yourself from [source](https://github.com/JacobEberhardt/ZoKrates/) with the following commands:
 
 ```bash
 git clone https://github.com/JacobEberhardt/ZoKrates
@@ -20,11 +24,9 @@ docker run -ti zokrates /bin/bash
 cd ZoKrates/target/release
 ```
 
-Alternatively, you can build Cargo from [source](https://github.com/JacobEberhardt/ZoKrates/).
-
 ## Hello ZoKrates!
 
-First, create the text-file `root.code` and implement your program. IN this example, we will prove knowledge of the square root of a number:
+First, create the text-file `root.code` and implement your program. In this example, we will prove knowledge of the square root `a` of a number `b`:
 
 ```zokrates
 def main(private field a, field b) -> (field):
@@ -33,18 +35,22 @@ def main(private field a, field b) -> (field):
 ```
 
 Some observations:
-- The keyword `field` is the basic type we use, which is an element of a prime field.
+- The keyword `field` is the basic type we use, which is an element of a given prime field.
 - The keyword `private` signals that we do not want to reveal this input, but still prove that we know its value.
 
 Then run the different phases of the protocol:
 
 ```bash
+# compile
 ./zokrates compile -i root.code
+# perform the setup phase
 ./zokrates setup
+# execute the program
 ./zokrates compute-witness -a 337 113569
+# generate a proof of computation
 ./zokrates generate-proof
+# export a solidity verifier
 ./zokrates export-verifier
 ```
 
-The CLI commands are explained in more detail in this [section
-](reference/cli.html) of the documentation.
+The CLI commands are explained in more detail in the [CLI reference](reference/cli.html).

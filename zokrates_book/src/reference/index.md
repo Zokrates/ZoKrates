@@ -1,6 +1,6 @@
 # ZoKrates Reference
 
-The reference covers the details of various areas of Cargo.
+The reference covers the details of various areas of ZoKrates.
 
 - [ZoKrates Reference](index.md)
     - [Grammar](grammar.md)

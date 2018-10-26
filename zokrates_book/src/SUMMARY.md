@@ -3,11 +3,17 @@
 - [Introduction](./introduction.md)
 
 - [Getting Started](./gettingstarted.md)
-- [Proofing a Hash Pre-Image](./sha256example.md)
 
-- [ZoKrates Programming Concepts](./concepts.md)
+- [Programming Concepts](./concepts.md)
+	- [Variables](./concepts/variables.md)
+	- [Types](./concepts/types.md)
+	- [Functions](./concepts/functions.md)
+	- [Control flow](./concepts/control_flow.md)
+	- [Comments](./concepts/comments.md)
 
-- [ZoKrates Reference](reference/index.md)
+- [Reference](reference/index.md)
     - [Grammar](reference/grammar.md)
     - [CLI](reference/cli.md)
     - [Verification](reference/verification.md)
+
+- [Tutorial: Proof of preimage](./sha256example.md)
