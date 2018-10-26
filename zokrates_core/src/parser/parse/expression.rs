@@ -98,7 +98,7 @@ fn parse_bfactor<T: Field>(
     match next_token(input, pos) {
         (Token::Open, s1, p1) => match parse_bexpr(&s1, &p1) {
             Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
-                (Token::Close, s3, p3) => parse_bfactor1(e2, s3, p3),
+                (Token::Close, s3, p3) => Ok((e2, s2, p2)),
                 (t3, _, p3) => Err(Error {
                     expected: vec![Token::Close],
                     got: t3,
@@ -107,8 +107,7 @@ fn parse_bfactor<T: Field>(
             },
             Err(err) => Err(err),
         },
-        (Token::Ide(x), s1, p1) => parse_bfactor1(Expression::Identifier(x), s1, p1),
-        (Token::Num(x), s1, p1) => parse_bfactor1(Expression::Number(x), s1, p1),
+        (Token::Ide(x), s1, p1) => Ok((Expression::Identifier(x), s1, p1)),
         (t1, _, p1) => Err(Error {
             expected: vec![Token::Open, Token::ErrIde, Token::ErrNum],
             got: t1,
@@ -124,7 +123,7 @@ pub fn parse_bterm1<T: Field>(
 ) -> Result<(Expression<T>, String, Position), Error<T>> {
     match next_token::<T>(&input, &pos) {
         (Token::And, s1, p1) => match parse_bterm(&s1, &p1) {
-            Ok((e, s2, p2)) => Ok((Expression::And(box expr, box e), s2, p2)),
+            Ok((e, s2, p2)) => Ok((Expression::AndAnd(box expr, box e), s2, p2)),
             Err(err) => Err(err),
         },
         _ => Ok((expr, input, pos)),
@@ -175,10 +174,6 @@ fn parse_bexpr<T: Field>(
             Err(err) => Err(err),
         },
         (Token::Ide(x), s1, p1) => match parse_bterm1(Expression::Identifier(x), s1, p1) {
-            Ok((e2, s2, p2)) => parse_bexpr1(e2, s2, p2),
-            Err(err) => Err(err),
-        },
-        (Token::Num(x), s1, p1) => match parse_bterm1(Expression::Number(x), s1, p1) {
             Ok((e2, s2, p2)) => parse_bexpr1(e2, s2, p2),
             Err(err) => Err(err),
         },
