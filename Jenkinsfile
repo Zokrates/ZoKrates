@@ -79,7 +79,7 @@ pipeline {
             steps {
                 script {
                     ansiColor('xterm') {
-                        prodImage = docker.build("zokrates/zokrates"
+                        prodImage = docker.build("zokrates/zokrates")
                         docker.withRegistry('https://registry.hub.docker.com', 'dockerhub-kyroy') {
                             prodImage.push(patchVersion)
                             prodImage.push(minorVersion)
