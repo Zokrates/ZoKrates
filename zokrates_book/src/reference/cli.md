@@ -1,6 +1,6 @@
 # Command Line Tool
 
-Zokrates provides a command line interface.
+ZoKrates provides a command line interface.
 You can see an overview of the available subcommands by running
 
 ```sh
