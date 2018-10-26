@@ -23,6 +23,6 @@
 
 import "LIBSNARK/sha256packed"
 
-def main(field a, field b) -> (field):
-	c = sha256packed(a, b)
-	return c
+def main(field a, field b, field c, field d) -> (field, field):
+	e, f = sha256packed(a, b, c, d)
+	return e, f
