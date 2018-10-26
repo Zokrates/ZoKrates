@@ -10,7 +10,7 @@ def bar() -> (field):
     return foo()
 ```
 
-A function's signature has to be explicitely provided.
+A function's signature has to be explicitly provided.
 Functions can return many values by providing them as a comma-separated list.
 
 ```zokrates
