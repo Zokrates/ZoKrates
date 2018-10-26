@@ -12,7 +12,6 @@
 	- [Comments](./concepts/comments.md)
 
 - [Reference](reference/index.md)
-    - [Grammar](reference/grammar.md)
     - [CLI](reference/cli.md)
     - [Verification](reference/verification.md)
 
