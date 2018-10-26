@@ -1,6 +1,6 @@
 FROM ubuntu:14.04
 
-MAINTAINER JacobEberhardt <jacob.eberhardt@tu-berlin.de>, Dennis Kuhnert <mail@kyroy.com>
+MAINTAINER JacobEberhardt <jacob.eberhardt@tu-berlin.de>, Dennis Kuhnert <mail@kyroy.com>, Thibaut Schaeffer <thibaut@schaeff.fr>
 
 RUN useradd -u 1000 -m zokrates
 
