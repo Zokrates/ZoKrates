@@ -42,7 +42,7 @@ First, we compile the program into an arithmetic circuit using the `compile` com
 As a next step we can create a witness file using the following command:
 
 ```sh
-./zokrates compute-witness -a 0 5
+./zokrates compute-witness -a 0 0 0 5
 ```
 
 Using the flag `-a` we pass arguments to the program. Recall that our goal is to compute the hash for the number `5`. Consequently we set `a`, `b` and `c` to `0` and  `d` to  `5`.
