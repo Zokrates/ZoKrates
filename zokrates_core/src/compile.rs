@@ -60,17 +60,9 @@ impl<T: Field> fmt::Display for CompileError<T> {
 	}
 }
 
-pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader: &mut R, location: Option<String>, resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>, should_optimize: bool) -> Result<FlatProg<T>, CompileError<T>> {
-
-	let compiled = compile_aux(reader, location, resolve_option);
-
-	match compiled {
-		Ok(c) => match should_optimize {
-			true => Ok(Optimizer::new().optimize_program(c)),
-			_ => Ok(c)
-		}
-		err => err
-	}
+pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader: &mut R, location: Option<String>, resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>) -> Result<FlatProg<T>, CompileError<T>> {
+	let compiled = compile_aux(reader, location, resolve_option)?;
+	Ok(Optimizer::new().optimize_program(compiled))
 }
 
 pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader: &mut R, location: Option<String>, resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>) -> Result<FlatProg<T>, CompileError<T>> {
@@ -107,7 +99,7 @@ mod test {
 			def main() -> (field):
 			   return foo()
 		"#.as_bytes());
-		let res: Result<FlatProg<FieldPrime>, CompileError<FieldPrime>> = compile(&mut r, Some(String::from("./path/to/file")), None::<fn(&Option<String>, &String) -> Result<(BufReader<Empty>, String, String), io::Error>>, false);
+		let res: Result<FlatProg<FieldPrime>, CompileError<FieldPrime>> = compile(&mut r, Some(String::from("./path/to/file")), None::<fn(&Option<String>, &String) -> Result<(BufReader<Empty>, String, String), io::Error>>);
 		assert_eq!(format!("{}", res.unwrap_err()), "Import error: Can't resolve import without a resolver".to_string()); 
 	}
 
@@ -117,7 +109,7 @@ mod test {
 			def main() -> (field):
 			   return 1
 		"#.as_bytes());
-		let res: Result<FlatProg<FieldPrime>, CompileError<FieldPrime>> = compile(&mut r, Some(String::from("./path/to/file")), None::<fn(&Option<String>, &String) -> Result<(BufReader<Empty>, String, String), io::Error>>, false);
+		let res: Result<FlatProg<FieldPrime>, CompileError<FieldPrime>> = compile(&mut r, Some(String::from("./path/to/file")), None::<fn(&Option<String>, &String) -> Result<(BufReader<Empty>, String, String), io::Error>>);
 		assert!(res.is_ok()); 
 	}
 }

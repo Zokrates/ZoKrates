@@ -65,7 +65,7 @@ mod integration {
         fs::create_dir(test_case_path).unwrap();
 
         // prepare compile arguments
-        let compile = vec!["../target/release/zokrates", "compile", "-i", program_path.to_str().unwrap(), "-o", flattened_path.to_str().unwrap(), "--light", "--optimized"];
+        let compile = vec!["../target/release/zokrates", "compile", "-i", program_path.to_str().unwrap(), "-o", flattened_path.to_str().unwrap(), "--light"];
 
         if program_name.contains("libsnark") {
             // we don't want to test libsnark integrations if libsnark is not available

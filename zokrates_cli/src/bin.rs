@@ -59,10 +59,6 @@ fn main() {
             .takes_value(true)
             .required(false)
             .default_value(FLATTENED_CODE_DEFAULT_PATH)
-        ).arg(Arg::with_name("optimized")
-            .long("optimized")
-            .help("perform optimization.")
-            .required(false)
         ).arg(Arg::with_name("light")
             .long("light")
             .help("Skip logs and human readable output")
@@ -206,8 +202,6 @@ fn main() {
 
             let location = path.parent().unwrap().to_path_buf().into_os_string().into_string().unwrap();
 
-            let should_optimize = sub_matches.occurrences_of("optimized") > 0;
-
             let light = sub_matches.occurrences_of("light") > 0;
 
             let bin_output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -218,7 +212,7 @@ fn main() {
 
             let mut reader = BufReader::new(file);
             
-            let program_flattened: FlatProg<FieldPrime> = match compile(&mut reader, Some(location), Some(fs_resolve), should_optimize) {
+            let program_flattened: FlatProg<FieldPrime> = match compile(&mut reader, Some(location), Some(fs_resolve)) {
                 Ok(p) => p,
                 Err(why) => panic!("Compilation failed: {}", why)
             };
@@ -617,7 +611,7 @@ mod tests {
 
             let program_flattened: FlatProg<FieldPrime> =
 
-            compile(&mut reader, Some(location), Some(fs_resolve), true).unwrap();
+            compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
             let _ = program_flattened.get_witness(vec![FieldPrime::from(0)]).unwrap();
@@ -642,7 +636,7 @@ mod tests {
 
             let program_flattened: FlatProg<FieldPrime> =
 
-            compile(&mut reader, Some(location), Some(fs_resolve), true).unwrap();
+            compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
 
