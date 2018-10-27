@@ -157,12 +157,15 @@ fn parse_bexpr<T: Field>(
             },
             Err(err) => Err(err),
         },
-        (Token::Ide(x), s1, p1) => match parse_bterm1(Expression::Identifier(x), s1, p1) {
-            Ok((e2, s2, p2)) => parse_bexpr1(e2, s2, p2),
+        (Token::Ide(_), _, _) | (Token::Num(_), _, _) => match parse_prim_cond(input, pos) {
+            Ok((e2, s2, p2)) => match parse_bterm1(e2, s2, p2) {
+                Ok((e3, s3, p3)) => parse_bexpr1(e3, s3, p3),
+                Err(err) => Err(err)
+            },
             Err(err) => Err(err),
         },
         (t1, _, p1) => Err(Error {
-            expected: vec![Token::Open, Token::ErrIde],
+            expected: vec![Token::Open, Token::ErrIde, Token::ErrNum],
             got: t1,
             pos: p1,
         }),
