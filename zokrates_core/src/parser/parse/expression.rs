@@ -462,6 +462,34 @@ mod tests {
         );
     }
 
+    #[test]
+    fn parse_boolean_or() {
+        let pos = Position{line: 45, col: 121};
+        let string = String::from("if a < b || 2*a > b then c else d fi");
+
+        let expr = Expression::IfElse::<FieldPrime>(
+            box Expression::Or(
+                box Expression::Lt(
+                    box Expression::Identifier(String::from("a")),
+                    box Expression::Identifier(String::from("b")),
+                ),
+                box Expression::Gt(
+                    box Expression::Mult(
+                        box Expression::Number(FieldPrime::from(2)),
+                        box Expression::Identifier(String::from("a")),
+                    ),
+                    box Expression::Identifier(String::from("b")),
+                ),
+            ),
+            box Expression::Identifier(String::from("c")),
+            box Expression::Identifier(String::from("d")),
+        );
+        assert_eq!(
+            Ok((expr, String::from(""), pos.col(string.len() as isize))),
+            parse_if_then_else(&string, &pos)
+        );
+    }
+
     mod parse_factor {
         use super::*;
         #[test]
