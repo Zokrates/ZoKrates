@@ -98,7 +98,7 @@ fn parse_bfactor<T: Field>(
     match next_token(input, pos) {
         (Token::Open, s1, p1) => match parse_bexpr(&s1, &p1) {
             Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
-                (Token::Close, s3, p3) => Ok((e2, s2, p2)),
+                (Token::Close, s3, p3) => Ok((e2, s3, p3)),
                 (t3, _, p3) => Err(Error {
                     expected: vec![Token::Close],
                     got: t3,
