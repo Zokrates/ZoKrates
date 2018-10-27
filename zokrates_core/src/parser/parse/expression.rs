@@ -478,6 +478,38 @@ mod tests {
         );
     }
 
+    #[test]
+    fn parse_boolean_expr() {
+        use absy::Expression::*;
+        let pos = Position{line: 45, col: 121};
+        let string = String::from("(a + 2 == 3) && (a * 2 + 3 == 2 || a < 3) || 1 < 2");
+        let expr = Or::<FieldPrime>(
+            box AndAnd(
+                box Eq(
+                    box Add(box Identifier(String::from("a")),
+                            box Number(FieldPrime::from(2))),
+                    box Number(FieldPrime::from(3))
+                ),
+                box Or(
+                    box Eq(
+                        box Add(
+                            box Mult(box Identifier(String::from("a")),
+                                     box Number(FieldPrime::from(2))
+                            ),
+                            box Number(FieldPrime::from(3))
+                        ),
+                        box Number(FieldPrime::from(2))),
+                    box Lt(box Identifier(String::from("a")), box Number(FieldPrime::from(3)))
+                )
+            ),
+            box Lt(box Number(FieldPrime::from(1)), box Number(FieldPrime::from(2)))
+        );
+        assert_eq!(
+            Ok((expr, String::from(""), pos.col(string.len() as isize))),
+            parse_bexpr(&string, &pos)
+        );
+    }
+
     mod parse_factor {
         use super::*;
         #[test]
