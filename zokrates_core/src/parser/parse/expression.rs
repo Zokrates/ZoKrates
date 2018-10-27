@@ -80,17 +80,6 @@ fn parse_prim_cond<T: Field>(
     }
 }
 
-fn parse_bfactor1<T: Field>(
-    expr: Expression<T>,
-    input: String,
-    pos: Position,
-) -> Result<(Expression<T>, String, Position), Error<T>> {
-    match parse_bterm1(expr.clone(), input.clone(), pos.clone()) {
-        Ok((e1, s1, p1)) =>  parse_bexpr1(e1, s1, p1),
-        Err(err) => Err(err),
-    }
-}
-
 fn parse_bfactor<T: Field>(
     input: &String,
     pos: &Position,
@@ -107,12 +96,7 @@ fn parse_bfactor<T: Field>(
             },
             Err(err) => Err(err),
         },
-        (Token::Ide(x), s1, p1) => Ok((Expression::Identifier(x), s1, p1)),
-        (t1, _, p1) => Err(Error {
-            expected: vec![Token::Open, Token::ErrIde, Token::ErrNum],
-            got: t1,
-            pos: p1,
-        }),
+        _ => parse_prim_cond(&input, &pos),
     }
 }
 
