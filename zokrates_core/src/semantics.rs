@@ -517,7 +517,7 @@ impl Checker {
 					(e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
 				}
 			},
-			&Expression::AndAnd(ref e1, ref e2) => {
+			&Expression::And(ref e1, ref e2) => {
 				let e1_checked = self.check_expression(&e1)?;
 				let e2_checked = self.check_expression(&e2)?;
 				match (e1_checked, e2_checked) {

@@ -107,7 +107,7 @@ pub fn parse_bterm1<T: Field>(
 ) -> Result<(Expression<T>, String, Position), Error<T>> {
     match next_token::<T>(&input, &pos) {
         (Token::And, s1, p1) => match parse_bterm(&s1, &p1) {
-            Ok((e, s2, p2)) => Ok((Expression::AndAnd(box expr, box e), s2, p2)),
+            Ok((e, s2, p2)) => Ok((Expression::And(box expr, box e), s2, p2)),
             Err(err) => Err(err),
         },
         _ => Ok((expr, input, pos)),
@@ -421,8 +421,8 @@ mod tests {
         let string = String::from("if a < b && 2*a > b && b > a then c else d fi");
 
         let expr = Expression::IfElse::<FieldPrime>(
-            box Expression::AndAnd(
-                box Expression::AndAnd(
+            box Expression::And(
+                box Expression::And(
                     box Expression::Lt(
                         box Expression::Identifier(String::from("a")),
                         box Expression::Identifier(String::from("b")),
@@ -484,7 +484,7 @@ mod tests {
         let pos = Position{line: 45, col: 121};
         let string = String::from("(a + 2 == 3) && (a * 2 + 3 == 2 || a < 3) || 1 < 2");
         let expr = Or::<FieldPrime>(
-            box AndAnd(
+            box And(
                 box Eq(
                     box Add(box Identifier(String::from("a")),
                             box Number(FieldPrime::from(2))),
