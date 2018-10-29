@@ -422,11 +422,11 @@ mod tests {
 
         let expr = Expression::IfElse::<FieldPrime>(
             box Expression::And(
+                box Expression::Lt(
+                    box Expression::Identifier(String::from("a")),
+                    box Expression::Identifier(String::from("b")),
+                ),
                 box Expression::And(
-                    box Expression::Lt(
-                        box Expression::Identifier(String::from("a")),
-                        box Expression::Identifier(String::from("b")),
-                    ),
                     box Expression::Gt(
                         box Expression::Mult(
                             box Expression::Number(FieldPrime::from(2)),
@@ -434,10 +434,10 @@ mod tests {
                         ),
                         box Expression::Identifier(String::from("b")),
                     ),
-                ),
-                box Expression::Gt(
-                    box Expression::Identifier(String::from("b")),
-                    box Expression::Identifier(String::from("a")),
+                    box Expression::Gt(
+                        box Expression::Identifier(String::from("b")),
+                        box Expression::Identifier(String::from("a")),
+                    ),
                 ),
             ),
             box Expression::Identifier(String::from("c")),
