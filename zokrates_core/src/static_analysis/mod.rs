@@ -28,10 +28,13 @@ impl<T: Field> Analyse for TypedProg<T> {
 		let r = Unroller::unroll(self);
 		//propagate a first time for constants to reach function calls
 		let r = Propagator::propagate(r);
+		println!("{}", r);
 		// apply inlining strategy
 		let r = Inliner::inline(r);
 		// Propagate again
 		let r = Propagator::propagate(r);
+		println!("{}", r);
+
 		// remove unused functions
 		let r = DeadCode::clean(r);
 		r
