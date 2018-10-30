@@ -155,7 +155,13 @@ fn parse_bexpr<T: Field>(
                     pos: p3,
                 }),
             },
-            Err(err) => Err(err),
+            Err(_) => match parse_prim_cond(input, pos) {
+                Ok((e2, s2, p2)) => match parse_bterm1(e2, s2, p2) {
+                    Ok((e3, s3, p3)) => parse_bexpr1(e3, s3, p3),
+                    Err(err) => Err(err)
+                }
+                Err(err) => Err(err)
+            },
         },
         (Token::Ide(_), _, _) | (Token::Num(_), _, _) => match parse_prim_cond(input, pos) {
             Ok((e2, s2, p2)) => match parse_bterm1(e2, s2, p2) {
