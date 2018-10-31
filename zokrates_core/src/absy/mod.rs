@@ -231,6 +231,7 @@ pub enum Expression<T: Field> {
     AndAnd(Box<Expression<T>>, Box<Expression<T>>),
     InlineArray(Vec<Expression<T>>),
     Select(Box<Expression<T>>, Box<Expression<T>>),
+    Or(Box<Expression<T>>, Box<Expression<T>>),
 }
 
 impl<T: Field> fmt::Display for Expression<T> {
@@ -277,6 +278,7 @@ impl<T: Field> fmt::Display for Expression<T> {
                 write!(f, "]")
             },
             Expression::Select(ref array, ref index) => write!(f, "{}[{}]", array, index),
+            Expression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
         }
     }
 }
@@ -315,6 +317,7 @@ impl<T: Field> fmt::Debug for Expression<T> {
                 write!(f, "]")
             },
             Expression::Select(ref array, ref index) => write!(f, "{}[{}]", array, index),
+            Expression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
         }
     }
 }
