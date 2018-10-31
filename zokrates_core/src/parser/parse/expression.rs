@@ -5,8 +5,6 @@ use parser::tokenize::{Token, Position, next_token};
 
 use absy::{Expression};
 
-use parser::tokenize::parse_num;
-
 fn parse_then_else<T: Field>(
     cond: Expression<T>,
     input: &String,
