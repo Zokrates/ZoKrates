@@ -78,19 +78,98 @@ fn parse_prim_cond<T: Field>(
     }
 }
 
-fn parse_condition<T: Field>(
-    cond: Expression<T>,
+fn parse_bfactor<T: Field>(
     input: &String,
     pos: &Position,
 ) -> Result<(Expression<T>, String, Position), Error<T>> {
-    match next_token(input, pos) {
-        (Token::AndAnd, s1, p1) => match parse_prim_cond(&s1, &p1) {
-            Ok((e2, s2, p2)) => parse_condition(Expression::AndAnd(box cond, box e2), &s2, &p2),
+    match next_token::<T>(input, pos) {
+        (Token::Open, s1, p1) => match parse_bexpr(&s1, &p1) {
+            Ok((e2, s2, p2)) => match next_token::<T>(&s2, &p2) {
+                (Token::Close, s3, p3) => Ok((e2, s3, p3)),
+                (t3, _, p3) => Err(Error {
+                    expected: vec![Token::Close],
+                    got: t3,
+                    pos: p3,
+                }),
+            },
             Err(err) => Err(err),
         },
-        (Token::Then, _, _) => parse_then_else(cond, input, pos),
+        _ => parse_prim_cond(&input, &pos),
+    }
+}
+
+pub fn parse_bterm1<T: Field>(
+    expr: Expression<T>,
+    input: String,
+    pos: Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
+    match next_token::<T>(&input, &pos) {
+        (Token::And, s1, p1) => match parse_bterm(&s1, &p1) {
+            Ok((e, s2, p2)) => Ok((Expression::And(box expr, box e), s2, p2)),
+            Err(err) => Err(err),
+        },
+        _ => Ok((expr, input, pos)),
+    }
+}
+
+fn parse_bterm<T: Field>(
+    input: &String,
+    pos: &Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
+    match parse_bfactor(input, pos) {
+        Ok((e, s1, p1)) => parse_bterm1(e, s1, p1),
+        Err(err) => Err(err),
+    }
+}
+
+fn parse_bexpr1<T: Field>(
+    expr: Expression<T>,
+    input: String,
+    pos: Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
+    match next_token::<T>(&input, &pos) {
+        (Token::Or, s1, p1) => match parse_bterm(&s1, &p1) {
+            Ok((e2, s2, p2)) => parse_bexpr1(Expression::Or(box expr, box e2), s2, p2),
+            Err(err) => Err(err),
+        },
+        _ => Ok((expr, input, pos)),
+    }
+}
+
+fn parse_bexpr<T: Field>(
+    input: &String,
+    pos: &Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
+    match next_token::<T>(input, pos) {
+        (Token::Open, s1, p1) => match parse_bexpr(&s1, &p1) {
+            Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
+                (Token::Close, s3, p3) => match parse_bterm1(e2, s3, p3) {
+                    Ok((e4, s4, p4)) => parse_bexpr1(e4, s4, p4),
+                    Err(err) => Err(err),
+                },
+                (t3, _, p3) => Err(Error {
+                    expected: vec![Token::Close],
+                    got: t3,
+                    pos: p3,
+                }),
+            },
+            Err(_) => match parse_prim_cond(input, pos) {
+                Ok((e2, s2, p2)) => match parse_bterm1(e2, s2, p2) {
+                    Ok((e3, s3, p3)) => parse_bexpr1(e3, s3, p3),
+                    Err(err) => Err(err)
+                }
+                Err(err) => Err(err)
+            },
+        },
+        (Token::Ide(_), _, _) | (Token::Num(_), _, _) => match parse_prim_cond(input, pos) {
+            Ok((e2, s2, p2)) => match parse_bterm1(e2, s2, p2) {
+                Ok((e3, s3, p3)) => parse_bexpr1(e3, s3, p3),
+                Err(err) => Err(err)
+            },
+            Err(err) => Err(err),
+        },
         (t1, _, p1) => Err(Error {
-            expected: vec![Token::AndAnd, Token::Then],
+            expected: vec![Token::Open, Token::ErrIde, Token::ErrNum],
             got: t1,
             pos: p1,
         }),
@@ -102,8 +181,8 @@ fn parse_if_then_else<T: Field>(
     pos: &Position,
 ) -> Result<(Expression<T>, String, Position), Error<T>> {
     match next_token(input, pos) {
-        (Token::If, s1, p1) => match parse_prim_cond(&s1, &p1) {
-            Ok((e2, s2, p2)) => parse_condition(e2, &s2, &p2),
+        (Token::If, s1, p1) => match parse_bexpr(&s1, &p1) {
+            Ok((e2, s2, p2)) => parse_then_else(e2, &s2, &p2),
             Err(err) => Err(err),
         },
         (t1, _, p1) => Err(Error {
@@ -423,12 +502,12 @@ mod tests {
         let string = String::from("if a < b && 2*a > b && b > a then c else d fi");
 
         let expr = Expression::IfElse::<FieldPrime>(
-            box Expression::AndAnd(
-                box Expression::AndAnd(
-                    box Expression::Lt(
-                        box Expression::Identifier(String::from("a")),
-                        box Expression::Identifier(String::from("b")),
-                    ),
+            box Expression::And(
+                box Expression::Lt(
+                    box Expression::Identifier(String::from("a")),
+                    box Expression::Identifier(String::from("b")),
+                ),
+                box Expression::And(
                     box Expression::Gt(
                         box Expression::Mult(
                             box Expression::Number(FieldPrime::from(2)),
@@ -436,10 +515,10 @@ mod tests {
                         ),
                         box Expression::Identifier(String::from("b")),
                     ),
-                ),
-                box Expression::Gt(
-                    box Expression::Identifier(String::from("b")),
-                    box Expression::Identifier(String::from("a")),
+                    box Expression::Gt(
+                        box Expression::Identifier(String::from("b")),
+                        box Expression::Identifier(String::from("a")),
+                    ),
                 ),
             ),
             box Expression::Identifier(String::from("c")),
@@ -508,6 +587,65 @@ mod tests {
         assert_eq!(
             Ok((expr, String::from(""), pos.col(string.len() as isize))),
             parse_if_then_else(&string, &pos)
+        );
+    }
+
+    #[test]
+    fn parse_boolean_operator_associativity(){
+        use absy::Expression::*;
+        let pos = Position{line: 45, col: 121};
+        let string = String::from("2 == 3 || 4 == 5 && 6 == 7");
+        let expr = Or::<FieldPrime>(
+            box Eq(
+                box Number(FieldPrime::from(2)),
+                box Number(FieldPrime::from(3))
+            ),
+            box And(
+                box Eq(
+                    box Number(FieldPrime::from(4)),
+                    box Number(FieldPrime::from(5))
+                ),
+                box Eq(
+                    box Number(FieldPrime::from(6)),
+                    box Number(FieldPrime::from(7))
+                )
+            )
+        );
+        assert_eq!(
+            Ok((expr, String::from(""), pos.col(string.len() as isize))),
+            parse_bexpr(&string, &pos)
+        );
+    }
+
+    #[test]
+    fn parse_boolean_expr() {
+        use absy::Expression::*;
+        let pos = Position{line: 45, col: 121};
+        let string = String::from("(a + 2 == 3) && (a * 2 + 3 == 2 || a < 3) || 1 < 2");
+        let expr = Or::<FieldPrime>(
+            box And(
+                box Eq(
+                    box Add(box Identifier(String::from("a")),
+                            box Number(FieldPrime::from(2))),
+                    box Number(FieldPrime::from(3))
+                ),
+                box Or(
+                    box Eq(
+                        box Add(
+                            box Mult(box Identifier(String::from("a")),
+                                     box Number(FieldPrime::from(2))
+                            ),
+                            box Number(FieldPrime::from(3))
+                        ),
+                        box Number(FieldPrime::from(2))),
+                    box Lt(box Identifier(String::from("a")), box Number(FieldPrime::from(3)))
+                )
+            ),
+            box Lt(box Number(FieldPrime::from(1)), box Number(FieldPrime::from(2)))
+        );
+        assert_eq!(
+            Ok((expr, String::from(""), pos.col(string.len() as isize))),
+            parse_bexpr(&string, &pos)
         );
     }
 

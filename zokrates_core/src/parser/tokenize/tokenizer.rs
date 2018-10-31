@@ -227,21 +227,14 @@ pub fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String
         },
         Some('&') => match input.chars().nth(offset + 1) {
             Some('&') => (
-                Token::AndAnd,
+                Token::And,
                 input[offset + 2..].to_string(),
                 Position {
                     line: pos.line,
                     col: pos.col + offset + 2,
                 },
             ),
-            _ => (
-                Token::And,
-                input[offset + 1..].to_string(),
-                Position {
-                    line: pos.line,
-                    col: pos.col + offset + 1,
-                }
-            ),
+            _ => panic!("Bitwise AND (&) is unimplemented. Did you mean &&?"),
         },
         Some('|') => match input.chars().nth(offset + 1) {
             Some('|') => (
