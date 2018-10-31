@@ -369,15 +369,15 @@ impl Flattener {
                     rhs
                 );
                 assert!(x.is_linear() && y.is_linear());
-                let name_x_or_y = self.use_sym();
+                let name_x_and_y = self.use_sym();
                 statements_flattened.push(FlatStatement::Definition(
-                        name_x_or_y,
-                        FlatExpression::Sub(
-                            box FlatExpression::Add(x.clone(), y.clone()),
-                            box FlatExpression::Mult(x, y)
-                        )
+                    name_x_and_y,
+                    FlatExpression::Mult(x.clone(), y.clone())
                 ));
-                FlatExpression::Identifier(name_x_or_y)
+                FlatExpression::Sub(
+                    box FlatExpression::Add(x, y),
+                    box FlatExpression::Identifier(name_x_and_y)
+                )
             },
             BooleanExpression::And(box lhs, box rhs) => {
                 let x = self.flatten_boolean_expression(
