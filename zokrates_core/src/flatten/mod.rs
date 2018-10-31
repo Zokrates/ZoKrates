@@ -355,13 +355,31 @@ impl Flattener {
 
                 FlatExpression::Identifier(name_1_y)
             },
+            BooleanExpression::Le(box lhs, box rhs) => {
+                let lt = self.flatten_boolean_expression(functions_flattened,
+                                                         arguments_flattened,
+                                                         statements_flattened,
+                                                         BooleanExpression::Lt(box lhs.clone(), box rhs.clone()));
+                let eq = self.flatten_boolean_expression(functions_flattened,
+                                                         arguments_flattened,
+                                                         statements_flattened,
+                                                         BooleanExpression::Eq(box lhs.clone(), box rhs.clone()));
+                FlatExpression::Add(box eq, box lt)
+            }
+            BooleanExpression::Gt(lhs, rhs) => self.flatten_boolean_expression(functions_flattened,
+                                                                               arguments_flattened,
+                                                                               statements_flattened,
+                                                                               BooleanExpression::Lt(rhs, lhs)),
+            BooleanExpression::Ge(lhs, rhs) => self.flatten_boolean_expression(functions_flattened,
+                                                                               arguments_flattened,
+                                                                               statements_flattened,
+                                                                               BooleanExpression::Le(rhs, lhs)),
             BooleanExpression::Value(b) => {
                 FlatExpression::Number(match b {
                     true => T::from(1),
                     false => T::from(0)
                 })
             }
-            _ => unimplemented!(),
         }
     }
 
@@ -1743,6 +1761,40 @@ mod tests {
             &vec![],
             &mut vec![],
             expression
+        );
+    }
+
+    #[test]
+    fn geq_leq() {
+        let expression_le =
+            BooleanExpression::Le(
+                box FieldElementExpression::Number(FieldPrime::from(32)),
+                box FieldElementExpression::Number(FieldPrime::from(4))
+            );
+
+        let expression_ge =
+            BooleanExpression::Ge(
+                box FieldElementExpression::Number(FieldPrime::from(32)),
+                box FieldElementExpression::Number(FieldPrime::from(4))
+            );
+
+        let mut functions_flattened = vec![];
+        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+
+        flattener.load_corelib(&mut functions_flattened);
+
+        flattener.flatten_boolean_expression(
+            &functions_flattened,
+            &vec![],
+            &mut vec![],
+            expression_le
+        );
+
+        flattener.flatten_boolean_expression(
+            &functions_flattened,
+            &vec![],
+            &mut vec![],
+            expression_ge
         );
     }
 
