@@ -155,8 +155,8 @@ impl<T: Field> Folder<T> for Propagator<T> {
 			FieldElementExpression::Pow(box e1, box e2) => {
 				let e1 = self.fold_field_expression(e1);
 				let e2 = self.fold_field_expression(e2);
-				println!("{}, {}", e1, e2);
 				match (e1, e2) {
+					(_, FieldElementExpression::Number(ref n2)) if *n2 == T::from(0)=> FieldElementExpression::Number(T::from(1)),
 					(FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => FieldElementExpression::Number(n1.pow(n2)),
 					(e1, FieldElementExpression::Number(n2)) => FieldElementExpression::Pow(box e1, box FieldElementExpression::Number(n2)),
 					(_, e2) => panic!(format!("non-constant exponent {} detected during static analysis", e2)),
