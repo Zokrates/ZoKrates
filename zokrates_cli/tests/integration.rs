@@ -65,12 +65,9 @@ mod integration {
         fs::create_dir(test_case_path).unwrap();
 
         // prepare compile arguments
-        let mut compile = vec!["../target/debug/zokrates", "compile", "-i", program_path.to_str().unwrap(), "-o", flattened_path.to_str().unwrap(), "--light"];
+        let compile = vec!["../target/release/zokrates", "compile", "-i", program_path.to_str().unwrap(), "-o", flattened_path.to_str().unwrap(), "--light"];
 
-        if program_name.contains("sha_libsnark") {
-            compile.push("--gadgets");
-            compile.push("--optimized");
-
+        if program_name.contains("libsnark") {
             // we don't want to test libsnark integrations if libsnark is not available
             #[cfg(not(feature = "libsnark"))]
             return
@@ -89,7 +86,7 @@ mod integration {
             _ => panic!(format!("Cannot read arguments. Check {}", arguments_path.to_str().unwrap()))
         }).collect();
 
-        let mut compute = vec!["../target/debug/zokrates", "compute-witness",
+        let mut compute = vec!["../target/release/zokrates", "compute-witness",
             "-i", flattened_path.to_str().unwrap(),
             "-o", witness_path.to_str().unwrap(),
             "-a"];
@@ -119,7 +116,7 @@ mod integration {
         #[cfg(feature = "libsnark")]
         { 
             // SETUP
-            assert_cli::Assert::command(&["../target/debug/zokrates", "setup",
+            assert_cli::Assert::command(&["../target/release/zokrates", "setup",
                 "-i", flattened_path.to_str().unwrap(),
                 "-p", proving_key_path.to_str().unwrap(),
                 "-v", verification_key_path.to_str().unwrap(),
@@ -128,14 +125,14 @@ mod integration {
                 .unwrap();
 
             // EXPORT-VERIFIER
-            assert_cli::Assert::command(&["../target/debug/zokrates", "export-verifier",
+            assert_cli::Assert::command(&["../target/release/zokrates", "export-verifier",
                 "-i", verification_key_path.to_str().unwrap(),
                 "-o", verification_contract_path.to_str().unwrap()])
                 .succeeds()
                 .unwrap();
 
             // GENERATE-PROOF
-            assert_cli::Assert::command(&["../target/debug/zokrates", "generate-proof",
+            assert_cli::Assert::command(&["../target/release/zokrates", "generate-proof",
                 "-w", witness_path.to_str().unwrap(),
                 "-p", proving_key_path.to_str().unwrap(),
                 "-i", variable_information_path.to_str().unwrap()])

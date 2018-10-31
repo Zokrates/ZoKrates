@@ -1,0 +1,7 @@
+def main() -> (field):
+	field[3] a = [1, 2, 3]
+	field c = 0
+	for field i in 0..3 do
+		c = c + a[i]
+	endfor
+	return c
