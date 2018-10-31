@@ -29,6 +29,13 @@ impl Variable {
         }
     }
 
+    pub fn field_array<S: Into<String>>(id: S, size: usize) -> Variable {
+        Variable {
+            id: id.into(),
+            _type: Type::FieldElementArray(size),
+        }
+    }
+
     pub fn get_type(&self) -> Type {
         self._type.clone()
     }

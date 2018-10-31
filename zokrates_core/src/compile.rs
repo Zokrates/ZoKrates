@@ -14,6 +14,7 @@ use semantics::{self, Checker};
 use optimizer::{Optimizer};
 use flatten::Flattener;
 use std::io::{self};
+use static_analysis::Analyse;
 
 #[derive(Debug)]
 pub enum CompileError<T: Field> {
@@ -59,30 +60,28 @@ impl<T: Field> fmt::Display for CompileError<T> {
 	}
 }
 
-pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader: &mut R, location: Option<String>, resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>, should_optimize: bool, should_include_gadgets: bool) -> Result<FlatProg<T>, CompileError<T>> {
-
-	let compiled = compile_aux(reader, location, resolve_option, should_include_gadgets);
-
-	match compiled {
-		Ok(c) => match should_optimize {
-			true => Ok(Optimizer::new().optimize_program(c)),
-			_ => Ok(c)
-		}
-		err => err
-	}
+pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader: &mut R, location: Option<String>, resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>) -> Result<FlatProg<T>, CompileError<T>> {
+	let compiled = compile_aux(reader, location, resolve_option)?;
+	Ok(Optimizer::new().optimize_program(compiled))
 }
 
-pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader: &mut R, location: Option<String>, resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>, should_include_gadgets: bool) -> Result<FlatProg<T>, CompileError<T>> {
+pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader: &mut R, location: Option<String>, resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>) -> Result<FlatProg<T>, CompileError<T>> {
     let program_ast_without_imports: Prog<T> = parse_program(reader)?;
     
-    let program_ast = Importer::new().apply_imports(program_ast_without_imports, location.clone(), resolve_option, should_include_gadgets)?;
+    let program_ast = Importer::new().apply_imports(program_ast_without_imports, location.clone(), resolve_option)?;
 
     // check semantics
     let typed_ast = Checker::new().check_program(program_ast)?;
 
+    // analyse (unroll and constant propagation)
+    let typed_ast = typed_ast.analyse();
+
     // flatten input program
     let program_flattened =
         Flattener::new(T::get_required_bits()).flatten_program(typed_ast);
+
+    // analyse (constant propagation after call resolution)
+    let program_flattened = program_flattened.analyse();
 
     Ok(program_flattened)
 }
@@ -100,7 +99,7 @@ mod test {
 			def main() -> (field):
 			   return foo()
 		"#.as_bytes());
-		let res: Result<FlatProg<FieldPrime>, CompileError<FieldPrime>> = compile(&mut r, Some(String::from("./path/to/file")), None::<fn(&Option<String>, &String) -> Result<(BufReader<Empty>, String, String), io::Error>>, false, false);
+		let res: Result<FlatProg<FieldPrime>, CompileError<FieldPrime>> = compile(&mut r, Some(String::from("./path/to/file")), None::<fn(&Option<String>, &String) -> Result<(BufReader<Empty>, String, String), io::Error>>);
 		assert_eq!(format!("{}", res.unwrap_err()), "Import error: Can't resolve import without a resolver".to_string()); 
 	}
 
@@ -110,7 +109,7 @@ mod test {
 			def main() -> (field):
 			   return 1
 		"#.as_bytes());
-		let res: Result<FlatProg<FieldPrime>, CompileError<FieldPrime>> = compile(&mut r, Some(String::from("./path/to/file")), None::<fn(&Option<String>, &String) -> Result<(BufReader<Empty>, String, String), io::Error>>, false, false);
+		let res: Result<FlatProg<FieldPrime>, CompileError<FieldPrime>> = compile(&mut r, Some(String::from("./path/to/file")), None::<fn(&Option<String>, &String) -> Result<(BufReader<Empty>, String, String), io::Error>>);
 		assert!(res.is_ok()); 
 	}
 }

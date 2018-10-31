@@ -4,6 +4,7 @@
 // @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 // @date 2017
 
+use std::hash::Hash;
 use num::{Num, Integer, One, Zero};
 use num_bigint::{BigInt, BigUint, Sign, ToBigInt};
 use std::convert::From;
@@ -31,6 +32,8 @@ pub trait Field
     + One
     + Clone
     + PartialEq
+    + Eq
+    + Hash
     + PartialOrd
     + Display
     + Debug
@@ -63,7 +66,7 @@ pub trait Field
     fn get_required_bits() -> usize;
 }
 
-#[derive(PartialEq, PartialOrd, Clone, Eq, Ord)]
+#[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash)]
 pub struct FieldPrime {
     value: BigInt,
 }

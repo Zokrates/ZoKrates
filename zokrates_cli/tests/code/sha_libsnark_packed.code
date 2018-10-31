@@ -1,0 +1,28 @@
+// sha256 called with two 254 bits inputs, padded to 256 bits with zeros for most significant bits:
+// [0, 0, a_0, ..., a_254, 0, 0, b_0, ..., b_254]
+// output is truncated of the two most significant bits, and packed in a field element
+// output_packed = 0 + 0 + output_2 * 2**253 + ... + output_256 * 2**0
+
+// the behavior can be reproduced in solidity with
+// pragma solidity ^0.4.24;
+// contract SHA256Test {
+//         event Success(
+//         bytes32 indexed _id
+//     );
+// 
+//     function calc_sha() public returns (bytes32)  {
+//         bytes32 a = 0x5;
+//         bytes32 b = 0x0;
+//         bytes32 result = sha256(b,a);
+//         // set two most significant bits to zero
+//         bytes32 r = bytes32(uint256(result) & 0x3fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+//         emit Success(r);
+//         return r;
+//     }
+// }
+
+import "LIBSNARK/sha256packed"
+
+def main(field a, field b, field c, field d) -> (field, field):
+	e, f = sha256packed(a, b, c, d)
+	return e, f

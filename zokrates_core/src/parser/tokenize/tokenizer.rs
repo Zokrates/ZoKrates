@@ -55,7 +55,31 @@ pub fn parse_ide<T: Field>(input: &String, pos: &Position) -> (Token<T>, String,
         "private" => Token::Private,
         "def" => Token::Def,
         "return" => Token::Return,
-        "field" => Token::Type(Type::FieldElement),
+        "field" => match input.chars().nth(end) {
+            Some('[') => {
+                let size_start = end + 1;
+                let mut size_len = 0;
+                loop {
+                    match input.chars().nth(size_start + size_len) {
+                        Some(x) => match x {
+                            '0'...'9' => size_len += 1,
+                            _ => break,
+                        },
+                        None => break
+                    }
+                }
+                assert!(size_len > 0);
+                let size_end = size_start + size_len;
+                match input.chars().nth(size_end) {
+                    Some(']') => {
+                        end = size_end + 1;
+                        Token::Type(Type::FieldElementArray(input[size_start..(size_start + size_len)].parse::<usize>().unwrap()))
+                    }
+                    _ => panic!(),
+                }
+            }
+            _ => Token::Type(Type::FieldElement),
+        },
         "bool" => Token::Type(Type::Boolean),
         _ => Token::Ide(input[0..end].to_string()),
     };
@@ -271,6 +295,22 @@ pub fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String
                 },
             ),
         },
+        Some('[') => (
+            Token::LeftBracket,
+            input[offset + 1..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 1,
+            },
+        ),
+        Some(']') => (
+            Token::RightBracket,
+            input[offset + 1..].to_string(),
+            Position {
+                line: pos.line,
+                col: pos.col + offset + 1,
+            },
+        ),
         Some('/') => match input.chars().nth(offset + 1) {
             Some('/') => (
                 Token::InlineComment(input[offset + 2..].to_string()),
@@ -346,6 +386,83 @@ mod tests {
         };
         let (token, _, _) = next_token::<FieldPrime>(&" //inline comment".to_string(), &pos);
         assert_eq!(Token::InlineComment("inline comment".to_string()), token);
+    }
+
+    mod types {
+        use super::*;
+
+       #[test]
+        fn field() {
+            let pos = Position { line: 45, col: 121 };
+            assert_eq!(
+                (
+                    Token::Type::<FieldPrime>(Type::FieldElement),
+                    String::from(""),
+                    pos.col(5)
+                ),
+                parse_ide(&"field".to_string(), &pos)
+            );
+        }
+
+        #[test]
+        fn field_array() {
+            let pos = Position { line: 45, col: 121 };
+            assert_eq!(
+                (
+                    Token::Type::<FieldPrime>(Type::FieldElementArray(123)),
+                    String::from(" "),
+                    pos.col(10)
+                ),
+                parse_ide(&"field[123] ".to_string(), &pos)
+            );
+        }
+
+        #[test]
+        fn field_array_2() {
+            let pos = Position { line: 45, col: 121 };
+            assert_eq!(
+                (
+                    Token::Type::<FieldPrime>(Type::FieldElementArray(1)),
+                    String::from(" "),
+                    pos.col(8)
+                ),
+                parse_ide(&"field[1] ".to_string(), &pos)
+            );
+        }
+
+        #[should_panic]
+        #[test]
+        fn field_array_no_size() {
+            let pos = Position { line: 45, col: 121 };
+            parse_ide::<FieldPrime>(&"field[] ".to_string(), &pos);
+        }
+
+        #[should_panic]
+        #[test]
+        fn field_array_unclosed() {
+            let pos = Position { line: 45, col: 121 };
+            parse_ide::<FieldPrime>(&"field[123 ".to_string(), &pos);
+        }
+
+        #[should_panic]
+        #[test]
+        fn field_array_empty_unclosed() {
+            let pos = Position { line: 45, col: 121 };
+            parse_ide::<FieldPrime>(&"field[ ".to_string(), &pos);
+        }
+
+        #[test]
+        fn field_array_empty_unopened() {
+            let pos = Position { line: 45, col: 121 };
+            assert_eq!(
+                (
+                    Token::Type::<FieldPrime>(Type::FieldElement),
+                    String::from("] "),
+                    pos.col(5)
+                ),
+                parse_ide::<FieldPrime>(&"field] ".to_string(), &pos)
+            );
+        }
     }
 
     mod parse_num {

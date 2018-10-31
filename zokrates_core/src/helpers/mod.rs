@@ -7,30 +7,30 @@ pub use self::libsnark_gadget::LibsnarkGadgetHelper;
 pub use self::rust::RustHelper;
 use std::fmt;
 use field::{Field};
-use flat_absy::FlatVariable;
+use flat_absy::{FlatExpression, FlatVariable};
 
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub struct DirectiveStatement {
-	pub inputs: Vec<FlatVariable>,
+pub struct DirectiveStatement<T: Field> {
+	pub inputs: Vec<FlatExpression<T>>,
 	pub outputs: Vec<FlatVariable>,
 	pub helper: Helper
 }
 
-impl DirectiveStatement {
+impl<T: Field> DirectiveStatement<T> {
 	pub fn new(outputs: Vec<FlatVariable>, helper: Helper, inputs: Vec<FlatVariable>) -> Self {
 		let (in_len, out_len) = helper.get_signature();
 		assert_eq!(in_len, inputs.len());
 		assert_eq!(out_len, outputs.len());
 		DirectiveStatement {
 			helper,
-			inputs,
+			inputs: inputs.into_iter().map(|i| FlatExpression::Identifier(i)).collect(),
 			outputs,
 		}
 	}
 }
 
-impl fmt::Display for DirectiveStatement {
+impl<T: Field> fmt::Display for DirectiveStatement<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     	write!(f, "# {} = {}({})",
     		self.outputs.iter().map(|o| o.to_string()).collect::<Vec<String>>().join(", "),

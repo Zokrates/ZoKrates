@@ -35,16 +35,18 @@ cd ZoKrates/target/release
 
 # Example
 
-To execute the program, perform the setup for the program, generate a proof
+First, create the textfile `add.code` and implement your program:
 ```
-def add(a, b, c):
+def main(field a, field b, field c) -> (field):
   return a + b + c
 ```
-with `add(1, 2, 3)`, call
+The keyword `field` declares the type of the parameters used as elements of the underlying finite field.
+
+Then run the different phases of the protocol:
 ```
-./zokrates compile -i 'add.code_path'
-./zokrates compute-witness -a 1 2 3
+./zokrates compile -i 'add.code'
 ./zokrates setup
+./zokrates compute-witness -a 1 2 3
 ./zokrates generate-proof
 ./zokrates export-verifier
 ```
@@ -63,13 +65,13 @@ You can see an overview of the available subcommands by running
 ./zokrates compile -i /path/to/add.code
 ```
 
-Compile a `.code` file.
+Compiles a `.code` file into  ZoKrates internal representation of arithmetic circuits.
 
 Creates a compiled `.code` file at `./out.code`.
 
 #### `compute-witness`
 ```
-./zokrates compute-witness -a 1 2
+./zokrates compute-witness -a 1 2 3
 ```
 
 Computes a witness for the compiled program found at `./out.code` and arguments to the program.
@@ -85,15 +87,16 @@ Creates a witness file at `./witness`
 Generates a trusted setup for the compiled program found at `./out.code`.
 
 Creates a proving key and a verifying key at `./proving.key` and `./verifying.key`.
+These keys are derived from a source of randomness, commonly referred to as “toxic waste”. Anyone having access to the source of randomness can produce fake proofs that will be accepted by a verifier following the protocol.
 
 #### `export-verifier`
 ```
 ./zokrates export-verifier
 ```
 
-Using the verifying key at `./verifying.key`, generates a Solidity contract enabling to verify proofs for computations of the compiled program at `./out.code`.
+Using the verifying key at `./verifying.key`, generates a Solidity contract which contains the generated verification key and a public function to verify a solution to the compiled program at `./out.code`.
 
-Creates a verifier contract at `./verifier.sol`
+Creates a verifier contract at `./verifier.sol`.
 
 #### `generate-proof`
 ```

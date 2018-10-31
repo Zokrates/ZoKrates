@@ -5,8 +5,6 @@ use parser::tokenize::{Token, Position, next_token};
 
 use absy::{Expression};
 
-use parser::tokenize::parse_num;
-
 fn parse_then_else<T: Field>(
     cond: Expression<T>,
     input: &String,
@@ -161,6 +159,7 @@ fn parse_factor<T: Field>(
         },
         (Token::Ide(x), s1, p1) => match next_token::<T>(&s1, &p1) {
             (Token::Open, s2, p2) => parse_function_call(x, s2, p2),
+            (Token::LeftBracket, s2, p2) => parse_array_select(x, s2, p2),
             _ => parse_factor1(Expression::Identifier(x), s1, p1),
         },
         (Token::Num(x), s1, p1) => parse_factor1(Expression::Number(x), s1, p1),
@@ -214,18 +213,14 @@ pub fn parse_expr1<T: Field>(
             Ok((e2, s2, p2)) => parse_expr1(Expression::Sub(box expr, box e2), s2, p2),
             Err(err) => Err(err),
         },
-        (Token::Pow, s1, p1) => match parse_num(&s1, &p1) {
-            (Token::Num(x), s2, p2) => {
-                match parse_term1(Expression::Pow(box expr, box Expression::Number(x)), s2, p2) {
+        (Token::Pow, s1, p1) => match parse_term(&s1, &p1) {
+            Ok((e, s2, p2)) => {
+                match parse_term1(Expression::Pow(box expr, box e), s2, p2) {
                     Ok((e3, s3, p3)) => parse_expr1(e3, s3, p3),
                     Err(err) => Err(err),
                 }
-            }
-            (t2, _, p2) => Err(Error {
-                expected: vec![Token::ErrNum],
-                got: t2,
-                pos: p2,
-            }),
+            },
+            Err(err) => Err(err)
         },
         _ => Ok((expr, input, pos)),
     }
@@ -280,6 +275,84 @@ pub fn parse_function_call<T: Field>(
     }
 }
 
+pub fn parse_inline_array<T: Field>(
+    input: String,
+    pos: Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
+    // function call can have 0 .. n args
+    let mut expressions = Vec::new();
+    let mut s: String = input;
+    let mut p: Position = pos;
+
+    loop {
+        match next_token::<T>(&s, &p) {
+            // no arguments
+            (Token::RightBracket, s1, p1) => {
+                match parse_term1(Expression::InlineArray(expressions), s1, p1) {
+                    Ok((e2, s2, p2)) => return parse_expr1(e2, s2, p2),
+                    Err(err) => return Err(err),
+                }
+            }
+            // at least one argument
+            (_, _, _) => match parse_expr(&s, &p) {
+                Ok((e1, s1, p1)) => {
+                    expressions.push(e1);
+                    match next_token::<T>(&s1, &p1) {
+                        (Token::Comma, s2, p2) => {
+                            s = s2;
+                            p = p2;
+                        }
+                        (Token::RightBracket, s2, p2) => {
+                            match parse_term1(Expression::InlineArray(expressions), s2, p2) {
+                                Ok((e3, s3, p3)) => return parse_expr1(e3, s3, p3),
+                                Err(err) => return Err(err),
+                            }
+                        }
+                        (t2, _, p2) => {
+                            return Err(Error {
+                                expected: vec![Token::Comma, Token::RightBracket],
+                                got: t2,
+                                pos: p2,
+                            })
+                        }
+                    }
+                }
+                Err(err) => return Err(err),
+            },
+        }
+    }
+}
+
+pub fn parse_array_select<T: Field>(
+    ide: String,
+    input: String,
+    pos: Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
+    // array select can have exactly one arg
+    match next_token::<T>(&input, &pos) {
+        (_, _, _) => match parse_expr(&input, &pos) {
+            Ok((e1, s1, p1)) => {
+                match next_token::<T>(&s1, &p1) {
+                    (Token::RightBracket, s2, p2) => {
+                        match parse_term1(Expression::Select(box Expression::Identifier(ide), box e1), s2, p2) {
+                            Ok((e3, s3, p3)) => parse_expr1(e3, s3, p3),
+                            Err(err) => Err(err),
+                        }
+                    }
+                    (t2, _, p2) => {
+                        Err(Error {
+                            expected: vec![Token::RightBracket],
+                            got: t2,
+                            pos: p2,
+                        })
+                    }
+                }
+            }
+            Err(err) => Err(err),
+        },
+    }
+}
+
 pub fn parse_expr<T: Field>(
     input: &String,
     pos: &Position,
@@ -302,6 +375,7 @@ pub fn parse_expr<T: Field>(
         },
         (Token::Ide(x), s1, p1) => match next_token::<T>(&s1, &p1) {
             (Token::Open, s2, p2) => parse_function_call(x, s2, p2),
+            (Token::LeftBracket, s2, p2) => parse_array_select(x, s2, p2),
             _ => match parse_term1(Expression::Identifier(x), s1, p1) {
                 Ok((e2, s2, p2)) => parse_expr1(e2, s2, p2),
                 Err(err) => Err(err),
@@ -311,6 +385,7 @@ pub fn parse_expr<T: Field>(
             Ok((e2, s2, p2)) => parse_expr1(e2, s2, p2),
             Err(err) => Err(err),
         },
+        (Token::LeftBracket, s1, p1) => parse_inline_array(s1, p1),
         (t1, _, p1) => Err(Error {
             expected: vec![Token::If, Token::Open, Token::ErrIde, Token::ErrNum],
             got: t1,
@@ -375,6 +450,37 @@ mod tests {
             Ok((expr, String::from(""), pos.col(string.len() as isize))),
             parse_if_then_else(&string, &pos)
         );
+    }
+
+    mod array_select {
+        use super::*;
+
+        #[test]
+        fn array_select() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("foo[42 + 33]");
+            let expr = Expression::Select::<FieldPrime>(
+                box Expression::Identifier(String::from("foo")),
+                box Expression::Add(box Expression::Number(FieldPrime::from(42)), box Expression::Number(FieldPrime::from(33))),
+            );
+            assert_eq!(
+                Ok((expr, String::from(""), pos.col(string.len() as isize))),
+                parse_expr(&string, &pos)
+            );
+        }
+
+        #[test]
+        fn array_select_empty() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("foo[]");
+
+            let res = parse_expr::<FieldPrime>(&string, &pos);
+
+            assert!(res.is_err());
+            let res = res.unwrap_err();
+            assert_eq!(res.got, Token::RightBracket);
+            assert_eq!(res.pos, pos.col(string.len() as isize));
+        }
     }
 
     mod parse_factor {

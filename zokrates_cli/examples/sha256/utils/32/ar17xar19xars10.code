@@ -2,20 +2,20 @@
 
 import "./../../bitwise/32/xor.code" as XOR
 
-def RR17(field b31, field b30, field b29, field b28, field b27, field b26, field b25, field b24, field b23, field b22, field b21, field b20, field b19, field b18, field b17, field b16, field b15, field b14, field b13, field b12, field b11, field b10, field b9, field b8, field b7, field b6, field b5, field b4, field b3, field b2, field b1, field b0) -> (field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field):
-	return b16, b15, b14, b13, b12, b11, b10, b9, b8, b7, b6, b5, b4, b3, b2, b1, b0, b31, b30, b29, b28, b27, b26, b25, b24, b23, b22, b21, b20, b19, b18, b17
+def RR17(field[32] b) -> (field[32]):
+	return [b[15], b[16], b[17], b[18], b[19], b[20], b[21], b[22], b[23], b[24], b[25], b[26], b[27], b[28], b[29], b[30], b[31], b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11], b[12], b[13], b[14]]
 
-def RR19(field b31, field b30, field b29, field b28, field b27, field b26, field b25, field b24, field b23, field b22, field b21, field b20, field b19, field b18, field b17, field b16, field b15, field b14, field b13, field b12, field b11, field b10, field b9, field b8, field b7, field b6, field b5, field b4, field b3, field b2, field b1, field b0) -> (field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field):
-	return b18, b17, b16, b15, b14, b13, b12, b11, b10, b9, b8, b7, b6, b5, b4, b3, b2, b1, b0, b31, b30, b29, b28, b27, b26, b25, b24, b23, b22, b21, b20, b19
+def RR19(field[32] b) -> (field[32]):
+	return [b[13], b[14], b[15], b[16], b[17], b[18], b[19], b[20], b[21], b[22], b[23], b[24], b[25], b[26], b[27], b[28], b[29], b[30], b[31], b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11], b[12]]
 
-def RS10(field b31, field b30, field b29, field b28, field b27, field b26, field b25, field b24, field b23, field b22, field b21, field b20, field b19, field b18, field b17, field b16, field b15, field b14, field b13, field b12, field b11, field b10, field b9, field b8, field b7, field b6, field b5, field b4, field b3, field b2, field b1, field b0) -> (field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field):
-	return 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, b31, b30, b29, b28, b27, b26, b25, b24, b23, b22, b21, b20, b19, b18, b17, b16, b15, b14, b13, b12, b11, b10
+def RS10(field[32] b) -> (field[32]):
+	return [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11], b[12], b[13], b[14], b[15], b[16], b[17], b[18], b[19], b[20], b[21]]
 
-def main(field a31, field a30, field a29, field a28, field a27, field a26, field a25, field a24, field a23, field a22, field a21, field a20, field a19, field a18, field a17, field a16, field a15, field a14, field a13, field a12, field a11, field a10, field a9, field a8, field a7, field a6, field a5, field a4, field a3, field a2, field a1, field a0) -> (field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field, field):
-	u31, u30, u29, u28, u27, u26, u25, u24, u23, u22, u21, u20, u19, u18, u17, u16, u15, u14, u13, u12, u11, u10, u9, u8, u7, u6, u5, u4, u3, u2, u1, u0 = RR17(a31, a30, a29, a28, a27, a26, a25, a24, a23, a22, a21, a20, a19, a18, a17, a16, a15, a14, a13, a12, a11, a10, a9, a8, a7, a6, a5, a4, a3, a2, a1, a0)
-	v31, v30, v29, v28, v27, v26, v25, v24, v23, v22, v21, v20, v19, v18, v17, v16, v15, v14, v13, v12, v11, v10, v9, v8, v7, v6, v5, v4, v3, v2, v1, v0 = RR19(a31, a30, a29, a28, a27, a26, a25, a24, a23, a22, a21, a20, a19, a18, a17, a16, a15, a14, a13, a12, a11, a10, a9, a8, a7, a6, a5, a4, a3, a2, a1, a0)
-	w31, w30, w29, w28, w27, w26, w25, w24, w23, w22, w21, w20, w19, w18, w17, w16, w15, w14, w13, w12, w11, w10, w9, w8, w7, w6, w5, w4, w3, w2, w1, w0 = RS10(a31, a30, a29, a28, a27, a26, a25, a24, a23, a22, a21, a20, a19, a18, a17, a16, a15, a14, a13, a12, a11, a10, a9, a8, a7, a6, a5, a4, a3, a2, a1, a0)
-	x31, x30, x29, x28, x27, x26, x25, x24, x23, x22, x21, x20, x19, x18, x17, x16, x15, x14, x13, x12, x11, x10, x9, x8, x7, x6, x5, x4, x3, x2, x1, x0 = XOR(u31, u30, u29, u28, u27, u26, u25, u24, u23, u22, u21, u20, u19, u18, u17, u16, u15, u14, u13, u12, u11, u10, u9, u8, u7, u6, u5, u4, u3, u2, u1, u0, v31, v30, v29, v28, v27, v26, v25, v24, v23, v22, v21, v20, v19, v18, v17, v16, v15, v14, v13, v12, v11, v10, v9, v8, v7, v6, v5, v4, v3, v2, v1, v0)
-	z31, z30, z29, z28, z27, z26, z25, z24, z23, z22, z21, z20, z19, z18, z17, z16, z15, z14, z13, z12, z11, z10, z9, z8, z7, z6, z5, z4, z3, z2, z1, z0 = XOR(w31, w30, w29, w28, w27, w26, w25, w24, w23, w22, w21, w20, w19, w18, w17, w16, w15, w14, w13, w12, w11, w10, w9, w8, w7, w6, w5, w4, w3, w2, w1, w0, x31, x30, x29, x28, x27, x26, x25, x24, x23, x22, x21, x20, x19, x18, x17, x16, x15, x14, x13, x12, x11, x10, x9, x8, x7, x6, x5, x4, x3, x2, x1, x0)
-	return z31, z30, z29, z28, z27, z26, z25, z24, z23, z22, z21, z20, z19, z18, z17, z16, z15, z14, z13, z12, z11, z10, z9, z8, z7, z6, z5, z4, z3, z2, z1, z0
+def main(field[32] a) -> (field[32]):
+	u = RR17(a)
+	v = RR19(a)
+	w = RS10(a)
+	x = XOR(u, v)
+	z = XOR(w, x)
+	return z
 

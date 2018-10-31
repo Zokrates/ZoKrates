@@ -34,12 +34,13 @@ fn main() {
     const VERIFICATION_CONTRACT_DEFAULT_PATH: &str = "verifier.sol";
     const WITNESS_DEFAULT_PATH: &str = "witness";
     const VARIABLES_INFORMATION_KEY_DEFAULT_PATH: &str = "variables.inf";
-
+    const JSON_PROOF_PATH: &str = "proof.json";
+    
     // cli specification using clap library
     let matches = App::new("ZoKrates")
     .setting(AppSettings::SubcommandRequiredElseHelp)
     .version("0.2")
-    .author("Jacob Eberhardt, Dennis Kuhnert")
+    .author("Jacob Eberhardt, Thibaut Schaeffer, Dennis Kuhnert")
     .about("Supports generation of zkSNARKs from high level language code including Smart Contracts for proof verification on the Ethereum Blockchain.\n'I know that I show nothing!'")
     .subcommand(SubCommand::with_name("compile")
         .about("Compiles into flattened conditions. Produces two files: human-readable '.code' file and binary file")
@@ -58,17 +59,9 @@ fn main() {
             .takes_value(true)
             .required(false)
             .default_value(FLATTENED_CODE_DEFAULT_PATH)
-        ).arg(Arg::with_name("optimized")
-            .long("optimized")
-            .help("perform optimization.")
-            .required(false)
         ).arg(Arg::with_name("light")
             .long("light")
             .help("Skip logs and human readable output")
-            .required(false)
-        ).arg(Arg::with_name("gadgets")
-            .long("gadgets")
-            .help("include libsnark gadgets such as sha256")
             .required(false)
         )
      )
@@ -181,6 +174,14 @@ fn main() {
             .takes_value(true)
             .required(false)
             .default_value(PROVING_KEY_DEFAULT_PATH)
+        ).arg(Arg::with_name("proofpath")
+            .short("j")
+            .long("proofpath")
+            .help("Path of the json proof file")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(JSON_PROOF_PATH)
         ).arg(Arg::with_name("meta-information")
             .short("i")
             .long("meta-information")
@@ -201,10 +202,6 @@ fn main() {
 
             let location = path.parent().unwrap().to_path_buf().into_os_string().into_string().unwrap();
 
-            let should_optimize = sub_matches.occurrences_of("optimized") > 0;
-
-            let should_include_gadgets = sub_matches.occurrences_of("gadgets") > 0;
-
             let light = sub_matches.occurrences_of("light") > 0;
 
             let bin_output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -215,7 +212,7 @@ fn main() {
 
             let mut reader = BufReader::new(file);
             
-            let program_flattened: FlatProg<FieldPrime> = match compile(&mut reader, Some(location), Some(fs_resolve), should_optimize, should_include_gadgets) {
+            let program_flattened: FlatProg<FieldPrime> = match compile(&mut reader, Some(location), Some(fs_resolve)) {
                 Ok(p) => p,
                 Err(why) => panic!("Compilation failed: {}", why)
             };
@@ -551,10 +548,11 @@ fn main() {
             println!("Private inputs: {:?}", private_inputs);
 
             let pk_path = sub_matches.value_of("provingkey").unwrap();
+            let proof_path = sub_matches.value_of("proofpath").unwrap();
 
             // run libsnark
             #[cfg(feature="libsnark")]{
-                println!("generate-proof successful: {:?}", generate_proof(pk_path, public_inputs, private_inputs));
+                println!("generate-proof successful: {:?}", generate_proof(pk_path, proof_path, public_inputs, private_inputs));
             }
 
         }
@@ -589,7 +587,7 @@ mod tests {
             let location = path.parent().unwrap().to_path_buf().into_os_string().into_string().unwrap();
 
             let program_flattened: FlatProg<FieldPrime> =
-                compile(&mut reader, Some(location), Some(fs_resolve), true, false).unwrap();
+                compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
         }
@@ -613,7 +611,7 @@ mod tests {
 
             let program_flattened: FlatProg<FieldPrime> =
 
-            compile(&mut reader, Some(location), Some(fs_resolve), true, false).unwrap();
+            compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
             let _ = program_flattened.get_witness(vec![FieldPrime::from(0)]).unwrap();
@@ -638,7 +636,7 @@ mod tests {
 
             let program_flattened: FlatProg<FieldPrime> =
 
-            compile(&mut reader, Some(location), Some(fs_resolve), true, false).unwrap();
+            compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
             let (..) = r1cs_program(&program_flattened);
 
