@@ -650,6 +650,9 @@ impl Flattener {
                         assert!(base_flattened.is_linear());
 
                         match e {
+                            e if *e == T::zero() => {
+                                FlatExpression::Number(T::one())
+                            },
                             // flatten(base ** 1) == flatten(base)
                             e if *e == T::one() => {
                                 base_flattened

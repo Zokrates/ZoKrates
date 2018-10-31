@@ -316,8 +316,6 @@ mod tests {
 			let unpack: FlatProg<FieldPrime> = unpack(nbits);
 			let unpack = &unpack.functions[0];
 
-			println!("{}", unpack);
-
 			assert_eq!(unpack.id, String::from("main"));
 			assert_eq!(unpack.arguments, vec![FlatParameter::private(FlatVariable::new(0))]);
 			assert_eq!(unpack.statements.len(), nbits + 1 + 1 + 1); // 128 bit checks, 1 directive, 1 sum check, 1 return
@@ -345,8 +343,6 @@ mod tests {
 		fn pack128() {
 			let pack: FlatProg<FieldPrime> = pack(128);
 			let pack = &pack.functions[0];
-
-			println!("{}", pack);
 
 			assert_eq!(pack.id, String::from("main"));
 			assert_eq!(pack.arguments.len(), 128);
