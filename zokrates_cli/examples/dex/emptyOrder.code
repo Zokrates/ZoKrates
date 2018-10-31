@@ -1,0 +1,2 @@
+def main() -> (field, field, field, field):
+  return 0, 0, 0, 0

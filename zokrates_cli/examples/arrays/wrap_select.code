@@ -1,0 +1,7 @@
+def get(field[32] array, field index) -> (field):
+	return array[index]
+
+def main() -> (field):
+	field[32] array = [0, 0, 0, 0, 0, 0, 7, 42, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+	field r = get(array, 7)
+	return r

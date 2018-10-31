@@ -1,3 +1,0 @@
-// NOT
-def main(x):
-	return 1 - x

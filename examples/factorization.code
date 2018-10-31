@@ -1,4 +1,0 @@
-// a and b are factorization of c
-def main(c, private a, private b):
-  c == a * b
-  return 1

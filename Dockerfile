@@ -1,34 +1,43 @@
-FROM ubuntu:14.04
+FROM ubuntu:18.04
 
-MAINTAINER JacobEberhardt <jacob.eberhardt@tu-berlin.de>, Dennis Kuhnert <mail@kyroy.com>
+MAINTAINER JacobEberhardt <jacob.eberhardt@tu-berlin.de>, Dennis Kuhnert <mail@kyroy.com>, Thibaut Schaeffer <thibaut@schaeff.fr>
 
-ARG libsnarkcommit=deprecated-master
+RUN useradd -u 1000 -m zokrates
 
-WORKDIR /root
+ARG RUST_TOOLCHAIN=nightly-2018-06-04
+ARG LIBSNARK_COMMIT=f7c87b88744ecfd008126d415494d9b34c4c1b20
+ENV LIBSNARK_SOURCE_PATH=/home/zokrates/libsnark-$LIBSNARK_COMMIT
+ENV WITH_LIBSNARK=1
 
-RUN apt-get update && \
-    apt-get install -y \
-    wget unzip curl \
-    build-essential git libgmp3-dev libprocps3-dev libgtest-dev python-markdown libboost-all-dev libssl-dev
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    build-essential \
+    cmake \
+    curl \
+    libboost-dev \
+    libboost-program-options-dev \
+    libgmp3-dev \
+    libprocps-dev \
+    libssl-dev \
+    pkg-config \
+    python-markdown \
+    git \
+    && rm -rf /var/lib/apt/lists/* \
+    && git clone https://github.com/scipr-lab/libsnark.git $LIBSNARK_SOURCE_PATH \
+    && git -C $LIBSNARK_SOURCE_PATH checkout $LIBSNARK_COMMIT \
+    && git -C $LIBSNARK_SOURCE_PATH submodule update --init --recursive \
+    && chown -R zokrates:zokrates $LIBSNARK_SOURCE_PATH
 
-RUN wget https://github.com/scipr-lab/libsnark/archive/$libsnarkcommit.zip \
-  && mv $libsnarkcommit.zip libsnark.zip \
-  && unzip libsnark.zip \
-  && cd libsnark-$libsnarkcommit \
-  && ./prepare-depends.sh
+USER zokrates
 
-RUN curl https://sh.rustup.rs -sSf | \
-  sh -s -- --default-toolchain nightly-2018-02-10 -y
+WORKDIR /home/zokrates
 
-ENV PATH=/root/.cargo/bin:$PATH
+COPY --chown=zokrates:zokrates . src
 
-RUN cd libsnark-$libsnarkcommit \
-  && make install lib PREFIX=/usr/local \
-    NO_PROCPS=1 NO_GTEST=1 NO_DOCS=1 CURVE=ALT_BN128 FEATUREFLAGS="-DBINARY_OUTPUT=1 -DMONTGOMERY_OUTPUT=1 -DNO_PT_COMPRESSION=1"
-
-ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/usr/local/lib
-
-COPY . /root/ZoKrates
-
-RUN cd ZoKrates \
-  && cargo build --release
+RUN curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain $RUST_TOOLCHAIN -y \
+    && export PATH=/home/zokrates/.cargo/bin:$PATH \
+    && (cd src;./build_release.sh) \
+    && mv ./src/target/release/zokrates . \
+    && mv ./src/zokrates_cli/examples . \
+    && rustup self uninstall -y \
+    && rm -rf $LIBSNARK_SOURCE_PATH src

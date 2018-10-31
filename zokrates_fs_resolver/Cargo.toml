@@ -1,0 +1,14 @@
+[package]
+name = "zokrates_fs_resolver"
+version = "0.3.0"
+authors = ["Thibaut Schaeffer <thibaut@schaeff.fr>"]
+repository = "https://github.com/JacobEberhardt/ZoKrates.git"
+
+[features]
+default = []
+
+[dependencies]
+
+[dev-dependencies]
+
+[lib]

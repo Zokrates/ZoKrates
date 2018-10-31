@@ -1,30 +1,7 @@
-[package]
-name = "zokrates"
-version = "0.2.2"
-authors = ["Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>", "Dennis Kuhnert <mail@kyroy.com>"]
-repository = "https://github.com/JacobEberhardt/ZoKrates"
-readme = "README.md"
-build = "build.rs"
+[workspace]
 
-[features]
-nolibsnark = []
-
-[dependencies]
-libc = "0.2.0"
-num = "0.1.36"
-lazy_static = "0.1.*"
-# cli
-clap = "2.26.2"
-# serialization and deserialization
-serde = "1.0"
-serde_derive = "1.0"
-serde_json = "1.0"
-bincode = "0.8.0"
-regex = "0.2"
-
-[dev-dependencies]
-glob = "0.2.11"
-assert_cli = "0.5"
-
-[build-dependencies]
-gcc = "0.3.41"
+members = [
+    "zokrates_core",
+    "zokrates_cli",
+    "zokrates_fs_resolver",
+]

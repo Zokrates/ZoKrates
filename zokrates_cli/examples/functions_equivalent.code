@@ -1,0 +1,3 @@
+def main(field a,field b) -> (field):
+  field c = a + b
+  return c
