@@ -591,6 +591,33 @@ mod tests {
     }
 
     #[test]
+    fn parse_boolean_operator_associativity(){
+        use absy::Expression::*;
+        let pos = Position{line: 45, col: 121};
+        let string = String::from("2 == 3 || 4 == 5 && 6 == 7");
+        let expr = Or::<FieldPrime>(
+            box Eq(
+                box Number(FieldPrime::from(2)),
+                box Number(FieldPrime::from(3))
+            ),
+            box And(
+                box Eq(
+                    box Number(FieldPrime::from(4)),
+                    box Number(FieldPrime::from(5))
+                ),
+                box Eq(
+                    box Number(FieldPrime::from(6)),
+                    box Number(FieldPrime::from(7))
+                )
+            )
+        );
+        assert_eq!(
+            Ok((expr, String::from(""), pos.col(string.len() as isize))),
+            parse_bexpr(&string, &pos)
+        );
+    }
+
+    #[test]
     fn parse_boolean_expr() {
         use absy::Expression::*;
         let pos = Position{line: 45, col: 121};
