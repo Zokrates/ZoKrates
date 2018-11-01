@@ -88,7 +88,7 @@ pipeline {
                         //         prodImage.push(majorVersion)
                         //     }
                         //     prodImage.push("latest")
-                        }
+                        // }
                     }
                 }
             }
