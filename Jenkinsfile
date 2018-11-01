@@ -79,16 +79,15 @@ pipeline {
             steps {
                 script {
                     ansiColor('xterm') {
-                        // currently not run due to bug in Jenkins Docker Plugin.
-                        // prodImage = docker.build("zokrates/zokrates")
-                        // docker.withRegistry('https://registry.hub.docker.com', 'dockerhub-kyroy') {
-                        //     prodImage.push(patchVersion)
-                        //     prodImage.push(minorVersion)
-                        //     if (majorVersion > '0') {
-                        //         prodImage.push(majorVersion)
-                        //     }
-                        //     prodImage.push("latest")
-                        // }
+                        prodImage = docker.build("zokrates/zokrates")
+                        docker.withRegistry('https://registry.hub.docker.com', 'dockerhub-kyroy') {
+                            prodImage.push(patchVersion)
+                            prodImage.push(minorVersion)
+                            if (majorVersion > '0') {
+                                prodImage.push(majorVersion)
+                            }
+                            prodImage.push("latest")
+                        }
                     }
                 }
             }
