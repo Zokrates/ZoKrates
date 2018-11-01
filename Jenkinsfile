@@ -36,7 +36,7 @@ pipeline {
                 script {
                     ansiColor('xterm') {
                         def testDockerfile = 'dev.Dockerfile'
-                        testImage = docker.build("zokrates/zokrates", "-f ${testDockerfile} .")
+                        testImage = docker.build("zokrates/dev", "-f ${testDockerfile} .")
                         testImage.inside {
                             sh 'RUSTFLAGS="-D warnings" ./build.sh'
                         }
