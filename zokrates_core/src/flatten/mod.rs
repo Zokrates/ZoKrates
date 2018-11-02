@@ -127,6 +127,11 @@ impl Flattener {
     ///
     /// * `statements_flattened` - Vector where new flattened statements can be added.
     /// * `condition` - `Condition` that will be flattened.
+    ///
+    /// # Postconditions
+    ///
+    /// * `flatten_boolean_expressions` always returns a linear expression,
+    /// * in order to preserve composability.
     fn flatten_boolean_expression<T: Field>(
         &mut self,
         functions_flattened: &Vec<FlatFunction<T>>,
@@ -392,8 +397,8 @@ impl Flattener {
                     statements_flattened,
                     rhs
                 );
+
                 let name_x_and_y = self.use_sym();
-                // flatten_boolean_expression always returns a linear term
                 assert!(x.is_linear() && y.is_linear());
                 statements_flattened.push(FlatStatement::Definition(
                     name_x_and_y, FlatExpression::Mult(box x, box y))
