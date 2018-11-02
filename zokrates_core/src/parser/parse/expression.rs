@@ -141,6 +141,27 @@ fn parse_bexpr<T: Field>(
     pos: &Position,
 ) -> Result<(Expression<T>, String, Position), Error<T>> {
     match next_token::<T>(input, pos) {
+        (Token::Not, s1, p1) => match next_token(&s1, &p1) {
+            (Token::Open, s2, p2) => match parse_bexpr(&s2, &p2) {
+                Ok((e3, s3, p3)) => match next_token(&s3, &p3) {
+                    (Token::Close, s4, p4) => match parse_bterm1(Expression::Not(box e3), s4, p4) {
+                        Ok((e5, s5, p5)) => parse_bexpr1(e5, s5, p5),
+                        Err(err) => Err(err),
+                    },
+                    (t4, _, p4) => Err(Error {
+                        expected: vec![Token::Close],
+                        got: t4,
+                        pos: p4,
+                    }),
+                },
+                Err(err) => Err(err),
+            },
+            (t2, _, p2) => Err(Error {
+                expected: vec![Token::Open],
+                got: t2,
+                pos: p2,
+            }),
+        },
         (Token::Open, s1, p1) => match parse_bexpr(&s1, &p1) {
             Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
                 (Token::Close, s3, p3) => match parse_bterm1(e2, s3, p3) {

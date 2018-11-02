@@ -187,6 +187,10 @@ pub fn fold_boolean_expression<T: Field, F: Folder<T>>(f: &mut F, e: BooleanExpr
             let e2 = f.fold_boolean_expression(e2);
             BooleanExpression::And(box e1, box e2)
         }
+        BooleanExpression::Not(box e) => {
+            let e1 = f.fold_boolean_expression(e);
+            BooleanExpression::Not(box e1)
+        }
     }
 }
 

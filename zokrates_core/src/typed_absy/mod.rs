@@ -361,6 +361,7 @@ pub enum BooleanExpression<T: Field> {
     Gt(Box<FieldElementExpression<T>>, Box<FieldElementExpression<T>>),
     Or(Box<BooleanExpression<T>>, Box<BooleanExpression<T>>),
     And(Box<BooleanExpression<T>>, Box<BooleanExpression<T>>),
+    Not(Box<BooleanExpression<T>>),
 }
 
 // for now we store the array size in the variants
@@ -424,6 +425,7 @@ impl<T: Field> fmt::Display for BooleanExpression<T> {
             BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
             BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
             BooleanExpression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
+            BooleanExpression::Not(ref exp) => write!(f, "!{}", exp),
             BooleanExpression::Value(b) => write!(f, "{}", b),
         }
     }

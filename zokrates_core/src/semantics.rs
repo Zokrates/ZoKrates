@@ -586,40 +586,47 @@ impl Checker {
 							unwrapped_expressions.push(unwrapped_e);
 						}
 
-						Ok(FieldElementArrayExpression::Value(size, unwrapped_expressions).into())
+						  Ok(FieldElementArrayExpression::Value(size, unwrapped_expressions).into())
 					},
-					_ => Err(Error { message: format!("Only arrays of {} are supported, found {}", Type::FieldElement, inferred_type)})
+					  _ => Err(Error { message: format!("Only arrays of {} are supported, found {}", Type::FieldElement, inferred_type)})
 				}
 			},
-			&Expression::And(ref e1, ref e2) => {
-				let e1_checked = self.check_expression(&e1)?;
-				let e2_checked = self.check_expression(&e2)?;
-				match (e1_checked, e2_checked) {
-					(TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
-						Ok(BooleanExpression::And(box e1, box e2).into())
-					},
-					(e1, e2) => Err(Error { message: format!("cannot apply boolean operators to {} and {}", e1.get_type(), e2.get_type()) })
-				}
-			}
-            &Expression::Or(ref e1, ref e2) => {
-                let e1_checked = self.check_expression(&e1)?;
-                let e2_checked = self.check_expression(&e2)?;
-                match (e1_checked, e2_checked){
-                    (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
-                        Ok(BooleanExpression::Or(box e1, box e2).into())
-                    },
-                    (e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
-                }
+			  &Expression::And(ref e1, ref e2) => {
+				    let e1_checked = self.check_expression(&e1)?;
+				    let e2_checked = self.check_expression(&e2)?;
+				    match (e1_checked, e2_checked) {
+					      (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
+						        Ok(BooleanExpression::And(box e1, box e2).into())
+					      },
+					      (e1, e2) => Err(Error { message: format!("cannot apply boolean operators to {} and {}", e1.get_type(), e2.get_type()) })
+				    }
+			  }
+        &Expression::Or(ref e1, ref e2) => {
+            let e1_checked = self.check_expression(&e1)?;
+            let e2_checked = self.check_expression(&e2)?;
+            match (e1_checked, e2_checked){
+                (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
+                    Ok(BooleanExpression::Or(box e1, box e2).into())
+                },
+                (e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
             }
+        },
+        &Expression::Not(ref e) => {
+            let e_checked = self.check_expression(e)?;
+            match e_checked {
+                TypedExpression::Boolean(e) => Ok(BooleanExpression::Not(box e).into()),
+                e => Err(Error { message: format!("cannot negate {}", e.get_type())})
+            }
+        }
 		}
 	}
 
-	fn get_scope(&self, variable_name: &String) -> Option<&ScopedVariable> {
-		self.scope.get(
-			&ScopedVariable
-				{
-					id: Variable::new(variable_name.clone(), Type::FieldElement),
-					level: 0
+	  fn get_scope(&self, variable_name: &String) -> Option<&ScopedVariable> {
+		    self.scope.get(
+			      &ScopedVariable
+				    {
+					      id: Variable::new(variable_name.clone(), Type::FieldElement),
+					      level: 0
 				}
 		)
 	}

@@ -406,6 +406,16 @@ impl Flattener {
 
                 FlatExpression::Identifier(name_x_and_y)
             },
+            BooleanExpression::Not(box exp) => {
+                let x = self.flatten_boolean_expression(
+                    functions_flattened,
+                    arguments_flattened,
+                    statements_flattened,
+                    exp
+                );
+
+                FlatExpression::Sub(box FlatExpression::Number(T::one()), box x)
+            },
             BooleanExpression::Value(b) => {
                 FlatExpression::Number(match b {
                     true => T::from(1),
