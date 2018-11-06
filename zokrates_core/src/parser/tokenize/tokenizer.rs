@@ -234,7 +234,14 @@ pub fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String
                     col: pos.col + offset + 2,
                 },
             ),
-            _ => panic!("Bitwise AND (&) is unimplemented. Did you mean &&?"),
+            _ => (
+                Token::Unknown(String::from("&")),
+                input[offset + 1..].to_string(),
+                Position {
+                    line: pos.line,
+                    col: pos.col + offset + 1,
+                },
+            ),
         },
         Some('|') => match input.chars().nth(offset + 1) {
             Some('|') => (
@@ -245,7 +252,14 @@ pub fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String
                     col: pos.col + offset + 2
                 },
             ),
-            _ => panic!("| should not appear alone"),
+            _ => (
+                Token::Unknown(String::from("|")),
+                input[offset + 1..].to_string(),
+                Position {
+                    line: pos.line,
+                    col: pos.col + offset + 1,
+                },
+            ),        
         },
         Some('+') => (
             Token::Add,
