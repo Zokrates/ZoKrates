@@ -379,7 +379,7 @@ fn main() {
             println!("{}", main_flattened);
 
             // transform to R1CS
-            let (variables, private_inputs_offset, a, b, c) = r1cs_program(&program_ast);
+            let (variables, public_variables_count, a, b, c) = r1cs_program(&program_ast);
 
             // write variables meta information to file
             let var_inf_path = Path::new(sub_matches.value_of("meta-information").unwrap());
@@ -388,7 +388,7 @@ fn main() {
                 Err(why) => panic!("couldn't open {}: {}", var_inf_path.display(), why),
             };
             let mut bw = BufWriter::new(var_inf_file);
-                write!(&mut bw, "Private inputs offset:\n{}\n", private_inputs_offset).expect("Unable to write data to file.");
+                write!(&mut bw, "Private inputs offset:\n{}\n", public_variables_count).expect("Unable to write data to file.");
                 write!(&mut bw, "R1CS variable order:\n").expect("Unable to write data to file.");
             for var in &variables {
                 write!(&mut bw, "{} ", var).expect("Unable to write data to file.");
@@ -396,30 +396,14 @@ fn main() {
             write!(&mut bw, "\n").expect("Unable to write data to file.");
             bw.flush().expect("Unable to flush buffer.");
 
-
             // get paths for proving and verification keys
             let pk_path = sub_matches.value_of("proving-key-path").unwrap();
             let vk_path = sub_matches.value_of("verification-key-path").unwrap();
 
-            let public_inputs_indices = main_flattened.arguments.iter().enumerate()
-                .filter_map(|(index, x)| match x.private {
-                    true => None,
-                    false => Some(index),
-                });
-
-            let public_inputs = public_inputs_indices
-                .map(|i| main_flattened.signature.inputs[i].get_primitive_count())
-                .fold(0, |acc, e| acc + e);
-
-            let outputs = main_flattened.signature.outputs.iter().map(|t| t.get_primitive_count())
-                .fold(0, |acc, e| acc + e);
-
-            let num_inputs = public_inputs + outputs;
-
             // run setup phase
             #[cfg(feature="libsnark")]{
                 // number of inputs in the zkSNARK sense, i.e., input variables + output variables
-                println!("setup successful: {:?}", setup(variables, a, b, c, num_inputs, pk_path, vk_path));
+                println!("setup successful: {:?}", setup(variables, a, b, c, public_variables_count - 1, pk_path, vk_path));
             }
         }
         ("export-verifier", Some(sub_matches)) => {
