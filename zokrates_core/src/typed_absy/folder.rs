@@ -29,7 +29,7 @@ pub trait Folder<T: Field> : Sized {
         }
     }
 
-    fn fold_assignee(&mut self, a: TypedAssignee<T>) -> TypedAssignee<T> { 
+    fn fold_assignee(&mut self, a: TypedAssignee<T>) -> TypedAssignee<T> {
         match a {
             TypedAssignee::Identifier(v) => TypedAssignee::Identifier(self.fold_variable(v)),
             TypedAssignee::ArrayElement(box a, box index) => TypedAssignee::ArrayElement(box self.fold_assignee(a), box self.fold_field_expression(index))
@@ -176,6 +176,20 @@ pub fn fold_boolean_expression<T: Field, F: Folder<T>>(f: &mut F, e: BooleanExpr
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);
             BooleanExpression::Ge(box e1, box e2)
+        }
+        BooleanExpression::Or(box e1, box e2) => {
+            let e1 = f.fold_boolean_expression(e1);
+            let e2 = f.fold_boolean_expression(e2);
+            BooleanExpression::Or(box e1, box e2)
+        }
+        BooleanExpression::And(box e1, box e2) => {
+            let e1 = f.fold_boolean_expression(e1);
+            let e2 = f.fold_boolean_expression(e2);
+            BooleanExpression::And(box e1, box e2)
+        }
+        BooleanExpression::Not(box e) => {
+            let e = f.fold_boolean_expression(e);
+            BooleanExpression::Not(box e)
         }
     }
 }

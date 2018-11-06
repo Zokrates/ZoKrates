@@ -228,8 +228,11 @@ pub enum Expression<T: Field> {
     Eq(Box<Expression<T>>, Box<Expression<T>>),
     Ge(Box<Expression<T>>, Box<Expression<T>>),
     Gt(Box<Expression<T>>, Box<Expression<T>>),
+    And(Box<Expression<T>>, Box<Expression<T>>),
+    Not(Box<Expression<T>>),
     InlineArray(Vec<Expression<T>>),
     Select(Box<Expression<T>>, Box<Expression<T>>),
+    Or(Box<Expression<T>>, Box<Expression<T>>),
 }
 
 impl<T: Field> fmt::Display for Expression<T> {
@@ -264,6 +267,8 @@ impl<T: Field> fmt::Display for Expression<T> {
             Expression::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             Expression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
             Expression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
+            Expression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
+            Expression::Not(ref exp) => write!(f, "!{}", exp),
             Expression::InlineArray(ref exprs) => {
                 try!(write!(f, "["));
                 for (i, e) in exprs.iter().enumerate() {
@@ -275,6 +280,7 @@ impl<T: Field> fmt::Display for Expression<T> {
                 write!(f, "]")
             },
             Expression::Select(ref array, ref index) => write!(f, "{}[{}]", array, index),
+            Expression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
         }
     }
 }
@@ -306,12 +312,15 @@ impl<T: Field> fmt::Debug for Expression<T> {
             Expression::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             Expression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
             Expression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
+            Expression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
+            Expression::Not(ref exp) => write!(f, "!{}", exp),
             Expression::InlineArray(ref exprs) => {
                 try!(write!(f, "InlineArray(["));
                 try!(f.debug_list().entries(exprs.iter()).finish());
                 write!(f, "]")
             },
             Expression::Select(ref array, ref index) => write!(f, "{}[{}]", array, index),
+            Expression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
         }
     }
 }
