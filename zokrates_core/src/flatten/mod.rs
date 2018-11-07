@@ -1873,8 +1873,10 @@ mod tests {
 
 
         let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut functions_flattened = vec![];
+        flattener.load_corelib(&mut functions_flattened);
         flattener.flatten_field_expression(
-            &mut vec![],
+            &functions_flattened,
             &vec![],
             &mut vec![],
             expression
