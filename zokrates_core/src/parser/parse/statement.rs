@@ -113,7 +113,7 @@ pub fn parse_statement<T: Field, R: BufRead>(
                                                                 assert_eq!(s9, "");
                                                                 return Ok((vec![Statement::For(Variable::new(x2, t), x4, x6, statements)], s8, p8))
                                                             },
-                                                            (t9, _, p9) => return Err(Error { expected: vec![Token::Unknown("1432567iuhgvfc".to_string())], got: t9 , pos: p9 }),
+                                                            (t9, _, p9) => return Err(Error { expected: vec![Token::Unknown("".to_string())], got: t9 , pos: p9 }),
                                                         }
                                                     },
                                                     Some(Ok(ref x)) if !x.trim().starts_with("return") => match parse_statement(lines, x, &Position { line: current_line, col: 1 }) {

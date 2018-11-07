@@ -36,7 +36,7 @@ pipeline {
                 script {
                     ansiColor('xterm') {
                         def testDockerfile = 'dev.Dockerfile'
-                        testImage = docker.build("zokrates/zokrates", "-f ${testDockerfile} .")
+                        testImage = docker.build("zokrates/dev", "-f ${testDockerfile} .")
                         testImage.inside {
                             sh 'RUSTFLAGS="-D warnings" ./build.sh'
                         }
@@ -79,15 +79,16 @@ pipeline {
             steps {
                 script {
                     ansiColor('xterm') {
-                        prodImage = docker.build("zokrates/zokrates")
-                        docker.withRegistry('https://registry.hub.docker.com', 'dockerhub-kyroy') {
-                            prodImage.push(patchVersion)
-                            prodImage.push(minorVersion)
-                            if (majorVersion > '0') {
-                                prodImage.push(majorVersion)
-                            }
-                            prodImage.push("latest")
-                        }
+                        // currently not run due to bug in Jenkins Docker Plugin.
+                        // prodImage = docker.build("zokrates/zokrates")
+                        // docker.withRegistry('https://registry.hub.docker.com', 'dockerhub-kyroy') {
+                        //     prodImage.push(patchVersion)
+                        //     prodImage.push(minorVersion)
+                        //     if (majorVersion > '0') {
+                        //         prodImage.push(majorVersion)
+                        //     }
+                        //     prodImage.push("latest")
+                        // }
                     }
                 }
             }

@@ -261,7 +261,7 @@ impl Checker {
 
 				match (checked_lhs.clone(), checked_rhs.clone()) {
 					(ref r, ref l) if r.get_type() == l.get_type() => Ok(TypedStatement::Condition(checked_lhs, checked_rhs)),
-					(e1, e2) => Err( Error { message: format!("cannot compare {:?} to {:?}", e1.get_type(), e2.get_type()) })				
+					(e1, e2) => Err( Error { message: format!("cannot compare {:?} to {:?}", e1.get_type(), e2.get_type()) })
 				}
 			}
 			Statement::For(ref var, ref from, ref to, ref statements) => {
@@ -302,9 +302,8 @@ impl Checker {
                     		vars_types.push(t);
                     		var_names.push(name);
 		            	}
-
                     	// find arguments types
-                    	let mut arguments_checked = vec![]; 
+                    	let mut arguments_checked = vec![];
                     	for arg in arguments {
                     		let arg_checked = self.check_expression(arg)?;
                     		arguments_checked.push(arg_checked);
@@ -320,7 +319,7 @@ impl Checker {
                     		1 => {
                     			let f = &candidates[0];
 
-                    			let lhs = var_names.iter().enumerate().map(|(index, name)| 
+                    			let lhs = var_names.iter().enumerate().map(|(index, name)|
                     				Variable::new(name.to_string(), f.signature.outputs[index].clone())
                     			);
 
@@ -441,15 +440,15 @@ impl Checker {
 				let condition_checked = self.check_expression(&condition)?;
 				let consequence_checked = self.check_expression(&consequence)?;
 				let alternative_checked = self.check_expression(&alternative)?;
-				
+
 				match (condition_checked, consequence_checked, alternative_checked) {
 					(TypedExpression::Boolean(condition), TypedExpression::FieldElement(consequence), TypedExpression::FieldElement(alternative)) => {
 						Ok(FieldElementExpression::IfElse(box condition, box consequence, box alternative).into())
 					},
-					(condition, consequence, alternative) => 
+					(condition, consequence, alternative) =>
 						Err(
-							Error { 
-								message: 
+							Error {
+								message:
 									format!("if {{condition}} then {{consequence}} else {{alternative}} should have types {}, {}, {}, found {}, {}, {}",
 										Type::Boolean,
 										Type::FieldElement,
@@ -465,7 +464,7 @@ impl Checker {
 			&Expression::Number(ref n) => Ok(FieldElementExpression::Number(n.clone()).into()),
 			&Expression::FunctionCall(ref fun_id, ref arguments) => {
             	// check the arguments
-            	let mut arguments_checked = vec![]; 
+            	let mut arguments_checked = vec![];
             	for arg in arguments {
             		let arg_checked = self.check_expression(&arg.clone())?;
             		arguments_checked.push(arg_checked);
@@ -520,7 +519,7 @@ impl Checker {
 					},
 					(e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
 				}
-			},	
+			},
 			&Expression::Eq(ref e1, ref e2) => {
 				let e1_checked = self.check_expression(&e1)?;
 				let e2_checked = self.check_expression(&e2)?;
@@ -530,7 +529,7 @@ impl Checker {
 					},
 					(e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
 				}
-			},				
+			},
 			&Expression::Ge(ref e1, ref e2) => {
 				let e1_checked = self.check_expression(&e1)?;
 				let e2_checked = self.check_expression(&e2)?;
@@ -540,7 +539,7 @@ impl Checker {
 					},
 					(e1, e2) => Err(Error { message: format!("Cannot compare {} to {}", e1.get_type(), e2.get_type()) })
 				}
-			},			
+			},
 			&Expression::Gt(ref e1, ref e2) => {
 				let e1_checked = self.check_expression(&e1)?;
 				let e2_checked = self.check_expression(&e2)?;
@@ -587,20 +586,47 @@ impl Checker {
 							unwrapped_expressions.push(unwrapped_e);
 						}
 
-						Ok(FieldElementArrayExpression::Value(size, unwrapped_expressions).into())
+						  Ok(FieldElementArrayExpression::Value(size, unwrapped_expressions).into())
 					},
-					_ => Err(Error { message: format!("Only arrays of {} are supported, found {}", Type::FieldElement, inferred_type)})
+					  _ => Err(Error { message: format!("Only arrays of {} are supported, found {}", Type::FieldElement, inferred_type)})
 				}
-			}
+			},
+			  &Expression::And(ref e1, ref e2) => {
+				    let e1_checked = self.check_expression(&e1)?;
+				    let e2_checked = self.check_expression(&e2)?;
+				    match (e1_checked, e2_checked) {
+					      (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
+						        Ok(BooleanExpression::And(box e1, box e2).into())
+					      },
+					      (e1, e2) => Err(Error { message: format!("cannot apply boolean operators to {} and {}", e1.get_type(), e2.get_type()) })
+				    }
+			  }
+        &Expression::Or(ref e1, ref e2) => {
+            let e1_checked = self.check_expression(&e1)?;
+            let e2_checked = self.check_expression(&e2)?;
+            match (e1_checked, e2_checked){
+                (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
+                    Ok(BooleanExpression::Or(box e1, box e2).into())
+                },
+                (e1, e2) => Err(Error { message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()) })
+            }
+        },
+        &Expression::Not(ref e) => {
+            let e_checked = self.check_expression(e)?;
+            match e_checked {
+                TypedExpression::Boolean(e) => Ok(BooleanExpression::Not(box e).into()),
+                e => Err(Error { message: format!("cannot negate {}", e.get_type())})
+            }
+        }
 		}
 	}
 
-	fn get_scope(&self, variable_name: &String) -> Option<&ScopedVariable> {
-		self.scope.get(
-			&ScopedVariable 
-				{ 
-					id: Variable::new(variable_name.clone(), Type::FieldElement),
-					level: 0 
+	  fn get_scope(&self, variable_name: &String) -> Option<&ScopedVariable> {
+		    self.scope.get(
+			      &ScopedVariable
+				    {
+					      id: Variable::new(variable_name.clone(), Type::FieldElement),
+					      level: 0
 				}
 		)
 	}
@@ -672,7 +698,7 @@ mod tests {
 			level: 0
 		});
 		let mut checker = new_with_args(scope, 1, HashSet::new());
-		assert_eq!(checker.check_statement(&statement, &vec![]), 
+		assert_eq!(checker.check_statement(&statement, &vec![]),
 			Ok(
 				TypedStatement::Definition(
 					TypedAssignee::Identifier(Variable::field_element("a")),
@@ -959,7 +985,7 @@ mod tests {
             signature: Signature {
             	inputs: vec![],
             	outputs: vec![Type::FieldElement]
-            }		
+            }
         };
 
 		let mut checker = new_with_args(HashSet::new(), 0, functions);
@@ -1072,7 +1098,7 @@ mod tests {
 					Expression::Identifier("x".to_string())
 				])
 			),
-			Statement::Return(ExpressionList { 
+			Statement::Return(ExpressionList {
 				expressions: vec![
 					Expression::Number(FieldPrime::from(1))
 				]
