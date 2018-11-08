@@ -19,11 +19,11 @@ jobs:
           name: Build libsnark
           command: LIBSNARK_SOURCE_PATH=$HOME/libsnark ./build_libsnark.sh
       - run:
-          name: Build all targets
+          name: Build
           command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark ./build.sh
       - run:
           name: Run tests
-          command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark ./test.sh
+          command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark ./test_release.sh
           timeout: 1200
       - save_cache:
           paths:
