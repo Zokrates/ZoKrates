@@ -31,6 +31,19 @@ pipeline {
                 }
             }
         }
+        stage('Format') {
+            agent {
+                docker {
+                  image 'rustlang/rust:nightly'
+                }
+            }
+            steps {
+                script {
+                    sh "rustup component add rustfmt-preview"
+                    sh "cargo fmt --all -- --check"
+                }
+            }
+        }
         stage('Build') {
             steps {
                 script {
