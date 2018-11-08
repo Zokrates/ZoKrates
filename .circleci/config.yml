@@ -21,10 +21,14 @@ jobs:
       - run:
           name: Build all targets
           command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=/root/project/.tmp/libsnark ./build.sh
+      - run:
+          name: Run tests
+          command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=/root/project/.tmp/libsnark ./test.sh
       - save_cache:
           paths:
             - /usr/local/cargo/registry
             - target/debug/.fingerprint
             - target/debug/build
             - target/debug/deps
+            - .tmp/libsnark
           key: v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
