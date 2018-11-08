@@ -1,7 +1,7 @@
 fn main() {
     #[cfg(feature = "libsnark")]
     {
-        extern crate gcc;
+        extern crate cc;
         extern crate cmake;
         use std::path::Path;
         use std::env;
@@ -17,7 +17,7 @@ fn main() {
             .define("BINARY_OUTPUT", "ON")
             .build();
 
-        gcc::Build::new()
+        cc::Build::new()
             .cpp(true)
             .debug(cfg!(debug_assertions))
             .flag("-std=c++11")
@@ -28,7 +28,7 @@ fn main() {
             .file("lib/wraplibsnark.cpp")
             .compile("libwraplibsnark.a");
 
-        gcc::Build::new()
+        cc::Build::new()
             .cpp(true)
             .flag("-std=c++11")
             .include(libsnark_source_path)

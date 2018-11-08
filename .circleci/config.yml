@@ -17,13 +17,13 @@ jobs:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Build libsnark
-          command: ./build_libsnark.sh
+          command: LIBSNARK_SOURCE_PATH=$HOME/libsnark ./build_libsnark.sh
       - run:
           name: Build all targets
-          command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=/root/project/.tmp/libsnark ./build.sh
+          command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark ./build.sh
       - run:
           name: Run tests
-          command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=/root/project/.tmp/libsnark ./test.sh
+          command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark ./test.sh
           timeout: 1200
       - save_cache:
           paths:
@@ -31,5 +31,4 @@ jobs:
             - target/debug/.fingerprint
             - target/debug/build
             - target/debug/deps
-            - .tmp/libsnark
           key: v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}

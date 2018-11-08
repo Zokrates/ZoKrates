@@ -1,0 +1,7 @@
+// ANDXORANDXORAND
+
+import "./xor.code" as XOR
+import "./and.code" as AND
+
+def main(field a, field b, field c) -> (field):
+	return XOR(XOR(AND(a, b), AND(a, c)), AND(b, c))

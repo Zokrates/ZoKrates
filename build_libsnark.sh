@@ -1,7 +1,6 @@
 #!/bin/bash
 
-export LIBSNARK_COMMIT=f7c87b88744ecfd008126d415494d9b34c4c1b20
-export LIBSNARK_SOURCE_PATH=.tmp/libsnark
+LIBSNARK_COMMIT=f7c87b88744ecfd008126d415494d9b34c4c1b20
 
 apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
@@ -20,4 +19,3 @@ apt-get update && apt-get install -y --no-install-recommends \
     && git clone https://github.com/scipr-lab/libsnark.git $LIBSNARK_SOURCE_PATH \
     && git -C $LIBSNARK_SOURCE_PATH checkout $LIBSNARK_COMMIT \
     && git -C $LIBSNARK_SOURCE_PATH submodule update --init --recursive \
-    
