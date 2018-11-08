@@ -24,6 +24,7 @@ jobs:
       - run:
           name: Run tests
           command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=/root/project/.tmp/libsnark ./test.sh
+          timeout: 1200
       - save_cache:
           paths:
             - /usr/local/cargo/registry

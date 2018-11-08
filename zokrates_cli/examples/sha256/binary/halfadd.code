@@ -1,7 +1,0 @@
-// HALFADD
-
-import "./xor.code" as XOR
-import "./and.code" as AND
-
-def main(field a, field b) -> (field, field):
-	return XOR(a, b), AND(a, b)
