@@ -579,84 +579,71 @@ mod tests {
                 continue
             }
 
-
-            if !path.to_str().unwrap().contains("sha256.code") {
-                continue
-            }
-
             println!("Testing {:?}", path);
 
             let file = File::open(path.clone()).unwrap();
 
-            println!("Opening {:?}", path);
-
             let mut reader = BufReader::new(file);
             let location = path.parent().unwrap().to_path_buf().into_os_string().into_string().unwrap();
-
-            println!("Compiling {:?}", path);
 
             let program_flattened: FlatProg<FieldPrime> =
                 compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
-            println!("Compiled {:?}", path);
-
             let (..) = r1cs_program(&program_flattened);
-            println!("R1CSed {:?}", path);
-
         }
     }
 
-    // #[test]
-    // fn examples_with_input_success() {
-    //     //these examples should compile and run
-    //     for p in glob("./examples/test*.code").expect("Failed to read glob pattern") {
-    //         let path = match p {
-    //             Ok(x) => x,
-    //             Err(why) => panic!("Error: {:?}", why),
-    //         };
-    //         println!("Testing {:?}", path);
+    #[test]
+    fn examples_with_input_success() {
+        //these examples should compile and run
+        for p in glob("./examples/test*.code").expect("Failed to read glob pattern") {
+            let path = match p {
+                Ok(x) => x,
+                Err(why) => panic!("Error: {:?}", why),
+            };
+            println!("Testing {:?}", path);
 
-    //         let file = File::open(path.clone()).unwrap();
+            let file = File::open(path.clone()).unwrap();
 
-    //         let location = path.parent().unwrap().to_path_buf().into_os_string().into_string().unwrap();
+            let location = path.parent().unwrap().to_path_buf().into_os_string().into_string().unwrap();
 
-    //         let mut reader = BufReader::new(file);
+            let mut reader = BufReader::new(file);
 
-    //         let program_flattened: FlatProg<FieldPrime> =
+            let program_flattened: FlatProg<FieldPrime> =
 
-    //         compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
+            compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
-    //         let (..) = r1cs_program(&program_flattened);
-    //         let _ = program_flattened.get_witness(vec![FieldPrime::from(0)]).unwrap();
-    //     }
-    // }
+            let (..) = r1cs_program(&program_flattened);
+            let _ = program_flattened.get_witness(vec![FieldPrime::from(0)]).unwrap();
+        }
+    }
 
-    // #[test]
-    // fn examples_with_input_failure() {
-    //     //these examples should compile but not run
-    //     for p in glob("./examples/runtime_errors/*.code").expect("Failed to read glob pattern") {
-    //         let path = match p {
-    //             Ok(x) => x,
-    //             Err(why) => panic!("Error: {:?}", why),
-    //         };
-    //         println!("Testing {:?}", path);
+    #[test]
+    fn examples_with_input_failure() {
+        //these examples should compile but not run
+        for p in glob("./examples/runtime_errors/*.code").expect("Failed to read glob pattern") {
+            let path = match p {
+                Ok(x) => x,
+                Err(why) => panic!("Error: {:?}", why),
+            };
+            println!("Testing {:?}", path);
 
-    //         let file = File::open(path.clone()).unwrap();
+            let file = File::open(path.clone()).unwrap();
 
-    //         let location = path.parent().unwrap().to_path_buf().into_os_string().into_string().unwrap();
+            let location = path.parent().unwrap().to_path_buf().into_os_string().into_string().unwrap();
 
-    //         let mut reader = BufReader::new(file);
+            let mut reader = BufReader::new(file);
 
-    //         let program_flattened: FlatProg<FieldPrime> =
+            let program_flattened: FlatProg<FieldPrime> =
 
-    //         compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
+            compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
-    //         let (..) = r1cs_program(&program_flattened);
+            let (..) = r1cs_program(&program_flattened);
 
-    //         let result = std::panic::catch_unwind(|| {
-    //             let _ = program_flattened.get_witness(vec![FieldPrime::from(0)]).unwrap();
-    //         });
-    //         assert!(result.is_err());
-    //     }
-    // }
+            let result = std::panic::catch_unwind(|| {
+                let _ = program_flattened.get_witness(vec![FieldPrime::from(0)]).unwrap();
+            });
+            assert!(result.is_err());
+        }
+    }
 }

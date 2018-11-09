@@ -66,7 +66,6 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader
 }
 
 pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(reader: &mut R, location: Option<String>, resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>) -> Result<FlatProg<T>, CompileError<T>> {
-    println!("comp {:?}", location);
     let program_ast_without_imports: Prog<T> = parse_program(reader)?;
     
     let program_ast = Importer::new().apply_imports(program_ast_without_imports, location.clone(), resolve_option)?;
@@ -77,7 +76,6 @@ pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(re
     // analyse (unroll and constant propagation)
     let typed_ast = typed_ast.analyse();
 
-    println!("flattening {:?}", location);
     // flatten input program
     let program_flattened =
         Flattener::new(T::get_required_bits()).flatten_program(typed_ast);
