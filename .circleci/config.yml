@@ -23,7 +23,7 @@ jobs:
           command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark ./build.sh
       - run:
           name: Run tests
-          command: LIBSNARK_SOURCE_PATH=$HOME/libsnark cargo test examples -- --nocapture
+          command: LIBSNARK_SOURCE_PATH=$HOME/libsnark cargo test examples --release -- --nocapture
           timeout: 30m
           no_output_timeout: 30m
       - save_cache:
