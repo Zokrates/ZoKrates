@@ -18,14 +18,12 @@ impl FlatVariable {
     }
 
     pub fn one() -> Self {
-        FlatVariable {
-            id: 0,
-        }
+        FlatVariable { id: 0 }
     }
 
     pub fn public(id: usize) -> Self {
         FlatVariable {
-            id: - (id as isize) - 1,
+            id: -(id as isize) - 1,
         }
     }
 
@@ -40,7 +38,7 @@ impl fmt::Display for FlatVariable {
         match self.id {
             0 => write!(f, "~one"),
             i if i > 0 => write!(f, "_{}", i + 1),
-            i => write!(f, "~out_{}", - (i + 1))
+            i => write!(f, "~out_{}", -(i + 1)),
         }
     }
 }
@@ -52,10 +50,14 @@ impl fmt::Debug for FlatVariable {
 }
 
 impl FlatVariable {
-    pub fn apply_substitution(self, substitution: &HashMap<FlatVariable, FlatVariable>, should_fallback: bool) -> Self {
+    pub fn apply_substitution(
+        self,
+        substitution: &HashMap<FlatVariable, FlatVariable>,
+        should_fallback: bool,
+    ) -> Self {
         match should_fallback {
             true => substitution.get(&self).unwrap_or(&self).clone(),
-            false => substitution.get(&self).unwrap().clone()
+            false => substitution.get(&self).unwrap().clone(),
         }
     }
 
@@ -75,8 +77,8 @@ mod tests {
 
     #[test]
     fn public() {
-        assert_eq!(FlatVariable::public(0).id, - 1);
-        assert_eq!(FlatVariable::public(42).id, - 43);
+        assert_eq!(FlatVariable::public(0).id, -1);
+        assert_eq!(FlatVariable::public(42).id, -43);
     }
 
     #[test]
