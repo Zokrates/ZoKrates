@@ -623,7 +623,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "zokrates_cli"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "assert_cli 0.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "bincode 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -631,13 +631,13 @@ dependencies = [
  "glob 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.33 (registry+https://github.com/rust-lang/crates.io-index)",
- "zokrates_core 0.3.0",
- "zokrates_fs_resolver 0.3.0",
+ "zokrates_core 0.3.1",
+ "zokrates_fs_resolver 0.3.1",
 ]
 
 [[package]]
 name = "zokrates_core"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "assert_cli 0.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "bimap 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -658,7 +658,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_fs_resolver"
-version = "0.3.0"
+version = "0.3.1"
 
 [metadata]
 "checksum aho-corasick 0.6.9 (registry+https://github.com/rust-lang/crates.io-index)" = "1e9a933f4e58658d7b12defcf96dc5c720f20832deebe3e0a19efd3b6aaeeb9e"

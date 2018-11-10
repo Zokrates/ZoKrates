@@ -88,7 +88,8 @@ impl<T: Field> Folder<T> for DeadCode {
                     .inputs(exps.iter().map(|e| e.get_type()).collect())
                     .outputs(vec![Type::FieldElementArray(size)]);
 
-                self.called.insert(format!("{}_{}", id, signature));
+                self.called
+                    .insert(format!("{}_{}", id, signature.to_slug()));
                 FieldElementArrayExpression::FunctionCall(size, id, exps)
             }
             e => fold_field_array_expression(self, e),

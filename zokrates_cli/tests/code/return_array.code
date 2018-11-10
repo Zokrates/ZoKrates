@@ -1,0 +1,2 @@
+def main(field[3] a, private field[2] b, field c, private field[4] d) -> (field[3], field[4]):
+	return a, d
