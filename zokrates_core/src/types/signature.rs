@@ -1,22 +1,26 @@
-use types::Type;
 use std::fmt;
+use types::Type;
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Signature {
-	pub inputs: Vec<Type>,
-	pub outputs: Vec<Type>
+    pub inputs: Vec<Type>,
+    pub outputs: Vec<Type>,
 }
 
 impl fmt::Debug for Signature {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Signature(inputs: {:?}, outputs: {:?})", self.inputs, self.outputs)
+        write!(
+            f,
+            "Signature(inputs: {:?}, outputs: {:?})",
+            self.inputs, self.outputs
+        )
     }
 }
 
 impl fmt::Display for Signature {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    	try!(write!(f, "("));
-    	for (i, t) in self.inputs.iter().enumerate() {
+        try!(write!(f, "("));
+        for (i, t) in self.inputs.iter().enumerate() {
             try!(write!(f, "{}", t));
             if i < self.inputs.len() - 1 {
                 try!(write!(f, ", "));
@@ -44,7 +48,6 @@ impl Signature {
     /// [field, field, bool, field] -> 2fbf
     ///
     pub fn to_slug(&self) -> String {
-
         let to_slug = |types| {
             let mut res = vec![];
             for t in types {
@@ -59,18 +62,20 @@ impl Signature {
                     }
                 }
             }
-            res.into_iter().map(|(n, t) : (usize, &Type)| {
-                let mut r = String::new();
+            res.into_iter()
+                .map(|(n, t): (usize, &Type)| {
+                    let mut r = String::new();
 
-                if n > 1 {
-                    r.push_str(&format!("{}", n));
-                }
-                r.push_str(&t.to_slug());
-                r
-            }).fold(String::new(), |mut acc, e| {
-                acc.push_str(&e);
-                acc
-            })
+                    if n > 1 {
+                        r.push_str(&format!("{}", n));
+                    }
+                    r.push_str(&t.to_slug());
+                    r
+                })
+                .fold(String::new(), |mut acc, e| {
+                    acc.push_str(&e);
+                    acc
+                })
         };
 
         format!("i{}o{}", to_slug(&self.inputs), to_slug(&self.outputs))
@@ -79,7 +84,7 @@ impl Signature {
     pub fn new() -> Signature {
         Signature {
             inputs: vec![],
-            outputs: vec![]
+            outputs: vec![],
         }
     }
 
@@ -109,9 +114,7 @@ mod tests {
 
     #[test]
     fn slug_0() {
-        let s = Signature::new()
-            .inputs(vec![])
-            .outputs(vec![]);
+        let s = Signature::new().inputs(vec![]).outputs(vec![]);
 
         assert_eq!(s.to_slug(), String::from("io"));
     }
@@ -120,7 +123,12 @@ mod tests {
     fn slug_1() {
         let s = Signature::new()
             .inputs(vec![Type::FieldElement, Type::Boolean])
-            .outputs(vec![Type::FieldElement, Type::FieldElement, Type::Boolean, Type::FieldElement]);
+            .outputs(vec![
+                Type::FieldElement,
+                Type::FieldElement,
+                Type::Boolean,
+                Type::FieldElement,
+            ]);
 
         assert_eq!(s.to_slug(), String::from("ifbo2fbf"));
     }
@@ -128,7 +136,11 @@ mod tests {
     #[test]
     fn slug_2() {
         let s = Signature::new()
-            .inputs(vec![Type::FieldElement, Type::FieldElement, Type::FieldElement])
+            .inputs(vec![
+                Type::FieldElement,
+                Type::FieldElement,
+                Type::FieldElement,
+            ])
             .outputs(vec![Type::FieldElement, Type::Boolean, Type::FieldElement]);
 
         assert_eq!(s.to_slug(), String::from("i3fofbf"));
@@ -137,7 +149,10 @@ mod tests {
     #[test]
     fn array_slug() {
         let s = Signature::new()
-            .inputs(vec![Type::FieldElementArray(42), Type::FieldElementArray(21)])
+            .inputs(vec![
+                Type::FieldElementArray(42),
+                Type::FieldElementArray(21),
+            ])
             .outputs(vec![]);
 
         assert_eq!(s.to_slug(), String::from("if[42]f[21]o"));
