@@ -125,9 +125,19 @@ Verifier.at(<verifier contract address>).verifyTx(A, A_p, B, B_p, C, C_p, H, K, 
 
 Where `A, ..., K` are defined as above (adding brackets and quotes: `A = ["0x123", "0x345"]`), `publicInputs` are the public inputs supplied to witness generation and `outputs` are the results of the computation.
 
-# Testing
+# Contributing
 
-Run normal tests with
+Want to contribute to ZoKrates? Great!
+First, fork this repository.
+
+Then, install `rustfmt`
+```
+rustup component add rustfmt-preview
+```
+
+Make sure you're using rust nightly.
+
+Then, run normal tests with
 ```
 cargo test
 ```
@@ -135,3 +145,7 @@ and run long and expensive tests with
 ```
 cargo test -- --ignored
 ```
+
+Finally, before pushing your changes, make sure to run `cargo +nightly fmt` to format your code.
+
+Thank you for contributing to ZoKrates!
