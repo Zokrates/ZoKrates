@@ -75,7 +75,8 @@ impl<T: Field> Inliner<T> {
                     TypedAssignee::Identifier(self.fold_variable(a.id.clone())),
                     e,
                 )
-            }).collect();
+            })
+            .collect();
         self.statements_buffer.append(&mut inputs_bindings);
 
         // filter out the return statement and keep it aside
@@ -145,7 +146,8 @@ impl<T: Field> Folder<T> for Inliner<T> {
                                     .zip(ret.into_iter())
                                     .map(|(v, e)| {
                                         TypedStatement::Definition(TypedAssignee::Identifier(v), e)
-                                    }).collect()
+                                    })
+                                    .collect()
                             }
                             false => vec![TypedStatement::MultipleDefinition(
                                 variables,
@@ -274,7 +276,8 @@ mod tests {
                     FieldElementExpression::Select(
                         box FieldElementArrayExpression::Identifier(3, String::from("b")),
                         box FieldElementExpression::Identifier(String::from("a")),
-                    ).into(),
+                    )
+                    .into(),
                 ])],
                 signature: Signature::new()
                     .inputs(vec![Type::FieldElement, Type::FieldElementArray(3)])
@@ -303,7 +306,8 @@ mod tests {
                     FieldElementExpression::Select(
                         box FieldElementArrayExpression::Identifier(3, String::from("b")),
                         box FieldElementExpression::Identifier(String::from("a")),
-                    ).into(),
+                    )
+                    .into(),
                 ])],
                 signature: Signature::new()
                     .inputs(vec![Type::FieldElement, Type::FieldElementArray(3)])

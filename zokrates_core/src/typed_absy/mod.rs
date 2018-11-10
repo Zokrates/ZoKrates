@@ -308,7 +308,8 @@ impl<T: Field> Typed for TypedExpression<T> {
             }
             TypedExpression::FieldElementArray(FieldElementArrayExpression::FunctionCall(
                 n,
-                ..,
+                _,
+                _,
             )) => Type::FieldElementArray(n),
         }
     }

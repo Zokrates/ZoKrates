@@ -27,7 +27,8 @@ pub fn pack<T: Field>(nbits: usize) -> FlatProg<T> {
         .map(|i| FlatParameter {
             id: FlatVariable::new(i),
             private: true,
-        }).collect();
+        })
+        .collect();
 
     let signature = Signature {
         inputs: vec![Type::FieldElement; nbits],
@@ -106,7 +107,8 @@ pub fn unpack<T: Field>(nbits: usize) -> FlatProg<T> {
                 bit.clone(),
                 FlatExpression::Mult(box bit.clone(), box bit.clone()),
             )
-        }).collect();
+        })
+        .collect();
 
     // sum check: o253 + o252 * 2 + ... + o{253 - (nbits - 1)} * 2**(nbits - 1)
     let mut lhs_sum = FlatExpression::Number(T::from(0));
@@ -162,7 +164,8 @@ pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
         .map(|(index, _)| FlatParameter {
             id: FlatVariable::new(index),
             private: true,
-        }).collect();
+        })
+        .collect();
 
     let directive_inputs = (0..from.get_primitive_count())
         .map(|index| use_variable(&mut bijection, format!("i{}", index), &mut counter))
@@ -197,7 +200,8 @@ pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
                         box FlatExpression::Number(val.clone()),
                         box FlatExpression::Identifier(intermediate_variables[key]),
                     )
-                }).reduce(|acc, e| FlatExpression::Add(box acc, box e))
+                })
+                .reduce(|acc, e| FlatExpression::Add(box acc, box e))
             {
                 Some(e @ FlatExpression::Mult(..)) => {
                     FlatExpression::Add(box FlatExpression::Number(T::zero()), box e)
@@ -215,7 +219,8 @@ pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
                         box FlatExpression::Number(val.clone()),
                         box FlatExpression::Identifier(intermediate_variables[key]),
                     )
-                }).reduce(|acc, e| FlatExpression::Add(box acc, box e))
+                })
+                .reduce(|acc, e| FlatExpression::Add(box acc, box e))
             {
                 Some(e @ FlatExpression::Mult(..)) => {
                     FlatExpression::Add(box FlatExpression::Number(T::zero()), box e)
@@ -233,7 +238,8 @@ pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
                         box FlatExpression::Number(val.clone()),
                         box FlatExpression::Identifier(intermediate_variables[key]),
                     )
-                }).reduce(|acc, e| FlatExpression::Add(box acc, box e))
+                })
+                .reduce(|acc, e| FlatExpression::Add(box acc, box e))
             {
                 Some(e @ FlatExpression::Mult(..)) => {
                     FlatExpression::Add(box FlatExpression::Number(T::zero()), box e)
@@ -243,7 +249,8 @@ pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
             };
 
             FlatStatement::Condition(lhs, FlatExpression::Mult(box rhs_a, box rhs_b))
-        }).collect();
+        })
+        .collect();
 
     let helper = match (from, to) {
         (Type::Boolean, Type::FieldElement) => Helper::Rust(RustHelper::Identity),

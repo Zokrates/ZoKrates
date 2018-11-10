@@ -71,7 +71,8 @@ impl Signature {
                     }
                     r.push_str(&t.to_slug());
                     r
-                }).fold(String::new(), |mut acc, e| {
+                })
+                .fold(String::new(), |mut acc, e| {
                     acc.push_str(&e);
                     acc
                 })
@@ -139,7 +140,8 @@ mod tests {
                 Type::FieldElement,
                 Type::FieldElement,
                 Type::FieldElement,
-            ]).outputs(vec![Type::FieldElement, Type::Boolean, Type::FieldElement]);
+            ])
+            .outputs(vec![Type::FieldElement, Type::Boolean, Type::FieldElement]);
 
         assert_eq!(s.to_slug(), String::from("i3fofbf"));
     }
@@ -150,7 +152,8 @@ mod tests {
             .inputs(vec![
                 Type::FieldElementArray(42),
                 Type::FieldElementArray(21),
-            ]).outputs(vec![]);
+            ])
+            .outputs(vec![]);
 
         assert_eq!(s.to_slug(), String::from("if[42]f[21]o"));
     }

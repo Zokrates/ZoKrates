@@ -110,7 +110,8 @@ mod test {
 			import "./path/to/file" as foo
 			def main() -> (field):
 			   return foo()
-		"#.as_bytes(),
+		"#
+            .as_bytes(),
         );
         let res: Result<FlatProg<FieldPrime>, CompileError<FieldPrime>> = compile(
             &mut r,
@@ -132,7 +133,8 @@ mod test {
             r#"
 			def main() -> (field):
 			   return 1
-		"#.as_bytes(),
+		"#
+            .as_bytes(),
         );
         let res: Result<FlatProg<FieldPrime>, CompileError<FieldPrime>> = compile(
             &mut r,

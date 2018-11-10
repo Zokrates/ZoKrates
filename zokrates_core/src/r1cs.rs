@@ -172,17 +172,21 @@ fn r1cs_expression<T: Field>(
             match lhs {
                 box Number(x) => a_row.push((0, x)),
                 box Identifier(x) => a_row.push((provide_variable_idx(variables, &x), T::one())),
-                box e @ Add(..) => for (key, value) in count_variables_add(&e) {
-                    a_row.push((provide_variable_idx(variables, &key), value));
-                },
+                box e @ Add(..) => {
+                    for (key, value) in count_variables_add(&e) {
+                        a_row.push((provide_variable_idx(variables, &key), value));
+                    }
+                }
                 e @ _ => panic!("Not flattened: {}", e),
             };
             match rhs {
                 box Number(x) => b_row.push((0, x)),
                 box Identifier(x) => b_row.push((provide_variable_idx(variables, &x), T::one())),
-                box e @ Add(..) => for (key, value) in count_variables_add(&e) {
-                    b_row.push((provide_variable_idx(variables, &key), value));
-                },
+                box e @ Add(..) => {
+                    for (key, value) in count_variables_add(&e) {
+                        b_row.push((provide_variable_idx(variables, &key), value));
+                    }
+                }
                 e @ _ => panic!("Not flattened: {}", e),
             };
             for (key, value) in count_variables_add(&linear_expr) {
@@ -194,9 +198,11 @@ fn r1cs_expression<T: Field>(
             match lhs {
                 box Number(x) => c_row.push((0, x)),
                 box Identifier(x) => c_row.push((provide_variable_idx(variables, &x), T::one())),
-                box e @ Add(..) => for (key, value) in count_variables_add(&e) {
-                    c_row.push((provide_variable_idx(variables, &key), value));
-                },
+                box e @ Add(..) => {
+                    for (key, value) in count_variables_add(&e) {
+                        c_row.push((provide_variable_idx(variables, &key), value));
+                    }
+                }
                 box e @ Sub(..) => {
                     return r1cs_expression(
                         Mult(box linear_expr, rhs),

@@ -605,7 +605,8 @@ mod tests {
                             FieldElementExpression::Number(FieldPrime::from(21)),
                             FieldElementExpression::Number(FieldPrime::from(22)),
                         ],
-                    ).into(),
+                    )
+                    .into(),
                 );
                 let overwrite = TypedStatement::Definition(
                     TypedAssignee::ArrayElement(
@@ -626,7 +627,8 @@ mod tests {
                             FieldElementExpression::Number(FieldPrime::from(21)),
                             FieldElementExpression::Number(FieldPrime::from(22)),
                         ],
-                    ).into();
+                    )
+                    .into();
 
                 assert_eq!(
                     p.constants
@@ -643,7 +645,8 @@ mod tests {
                             FieldElementExpression::Number(FieldPrime::from(21)),
                             FieldElementExpression::Number(FieldPrime::from(42)),
                         ],
-                    ).into();
+                    )
+                    .into();
 
                 assert_eq!(
                     p.constants

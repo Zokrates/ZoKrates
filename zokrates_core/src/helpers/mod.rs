@@ -93,7 +93,8 @@ impl<T: Field> Executable<T> for Helper {
                 "invalid witness size: is {} but should be {}",
                 r.len(),
                 expected_output_count
-            ).to_string()),
+            )
+            .to_string()),
             r => r,
         }
     }
@@ -158,7 +159,8 @@ mod tests {
                 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1,
                 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0,
                 0, 1, 1, 1,
-            ].iter()
+            ]
+            .iter()
             .map(|&i| FieldPrime::from(i))
             .collect();
             assert_eq!(r1, &res[..]);

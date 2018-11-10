@@ -52,7 +52,8 @@ impl<T: Field> Into<FlatStatement<T>> for Constraint {
                     box FlatExpression::Number(T::from_dec_string(val.to_string())),
                     box FlatExpression::Identifier(FlatVariable::new(key)),
                 )
-            }).reduce(|acc, e| FlatExpression::Add(box acc, box e))
+            })
+            .reduce(|acc, e| FlatExpression::Add(box acc, box e))
         {
             Some(e @ FlatExpression::Mult(..)) => {
                 FlatExpression::Add(box FlatExpression::Number(T::zero()), box e)
@@ -69,7 +70,8 @@ impl<T: Field> Into<FlatStatement<T>> for Constraint {
                     box FlatExpression::Number(T::from_dec_string(val.to_string())),
                     box FlatExpression::Identifier(FlatVariable::new(key)),
                 )
-            }).reduce(|acc, e| FlatExpression::Add(box acc, box e))
+            })
+            .reduce(|acc, e| FlatExpression::Add(box acc, box e))
         {
             Some(e @ FlatExpression::Mult(..)) => {
                 FlatExpression::Add(box FlatExpression::Number(T::zero()), box e)
@@ -86,7 +88,8 @@ impl<T: Field> Into<FlatStatement<T>> for Constraint {
                     box FlatExpression::Number(T::from_dec_string(val.to_string())),
                     box FlatExpression::Identifier(FlatVariable::new(key)),
                 )
-            }).reduce(|acc, e| FlatExpression::Add(box acc, box e))
+            })
+            .reduce(|acc, e| FlatExpression::Add(box acc, box e))
         {
             Some(e @ FlatExpression::Mult(..)) => {
                 FlatExpression::Add(box FlatExpression::Number(T::zero()), box e)
@@ -141,7 +144,8 @@ impl<T: Field> Into<FlatFunction<T>> for DirectiveR1CS {
             .map(|i| FlatParameter {
                 id: i.clone(),
                 private: true,
-            }).collect();
+            })
+            .collect();
         let inputs: Vec<FlatExpression<T>> = input_variables
             .into_iter()
             .map(|i| FlatExpression::Identifier(i))

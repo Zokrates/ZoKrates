@@ -297,11 +297,13 @@ mod tests {
                 BigUint::parse_bytes(
                     b"5472060717959818805561601436314318772174077789324455915672259473661306552146",
                     10
-                ).unwrap()
+                )
+                .unwrap()
                 .to_bytes_le(),
                 FieldPrime::from(
                     "5472060717959818805561601436314318772174077789324455915672259473661306552146"
-                ).into_byte_vector()
+                )
+                .into_byte_vector()
             );
         }
 
@@ -317,7 +319,8 @@ mod tests {
         fn vec_to_array() {
             let byte_vector: Vec<u8> = FieldPrime::from(
                 "5472060717959818805561601436314318772174077789324455915672259473661306552146",
-            ).into_byte_vector();
+            )
+            .into_byte_vector();
             let array: [u8; 32] = vec_as_u8_32_array(&byte_vector);
             for (index, value) in byte_vector.iter().enumerate() {
                 assert_eq!(*value, array[31 - index]);

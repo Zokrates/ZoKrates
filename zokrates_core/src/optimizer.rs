@@ -47,7 +47,8 @@ impl Optimizer {
                         return Some(self.optimize_function(func));
                     }
                     return None;
-                }).collect(),
+                })
+                .collect(),
         };
         optimized_program
     }
@@ -104,7 +105,8 @@ impl Optimizer {
                     // substitute all other statements
                     _ => Some(statement.apply_direct_substitution(&self.substitution)),
                 }
-            }).collect();
+            })
+            .collect();
 
         // generate optimized arguments by renaming them
         let optimized_arguments = funct

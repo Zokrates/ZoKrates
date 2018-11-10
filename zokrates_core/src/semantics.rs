@@ -590,13 +590,15 @@ impl Checker {
                                 Type::FieldElement => Ok(FieldElementExpression::FunctionCall(
                                     f.id.clone(),
                                     arguments_checked,
-                                ).into()),
+                                )
+                                .into()),
                                 Type::FieldElementArray(size) => {
                                     Ok(FieldElementArrayExpression::FunctionCall(
                                         size,
                                         f.id.clone(),
                                         arguments_checked,
-                                    ).into())
+                                    )
+                                    .into())
                                 }
                                 _ => unimplemented!(),
                             },
@@ -1400,12 +1402,11 @@ mod tests {
                     vec![Type::FieldElement, Type::FieldElement],
                 ),
             ),
-            TypedStatement::Return(vec![
-                FieldElementExpression::Add(
-                    box FieldElementExpression::Identifier("a".to_string()),
-                    box FieldElementExpression::Identifier("b".to_string()),
-                ).into(),
-            ]),
+            TypedStatement::Return(vec![FieldElementExpression::Add(
+                box FieldElementExpression::Identifier("a".to_string()),
+                box FieldElementExpression::Identifier("b".to_string()),
+            )
+            .into()]),
         ];
 
         let foo = FunctionDeclaration {
@@ -1617,7 +1618,8 @@ mod tests {
                 .check_statement::<FieldPrime>(
                     &Statement::Declaration(Variable::field_element("a")),
                     &vec![],
-                ).unwrap();
+                )
+                .unwrap();
 
             assert_eq!(
                 checker.check_assignee(&a),
@@ -1639,7 +1641,8 @@ mod tests {
                 .check_statement::<FieldPrime>(
                     &Statement::Declaration(Variable::field_array("a", 33)),
                     &vec![],
-                ).unwrap();
+                )
+                .unwrap();
 
             assert_eq!(
                 checker.check_assignee(&a),

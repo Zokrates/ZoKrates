@@ -105,7 +105,8 @@ impl<T: Field> Folder<T> for Unroller {
                                     box FieldElementExpression::Number(T::from(i)),
                                 ),
                             )
-                        }).collect(),
+                        })
+                        .collect(),
                 );
 
                 vec![TypedStatement::Definition(
@@ -142,9 +143,11 @@ impl<T: Field> Folder<T> for Unroller {
                                 ),
                             ],
                             stats.clone(),
-                        ].into_iter()
+                        ]
+                        .into_iter()
                         .flat_map(|x| x)
-                    }).flat_map(|x| x)
+                    })
+                    .flat_map(|x| x)
                     .flat_map(|x| self.fold_statement(x))
                     .collect();
 
@@ -318,7 +321,8 @@ mod tests {
                 FieldElementExpression::Add(
                     box FieldElementExpression::Identifier(String::from("a")),
                     box FieldElementExpression::Number(FieldPrime::from(1)),
-                ).into(),
+                )
+                .into(),
             );
             assert_eq!(
                 u.fold_statement(s),
@@ -327,7 +331,8 @@ mod tests {
                     FieldElementExpression::Add(
                         box FieldElementExpression::Identifier(String::from("a_0")),
                         box FieldElementExpression::Number(FieldPrime::from(1))
-                    ).into()
+                    )
+                    .into()
                 )]
             );
         }
@@ -406,7 +411,8 @@ mod tests {
                         FieldElementExpression::Number(FieldPrime::from(1)),
                         FieldElementExpression::Number(FieldPrime::from(1)),
                     ],
-                ).into(),
+                )
+                .into(),
             );
 
             assert_eq!(
@@ -419,7 +425,8 @@ mod tests {
                             FieldElementExpression::Number(FieldPrime::from(1)),
                             FieldElementExpression::Number(FieldPrime::from(1))
                         ]
-                    ).into()
+                    )
+                    .into()
                 )]
             );
 
@@ -467,7 +474,8 @@ mod tests {
                                 ),
                             ),
                         ]
-                    ).into()
+                    )
+                    .into()
                 )]
             );
         }

@@ -120,7 +120,8 @@ mod integration {
                     "Cannot read arguments. Check {}",
                     arguments_path.to_str().unwrap()
                 )),
-            }).collect();
+            })
+            .collect();
 
         let mut compute = vec![
             "../target/release/zokrates",
@@ -173,7 +174,8 @@ mod integration {
                 verification_key_path.to_str().unwrap(),
                 "-m",
                 variable_information_path.to_str().unwrap(),
-            ]).succeeds()
+            ])
+            .succeeds()
             .unwrap();
 
             // EXPORT-VERIFIER
@@ -184,7 +186,8 @@ mod integration {
                 verification_key_path.to_str().unwrap(),
                 "-o",
                 verification_contract_path.to_str().unwrap(),
-            ]).succeeds()
+            ])
+            .succeeds()
             .unwrap();
 
             // GENERATE-PROOF
@@ -197,7 +200,8 @@ mod integration {
                 proving_key_path.to_str().unwrap(),
                 "-i",
                 variable_information_path.to_str().unwrap(),
-            ]).succeeds()
+            ])
+            .succeeds()
             .unwrap();
         }
     }

@@ -85,27 +85,25 @@ impl Flattener {
                     FieldElementExpression::FunctionCall(
                         "_bool_to_field".to_string(),
                         vec![BooleanExpression::Identifier("condition".to_string()).into()],
-                    ).into(),
+                    )
+                    .into(),
                 ),
-                TypedStatement::Return(vec![
-                    FieldElementExpression::Add(
-                        box FieldElementExpression::Mult(
+                TypedStatement::Return(vec![FieldElementExpression::Add(
+                    box FieldElementExpression::Mult(
+                        box FieldElementExpression::Identifier("condition_as_field".to_string()),
+                        box FieldElementExpression::Identifier("consequence".to_string()),
+                    ),
+                    box FieldElementExpression::Mult(
+                        box FieldElementExpression::Sub(
+                            box FieldElementExpression::Number(T::one()),
                             box FieldElementExpression::Identifier(
                                 "condition_as_field".to_string(),
                             ),
-                            box FieldElementExpression::Identifier("consequence".to_string()),
                         ),
-                        box FieldElementExpression::Mult(
-                            box FieldElementExpression::Sub(
-                                box FieldElementExpression::Number(T::one()),
-                                box FieldElementExpression::Identifier(
-                                    "condition_as_field".to_string(),
-                                ),
-                            ),
-                            box FieldElementExpression::Identifier("alternative".to_string()),
-                        ),
-                    ).into(),
-                ]),
+                        box FieldElementExpression::Identifier("alternative".to_string()),
+                    ),
+                )
+                .into()]),
             ],
             signature: Signature::new()
                 .inputs(vec![Type::Boolean, Type::FieldElement, Type::FieldElement])
@@ -443,7 +441,8 @@ impl Flattener {
                     .into_iter()
                     .map(|e| e.get_type())
                     .collect(),
-            ).outputs(return_types);
+            )
+            .outputs(return_types);
 
         for funct in functions_flattened {
             if funct.id == *id && funct.signature == passed_signature {
@@ -465,7 +464,8 @@ impl Flattener {
                             statements_flattened,
                             param_expr,
                         )
-                    }).into_iter()
+                    })
+                    .into_iter()
                     .flat_map(|x| x)
                     .collect::<Vec<_>>();
 
@@ -513,7 +513,8 @@ impl Flattener {
                                     let new_o = self.issue_new_variable();
                                     replacement_map.insert(o, new_o);
                                     new_o
-                                }).collect();
+                                })
+                                .collect();
                             let new_inputs = d
                                 .inputs
                                 .into_iter()
@@ -713,7 +714,8 @@ impl Flattener {
                                 arguments_flattened,
                                 statements_flattened,
                                 base.clone(),
-                            ).apply_recursive_substitution(&self.substitution);
+                            )
+                            .apply_recursive_substitution(&self.substitution);
 
                         // we require from the base to be linear
                         // TODO change that
@@ -743,7 +745,8 @@ impl Flattener {
                                                 e.clone() - T::one(),
                                             ),
                                         ),
-                                    ).apply_recursive_substitution(&self.substitution);
+                                    )
+                                    .apply_recursive_substitution(&self.substitution);
 
                                 let id = self.use_sym();
 
@@ -768,7 +771,8 @@ impl Flattener {
                     &"_if_else_field".to_string(),
                     vec![Type::FieldElement],
                     &vec![condition.into(), consequent.into(), alternative.into()],
-                ).expressions[0]
+                )
+                .expressions[0]
                 .clone(),
             FieldElementExpression::FunctionCall(ref id, ref param_expressions) => {
                 let exprs_flattened = self.flatten_function_call(
@@ -799,7 +803,8 @@ impl Flattener {
                                 arguments_flattened,
                                 statements_flattened,
                                 expressions[n.to_dec_string().parse::<usize>().unwrap()].clone(),
-                            ).apply_recursive_substitution(&self.substitution)
+                            )
+                            .apply_recursive_substitution(&self.substitution)
                         }
                         FieldElementArrayExpression::FunctionCall(..) => {
                             unimplemented!("please use intermediate variables for now")
@@ -820,7 +825,8 @@ impl Flattener {
                                     box FieldElementExpression::Number(T::from(1)),
                                     box FieldElementExpression::Number(T::from(0)),
                                 )
-                            }).fold(FieldElementExpression::Number(T::from(0)), |acc, e| {
+                            })
+                            .fold(FieldElementExpression::Number(T::from(0)), |acc, e| {
                                 FieldElementExpression::Add(box acc, box e)
                             });
 
@@ -863,7 +869,8 @@ impl Flattener {
                                     },
                                     box FieldElementExpression::Number(T::from(0)),
                                 )
-                            }).fold(FieldElementExpression::Number(T::from(0)), |acc, e| {
+                            })
+                            .fold(FieldElementExpression::Number(T::from(0)), |acc, e| {
                                 FieldElementExpression::Add(box acc, box e)
                             });
 
@@ -872,7 +879,8 @@ impl Flattener {
                             arguments_flattened,
                             statements_flattened,
                             lookup,
-                        ).apply_recursive_substitution(&self.substitution)
+                        )
+                        .apply_recursive_substitution(&self.substitution)
                     }
                 }
             }
@@ -893,7 +901,8 @@ impl Flattener {
                         self.get_latest_var_substitution(&format!("{}_c{}", x, index))
                             .clone(),
                     )
-                }).collect(),
+                })
+                .collect(),
             FieldElementArrayExpression::Value(size, values) => {
                 assert_eq!(size, values.len());
                 values
@@ -905,7 +914,8 @@ impl Flattener {
                             statements_flattened,
                             v,
                         )
-                    }).collect()
+                    })
+                    .collect()
             }
             FieldElementArrayExpression::FunctionCall(size, ref id, ref param_expressions) => {
                 let exprs_flattened = self.flatten_function_call(
@@ -940,7 +950,8 @@ impl Flattener {
                             statements_flattened,
                             expr,
                         )
-                    }).flat_map(|x| x)
+                    })
+                    .flat_map(|x| x)
                     .collect::<Vec<_>>();
 
                 let flat_expressions = flat_expressions
@@ -1042,7 +1053,8 @@ impl Flattener {
                                                     box FieldElementExpression::Number(T::from(1)),
                                                     box FieldElementExpression::Number(T::from(0)),
                                                 )
-                                            }).fold(
+                                            })
+                                            .fold(
                                                 FieldElementExpression::Number(T::from(0)),
                                                 |acc, e| {
                                                     FieldElementExpression::Add(box acc, box e)
@@ -1126,13 +1138,15 @@ impl Flattener {
                                 arguments_flattened,
                                 statements_flattened,
                                 e1,
-                            ).apply_recursive_substitution(&self.substitution),
+                            )
+                            .apply_recursive_substitution(&self.substitution),
                             self.flatten_field_expression(
                                 functions_flattened,
                                 arguments_flattened,
                                 statements_flattened,
                                 e2,
-                            ).apply_recursive_substitution(&self.substitution),
+                            )
+                            .apply_recursive_substitution(&self.substitution),
                         );
 
                         if lhs.is_linear() {
@@ -1151,13 +1165,15 @@ impl Flattener {
                                 arguments_flattened,
                                 statements_flattened,
                                 e1,
-                            ).apply_recursive_substitution(&self.substitution),
+                            )
+                            .apply_recursive_substitution(&self.substitution),
                             self.flatten_boolean_expression(
                                 functions_flattened,
                                 arguments_flattened,
                                 statements_flattened,
                                 e2,
-                            ).apply_recursive_substitution(&self.substitution),
+                            )
+                            .apply_recursive_substitution(&self.substitution),
                         );
 
                         if lhs.is_linear() {
@@ -1247,7 +1263,8 @@ impl Flattener {
                                 &fun_id,
                                 var_types,
                                 &exprs,
-                            ).apply_recursive_substitution(&self.substitution);
+                            )
+                            .apply_recursive_substitution(&self.substitution);
 
                         let mut iterator = rhs_flattened.expressions.into_iter();
 
@@ -1620,10 +1637,11 @@ mod tests {
                     FieldElementExpression::Add(
                         box FieldElementExpression::Identifier("a".to_string()),
                         box FieldElementExpression::Number(FieldPrime::from(1)),
-                    ).into(),
+                    )
+                    .into(),
                 ),
                 TypedStatement::Return(vec![
-                    FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                    FieldElementExpression::Number(FieldPrime::from(1)).into()
                 ]),
             ],
         };
@@ -1663,7 +1681,7 @@ mod tests {
                     FieldElementExpression::Number(FieldPrime::from(3)).into(),
                 ),
                 TypedStatement::Return(vec![
-                    FieldElementExpression::Identifier(String::from("a")).into(),
+                    FieldElementExpression::Identifier(String::from("a")).into()
                 ]),
             ],
             signature: Signature {
@@ -1735,10 +1753,11 @@ mod tests {
                     FieldElementExpression::Pow(
                         box FieldElementExpression::Identifier(String::from("a")),
                         box FieldElementExpression::Number(FieldPrime::from(4)),
-                    ).into(),
+                    )
+                    .into(),
                 ),
                 TypedStatement::Return(vec![
-                    FieldElementExpression::Identifier(String::from("b")).into(),
+                    FieldElementExpression::Identifier(String::from("b")).into()
                 ]),
             ],
             signature: Signature {
@@ -1933,7 +1952,8 @@ mod tests {
                     FieldElementExpression::Number(FieldPrime::from(2)),
                     FieldElementExpression::Number(FieldPrime::from(3)),
                 ],
-            ).into(),
+            )
+            .into(),
         );
         let expression = FieldElementArrayExpression::Identifier(3, String::from("foo"));
 
@@ -1978,7 +1998,8 @@ mod tests {
                     FieldElementExpression::Number(FieldPrime::from(2)),
                     FieldElementExpression::Number(FieldPrime::from(3)),
                 ],
-            ).into(),
+            )
+            .into(),
         );
 
         flattener.flatten_statement(
@@ -2025,7 +2046,8 @@ mod tests {
                     FieldElementExpression::Number(FieldPrime::from(2)),
                     FieldElementExpression::Number(FieldPrime::from(3)),
                 ],
-            ).into(),
+            )
+            .into(),
         );
 
         let expression = FieldElementExpression::Select(
@@ -2072,7 +2094,8 @@ mod tests {
                     FieldElementExpression::Number(FieldPrime::from(2)),
                     FieldElementExpression::Number(FieldPrime::from(3)),
                 ],
-            ).into(),
+            )
+            .into(),
         );
 
         let sum = TypedStatement::Definition(
@@ -2092,7 +2115,8 @@ mod tests {
                     box FieldElementArrayExpression::Identifier(3, String::from("foo")),
                     box FieldElementExpression::Number(FieldPrime::from(2)),
                 ),
-            ).into(),
+            )
+            .into(),
         );
 
         flattener.flatten_statement::<FieldPrime>(

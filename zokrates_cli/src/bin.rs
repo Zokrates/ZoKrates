@@ -353,7 +353,8 @@ fn main() {
                             }
                         },
                     }
-                }).collect();
+                })
+                .collect();
 
             let witness_map = main_flattened.get_witness(arguments).unwrap();
 
@@ -364,7 +365,8 @@ fn main() {
                     .filter_map(|(variable, value)| match variable {
                         variable if variable.is_output() => Some(format!("{} {}", variable, value)),
                         _ => None,
-                    }).collect::<Vec<String>>()
+                    })
+                    .collect::<Vec<String>>()
                     .join("\n")
             );
 
@@ -421,7 +423,8 @@ fn main() {
                 &mut bw,
                 "Private inputs offset:\n{}\n",
                 private_inputs_offset
-            ).expect("Unable to write data to file.");
+            )
+            .expect("Unable to write data to file.");
             write!(&mut bw, "R1CS variable order:\n").expect("Unable to write data to file.");
             for var in &variables {
                 write!(&mut bw, "{} ", var).expect("Unable to write data to file.");
@@ -433,12 +436,15 @@ fn main() {
             let pk_path = sub_matches.value_of("proving-key-path").unwrap();
             let vk_path = sub_matches.value_of("verification-key-path").unwrap();
 
-            let public_inputs_indices = main_flattened.arguments.iter().enumerate().filter_map(
-                |(index, x)| match x.private {
-                    true => None,
-                    false => Some(index),
-                },
-            );
+            let public_inputs_indices =
+                main_flattened
+                    .arguments
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(index, x)| match x.private {
+                        true => None,
+                        false => Some(index),
+                    });
 
             let public_inputs = public_inputs_indices
                 .map(|i| main_flattened.signature.inputs[i].get_primitive_count())
