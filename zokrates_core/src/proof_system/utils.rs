@@ -1,5 +1,5 @@
-use flat_absy::flat_variable::FlatVariable;
 use field::Field;
+use flat_absy::flat_variable::FlatVariable;
 use std::ffi::CString;
 
 // utility function. Converts a Fields vector-based byte representation to fixed size array.
@@ -12,7 +12,7 @@ pub fn vec_as_u8_32_array(vec: &Vec<u8>) -> [u8; 32] {
     array
 }
 
-// proof-system-independent preparation for the setup phase 
+// proof-system-independent preparation for the setup phase
 pub fn prepare_setup<T: Field>(
     variables: Vec<FlatVariable>,
     a: Vec<Vec<(usize, T)>>,
@@ -21,7 +21,19 @@ pub fn prepare_setup<T: Field>(
     num_inputs: usize,
     pk_path: &str,
     vk_path: &str,
-) -> (Vec<u8>, Vec<u8>, Vec<u8>, Vec<(i32, i32, [u8; 32])>, Vec<(i32, i32, [u8; 32])>, Vec<(i32, i32, [u8; 32])>, usize, usize, usize, CString, CString) {
+) -> (
+    Vec<u8>,
+    Vec<u8>,
+    Vec<u8>,
+    Vec<(i32, i32, [u8; 32])>,
+    Vec<(i32, i32, [u8; 32])>,
+    Vec<(i32, i32, [u8; 32])>,
+    usize,
+    usize,
+    usize,
+    CString,
+    CString,
+) {
     let num_constraints = a.len();
     let num_variables = variables.len();
 
@@ -117,5 +129,17 @@ pub fn prepare_setup<T: Field>(
     let pk_path_cstring = CString::new(pk_path).unwrap();
     let vk_path_cstring = CString::new(vk_path).unwrap();
 
-    (a_arr, b_arr, c_arr, a_vec, b_vec, c_vec, num_constraints, num_variables, num_inputs, pk_path_cstring, vk_path_cstring)
+    (
+        a_arr,
+        b_arr,
+        c_arr,
+        a_vec,
+        b_vec,
+        c_vec,
+        num_constraints,
+        num_variables,
+        num_inputs,
+        pk_path_cstring,
+        vk_path_cstring,
+    )
 }

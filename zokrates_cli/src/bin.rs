@@ -21,11 +21,11 @@ use std::string::String;
 use zokrates_core::compile::compile;
 use zokrates_core::field::{Field, FieldPrime};
 use zokrates_core::flat_absy::FlatProg;
+use zokrates_core::proof_system::{ProofSystem, PGHR13};
 #[cfg(feature = "libsnark")]
 use zokrates_core::r1cs::r1cs_program;
 use zokrates_core::verification::CONTRACT_TEMPLATE;
 use zokrates_fs_resolver::resolve as fs_resolve;
-use zokrates_core::proof_system::{ProofSystem, PGHR13};
 
 fn main() {
     const FLATTENED_CODE_DEFAULT_PATH: &str = "out";
