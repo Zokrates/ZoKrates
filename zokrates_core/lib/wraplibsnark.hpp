@@ -12,7 +12,7 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 
-bool _setup(const uint8_t* A,
+bool _pghr13_setup(const uint8_t* A,
             const uint8_t* B,
             const uint8_t* C,
             int A_len,
@@ -25,7 +25,7 @@ bool _setup(const uint8_t* A,
             const char* vk_path
           );
 
-bool _generate_proof(const char* pk_path,
+bool _pghr13_generate_proof(const char* pk_path,
             const char* proof_path,
             const uint8_t* public_inputs,
             int public_inputs_length,

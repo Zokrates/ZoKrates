@@ -25,6 +25,9 @@ mod static_analysis;
 mod typed_absy;
 mod types;
 
+
+#[cfg(feature = "libsnark")]
+pub mod proof_system;
 pub mod absy;
 pub mod compile;
 pub mod field;

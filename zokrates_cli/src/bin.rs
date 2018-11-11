@@ -22,10 +22,10 @@ use zokrates_core::compile::compile;
 use zokrates_core::field::{Field, FieldPrime};
 use zokrates_core::flat_absy::FlatProg;
 #[cfg(feature = "libsnark")]
-use zokrates_core::libsnark::{generate_proof, setup};
 use zokrates_core::r1cs::r1cs_program;
 use zokrates_core::verification::CONTRACT_TEMPLATE;
 use zokrates_fs_resolver::resolve as fs_resolve;
+use zokrates_core::proof_system::{ProofSystem, PGHR13};
 
 fn main() {
     const FLATTENED_CODE_DEFAULT_PATH: &str = "out";
@@ -444,7 +444,7 @@ fn main() {
                 // number of inputs in the zkSNARK sense, i.e., input variables + output variables
                 println!(
                     "setup successful: {:?}",
-                    setup(
+                    PGHR13::setup(
                         variables,
                         a,
                         b,
@@ -616,7 +616,7 @@ fn main() {
             {
                 println!(
                     "generate-proof successful: {:?}",
-                    generate_proof(pk_path, proof_path, public_inputs, private_inputs)
+                    PGHR13::generate_proof(pk_path, proof_path, public_inputs, private_inputs)
                 );
             }
         }
