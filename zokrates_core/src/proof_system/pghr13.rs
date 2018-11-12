@@ -9,6 +9,12 @@ use field::Field;
 
 pub struct PGHR13 {}
 
+impl PGHR13 {
+    pub fn new() -> Self {
+        PGHR13 {}
+    }
+}
+
 extern "C" {
     fn _pghr13_setup(
         A: *const uint8_t,
@@ -36,6 +42,7 @@ extern "C" {
 
 impl ProofSystem for PGHR13 {
     fn setup<T: Field>(
+        &self,
         variables: Vec<FlatVariable>,
         a: Vec<Vec<(usize, T)>>,
         b: Vec<Vec<(usize, T)>>,
@@ -76,6 +83,7 @@ impl ProofSystem for PGHR13 {
     }
 
     fn generate_proof<T: Field>(
+        &self,
         pk_path: &str,
         proof_path: &str,
         public_inputs: Vec<T>,

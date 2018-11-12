@@ -8,6 +8,7 @@ use flat_absy::flat_variable::FlatVariable;
 
 pub trait ProofSystem {
     fn setup<T: Field>(
+        &self,
         variables: Vec<FlatVariable>,
         a: Vec<Vec<(usize, T)>>,
         b: Vec<Vec<(usize, T)>>,
@@ -18,6 +19,7 @@ pub trait ProofSystem {
     ) -> bool;
 
     fn generate_proof<T: Field>(
+        &self,
         pk_path: &str,
         proof_path: &str,
         public_inputs: Vec<T>,
