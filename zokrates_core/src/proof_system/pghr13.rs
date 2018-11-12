@@ -2,17 +2,14 @@ extern crate libc;
 
 use self::libc::{c_char, c_int, uint8_t};
 use flat_absy::flat_variable::FlatVariable;
-use proof_system::utils::{prepare_setup, vec_as_u8_32_array};
+use proof_system::utils::{prepare_generate_proof, prepare_setup};
 use proof_system::ProofSystem;
-use std::cmp::max;
-use std::ffi::CString;
 
 use field::Field;
 
 pub struct PGHR13 {}
 
 extern "C" {
-
     fn _pghr13_setup(
         A: *const uint8_t,
         B: *const uint8_t,
@@ -84,23 +81,14 @@ impl ProofSystem for PGHR13 {
         public_inputs: Vec<T>,
         private_inputs: Vec<T>,
     ) -> bool {
-        let pk_path_cstring = CString::new(pk_path).unwrap();
-        let proof_path_cstring = CString::new(proof_path).unwrap();
-
-        let public_inputs_length = public_inputs.len();
-        let private_inputs_length = private_inputs.len();
-
-        let mut public_inputs_arr: Vec<[u8; 32]> = vec![[0u8; 32]; public_inputs_length];
-        // length must not be zero here, so we apply the max function
-        let mut private_inputs_arr: Vec<[u8; 32]> = vec![[0u8; 32]; max(private_inputs_length, 1)];
-
-        //convert inputs
-        for (index, value) in public_inputs.into_iter().enumerate() {
-            public_inputs_arr[index] = vec_as_u8_32_array(&value.into_byte_vector());
-        }
-        for (index, value) in private_inputs.into_iter().enumerate() {
-            private_inputs_arr[index] = vec_as_u8_32_array(&value.into_byte_vector());
-        }
+        let (
+            pk_path_cstring,
+            proof_path_cstring,
+            public_inputs_arr,
+            public_inputs_length,
+            private_inputs_arr,
+            private_inputs_length,
+        ) = prepare_generate_proof(pk_path, proof_path, public_inputs, private_inputs);
 
         unsafe {
             _pghr13_generate_proof(
