@@ -398,7 +398,12 @@ fn main() {
             {
                 println!("Performing setup...");
 
-                let backend = match sub_matches.value_of("backend").unwrap().to_lowercase().as_ref() {
+                let backend = match sub_matches
+                    .value_of("backend")
+                    .unwrap()
+                    .to_lowercase()
+                    .as_ref()
+                {
                     "pghr13" => PGHR13::new(),
                     s => panic!("Backend \"{}\" not supported", s),
                 };
