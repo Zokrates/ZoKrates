@@ -34,4 +34,3 @@ pub mod libsnark;
 #[cfg(feature = "libsnark")]
 pub mod proof_system;
 pub mod r1cs;
-pub mod verification;

@@ -1,28 +1,33 @@
-mod pghr13;
+mod bn128;
 mod utils;
 
-pub use self::pghr13::PGHR13;
+use field::FieldPrime;
+use std::fs::File;
 
-use field::Field;
+pub use self::bn128::GM17;
+pub use self::bn128::PGHR13;
 use flat_absy::flat_variable::FlatVariable;
+use std::io::BufReader;
 
 pub trait ProofSystem {
-    fn setup<T: Field>(
+    fn setup(
         &self,
         variables: Vec<FlatVariable>,
-        a: Vec<Vec<(usize, T)>>,
-        b: Vec<Vec<(usize, T)>>,
-        c: Vec<Vec<(usize, T)>>,
+        a: Vec<Vec<(usize, FieldPrime)>>,
+        b: Vec<Vec<(usize, FieldPrime)>>,
+        c: Vec<Vec<(usize, FieldPrime)>>,
         num_inputs: usize,
         pk_path: &str,
         vk_path: &str,
     ) -> bool;
 
-    fn generate_proof<T: Field>(
+    fn generate_proof(
         &self,
         pk_path: &str,
         proof_path: &str,
-        public_inputs: Vec<T>,
-        private_inputs: Vec<T>,
+        public_inputs: Vec<FieldPrime>,
+        private_inputs: Vec<FieldPrime>,
     ) -> bool;
+
+    fn export_solidity_verifier(&self, reader: BufReader<File>) -> String;
 }

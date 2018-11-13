@@ -12,8 +12,9 @@ extern crate zokrates_fs_resolver;
 
 use bincode::{deserialize_from, serialize_into, Infinite};
 use clap::{App, AppSettings, Arg, SubCommand};
-use regex::Regex;
+#[cfg(feature = "libsnark")]
 use std::collections::HashMap;
+use std::env;
 use std::fs::File;
 use std::io::{stdin, BufRead, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
@@ -21,10 +22,10 @@ use std::string::String;
 use zokrates_core::compile::compile;
 use zokrates_core::field::{Field, FieldPrime};
 use zokrates_core::flat_absy::FlatProg;
-use zokrates_core::proof_system::{ProofSystem, PGHR13};
+#[cfg(feature = "libsnark")]
+use zokrates_core::proof_system::{ProofSystem, GM17, PGHR13};
 #[cfg(feature = "libsnark")]
 use zokrates_core::r1cs::r1cs_program;
-use zokrates_core::verification::CONTRACT_TEMPLATE;
 use zokrates_fs_resolver::resolve as fs_resolve;
 
 fn main() {
@@ -35,7 +36,7 @@ fn main() {
     const WITNESS_DEFAULT_PATH: &str = "witness";
     const VARIABLES_INFORMATION_KEY_DEFAULT_PATH: &str = "variables.inf";
     const JSON_PROOF_PATH: &str = "proof.json";
-    const DEFAULT_BACKEND: &str = "pghr13";
+    let default_backend = env::var("ZOKRATES_BACKEND").unwrap_or(String::from("pghr13"));
 
     // cli specification using clap library
     let matches = App::new("ZoKrates")
@@ -107,11 +108,11 @@ fn main() {
         .arg(Arg::with_name("backend")
             .short("b")
             .long("backend")
-            .help("Backend to use in the setup. Currently only PGHR13")
+            .help("Backend to use in the setup. Available options are PGHR13 and GM17")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
-            .default_value(DEFAULT_BACKEND)
+            .default_value(&default_backend)
         )
     )
     .subcommand(SubCommand::with_name("export-verifier")
@@ -133,6 +134,14 @@ fn main() {
             .takes_value(true)
             .required(false)
             .default_value(VERIFICATION_CONTRACT_DEFAULT_PATH)
+        ).arg(Arg::with_name("backend")
+            .short("b")
+            .long("backend")
+            .help("Backend to use to export the verifier. Available options are PGHR13 and GM17")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(&default_backend)
         )
     )
     .subcommand(SubCommand::with_name("compute-witness")
@@ -200,6 +209,14 @@ fn main() {
             .takes_value(true)
             .required(false)
             .default_value(VARIABLES_INFORMATION_KEY_DEFAULT_PATH)
+        ).arg(Arg::with_name("backend")
+            .short("b")
+            .long("backend")
+            .help("Backend to use to generate the proof. Available options are PGHR13 and GM17")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(&default_backend)
         )
     )
     .get_matches();
@@ -393,256 +410,215 @@ fn main() {
             }
             bw.flush().expect("Unable to flush buffer.");
         }
+        #[cfg(feature = "libsnark")]
         ("setup", Some(sub_matches)) => {
-            #[cfg(feature = "libsnark")]
-            {
-                println!("Performing setup...");
+            println!("Performing setup...");
 
-                let backend = match sub_matches
+            let backend: &ProofSystem = match sub_matches
+                .value_of("backend")
+                .unwrap()
+                .to_lowercase()
+                .as_ref()
+            {
+                "pghr13" => &PGHR13 {},
+                "gm17" => &GM17 {},
+                s => panic!("Backend \"{}\" not supported", s),
+            };
+
+            let path = Path::new(sub_matches.value_of("input").unwrap());
+            let mut file = match File::open(&path) {
+                Ok(file) => file,
+                Err(why) => panic!("couldn't open {}: {}", path.display(), why),
+            };
+
+            let program_ast: FlatProg<FieldPrime> = match deserialize_from(&mut file, Infinite) {
+                Ok(x) => x,
+                Err(why) => {
+                    println!("{:?}", why);
+                    std::process::exit(1);
+                }
+            };
+
+            let main_flattened = program_ast
+                .functions
+                .iter()
+                .find(|x| x.id == "main")
+                .unwrap();
+
+            // print deserialized flattened program
+            println!("{}", main_flattened);
+
+            // transform to R1CS
+            let (variables, public_variables_count, a, b, c) = r1cs_program(&program_ast);
+
+            // write variables meta information to file
+            let var_inf_path = Path::new(sub_matches.value_of("meta-information").unwrap());
+            let var_inf_file = match File::create(&var_inf_path) {
+                Ok(file) => file,
+                Err(why) => panic!("couldn't open {}: {}", var_inf_path.display(), why),
+            };
+            let mut bw = BufWriter::new(var_inf_file);
+
+            write!(
+                &mut bw,
+                "Private inputs offset:\n{}\n",
+                public_variables_count
+            )
+            .expect("Unable to write data to file.");
+            write!(&mut bw, "R1CS variable order:\n").expect("Unable to write data to file.");
+
+            for var in &variables {
+                write!(&mut bw, "{} ", var).expect("Unable to write data to file.");
+            }
+            write!(&mut bw, "\n").expect("Unable to write data to file.");
+            bw.flush().expect("Unable to flush buffer.");
+
+            // get paths for proving and verification keys
+            let pk_path = sub_matches.value_of("proving-key-path").unwrap();
+            let vk_path = sub_matches.value_of("verification-key-path").unwrap();
+
+            // run setup phase
+            // number of inputs in the zkSNARK sense, i.e., input variables + output variables
+            println!(
+                "setup successful: {:?}",
+                backend.setup(
+                    variables,
+                    a,
+                    b,
+                    c,
+                    public_variables_count - 1,
+                    pk_path,
+                    vk_path
+                )
+            );
+        }
+        #[cfg(feature = "libsnark")]
+        ("export-verifier", Some(sub_matches)) => {
+            {
+                println!("Exporting verifier...");
+
+                let backend: &ProofSystem = match sub_matches
                     .value_of("backend")
                     .unwrap()
                     .to_lowercase()
                     .as_ref()
                 {
-                    "pghr13" => PGHR13::new(),
+                    "pghr13" => &PGHR13 {},
+                    "gm17" => &GM17 {},
                     s => panic!("Backend \"{}\" not supported", s),
                 };
 
-                let path = Path::new(sub_matches.value_of("input").unwrap());
-                let mut file = match File::open(&path) {
+                // read vk file
+                let input_path = Path::new(sub_matches.value_of("input").unwrap());
+                let input_file = match File::open(&input_path) {
+                    Ok(input_file) => input_file,
+                    Err(why) => panic!("couldn't open {}: {}", input_path.display(), why),
+                };
+                let reader = BufReader::new(input_file);
+
+                let verifier = backend.export_solidity_verifier(reader);
+
+                //write output file
+                let output_path = Path::new(sub_matches.value_of("output").unwrap());
+                let mut output_file = match File::create(&output_path) {
                     Ok(file) => file,
-                    Err(why) => panic!("couldn't open {}: {}", path.display(), why),
+                    Err(why) => panic!("couldn't create {}: {}", output_path.display(), why),
                 };
 
-                let program_ast: FlatProg<FieldPrime> = match deserialize_from(&mut file, Infinite)
-                {
-                    Ok(x) => x,
-                    Err(why) => {
-                        println!("{:?}", why);
-                        std::process::exit(1);
-                    }
-                };
-
-                let main_flattened = program_ast
-                    .functions
-                    .iter()
-                    .find(|x| x.id == "main")
-                    .unwrap();
-
-                // print deserialized flattened program
-                println!("{}", main_flattened);
-
-                // transform to R1CS
-                let (variables, public_variables_count, a, b, c) = r1cs_program(&program_ast);
-
-                // write variables meta information to file
-                let var_inf_path = Path::new(sub_matches.value_of("meta-information").unwrap());
-                let var_inf_file = match File::create(&var_inf_path) {
-                    Ok(file) => file,
-                    Err(why) => panic!("couldn't open {}: {}", var_inf_path.display(), why),
-                };
-                let mut bw = BufWriter::new(var_inf_file);
-
-                write!(
-                    &mut bw,
-                    "Private inputs offset:\n{}\n",
-                    public_variables_count
-                )
-                .expect("Unable to write data to file.");
-                write!(&mut bw, "R1CS variable order:\n").expect("Unable to write data to file.");
-
-                for var in &variables {
-                    write!(&mut bw, "{} ", var).expect("Unable to write data to file.");
-                }
-                write!(&mut bw, "\n").expect("Unable to write data to file.");
-                bw.flush().expect("Unable to flush buffer.");
-
-                // get paths for proving and verification keys
-                let pk_path = sub_matches.value_of("proving-key-path").unwrap();
-                let vk_path = sub_matches.value_of("verification-key-path").unwrap();
-
-                // run setup phase
-                // number of inputs in the zkSNARK sense, i.e., input variables + output variables
-                println!(
-                    "setup successful: {:?}",
-                    backend.setup(
-                        variables,
-                        a,
-                        b,
-                        c,
-                        public_variables_count - 1,
-                        pk_path,
-                        vk_path
-                    )
-                );
+                output_file
+                    .write_all(&verifier.as_bytes())
+                    .expect("Failed writing output to file.");
+                println!("Finished exporting verifier.");
             }
         }
-        ("export-verifier", Some(sub_matches)) => {
-            println!("Exporting verifier...");
-            // read vk file
-            let input_path = Path::new(sub_matches.value_of("input").unwrap());
-            let input_file = match File::open(&input_path) {
-                Ok(input_file) => input_file,
-                Err(why) => panic!("couldn't open {}: {}", input_path.display(), why),
-            };
-            let reader = BufReader::new(input_file);
-            let mut lines = reader.lines();
-
-            let mut template_text = String::from(CONTRACT_TEMPLATE);
-            let ic_template = String::from("vk.IC[index] = Pairing.G1Point(points);"); //copy this for each entry
-
-            //replace things in template
-            let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
-            let vk_ic_len_regex = Regex::new(r#"(<%vk_ic_length%>)"#).unwrap();
-            let vk_ic_index_regex = Regex::new(r#"index"#).unwrap();
-            let vk_ic_points_regex = Regex::new(r#"points"#).unwrap();
-            let vk_ic_repeat_regex = Regex::new(r#"(<%vk_ic_pts%>)"#).unwrap();
-            let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
-
-            for _ in 0..7 {
-                let current_line: String = lines
-                    .next()
-                    .expect("Unexpected end of file in verification key!")
-                    .unwrap();
-                let current_line_split: Vec<&str> = current_line.split("=").collect();
-                assert_eq!(current_line_split.len(), 2);
-                template_text = vk_regex
-                    .replace(template_text.as_str(), current_line_split[1].trim())
-                    .into_owned();
-            }
-
-            let current_line: String = lines
-                .next()
-                .expect("Unexpected end of file in verification key!")
-                .unwrap();
-            let current_line_split: Vec<&str> = current_line.split("=").collect();
-            assert_eq!(current_line_split.len(), 2);
-            let ic_count: i32 = current_line_split[1].trim().parse().unwrap();
-
-            template_text = vk_ic_len_regex
-                .replace(template_text.as_str(), format!("{}", ic_count).as_str())
-                .into_owned();
-            template_text = vk_input_len_regex
-                .replace(template_text.as_str(), format!("{}", ic_count - 1).as_str())
-                .into_owned();
-
-            let mut ic_repeat_text = String::new();
-            for x in 0..ic_count {
-                let mut curr_template = ic_template.clone();
-                let current_line: String = lines
-                    .next()
-                    .expect("Unexpected end of file in verification key!")
-                    .unwrap();
-                let current_line_split: Vec<&str> = current_line.split("=").collect();
-                assert_eq!(current_line_split.len(), 2);
-                curr_template = vk_ic_index_regex
-                    .replace(curr_template.as_str(), format!("{}", x).as_str())
-                    .into_owned();
-                curr_template = vk_ic_points_regex
-                    .replace(curr_template.as_str(), current_line_split[1].trim())
-                    .into_owned();
-                ic_repeat_text.push_str(curr_template.as_str());
-                if x < ic_count - 1 {
-                    ic_repeat_text.push_str("\n        ");
-                }
-            }
-            template_text = vk_ic_repeat_regex
-                .replace(template_text.as_str(), ic_repeat_text.as_str())
-                .into_owned();
-
-            //write output file
-            let output_path = Path::new(sub_matches.value_of("output").unwrap());
-            let mut output_file = match File::create(&output_path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't create {}: {}", output_path.display(), why),
-            };
-            output_file
-                .write_all(&template_text.as_bytes())
-                .expect("Failed writing output to file.");
-            println!("Finished exporting verifier.");
-        }
+        #[cfg(feature = "libsnark")]
         ("generate-proof", Some(sub_matches)) => {
-            #[cfg(feature = "libsnark")]
+            println!("Generating proof...");
+
+            let backend: &ProofSystem = match sub_matches
+                .value_of("backend")
+                .unwrap()
+                .to_lowercase()
+                .as_ref()
             {
-                println!("Generating proof...");
+                "pghr13" => &PGHR13 {},
+                "gm17" => &GM17 {},
+                s => panic!("Backend \"{}\" not supported", s),
+            };
 
-                let backend = PGHR13::new();
+            // deserialize witness
+            let witness_path = Path::new(sub_matches.value_of("witness").unwrap());
+            let witness_file = match File::open(&witness_path) {
+                Ok(file) => file,
+                Err(why) => panic!("couldn't open {}: {}", witness_path.display(), why),
+            };
 
-                // deserialize witness
-                let witness_path = Path::new(sub_matches.value_of("witness").unwrap());
-                let witness_file = match File::open(&witness_path) {
-                    Ok(file) => file,
-                    Err(why) => panic!("couldn't open {}: {}", witness_path.display(), why),
-                };
+            let reader = BufReader::new(witness_file);
+            let mut lines = reader.lines();
+            let mut witness_map = HashMap::new();
 
-                let reader = BufReader::new(witness_file);
-                let mut lines = reader.lines();
-                let mut witness_map = HashMap::new();
-
-                loop {
-                    match lines.next() {
-                        Some(Ok(ref x)) => {
-                            let pairs: Vec<&str> = x.split_whitespace().collect();
-                            witness_map.insert(
-                                pairs[0].to_string(),
-                                FieldPrime::from_dec_string(pairs[1].to_string()),
-                            );
-                        }
-                        None => break,
-                        Some(Err(err)) => panic!("Error reading witness: {}", err),
+            loop {
+                match lines.next() {
+                    Some(Ok(ref x)) => {
+                        let pairs: Vec<&str> = x.split_whitespace().collect();
+                        witness_map.insert(
+                            pairs[0].to_string(),
+                            FieldPrime::from_dec_string(pairs[1].to_string()),
+                        );
                     }
+                    None => break,
+                    Some(Err(err)) => panic!("Error reading witness: {}", err),
                 }
-
-                // determine variable order
-                let var_inf_path = Path::new(sub_matches.value_of("meta-information").unwrap());
-                let var_inf_file = match File::open(&var_inf_path) {
-                    Ok(file) => file,
-                    Err(why) => panic!("couldn't open {}: {}", var_inf_path.display(), why),
-                };
-                let var_reader = BufReader::new(var_inf_file);
-                let mut var_lines = var_reader.lines();
-
-                // get private inputs offset
-                let private_inputs_offset;
-                if let Some(Ok(ref o)) = var_lines.nth(1) {
-                    // consumes first 2 lines
-                    private_inputs_offset =
-                        o.parse().expect("Failed parsing private inputs offset");
-                } else {
-                    panic!("Error reading private inputs offset");
-                }
-
-                // get variables vector
-                let mut variables: Vec<String> = Vec::new();
-                if let Some(Ok(ref v)) = var_lines.nth(1) {
-                    let iter = v.split_whitespace();
-                    for i in iter {
-                        variables.push(i.to_string());
-                    }
-                } else {
-                    panic!("Error reading variables.");
-                }
-
-                println!("Using Witness: {:?}", witness_map);
-
-                let witness: Vec<_> = variables.iter().map(|x| witness_map[x].clone()).collect();
-
-                // split witness into public and private inputs at offset
-                let mut public_inputs: Vec<_> = witness.clone();
-                let private_inputs: Vec<_> = public_inputs.split_off(private_inputs_offset);
-
-                println!("Public inputs: {:?}", public_inputs);
-                println!("Private inputs: {:?}", private_inputs);
-
-                let pk_path = sub_matches.value_of("provingkey").unwrap();
-                let proof_path = sub_matches.value_of("proofpath").unwrap();
-
-                // run libsnark
-                println!(
-                    "generate-proof successful: {:?}",
-                    backend.generate_proof(pk_path, proof_path, public_inputs, private_inputs)
-                );
             }
+
+            // determine variable order
+            let var_inf_path = Path::new(sub_matches.value_of("meta-information").unwrap());
+            let var_inf_file = match File::open(&var_inf_path) {
+                Ok(file) => file,
+                Err(why) => panic!("couldn't open {}: {}", var_inf_path.display(), why),
+            };
+            let var_reader = BufReader::new(var_inf_file);
+            let mut var_lines = var_reader.lines();
+
+            // get private inputs offset
+            let private_inputs_offset;
+            if let Some(Ok(ref o)) = var_lines.nth(1) {
+                // consumes first 2 lines
+                private_inputs_offset = o.parse().expect("Failed parsing private inputs offset");
+            } else {
+                panic!("Error reading private inputs offset");
+            }
+
+            // get variables vector
+            let mut variables: Vec<String> = Vec::new();
+            if let Some(Ok(ref v)) = var_lines.nth(1) {
+                let iter = v.split_whitespace();
+                for i in iter {
+                    variables.push(i.to_string());
+                }
+            } else {
+                panic!("Error reading variables.");
+            }
+
+            println!("Using Witness: {:?}", witness_map);
+
+            let witness: Vec<_> = variables.iter().map(|x| witness_map[x].clone()).collect();
+
+            // split witness into public and private inputs at offset
+            let mut public_inputs: Vec<_> = witness.clone();
+            let private_inputs: Vec<_> = public_inputs.split_off(private_inputs_offset);
+
+            println!("Public inputs: {:?}", public_inputs);
+            println!("Private inputs: {:?}", private_inputs);
+
+            let pk_path = sub_matches.value_of("provingkey").unwrap();
+            let proof_path = sub_matches.value_of("proofpath").unwrap();
+
+            // run libsnark
+            println!(
+                "generate-proof successful: {:?}",
+                backend.generate_proof(pk_path, proof_path, public_inputs, private_inputs)
+            );
         }
         _ => unimplemented!(), // Either no subcommand or one not tested for...
     }

@@ -5,7 +5,8 @@
  * @date 2017
  */
 
-#include "wraplibsnark.hpp"
+#include "util.hpp"
+#include "pghr13.hpp"
 #include <fstream>
 #include <iostream>
 #include <cassert>
@@ -21,80 +22,7 @@ typedef long integer_coeff_t;
 using namespace std;
 using namespace libsnark;
 
-// conversion byte[32] <-> libsnark bigint.
-libff::bigint<libff::alt_bn128_r_limbs> libsnarkBigintFromBytes(const uint8_t* _x)
-{
-  libff::bigint<libff::alt_bn128_r_limbs> x;
-
-  for (unsigned i = 0; i < 4; i++) {
-    for (unsigned j = 0; j < 8; j++) {
-      x.data[3 - i] |= uint64_t(_x[i * 8 + j]) << (8 * (7-j));
-    }
-  }
-  return x;
-}
-
-std::string HexStringFromLibsnarkBigint(libff::bigint<libff::alt_bn128_r_limbs> _x){
-    uint8_t x[32];
-    for (unsigned i = 0; i < 4; i++)
-        for (unsigned j = 0; j < 8; j++)
-          x[i * 8 + j] = uint8_t(uint64_t(_x.data[3 - i]) >> (8 * (7 - j)));
-
-    std::stringstream ss;
-    ss << std::setfill('0');
-    for (unsigned i = 0; i<32; i++) {
-            ss << std::hex << std::setw(2) << (int)x[i];
-    }
-
-    std::string str = ss.str();
-    return str.erase(0, min(str.find_first_not_of('0'), str.size()-1));
-}
-
-std::string outputPointG1AffineAsHex(libff::alt_bn128_G1 _p)
-{
-        libff::alt_bn128_G1 aff = _p;
-        aff.to_affine_coordinates();
-        return
-                "0x" +
-                HexStringFromLibsnarkBigint(aff.X.as_bigint()) +
-                ", 0x" +
-                HexStringFromLibsnarkBigint(aff.Y.as_bigint());
-}
-
-std::string outputPointG1AffineAsHexJson(libff::alt_bn128_G1 _p)
-{
-        libff::alt_bn128_G1 aff = _p;
-        aff.to_affine_coordinates();
-        return
-                "[\"0x" +
-                HexStringFromLibsnarkBigint(aff.X.as_bigint()) +
-                "\", \"0x" +
-                HexStringFromLibsnarkBigint(aff.Y.as_bigint())+"\"]";
-}
-
-std::string outputPointG2AffineAsHex(libff::alt_bn128_G2 _p)
-{
-        libff::alt_bn128_G2 aff = _p;
-        aff.to_affine_coordinates();
-        return
-                "[0x" +
-                HexStringFromLibsnarkBigint(aff.X.c1.as_bigint()) + ", 0x" +
-                HexStringFromLibsnarkBigint(aff.X.c0.as_bigint()) + "], [0x" +
-                HexStringFromLibsnarkBigint(aff.Y.c1.as_bigint()) + ", 0x" +
-                HexStringFromLibsnarkBigint(aff.Y.c0.as_bigint()) + "]";
-}
-
-std::string outputPointG2AffineAsHexJson(libff::alt_bn128_G2 _p)
-{
-        libff::alt_bn128_G2 aff = _p;
-        aff.to_affine_coordinates();
-        return
-                "[[\"0x" +
-                HexStringFromLibsnarkBigint(aff.X.c1.as_bigint()) + "\", \"0x" +
-                HexStringFromLibsnarkBigint(aff.X.c0.as_bigint()) + "\"], [\"0x" +
-                HexStringFromLibsnarkBigint(aff.Y.c1.as_bigint()) + "\", \"0x" +
-                HexStringFromLibsnarkBigint(aff.Y.c0.as_bigint()) + "\"]]";
-}
+namespace pghr13 {
 
 //takes input and puts it into constraint system
 r1cs_ppzksnark_constraint_system<libff::alt_bn128_pp> createConstraintSystem(const uint8_t* A, const uint8_t* B, const uint8_t* C, int A_len, int B_len, int C_len, int constraints, int variables, int inputs)
@@ -156,36 +84,6 @@ r1cs_ppzksnark_keypair<libff::alt_bn128_pp> generateKeypair(const r1cs_ppzksnark
   return r1cs_ppzksnark_generator<libff::alt_bn128_pp>(cs);
 }
 
-template<typename T>
-void writeToFile(std::string path, T& obj) {
-    std::stringstream ss;
-    ss << obj;
-    std::ofstream fh;
-    fh.open(path, std::ios::binary);
-    ss.rdbuf()->pubseekpos(0, std::ios_base::out);
-    fh << ss.rdbuf();
-    fh.flush();
-    fh.close();
-}
-
-template<typename T>
-T loadFromFile(std::string path) {
-    std::stringstream ss;
-    std::ifstream fh(path, std::ios::binary);
-
-    assert(fh.is_open());
-
-    ss << fh.rdbuf();
-    fh.close();
-
-    ss.rdbuf()->pubseekpos(0, std::ios_base::in);
-
-    T obj;
-    ss >> obj;
-
-    return obj;
-}
-
 void serializeProvingKeyToFile(r1cs_ppzksnark_proving_key<libff::alt_bn128_pp> pk, const char* pk_path){
   writeToFile(pk_path, pk);
 }
@@ -224,37 +122,27 @@ void serializeVerificationKeyToFile(r1cs_ppzksnark_verification_key<libff::alt_b
 
 // compliant with solidty verification example
 void exportVerificationKey(r1cs_ppzksnark_keypair<libff::alt_bn128_pp> keypair){
-        unsigned icLength = keypair.vk.encoded_IC_query.rest.indices.size() + 1;
+        auto vk = keypair.vk;
+        unsigned icLength = vk.encoded_IC_query.rest.indices.size() + 1;
 
         cout << "\tVerification key in Solidity compliant format:{" << endl;
-        cout << "\t\tvk.A = Pairing.G2Point(" << outputPointG2AffineAsHex(keypair.vk.alphaA_g2) << ");" << endl;
-        cout << "\t\tvk.B = Pairing.G1Point(" << outputPointG1AffineAsHex(keypair.vk.alphaB_g1) << ");" << endl;
-        cout << "\t\tvk.C = Pairing.G2Point(" << outputPointG2AffineAsHex(keypair.vk.alphaC_g2) << ");" << endl;
-        cout << "\t\tvk.gamma = Pairing.G2Point(" << outputPointG2AffineAsHex(keypair.vk.gamma_g2) << ");" << endl;
-        cout << "\t\tvk.gammaBeta1 = Pairing.G1Point(" << outputPointG1AffineAsHex(keypair.vk.gamma_beta_g1) << ");" << endl;
-        cout << "\t\tvk.gammaBeta2 = Pairing.G2Point(" << outputPointG2AffineAsHex(keypair.vk.gamma_beta_g2) << ");" << endl;
-        cout << "\t\tvk.Z = Pairing.G2Point(" << outputPointG2AffineAsHex(keypair.vk.rC_Z_g2) << ");" << endl;
+        cout << "\t\tvk.A = Pairing.G2Point(" << outputPointG2AffineAsHex(vk.alphaA_g2) << ");" << endl;
+        cout << "\t\tvk.B = Pairing.G1Point(" << outputPointG1AffineAsHex(vk.alphaB_g1) << ");" << endl;
+        cout << "\t\tvk.C = Pairing.G2Point(" << outputPointG2AffineAsHex(vk.alphaC_g2) << ");" << endl;
+        cout << "\t\tvk.gamma = Pairing.G2Point(" << outputPointG2AffineAsHex(vk.gamma_g2) << ");" << endl;
+        cout << "\t\tvk.gammaBeta1 = Pairing.G1Point(" << outputPointG1AffineAsHex(vk.gamma_beta_g1) << ");" << endl;
+        cout << "\t\tvk.gammaBeta2 = Pairing.G2Point(" << outputPointG2AffineAsHex(vk.gamma_beta_g2) << ");" << endl;
+        cout << "\t\tvk.Z = Pairing.G2Point(" << outputPointG2AffineAsHex(vk.rC_Z_g2) << ");" << endl;
         cout << "\t\tvk.IC = new Pairing.G1Point[](" << icLength << ");" << endl;
-        cout << "\t\tvk.IC[0] = Pairing.G1Point(" << outputPointG1AffineAsHex(keypair.vk.encoded_IC_query.first) << ");" << endl;
+        cout << "\t\tvk.IC[0] = Pairing.G1Point(" << outputPointG1AffineAsHex(vk.encoded_IC_query.first) << ");" << endl;
         for (size_t i = 1; i < icLength; ++i)
         {
-                auto vkICi = outputPointG1AffineAsHex(keypair.vk.encoded_IC_query.rest.values[i - 1]);
+                auto vkICi = outputPointG1AffineAsHex(vk.encoded_IC_query.rest.values[i - 1]);
                 cout << "\t\tvk.IC[" << i << "] = Pairing.G1Point(" << vkICi << ");" << endl;
         }
         cout << "\t\t}" << endl;
 
 }
-
-// compliant with solidty verification example
-void exportInput(r1cs_primary_input<libff::Fr<libff::alt_bn128_pp>> input){
-        cout << "\tInput in Solidity compliant format:{" << endl;
-        for (size_t i = 0; i < input.size(); ++i)
-        {
-                cout << "\t\tinput[" << i << "] = " << HexStringFromLibsnarkBigint(input[i].as_bigint()) << ";" << endl;
-        }
-        cout << "\t\t}" << endl;
-}
-
 
 void printProof(r1cs_ppzksnark_proof<libff::alt_bn128_pp> proof, const char* proof_path, const uint8_t* public_inputs,
             int public_inputs_length){
@@ -300,6 +188,18 @@ void printProof(r1cs_ppzksnark_proof<libff::alt_bn128_pp> proof, const char* pro
                 writeToFile(proof_path, s);
 }
 
+}
+
+// compliant with solidty verification example
+void exportInput(r1cs_primary_input<libff::Fr<libff::alt_bn128_pp>> input){
+        cout << "\tInput in Solidity compliant format:{" << endl;
+        for (size_t i = 0; i < input.size(); ++i)
+        {
+                cout << "\t\tinput[" << i << "] = " << HexStringFromLibsnarkBigint(input[i].as_bigint()) << ";" << endl;
+        }
+        cout << "\t\t}" << endl;
+}
+
 bool _pghr13_setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int A_len, int B_len, int C_len, int constraints, int variables, int inputs, const char* pk_path, const char* vk_path)
 {
   libff::inhibit_profiling_info = true;
@@ -308,7 +208,7 @@ bool _pghr13_setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int A_l
   //initialize curve parameters
   libff::alt_bn128_pp::init_public_params();
 
-  auto cs = createConstraintSystem(A, B, C, A_len, B_len, C_len, constraints, variables, inputs);
+  auto cs = pghr13::createConstraintSystem(A, B, C, A_len, B_len, C_len, constraints, variables, inputs);
 
   assert(cs.num_variables() >= (unsigned)inputs);
   assert(cs.num_inputs() == (unsigned)inputs);
@@ -318,11 +218,11 @@ bool _pghr13_setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int A_l
   auto keypair = r1cs_ppzksnark_generator<libff::alt_bn128_pp>(cs);
 
   // Export vk and pk to files
-  serializeProvingKeyToFile(keypair.pk, pk_path);
-  serializeVerificationKeyToFile(keypair.vk, vk_path);
+  pghr13::serializeProvingKeyToFile(keypair.pk, pk_path);
+  pghr13::serializeVerificationKeyToFile(keypair.vk, vk_path);
 
   // Print VerificationKey in Solidity compatible format
-  exportVerificationKey(keypair);
+  pghr13::exportVerificationKey(keypair);
 
   return true;
 }
@@ -334,7 +234,7 @@ bool _pghr13_generate_proof(const char* pk_path, const char* proof_path, const u
 
   //initialize curve parameters
   libff::alt_bn128_pp::init_public_params();
-  auto pk = deserializeProvingKeyFromFile(pk_path);
+  auto pk = pghr13::deserializeProvingKeyFromFile(pk_path);
 
   // assign variables based on witness values, excludes ~one
   r1cs_variable_assignment<libff::Fr<libff::alt_bn128_pp> > full_variable_assignment;
@@ -359,7 +259,7 @@ bool _pghr13_generate_proof(const char* pk_path, const char* proof_path, const u
   auto proof = r1cs_ppzksnark_prover<libff::alt_bn128_pp>(pk, primary_input, auxiliary_input);
 
   // print proof
-  printProof(proof, proof_path, public_inputs, public_inputs_length);
+  pghr13::printProof(proof, proof_path, public_inputs, public_inputs_length);
   // TODO? print inputs
 
   return true;
