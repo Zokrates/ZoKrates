@@ -83,6 +83,17 @@ fn parse_bfactor<T: Field>(
     pos: &Position,
 ) -> Result<(Expression<T>, String, Position), Error<T>> {
     match next_token::<T>(input, pos) {
+        (Token::Not, s1, p1) => match next_token(&s1, &p1) {
+            (Token::Open, _, _) => match parse_bfactor(&s1, &p1) {
+                Ok((e3, s3, p3)) => Ok((Expression::Not(box e3), s3, p3)),
+                Err(err) => Err(err),
+            },
+            (t2, _, p2) => Err(Error {
+                expected: vec![Token::Open],
+                got: t2,
+                pos: p2,
+            }),
+        },
         (Token::Open, s1, p1) => match parse_bexpr(&s1, &p1) {
             Ok((e2, s2, p2)) => match next_token::<T>(&s2, &p2) {
                 (Token::Close, s3, p3) => Ok((e2, s3, p3)),
