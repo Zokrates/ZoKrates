@@ -1,9 +1,9 @@
 use field::Field;
 
+use parser::tokenize::{next_token, Position, Token};
 use parser::Error;
-use parser::tokenize::{Token, Position, next_token};
 
-use absy::{Expression};
+use absy::Expression;
 
 fn parse_then_else<T: Field>(
     cond: Expression<T>,
@@ -74,7 +74,7 @@ fn parse_prim_cond<T: Field>(
                 pos: p3,
             }),
         },
-        Err(err) => Err(err)
+        Err(err) => Err(err),
     }
 }
 
@@ -188,15 +188,15 @@ fn parse_bexpr<T: Field>(
             Err(_) => match parse_prim_cond(input, pos) {
                 Ok((e2, s2, p2)) => match parse_bterm1(e2, s2, p2) {
                     Ok((e3, s3, p3)) => parse_bexpr1(e3, s3, p3),
-                    Err(err) => Err(err)
-                }
-                Err(err) => Err(err)
+                    Err(err) => Err(err),
+                },
+                Err(err) => Err(err),
             },
         },
         (Token::Ide(_), _, _) | (Token::Num(_), _, _) => match parse_prim_cond(input, pos) {
             Ok((e2, s2, p2)) => match parse_bterm1(e2, s2, p2) {
                 Ok((e3, s3, p3)) => parse_bexpr1(e3, s3, p3),
-                Err(err) => Err(err)
+                Err(err) => Err(err),
             },
             Err(err) => Err(err),
         },
@@ -325,13 +325,11 @@ pub fn parse_expr1<T: Field>(
             Err(err) => Err(err),
         },
         (Token::Pow, s1, p1) => match parse_term(&s1, &p1) {
-            Ok((e, s2, p2)) => {
-                match parse_term1(Expression::Pow(box expr, box e), s2, p2) {
-                    Ok((e3, s3, p3)) => parse_expr1(e3, s3, p3),
-                    Err(err) => Err(err),
-                }
+            Ok((e, s2, p2)) => match parse_term1(Expression::Pow(box expr, box e), s2, p2) {
+                Ok((e3, s3, p3)) => parse_expr1(e3, s3, p3),
+                Err(err) => Err(err),
             },
-            Err(err) => Err(err)
+            Err(err) => Err(err),
         },
         _ => Ok((expr, input, pos)),
     }
@@ -442,23 +440,21 @@ pub fn parse_array_select<T: Field>(
     // array select can have exactly one arg
     match next_token::<T>(&input, &pos) {
         (_, _, _) => match parse_expr(&input, &pos) {
-            Ok((e1, s1, p1)) => {
-                match next_token::<T>(&s1, &p1) {
-                    (Token::RightBracket, s2, p2) => {
-                        match parse_term1(Expression::Select(box Expression::Identifier(ide), box e1), s2, p2) {
-                            Ok((e3, s3, p3)) => parse_expr1(e3, s3, p3),
-                            Err(err) => Err(err),
-                        }
-                    }
-                    (t2, _, p2) => {
-                        Err(Error {
-                            expected: vec![Token::RightBracket],
-                            got: t2,
-                            pos: p2,
-                        })
-                    }
-                }
-            }
+            Ok((e1, s1, p1)) => match next_token::<T>(&s1, &p1) {
+                (Token::RightBracket, s2, p2) => match parse_term1(
+                    Expression::Select(box Expression::Identifier(ide), box e1),
+                    s2,
+                    p2,
+                ) {
+                    Ok((e3, s3, p3)) => parse_expr1(e3, s3, p3),
+                    Err(err) => Err(err),
+                },
+                (t2, _, p2) => Err(Error {
+                    expected: vec![Token::RightBracket],
+                    got: t2,
+                    pos: p2,
+                }),
+            },
             Err(err) => Err(err),
         },
     }
@@ -530,7 +526,7 @@ mod tests {
 
     #[test]
     fn parse_boolean_and() {
-        let pos = Position{line: 45, col: 121};
+        let pos = Position { line: 45, col: 121 };
         let string = String::from("if a < b && 2*a > b && b > a then c else d fi");
 
         let expr = Expression::IfElse::<FieldPrime>(
@@ -572,7 +568,10 @@ mod tests {
             let string = String::from("foo[42 + 33]");
             let expr = Expression::Select::<FieldPrime>(
                 box Expression::Identifier(String::from("foo")),
-                box Expression::Add(box Expression::Number(FieldPrime::from(42)), box Expression::Number(FieldPrime::from(33))),
+                box Expression::Add(
+                    box Expression::Number(FieldPrime::from(42)),
+                    box Expression::Number(FieldPrime::from(33)),
+                ),
             );
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
@@ -596,7 +595,7 @@ mod tests {
 
     #[test]
     fn parse_boolean_or() {
-        let pos = Position{line: 45, col: 121};
+        let pos = Position { line: 45, col: 121 };
         let string = String::from("if a < b || 2*a > b then c else d fi");
 
         let expr = Expression::IfElse::<FieldPrime>(
@@ -623,25 +622,25 @@ mod tests {
     }
 
     #[test]
-    fn parse_boolean_operator_associativity(){
+    fn parse_boolean_operator_associativity() {
         use absy::Expression::*;
-        let pos = Position{line: 45, col: 121};
+        let pos = Position { line: 45, col: 121 };
         let string = String::from("2 == 3 || 4 == 5 && 6 == 7");
         let expr = Or::<FieldPrime>(
             box Eq(
                 box Number(FieldPrime::from(2)),
-                box Number(FieldPrime::from(3))
+                box Number(FieldPrime::from(3)),
             ),
             box And(
                 box Eq(
                     box Number(FieldPrime::from(4)),
-                    box Number(FieldPrime::from(5))
+                    box Number(FieldPrime::from(5)),
                 ),
                 box Eq(
                     box Number(FieldPrime::from(6)),
-                    box Number(FieldPrime::from(7))
-                )
-            )
+                    box Number(FieldPrime::from(7)),
+                ),
+            ),
         );
         assert_eq!(
             Ok((expr, String::from(""), pos.col(string.len() as isize))),
@@ -652,28 +651,38 @@ mod tests {
     #[test]
     fn parse_boolean_expr() {
         use absy::Expression::*;
-        let pos = Position{line: 45, col: 121};
+        let pos = Position { line: 45, col: 121 };
         let string = String::from("(a + 2 == 3) && (a * 2 + 3 == 2 || a < 3) || 1 < 2");
         let expr = Or::<FieldPrime>(
             box And(
                 box Eq(
-                    box Add(box Identifier(String::from("a")),
-                            box Number(FieldPrime::from(2))),
-                    box Number(FieldPrime::from(3))
+                    box Add(
+                        box Identifier(String::from("a")),
+                        box Number(FieldPrime::from(2)),
+                    ),
+                    box Number(FieldPrime::from(3)),
                 ),
                 box Or(
                     box Eq(
                         box Add(
-                            box Mult(box Identifier(String::from("a")),
-                                     box Number(FieldPrime::from(2))
+                            box Mult(
+                                box Identifier(String::from("a")),
+                                box Number(FieldPrime::from(2)),
                             ),
-                            box Number(FieldPrime::from(3))
+                            box Number(FieldPrime::from(3)),
                         ),
-                        box Number(FieldPrime::from(2))),
-                    box Lt(box Identifier(String::from("a")), box Number(FieldPrime::from(3)))
-                )
+                        box Number(FieldPrime::from(2)),
+                    ),
+                    box Lt(
+                        box Identifier(String::from("a")),
+                        box Number(FieldPrime::from(3)),
+                    ),
+                ),
             ),
-            box Lt(box Number(FieldPrime::from(1)), box Number(FieldPrime::from(2)))
+            box Lt(
+                box Number(FieldPrime::from(1)),
+                box Number(FieldPrime::from(2)),
+            ),
         );
         assert_eq!(
             Ok((expr, String::from(""), pos.col(string.len() as isize))),

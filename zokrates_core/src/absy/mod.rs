@@ -8,43 +8,45 @@
 pub mod parameter;
 pub mod variable;
 
-use types::Signature;
 pub use absy::parameter::Parameter;
 pub use absy::variable::Variable;
+use types::Signature;
 
-use std::fmt;
 use field::Field;
-use imports::Import;
 use flat_absy::*;
+use imports::Import;
+use std::fmt;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct Prog<T: Field> {
     /// Functions of the program
     pub functions: Vec<Function<T>>,
     pub imports: Vec<Import>,
-    pub imported_functions: Vec<FlatFunction<T>>
+    pub imported_functions: Vec<FlatFunction<T>>,
 }
 
 impl<T: Field> fmt::Display for Prog<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut res = vec![];
-        res.extend(self.imports
+        res.extend(
+            self.imports
                 .iter()
                 .map(|x| format!("{}", x))
-                .collect::<Vec<_>>());
-        res.extend(self.imported_functions
+                .collect::<Vec<_>>(),
+        );
+        res.extend(
+            self.imported_functions
                 .iter()
                 .map(|x| format!("{}", x))
-                .collect::<Vec<_>>());
-        res.extend(self.functions
+                .collect::<Vec<_>>(),
+        );
+        res.extend(
+            self.functions
                 .iter()
                 .map(|x| format!("{}", x))
-                .collect::<Vec<_>>());
-        write!(
-            f,
-            "{}",
-            res.join("\n")
-        )
+                .collect::<Vec<_>>(),
+        );
+        write!(f, "{}", res.join("\n"))
     }
 }
 
@@ -123,7 +125,7 @@ impl<T: Field> fmt::Debug for Function<T> {
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub enum Assignee<T: Field> {
     Identifier(String),
-    ArrayElement(Box<Assignee<T>>, Box<Expression<T>>)
+    ArrayElement(Box<Assignee<T>>, Box<Expression<T>>),
 }
 
 impl<T: Field> fmt::Debug for Assignee<T> {
@@ -146,8 +148,8 @@ impl<T: Field> From<Expression<T>> for Assignee<T> {
         match e {
             Expression::Select(box Expression::Identifier(id), box e2) => {
                 Assignee::ArrayElement(box Assignee::Identifier(id), box e2)
-            },
-            _ => panic!("only use expression to assignee for elements like foo[bar]")
+            }
+            _ => panic!("only use expression to assignee for elements like foo[bar]"),
         }
     }
 }
@@ -184,7 +186,7 @@ impl<T: Field> fmt::Display for Statement<T> {
                     }
                 }
                 write!(f, " = {}", rhs)
-            },
+            }
         }
     }
 }
@@ -207,7 +209,7 @@ impl<T: Field> fmt::Debug for Statement<T> {
             }
             Statement::MultipleDefinition(ref lhs, ref rhs) => {
                 write!(f, "MultipleDefinition({:?}, {:?})", lhs, rhs)
-            },
+            }
         }
     }
 }
@@ -248,9 +250,7 @@ impl<T: Field> fmt::Display for Expression<T> {
             Expression::IfElse(ref condition, ref consequent, ref alternative) => write!(
                 f,
                 "if {} then {} else {} fi",
-                condition,
-                consequent,
-                alternative
+                condition, consequent, alternative
             ),
             Expression::FunctionCall(ref i, ref p) => {
                 try!(write!(f, "{}(", i,));
@@ -261,7 +261,7 @@ impl<T: Field> fmt::Display for Expression<T> {
                     }
                 }
                 write!(f, ")")
-            },
+            }
             Expression::Lt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
             Expression::Le(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
             Expression::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
@@ -278,7 +278,7 @@ impl<T: Field> fmt::Display for Expression<T> {
                     }
                 }
                 write!(f, "]")
-            },
+            }
             Expression::Select(ref array, ref index) => write!(f, "{}[{}]", array, index),
             Expression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
         }
@@ -298,15 +298,13 @@ impl<T: Field> fmt::Debug for Expression<T> {
             Expression::IfElse(ref condition, ref consequent, ref alternative) => write!(
                 f,
                 "IfElse({:?}, {:?}, {:?})",
-                condition,
-                consequent,
-                alternative
+                condition, consequent, alternative
             ),
             Expression::FunctionCall(ref i, ref p) => {
                 try!(write!(f, "FunctionCall({:?}, (", i));
                 try!(f.debug_list().entries(p.iter()).finish());
                 write!(f, ")")
-            },
+            }
             Expression::Lt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
             Expression::Le(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
             Expression::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
@@ -318,7 +316,7 @@ impl<T: Field> fmt::Debug for Expression<T> {
                 try!(write!(f, "InlineArray(["));
                 try!(f.debug_list().entries(exprs.iter()).finish());
                 write!(f, "]")
-            },
+            }
             Expression::Select(ref array, ref index) => write!(f, "{}[{}]", array, index),
             Expression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
         }
@@ -327,13 +325,13 @@ impl<T: Field> fmt::Debug for Expression<T> {
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct ExpressionList<T: Field> {
-    pub expressions: Vec<Expression<T>>
+    pub expressions: Vec<Expression<T>>,
 }
 
 impl<T: Field> ExpressionList<T> {
     pub fn new() -> ExpressionList<T> {
         ExpressionList {
-            expressions: vec![]
+            expressions: vec![],
         }
     }
 }

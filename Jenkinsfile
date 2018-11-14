@@ -31,6 +31,19 @@ pipeline {
                 }
             }
         }
+        stage('Format') {
+            agent {
+                docker {
+                  image 'rustlang/rust:nightly'
+                }
+            }
+            steps {
+                script {
+                    sh "rustup component add rustfmt-preview"
+                    sh "cargo fmt --all -- --check"
+                }
+            }
+        }
         stage('Build') {
             steps {
                 script {
@@ -79,7 +92,6 @@ pipeline {
             steps {
                 script {
                     ansiColor('xterm') {
-                        // currently not run due to bug in Jenkins Docker Plugin.
                         // prodImage = docker.build("zokrates/zokrates")
                         // docker.withRegistry('https://registry.hub.docker.com', 'dockerhub-kyroy') {
                         //     prodImage.push(patchVersion)
