@@ -4,18 +4,22 @@
 // @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 // @date 2017
 
-use std::hash::Hash;
-use num::{Num, Integer, One, Zero};
+use num::{Integer, Num, One, Zero};
 use num_bigint::{BigInt, BigUint, Sign, ToBigInt};
+use serde::de::{Deserialize, Deserializer, Visitor};
+use serde::{Serialize, Serializer};
 use std::convert::From;
-use std::ops::{Add, Div, Mul, Sub};
 use std::fmt;
 use std::fmt::{Debug, Display};
-use serde::{Serialize, Serializer};
-use serde::de::{Deserialize, Deserializer, Visitor};
+use std::hash::Hash;
+use std::ops::{Add, Div, Mul, Sub};
 
 lazy_static! {
-    static ref P: BigInt = BigInt::parse_bytes(b"21888242871839275222246405745257275088548364400416034343698204186575808495617", 10).unwrap();
+    static ref P: BigInt = BigInt::parse_bytes(
+        b"21888242871839275222246405745257275088548364400416034343698204186575808495617",
+        10
+    )
+    .unwrap();
 }
 
 pub trait Pow<RHS> {
@@ -23,8 +27,8 @@ pub trait Pow<RHS> {
     fn pow(self, RHS) -> Self::Output;
 }
 
-pub trait Field
-    : From<i32>
+pub trait Field:
+    From<i32>
     + From<u32>
     + From<usize>
     + for<'a> From<&'a str>
@@ -47,7 +51,8 @@ pub trait Field
     + for<'a> Div<&'a Self, Output = Self>
     + Pow<usize, Output = Self>
     + Pow<Self, Output = Self>
-    + for<'a> Pow<&'a Self, Output = Self> {
+    + for<'a> Pow<&'a Self, Output = Self>
+{
     /// Returns this `Field`'s contents as little-endian byte vector
     fn into_byte_vector(&self) -> Vec<u8>;
     /// Returns an element of this `Field` from a little-endian byte vector
@@ -81,7 +86,9 @@ impl Field for FieldPrime {
 
     fn from_byte_vector(bytes: Vec<u8>) -> Self {
         let uval = BigUint::from_bytes_le(bytes.as_slice());
-        FieldPrime{value: BigInt::from_biguint(Sign::Plus, uval)}
+        FieldPrime {
+            value: BigInt::from_biguint(Sign::Plus, uval),
+        }
     }
 
     fn to_dec_string(&self) -> String {
@@ -89,7 +96,9 @@ impl Field for FieldPrime {
     }
 
     fn from_dec_string(val: String) -> Self {
-        FieldPrime{value: BigInt::from_str_radix(val.as_str(), 10).unwrap()}
+        FieldPrime {
+            value: BigInt::from_str_radix(val.as_str(), 10).unwrap(),
+        }
     }
 
     fn inverse_mul(&self) -> FieldPrime {
@@ -309,7 +318,8 @@ impl<'a> Pow<&'a FieldPrime> for FieldPrime {
 // custom serde serialization
 impl Serialize for FieldPrime {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         // serializer.serialize_bytes(&(*self.value.to_biguint().to_bytes_le().as_slice()))
         serializer.serialize_bytes(&(*self.into_byte_vector().as_slice()))
@@ -322,7 +332,7 @@ struct FieldPrimeVisitor;
 
 impl FieldPrimeVisitor {
     fn new() -> Self {
-        FieldPrimeVisitor{}
+        FieldPrimeVisitor {}
     }
 }
 
@@ -335,14 +345,14 @@ impl<'de> Visitor<'de> for FieldPrimeVisitor {
 
     fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E> {
         let val = BigUint::from_bytes_le(v).to_bigint().unwrap();
-        Ok(FieldPrime{value: val})
+        Ok(FieldPrime { value: val })
     }
 }
 
 impl<'de> Deserialize<'de> for FieldPrime {
-
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: Deserializer<'de>
+    where
+        D: Deserializer<'de>,
     {
         deserializer.deserialize_bytes(FieldPrimeVisitor::new())
     }
@@ -380,7 +390,7 @@ mod tests {
     #[cfg(test)]
     mod field_prime {
         use super::*;
-        use bincode::{serialize, deserialize , Infinite};
+        use bincode::{deserialize, serialize, Infinite};
 
         #[test]
         fn positive_number() {
@@ -522,9 +532,8 @@ mod tests {
                     .unwrap(),
                 (FieldPrime::from(
                     "21888242871839225222246405785257275088694311157297823662689037894645225727"
-                ) *
-                    FieldPrime::from("218882428715392752222464057432572755886923"))
-                    .value
+                ) * FieldPrime::from("218882428715392752222464057432572755886923"))
+                .value
             );
             assert_eq!(
                 "6042471409729479866150380306128222617399890671095126975526159292198160466142"
@@ -532,8 +541,7 @@ mod tests {
                     .unwrap(),
                 (FieldPrime::from(
                     "21888242871839225222246405785257275088694311157297823662689037894645225727"
-                ) *
-                    &FieldPrime::from("218882428715392752222464057432572755886923"))
+                ) * &FieldPrime::from("218882428715392752222464057432572755886923"))
                     .value
             );
         }

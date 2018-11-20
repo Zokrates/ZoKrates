@@ -38,16 +38,16 @@ std::string HexStringFromLibsnarkBigint(libff::bigint<libff::alt_bn128_r_limbs> 
     uint8_t x[32];
     for (unsigned i = 0; i < 4; i++)
         for (unsigned j = 0; j < 8; j++)
-                        x[i * 8 + j] = uint8_t(uint64_t(_x.data[3 - i]) >> (8 * (7 - j)));
+          x[i * 8 + j] = uint8_t(uint64_t(_x.data[3 - i]) >> (8 * (7 - j)));
 
-        std::stringstream ss;
-        ss << std::setfill('0');
-        for (unsigned i = 0; i<32; i++) {
-                ss << std::hex << std::setw(2) << (int)x[i];
-        }
+    std::stringstream ss;
+    ss << std::setfill('0');
+    for (unsigned i = 0; i<32; i++) {
+            ss << std::hex << std::setw(2) << (int)x[i];
+    }
 
-                std::string str = ss.str();
-                return str.erase(0, min(str.find_first_not_of('0'), str.size()-1));
+    std::string str = ss.str();
+    return str.erase(0, min(str.find_first_not_of('0'), str.size()-1));
 }
 
 std::string outputPointG1AffineAsHex(libff::alt_bn128_G1 _p)

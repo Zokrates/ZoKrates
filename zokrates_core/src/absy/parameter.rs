@@ -1,5 +1,5 @@
-use std::fmt;
 use absy::Variable;
+use std::fmt;
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct Parameter {
@@ -8,19 +8,19 @@ pub struct Parameter {
 }
 
 impl Parameter {
-	pub fn public(v: Variable) -> Self {
-		Parameter {
-			id: v,
-			private: true
-		}
-	}
+    pub fn public(v: Variable) -> Self {
+        Parameter {
+            id: v,
+            private: true,
+        }
+    }
 
-	pub fn private(v: Variable) -> Self {
-		Parameter {
-			id: v,
-			private: false
-		}
-	}
+    pub fn private(v: Variable) -> Self {
+        Parameter {
+            id: v,
+            private: false,
+        }
+    }
 }
 
 impl fmt::Display for Parameter {

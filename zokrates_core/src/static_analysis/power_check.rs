@@ -1,22 +1,22 @@
 use field::Field;
+use typed_absy::folder::*;
 use typed_absy::Folder;
 use typed_absy::*;
-use typed_absy::folder::*;
 
 pub struct PowerChecker {}
 
 impl PowerChecker {
-	fn new() -> Self {
-		PowerChecker {}
-	}
+    fn new() -> Self {
+        PowerChecker {}
+    }
 
     pub fn check<T: Field>(p: TypedProg<T>) -> TypedProg<T> {
-    	PowerChecker::new().fold_program(p)
+        PowerChecker::new().fold_program(p)
     }
 }
 
 impl<T: Field> Folder<T> for PowerChecker {
-	fn fold_field_expression(&mut self, e: FieldElementExpression<T>) -> FieldElementExpression<T> {
+    fn fold_field_expression(&mut self, e: FieldElementExpression<T>) -> FieldElementExpression<T> {
         match e {
             FieldElementExpression::Pow(box FieldElementExpression::Identifier(..), _) |  FieldElementExpression::Pow(box FieldElementExpression::Number(..), _)=> {
 				fold_field_expression(self, e)
@@ -26,5 +26,5 @@ impl<T: Field> Folder<T> for PowerChecker {
             },
             e => fold_field_expression(self, e)
         }
-	}
+    }
 }
