@@ -2,7 +2,7 @@ extern crate libc;
 
 use self::libc::{c_char, c_int, uint8_t};
 use flat_absy::flat_variable::FlatVariable;
-use proof_system::utils::{prepare_generate_proof, prepare_setup, SOLIDITY_PAIRING_LIB};
+use proof_system::utils::{prepare_generate_proof, prepare_setup, SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB};
 use proof_system::ProofSystem;
 
 use regex::Regex;
@@ -179,7 +179,7 @@ impl ProofSystem for PGHR13 {
             .replace(template_text.as_str(), ic_repeat_text.as_str())
             .into_owned();
 
-        format!("{}{}", SOLIDITY_PAIRING_LIB, template_text)
+        format!("{}{}{}", SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, template_text)
     }
 }
 

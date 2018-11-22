@@ -180,8 +180,8 @@ void printProof(r1cs_ppzksnark_proof<libff::alt_bn128_pp> proof, const char* pro
                     }
                     ss << libsnarkBigintFromBytes(public_inputs + i*32);
                   }
-                  ss << "]";
-                ss << "}";
+                  ss << "]" << "\n";
+                ss << "}" << "\n";
 
                 std::string s = ss.str();
                 //write json string to proof_path

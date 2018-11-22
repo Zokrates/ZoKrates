@@ -106,7 +106,7 @@ void serializeVerificationKeyToFile(r1cs_se_ppzksnark_verification_key<libff::al
   for (size_t i = 0; i < queryLength; ++i)
   {
       auto vkqueryi = outputPointG1AffineAsHex(vk.query[i]);
-      ss << "\t\tvk.IC[" << i << "] = " << vkqueryi << endl;
+      ss << "\t\tvk.query[" << i << "] = " << vkqueryi << endl;
   }
 
   std::ofstream fh;
@@ -162,8 +162,8 @@ void printProof(r1cs_se_ppzksnark_proof<libff::alt_bn128_pp> proof, const char* 
         }
         ss << libsnarkBigintFromBytes(public_inputs + i*32);
       }
-      ss << "]";
-    ss << "}";
+      ss << "]" << "\n";
+    ss << "}" << "\n";
 
     std::string s = ss.str();
     //write json string to proof_path
