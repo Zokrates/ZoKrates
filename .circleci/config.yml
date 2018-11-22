@@ -27,6 +27,9 @@ jobs:
       - run:
           name: Run tests
           command: LIBSNARK_SOURCE_PATH=$HOME/libsnark cargo test --release
+      - run:
+          name: Run integration tests
+          command: LIBSNARK_SOURCE_PATH=$HOME/libsnark cargo test --release -- --ignored
       - save_cache:
           paths:
             - /usr/local/cargo/registry
