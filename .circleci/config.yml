@@ -23,10 +23,13 @@ jobs:
           command: LIBSNARK_SOURCE_PATH=$HOME/libsnark ./build_libsnark.sh
       - run:
           name: Build
-          command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark ./build.sh
+          command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark RUSTFLAGS="-D warnings" ./build.sh
       - run:
           name: Run tests
-          command: LIBSNARK_SOURCE_PATH=$HOME/libsnark cargo test --release
+          command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark RUSTFLAGS="-D warnings" cargo test --release
+      - run:
+          name: Run integration tests
+          command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark RUSTFLAGS="-D warnings" cargo test --release -- --ignored
       - save_cache:
           paths:
             - /usr/local/cargo/registry
