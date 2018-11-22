@@ -117,8 +117,10 @@ mod test {
             &mut r,
             Some(String::from("./path/to/file")),
             None::<
-                fn(&Option<String>, &String)
-                    -> Result<(BufReader<Empty>, String, String), io::Error>,
+                fn(
+                    &Option<String>,
+                    &String,
+                ) -> Result<(BufReader<Empty>, String, String), io::Error>,
             >,
         );
         assert_eq!(
@@ -140,8 +142,10 @@ mod test {
             &mut r,
             Some(String::from("./path/to/file")),
             None::<
-                fn(&Option<String>, &String)
-                    -> Result<(BufReader<Empty>, String, String), io::Error>,
+                fn(
+                    &Option<String>,
+                    &String,
+                ) -> Result<(BufReader<Empty>, String, String), io::Error>,
             >,
         );
         assert!(res.is_ok());
