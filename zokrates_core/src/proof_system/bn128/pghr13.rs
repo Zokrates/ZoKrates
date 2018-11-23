@@ -278,24 +278,3 @@ const CONTRACT_TEMPLATE: &str = r#"contract Verifier {
     }
 }
 "#;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[cfg(test)]
-    mod test_pghr13 {
-        use super::*;
-        use field::FieldPrime;
-
-        // #[test]
-        // fn setup() {
-        // 	PGHR13::setup::<FieldPrime>(vec![], vec![], vec![], vec![], 1, "", "");
-        // }
-
-        // #[test]
-        // fn generate_proof() {
-        // 	PGHR13::generate_proof::<FieldPrime>("", "", vec![], vec![]);
-        // }
-    }
-}

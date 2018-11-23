@@ -259,24 +259,3 @@ contract Verifier {
     }
 }
 "#;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[cfg(test)]
-    mod test_gm17 {
-        use super::*;
-        use field::FieldPrime;
-
-        // #[test]
-        // fn setup() {
-        // 	GM17::setup::<FieldPrime>(vec![], vec![], vec![], vec![], 1, "", "");
-        // }
-
-        // #[test]
-        // fn generate_proof() {
-        // 	GM17::generate_proof::<FieldPrime>("", "", vec![], vec![]);
-        // }
-    }
-}
