@@ -1,4 +1,12 @@
-//! Module containing the `RedefinitionOptimizer` to optimize a flattened program.
+//! Module containing the `RedefinitionOptimizer` to remove code of the form
+// ```
+// b := a
+// c := b
+// ```
+// and replace by
+// ```
+// c := a
+// ```
 
 use field::Field;
 use flat_absy::flat_variable::FlatVariable;
@@ -49,8 +57,6 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer {
             // if the right side of the assignment is already being reassigned to `x`,
             // reassign the left side to `x` as well, otherwise reassign to a new variable
             FlatStatement::Definition(ref left, FlatExpression::Identifier(ref right)) => {
-                // a = b
-                // if
                 let r = match self.substitution.get(right) {
                     Some(value) => value.clone(),
                     None => unreachable!(), // the right hand side must have been reassigned before

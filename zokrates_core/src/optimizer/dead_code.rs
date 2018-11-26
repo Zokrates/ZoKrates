@@ -1,4 +1,4 @@
-//! Module containing the `DeadCodeOptimizer` to optimize a flattened program.
+//! Module containing the `DeadCodeOptimizer` to remove code that will never be executed
 
 use field::Field;
 use flat_absy::{FlatProg, Folder};
