@@ -7,9 +7,11 @@
 
 pub mod flat_parameter;
 pub mod flat_variable;
+pub mod folder;
 
 pub use self::flat_parameter::FlatParameter;
 pub use self::flat_variable::FlatVariable;
+pub use self::folder::Folder;
 
 use field::Field;
 use helpers::{DirectiveStatement, Executable};

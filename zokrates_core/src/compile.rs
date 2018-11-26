@@ -8,7 +8,7 @@ use field::Field;
 use flat_absy::FlatProg;
 use flatten::Flattener;
 use imports::{self, Importer};
-use optimizer::Optimizer;
+use optimizer::Optimize;
 use parser::{self, parse_program};
 use semantics::{self, Checker};
 use static_analysis::Analyse;
@@ -66,7 +66,7 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
 ) -> Result<FlatProg<T>, CompileError<T>> {
     let compiled = compile_aux(reader, location, resolve_option)?;
-    Ok(Optimizer::new().optimize_program(compiled))
+    Ok(compiled.optimize())
 }
 
 pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
