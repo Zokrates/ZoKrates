@@ -193,51 +193,6 @@ fn r1cs_expression<T: Field>(
                 c_row.push((provide_variable_idx(variables, &key), value));
             }
         }
-        Div(lhs, rhs) => {
-            // a / b = c --> c * b = a
-            match lhs {
-                box Number(x) => c_row.push((0, x)),
-                box Identifier(x) => c_row.push((provide_variable_idx(variables, &x), T::one())),
-                box e @ Add(..) => {
-                    for (key, value) in count_variables_add(&e) {
-                        c_row.push((provide_variable_idx(variables, &key), value));
-                    }
-                }
-                box e @ Sub(..) => {
-                    return r1cs_expression(
-                        Mult(box linear_expr, rhs),
-                        e,
-                        variables,
-                        a_row,
-                        b_row,
-                        c_row,
-                    )
-                }
-                box Mult(box Number(ref x1), box Number(ref x2)) => {
-                    c_row.push((0, x1.clone() * x2))
-                }
-                box Mult(box Number(ref x), box Identifier(ref v))
-                | box Mult(box Identifier(ref v), box Number(ref x)) => {
-                    c_row.push((provide_variable_idx(variables, v), x.clone()))
-                }
-                e @ _ => panic!("(lhs) not supported: {:?}", e),
-            };
-            match rhs {
-                box Number(x) => b_row.push((0, x)),
-                box Identifier(x) => b_row.push((provide_variable_idx(variables, &x), T::one())),
-                box Mult(box Number(ref x1), box Number(ref x2)) => {
-                    b_row.push((0, x1.clone() * x2))
-                }
-                box Mult(box Number(ref x), box Identifier(ref v))
-                | box Mult(box Identifier(ref v), box Number(ref x)) => {
-                    b_row.push((provide_variable_idx(variables, v), x.clone()))
-                }
-                e @ _ => panic!("(rhs) not supported: {:?}", e),
-            };
-            for (key, value) in count_variables_add(&linear_expr) {
-                a_row.push((provide_variable_idx(variables, &key), value));
-            }
-        }
         Identifier(var) => {
             a_row.push((provide_variable_idx(variables, &var), T::one()));
             b_row.push((0, T::one()));
@@ -658,38 +613,6 @@ mod tests {
                 ],
                 c_row
             );
-        }
-
-        #[test]
-        fn div() {
-            // x = (3 * x) / (y * 6) --> x * (y * 6) = 3 * x
-
-            let one = FlatVariable::one();
-            let x = FlatVariable::new(0);
-            let y = FlatVariable::new(1);
-
-            let lhs = Identifier(x);
-            let rhs = Div(
-                box Mult(box Number(FieldPrime::from(3)), box Identifier(x)),
-                box Mult(box Identifier(y), box Number(FieldPrime::from(6))),
-            );
-
-            let mut a_row = Vec::new();
-            let mut b_row = Vec::new();
-            let mut c_row = Vec::new();
-
-            let mut variables: HashMap<FlatVariable, usize> = HashMap::new();
-            variables.insert(one, 0);
-            variables.insert(x, 1);
-            variables.insert(y, 2);
-
-            r1cs_expression(lhs, rhs, &mut variables, &mut a_row, &mut b_row, &mut c_row);
-            a_row.sort_by(sort_tup);
-            b_row.sort_by(sort_tup);
-            c_row.sort_by(sort_tup);
-            assert_eq!(vec![(1, FieldPrime::from(1))], a_row); // x
-            assert_eq!(vec![(2, FieldPrime::from(6))], b_row); // y * 6
-            assert_eq!(vec![(1, FieldPrime::from(3))], c_row); // 3 * x
         }
     }
 }

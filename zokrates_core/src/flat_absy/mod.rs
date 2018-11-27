@@ -272,7 +272,6 @@ pub enum FlatExpression<T: Field> {
     Identifier(FlatVariable),
     Add(Box<FlatExpression<T>>, Box<FlatExpression<T>>),
     Sub(Box<FlatExpression<T>>, Box<FlatExpression<T>>),
-    Div(Box<FlatExpression<T>>, Box<FlatExpression<T>>),
     Mult(Box<FlatExpression<T>>, Box<FlatExpression<T>>),
 }
 
@@ -313,10 +312,6 @@ impl<T: Field> FlatExpression<T> {
                 box e1.apply_substitution(substitution, should_fallback),
                 box e2.apply_substitution(substitution, should_fallback),
             ),
-            FlatExpression::Div(e1, e2) => FlatExpression::Div(
-                box e1.apply_substitution(substitution, should_fallback),
-                box e2.apply_substitution(substitution, should_fallback),
-            ),
         }
     }
 
@@ -330,7 +325,6 @@ impl<T: Field> FlatExpression<T> {
             FlatExpression::Add(ref x, ref y) => x.solve(inputs) + y.solve(inputs),
             FlatExpression::Sub(ref x, ref y) => x.solve(inputs) - y.solve(inputs),
             FlatExpression::Mult(ref x, ref y) => x.solve(inputs) * y.solve(inputs),
-            FlatExpression::Div(ref x, ref y) => x.solve(inputs) / y.solve(inputs),
         }
     }
 
@@ -340,14 +334,12 @@ impl<T: Field> FlatExpression<T> {
             FlatExpression::Add(ref x, ref y) | FlatExpression::Sub(ref x, ref y) => {
                 x.is_linear() && y.is_linear()
             }
-            FlatExpression::Mult(ref x, ref y) | FlatExpression::Div(ref x, ref y) => {
-                match (x.clone(), y.clone()) {
-                    (box FlatExpression::Number(_), box FlatExpression::Number(_))
-                    | (box FlatExpression::Number(_), box FlatExpression::Identifier(_))
-                    | (box FlatExpression::Identifier(_), box FlatExpression::Number(_)) => true,
-                    _ => false,
-                }
-            }
+            FlatExpression::Mult(ref x, ref y) => match (x.clone(), y.clone()) {
+                (box FlatExpression::Number(_), box FlatExpression::Number(_))
+                | (box FlatExpression::Number(_), box FlatExpression::Identifier(_))
+                | (box FlatExpression::Identifier(_), box FlatExpression::Number(_)) => true,
+                _ => false,
+            },
         }
     }
 }
@@ -360,7 +352,6 @@ impl<T: Field> fmt::Display for FlatExpression<T> {
             FlatExpression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
             FlatExpression::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
             FlatExpression::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
-            FlatExpression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
         }
     }
 }
@@ -373,8 +364,13 @@ impl<T: Field> fmt::Debug for FlatExpression<T> {
             FlatExpression::Add(ref lhs, ref rhs) => write!(f, "Add({:?}, {:?})", lhs, rhs),
             FlatExpression::Sub(ref lhs, ref rhs) => write!(f, "Sub({:?}, {:?})", lhs, rhs),
             FlatExpression::Mult(ref lhs, ref rhs) => write!(f, "Mult({:?}, {:?})", lhs, rhs),
-            FlatExpression::Div(ref lhs, ref rhs) => write!(f, "Div({:?}, {:?})", lhs, rhs),
         }
+    }
+}
+
+impl<T: Field> From<FlatVariable> for FlatExpression<T> {
+    fn from(v: FlatVariable) -> FlatExpression<T> {
+        FlatExpression::Identifier(v)
     }
 }
 
