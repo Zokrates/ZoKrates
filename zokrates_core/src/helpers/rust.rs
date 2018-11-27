@@ -7,7 +7,7 @@ pub enum RustHelper {
     Identity,
     ConditionEq,
     Bits,
-    Inverse,
+    Div,
 }
 
 impl fmt::Display for RustHelper {
@@ -16,7 +16,7 @@ impl fmt::Display for RustHelper {
             RustHelper::Identity => write!(f, "Identity"),
             RustHelper::ConditionEq => write!(f, "ConditionEq"),
             RustHelper::Bits => write!(f, "Bits"),
-            RustHelper::Inverse => write!(f, "Inverse"),
+            RustHelper::Div => write!(f, "Div"),
         }
     }
 }
@@ -27,7 +27,7 @@ impl Signed for RustHelper {
             RustHelper::Identity => (1, 1),
             RustHelper::ConditionEq => (1, 2),
             RustHelper::Bits => (1, 254),
-            RustHelper::Inverse => (1, 1),
+            RustHelper::Div => (2, 1),
         }
     }
 }
@@ -55,7 +55,7 @@ impl<T: Field> Executable<T> for RustHelper {
                 assert_eq!(num, T::zero());
                 Ok(res)
             }
-            RustHelper::Inverse => Ok(vec![T::one() / inputs[0].clone()]),
+            RustHelper::Div => Ok(vec![inputs[0].clone() / inputs[1].clone()]),
         }
     }
 }
