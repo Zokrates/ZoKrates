@@ -319,10 +319,8 @@ impl Flattener {
                 // Y == X * M
                 // 0 == (1-Y) * X
 
-                let name_x = self.use_sym();
                 let name_y = self.use_sym();
                 let name_m = self.use_sym();
-                let name_1_y = self.use_sym();
 
                 let x = self.flatten_field_expression(
                     functions_flattened,
@@ -331,35 +329,27 @@ impl Flattener {
                     FieldElementExpression::Sub(box lhs, box rhs),
                 );
 
-                statements_flattened.push(FlatStatement::Definition(name_x, x));
                 statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
                     vec![name_y, name_m],
                     Helper::Rust(RustHelper::ConditionEq),
-                    vec![name_x],
+                    vec![x.clone()],
                 )));
                 statements_flattened.push(FlatStatement::Condition(
                     FlatExpression::Identifier(name_y),
-                    FlatExpression::Mult(
-                        box FlatExpression::Identifier(name_x),
-                        box FlatExpression::Identifier(name_m),
-                    ),
-                ));
-                statements_flattened.push(FlatStatement::Definition(
-                    name_1_y,
-                    FlatExpression::Sub(
-                        box FlatExpression::Number(T::one()),
-                        box FlatExpression::Identifier(name_y),
-                    ),
-                ));
-                statements_flattened.push(FlatStatement::Condition(
-                    FlatExpression::Number(T::zero()),
-                    FlatExpression::Mult(
-                        box FlatExpression::Identifier(name_1_y),
-                        box FlatExpression::Identifier(name_x),
-                    ),
+                    FlatExpression::Mult(box x.clone(), box FlatExpression::Identifier(name_m)),
                 ));
 
-                FlatExpression::Identifier(name_1_y)
+                let res = FlatExpression::Sub(
+                    box FlatExpression::Number(T::one()),
+                    box FlatExpression::Identifier(name_y),
+                );
+
+                statements_flattened.push(FlatStatement::Condition(
+                    FlatExpression::Number(T::zero()),
+                    FlatExpression::Mult(box res.clone(), box x),
+                ));
+
+                res
             }
             BooleanExpression::Or(box lhs, box rhs) => {
                 let x = box self.flatten_boolean_expression(
@@ -622,6 +612,7 @@ impl Flattener {
                     statements_flattened,
                     right,
                 );
+
                 let new_left = if left_flattened.is_linear() {
                     left_flattened
                 } else {
@@ -636,6 +627,7 @@ impl Flattener {
                     statements_flattened.push(FlatStatement::Definition(id, right_flattened));
                     FlatExpression::Identifier(id)
                 };
+
                 FlatExpression::Sub(box new_left, box new_right)
             }
             FieldElementExpression::Mult(box left, box right) => {
@@ -652,26 +644,14 @@ impl Flattener {
                     right,
                 );
                 let new_left = if left_flattened.is_linear() {
-                    if let FlatExpression::Sub(..) = left_flattened {
-                        let id = self.use_sym();
-                        statements_flattened.push(FlatStatement::Definition(id, left_flattened));
-                        FlatExpression::Identifier(id)
-                    } else {
-                        left_flattened
-                    }
+                    left_flattened
                 } else {
                     let id = self.use_sym();
                     statements_flattened.push(FlatStatement::Definition(id, left_flattened));
                     FlatExpression::Identifier(id)
                 };
                 let new_right = if right_flattened.is_linear() {
-                    if let FlatExpression::Sub(..) = right_flattened {
-                        let id = self.use_sym();
-                        statements_flattened.push(FlatStatement::Definition(id, right_flattened));
-                        FlatExpression::Identifier(id)
-                    } else {
-                        right_flattened
-                    }
+                    right_flattened
                 } else {
                     let id = self.use_sym();
                     statements_flattened.push(FlatStatement::Definition(id, right_flattened));
