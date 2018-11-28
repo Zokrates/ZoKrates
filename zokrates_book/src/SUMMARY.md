@@ -10,6 +10,7 @@
 	- [Functions](./concepts/functions.md)
 	- [Control flow](./concepts/control_flow.md)
 	- [Comments](./concepts/comments.md)
+	- [Standard Library](./concepts/stdlib.md)
 
 - [Reference](reference/index.md)
     - [CLI](reference/cli.md)
