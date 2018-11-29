@@ -52,7 +52,6 @@ impl<T: Field> From<FlatProg<T>> for Prog<T> {
             .unwrap();
         let private = main.arguments.iter().map(|p| p.private).collect();
         let main = Function::from(main);
-        println!("////////\n{}\n///////", main);
         Prog { private, main }
     }
 }
