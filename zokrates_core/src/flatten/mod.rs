@@ -442,8 +442,10 @@ impl Flattener {
                     statements_flattened,
                     exp,
                 );
-
-                FlatExpression::Sub(box FlatExpression::Number(T::one()), box x)
+                let id = self.use_sym();
+                let e =  FlatExpression::Sub(box FlatExpression::Number(T::one()), box x);
+                statements_flattened.push(FlatStatement::Definition(id, e));
+                FlatExpression::Identifier(id)
             }
             BooleanExpression::Value(b) => FlatExpression::Number(match b {
                 true => T::from(1),
