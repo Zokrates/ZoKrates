@@ -443,7 +443,7 @@ impl Flattener {
                     exp,
                 );
                 let id = self.use_sym();
-                let e =  FlatExpression::Sub(box FlatExpression::Number(T::one()), box x);
+                let e = FlatExpression::Sub(box FlatExpression::Number(T::one()), box x);
                 statements_flattened.push(FlatStatement::Definition(id, e));
                 FlatExpression::Identifier(id)
             }
