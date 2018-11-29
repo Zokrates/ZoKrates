@@ -21,7 +21,7 @@ use std::string::String;
 use zokrates_core::compile::compile;
 use zokrates_core::field::{Field, FieldPrime};
 use zokrates_core::flat_absy::FlatProg;
-use zokrates_core::ir::{r1cs_program, Prog};
+use zokrates_core::ir::r1cs_program;
 #[cfg(feature = "libsnark")]
 use zokrates_core::libsnark::{generate_proof, setup};
 use zokrates_core::verification::CONTRACT_TEMPLATE;
@@ -404,15 +404,13 @@ fn main() {
                 .functions
                 .iter()
                 .find(|x| x.id == "main")
-                .unwrap()
-                .clone();
+                .unwrap();
 
             // print deserialized flattened program
             println!("{}", main_flattened);
 
             // transform to R1CS
-            let (variables, public_variables_count, a, b, c) =
-                r1cs_program(Prog::from(program_ast));
+            let (variables, public_variables_count, a, b, c) = r1cs_program(&program_ast);
 
             // write variables meta information to file
             let var_inf_path = Path::new(sub_matches.value_of("meta-information").unwrap());

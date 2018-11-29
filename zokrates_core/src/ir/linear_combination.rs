@@ -102,7 +102,9 @@ mod tests {
         let a: LinComb<FieldPrime> = FlatVariable::new(42).into();
         let b: LinComb<FieldPrime> = FlatVariable::new(42).into();
         let c = a + b.clone();
-        assert_eq!(c, b);
+        let mut expected_map = BTreeMap::new();
+        expected_map.insert(FlatVariable::new(42), FieldPrime::from(2));
+        assert_eq!(c, LinComb(expected_map));
     }
     #[test]
     fn sub() {

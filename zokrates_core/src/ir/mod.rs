@@ -1,5 +1,5 @@
 use field::Field;
-use flat_absy::flat_variable::FlatVariable;
+use flat_absy::{FlatProg, FlatVariable};
 use helpers::Helper;
 use std::collections::HashMap;
 use std::fmt;
@@ -113,7 +113,7 @@ pub fn provide_variable_idx(
 ///
 /// * `prog` - The program the representation is calculated for.
 pub fn r1cs_program<T: Field>(
-    prog: Prog<T>,
+    prog: &FlatProg<T>,
 ) -> (
     Vec<FlatVariable>,
     usize,
@@ -121,6 +121,9 @@ pub fn r1cs_program<T: Field>(
     Vec<Vec<(usize, T)>>,
     Vec<Vec<(usize, T)>>,
 ) {
+    // convert flat prog to IR
+    let prog = Prog::from(prog.clone());
+
     let mut variables: HashMap<FlatVariable, usize> = HashMap::new();
     provide_variable_idx(&mut variables, &FlatVariable::one());
 
@@ -137,7 +140,7 @@ pub fn r1cs_program<T: Field>(
     //Only the main function is relevant in this step, since all calls to other functions were resolved during flattening
     let main = prog.main;
 
-    //~out is added after main's arguments as we want variables (columns)
+    //~out are added after main's arguments as we want variables (columns)
     //in the r1cs to be aligned like "public inputs | private inputs"
     let main_return_count = main.return_wires.len();
 
@@ -148,8 +151,7 @@ pub fn r1cs_program<T: Field>(
     // position where private part of witness starts
     let private_inputs_offset = variables.len();
 
-    //let private_inputs_offset = public_input_count + outputs_count;
-
+    // first pass through statements to populate `variables`
     for (aa, bb, cc) in main.statements.iter().filter_map(|s| match s {
         Statement::Constraint(aa, bb, cc) => Some((aa, bb, cc)),
         Statement::Directive(..) => None,
@@ -169,6 +171,7 @@ pub fn r1cs_program<T: Field>(
     let mut b = vec![];
     let mut c = vec![];
 
+    // second pass to convert program to raw sparse vectors
     for (aa, bb, cc) in main.statements.into_iter().filter_map(|s| match s {
         Statement::Constraint(aa, bb, cc) => Some((aa, bb, cc)),
         Statement::Directive(..) => None,

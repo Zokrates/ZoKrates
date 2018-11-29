@@ -6,26 +6,34 @@ use num::Zero;
 
 impl<T: Field> From<FlatFunction<T>> for Function<T> {
     fn from(flat_function: FlatFunction<T>) -> Function<T> {
+        // we need to make sure that return values are identifiers, so we define new (public) variables
+        let return_expressions: Vec<FlatExpression<T>> = flat_function
+            .statements
+            .iter()
+            .filter_map(|s| match s {
+                FlatStatement::Return(el) => Some(el.expressions.clone()),
+                _ => None,
+            })
+            .next()
+            .unwrap();
+        let return_count = return_expressions.len();
+        let definitions = return_expressions
+            .into_iter()
+            .enumerate()
+            .map(|(index, e)| FlatStatement::Definition(FlatVariable::public(index), e));
+
         Function {
             id: flat_function.id,
             arguments: flat_function.arguments.into_iter().map(|p| p.id).collect(),
-            return_wires: flat_function
-                .statements
-                .iter()
-                .filter_map(|s| match s {
-                    FlatStatement::Return(el) => Some(
-                        el.expressions
-                            .iter()
-                            .map(|e| LinComb::from(e.clone()))
-                            .collect(),
-                    ),
-                    _ => None,
-                })
-                .next()
-                .unwrap(),
+            // return the public variables we just defined
+            return_wires: (0..return_count)
+                .map(|i| FlatVariable::public(i).into())
+                .collect(),
+            // statements are the function statements, followed by definitions of outputs
             statements: flat_function
                 .statements
                 .into_iter()
+                .chain(definitions)
                 .filter_map(|s| match s {
                     FlatStatement::Return(..) => None,
                     s => Some(s.into()),
@@ -42,10 +50,10 @@ impl<T: Field> From<FlatProg<T>> for Prog<T> {
             .into_iter()
             .find(|f| f.id == "main")
             .unwrap();
-        Prog {
-            private: main.arguments.iter().map(|p| p.private).collect(),
-            main: main.into(),
-        }
+        let private = main.arguments.iter().map(|p| p.private).collect();
+        let main = Function::from(main);
+        println!("////////\n{}\n///////", main);
+        Prog { private, main }
     }
 }
 
