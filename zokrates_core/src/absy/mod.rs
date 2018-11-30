@@ -17,7 +17,7 @@ use flat_absy::*;
 use imports::Import;
 use std::fmt;
 
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Prog<T: Field> {
     /// Functions of the program
     pub functions: Vec<Function<T>>,
@@ -74,7 +74,7 @@ impl<T: Field> fmt::Debug for Prog<T> {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Function<T: Field> {
     /// Name of the program
     pub id: String,
@@ -122,7 +122,7 @@ impl<T: Field> fmt::Debug for Function<T> {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum Assignee<T: Field> {
     Identifier(String),
     ArrayElement(Box<Assignee<T>>, Box<Expression<T>>),
@@ -154,7 +154,7 @@ impl<T: Field> From<Expression<T>> for Assignee<T> {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum Statement<T: Field> {
     Return(ExpressionList<T>),
     Declaration(Variable),

@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::ops::{Add, Sub};
 
-#[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Debug)]
+#[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Debug, Serialize, Deserialize)]
 pub struct LinComb<T: Field>(pub BTreeMap<FlatVariable, T>);
 
 impl<T: Field> LinComb<T> {

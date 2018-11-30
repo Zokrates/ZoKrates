@@ -20,8 +20,7 @@ use std::path::{Path, PathBuf};
 use std::string::String;
 use zokrates_core::compile::compile;
 use zokrates_core::field::{Field, FieldPrime};
-use zokrates_core::flat_absy::FlatProg;
-use zokrates_core::ir::r1cs_program;
+use zokrates_core::ir::{self, r1cs_program};
 #[cfg(feature = "libsnark")]
 use zokrates_core::libsnark::{generate_proof, setup};
 use zokrates_core::verification::CONTRACT_TEMPLATE;
@@ -218,20 +217,14 @@ fn main() {
 
             let mut reader = BufReader::new(file);
 
-            let program_flattened: FlatProg<FieldPrime> =
+            let program_flattened: ir::Prog<FieldPrime> =
                 match compile(&mut reader, Some(location), Some(fs_resolve)) {
-                    Ok(p) => p,
+                    Ok(p) => ir::Prog::from(p),
                     Err(why) => panic!("Compilation failed: {}", why),
                 };
 
             // number of constraints the flattened program will translate to.
-            let num_constraints = &program_flattened
-                .functions
-                .iter()
-                .find(|x| x.id == "main")
-                .unwrap()
-                .statements
-                .len();
+            let num_constraints = program_flattened.constraint_count();
 
             // serialize flattened program and write to binary file
             let mut bin_output_file = match File::create(&bin_output_path) {
@@ -278,7 +271,7 @@ fn main() {
                 Err(why) => panic!("couldn't open {}: {}", path.display(), why),
             };
 
-            let program_ast: FlatProg<FieldPrime> = match deserialize_from(&mut file, Infinite) {
+            let program_ast: ir::Prog<FieldPrime> = match deserialize_from(&mut file, Infinite) {
                 Ok(x) => x,
                 Err(why) => {
                     println!("{:?}", why);
@@ -286,14 +279,8 @@ fn main() {
                 }
             };
 
-            let main_flattened = program_ast
-                .functions
-                .iter()
-                .find(|x| x.id == "main")
-                .unwrap();
-
             // print deserialized flattened program
-            println!("{}", main_flattened);
+            println!("{}", program_ast);
 
             // validate #arguments
             let mut cli_arguments: Vec<FieldPrime> = Vec::new();
@@ -312,11 +299,11 @@ fn main() {
             let is_interactive = sub_matches.occurrences_of("interactive") > 0;
 
             // in interactive mode, only public inputs are expected
-            let expected_cli_args_count = main_flattened
-                .arguments
-                .iter()
-                .filter(|x| !(x.private && is_interactive))
-                .count();
+            let expected_cli_args_count = if !is_interactive {
+                program_ast.public_arguments_count()
+            } else {
+                0
+            };
 
             if cli_arguments.len() != expected_cli_args_count {
                 println!(
@@ -328,10 +315,9 @@ fn main() {
             }
 
             let mut cli_arguments_iter = cli_arguments.into_iter();
-            let arguments = main_flattened
-                .arguments
-                .clone()
-                .into_iter()
+            let arguments: Vec<FieldPrime> = program_ast
+                .parameters()
+                .iter()
                 .map(|x| {
                     match x.private && is_interactive {
                         // private inputs are passed interactively when the flag is present
@@ -356,7 +342,9 @@ fn main() {
                 })
                 .collect();
 
-            let witness_map = main_flattened.get_witness(arguments).unwrap();
+            let witness_map = program_ast
+                .execute(arguments)
+                .unwrap_or_else(|e| panic!(format!("Execution failed: {}", e)));
 
             println!(
                 "\nWitness: \n\n{}",
@@ -392,7 +380,7 @@ fn main() {
                 Err(why) => panic!("couldn't open {}: {}", path.display(), why),
             };
 
-            let program_ast: FlatProg<FieldPrime> = match deserialize_from(&mut file, Infinite) {
+            let program: ir::Prog<FieldPrime> = match deserialize_from(&mut file, Infinite) {
                 Ok(x) => x,
                 Err(why) => {
                     println!("{:?}", why);
@@ -400,17 +388,11 @@ fn main() {
                 }
             };
 
-            let main_flattened = program_ast
-                .functions
-                .iter()
-                .find(|x| x.id == "main")
-                .unwrap();
-
             // print deserialized flattened program
-            println!("{}", main_flattened);
+            println!("{}", program);
 
             // transform to R1CS
-            let (variables, public_variables_count, a, b, c) = r1cs_program(&program_ast);
+            let (variables, public_variables_count, a, b, c) = r1cs_program(program);
 
             // write variables meta information to file
             let var_inf_path = Path::new(sub_matches.value_of("meta-information").unwrap());

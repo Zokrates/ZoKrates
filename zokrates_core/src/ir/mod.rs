@@ -1,22 +1,24 @@
 use field::Field;
-use flat_absy::{FlatProg, FlatVariable};
+use flat_absy::flat_parameter::FlatParameter;
+use flat_absy::FlatVariable;
 use helpers::Helper;
 use std::collections::HashMap;
 use std::fmt;
 use std::mem;
 
 mod from_flat;
+mod interpreter;
 mod linear_combination;
 
 use self::linear_combination::LinComb;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Statement<T: Field> {
     Constraint(LinComb<T>, LinComb<T>, LinComb<T>),
     Directive(DirectiveStatement<T>),
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct DirectiveStatement<T: Field> {
     pub inputs: Vec<LinComb<T>>,
     pub outputs: Vec<FlatVariable>,
@@ -52,43 +54,79 @@ impl<T: Field> fmt::Display for Statement<T> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Function<T: Field> {
-    id: String,
-    statements: Vec<Statement<T>>,
-    arguments: Vec<FlatVariable>,
-    return_wires: Vec<LinComb<T>>,
+    pub id: String,
+    pub statements: Vec<Statement<T>>,
+    pub arguments: Vec<FlatVariable>,
+    pub return_wires: Vec<LinComb<T>>,
 }
 
 impl<T: Field> fmt::Display for Function<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "def {}({}) -> ({}):\n{}\nreturn {}",
+            "def {}({}) -> ({}):\n{}\n{}",
             self.id,
             self.arguments
                 .iter()
                 .map(|v| format!("{}", v))
                 .collect::<Vec<_>>()
                 .join(", "),
-            "",
+            self.return_wires.len(),
             self.statements
                 .iter()
-                .map(|s| format!("{}", s))
+                .map(|s| format!("\t{}", s))
                 .collect::<Vec<_>>()
                 .join("\n"),
             self.return_wires
                 .iter()
-                .map(|e| format!("{}", e))
+                .map(|e| format!("\treturn {}", e))
                 .collect::<Vec<_>>()
                 .join(", ")
         )
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Prog<T: Field> {
-    main: Function<T>,
-    private: Vec<bool>,
+    pub main: Function<T>,
+    pub private: Vec<bool>,
+}
+
+impl<T: Field> Prog<T> {
+    pub fn constraint_count(&self) -> usize {
+        self.main
+            .statements
+            .iter()
+            .filter(|s| match s {
+                Statement::Constraint(..) => true,
+                _ => false,
+            })
+            .count()
+    }
+
+    pub fn public_arguments_count(&self) -> usize {
+        self.private.iter().filter(|b| !**b).count()
+    }
+
+    pub fn parameters(&self) -> Vec<FlatParameter> {
+        self.main
+            .arguments
+            .iter()
+            .zip(self.private.iter())
+            .map(|(id, private)| FlatParameter {
+                private: *private,
+                id: *id,
+            })
+            .collect()
+    }
+}
+
+impl<T: Field> fmt::Display for Prog<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.main)
+    }
 }
 
 /// Returns the index of `var` in `variables`, adding `var` with incremented index if it not yet exists.
@@ -113,7 +151,7 @@ pub fn provide_variable_idx(
 ///
 /// * `prog` - The program the representation is calculated for.
 pub fn r1cs_program<T: Field>(
-    prog: &FlatProg<T>,
+    prog: Prog<T>,
 ) -> (
     Vec<FlatVariable>,
     usize,
@@ -121,9 +159,6 @@ pub fn r1cs_program<T: Field>(
     Vec<Vec<(usize, T)>>,
     Vec<Vec<(usize, T)>>,
 ) {
-    // convert flat prog to IR
-    let prog = Prog::from(prog.clone());
-
     let mut variables: HashMap<FlatVariable, usize> = HashMap::new();
     provide_variable_idx(&mut variables, &FlatVariable::one());
 

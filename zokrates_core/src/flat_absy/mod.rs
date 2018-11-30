@@ -19,7 +19,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use types::Signature;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Clone)]
 pub struct FlatProg<T: Field> {
     /// FlatFunctions of the program
     pub functions: Vec<FlatFunction<T>>,
@@ -71,7 +71,7 @@ impl<T: Field> From<standard::DirectiveR1CS> for FlatProg<T> {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct FlatFunction<T: Field> {
     /// Name of the program
     pub id: String,
@@ -180,7 +180,7 @@ impl<T: Field> fmt::Debug for FlatFunction<T> {
 ///
 /// * r1cs - R1CS in standard JSON data format
 
-#[derive(Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum FlatStatement<T: Field> {
     Return(FlatExpressionList<T>),
     Condition(FlatExpression<T>, FlatExpression<T>),

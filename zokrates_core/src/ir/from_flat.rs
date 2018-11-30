@@ -84,7 +84,7 @@ impl<T: Field> From<FlatStatement<T>> for Statement<T> {
                 FlatExpression::Mult(box lhs, box rhs) => {
                     Statement::Constraint(lhs.into(), rhs.into(), linear.into())
                 }
-                _ => Statement::Constraint(LinComb::zero(), LinComb::zero(), LinComb::zero()),
+                e => Statement::Constraint(LinComb::one(), e.into(), linear.into()),
             },
             FlatStatement::Definition(var, quadratic) => match quadratic {
                 FlatExpression::Mult(box lhs, box rhs) => {
