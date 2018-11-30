@@ -66,7 +66,7 @@ impl<T: Field> fmt::Display for Function<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "def {}({}) -> ({}):\n{}\n{}",
+            "def {}({}) -> ({}):\n{}\n\t return {}",
             self.id,
             self.arguments
                 .iter()
@@ -81,7 +81,7 @@ impl<T: Field> fmt::Display for Function<T> {
                 .join("\n"),
             self.return_wires
                 .iter()
-                .map(|e| format!("\treturn {}", e))
+                .map(|e| format!("{}", e))
                 .collect::<Vec<_>>()
                 .join(", ")
         )
@@ -108,6 +108,10 @@ impl<T: Field> Prog<T> {
 
     pub fn public_arguments_count(&self) -> usize {
         self.private.iter().filter(|b| !**b).count()
+    }
+
+    pub fn private_arguments_count(&self) -> usize {
+        self.private.iter().filter(|b| **b).count()
     }
 
     pub fn parameters(&self) -> Vec<FlatParameter> {

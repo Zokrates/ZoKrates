@@ -299,10 +299,10 @@ fn main() {
             let is_interactive = sub_matches.occurrences_of("interactive") > 0;
 
             // in interactive mode, only public inputs are expected
-            let expected_cli_args_count = if !is_interactive {
+            let expected_cli_args_count = if is_interactive {
                 program_ast.public_arguments_count()
             } else {
-                0
+                program_ast.public_arguments_count() + program_ast.private_arguments_count()
             };
 
             if cli_arguments.len() != expected_cli_args_count {
