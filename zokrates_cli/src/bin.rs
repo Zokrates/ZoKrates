@@ -219,7 +219,7 @@ fn main() {
 
             let program_flattened: ir::Prog<FieldPrime> =
                 match compile(&mut reader, Some(location), Some(fs_resolve)) {
-                    Ok(p) => ir::Prog::from(p),
+                    Ok(p) => p,
                     Err(why) => panic!("Compilation failed: {}", why),
                 };
 
@@ -637,10 +637,10 @@ mod tests {
                 .into_string()
                 .unwrap();
 
-            let program_flattened: FlatProg<FieldPrime> =
+            let program_flattened: ir::Prog<FieldPrime> =
                 compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
-            let (..) = r1cs_program(&program_flattened);
+            let (..) = r1cs_program(program_flattened);
         }
     }
 
@@ -666,12 +666,12 @@ mod tests {
 
             let mut reader = BufReader::new(file);
 
-            let program_flattened: FlatProg<FieldPrime> =
+            let program_flattened: ir::Prog<FieldPrime> =
                 compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
-            let (..) = r1cs_program(&program_flattened);
+            let (..) = r1cs_program(program_flattened.clone());
             let _ = program_flattened
-                .get_witness(vec![FieldPrime::from(0)])
+                .execute(vec![FieldPrime::from(0)])
                 .unwrap();
         }
     }
@@ -698,14 +698,14 @@ mod tests {
 
             let mut reader = BufReader::new(file);
 
-            let program_flattened: FlatProg<FieldPrime> =
+            let program_flattened: ir::Prog<FieldPrime> =
                 compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
-            let (..) = r1cs_program(&program_flattened);
+            let (..) = r1cs_program(program_flattened.clone());
 
             let result = std::panic::catch_unwind(|| {
                 let _ = program_flattened
-                    .get_witness(vec![FieldPrime::from(0)])
+                    .execute(vec![FieldPrime::from(0)])
                     .unwrap();
             });
             assert!(result.is_err());

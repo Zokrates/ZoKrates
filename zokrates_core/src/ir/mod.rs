@@ -12,7 +12,7 @@ mod linear_combination;
 
 use self::linear_combination::LinComb;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Statement<T: Field> {
     Constraint(LinComb<T>, LinComb<T>, LinComb<T>),
     Directive(DirectiveStatement<T>),
@@ -54,7 +54,7 @@ impl<T: Field> fmt::Display for Statement<T> {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Function<T: Field> {
     pub id: String,
     pub statements: Vec<Statement<T>>,
@@ -88,7 +88,7 @@ impl<T: Field> fmt::Display for Function<T> {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Prog<T: Field> {
     pub main: Function<T>,
     pub private: Vec<bool>,
