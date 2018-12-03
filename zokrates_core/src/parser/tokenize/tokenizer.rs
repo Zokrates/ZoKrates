@@ -65,7 +65,7 @@ pub fn parse_ide<T: Field>(input: &String, pos: &Position) -> (Token<T>, String,
                             '0'...'9' => size_len += 1,
                             _ => break,
                         },
-                        None => break
+                        None => break,
                     }
                 }
                 assert!(size_len > 0);
@@ -73,7 +73,11 @@ pub fn parse_ide<T: Field>(input: &String, pos: &Position) -> (Token<T>, String,
                 match input.chars().nth(size_end) {
                     Some(']') => {
                         end = size_end + 1;
-                        Token::Type(Type::FieldElementArray(input[size_start..(size_start + size_len)].parse::<usize>().unwrap()))
+                        Token::Type(Type::FieldElementArray(
+                            input[size_start..(size_start + size_len)]
+                                .parse::<usize>()
+                                .unwrap(),
+                        ))
                     }
                     _ => panic!(),
                 }
@@ -218,6 +222,42 @@ pub fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String
             ),
             _ => (
                 Token::Gt,
+                input[offset + 1..].to_string(),
+                Position {
+                    line: pos.line,
+                    col: pos.col + offset + 1,
+                },
+            ),
+        },
+        Some('&') => match input.chars().nth(offset + 1) {
+            Some('&') => (
+                Token::And,
+                input[offset + 2..].to_string(),
+                Position {
+                    line: pos.line,
+                    col: pos.col + offset + 2,
+                },
+            ),
+            _ => (
+                Token::Unknown(String::from("&")),
+                input[offset + 1..].to_string(),
+                Position {
+                    line: pos.line,
+                    col: pos.col + offset + 1,
+                },
+            ),
+        },
+        Some('|') => match input.chars().nth(offset + 1) {
+            Some('|') => (
+                Token::Or,
+                input[offset + 2..].to_string(),
+                Position {
+                    line: pos.line,
+                    col: pos.col + offset + 2,
+                },
+            ),
+            _ => (
+                Token::Unknown(String::from("|")),
                 input[offset + 1..].to_string(),
                 Position {
                     line: pos.line,
@@ -373,7 +413,7 @@ mod tests {
     mod types {
         use super::*;
 
-       #[test]
+        #[test]
         fn field() {
             let pos = Position { line: 45, col: 121 };
             assert_eq!(

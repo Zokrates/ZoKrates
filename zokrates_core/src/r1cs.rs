@@ -5,12 +5,12 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de
 //! @date 2017
 
+use field::Field;
 use flat_absy::flat_variable::FlatVariable;
+use flat_absy::FlatExpression::*;
+use flat_absy::*;
 use std::collections::HashMap;
 use std::mem;
-use flat_absy::*;
-use flat_absy::FlatExpression::*;
-use field::Field;
 
 /// Returns a vector of summands of the given `FlatExpression`.
 ///
@@ -71,8 +71,8 @@ fn count_variables_add<T: Field>(expr: &FlatExpression<T>) -> HashMap<FlatVariab
                 let num = count.entry(FlatVariable::one()).or_insert(T::zero());
                 *num = num.clone() + x1 + x2;
             }
-            Mult(box Number(ref x), box Identifier(ref v)) |
-            Mult(box Identifier(ref v), box Number(ref x)) => {
+            Mult(box Number(ref x), box Identifier(ref v))
+            | Mult(box Identifier(ref v), box Number(ref x)) => {
                 let num = count.entry(*v).or_insert(T::zero());
                 *num = num.clone() + x;
             }
@@ -88,7 +88,10 @@ fn count_variables_add<T: Field>(expr: &FlatExpression<T>) -> HashMap<FlatVariab
 ///
 /// * `lhs` - Left hand side of the equation
 /// * `rhs` - Right hand side of the equation
-fn swap_sub<T: Field>(lhs: &FlatExpression<T>, rhs: &FlatExpression<T>) -> (FlatExpression<T>, FlatExpression<T>) {
+fn swap_sub<T: Field>(
+    lhs: &FlatExpression<T>,
+    rhs: &FlatExpression<T>,
+) -> (FlatExpression<T>, FlatExpression<T>) {
     let mut left = get_summands(lhs);
     let mut right = get_summands(rhs);
     let mut run = true;
@@ -169,64 +172,25 @@ fn r1cs_expression<T: Field>(
             match lhs {
                 box Number(x) => a_row.push((0, x)),
                 box Identifier(x) => a_row.push((provide_variable_idx(variables, &x), T::one())),
-                box e @ Add(..) => for (key, value) in count_variables_add(&e) {
-                    a_row.push((provide_variable_idx(variables, &key), value));
-                },
+                box e @ Add(..) => {
+                    for (key, value) in count_variables_add(&e) {
+                        a_row.push((provide_variable_idx(variables, &key), value));
+                    }
+                }
                 e @ _ => panic!("Not flattened: {}", e),
             };
             match rhs {
                 box Number(x) => b_row.push((0, x)),
                 box Identifier(x) => b_row.push((provide_variable_idx(variables, &x), T::one())),
-                box e @ Add(..) => for (key, value) in count_variables_add(&e) {
-                    b_row.push((provide_variable_idx(variables, &key), value));
-                },
+                box e @ Add(..) => {
+                    for (key, value) in count_variables_add(&e) {
+                        b_row.push((provide_variable_idx(variables, &key), value));
+                    }
+                }
                 e @ _ => panic!("Not flattened: {}", e),
             };
             for (key, value) in count_variables_add(&linear_expr) {
                 c_row.push((provide_variable_idx(variables, &key), value));
-            }
-        }
-        Div(lhs, rhs) => {
-            // a / b = c --> c * b = a
-            match lhs {
-                box Number(x) => c_row.push((0, x)),
-                box Identifier(x) => c_row.push((provide_variable_idx(variables, &x), T::one())),
-                box e @ Add(..) => for (key, value) in count_variables_add(&e) {
-                    c_row.push((provide_variable_idx(variables, &key), value));
-                },
-                box e @ Sub(..) => {
-                    return r1cs_expression(
-                        Mult(box linear_expr, rhs),
-                        e,
-                        variables,
-                        a_row,
-                        b_row,
-                        c_row,
-                    )
-                }
-                box Mult(box Number(ref x1), box Number(ref x2)) => {
-                    c_row.push((0, x1.clone() * x2))
-                }
-                box Mult(box Number(ref x), box Identifier(ref v)) |
-                box Mult(box Identifier(ref v), box Number(ref x)) => {
-                    c_row.push((provide_variable_idx(variables, v), x.clone()))
-                }
-                e @ _ => panic!("(lhs) not supported: {:?}", e),
-            };
-            match rhs {
-                box Number(x) => b_row.push((0, x)),
-                box Identifier(x) => b_row.push((provide_variable_idx(variables, &x), T::one())),
-                box Mult(box Number(ref x1), box Number(ref x2)) => {
-                    b_row.push((0, x1.clone() * x2))
-                }
-                box Mult(box Number(ref x), box Identifier(ref v)) |
-                box Mult(box Identifier(ref v), box Number(ref x)) => {
-                    b_row.push((provide_variable_idx(variables, v), x.clone()))
-                }
-                e @ _ => panic!("(rhs) not supported: {:?}", e),
-            };
-            for (key, value) in count_variables_add(&linear_expr) {
-                a_row.push((provide_variable_idx(variables, &key), value));
             }
         }
         Identifier(var) => {
@@ -280,7 +244,9 @@ pub fn r1cs_program<T: Field>(
     let mut c: Vec<Vec<(usize, T)>> = Vec::new();
 
     //Only the main function is relevant in this step, since all calls to other functions were resolved during flattening
-    let main = prog.clone().functions
+    let main = prog
+        .clone()
+        .functions
         .into_iter()
         .find(|x: &FlatFunction<T>| x.id == "main".to_string())
         .unwrap();
@@ -291,7 +257,12 @@ pub fn r1cs_program<T: Field>(
 
     // ~out is added after main's arguments as we want variables (columns)
     // in the r1cs to be aligned like "public inputs | private inputs"
-    let main_return_count = main.signature.outputs.iter().map(|t| t.get_primitive_count()).fold(0, |acc, x| acc + x);
+    let main_return_count = main
+        .signature
+        .outputs
+        .iter()
+        .map(|t| t.get_primitive_count())
+        .fold(0, |acc, x| acc + x);
 
     for i in 0..main_return_count {
         provide_variable_idx(&mut variables, &FlatVariable::public(i));
@@ -319,7 +290,7 @@ pub fn r1cs_program<T: Field>(
                     b.push(b_row);
                     c.push(c_row);
                 }
-            },
+            }
             FlatStatement::Definition(ref id, ref rhs) => {
                 let mut a_row = Vec::new();
                 let mut b_row = Vec::new();
@@ -335,7 +306,7 @@ pub fn r1cs_program<T: Field>(
                 a.push(a_row);
                 b.push(b_row);
                 c.push(c_row);
-            },
+            }
             FlatStatement::Condition(ref expr1, ref expr2) => {
                 let mut a_row = Vec::new();
                 let mut b_row = Vec::new();
@@ -351,8 +322,8 @@ pub fn r1cs_program<T: Field>(
                 a.push(a_row);
                 b.push(b_row);
                 c.push(c_row);
-            },
-            FlatStatement::Directive(..) => continue
+            }
+            FlatStatement::Directive(..) => continue,
         }
     }
 
@@ -394,10 +365,7 @@ mod tests {
             let y = FlatVariable::new(1);
 
             let lhs = Identifier(x);
-            let rhs = Add(
-                box Identifier(y),
-                box Number(FieldPrime::from(5)),
-            );
+            let rhs = Add(box Identifier(y), box Number(FieldPrime::from(5)));
 
             let mut variables: HashMap<FlatVariable, usize> = HashMap::new();
             variables.insert(one, 0);
@@ -431,46 +399,25 @@ mod tests {
             let z = FlatVariable::new(2);
 
             let lhs = Sub(
-                box Add(
-                    box Identifier(x),
-                    box Identifier(y),
-                ),
+                box Add(box Identifier(x), box Identifier(y)),
                 box Sub(
                     box Add(
                         box Identifier(z),
-                        box Mult(
-                            box Number(FieldPrime::from(3)),
-                            box Identifier(x),
-                        ),
+                        box Mult(box Number(FieldPrime::from(3)), box Identifier(x)),
                     ),
                     box Identifier(y),
                 ),
             );
             let rhs = Add(
-                box Sub(
-                    box Identifier(x),
-                    box Identifier(y),
-                ),
+                box Sub(box Identifier(x), box Identifier(y)),
                 box Add(
                     box Sub(
-                        box Mult(
-                            box Number(FieldPrime::from(2)),
-                            box Identifier(x),
-                        ),
-                        box Mult(
-                            box Number(FieldPrime::from(4)),
-                            box Identifier(y),
-                        ),
+                        box Mult(box Number(FieldPrime::from(2)), box Identifier(x)),
+                        box Mult(box Number(FieldPrime::from(4)), box Identifier(y)),
                     ),
                     box Sub(
-                        box Mult(
-                            box Number(FieldPrime::from(4)),
-                            box Identifier(y),
-                        ),
-                        box Mult(
-                            box Number(FieldPrime::from(2)),
-                            box Identifier(z),
-                        ),
+                        box Mult(box Number(FieldPrime::from(4)), box Identifier(y)),
+                        box Mult(box Number(FieldPrime::from(2)), box Identifier(z)),
                     ),
                 ),
             );
@@ -518,21 +465,12 @@ mod tests {
             let z = FlatVariable::new(2);
 
             let lhs = Add(
-                box Mult(
-                    box Number(FieldPrime::from(7)),
-                    box Identifier(x),
-                ),
+                box Mult(box Number(FieldPrime::from(7)), box Identifier(x)),
                 box Identifier(y),
             );
             let rhs = Sub(
-                box Mult(
-                    box Number(FieldPrime::from(3)),
-                    box Identifier(y),
-                ),
-                box Mult(
-                    box Identifier(z),
-                    box Number(FieldPrime::from(6)),
-                ),
+                box Mult(box Number(FieldPrime::from(3)), box Identifier(y)),
+                box Mult(box Identifier(z), box Number(FieldPrime::from(6))),
             );
 
             let mut variables: HashMap<FlatVariable, usize> = HashMap::new();
@@ -574,24 +512,12 @@ mod tests {
 
             let lhs = Sub(
                 box Sub(
-                    box Mult(
-                        box Number(FieldPrime::from(3)),
-                        box Identifier(y),
-                    ),
-                    box Mult(
-                        box Identifier(z),
-                        box Number(FieldPrime::from(2)),
-                    ),
+                    box Mult(box Number(FieldPrime::from(3)), box Identifier(y)),
+                    box Mult(box Identifier(z), box Number(FieldPrime::from(2))),
                 ),
-                box Mult(
-                    box Identifier(x),
-                    box Number(FieldPrime::from(12)),
-                ),
+                box Mult(box Identifier(x), box Number(FieldPrime::from(12))),
             );
-            let rhs = Sub(
-                box Identifier(a),
-                box Identifier(x),
-            );
+            let rhs = Sub(box Identifier(a), box Identifier(x));
 
             let mut variables: HashMap<FlatVariable, usize> = HashMap::new();
             variables.insert(one, 0);
@@ -634,46 +560,22 @@ mod tests {
 
             let lhs = Add(
                 box Add(
-                    box Mult(
-                        box Number(FieldPrime::from(4)),
-                        box Identifier(y),
-                    ),
-                    box Mult(
-                        box Number(FieldPrime::from(3)),
-                        box Identifier(x),
-                    ),
+                    box Mult(box Number(FieldPrime::from(4)), box Identifier(y)),
+                    box Mult(box Number(FieldPrime::from(3)), box Identifier(x)),
                 ),
-                box Mult(
-                    box Number(FieldPrime::from(3)),
-                    box Identifier(z),
-                ),
+                box Mult(box Number(FieldPrime::from(3)), box Identifier(z)),
             );
             let rhs = Mult(
                 box Add(
                     box Add(
-                        box Mult(
-                            box Number(FieldPrime::from(3)),
-                            box Identifier(x),
-                        ),
-                        box Mult(
-                            box Number(FieldPrime::from(6)),
-                            box Identifier(y),
-                        ),
+                        box Mult(box Number(FieldPrime::from(3)), box Identifier(x)),
+                        box Mult(box Number(FieldPrime::from(6)), box Identifier(y)),
                     ),
-                    box Mult(
-                        box Number(FieldPrime::from(4)),
-                        box Identifier(z),
-                    ),
+                    box Mult(box Number(FieldPrime::from(4)), box Identifier(z)),
                 ),
                 box Add(
-                    box Mult(
-                        box Number(FieldPrime::from(31)),
-                        box Identifier(x),
-                    ),
-                    box Mult(
-                        box Number(FieldPrime::from(4)),
-                        box Identifier(z),
-                    ),
+                    box Mult(box Number(FieldPrime::from(31)), box Identifier(x)),
+                    box Mult(box Number(FieldPrime::from(4)), box Identifier(z)),
                 ),
             );
 
@@ -711,44 +613,6 @@ mod tests {
                 ],
                 c_row
             );
-        }
-
-        #[test]
-        fn div() {
-            // x = (3 * x) / (y * 6) --> x * (y * 6) = 3 * x
-
-            let one = FlatVariable::one();
-            let x = FlatVariable::new(0);
-            let y = FlatVariable::new(1);
-
-            let lhs = Identifier(x);
-            let rhs = Div(
-                box Mult(
-                    box Number(FieldPrime::from(3)),
-                    box Identifier(x),
-                ),
-                box Mult(
-                    box Identifier(y),
-                    box Number(FieldPrime::from(6)),
-                ),
-            );
-
-            let mut a_row = Vec::new();
-            let mut b_row = Vec::new();
-            let mut c_row = Vec::new();
-
-            let mut variables: HashMap<FlatVariable, usize> = HashMap::new();
-            variables.insert(one, 0);
-            variables.insert(x, 1);
-            variables.insert(y, 2);
-
-            r1cs_expression(lhs, rhs, &mut variables, &mut a_row, &mut b_row, &mut c_row);
-            a_row.sort_by(sort_tup);
-            b_row.sort_by(sort_tup);
-            c_row.sort_by(sort_tup);
-            assert_eq!(vec![(1, FieldPrime::from(1))], a_row); // x
-            assert_eq!(vec![(2, FieldPrime::from(6))], b_row); // y * 6
-            assert_eq!(vec![(1, FieldPrime::from(3))], c_row); // 3 * x
         }
     }
 }

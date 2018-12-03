@@ -1,5 +1,5 @@
+use field::Field;
 use std::fmt;
-use field::{Field};
 use types::Type;
 
 #[derive(PartialEq)]
@@ -26,7 +26,10 @@ pub enum Token<T: Field> {
     Eqeq,
     Ge,
     Gt,
+    And,
+    Or,
     Add,
+    Not,
     Sub,
     Mult,
     Div,
@@ -74,6 +77,9 @@ impl<T: Field> fmt::Display for Token<T> {
             Token::Eqeq => write!(f, "=="),
             Token::Ge => write!(f, ">="),
             Token::Gt => write!(f, ">"),
+            Token::And => write!(f, "&&"),
+            Token::Not => write!(f, "!"),
+            Token::Or => write!(f, "||"),
             Token::Add => write!(f, "+"),
             Token::Sub => write!(f, "-"),
             Token::Mult => write!(f, "*"),

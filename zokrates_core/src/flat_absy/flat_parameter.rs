@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use flat_absy::flat_variable::FlatVariable;
+use std::collections::HashMap;
 use std::fmt;
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
@@ -10,10 +10,7 @@ pub struct FlatParameter {
 
 impl FlatParameter {
     fn new(id: FlatVariable, private: bool) -> Self {
-        FlatParameter {
-            id,
-            private
-        }
+        FlatParameter { id, private }
     }
 
     pub fn public(v: FlatVariable) -> Self {
@@ -39,10 +36,13 @@ impl fmt::Debug for FlatParameter {
 }
 
 impl FlatParameter {
-    pub fn apply_direct_substitution(self, substitution: &HashMap<FlatVariable, FlatVariable>) -> FlatParameter {
+    pub fn apply_direct_substitution(
+        self,
+        substitution: &HashMap<FlatVariable, FlatVariable>,
+    ) -> FlatParameter {
         FlatParameter {
             id: substitution.get(&self.id).unwrap().clone(),
-            private: self.private
+            private: self.private,
         }
     }
 }
