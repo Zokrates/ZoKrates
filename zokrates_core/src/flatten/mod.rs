@@ -703,7 +703,22 @@ impl Flattener {
                     id.into()
                 };
 
+                let invb = self.use_sym();
                 let inverse = self.use_sym();
+
+
+                // # invb = 1/b
+                statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
+                    vec![invb],
+                    Helper::Rust(RustHelper::Div),
+                    vec![FlatExpression::Number(T::one()), new_right.clone()],
+                )));
+
+                // assert(invb * b == 1)
+                statements_flattened.push(FlatStatement::Condition(
+                    FlatExpression::Number(T::one()),
+                    FlatExpression::Mult(box invb.into(), box new_right.clone().into()),
+                ));
 
                 // # c = a/b
                 statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
