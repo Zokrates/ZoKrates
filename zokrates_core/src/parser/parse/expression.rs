@@ -297,6 +297,10 @@ pub fn parse_term1<T: Field>(
             Ok((e, s2, p2)) => Ok((Expression::Div(box expr, box e), s2, p2)),
             Err(err) => Err(err),
         },
+        (Token::Pow, s1, p1) => match parse_term(&s1, &p1) {
+            Ok((e, s2, p2)) => Ok((Expression::Pow(box expr, box e), s2, p2)),
+            Err(err) => Err(err),
+        }
         _ => Ok((expr, input, pos)),
     }
 }
@@ -323,13 +327,6 @@ pub fn parse_expr1<T: Field>(
         },
         (Token::Sub, s1, p1) => match parse_term(&s1, &p1) {
             Ok((e2, s2, p2)) => parse_expr1(Expression::Sub(box expr, box e2), s2, p2),
-            Err(err) => Err(err),
-        },
-        (Token::Pow, s1, p1) => match parse_term(&s1, &p1) {
-            Ok((e, s2, p2)) => match parse_term1(Expression::Pow(box expr, box e), s2, p2) {
-                Ok((e3, s3, p3)) => parse_expr1(e3, s3, p3),
-                Err(err) => Err(err),
-            },
             Err(err) => Err(err),
         },
         _ => Ok((expr, input, pos)),
