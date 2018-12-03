@@ -706,7 +706,6 @@ impl Flattener {
                 let invb = self.use_sym();
                 let inverse = self.use_sym();
 
-
                 // # invb = 1/b
                 statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
                     vec![invb],
