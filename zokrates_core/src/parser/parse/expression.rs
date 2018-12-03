@@ -300,7 +300,7 @@ pub fn parse_term1<T: Field>(
         (Token::Pow, s1, p1) => match parse_term(&s1, &p1) {
             Ok((e, s2, p2)) => Ok((Expression::Pow(box expr, box e), s2, p2)),
             Err(err) => Err(err),
-        }
+        },
         _ => Ok((expr, input, pos)),
     }
 }
