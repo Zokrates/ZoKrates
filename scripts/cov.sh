@@ -1,7 +1,5 @@
 #!/bin/bash
 
-WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark RUSTFLAGS="-D warnings -C link-dead-code" cargo clean && cargo test -- --test-threads=1
-
 apt-get update -yqq
 apt-get install -y build-essentials
 apt-get install -y wget zlib1g-dev libcurl4-openssl-dev libelf-dev libdw-dev cmake gcc binutils-dev libiberty-dev sudo
