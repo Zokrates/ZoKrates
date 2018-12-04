@@ -2,7 +2,7 @@
 
 apt-get update -yqq
 apt-get install -y build-essentials
-apt-get install -y wget libcurl4-openssl-dev libelf-dev libdw-dev cmake gcc binutils-dev libiberty-dev sudo
+apt-get install -y wget zlib1g-dev libcurl4-openssl-dev libelf-dev libdw-dev cmake gcc binutils-dev libiberty-dev sudo
 
 wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz &&
         tar xzf master.tar.gz &&
