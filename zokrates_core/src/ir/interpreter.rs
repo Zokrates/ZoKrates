@@ -15,16 +15,16 @@ impl<T: Field> Prog<T> {
 
         for statement in main.statements {
             match statement {
-                Statement::Constraint(a, b, c) => match c.is_assignee(&witness) {
+                Statement::Constraint(quad, lin) => match lin.is_assignee(&witness) {
                     true => {
-                        let val = a.evaluate(&witness) * b.evaluate(&witness);
-                        witness.insert(c.0.iter().next().unwrap().0.clone(), val);
+                        let val = quad.evaluate(&witness);
+                        witness.insert(lin.0.iter().next().unwrap().0.clone(), val);
                     }
                     false => {
-                        let lhs_value = a.evaluate(&witness) * b.evaluate(&witness);
-                        let rhs_value = c.evaluate(&witness);
+                        let lhs_value = quad.evaluate(&witness);
+                        let rhs_value = lin.evaluate(&witness);
                         if lhs_value != rhs_value {
-                            return Err(Error::Constraint(a, b, c, lhs_value, rhs_value));
+                            return Err(Error::Constraint(quad, lin, lhs_value, rhs_value));
                         }
                     }
                 },
@@ -63,19 +63,25 @@ impl<T: Field> LinComb<T> {
     }
 }
 
+impl<T: Field> QuadComb<T> {
+    fn evaluate(&self, witness: &BTreeMap<FlatVariable, T>) -> T {
+        self.left.evaluate(&witness) * self.right.evaluate(&witness)
+    }
+}
+
 #[derive(PartialEq, Debug)]
 pub enum Error<T: Field> {
-    Constraint(LinComb<T>, LinComb<T>, LinComb<T>, T, T),
+    Constraint(QuadComb<T>, LinComb<T>, T, T),
     Solver,
 }
 
 impl<T: Field> fmt::Display for Error<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::Constraint(ref a, ref b, ref c, ref left_value, ref right_value) => write!(
+            Error::Constraint(ref quad, ref lin, ref left_value, ref right_value) => write!(
                 f,
-                "Expected ({}) * ({}) to equal ({}), but {} != {}",
-                a, b, c, left_value, right_value
+                "Expected {} to equal {}, but {} != {}",
+                quad, lin, left_value, right_value
             ),
             Error::Solver => write!(f, ""),
         }

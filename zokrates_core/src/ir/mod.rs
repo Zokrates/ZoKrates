@@ -6,15 +6,16 @@ use std::collections::HashMap;
 use std::fmt;
 use std::mem;
 
+mod expression;
 mod from_flat;
 mod interpreter;
-mod linear_combination;
 
-use self::linear_combination::LinComb;
+use self::expression::LinComb;
+use self::expression::QuadComb;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Statement<T: Field> {
-    Constraint(LinComb<T>, LinComb<T>, LinComb<T>),
+    Constraint(QuadComb<T>, LinComb<T>),
     Directive(DirectiveStatement<T>),
 }
 
@@ -48,7 +49,7 @@ impl<T: Field> fmt::Display for DirectiveStatement<T> {
 impl<T: Field> fmt::Display for Statement<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Statement::Constraint(ref a, ref b, ref c) => write!(f, "({}) * ({}) == ({})", a, b, c),
+            Statement::Constraint(ref quad, ref lin) => write!(f, "{} == {}", quad, lin),
             Statement::Directive(ref s) => write!(f, "{}", s),
         }
     }
@@ -59,7 +60,7 @@ pub struct Function<T: Field> {
     pub id: String,
     pub statements: Vec<Statement<T>>,
     pub arguments: Vec<FlatVariable>,
-    pub return_wires: Vec<LinComb<T>>,
+    pub returns: Vec<QuadComb<T>>,
 }
 
 impl<T: Field> fmt::Display for Function<T> {
@@ -73,13 +74,13 @@ impl<T: Field> fmt::Display for Function<T> {
                 .map(|v| format!("{}", v))
                 .collect::<Vec<_>>()
                 .join(", "),
-            self.return_wires.len(),
+            self.returns.len(),
             self.statements
                 .iter()
                 .map(|s| format!("\t{}", s))
                 .collect::<Vec<_>>()
                 .join("\n"),
-            self.return_wires
+            self.returns
                 .iter()
                 .map(|e| format!("{}", e))
                 .collect::<Vec<_>>()
@@ -181,7 +182,7 @@ pub fn r1cs_program<T: Field>(
 
     //~out are added after main's arguments as we want variables (columns)
     //in the r1cs to be aligned like "public inputs | private inputs"
-    let main_return_count = main.return_wires.len();
+    let main_return_count = main.returns.len();
 
     for i in 0..main_return_count {
         provide_variable_idx(&mut variables, &FlatVariable::public(i));
@@ -191,17 +192,17 @@ pub fn r1cs_program<T: Field>(
     let private_inputs_offset = variables.len();
 
     // first pass through statements to populate `variables`
-    for (aa, bb, cc) in main.statements.iter().filter_map(|s| match s {
-        Statement::Constraint(aa, bb, cc) => Some((aa, bb, cc)),
+    for (aa, bb) in main.statements.iter().filter_map(|s| match s {
+        Statement::Constraint(aa, bb) => Some((aa, bb)),
         Statement::Directive(..) => None,
     }) {
-        for (k, _) in &aa.0 {
+        for (k, _) in &aa.left.0 {
+            provide_variable_idx(&mut variables, &k);
+        }
+        for (k, _) in &aa.right.0 {
             provide_variable_idx(&mut variables, &k);
         }
         for (k, _) in &bb.0 {
-            provide_variable_idx(&mut variables, &k);
-        }
-        for (k, _) in &cc.0 {
             provide_variable_idx(&mut variables, &k);
         }
     }
@@ -211,22 +212,26 @@ pub fn r1cs_program<T: Field>(
     let mut c = vec![];
 
     // second pass to convert program to raw sparse vectors
-    for (aa, bb, cc) in main.statements.into_iter().filter_map(|s| match s {
-        Statement::Constraint(aa, bb, cc) => Some((aa, bb, cc)),
+    for (aa, bb) in main.statements.into_iter().filter_map(|s| match s {
+        Statement::Constraint(aa, bb) => Some((aa, bb)),
         Statement::Directive(..) => None,
     }) {
         a.push(
-            aa.0.into_iter()
+            aa.left
+                .0
+                .into_iter()
                 .map(|(k, v)| (variables.get(&k).unwrap().clone(), v))
                 .collect(),
         );
         b.push(
-            bb.0.into_iter()
+            aa.right
+                .0
+                .into_iter()
                 .map(|(k, v)| (variables.get(&k).unwrap().clone(), v))
                 .collect(),
         );
         c.push(
-            cc.0.into_iter()
+            bb.0.into_iter()
                 .map(|(k, v)| (variables.get(&k).unwrap().clone(), v))
                 .collect(),
         );
@@ -252,8 +257,10 @@ mod tests {
         #[test]
         fn print_constraint() {
             let c: Statement<FieldPrime> = Statement::Constraint(
-                FlatVariable::new(42).into(),
-                FlatVariable::new(42).into(),
+                QuadComb::from_linear_combinations(
+                    FlatVariable::new(42).into(),
+                    FlatVariable::new(42).into(),
+                ),
                 FlatVariable::new(42).into(),
             );
             assert_eq!(format!("{}", c), "(1 * _42) * (1 * _42) == (1 * _42)")

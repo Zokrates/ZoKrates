@@ -1,12 +1,11 @@
 use field::Field;
 use flat_absy::{FlatExpression, FlatFunction, FlatProg, FlatStatement, FlatVariable};
 use helpers;
-use ir::{DirectiveStatement, Function, LinComb, Prog, Statement};
+use ir::{DirectiveStatement, Function, LinComb, Prog, QuadComb, Statement};
 use num::Zero;
 
 impl<T: Field> From<FlatFunction<T>> for Function<T> {
     fn from(flat_function: FlatFunction<T>) -> Function<T> {
-        // we need to make sure that return values are identifiers, so we define new (public) variables
         let return_expressions: Vec<FlatExpression<T>> = flat_function
             .statements
             .iter()
@@ -16,24 +15,13 @@ impl<T: Field> From<FlatFunction<T>> for Function<T> {
             })
             .next()
             .unwrap();
-        let return_count = return_expressions.len();
-        let definitions = return_expressions
-            .into_iter()
-            .enumerate()
-            .map(|(index, e)| FlatStatement::Definition(FlatVariable::public(index), e));
-
         Function {
             id: flat_function.id,
             arguments: flat_function.arguments.into_iter().map(|p| p.id).collect(),
-            // return the public variables we just defined
-            return_wires: (0..return_count)
-                .map(|i| FlatVariable::public(i).into())
-                .collect(),
-            // statements are the function statements, followed by definitions of outputs
+            returns: return_expressions.into_iter().map(|e| e.into()).collect(),
             statements: flat_function
                 .statements
                 .into_iter()
-                .chain(definitions)
                 .filter_map(|s| match s {
                     FlatStatement::Return(..) => None,
                     s => Some(s.into()),
@@ -45,19 +33,57 @@ impl<T: Field> From<FlatFunction<T>> for Function<T> {
 
 impl<T: Field> From<FlatProg<T>> for Prog<T> {
     fn from(flat_prog: FlatProg<T>) -> Prog<T> {
+        println!("{}", flat_prog);
+        // get the main function as all calls have been resolved
         let main = flat_prog
             .functions
             .into_iter()
             .find(|f| f.id == "main")
             .unwrap();
+
+        // get the interface of the program, ie which inputs are private and public
         let private = main.arguments.iter().map(|p| p.private).collect();
+
+        // convert the main function to this IR for functions
+        let main: Function<T> = main.into();
+
+        // contrary to other functions, we need to make sure that return values are identifiers, so we define new (public) variables
+        let definitions =
+            main.returns.iter().enumerate().map(|(index, e)| {
+                Statement::Constraint(e.clone(), FlatVariable::public(index).into())
+            });
+
+        // update the main function with the extra definition statements and replace the return values
+        let main = Function {
+            returns: (0..main.returns.len())
+                .map(|i| FlatVariable::public(i).into())
+                .collect(),
+            statements: main.statements.into_iter().chain(definitions).collect(),
+            ..main
+        };
+
         let main = Function::from(main);
         Prog { private, main }
     }
 }
 
+impl<T: Field> From<FlatExpression<T>> for QuadComb<T> {
+    fn from(flat_expression: FlatExpression<T>) -> QuadComb<T> {
+        match flat_expression.is_linear() {
+            true => LinComb::from(flat_expression).into(),
+            false => match flat_expression {
+                FlatExpression::Mult(box e1, box e2) => {
+                    QuadComb::from_linear_combinations(e1.into(), e2.into())
+                }
+                e => unimplemented!("{}", e),
+            },
+        }
+    }
+}
+
 impl<T: Field> From<FlatExpression<T>> for LinComb<T> {
     fn from(flat_expression: FlatExpression<T>) -> LinComb<T> {
+        assert!(flat_expression.is_linear());
         match flat_expression {
             FlatExpression::Number(ref n) if *n == T::from(0) => LinComb::zero(),
             FlatExpression::Number(n) => LinComb::summand(n, FlatVariable::one()),
@@ -81,16 +107,18 @@ impl<T: Field> From<FlatStatement<T>> for Statement<T> {
     fn from(flat_statement: FlatStatement<T>) -> Statement<T> {
         match flat_statement {
             FlatStatement::Condition(linear, quadratic) => match quadratic {
-                FlatExpression::Mult(box lhs, box rhs) => {
-                    Statement::Constraint(lhs.into(), rhs.into(), linear.into())
-                }
-                e => Statement::Constraint(LinComb::one(), e.into(), linear.into()),
+                FlatExpression::Mult(box lhs, box rhs) => Statement::Constraint(
+                    QuadComb::from_linear_combinations(lhs.into(), rhs.into()),
+                    linear.into(),
+                ),
+                e => Statement::Constraint(LinComb::from(e).into(), linear.into()),
             },
             FlatStatement::Definition(var, quadratic) => match quadratic {
-                FlatExpression::Mult(box lhs, box rhs) => {
-                    Statement::Constraint(lhs.into(), rhs.into(), var.into())
-                }
-                e => Statement::Constraint(LinComb::one(), e.into(), var.into()),
+                FlatExpression::Mult(box lhs, box rhs) => Statement::Constraint(
+                    QuadComb::from_linear_combinations(lhs.into(), rhs.into()),
+                    var.into(),
+                ),
+                e => Statement::Constraint(LinComb::from(e).into(), var.into()),
             },
             FlatStatement::Directive(ds) => Statement::Directive(ds.into()),
             _ => panic!("return should be handled at the function level"),
