@@ -362,14 +362,14 @@ pub fn parse_function_call<T: Field>(
                             p = p2;
                         }
                         (Token::Close, s2, p2) => {
-                            return parse_term1(Expression::FunctionCall(ide, args), s2, p2)
+                            return parse_term1(Expression::FunctionCall(ide, args), s2, p2);
                         }
                         (t2, _, p2) => {
                             return Err(Error {
                                 expected: vec![Token::Comma, Token::Close],
                                 got: t2,
                                 pos: p2,
-                            })
+                            });
                         }
                     }
                 }
@@ -417,7 +417,7 @@ pub fn parse_inline_array<T: Field>(
                                 expected: vec![Token::Comma, Token::RightBracket],
                                 got: t2,
                                 pos: p2,
-                            })
+                            });
                         }
                     }
                 }
