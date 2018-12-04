@@ -6,6 +6,8 @@ apt-get install -qq libcurl4-openssl-dev libelf-dev libdw-dev binutils-dev libib
 cargo install cargo-kcov
 cargo kcov --print-install-kcov-sh | sh
 cd zokrates_fs_resolver && cargo kcov --verbose && cd ..
+cd zokrates_core && cargo kcov --verbose && cd ..
+cd zokrates_cli && cargo kcov --verbose && cd ..
 bash <(curl -s https://codecov.io/bash)
 
 # apt-get update -yqq
