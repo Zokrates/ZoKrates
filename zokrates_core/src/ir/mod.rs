@@ -263,7 +263,7 @@ mod tests {
                 ),
                 FlatVariable::new(42).into(),
             );
-            assert_eq!(format!("{}", c), "(1 * _42) * (1 * _42) == (1 * _42)")
+            assert_eq!(format!("{}", c), "(1 * _42) * (1 * _42) == 1 * _42")
         }
     }
 }
