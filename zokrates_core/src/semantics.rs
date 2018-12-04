@@ -201,7 +201,7 @@ impl Checker {
                         "Duplicate definition for function {} with signature {}",
                         funct.id, funct.signature
                     ),
-                })
+                });
             }
             0 => {}
             _ => panic!("duplicate function declaration should have been caught"),
