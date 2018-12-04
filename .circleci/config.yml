@@ -15,21 +15,21 @@ jobs:
       - restore_cache:
           keys:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
-      # - run:
-      #     name: Check format
-      #     command: rustup component add rustfmt-preview; cargo fmt --all -- --check
+      - run:
+          name: Check format
+          command: rustup component add rustfmt-preview; cargo fmt --all -- --check
       - run:
           name: Build libsnark
           command: LIBSNARK_SOURCE_PATH=$HOME/libsnark ./build_libsnark.sh
-      # - run:
-      #     name: Build
-      #     command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark RUSTFLAGS="-D warnings" ./build.sh
+      - run:
+          name: Build
+          command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark RUSTFLAGS="-D warnings" ./build.sh
       - run:
           name: Run tests
-          command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark RUSTFLAGS="-D warnings -C link-dead-code" cargo test -- --test-threads=1
-      # - run:
-      #     name: Run integration tests
-      #     command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark RUSTFLAGS="-D warnings -C link-dead-code" cargo test -- --ignored
+          command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark RUSTFLAGS="-D warnings" cargo release -- --test-threads=1
+      - run:
+          name: Run integration tests
+          command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark RUSTFLAGS="-D warnings" cargo release -- --ignored
       - run:
           name: Generate code coverage report
           command: ./scripts/cov.sh
