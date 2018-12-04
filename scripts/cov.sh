@@ -14,6 +14,6 @@ wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz &&
         sudo make install &&
         cd ../.. &&
         rm -rf kcov-master &&
-        for file in target/debug/zokrates-*[^\.d]; do mkdir -p "target/cov/$(basename $file)"; kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/$(basename $file)" "$file"; done &&
+        for file in target/debug/zokrates*-*[^\.d]; do mkdir -p "target/cov/$(basename $file)"; kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/$(basename $file)" "$file"; done &&
         bash <(curl -s https://codecov.io/bash) &&
         echo "Uploaded code coverage"
