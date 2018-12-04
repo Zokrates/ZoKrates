@@ -492,7 +492,7 @@ impl Flattener {
                                     .into_iter()
                                     .map(|x| x.apply_direct_substitution(&replacement_map))
                                     .collect(),
-                            }
+                            };
                         }
                         FlatStatement::Definition(var, rhs) => {
                             let new_var = self.issue_new_variable();
