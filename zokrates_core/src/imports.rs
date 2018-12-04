@@ -179,7 +179,7 @@ impl Importer {
                             return Err(CompileError::ImportError(Error::new(format!(
                                 "Gadget {} not found",
                                 s
-                            ))))
+                            ))));
                         }
                     }
                 }
@@ -207,7 +207,7 @@ impl Importer {
                         return Err(CompileError::ImportError(Error::new(format!(
                             "Packing helper {} not found",
                             s
-                        ))))
+                        ))));
                     }
                 }
             } else {
@@ -226,7 +226,7 @@ impl Importer {
                         Err(err) => return Err(CompileError::ImportError(err.into())),
                     },
                     None => {
-                        return Err(Error::new("Can't resolve import without a resolver").into())
+                        return Err(Error::new("Can't resolve import without a resolver").into());
                     }
                 }
             }
