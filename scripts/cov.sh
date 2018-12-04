@@ -1,8 +1,8 @@
 #!/bin/bash
 apt-get update
-apt-get install -y curl zlib1g-dev build-essentials
-apt-get install -y cmake g++ pkg-config jq
-apt-get install -y libcurl4-openssl-dev libelf-dev libdw-dev binutils-dev libiberty-dev
+apt-get install -qq curl zlib1g-dev build-essential python
+apt-get install -qq cmake g++ pkg-config jq
+apt-get install -qq libcurl4-openssl-dev libelf-dev libdw-dev binutils-dev libiberty-dev
 cargo install cargo-kcov
 cargo kcov --print-install-kcov-sh | sh
 cd zokrates_fs_resolver && cargo kcov --verbose && cd ..
