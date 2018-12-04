@@ -1,6 +1,6 @@
 #!/bin/bash
 apt-get update
-apt-get install -y curl zlib1g-dev
+apt-get install -y curl zlib1g-dev build-essentials
 apt-get install -y cmake g++ pkg-config jq
 apt-get install -y libcurl4-openssl-dev libelf-dev libdw-dev binutils-dev libiberty-dev
 cargo install cargo-kcov
