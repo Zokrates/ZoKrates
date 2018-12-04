@@ -152,10 +152,11 @@ mod tests {
         use super::*;
         #[test]
         fn from_linear() {
-            let a: LinComb<FieldPrime> = LinComb::summand(3, FlatVariable::new(42)) + LinComb::summand(4, FlatVariable::new(33));
+            let a: LinComb<FieldPrime> = LinComb::summand(3, FlatVariable::new(42))
+                + LinComb::summand(4, FlatVariable::new(33));
             let expected = QuadComb {
                 left: LinComb::one(),
-                right: a.clone()
+                right: a.clone(),
             };
             assert_eq!(QuadComb::from(a), expected);
         }

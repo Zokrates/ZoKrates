@@ -33,7 +33,6 @@ impl<T: Field> From<FlatFunction<T>> for Function<T> {
 
 impl<T: Field> From<FlatProg<T>> for Prog<T> {
     fn from(flat_prog: FlatProg<T>) -> Prog<T> {
-        println!("{}", flat_prog);
         // get the main function as all calls have been resolved
         let main = flat_prog
             .functions
