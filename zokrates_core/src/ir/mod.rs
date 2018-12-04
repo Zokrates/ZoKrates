@@ -192,17 +192,17 @@ pub fn r1cs_program<T: Field>(
     let private_inputs_offset = variables.len();
 
     // first pass through statements to populate `variables`
-    for (aa, bb) in main.statements.iter().filter_map(|s| match s {
-        Statement::Constraint(aa, bb) => Some((aa, bb)),
+    for (quad, lin) in main.statements.iter().filter_map(|s| match s {
+        Statement::Constraint(quad, lin) => Some((quad, lin)),
         Statement::Directive(..) => None,
     }) {
-        for (k, _) in &aa.left.0 {
+        for (k, _) in &quad.left.0 {
             provide_variable_idx(&mut variables, &k);
         }
-        for (k, _) in &aa.right.0 {
+        for (k, _) in &quad.right.0 {
             provide_variable_idx(&mut variables, &k);
         }
-        for (k, _) in &bb.0 {
+        for (k, _) in &lin.0 {
             provide_variable_idx(&mut variables, &k);
         }
     }
@@ -212,26 +212,27 @@ pub fn r1cs_program<T: Field>(
     let mut c = vec![];
 
     // second pass to convert program to raw sparse vectors
-    for (aa, bb) in main.statements.into_iter().filter_map(|s| match s {
-        Statement::Constraint(aa, bb) => Some((aa, bb)),
+    for (quad, lin) in main.statements.into_iter().filter_map(|s| match s {
+        Statement::Constraint(quad, lin) => Some((quad, lin)),
         Statement::Directive(..) => None,
     }) {
         a.push(
-            aa.left
+            quad.left
                 .0
                 .into_iter()
                 .map(|(k, v)| (variables.get(&k).unwrap().clone(), v))
                 .collect(),
         );
         b.push(
-            aa.right
+            quad.right
                 .0
                 .into_iter()
                 .map(|(k, v)| (variables.get(&k).unwrap().clone(), v))
                 .collect(),
         );
         c.push(
-            bb.0.into_iter()
+            lin.0
+                .into_iter()
                 .map(|(k, v)| (variables.get(&k).unwrap().clone(), v))
                 .collect(),
         );
