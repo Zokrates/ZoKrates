@@ -45,17 +45,17 @@ impl Error {
 }
 
 impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.message)
-    }
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "{}", self.message)
+	}
 }
 
 impl From<io::Error> for Error {
-    fn from(error: io::Error) -> Self {
-        Error {
-            message: format!("I/O Error: {:?}", error),
-        }
-    }
+	fn from(error: io::Error) -> Self {
+		Error {
+			message: format!("I/O Error: {:?}", error)
+		}
+	}
 }
 
 #[derive(PartialEq, Clone, Serialize, Deserialize)]

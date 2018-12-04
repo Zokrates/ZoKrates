@@ -1,10 +1,13 @@
 #[cfg(feature = "libsnark")]
 mod libsnark_gadget;
 mod rust;
+// #[cfg(feature = "wasm")]
+mod wasm;
 
 #[cfg(feature = "libsnark")]
 pub use self::libsnark_gadget::LibsnarkGadgetHelper;
 pub use self::rust::RustHelper;
+pub use self::wasm::WasmHelper;
 use flat_absy::{FlatExpression, FlatVariable};
 use std::fmt;
 use zokrates_field::field::Field;
@@ -58,6 +61,8 @@ pub enum Helper {
     #[cfg(feature = "libsnark")]
     LibsnarkGadget(LibsnarkGadgetHelper),
     Rust(RustHelper),
+    // #[cfg(feature = "wasm")]
+    Wasm(WasmHelper)
 }
 
 impl fmt::Display for Helper {
@@ -66,6 +71,7 @@ impl fmt::Display for Helper {
             #[cfg(feature = "libsnark")]
             Helper::LibsnarkGadget(ref h) => write!(f, "LibsnarkGadget::{}", h),
             Helper::Rust(ref h) => write!(f, "Rust::{}", h),
+            Helper::Wasm(ref h) => write!(f, "Wasm::{}", h),
         }
     }
 }
@@ -87,6 +93,7 @@ impl<T: Field> Executable<T> for Helper {
             #[cfg(feature = "libsnark")]
             Helper::LibsnarkGadget(helper) => helper.execute(inputs),
             Helper::Rust(helper) => helper.execute(inputs),
+            Helper::Wasm(helper) => helper.execute(inputs)
         };
 
         match result {
@@ -107,6 +114,7 @@ impl Signed for Helper {
             #[cfg(feature = "libsnark")]
             Helper::LibsnarkGadget(helper) => helper.get_signature(),
             Helper::Rust(helper) => helper.get_signature(),
+            Helper::Wasm(helper) => helper.get_signature()
         }
     }
 }

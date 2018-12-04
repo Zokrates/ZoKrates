@@ -1,8 +1,9 @@
 use bimap::BiMap;
+use types::Type;
 use flat_absy::flat_parameter::FlatParameter;
 use flat_absy::flat_variable::FlatVariable;
 use flat_absy::*;
-use helpers::{DirectiveStatement, Helper, RustHelper};
+use helpers::{Helper, RustHelper, DirectiveStatement, WasmHelper};
 use reduce::Reduce;
 use types::constraints::Constraint;
 use types::signature::Signature;
@@ -313,7 +314,7 @@ mod tests {
                 f2b.statements[0],
                 FlatStatement::Directive(DirectiveStatement::new(
                     vec![FlatVariable::new(1)],
-                    Helper::Rust(RustHelper::Identity),
+                    Helper::Wasm(WasmHelper::from_hex(WasmHelper::IDENTITY_WASM)),
                     vec![FlatVariable::new(0)]
                 ))
             );
@@ -339,7 +340,7 @@ mod tests {
                 b2f.statements[0],
                 FlatStatement::Directive(DirectiveStatement::new(
                     vec![FlatVariable::new(1)],
-                    Helper::Rust(RustHelper::Identity),
+                    Helper::Wasm(WasmHelper::from_hex(WasmHelper::IDENTITY_WASM)),
                     vec![FlatVariable::new(0)]
                 ))
             );
