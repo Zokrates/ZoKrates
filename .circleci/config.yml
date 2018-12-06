@@ -30,6 +30,9 @@ jobs:
       - run:
           name: Run integration tests
           command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark RUSTFLAGS="-D warnings" cargo test --release -- --ignored
+      - run:
+          name: Generate code coverage report
+          command: ./scripts/cov.sh
       - save_cache:
           paths:
             - /usr/local/cargo/registry
