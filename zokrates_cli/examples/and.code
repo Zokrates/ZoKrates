@@ -1,2 +1,0 @@
-def main(field a, field b) -> (field):
-	return if a == 2 && b == 3 then 33 else 42 fi
