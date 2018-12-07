@@ -23,6 +23,8 @@ use zokrates_core::compile::compile;
 use zokrates_core::field::{Field, FieldPrime};
 use zokrates_core::ir;
 #[cfg(feature = "libsnark")]
+use zokrates_core::ir::r1cs_program;
+#[cfg(feature = "libsnark")]
 use zokrates_core::proof_system::{ProofSystem, GM17, PGHR13};
 use zokrates_fs_resolver::resolve as fs_resolve;
 
