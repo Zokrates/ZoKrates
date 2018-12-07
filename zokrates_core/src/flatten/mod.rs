@@ -692,17 +692,47 @@ impl Flattener {
                     statements_flattened,
                     right,
                 );
-                let new_left = {
+                let new_left: FlatExpression<T> = {
                     let id = self.use_sym();
                     statements_flattened.push(FlatStatement::Definition(id, left_flattened));
-                    FlatExpression::Identifier(id)
+                    id.into()
                 };
-                let new_right = {
+                let new_right: FlatExpression<T> = {
                     let id = self.use_sym();
                     statements_flattened.push(FlatStatement::Definition(id, right_flattened));
-                    FlatExpression::Identifier(id)
+                    id.into()
                 };
-                FlatExpression::Div(box new_left, box new_right)
+
+                let invb = self.use_sym();
+                let inverse = self.use_sym();
+
+                // # invb = 1/b
+                statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
+                    vec![invb],
+                    Helper::Rust(RustHelper::Div),
+                    vec![FlatExpression::Number(T::one()), new_right.clone()],
+                )));
+
+                // assert(invb * b == 1)
+                statements_flattened.push(FlatStatement::Condition(
+                    FlatExpression::Number(T::one()),
+                    FlatExpression::Mult(box invb.into(), box new_right.clone().into()),
+                ));
+
+                // # c = a/b
+                statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
+                    vec![inverse],
+                    Helper::Rust(RustHelper::Div),
+                    vec![new_left.clone(), new_right.clone()],
+                )));
+
+                // assert(c * b == a)
+                statements_flattened.push(FlatStatement::Condition(
+                    new_left.into(),
+                    FlatExpression::Mult(box new_right, box inverse.into()),
+                ));
+
+                inverse.into()
             }
             FieldElementExpression::Pow(box base, box exponent) => {
                 match exponent {
@@ -1933,6 +1963,121 @@ mod tests {
         flattener.load_corelib(&mut functions_flattened);
 
         flattener.flatten_field_expression(&functions_flattened, &vec![], &mut vec![], expression);
+    }
+
+    #[test]
+    fn div() {
+        // a = 5 / b / b
+        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut functions_flattened = vec![];
+        let arguments_flattened = vec![];
+        let mut statements_flattened = vec![];
+
+        let definition = TypedStatement::Definition(
+            TypedAssignee::Identifier(Variable::field_element("b")),
+            FieldElementExpression::Number(FieldPrime::from(42)).into(),
+        );
+
+        let statement = TypedStatement::Definition(
+            TypedAssignee::Identifier(Variable::field_element("a")),
+            FieldElementExpression::Div(
+                box FieldElementExpression::Div(
+                    box FieldElementExpression::Number(FieldPrime::from(5)),
+                    box FieldElementExpression::Identifier(String::from("b")),
+                ),
+                box FieldElementExpression::Identifier(String::from("b")),
+            )
+            .into(),
+        );
+
+        flattener.flatten_statement(
+            &mut functions_flattened,
+            &arguments_flattened,
+            &mut statements_flattened,
+            definition,
+        );
+
+        flattener.flatten_statement(
+            &mut functions_flattened,
+            &arguments_flattened,
+            &mut statements_flattened,
+            statement,
+        );
+
+        // define b
+        let b = FlatVariable::new(0);
+        // define new wires for members of Div
+        let five = FlatVariable::new(1);
+        let b0 = FlatVariable::new(2);
+        // Define inverse of denominator to prevent div by 0
+        let invb0 = FlatVariable::new(3);
+        // Define inverse
+        let sym_0 = FlatVariable::new(4);
+        // Define result, which is first member to next Div
+        let sym_1 = FlatVariable::new(5);
+        // Define second member
+        let b1 = FlatVariable::new(6);
+        // Define inverse of denominator to prevent div by 0
+        let invb1 = FlatVariable::new(7);
+        // Define inverse
+        let sym_2 = FlatVariable::new(8);
+        // Define left hand side
+        let a = FlatVariable::new(9);
+
+        assert_eq!(
+            statements_flattened,
+            vec![
+                FlatStatement::Definition(b, FlatExpression::Number(FieldPrime::from(42))),
+                // inputs to first div (5/b)
+                FlatStatement::Definition(five, FlatExpression::Number(FieldPrime::from(5))),
+                FlatStatement::Definition(b0, b.into()),
+                // check div by 0
+                FlatStatement::Directive(DirectiveStatement::new(
+                    vec![invb0],
+                    Helper::Rust(RustHelper::Div),
+                    vec![FlatExpression::Number(FieldPrime::from(1)), b0.into()]
+                )),
+                FlatStatement::Condition(
+                    FlatExpression::Number(FieldPrime::from(1)),
+                    FlatExpression::Mult(box invb0.into(), box b0.into()),
+                ),
+                // execute div
+                FlatStatement::Directive(DirectiveStatement::new(
+                    vec![sym_0],
+                    Helper::Rust(RustHelper::Div),
+                    vec![five, b0]
+                )),
+                FlatStatement::Condition(
+                    five.into(),
+                    FlatExpression::Mult(box b0.into(), box sym_0.into()),
+                ),
+                // inputs to second div (res/b)
+                FlatStatement::Definition(sym_1, sym_0.into()),
+                FlatStatement::Definition(b1, b.into()),
+                // check div by 0
+                FlatStatement::Directive(DirectiveStatement::new(
+                    vec![invb1],
+                    Helper::Rust(RustHelper::Div),
+                    vec![FlatExpression::Number(FieldPrime::from(1)), b1.into()]
+                )),
+                FlatStatement::Condition(
+                    FlatExpression::Number(FieldPrime::from(1)),
+                    FlatExpression::Mult(box invb1.into(), box b1.into()),
+                ),
+                // execute div
+                FlatStatement::Directive(DirectiveStatement::new(
+                    vec![sym_2],
+                    Helper::Rust(RustHelper::Div),
+                    vec![sym_1, b1]
+                )),
+                FlatStatement::Condition(
+                    sym_1.into(),
+                    FlatExpression::Mult(box b1.into(), box sym_2.into()),
+                ),
+                // result
+                FlatStatement::Definition(a, sym_2.into()),
+            ]
+        );
     }
 
     #[test]

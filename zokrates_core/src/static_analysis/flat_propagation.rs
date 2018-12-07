@@ -49,14 +49,6 @@ impl<T: Field> PropagateWithContext<T> for FlatExpression<T> {
                     (e1, e2) => FlatExpression::Mult(box e1, box e2),
                 }
             }
-            FlatExpression::Div(box e1, box e2) => {
-                match (e1.propagate(constants), e2.propagate(constants)) {
-                    (FlatExpression::Number(n1), FlatExpression::Number(n2)) => {
-                        FlatExpression::Number(n1 / n2)
-                    }
-                    (e1, e2) => FlatExpression::Div(box e1, box e2),
-                }
-            }
         }
     }
 }
@@ -171,19 +163,6 @@ mod tests {
                 assert_eq!(
                     e.propagate(&mut HashMap::new()),
                     FlatExpression::Number(FieldPrime::from(6))
-                );
-            }
-
-            #[test]
-            fn div() {
-                let e = FlatExpression::Div(
-                    box FlatExpression::Number(FieldPrime::from(6)),
-                    box FlatExpression::Number(FieldPrime::from(2)),
-                );
-
-                assert_eq!(
-                    e.propagate(&mut HashMap::new()),
-                    FlatExpression::Number(FieldPrime::from(3))
                 );
             }
         }

@@ -76,7 +76,7 @@ First, Victor has to specify what hash he is interested in. Therefore, we have t
 ```zokrates
 import "LIBSNARK/sha256packed"
 
-def main(field a, field b, field c, field d) -> (field):
+def main(private field a, private field b, private field c, private field d) -> (field):
 	h0, h1 = sha256packed(a, b, c, d)
 	h0 == 263561599766550617289250058199814760685
 	h1 == 65303172752238645975888084098459749904

@@ -389,73 +389,79 @@ fn parse_statement1<T: Field>(
             Err(err) => Err(err),
         },
         (Token::Open, s1, p1) => match parse_function_call(ide, s1, p1) {
-            Ok((e3, s3, p3)) => match next_token(&s3, &p3) {
-                (Token::Eqeq, s4, p4) => match parse_expr(&s4, &p4) {
-                    Ok((e5, s5, p5)) => match next_token(&s5, &p5) {
-                        (Token::InlineComment(_), ref s6, _) => {
-                            assert_eq!(s6, "");
-                            Ok((vec![Statement::Condition(e3, e5)], s5, p5))
-                        }
-                        (Token::Unknown(ref t6), ref s6, _) if t6 == "" => {
-                            assert_eq!(s6, "");
-                            Ok((vec![Statement::Condition(e3, e5)], s5, p5))
-                        }
-                        (t6, _, p6) => Err(Error {
-                            expected: vec![
-                                Token::Add,
-                                Token::Sub,
-                                Token::Pow,
-                                Token::Mult,
-                                Token::Div,
-                                Token::Unknown("".to_string()),
-                            ],
-                            got: t6,
-                            pos: p6,
-                        }),
+            Ok((e3, s3, p3)) => match parse_expr1(e3, s3, p3) {
+                Ok((e4, s4, p4)) => match next_token(&s4, &p4) {
+                    (Token::Eqeq, s5, p5) => match parse_expr(&s5, &p5) {
+                        Ok((e6, s6, p6)) => match next_token(&s6, &p6) {
+                            (Token::InlineComment(_), ref s7, _) => {
+                                assert_eq!(s7, "");
+                                Ok((vec![Statement::Condition(e4, e6)], s6, p6))
+                            }
+                            (Token::Unknown(ref t7), ref s7, _) if t7 == "" => {
+                                assert_eq!(s7, "");
+                                Ok((vec![Statement::Condition(e4, e6)], s6, p6))
+                            }
+                            (t7, _, p7) => Err(Error {
+                                expected: vec![
+                                    Token::Add,
+                                    Token::Sub,
+                                    Token::Pow,
+                                    Token::Mult,
+                                    Token::Div,
+                                    Token::Unknown("".to_string()),
+                                ],
+                                got: t7,
+                                pos: p7,
+                            }),
+                        },
+                        Err(err) => Err(err),
                     },
-                    Err(err) => Err(err),
+                    (t4, _, p4) => Err(Error {
+                        expected: vec![Token::Eqeq],
+                        got: t4,
+                        pos: p4,
+                    }),
                 },
-                (t4, _, p4) => Err(Error {
-                    expected: vec![Token::Eqeq],
-                    got: t4,
-                    pos: p4,
-                }),
+                Err(err) => Err(err),
             },
             Err(err) => Err(err),
         },
         (Token::LeftBracket, s1, p1) => match parse_array_select(ide, s1, p1) {
-            Ok((e3, s3, p3)) => match next_token(&s3, &p3) {
-                (Token::Eqeq, s4, p4) => match parse_expr(&s4, &p4) {
-                    Ok((e5, s5, p5)) => match next_token(&s5, &p5) {
-                        (Token::InlineComment(_), ref s6, _) => {
-                            assert_eq!(s6, "");
-                            Ok((vec![Statement::Condition(e3, e5)], s5, p5))
-                        }
-                        (Token::Unknown(ref t6), ref s6, _) if t6 == "" => {
-                            assert_eq!(s6, "");
-                            Ok((vec![Statement::Condition(e3, e5)], s5, p5))
-                        }
-                        (t6, _, p6) => Err(Error {
-                            expected: vec![
-                                Token::Add,
-                                Token::Sub,
-                                Token::Pow,
-                                Token::Mult,
-                                Token::Div,
-                                Token::Unknown("".to_string()),
-                            ],
-                            got: t6,
-                            pos: p6,
-                        }),
+            Ok((e3, s3, p3)) => match parse_expr1(e3, s3, p3) {
+                Ok((e4, s4, p4)) => match next_token(&s4, &p4) {
+                    (Token::Eqeq, s5, p5) => match parse_expr(&s5, &p5) {
+                        Ok((e6, s6, p6)) => match next_token(&s6, &p6) {
+                            (Token::InlineComment(_), ref s7, _) => {
+                                assert_eq!(s7, "");
+                                Ok((vec![Statement::Condition(e4, e6)], s6, p6))
+                            }
+                            (Token::Unknown(ref t7), ref s7, _) if t7 == "" => {
+                                assert_eq!(s7, "");
+                                Ok((vec![Statement::Condition(e4, e6)], s6, p6))
+                            }
+                            (t7, _, p7) => Err(Error {
+                                expected: vec![
+                                    Token::Add,
+                                    Token::Sub,
+                                    Token::Pow,
+                                    Token::Mult,
+                                    Token::Div,
+                                    Token::Unknown("".to_string()),
+                                ],
+                                got: t7,
+                                pos: p7,
+                            }),
+                        },
+                        Err(err) => Err(err),
                     },
-                    Err(err) => Err(err),
+                    (Token::Eq, s5, p5) => parse_definition1(Assignee::from(e4), s5, p5),
+                    (t4, _, p4) => Err(Error {
+                        expected: vec![Token::Eqeq],
+                        got: t4,
+                        pos: p4,
+                    }),
                 },
-                (Token::Eq, s4, p4) => parse_definition1(Assignee::from(e3), s4, p4),
-                (t4, _, p4) => Err(Error {
-                    expected: vec![Token::Eqeq],
-                    got: t4,
-                    pos: p4,
-                }),
+                Err(err) => Err(err),
             },
             Err(err) => Err(err),
         },
@@ -573,6 +579,49 @@ mod tests {
             let string = String::from("() == 1");
             let cond = Statement::Condition(
                 Expression::FunctionCall(String::from("foo"), vec![]),
+                Expression::Number(FieldPrime::from(1)),
+            );
+            assert_eq!(
+                Ok((vec![cond], String::from(""), pos.col(string.len() as isize))),
+                parse_statement1(String::from("foo"), string, pos)
+            );
+        }
+
+        #[test]
+        fn left_call_in_assertion2() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("() - g() - 1 == 1");
+            let cond = Statement::Condition(
+                Expression::Sub(
+                    box Expression::Sub(
+                        box Expression::FunctionCall(String::from("foo"), vec![]),
+                        box Expression::FunctionCall(String::from("g"), vec![]),
+                    ),
+                    box Expression::Number(FieldPrime::from(1)),
+                ),
+                Expression::Number(FieldPrime::from(1)),
+            );
+            assert_eq!(
+                Ok((vec![cond], String::from(""), pos.col(string.len() as isize))),
+                parse_statement1(String::from("foo"), string, pos)
+            );
+        }
+
+        #[test]
+        fn left_select_in_assertion2() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("[3] - g() - 1 == 1");
+            let cond = Statement::Condition(
+                Expression::Sub(
+                    box Expression::Sub(
+                        box Expression::Select(
+                            box Expression::Identifier(String::from("foo")),
+                            box Expression::Number(FieldPrime::from(3)),
+                        ),
+                        box Expression::FunctionCall(String::from("g"), vec![]),
+                    ),
+                    box Expression::Number(FieldPrime::from(1)),
+                ),
                 Expression::Number(FieldPrime::from(1)),
             );
             assert_eq!(

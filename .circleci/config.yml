@@ -26,7 +26,7 @@ jobs:
           command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark RUSTFLAGS="-D warnings" ./build.sh
       - run:
           name: Run tests
-          command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark RUSTFLAGS="-D warnings" cargo test --release
+          command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark RUSTFLAGS="-D warnings" cargo test --release -- --test-threads=1
       - run:
           name: Run integration tests
           command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark RUSTFLAGS="-D warnings" cargo test --release -- --ignored
