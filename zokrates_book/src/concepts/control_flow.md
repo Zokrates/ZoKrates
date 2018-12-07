@@ -20,6 +20,16 @@ def main() -> (field):
     return 1
 ```
 
+### If expressions
+
+An if expression allows you to branch your code depending on conditions.
+
+```zokrates
+def main(field x) -> (field):
+  field y = if x + 2 == 3 then 1 else 5 fi
+  return y
+```
+
 ### For loops
 
 For loops are available with the following syntax:
