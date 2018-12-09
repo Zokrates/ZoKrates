@@ -1,7 +1,44 @@
+use bellman::groth16::Proof as BellmanSnark;
+use ff::ScalarEngine;
 use field::Field;
 use helpers::Executable;
 use ir::*;
+use pairing::Engine;
 use std::collections::BTreeMap;
+
+struct BellmanProof<E: Engine> {
+    snark: BellmanSnark<E>,
+    public_inputs: Vec<E::Fr>,
+}
+
+pub struct Snark<T: Field> {
+    dummy: T,
+}
+
+impl<T: Field, E: Engine> From<BellmanProof<E>> for Proof<T> {
+    fn from(p: BellmanProof<E>) -> Proof<T> {
+        unimplemented!()
+    }
+}
+
+impl<T: Field, E: Engine> From<BellmanSnark<E>> for Snark<T> {
+    fn from(p: BellmanSnark<E>) -> Snark<T> {
+        unimplemented!()
+    }
+}
+
+// fn to_bellman<T: Field, E: Engine>(e: T) -> E::Fr {
+//     unimplemented!()
+// }
+
+fn to_bellman<FieldPrime, Bn256>(e: FieldPrime) -> <Bn256 as ScalarEngine>::Fr {
+    unimplemented!()
+}
+
+pub struct Proof<T: Field> {
+    snark: Snark<T>,
+    public_inputs: Vec<T>,
+}
 
 impl<T: Field> Prog<T> {
     pub fn execute(self, inputs: Vec<T>) -> Result<BTreeMap<FlatVariable, T>, Error<T>> {
@@ -46,6 +83,13 @@ impl<T: Field> Prog<T> {
 
         Ok(witness)
     }
+
+    pub fn prove(self, inputs: Vec<T>) -> Result<Proof<T>, Error<T>> {
+        Ok(Proof {
+            snark: Snark { dummy: T::from(0) },
+            public_inputs: vec![],
+        })
+    }
 }
 
 impl<T: Field> LinComb<T> {
@@ -84,6 +128,32 @@ impl<T: Field> fmt::Display for Error<T> {
                 quad, lin, left_value, right_value
             ),
             Error::Solver => write!(f, ""),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use field::FieldPrime;
+
+    mod prove {
+        use super::*;
+
+        #[test]
+        fn test() {
+            let p: Prog<FieldPrime> = Prog {
+                main: Function {
+                    id: String::from("main"),
+                    arguments: vec![],
+                    returns: vec![],
+                    statements: vec![],
+                },
+                private: vec![],
+            };
+
+            let proof = p.prove(vec![]).unwrap();
+            assert_eq!(proof.public_inputs, vec![]);
         }
     }
 }
