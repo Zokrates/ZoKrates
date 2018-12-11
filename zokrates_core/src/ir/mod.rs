@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::mem;
 
+mod backend;
 mod expression;
 mod from_flat;
 mod interpreter;
