@@ -28,6 +28,15 @@ use zokrates_core::ir::r1cs_program;
 use zokrates_core::proof_system::{ProofSystem, GM17, PGHR13};
 use zokrates_fs_resolver::resolve as fs_resolve;
 
+#[cfg(feature = "libsnark")]
+fn get_backend(backend_str: &str) -> &'static ProofSystem {
+    match backend_str.to_lowercase().as_ref() {
+        "pghr13" => &PGHR13 {},
+        "gm17" => &GM17 {},
+        s => panic!("Backend \"{}\" not supported", s),
+    }
+}
+
 fn main() {
     const FLATTENED_CODE_DEFAULT_PATH: &str = "out";
     const VERIFICATION_KEY_DEFAULT_PATH: &str = "verification.key";
@@ -403,16 +412,7 @@ fn main() {
         ("setup", Some(sub_matches)) => {
             println!("Performing setup...");
 
-            let backend: &ProofSystem = match sub_matches
-                .value_of("backend")
-                .unwrap()
-                .to_lowercase()
-                .as_ref()
-            {
-                "pghr13" => &PGHR13 {},
-                "gm17" => &GM17 {},
-                s => panic!("Backend \"{}\" not supported", s),
-            };
+            let backend = get_backend(sub_matches.value_of("backend").unwrap());
 
             let path = Path::new(sub_matches.value_of("input").unwrap());
             let mut file = match File::open(&path) {
@@ -480,16 +480,7 @@ fn main() {
             {
                 println!("Exporting verifier...");
 
-                let backend: &ProofSystem = match sub_matches
-                    .value_of("backend")
-                    .unwrap()
-                    .to_lowercase()
-                    .as_ref()
-                {
-                    "pghr13" => &PGHR13 {},
-                    "gm17" => &GM17 {},
-                    s => panic!("Backend \"{}\" not supported", s),
-                };
+                let backend = get_backend(sub_matches.value_of("backend").unwrap());
 
                 // read vk file
                 let input_path = Path::new(sub_matches.value_of("input").unwrap());
@@ -518,16 +509,7 @@ fn main() {
         ("generate-proof", Some(sub_matches)) => {
             println!("Generating proof...");
 
-            let backend: &ProofSystem = match sub_matches
-                .value_of("backend")
-                .unwrap()
-                .to_lowercase()
-                .as_ref()
-            {
-                "pghr13" => &PGHR13 {},
-                "gm17" => &GM17 {},
-                s => panic!("Backend \"{}\" not supported", s),
-            };
+            let backend = get_backend(sub_matches.value_of("backend").unwrap());
 
             // deserialize witness
             let witness_path = Path::new(sub_matches.value_of("witness").unwrap());
