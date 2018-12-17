@@ -374,7 +374,7 @@ pub fn parse_function_call<T: Field>(
                                 expected: vec![Token::Comma, Token::Close],
                                 got: t2,
                                 pos: p2,
-                            })
+                            });
                         }
                     }
                 }
@@ -422,7 +422,7 @@ pub fn parse_inline_array<T: Field>(
                                 expected: vec![Token::Comma, Token::RightBracket],
                                 got: t2,
                                 pos: p2,
-                            })
+                            });
                         }
                     }
                 }

@@ -442,10 +442,7 @@ impl Flattener {
                     statements_flattened,
                     exp,
                 );
-                let id = self.use_sym();
-                let e = FlatExpression::Sub(box FlatExpression::Number(T::one()), box x);
-                statements_flattened.push(FlatStatement::Definition(id, e));
-                FlatExpression::Identifier(id)
+                FlatExpression::Sub(box FlatExpression::Number(T::one()), box x)
             }
             BooleanExpression::Value(b) => FlatExpression::Number(match b {
                 true => T::from(1),
@@ -520,7 +517,7 @@ impl Flattener {
                                     .into_iter()
                                     .map(|x| x.apply_direct_substitution(&replacement_map))
                                     .collect(),
-                            }
+                            };
                         }
                         FlatStatement::Definition(var, rhs) => {
                             let new_var = self.issue_new_variable();
