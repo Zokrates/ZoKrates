@@ -11,25 +11,37 @@ pub struct FlatVariable {
 }
 
 impl FlatVariable {
+    fn with_id(id: isize) -> Self {
+        FlatVariable { id }
+    }
+
     pub fn new(id: usize) -> Self {
-        FlatVariable {
-            id: 1 + id as isize,
-        }
+        FlatVariable::with_id(1 + id as isize)
     }
 
     pub fn one() -> Self {
-        FlatVariable { id: 0 }
+        FlatVariable::with_id(0)
     }
 
     pub fn public(id: usize) -> Self {
-        FlatVariable {
-            id: -(id as isize) - 1,
-        }
+        FlatVariable::with_id(-(id as isize) - 1)
     }
 
-    pub fn id(&self) -> usize {
-        assert!(self.id > 0);
-        (self.id as usize) - 1
+    pub fn apply_substitution(
+        self,
+        substitution: &HashMap<FlatVariable, FlatVariable>,
+        should_fallback: bool,
+    ) -> Self {
+        match substitution.get(&self) {
+            Some(value) => *value,
+            None => {
+                if should_fallback {
+                    self
+                } else {
+                    unreachable!()
+                }
+            }
+        }
     }
 }
 
@@ -49,41 +61,71 @@ impl fmt::Debug for FlatVariable {
     }
 }
 
-impl FlatVariable {
-    pub fn apply_substitution(
-        self,
-        substitution: &HashMap<FlatVariable, FlatVariable>,
-        should_fallback: bool,
-    ) -> Self {
-        match should_fallback {
-            true => substitution.get(&self).unwrap_or(&self).clone(),
-            false => substitution.get(&self).unwrap().clone(),
-        }
-    }
-
-    pub fn is_output(&self) -> bool {
-        self.id < 0
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashSet;
+    use std::iter;
 
     #[test]
     fn one() {
-        assert_eq!(format!("{}", FlatVariable::one()), "~one");
+        assert_eq!(FlatVariable::one().to_string(), "~one");
     }
 
     #[test]
     fn public() {
-        assert_eq!(format!("{}", FlatVariable::public(0)), "~out_0");
-        assert_eq!(format!("{}", FlatVariable::public(42)), "~out_42");
+        let v = FlatVariable::public(0);
+        assert_eq!(v.to_string(), "~out_0");
+        assert_eq!(format!("{:?}", v), "FlatVariable(id: -1)");
+
+        let v = FlatVariable::public(42);
+        assert_eq!(v.to_string(), "~out_42");
+        assert_eq!(format!("{:?}", v), "FlatVariable(id: -43)");
     }
 
     #[test]
     fn private() {
-        assert_eq!(format!("{}", FlatVariable::new(0)), "_0");
-        assert_eq!(format!("{}", FlatVariable::new(42)), "_42");
+        let v = FlatVariable::new(0);
+        assert_eq!(v.to_string(), "_0");
+        assert_eq!(format!("{:?}", v), "FlatVariable(id: 1)");
+
+        let v = FlatVariable::new(42);
+        assert_eq!(v.to_string(), "_42");
+        assert_eq!(format!("{:?}", v), "FlatVariable(id: 43)");
+    }
+
+    #[test]
+    fn no_overlap() {
+        // make sure public, private and one variables do not overlap
+        let set: HashSet<_> = (0..10)
+            .map(|i| FlatVariable::public(i))
+            .chain((0..10).map(|i| FlatVariable::new(i)))
+            .chain(iter::once(FlatVariable::one()))
+            .collect();
+        assert_eq!(set.iter().count(), 10 + 10 + 1);
+    }
+
+    #[test]
+    fn substitute_no_fallback() {
+        let v = FlatVariable::new(42);
+        let hashmap: HashMap<_, _> = vec![(FlatVariable::new(42), FlatVariable::new(21))]
+            .into_iter()
+            .collect();
+        assert_eq!(v.apply_substitution(&hashmap, false), FlatVariable::new(21));
+    }
+
+    #[test]
+    fn substitute_with_fallback() {
+        let v = FlatVariable::new(42);
+        let hashmap = HashMap::new();
+        assert_eq!(v.apply_substitution(&hashmap, true), FlatVariable::new(42));
+    }
+
+    #[test]
+    #[should_panic]
+    fn substitute_no_fallback_panic() {
+        let v = FlatVariable::new(42);
+        let hashmap = HashMap::new();
+        v.apply_substitution(&hashmap, false);
     }
 }
