@@ -250,22 +250,17 @@ impl Flattener {
                     ));
                 }
 
-                // sym = (lhs * 2) - (rhs * 2)
-                let subtraction_result_id = self.use_sym();
-
-                statements_flattened.push(FlatStatement::Definition(
-                    subtraction_result_id,
-                    FlatExpression::Sub(
-                        box FlatExpression::Mult(
-                            box FlatExpression::Number(T::from(2)),
-                            box FlatExpression::Identifier(lhs_id),
-                        ),
-                        box FlatExpression::Mult(
-                            box FlatExpression::Number(T::from(2)),
-                            box FlatExpression::Identifier(rhs_id),
-                        ),
+                // sym := (lhs * 2) - (rhs * 2)
+                let subtraction_result = FlatExpression::Sub(
+                    box FlatExpression::Mult(
+                        box FlatExpression::Number(T::from(2)),
+                        box FlatExpression::Identifier(lhs_id),
                     ),
-                ));
+                    box FlatExpression::Mult(
+                        box FlatExpression::Number(T::from(2)),
+                        box FlatExpression::Identifier(rhs_id),
+                    ),
+                );
 
                 // define variables for the bits
                 let sub_bits: Vec<FlatVariable> = (0..self.bits).map(|_| self.use_sym()).collect();
@@ -274,7 +269,7 @@ impl Flattener {
                 statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
                     sub_bits.clone(),
                     Helper::Rust(RustHelper::Bits),
-                    vec![subtraction_result_id],
+                    vec![subtraction_result.clone()],
                 )));
 
                 // bitness checks
@@ -301,10 +296,7 @@ impl Flattener {
                     );
                 }
 
-                statements_flattened.push(FlatStatement::Condition(
-                    FlatExpression::Identifier(subtraction_result_id),
-                    expr,
-                ));
+                statements_flattened.push(FlatStatement::Condition(subtraction_result, expr));
 
                 FlatExpression::Identifier(sub_bits[0])
             }
