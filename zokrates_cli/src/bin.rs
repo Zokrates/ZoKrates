@@ -12,19 +12,30 @@ extern crate zokrates_fs_resolver;
 
 use bincode::{deserialize_from, serialize_into, Infinite};
 use clap::{App, AppSettings, Arg, SubCommand};
-use regex::Regex;
+#[cfg(feature = "libsnark")]
 use std::collections::HashMap;
+use std::env;
 use std::fs::File;
 use std::io::{stdin, BufRead, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::string::String;
 use zokrates_core::compile::compile;
 use zokrates_core::field::{Field, FieldPrime};
-use zokrates_core::ir::{self, r1cs_program};
+use zokrates_core::ir;
 #[cfg(feature = "libsnark")]
-use zokrates_core::libsnark::{generate_proof, setup};
-use zokrates_core::verification::CONTRACT_TEMPLATE;
+use zokrates_core::ir::r1cs_program;
+#[cfg(feature = "libsnark")]
+use zokrates_core::proof_system::{ProofSystem, GM17, PGHR13};
 use zokrates_fs_resolver::resolve as fs_resolve;
+
+#[cfg(feature = "libsnark")]
+fn get_backend(backend_str: &str) -> &'static ProofSystem {
+    match backend_str.to_lowercase().as_ref() {
+        "pghr13" => &PGHR13 {},
+        "gm17" => &GM17 {},
+        s => panic!("Backend \"{}\" not supported", s),
+    }
+}
 
 fn main() {
     const FLATTENED_CODE_DEFAULT_PATH: &str = "out";
@@ -34,6 +45,7 @@ fn main() {
     const WITNESS_DEFAULT_PATH: &str = "witness";
     const VARIABLES_INFORMATION_KEY_DEFAULT_PATH: &str = "variables.inf";
     const JSON_PROOF_PATH: &str = "proof.json";
+    let default_backend = env::var("ZOKRATES_BACKEND").unwrap_or(String::from("pghr13"));
 
     // cli specification using clap library
     let matches = App::new("ZoKrates")
@@ -102,6 +114,15 @@ fn main() {
             .required(false)
             .default_value(VARIABLES_INFORMATION_KEY_DEFAULT_PATH)
         )
+        .arg(Arg::with_name("backend")
+            .short("b")
+            .long("backend")
+            .help("Backend to use in the setup. Available options are PGHR13 and GM17")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(&default_backend)
+        )
     )
     .subcommand(SubCommand::with_name("export-verifier")
         .about("Exports a verifier as Solidity smart contract.")
@@ -122,6 +143,14 @@ fn main() {
             .takes_value(true)
             .required(false)
             .default_value(VERIFICATION_CONTRACT_DEFAULT_PATH)
+        ).arg(Arg::with_name("backend")
+            .short("b")
+            .long("backend")
+            .help("Backend to use to export the verifier. Available options are PGHR13 and GM17")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(&default_backend)
         )
     )
     .subcommand(SubCommand::with_name("compute-witness")
@@ -189,6 +218,14 @@ fn main() {
             .takes_value(true)
             .required(false)
             .default_value(VARIABLES_INFORMATION_KEY_DEFAULT_PATH)
+        ).arg(Arg::with_name("backend")
+            .short("b")
+            .long("backend")
+            .help("Backend to use to generate the proof. Available options are PGHR13 and GM17")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(&default_backend)
         )
     )
     .get_matches();
@@ -371,8 +408,11 @@ fn main() {
             }
             bw.flush().expect("Unable to flush buffer.");
         }
+        #[cfg(feature = "libsnark")]
         ("setup", Some(sub_matches)) => {
             println!("Performing setup...");
+
+            let backend = get_backend(sub_matches.value_of("backend").unwrap());
 
             let path = Path::new(sub_matches.value_of("input").unwrap());
             let mut file = match File::open(&path) {
@@ -421,109 +461,55 @@ fn main() {
             let vk_path = sub_matches.value_of("verification-key-path").unwrap();
 
             // run setup phase
-            #[cfg(feature = "libsnark")]
-            {
-                // number of inputs in the zkSNARK sense, i.e., input variables + output variables
-                println!(
-                    "setup successful: {:?}",
-                    setup(
-                        variables,
-                        a,
-                        b,
-                        c,
-                        public_variables_count - 1,
-                        pk_path,
-                        vk_path
-                    )
-                );
-            }
+            // number of inputs in the zkSNARK sense, i.e., input variables + output variables
+            println!(
+                "setup successful: {:?}",
+                backend.setup(
+                    variables,
+                    a,
+                    b,
+                    c,
+                    public_variables_count - 1,
+                    pk_path,
+                    vk_path
+                )
+            );
         }
+        #[cfg(feature = "libsnark")]
         ("export-verifier", Some(sub_matches)) => {
-            println!("Exporting verifier...");
-            // read vk file
-            let input_path = Path::new(sub_matches.value_of("input").unwrap());
-            let input_file = match File::open(&input_path) {
-                Ok(input_file) => input_file,
-                Err(why) => panic!("couldn't open {}: {}", input_path.display(), why),
-            };
-            let reader = BufReader::new(input_file);
-            let mut lines = reader.lines();
+            {
+                println!("Exporting verifier...");
 
-            let mut template_text = String::from(CONTRACT_TEMPLATE);
-            let ic_template = String::from("vk.IC[index] = Pairing.G1Point(points);"); //copy this for each entry
+                let backend = get_backend(sub_matches.value_of("backend").unwrap());
 
-            //replace things in template
-            let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
-            let vk_ic_len_regex = Regex::new(r#"(<%vk_ic_length%>)"#).unwrap();
-            let vk_ic_index_regex = Regex::new(r#"index"#).unwrap();
-            let vk_ic_points_regex = Regex::new(r#"points"#).unwrap();
-            let vk_ic_repeat_regex = Regex::new(r#"(<%vk_ic_pts%>)"#).unwrap();
-            let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
+                // read vk file
+                let input_path = Path::new(sub_matches.value_of("input").unwrap());
+                let input_file = match File::open(&input_path) {
+                    Ok(input_file) => input_file,
+                    Err(why) => panic!("couldn't open {}: {}", input_path.display(), why),
+                };
+                let reader = BufReader::new(input_file);
 
-            for _ in 0..7 {
-                let current_line: String = lines
-                    .next()
-                    .expect("Unexpected end of file in verification key!")
-                    .unwrap();
-                let current_line_split: Vec<&str> = current_line.split("=").collect();
-                assert_eq!(current_line_split.len(), 2);
-                template_text = vk_regex
-                    .replace(template_text.as_str(), current_line_split[1].trim())
-                    .into_owned();
+                let verifier = backend.export_solidity_verifier(reader);
+
+                //write output file
+                let output_path = Path::new(sub_matches.value_of("output").unwrap());
+                let mut output_file = match File::create(&output_path) {
+                    Ok(file) => file,
+                    Err(why) => panic!("couldn't create {}: {}", output_path.display(), why),
+                };
+
+                output_file
+                    .write_all(&verifier.as_bytes())
+                    .expect("Failed writing output to file.");
+                println!("Finished exporting verifier.");
             }
-
-            let current_line: String = lines
-                .next()
-                .expect("Unexpected end of file in verification key!")
-                .unwrap();
-            let current_line_split: Vec<&str> = current_line.split("=").collect();
-            assert_eq!(current_line_split.len(), 2);
-            let ic_count: i32 = current_line_split[1].trim().parse().unwrap();
-
-            template_text = vk_ic_len_regex
-                .replace(template_text.as_str(), format!("{}", ic_count).as_str())
-                .into_owned();
-            template_text = vk_input_len_regex
-                .replace(template_text.as_str(), format!("{}", ic_count - 1).as_str())
-                .into_owned();
-
-            let mut ic_repeat_text = String::new();
-            for x in 0..ic_count {
-                let mut curr_template = ic_template.clone();
-                let current_line: String = lines
-                    .next()
-                    .expect("Unexpected end of file in verification key!")
-                    .unwrap();
-                let current_line_split: Vec<&str> = current_line.split("=").collect();
-                assert_eq!(current_line_split.len(), 2);
-                curr_template = vk_ic_index_regex
-                    .replace(curr_template.as_str(), format!("{}", x).as_str())
-                    .into_owned();
-                curr_template = vk_ic_points_regex
-                    .replace(curr_template.as_str(), current_line_split[1].trim())
-                    .into_owned();
-                ic_repeat_text.push_str(curr_template.as_str());
-                if x < ic_count - 1 {
-                    ic_repeat_text.push_str("\n        ");
-                }
-            }
-            template_text = vk_ic_repeat_regex
-                .replace(template_text.as_str(), ic_repeat_text.as_str())
-                .into_owned();
-
-            //write output file
-            let output_path = Path::new(sub_matches.value_of("output").unwrap());
-            let mut output_file = match File::create(&output_path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't create {}: {}", output_path.display(), why),
-            };
-            output_file
-                .write_all(&template_text.as_bytes())
-                .expect("Failed writing output to file.");
-            println!("Finished exporting verifier.");
         }
+        #[cfg(feature = "libsnark")]
         ("generate-proof", Some(sub_matches)) => {
             println!("Generating proof...");
+
+            let backend = get_backend(sub_matches.value_of("backend").unwrap());
 
             // deserialize witness
             let witness_path = Path::new(sub_matches.value_of("witness").unwrap());
@@ -594,13 +580,10 @@ fn main() {
             let proof_path = sub_matches.value_of("proofpath").unwrap();
 
             // run libsnark
-            #[cfg(feature = "libsnark")]
-            {
-                println!(
-                    "generate-proof successful: {:?}",
-                    generate_proof(pk_path, proof_path, public_inputs, private_inputs)
-                );
-            }
+            println!(
+                "generate-proof successful: {:?}",
+                backend.generate_proof(pk_path, proof_path, public_inputs, private_inputs)
+            );
         }
         _ => unimplemented!(), // Either no subcommand or one not tested for...
     }
@@ -611,6 +594,7 @@ mod tests {
     extern crate glob;
     use self::glob::glob;
     use super::*;
+    use zokrates_core::ir::r1cs_program;
 
     #[test]
     fn examples() {

@@ -162,47 +162,55 @@ mod integration {
 
         #[cfg(feature = "libsnark")]
         {
-            // SETUP
-            assert_cli::Assert::command(&[
-                "../target/release/zokrates",
-                "setup",
-                "-i",
-                flattened_path.to_str().unwrap(),
-                "-p",
-                proving_key_path.to_str().unwrap(),
-                "-v",
-                verification_key_path.to_str().unwrap(),
-                "-m",
-                variable_information_path.to_str().unwrap(),
-            ])
-            .succeeds()
-            .unwrap();
+            for backend in &["pghr13", "gm17"] {
+                // SETUP
+                assert_cli::Assert::command(&[
+                    "../target/release/zokrates",
+                    "setup",
+                    "-i",
+                    flattened_path.to_str().unwrap(),
+                    "-p",
+                    proving_key_path.to_str().unwrap(),
+                    "-v",
+                    verification_key_path.to_str().unwrap(),
+                    "-m",
+                    variable_information_path.to_str().unwrap(),
+                    "--backend",
+                    backend,
+                ])
+                .succeeds()
+                .unwrap();
 
-            // EXPORT-VERIFIER
-            assert_cli::Assert::command(&[
-                "../target/release/zokrates",
-                "export-verifier",
-                "-i",
-                verification_key_path.to_str().unwrap(),
-                "-o",
-                verification_contract_path.to_str().unwrap(),
-            ])
-            .succeeds()
-            .unwrap();
+                // EXPORT-VERIFIER
+                assert_cli::Assert::command(&[
+                    "../target/release/zokrates",
+                    "export-verifier",
+                    "-i",
+                    verification_key_path.to_str().unwrap(),
+                    "-o",
+                    verification_contract_path.to_str().unwrap(),
+                    "--backend",
+                    backend,
+                ])
+                .succeeds()
+                .unwrap();
 
-            // GENERATE-PROOF
-            assert_cli::Assert::command(&[
-                "../target/release/zokrates",
-                "generate-proof",
-                "-w",
-                witness_path.to_str().unwrap(),
-                "-p",
-                proving_key_path.to_str().unwrap(),
-                "-i",
-                variable_information_path.to_str().unwrap(),
-            ])
-            .succeeds()
-            .unwrap();
+                // GENERATE-PROOF
+                assert_cli::Assert::command(&[
+                    "../target/release/zokrates",
+                    "generate-proof",
+                    "-w",
+                    witness_path.to_str().unwrap(),
+                    "-p",
+                    proving_key_path.to_str().unwrap(),
+                    "-i",
+                    variable_information_path.to_str().unwrap(),
+                    "--backend",
+                    backend,
+                ])
+                .succeeds()
+                .unwrap();
+            }
         }
     }
 }
