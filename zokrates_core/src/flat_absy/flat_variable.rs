@@ -37,7 +37,7 @@ impl fmt::Display for FlatVariable {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.id {
             0 => write!(f, "~one"),
-            i if i > 0 => write!(f, "_{}", i + 1),
+            i if i > 0 => write!(f, "_{}", i - 1),
             i => write!(f, "~out_{}", -(i + 1)),
         }
     }
@@ -72,18 +72,18 @@ mod tests {
 
     #[test]
     fn one() {
-        assert_eq!(FlatVariable::one().id, 0);
+        assert_eq!(format!("{}", FlatVariable::one()), "~one");
     }
 
     #[test]
     fn public() {
-        assert_eq!(FlatVariable::public(0).id, -1);
-        assert_eq!(FlatVariable::public(42).id, -43);
+        assert_eq!(format!("{}", FlatVariable::public(0)), "~out_0");
+        assert_eq!(format!("{}", FlatVariable::public(42)), "~out_42");
     }
 
     #[test]
     fn private() {
-        assert_eq!(FlatVariable::new(0).id, 1);
-        assert_eq!(FlatVariable::new(42).id, 43);
+        assert_eq!(format!("{}", FlatVariable::new(0)), "_0");
+        assert_eq!(format!("{}", FlatVariable::new(42)), "_42");
     }
 }

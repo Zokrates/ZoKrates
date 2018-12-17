@@ -29,7 +29,8 @@ pub mod absy;
 pub mod compile;
 pub mod field;
 pub mod flat_absy;
+pub mod ir;
 #[cfg(feature = "libsnark")]
 pub mod libsnark;
-pub mod r1cs;
-pub mod verification;
+#[cfg(feature = "libsnark")]
+pub mod proof_system;

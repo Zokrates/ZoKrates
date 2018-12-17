@@ -1,9 +1,11 @@
 /**
- * @file wraplibsnark.hpp
+ * @file gm17.hpp
  * @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de
  * @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
  * @date 2017
  */
+
+#pragma once
 
 #ifdef __cplusplus
 extern "C" {
@@ -12,7 +14,7 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 
-bool _setup(const uint8_t* A,
+bool _gm17_setup(const uint8_t* A,
             const uint8_t* B,
             const uint8_t* C,
             int A_len,
@@ -25,7 +27,7 @@ bool _setup(const uint8_t* A,
             const char* vk_path
           );
 
-bool _generate_proof(const char* pk_path,
+bool _gm17_generate_proof(const char* pk_path,
             const char* proof_path,
             const uint8_t* public_inputs,
             int public_inputs_length,
