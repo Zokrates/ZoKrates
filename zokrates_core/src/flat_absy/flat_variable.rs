@@ -43,6 +43,10 @@ impl FlatVariable {
             }
         }
     }
+
+    pub fn is_output(&self) -> bool {
+        self.id < 0
+    }
 }
 
 impl fmt::Display for FlatVariable {
