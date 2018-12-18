@@ -1038,28 +1038,11 @@ impl Flattener {
                     .map(|e| e.apply_recursive_substitution(&self.substitution))
                     .collect::<Vec<_>>();
 
-                match expr.get_type() {
-                    Type::FieldElement | Type::Boolean => {
-                        match assignee {
-                            TypedAssignee::Identifier(ref v) => {
-                                let debug_name = v.clone().id;
-                                let var = self.use_variable(&debug_name);
-                                // handle return of function call
-                                let var_to_replace = self.get_latest_var_substitution(&debug_name);
-                                if !(var == var_to_replace)
-                                    && self.variables.contains(&var_to_replace)
-                                    && !self.substitution.contains_key(&var_to_replace)
-                                {
-                                    self.substitution
-                                        .insert(var_to_replace.clone(), var.clone());
-                                }
-                                statements_flattened
-                                    .push(FlatStatement::Definition(var, rhs[0].clone()));
-                            }
-                            TypedAssignee::ArrayElement(ref array, ref index) => {
-                                let expr = match expr {
+                match (&assignee, expr.get_type()) {
+                    (TypedAssignee::ArrayElement(ref array, ref index), Type::FieldElement) => {
+                               let expr = match expr {
                                     TypedExpression::FieldElement(e) => e,
-                                    _ => panic!("not a field element as rhs of array element update, should have been caught at semantic")
+                                    _ => unreachable!()
                                 };
                                 match index {
                                     box FieldElementExpression::Number(n) => {
@@ -1157,28 +1140,46 @@ impl Flattener {
                                         }
                                     }
                                 }
+                    },
+                    (TypedAssignee::Identifier(ref v), ref t) => {
+                        match t.get_primitive_count() {
+                            1 => {
+                                let debug_name = v.clone().id;
+                                let var = self.use_variable(&debug_name);
+                                // handle return of function call
+                                let var_to_replace = self.get_latest_var_substitution(&debug_name);
+                                if !(var == var_to_replace)
+                                    && self.variables.contains(&var_to_replace)
+                                    && !self.substitution.contains_key(&var_to_replace)
+                                {
+                                    self.substitution
+                                        .insert(var_to_replace.clone(), var.clone());
+                                }
+                                statements_flattened
+                                    .push(FlatStatement::Definition(var, rhs[0].clone()));
+                            },
+                            _ => {
+                                for (index, r) in rhs.into_iter().enumerate() {
+                                    let debug_name = match assignee {
+                                        TypedAssignee::Identifier(ref v) => format!("{}_c{}", v.id, index),
+                                        _ => unimplemented!(),
+                                    };
+                                    let var = self.use_variable(&debug_name);
+                                    // handle return of function call
+                                    let var_to_replace = self.get_latest_var_substitution(&debug_name);
+                                    if !(var == var_to_replace)
+                                        && self.variables.contains(&var_to_replace)
+                                        && !self.substitution.contains_key(&var_to_replace)
+                                    {
+                                        self.substitution
+                                            .insert(var_to_replace.clone(), var.clone());
+                                    }
+                                    statements_flattened.push(FlatStatement::Definition(var, r));
+                                }
                             }
                         }
-                    }
-                    Type::FieldElementArray(..) => {
-                        for (index, r) in rhs.into_iter().enumerate() {
-                            let debug_name = match assignee {
-                                TypedAssignee::Identifier(ref v) => format!("{}_c{}", v.id, index),
-                                _ => unimplemented!(),
-                            };
-                            let var = self.use_variable(&debug_name);
-                            // handle return of function call
-                            let var_to_replace = self.get_latest_var_substitution(&debug_name);
-                            if !(var == var_to_replace)
-                                && self.variables.contains(&var_to_replace)
-                                && !self.substitution.contains_key(&var_to_replace)
-                            {
-                                self.substitution
-                                    .insert(var_to_replace.clone(), var.clone());
-                            }
-                            statements_flattened.push(FlatStatement::Definition(var, r));
-                        }
-                    }
+                    },
+                    (TypedAssignee::ArrayElement(..), t) => unimplemented!("array of {} not supported, cannot assign element. Should have been caught at semantic phase", t)
                 }
             }
             TypedStatement::Condition(expr1, expr2) => {
@@ -1326,8 +1327,26 @@ impl Flattener {
                         // take each new variable being assigned
                         for v in vars {
                             // determine how many field elements it carries
-                            match v.get_type() {
-                                Type::FieldElementArray(size) => {
+                            match v.get_type().get_primitive_count() {
+                                1 => {
+                                    let debug_name = v.id;
+                                    let var = self.use_variable(&debug_name);
+                                    // handle return of function call
+                                    let var_to_replace =
+                                        self.get_latest_var_substitution(&debug_name);
+                                    if !(var == var_to_replace)
+                                        && self.variables.contains(&var_to_replace)
+                                        && !self.substitution.contains_key(&var_to_replace)
+                                    {
+                                        self.substitution
+                                            .insert(var_to_replace.clone(), var.clone());
+                                    }
+                                    statements_flattened.push(FlatStatement::Definition(
+                                        var,
+                                        iterator.next().unwrap(),
+                                    ));
+                                }
+                                size => {
                                     for index in 0..size {
                                         let debug_name = format!("{}_c{}", v.id, index);
                                         let var = self.use_variable(&debug_name);
@@ -1346,24 +1365,6 @@ impl Flattener {
                                             iterator.next().unwrap(),
                                         ));
                                     }
-                                }
-                                Type::Boolean | Type::FieldElement => {
-                                    let debug_name = v.id;
-                                    let var = self.use_variable(&debug_name);
-                                    // handle return of function call
-                                    let var_to_replace =
-                                        self.get_latest_var_substitution(&debug_name);
-                                    if !(var == var_to_replace)
-                                        && self.variables.contains(&var_to_replace)
-                                        && !self.substitution.contains_key(&var_to_replace)
-                                    {
-                                        self.substitution
-                                            .insert(var_to_replace.clone(), var.clone());
-                                    }
-                                    statements_flattened.push(FlatStatement::Definition(
-                                        var,
-                                        iterator.next().unwrap(),
-                                    ));
                                 }
                             }
                         }
@@ -1394,35 +1395,26 @@ impl Flattener {
 
         self.next_var_idx = 0;
 
-        let mut arguments_flattened: Vec<FlatParameter> = Vec::new();
         let mut statements_flattened: Vec<FlatStatement<T>> = Vec::new();
         // push parameters
-        for arg in &funct.arguments {
-            let arg_type = arg.id.get_type();
-
-            match arg_type {
-                Type::FieldElement => {
-                    arguments_flattened.push(FlatParameter {
-                        id: self.use_variable(&arg.id.id),
-                        private: arg.private,
-                    });
-                }
-                Type::Boolean => {
-                    arguments_flattened.push(FlatParameter {
-                        id: self.use_variable(&arg.id.id),
-                        private: arg.private,
-                    });
-                }
-                Type::FieldElementArray(size) => {
-                    for i in 0..size {
-                        arguments_flattened.push(FlatParameter {
-                            id: self.use_variable(&format!("{}_c{}", arg.id.id, i)),
-                            private: arg.private,
-                        })
-                    }
-                }
-            }
-        }
+        let arguments_flattened: Vec<FlatParameter> = funct
+            .arguments
+            .iter()
+            .flat_map(|arg| match arg.id.get_type().get_primitive_count() {
+                1 => vec![FlatParameter::new(
+                    self.use_variable(&arg.id.id),
+                    arg.private,
+                )],
+                size => (0..size)
+                    .map(|i| {
+                        FlatParameter::new(
+                            self.use_variable(&format!("{}_c{}", arg.id.id, i)),
+                            arg.private,
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+            })
+            .collect();
 
         // flatten statements in functions and apply substitution
         for stat in funct.statements {

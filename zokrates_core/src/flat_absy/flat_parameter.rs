@@ -9,7 +9,7 @@ pub struct FlatParameter {
 }
 
 impl FlatParameter {
-    fn new(id: FlatVariable, private: bool) -> Self {
+    pub fn new(id: FlatVariable, private: bool) -> Self {
         FlatParameter { id, private }
     }
 
