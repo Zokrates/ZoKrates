@@ -1492,16 +1492,7 @@ impl Flattener {
     }
 
     fn get_latest_var_substitution(&mut self, name: &String) -> FlatVariable {
-        // start with the variable name
-        let latest_var = self.bijection.get_by_left(name).unwrap().clone();
-        // loop {
-        //     // walk the substitutions
-        //     match self.substitution.get(&latest_var) {
-        //         Some(x) => latest_var = x,
-        //         None => break,
-        //     }
-        // }
-        latest_var
+        self.bijection.get_by_left(name).unwrap().clone()
     }
 }
 

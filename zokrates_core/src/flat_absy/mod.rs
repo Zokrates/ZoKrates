@@ -12,10 +12,10 @@ pub use self::flat_parameter::FlatParameter;
 pub use self::flat_variable::FlatVariable;
 
 use field::Field;
-use helpers::{DirectiveStatement, Executable};
+use helpers::DirectiveStatement;
 #[cfg(feature = "libsnark")]
 use standard;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::fmt;
 use types::Signature;
 
@@ -23,15 +23,6 @@ use types::Signature;
 pub struct FlatProg<T: Field> {
     /// FlatFunctions of the program
     pub functions: Vec<FlatFunction<T>>,
-}
-
-impl<T: Field> FlatProg<T> {
-    // only main flattened function is relevant here, as all other functions are unrolled into it
-    #[allow(dead_code)] // I don't want to remove this
-    pub fn get_witness(&self, inputs: Vec<T>) -> Result<BTreeMap<FlatVariable, T>, Error> {
-        let main = self.functions.iter().find(|x| x.id == "main").unwrap();
-        main.get_witness(inputs)
-    }
 }
 
 impl<T: Field> fmt::Display for FlatProg<T> {
@@ -83,56 +74,6 @@ pub struct FlatFunction<T: Field> {
     pub signature: Signature,
 }
 
-impl<T: Field> FlatFunction<T> {
-    pub fn get_witness(&self, inputs: Vec<T>) -> Result<BTreeMap<FlatVariable, T>, Error> {
-        assert!(self.arguments.len() == inputs.len());
-        assert!(self.id == "main");
-        let mut witness = BTreeMap::new();
-        witness.insert(FlatVariable::one(), T::one());
-        for (i, arg) in self.arguments.iter().enumerate() {
-            witness.insert(arg.id, inputs[i].clone());
-        }
-        for statement in &self.statements {
-            match *statement {
-                FlatStatement::Return(ref list) => {
-                    for (i, val) in list.expressions.iter().enumerate() {
-                        let s = val.solve(&mut witness);
-                        witness.insert(FlatVariable::public(i), s);
-                    }
-                }
-                FlatStatement::Definition(ref id, ref expr) => {
-                    let s = expr.solve(&mut witness);
-                    witness.insert(id.clone(), s);
-                }
-                FlatStatement::Condition(ref lhs, ref rhs) => {
-                    if lhs.solve(&mut witness) != rhs.solve(&mut witness) {
-                        return Err(Error {
-                            message: format!(
-                                "Condition not satisfied: {} should equal {}",
-                                lhs, rhs
-                            ),
-                        });
-                    }
-                }
-                FlatStatement::Directive(ref d) => {
-                    let input_values: Vec<T> =
-                        d.inputs.iter().map(|i| i.solve(&mut witness)).collect();
-                    match d.helper.execute(&input_values) {
-                        Ok(res) => {
-                            for (i, o) in d.outputs.iter().enumerate() {
-                                witness.insert(o.clone(), res[i].clone());
-                            }
-                            continue;
-                        }
-                        Err(message) => return Err(Error { message: message }),
-                    };
-                }
-            }
-        }
-        Ok(witness)
-    }
-}
-
 impl<T: Field> fmt::Display for FlatFunction<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -143,7 +84,7 @@ impl<T: Field> fmt::Display for FlatFunction<T> {
                 .iter()
                 .map(|x| format!("{}", x))
                 .collect::<Vec<_>>()
-                .join(","),
+                .join(", "),
             self.statements
                 .iter()
                 .map(|x| format!("\t{}", x))
@@ -169,16 +110,6 @@ impl<T: Field> fmt::Debug for FlatFunction<T> {
         )
     }
 }
-
-/// Calculates a flattened function based on a R1CS (A, B, C) and returns that flattened function:
-/// * The Rank 1 Constraint System (R1CS) is defined as:
-/// * `<A,x>*<B,x> = <C,x>` for a witness `x`
-/// * Since the matrices in R1CS are usually sparse, the following encoding is used:
-/// * For each constraint (i.e., row in the R1CS), only non-zero values are supplied and encoded as a tuple (index, value).
-///
-/// # Arguments
-///
-/// * r1cs - R1CS in standard JSON data format
 
 #[derive(Clone, PartialEq)]
 pub enum FlatStatement<T: Field> {
@@ -315,26 +246,13 @@ impl<T: Field> FlatExpression<T> {
         }
     }
 
-    fn solve(&self, inputs: &mut BTreeMap<FlatVariable, T>) -> T {
-        match *self {
-            FlatExpression::Number(ref x) => x.clone(),
-            FlatExpression::Identifier(ref var) => match inputs.get(var) {
-                Some(v) => v.clone(),
-                None => panic!("Variable {:?} is undeclared in witness: {:?}", var, inputs),
-            },
-            FlatExpression::Add(ref x, ref y) => x.solve(inputs) + y.solve(inputs),
-            FlatExpression::Sub(ref x, ref y) => x.solve(inputs) - y.solve(inputs),
-            FlatExpression::Mult(ref x, ref y) => x.solve(inputs) * y.solve(inputs),
-        }
-    }
-
     pub fn is_linear(&self) -> bool {
         match *self {
             FlatExpression::Number(_) | FlatExpression::Identifier(_) => true,
             FlatExpression::Add(ref x, ref y) | FlatExpression::Sub(ref x, ref y) => {
                 x.is_linear() && y.is_linear()
             }
-            FlatExpression::Mult(ref x, ref y) => match (x.clone(), y.clone()) {
+            FlatExpression::Mult(ref x, ref y) => match (x, y) {
                 (box FlatExpression::Number(_), box FlatExpression::Number(_))
                 | (box FlatExpression::Number(_), box FlatExpression::Identifier(_))
                 | (box FlatExpression::Identifier(_), box FlatExpression::Number(_)) => true,
@@ -435,5 +353,78 @@ pub struct Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.message)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use field::FieldPrime;
+
+    #[test]
+    fn is_linear() {
+        let five = FlatExpression::Number(FieldPrime::from(5));
+        let x = FlatExpression::Identifier(FlatVariable::new(42));
+        let y = FlatExpression::Identifier(FlatVariable::new(21));
+        // 5
+        assert!(five.clone().is_linear());
+        // x
+        assert!(x.clone().is_linear());
+        // x * 5
+        assert!(FlatExpression::Mult(box x.clone(), box five.clone()).is_linear());
+        // x * y not linear
+        assert!(!FlatExpression::Mult(box x.clone(), box y.clone()).is_linear());
+        // 5 * y
+        assert!(FlatExpression::Mult(box five.clone(), box y.clone()).is_linear());
+        // x - y
+        assert!(FlatExpression::Sub(box x.clone(), box y.clone()).is_linear());
+        // 5 * 5
+        assert!(FlatExpression::Mult(box five.clone(), box five.clone()).is_linear());
+    }
+
+    #[should_panic]
+    #[test]
+    fn apply_substitution() {
+        let h0 = vec![(42, 43), (21, 22)]
+            .into_iter()
+            .map(|(x, y)| (FlatVariable::new(x), FlatVariable::new(y)))
+            .collect();
+
+        let h1 = vec![(42, 43)]
+            .into_iter()
+            .map(|(x, y)| (FlatVariable::new(x), FlatVariable::new(y)))
+            .collect();
+
+        // 5*(_42 + _21)
+        let e = FlatExpression::Mult(
+            box FlatExpression::Number(FieldPrime::from(5)),
+            box FlatExpression::Add(
+                box FlatExpression::Identifier(FlatVariable::new(42)),
+                box FlatExpression::Identifier(FlatVariable::new(21)),
+            ),
+        );
+
+        // 5*(_43 + _22)
+        let expected_direct = FlatExpression::Mult(
+            box FlatExpression::Number(FieldPrime::from(5)),
+            box FlatExpression::Add(
+                box FlatExpression::Identifier(FlatVariable::new(43)),
+                box FlatExpression::Identifier(FlatVariable::new(22)),
+            ),
+        );
+
+        // 5*(_43 + _21)
+        let expected_rec = FlatExpression::Mult(
+            box FlatExpression::Number(FieldPrime::from(5)),
+            box FlatExpression::Add(
+                box FlatExpression::Identifier(FlatVariable::new(43)),
+                box FlatExpression::Identifier(FlatVariable::new(21)),
+            ),
+        );
+
+        assert_eq!(e.clone().apply_direct_substitution(&h0), expected_direct);
+        assert_eq!(e.clone().apply_recursive_substitution(&h1), expected_rec);
+        // direct substitution on h1 should panic as _21 is not a key
+        e.apply_direct_substitution(&h1);
     }
 }
