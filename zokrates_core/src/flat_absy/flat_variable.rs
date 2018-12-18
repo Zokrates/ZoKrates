@@ -73,28 +73,28 @@ mod tests {
 
     #[test]
     fn one() {
-        assert_eq!(FlatVariable::one().to_string(), "~one");
+        assert_eq!(format!("{}", FlatVariable::one()), "~one");
     }
 
     #[test]
     fn public() {
         let v = FlatVariable::public(0);
-        assert_eq!(v.to_string(), "~out_0");
+        assert_eq!(format!("{}", v), "~out_0");
         assert_eq!(format!("{:?}", v), "FlatVariable(id: -1)");
 
         let v = FlatVariable::public(42);
-        assert_eq!(v.to_string(), "~out_42");
+        assert_eq!(format!("{}", v), "~out_42");
         assert_eq!(format!("{:?}", v), "FlatVariable(id: -43)");
     }
 
     #[test]
     fn private() {
         let v = FlatVariable::new(0);
-        assert_eq!(v.to_string(), "_0");
+        assert_eq!(format!("{}", v), "_0");
         assert_eq!(format!("{:?}", v), "FlatVariable(id: 1)");
 
         let v = FlatVariable::new(42);
-        assert_eq!(v.to_string(), "_42");
+        assert_eq!(format!("{}", v), "_42");
         assert_eq!(format!("{:?}", v), "FlatVariable(id: 43)");
     }
 
