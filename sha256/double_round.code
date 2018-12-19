@@ -1,0 +1,12 @@
+import "./IV_constants.code" as IVconstants 
+import "./sha_round.code" as sha256 
+
+def main(field[256] a, field[256] b, field[256] c, field[256] d) -> (field[256]):
+
+        //TODO: add bool check
+
+    IV =  IVconstants()
+    digest1 =  sha256(a, b, IV)
+    digest2 =  sha256(c, d, digest1)
+
+	return digest2

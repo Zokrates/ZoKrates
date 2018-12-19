@@ -4,6 +4,8 @@
 // @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
 // @date 2017
 
+//TODO: delte sha256ethereum, add tests 
+
 extern crate libc;
 
 use self::libc::{c_char, c_int, uint8_t};
@@ -18,6 +20,9 @@ extern "C" {
 
     fn _shaEth256Constraints() -> *mut c_char;
     fn _shaEth256Witness(inputs: *const uint8_t, inputs_length: c_int) -> *mut c_char;
+
+    fn _sha256RoundConstraints() -> *mut c_char;
+    fn _sha256RoundWitness(inputs: *const uint8_t, inputs_length: c_int) -> *mut c_char;
 }
 
 pub fn get_sha256_constraints() -> String {
@@ -51,6 +56,30 @@ pub fn get_ethsha256_witness<T: Field>(inputs: &Vec<T>) -> String {
 
     let a = unsafe {
         CString::from_raw(_shaEth256Witness(
+            inputs_arr[0].as_ptr(),
+            inputs.len() as i32,
+        ))
+    };
+    a.into_string().unwrap()
+}
+
+pub fn get_sha256round_constraints() -> String {
+    let a = unsafe { CString::from_raw(_sha256RoundConstraints()) };
+    a.into_string().unwrap()
+}
+
+pub fn get_sha256round_witness<T: Field>(inputs: &Vec<T>) -> String {
+    let mut inputs_arr: Vec<[u8; 32]> = vec![[0u8; 32]; inputs.len()];
+     println!("#Debug Libsnark {}", inputs.len());
+    //  let inputs = &inputs[0..512];
+    //TODO: vector of arrays or 8*32 bit elements => 256bit
+    for (index, value) in inputs.into_iter().enumerate() {
+        inputs_arr[index] = vec_as_u8_32_array(&value.into_byte_vector());
+    }
+    //TODO: what is into_byte_vector?
+
+    let a = unsafe {
+        CString::from_raw(_sha256RoundWitness(
             inputs_arr[0].as_ptr(),
             inputs.len() as i32,
         ))

@@ -5,6 +5,7 @@ authors = ["Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>", "Dennis Kuhnert <ma
 repository = "https://github.com/JacobEberhardt/ZoKrates.git"
 
 [features]
+# default = []
 default = ["libsnark"]
 libsnark = ["zokrates_core/libsnark"]
 

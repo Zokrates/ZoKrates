@@ -1,0 +1,15 @@
+import "./IV_constants.code" as IVconstants 
+import "./sha_round.code" as sha256 
+
+def main(field[256] a, field[256] b) -> (field[256]):
+
+//    for index in 0..256 do
+//		1 == BOOLCHECK(a[index])
+//		1 == BOOLCHECK(b[index])
+//    endfor
+//
+
+    IV =  IVconstants()
+    digest =  sha256(a, b, IV)
+
+    return digest 

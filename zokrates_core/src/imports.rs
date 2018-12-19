@@ -127,7 +127,7 @@ impl Importer {
                 #[cfg(feature = "libsnark")]
                 {
                     use helpers::LibsnarkGadgetHelper;
-                    use libsnark::{get_ethsha256_constraints, get_sha256_constraints};
+                    use libsnark::{get_ethsha256_constraints, get_sha256_constraints, get_sha256round_constraints};
                     use serde_json::from_str;
                     use standard::{DirectiveR1CS, R1CS};
                     use std::io::BufReader;
@@ -143,6 +143,19 @@ impl Importer {
                             let alias = match import.alias {
                                 Some(ref alias) => alias.clone(),
                                 None => String::from("sha256"),
+                            };
+                            origins.push(CompiledImport::new(compiled, alias));
+                        }
+                        "LIBSNARK/sha256round" => {
+                            let r1cs: R1CS = from_str(&get_sha256round_constraints()).unwrap();
+                            let dr1cs: DirectiveR1CS = DirectiveR1CS {
+                                r1cs,
+                                directive: LibsnarkGadgetHelper::Sha256Round,
+                            };
+                            let compiled = FlatProg::from(dr1cs);
+                            let alias = match import.alias {
+                                Some(ref alias) => alias.clone(),
+                                None => String::from("sha256round"),
                             };
                             origins.push(CompiledImport::new(compiled, alias));
                         }

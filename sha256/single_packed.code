@@ -1,0 +1,17 @@
+
+import "./IV_constants.code" as IVConstant
+import "./sha_round.code" as sha256 
+import "PACKING/pack256" as pack256
+import "PACKING/unpack256" as unpack256
+
+def main(field a, field b) -> (field):
+
+        //TODO: add bool check
+        
+    IV =  IVConstant()
+    field[256] a = unpack256(a)
+    field[256] b = unpack256(b)
+    digest =  sha256(a, b, IV)
+    field c = pack256(digest)
+
+    return c 
