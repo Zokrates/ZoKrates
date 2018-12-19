@@ -4,8 +4,8 @@ use ir::*;
 use std::collections::BTreeMap;
 
 impl<T: Field> Prog<T> {
-    pub fn execute(self, inputs: Vec<T>) -> Result<BTreeMap<FlatVariable, T>, Error<T>> {
-        let main = self.main;
+    pub fn execute(&self, inputs: Vec<T>) -> Result<BTreeMap<FlatVariable, T>, Error<T>> {
+        let main = &self.main;
         assert_eq!(main.arguments.len(), inputs.len());
         let mut witness = BTreeMap::new();
         witness.insert(FlatVariable::one(), T::one());
@@ -13,9 +13,9 @@ impl<T: Field> Prog<T> {
             witness.insert(arg.clone(), value.clone());
         }
 
-        for statement in main.statements {
+        for statement in &main.statements {
             match statement {
-                Statement::Constraint(quad, lin) => match lin.is_assignee(&witness) {
+                Statement::Constraint(ref quad, ref lin) => match lin.is_assignee(&witness) {
                     true => {
                         let val = quad.evaluate(&witness);
                         witness.insert(lin.0.iter().next().unwrap().0.clone(), val);
@@ -24,7 +24,12 @@ impl<T: Field> Prog<T> {
                         let lhs_value = quad.evaluate(&witness);
                         let rhs_value = lin.evaluate(&witness);
                         if lhs_value != rhs_value {
-                            return Err(Error::Constraint(quad, lin, lhs_value, rhs_value));
+                            return Err(Error::Constraint(
+                                quad.clone(),
+                                lin.clone(),
+                                lhs_value,
+                                rhs_value,
+                            ));
                         }
                     }
                 },

@@ -1502,6 +1502,7 @@ mod tests {
     use super::*;
     use absy::variable::Variable;
     use field::FieldPrime;
+    use ir::Prog;
     use types::Signature;
     use types::Type;
 
@@ -2250,6 +2251,70 @@ mod tests {
             flat_expression,
             FlatExpression::Identifier(FlatVariable::new(1)),
         );
+    }
+
+    #[test]
+    fn random_array_access() {
+        // def main(field i) -> (field):
+        //      field[2] foo = [1, 2]
+        //      return foo[i]
+
+        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+
+        let program = TypedProg {
+            functions: vec![TypedFunction {
+                id: "main".to_string(),
+                arguments: vec![Parameter::private(Variable::field_element("i"))],
+                statements: vec![
+                    TypedStatement::Definition(
+                        TypedAssignee::Identifier(Variable::field_array("foo", 2)),
+                        FieldElementArrayExpression::Value(
+                            2,
+                            vec![
+                                FieldElementExpression::Number(FieldPrime::from(1)),
+                                FieldElementExpression::Number(FieldPrime::from(2)),
+                            ],
+                        )
+                        .into(),
+                    ),
+                    TypedStatement::Return(vec![FieldElementExpression::Select(
+                        box FieldElementArrayExpression::Identifier(2, String::from("foo")),
+                        box FieldElementExpression::Identifier(String::from("i")),
+                    )
+                    .into()]),
+                ],
+                signature: Signature::new()
+                    .inputs(vec![Type::FieldElement])
+                    .outputs(vec![Type::FieldElement]),
+            }],
+            imported_functions: vec![],
+            imports: vec![],
+        };
+
+        let flat_prog = flattener.flatten_program::<FieldPrime>(program);
+
+        let ir_prog = Prog::from(flat_prog);
+
+        // main(0) -> 1
+        assert_eq!(
+            ir_prog
+                .execute(vec![FieldPrime::from(0)])
+                .unwrap()
+                .get(&FlatVariable::public(0)),
+            Some(&FieldPrime::from(1))
+        );
+
+        // main(1) -> 2
+        assert_eq!(
+            ir_prog
+                .execute(vec![FieldPrime::from(1)])
+                .unwrap()
+                .get(&FlatVariable::public(0)),
+            Some(&FieldPrime::from(2))
+        );
+
+        // main(2) -> error
+        assert!(ir_prog.execute(vec![FieldPrime::from(2)]).is_err());
     }
 
     #[test]
