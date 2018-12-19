@@ -1,5 +1,4 @@
 use std::fmt;
-use std::fs::File;
 use helpers::{Signed, Executable};
 use field::Field;
 
@@ -17,15 +16,6 @@ impl WasmHelper {
 	/* Generated from C code, normalized and cleaned up by hand */
 	pub const BITS_WASM : &'static str = "0061736d01000000010c026000017f60037f7f7f017f0304030000010405017001010105030100020626067f0141f0c7040b7f0041f0c7040b7f0041f0c7000b7f0041200b7f0041010b7f0041fe010b074b06066d656d6f727902000e6765745f696e707574735f6f6666000005736f6c766500010a6669656c645f73697a6503030a6d696e5f696e7075747303040b6d696e5f6f75747075747303050901000ad5030305004190080b4f01027f41b008210041b008410041c03f10021a4100210103402000410120014107717420014103764190086a2d0000714100473a0000200041206a2100200141016a220141fe01470d000b41b0080bfc0202037f017e02402002450d00200020013a0000200020026a2203417f6a20013a000020024103490d00200020013a0002200020013a00012003417d6a20013a00002003417e6a20013a000020024107490d00200020013a00032003417c6a20013a000020024109490d002000410020006b41037122046a2203200141ff017141818284086c22013602002003200220046b417c7122046a2202417c6a200136020020044109490d002003200136020820032001360204200241786a2001360200200241746a200136020020044119490d00200320013602102003200136020c2003200136021420032001360218200241686a2001360200200241646a20013602002002416c6a2001360200200241706a20013602002004200341047141187222056b22024120490d002001ad22064220862006842106200320056a2101034020012006370300200141086a2006370300200141106a2006370300200141186a2006370300200141206a2101200241606a2202411f4b0d000b0b20000b";
 
-	pub fn from_file<U: Into<String>>(u: U) -> Self {
-		use std::io::prelude::*;
-		let fname = u.into();
-		let mut file = File::open(fname).unwrap();
-		let mut buf = Vec::new();
-		file.read_to_end(&mut buf).unwrap();
-		WasmHelper::from(buf)
-	}
-
 	pub fn from_hex<U: Into<String>>(u: U) -> Self {
 		let code_hex = u.into();
 		let code = FromHex::from_hex(&code_hex[..])
@@ -42,6 +32,15 @@ impl From<Vec<u8>> for WasmHelper {
 	        .expect("Failed to instantiate module")
 			.assert_no_start();
 		WasmHelper(Rc::new(modinst), code)
+	}
+}
+
+impl From<&mut std::fs::File> for WasmHelper {
+	fn from(file : &mut std::fs::File) -> Self {
+		use std::io::prelude::*;
+		let mut buf = Vec::new();
+		file.read_to_end(&mut buf).unwrap();
+		WasmHelper::from(buf)
 	}
 }
 
@@ -68,15 +67,14 @@ impl fmt::Display for WasmHelper {
 }
 
 fn get_export<T : wasmi::FromRuntimeValue>(varname: &str, modref : &ModuleRef) -> Result<T, String> {
-	let no = modref
+	modref
 		.export_by_name(varname)
 		.ok_or(&format!("Could not find exported symbol `{}` in module", varname)[..])?
 		.as_global()
 		.ok_or(format!("Error getting {} from the list of globals", varname))?
 		.get()
 		.try_into::<T>()
-		.ok_or(format!("Error converting `{}` to i32", varname))?; // XXX i32 -> T ?
-	return Ok(no);
+		.ok_or(format!("Error converting `{}` to i32", varname))
 }
 
 impl Signed for WasmHelper {
@@ -181,7 +179,104 @@ impl<T: Field> Executable<T> for WasmHelper {
 #[cfg(test)]
 mod tests {
 	use field::FieldPrime;
+	use std::panic;
+	use parity_wasm::elements::{ValueType, Instructions, Instruction};
+	use parity_wasm::builder::*;
 	use super::*;
+
+	fn remove_export(code: &str, symbol: &str) -> Vec<u8> {
+		let code = FromHex::from_hex(code).unwrap();
+		let mut idmod : parity_wasm::elements::Module = parity_wasm::deserialize_buffer(&code[..])
+			.expect("Could not deserialize Identity module");
+		idmod.export_section_mut()
+			.expect("Could not get export section")
+			.entries_mut()
+			.retain(|ref export| export.field() != symbol);
+		parity_wasm::serialize(idmod).expect("Could not serialize buffer")
+	}
+
+	fn replace_function(code: &str, symbol: &str, params: Vec<ValueType>, ret: Option<ValueType>, instr: Vec<Instruction>) -> Vec<u8> {
+		/* Deserialize to parity_wasm format */
+		let code = FromHex::from_hex(code).unwrap();
+		let mut pwmod : parity_wasm::elements::Module = parity_wasm::deserialize_buffer(&code[..])
+			.expect("Could not deserialize Identity module");
+
+		/* Remove export, if it exists */
+		pwmod.export_section_mut()
+			.expect("Could not get export section")
+			.entries_mut()
+			.retain(|ref export| export.field() != symbol);
+
+		/* Add a new function and give it the export name */
+		let wmod : parity_wasm::elements::Module = from_module(pwmod)
+			.function()
+				.signature()
+					.with_params(params)
+					.with_return_type(ret)
+					.build()
+				.body()
+					.with_instructions(Instructions::new(instr))
+					.build()
+				.build()
+			.export()
+				.field(symbol)
+				.internal().func(2)
+				.build()
+			.build();
+		parity_wasm::serialize(wmod).expect("Could not serialize buffer")
+	}
+
+	fn replace_global(code: &str, symbol: &str, value: i32) -> Vec<u8> {
+		/* Deserialize to parity_wasm format */
+		let code = FromHex::from_hex(code).unwrap();
+		let mut pwmod : parity_wasm::elements::Module = parity_wasm::deserialize_buffer(&code[..])
+			.expect("Could not deserialize Identity module");
+
+		/* Remove export, if it exists */
+		pwmod.export_section_mut()
+			.expect("Could not get export section")
+			.entries_mut()
+			.retain(|ref export| export.field() != symbol);
+
+		/* Add a new function and give it the export name */
+		let wmod : parity_wasm::elements::Module = from_module(pwmod)
+			.global()
+				.value_type().i32()
+				.init_expr(Instruction::I32Const(value))
+				.build()
+			.export()
+				.field(symbol)
+				.internal().global(4)
+				.build()
+			.build();
+		parity_wasm::serialize(wmod).expect("Could not serialize buffer")
+	}
+
+	fn replace_global_type(code: &str, symbol: &str) -> Vec<u8> {
+		/* Deserialize to parity_wasm format */
+		let code = FromHex::from_hex(code).unwrap();
+		let mut pwmod : parity_wasm::elements::Module = parity_wasm::deserialize_buffer(&code[..])
+			.expect("Could not deserialize Identity module");
+
+		/* Remove export, if it exists */
+		pwmod.export_section_mut()
+			.expect("Could not get export section")
+			.entries_mut()
+			.retain(|ref export| export.field() != symbol);
+
+		/* Add a new function and give it the export name */
+		let wmod : parity_wasm::elements::Module = from_module(pwmod)
+			.global()
+				.value_type().f32()
+				.init_expr(Instruction::F32Const(0))
+				.build()
+			.export()
+				.field(symbol)
+				.internal().global(4)
+				.build()
+			.build();
+		parity_wasm::serialize(wmod).expect("Could not serialize buffer")
+	}
 
 	#[test]
 	fn check_signatures() {
@@ -199,69 +294,52 @@ mod tests {
 	}
 
 	#[test]
-	fn check_signature_exports() {
-		/* Code is the same as identity, without the `min_inputs` export */
-		let result = panic::catch_unwind(|| { 
-			let id = WasmHelper::from_hex("0061736d010000000105016000017f030302000005030100010615047f0041010b7f0041010b7f0041200b7f0141000b073e05066d656d6f727902000e6765745f696e707574735f6f6666000105736f6c766500000b6d696e5f6f75747075747303010a6669656c645f73697a6503020a2c0225000340412023036a410023036a280200360200230341016a240323032302470d000b41200b040041000b0b4b020041000b20ffffffff000000000000000000000000ffffffff0000000000000000000000000041200b20deadbeef000000000000000000000000deadbeef000000000000000000000000");
-			id.get_signature();
-		});
-		assert!(result.is_err());
-		
-		/* Code is the same as identity, without the `min_outputs` export */
-		let result = panic::catch_unwind(|| { 
-			let id = WasmHelper::from_hex("0061736d010000000105016000017f030302000005030100010615047f0041010b7f0041010b7f0041200b7f0141000b073d05066d656d6f727902000e6765745f696e707574735f6f6666000105736f6c766500000a6d696e5f696e7075747303000a6669656c645f73697a6503020a2c0225000340412023036a410023036a280200360200230341016a240323032302470d000b41200b040041000b0b4b020041000b20ffffffff000000000000000000000000ffffffff0000000000000000000000000041200b20deadbeef000000000000000000000000deadbeef000000000000000000000000");
-			id.get_signature();
-		});
-		assert!(result.is_err());
-	}
-
-	#[test]
 	fn check_invalid_bytecode_fails() {
-		let id = WasmHelper::from_hex("invalid bytecode");
-		let input = vec![FieldPrime::from(1)];
-		let outputs = id.execute(&input);
-		assert_eq!(outputs, Err(String::from("Invalid character \'i\' at position 0")));
+		let result = panic::catch_unwind(|| {
+			WasmHelper::from_hex("invalid bytecode");
+		});
+		assert!(result.is_err());
 
-		let id = WasmHelper::from_hex(&WasmHelper::IDENTITY_WASM[..20]);
-		let input = vec![FieldPrime::from(1)];
-		let outputs = id.execute(&input);
-		assert_eq!(outputs, Err(String::from("Validation: I/O Error: UnexpectedEof")));
+		let result = panic::catch_unwind(|| {
+			WasmHelper::from_hex(&WasmHelper::IDENTITY_WASM[..20]);
+		});
+		assert!(result.is_err());
 	}
 
 	#[test]
 	fn validate_exports() {
-		/* Code is the same as identity, without the `solve` export */
-		let id = WasmHelper::new_code("0061736d010000000105016000017f030302000005030100010615047f0041010b7f0041010b7f0041200b7f0141000b074305066d656d6f727902000e6765745f696e707574735f6f666600010a6d696e5f696e7075747303000b6d696e5f6f75747075747303010a6669656c645f73697a6503020a2c0225000340412023036a410023036a280200360200230341016a240323032302470d000b41200b040041000b0b4b020041000b20ffffffff000000000000000000000000ffffffff0000000000000000000000000041200b20deadbeef000000000000000000000000deadbeef000000000000000000000000");
+		/* Test identity without the `solve` export */
+		let id = WasmHelper::from(remove_export(WasmHelper::IDENTITY_WASM, "solve"));
 		let input = vec![FieldPrime::from(1)];
 		let outputs = id.execute(&input);
 		assert_eq!(outputs, Err(String::from("Error solving the problem: Function: Module doesn\'t have export solve")));
 
-		/* Code is the same as identity, without the `get_inputs_off` export */
-		let id = WasmHelper::from_hex("0061736d010000000105016000017f030302000005030100010615047f0041010b7f0041010b7f0041200b7f0141000b073a05066d656d6f7279020005736f6c766500000a6d696e5f696e7075747303000b6d696e5f6f75747075747303010a6669656c645f73697a6503020a2c0225000340412023036a410023036a280200360200230341016a240323032302470d000b41200b040041000b0b4b020041000b20ffffffff000000000000000000000000ffffffff0000000000000000000000000041200b20deadbeef000000000000000000000000deadbeef000000000000000000000000");
+		/* Test identity, without the `get_inputs_off` export */
+		let id = WasmHelper::from(remove_export(WasmHelper::IDENTITY_WASM, "get_inputs_off"));
 		let input = vec![FieldPrime::from(1)];
 		let outputs = id.execute(&input);
 		assert_eq!(outputs, Err(String::from("Error getting the input offset: Function: Module doesn\'t have export get_inputs_off")));
 
-		/* Code is the same as identity, without the `min_inputs` export */
-		let id = WasmHelper::from_hex("0061736d010000000105016000017f030302000005030100010615047f0041010b7f0041010b7f0041200b7f0141000b073e05066d656d6f727902000e6765745f696e707574735f6f6666000105736f6c766500000b6d696e5f6f75747075747303010a6669656c645f73697a6503020a2c0225000340412023036a410023036a280200360200230341016a240323032302470d000b41200b040041000b0b4b020041000b20ffffffff000000000000000000000000ffffffff0000000000000000000000000041200b20deadbeef000000000000000000000000deadbeef000000000000000000000000");
+		/* Test identity, without the `min_inputs` export */
+		let id = WasmHelper::from(remove_export(WasmHelper::IDENTITY_WASM, "min_inputs"));
 		let input = vec![FieldPrime::from(1)];
 		let outputs = id.execute(&input);
 		assert_eq!(outputs, Err(String::from("Could not find exported symbol `min_inputs` in module")));
 
-		/* Code is the same as identity, without the `min_outputs` export */
-		let id = WasmHelper::from_hex("0061736d010000000105016000017f030302000005030100010615047f0041010b7f0041010b7f0041200b7f0141000b073d05066d656d6f727902000e6765745f696e707574735f6f6666000105736f6c766500000a6d696e5f696e7075747303000a6669656c645f73697a6503020a2c0225000340412023036a410023036a280200360200230341016a240323032302470d000b41200b040041000b0b4b020041000b20ffffffff000000000000000000000000ffffffff0000000000000000000000000041200b20deadbeef000000000000000000000000deadbeef000000000000000000000000");
+		/* Test identity, without the `min_outputs` export */
+		let id = WasmHelper::from(remove_export(WasmHelper::IDENTITY_WASM, "min_outputs"));
 		let input = vec![FieldPrime::from(1)];
 		let outputs = id.execute(&input);
 		assert_eq!(outputs, Err(String::from("Could not find exported symbol `min_outputs` in module")));
 
-		/* Code is the same as identity, without the `field_size` export */
-		let id = WasmHelper::from_hex("0061736d010000000105016000017f030302000005030100010615047f0041010b7f0041010b7f0041200b7f0141000b073e05066d656d6f727902000e6765745f696e707574735f6f6666000105736f6c766500000a6d696e5f696e7075747303000b6d696e5f6f75747075747303010a2c0225000340412023036a410023036a280200360200230341016a240323032302470d000b41200b040041000b0b4b020041000b20ffffffff000000000000000000000000ffffffff0000000000000000000000000041200b20deadbeef000000000000000000000000deadbeef000000000000000000000000");
+		/* Test identity, without the `field_size` export */
+		let id = WasmHelper::from(remove_export(WasmHelper::IDENTITY_WASM, "field_size"));
 		let input = vec![FieldPrime::from(1)];
 		let outputs = id.execute(&input);
 		assert_eq!(outputs, Err(String::from("Could not find exported symbol `field_size` in module")));
 
-		/* Code is the same as identity, without the `memory` export */
-		let id = WasmHelper::from_hex("0061736d010000000105016000017f030302000005030100010615047f0041010b7f0041010b7f0041200b7f0141000b0742050e6765745f696e707574735f6f6666000105736f6c766500000a6d696e5f696e7075747303000b6d696e5f6f75747075747303010a6669656c645f73697a6503020a2c0225000340412023036a410023036a280200360200230341016a240323032302470d000b41200b040041000b0b4b020041000b20ffffffff000000000000000000000000ffffffff0000000000000000000000000041200b20deadbeef000000000000000000000000deadbeef000000000000000000000000");
+		/* Test identity, without the `memory` export */
+		let id = WasmHelper::from(remove_export(WasmHelper::IDENTITY_WASM, "memory"));
 		let input = vec![FieldPrime::from(1)];
 		let outputs = id.execute(&input);
 		assert_eq!(outputs, Err(String::from("Module didn\'t export its memory section")));
@@ -269,20 +347,35 @@ mod tests {
 
 	#[test]
 	fn check_invalid_function_type() {
-		/* Code is the same as indentity, with a different function return type */
-		let id = WasmHelper::from_hex("0061736d010000000105016000017e030302000005030100010615047f0041010b7f0041010b7f0041200b7f0141000b074b06066d656d6f727902000e6765745f696e707574735f6f6666000105736f6c766500000a6d696e5f696e7075747303000b6d696e5f6f75747075747303010a6669656c645f73697a6503020a2c0225000340412023036a410023036a280200360200230341016a240323032302470d000b42200b040042000b0b4b020041000b20ffffffff000000000000000000000000ffffffff0000000000000000000000000041200b20deadbeef000000000000000000000000deadbeef000000000000000000000000");
+		/* Test identity, with a different function return type */
+		let id = WasmHelper::from(replace_function(
+			WasmHelper::IDENTITY_WASM,
+			"get_inputs_off",
+			Vec::new(),
+			Some(ValueType::I64),
+			vec![Instruction::I64Const(0), Instruction::End]));
 		let input = vec![FieldPrime::from(1)];
 		let outputs = id.execute(&input);
 		assert_eq!(outputs, Err(String::from("`get_inputs_off` returned the wrong type")));
 
-		/* Code is the same as indentity, with no return type for function */
-		let id = WasmHelper::from_hex("0061736d010000000108026000017f600000030302000105030100010615047f0041010b7f0041010b7f0041200b7f0141000b074b06066d656d6f727902000e6765745f696e707574735f6f6666000105736f6c766500000a6d696e5f696e7075747303000b6d696e5f6f75747075747303010a6669656c645f73697a6503020a2b0225000340412023036a410023036a280200360200230341016a240323032302470d000b41200b0300010b0b4b020041000b20ffffffff000000000000000000000000ffffffff0000000000000000000000000041200b20deadbeef000000000000000000000000deadbeef000000000000000000000000");
+		/* Test identity, with no return type for function */
+		let id = WasmHelper::from(replace_function(
+			WasmHelper::IDENTITY_WASM,
+			"get_inputs_off",
+			Vec::new(),
+			None,
+			vec![Instruction::Nop, Instruction::End]));
 		let input = vec![FieldPrime::from(1)];
 		let outputs = id.execute(&input);
 		assert_eq!(outputs, Err(String::from("`get_inputs_off` did not return any value")));
 
-		/* Code is the same as indentity, with extra parameter for function */
-		let id = WasmHelper::from_hex("0061736d010000000109026000017f60017f00030302000105030100010615047f0041010b7f0041010b7f0041200b7f0141000b074b06066d656d6f727902000e6765745f696e707574735f6f6666000105736f6c766500000a6d696e5f696e7075747303000b6d696e5f6f75747075747303010a6669656c645f73697a6503020a2b0225000340412023036a410023036a280200360200230341016a240323032302470d000b41200b0300010b0b4b020041000b20ffffffff000000000000000000000000ffffffff0000000000000000000000000041200b20deadbeef000000000000000000000000deadbeef000000000000000000000000");
+		/* Test identity, with extra parameter for function */
+		let id = WasmHelper::from(replace_function(
+			WasmHelper::IDENTITY_WASM,
+			"get_inputs_off",
+			vec![ValueType::I64],
+			Some(ValueType::I32),
+			vec![Instruction::I32Const(0), Instruction::End]));
 		let input = vec![FieldPrime::from(1)];
 		let outputs = id.execute(&input);
 		assert_eq!(outputs, Err(String::from("Error getting the input offset: Function: not enough arguments, given 0 but expected: 1")));
@@ -290,14 +383,14 @@ mod tests {
 
 	#[test]
 	fn check_invalid_field_size() {
-		/* Code is the same as indentity, with 1-byte filed size */
-		let id = WasmHelper::from_hex("0061736d010000000105016000017f030302000005030100010615047f0041010b7f0041010b7f0041010b7f0141000b074b06066d656d6f727902000e6765745f696e707574735f6f6666000105736f6c766500000a6d696e5f696e7075747303000b6d696e5f6f75747075747303010a6669656c645f73697a6503020a2c0225000340412023036a410023036a280200360200230341016a240323032302470d000b41200b040041000b0b4b020041000b20ffffffff000000000000000000000000ffffffff0000000000000000000000000041200b20deadbeef000000000000000000000000deadbeef000000000000000000000000");
+		/* Test identity, with 1-byte filed size */
+		let id = WasmHelper::from(replace_global(WasmHelper::IDENTITY_WASM, "field_size", 1));
 		let input = vec![FieldPrime::from(65536)];
 		let outputs = id.execute(&input);
 		assert_eq!(outputs, Err(String::from("Input #0 is stored on 3 bytes which is greater than the field size of 1")));
 
-		/* Code is the same as identity, tweaked so that field_size is a f32 */
-		let id = WasmHelper::from_hex("0061736d010000000105016000017f030302000005030100010618047f0041010b7f0041010b7d0043000000000b7f0141000b074b06066d656d6f727902000e6765745f696e707574735f6f6666000105736f6c766500000a6d696e5f696e7075747303000b6d696e5f6f75747075747303010a6669656c645f73697a6503020a2f0228000340412023036a410023036a280200360200230341016a2403430000000023025c0d000b41200b040041000b0b4b020041000b20ffffffff000000000000000000000000ffffffff0000000000000000000000000041200b20deadbeef000000000000000000000000deadbeef000000000000000000000000");
+		/* Test identity, tweaked so that field_size is a f32 */
+		let id = WasmHelper::from(replace_global_type(WasmHelper::IDENTITY_WASM, "field_size"));
 		let input = vec![FieldPrime::from(65536)];
 		let outputs = id.execute(&input);
 		assert_eq!(outputs, Err(String::from("Error converting `field_size` to i32")));
@@ -334,14 +427,27 @@ mod tests {
 
 	#[test]
 	fn check_memory_boundaries() {
-		/* Check that input writes are boundary-checked */
-		let id = WasmHelper::from_hex("0061736d010000000105016000017f030302000005030100010615047f0041010b7f0041010b7f0041200b7f0141000b074b06066d656d6f727902000e6765745f696e707574735f6f6666000105736f6c766500000a6d696e5f696e7075747303000b6d696e5f6f75747075747303010a6669656c645f73697a6503020a2e0225000340412023036a410023036a280200360200230341016a240323032302470d000b41200b0600418080040b0b4b020041000b20ffffffff000000000000000000000000ffffffff0000000000000000000000000041200b20deadbeef000000000000000000000000deadbeef000000000000000000000000");
+		// Check that input writes are boundary-checked: same as identity, but
+		// get_inputs_off returns an OOB offset.
+		let id = WasmHelper::from(replace_function(
+			WasmHelper::IDENTITY_WASM,
+			"get_inputs_off",
+			Vec::new(),
+			Some(ValueType::I32),
+			vec![Instruction::I32Const(65536), Instruction::End]));
 		let input = vec![FieldPrime::from(65536)];
 		let outputs = id.execute(&input);
 		assert_eq!(outputs, Err(String::from("Could not write at memory address 65536")));
 
 		/* Check that output writes are boundary-checked */
-		let id = WasmHelper::from_hex("0061736d010000000105016000017f030302000005030100010615047f0041010b7f0041010b7f0041200b7f0141000b074b06066d656d6f727902000e6765745f696e707574735f6f6666000105736f6c766500000a6d696e5f696e7075747303000b6d696e5f6f75747075747303010a6669656c645f73697a6503020a2e0227000340412023036a410023036a280200360200230341016a240323032302470d000b418080040b040041000b0b4b020041000b20ffffffff000000000000000000000000ffffffff0000000000000000000000000041200b20deadbeef000000000000000000000000deadbeef000000000000000000000000");
+		// Check that input writes are boundary-checked: same as identity, but
+		// solve returns an OOB offset.
+		let id = WasmHelper::from(replace_function(
+			WasmHelper::IDENTITY_WASM,
+			"solve",
+			Vec::new(),
+			Some(ValueType::I32),
+			vec![Instruction::I32Const(65536), Instruction::End]));
 		let input = vec![FieldPrime::from(65536)];
 		let outputs = id.execute(&input);
 		assert_eq!(outputs, Err(String::from("Could not retreive the output offset: Memory: trying to access region [65536..65568] in memory [0..65536]")));
@@ -353,17 +459,6 @@ mod tests {
 		let input = vec![FieldPrime::from(1)];
 		let outputs = id.execute(&input);
 		assert_eq!(outputs, Err(String::from("`solve` returned error code -1")));
-	}
-
-	#[test]
-	fn check_file_exists() {
-		let result = panic::catch_unwind(|| { 
-			let noname = WasmHelper::new_file("noname.wasm");
-			let input = vec![FieldPrime::from(7 /* Lucky number, maybe it'll work? ;) */)];
-			let _outputs = noname.execute(&input).unwrap();
-		});
-		/* Nope :( */
-		assert!(result.is_err());
 	}
 
 	#[test]

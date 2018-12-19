@@ -254,8 +254,8 @@ pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
         .collect();
 
     let helper = match (from, to) {
-        (Type::Boolean, Type::FieldElement) => Helper::Rust(RustHelper::Identity),
-        (Type::FieldElement, Type::Boolean) => Helper::Rust(RustHelper::Identity),
+        (Type::Boolean, Type::FieldElement) => Helper::Wasm(WasmHelper::from_hex(WasmHelper::IDENTITY_WASM)),
+        (Type::FieldElement, Type::Boolean) => Helper::Wasm(WasmHelper::from_hex(WasmHelper::IDENTITY_WASM)),
         _ => panic!(format!("can't cast {} to {}", from, to)),
     };
 
