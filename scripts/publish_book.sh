@@ -1,7 +1,7 @@
 # Exit if any subcommand fails
 set -e
 
-if [ "$CIRCLE_BRANCH" == "develop" ]; then
+if [ "$CIRCLE_BRANCH" == "master" ]; then
     apt-get update
     apt-get -qq install git python-minimal
     python --version
