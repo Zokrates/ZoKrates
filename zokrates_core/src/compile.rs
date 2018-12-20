@@ -90,7 +90,7 @@ pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     let typed_ast = typed_ast.analyse();
 
     // flatten input program
-    let program_flattened = Flattener::new(T::get_required_bits()).flatten_program(typed_ast);
+    let program_flattened = Flattener::new().flatten_program(typed_ast);
 
     // analyse (constant propagation after call resolution)
     let program_flattened = program_flattened.analyse();
