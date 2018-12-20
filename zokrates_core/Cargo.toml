@@ -25,7 +25,7 @@ bincode = "0.8.0"
 regex = "0.2"
 bimap = "0.1"
 zokrates_field = { version = "0.3.0", path = "../zokrates_field" }
-wasmi = "0.3.0"
+wasmi = "0.4.2"
 parity-wasm = "0.35.3"
 rustc-hex = "1.0"
 

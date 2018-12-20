@@ -181,7 +181,7 @@ impl<T: Field> Executable<T> for WasmHelper {
                 let fs = field_size as u32;
                 let value = mem
                     .get(output_offset as u32 + fs * index, field_size)
-                    .map_err(|e| format!("Could not retreive the output offset: {}", e))?;
+                    .map_err(|e| format!("Could not retrieve the output offset: {}", e))?;
 
                 outputs.push(T::from_byte_vector(value));
             }
@@ -450,7 +450,7 @@ mod tests {
         assert_eq!(
             outputs,
             Err(String::from(
-                "Error getting the input offset: Function: not enough arguments, given 0 but expected: 1",
+                "Error getting the input offset: Trap: Trap { kind: UnexpectedSignature }",
             ))
         );
     }
@@ -540,7 +540,7 @@ mod tests {
         assert_eq!(
             outputs,
             Err(String::from(
-                "Could not retreive the output offset: Memory: trying to access region [65536..65568] in memory [0..65536]",
+                "Could not retrieve the output offset: Memory: trying to access region [65536..65568] in memory [0..64]",
             ))
         );
     }
