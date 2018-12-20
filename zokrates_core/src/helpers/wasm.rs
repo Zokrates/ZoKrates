@@ -317,25 +317,17 @@ mod tests {
     }
 
     #[test]
-    fn check_signature_bytecode() {
-        let result = panic::catch_unwind(|| {
-            let x = WasmHelper::from_hex("invalid bytecode");
-            x.get_signature();
-        });
-        assert!(result.is_err());
+    #[should_panic(
+        expected = "invalid bytecode: invalid bytecode: Invalid character 'i' at position 0"
+    )]
+    fn check_invalid_bytecode_fails() {
+        WasmHelper::from_hex("invalid bytecode");
     }
 
     #[test]
-    fn check_invalid_bytecode_fails() {
-        let result = panic::catch_unwind(|| {
-            WasmHelper::from_hex("invalid bytecode");
-        });
-        assert!(result.is_err());
-
-        let result = panic::catch_unwind(|| {
-            WasmHelper::from_hex(&WasmHelper::IDENTITY_WASM[..20]);
-        });
-        assert!(result.is_err());
+    #[should_panic(expected = "Error decoding buffer: Validation(\"I/O Error: UnexpectedEof\")")]
+    fn check_truncated_bytecode_fails() {
+        WasmHelper::from_hex(&WasmHelper::IDENTITY_WASM[..20]);
     }
 
     #[test]
