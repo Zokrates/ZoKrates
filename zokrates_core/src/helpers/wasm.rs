@@ -539,9 +539,14 @@ mod tests {
 
     #[test]
     fn check_negative_output_value() {
-        let id = WasmHelper::from_hex(
-            "0061736d010000000105016000017f030302000005030100010615047f0041010b7f0041010b7f0041200b7f0141000b074b06066d656d6f727902000e6765745f696e707574735f6f6666000105736f6c766500000a6d696e5f696e7075747303000b6d696e5f6f75747075747303010a6669656c645f73697a6503020a2c0225000340412023036a410023036a280200360200230341016a240323032302470d000b417f0b040041000b0b4b020041000b20ffffffff000000000000000000000000ffffffff0000000000000000000000000041200b20deadbeef000000000000000000000000deadbeef000000000000000000000000",
-        );
+        /* Same as identity, but `solve` returns -1 */
+        let id = WasmHelper::from(replace_function(
+            WasmHelper::IDENTITY_WASM,
+            "solve",
+            Vec::new(),
+            Some(ValueType::I32),
+            vec![Instruction::I32Const(-1), Instruction::End],
+        ));
         let input = vec![FieldPrime::from(1)];
         let outputs = id.execute(&input);
         assert_eq!(outputs, Err(String::from("`solve` returned error code -1")));
