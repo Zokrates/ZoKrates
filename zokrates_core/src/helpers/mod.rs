@@ -62,7 +62,7 @@ pub enum Helper {
     LibsnarkGadget(LibsnarkGadgetHelper),
     Rust(RustHelper),
     // #[cfg(feature = "wasm")]
-    Wasm(WasmHelper)
+    Wasm(WasmHelper),
 }
 
 impl fmt::Display for Helper {
@@ -93,7 +93,7 @@ impl<T: Field> Executable<T> for Helper {
             #[cfg(feature = "libsnark")]
             Helper::LibsnarkGadget(helper) => helper.execute(inputs),
             Helper::Rust(helper) => helper.execute(inputs),
-            Helper::Wasm(helper) => helper.execute(inputs)
+            Helper::Wasm(helper) => helper.execute(inputs),
         };
 
         match result {
@@ -114,7 +114,7 @@ impl Signed for Helper {
             #[cfg(feature = "libsnark")]
             Helper::LibsnarkGadget(helper) => helper.get_signature(),
             Helper::Rust(helper) => helper.get_signature(),
-            Helper::Wasm(helper) => helper.get_signature()
+            Helper::Wasm(helper) => helper.get_signature(),
         }
     }
 }

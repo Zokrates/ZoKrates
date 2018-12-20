@@ -7,13 +7,13 @@ extern crate serde; // serialization deserialization
 extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
-extern crate serde_bytes;
 extern crate bimap;
 extern crate bincode;
-extern crate regex;
 extern crate parity_wasm;
+extern crate regex;
 extern crate wasmi;
 extern crate rustc_hex;
+extern crate serde_bytes;
 extern crate zokrates_field;
 
 mod flatten;

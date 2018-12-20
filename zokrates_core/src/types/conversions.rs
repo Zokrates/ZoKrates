@@ -1,9 +1,8 @@
 use bimap::BiMap;
-use types::Type;
 use flat_absy::flat_parameter::FlatParameter;
 use flat_absy::flat_variable::FlatVariable;
 use flat_absy::*;
-use helpers::{Helper, RustHelper, DirectiveStatement, WasmHelper};
+use helpers::{DirectiveStatement, Helper, RustHelper, WasmHelper};
 use reduce::Reduce;
 use types::constraints::Constraint;
 use types::signature::Signature;
@@ -254,8 +253,12 @@ pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
         .collect();
 
     let helper = match (from, to) {
-        (Type::Boolean, Type::FieldElement) => Helper::Wasm(WasmHelper::from_hex(WasmHelper::IDENTITY_WASM)),
-        (Type::FieldElement, Type::Boolean) => Helper::Wasm(WasmHelper::from_hex(WasmHelper::IDENTITY_WASM)),
+        (Type::Boolean, Type::FieldElement) => {
+            Helper::Wasm(WasmHelper::from_hex(WasmHelper::IDENTITY_WASM))
+        }
+        (Type::FieldElement, Type::Boolean) => {
+            Helper::Wasm(WasmHelper::from_hex(WasmHelper::IDENTITY_WASM))
+        }
         _ => panic!(format!("can't cast {} to {}", from, to)),
     };
 
