@@ -84,13 +84,13 @@ pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     )?;
 
     // check semantics
-    let typed_ast = Checker::new().check_program(program_ast)?;
+    let typed_ast = Checker::check(program_ast)?;
 
     // analyse (unroll and constant propagation)
     let typed_ast = typed_ast.analyse();
 
     // flatten input program
-    let program_flattened = Flattener::new().flatten_program(typed_ast);
+    let program_flattened = Flattener::flatten(typed_ast);
 
     // analyse (constant propagation after call resolution)
     let program_flattened = program_flattened.analyse();

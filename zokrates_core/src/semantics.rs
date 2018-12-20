@@ -29,7 +29,7 @@ impl fmt::Display for Error {
     }
 }
 
-pub struct FunctionQuery {
+struct FunctionQuery {
     id: String,
     inputs: Vec<Type>,
     outputs: Vec<Option<Type>>,
@@ -87,7 +87,6 @@ impl FunctionQuery {
 }
 
 #[derive(Clone, Debug)]
-
 pub struct ScopedVariable {
     id: Variable,
     level: usize,
@@ -120,7 +119,7 @@ pub struct Checker {
 }
 
 impl Checker {
-    pub fn new() -> Checker {
+    fn new() -> Checker {
         Checker {
             scope: HashSet::new(),
             functions: HashSet::new(),
@@ -128,7 +127,12 @@ impl Checker {
         }
     }
 
-    pub fn check_program<T: Field>(&mut self, prog: Prog<T>) -> Result<TypedProg<T>, Error> {
+    pub fn check<T: Field>(p: Prog<T>) -> Result<TypedProg<T>, Error> {
+        let mut checker = Self::new();
+        checker.check_program(p)
+    }
+
+    fn check_program<T: Field>(&mut self, prog: Prog<T>) -> Result<TypedProg<T>, Error> {
         for func in &prog.imported_functions {
             self.functions.insert(FunctionDeclaration {
                 id: func.id.clone(),
