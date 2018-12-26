@@ -1,4 +1,3 @@
-use field::Field;
 use helpers::{Executable, Signed};
 use std::fmt;
 
@@ -6,6 +5,7 @@ use rustc_hex::FromHex;
 use serde::{Deserialize, Deserializer};
 use std::rc::Rc;
 use wasmi::{ImportsBuilder, ModuleInstance, ModuleRef, NopExternals};
+use zokrates_field::field::Field;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct WasmHelper(
@@ -27,22 +27,14 @@ impl WasmHelper {
     }
 }
 
-impl From<Vec<u8>> for WasmHelper {
-    fn from(code: Vec<u8>) -> Self {
-        let module = wasmi::Module::from_buffer(code.clone()).expect("Error decoding buffer");
+impl<U: Into<Vec<u8>>> From<U> for WasmHelper {
+    fn from(code: U) -> Self {
+        let code_vec = code.into();
+        let module = wasmi::Module::from_buffer(code_vec.clone()).expect("Error decoding buffer");
         let modinst = ModuleInstance::new(&module, &ImportsBuilder::default())
             .expect("Failed to instantiate module")
             .assert_no_start();
-        WasmHelper(Rc::new(modinst), code)
-    }
-}
-
-impl From<&mut std::fs::File> for WasmHelper {
-    fn from(file: &mut std::fs::File) -> Self {
-        use std::io::prelude::*;
-        let mut buf = Vec::new();
-        file.read_to_end(&mut buf).unwrap();
-        WasmHelper::from(buf)
+        WasmHelper(Rc::new(modinst), code_vec)
     }
 }
 
