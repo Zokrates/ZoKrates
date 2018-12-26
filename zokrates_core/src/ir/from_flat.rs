@@ -1,8 +1,8 @@
-use field::Field;
 use flat_absy::{FlatExpression, FlatFunction, FlatProg, FlatStatement, FlatVariable};
 use helpers;
 use ir::{DirectiveStatement, Function, LinComb, Prog, QuadComb, Statement};
 use num::Zero;
+use zokrates_field::field::Field;
 
 impl<T: Field> From<FlatFunction<T>> for Function<T> {
     fn from(flat_function: FlatFunction<T>) -> Function<T> {
@@ -138,7 +138,7 @@ impl<T: Field> From<helpers::DirectiveStatement<T>> for DirectiveStatement<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use field::FieldPrime;
+    use zokrates_field::field::FieldPrime;
 
     #[test]
     fn zero() {

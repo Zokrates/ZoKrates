@@ -1,7 +1,7 @@
-use field::Field;
 use std::fmt;
 use types::constraints::Constraints;
 pub use types::signature::Signature;
+use zokrates_field::field::Field;
 
 mod constraints;
 pub mod conversions;
@@ -64,7 +64,7 @@ impl Type {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use field::FieldPrime;
+    use zokrates_field::field::FieldPrime;
 
     #[test]
     fn array() {

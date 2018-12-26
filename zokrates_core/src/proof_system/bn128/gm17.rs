@@ -10,7 +10,7 @@ use regex::Regex;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
-use field::FieldPrime;
+use zokrates_field::field::FieldPrime;
 
 pub struct GM17 {}
 

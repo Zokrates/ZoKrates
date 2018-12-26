@@ -1,4 +1,4 @@
-use field::Field;
+use zokrates_field::field::Field;
 
 #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Debug)]
 pub struct Constraints<T: Field> {

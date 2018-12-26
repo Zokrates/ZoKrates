@@ -8,6 +8,7 @@ extern crate bincode;
 extern crate clap;
 extern crate regex;
 extern crate zokrates_core;
+extern crate zokrates_field;
 extern crate zokrates_fs_resolver;
 
 use bincode::{deserialize_from, serialize_into, Infinite};
@@ -20,12 +21,12 @@ use std::io::{stdin, BufRead, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::string::String;
 use zokrates_core::compile::compile;
-use zokrates_core::field::{Field, FieldPrime};
 use zokrates_core::ir;
 #[cfg(feature = "libsnark")]
 use zokrates_core::ir::r1cs_program;
 #[cfg(feature = "libsnark")]
 use zokrates_core::proof_system::{ProofSystem, GM17, PGHR13};
+use zokrates_field::field::{Field, FieldPrime};
 use zokrates_fs_resolver::resolve as fs_resolve;
 
 #[cfg(feature = "libsnark")]

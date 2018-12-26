@@ -1,7 +1,7 @@
-use field::Field;
 use helpers::Executable;
 use ir::*;
 use std::collections::BTreeMap;
+use zokrates_field::field::Field;
 
 impl<T: Field> Prog<T> {
     pub fn execute(self, inputs: Vec<T>) -> Result<BTreeMap<FlatVariable, T>, Error<T>> {
