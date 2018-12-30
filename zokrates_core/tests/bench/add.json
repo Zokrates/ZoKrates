@@ -1,0 +1,24 @@
+{
+	"tests": [
+		{
+			"input": {
+				"values": ["1", "2"]
+			},
+			"output": {
+				"success": {
+					"values": ["3"]
+				}
+			}
+		},
+		{
+			"input": {
+				"values": ["0", "1"]
+			},
+			"output": {
+				"success": {
+					"values": ["1"]
+				}
+			}
+		}
+	]
+}

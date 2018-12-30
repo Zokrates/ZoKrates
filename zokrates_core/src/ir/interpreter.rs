@@ -3,7 +3,7 @@ use helpers::Executable;
 use ir::*;
 use std::collections::BTreeMap;
 
-type ExecutionResult<T> = Result<Witness<T>, Error<T>>;
+pub type ExecutionResult<T> = Result<Witness<T>, Error<T>>;
 
 pub struct Witness<T: Field>(BTreeMap<FlatVariable, T>);
 

@@ -13,6 +13,8 @@ mod interpreter;
 use self::expression::LinComb;
 use self::expression::QuadComb;
 
+pub use self::interpreter::ExecutionResult;
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Statement<T: Field> {
     Constraint(QuadComb<T>, LinComb<T>),
