@@ -23,6 +23,7 @@ serde_json = "1.0"
 bincode = "0.8.0"
 regex = "0.2"
 bimap = "0.1"
+zokrates_field = { version = "0.3.0", path = "../zokrates_field" }
 
 [dev-dependencies]
 glob = "0.2.11"

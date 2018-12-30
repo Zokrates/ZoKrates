@@ -1,7 +1,7 @@
-use field::Field;
 use parser::tokenize::Position;
 use parser::tokenize::Token;
 use std::fmt;
+use zokrates_field::field::Field;
 
 #[derive(PartialEq)]
 pub struct Error<T: Field> {

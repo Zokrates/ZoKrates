@@ -8,7 +8,6 @@
 use absy::parameter::Parameter;
 use absy::variable::Variable;
 use bimap::BiMap;
-use field::Field;
 use flat_absy::*;
 use helpers::{DirectiveStatement, Helper, RustHelper};
 use std::collections::{HashMap, HashSet};
@@ -16,6 +15,7 @@ use typed_absy::*;
 use types::conversions::cast;
 use types::Signature;
 use types::Type;
+use zokrates_field::field::Field;
 
 /// Flattener, computes flattened program.
 #[derive(Debug)]
@@ -1509,9 +1509,9 @@ impl Flattener {
 mod tests {
     use super::*;
     use absy::variable::Variable;
-    use field::FieldPrime;
     use types::Signature;
     use types::Type;
+    use zokrates_field::field::FieldPrime;
 
     #[test]
     fn multiple_definition() {

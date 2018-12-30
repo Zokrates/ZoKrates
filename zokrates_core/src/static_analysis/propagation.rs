@@ -5,10 +5,10 @@
 //! @date 2018
 
 use absy::variable::Variable;
-use field::Field;
 use std::collections::HashMap;
 use typed_absy::folder::*;
 use typed_absy::*;
+use zokrates_field::field::Field;
 
 pub struct Propagator<T: Field> {
     constants: HashMap<TypedAssignee<T>, TypedExpression<T>>,
@@ -338,7 +338,7 @@ impl<T: Field> Folder<T> for Propagator<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use field::FieldPrime;
+    use zokrates_field::field::FieldPrime;
 
     #[cfg(test)]
     mod expression {

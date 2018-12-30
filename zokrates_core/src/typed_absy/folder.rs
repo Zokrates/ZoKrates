@@ -1,8 +1,8 @@
 // Generic walk through a typed AST. Not mutating in place
 
 use absy::variable::Variable;
-use field::Field;
 use typed_absy::*;
+use zokrates_field::field::Field;
 
 pub trait Folder<T: Field>: Sized {
     fn fold_program(&mut self, p: TypedProg<T>) -> TypedProg<T> {

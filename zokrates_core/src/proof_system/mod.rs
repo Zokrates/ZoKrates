@@ -1,8 +1,8 @@
 mod bn128;
 mod utils;
 
-use field::FieldPrime;
 use std::fs::File;
+use zokrates_field::field::FieldPrime;
 
 pub use self::bn128::GM17;
 pub use self::bn128::PGHR13;
