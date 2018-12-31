@@ -20,7 +20,7 @@ use std::io::{stdin, BufRead, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::string::String;
 use zokrates_core::compile::compile;
-use zokrates_core::field::{Field, FieldPrime};
+use zokrates_core::field::FieldPrime;
 use zokrates_core::ir;
 #[cfg(feature = "libsnark")]
 use zokrates_core::ir::r1cs_program;
@@ -379,21 +379,11 @@ fn main() {
                 })
                 .collect();
 
-            let witness_map = program_ast
-                .execute(arguments)
+            let witness = program_ast
+                .execute(&arguments)
                 .unwrap_or_else(|e| panic!(format!("Execution failed: {}", e)));
 
-            println!(
-                "\nWitness: \n\n{}",
-                witness_map
-                    .iter()
-                    .filter_map(|(variable, value)| match variable {
-                        variable if variable.is_output() => Some(format!("{} {}", variable, value)),
-                        _ => None,
-                    })
-                    .collect::<Vec<String>>()
-                    .join("\n")
-            );
+            println!("\nWitness: \n\n{}", witness.format_outputs());
 
             // write witness to file
             let output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -402,10 +392,7 @@ fn main() {
                 Err(why) => panic!("couldn't create {}: {}", output_path.display(), why),
             };
             let mut bw = BufWriter::new(output_file);
-            for (var, val) in &witness_map {
-                write!(&mut bw, "{} {}\n", var, val.to_dec_string())
-                    .expect("Unable to write data to file.");
-            }
+            write!(&mut bw, "{}", witness).expect("Unable to write data to file.");
             bw.flush().expect("Unable to flush buffer.");
         }
         #[cfg(feature = "libsnark")]

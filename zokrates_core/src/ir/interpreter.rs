@@ -16,6 +16,31 @@ impl<T: Field> Witness<T> {
             .map(|(_, v)| v)
             .collect()
     }
+
+    pub fn format_outputs(&self) -> String {
+        self.0
+            .iter()
+            .filter_map(|(variable, value)| match variable {
+                variable if variable.is_output() => Some(format!("{} {}", variable, value)),
+                _ => None,
+            })
+            .collect::<Vec<String>>()
+            .join("\n")
+    }
+}
+
+impl<T: Field> fmt::Display for Witness<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.0
+                .iter()
+                .map(|(k, v)| format!("{} {}", k, v.to_dec_string()))
+                .collect::<Vec<_>>()
+                .join("\n")
+        )
+    }
 }
 
 impl<T: Field> Prog<T> {
