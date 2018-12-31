@@ -20,7 +20,7 @@ use std::io::{stdin, BufRead, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::string::String;
 use zokrates_core::compile::compile;
-use zokrates_core::field::FieldPrime;
+use zokrates_core::field::{Field, FieldPrime};
 use zokrates_core::ir;
 #[cfg(feature = "libsnark")]
 use zokrates_core::ir::r1cs_program;
