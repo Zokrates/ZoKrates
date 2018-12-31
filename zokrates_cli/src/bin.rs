@@ -642,7 +642,7 @@ mod tests {
 
             let (..) = r1cs_program(program_flattened.clone());
             let _ = program_flattened
-                .execute(vec![FieldPrime::from(0)])
+                .execute(&vec![FieldPrime::from(0)])
                 .unwrap();
         }
     }
@@ -676,7 +676,7 @@ mod tests {
 
             let result = std::panic::catch_unwind(|| {
                 let _ = program_flattened
-                    .execute(vec![FieldPrime::from(0)])
+                    .execute(&vec![FieldPrime::from(0)])
                     .unwrap();
             });
             assert!(result.is_err());
