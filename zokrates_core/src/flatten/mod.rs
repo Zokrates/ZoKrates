@@ -8,7 +8,6 @@
 use absy::parameter::Parameter;
 use absy::variable::Variable;
 use bimap::BiMap;
-use field::Field;
 use flat_absy::*;
 use helpers::{DirectiveStatement, Helper, RustHelper};
 use std::collections::{HashMap, HashSet};
@@ -16,6 +15,7 @@ use typed_absy::*;
 use types::conversions::cast;
 use types::Signature;
 use types::Type;
+use zokrates_field::field::Field;
 
 /// Flattener, computes flattened program.
 #[derive(Debug)]
@@ -361,6 +361,33 @@ impl Flattener {
 
                 FlatExpression::Identifier(name_1_y)
             }
+            BooleanExpression::Le(box lhs, box rhs) => {
+                let lt = self.flatten_boolean_expression(
+                    functions_flattened,
+                    arguments_flattened,
+                    statements_flattened,
+                    BooleanExpression::Lt(box lhs.clone(), box rhs.clone()),
+                );
+                let eq = self.flatten_boolean_expression(
+                    functions_flattened,
+                    arguments_flattened,
+                    statements_flattened,
+                    BooleanExpression::Eq(box lhs.clone(), box rhs.clone()),
+                );
+                FlatExpression::Add(box eq, box lt)
+            }
+            BooleanExpression::Gt(lhs, rhs) => self.flatten_boolean_expression(
+                functions_flattened,
+                arguments_flattened,
+                statements_flattened,
+                BooleanExpression::Lt(rhs, lhs),
+            ),
+            BooleanExpression::Ge(lhs, rhs) => self.flatten_boolean_expression(
+                functions_flattened,
+                arguments_flattened,
+                statements_flattened,
+                BooleanExpression::Le(rhs, lhs),
+            ),
             BooleanExpression::Or(box lhs, box rhs) => {
                 let x = box self.flatten_boolean_expression(
                     functions_flattened,
@@ -415,14 +442,12 @@ impl Flattener {
                     statements_flattened,
                     exp,
                 );
-
                 FlatExpression::Sub(box FlatExpression::Number(T::one()), box x)
             }
             BooleanExpression::Value(b) => FlatExpression::Number(match b {
                 true => T::from(1),
                 false => T::from(0),
             }),
-            _ => unimplemented!(),
         }
     }
 
@@ -1484,9 +1509,9 @@ impl Flattener {
 mod tests {
     use super::*;
     use absy::variable::Variable;
-    use field::FieldPrime;
     use types::Signature;
     use types::Type;
+    use zokrates_field::field::FieldPrime;
 
     #[test]
     fn multiple_definition() {
@@ -1923,6 +1948,7 @@ mod tests {
 
     #[test]
     fn if_else() {
+        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
         let expression = FieldElementExpression::IfElse(
             box BooleanExpression::Eq(
                 box FieldElementExpression::Number(FieldPrime::from(32)),
@@ -1933,11 +1959,27 @@ mod tests {
         );
 
         let mut functions_flattened = vec![];
-        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
-
         flattener.load_corelib(&mut functions_flattened);
 
         flattener.flatten_field_expression(&functions_flattened, &vec![], &mut vec![], expression);
+    }
+
+    #[test]
+    fn geq_leq() {
+        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let expression_le = BooleanExpression::Le(
+            box FieldElementExpression::Number(FieldPrime::from(32)),
+            box FieldElementExpression::Number(FieldPrime::from(4)),
+        );
+
+        let expression_ge = BooleanExpression::Ge(
+            box FieldElementExpression::Number(FieldPrime::from(32)),
+            box FieldElementExpression::Number(FieldPrime::from(4)),
+        );
+
+        flattener.flatten_boolean_expression(&mut vec![], &vec![], &mut vec![], expression_le);
+
+        flattener.flatten_boolean_expression(&mut vec![], &vec![], &mut vec![], expression_ge);
     }
 
     #[test]
@@ -1957,11 +1999,9 @@ mod tests {
             box FieldElementExpression::Number(FieldPrime::from(51)),
         );
 
-        let mut functions_flattened = vec![];
         let mut flattener = Flattener::new(FieldPrime::get_required_bits());
-
+        let mut functions_flattened = vec![];
         flattener.load_corelib(&mut functions_flattened);
-
         flattener.flatten_field_expression(&functions_flattened, &vec![], &mut vec![], expression);
     }
 

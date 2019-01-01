@@ -5,10 +5,10 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
-use field::Field;
 use flat_absy::flat_variable::FlatVariable;
 use flat_absy::*;
 use std::collections::HashMap;
+use zokrates_field::field::Field;
 
 pub struct Optimizer {
     /// Map of renamings for reassigned variables while processing the program.
@@ -126,9 +126,9 @@ impl Optimizer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use field::FieldPrime;
     use flat_absy::flat_parameter::FlatParameter;
     use types::{Signature, Type};
+    use zokrates_field::field::FieldPrime;
 
     #[test]
     fn remove_synonyms() {

@@ -1,9 +1,9 @@
-use field::Field;
 use std::collections::HashSet;
 use typed_absy::folder::*;
 use typed_absy::Folder;
 use typed_absy::*;
 use types::{Signature, Type};
+use zokrates_field::field::Field;
 
 pub struct DeadCode {
     called: HashSet<String>,

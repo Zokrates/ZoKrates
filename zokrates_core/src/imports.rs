@@ -7,11 +7,11 @@
 use absy::*;
 use compile::compile_aux;
 use compile::CompileError;
-use field::Field;
 use flat_absy::*;
 use std::fmt;
 use std::io;
 use std::io::BufRead;
+use zokrates_field::field::Field;
 
 pub struct CompiledImport<T: Field> {
     pub flat_func: FlatFunction<T>,

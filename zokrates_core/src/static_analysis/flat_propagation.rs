@@ -4,10 +4,10 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
-use field::Field;
 use flat_absy::*;
 use helpers::DirectiveStatement;
 use std::collections::HashMap;
+use zokrates_field::field::Field;
 
 pub trait Propagate<T: Field> {
     fn propagate(self) -> Self;
@@ -117,7 +117,7 @@ impl<T: Field> FlatProg<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use field::FieldPrime;
+    use zokrates_field::field::FieldPrime;
 
     #[cfg(test)]
     mod expression {

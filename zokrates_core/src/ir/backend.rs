@@ -3,33 +3,16 @@ extern crate rand;
 use bellman::groth16::Proof;
 use bellman::groth16::{
     create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof,
-    Parameters,
+    Parameters, VerifyingKey,
 };
 use bellman::{Circuit, ConstraintSystem, LinearCombination, SynthesisError, Variable};
-use field::{Field, FieldPrime};
 use ir::*;
 use pairing::bn256::{Bn256, Fr};
 use std::collections::BTreeMap;
+use zokrates_field::field::{Field, FieldPrime};
 
 use self::rand::*;
-use ff::PrimeField;
-use ff::PrimeFieldRepr;
 use flat_absy::FlatVariable;
-
-impl From<FieldPrime> for Fr {
-    fn from(e: FieldPrime) -> Fr {
-        let s = e.to_dec_string();
-        Fr::from_str(&s).unwrap()
-    }
-}
-
-impl From<Fr> for FieldPrime {
-    fn from(e: Fr) -> FieldPrime {
-        let mut res: Vec<u8> = vec![];
-        e.into_repr().write_le(&mut res).unwrap();
-        FieldPrime::from_byte_vector(res)
-    }
-}
 
 #[derive(Clone)]
 pub struct Computation<T: Field> {
@@ -230,14 +213,61 @@ impl Circuit<Bn256> for Computation<FieldPrime> {
     }
 }
 
+pub fn serialize_vk(vk: VerifyingKey<Bn256>) -> String {
+    format!(
+        "
+vk.alpha = {}
+vk.beta = {}
+vk.gamma = {}
+vk.delta = {}
+vk.gammaABC.len() = {}
+{}",
+        vk.alpha_g1,
+        vk.beta_g2,
+        vk.gamma_g2,
+        vk.delta_g2,
+        vk.ic.len(),
+        vk.ic
+            .iter()
+            .enumerate()
+            .map(|(i, x)| format!("vk.gammaABC[{}] = {}", i, x))
+            .collect::<Vec<_>>()
+            .join("\n")
+    )
+    .replace("G2(x=Fq2(Fq(", "[[")
+    .replace("), y=Fq(", ", ")
+    .replace("G1(x=Fq(", "[")
+    .replace(") + Fq(", ", ")
+    .replace("))", "]")
+    .replace(") * u), y=Fq2(Fq(", "], [")
+    .replace(") * u]", "]]")
+}
+
+pub fn serialize_proof(p: Proof<Bn256>) -> String {
+    format!(
+        "{{
+    \"a\": {},
+    \"b\": {},
+    \"c\": {},
+}}",
+        p.a, p.b, p.c
+    )
+    .replace("G2(x=Fq2(Fq(", "[[")
+    .replace("), y=Fq(", ", ")
+    .replace("G1(x=Fq(", "[")
+    .replace(") + Fq(", ", ")
+    .replace("))", "]")
+    .replace(") * u), y=Fq2(Fq(", "], [")
+    .replace(") * u]", "]]")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use field::FieldPrime;
+    use zokrates_field::field::FieldPrime;
 
     mod prove {
         use super::*;
-        use ff::Field;
 
         #[test]
         fn empty_program() {
@@ -256,62 +286,83 @@ mod tests {
 
             let _proof = computation.setup_prove_verify();
         }
+    }
 
-        #[test]
-        fn fr_to_field_to_fr() {
-            let rng = &mut thread_rng();
-            let a: Fr = rng.gen();
+    mod serialize {
+        use super::*;
+        mod vk {
+            use super::*;
+            #[test]
+            fn serialize() {
+                let program: Prog<FieldPrime> = Prog {
+                    main: Function {
+                        id: String::from("main"),
+                        arguments: vec![],
+                        returns: vec![],
+                        statements: vec![],
+                    },
+                    private: vec![],
+                };
 
-            assert_eq!(Fr::from(FieldPrime::from(a)), a);
+                let computation = Computation::with_witness(program, BTreeMap::new());
+
+                let params = computation.setup();
+                println!("{}", serialize_vk(params.vk));
+                //                 assert_eq!(serialize_vk(params.vk), "vk.A = [0xe346c6331a8f3b39583944d0812a9ac9be6e507cbae0caea406b46faf05a8f6, 0x8538b02888a72f3415349a24a6493865937bf79facdee21ec725d7d07b9f77e], [0xd6d071f9dc99d9d559a8b2ef4cb28048f402db2c5ccce439b75967f97c1cc62, 0xd82c10002969164b4534f6cbe76d19183ecf4cccc7ec247bbae93f3fcd12737]
+                //         vk.B = 0x4fdf8eb48ef7488c914383f1e63a913079e083d4b42714e55bf594c3e8e531f, 0x2e189cec6babb474e475bb86353aa148d09729c643cfaecc7f1e9871f4dd476a
+                //         vk.C = [0x2e17f9799ec8dc45c46643cc04b6f572a62451f7745281603abe9bf06dcb258f, 0x1cd480216a68e65fa4c8b595481c61a7fee0c26fa3d54a9d0e520e4c63a3924b], [0x18adf6cc01f7492952f7bc1885ef00e8d4724913ac36746b00e7e50b8c83008e, 0x194c623b624fd5dba6d3d3f510f2fe616deebc153fa2fb5e9a639554454d987d]
+                //         vk.gamma = [0x144a4e9398e9b5243f0f9966858948a9e72795c4352a1b574c6ebd46e19c7cb3, 0x259ca428fcc7323d21e64eaa7b2eff9b5df0a9c8f4d590c34b06c5ee25cb2a4b], [0x255e832555526cd59d576a8c6adcdf25a2d9a28ab1dd12891ebb3bf4ca918476, 0x21b0d3078440447b3a1dd437fc61949148d82af0482510350b872cdd3b83073b]
+                //         vk.gammaBeta1 = 0x9752a30af0c5550eda78c403f8565be77fea017ffd7813d75583a3ce6b22367, 0xa7996aaf0133388110732201d7ebade0a93946afee0b5a6d07789fece8ce514
+                //         vk.gammaBeta2 = [0x1658e036bfd100d130fa69a50d06fb3c003089fe55febe816cf729f35c486ca7, 0x1b58887816825b2a21ca6c61a1d59f84ec48f3e9f9e8c15e780aa2941772672d], [0x577fc24305f3a089acadf047c8b264812e7403f06eaf52eef46b05946e9657, 0x1b80136e8693d8127e1674c986f018c206f0f077f27380a22a8d4315ed1bddf2]
+                //         vk.Z = [0x2dc0b7d51c8e879253d7a03c0c21909c9719624896353e720f6c8329b0703a69, 0x1e865831288496134884365c838ffd29293cfd53987e9d1efee899f8741a6613], [0x117929d729dd6a6850fc004547327cca0f35bfae38fbca677e45544a7f80fac0, 0x7f15e5f8624d90efdfb778213810201937e06f6b64ba385d291565d41f31436]
+                //         vk.IC.len() = 4
+                //         vk.IC[0] = 0x17be3e229f6f31225f8e625a939f4883ee1515d6bd32f6b2f820c151643a7ea8, 0x9fd8bb5948457176ae10d7895ec513bbc6b87a0f30b5d3ed22d1a73cdf87aa
+                //         vk.IC[1] = 0x126abf506aa18ab42349c3c81ef2b81efa53178c37b3b59bbf634b8d7c83012, 0x3b03e34fbfbd69e8652aa9bb2a9f3801ef7de3d69f8e77e29f2cdcea9735ace
+                //         vk.IC[2] = 0x25eb86c6ff818d3f56cf5c4bfd86152b5fc46f2e9576e3cd215dc2182472dfd9, 0x25c3b07f946bb68ab0cfd50fc2a88d8d3738040e09125d241452aab6b865f986
+                //         vk.IC[3] = 0x4952b396f70e1f3ea94f0639375f2824389eb5629e78014a3496937e898f9a5, 0x216c09dc5dd85d771b1088db01f8b3285d33c82ff4363da1b09c81611c31894d
+                // ");
+            }
         }
 
-        #[test]
-        fn field_to_fr_to_field() {
-            // use Fr to get a random element
-            let rng = &mut thread_rng();
-            let a: Fr = rng.gen();
+        mod proof {
+            use super::*;
 
-            // now test idempotence
-            let a = FieldPrime::from(a);
+            #[test]
+            fn serialize() {
+                let rng = &mut thread_rng();
 
-            assert_eq!(FieldPrime::from(Fr::from(a.clone())), a);
-        }
+                let program: Prog<FieldPrime> = Prog {
+                    main: Function {
+                        id: String::from("main"),
+                        arguments: vec![],
+                        returns: vec![],
+                        statements: vec![],
+                    },
+                    private: vec![],
+                };
 
-        #[test]
-        fn one() {
-            let a = FieldPrime::from(1);
+                let witness = program.clone().execute(vec![]).unwrap();
+                let computation = Computation::with_witness(program, witness);
 
-            assert_eq!(Fr::from(a), Fr::one());
-        }
+                let params = computation.clone().setup();
 
-        #[test]
-        fn zero() {
-            let a = FieldPrime::from(0);
+                let proof = create_random_proof(computation, &params, rng).unwrap();
 
-            assert_eq!(Fr::from(a), Fr::zero());
-        }
-
-        #[test]
-        fn minus_one() {
-            let mut a: Fr = Fr::one();
-            a.negate();
-            assert_eq!(FieldPrime::from(a), FieldPrime::from(-1));
-        }
-
-        #[test]
-        fn add() {
-            let rng = &mut thread_rng();
-
-            let mut a: Fr = rng.gen();
-            let b: Fr = rng.gen();
-
-            let aa = FieldPrime::from(a);
-            let bb = FieldPrime::from(b);
-            let cc = aa + bb;
-
-            a.add_assign(&b);
-
-            assert_eq!(FieldPrime::from(a), cc);
+                println!("{}", serialize_proof(proof));
+                //                 assert_eq!(serialize_vk(params.vk), "vk.A = [0xe346c6331a8f3b39583944d0812a9ac9be6e507cbae0caea406b46faf05a8f6, 0x8538b02888a72f3415349a24a6493865937bf79facdee21ec725d7d07b9f77e], [0xd6d071f9dc99d9d559a8b2ef4cb28048f402db2c5ccce439b75967f97c1cc62, 0xd82c10002969164b4534f6cbe76d19183ecf4cccc7ec247bbae93f3fcd12737]
+                //         vk.B = 0x4fdf8eb48ef7488c914383f1e63a913079e083d4b42714e55bf594c3e8e531f, 0x2e189cec6babb474e475bb86353aa148d09729c643cfaecc7f1e9871f4dd476a
+                //         vk.C = [0x2e17f9799ec8dc45c46643cc04b6f572a62451f7745281603abe9bf06dcb258f, 0x1cd480216a68e65fa4c8b595481c61a7fee0c26fa3d54a9d0e520e4c63a3924b], [0x18adf6cc01f7492952f7bc1885ef00e8d4724913ac36746b00e7e50b8c83008e, 0x194c623b624fd5dba6d3d3f510f2fe616deebc153fa2fb5e9a639554454d987d]
+                //         vk.gamma = [0x144a4e9398e9b5243f0f9966858948a9e72795c4352a1b574c6ebd46e19c7cb3, 0x259ca428fcc7323d21e64eaa7b2eff9b5df0a9c8f4d590c34b06c5ee25cb2a4b], [0x255e832555526cd59d576a8c6adcdf25a2d9a28ab1dd12891ebb3bf4ca918476, 0x21b0d3078440447b3a1dd437fc61949148d82af0482510350b872cdd3b83073b]
+                //         vk.gammaBeta1 = 0x9752a30af0c5550eda78c403f8565be77fea017ffd7813d75583a3ce6b22367, 0xa7996aaf0133388110732201d7ebade0a93946afee0b5a6d07789fece8ce514
+                //         vk.gammaBeta2 = [0x1658e036bfd100d130fa69a50d06fb3c003089fe55febe816cf729f35c486ca7, 0x1b58887816825b2a21ca6c61a1d59f84ec48f3e9f9e8c15e780aa2941772672d], [0x577fc24305f3a089acadf047c8b264812e7403f06eaf52eef46b05946e9657, 0x1b80136e8693d8127e1674c986f018c206f0f077f27380a22a8d4315ed1bddf2]
+                //         vk.Z = [0x2dc0b7d51c8e879253d7a03c0c21909c9719624896353e720f6c8329b0703a69, 0x1e865831288496134884365c838ffd29293cfd53987e9d1efee899f8741a6613], [0x117929d729dd6a6850fc004547327cca0f35bfae38fbca677e45544a7f80fac0, 0x7f15e5f8624d90efdfb778213810201937e06f6b64ba385d291565d41f31436]
+                //         vk.IC.len() = 4
+                //         vk.IC[0] = 0x17be3e229f6f31225f8e625a939f4883ee1515d6bd32f6b2f820c151643a7ea8, 0x9fd8bb5948457176ae10d7895ec513bbc6b87a0f30b5d3ed22d1a73cdf87aa
+                //         vk.IC[1] = 0x126abf506aa18ab42349c3c81ef2b81efa53178c37b3b59bbf634b8d7c83012, 0x3b03e34fbfbd69e8652aa9bb2a9f3801ef7de3d69f8e77e29f2cdcea9735ace
+                //         vk.IC[2] = 0x25eb86c6ff818d3f56cf5c4bfd86152b5fc46f2e9576e3cd215dc2182472dfd9, 0x25c3b07f946bb68ab0cfd50fc2a88d8d3738040e09125d241452aab6b865f986
+                //         vk.IC[3] = 0x4952b396f70e1f3ea94f0639375f2824389eb5629e78014a3496937e898f9a5, 0x216c09dc5dd85d771b1088db01f8b3285d33c82ff4363da1b09c81611c31894d
+                // ");
+            }
         }
     }
 }

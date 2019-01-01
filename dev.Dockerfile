@@ -4,7 +4,7 @@ MAINTAINER JacobEberhardt <jacob.eberhardt@tu-berlin.de>, Dennis Kuhnert <mail@k
 
 RUN useradd -u 1000 -m zokrates
 
-ARG RUST_TOOLCHAIN=nightly-2018-06-04
+ARG RUST_TOOLCHAIN=nightly
 ARG LIBSNARK_COMMIT=f7c87b88744ecfd008126d415494d9b34c4c1b20
 ENV LIBSNARK_SOURCE_PATH=/home/zokrates/libsnark-$LIBSNARK_COMMIT
 ENV WITH_LIBSNARK=1

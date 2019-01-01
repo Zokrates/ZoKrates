@@ -1,10 +1,10 @@
-use field::Field;
 use flat_absy::flat_parameter::FlatParameter;
 use flat_absy::FlatVariable;
 use helpers::Helper;
 use std::collections::HashMap;
 use std::fmt;
 use std::mem;
+use zokrates_field::field::Field;
 
 mod backend;
 mod expression;
@@ -251,7 +251,7 @@ pub fn r1cs_program<T: Field>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use field::FieldPrime;
+    use zokrates_field::field::FieldPrime;
 
     mod statement {
         use super::*;
