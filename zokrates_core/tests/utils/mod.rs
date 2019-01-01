@@ -44,7 +44,7 @@ pub fn compare(result: &ir::ExecutionResult<FieldPrime>, expected: &Output) -> R
                     "
 Expected {:?}
 Returned {:?}
-	        ",
+            ",
                     expected_output, output
                 ))
             } else {
@@ -86,28 +86,30 @@ macro_rules! zokrates_test {
           $(
             #[test]
             fn $name() {
-            	let code = read_file(&format!("./{}.code", stringify!($name)));
-            	let bin = compile(&code).unwrap();
+                use zokrates_core::field::Field;
 
-            	let test_str = read_file(&format!("./{}.json", stringify!($name)));
+                let code = $crate::utils::read_file(&format!("./{}.code", stringify!($name)));
+                let bin = $crate::utils::compile(&code).unwrap();
 
-            	let t: Tests = serde_json::from_str(&test_str).unwrap();
+                let test_str = $crate::utils::read_file(&format!("./{}.json", stringify!($name)));
 
-            	for test in t.tests.into_iter() {
-		            let input = &test.input.values;
-					let output = bin.execute(&input.iter().map(|i| FieldPrime::from_dec_string(i.clone())).collect());
+                let t: $crate::utils::Tests = serde_json::from_str(&test_str).unwrap();
 
-					let context = format!("
+                for test in t.tests.into_iter() {
+                    let input = &test.input.values;
+                    let output = bin.execute(&input.iter().map(|i| zokrates_core::field::FieldPrime::from_dec_string(i.clone())).collect());
+
+                    let context = format!("
 {}
 
 Called with input ({})
-	        ", code, input.iter().map(|i| format!("{}", i)).collect::<Vec<_>>().join(", "));
+            ", code, input.iter().map(|i| format!("{}", i)).collect::<Vec<_>>().join(", "));
 
-					match compare(&output, &test.output) {
-						Err(e) => panic!("{}{}", context, e),
-						Ok(..) => {}
-					};
-		        }
+                    match $crate::utils::compare(&output, &test.output) {
+                        Err(e) => panic!("{}{}", context, e),
+                        Ok(..) => {}
+                    };
+                }
             }
           )*
     };
