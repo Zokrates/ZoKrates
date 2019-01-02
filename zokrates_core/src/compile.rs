@@ -4,7 +4,6 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 use absy::Prog;
-use field::Field;
 use flat_absy::FlatProg;
 use flatten::Flattener;
 use imports::{self, Importer};
@@ -16,6 +15,7 @@ use static_analysis::Analyse;
 use std::fmt;
 use std::io;
 use std::io::BufRead;
+use zokrates_field::field::Field;
 
 #[derive(Debug)]
 pub enum CompileError<T: Field> {
@@ -101,8 +101,8 @@ pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
 #[cfg(test)]
 mod test {
     use super::*;
-    use field::FieldPrime;
     use std::io::{BufReader, Empty};
+    use zokrates_field::field::FieldPrime;
 
     #[test]
     fn no_resolver_with_imports() {

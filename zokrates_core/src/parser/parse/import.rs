@@ -1,4 +1,4 @@
-use field::Field;
+use zokrates_field::field::Field;
 
 use parser::tokenize::{next_token, Position, Token};
 use parser::Error;
@@ -55,7 +55,7 @@ pub fn parse_import<T: Field>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use field::FieldPrime;
+    use zokrates_field::field::FieldPrime;
 
     #[test]
     fn quoted_path() {

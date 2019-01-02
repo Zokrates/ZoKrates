@@ -1,7 +1,7 @@
-use field::Field;
 use flat_absy::flat_variable::FlatVariable;
 use std::cmp::max;
 use std::ffi::CString;
+use zokrates_field::field::Field;
 
 // utility function. Converts a Fields vector-based byte representation to fixed size array.
 fn vec_as_u8_32_array(vec: &Vec<u8>) -> [u8; 32] {

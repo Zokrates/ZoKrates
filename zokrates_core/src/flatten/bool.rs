@@ -1,8 +1,8 @@
-use field::Field;
 use flat_absy::*;
 use flatten::Flattener;
 use helpers::{DirectiveStatement, Helper, RustHelper};
 use typed_absy::*;
+use zokrates_field::field::Field;
 
 impl<T: Field> Flattener<T> {
     /// Flattens a boolean expression

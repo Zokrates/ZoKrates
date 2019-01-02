@@ -1,8 +1,8 @@
-use field::Field;
 use flat_absy::*;
 use flatten::Flattener;
 use typed_absy::*;
 use types::Type;
+use zokrates_field::field::Field;
 
 impl<T: Field> Flattener<T> {
     pub(super) fn flatten_field_array_expression(

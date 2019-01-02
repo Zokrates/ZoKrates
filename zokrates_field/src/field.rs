@@ -24,7 +24,7 @@ lazy_static! {
 
 pub trait Pow<RHS> {
     type Output;
-    fn pow(self, RHS) -> Self::Output;
+    fn pow(self, _: RHS) -> Self::Output;
 }
 
 pub trait Field:
@@ -56,7 +56,7 @@ pub trait Field:
     /// Returns this `Field`'s contents as little-endian byte vector
     fn into_byte_vector(&self) -> Vec<u8>;
     /// Returns an element of this `Field` from a little-endian byte vector
-    fn from_byte_vector(Vec<u8>) -> Self;
+    fn from_byte_vector(_: Vec<u8>) -> Self;
     /// Returns this `Field`'s contents as decimal string
     fn to_dec_string(&self) -> String;
     /// Returns an element of this `Field` from a decimal string
@@ -120,6 +120,14 @@ impl Field for FieldPrime {
     }
     fn get_required_bits() -> usize {
         (*P).bits()
+    }
+}
+
+impl Default for FieldPrime {
+    fn default() -> Self {
+        FieldPrime {
+            value: BigInt::default(),
+        }
     }
 }
 

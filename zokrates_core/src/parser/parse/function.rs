@@ -1,4 +1,4 @@
-use field::Field;
+use zokrates_field::field::Field;
 
 use std::io::prelude::*;
 use std::io::Lines;

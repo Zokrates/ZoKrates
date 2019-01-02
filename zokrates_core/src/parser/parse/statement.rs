@@ -1,4 +1,4 @@
-use field::Field;
+use zokrates_field::field::Field;
 
 use std::io::prelude::*;
 use std::io::Lines;
@@ -569,7 +569,7 @@ fn parse_comma_separated_identifier_list_rec<T: Field>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use field::FieldPrime;
+    use zokrates_field::field::FieldPrime;
 
     mod parse_statement1 {
         use super::*;

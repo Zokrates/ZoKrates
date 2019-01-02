@@ -1,7 +1,7 @@
 use super::position::Position;
 use super::token::Token;
-use field::Field;
 use types::Type;
+use zokrates_field::field::Field;
 
 pub fn parse_num<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Position) {
     let mut end = 0;
@@ -406,7 +406,7 @@ pub fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String
 mod tests {
 
     use super::*;
-    use field::FieldPrime;
+    use zokrates_field::field::FieldPrime;
 
     #[test]
     fn inline_comment() {

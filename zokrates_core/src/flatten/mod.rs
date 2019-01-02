@@ -12,7 +12,6 @@ mod field_array;
 use absy::parameter::Parameter;
 use absy::variable::Variable;
 use bimap::BiMap;
-use field::Field;
 use flat_absy::*;
 use helpers::DirectiveStatement;
 use std::collections::HashMap;
@@ -20,6 +19,7 @@ use typed_absy::*;
 use types::conversions::cast;
 use types::Signature;
 use types::Type;
+use zokrates_field::field::Field;
 
 /// Flattener, computes flattened program.
 #[derive(Debug)]
@@ -683,11 +683,11 @@ impl<T: Field> Flattener<T> {
 mod tests {
     use super::*;
     use absy::variable::Variable;
-    use field::FieldPrime;
     use helpers::{Helper, RustHelper};
     use ir::Prog;
     use types::Signature;
     use types::Type;
+    use zokrates_field::field::FieldPrime;
 
     impl<T: Field> Flattener<T> {
         fn with_functions(f: Vec<FlatFunction<T>>) -> Flattener<T> {
