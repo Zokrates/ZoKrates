@@ -8,5 +8,5 @@ mod utils;
 
 zokrates_test! {
     add,
-    sub,
+    assert_one,
 }

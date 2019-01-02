@@ -11,59 +11,62 @@ pub struct Tests {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Test {
-    pub input: Input,
-    pub output: Output,
-}
-
-#[derive(Serialize, Deserialize)]
 pub struct Input {
     pub values: Vec<Val>,
 }
 
 #[derive(Serialize, Deserialize)]
-#[allow(non_camel_case_types)]
-pub enum Output {
-    success { values: Vec<Val> },
-    error(String),
+pub struct Test {
+    pub input: Input,
+    pub output: TestResult,
+}
+
+pub type TestResult = Result<Output, ir::Error>;
+
+#[derive(PartialEq, Debug)]
+pub struct ComparableResult(Result<Vec<FieldPrime>, ir::Error>);
+
+#[derive(Serialize, Deserialize)]
+pub struct Output {
+    values: Vec<Val>,
 }
 
 type Val = String;
 
-pub fn compare(result: &ir::ExecutionResult<FieldPrime>, expected: &Output) -> Result<(), String> {
-    match (result, expected) {
-        (Ok(output), Output::success { values }) => {
-            let expected_output: Vec<_> = values
-                .iter()
-                .map(|o| FieldPrime::from_dec_string(o.clone()))
-                .collect();
-            let output = output.return_values();
-
-            if output != expected_output {
-                Err(format!(
-                    "
-Expected {:?}
-Returned {:?}
-            ",
-                    expected_output, output
-                ))
-            } else {
-                Ok(())
-            }
-        }
-        (Err(..), Output::error(..)) => {
-            // TODO check errors match
-            Ok(())
-        }
-        (Ok(output), Output::error(..)) => Err(format!(
-            "
-Expected an error
-Returned {:?}
-           ",
-            output.return_values()
-        )),
-        (Err(..), Output::success { .. }) => panic!(),
+impl From<ir::ExecutionResult<FieldPrime>> for ComparableResult {
+    fn from(r: ir::ExecutionResult<FieldPrime>) -> ComparableResult {
+        ComparableResult(r.map(|v| v.return_values()))
     }
+}
+
+impl From<TestResult> for ComparableResult {
+    fn from(r: TestResult) -> ComparableResult {
+        ComparableResult(r.map(|v| {
+            v.values
+                .into_iter()
+                .map(|v| FieldPrime::from_dec_string(v))
+                .collect()
+        }))
+    }
+}
+
+pub fn compare(
+    result: ir::ExecutionResult<FieldPrime>,
+    expected: TestResult,
+) -> Result<(), String> {
+    // extract outputs from result
+    let result = ComparableResult::from(result);
+    // deserialize expected result
+    let expected = ComparableResult::from(expected);
+
+    if result != expected {
+        return Err(format!(
+            "Expected {:?} but found {:?}",
+            expected.0, result.0
+        ));
+    }
+
+    Ok(())
 }
 
 pub fn read_file(path: &str) -> String {
@@ -86,26 +89,27 @@ macro_rules! zokrates_test {
           $(
             #[test]
             fn $name() {
-                use zokrates_core::field::Field;
 
-                let code = $crate::utils::read_file(&format!("./{}.code", stringify!($name)));
-                let bin = $crate::utils::compile(&code).unwrap();
+                use zokrates_core::field::{FieldPrime, Field};
 
-                let test_str = $crate::utils::read_file(&format!("./{}.json", stringify!($name)));
+                let code_string = $crate::utils::read_file(&format!("./{}.code", stringify!($name)));
+                let test_string = $crate::utils::read_file(&format!("./{}.json", stringify!($name)));
 
-                let t: $crate::utils::Tests = serde_json::from_str(&test_str).unwrap();
+                let bin = $crate::utils::compile(&code_string).unwrap();
+
+                let t: $crate::utils::Tests = serde_json::from_str(&test_string).unwrap();
 
                 for test in t.tests.into_iter() {
                     let input = &test.input.values;
-                    let output = bin.execute(&input.iter().map(|i| zokrates_core::field::FieldPrime::from_dec_string(i.clone())).collect());
+                    let output = bin.execute(&input.iter().map(|v| FieldPrime::from_dec_string(v.clone())).collect());
 
                     let context = format!("
 {}
 
 Called with input ({})
-            ", code, input.iter().map(|i| format!("{}", i)).collect::<Vec<_>>().join(", "));
+            ", code_string, input.iter().map(|i| format!("{}", i)).collect::<Vec<_>>().join(", "));
 
-                    match $crate::utils::compare(&output, &test.output) {
+                    match $crate::utils::compare(output, test.output) {
                         Err(e) => panic!("{}{}", context, e),
                         Ok(..) => {}
                     };

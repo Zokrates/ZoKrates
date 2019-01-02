@@ -3,7 +3,7 @@ use helpers::Executable;
 use ir::*;
 use std::collections::BTreeMap;
 
-pub type ExecutionResult<T> = Result<Witness<T>, Error<T>>;
+pub type ExecutionResult<T> = Result<Witness<T>, Error>;
 
 pub struct Witness<T: Field>(BTreeMap<FlatVariable, T>);
 
@@ -64,12 +64,10 @@ impl<T: Field> Prog<T> {
                         let lhs_value = quad.evaluate(&witness);
                         let rhs_value = lin.evaluate(&witness);
                         if lhs_value != rhs_value {
-                            return Err(Error::Constraint(
-                                quad.clone(),
-                                lin.clone(),
-                                lhs_value,
-                                rhs_value,
-                            ));
+                            return Err(Error::UnsatisfiedConstraint {
+                                left: lhs_value.to_dec_string(),
+                                right: rhs_value.to_dec_string(),
+                            });
                         }
                     }
                 },
@@ -92,11 +90,14 @@ impl<T: Field> Prog<T> {
         Ok(Witness(witness))
     }
 
-    fn check_inputs<U>(&self, inputs: &Vec<U>) -> Result<(), Error<T>> {
+    fn check_inputs<U>(&self, inputs: &Vec<U>) -> Result<(), Error> {
         if self.main.arguments.len() == inputs.len() {
             Ok(())
         } else {
-            Err(Error::Inputs(self.main.arguments.len(), inputs.len()))
+            Err(Error::WrongInputCount {
+                expected: self.main.arguments.len(),
+                received: inputs.len(),
+            })
         }
     }
 }
@@ -122,23 +123,22 @@ impl<T: Field> QuadComb<T> {
     }
 }
 
-#[derive(PartialEq)]
-pub enum Error<T: Field> {
-    Constraint(QuadComb<T>, LinComb<T>, T, T),
+#[derive(PartialEq, Serialize, Deserialize)]
+pub enum Error {
+    UnsatisfiedConstraint { left: String, right: String },
     Solver,
-    Inputs(usize, usize),
+    WrongInputCount { expected: usize, received: usize },
 }
 
-impl<T: Field> fmt::Display for Error<T> {
+impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::Constraint(ref quad, ref lin, ref left_value, ref right_value) => write!(
-                f,
-                "Expected {} to equal {}, but {} != {}",
-                quad, lin, left_value, right_value
-            ),
+            Error::UnsatisfiedConstraint {
+                ref left,
+                ref right,
+            } => write!(f, "Expected {} to equal {}", left, right),
             Error::Solver => write!(f, ""),
-            Error::Inputs(expected, received) => write!(
+            Error::WrongInputCount { expected, received } => write!(
                 f,
                 "Program takes {} input{} but was passed {} value{}",
                 expected,
@@ -150,7 +150,7 @@ impl<T: Field> fmt::Display for Error<T> {
     }
 }
 
-impl<T: Field> fmt::Debug for Error<T> {
+impl fmt::Debug for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self)
     }
