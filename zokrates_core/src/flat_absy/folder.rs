@@ -1,8 +1,8 @@
 // Generic walk through a flat AST. Not mutating in place
 
-use field::Field;
 use flat_absy::flat_variable::FlatVariable;
 use flat_absy::*;
+use zokrates_field::field::Field;
 
 pub trait Folder<T: Field>: Sized {
     fn fold_program(&mut self, p: FlatProg<T>) -> FlatProg<T> {
@@ -89,11 +89,6 @@ pub fn fold_expression<T: Field, F: Folder<T>>(
             let e1 = f.fold_expression(e1);
             let e2 = f.fold_expression(e2);
             FlatExpression::Mult(box e1, box e2)
-        }
-        FlatExpression::Div(box e1, box e2) => {
-            let e1 = f.fold_expression(e1);
-            let e2 = f.fold_expression(e2);
-            FlatExpression::Div(box e1, box e2)
         }
     }
 }

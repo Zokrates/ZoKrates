@@ -1,9 +1,9 @@
-use field::Field;
 use std::collections::HashMap;
 use typed_absy::folder::*;
 use typed_absy::Folder;
 use typed_absy::*;
 use types::{Signature, Type};
+use zokrates_field::field::Field;
 
 pub struct Inliner<T: Field> {
     functions: Vec<TypedFunction<T>>,
@@ -257,7 +257,7 @@ impl<T: Field> Folder<T> for Inliner<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use field::FieldPrime;
+    use zokrates_field::field::FieldPrime;
 
     #[cfg(test)]
     mod heuristics {

@@ -1,4 +1,4 @@
-use field::Field;
+use zokrates_field::field::Field;
 
 use parser::tokenize::{next_token, Position, Token};
 use parser::Error;
@@ -39,7 +39,7 @@ fn parse_comma_separated_expression_list_rec<T: Field>(
 mod tests {
     use super::*;
     use absy::Expression;
-    use field::FieldPrime;
+    use zokrates_field::field::FieldPrime;
 
     fn parse_comma_separated_list<T: Field>(
         input: String,

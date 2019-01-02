@@ -1,12 +1,13 @@
-use field::Field;
 use helpers::{Executable, Signed};
 use std::fmt;
+use zokrates_field::field::Field;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum RustHelper {
     Identity,
     ConditionEq,
     Bits,
+    Div,
 }
 
 impl fmt::Display for RustHelper {
@@ -15,6 +16,7 @@ impl fmt::Display for RustHelper {
             RustHelper::Identity => write!(f, "Identity"),
             RustHelper::ConditionEq => write!(f, "ConditionEq"),
             RustHelper::Bits => write!(f, "Bits"),
+            RustHelper::Div => write!(f, "Div"),
         }
     }
 }
@@ -25,6 +27,7 @@ impl Signed for RustHelper {
             RustHelper::Identity => (1, 1),
             RustHelper::ConditionEq => (1, 2),
             RustHelper::Bits => (1, 254),
+            RustHelper::Div => (2, 1),
         }
     }
 }
@@ -52,6 +55,7 @@ impl<T: Field> Executable<T> for RustHelper {
                 assert_eq!(num, T::zero());
                 Ok(res)
             }
+            RustHelper::Div => Ok(vec![inputs[0].clone() / inputs[1].clone()]),
         }
     }
 }
@@ -59,7 +63,7 @@ impl<T: Field> Executable<T> for RustHelper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use field::FieldPrime;
+    use zokrates_field::field::FieldPrime;
 
     #[test]
     fn bits_of_one() {

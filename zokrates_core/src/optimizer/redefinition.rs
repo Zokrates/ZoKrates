@@ -8,11 +8,11 @@
 // c := a
 // ```
 
-use field::Field;
 use flat_absy::flat_variable::FlatVariable;
 use flat_absy::folder::{fold_parameter, fold_statement};
 use flat_absy::*;
 use std::collections::HashMap;
+use zokrates_field::field::Field;
 
 pub struct RedefinitionOptimizer {
     /// Map of renamings for reassigned variables while processing the program.
@@ -119,9 +119,9 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use field::FieldPrime;
     use flat_absy::flat_parameter::FlatParameter;
     use types::{Signature, Type};
+    use zokrates_field::field::FieldPrime;
 
     #[test]
     fn remove_synonyms() {

@@ -7,11 +7,11 @@
 use absy::*;
 use compile::compile_aux;
 use compile::CompileError;
-use field::Field;
 use flat_absy::*;
 use std::fmt;
 use std::io;
 use std::io::BufRead;
+use zokrates_field::field::Field;
 
 pub struct CompiledImport<T: Field> {
     pub flat_func: FlatFunction<T>,
@@ -179,7 +179,7 @@ impl Importer {
                             return Err(CompileError::ImportError(Error::new(format!(
                                 "Gadget {} not found",
                                 s
-                            ))))
+                            ))));
                         }
                     }
                 }
@@ -207,7 +207,7 @@ impl Importer {
                         return Err(CompileError::ImportError(Error::new(format!(
                             "Packing helper {} not found",
                             s
-                        ))))
+                        ))));
                     }
                 }
             } else {
@@ -226,7 +226,7 @@ impl Importer {
                         Err(err) => return Err(CompileError::ImportError(err.into())),
                     },
                     None => {
-                        return Err(Error::new("Can't resolve import without a resolver").into())
+                        return Err(Error::new("Can't resolve import without a resolver").into());
                     }
                 }
             }

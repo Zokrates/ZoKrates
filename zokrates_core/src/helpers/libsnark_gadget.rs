@@ -1,9 +1,9 @@
-use field::Field;
 use helpers::{Executable, Signed};
 use libsnark::{get_ethsha256_witness, get_sha256_witness};
 use serde_json;
 use standard;
 use std::fmt;
+use zokrates_field::field::Field;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum LibsnarkGadgetHelper {

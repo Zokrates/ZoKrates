@@ -4,10 +4,10 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 use absy::Prog;
-use field::Field;
 use flat_absy::FlatProg;
 use flatten::Flattener;
 use imports::{self, Importer};
+use ir;
 use optimizer::Optimize;
 use parser::{self, parse_program};
 use semantics::{self, Checker};
@@ -15,6 +15,7 @@ use static_analysis::Analyse;
 use std::fmt;
 use std::io;
 use std::io::BufRead;
+use zokrates_field::field::Field;
 
 #[derive(Debug)]
 pub enum CompileError<T: Field> {
@@ -64,9 +65,9 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     reader: &mut R,
     location: Option<String>,
     resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
-) -> Result<FlatProg<T>, CompileError<T>> {
+) -> Result<ir::Prog<T>, CompileError<T>> {
     let compiled = compile_aux(reader, location, resolve_option)?;
-    Ok(compiled.optimize())
+    Ok(ir::Prog::from(compiled.optimize()))
 }
 
 pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
@@ -100,8 +101,8 @@ pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
 #[cfg(test)]
 mod test {
     use super::*;
-    use field::FieldPrime;
     use std::io::{BufReader, Empty};
+    use zokrates_field::field::FieldPrime;
 
     #[test]
     fn no_resolver_with_imports() {
@@ -113,7 +114,7 @@ mod test {
 		"#
             .as_bytes(),
         );
-        let res: Result<FlatProg<FieldPrime>, CompileError<FieldPrime>> = compile(
+        let res: Result<ir::Prog<FieldPrime>, CompileError<FieldPrime>> = compile(
             &mut r,
             Some(String::from("./path/to/file")),
             None::<
@@ -138,7 +139,7 @@ mod test {
 		"#
             .as_bytes(),
         );
-        let res: Result<FlatProg<FieldPrime>, CompileError<FieldPrime>> = compile(
+        let res: Result<ir::Prog<FieldPrime>, CompileError<FieldPrime>> = compile(
             &mut r,
             Some(String::from("./path/to/file")),
             None::<

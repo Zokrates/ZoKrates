@@ -4,10 +4,10 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
-use field::Field;
 use flat_absy::*;
 use helpers::DirectiveStatement;
 use std::collections::HashMap;
+use zokrates_field::field::Field;
 
 pub trait Propagate<T: Field> {
     fn propagate(self) -> Self;
@@ -47,14 +47,6 @@ impl<T: Field> PropagateWithContext<T> for FlatExpression<T> {
                         FlatExpression::Number(n1 * n2)
                     }
                     (e1, e2) => FlatExpression::Mult(box e1, box e2),
-                }
-            }
-            FlatExpression::Div(box e1, box e2) => {
-                match (e1.propagate(constants), e2.propagate(constants)) {
-                    (FlatExpression::Number(n1), FlatExpression::Number(n2)) => {
-                        FlatExpression::Number(n1 / n2)
-                    }
-                    (e1, e2) => FlatExpression::Div(box e1, box e2),
                 }
             }
         }
@@ -125,7 +117,7 @@ impl<T: Field> FlatProg<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use field::FieldPrime;
+    use zokrates_field::field::FieldPrime;
 
     #[cfg(test)]
     mod expression {
@@ -171,19 +163,6 @@ mod tests {
                 assert_eq!(
                     e.propagate(&mut HashMap::new()),
                     FlatExpression::Number(FieldPrime::from(6))
-                );
-            }
-
-            #[test]
-            fn div() {
-                let e = FlatExpression::Div(
-                    box FlatExpression::Number(FieldPrime::from(6)),
-                    box FlatExpression::Number(FieldPrime::from(2)),
-                );
-
-                assert_eq!(
-                    e.propagate(&mut HashMap::new()),
-                    FlatExpression::Number(FieldPrime::from(3))
                 );
             }
         }

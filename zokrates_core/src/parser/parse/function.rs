@@ -1,4 +1,4 @@
-use field::Field;
+use zokrates_field::field::Field;
 
 use std::io::prelude::*;
 use std::io::Lines;
@@ -42,7 +42,7 @@ fn parse_function_header<T: Field>(
                         expected: vec![Token::Close],
                         got: t3,
                         pos: p3,
-                    })
+                    });
                 }
             },
             Err(e) => return Err(e),
@@ -52,7 +52,7 @@ fn parse_function_header<T: Field>(
                 expected: vec![Token::Open],
                 got: t1,
                 pos: p1,
-            })
+            });
         }
     }?;
 
@@ -67,7 +67,7 @@ fn parse_function_header<T: Field>(
                             expected: vec![Token::Close],
                             got: t3,
                             pos: p3,
-                        })
+                        });
                     }
                 },
                 Err(e) => return Err(e),
@@ -77,7 +77,7 @@ fn parse_function_header<T: Field>(
                     expected: vec![Token::Open],
                     got: t1,
                     pos: p1,
-                })
+                });
             }
         },
         (t0, _, p0) => {
@@ -85,7 +85,7 @@ fn parse_function_header<T: Field>(
                 expected: vec![Token::Arrow],
                 got: t0,
                 pos: p0,
-            })
+            });
         }
     }?;
 
@@ -103,7 +103,7 @@ fn parse_function_header<T: Field>(
                     expected: vec![Token::Unknown("".to_string())],
                     got: t6,
                     pos: p6,
-                })
+                });
             }
         },
         (t5, _, p5) => {
@@ -111,7 +111,7 @@ fn parse_function_header<T: Field>(
                 expected: vec![Token::Colon],
                 got: t5,
                 pos: p5,
-            })
+            });
         }
     }
 }
@@ -167,7 +167,7 @@ fn parse_function_arguments<T: Field>(
                             expected: vec![Token::Comma, Token::Close],
                             got: t3,
                             pos: p3,
-                        })
+                        });
                     }
                 }
             }
@@ -188,7 +188,7 @@ fn parse_function_arguments<T: Field>(
                             expected: vec![Token::Comma, Token::Close],
                             got: t3,
                             pos: p3,
-                        })
+                        });
                     }
                 }
             }
@@ -202,7 +202,7 @@ fn parse_function_arguments<T: Field>(
                     ],
                     got: t4,
                     pos: p4,
-                })
+                });
             }
         }
     }
@@ -231,7 +231,7 @@ fn parse_function_return_types<T: Field>(
                             expected: vec![Token::Comma, Token::Close],
                             got: t3,
                             pos: p3,
-                        })
+                        });
                     }
                 }
             }
@@ -245,7 +245,7 @@ fn parse_function_return_types<T: Field>(
                     ],
                     got: t4,
                     pos: p4,
-                })
+                });
             }
         }
     }

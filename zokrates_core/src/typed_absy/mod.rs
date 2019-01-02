@@ -11,15 +11,15 @@ use absy::parameter::Parameter;
 use absy::variable::Variable;
 use types::Signature;
 
-use field::Field;
 use flat_absy::*;
 use imports::Import;
 use std::fmt;
 use types::Type;
+use zokrates_field::field::Field;
 
 pub use self::folder::Folder;
 
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct TypedProg<T: Field> {
     /// Functions of the program
     pub functions: Vec<TypedFunction<T>>,
@@ -76,7 +76,7 @@ impl<T: Field> fmt::Debug for TypedProg<T> {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct TypedFunction<T: Field> {
     /// Name of the program
     pub id: String,
@@ -130,7 +130,7 @@ impl<T: Field> fmt::Debug for TypedFunction<T> {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Hash, Eq)]
+#[derive(Clone, PartialEq, Hash, Eq)]
 pub enum TypedAssignee<T: Field> {
     Identifier(Variable),
     ArrayElement(Box<TypedAssignee<T>>, Box<FieldElementExpression<T>>),
@@ -166,7 +166,7 @@ impl<T: Field> fmt::Display for TypedAssignee<T> {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum TypedStatement<T: Field> {
     Return(Vec<TypedExpression<T>>),
     Definition(TypedAssignee<T>, TypedExpression<T>),
@@ -250,7 +250,7 @@ pub trait Typed {
     fn get_type(&self) -> Type;
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize, Hash, Eq)]
+#[derive(Clone, PartialEq, Hash, Eq)]
 pub enum TypedExpression<T: Field> {
     Boolean(BooleanExpression<T>),
     FieldElement(FieldElementExpression<T>),
@@ -319,7 +319,7 @@ pub trait MultiTyped {
     fn get_types(&self) -> &Vec<Type>;
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq)]
 pub enum TypedExpressionList<T: Field> {
     FunctionCall(String, Vec<TypedExpression<T>>, Vec<Type>),
 }
@@ -332,7 +332,7 @@ impl<T: Field> MultiTyped for TypedExpressionList<T> {
     }
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize, Hash, Eq)]
+#[derive(Clone, PartialEq, Hash, Eq)]
 pub enum FieldElementExpression<T: Field> {
     Number(T),
     Identifier(String),
@@ -368,7 +368,7 @@ pub enum FieldElementExpression<T: Field> {
     ),
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize, Hash, Eq)]
+#[derive(Clone, PartialEq, Hash, Eq)]
 pub enum BooleanExpression<T: Field> {
     Identifier(String),
     Value(bool),
@@ -398,7 +398,7 @@ pub enum BooleanExpression<T: Field> {
 }
 
 // for now we store the array size in the variants
-#[derive(Clone, PartialEq, Serialize, Deserialize, Hash, Eq)]
+#[derive(Clone, PartialEq, Hash, Eq)]
 pub enum FieldElementArrayExpression<T: Field> {
     Identifier(usize, String),
     Value(usize, Vec<FieldElementExpression<T>>),

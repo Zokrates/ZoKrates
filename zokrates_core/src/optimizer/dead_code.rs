@@ -1,7 +1,7 @@
 //! Module containing the `DeadCodeOptimizer` to remove code that will never be executed
 
-use field::Field;
 use flat_absy::{FlatProg, Folder};
+use zokrates_field::field::Field;
 
 pub struct DeadCodeOptimizer {}
 

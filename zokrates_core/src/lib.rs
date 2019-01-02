@@ -1,7 +1,5 @@
 #![feature(box_patterns, box_syntax)]
 
-#[macro_use]
-extern crate lazy_static;
 extern crate num;
 extern crate num_bigint;
 extern crate reduce; // better reduce function than Iter.fold
@@ -12,6 +10,7 @@ extern crate serde_derive;
 extern crate bimap;
 extern crate bincode;
 extern crate regex;
+extern crate zokrates_field;
 
 mod flatten;
 mod helpers;
@@ -27,9 +26,9 @@ mod types;
 
 pub mod absy;
 pub mod compile;
-pub mod field;
 pub mod flat_absy;
+pub mod ir;
 #[cfg(feature = "libsnark")]
 pub mod libsnark;
-pub mod r1cs;
-pub mod verification;
+#[cfg(feature = "libsnark")]
+pub mod proof_system;

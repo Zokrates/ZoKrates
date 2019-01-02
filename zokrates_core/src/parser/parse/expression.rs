@@ -1,4 +1,4 @@
-use field::Field;
+use zokrates_field::field::Field;
 
 use parser::tokenize::{next_token, Position, Token};
 use parser::Error;
@@ -83,6 +83,17 @@ fn parse_bfactor<T: Field>(
     pos: &Position,
 ) -> Result<(Expression<T>, String, Position), Error<T>> {
     match next_token::<T>(input, pos) {
+        (Token::Not, s1, p1) => match next_token(&s1, &p1) {
+            (Token::Open, _, _) => match parse_bfactor(&s1, &p1) {
+                Ok((e3, s3, p3)) => Ok((Expression::Not(box e3), s3, p3)),
+                Err(err) => Err(err),
+            },
+            (t2, _, p2) => Err(Error {
+                expected: vec![Token::Open],
+                got: t2,
+                pos: p2,
+            }),
+        },
         (Token::Open, s1, p1) => match parse_bexpr(&s1, &p1) {
             Ok((e2, s2, p2)) => match next_token::<T>(&s2, &p2) {
                 (Token::Close, s3, p3) => Ok((e2, s3, p3)),
@@ -240,6 +251,19 @@ fn parse_factor1<T: Field>(
     }
 }
 
+// parse an identifier or select or function call
+fn parse_identified1<T: Field>(
+    x: String,
+    input: String,
+    position: Position,
+) -> Result<(Expression<T>, String, Position), Error<T>> {
+    match next_token::<T>(&input, &position) {
+        (Token::Open, s1, p1) => parse_function_call(x, s1, p1),
+        (Token::LeftBracket, s1, p1) => parse_array_select(x, s1, p1),
+        _ => Ok((Expression::Identifier(x), input, position)),
+    }
+}
+
 fn parse_factor<T: Field>(
     input: &String,
     pos: &Position,
@@ -257,10 +281,9 @@ fn parse_factor<T: Field>(
             },
             Err(err) => Err(err),
         },
-        (Token::Ide(x), s1, p1) => match next_token::<T>(&s1, &p1) {
-            (Token::Open, s2, p2) => parse_function_call(x, s2, p2),
-            (Token::LeftBracket, s2, p2) => parse_array_select(x, s2, p2),
-            _ => parse_factor1(Expression::Identifier(x), s1, p1),
+        (Token::Ide(x), s1, p1) => match parse_identified1(x, s1, p1) {
+            Ok((e2, s2, p2)) => parse_factor1(e2, s2, p2),
+            e => e,
         },
         (Token::Num(x), s1, p1) => parse_factor1(Expression::Number(x), s1, p1),
         (t1, _, p1) => Err(Error {
@@ -338,10 +361,7 @@ pub fn parse_function_call<T: Field>(
         match next_token::<T>(&s, &p) {
             // no arguments
             (Token::Close, s1, p1) => {
-                match parse_term1(Expression::FunctionCall(ide, args), s1, p1) {
-                    Ok((e2, s2, p2)) => return parse_expr1(e2, s2, p2),
-                    Err(err) => return Err(err),
-                }
+                return parse_term1(Expression::FunctionCall(ide, args), s1, p1);
             }
             // at least one argument
             (_, _, _) => match parse_expr(&s, &p) {
@@ -353,17 +373,14 @@ pub fn parse_function_call<T: Field>(
                             p = p2;
                         }
                         (Token::Close, s2, p2) => {
-                            match parse_term1(Expression::FunctionCall(ide, args), s2, p2) {
-                                Ok((e3, s3, p3)) => return parse_expr1(e3, s3, p3),
-                                Err(err) => return Err(err),
-                            }
+                            return parse_term1(Expression::FunctionCall(ide, args), s2, p2);
                         }
                         (t2, _, p2) => {
                             return Err(Error {
                                 expected: vec![Token::Comma, Token::Close],
                                 got: t2,
                                 pos: p2,
-                            })
+                            });
                         }
                     }
                 }
@@ -411,7 +428,7 @@ pub fn parse_inline_array<T: Field>(
                                 expected: vec![Token::Comma, Token::RightBracket],
                                 got: t2,
                                 pos: p2,
-                            })
+                            });
                         }
                     }
                 }
@@ -430,14 +447,11 @@ pub fn parse_array_select<T: Field>(
     match next_token::<T>(&input, &pos) {
         (_, _, _) => match parse_expr(&input, &pos) {
             Ok((e1, s1, p1)) => match next_token::<T>(&s1, &p1) {
-                (Token::RightBracket, s2, p2) => match parse_term1(
+                (Token::RightBracket, s2, p2) => parse_term1(
                     Expression::Select(box Expression::Identifier(ide), box e1),
                     s2,
                     p2,
-                ) {
-                    Ok((e3, s3, p3)) => parse_expr1(e3, s3, p3),
-                    Err(err) => Err(err),
-                },
+                ),
                 (t2, _, p2) => Err(Error {
                     expected: vec![Token::RightBracket],
                     got: t2,
@@ -469,13 +483,12 @@ pub fn parse_expr<T: Field>(
             },
             Err(err) => Err(err),
         },
-        (Token::Ide(x), s1, p1) => match next_token::<T>(&s1, &p1) {
-            (Token::Open, s2, p2) => parse_function_call(x, s2, p2),
-            (Token::LeftBracket, s2, p2) => parse_array_select(x, s2, p2),
-            _ => match parse_term1(Expression::Identifier(x), s1, p1) {
-                Ok((e2, s2, p2)) => parse_expr1(e2, s2, p2),
-                Err(err) => Err(err),
+        (Token::Ide(x), s1, p1) => match parse_identified1(x, s1, p1) {
+            Ok((e2, s2, p2)) => match parse_term1(e2, s2, p2) {
+                Ok((e3, s3, p3)) => parse_expr1(e3, s3, p3),
+                e => e,
             },
+            e => e,
         },
         (Token::Num(x), s1, p1) => match parse_term1(Expression::Number(x), s1, p1) {
             Ok((e2, s2, p2)) => parse_expr1(e2, s2, p2),
@@ -493,7 +506,170 @@ pub fn parse_expr<T: Field>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use field::FieldPrime;
+    use zokrates_field::field::FieldPrime;
+
+    mod terms {
+        use super::*;
+
+        #[test]
+        fn parse_number_sum() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("1 + 2 + 3");
+            let expr = Expression::Add(
+                box Expression::Add(
+                    box Expression::Number(FieldPrime::from(1)),
+                    box Expression::Number(FieldPrime::from(2)),
+                ),
+                box Expression::Number(FieldPrime::from(3)),
+            );
+            assert_eq!(
+                Ok((expr, String::from(""), pos.col(string.len() as isize))),
+                parse_expr(&string, &pos)
+            );
+        }
+
+        #[test]
+        fn parse_number_sub() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("1 - 2 - 3");
+            let expr = Expression::Sub(
+                box Expression::Sub(
+                    box Expression::Number(FieldPrime::from(1)),
+                    box Expression::Number(FieldPrime::from(2)),
+                ),
+                box Expression::Number(FieldPrime::from(3)),
+            );
+            assert_eq!(
+                Ok((expr, String::from(""), pos.col(string.len() as isize))),
+                parse_expr(&string, &pos)
+            );
+        }
+
+        #[test]
+        fn parse_function_call_single_sub() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("1 - f(a)");
+            let expr = Expression::Sub(
+                box Expression::Number(FieldPrime::from(1)),
+                box Expression::FunctionCall(
+                    String::from("f"),
+                    vec![Expression::Identifier(String::from("a"))],
+                ),
+            );
+            assert_eq!(
+                Ok((expr, String::from(""), pos.col(string.len() as isize))),
+                parse_expr(&string, &pos)
+            );
+        }
+
+        #[test]
+        fn parse_function_call_sub() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("1 - f() - 3");
+            let expr = Expression::Sub(
+                box Expression::Sub(
+                    box Expression::Number(FieldPrime::from(1)),
+                    box Expression::FunctionCall(String::from("f"), vec![]),
+                ),
+                box Expression::Number(FieldPrime::from(3)),
+            );
+            assert_eq!(
+                Ok((expr, String::from(""), pos.col(string.len() as isize))),
+                parse_expr(&string, &pos)
+            );
+        }
+
+        #[test]
+        fn parse_function_call_add() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("1 + f() + 3");
+            let expr = Expression::Add(
+                box Expression::Add(
+                    box Expression::Number(FieldPrime::from(1)),
+                    box Expression::FunctionCall(String::from("f"), vec![]),
+                ),
+                box Expression::Number(FieldPrime::from(3)),
+            );
+            assert_eq!(
+                Ok((expr, String::from(""), pos.col(string.len() as isize))),
+                parse_expr(&string, &pos)
+            );
+        }
+
+        #[test]
+        fn parse_select_sub() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("1 - f[2] - 3");
+            let expr = Expression::Sub(
+                box Expression::Sub(
+                    box Expression::Number(FieldPrime::from(1)),
+                    box Expression::Select(
+                        box Expression::Identifier(String::from("f")),
+                        box Expression::Number(FieldPrime::from(2)),
+                    ),
+                ),
+                box Expression::Number(FieldPrime::from(3)),
+            );
+            assert_eq!(
+                Ok((expr, String::from(""), pos.col(string.len() as isize))),
+                parse_expr(&string, &pos)
+            );
+        }
+
+        #[test]
+        fn parse_select_add() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("1 + f[2] + 3");
+            let expr = Expression::Add(
+                box Expression::Add(
+                    box Expression::Number(FieldPrime::from(1)),
+                    box Expression::Select(
+                        box Expression::Identifier(String::from("f")),
+                        box Expression::Number(FieldPrime::from(2)),
+                    ),
+                ),
+                box Expression::Number(FieldPrime::from(3)),
+            );
+            assert_eq!(
+                Ok((expr, String::from(""), pos.col(string.len() as isize))),
+                parse_expr(&string, &pos)
+            );
+        }
+
+        #[test]
+        fn parse_identifier_sub() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("1 - f - 3");
+            let expr = Expression::Sub(
+                box Expression::Sub(
+                    box Expression::Number(FieldPrime::from(1)),
+                    box Expression::Identifier(String::from("f")),
+                ),
+                box Expression::Number(FieldPrime::from(3)),
+            );
+            assert_eq!(
+                Ok((expr, String::from(""), pos.col(string.len() as isize))),
+                parse_expr(&string, &pos)
+            );
+        }
+
+        #[test]
+        fn parse_identifier_add() {
+            let pos = Position { line: 45, col: 121 };
+            let string = String::from("1 + f + 3");
+            let expr = Expression::Add(
+                box Expression::Add(
+                    box Expression::Number(FieldPrime::from(1)),
+                    box Expression::Identifier(String::from("f")),
+                ),
+                box Expression::Number(FieldPrime::from(3)),
+            );
+            assert_eq!(
+                Ok((expr, String::from(""), pos.col(string.len() as isize))),
+                parse_expr(&string, &pos)
+            );
+        }
+    }
 
     #[test]
     fn parse_if_then_else_ok() {

@@ -8,11 +8,11 @@
 
 use absy::variable::Variable;
 use absy::*;
-use field::Field;
 use std::collections::HashSet;
 use std::fmt;
 use typed_absy::*;
 use types::Signature;
+use zokrates_field::field::Field;
 
 use types::Type;
 
@@ -201,7 +201,7 @@ impl Checker {
                         "Duplicate definition for function {} with signature {}",
                         funct.id, funct.signature
                     ),
-                })
+                });
             }
             0 => {}
             _ => panic!("duplicate function declaration should have been caught"),
@@ -814,7 +814,7 @@ impl Checker {
 mod tests {
     use super::*;
     use absy::parameter::Parameter;
-    use field::FieldPrime;
+    use zokrates_field::field::FieldPrime;
 
     pub fn new_with_args(
         scope: HashSet<ScopedVariable>,

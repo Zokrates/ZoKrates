@@ -1,4 +1,4 @@
-use field::Field;
+use zokrates_field::field::Field;
 
 use std::io::prelude::*;
 
@@ -47,7 +47,7 @@ pub fn parse_program<T: Field, R: BufRead>(reader: &mut R) -> Result<Prog<T>, Er
                         expected: vec![Token::Def],
                         got: t1,
                         pos: p1,
-                    })
+                    });
                 }
             },
             None => break,

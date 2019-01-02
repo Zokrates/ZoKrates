@@ -8,24 +8,35 @@ extern crate bincode;
 extern crate clap;
 extern crate regex;
 extern crate zokrates_core;
+extern crate zokrates_field;
 extern crate zokrates_fs_resolver;
 
 use bincode::{deserialize_from, serialize_into, Infinite};
 use clap::{App, AppSettings, Arg, SubCommand};
-use regex::Regex;
+#[cfg(feature = "libsnark")]
 use std::collections::HashMap;
+use std::env;
 use std::fs::File;
 use std::io::{stdin, BufRead, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::string::String;
 use zokrates_core::compile::compile;
-use zokrates_core::field::{Field, FieldPrime};
-use zokrates_core::flat_absy::FlatProg;
+use zokrates_core::ir;
 #[cfg(feature = "libsnark")]
-use zokrates_core::libsnark::{generate_proof, setup};
-use zokrates_core::r1cs::r1cs_program;
-use zokrates_core::verification::CONTRACT_TEMPLATE;
+use zokrates_core::ir::r1cs_program;
+#[cfg(feature = "libsnark")]
+use zokrates_core::proof_system::{ProofSystem, GM17, PGHR13};
+use zokrates_field::field::{Field, FieldPrime};
 use zokrates_fs_resolver::resolve as fs_resolve;
+
+#[cfg(feature = "libsnark")]
+fn get_backend(backend_str: &str) -> &'static ProofSystem {
+    match backend_str.to_lowercase().as_ref() {
+        "pghr13" => &PGHR13 {},
+        "gm17" => &GM17 {},
+        s => panic!("Backend \"{}\" not supported", s),
+    }
+}
 
 fn main() {
     const FLATTENED_CODE_DEFAULT_PATH: &str = "out";
@@ -35,11 +46,12 @@ fn main() {
     const WITNESS_DEFAULT_PATH: &str = "witness";
     const VARIABLES_INFORMATION_KEY_DEFAULT_PATH: &str = "variables.inf";
     const JSON_PROOF_PATH: &str = "proof.json";
+    let default_backend = env::var("ZOKRATES_BACKEND").unwrap_or(String::from("pghr13"));
 
     // cli specification using clap library
     let matches = App::new("ZoKrates")
     .setting(AppSettings::SubcommandRequiredElseHelp)
-    .version("0.3.1")
+    .version("0.3.2")
     .author("Jacob Eberhardt, Thibaut Schaeffer, Dennis Kuhnert")
     .about("Supports generation of zkSNARKs from high level language code including Smart Contracts for proof verification on the Ethereum Blockchain.\n'I know that I show nothing!'")
     .subcommand(SubCommand::with_name("compile")
@@ -103,6 +115,15 @@ fn main() {
             .required(false)
             .default_value(VARIABLES_INFORMATION_KEY_DEFAULT_PATH)
         )
+        .arg(Arg::with_name("backend")
+            .short("b")
+            .long("backend")
+            .help("Backend to use in the setup. Available options are PGHR13 and GM17")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(&default_backend)
+        )
     )
     .subcommand(SubCommand::with_name("export-verifier")
         .about("Exports a verifier as Solidity smart contract.")
@@ -123,6 +144,14 @@ fn main() {
             .takes_value(true)
             .required(false)
             .default_value(VERIFICATION_CONTRACT_DEFAULT_PATH)
+        ).arg(Arg::with_name("backend")
+            .short("b")
+            .long("backend")
+            .help("Backend to use to export the verifier. Available options are PGHR13 and GM17")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(&default_backend)
         )
     )
     .subcommand(SubCommand::with_name("compute-witness")
@@ -190,6 +219,14 @@ fn main() {
             .takes_value(true)
             .required(false)
             .default_value(VARIABLES_INFORMATION_KEY_DEFAULT_PATH)
+        ).arg(Arg::with_name("backend")
+            .short("b")
+            .long("backend")
+            .help("Backend to use to generate the proof. Available options are PGHR13 and GM17")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(&default_backend)
         )
     )
     .get_matches();
@@ -218,20 +255,14 @@ fn main() {
 
             let mut reader = BufReader::new(file);
 
-            let program_flattened: FlatProg<FieldPrime> =
+            let program_flattened: ir::Prog<FieldPrime> =
                 match compile(&mut reader, Some(location), Some(fs_resolve)) {
                     Ok(p) => p,
                     Err(why) => panic!("Compilation failed: {}", why),
                 };
 
             // number of constraints the flattened program will translate to.
-            let num_constraints = &program_flattened
-                .functions
-                .iter()
-                .find(|x| x.id == "main")
-                .unwrap()
-                .statements
-                .len();
+            let num_constraints = program_flattened.constraint_count();
 
             // serialize flattened program and write to binary file
             let mut bin_output_file = match File::create(&bin_output_path) {
@@ -278,7 +309,7 @@ fn main() {
                 Err(why) => panic!("couldn't open {}: {}", path.display(), why),
             };
 
-            let program_ast: FlatProg<FieldPrime> = match deserialize_from(&mut file, Infinite) {
+            let program_ast: ir::Prog<FieldPrime> = match deserialize_from(&mut file, Infinite) {
                 Ok(x) => x,
                 Err(why) => {
                     println!("{:?}", why);
@@ -286,14 +317,8 @@ fn main() {
                 }
             };
 
-            let main_flattened = program_ast
-                .functions
-                .iter()
-                .find(|x| x.id == "main")
-                .unwrap();
-
             // print deserialized flattened program
-            println!("{}", main_flattened);
+            println!("{}", program_ast);
 
             // validate #arguments
             let mut cli_arguments: Vec<FieldPrime> = Vec::new();
@@ -312,11 +337,11 @@ fn main() {
             let is_interactive = sub_matches.occurrences_of("interactive") > 0;
 
             // in interactive mode, only public inputs are expected
-            let expected_cli_args_count = main_flattened
-                .arguments
-                .iter()
-                .filter(|x| !(x.private && is_interactive))
-                .count();
+            let expected_cli_args_count = if is_interactive {
+                program_ast.public_arguments_count()
+            } else {
+                program_ast.public_arguments_count() + program_ast.private_arguments_count()
+            };
 
             if cli_arguments.len() != expected_cli_args_count {
                 println!(
@@ -328,10 +353,9 @@ fn main() {
             }
 
             let mut cli_arguments_iter = cli_arguments.into_iter();
-            let arguments = main_flattened
-                .arguments
-                .clone()
-                .into_iter()
+            let arguments: Vec<FieldPrime> = program_ast
+                .parameters()
+                .iter()
                 .map(|x| {
                     match x.private && is_interactive {
                         // private inputs are passed interactively when the flag is present
@@ -356,7 +380,9 @@ fn main() {
                 })
                 .collect();
 
-            let witness_map = main_flattened.get_witness(arguments).unwrap();
+            let witness_map = program_ast
+                .execute(arguments)
+                .unwrap_or_else(|e| panic!(format!("Execution failed: {}", e)));
 
             println!(
                 "\nWitness: \n\n{}",
@@ -383,8 +409,11 @@ fn main() {
             }
             bw.flush().expect("Unable to flush buffer.");
         }
+        #[cfg(feature = "libsnark")]
         ("setup", Some(sub_matches)) => {
             println!("Performing setup...");
+
+            let backend = get_backend(sub_matches.value_of("backend").unwrap());
 
             let path = Path::new(sub_matches.value_of("input").unwrap());
             let mut file = match File::open(&path) {
@@ -392,7 +421,7 @@ fn main() {
                 Err(why) => panic!("couldn't open {}: {}", path.display(), why),
             };
 
-            let program_ast: FlatProg<FieldPrime> = match deserialize_from(&mut file, Infinite) {
+            let program: ir::Prog<FieldPrime> = match deserialize_from(&mut file, Infinite) {
                 Ok(x) => x,
                 Err(why) => {
                     println!("{:?}", why);
@@ -400,17 +429,11 @@ fn main() {
                 }
             };
 
-            let main_flattened = program_ast
-                .functions
-                .iter()
-                .find(|x| x.id == "main")
-                .unwrap();
-
             // print deserialized flattened program
-            println!("{}", main_flattened);
+            println!("{}", program);
 
             // transform to R1CS
-            let (variables, public_variables_count, a, b, c) = r1cs_program(&program_ast);
+            let (variables, public_variables_count, a, b, c) = r1cs_program(program);
 
             // write variables meta information to file
             let var_inf_path = Path::new(sub_matches.value_of("meta-information").unwrap());
@@ -439,109 +462,55 @@ fn main() {
             let vk_path = sub_matches.value_of("verification-key-path").unwrap();
 
             // run setup phase
-            #[cfg(feature = "libsnark")]
-            {
-                // number of inputs in the zkSNARK sense, i.e., input variables + output variables
-                println!(
-                    "setup successful: {:?}",
-                    setup(
-                        variables,
-                        a,
-                        b,
-                        c,
-                        public_variables_count - 1,
-                        pk_path,
-                        vk_path
-                    )
-                );
-            }
+            // number of inputs in the zkSNARK sense, i.e., input variables + output variables
+            println!(
+                "setup successful: {:?}",
+                backend.setup(
+                    variables,
+                    a,
+                    b,
+                    c,
+                    public_variables_count - 1,
+                    pk_path,
+                    vk_path
+                )
+            );
         }
+        #[cfg(feature = "libsnark")]
         ("export-verifier", Some(sub_matches)) => {
-            println!("Exporting verifier...");
-            // read vk file
-            let input_path = Path::new(sub_matches.value_of("input").unwrap());
-            let input_file = match File::open(&input_path) {
-                Ok(input_file) => input_file,
-                Err(why) => panic!("couldn't open {}: {}", input_path.display(), why),
-            };
-            let reader = BufReader::new(input_file);
-            let mut lines = reader.lines();
+            {
+                println!("Exporting verifier...");
 
-            let mut template_text = String::from(CONTRACT_TEMPLATE);
-            let ic_template = String::from("vk.IC[index] = Pairing.G1Point(points);"); //copy this for each entry
+                let backend = get_backend(sub_matches.value_of("backend").unwrap());
 
-            //replace things in template
-            let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
-            let vk_ic_len_regex = Regex::new(r#"(<%vk_ic_length%>)"#).unwrap();
-            let vk_ic_index_regex = Regex::new(r#"index"#).unwrap();
-            let vk_ic_points_regex = Regex::new(r#"points"#).unwrap();
-            let vk_ic_repeat_regex = Regex::new(r#"(<%vk_ic_pts%>)"#).unwrap();
-            let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
+                // read vk file
+                let input_path = Path::new(sub_matches.value_of("input").unwrap());
+                let input_file = match File::open(&input_path) {
+                    Ok(input_file) => input_file,
+                    Err(why) => panic!("couldn't open {}: {}", input_path.display(), why),
+                };
+                let reader = BufReader::new(input_file);
 
-            for _ in 0..7 {
-                let current_line: String = lines
-                    .next()
-                    .expect("Unexpected end of file in verification key!")
-                    .unwrap();
-                let current_line_split: Vec<&str> = current_line.split("=").collect();
-                assert_eq!(current_line_split.len(), 2);
-                template_text = vk_regex
-                    .replace(template_text.as_str(), current_line_split[1].trim())
-                    .into_owned();
+                let verifier = backend.export_solidity_verifier(reader);
+
+                //write output file
+                let output_path = Path::new(sub_matches.value_of("output").unwrap());
+                let mut output_file = match File::create(&output_path) {
+                    Ok(file) => file,
+                    Err(why) => panic!("couldn't create {}: {}", output_path.display(), why),
+                };
+
+                output_file
+                    .write_all(&verifier.as_bytes())
+                    .expect("Failed writing output to file.");
+                println!("Finished exporting verifier.");
             }
-
-            let current_line: String = lines
-                .next()
-                .expect("Unexpected end of file in verification key!")
-                .unwrap();
-            let current_line_split: Vec<&str> = current_line.split("=").collect();
-            assert_eq!(current_line_split.len(), 2);
-            let ic_count: i32 = current_line_split[1].trim().parse().unwrap();
-
-            template_text = vk_ic_len_regex
-                .replace(template_text.as_str(), format!("{}", ic_count).as_str())
-                .into_owned();
-            template_text = vk_input_len_regex
-                .replace(template_text.as_str(), format!("{}", ic_count - 1).as_str())
-                .into_owned();
-
-            let mut ic_repeat_text = String::new();
-            for x in 0..ic_count {
-                let mut curr_template = ic_template.clone();
-                let current_line: String = lines
-                    .next()
-                    .expect("Unexpected end of file in verification key!")
-                    .unwrap();
-                let current_line_split: Vec<&str> = current_line.split("=").collect();
-                assert_eq!(current_line_split.len(), 2);
-                curr_template = vk_ic_index_regex
-                    .replace(curr_template.as_str(), format!("{}", x).as_str())
-                    .into_owned();
-                curr_template = vk_ic_points_regex
-                    .replace(curr_template.as_str(), current_line_split[1].trim())
-                    .into_owned();
-                ic_repeat_text.push_str(curr_template.as_str());
-                if x < ic_count - 1 {
-                    ic_repeat_text.push_str("\n        ");
-                }
-            }
-            template_text = vk_ic_repeat_regex
-                .replace(template_text.as_str(), ic_repeat_text.as_str())
-                .into_owned();
-
-            //write output file
-            let output_path = Path::new(sub_matches.value_of("output").unwrap());
-            let mut output_file = match File::create(&output_path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't create {}: {}", output_path.display(), why),
-            };
-            output_file
-                .write_all(&template_text.as_bytes())
-                .expect("Failed writing output to file.");
-            println!("Finished exporting verifier.");
         }
+        #[cfg(feature = "libsnark")]
         ("generate-proof", Some(sub_matches)) => {
             println!("Generating proof...");
+
+            let backend = get_backend(sub_matches.value_of("backend").unwrap());
 
             // deserialize witness
             let witness_path = Path::new(sub_matches.value_of("witness").unwrap());
@@ -612,13 +581,10 @@ fn main() {
             let proof_path = sub_matches.value_of("proofpath").unwrap();
 
             // run libsnark
-            #[cfg(feature = "libsnark")]
-            {
-                println!(
-                    "generate-proof successful: {:?}",
-                    generate_proof(pk_path, proof_path, public_inputs, private_inputs)
-                );
-            }
+            println!(
+                "generate-proof successful: {:?}",
+                backend.generate_proof(pk_path, proof_path, public_inputs, private_inputs)
+            );
         }
         _ => unimplemented!(), // Either no subcommand or one not tested for...
     }
@@ -629,6 +595,7 @@ mod tests {
     extern crate glob;
     use self::glob::glob;
     use super::*;
+    use zokrates_core::ir::r1cs_program;
 
     #[test]
     fn examples() {
@@ -655,10 +622,10 @@ mod tests {
                 .into_string()
                 .unwrap();
 
-            let program_flattened: FlatProg<FieldPrime> =
+            let program_flattened: ir::Prog<FieldPrime> =
                 compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
-            let (..) = r1cs_program(&program_flattened);
+            let (..) = r1cs_program(program_flattened);
         }
     }
 
@@ -684,12 +651,12 @@ mod tests {
 
             let mut reader = BufReader::new(file);
 
-            let program_flattened: FlatProg<FieldPrime> =
+            let program_flattened: ir::Prog<FieldPrime> =
                 compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
-            let (..) = r1cs_program(&program_flattened);
+            let (..) = r1cs_program(program_flattened.clone());
             let _ = program_flattened
-                .get_witness(vec![FieldPrime::from(0)])
+                .execute(vec![FieldPrime::from(0)])
                 .unwrap();
         }
     }
@@ -716,14 +683,14 @@ mod tests {
 
             let mut reader = BufReader::new(file);
 
-            let program_flattened: FlatProg<FieldPrime> =
+            let program_flattened: ir::Prog<FieldPrime> =
                 compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
-            let (..) = r1cs_program(&program_flattened);
+            let (..) = r1cs_program(program_flattened.clone());
 
             let result = std::panic::catch_unwind(|| {
                 let _ = program_flattened
-                    .get_witness(vec![FieldPrime::from(0)])
+                    .execute(vec![FieldPrime::from(0)])
                     .unwrap();
             });
             assert!(result.is_err());

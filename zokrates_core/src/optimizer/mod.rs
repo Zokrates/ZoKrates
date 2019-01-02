@@ -10,8 +10,8 @@ mod redefinition;
 use self::dead_code::DeadCodeOptimizer;
 use self::redefinition::RedefinitionOptimizer;
 
-use field::Field;
 use flat_absy::FlatProg;
+use zokrates_field::field::Field;
 
 pub trait Optimize {
     fn optimize(self) -> Self;
