@@ -33,6 +33,9 @@ jobs:
       - run:
           name: Generate code coverage report
           command: ./scripts/cov.sh
+      - run:
+          name: Publish book
+          command: ./scripts/publish_book.sh
       - save_cache:
           paths:
             - /usr/local/cargo/registry
