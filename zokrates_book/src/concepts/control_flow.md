@@ -22,7 +22,7 @@ def main() -> (field):
 
 ### If expressions
 
-An if expression allows you to branch your code depending on conditions.
+An if expression allows you to branch your code depending on a condition.
 
 ```zokrates
 def main(field x) -> (field):
