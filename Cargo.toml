@@ -5,3 +5,7 @@ members = [
     "zokrates_cli",
     "zokrates_fs_resolver",
 ]
+
+exclude = [
+    "plugins"
+]
