@@ -1,0 +1,10 @@
+[package]
+name = "partialeq_wasm"
+version = "0.1.0"
+authors = ["Guillaume Ballet <gballet@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+num = {version = "0.1.36", default-features = false}
+lazy_static = "0.1.*"
+zokrates_field = {version = "0.3", path = "../../zokrates_field" }
