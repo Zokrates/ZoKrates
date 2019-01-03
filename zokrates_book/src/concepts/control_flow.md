@@ -30,6 +30,10 @@ def main(field x) -> (field):
   return y
 ```
 
+The condition supports `<`, `<=`, `>`, `>=`, `==`, which can be combined with the boolean operators `&&`, `||` and `!`.
+
+>When it comes to inequality checks, there is a caveat: when executing `a < b`, both `a` and `b` will be asserted to be strictly lower than the biggest power of 2 lower than `p/2`. This means that `a` and `b` are both asserted to be between `0` and `2**252 - 1`. The same applies to other inequality checks.
+
 ### For loops
 
 For loops are available with the following syntax:
