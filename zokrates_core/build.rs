@@ -66,49 +66,58 @@ fn main() {
         extern crate parity_wasm;
 
         use std::env;
+        use std::io::prelude::*;
         use std::path::Path;
         use std::process::Command;
-        use std::io::prelude::*;
 
-        fn has_symbol(symbol : &str,
-            exports : &[parity_wasm::elements::ExportEntry], funcs: &[parity_wasm::elements::Func], types: &[parity_wasm::elements::Type]) -> Result<(), String> {
+        fn has_symbol(
+            symbol: &str,
+            exports: &[parity_wasm::elements::ExportEntry],
+            funcs: &[parity_wasm::elements::Func],
+            types: &[parity_wasm::elements::Type],
+        ) -> Result<(), String> {
             match exports.iter().find(|ref export| export.field() == symbol) {
-                Some(export) => {
-                    match export.internal() {
-                        &parity_wasm::elements::Internal::Function(fidx) => {
-                            let tidx = funcs[fidx as usize].type_ref();
-                            let parity_wasm::elements::Type::Function(t) = &types[tidx as usize];
-                            match t.return_type() {
-                                Some(parity_wasm::elements::ValueType::I32) => {}
-                                _ => return Err(format!("Invalid return type for `{}", symbol))
-                            }
-                            let params = t.params();
-                            if params.len() != 0 {
-                                Err(format!("Invalid number of parameters for `{}`", symbol))
-                            } else {
-                                Ok(())
-                            }
+                Some(export) => match export.internal() {
+                    &parity_wasm::elements::Internal::Function(fidx) => {
+                        let tidx = funcs[fidx as usize].type_ref();
+                        let parity_wasm::elements::Type::Function(t) = &types[tidx as usize];
+                        match t.return_type() {
+                            Some(parity_wasm::elements::ValueType::I32) => {}
+                            _ => return Err(format!("Invalid return type for `{}", symbol)),
                         }
-                        _ => return Err(format!("Module has a `{}` export that is not a function", symbol))
+                        let params = t.params();
+                        if params.len() != 0 {
+                            Err(format!("Invalid number of parameters for `{}`", symbol))
+                        } else {
+                            Ok(())
+                        }
                     }
-                }
-                None => Err(format!("Module is missing a `{}` export", symbol))
+                    _ => {
+                        return Err(format!(
+                            "Module has a `{}` export that is not a function",
+                            symbol
+                        ));
+                    }
+                },
+                None => Err(format!("Module is missing a `{}` export", symbol)),
             }
         }
 
-        fn validate<U : Into<String>>(input : U) -> Result<parity_wasm::elements::Module, String> {
+        fn validate<U: Into<String>>(input: U) -> Result<parity_wasm::elements::Module, String> {
             let fname = input.into();
 
-            let module = parity_wasm::deserialize_file(fname.clone())
-                .map_err(|e| e.to_string())?;
+            let module = parity_wasm::deserialize_file(fname.clone()).map_err(|e| e.to_string())?;
 
-            let functions = module.function_section()
+            let functions = module
+                .function_section()
                 .ok_or("Module has no function section")?
                 .entries();
-            let types = module.type_section()
+            let types = module
+                .type_section()
                 .ok_or("Module has no function section")?
                 .types();
-            let exports = module.export_section()
+            let exports = module
+                .export_section()
                 .ok_or("Module has no export section")?
                 .entries();
 
@@ -121,32 +130,40 @@ fn main() {
             Ok(module.clone())
         }
 
-        fn add_global(symbol : &str, module : &parity_wasm::elements::Module, value : i32) -> Result<parity_wasm::elements::Module, String> {
-            let nglobals = module
-                .global_section()
-                .unwrap()
-                .entries()
-                .len();
-                println!("Adding global at index {}", nglobals);
+        fn add_global(
+            symbol: &str,
+            module: &parity_wasm::elements::Module,
+            value: i32,
+        ) -> Result<parity_wasm::elements::Module, String> {
+            let nglobals = module.global_section().unwrap().entries().len();
+            println!("Adding global at index {}", nglobals);
             let nm = parity_wasm::builder::from_module(module.clone())
                 .global()
-                    .value_type().i32()
-                    .init_expr(parity_wasm::elements::Instruction::I32Const(value))
-                    .build()
+                .value_type()
+                .i32()
+                .init_expr(parity_wasm::elements::Instruction::I32Const(value))
+                .build()
                 .export()
-                    .field(symbol)
-                    .internal()
-                        .global(nglobals as u32)
-                    .build()
+                .field(symbol)
+                .internal()
+                .global(nglobals as u32)
+                .build()
                 .build();
             Ok(nm)
         }
 
-        fn add_global_if_missing(symbol : &str, module : &parity_wasm::elements::Module, expected_type : parity_wasm::elements::ValueType, value : i32, _force : bool) -> Result<parity_wasm::elements::Module, String> {
-            let global_section = module.global_section()
-                        .ok_or("Could not get globals section")?
-                        .entries()
-                        .clone();
+        fn add_global_if_missing(
+            symbol: &str,
+            module: &parity_wasm::elements::Module,
+            expected_type: parity_wasm::elements::ValueType,
+            value: i32,
+            _force: bool,
+        ) -> Result<parity_wasm::elements::Module, String> {
+            let global_section = module
+                .global_section()
+                .ok_or("Could not get globals section")?
+                .entries()
+                .clone();
             let exports = module
                 .export_section()
                 .ok_or("Could not get exports section")?
@@ -160,8 +177,7 @@ fn main() {
                 // Export already exists, check its type and return it if said
                 // type is correct.
                 if let &parity_wasm::elements::Internal::Global(gidx) = export.internal() {
-                    let global_type = global_section[gidx as usize]
-                        .global_type();
+                    let global_type = global_section[gidx as usize].global_type();
                     if !global_type.is_mutable() && expected_type == global_type.content_type() {
                         return Ok(module.clone());
                     }
@@ -172,7 +188,10 @@ fn main() {
             if !found {
                 add_global(symbol, module, value)
             } else {
-                Err(format!("Symbol {} is already present with a different type in module", symbol))
+                Err(format!(
+                    "Symbol {} is already present with a different type in module",
+                    symbol
+                ))
             }
         }
 
