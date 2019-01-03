@@ -11,7 +11,7 @@ pub use self::wasm::WasmHelper;
 use flat_absy::{FlatExpression, FlatVariable};
 use std::fmt;
 use zokrates_field::field::Field;
-include!(concat!(env!("OUT_DIR"), "/partialeq_wasm.rs"));
+include!(concat!(env!("OUT_DIR"), "/conditioneq_wasm.rs"));
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct DirectiveStatement<T: Field> {

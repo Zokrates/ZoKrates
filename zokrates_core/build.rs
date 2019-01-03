@@ -200,7 +200,7 @@ fn main() {
 
         /* Build the WASM helpers and turn them into files */
         let status = Command::new("cargo")
-            .current_dir("../plugins/partialeq_wasm")
+            .current_dir("../plugins/conditioneq_wasm")
             .args(&["build", "--target", "wasm32-unknown-unknown", "--release"])
             .status()
             .unwrap();
@@ -210,11 +210,11 @@ fn main() {
 
         /* Turn the output binary into a source file for zokrates_core */
         let fname =
-            "../plugins/partialeq_wasm/target/wasm32-unknown-unknown/release/partialeq_wasm.wasm";
+            "../plugins/conditioneq_wasm/target/wasm32-unknown-unknown/release/conditioneq_wasm.wasm";
         match validate(fname) {
             Ok(module) => {
                 let out_dir = env::var("OUT_DIR").unwrap();
-                let dest_path = Path::new(&out_dir).join("partialeq_wasm.rs");
+                let dest_path = Path::new(&out_dir).join("conditioneq_wasm.rs");
                 let m0 = module.clone();
                 let m1 = add_global_if_missing(
                     "min_inputs",
@@ -246,8 +246,9 @@ fn main() {
                     .write_all(
                         format!(
                             "
-                    pub const PARTIALEQ_WASM : &'static [u8] = &{:?};
-                    ",
+                            #[allow(dead_code)]
+                            pub const CONDITIONEQ_WASM : &'static [u8] = &{:?};
+                            ",
                             buf
                         )
                         .as_bytes(),
