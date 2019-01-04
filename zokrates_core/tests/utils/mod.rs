@@ -1,9 +1,10 @@
 extern crate serde_json;
+extern crate zokrates_field;
 
 use std::io;
 use zokrates_core::compile::{compile as generic_compile, CompileError};
-use zokrates_core::field::{Field, FieldPrime};
 use zokrates_core::ir;
+use zokrates_field::field::{Field, FieldPrime};
 
 #[derive(Serialize, Deserialize)]
 pub struct Tests {
@@ -35,7 +36,7 @@ type Val = String;
 
 impl From<ir::ExecutionResult<FieldPrime>> for ComparableResult {
     fn from(r: ir::ExecutionResult<FieldPrime>) -> ComparableResult {
-        ComparableResult(r.map(|v| v.return_values()))
+        ComparableResult(r.map(|v| v.return_values().iter().map(|&x| x.clone()).collect()))
     }
 }
 
@@ -90,7 +91,7 @@ macro_rules! zokrates_test {
             #[test]
             fn $name() {
 
-                use zokrates_core::field::{FieldPrime, Field};
+                use zokrates_field::field::{FieldPrime, Field};
 
                 let code_string = $crate::utils::read_file(&format!("./{}.code", stringify!($name)));
                 let test_string = $crate::utils::read_file(&format!("./{}.json", stringify!($name)));
