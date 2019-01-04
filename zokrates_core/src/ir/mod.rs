@@ -9,6 +9,7 @@ use zokrates_field::field::Field;
 mod expression;
 mod from_flat;
 mod interpreter;
+mod variable;
 
 use self::expression::LinComb;
 use self::expression::QuadComb;
