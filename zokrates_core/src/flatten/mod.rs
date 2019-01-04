@@ -864,6 +864,7 @@ impl Flattener {
                         FieldElementArrayExpression::FunctionCall(..) => {
                             unimplemented!("please use intermediate variables for now")
                         }
+                        FieldElementArrayExpression::IfElse(..) => unimplemented!(""),
                     },
                     e => {
                         let size = array.size();
@@ -921,6 +922,7 @@ impl Flattener {
                                                 "please use intermediate variables for now"
                                             )
                                         }
+                                        FieldElementArrayExpression::IfElse(..) => unimplemented!(),
                                     },
                                     box FieldElementExpression::Number(T::from(0)),
                                 )
@@ -983,6 +985,36 @@ impl Flattener {
                 );
                 assert!(exprs_flattened.expressions.len() == size); // outside of MultipleDefinition, FunctionCalls must return a single value
                 exprs_flattened.expressions
+            }
+            FieldElementArrayExpression::IfElse(
+                ref condition,
+                ref consequence,
+                ref alternative,
+            ) => {
+                let size = match consequence.get_type() {
+                    Type::FieldElementArray(n) => n,
+                    _ => unreachable!(),
+                };
+                (0..size)
+                    .map(|i| {
+                        self.flatten_field_expression(
+                            functions_flattened,
+                            arguments_flattened,
+                            statements_flattened,
+                            FieldElementExpression::IfElse(
+                                condition.clone(),
+                                box FieldElementExpression::Select(
+                                    consequence.clone(),
+                                    box FieldElementExpression::Number(T::from(i)),
+                                ),
+                                box FieldElementExpression::Select(
+                                    alternative.clone(),
+                                    box FieldElementExpression::Number(T::from(i)),
+                                ),
+                            ),
+                        )
+                    })
+                    .collect()
             }
         }
     }

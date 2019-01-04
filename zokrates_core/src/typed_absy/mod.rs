@@ -300,17 +300,18 @@ impl<T: Field> Typed for TypedExpression<T> {
         match *self {
             TypedExpression::Boolean(_) => Type::Boolean,
             TypedExpression::FieldElement(_) => Type::FieldElement,
-            TypedExpression::FieldElementArray(FieldElementArrayExpression::Identifier(n, _)) => {
-                Type::FieldElementArray(n)
-            }
-            TypedExpression::FieldElementArray(FieldElementArrayExpression::Value(n, _)) => {
-                Type::FieldElementArray(n)
-            }
-            TypedExpression::FieldElementArray(FieldElementArrayExpression::FunctionCall(
-                n,
-                _,
-                _,
-            )) => Type::FieldElementArray(n),
+            TypedExpression::FieldElementArray(ref e) => e.get_type(),
+        }
+    }
+}
+
+impl<T: Field> Typed for FieldElementArrayExpression<T> {
+    fn get_type(&self) -> Type {
+        match *self {
+            FieldElementArrayExpression::Identifier(n, _) => Type::FieldElementArray(n),
+            FieldElementArrayExpression::Value(n, _) => Type::FieldElementArray(n),
+            FieldElementArrayExpression::FunctionCall(n, _, _) => Type::FieldElementArray(n),
+            FieldElementArrayExpression::IfElse(_, ref consequence, _) => consequence.get_type(),
         }
     }
 }
@@ -403,6 +404,11 @@ pub enum FieldElementArrayExpression<T: Field> {
     Identifier(usize, String),
     Value(usize, Vec<FieldElementExpression<T>>),
     FunctionCall(usize, String, Vec<TypedExpression<T>>),
+    IfElse(
+        Box<BooleanExpression<T>>,
+        Box<FieldElementArrayExpression<T>>,
+        Box<FieldElementArrayExpression<T>>,
+    ),
 }
 
 impl<T: Field> FieldElementArrayExpression<T> {
@@ -411,6 +417,7 @@ impl<T: Field> FieldElementArrayExpression<T> {
             FieldElementArrayExpression::Identifier(s, _)
             | FieldElementArrayExpression::Value(s, _)
             | FieldElementArrayExpression::FunctionCall(s, ..) => s,
+            FieldElementArrayExpression::IfElse(_, ref consequence, _) => consequence.size(),
         }
     }
 }
@@ -487,6 +494,13 @@ impl<T: Field> fmt::Display for FieldElementArrayExpression<T> {
                 }
                 write!(f, ")")
             }
+            FieldElementArrayExpression::IfElse(ref condition, ref consequent, ref alternative) => {
+                write!(
+                    f,
+                    "if {} then {} else {} fi",
+                    condition, consequent, alternative
+                )
+            }
         }
     }
 }
@@ -537,6 +551,13 @@ impl<T: Field> fmt::Debug for FieldElementArrayExpression<T> {
                 try!(write!(f, "FunctionCall({:?}, (", i));
                 try!(f.debug_list().entries(p.iter()).finish());
                 write!(f, ")")
+            }
+            FieldElementArrayExpression::IfElse(ref condition, ref consequent, ref alternative) => {
+                write!(
+                    f,
+                    "IfElse({:?}, {:?}, {:?})",
+                    condition, consequent, alternative
+                )
             }
         }
     }

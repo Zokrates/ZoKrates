@@ -544,6 +544,10 @@ impl Checker {
 					(TypedExpression::Boolean(condition), TypedExpression::FieldElement(consequence), TypedExpression::FieldElement(alternative)) => {
 						Ok(FieldElementExpression::IfElse(box condition, box consequence, box alternative).into())
 					},
+                    (TypedExpression::Boolean(condition), TypedExpression::FieldElementArray(consequence), TypedExpression::FieldElementArray(alternative)) => {
+                        assert!(consequence.get_type() == alternative.get_type());
+                        Ok(FieldElementArrayExpression::IfElse(box condition, box consequence, box alternative).into())
+                    },
 					(condition, consequence, alternative) =>
 						Err(
 							Error {
