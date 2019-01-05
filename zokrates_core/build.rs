@@ -195,6 +195,58 @@ fn main() {
             }
         }
 
+        /* Turn the output binary into a source file for zokrates_core */
+        fn wasm2rs(fname: &str, modname: &str) {
+            match validate(fname) {
+                Ok(module) => {
+                    let out_dir = env::var("OUT_DIR").unwrap();
+                    let dest_path = Path::new(&out_dir)
+                        .join(format!("{}.rs", modname));
+                    let m0 = module.clone();
+                    let m1 = add_global_if_missing(
+                        "min_inputs",
+                        &m0,
+                        parity_wasm::elements::ValueType::I32,
+                        1,
+                        false,
+                    )
+                    .unwrap();
+                    let m2 = add_global_if_missing(
+                        "min_outputs",
+                        &m1,
+                        parity_wasm::elements::ValueType::I32,
+                        2,
+                        false,
+                    )
+                    .unwrap();
+                    let m3 = add_global_if_missing(
+                        "field_size",
+                        &m2,
+                        parity_wasm::elements::ValueType::I32,
+                        32,
+                        false,
+                    )
+                    .unwrap();
+                    let buf = parity_wasm::serialize(m3).unwrap();
+                    std::fs::File::create(dest_path)
+                        .unwrap()
+                        .write_all(
+                            format!(
+                                "
+                                #[allow(dead_code)]
+                                pub const {} : &'static [u8] = &{:?};
+                                ",
+                                modname.to_uppercase(),
+                                buf
+                            )
+                            .as_bytes(),
+                        )
+                        .unwrap();
+                }
+                Err(e) => panic!(format!("Module validation error: {}", e.to_string())),
+            }
+        }
+
         /* Regenerate if files have changed */
         println!("cargo:rerun-if-changed=./plugins");
 
@@ -208,54 +260,24 @@ fn main() {
             panic!("Error building WASM helpers");
         }
 
-        /* Turn the output binary into a source file for zokrates_core */
-        let fname =
-            "../plugins/conditioneq_wasm/target/wasm32-unknown-unknown/release/conditioneq_wasm.wasm";
-        match validate(fname) {
-            Ok(module) => {
-                let out_dir = env::var("OUT_DIR").unwrap();
-                let dest_path = Path::new(&out_dir).join("conditioneq_wasm.rs");
-                let m0 = module.clone();
-                let m1 = add_global_if_missing(
-                    "min_inputs",
-                    &m0,
-                    parity_wasm::elements::ValueType::I32,
-                    1,
-                    false,
-                )
-                .unwrap();
-                let m2 = add_global_if_missing(
-                    "min_outputs",
-                    &m1,
-                    parity_wasm::elements::ValueType::I32,
-                    2,
-                    false,
-                )
-                .unwrap();
-                let m3 = add_global_if_missing(
-                    "field_size",
-                    &m2,
-                    parity_wasm::elements::ValueType::I32,
-                    32,
-                    false,
-                )
-                .unwrap();
-                let buf = parity_wasm::serialize(m3).unwrap();
-                std::fs::File::create(dest_path)
-                    .unwrap()
-                    .write_all(
-                        format!(
-                            "
-                            #[allow(dead_code)]
-                            pub const CONDITIONEQ_WASM : &'static [u8] = &{:?};
-                            ",
-                            buf
-                        )
-                        .as_bytes(),
-                    )
-                    .unwrap();
+        /* Scan the plugins directory and compile them */
+        if let Ok(entries) = std::fs::read_dir("../plugins") {
+            for entry in entries {
+                if let Ok(entry) = entry {
+                    if let Ok(ftype) = entry.file_type() {
+                        if ftype.is_dir() {
+                            let fname = format!(
+                                "{}/target/wasm32-unknown-unknown/release/{}.wasm",
+                                entry.path().display(),
+                                entry.file_name().to_str().unwrap()
+                            );
+
+                            wasm2rs(&fname, entry.file_name().to_str().unwrap());
+                        }
+                    }
+                }
             }
-            Err(e) => panic!(format!("Module validation error: {}", e.to_string())),
         }
+        
     }
 }
