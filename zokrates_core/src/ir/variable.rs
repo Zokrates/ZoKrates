@@ -1,6 +1,7 @@
 use ir::*;
 use zokrates_field::field::Field;
 
+#[derive(Serialize, Deserialize)]
 struct Layout {
     variable_count: usize,
     public_count: usize,
@@ -57,7 +58,7 @@ impl Layout {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Eq, Hash)]
 enum Variable {
     Private(usize),
     Public(usize),
@@ -85,10 +86,63 @@ impl Variable {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+struct Witness<T: Field>(Vec<T>);
+
+#[derive(Debug, PartialEq)]
+struct WitnessMap<T: Field>(HashMap<Variable, T>);
+impl<T: Field> WitnessMap<T> {
+    fn from_witness_with_layout(w: Witness<T>, l: &Layout) -> Self {
+        WitnessMap(
+            w.0.into_iter()
+                .enumerate()
+                .map(|(index, value)| {
+                    if index == 0 {
+                        (Variable::One, value)
+                    } else if index < l.public_count + 1 {
+                        (Variable::Public(index - 1), value)
+                    } else if index < l.public_count + l.outputs_count + 1 {
+                        (Variable::Output(index - l.public_count - 1), value)
+                    } else {
+                        (
+                            Variable::Private(index - l.public_count - l.outputs_count - 1),
+                            value,
+                        )
+                    }
+                })
+                .collect::<HashMap<_, _>>(),
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use zokrates_field::field::FieldPrime;
+
+    #[test]
+    fn witness_to_map() {
+        let l = Layout::new(3, 2, 1);
+        let wm = WitnessMap(
+            vec![
+                (Variable::One, FieldPrime::from(1)),
+                (Variable::Public(0), FieldPrime::from(1)),
+                (Variable::Public(1), FieldPrime::from(1)),
+                (Variable::Output(0), FieldPrime::from(1)),
+            ]
+            .into_iter()
+            .collect(),
+        );
+        let w = Witness(vec![
+            FieldPrime::from(1),
+            FieldPrime::from(1),
+            FieldPrime::from(1),
+            FieldPrime::from(1),
+        ]);
+
+        //assert_eq!(WitnessMap::from_witness_with_layout(w, &l), wm);
+        println!("{:?}", WitnessMap::from_witness_with_layout(w, &l));
+    }
 
     #[test]
     fn test() {
