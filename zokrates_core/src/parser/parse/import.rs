@@ -16,14 +16,14 @@ pub fn parse_import<T: Field>(
             (Token::Path(code_path), s2, p2) => match next_token::<T>(&s2, &p2) {
                 (Token::As, s3, p3) => match next_token(&s3, &p3) {
                     (Token::Ide(id), _, p4) => {
-                        return Ok((Import::new_with_alias(code_path, &id), p4))
+                        return Ok((Import::new_with_alias(code_path, &id), p4));
                     }
                     (t4, _, p4) => {
                         return Err(Error {
                             expected: vec![Token::Ide("ide".to_string())],
                             got: t4,
                             pos: p4,
-                        })
+                        });
                     }
                 },
                 (Token::Unknown(_), _, p3) => return Ok((Import::new(code_path), p3)),
@@ -35,7 +35,7 @@ pub fn parse_import<T: Field>(
                         ],
                         got: t3,
                         pos: p3,
-                    })
+                    });
                 }
             },
             (t2, _, p2) => Err(Error {
