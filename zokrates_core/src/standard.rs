@@ -226,9 +226,18 @@ mod tests {
         };
         let compiled: FlatProg<FieldPrime> = FlatProg::from(dr1cs);
 
-        // libsnark input #0: index 1 should equal zokrates input #0: index v_count
+        // libsnark variable #0 should equal 1
         assert_eq!(
             compiled.functions[0].statements[1],
+            FlatStatement::Condition(
+                FlatVariable::new(0).into(),
+                FlatExpression::Number(FieldPrime::from(1))
+            )
+        );
+
+        // libsnark input #0: index 1 should equal 1
+        assert_eq!(
+            compiled.functions[0].statements[2],
             FlatStatement::Condition(
                 FlatVariable::new(1).into(),
                 FlatVariable::new(v_count).into()
