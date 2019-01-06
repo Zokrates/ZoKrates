@@ -132,8 +132,7 @@ impl<T: Field> Into<FlatFunction<T>> for DirectiveR1CS {
             .collect();
 
         // define the inputs with dummy variables: arguments to the function and to the directive
-        let input_variables: Vec<FlatVariable> = vec![0; r1cs.inputs.len()]
-            .iter()
+        let input_variables: Vec<FlatVariable> = (0..r1cs.inputs.len())
             .map(|i| FlatVariable::new(i + variable_count))
             .collect();
         let arguments = input_variables
@@ -226,7 +225,7 @@ mod tests {
         };
         let compiled: FlatProg<FieldPrime> = FlatProg::from(dr1cs);
 
-        // libsnark variable #0 should equal 1
+        // libsnark variable #0: index 0 should equal 1
         assert_eq!(
             compiled.functions[0].statements[1],
             FlatStatement::Condition(
@@ -235,7 +234,7 @@ mod tests {
             )
         );
 
-        // libsnark input #0: index 1 should equal 1
+        // libsnark input #0: index 1 should equal zokrates input #0: index v_count
         assert_eq!(
             compiled.functions[0].statements[2],
             FlatStatement::Condition(
