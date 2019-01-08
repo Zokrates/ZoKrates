@@ -200,8 +200,7 @@ fn main() {
             match validate(fname) {
                 Ok(module) => {
                     let out_dir = env::var("OUT_DIR").unwrap();
-                    let dest_path = Path::new(&out_dir)
-                        .join(format!("{}.rs", modname));
+                    let dest_path = Path::new(&out_dir).join(format!("{}.rs", modname));
                     let m0 = module.clone();
                     let m1 = add_global_if_missing(
                         "min_inputs",
@@ -278,6 +277,5 @@ fn main() {
                 }
             }
         }
-        
     }
 }
