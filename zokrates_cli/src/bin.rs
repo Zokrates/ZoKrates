@@ -393,7 +393,7 @@ fn main() {
             write!(
                 &mut bw,
                 "{}",
-                &serde_json::to_string(&ir::FullWitness::from(witness)).unwrap()
+                &serde_json::to_string_pretty(&witness).unwrap()
             )
             .expect("Unable to write data to file.");
             bw.flush().expect("Unable to flush buffer.");
@@ -475,29 +475,19 @@ fn main() {
                 Err(why) => panic!("couldn't open {}: {}", witness_path.display(), why),
             };
 
-            let e = serde_json::to_string(&FieldPrime::from(4986798698698608979879872)).unwrap();
+            let witness: ir::Witness<FieldPrime> =
+                serde_json::from_reader(BufReader::new(witness_file)).unwrap();
 
-            println!("{:?}", e);
-
-            let e: Result<FieldPrime, _> = serde_json::from_str(&e);
-
-            let reader = BufReader::new(witness_file);
-
-            let witness: ir::FullWitness<FieldPrime> = serde_json::from_reader(reader).unwrap();
-
-            println!("Using Witness: {:?}", witness);
-
-            // println!("Public inputs: {:?}", public_inputs);
-            // println!("Private inputs: {:?}", private_inputs);
+            println!("Using Witness: {}", witness);
 
             let pk_path = sub_matches.value_of("provingkey").unwrap();
             let proof_path = sub_matches.value_of("proofpath").unwrap();
 
             // run libsnark
-            // println!(
-            //     "generate-proof successful: {:?}",
-            //     backend.generate_proof(witness, pk_path, proof_path)
-            // );
+            println!(
+                "generate-proof successful: {:?}",
+                backend.generate_proof(witness, pk_path, proof_path)
+            );
         }
         _ => unimplemented!(), // Either no subcommand or one not tested for...
     }
@@ -534,7 +524,7 @@ mod tests {
                 .into_string()
                 .unwrap();
 
-            let program_flattened: ir::Prog<FieldPrime> =
+            let _: ir::Prog<FieldPrime> =
                 compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
         }
     }

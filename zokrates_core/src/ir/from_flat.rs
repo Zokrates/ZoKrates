@@ -84,9 +84,6 @@ impl<T: Field> From<FlatProg<T>> for Prog<T> {
             })
             .collect();
 
-        // get the interface of the program, ie which inputs are private and public
-        let private = main.arguments.iter().map(|p| p.private).collect();
-
         // convert the main function to this IR for functions
         let main: Function<T> = main.into();
 
@@ -112,7 +109,7 @@ impl<T: Field> From<FlatProg<T>> for Prog<T> {
         };
 
         let main = Function::from(main);
-        Prog { private, main }
+        Prog { main }
     }
 }
 
@@ -257,7 +254,7 @@ mod tests {
                 box FlatExpression::Number(FieldPrime::from(21)),
             ),
         );
-        let expected: LinComb<FieldPrime> = LinComb::summand(42, Variable::Public(42))
+        let expected: LinComb<FieldPrime> = LinComb::summand(42, Variable::Private(42))
             + LinComb::summand(21, Variable::Private(21));
         assert_eq!(LinComb::from(add), expected);
     }

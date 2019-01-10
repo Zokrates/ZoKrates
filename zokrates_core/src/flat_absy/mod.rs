@@ -14,7 +14,7 @@ pub use self::flat_variable::FlatVariable;
 use helpers::DirectiveStatement;
 #[cfg(feature = "libsnark")]
 use standard;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::fmt;
 use types::Signature;
 use zokrates_field::field::Field;
@@ -253,19 +253,6 @@ impl<T: Field> FlatExpression<T> {
                 box e1.apply_substitution(substitution, should_fallback),
                 box e2.apply_substitution(substitution, should_fallback),
             ),
-        }
-    }
-
-    fn solve(&self, inputs: &mut BTreeMap<FlatVariable, T>) -> T {
-        match *self {
-            FlatExpression::Number(ref x) => x.clone(),
-            FlatExpression::Identifier(ref var) => match inputs.get(var) {
-                Some(v) => v.clone(),
-                None => panic!("Variable {:?} is undeclared in witness: {:?}", var, inputs),
-            },
-            FlatExpression::Add(ref x, ref y) => x.solve(inputs) + y.solve(inputs),
-            FlatExpression::Sub(ref x, ref y) => x.solve(inputs) - y.solve(inputs),
-            FlatExpression::Mult(ref x, ref y) => x.solve(inputs) * y.solve(inputs),
         }
     }
 

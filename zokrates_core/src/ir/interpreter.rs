@@ -1,7 +1,6 @@
 use helpers::Executable;
 use ir::variable::Witness;
 use ir::*;
-use std::collections::BTreeMap;
 use zokrates_field::field::Field;
 
 pub type ExecutionResult<T> = Result<Witness<T>, Error>;
@@ -10,9 +9,8 @@ impl<T: Field> Prog<T> {
     pub fn execute<U: Into<T> + Clone>(&self, inputs: &Vec<U>) -> ExecutionResult<T> {
         let main = &self.main;
         self.check_inputs(&inputs)?;
-        let mut witness = Witness::for_prog(&self);
+        let mut witness = IncompleteWitness::for_prog(&self);
         witness.insert(Variable::One, T::one());
-        println!("{:?}", witness);
         for (arg, value) in main.arguments.iter().zip(inputs.iter()) {
             witness.insert(arg.clone(), value.clone().into());
         }
@@ -51,7 +49,7 @@ impl<T: Field> Prog<T> {
             }
         }
 
-        Ok(witness)
+        Ok(witness.into())
     }
 
     fn check_inputs<U>(&self, inputs: &Vec<U>) -> Result<(), Error> {
@@ -67,14 +65,14 @@ impl<T: Field> Prog<T> {
 }
 
 impl<T: Field> LinComb<T> {
-    fn evaluate(&self, witness: &Witness<T>) -> T {
+    fn evaluate(&self, witness: &IncompleteWitness<T>) -> T {
         self.0
             .iter()
-            .map(|(var, val)| witness.get(var).unwrap().clone() * val)
+            .map(|(var, val)| witness.get(var).clone().unwrap() * val)
             .fold(T::from(0), |acc, t| acc + t)
     }
 
-    fn is_assignee(&self, witness: &Witness<T>) -> bool {
+    fn is_assignee(&self, witness: &IncompleteWitness<T>) -> bool {
         self.0.iter().count() == 1
             && self.0.iter().next().unwrap().1 == &T::from(1)
             && !witness.get(self.0.iter().next().unwrap().0).is_some()
@@ -82,7 +80,7 @@ impl<T: Field> LinComb<T> {
 }
 
 impl<T: Field> QuadComb<T> {
-    fn evaluate(&self, witness: &Witness<T>) -> T {
+    fn evaluate(&self, witness: &IncompleteWitness<T>) -> T {
         self.left.evaluate(&witness) * self.right.evaluate(&witness)
     }
 }

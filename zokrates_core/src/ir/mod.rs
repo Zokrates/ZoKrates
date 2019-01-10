@@ -13,7 +13,7 @@ use self::expression::QuadComb;
 
 pub use self::interpreter::Error;
 pub use self::interpreter::ExecutionResult;
-pub use self::variable::FullWitness;
+pub use self::variable::IncompleteWitness;
 pub use self::variable::Layout;
 pub use self::variable::Witness;
 
@@ -96,7 +96,6 @@ impl<T: Field> fmt::Display for Function<T> {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Prog<T: Field> {
     pub main: Function<T>,
-    pub private: Vec<bool>,
 }
 
 impl<T: Field> Prog<T> {
@@ -112,11 +111,19 @@ impl<T: Field> Prog<T> {
     }
 
     pub fn public_arguments_count(&self) -> usize {
-        self.private.iter().filter(|b| !**b).count()
+        self.main
+            .arguments
+            .iter()
+            .filter(|v| !v.is_private())
+            .count()
     }
 
     pub fn private_arguments_count(&self) -> usize {
-        self.private.iter().filter(|b| **b).count()
+        self.main
+            .arguments
+            .iter()
+            .filter(|v| v.is_private())
+            .count()
     }
 
     pub fn parameters(&self) -> Vec<Variable> {
@@ -129,40 +136,6 @@ impl<T: Field> fmt::Display for Prog<T> {
         write!(f, "{}", self.main)
     }
 }
-
-// /// Returns the index of `var` in `variables`, adding `var` with incremented index if it not yet exists.
-// ///
-// /// # Arguments
-// ///
-// /// * `variables` - A mutual map that maps all existing variables to their index.
-// /// * `var` - Variable to be searched for.
-// // pub fn provide_variable_idx(
-// //     variables: &mut HashMap<Variable, usize>,
-// //     var: &Variable,
-// // ) -> usize {
-// //     let index = variables.len();
-// //     *variables.entry(*var).or_insert(index)
-// // }
-
-// /// Calculates one R1CS row representation of a program and returns (V, A, B, C) so that:
-// /// * `V` contains all used variables and the index in the vector represents the used number in `A`, `B`, `C`
-// /// * `<A,x>*<B,x> = <C,x>` for a witness `x`
-// ///
-// /// # Arguments
-// ///
-// /// * `prog` - The program the representation is calculated for.
-// pub fn r1cs_program<T: Field>(
-//     prog: Prog<T>,
-// ) -> (
-//     Vec<Variable>,
-//     usize,
-//     Vec<Vec<(usize, T)>>,
-//     Vec<Vec<(usize, T)>>,
-//     Vec<Vec<(usize, T)>>,
-// ) {
-
-//     unimplemented!()
-// }
 
 #[cfg(test)]
 mod tests {

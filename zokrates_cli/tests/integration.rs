@@ -25,7 +25,7 @@ mod integration {
     fn run_integration_tests() {
         // see https://medium.com/@ericdreichert/test-setup-and-teardown-in-rust-without-a-framework-ba32d97aa5ab
         setup();
-
+        println!("ljkhkjh");
         let result = panic::catch_unwind(|| test_compile_and_witness_dir());
 
         teardown();
@@ -39,29 +39,18 @@ mod integration {
             for entry in fs::read_dir(dir).unwrap() {
                 let entry = entry.unwrap();
                 let path = entry.path();
-                if path.extension().unwrap() == "witness" {
+                if path.extension().unwrap() == "code" {
                     let program_name =
                         Path::new(Path::new(path.file_stem().unwrap()).file_stem().unwrap());
                     let prog = dir.join(program_name).with_extension("code");
-                    let witness = dir.join(program_name).with_extension("expected.witness");
                     let args = dir.join(program_name).with_extension("arguments.json");
-                    test_compile_and_witness(
-                        program_name.to_str().unwrap(),
-                        &prog,
-                        &args,
-                        &witness,
-                    );
+                    test_compile_and_witness(program_name.to_str().unwrap(), &prog, &args);
                 }
             }
         }
     }
 
-    fn test_compile_and_witness(
-        program_name: &str,
-        program_path: &Path,
-        arguments_path: &Path,
-        expected_witness_path: &Path,
-    ) {
+    fn test_compile_and_witness(program_name: &str, program_path: &Path, arguments_path: &Path) {
         let tmp_base = Path::new(".tmp/");
         let test_case_path = tmp_base.join(program_name);
         let flattened_path = tmp_base.join(program_name).join("out");
@@ -138,27 +127,6 @@ mod integration {
         }
 
         assert_cli::Assert::command(&compute).succeeds().unwrap();
-
-        // load the expected witness
-        let mut expected_witness_file = File::open(&expected_witness_path).unwrap();
-        let mut expected_witness = String::new();
-        expected_witness_file
-            .read_to_string(&mut expected_witness)
-            .unwrap();
-
-        // load the actual witness
-        let mut witness_file = File::open(&witness_path).unwrap();
-        let mut witness = String::new();
-        witness_file.read_to_string(&mut witness).unwrap();
-
-        for line in expected_witness.as_str().split("\n") {
-            assert!(
-                witness.contains(line),
-                "Witness generation failed for {}\n\nLine \"{}\" not found in witness",
-                program_path.to_str().unwrap(),
-                line
-            );
-        }
 
         #[cfg(feature = "libsnark")]
         {

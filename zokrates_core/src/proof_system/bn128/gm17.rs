@@ -1,8 +1,7 @@
 extern crate libc;
 
 use self::libc::{c_char, c_int, uint8_t};
-use flat_absy::flat_variable::FlatVariable;
-use ir::Prog;
+use ir::{Prog, Witness};
 use proof_system::utils::{
     prepare_generate_proof, prepare_setup, SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB,
 };
@@ -81,26 +80,25 @@ impl ProofSystem for GM17 {
 
     fn generate_proof(
         &self,
+        witness: Witness<FieldPrime>,
         pk_path: &str,
         proof_path: &str,
-        publquery_inputs: Vec<FieldPrime>,
-        private_inputs: Vec<FieldPrime>,
     ) -> bool {
         let (
             pk_path_cstring,
             proof_path_cstring,
-            publquery_inputs_arr,
-            publquery_inputs_length,
+            public_inputs_arr,
+            public_inputs_length,
             private_inputs_arr,
             private_inputs_length,
-        ) = prepare_generate_proof(pk_path, proof_path, publquery_inputs, private_inputs);
+        ) = prepare_generate_proof(witness, pk_path, proof_path);
 
         unsafe {
             _gm17_generate_proof(
                 pk_path_cstring.as_ptr(),
                 proof_path_cstring.as_ptr(),
-                publquery_inputs_arr[0].as_ptr(),
-                publquery_inputs_length as i32,
+                public_inputs_arr[0].as_ptr(),
+                public_inputs_length as i32,
                 private_inputs_arr[0].as_ptr(),
                 private_inputs_length as i32,
             )

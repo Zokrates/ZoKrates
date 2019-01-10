@@ -1,6 +1,6 @@
 use ir::variable::Variable;
 use num::Zero;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::fmt;
 use std::ops::{Add, Sub};
 use zokrates_field::field::Field;
@@ -35,12 +35,12 @@ impl<T: Field> From<LinComb<T>> for QuadComb<T> {
     }
 }
 
-#[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Debug, Serialize, Deserialize)]
-pub struct LinComb<T: Field>(pub BTreeMap<Variable, T>);
+#[derive(PartialEq, Clone, Eq, Debug, Serialize, Deserialize)]
+pub struct LinComb<T: Field>(pub HashMap<Variable, T>);
 
 impl<T: Field> LinComb<T> {
     pub fn summand<U: Into<T>>(mult: U, var: Variable) -> LinComb<T> {
-        let mut res = BTreeMap::new();
+        let mut res = HashMap::new();
         res.insert(var, mult.into());
         LinComb(res)
     }
@@ -66,7 +66,7 @@ impl<T: Field> fmt::Display for LinComb<T> {
 
 impl<T: Field> From<Variable> for LinComb<T> {
     fn from(v: Variable) -> LinComb<T> {
-        let mut r = BTreeMap::new();
+        let mut r = HashMap::new();
         r.insert(v, T::one());
         LinComb(r)
     }
@@ -108,7 +108,7 @@ impl<T: Field> Sub<LinComb<T>> for LinComb<T> {
 
 impl<T: Field> Zero for LinComb<T> {
     fn zero() -> LinComb<T> {
-        LinComb(BTreeMap::new())
+        LinComb(HashMap::new())
     }
     fn is_zero(&self) -> bool {
         self.0.len() == 0
@@ -135,7 +135,7 @@ mod tests {
             let a: LinComb<FieldPrime> = Variable::Private(42).into();
             let b: LinComb<FieldPrime> = Variable::Private(42).into();
             let c = a + b.clone();
-            let mut expected_map = BTreeMap::new();
+            let mut expected_map = HashMap::new();
             expected_map.insert(Variable::Private(42), FieldPrime::from(2));
             assert_eq!(c, LinComb(expected_map));
         }

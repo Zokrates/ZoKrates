@@ -1,7 +1,6 @@
 extern crate libc;
 
 use self::libc::{c_char, c_int, uint8_t};
-use flat_absy::flat_variable::FlatVariable;
 use proof_system::utils::{
     prepare_generate_proof, prepare_setup, SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB,
 };
@@ -11,7 +10,7 @@ use regex::Regex;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
-use ir::Prog;
+use ir::{Prog, Witness};
 use zokrates_field::field::FieldPrime;
 
 pub struct PGHR13 {}
@@ -82,10 +81,9 @@ impl ProofSystem for PGHR13 {
 
     fn generate_proof(
         &self,
+        witness: Witness<FieldPrime>,
         pk_path: &str,
         proof_path: &str,
-        public_inputs: Vec<FieldPrime>,
-        private_inputs: Vec<FieldPrime>,
     ) -> bool {
         let (
             pk_path_cstring,
@@ -94,7 +92,7 @@ impl ProofSystem for PGHR13 {
             public_inputs_length,
             private_inputs_arr,
             private_inputs_length,
-        ) = prepare_generate_proof(pk_path, proof_path, public_inputs, private_inputs);
+        ) = prepare_generate_proof(witness, pk_path, proof_path);
 
         unsafe {
             _pghr13_generate_proof(

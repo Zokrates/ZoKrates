@@ -1,5 +1,4 @@
-use flat_absy::flat_variable::FlatVariable;
-use ir::{Layout, Prog, Statement};
+use ir::{Layout, Prog, Statement, Witness};
 use std::cmp::max;
 use std::ffi::CString;
 use zokrates_field::field::{Field, FieldPrime};
@@ -177,14 +176,21 @@ pub fn prepare_setup(
 }
 
 // proof-system-independent preparation for proof generation
-pub fn prepare_generate_proof<T: Field>(
+pub fn prepare_generate_proof(
+    witness: Witness<FieldPrime>,
     pk_path: &str,
     proof_path: &str,
-    public_inputs: Vec<T>,
-    private_inputs: Vec<T>,
 ) -> (CString, CString, Vec<[u8; 32]>, usize, Vec<[u8; 32]>, usize) {
     let pk_path_cstring = CString::new(pk_path).unwrap();
     let proof_path_cstring = CString::new(proof_path).unwrap();
+
+    let (public_inputs, private_inputs) = (
+        std::iter::once(witness.one())
+            .chain(witness.public().into_iter())
+            .chain(witness.outputs().into_iter())
+            .collect::<Vec<_>>(),
+        witness.private(),
+    );
 
     let public_inputs_length = public_inputs.len();
     let private_inputs_length = private_inputs.len();
