@@ -8,7 +8,6 @@ mod integration {
     use serde_json::Value;
     use std::fs;
     use std::fs::File;
-    use std::io::prelude::*;
     use std::panic;
     use std::path::Path;
 
