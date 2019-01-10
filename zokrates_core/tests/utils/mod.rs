@@ -2,8 +2,8 @@ extern crate serde_json;
 
 use std::io;
 use zokrates_core::compile::{compile as generic_compile, CompileError};
-use zokrates_field::field::{Field, FieldPrime};
 use zokrates_core::ir;
+use zokrates_field::field::{Field, FieldPrime};
 
 #[derive(Serialize, Deserialize)]
 pub struct Tests {
