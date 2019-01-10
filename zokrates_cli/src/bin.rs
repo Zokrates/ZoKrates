@@ -14,7 +14,6 @@ extern crate zokrates_fs_resolver;
 
 use bincode::{deserialize_from, serialize_into, Infinite};
 use clap::{App, AppSettings, Arg, SubCommand};
-#[cfg(feature = "libsnark")]
 use std::env;
 use std::fs::File;
 use std::io::{stdin, BufRead, BufReader, BufWriter, Write};
@@ -509,7 +508,6 @@ mod tests {
     extern crate glob;
     use self::glob::glob;
     use super::*;
-    use zokrates_core::ir::r1cs_program;
 
     #[test]
     fn examples() {
@@ -538,8 +536,6 @@ mod tests {
 
             let program_flattened: ir::Prog<FieldPrime> =
                 compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
-
-            let (..) = r1cs_program(program_flattened);
         }
     }
 
@@ -568,7 +564,6 @@ mod tests {
             let program_flattened: ir::Prog<FieldPrime> =
                 compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
-            let (..) = r1cs_program(program_flattened.clone());
             let _ = program_flattened
                 .execute(&vec![FieldPrime::from(0)])
                 .unwrap();
@@ -599,8 +594,6 @@ mod tests {
 
             let program_flattened: ir::Prog<FieldPrime> =
                 compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
-
-            let (..) = r1cs_program(program_flattened.clone());
 
             let result = std::panic::catch_unwind(|| {
                 let _ = program_flattened

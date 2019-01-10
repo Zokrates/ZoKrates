@@ -122,7 +122,7 @@ impl PartialOrd for Variable {
 }
 
 impl<T: Field> Witness<T> {
-    fn outputs(&self) -> Vec<T> {
+    pub fn outputs(&self) -> Vec<T> {
         let l = &self.layout;
         let start = l.public_count + 1;
         let size = l.outputs_count;
@@ -273,9 +273,6 @@ mod tests {
                 Variable::Private(1),
                 Variable::Private(2),
             ]
-            .into_iter()
-            .map(|x| Some(x))
-            .collect()
         );
         assert_eq!(l.get_index(&Variable::One), 0);
         assert_eq!(l.get_index(&Variable::Private(1)), 2);

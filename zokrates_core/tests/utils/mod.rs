@@ -35,7 +35,7 @@ type Val = String;
 
 impl From<ir::ExecutionResult<FieldPrime>> for ComparableResult {
     fn from(r: ir::ExecutionResult<FieldPrime>) -> ComparableResult {
-        ComparableResult(r.map(|v| v.return_values()))
+        ComparableResult(r.map(|v| v.outputs()))
     }
 }
 
