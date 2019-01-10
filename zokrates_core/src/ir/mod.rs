@@ -1,9 +1,6 @@
-use flat_absy::flat_parameter::FlatParameter;
-use flat_absy::FlatVariable;
 use helpers::Helper;
-use std::collections::HashMap;
+use ir::variable::Variable;
 use std::fmt;
-use std::mem;
 use zokrates_field::field::Field;
 
 mod expression;
@@ -16,6 +13,9 @@ use self::expression::QuadComb;
 
 pub use self::interpreter::Error;
 pub use self::interpreter::ExecutionResult;
+pub use self::variable::FullWitness;
+pub use self::variable::Layout;
+pub use self::variable::Witness;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Statement<T: Field> {
@@ -26,7 +26,7 @@ pub enum Statement<T: Field> {
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct DirectiveStatement<T: Field> {
     pub inputs: Vec<LinComb<T>>,
-    pub outputs: Vec<FlatVariable>,
+    pub outputs: Vec<Variable>,
     pub helper: Helper,
 }
 
@@ -63,7 +63,7 @@ impl<T: Field> fmt::Display for Statement<T> {
 pub struct Function<T: Field> {
     pub id: String,
     pub statements: Vec<Statement<T>>,
-    pub arguments: Vec<FlatVariable>,
+    pub arguments: Vec<Variable>,
     pub returns: Vec<QuadComb<T>>,
 }
 
@@ -119,16 +119,8 @@ impl<T: Field> Prog<T> {
         self.private.iter().filter(|b| **b).count()
     }
 
-    pub fn parameters(&self) -> Vec<FlatParameter> {
-        self.main
-            .arguments
-            .iter()
-            .zip(self.private.iter())
-            .map(|(id, private)| FlatParameter {
-                private: *private,
-                id: *id,
-            })
-            .collect()
+    pub fn parameters(&self) -> Vec<Variable> {
+        self.main.arguments.clone()
     }
 }
 
@@ -138,118 +130,39 @@ impl<T: Field> fmt::Display for Prog<T> {
     }
 }
 
-/// Returns the index of `var` in `variables`, adding `var` with incremented index if it not yet exists.
-///
-/// # Arguments
-///
-/// * `variables` - A mutual map that maps all existing variables to their index.
-/// * `var` - Variable to be searched for.
-pub fn provide_variable_idx(
-    variables: &mut HashMap<FlatVariable, usize>,
-    var: &FlatVariable,
-) -> usize {
-    let index = variables.len();
-    *variables.entry(*var).or_insert(index)
-}
+// /// Returns the index of `var` in `variables`, adding `var` with incremented index if it not yet exists.
+// ///
+// /// # Arguments
+// ///
+// /// * `variables` - A mutual map that maps all existing variables to their index.
+// /// * `var` - Variable to be searched for.
+// // pub fn provide_variable_idx(
+// //     variables: &mut HashMap<Variable, usize>,
+// //     var: &Variable,
+// // ) -> usize {
+// //     let index = variables.len();
+// //     *variables.entry(*var).or_insert(index)
+// // }
 
-/// Calculates one R1CS row representation of a program and returns (V, A, B, C) so that:
-/// * `V` contains all used variables and the index in the vector represents the used number in `A`, `B`, `C`
-/// * `<A,x>*<B,x> = <C,x>` for a witness `x`
-///
-/// # Arguments
-///
-/// * `prog` - The program the representation is calculated for.
-pub fn r1cs_program<T: Field>(
-    prog: Prog<T>,
-) -> (
-    Vec<FlatVariable>,
-    usize,
-    Vec<Vec<(usize, T)>>,
-    Vec<Vec<(usize, T)>>,
-    Vec<Vec<(usize, T)>>,
-) {
-    let mut variables: HashMap<FlatVariable, usize> = HashMap::new();
-    provide_variable_idx(&mut variables, &FlatVariable::one());
+// /// Calculates one R1CS row representation of a program and returns (V, A, B, C) so that:
+// /// * `V` contains all used variables and the index in the vector represents the used number in `A`, `B`, `C`
+// /// * `<A,x>*<B,x> = <C,x>` for a witness `x`
+// ///
+// /// # Arguments
+// ///
+// /// * `prog` - The program the representation is calculated for.
+// pub fn r1cs_program<T: Field>(
+//     prog: Prog<T>,
+// ) -> (
+//     Vec<Variable>,
+//     usize,
+//     Vec<Vec<(usize, T)>>,
+//     Vec<Vec<(usize, T)>>,
+//     Vec<Vec<(usize, T)>>,
+// ) {
 
-    for x in prog
-        .main
-        .arguments
-        .iter()
-        .enumerate()
-        .filter(|(index, _)| !prog.private[*index])
-    {
-        provide_variable_idx(&mut variables, &x.1);
-    }
-
-    //Only the main function is relevant in this step, since all calls to other functions were resolved during flattening
-    let main = prog.main;
-
-    //~out are added after main's arguments as we want variables (columns)
-    //in the r1cs to be aligned like "public inputs | private inputs"
-    let main_return_count = main.returns.len();
-
-    for i in 0..main_return_count {
-        provide_variable_idx(&mut variables, &FlatVariable::public(i));
-    }
-
-    // position where private part of witness starts
-    let private_inputs_offset = variables.len();
-
-    // first pass through statements to populate `variables`
-    for (quad, lin) in main.statements.iter().filter_map(|s| match s {
-        Statement::Constraint(quad, lin) => Some((quad, lin)),
-        Statement::Directive(..) => None,
-    }) {
-        for (k, _) in &quad.left.0 {
-            provide_variable_idx(&mut variables, &k);
-        }
-        for (k, _) in &quad.right.0 {
-            provide_variable_idx(&mut variables, &k);
-        }
-        for (k, _) in &lin.0 {
-            provide_variable_idx(&mut variables, &k);
-        }
-    }
-
-    let mut a = vec![];
-    let mut b = vec![];
-    let mut c = vec![];
-
-    // second pass to convert program to raw sparse vectors
-    for (quad, lin) in main.statements.into_iter().filter_map(|s| match s {
-        Statement::Constraint(quad, lin) => Some((quad, lin)),
-        Statement::Directive(..) => None,
-    }) {
-        a.push(
-            quad.left
-                .0
-                .into_iter()
-                .map(|(k, v)| (variables.get(&k).unwrap().clone(), v))
-                .collect(),
-        );
-        b.push(
-            quad.right
-                .0
-                .into_iter()
-                .map(|(k, v)| (variables.get(&k).unwrap().clone(), v))
-                .collect(),
-        );
-        c.push(
-            lin.0
-                .into_iter()
-                .map(|(k, v)| (variables.get(&k).unwrap().clone(), v))
-                .collect(),
-        );
-    }
-
-    // Convert map back into list ordered by index
-    let mut variables_list = vec![FlatVariable::new(0); variables.len()];
-    for (k, v) in variables.drain() {
-        assert_eq!(variables_list[v], FlatVariable::new(0));
-        mem::replace(&mut variables_list[v], k);
-    }
-    (variables_list, private_inputs_offset, a, b, c)
-}
+//     unimplemented!()
+// }
 
 #[cfg(test)]
 mod tests {
@@ -263,10 +176,10 @@ mod tests {
         fn print_constraint() {
             let c: Statement<FieldPrime> = Statement::Constraint(
                 QuadComb::from_linear_combinations(
-                    FlatVariable::new(42).into(),
-                    FlatVariable::new(42).into(),
+                    Variable::Private(42).into(),
+                    Variable::Private(42).into(),
                 ),
-                FlatVariable::new(42).into(),
+                Variable::Private(42).into(),
             );
             assert_eq!(format!("{}", c), "(1 * _42) * (1 * _42) == 1 * _42")
         }

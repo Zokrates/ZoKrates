@@ -1,11 +1,11 @@
 use ir::*;
 use zokrates_field::field::Field;
 
-#[derive(Serialize, Deserialize)]
-struct Layout {
-    variable_count: usize,
-    public_count: usize,
-    outputs_count: usize,
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Layout {
+    pub variable_count: usize,
+    pub public_count: usize,
+    pub outputs_count: usize,
 }
 
 impl Layout {
@@ -33,13 +33,17 @@ impl Layout {
         self.variable_count - self.public_count - self.outputs_count
     }
 
-    fn from_prog<T: Field>(p: &Prog<T>) -> Self {
+    pub fn public_count(&self) -> usize {
+        self.public_count + self.outputs_count
+    }
+
+    pub fn from_prog<T: Field>(p: &Prog<T>) -> Self {
         let public_count = p.private.iter().filter(|p| !*p).count();
         let outputs_count = p.main.returns.len();
         use std::collections::HashSet;
-        let mut variables: HashSet<FlatVariable> = HashSet::new();
+        let mut variables: HashSet<&Variable> = HashSet::new();
         for a in &p.main.arguments {
-            variables.insert(*a);
+            variables.insert(a);
         }
         for s in &p.main.statements {
             match s {
@@ -53,13 +57,31 @@ impl Layout {
                 }
             }
         }
-        variables.remove(&FlatVariable::one());
+        variables.remove(&Variable::One);
         Layout::new(variables.len(), public_count, outputs_count)
+    }
+
+    pub fn get_index(&self, v: &Variable) -> usize {
+        match *v {
+            Variable::One => 0,
+            Variable::Public(i) => {
+                assert!(i < self.public_count);
+                i + 1
+            }
+            Variable::Output(i) => {
+                assert!(i < self.outputs_count);
+                i + 1 + self.public_count
+            }
+            Variable::Private(i) => {
+                assert!(i < self.private_count());
+                i + 1 + self.public_count + self.outputs_count
+            }
+        }
     }
 }
 
-#[derive(PartialEq, Debug, Eq, Hash)]
-enum Variable {
+#[derive(PartialEq, Debug, Eq, Hash, Serialize, Deserialize, Clone, Ord)]
+pub enum Variable {
     Private(usize),
     Public(usize),
     Output(usize),
@@ -67,51 +89,147 @@ enum Variable {
 }
 
 impl Variable {
-    fn get_index(&self, l: &Layout) -> usize {
-        match *self {
-            Variable::One => 0,
-            Variable::Public(i) => {
-                assert!(i < l.public_count);
-                i + 1
-            }
-            Variable::Output(i) => {
-                assert!(i < l.outputs_count);
-                i + 1 + l.public_count
-            }
-            Variable::Private(i) => {
-                assert!(i < l.private_count());
-                i + 1 + l.public_count + l.outputs_count
-            }
+    pub fn is_private(&self) -> bool {
+        match self {
+            Variable::Private(..) => true,
+            _ => false,
         }
     }
 }
 
-#[derive(Serialize, Deserialize)]
-struct Witness<T: Field>(Vec<T>);
+impl fmt::Display for Variable {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Variable::One => write!(f, "~one"),
+            Variable::Public(i) => write!(f, "_pub_{}", i),
+            Variable::Output(i) => write!(f, "~out_{}", i),
+            Variable::Private(i) => write!(f, "_{}", i),
+        }
+    }
+}
 
-#[derive(Debug, PartialEq)]
-struct WitnessMap<T: Field>(HashMap<Variable, T>);
-impl<T: Field> WitnessMap<T> {
-    fn from_witness_with_layout(w: Witness<T>, l: &Layout) -> Self {
-        WitnessMap(
-            w.0.into_iter()
-                .enumerate()
-                .map(|(index, value)| {
-                    if index == 0 {
-                        (Variable::One, value)
-                    } else if index < l.public_count + 1 {
-                        (Variable::Public(index - 1), value)
-                    } else if index < l.public_count + l.outputs_count + 1 {
-                        (Variable::Output(index - l.public_count - 1), value)
-                    } else {
-                        (
-                            Variable::Private(index - l.public_count - l.outputs_count - 1),
-                            value,
-                        )
-                    }
-                })
-                .collect::<HashMap<_, _>>(),
+use std::cmp::Ordering;
+
+impl PartialOrd for Variable {
+    fn partial_cmp(&self, other: &Variable) -> Option<Ordering> {
+        match (self, other) {
+            (Variable::One, Variable::One) => Some(Ordering::Equal),
+            (Variable::One, _) => Some(Ordering::Less),
+            (Variable::Public(i), Variable::Public(j)) => i.partial_cmp(&j),
+            _ => unimplemented!(),
+        }
+    }
+}
+
+impl<T: Field> Witness<T> {
+    fn outputs(&self) -> Vec<T> {
+        let l = &self.layout;
+        let start = l.public_count + 1;
+        let size = l.outputs_count;
+        self.values[start..start + size]
+            .iter()
+            .map(|x| x.clone().unwrap())
+            .collect()
+    }
+
+    fn public(&self) -> Vec<T> {
+        let l = &self.layout;
+        let start = 1;
+        let size = l.public_count;
+        self.values[start..start + size]
+            .iter()
+            .map(|x| x.clone().unwrap())
+            .collect()
+    }
+
+    fn private(&self) -> Vec<T> {
+        let l = &self.layout;
+        let start = l.public_count + l.outputs_count + 1;
+        let size = l.variable_count - l.public_count - l.outputs_count;
+        self.values[start..start + size]
+            .iter()
+            .map(|x| x.clone().unwrap())
+            .collect()
+    }
+
+    pub fn format_outputs(&self) -> String {
+        self.outputs()
+            .iter()
+            .map(|x| format!("{}", x))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    pub fn for_prog(p: &Prog<T>) -> Self {
+        let layout = Layout::from_prog(p);
+        Witness {
+            values: vec![None; layout.variable_count + 1],
+            layout,
+        }
+    }
+
+    pub fn insert(&mut self, k: Variable, v: T) -> Option<T> {
+        self.values[self.layout.get_index(&k)] = Some(v);
+        // TODO check not only set
+        None
+    }
+
+    pub fn get(&self, k: &Variable) -> Option<T> {
+        self.values[self.layout.get_index(k)].clone()
+    }
+}
+
+impl<T: Field> fmt::Display for Witness<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            &[
+                "PUBLIC INPUTS",
+                &self
+                    .public()
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+                "PUBLIC OUTPUTS",
+                &self
+                    .outputs()
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+                "PRIVATE",
+                &self
+                    .private()
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            ]
+            .join("\n")
         )
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Witness<T: Field> {
+    layout: Layout,
+    values: Vec<Option<T>>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct FullWitness<T: Field> {
+    layout: Layout,
+    values: Vec<T>,
+}
+
+impl<T: Field> From<Witness<T>> for FullWitness<T> {
+    fn from(w: Witness<T>) -> FullWitness<T> {
+        FullWitness {
+            layout: w.layout,
+            values: w.values.into_iter().map(|x| x.unwrap()).collect(),
+        }
     }
 }
 
@@ -121,27 +239,25 @@ mod tests {
     use zokrates_field::field::FieldPrime;
 
     #[test]
-    fn witness_to_map() {
+    fn witness() {
         let l = Layout::new(3, 2, 1);
-        let wm = WitnessMap(
-            vec![
-                (Variable::One, FieldPrime::from(1)),
-                (Variable::Public(0), FieldPrime::from(1)),
-                (Variable::Public(1), FieldPrime::from(1)),
-                (Variable::Output(0), FieldPrime::from(1)),
+        let w = Witness {
+            values: vec![
+                FieldPrime::from(1),
+                FieldPrime::from(2),
+                FieldPrime::from(3),
+                FieldPrime::from(4),
             ]
             .into_iter()
+            .map(|x| Some(x))
             .collect(),
-        );
-        let w = Witness(vec![
-            FieldPrime::from(1),
-            FieldPrime::from(1),
-            FieldPrime::from(1),
-            FieldPrime::from(1),
-        ]);
+            layout: l,
+        };
 
-        //assert_eq!(WitnessMap::from_witness_with_layout(w, &l), wm);
-        println!("{:?}", WitnessMap::from_witness_with_layout(w, &l));
+        assert_eq!(w.get(&Variable::Output(0)), Some(FieldPrime::from(4)));
+        assert_eq!(w.outputs(), &[FieldPrime::from(4)]);
+        assert_eq!(w.public(), &[FieldPrime::from(2), FieldPrime::from(3)]);
+        assert_eq!(w.private(), &[]);
     }
 
     #[test]
@@ -157,10 +273,13 @@ mod tests {
                 Variable::Private(1),
                 Variable::Private(2),
             ]
+            .into_iter()
+            .map(|x| Some(x))
+            .collect()
         );
-        assert_eq!(Variable::One.get_index(&l), 0);
-        assert_eq!(Variable::Private(1).get_index(&l), 2);
-        assert_eq!(Variable::Private(2).get_index(&l), 3);
+        assert_eq!(l.get_index(&Variable::One), 0);
+        assert_eq!(l.get_index(&Variable::Private(1)), 2);
+        assert_eq!(l.get_index(&Variable::Private(2)), 3);
         let l = Layout::new(3, 2, 1);
         assert_eq!(
             l.variables(),
@@ -191,13 +310,13 @@ mod tests {
                 id: "main".to_string(),
                 statements: vec![Statement::Constraint(
                     QuadComb::from_linear_combinations(
-                        FlatVariable::new(42).into(),
-                        FlatVariable::new(33).into(),
+                        Variable::Private(42).into(),
+                        Variable::Private(33).into(),
                     ),
-                    FlatVariable::new(22).into(),
+                    Variable::Private(22).into(),
                 )],
-                arguments: vec![FlatVariable::new(42), FlatVariable::new(33)],
-                returns: vec![FlatVariable::new(22).into()],
+                arguments: vec![Variable::Private(42), Variable::Private(33)],
+                returns: vec![Variable::Private(22).into()],
             },
             private: vec![true, false],
         };
@@ -216,13 +335,13 @@ mod tests {
                 id: "main".to_string(),
                 statements: vec![Statement::Constraint(
                     QuadComb::from_linear_combinations(
-                        LinComb::from(FlatVariable::new(42)) + FlatVariable::new(33).into(),
-                        FlatVariable::one().into(),
+                        LinComb::from(Variable::Private(42)) + Variable::Private(33).into(),
+                        Variable::One.into(),
                     ),
-                    FlatVariable::new(22).into(),
+                    Variable::Private(22).into(),
                 )],
-                arguments: vec![FlatVariable::new(42), FlatVariable::new(33)],
-                returns: vec![FlatVariable::new(22).into()],
+                arguments: vec![Variable::Private(42), Variable::Private(33)],
+                returns: vec![Variable::Private(22).into()],
             },
             private: vec![true, true],
         };

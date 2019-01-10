@@ -1,6 +1,7 @@
 mod bn128;
 mod utils;
 
+use ir::Prog;
 use std::fs::File;
 use zokrates_field::field::FieldPrime;
 
@@ -10,16 +11,7 @@ use flat_absy::flat_variable::FlatVariable;
 use std::io::BufReader;
 
 pub trait ProofSystem {
-    fn setup(
-        &self,
-        variables: Vec<FlatVariable>,
-        a: Vec<Vec<(usize, FieldPrime)>>,
-        b: Vec<Vec<(usize, FieldPrime)>>,
-        c: Vec<Vec<(usize, FieldPrime)>>,
-        num_inputs: usize,
-        pk_path: &str,
-        vk_path: &str,
-    ) -> bool;
+    fn setup(&self, program: Prog<FieldPrime>, pk_path: &str, vk_path: &str) -> bool;
 
     fn generate_proof(
         &self,

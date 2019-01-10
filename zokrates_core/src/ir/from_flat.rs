@@ -1,8 +1,15 @@
 use flat_absy::{FlatExpression, FlatFunction, FlatProg, FlatStatement, FlatVariable};
 use helpers;
+use ir::variable::Variable;
 use ir::{DirectiveStatement, Function, LinComb, Prog, QuadComb, Statement};
 use num::Zero;
 use zokrates_field::field::Field;
+
+impl From<FlatVariable> for Variable {
+    fn from(fv: FlatVariable) -> Variable {
+        Variable::Private(fv.id())
+    }
+}
 
 impl<T: Field> From<FlatFunction<T>> for Function<T> {
     fn from(flat_function: FlatFunction<T>) -> Function<T> {
@@ -17,7 +24,11 @@ impl<T: Field> From<FlatFunction<T>> for Function<T> {
             .unwrap();
         Function {
             id: flat_function.id,
-            arguments: flat_function.arguments.into_iter().map(|p| p.id).collect(),
+            arguments: flat_function
+                .arguments
+                .into_iter()
+                .map(|p| p.id.into())
+                .collect(),
             returns: return_expressions.into_iter().map(|e| e.into()).collect(),
             statements: flat_function
                 .statements
@@ -40,6 +51,39 @@ impl<T: Field> From<FlatProg<T>> for Prog<T> {
             .find(|f| f.id == "main")
             .unwrap();
 
+        // create the new arguments list by putting public variables where needed
+        let arguments: Vec<Variable> = main
+            .arguments
+            .iter()
+            .scan(0, |state, p| {
+                if p.private {
+                    Some(p.id.into())
+                } else {
+                    let res = Variable::Public(*state);
+                    *state = *state + 1;
+                    Some(res)
+                }
+            })
+            .collect();
+
+        // redefine the removed private variables inside the circuit based on the public ones
+        let public_binding_statements: Vec<Statement<T>> = main
+            .arguments
+            .iter()
+            .scan(0, |state, p| {
+                if p.private {
+                    None
+                } else {
+                    let res = Statement::Constraint(
+                        Variable::Public(*state).into(),
+                        Variable::from(p.id).into(),
+                    );
+                    *state = *state + 1;
+                    Some(res)
+                }
+            })
+            .collect();
+
         // get the interface of the program, ie which inputs are private and public
         let private = main.arguments.iter().map(|p| p.private).collect();
 
@@ -47,17 +91,23 @@ impl<T: Field> From<FlatProg<T>> for Prog<T> {
         let main: Function<T> = main.into();
 
         // contrary to other functions, we need to make sure that return values are identifiers, so we define new (public) variables
-        let definitions =
-            main.returns.iter().enumerate().map(|(index, e)| {
-                Statement::Constraint(e.clone(), FlatVariable::public(index).into())
-            });
+        let definitions = main
+            .returns
+            .iter()
+            .enumerate()
+            .map(|(index, e)| Statement::Constraint(e.clone(), Variable::Output(index).into()));
 
         // update the main function with the extra definition statements and replace the return values
         let main = Function {
             returns: (0..main.returns.len())
-                .map(|i| FlatVariable::public(i).into())
+                .map(|i| Variable::Output(i).into())
                 .collect(),
-            statements: main.statements.into_iter().chain(definitions).collect(),
+            statements: public_binding_statements
+                .into_iter()
+                .chain(main.statements.into_iter())
+                .chain(definitions)
+                .collect(),
+            arguments,
             ..main
         };
 
@@ -85,8 +135,8 @@ impl<T: Field> From<FlatExpression<T>> for LinComb<T> {
         assert!(flat_expression.is_linear());
         match flat_expression {
             FlatExpression::Number(ref n) if *n == T::from(0) => LinComb::zero(),
-            FlatExpression::Number(n) => LinComb::summand(n, FlatVariable::one()),
-            FlatExpression::Identifier(id) => LinComb::from(id),
+            FlatExpression::Number(n) => LinComb::summand(n, Variable::One),
+            FlatExpression::Identifier(id) => LinComb::from(Variable::from(id)),
             FlatExpression::Add(box e1, box e2) => LinComb::from(e1) + LinComb::from(e2),
             FlatExpression::Sub(box e1, box e2) => LinComb::from(e1) - LinComb::from(e2),
             FlatExpression::Mult(
@@ -96,7 +146,7 @@ impl<T: Field> From<FlatExpression<T>> for LinComb<T> {
             | FlatExpression::Mult(
                 box FlatExpression::Identifier(v1),
                 box FlatExpression::Number(n1),
-            ) => LinComb::summand(n1, v1),
+            ) => LinComb::summand(n1, v1.into()),
             e => unimplemented!("{}", e),
         }
     }
@@ -115,9 +165,9 @@ impl<T: Field> From<FlatStatement<T>> for Statement<T> {
             FlatStatement::Definition(var, quadratic) => match quadratic {
                 FlatExpression::Mult(box lhs, box rhs) => Statement::Constraint(
                     QuadComb::from_linear_combinations(lhs.into(), rhs.into()),
-                    var.into(),
+                    Variable::from(var).into(),
                 ),
-                e => Statement::Constraint(LinComb::from(e).into(), var.into()),
+                e => Statement::Constraint(LinComb::from(e).into(), Variable::from(var).into()),
             },
             FlatStatement::Directive(ds) => Statement::Directive(ds.into()),
             _ => panic!("return should be handled at the function level"),
@@ -130,7 +180,7 @@ impl<T: Field> From<helpers::DirectiveStatement<T>> for DirectiveStatement<T> {
         DirectiveStatement {
             inputs: ds.inputs.into_iter().map(|i| i.into()).collect(),
             helper: ds.helper,
-            outputs: ds.outputs,
+            outputs: ds.outputs.into_iter().map(|x| x.into()).collect(),
         }
     }
 }
@@ -152,7 +202,7 @@ mod tests {
     fn one() {
         // 1
         let one = FlatExpression::Number(FieldPrime::from(1));
-        let expected: LinComb<FieldPrime> = FlatVariable::one().into();
+        let expected: LinComb<FieldPrime> = Variable::One.into();
         assert_eq!(LinComb::from(one), expected);
     }
 
@@ -160,7 +210,7 @@ mod tests {
     fn forty_two() {
         // 42
         let one = FlatExpression::Number(FieldPrime::from(42));
-        let expected: LinComb<FieldPrime> = LinComb::summand(42, FlatVariable::one());
+        let expected: LinComb<FieldPrime> = LinComb::summand(42, Variable::One);
         assert_eq!(LinComb::from(one), expected);
     }
 
@@ -172,7 +222,7 @@ mod tests {
             box FlatExpression::Identifier(FlatVariable::new(21)),
         );
         let expected: LinComb<FieldPrime> =
-            LinComb::summand(1, FlatVariable::new(42)) + LinComb::summand(1, FlatVariable::new(21));
+            LinComb::summand(1, Variable::Private(42)) + LinComb::summand(1, Variable::Private(21));
         assert_eq!(LinComb::from(add), expected);
     }
 
@@ -189,8 +239,8 @@ mod tests {
                 box FlatExpression::Identifier(FlatVariable::new(21)),
             ),
         );
-        let expected: LinComb<FieldPrime> = LinComb::summand(42, FlatVariable::new(42))
-            + LinComb::summand(21, FlatVariable::new(21));
+        let expected: LinComb<FieldPrime> = LinComb::summand(42, Variable::Private(42))
+            + LinComb::summand(21, Variable::Private(21));
         assert_eq!(LinComb::from(add), expected);
     }
 
@@ -207,8 +257,8 @@ mod tests {
                 box FlatExpression::Number(FieldPrime::from(21)),
             ),
         );
-        let expected: LinComb<FieldPrime> = LinComb::summand(42, FlatVariable::new(42))
-            + LinComb::summand(21, FlatVariable::new(21));
+        let expected: LinComb<FieldPrime> = LinComb::summand(42, Variable::Public(42))
+            + LinComb::summand(21, Variable::Private(21));
         assert_eq!(LinComb::from(add), expected);
     }
 }

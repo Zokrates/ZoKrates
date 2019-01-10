@@ -7,6 +7,7 @@
 extern crate bincode;
 extern crate clap;
 extern crate regex;
+extern crate serde_json;
 extern crate zokrates_core;
 extern crate zokrates_field;
 extern crate zokrates_fs_resolver;
@@ -14,7 +15,6 @@ extern crate zokrates_fs_resolver;
 use bincode::{deserialize_from, serialize_into, Infinite};
 use clap::{App, AppSettings, Arg, SubCommand};
 #[cfg(feature = "libsnark")]
-use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::{stdin, BufRead, BufReader, BufWriter, Write};
@@ -23,10 +23,8 @@ use std::string::String;
 use zokrates_core::compile::compile;
 use zokrates_core::ir;
 #[cfg(feature = "libsnark")]
-use zokrates_core::ir::r1cs_program;
-#[cfg(feature = "libsnark")]
 use zokrates_core::proof_system::{ProofSystem, GM17, PGHR13};
-use zokrates_field::field::{Field, FieldPrime};
+use zokrates_field::field::FieldPrime;
 use zokrates_fs_resolver::resolve as fs_resolve;
 
 #[cfg(feature = "libsnark")]
@@ -357,10 +355,10 @@ fn main() {
                 .parameters()
                 .iter()
                 .map(|x| {
-                    match x.private && is_interactive {
+                    match x.is_private() && is_interactive {
                         // private inputs are passed interactively when the flag is present
                         true => {
-                            println!("Please enter a value for {:?}:", x.id);
+                            println!("Please enter a value for {:?}:", x);
                             let mut input = String::new();
                             let stdin = stdin();
                             stdin
@@ -393,7 +391,12 @@ fn main() {
                 Err(why) => panic!("couldn't create {}: {}", output_path.display(), why),
             };
             let mut bw = BufWriter::new(output_file);
-            write!(&mut bw, "{}", witness).expect("Unable to write data to file.");
+            write!(
+                &mut bw,
+                "{}",
+                &serde_json::to_string(&ir::FullWitness::from(witness)).unwrap()
+            )
+            .expect("Unable to write data to file.");
             bw.flush().expect("Unable to flush buffer.");
         }
         #[cfg(feature = "libsnark")]
@@ -419,31 +422,6 @@ fn main() {
             // print deserialized flattened program
             println!("{}", program);
 
-            // transform to R1CS
-            let (variables, public_variables_count, a, b, c) = r1cs_program(program);
-
-            // write variables meta information to file
-            let var_inf_path = Path::new(sub_matches.value_of("meta-information").unwrap());
-            let var_inf_file = match File::create(&var_inf_path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't open {}: {}", var_inf_path.display(), why),
-            };
-            let mut bw = BufWriter::new(var_inf_file);
-
-            write!(
-                &mut bw,
-                "Private inputs offset:\n{}\n",
-                public_variables_count
-            )
-            .expect("Unable to write data to file.");
-            write!(&mut bw, "R1CS variable order:\n").expect("Unable to write data to file.");
-
-            for var in &variables {
-                write!(&mut bw, "{} ", var).expect("Unable to write data to file.");
-            }
-            write!(&mut bw, "\n").expect("Unable to write data to file.");
-            bw.flush().expect("Unable to flush buffer.");
-
             // get paths for proving and verification keys
             let pk_path = sub_matches.value_of("proving-key-path").unwrap();
             let vk_path = sub_matches.value_of("verification-key-path").unwrap();
@@ -452,15 +430,7 @@ fn main() {
             // number of inputs in the zkSNARK sense, i.e., input variables + output variables
             println!(
                 "setup successful: {:?}",
-                backend.setup(
-                    variables,
-                    a,
-                    b,
-                    c,
-                    public_variables_count - 1,
-                    pk_path,
-                    vk_path
-                )
+                backend.setup(program, pk_path, vk_path)
             );
         }
         #[cfg(feature = "libsnark")]
@@ -506,72 +476,29 @@ fn main() {
                 Err(why) => panic!("couldn't open {}: {}", witness_path.display(), why),
             };
 
+            let e = serde_json::to_string(&FieldPrime::from(4986798698698608979879872)).unwrap();
+
+            println!("{:?}", e);
+
+            let e: Result<FieldPrime, _> = serde_json::from_str(&e);
+
             let reader = BufReader::new(witness_file);
-            let mut lines = reader.lines();
-            let mut witness_map = HashMap::new();
 
-            loop {
-                match lines.next() {
-                    Some(Ok(ref x)) => {
-                        let pairs: Vec<&str> = x.split_whitespace().collect();
-                        witness_map.insert(
-                            pairs[0].to_string(),
-                            FieldPrime::from_dec_string(pairs[1].to_string()),
-                        );
-                    }
-                    None => break,
-                    Some(Err(err)) => panic!("Error reading witness: {}", err),
-                }
-            }
+            let witness: ir::FullWitness<FieldPrime> = serde_json::from_reader(reader).unwrap();
 
-            // determine variable order
-            let var_inf_path = Path::new(sub_matches.value_of("meta-information").unwrap());
-            let var_inf_file = match File::open(&var_inf_path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't open {}: {}", var_inf_path.display(), why),
-            };
-            let var_reader = BufReader::new(var_inf_file);
-            let mut var_lines = var_reader.lines();
+            println!("Using Witness: {:?}", witness);
 
-            // get private inputs offset
-            let private_inputs_offset;
-            if let Some(Ok(ref o)) = var_lines.nth(1) {
-                // consumes first 2 lines
-                private_inputs_offset = o.parse().expect("Failed parsing private inputs offset");
-            } else {
-                panic!("Error reading private inputs offset");
-            }
-
-            // get variables vector
-            let mut variables: Vec<String> = Vec::new();
-            if let Some(Ok(ref v)) = var_lines.nth(1) {
-                let iter = v.split_whitespace();
-                for i in iter {
-                    variables.push(i.to_string());
-                }
-            } else {
-                panic!("Error reading variables.");
-            }
-
-            println!("Using Witness: {:?}", witness_map);
-
-            let witness: Vec<_> = variables.iter().map(|x| witness_map[x].clone()).collect();
-
-            // split witness into public and private inputs at offset
-            let mut public_inputs: Vec<_> = witness.clone();
-            let private_inputs: Vec<_> = public_inputs.split_off(private_inputs_offset);
-
-            println!("Public inputs: {:?}", public_inputs);
-            println!("Private inputs: {:?}", private_inputs);
+            // println!("Public inputs: {:?}", public_inputs);
+            // println!("Private inputs: {:?}", private_inputs);
 
             let pk_path = sub_matches.value_of("provingkey").unwrap();
             let proof_path = sub_matches.value_of("proofpath").unwrap();
 
             // run libsnark
-            println!(
-                "generate-proof successful: {:?}",
-                backend.generate_proof(pk_path, proof_path, public_inputs, private_inputs)
-            );
+            // println!(
+            //     "generate-proof successful: {:?}",
+            //     backend.generate_proof(witness, pk_path, proof_path)
+            // );
         }
         _ => unimplemented!(), // Either no subcommand or one not tested for...
     }

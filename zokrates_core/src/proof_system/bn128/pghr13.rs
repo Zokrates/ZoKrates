@@ -11,6 +11,7 @@ use regex::Regex;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
+use ir::Prog;
 use zokrates_field::field::FieldPrime;
 
 pub struct PGHR13 {}
@@ -47,16 +48,7 @@ extern "C" {
 }
 
 impl ProofSystem for PGHR13 {
-    fn setup(
-        &self,
-        variables: Vec<FlatVariable>,
-        a: Vec<Vec<(usize, FieldPrime)>>,
-        b: Vec<Vec<(usize, FieldPrime)>>,
-        c: Vec<Vec<(usize, FieldPrime)>>,
-        num_inputs: usize,
-        pk_path: &str,
-        vk_path: &str,
-    ) -> bool {
+    fn setup(&self, program: Prog<FieldPrime>, pk_path: &str, vk_path: &str) -> bool {
         let (
             a_arr,
             b_arr,
@@ -69,7 +61,7 @@ impl ProofSystem for PGHR13 {
             num_inputs,
             pk_path_cstring,
             vk_path_cstring,
-        ) = prepare_setup(variables, a, b, c, num_inputs, pk_path, vk_path);
+        ) = prepare_setup(program, pk_path, vk_path);
 
         unsafe {
             _pghr13_setup(

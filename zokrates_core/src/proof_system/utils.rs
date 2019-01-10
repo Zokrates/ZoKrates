@@ -1,7 +1,8 @@
 use flat_absy::flat_variable::FlatVariable;
+use ir::{Layout, Prog, Statement};
 use std::cmp::max;
 use std::ffi::CString;
-use zokrates_field::field::Field;
+use zokrates_field::field::{Field, FieldPrime};
 
 // utility function. Converts a Fields vector-based byte representation to fixed size array.
 fn vec_as_u8_32_array(vec: &Vec<u8>) -> [u8; 32] {
@@ -14,12 +15,8 @@ fn vec_as_u8_32_array(vec: &Vec<u8>) -> [u8; 32] {
 }
 
 // proof-system-independent preparation for the setup phase
-pub fn prepare_setup<T: Field>(
-    variables: Vec<FlatVariable>,
-    a: Vec<Vec<(usize, T)>>,
-    b: Vec<Vec<(usize, T)>>,
-    c: Vec<Vec<(usize, T)>>,
-    num_inputs: usize,
+pub fn prepare_setup(
+    program: Prog<FieldPrime>,
     pk_path: &str,
     vk_path: &str,
 ) -> (
@@ -35,8 +32,42 @@ pub fn prepare_setup<T: Field>(
     CString,
     CString,
 ) {
+    let layout = Layout::from_prog(&program);
+    let num_inputs = layout.public_count();
+
+    let mut a = vec![];
+    let mut b = vec![];
+    let mut c = vec![];
+
+    // // second pass to convert program to raw sparse vectors
+    for (quad, lin) in program.main.statements.into_iter().filter_map(|s| match s {
+        Statement::Constraint(quad, lin) => Some((quad, lin)),
+        Statement::Directive(..) => None,
+    }) {
+        a.push(
+            quad.left
+                .0
+                .into_iter()
+                .map(|(k, v)| (layout.get_index(&k), v))
+                .collect::<Vec<_>>(),
+        );
+        b.push(
+            quad.right
+                .0
+                .into_iter()
+                .map(|(k, v)| (layout.get_index(&k), v))
+                .collect::<Vec<_>>(),
+        );
+        c.push(
+            lin.0
+                .into_iter()
+                .map(|(k, v)| (layout.get_index(&k), v))
+                .collect::<Vec<_>>(),
+        );
+    }
+
     let num_constraints = a.len();
-    let num_variables = variables.len();
+    let num_variables = layout.variable_count + 1;
 
     // Create single A,B,C vectors of tuples (constraint_number, variable_id, variable_value)
     let mut a_vec = vec![];

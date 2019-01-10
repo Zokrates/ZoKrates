@@ -1,4 +1,4 @@
-use flat_absy::FlatVariable;
+use ir::variable::Variable;
 use num::Zero;
 use std::collections::BTreeMap;
 use std::fmt;
@@ -17,8 +17,8 @@ impl<T: Field> QuadComb<T> {
     }
 }
 
-impl<T: Field> From<FlatVariable> for QuadComb<T> {
-    fn from(v: FlatVariable) -> QuadComb<T> {
+impl<T: Field> From<Variable> for QuadComb<T> {
+    fn from(v: Variable) -> QuadComb<T> {
         LinComb::from(v).into()
     }
 }
@@ -36,17 +36,17 @@ impl<T: Field> From<LinComb<T>> for QuadComb<T> {
 }
 
 #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Debug, Serialize, Deserialize)]
-pub struct LinComb<T: Field>(pub BTreeMap<FlatVariable, T>);
+pub struct LinComb<T: Field>(pub BTreeMap<Variable, T>);
 
 impl<T: Field> LinComb<T> {
-    pub fn summand<U: Into<T>>(mult: U, var: FlatVariable) -> LinComb<T> {
+    pub fn summand<U: Into<T>>(mult: U, var: Variable) -> LinComb<T> {
         let mut res = BTreeMap::new();
         res.insert(var, mult.into());
         LinComb(res)
     }
 
     pub fn one() -> LinComb<T> {
-        Self::summand(1, FlatVariable::one())
+        Self::summand(1, Variable::One)
     }
 }
 
@@ -64,8 +64,8 @@ impl<T: Field> fmt::Display for LinComb<T> {
     }
 }
 
-impl<T: Field> From<FlatVariable> for LinComb<T> {
-    fn from(v: FlatVariable) -> LinComb<T> {
+impl<T: Field> From<Variable> for LinComb<T> {
+    fn from(v: Variable) -> LinComb<T> {
         let mut r = BTreeMap::new();
         r.insert(v, T::one());
         LinComb(r)
@@ -126,23 +126,23 @@ mod tests {
         #[test]
         fn add_zero() {
             let a: LinComb<FieldPrime> = LinComb::zero();
-            let b: LinComb<FieldPrime> = FlatVariable::new(42).into();
+            let b: LinComb<FieldPrime> = Variable::Private(42).into();
             let c = a + b.clone();
             assert_eq!(c, b);
         }
         #[test]
         fn add() {
-            let a: LinComb<FieldPrime> = FlatVariable::new(42).into();
-            let b: LinComb<FieldPrime> = FlatVariable::new(42).into();
+            let a: LinComb<FieldPrime> = Variable::Private(42).into();
+            let b: LinComb<FieldPrime> = Variable::Private(42).into();
             let c = a + b.clone();
             let mut expected_map = BTreeMap::new();
-            expected_map.insert(FlatVariable::new(42), FieldPrime::from(2));
+            expected_map.insert(Variable::Private(42), FieldPrime::from(2));
             assert_eq!(c, LinComb(expected_map));
         }
         #[test]
         fn sub() {
-            let a: LinComb<FieldPrime> = FlatVariable::new(42).into();
-            let b: LinComb<FieldPrime> = FlatVariable::new(42).into();
+            let a: LinComb<FieldPrime> = Variable::Private(42).into();
+            let b: LinComb<FieldPrime> = Variable::Private(42).into();
             let c = a - b.clone();
             assert_eq!(c, LinComb::zero());
         }
@@ -152,8 +152,8 @@ mod tests {
         use super::*;
         #[test]
         fn from_linear() {
-            let a: LinComb<FieldPrime> = LinComb::summand(3, FlatVariable::new(42))
-                + LinComb::summand(4, FlatVariable::new(33));
+            let a: LinComb<FieldPrime> = LinComb::summand(3, Variable::Private(42))
+                + LinComb::summand(4, Variable::Private(33));
             let expected = QuadComb {
                 left: LinComb::one(),
                 right: a.clone(),

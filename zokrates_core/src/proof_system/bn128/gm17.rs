@@ -2,6 +2,7 @@ extern crate libc;
 
 use self::libc::{c_char, c_int, uint8_t};
 use flat_absy::flat_variable::FlatVariable;
+use ir::Prog;
 use proof_system::utils::{
     prepare_generate_proof, prepare_setup, SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB,
 };
@@ -46,16 +47,7 @@ extern "C" {
 }
 
 impl ProofSystem for GM17 {
-    fn setup(
-        &self,
-        variables: Vec<FlatVariable>,
-        a: Vec<Vec<(usize, FieldPrime)>>,
-        b: Vec<Vec<(usize, FieldPrime)>>,
-        c: Vec<Vec<(usize, FieldPrime)>>,
-        num_inputs: usize,
-        pk_path: &str,
-        vk_path: &str,
-    ) -> bool {
+    fn setup(&self, program: Prog<FieldPrime>, pk_path: &str, vk_path: &str) -> bool {
         let (
             a_arr,
             b_arr,
@@ -68,7 +60,7 @@ impl ProofSystem for GM17 {
             num_inputs,
             pk_path_cstring,
             vk_path_cstring,
-        ) = prepare_setup(variables, a, b, c, num_inputs, pk_path, vk_path);
+        ) = prepare_setup(program, pk_path, vk_path);
 
         unsafe {
             _gm17_setup(

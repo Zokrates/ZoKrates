@@ -1,54 +1,18 @@
 use helpers::Executable;
+use ir::variable::Witness;
 use ir::*;
 use std::collections::BTreeMap;
 use zokrates_field::field::Field;
 
 pub type ExecutionResult<T> = Result<Witness<T>, Error>;
 
-pub struct Witness<T: Field>(BTreeMap<FlatVariable, T>);
-
-impl<T: Field> Witness<T> {
-    pub fn return_values(&self) -> Vec<T> {
-        self.0
-            .clone()
-            .into_iter()
-            .filter(|(k, _)| k.is_output())
-            .map(|(_, v)| v)
-            .collect()
-    }
-
-    pub fn format_outputs(&self) -> String {
-        self.0
-            .iter()
-            .filter_map(|(variable, value)| match variable {
-                variable if variable.is_output() => Some(format!("{} {}", variable, value)),
-                _ => None,
-            })
-            .collect::<Vec<String>>()
-            .join("\n")
-    }
-}
-
-impl<T: Field> fmt::Display for Witness<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.0
-                .iter()
-                .map(|(k, v)| format!("{} {}", k, v.to_dec_string()))
-                .collect::<Vec<_>>()
-                .join("\n")
-        )
-    }
-}
-
 impl<T: Field> Prog<T> {
     pub fn execute<U: Into<T> + Clone>(&self, inputs: &Vec<U>) -> ExecutionResult<T> {
         let main = &self.main;
         self.check_inputs(&inputs)?;
-        let mut witness = BTreeMap::new();
-        witness.insert(FlatVariable::one(), T::one());
+        let mut witness = Witness::for_prog(&self);
+        witness.insert(Variable::One, T::one());
+        println!("{:?}", witness);
         for (arg, value) in main.arguments.iter().zip(inputs.iter()) {
             witness.insert(arg.clone(), value.clone().into());
         }
@@ -87,7 +51,7 @@ impl<T: Field> Prog<T> {
             }
         }
 
-        Ok(Witness(witness))
+        Ok(witness)
     }
 
     fn check_inputs<U>(&self, inputs: &Vec<U>) -> Result<(), Error> {
@@ -103,22 +67,22 @@ impl<T: Field> Prog<T> {
 }
 
 impl<T: Field> LinComb<T> {
-    fn evaluate(&self, witness: &BTreeMap<FlatVariable, T>) -> T {
+    fn evaluate(&self, witness: &Witness<T>) -> T {
         self.0
             .iter()
             .map(|(var, val)| witness.get(var).unwrap().clone() * val)
             .fold(T::from(0), |acc, t| acc + t)
     }
 
-    fn is_assignee(&self, witness: &BTreeMap<FlatVariable, T>) -> bool {
+    fn is_assignee(&self, witness: &Witness<T>) -> bool {
         self.0.iter().count() == 1
             && self.0.iter().next().unwrap().1 == &T::from(1)
-            && !witness.contains_key(self.0.iter().next().unwrap().0)
+            && !witness.get(self.0.iter().next().unwrap().0).is_some()
     }
 }
 
 impl<T: Field> QuadComb<T> {
-    fn evaluate(&self, witness: &BTreeMap<FlatVariable, T>) -> T {
+    fn evaluate(&self, witness: &Witness<T>) -> T {
         self.left.evaluate(&witness) * self.right.evaluate(&witness)
     }
 }
