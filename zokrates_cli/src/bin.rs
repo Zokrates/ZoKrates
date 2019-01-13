@@ -51,7 +51,7 @@ fn main() {
     // cli specification using clap library
     let matches = App::new("ZoKrates")
     .setting(AppSettings::SubcommandRequiredElseHelp)
-    .version("0.3.2")
+    .version("0.3.3")
     .author("Jacob Eberhardt, Thibaut Schaeffer, Dennis Kuhnert")
     .about("Supports generation of zkSNARKs from high level language code including Smart Contracts for proof verification on the Ethereum Blockchain.\n'I know that I show nothing!'")
     .subcommand(SubCommand::with_name("compile")
