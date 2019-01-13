@@ -12,12 +12,6 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 
-char* _sha256Constraints();
-char* _sha256Witness(const uint8_t* input, int input_length);
-
-char* _shaEth256Constraints();
-char* _shaEth256Witness(const uint8_t* input, int input_length);
-
 char* _sha256RoundConstraints();
 char* _sha256RoundWitness(const uint8_t* input, int input_length);
 

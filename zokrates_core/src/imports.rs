@@ -127,25 +127,12 @@ impl Importer {
                 #[cfg(feature = "libsnark")]
                 {
                     use helpers::LibsnarkGadgetHelper;
-                    use libsnark::{get_ethsha256_constraints, get_sha256_constraints, get_sha256round_constraints};
+                    use libsnark::{get_sha256round_constraints};
                     use serde_json::from_str;
                     use standard::{DirectiveR1CS, R1CS};
                     use std::io::BufReader;
 
                     match import.source.as_ref() {
-                        "LIBSNARK/sha256" => {
-                            let r1cs: R1CS = from_str(&get_ethsha256_constraints()).unwrap();
-                            let dr1cs: DirectiveR1CS = DirectiveR1CS {
-                                r1cs,
-                                directive: LibsnarkGadgetHelper::Sha256Ethereum,
-                            };
-                            let compiled = FlatProg::from(dr1cs);
-                            let alias = match import.alias {
-                                Some(ref alias) => alias.clone(),
-                                None => String::from("sha256"),
-                            };
-                            origins.push(CompiledImport::new(compiled, alias));
-                        }
                         "LIBSNARK/sha256round" => {
                             let r1cs: R1CS = from_str(&get_sha256round_constraints()).unwrap();
                             let dr1cs: DirectiveR1CS = DirectiveR1CS {
@@ -156,19 +143,6 @@ impl Importer {
                             let alias = match import.alias {
                                 Some(ref alias) => alias.clone(),
                                 None => String::from("sha256round"),
-                            };
-                            origins.push(CompiledImport::new(compiled, alias));
-                        }
-                        "LIBSNARK/sha256compression" => {
-                            let r1cs: R1CS = from_str(&get_sha256_constraints()).unwrap();
-                            let dr1cs: DirectiveR1CS = DirectiveR1CS {
-                                r1cs,
-                                directive: LibsnarkGadgetHelper::Sha256Compress,
-                            };
-                            let compiled = FlatProg::from(dr1cs);
-                            let alias = match import.alias {
-                                Some(ref alias) => alias.clone(),
-                                None => String::from("sha256compression"),
                             };
                             origins.push(CompiledImport::new(compiled, alias));
                         }

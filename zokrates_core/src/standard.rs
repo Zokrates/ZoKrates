@@ -167,27 +167,6 @@ impl<T: Field> Into<FlatFunction<T>> for DirectiveR1CS {
 
         // insert a directive to set the witness based on the libsnark gadget and  inputs
         match self.directive {
-            LibsnarkGadgetHelper::Sha256Compress => {
-                statements.insert(
-                    0,
-                    FlatStatement::Directive(DirectiveStatement {
-                        outputs: variables,
-                        inputs: inputs,
-                        helper: Helper::LibsnarkGadget(LibsnarkGadgetHelper::Sha256Compress),
-                    }),
-                );
-            }
-
-            LibsnarkGadgetHelper::Sha256Ethereum => {
-                statements.insert(
-                    0,
-                    FlatStatement::Directive(DirectiveStatement {
-                        outputs: variables,
-                        inputs: inputs,
-                        helper: Helper::LibsnarkGadget(LibsnarkGadgetHelper::Sha256Ethereum),
-                    }),
-                );
-            }
 
             LibsnarkGadgetHelper::Sha256Round => {
                 statements.insert(
