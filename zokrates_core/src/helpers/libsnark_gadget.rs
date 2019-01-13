@@ -47,8 +47,6 @@ impl<T: Field> Executable<T> for LibsnarkGadgetHelper {
             .map(|&i| T::from(i))
             .collect();
         
-        println!("#Debug Witness size: {:#?}", lol.len());
-        println!("#Debug Witness variables: {:#?}", lol);
         Ok(lol)
     }
 }
@@ -58,7 +56,6 @@ impl Signed for LibsnarkGadgetHelper {
         match self {
             LibsnarkGadgetHelper::Sha256Compress => (512, 25562),
             LibsnarkGadgetHelper::Sha256Ethereum => (512, 50610),
-            // LibsnarkGadgetHelper::Sha256Round => (612, 25662)
             LibsnarkGadgetHelper::Sha256Round => (768, 25818)
         }
     }
