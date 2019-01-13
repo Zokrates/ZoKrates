@@ -42,7 +42,7 @@ impl<T: Field> Executable<T> for LibsnarkGadgetHelper {
 impl Signed for LibsnarkGadgetHelper {
     fn get_signature(&self) -> (usize, usize) {
         match self {
-            LibsnarkGadgetHelper::Sha256Round => (768, 25818)
+            LibsnarkGadgetHelper::Sha256Round => (768, 25817)
         }
     }
 }
