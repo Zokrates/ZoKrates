@@ -63,22 +63,22 @@ mod tests {
 
         #[test]
         fn can_get_sha256_constraints() {
-            let _a = get_sha256_constraints();
+            let _a = get_sha256round_constraints();
         }
 
         #[test]
         fn can_generate_sha_256_witness_null() {
-            let inputs = vec![FieldPrime::from(0); 512];
-            let _b = get_sha256_witness(&inputs);
+            let inputs = vec![FieldPrime::from(0); 768];
+            let _b = get_sha256round_witness(&inputs);
         }
 
         #[test]
         fn can_generate_flattened_code() {
-            let constraints = get_sha256_constraints();
+            let constraints = get_sha256round_constraints();
             let r1cs: standard::R1CS = serde_json::from_str(&constraints).unwrap();
             let _prog: FlatProg<FieldPrime> = FlatProg::from(standard::DirectiveR1CS {
                 r1cs,
-                directive: helpers::LibsnarkGadgetHelper::Sha256Compress,
+                directive: helpers::LibsnarkGadgetHelper::Sha256Round,
             });
         }
     }

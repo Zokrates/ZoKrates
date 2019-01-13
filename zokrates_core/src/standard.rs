@@ -212,4 +212,36 @@ mod tests {
         let c: Constraint = serde_json::from_str(constraint).unwrap();
         let _statement: FlatStatement<FieldPrime> = c.into();
     }
+
+    #[test]
+    fn generate_sha256_constraints() {
+        use flat_absy::FlatProg;
+        use libsnark::get_sha256round_constraints;
+        let r1cs: R1CS = serde_json::from_str(&get_sha256round_constraints()).unwrap();
+        let v_count = r1cs.variable_count;
+
+        let dr1cs: DirectiveR1CS = DirectiveR1CS {
+            r1cs,
+            directive: LibsnarkGadgetHelper::Sha256Round,
+        };
+        let compiled: FlatProg<FieldPrime> = FlatProg::from(dr1cs);
+
+        // libsnark variable #0: index 0 should equal 1
+        assert_eq!(
+            compiled.functions[0].statements[1],
+            FlatStatement::Condition(
+                FlatVariable::new(0).into(),
+                FlatExpression::Number(FieldPrime::from(1))
+            )
+        );
+
+        // libsnark input #0: index 1 should equal zokrates input #0: index v_count
+        assert_eq!(
+            compiled.functions[0].statements[2],
+            FlatStatement::Condition(
+                FlatVariable::new(1).into(),
+                FlatVariable::new(v_count).into()
+            )
+        );
+    }
 }
