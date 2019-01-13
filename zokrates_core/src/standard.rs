@@ -5,6 +5,8 @@ use helpers::{DirectiveStatement, Helper, LibsnarkGadgetHelper};
 use reduce::Reduce;
 use std::collections::{BTreeMap, HashSet};
 use types::{Signature, Type};
+use zokrates_field::field::Field;
+use std::iter::once;
 
 // for r1cs import, can be moved.
 // r1cs data structure reflecting JSON standard format:
