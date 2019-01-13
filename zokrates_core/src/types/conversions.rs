@@ -1,5 +1,4 @@
 use bimap::BiMap;
-use field::Field;
 use flat_absy::flat_parameter::FlatParameter;
 use flat_absy::flat_variable::FlatVariable;
 use flat_absy::*;
@@ -8,6 +7,7 @@ use reduce::Reduce;
 use types::constraints::Constraint;
 use types::signature::Signature;
 use types::Type;
+use zokrates_field::field::Field;
 
 fn use_variable(
     bijection: &mut BiMap<String, FlatVariable>,
@@ -294,7 +294,7 @@ pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use field::FieldPrime;
+    use zokrates_field::field::FieldPrime;
 
     #[cfg(test)]
     mod cast {

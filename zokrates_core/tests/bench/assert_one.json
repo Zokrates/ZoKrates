@@ -1,0 +1,17 @@
+{
+	"tests": [
+		{
+			"input": {
+				"values": ["0"]
+			},
+			"output": {
+				"Err": {
+					"UnsatisfiedConstraint": {
+						"left": "1",
+						"right": "0"
+					}
+				}
+			}
+		}
+	]
+}

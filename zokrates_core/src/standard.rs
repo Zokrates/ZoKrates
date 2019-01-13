@@ -1,4 +1,3 @@
-use field::Field;
 use flat_absy::{FlatExpression, FlatExpressionList, FlatFunction, FlatStatement};
 use flat_absy::{FlatParameter, FlatVariable};
 use helpers::{DirectiveStatement, Helper, LibsnarkGadgetHelper};
@@ -6,7 +5,6 @@ use reduce::Reduce;
 use std::collections::{BTreeMap, HashSet};
 use types::{Signature, Type};
 use zokrates_field::field::Field;
-use std::iter::once;
 
 // for r1cs import, can be moved.
 // r1cs data structure reflecting JSON standard format:
@@ -197,8 +195,8 @@ impl<T: Field> Into<FlatFunction<T>> for DirectiveR1CS {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use field::FieldPrime;
     use serde_json;
+    use zokrates_field::field::FieldPrime;
 
     #[test]
     fn deserialize_constraint() {

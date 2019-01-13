@@ -16,9 +16,9 @@ use self::inline::Inliner;
 use self::power_check::PowerChecker;
 use self::propagation::Propagator;
 use self::unroll::Unroller;
-use field::Field;
 use flat_absy::FlatProg;
 use typed_absy::TypedProg;
+use zokrates_field::field::Field;
 
 pub trait Analyse {
     fn analyse(self) -> Self;

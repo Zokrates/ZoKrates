@@ -1,6 +1,6 @@
-use field::Field;
 use helpers::{Executable, Signed};
 use std::fmt;
+use zokrates_field::field::Field;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum RustHelper {
@@ -63,7 +63,7 @@ impl<T: Field> Executable<T> for RustHelper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use field::FieldPrime;
+    use zokrates_field::field::FieldPrime;
 
     #[test]
     fn bits_of_one() {

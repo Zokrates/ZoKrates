@@ -2,6 +2,7 @@
 name = "zokrates_field"
 version = "0.3.0"
 authors = ["Guillaume Ballet <gballet@gmail.com>"]
+edition = "2018"
 
 [dependencies]
 

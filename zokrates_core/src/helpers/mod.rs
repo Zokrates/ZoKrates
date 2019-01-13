@@ -5,9 +5,9 @@ mod rust;
 #[cfg(feature = "libsnark")]
 pub use self::libsnark_gadget::LibsnarkGadgetHelper;
 pub use self::rust::RustHelper;
-use field::Field;
 use flat_absy::{FlatExpression, FlatVariable};
 use std::fmt;
+use zokrates_field::field::Field;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct DirectiveStatement<T: Field> {
@@ -115,7 +115,7 @@ impl Signed for Helper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use field::FieldPrime;
+    use zokrates_field::field::FieldPrime;
 
     #[cfg(feature = "libsnark")]
     mod sha256libsnark {

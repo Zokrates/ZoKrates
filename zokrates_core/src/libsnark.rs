@@ -10,7 +10,7 @@ use self::libc::{c_char, c_int, uint8_t};
 use std::ffi::CString;
 use std::string::String;
 
-use field::Field;
+use zokrates_field::field::Field;
 
 extern "C" {
     fn _sha256RoundConstraints() -> *mut c_char;
@@ -50,12 +50,12 @@ fn vec_as_u8_32_array(vec: &Vec<u8>) -> [u8; 32] {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use field::FieldPrime;
     use flat_absy::*;
     use helpers;
     use num_bigint::BigUint;
     use serde_json;
     use standard;
+    use zokrates_field::field::FieldPrime;
 
     #[cfg(test)]
     mod sha256_gadget {
