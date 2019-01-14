@@ -1,17 +1,17 @@
 #[cfg(feature = "libsnark")]
 mod libsnark_gadget;
 mod rust;
-// #[cfg(feature = "wasm")]
+#[cfg(feature = "wasm")]
 mod wasm;
 
 #[cfg(feature = "libsnark")]
 pub use self::libsnark_gadget::LibsnarkGadgetHelper;
 pub use self::rust::RustHelper;
+#[cfg(feature = "wasm")]
 pub use self::wasm::WasmHelper;
 use flat_absy::{FlatExpression, FlatVariable};
 use std::fmt;
 use zokrates_field::field::Field;
-include!(concat!(env!("OUT_DIR"), "/conditioneq_wasm.rs"));
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct DirectiveStatement<T: Field> {
@@ -62,8 +62,30 @@ pub enum Helper {
     #[cfg(feature = "libsnark")]
     LibsnarkGadget(LibsnarkGadgetHelper),
     Rust(RustHelper),
-    // #[cfg(feature = "wasm")]
+    #[cfg(feature = "wasm")]
     Wasm(WasmHelper),
+}
+
+#[cfg(feature = "wasm")]
+impl Helper {
+    pub fn identity() -> Self {
+        Helper::Wasm(WasmHelper::from_hex(WasmHelper::IDENTITY_WASM))
+    }
+
+    pub fn bits() -> Self {
+        Helper::Wasm(WasmHelper::from(WasmHelper::BITS_WASM))
+    }
+}
+
+#[cfg(not(feature = "wasm"))]
+impl Helper {
+    pub fn identity() -> Self {
+        Helper::Rust(RustHelper::Identity)
+    }
+
+    pub fn bits() -> Self {
+        Helper::Rust(RustHelper::Bits)
+    }
 }
 
 impl fmt::Display for Helper {
@@ -72,6 +94,7 @@ impl fmt::Display for Helper {
             #[cfg(feature = "libsnark")]
             Helper::LibsnarkGadget(ref h) => write!(f, "LibsnarkGadget::{}", h),
             Helper::Rust(ref h) => write!(f, "Rust::{}", h),
+            #[cfg(feature = "wasm")]
             Helper::Wasm(ref h) => write!(f, "Wasm::{}", h),
         }
     }
@@ -94,6 +117,7 @@ impl<T: Field> Executable<T> for Helper {
             #[cfg(feature = "libsnark")]
             Helper::LibsnarkGadget(helper) => helper.execute(inputs),
             Helper::Rust(helper) => helper.execute(inputs),
+            #[cfg(feature = "wasm")]
             Helper::Wasm(helper) => helper.execute(inputs),
         };
 
@@ -115,6 +139,7 @@ impl Signed for Helper {
             #[cfg(feature = "libsnark")]
             Helper::LibsnarkGadget(helper) => helper.get_signature(),
             Helper::Rust(helper) => helper.get_signature(),
+            #[cfg(feature = "wasm")]
             Helper::Wasm(helper) => helper.get_signature(),
         }
     }

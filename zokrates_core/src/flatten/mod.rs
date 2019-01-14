@@ -169,7 +169,7 @@ impl Flattener {
                     // add a directive to get the bits
                     statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
                         lhs_bits.clone(),
-                        Helper::Rust(RustHelper::Bits),
+                        Helper::bits(),
                         vec![lhs_id],
                     )));
 
@@ -216,7 +216,7 @@ impl Flattener {
                     // add a directive to get the bits
                     statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
                         rhs_bits.clone(),
-                        Helper::Rust(RustHelper::Bits),
+                        Helper::bits(),
                         vec![rhs_id],
                     )));
 
@@ -273,7 +273,7 @@ impl Flattener {
                 // add a directive to get the bits
                 statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
                     sub_bits.clone(),
-                    Helper::Rust(RustHelper::Bits),
+                    Helper::bits(),
                     vec![subtraction_result_id],
                 )));
 
