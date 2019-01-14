@@ -20,23 +20,25 @@ fn resolve_with_location(
     location: &String,
     source: &String,
 ) -> Result<(BufReader<File>, String, String), io::Error> {
-    let path = PathBuf::from(location).join(PathBuf::from(source));
+    let source = PathBuf::from(source);
+
+    println!(
+        "source :{:?} starts_with: {:?}",
+        source,
+        source.starts_with(".")
+    );
+
+    let base = match source.starts_with(".") {
+        false => PathBuf::from(std::env::var(ZOKRATES_HOME).unwrap_or("".to_string())),
+        true => PathBuf::from(location),
+    };
+
+    let path = base.join(PathBuf::from(source));
     let (next_location, alias) = generate_next_parameters(&path)?;
 
-    match File::open(path) {
-        Ok(f) => Ok((BufReader::new(f), next_location, alias)),
-        Err(e) => match e.kind() {
-            io::ErrorKind::NotFound => match std::env::var(ZOKRATES_HOME) {
-                Ok(v) => {
-                    let path = PathBuf::from(v).join(PathBuf::from(source));
-                    let (next_location, alias) = generate_next_parameters(&path)?;
-                    File::open(path).and_then(|f| Ok((BufReader::new(f), next_location, alias)))
-                }
-                Err(_) => Err(e),
-            },
-            _ => Err(e),
-        },
-    }
+    println!("{:?}", path);
+
+    File::open(path).and_then(|f| Ok((BufReader::new(f), next_location, alias)))
 }
 
 fn generate_next_parameters(path: &PathBuf) -> Result<(String, String), io::Error> {
@@ -56,7 +58,7 @@ mod tests {
     #[test]
     fn valid_path_with_location() {
         let (_, next_location, alias) =
-            resolve(&Some(String::from("./src")), &String::from("lib.rs")).unwrap();
+            resolve(&Some(String::from("./src")), &String::from("./lib.rs")).unwrap();
         assert_eq!(next_location, String::from("./src"));
         assert_eq!(alias, String::from("lib"));
     }
@@ -104,7 +106,44 @@ mod tests {
     }
 
     #[test]
-    fn default_to_local() {
+    fn treat_relative_as_local() {
+        use std::io::BufRead;
+        use std::io::Write;
+
+        // create a HOME folder with a code file
+        let zokrates_home_folder = tempfile::tempdir().unwrap();
+        let file_path = zokrates_home_folder.path().join("bar.code");
+        let mut file = File::create(file_path).unwrap();
+        writeln!(file, "<stdlib code>").unwrap();
+
+        // create a user folder with a code file
+        let source_folder = tempfile::tempdir().unwrap();
+        let file_path = source_folder.path().join("bar.code");
+        let mut file = File::create(file_path).unwrap();
+        writeln!(file, "<user code>").unwrap();
+
+        // assign HOME folder to ZOKRATES_HOME
+        std::env::set_var(ZOKRATES_HOME, zokrates_home_folder.path());
+
+        let result = resolve(
+            &Some(
+                source_folder
+                    .path()
+                    .to_path_buf()
+                    .to_string_lossy()
+                    .to_string(),
+            ),
+            &"./bar.code".to_string(),
+        );
+        assert!(result.is_ok());
+        let mut code = String::new();
+        result.unwrap().0.read_line(&mut code).unwrap();
+        // the imported file should be the user's
+        assert_eq!(code, "<user code>\n".to_string());
+    }
+
+    #[test]
+    fn treat_absolute_as_std() {
         use std::io::BufRead;
         use std::io::Write;
 
@@ -137,12 +176,11 @@ mod tests {
         let mut code = String::new();
         result.unwrap().0.read_line(&mut code).unwrap();
         // the imported file should be the user's
-        assert_eq!(code, "<user code>\n".to_string());
+        assert_eq!(code, "<stdlib code>\n".to_string());
     }
 
     #[test]
-    fn fallback_to_std() {
-        use std::io::BufRead;
+    fn dont_fallback_to_std() {
         use std::io::Write;
 
         // create a HOME folder
@@ -156,13 +194,9 @@ mod tests {
 
         let result = resolve(
             &Some("/path/to/user/folder".to_string()),
-            &"bar.code".to_string(),
+            &"./bar.code".to_string(),
         );
-        assert!(result.is_ok());
-        let mut code = String::new();
-        result.unwrap().0.read_line(&mut code).unwrap();
-        // the imported file should be the one in $ZOKRATES_HOME
-        assert_eq!(code, "<stdlib code>\n".to_string());
+        assert!(result.is_err());
     }
 
     #[test]
