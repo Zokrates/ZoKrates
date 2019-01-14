@@ -1346,7 +1346,7 @@ mod tests {
         // main(0) -> 1
         assert_eq!(
             ir_prog
-                .execute(vec![FieldPrime::from(0)])
+                .execute(&vec![FieldPrime::from(0)])
                 .unwrap()
                 .get(&FlatVariable::public(0)),
             Some(&FieldPrime::from(1))
@@ -1355,14 +1355,14 @@ mod tests {
         // main(1) -> 2
         assert_eq!(
             ir_prog
-                .execute(vec![FieldPrime::from(1)])
+                .execute(&vec![FieldPrime::from(1)])
                 .unwrap()
                 .get(&FlatVariable::public(0)),
             Some(&FieldPrime::from(2))
         );
 
         // main(2) -> error
-        assert!(ir_prog.execute(vec![FieldPrime::from(2)]).is_err());
+        assert!(ir_prog.execute(&vec![FieldPrime::from(2)]).is_err());
     }
 
     #[test]

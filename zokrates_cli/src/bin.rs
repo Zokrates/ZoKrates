@@ -26,7 +26,9 @@ use zokrates_core::ir;
 use zokrates_core::ir::r1cs_program;
 #[cfg(feature = "libsnark")]
 use zokrates_core::proof_system::{ProofSystem, GM17, PGHR13};
-use zokrates_field::field::{Field, FieldPrime};
+#[cfg(feature = "libsnark")]
+use zokrates_field::field::Field;
+use zokrates_field::field::FieldPrime;
 use zokrates_fs_resolver::resolve as fs_resolve;
 
 #[cfg(feature = "libsnark")]
@@ -51,7 +53,7 @@ fn main() {
     // cli specification using clap library
     let matches = App::new("ZoKrates")
     .setting(AppSettings::SubcommandRequiredElseHelp)
-    .version("0.3.2")
+    .version("0.3.3")
     .author("Jacob Eberhardt, Thibaut Schaeffer, Dennis Kuhnert")
     .about("Supports generation of zkSNARKs from high level language code including Smart Contracts for proof verification on the Ethereum Blockchain.\n'I know that I show nothing!'")
     .subcommand(SubCommand::with_name("compile")
@@ -380,21 +382,11 @@ fn main() {
                 })
                 .collect();
 
-            let witness_map = program_ast
-                .execute(arguments)
+            let witness = program_ast
+                .execute(&arguments)
                 .unwrap_or_else(|e| panic!(format!("Execution failed: {}", e)));
 
-            println!(
-                "\nWitness: \n\n{}",
-                witness_map
-                    .iter()
-                    .filter_map(|(variable, value)| match variable {
-                        variable if variable.is_output() => Some(format!("{} {}", variable, value)),
-                        _ => None,
-                    })
-                    .collect::<Vec<String>>()
-                    .join("\n")
-            );
+            println!("\nWitness: \n\n{}", witness.format_outputs());
 
             // write witness to file
             let output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -403,10 +395,7 @@ fn main() {
                 Err(why) => panic!("couldn't create {}: {}", output_path.display(), why),
             };
             let mut bw = BufWriter::new(output_file);
-            for (var, val) in &witness_map {
-                write!(&mut bw, "{} {}\n", var, val.to_dec_string())
-                    .expect("Unable to write data to file.");
-            }
+            write!(&mut bw, "{}", witness).expect("Unable to write data to file.");
             bw.flush().expect("Unable to flush buffer.");
         }
         #[cfg(feature = "libsnark")]
@@ -656,7 +645,7 @@ mod tests {
 
             let (..) = r1cs_program(program_flattened.clone());
             let _ = program_flattened
-                .execute(vec![FieldPrime::from(0)])
+                .execute(&vec![FieldPrime::from(0)])
                 .unwrap();
         }
     }
@@ -690,7 +679,7 @@ mod tests {
 
             let result = std::panic::catch_unwind(|| {
                 let _ = program_flattened
-                    .execute(vec![FieldPrime::from(0)])
+                    .execute(&vec![FieldPrime::from(0)])
                     .unwrap();
             });
             assert!(result.is_err());

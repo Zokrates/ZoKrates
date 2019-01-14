@@ -297,7 +297,7 @@ impl<T: Field> Flattener<T> {
 mod tests {
     use super::*;
     use absy::Variable;
-    use field::FieldPrime;
+    use zokrates_field::field::FieldPrime;
 
     #[test]
     fn array_selection() {

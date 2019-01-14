@@ -3,14 +3,58 @@ use ir::*;
 use std::collections::BTreeMap;
 use zokrates_field::field::Field;
 
+pub type ExecutionResult<T> = Result<Witness<T>, Error>;
+
+pub struct Witness<T: Field>(BTreeMap<FlatVariable, T>);
+
+impl<T: Field> Witness<T> {
+    pub fn return_values(&self) -> Vec<T> {
+        self.0
+            .clone()
+            .into_iter()
+            .filter(|(k, _)| k.is_output())
+            .map(|(_, v)| v)
+            .collect()
+    }
+
+    pub fn format_outputs(&self) -> String {
+        self.0
+            .iter()
+            .filter_map(|(variable, value)| match variable {
+                variable if variable.is_output() => Some(format!("{} {}", variable, value)),
+                _ => None,
+            })
+            .collect::<Vec<String>>()
+            .join("\n")
+    }
+
+    pub fn get(&self, v: &FlatVariable) -> Option<&T> {
+        self.0.get(v)
+    }
+}
+
+impl<T: Field> fmt::Display for Witness<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.0
+                .iter()
+                .map(|(k, v)| format!("{} {}", k, v.to_dec_string()))
+                .collect::<Vec<_>>()
+                .join("\n")
+        )
+    }
+}
+
 impl<T: Field> Prog<T> {
-    pub fn execute(&self, inputs: Vec<T>) -> Result<BTreeMap<FlatVariable, T>, Error<T>> {
+    pub fn execute<U: Into<T> + Clone>(&self, inputs: &Vec<U>) -> ExecutionResult<T> {
         let main = &self.main;
-        assert_eq!(main.arguments.len(), inputs.len());
+        self.check_inputs(&inputs)?;
         let mut witness = BTreeMap::new();
         witness.insert(FlatVariable::one(), T::one());
         for (arg, value) in main.arguments.iter().zip(inputs.iter()) {
-            witness.insert(arg.clone(), value.clone());
+            witness.insert(arg.clone(), value.clone().into());
         }
 
         for statement in &main.statements {
@@ -24,12 +68,10 @@ impl<T: Field> Prog<T> {
                         let lhs_value = quad.evaluate(&witness);
                         let rhs_value = lin.evaluate(&witness);
                         if lhs_value != rhs_value {
-                            return Err(Error::Constraint(
-                                quad.clone(),
-                                lin.clone(),
-                                lhs_value,
-                                rhs_value,
-                            ));
+                            return Err(Error::UnsatisfiedConstraint {
+                                left: lhs_value.to_dec_string(),
+                                right: rhs_value.to_dec_string(),
+                            });
                         }
                     }
                 },
@@ -49,7 +91,18 @@ impl<T: Field> Prog<T> {
             }
         }
 
-        Ok(witness)
+        Ok(Witness(witness))
+    }
+
+    fn check_inputs<U>(&self, inputs: &Vec<U>) -> Result<(), Error> {
+        if self.main.arguments.len() == inputs.len() {
+            Ok(())
+        } else {
+            Err(Error::WrongInputCount {
+                expected: self.main.arguments.len(),
+                received: inputs.len(),
+            })
+        }
     }
 }
 
@@ -74,21 +127,35 @@ impl<T: Field> QuadComb<T> {
     }
 }
 
-#[derive(PartialEq, Debug)]
-pub enum Error<T: Field> {
-    Constraint(QuadComb<T>, LinComb<T>, T, T),
+#[derive(PartialEq, Serialize, Deserialize)]
+pub enum Error {
+    UnsatisfiedConstraint { left: String, right: String },
     Solver,
+    WrongInputCount { expected: usize, received: usize },
 }
 
-impl<T: Field> fmt::Display for Error<T> {
+impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::Constraint(ref quad, ref lin, ref left_value, ref right_value) => write!(
-                f,
-                "Expected {} to equal {}, but {} != {}",
-                quad, lin, left_value, right_value
-            ),
+            Error::UnsatisfiedConstraint {
+                ref left,
+                ref right,
+            } => write!(f, "Expected {} to equal {}", left, right),
             Error::Solver => write!(f, ""),
+            Error::WrongInputCount { expected, received } => write!(
+                f,
+                "Program takes {} input{} but was passed {} value{}",
+                expected,
+                if expected == 1 { "" } else { "s" },
+                received,
+                if received == 1 { "" } else { "s" }
+            ),
         }
+    }
+}
+
+impl fmt::Debug for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self)
     }
 }

@@ -297,7 +297,7 @@ impl<T: Field> Flattener<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use field::FieldPrime;
+    use zokrates_field::field::FieldPrime;
 
     #[test]
     fn geq_leq() {
