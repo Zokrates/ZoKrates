@@ -3,6 +3,8 @@ use std::io;
 use std::io::BufReader;
 use std::path::PathBuf;
 
+const ZOKRATES_HOME: &str = &"ZOKRATES_HOME";
+
 pub fn resolve(
     location: &Option<String>,
     source: &String,
@@ -21,7 +23,20 @@ fn resolve_with_location(
     let path = PathBuf::from(location).join(PathBuf::from(source));
     let (next_location, alias) = generate_next_parameters(&path)?;
 
-    File::open(path).and_then(|f| Ok((BufReader::new(f), next_location, alias)))
+    match File::open(path) {
+        Ok(f) => Ok((BufReader::new(f), next_location, alias)),
+        Err(e) => match e.kind() {
+            io::ErrorKind::NotFound => match std::env::var(ZOKRATES_HOME) {
+                Ok(v) => {
+                    let path = PathBuf::from(v).join(PathBuf::from(source));
+                    let (next_location, alias) = generate_next_parameters(&path)?;
+                    File::open(path).and_then(|f| Ok((BufReader::new(f), next_location, alias)))
+                }
+                Err(_) => Err(e),
+            },
+            _ => Err(e),
+        },
+    }
 }
 
 fn generate_next_parameters(path: &PathBuf) -> Result<(String, String), io::Error> {
@@ -86,5 +101,77 @@ mod tests {
     fn no_file_name() {
         let res = resolve(&Some(String::from(".")), &String::from(""));
         assert!(res.is_err());
+    }
+
+    #[test]
+    fn default_to_local() {
+        use std::io::BufRead;
+        use std::io::Write;
+
+        // create a HOME folder with a code file
+        let zokrates_home_folder = tempfile::tempdir().unwrap();
+        let file_path = zokrates_home_folder.path().join("bar.code");
+        let mut file = File::create(file_path).unwrap();
+        writeln!(file, "<stdlib code>").unwrap();
+
+        // create a user folder with a code file
+        let source_folder = tempfile::tempdir().unwrap();
+        let file_path = source_folder.path().join("bar.code");
+        let mut file = File::create(file_path).unwrap();
+        writeln!(file, "<user code>").unwrap();
+
+        // assign HOME folder to ZOKRATES_HOME
+        std::env::set_var(ZOKRATES_HOME, zokrates_home_folder.path());
+
+        let result = resolve(
+            &Some(
+                source_folder
+                    .path()
+                    .to_path_buf()
+                    .to_string_lossy()
+                    .to_string(),
+            ),
+            &"bar.code".to_string(),
+        );
+        assert!(result.is_ok());
+        let mut code = String::new();
+        result.unwrap().0.read_line(&mut code).unwrap();
+        // the imported file should be the user's
+        assert_eq!(code, "<user code>\n".to_string());
+    }
+
+    #[test]
+    fn fallback_to_std() {
+        use std::io::BufRead;
+        use std::io::Write;
+
+        // create a HOME folder
+        let zokrates_home_folder = tempfile::tempdir().unwrap();
+        let file_path = zokrates_home_folder.path().join("bar.code");
+        let mut file = File::create(file_path).unwrap();
+        writeln!(file, "<stdlib code>").unwrap();
+
+        // assign HOME folder to ZOKRATES_HOME
+        std::env::set_var(ZOKRATES_HOME, zokrates_home_folder.path());
+
+        let result = resolve(
+            &Some("/path/to/user/folder".to_string()),
+            &"bar.code".to_string(),
+        );
+        assert!(result.is_ok());
+        let mut code = String::new();
+        result.unwrap().0.read_line(&mut code).unwrap();
+        // the imported file should be the one in $ZOKRATES_HOME
+        assert_eq!(code, "<stdlib code>\n".to_string());
+    }
+
+    #[test]
+    fn fail_if_no_std() {
+        std::env::set_var(ZOKRATES_HOME, "");
+        let result = resolve(
+            &Some("/path/to/source".to_string()),
+            &"bar.code".to_string(),
+        );
+        assert!(result.is_err());
     }
 }
