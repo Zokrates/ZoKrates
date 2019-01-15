@@ -2,14 +2,15 @@ use flat_absy::{FlatExpression, FlatExpressionList, FlatFunction, FlatStatement}
 use flat_absy::{FlatParameter, FlatVariable};
 use helpers::{DirectiveStatement, Helper, LibsnarkGadgetHelper};
 use reduce::Reduce;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 use types::{Signature, Type};
 use zokrates_field::field::Field;
 
 // for r1cs import, can be moved.
 // r1cs data structure reflecting JSON standard format:
 // {
-//     input_count: count,  // # of inputs to pass
+//     variable_count: 435,
+//     inputs: [offset_1, offset_33],  // # of inputs to pass
 //     outputs: [offset_42, offset_63, offset_55],  // indices of the outputs in the witness
 //     constraints: [   // constraints verified by the witness
 //         [
@@ -20,8 +21,9 @@ use zokrates_field::field::Field;
 // }
 #[derive(Serialize, Deserialize, Debug)]
 pub struct R1CS {
-    pub input_count: usize,
+    pub inputs: Vec<usize>,
     pub outputs: Vec<usize>,
+    pub variable_count: usize,
     pub constraints: Vec<Constraint>,
 }
 
@@ -106,38 +108,32 @@ impl<T: Field> Into<FlatFunction<T>> for DirectiveR1CS {
     fn into(self: DirectiveR1CS) -> FlatFunction<T> {
         let r1cs = self.r1cs;
 
-        // determine the number of variables, assuming there is no i so that column i is only zeroes in a, b and c
-        let mut variables_set = HashSet::new();
-        for constraint in r1cs.constraints.iter() {
-            for (key, _) in &constraint.a {
-                variables_set.insert(key.clone());
-            }
-            for (key, _) in &constraint.b {
-                variables_set.insert(key.clone());
-            }
-            for (key, _) in &constraint.c {
-                variables_set.insert(key.clone());
-            }
-        }
+        let variable_count = r1cs.variable_count;
 
-        let variables_count = variables_set.len();
+        let input_binding_statements = std::iter::once(FlatStatement::Condition(
+            FlatVariable::new(0).into(),
+            FlatExpression::Number(T::from(1)),
+        ))
+        .chain(r1cs.inputs.iter().enumerate().map(|(index, i)| {
+            FlatStatement::Condition(
+                FlatVariable::new(*i).into(),
+                FlatVariable::new(index + variable_count).into(),
+            )
+        }));
 
         // insert flattened statements to represent constraints
-        let mut statements: Vec<FlatStatement<T>> =
-            r1cs.constraints.into_iter().map(|c| c.into()).collect();
+        let constraint_statements = r1cs.constraints.into_iter().map(|c| c.into());
 
         // define the entire witness
-        let variables = vec![0; variables_count]
+        let variables = vec![0; variable_count]
             .iter()
             .enumerate()
             .map(|(i, _)| FlatVariable::new(i))
             .collect();
 
         // define the inputs with dummy variables: arguments to the function and to the directive
-        let input_variables: Vec<FlatVariable> = vec![0; r1cs.input_count]
-            .iter()
-            .enumerate()
-            .map(|(i, _)| FlatVariable::new(i + variables_count))
+        let input_variables: Vec<FlatVariable> = (0..r1cs.inputs.len())
+            .map(|i| FlatVariable::new(i + variable_count))
             .collect();
         let arguments = input_variables
             .iter()
@@ -164,24 +160,24 @@ impl<T: Field> Into<FlatFunction<T>> for DirectiveR1CS {
         };
 
         // insert a directive to set the witness based on the libsnark gadget and  inputs
-        match self.directive {
-
-            LibsnarkGadgetHelper::Sha256Round => {
-                statements.insert(
-                    0,
-                    FlatStatement::Directive(DirectiveStatement {
-                        outputs: variables,
-                        inputs: inputs,
-                        helper: Helper::LibsnarkGadget(LibsnarkGadgetHelper::Sha256Round),
-                    }),
-                );
-            }
-        }
+        let directive_statement = match self.directive {
+            LibsnarkGadgetHelper::Sha256Round => FlatStatement::Directive(DirectiveStatement {
+                outputs: variables,
+                inputs: inputs,
+                helper: Helper::LibsnarkGadget(LibsnarkGadgetHelper::Sha256Round),
+            }),
+        };
 
         // insert a statement to return the subset of the witness
-        statements.push(FlatStatement::Return(FlatExpressionList {
+        let return_statement = FlatStatement::Return(FlatExpressionList {
             expressions: outputs,
-        }));
+        });
+
+        let statements = std::iter::once(directive_statement)
+            .chain(input_binding_statements)
+            .chain(constraint_statements)
+            .chain(std::iter::once(return_statement))
+            .collect();
 
         FlatFunction {
             id: "main".to_owned(),
