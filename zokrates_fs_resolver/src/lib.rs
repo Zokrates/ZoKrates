@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io;
 use std::io::BufReader;
-use std::path::PathBuf;
+use std::path::{Component, PathBuf};
 
 const ZOKRATES_HOME: &str = &"ZOKRATES_HOME";
 
@@ -22,21 +22,15 @@ fn resolve_with_location(
 ) -> Result<(BufReader<File>, String, String), io::Error> {
     let source = PathBuf::from(source);
 
-    println!(
-        "source :{:?} starts_with: {:?}",
-        source,
-        source.starts_with(".")
-    );
-
-    let base = match source.starts_with(".") {
-        false => PathBuf::from(std::env::var(ZOKRATES_HOME).unwrap_or("".to_string())),
-        true => PathBuf::from(location),
+    // paths starting with `./` or `../` are interpreted relative to the current file
+    // other paths `abc/def.code` are interpreted relative to $ZOKRATES_HOME
+    let base = match source.components().next() {
+        Some(Component::CurDir) | Some(Component::ParentDir) => PathBuf::from(location),
+        _ => PathBuf::from(std::env::var(ZOKRATES_HOME).unwrap_or("".to_string())),
     };
 
     let path = base.join(PathBuf::from(source));
     let (next_location, alias) = generate_next_parameters(&path)?;
-
-    println!("{:?}", path);
 
     File::open(path).and_then(|f| Ok((BufReader::new(f), next_location, alias)))
 }
@@ -177,6 +171,35 @@ mod tests {
         result.unwrap().0.read_line(&mut code).unwrap();
         // the imported file should be the user's
         assert_eq!(code, "<stdlib code>\n".to_string());
+    }
+
+    #[test]
+    fn navigate_up() {
+        use std::io::BufRead;
+        use std::io::Write;
+
+        // create a user folder with a code file
+        let source_folder = tempfile::tempdir().unwrap();
+        let source_subfolder = tempfile::tempdir_in(&source_folder).unwrap();
+        let file_path = source_folder.path().join("bar.code");
+        let mut file = File::create(file_path).unwrap();
+        writeln!(file, "<user code>").unwrap();
+
+        let result = resolve(
+            &Some(
+                source_subfolder
+                    .path()
+                    .to_path_buf()
+                    .to_string_lossy()
+                    .to_string(),
+            ),
+            &"../bar.code".to_string(),
+        );
+        assert!(result.is_ok());
+        let mut code = String::new();
+        result.unwrap().0.read_line(&mut code).unwrap();
+        // the imported file should be the user's
+        assert_eq!(code, "<user code>\n".to_string());
     }
 
     #[test]
