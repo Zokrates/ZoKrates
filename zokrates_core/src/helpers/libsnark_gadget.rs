@@ -7,7 +7,7 @@ use zokrates_field::field::Field;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum LibsnarkGadgetHelper {
-    Sha256Round
+    Sha256Round,
 }
 
 impl fmt::Display for LibsnarkGadgetHelper {
@@ -42,7 +42,7 @@ impl<T: Field> Executable<T> for LibsnarkGadgetHelper {
 impl Signed for LibsnarkGadgetHelper {
     fn get_signature(&self) -> (usize, usize) {
         match self {
-            LibsnarkGadgetHelper::Sha256Round => (768, 25817)
+            LibsnarkGadgetHelper::Sha256Round => (768, 25817),
         }
     }
 }

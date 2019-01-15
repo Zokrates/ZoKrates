@@ -127,7 +127,7 @@ impl Importer {
                 #[cfg(feature = "libsnark")]
                 {
                     use helpers::LibsnarkGadgetHelper;
-                    use libsnark::{get_sha256round_constraints};
+                    use libsnark::get_sha256round_constraints;
                     use serde_json::from_str;
                     use standard::{DirectiveR1CS, R1CS};
                     use std::io::BufReader;
