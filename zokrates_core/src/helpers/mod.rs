@@ -81,7 +81,6 @@ pub trait Signed {
 impl<T: Field> Executable<T> for Helper {
     fn execute(&self, inputs: &Vec<T>) -> Result<Vec<T>, String> {
         let (expected_input_count, expected_output_count) = self.get_signature();
-        println!("#Debug Executable {},{}", inputs.len(), expected_input_count );
         assert!(inputs.len() == expected_input_count);
 
         let result = match self {

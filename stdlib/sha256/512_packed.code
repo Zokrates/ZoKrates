@@ -1,14 +1,15 @@
 
-import "./IV_constants.code" as IVConstant
+import "./IV_constants.code" as IVconstants
 import "./sha_round.code" as sha256 
 import "PACKING/pack256" as pack256
 import "PACKING/unpack256" as unpack256
 
+// A function that takes 4 field elements as inputs, unpacks each of them to 128
+// bits (big endian), concatenates them and applies sha256.
+// It then returns two field elements, each representing 128 bits of the result.
 def main(field a, field b) -> (field):
 
-        //TODO: add bool check
-        
-    IV =  IVConstant()
+    IV =  IVconstants()
     field[256] a = unpack256(a)
     field[256] b = unpack256(b)
     digest =  sha256(a, b, IV)

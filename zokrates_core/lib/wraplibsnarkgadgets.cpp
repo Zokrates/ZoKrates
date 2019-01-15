@@ -76,7 +76,6 @@ std::string r1cs_to_json(protoboard<FieldT> pb)
 {
     r1cs_constraint_system<FieldT> constraints = pb.get_constraint_system();
     std::stringstream ss;
-    std::stringstream ss;
 
     ss << "{\"variable_count\":";
     ss << pb.num_variables() + 1; // ~one is not counted in pb.num_variables()
@@ -136,7 +135,7 @@ public:
         pb_variable_array<FieldT>& myIV,
         pb_variable_array<FieldT>& a,
         pb_variable_array<FieldT>& b,
-        std::shared_ptr<digest_variable<FieldT>> result
+        digest_variable<FieldT> &result
     ) : gadget<FieldT>(pb, "sha256round") {
 
         block.reset(new block_variable<FieldT>(pb, {
@@ -148,7 +147,7 @@ public:
             pb,
             myIV,
             block->bits,
-            *result,
+            result,
             "hasher"));
     }
 
@@ -173,12 +172,13 @@ char* _sha256RoundConstraints()
 
     digest_variable<FieldT> IV(pb, 256, "IV");
 
-    std::shared_ptr<digest_variable<FieldT>> output;
-    output.reset(new digest_variable<FieldT>(pb, 256, "output"));
+    digest_variable<FieldT> output(pb, 256, "output");
+
+    IV.generate_r1cs_constraints(); //binary check for IV vector
+    output.generate_r1cs_constraints(); //binary check for output vector
 
     sha256round g(pb, IV.bits, left, right, output);
-    g.generate_r1cs_constraints();
-    IV.generate_r1cs_constraints();
+    g.generate_r1cs_constraints(); 
 
     auto json = r1cs_to_json(pb);
 
@@ -189,6 +189,7 @@ char* _sha256RoundConstraints()
 
 char* _sha256RoundWitness(const uint8_t* inputs, int inputs_length)
 {
+    assert(inputs_length==768); 
 
     libff::alt_bn128_pp::init_public_params();
     protoboard<FieldT> pb;
@@ -200,8 +201,7 @@ char* _sha256RoundWitness(const uint8_t* inputs, int inputs_length)
 
     digest_variable<FieldT> IV(pb, 256, "IV");
 
-    std::shared_ptr<digest_variable<FieldT>> output;
-    output.reset(new digest_variable<FieldT>(pb, 256, "output"));
+    digest_variable<FieldT> output(pb, 256, "output");
 
     libff::bit_vector left_bv;
     libff::bit_vector right_bv;
@@ -219,18 +219,12 @@ char* _sha256RoundWitness(const uint8_t* inputs, int inputs_length)
         IV_bv.push_back(libsnarkBigintFromBytesAux(inputs + i*32) == 1);
     }
 
-    // for (int i = 512; i < 612; i++) {
-    //     IV_bv.push_back(libsnarkBigintFromBytesAux(inputs + i*32) == 1);
-    // }
-    //
     left.fill_with_bits(pb, left_bv);
     right.fill_with_bits(pb, right_bv);
-    // IV.fill_with_bits(pb, IV_bv);
-    IV.generate_r1cs_constraints();
+
     IV.generate_r1cs_witness(IV_bv);
 
     sha256round g(pb, IV.bits, left, right, output);
-    g.generate_r1cs_constraints();
     g.generate_r1cs_witness();
 
     assert(pb.is_satisfied());
