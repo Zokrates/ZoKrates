@@ -130,7 +130,6 @@ impl Importer {
                     use libsnark::get_sha256round_constraints;
                     use serde_json::from_str;
                     use standard::{DirectiveR1CS, R1CS};
-                    use std::io::BufReader;
 
                     match import.source.as_ref() {
                         "LIBSNARK/sha256round" => {

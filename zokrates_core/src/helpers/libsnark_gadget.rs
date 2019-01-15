@@ -1,5 +1,5 @@
 use helpers::{Executable, Signed};
-use libsnark::{get_sha256round_witness};
+use libsnark::get_sha256round_witness;
 use serde_json;
 use standard;
 use std::fmt;
@@ -29,7 +29,7 @@ impl<T: Field> Executable<T> for LibsnarkGadgetHelper {
         if let Err(e) = witness_result {
             return Err(format!("{}", e));
         }
-        
+
         Ok(witness_result
             .unwrap()
             .variables
