@@ -324,49 +324,6 @@ impl<'a> Pow<&'a FieldPrime> for FieldPrime {
     }
 }
 
-// // custom serde serialization
-// impl Serialize for FieldPrime {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: Serializer,
-//     {
-//         // serializer.serialize_bytes(&(*self.value.to_biguint().to_bytes_le().as_slice()))
-//         serializer.serialize_bytes(&(*self.into_byte_vector().as_slice()))
-//     }
-// }
-
-// custom serde deserialization
-
-// struct FieldPrimeVisitor;
-
-// impl FieldPrimeVisitor {
-//     fn new() -> Self {
-//         FieldPrimeVisitor {}
-//     }
-// }
-
-// impl<'de> Visitor<'de> for FieldPrimeVisitor {
-//     type Value = FieldPrime;
-
-//     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-//         formatter.write_str("struct FieldPrime")
-//     }
-
-//     fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E> {
-//         let val = BigUint::from_bytes_le(v).to_bigint().unwrap();
-//         Ok(FieldPrime { value: val })
-//     }
-// }
-
-// impl<'de> Deserialize<'de> for FieldPrime {
-//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-//     where
-//         D: Deserializer<'de>,
-//     {
-//         deserializer.deserialize_bytes(FieldPrimeVisitor::new())
-//     }
-// }
-
 /// Calculates the gcd using an iterative implementation of the extended euclidian algorithm.
 /// Returning `(d, s, t)` so that `d = s * a + t * b`
 ///
