@@ -26,7 +26,9 @@ fn resolve_with_location(
     // other paths `abc/def.code` are interpreted relative to $ZOKRATES_HOME
     let base = match source.components().next() {
         Some(Component::CurDir) | Some(Component::ParentDir) => PathBuf::from(location),
-        _ => PathBuf::from(std::env::var(ZOKRATES_HOME).unwrap_or("".to_string())),
+        _ => PathBuf::from(
+            std::env::var(ZOKRATES_HOME).expect("$ZOKRATES_HOME is not set, please set it"),
+        ),
     };
 
     let path = base.join(PathBuf::from(source));
@@ -223,12 +225,22 @@ mod tests {
     }
 
     #[test]
-    fn fail_if_no_std() {
+    fn fail_if_not_found_in_std() {
         std::env::set_var(ZOKRATES_HOME, "");
         let result = resolve(
             &Some("/path/to/source".to_string()),
             &"bar.code".to_string(),
         );
         assert!(result.is_err());
+    }
+
+    #[test]
+    #[should_panic]
+    fn panic_if_home_not_set() {
+        std::env::remove_var(ZOKRATES_HOME);
+        let _ = resolve(
+            &Some("/path/to/source".to_string()),
+            &"bar.code".to_string(),
+        );
     }
 }
