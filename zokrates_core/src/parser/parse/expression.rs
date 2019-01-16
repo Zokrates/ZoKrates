@@ -3,21 +3,23 @@ use zokrates_field::field::Field;
 use parser::tokenize::{next_token, Position, Token};
 use parser::Error;
 
-use absy::Expression;
+use absy::{Expression, ExpressionNode, Node};
 
 fn parse_then_else<T: Field>(
-    cond: Expression<T>,
+    cond: ExpressionNode<T>,
     input: &String,
     pos: &Position,
-) -> Result<(Expression<T>, String, Position), Error<T>> {
+) -> Result<(ExpressionNode<T>, String, Position), Error<T>> {
     match next_token(input, pos) {
         (Token::Then, s5, p5) => match parse_expr(&s5, &p5) {
             Ok((e6, s6, p6)) => match next_token(&s6, &p6) {
                 (Token::Else, s7, p7) => match parse_expr(&s7, &p7) {
                     Ok((e8, s8, p8)) => match next_token(&s8, &p8) {
-                        (Token::Fi, s9, p9) => {
-                            parse_expr1(Expression::IfElse(box cond, box e6, box e8), s9, p9)
-                        }
+                        (Token::Fi, s9, p9) => parse_expr1(
+                            Node::new(cond.start, p9, Expression::IfElse(box cond, box e6, box e8)),
+                            s9,
+                            p9,
+                        ),
                         (t10, _, p10) => Err(Error {
                             expected: vec![Token::Fi],
                             got: t10,
@@ -45,27 +47,37 @@ fn parse_then_else<T: Field>(
 fn parse_prim_cond<T: Field>(
     input: &String,
     pos: &Position,
-) -> Result<(Expression<T>, String, Position), Error<T>> {
+) -> Result<(ExpressionNode<T>, String, Position), Error<T>> {
     match parse_expr(input, pos) {
         Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
             (Token::Lt, s3, p3) => match parse_expr(&s3, &p3) {
-                Ok((e4, s4, p4)) => Ok((Expression::Lt(box e2, box e4), s4, p4)),
+                Ok((e4, s4, p4)) => {
+                    Ok((Node::new(*pos, p4, Expression::Lt(box e2, box e4)), s4, p4))
+                }
                 Err(err) => Err(err),
             },
             (Token::Le, s3, p3) => match parse_expr(&s3, &p3) {
-                Ok((e4, s4, p4)) => Ok((Expression::Le(box e2, box e4), s4, p4)),
+                Ok((e4, s4, p4)) => {
+                    Ok((Node::new(*pos, p4, Expression::Le(box e2, box e4)), s4, p4))
+                }
                 Err(err) => Err(err),
             },
             (Token::Eqeq, s3, p3) => match parse_expr(&s3, &p3) {
-                Ok((e4, s4, p4)) => Ok((Expression::Eq(box e2, box e4), s4, p4)),
+                Ok((e4, s4, p4)) => {
+                    Ok((Node::new(*pos, p4, Expression::Eq(box e2, box e4)), s4, p4))
+                }
                 Err(err) => Err(err),
             },
             (Token::Ge, s3, p3) => match parse_expr(&s3, &p3) {
-                Ok((e4, s4, p4)) => Ok((Expression::Ge(box e2, box e4), s4, p4)),
+                Ok((e4, s4, p4)) => {
+                    Ok((Node::new(*pos, p4, Expression::Ge(box e2, box e4)), s4, p4))
+                }
                 Err(err) => Err(err),
             },
             (Token::Gt, s3, p3) => match parse_expr(&s3, &p3) {
-                Ok((e4, s4, p4)) => Ok((Expression::Gt(box e2, box e4), s4, p4)),
+                Ok((e4, s4, p4)) => {
+                    Ok((Node::new(*pos, p4, Expression::Gt(box e2, box e4)), s4, p4))
+                }
                 Err(err) => Err(err),
             },
             (t3, _, p3) => Err(Error {
@@ -81,11 +93,11 @@ fn parse_prim_cond<T: Field>(
 fn parse_bfactor<T: Field>(
     input: &String,
     pos: &Position,
-) -> Result<(Expression<T>, String, Position), Error<T>> {
+) -> Result<(ExpressionNode<T>, String, Position), Error<T>> {
     match next_token::<T>(input, pos) {
         (Token::Not, s1, p1) => match next_token(&s1, &p1) {
             (Token::Open, _, _) => match parse_bfactor(&s1, &p1) {
-                Ok((e3, s3, p3)) => Ok((Expression::Not(box e3), s3, p3)),
+                Ok((e3, s3, p3)) => Ok((Node::new(*pos, p3, Expression::Not(box e3)), s3, p3)),
                 Err(err) => Err(err),
             },
             (t2, _, p2) => Err(Error {
@@ -110,13 +122,13 @@ fn parse_bfactor<T: Field>(
 }
 
 pub fn parse_bterm1<T: Field>(
-    expr: Expression<T>,
+    expr: ExpressionNode<T>,
     input: String,
     pos: Position,
-) -> Result<(Expression<T>, String, Position), Error<T>> {
+) -> Result<(ExpressionNode<T>, String, Position), Error<T>> {
     match next_token::<T>(&input, &pos) {
         (Token::And, s1, p1) => match parse_bterm(&s1, &p1) {
-            Ok((e, s2, p2)) => Ok((Expression::And(box expr, box e), s2, p2)),
+            Ok((e, s2, p2)) => Ok((Node::new(pos, p2, Expression::And(box expr, box e)), s2, p2)),
             Err(err) => Err(err),
         },
         _ => Ok((expr, input, pos)),
@@ -126,7 +138,7 @@ pub fn parse_bterm1<T: Field>(
 fn parse_bterm<T: Field>(
     input: &String,
     pos: &Position,
-) -> Result<(Expression<T>, String, Position), Error<T>> {
+) -> Result<(ExpressionNode<T>, String, Position), Error<T>> {
     match parse_bfactor(input, pos) {
         Ok((e, s1, p1)) => parse_bterm1(e, s1, p1),
         Err(err) => Err(err),
@@ -134,13 +146,15 @@ fn parse_bterm<T: Field>(
 }
 
 fn parse_bexpr1<T: Field>(
-    expr: Expression<T>,
+    expr: ExpressionNode<T>,
     input: String,
     pos: Position,
-) -> Result<(Expression<T>, String, Position), Error<T>> {
+) -> Result<(ExpressionNode<T>, String, Position), Error<T>> {
     match next_token::<T>(&input, &pos) {
         (Token::Or, s1, p1) => match parse_bterm(&s1, &p1) {
-            Ok((e2, s2, p2)) => parse_bexpr1(Expression::Or(box expr, box e2), s2, p2),
+            Ok((e2, s2, p2)) => {
+                parse_bexpr1(Node::new(pos, p2, Expression::Or(box expr, box e2)), s2, p2)
+            }
             Err(err) => Err(err),
         },
         _ => Ok((expr, input, pos)),
@@ -150,15 +164,17 @@ fn parse_bexpr1<T: Field>(
 fn parse_bexpr<T: Field>(
     input: &String,
     pos: &Position,
-) -> Result<(Expression<T>, String, Position), Error<T>> {
+) -> Result<(ExpressionNode<T>, String, Position), Error<T>> {
     match next_token::<T>(input, pos) {
         (Token::Not, s1, p1) => match next_token(&s1, &p1) {
             (Token::Open, s2, p2) => match parse_bexpr(&s2, &p2) {
                 Ok((e3, s3, p3)) => match next_token(&s3, &p3) {
-                    (Token::Close, s4, p4) => match parse_bterm1(Expression::Not(box e3), s4, p4) {
-                        Ok((e5, s5, p5)) => parse_bexpr1(e5, s5, p5),
-                        Err(err) => Err(err),
-                    },
+                    (Token::Close, s4, p4) => {
+                        match parse_bterm1(Node::new(*pos, p4, Expression::Not(box e3)), s4, p4) {
+                            Ok((e5, s5, p5)) => parse_bexpr1(e5, s5, p5),
+                            Err(err) => Err(err),
+                        }
+                    }
                     (t4, _, p4) => Err(Error {
                         expected: vec![Token::Close],
                         got: t4,
@@ -211,7 +227,7 @@ fn parse_bexpr<T: Field>(
 fn parse_if_then_else<T: Field>(
     input: &String,
     pos: &Position,
-) -> Result<(Expression<T>, String, Position), Error<T>> {
+) -> Result<(ExpressionNode<T>, String, Position), Error<T>> {
     match next_token(input, pos) {
         (Token::If, s1, p1) => match parse_bexpr(&s1, &p1) {
             Ok((e2, s2, p2)) => parse_then_else(e2, &s2, &p2),
@@ -226,17 +242,23 @@ fn parse_if_then_else<T: Field>(
 }
 
 fn parse_factor1<T: Field>(
-    expr: Expression<T>,
+    expr: ExpressionNode<T>,
     input: String,
     pos: Position,
-) -> Result<(Expression<T>, String, Position), Error<T>> {
+) -> Result<(ExpressionNode<T>, String, Position), Error<T>> {
     match parse_term1(expr.clone(), input.clone(), pos.clone()) {
         Ok((e1, s1, p1)) => match parse_expr1(e1, s1, p1) {
             Ok((e2, s2, p2)) => match next_token::<T>(&s2, &p2) {
                 (Token::Pow, s3, p3) => match next_token(&s3, &p3) {
-                    (Token::Num(x), s4, p4) => {
-                        Ok((Expression::Pow(box e2, box Expression::Number(x)), s4, p4))
-                    }
+                    (Token::Num(x), s4, p4) => Ok((
+                        Node::new(
+                            pos,
+                            p4,
+                            Expression::Pow(box e2, box Node::new(p3, p4, Expression::Number(x))),
+                        ),
+                        s4,
+                        p4,
+                    )),
                     (t4, _, p4) => Err(Error {
                         expected: vec![Token::ErrNum],
                         got: t4,
@@ -256,18 +278,26 @@ fn parse_identified1<T: Field>(
     x: String,
     input: String,
     position: Position,
-) -> Result<(Expression<T>, String, Position), Error<T>> {
+) -> Result<(ExpressionNode<T>, String, Position), Error<T>> {
+    let ide_initial_pos = Position {
+        col: position.col - x.len(),
+        ..position
+    };
     match next_token::<T>(&input, &position) {
         (Token::Open, s1, p1) => parse_function_call(x, s1, p1),
         (Token::LeftBracket, s1, p1) => parse_array_select(x, s1, p1),
-        _ => Ok((Expression::Identifier(x), input, position)),
+        _ => Ok((
+            Node::new(ide_initial_pos, position, Expression::Identifier(x)),
+            input,
+            position,
+        )),
     }
 }
 
 fn parse_factor<T: Field>(
     input: &String,
     pos: &Position,
-) -> Result<(Expression<T>, String, Position), Error<T>> {
+) -> Result<(ExpressionNode<T>, String, Position), Error<T>> {
     match next_token(input, pos) {
         (Token::If, ..) => parse_if_then_else(input, pos),
         (Token::Open, s1, p1) => match parse_expr(&s1, &p1) {
@@ -285,7 +315,9 @@ fn parse_factor<T: Field>(
             Ok((e2, s2, p2)) => parse_factor1(e2, s2, p2),
             e => e,
         },
-        (Token::Num(x), s1, p1) => parse_factor1(Expression::Number(x), s1, p1),
+        (Token::Num(x), s1, p1) => {
+            parse_factor1(Node::new(*pos, p1, Expression::Number(x)), s1, p1)
+        }
         (t1, _, p1) => Err(Error {
             expected: vec![Token::If, Token::Open, Token::ErrIde, Token::ErrNum],
             got: t1,
@@ -295,17 +327,21 @@ fn parse_factor<T: Field>(
 }
 
 pub fn parse_term1<T: Field>(
-    expr: Expression<T>,
+    expr: ExpressionNode<T>,
     input: String,
     pos: Position,
-) -> Result<(Expression<T>, String, Position), Error<T>> {
+) -> Result<(ExpressionNode<T>, String, Position), Error<T>> {
     match next_token::<T>(&input, &pos) {
         (Token::Mult, s1, p1) => match parse_term(&s1, &p1) {
-            Ok((e, s2, p2)) => Ok((Expression::Mult(box expr, box e), s2, p2)),
+            Ok((e, s2, p2)) => Ok((
+                Node::new(pos, p2, Expression::Mult(box expr, box e)),
+                s2,
+                p2,
+            )),
             Err(err) => Err(err),
         },
         (Token::Div, s1, p1) => match parse_term(&s1, &p1) {
-            Ok((e, s2, p2)) => Ok((Expression::Div(box expr, box e), s2, p2)),
+            Ok((e, s2, p2)) => Ok((Node::new(pos, p2, Expression::Div(box expr, box e)), s2, p2)),
             Err(err) => Err(err),
         },
         _ => Ok((expr, input, pos)),
@@ -315,7 +351,7 @@ pub fn parse_term1<T: Field>(
 fn parse_term<T: Field>(
     input: &String,
     pos: &Position,
-) -> Result<(Expression<T>, String, Position), Error<T>> {
+) -> Result<(ExpressionNode<T>, String, Position), Error<T>> {
     match parse_factor(input, pos) {
         Ok((e, s1, p1)) => parse_term1(e, s1, p1),
         Err(err) => Err(err),
@@ -323,21 +359,33 @@ fn parse_term<T: Field>(
 }
 
 pub fn parse_expr1<T: Field>(
-    expr: Expression<T>,
+    expr: ExpressionNode<T>,
     input: String,
     pos: Position,
-) -> Result<(Expression<T>, String, Position), Error<T>> {
+) -> Result<(ExpressionNode<T>, String, Position), Error<T>> {
     match next_token::<T>(&input, &pos) {
         (Token::Add, s1, p1) => match parse_term(&s1, &p1) {
-            Ok((e2, s2, p2)) => parse_expr1(Expression::Add(box expr, box e2), s2, p2),
+            Ok((e2, s2, p2)) => parse_expr1(
+                Node::new(expr.start, p2, Expression::Add(box expr, box e2)),
+                s2,
+                p2,
+            ),
             Err(err) => Err(err),
         },
         (Token::Sub, s1, p1) => match parse_term(&s1, &p1) {
-            Ok((e2, s2, p2)) => parse_expr1(Expression::Sub(box expr, box e2), s2, p2),
+            Ok((e2, s2, p2)) => parse_expr1(
+                Node::new(expr.start, p2, Expression::Sub(box expr, box e2)),
+                s2,
+                p2,
+            ),
             Err(err) => Err(err),
         },
         (Token::Pow, s1, p1) => match parse_term(&s1, &p1) {
-            Ok((e, s2, p2)) => match parse_term1(Expression::Pow(box expr, box e), s2, p2) {
+            Ok((e, s2, p2)) => match parse_term1(
+                Node::new(expr.start, p2, Expression::Pow(box expr, box e)),
+                s2,
+                p2,
+            ) {
                 Ok((e3, s3, p3)) => parse_expr1(e3, s3, p3),
                 Err(err) => Err(err),
             },
@@ -351,7 +399,7 @@ pub fn parse_function_call<T: Field>(
     ide: String,
     input: String,
     pos: Position,
-) -> Result<(Expression<T>, String, Position), Error<T>> {
+) -> Result<(ExpressionNode<T>, String, Position), Error<T>> {
     // function call can have 0 .. n args
     let mut args = Vec::new();
     let mut s: String = input;
@@ -361,7 +409,11 @@ pub fn parse_function_call<T: Field>(
         match next_token::<T>(&s, &p) {
             // no arguments
             (Token::Close, s1, p1) => {
-                return parse_term1(Expression::FunctionCall(ide, args), s1, p1);
+                return parse_term1(
+                    Node::new(pos, p1, Expression::FunctionCall(ide, args)),
+                    s1,
+                    p1,
+                );
             }
             // at least one argument
             (_, _, _) => match parse_expr(&s, &p) {
@@ -373,7 +425,11 @@ pub fn parse_function_call<T: Field>(
                             p = p2;
                         }
                         (Token::Close, s2, p2) => {
-                            return parse_term1(Expression::FunctionCall(ide, args), s2, p2);
+                            return parse_term1(
+                                Node::new(pos, p2, Expression::FunctionCall(ide, args)),
+                                s2,
+                                p2,
+                            );
                         }
                         (t2, _, p2) => {
                             return Err(Error {
@@ -393,7 +449,7 @@ pub fn parse_function_call<T: Field>(
 pub fn parse_inline_array<T: Field>(
     input: String,
     pos: Position,
-) -> Result<(Expression<T>, String, Position), Error<T>> {
+) -> Result<(ExpressionNode<T>, String, Position), Error<T>> {
     // function call can have 0 .. n args
     let mut expressions = Vec::new();
     let mut s: String = input;
@@ -403,7 +459,11 @@ pub fn parse_inline_array<T: Field>(
         match next_token::<T>(&s, &p) {
             // no arguments
             (Token::RightBracket, s1, p1) => {
-                match parse_term1(Expression::InlineArray(expressions), s1, p1) {
+                match parse_term1(
+                    Node::new(pos, p1, Expression::InlineArray(expressions)),
+                    s1,
+                    p1,
+                ) {
                     Ok((e2, s2, p2)) => return parse_expr1(e2, s2, p2),
                     Err(err) => return Err(err),
                 }
@@ -418,7 +478,11 @@ pub fn parse_inline_array<T: Field>(
                             p = p2;
                         }
                         (Token::RightBracket, s2, p2) => {
-                            match parse_term1(Expression::InlineArray(expressions), s2, p2) {
+                            match parse_term1(
+                                Node::new(pos, p2, Expression::InlineArray(expressions)),
+                                s2,
+                                p2,
+                            ) {
                                 Ok((e3, s3, p3)) => return parse_expr1(e3, s3, p3),
                                 Err(err) => return Err(err),
                             }
@@ -442,13 +506,24 @@ pub fn parse_array_select<T: Field>(
     ide: String,
     input: String,
     pos: Position,
-) -> Result<(Expression<T>, String, Position), Error<T>> {
+) -> Result<(ExpressionNode<T>, String, Position), Error<T>> {
+    let ide_initial_pos = Position {
+        col: pos.col - ide.len(),
+        ..pos
+    };
     // array select can have exactly one arg
     match next_token::<T>(&input, &pos) {
         (_, _, _) => match parse_expr(&input, &pos) {
             Ok((e1, s1, p1)) => match next_token::<T>(&s1, &p1) {
                 (Token::RightBracket, s2, p2) => parse_term1(
-                    Expression::Select(box Expression::Identifier(ide), box e1),
+                    Node::new(
+                        pos,
+                        p2,
+                        Expression::Select(
+                            box Node::new(pos, p1, Expression::Identifier(ide)),
+                            box e1,
+                        ),
+                    ),
                     s2,
                     p2,
                 ),
@@ -466,7 +541,7 @@ pub fn parse_array_select<T: Field>(
 pub fn parse_expr<T: Field>(
     input: &String,
     pos: &Position,
-) -> Result<(Expression<T>, String, Position), Error<T>> {
+) -> Result<(ExpressionNode<T>, String, Position), Error<T>> {
     match next_token::<T>(input, pos) {
         (Token::If, ..) => parse_if_then_else(input, pos),
         (Token::Open, s1, p1) => match parse_expr(&s1, &p1) {
@@ -490,10 +565,12 @@ pub fn parse_expr<T: Field>(
             },
             e => e,
         },
-        (Token::Num(x), s1, p1) => match parse_term1(Expression::Number(x), s1, p1) {
-            Ok((e2, s2, p2)) => parse_expr1(e2, s2, p2),
-            Err(err) => Err(err),
-        },
+        (Token::Num(x), s1, p1) => {
+            match parse_term1(Node::new(*pos, p1, Expression::Number(x)), s1, p1) {
+                Ok((e2, s2, p2)) => parse_expr1(e2, s2, p2),
+                Err(err) => Err(err),
+            }
+        }
         (Token::LeftBracket, s1, p1) => parse_inline_array(s1, p1),
         (t1, _, p1) => Err(Error {
             expected: vec![Token::If, Token::Open, Token::ErrIde, Token::ErrNum],

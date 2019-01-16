@@ -1,3 +1,4 @@
+use absy::Node;
 use std::fmt;
 use types::Type;
 
@@ -6,6 +7,8 @@ pub struct Variable {
     pub id: String,
     pub _type: Type,
 }
+
+pub type VariableNode = Node<Variable>;
 
 impl Variable {
     pub fn new<S: Into<String>>(id: S, t: Type) -> Variable {

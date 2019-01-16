@@ -53,7 +53,7 @@ impl<T: Field> fmt::Display for CompileError<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let res = match *self {
             CompileError::ParserError(ref e) => format!("Syntax error: {}", e),
-            CompileError::SemanticError(ref e) => format!("Semantic error: {}", e),
+            CompileError::SemanticError(ref e) => format!("Semantic error: \n{}\n", e),
             CompileError::ReadError(ref e) => format!("Read error: {}", e),
             CompileError::ImportError(ref e) => format!("Import error: {}", e),
         };

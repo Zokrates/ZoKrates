@@ -14,18 +14,42 @@ use typed_absy::*;
 use types::Signature;
 use zokrates_field::field::Field;
 
+use parser::Position;
+
 use types::Type;
 
 use std::hash::{Hash, Hasher};
 
 #[derive(PartialEq, Debug)]
-pub struct Error {
-    message: String,
-}
+pub struct Error(Vec<SingleError>);
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.message)
+        write!(
+            f,
+            "{}",
+            self.0
+                .iter()
+                .map(|x| x.to_string())
+                .collect::<Vec<_>>()
+                .join("\n")
+        )
+    }
+}
+
+#[derive(PartialEq, Debug)]
+struct SingleError {
+    pos: Option<(Position, Position)>,
+    message: String,
+}
+
+impl fmt::Display for SingleError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let location = self
+            .pos
+            .map(|p| format!("At {}:{} | ", p.0, p.1))
+            .unwrap_or("".to_string());
+        write!(f, "{}{}", location, self.message)
     }
 }
 
@@ -136,18 +160,32 @@ impl Checker {
             });
         }
 
+        let mut errors = vec![];
         let mut checked_functions = vec![];
 
         for func in prog.functions {
-            let checked_func = self.check_function(&func)?;
-            checked_functions.push(checked_func);
+            match self.check_function(&func) {
+                Ok(checked_function) => {
+                    checked_functions.push(checked_function);
+                }
+                Err(e) => {
+                    errors.push(e);
+                }
+            };
             self.functions.insert(FunctionDeclaration {
                 id: func.id,
                 signature: func.signature,
             });
         }
 
-        self.check_single_main()?;
+        match self.check_single_main() {
+            Ok(()) => {}
+            Err(e) => errors.push(e),
+        };
+
+        if errors.len() > 0 {
+            return Err(Error(errors));
+        }
 
         Ok(TypedProg {
             functions: checked_functions,
@@ -156,28 +194,34 @@ impl Checker {
         })
     }
 
-    fn check_single_main(&mut self) -> Result<(), Error> {
+    fn check_single_main(&mut self) -> Result<(), SingleError> {
         match self.functions.iter().filter(|fun| fun.id == "main").count() {
             1 => Ok(()),
-            0 => Err(Error {
+            0 => Err(SingleError {
+                pos: None,
                 message: format!("No main function found"),
             }),
-            n => Err(Error {
+            n => Err(SingleError {
+                pos: None,
                 message: format!("Only one main function allowed, found {}", n),
             }),
         }
     }
 
-    fn check_for_var(&self, var: &Variable) -> Result<(), Error> {
-        match var.get_type() {
+    fn check_for_var(&self, var: &VariableNode) -> Result<(), SingleError> {
+        match var.value.get_type() {
             Type::FieldElement => Ok(()),
-            t => Err(Error {
+            t => Err(SingleError {
+                pos: Some(var.pos()),
                 message: format!("Variable in for loop cannot have type {}", t),
             }),
         }
     }
 
-    fn check_function<T: Field>(&mut self, funct: &Function<T>) -> Result<TypedFunction<T>, Error> {
+    fn check_function<T: Field>(
+        &mut self,
+        funct: &Function<T>,
+    ) -> Result<TypedFunction<T>, SingleError> {
         assert_eq!(funct.arguments.len(), funct.signature.inputs.len());
 
         let query = FunctionQuery::new(
@@ -196,7 +240,8 @@ impl Checker {
 
         match candidates.len() {
             1 => {
-                return Err(Error {
+                return Err(SingleError {
+                    pos: None,
                     message: format!(
                         "Duplicate definition for function {} with signature {}",
                         funct.id, funct.signature
@@ -234,11 +279,12 @@ impl Checker {
         &mut self,
         stat: &Statement<T>,
         header_return_types: &Vec<Type>,
-    ) -> Result<TypedStatement<T>, Error> {
+    ) -> Result<TypedStatement<T>, SingleError> {
+        let pos = None;
         match stat {
             Statement::Return(ref list) => {
                 let mut expression_list_checked = vec![];
-                for e in list.expressions.clone() {
+                for e in list.value.expressions.clone() {
                     let e_checked = self.check_expression(&e)?;
                     expression_list_checked.push(e_checked);
                 }
@@ -250,7 +296,8 @@ impl Checker {
 
                 match return_statement_types == *header_return_types {
                     true => Ok(TypedStatement::Return(expression_list_checked)),
-                    false => Err(Error {
+                    false => Err(SingleError {
+                        pos,
                         message: format!(
                             "Expected {:?} in return statement, found {:?}",
                             header_return_types, return_statement_types
@@ -258,16 +305,17 @@ impl Checker {
                     }),
                 }
             }
-            Statement::Declaration(ref var) => match self.insert_scope(var.clone()) {
-                true => Ok(TypedStatement::Declaration(var.clone())),
-                false => Err(Error {
-                    message: format!("Duplicate declaration for variable named {}", var.id),
+            Statement::Declaration(ref var) => match self.insert_scope(var.clone().value) {
+                true => Ok(TypedStatement::Declaration(var.clone().value)),
+                false => Err(SingleError {
+                    pos,
+                    message: format!("Duplicate declaration for variable named {}", var.value.id),
                 }),
             },
             Statement::Definition(assignee, expr) => {
                 // we create multidef when rhs is a function call to benefit from inference
                 // check rhs is not a function call here
-                match expr {
+                match expr.value {
 					Expression::FunctionCall(..) => panic!("Parser should not generate Definition where the right hand side is a FunctionCall"),
 					_ => {}
 				}
@@ -284,10 +332,11 @@ impl Checker {
                 // make sure the assignee has the same type as the rhs
                 match var_type == expression_type {
                     true => Ok(TypedStatement::Definition(var, checked_expr)),
-                    false => Err(Error {
+                    false => Err(SingleError {
+                        pos,
                         message: format!(
-                            "Expression of type {} cannot be assigned to {} of type {}",
-                            expression_type, var, var_type
+                            "Expression {} of type {} cannot be assigned to {} of type {}",
+                            expr, expression_type, assignee, var_type
                         ),
                     }),
                 }
@@ -300,9 +349,12 @@ impl Checker {
                     (ref r, ref l) if r.get_type() == l.get_type() => {
                         Ok(TypedStatement::Condition(checked_lhs, checked_rhs))
                     }
-                    (e1, e2) => Err(Error {
+                    (e1, e2) => Err(SingleError {
+                        pos,
                         message: format!(
-                            "cannot compare {:?} to {:?}",
+                            "cannot compare {} of type {:?} to {} of type {:?}",
+                            lhs,
+                            rhs,
                             e1.get_type(),
                             e2.get_type()
                         ),
@@ -314,7 +366,7 @@ impl Checker {
 
                 self.check_for_var(&var)?;
 
-                self.insert_scope(var.clone());
+                self.insert_scope(var.clone().value);
 
                 let mut checked_statements = vec![];
 
@@ -325,28 +377,28 @@ impl Checker {
 
                 self.exit_scope();
                 Ok(TypedStatement::For(
-                    var.clone(),
+                    var.clone().value,
                     from.clone(),
                     to.clone(),
                     checked_statements,
                 ))
             }
             Statement::MultipleDefinition(assignees, rhs) => {
-                match rhs {
+                match rhs.value {
                     // Right side has to be a function call
                     Expression::FunctionCall(ref fun_id, ref arguments) => {
                         // find lhs types
                         let mut vars_types: Vec<Option<Type>> = vec![];
                         let mut var_names = vec![];
                         for assignee in assignees {
-                            let (name, t) = match assignee {
-                    			Assignee::Identifier(name) => {
+                            let (name, t) = match assignee.value {
+                    			Assignee::Identifier(ref name) => {
                     				Ok((name, match self.get_scope(&name) {
 					            		None => None,
 					            		Some(sv) => Some(sv.id.get_type())
 					            	}))
                     			}
-                    			a => Err(Error { message: format!("Left hand side of function return assignment must be a list of identifiers, found {}", a)})
+                    			ref a => Err(SingleError { pos, message: format!("Left hand side of function return assignment must be a list of identifiers, found {}", a)})
                     		}?;
                             vars_types.push(t);
                             var_names.push(name);
@@ -354,7 +406,7 @@ impl Checker {
                         // find arguments types
                         let mut arguments_checked = vec![];
                         for arg in arguments {
-                            let arg_checked = self.check_expression(arg)?;
+                            let arg_checked = self.check_expression(&arg)?;
                             arguments_checked.push(arg_checked);
                         }
 
@@ -381,11 +433,12 @@ impl Checker {
 
                     			Ok(TypedStatement::MultipleDefinition(lhs.collect(), TypedExpressionList::FunctionCall(f.id.clone(), arguments_checked, f.signature.outputs.clone())))
                     		},
-                    		0 => Err(Error { message: format!("Function definition for function {} with signature {} not found.", fun_id, query) }),
-                    		_ => Err(Error { message: format!("Function call for function {} with arguments {:?} is ambiguous.", fun_id, arguments_types) }),
+                    		0 => Err(SingleError { pos, message: format!("Function definition for function {} with signature {} not found.", fun_id, query) }),
+                    		_ => Err(SingleError { pos, message: format!("Function call for function {} with arguments {:?} is ambiguous.", fun_id, arguments_types) }),
                     	}
                     }
-                    _ => Err(Error {
+                    _ => Err(SingleError {
+                        pos: None,
                         message: format!("{} should be a FunctionCall", rhs),
                     }),
                 }
@@ -395,23 +448,26 @@ impl Checker {
 
     fn check_assignee<T: Field>(
         &mut self,
-        assignee: &Assignee<T>,
-    ) -> Result<TypedAssignee<T>, Error> {
+        assignee: &AssigneeNode<T>,
+    ) -> Result<TypedAssignee<T>, SingleError> {
         // check that the assignee is declared
-        match assignee {
-            Assignee::Identifier(variable_name) => match self.get_scope(&variable_name) {
+        match assignee.value {
+            Assignee::Identifier(ref variable_name) => match self.get_scope(&variable_name) {
                 Some(var) => Ok(TypedAssignee::Identifier(var.id.clone())),
-                None => Err(Error {
+                None => Err(SingleError {
+                    pos: Some(assignee.pos()),
                     message: format!("Undeclared variable: {:?}", variable_name),
                 }),
             },
-            Assignee::ArrayElement(box assignee, box index) => {
+            Assignee::ArrayElement(ref assignee, ref index) => {
                 let checked_assignee = self.check_assignee(&assignee)?;
                 let checked_index = self.check_expression(&index)?;
 
                 let checked_typed_index = match checked_index {
                     TypedExpression::FieldElement(e) => Ok(e),
-                    e => Err(Error {
+                    e => Err(SingleError {
+                        pos: Some(assignee.pos()),
+
                         message: format!(
                             "Expected array {} index to have type field, found {}",
                             assignee,
@@ -430,9 +486,9 @@ impl Checker {
 
     fn check_expression<T: Field>(
         &mut self,
-        expr: &Expression<T>,
-    ) -> Result<TypedExpression<T>, Error> {
-        match expr {
+        expr: &ExpressionNode<T>,
+    ) -> Result<TypedExpression<T>, SingleError> {
+        match &expr.value {
             &Expression::Identifier(ref name) => {
                 // check that `id` is defined in the scope
                 match self.get_scope(&name) {
@@ -445,8 +501,10 @@ impl Checker {
                             Ok(FieldElementArrayExpression::Identifier(n, name.to_string()).into())
                         }
                     },
-                    None => Err(Error {
-                        message: format!("{} is undefined", name.to_string()),
+                    None => Err(SingleError {
+                        pos: Some(expr.pos()),
+
+                        message: format!("Identifier is undefined"),
                     }),
                 }
             }
@@ -458,7 +516,9 @@ impl Checker {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(FieldElementExpression::Add(box e1, box e2).into())
                     }
-                    (t1, t2) => Err(Error {
+                    (t1, t2) => Err(SingleError {
+                        pos: Some(expr.pos()),
+
                         message: format!(
                             "Expected only field elements, found {:?}, {:?}",
                             t1.get_type(),
@@ -475,7 +535,9 @@ impl Checker {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(FieldElementExpression::Sub(box e1, box e2).into())
                     }
-                    (t1, t2) => Err(Error {
+                    (t1, t2) => Err(SingleError {
+                        pos: Some(expr.pos()),
+
                         message: format!(
                             "Expected only field elements, found {:?}, {:?}",
                             t1.get_type(),
@@ -492,7 +554,9 @@ impl Checker {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(FieldElementExpression::Mult(box e1, box e2).into())
                     }
-                    (t1, t2) => Err(Error {
+                    (t1, t2) => Err(SingleError {
+                        pos: Some(expr.pos()),
+
                         message: format!(
                             "Expected only field elements, found {:?}, {:?}",
                             t1.get_type(),
@@ -509,7 +573,9 @@ impl Checker {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(FieldElementExpression::Div(box e1, box e2).into())
                     }
-                    (t1, t2) => Err(Error {
+                    (t1, t2) => Err(SingleError {
+                        pos: Some(expr.pos()),
+
                         message: format!(
                             "Expected only field elements, found {:?}, {:?}",
                             t1.get_type(),
@@ -526,7 +592,9 @@ impl Checker {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => Ok(
                         TypedExpression::FieldElement(FieldElementExpression::Pow(box e1, box e2)),
                     ),
-                    (t1, t2) => Err(Error {
+                    (t1, t2) => Err(SingleError {
+                        pos: Some(expr.pos()),
+
                         message: format!(
                             "Expected only field elements, found {:?}, {:?}",
                             t1.get_type(),
@@ -546,7 +614,9 @@ impl Checker {
 					},
 					(condition, consequence, alternative) =>
 						Err(
-							Error {
+							SingleError {
+                                                                            pos: Some(expr.pos()),
+
 								message:
 									format!("if {{condition}} then {{consequence}} else {{alternative}} should have types {}, {}, {}, found {}, {}, {}",
 										Type::Boolean,
@@ -602,7 +672,9 @@ impl Checker {
                                 }
                                 _ => unimplemented!(),
                             },
-                            n => Err(Error {
+                            n => Err(SingleError {
+                                pos: Some(expr.pos()),
+
                                 message: format!(
                                     "{} returns {} values but is called outside of a definition",
                                     f.id, n
@@ -610,7 +682,9 @@ impl Checker {
                             }),
                         }
                     }
-                    0 => Err(Error {
+                    0 => Err(SingleError {
+                        pos: Some(expr.pos()),
+
                         message: format!(
                             "Function definition for function {} with signature {} not found.",
                             fun_id, query
@@ -626,7 +700,9 @@ impl Checker {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(BooleanExpression::Lt(box e1, box e2).into())
                     }
-                    (e1, e2) => Err(Error {
+                    (e1, e2) => Err(SingleError {
+                        pos: Some(expr.pos()),
+
                         message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()),
                     }),
                 }
@@ -638,7 +714,9 @@ impl Checker {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(BooleanExpression::Le(box e1, box e2).into())
                     }
-                    (e1, e2) => Err(Error {
+                    (e1, e2) => Err(SingleError {
+                        pos: Some(expr.pos()),
+
                         message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()),
                     }),
                 }
@@ -650,7 +728,9 @@ impl Checker {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(BooleanExpression::Eq(box e1, box e2).into())
                     }
-                    (e1, e2) => Err(Error {
+                    (e1, e2) => Err(SingleError {
+                        pos: Some(expr.pos()),
+
                         message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()),
                     }),
                 }
@@ -662,7 +742,9 @@ impl Checker {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(BooleanExpression::Ge(box e1, box e2).into())
                     }
-                    (e1, e2) => Err(Error {
+                    (e1, e2) => Err(SingleError {
+                        pos: Some(expr.pos()),
+
                         message: format!("Cannot compare {} to {}", e1.get_type(), e2.get_type()),
                     }),
                 }
@@ -674,7 +756,9 @@ impl Checker {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(BooleanExpression::Gt(box e1, box e2).into())
                     }
-                    (e1, e2) => Err(Error {
+                    (e1, e2) => Err(SingleError {
+                        pos: Some(expr.pos()),
+
                         message: format!("Cannot compare {} to {}", e1.get_type(), e2.get_type()),
                     }),
                 }
@@ -687,7 +771,9 @@ impl Checker {
                         TypedExpression::FieldElementArray(ref a),
                         TypedExpression::FieldElement(ref i),
                     ) => Ok(FieldElementExpression::Select(box a.clone(), box i.clone()).into()),
-                    (a, e) => Err(Error {
+                    (a, e) => Err(SingleError {
+                        pos: Some(expr.pos()),
+
                         message: format!(
                             "Cannot take element {} on expression of type {}",
                             e,
@@ -717,7 +803,9 @@ impl Checker {
                         for e in expressions_checked {
                             let unwrapped_e = match e {
                                 TypedExpression::FieldElement(e) => Ok(e),
-                                e => Err(Error {
+                                e => Err(SingleError {
+                                    pos: Some(expr.pos()),
+
                                     message: format!(
                                         "Expected {} to have type {}, but type is {}",
                                         e,
@@ -731,7 +819,9 @@ impl Checker {
 
                         Ok(FieldElementArrayExpression::Value(size, unwrapped_expressions).into())
                     }
-                    _ => Err(Error {
+                    _ => Err(SingleError {
+                        pos: Some(expr.pos()),
+
                         message: format!(
                             "Only arrays of {} are supported, found {}",
                             Type::FieldElement,
@@ -747,7 +837,9 @@ impl Checker {
                     (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
                         Ok(BooleanExpression::And(box e1, box e2).into())
                     }
-                    (e1, e2) => Err(Error {
+                    (e1, e2) => Err(SingleError {
+                        pos: Some(expr.pos()),
+
                         message: format!(
                             "cannot apply boolean operators to {} and {}",
                             e1.get_type(),
@@ -763,7 +855,9 @@ impl Checker {
                     (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
                         Ok(BooleanExpression::Or(box e1, box e2).into())
                     }
-                    (e1, e2) => Err(Error {
+                    (e1, e2) => Err(SingleError {
+                        pos: Some(expr.pos()),
+
                         message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()),
                     }),
                 }
@@ -772,7 +866,9 @@ impl Checker {
                 let e_checked = self.check_expression(e)?;
                 match e_checked {
                     TypedExpression::Boolean(e) => Ok(BooleanExpression::Not(box e).into()),
-                    e => Err(Error {
+                    e => Err(SingleError {
+                        pos: Some(expr.pos()),
+
                         message: format!("cannot negate {}", e.get_type()),
                     }),
                 }
@@ -839,7 +935,7 @@ mod tests {
         let mut checker = Checker::new();
         assert_eq!(
             checker.check_statement(&statement, &vec![]),
-            Err(Error {
+            Err(SingleError {
                 message: "b is undefined".to_string()
             })
         );
@@ -924,7 +1020,7 @@ mod tests {
         let mut checker = Checker::new();
         assert_eq!(
             checker.check_program(prog),
-            Err(Error {
+            Err(SingleError {
                 message: "a is undefined".to_string()
             })
         );
@@ -1039,7 +1135,7 @@ mod tests {
         let mut checker = Checker::new();
         assert_eq!(
             checker.check_function(&foo),
-            Err(Error {
+            Err(SingleError {
                 message: "i is undefined".to_string()
             })
         );
@@ -1146,7 +1242,7 @@ mod tests {
         let mut checker = new_with_args(HashSet::new(), 0, functions);
         assert_eq!(
             checker.check_function(&bar),
-            Err(Error {
+            Err(SingleError {
                 message:
                     "Function definition for function foo with signature () -> (field) not found."
                         .to_string()
@@ -1190,7 +1286,7 @@ mod tests {
         let mut checker = new_with_args(HashSet::new(), 0, functions);
         assert_eq!(
             checker.check_function(&bar),
-            Err(Error {
+            Err(SingleError {
                 message: "Function definition for function foo with signature () -> (_) not found."
                     .to_string()
             })
@@ -1223,7 +1319,7 @@ mod tests {
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
             checker.check_function(&bar),
-            Err(Error {
+            Err(SingleError {
                 message:
                     "Function definition for function foo with signature () -> (field) not found."
                         .to_string()
@@ -1297,7 +1393,7 @@ mod tests {
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
             checker.check_program(program),
-            Err(Error {
+            Err(SingleError {
                 message: "x is undefined".to_string()
             })
         );
@@ -1326,7 +1422,7 @@ mod tests {
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
             checker.check_function(&bar),
-            Err(Error {
+            Err(SingleError {
                 message: "Function definition for function foo with signature () -> (_) not found."
                     .to_string()
             })
@@ -1358,7 +1454,7 @@ mod tests {
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
             checker.check_function(&bar),
-            Err(Error {
+            Err(SingleError {
                 message: "a is undefined".to_string()
             })
         );
@@ -1491,7 +1587,7 @@ mod tests {
         let mut checker = new_with_args(HashSet::new(), 0, functions);
         assert_eq!(
             checker.check_function(&foo2),
-            Err(Error {
+            Err(SingleError {
                 message:
                     "Duplicate definition for function foo with signature (field, field) -> (field)"
                         .to_string()
@@ -1553,7 +1649,7 @@ mod tests {
         let mut checker = Checker::new();
         assert_eq!(
             checker.check_program(prog),
-            Err(Error {
+            Err(SingleError {
                 message: "Only one main function allowed, found 2".to_string()
             })
         );
@@ -1567,17 +1663,17 @@ mod tests {
         // should fail
 
         let mut checker = Checker::new();
-        let _: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(
+        let _: Result<TypedStatement<FieldPrime>, SingleError> = checker.check_statement(
             &Statement::Declaration(Variable::field_element("a")),
             &vec![],
         );
-        let s2_checked: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(
+        let s2_checked: Result<TypedStatement<FieldPrime>, SingleError> = checker.check_statement(
             &Statement::Declaration(Variable::field_element("a")),
             &vec![],
         );
         assert_eq!(
             s2_checked,
-            Err(Error {
+            Err(SingleError {
                 message: "Duplicate declaration for variable named a".to_string()
             })
         );
@@ -1591,15 +1687,15 @@ mod tests {
         // should fail
 
         let mut checker = Checker::new();
-        let _: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(
+        let _: Result<TypedStatement<FieldPrime>, SingleError> = checker.check_statement(
             &Statement::Declaration(Variable::field_element("a")),
             &vec![],
         );
-        let s2_checked: Result<TypedStatement<FieldPrime>, Error> =
+        let s2_checked: Result<TypedStatement<FieldPrime>, SingleError> =
             checker.check_statement(&Statement::Declaration(Variable::boolean("a")), &vec![]);
         assert_eq!(
             s2_checked,
-            Err(Error {
+            Err(SingleError {
                 message: "Duplicate declaration for variable named a".to_string()
             })
         );
