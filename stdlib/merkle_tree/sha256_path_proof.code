@@ -8,7 +8,7 @@ def main(field treeDepth, field[256] rootDigest, private field[256] leafDigest, 
 
 	//Setup
 	field[256] currentDigest = leafDigest
-	field counter = 0
+	field counter = 1
 	field currentDirection = 0
 	
 	//Loop up the tree
