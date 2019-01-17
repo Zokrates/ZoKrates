@@ -39,7 +39,7 @@ import "./stlib/512_padded.code"
 A function that takes 2 `field[256]` arrays as inputs and returns their sha256 compression function as an array of 256 field elements.
 
 #### sha256compression
-`
+
 ```zokrates
 import "./stlib/512.code"
 ```
