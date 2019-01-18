@@ -2406,36 +2406,69 @@ mod tests {
     fn array_if() {
         // if 1 == 1 then [1] else [3] fi
 
-        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
-        let mut functions_flattened = vec![];
-        flattener.load_corelib(&mut functions_flattened);
-        let arguments_flattened = vec![];
-        let mut statements_flattened = vec![];
+        let with_arrays = {
+            let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+            let mut functions_flattened = vec![];
+            flattener.load_corelib(&mut functions_flattened);
+            let arguments_flattened = vec![];
+            let mut statements_flattened = vec![];
 
-        let e = FieldElementArrayExpression::IfElse(
-            box BooleanExpression::Eq(
-                box FieldElementExpression::Number(FieldPrime::from(1)),
-                box FieldElementExpression::Number(FieldPrime::from(1)),
-            ),
-            box FieldElementArrayExpression::Value(
-                1,
-                vec![FieldElementExpression::Number(FieldPrime::from(1))],
-            ),
-            box FieldElementArrayExpression::Value(
-                1,
-                vec![FieldElementExpression::Number(FieldPrime::from(3))],
-            ),
-        );
+            let e = FieldElementArrayExpression::IfElse(
+                box BooleanExpression::Eq(
+                    box FieldElementExpression::Number(FieldPrime::from(1)),
+                    box FieldElementExpression::Number(FieldPrime::from(1)),
+                ),
+                box FieldElementArrayExpression::Value(
+                    1,
+                    vec![FieldElementExpression::Number(FieldPrime::from(1))],
+                ),
+                box FieldElementArrayExpression::Value(
+                    1,
+                    vec![FieldElementExpression::Number(FieldPrime::from(3))],
+                ),
+            );
 
-        println!(
-            "{:?}",
-            flattener.flatten_field_array_expression(
-                &mut functions_flattened,
-                &arguments_flattened,
-                &mut statements_flattened,
-                e,
+            (
+                flattener.flatten_field_array_expression(
+                    &mut functions_flattened,
+                    &arguments_flattened,
+                    &mut statements_flattened,
+                    e,
+                )[0]
+                .clone(),
+                statements_flattened,
             )
-        );
+        };
+
+        let without_arrays = {
+            let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+            let mut functions_flattened = vec![];
+            flattener.load_corelib(&mut functions_flattened);
+            let arguments_flattened = vec![];
+            let mut statements_flattened = vec![];
+
+            // if 1 == 1 then 1 else 3 fi
+            let e = FieldElementExpression::IfElse(
+                box BooleanExpression::Eq(
+                    box FieldElementExpression::Number(FieldPrime::from(1)),
+                    box FieldElementExpression::Number(FieldPrime::from(1)),
+                ),
+                box FieldElementExpression::Number(FieldPrime::from(1)),
+                box FieldElementExpression::Number(FieldPrime::from(3)),
+            );
+
+            (
+                flattener.flatten_field_expression(
+                    &mut functions_flattened,
+                    &arguments_flattened,
+                    &mut statements_flattened,
+                    e,
+                ),
+                statements_flattened,
+            )
+        };
+
+        assert_eq!(with_arrays, without_arrays);
     }
 
     #[test]
