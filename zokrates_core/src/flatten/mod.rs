@@ -945,7 +945,21 @@ impl Flattener {
                                                 "please use intermediate variables for now"
                                             )
                                         }
-                                        FieldElementArrayExpression::IfElse(..) => unimplemented!(),
+                                        FieldElementArrayExpression::IfElse(
+                                            condition,
+                                            consequence,
+                                            alternative,
+                                        ) => FieldElementExpression::IfElse(
+                                            condition,
+                                            box FieldElementExpression::Select(
+                                                consequence,
+                                                box FieldElementExpression::Number(T::from(i)),
+                                            ),
+                                            box FieldElementExpression::Select(
+                                                alternative,
+                                                box FieldElementExpression::Number(T::from(i)),
+                                            ),
+                                        ),
                                     },
                                     box FieldElementExpression::Number(T::from(0)),
                                 )
