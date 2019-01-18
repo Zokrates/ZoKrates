@@ -864,7 +864,30 @@ impl Flattener {
                         FieldElementArrayExpression::FunctionCall(..) => {
                             unimplemented!("please use intermediate variables for now")
                         }
-                        FieldElementArrayExpression::IfElse(..) => unimplemented!(""),
+                        FieldElementArrayExpression::IfElse(
+                            condition,
+                            consequence,
+                            alternative,
+                        ) => {
+                            // [if cond then [a, b] else [c, d]][1] == if cond then [a, b][1] else [c, d][1]
+                            self.flatten_field_expression(
+                                functions_flattened,
+                                arguments_flattened,
+                                statements_flattened,
+                                FieldElementExpression::IfElse(
+                                    condition,
+                                    box FieldElementExpression::Select(
+                                        consequence,
+                                        box FieldElementExpression::Number(n.clone()),
+                                    ),
+                                    box FieldElementExpression::Select(
+                                        alternative,
+                                        box FieldElementExpression::Number(n),
+                                    ),
+                                ),
+                            )
+                            .apply_recursive_substitution(&self.substitution)
+                        }
                     },
                     e => {
                         let size = array.size();
