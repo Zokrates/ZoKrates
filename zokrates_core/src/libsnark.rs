@@ -15,13 +15,15 @@ use zokrates_field::field::Field;
 extern "C" {
     fn _sha256RoundConstraints() -> *mut c_char;
     fn _sha256RoundWitness(inputs: *const uint8_t, inputs_length: c_int) -> *mut c_char;
+    fn _free_string(str: *const c_char);
 }
 
 pub fn get_sha256round_constraints() -> String {
     let c_buf: *const c_char = unsafe { _sha256RoundConstraints() };
     let c_str: &CStr = unsafe { CStr::from_ptr(c_buf) };
     let str_slice: &str = c_str.to_str().unwrap();
-    let str_buf: String = str_slice.to_owned();
+    let str_buf: String = str_slice.to_owned(); //memory allocated in Rust
+    unsafe { _free_string(c_buf) }; //memory deallocated in Cpp
     str_buf
 }
 
@@ -35,6 +37,7 @@ pub fn get_sha256round_witness<T: Field>(inputs: &Vec<T>) -> String {
     let c_str: &CStr = unsafe { CStr::from_ptr(c_buf) };
     let str_slice: &str = c_str.to_str().unwrap();
     let str_buf: String = str_slice.to_owned();
+    unsafe { _free_string(c_buf) };
     str_buf
 }
 
