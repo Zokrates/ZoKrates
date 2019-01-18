@@ -7,7 +7,7 @@
 extern crate libc;
 
 use self::libc::{c_char, c_int, uint8_t};
-use std::ffi::CString;
+use std::ffi::CStr;
 use std::string::String;
 
 use zokrates_field::field::Field;
@@ -18,8 +18,11 @@ extern "C" {
 }
 
 pub fn get_sha256round_constraints() -> String {
-    let a = unsafe { CString::from_raw(_sha256RoundConstraints()) };
-    a.into_string().unwrap()
+    let c_buf: *const c_char = unsafe { _sha256RoundConstraints() };
+    let c_str: &CStr = unsafe { CStr::from_ptr(c_buf) };
+    let str_slice: &str = c_str.to_str().unwrap();
+    let str_buf: String = str_slice.to_owned();
+    str_buf
 }
 
 pub fn get_sha256round_witness<T: Field>(inputs: &Vec<T>) -> String {
@@ -27,14 +30,12 @@ pub fn get_sha256round_witness<T: Field>(inputs: &Vec<T>) -> String {
     for (index, value) in inputs.into_iter().enumerate() {
         inputs_arr[index] = vec_as_u8_32_array(&value.into_byte_vector());
     }
-
-    let a = unsafe {
-        CString::from_raw(_sha256RoundWitness(
-            inputs_arr[0].as_ptr(),
-            inputs.len() as i32,
-        ))
-    };
-    a.into_string().unwrap()
+    let c_buf: *const c_char =
+        unsafe { _sha256RoundWitness(inputs_arr[0].as_ptr(), inputs.len() as i32) };
+    let c_str: &CStr = unsafe { CStr::from_ptr(c_buf) };
+    let str_slice: &str = c_str.to_str().unwrap();
+    let str_buf: String = str_slice.to_owned();
+    str_buf
 }
 
 // utility function. Converts a Fields vector-based byte representation to fixed size array.
