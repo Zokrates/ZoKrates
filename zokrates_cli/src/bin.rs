@@ -233,7 +233,7 @@ fn main() {
 
     match matches.subcommand() {
         ("compile", Some(sub_matches)) => {
-            println!("Compiling {}", sub_matches.value_of("input").unwrap());
+            println!("Compiling {}\n", sub_matches.value_of("input").unwrap());
 
             let path = PathBuf::from(sub_matches.value_of("input").unwrap());
 
@@ -258,7 +258,10 @@ fn main() {
             let program_flattened: ir::Prog<FieldPrime> =
                 match compile(&mut reader, Some(location), Some(fs_resolve)) {
                     Ok(p) => p,
-                    Err(why) => panic!("Compilation failed: {}", why),
+                    Err(why) => {
+                        println!("Compilation failed:\n\n{}", why);
+                        std::process::exit(1);
+                    }
                 };
 
             // number of constraints the flattened program will translate to.

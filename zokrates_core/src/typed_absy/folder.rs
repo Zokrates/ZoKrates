@@ -1,6 +1,5 @@
 // Generic walk through a typed AST. Not mutating in place
 
-use absy::variable::Variable;
 use typed_absy::*;
 use zokrates_field::field::Field;
 

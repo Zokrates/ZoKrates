@@ -14,7 +14,7 @@ impl<T: Field> fmt::Display for Error<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "Error at {}: Expected one of {:?}, got {:?}",
+            "{}\n\tExpected one of {:?}, got {:?}",
             self.pos.col(-(self.got.to_string().len() as isize)),
             self.expected,
             self.got

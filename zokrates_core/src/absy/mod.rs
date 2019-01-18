@@ -9,21 +9,21 @@ mod node;
 pub mod parameter;
 pub mod variable;
 
-pub use absy::node::Node;
-pub use absy::parameter::Parameter;
+pub use absy::node::{Node, NodeValue};
+pub use absy::parameter::{Parameter, ParameterNode};
 pub use absy::variable::{Variable, VariableNode};
 use types::Signature;
 
 use flat_absy::*;
-use imports::Import;
+use imports::ImportNode;
 use std::fmt;
 use zokrates_field::field::Field;
 
 #[derive(Clone, PartialEq)]
 pub struct Prog<T: Field> {
     /// Functions of the program
-    pub functions: Vec<Function<T>>,
-    pub imports: Vec<Import>,
+    pub functions: Vec<FunctionNode<T>>,
+    pub imports: Vec<ImportNode>,
     pub imported_functions: Vec<FlatFunction<T>>,
 }
 
@@ -81,12 +81,14 @@ pub struct Function<T: Field> {
     /// Name of the program
     pub id: String,
     /// Arguments of the function
-    pub arguments: Vec<Parameter>,
+    pub arguments: Vec<ParameterNode>,
     /// Vector of statements that are executed when running the function
-    pub statements: Vec<Statement<T>>,
+    pub statements: Vec<StatementNode<T>>,
     /// function signature
     pub signature: Signature,
 }
+
+pub type FunctionNode<T> = Node<Function<T>>;
 
 impl<T: Field> fmt::Display for Function<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -176,9 +178,11 @@ pub enum Statement<T: Field> {
     Declaration(VariableNode),
     Definition(AssigneeNode<T>, ExpressionNode<T>),
     Condition(ExpressionNode<T>, ExpressionNode<T>),
-    For(VariableNode, T, T, Vec<Statement<T>>),
+    For(VariableNode, T, T, Vec<StatementNode<T>>),
     MultipleDefinition(Vec<AssigneeNode<T>>, ExpressionNode<T>),
 }
+
+pub type StatementNode<T> = Node<Statement<T>>;
 
 impl<T: Field> fmt::Display for Statement<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

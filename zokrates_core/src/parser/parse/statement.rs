@@ -13,14 +13,16 @@ use super::expression::{
 };
 use super::expression_list::parse_expression_list;
 
-use absy::{Assignee, AssigneeNode, Expression, Node, Statement, Variable, VariableNode};
+use absy::{
+    Assignee, AssigneeNode, Expression, Node, Statement, StatementNode, Variable, VariableNode,
+};
 use types::Type;
 
 pub fn parse_statement<T: Field, R: BufRead>(
     lines: &mut Lines<R>,
     input: &String,
     pos: &Position,
-) -> Result<(Vec<Statement<T>>, String, Position), Error<T>> {
+) -> Result<(Vec<StatementNode<T>>, String, Position), Error<T>> {
     match next_token::<T>(input, pos) {
         (Token::Type(t), s1, p1) => parse_declaration_definition(t, s1, p1),
         (Token::Ide(x1), s1, p1) => parse_statement1(x1, s1, p1),
@@ -30,11 +32,19 @@ pub fn parse_statement<T: Field, R: BufRead>(
                     Ok((e4, s4, p4)) => match next_token(&s4, &p4) {
                         (Token::InlineComment(_), ref s5, _) => {
                             assert_eq!(s5, "");
-                            Ok((vec![Statement::Condition(e2, e4)], s4, p4))
+                            Ok((
+                                vec![Node::new(*pos, p4, Statement::Condition(e2, e4))],
+                                s4,
+                                p4,
+                            ))
                         }
                         (Token::Unknown(ref t5), ref s5, _) if t5 == "" => {
                             assert_eq!(s5, "");
-                            Ok((vec![Statement::Condition(e2, e4)], s4, p4))
+                            Ok((
+                                vec![Node::new(*pos, p4, Statement::Condition(e2, e4))],
+                                s4,
+                                p4,
+                            ))
                         }
                         (t5, _, p5) => Err(Error {
                             expected: vec![Token::Unknown("".to_string())],
@@ -109,11 +119,11 @@ pub fn parse_statement<T: Field, R: BufRead>(
                                                         match next_token(&s8, &p8) {
                                                             (Token::InlineComment(_), ref s9, _) => {
                                                                 assert_eq!(s9, "");
-                                                                return Ok((vec![Statement::For(Node::new(p1, p3, Variable::new(x2, t)), x4, x6, statements)], s8, p8))
+                                                                return Ok((vec![Node::new(*pos, p8, Statement::For(Node::new(p1, p3, Variable::new(x2, t)), x4, x6, statements))], s8, p8))
                                                             }
                                                             (Token::Unknown(ref t9), ref s9, _) if t9 == "" => {
                                                                 assert_eq!(s9, "");
-                                                                return Ok((vec![Statement::For(Node::new(p1, p3, Variable::new(x2, t)), x4, x6, statements)], s8, p8))
+                                                                return Ok((vec![Node::new(*pos, p8, Statement::For(Node::new(p1, p3, Variable::new(x2, t)), x4, x6, statements))], s8, p8))
                                                             },
                                                             (t9, _, p9) => return Err(Error { expected: vec![Token::Unknown("".to_string())], got: t9 , pos: p9 }),
                                                         }
@@ -184,11 +194,11 @@ pub fn parse_statement<T: Field, R: BufRead>(
             Ok((e2, s2, p2)) => match next_token(&s2, &p2) {
                 (Token::InlineComment(_), ref s3, _) => {
                     assert_eq!(s3, "");
-                    Ok((vec![Statement::Return(e2)], s2, p2))
+                    Ok((vec![Node::new(*pos, p2, Statement::Return(e2))], s2, p2))
                 }
                 (Token::Unknown(ref t3), ref s3, _) if t3 == "" => {
                     assert_eq!(s3, "");
-                    Ok((vec![Statement::Return(e2)], s2, p2))
+                    Ok((vec![Node::new(*pos, p2, Statement::Return(e2))], s2, p2))
                 }
                 (t3, _, p3) => Err(Error {
                     expected: vec![Token::Unknown("".to_string())],
@@ -221,22 +231,27 @@ fn parse_definition1<T: Field>(
     x: AssigneeNode<T>,
     input: String,
     pos: Position,
-) -> Result<(Vec<Statement<T>>, String, Position), Error<T>> {
+) -> Result<(Vec<StatementNode<T>>, String, Position), Error<T>> {
     match parse_expr(&input, &pos) {
         Ok((e1, s1, p1)) => match next_token(&s1, &p1) {
             (Token::InlineComment(_), ref s2, _) => {
                 assert_eq!(s2, "");
                 match e1.value {
                     e @ Expression::FunctionCall(..) => Ok((
-                        vec![Statement::MultipleDefinition(
-                            vec![x],
-                            Node::new(pos, p1, e),
+                        vec![Node::new(
+                            x.start,
+                            p1,
+                            Statement::MultipleDefinition(vec![x], Node::new(pos, p1, e)),
                         )],
                         s1,
                         p1,
                     )),
                     e => Ok((
-                        vec![Statement::Definition(x, Node::new(pos, p1, e))],
+                        vec![Node::new(
+                            x.start,
+                            p1,
+                            Statement::Definition(x, Node::new(pos, p1, e)),
+                        )],
                         s1,
                         p1,
                     )),
@@ -246,15 +261,20 @@ fn parse_definition1<T: Field>(
                 assert_eq!(s2, "");
                 match e1.value {
                     e @ Expression::FunctionCall(..) => Ok((
-                        vec![Statement::MultipleDefinition(
-                            vec![x],
-                            Node::new(pos, p1, e),
+                        vec![Node::new(
+                            x.start,
+                            p1,
+                            Statement::MultipleDefinition(vec![x], Node::new(pos, p1, e)),
                         )],
                         s1,
                         p1,
                     )),
                     e => Ok((
-                        vec![Statement::Definition(x, Node::new(pos, p1, e))],
+                        vec![Node::new(
+                            x.start,
+                            p1,
+                            Statement::Definition(x, Node::new(pos, p1, e)),
+                        )],
                         s1,
                         p1,
                     )),
@@ -274,7 +294,7 @@ fn parse_declaration_definition<T: Field>(
     t: Type,
     input: String,
     pos: Position,
-) -> Result<(Vec<Statement<T>>, String, Position), Error<T>> {
+) -> Result<(Vec<StatementNode<T>>, String, Position), Error<T>> {
     match next_token::<T>(&input, &pos) {
         (Token::Ide(x), s0, p0) => match next_token(&s0, &p0) {
             (Token::Eq, s1, p1) => match parse_expr(&s1, &p1) {
@@ -284,14 +304,22 @@ fn parse_declaration_definition<T: Field>(
                         match e2.value {
                             e @ Expression::FunctionCall(..) => Ok((
                                 vec![
-                                    Statement::Declaration(Node::new(
+                                    Node::new(
                                         pos,
                                         p0,
-                                        Variable::new(x.clone(), t),
-                                    )),
-                                    Statement::MultipleDefinition(
-                                        vec![Node::new(pos, p1, Assignee::Identifier(x))],
-                                        Node::new(p1, p2, e),
+                                        Statement::Declaration(Node::new(
+                                            pos,
+                                            p0,
+                                            Variable::new(x.clone(), t),
+                                        )),
+                                    ),
+                                    Node::new(
+                                        pos,
+                                        p2,
+                                        Statement::MultipleDefinition(
+                                            vec![Node::new(pos, p1, Assignee::Identifier(x))],
+                                            Node::new(p1, p2, e),
+                                        ),
                                     ),
                                 ],
                                 s2,
@@ -299,14 +327,22 @@ fn parse_declaration_definition<T: Field>(
                             )),
                             e => Ok((
                                 vec![
-                                    Statement::Declaration(Node::new(
+                                    Node::new(
                                         pos,
                                         p0,
-                                        Variable::new(x.clone(), t),
-                                    )),
-                                    Statement::Definition(
-                                        Node::new(pos, p1, Assignee::Identifier(x)),
-                                        Node::new(p1, p2, e),
+                                        Statement::Declaration(Node::new(
+                                            pos,
+                                            p0,
+                                            Variable::new(x.clone(), t),
+                                        )),
+                                    ),
+                                    Node::new(
+                                        pos,
+                                        p2,
+                                        Statement::Definition(
+                                            Node::new(pos, p1, Assignee::Identifier(x)),
+                                            Node::new(p1, p2, e),
+                                        ),
                                     ),
                                 ],
                                 s2,
@@ -319,14 +355,22 @@ fn parse_declaration_definition<T: Field>(
                         match e2.value {
                             e @ Expression::FunctionCall(..) => Ok((
                                 vec![
-                                    Statement::Declaration(Node::new(
+                                    Node::new(
                                         pos,
                                         p0,
-                                        Variable::new(x.clone(), t),
-                                    )),
-                                    Statement::MultipleDefinition(
-                                        vec![Node::new(pos, p1, Assignee::Identifier(x))],
-                                        Node::new(p1, p2, e),
+                                        Statement::Declaration(Node::new(
+                                            pos,
+                                            p0,
+                                            Variable::new(x.clone(), t),
+                                        )),
+                                    ),
+                                    Node::new(
+                                        pos,
+                                        p2,
+                                        Statement::MultipleDefinition(
+                                            vec![Node::new(pos, p1, Assignee::Identifier(x))],
+                                            Node::new(p1, p2, e),
+                                        ),
                                     ),
                                 ],
                                 s2,
@@ -334,14 +378,22 @@ fn parse_declaration_definition<T: Field>(
                             )),
                             e => Ok((
                                 vec![
-                                    Statement::Declaration(Node::new(
+                                    Node::new(
                                         pos,
                                         p0,
-                                        Variable::new(x.clone(), t),
-                                    )),
-                                    Statement::Definition(
-                                        Node::new(pos, p1, Assignee::Identifier(x)),
-                                        Node::new(p1, p2, e),
+                                        Statement::Declaration(Node::new(
+                                            pos,
+                                            p0,
+                                            Variable::new(x.clone(), t),
+                                        )),
+                                    ),
+                                    Node::new(
+                                        pos,
+                                        p2,
+                                        Statement::Definition(
+                                            Node::new(pos, p1, Assignee::Identifier(x)),
+                                            Node::new(p1, p2, e),
+                                        ),
                                     ),
                                 ],
                                 s2,
@@ -370,21 +422,16 @@ fn parse_declaration_definition<T: Field>(
                     // then we should have an equal sign
                     (Token::Eq, s3, p3) => match parse_expr(&s3, &p3) {
                         Ok((e4, s4, p4)) => {
-                            let mut statements: Vec<Statement<T>> = d2
+                            let mut statements: Vec<_> = d2
                                 .iter()
-                                .map(|v| Statement::Declaration(v.clone()))
+                                .map(|v| {
+                                    Node::new(v.start, v.end, Statement::Declaration(v.clone()))
+                                })
                                 .collect();
-                            statements.push(Statement::MultipleDefinition(
-                                d2.iter()
-                                    .map(|v| {
-                                        Node::new(
-                                            v.start,
-                                            v.end,
-                                            Assignee::Identifier(v.value.id.clone()),
-                                        )
-                                    })
-                                    .collect(),
-                                e4,
+                            statements.push(Node::new(
+                                pos,
+                                p4,
+                                Statement::MultipleDefinition(e2, e4),
                             ));
                             Ok((statements, s4, p4)) // output a multipledefinition with the destructure and the expression
                         }
@@ -417,9 +464,9 @@ fn parse_statement1<T: Field>(
     ide: String,
     input: String,
     pos: Position,
-) -> Result<(Vec<Statement<T>>, String, Position), Error<T>> {
+) -> Result<(Vec<StatementNode<T>>, String, Position), Error<T>> {
     let ide_start_position = Position {
-        line: pos.line - ide.len(),
+        col: pos.col - ide.len(),
         ..pos
     };
     match next_token::<T>(&input, &pos) {
@@ -434,22 +481,11 @@ fn parse_statement1<T: Field>(
                 // then we should have an equal sign
                 (Token::Eq, s3, p3) => match parse_expr(&s3, &p3) {
                     Ok((e4, s4, p4)) => {
-                        let mut statements: Vec<Statement<T>> = d2
+                        let mut statements: Vec<_> = d2
                             .iter()
-                            .map(|v| Statement::Declaration(v.clone()))
+                            .map(|v| Node::new(v.start, v.end, Statement::Declaration(v.clone())))
                             .collect();
-                        statements.push(Statement::MultipleDefinition(
-                            d2.iter()
-                                .map(|v| {
-                                    Node::new(
-                                        v.start,
-                                        v.end,
-                                        Assignee::Identifier(v.value.id.clone()),
-                                    )
-                                })
-                                .collect(),
-                            e4,
-                        ));
+                        statements.push(Node::new(pos, p4, Statement::MultipleDefinition(e2, e4)));
                         Ok((statements, s4, p4)) // output a multipledefinition with the destructure and the expression
                     }
                     Err(err) => Err(err),
@@ -469,11 +505,19 @@ fn parse_statement1<T: Field>(
                         Ok((e6, s6, p6)) => match next_token(&s6, &p6) {
                             (Token::InlineComment(_), ref s7, _) => {
                                 assert_eq!(s7, "");
-                                Ok((vec![Statement::Condition(e4, e6)], s6, p6))
+                                Ok((
+                                    vec![Node::new(pos, p6, Statement::Condition(e4, e6))],
+                                    s6,
+                                    p6,
+                                ))
                             }
                             (Token::Unknown(ref t7), ref s7, _) if t7 == "" => {
                                 assert_eq!(s7, "");
-                                Ok((vec![Statement::Condition(e4, e6)], s6, p6))
+                                Ok((
+                                    vec![Node::new(pos, p6, Statement::Condition(e4, e6))],
+                                    s6,
+                                    p6,
+                                ))
                             }
                             (t7, _, p7) => Err(Error {
                                 expected: vec![
@@ -507,11 +551,19 @@ fn parse_statement1<T: Field>(
                         Ok((e6, s6, p6)) => match next_token(&s6, &p6) {
                             (Token::InlineComment(_), ref s7, _) => {
                                 assert_eq!(s7, "");
-                                Ok((vec![Statement::Condition(e4, e6)], s6, p6))
+                                Ok((
+                                    vec![Node::new(pos, p6, Statement::Condition(e4, e6))],
+                                    s6,
+                                    p6,
+                                ))
                             }
                             (Token::Unknown(ref t7), ref s7, _) if t7 == "" => {
                                 assert_eq!(s7, "");
-                                Ok((vec![Statement::Condition(e4, e6)], s6, p6))
+                                Ok((
+                                    vec![Node::new(pos, p6, Statement::Condition(e4, e6))],
+                                    s6,
+                                    p6,
+                                ))
                             }
                             (t7, _, p7) => Err(Error {
                                 expected: vec![
@@ -550,11 +602,19 @@ fn parse_statement1<T: Field>(
                         Ok((e5, s5, p5)) => match next_token(&s5, &p5) {
                             (Token::InlineComment(_), ref s6, _) => {
                                 assert_eq!(s6, "");
-                                Ok((vec![Statement::Condition(e3, e5)], s5, p5))
+                                Ok((
+                                    vec![Node::new(pos, p5, Statement::Condition(e3, e5))],
+                                    s5,
+                                    p5,
+                                ))
                             }
                             (Token::Unknown(ref t6), ref s6, _) if t6 == "" => {
                                 assert_eq!(s6, "");
-                                Ok((vec![Statement::Condition(e3, e5)], s5, p5))
+                                Ok((
+                                    vec![Node::new(pos, p5, Statement::Condition(e3, e5))],
+                                    s5,
+                                    p5,
+                                ))
                             }
                             (t6, _, p6) => Err(Error {
                                 expected: vec![
@@ -590,17 +650,23 @@ pub fn parse_identifier_list1<T: Field>(
     _type: Option<Type>,
     input: String,
     pos: Position,
-) -> Result<(Vec<String>, Vec<VariableNode>, String, Position), Error<T>> {
+) -> Result<(Vec<AssigneeNode<T>>, Vec<VariableNode>, String, Position), Error<T>> {
     let mut res = Vec::new();
     let mut decl = Vec::new();
-    res.push(head.clone());
+
+    let start_pos = Position {
+        col: pos.col - head.len(),
+        ..pos
+    };
+
+    res.push(Node::new(
+        start_pos,
+        pos,
+        Assignee::Identifier(head.clone()),
+    ));
     match _type {
         Some(t) => {
-            let pos_before = Position {
-                col: pos.col - head.len(),
-                ..pos
-            };
-            decl.push(Node::new(pos_before, pos, Variable::new(head, t)));
+            decl.push(Node::new(start_pos, pos, Variable::new(head, t)));
         }
         _ => {}
     };
@@ -610,13 +676,13 @@ pub fn parse_identifier_list1<T: Field>(
 fn parse_comma_separated_identifier_list_rec<T: Field>(
     input: String,
     pos: Position,
-    mut acc: &mut Vec<String>,
+    mut acc: &mut Vec<AssigneeNode<T>>,
     mut decl: &mut Vec<VariableNode>,
-) -> Result<(Vec<String>, Vec<VariableNode>, String, Position), Error<T>> {
+) -> Result<(Vec<AssigneeNode<T>>, Vec<VariableNode>, String, Position), Error<T>> {
     match next_token(&input, &pos) {
         (Token::Type(t), s1, p1) => match next_token::<T>(&s1, &p1) {
             (Token::Ide(id), s2, p2) => {
-                acc.push(id.clone());
+                acc.push(Node::new(p1, p2, Assignee::Identifier(id.clone())));
                 decl.push(Node::new(pos, p2, Variable::new(id, t)));
                 match next_token::<T>(&s2, &p2) {
                     (Token::Comma, s3, p3) => {
@@ -632,7 +698,7 @@ fn parse_comma_separated_identifier_list_rec<T: Field>(
             }),
         },
         (Token::Ide(id), s1, p1) => {
-            acc.push(id);
+            acc.push(Node::new(pos, p1, Assignee::Identifier(id)));
             match next_token::<T>(&s1, &p1) {
                 (Token::Comma, s2, p2) => {
                     parse_comma_separated_identifier_list_rec(s2, p2, &mut acc, &mut decl)
@@ -660,9 +726,10 @@ mod tests {
             let pos = Position { line: 45, col: 121 };
             let string = String::from("() == 1");
             let cond = Statement::Condition(
-                Expression::FunctionCall(String::from("foo"), vec![]),
-                Expression::Number(FieldPrime::from(1)),
-            );
+                Expression::FunctionCall(String::from("foo"), vec![]).into(),
+                Expression::Number(FieldPrime::from(1)).into(),
+            )
+            .into();
             assert_eq!(
                 Ok((vec![cond], String::from(""), pos.col(string.len() as isize))),
                 parse_statement1(String::from("foo"), string, pos)
@@ -676,13 +743,16 @@ mod tests {
             let cond = Statement::Condition(
                 Expression::Sub(
                     box Expression::Sub(
-                        box Expression::FunctionCall(String::from("foo"), vec![]),
-                        box Expression::FunctionCall(String::from("g"), vec![]),
-                    ),
-                    box Expression::Number(FieldPrime::from(1)),
-                ),
-                Expression::Number(FieldPrime::from(1)),
-            );
+                        box Expression::FunctionCall(String::from("foo"), vec![]).into(),
+                        box Expression::FunctionCall(String::from("g"), vec![]).into(),
+                    )
+                    .into(),
+                    box Expression::Number(FieldPrime::from(1)).into(),
+                )
+                .into(),
+                Expression::Number(FieldPrime::from(1)).into(),
+            )
+            .into();
             assert_eq!(
                 Ok((vec![cond], String::from(""), pos.col(string.len() as isize))),
                 parse_statement1(String::from("foo"), string, pos)
@@ -697,15 +767,19 @@ mod tests {
                 Expression::Sub(
                     box Expression::Sub(
                         box Expression::Select(
-                            box Expression::Identifier(String::from("foo")),
-                            box Expression::Number(FieldPrime::from(3)),
-                        ),
-                        box Expression::FunctionCall(String::from("g"), vec![]),
-                    ),
-                    box Expression::Number(FieldPrime::from(1)),
-                ),
-                Expression::Number(FieldPrime::from(1)),
-            );
+                            box Expression::Identifier(String::from("foo")).into(),
+                            box Expression::Number(FieldPrime::from(3)).into(),
+                        )
+                        .into(),
+                        box Expression::FunctionCall(String::from("g"), vec![]).into(),
+                    )
+                    .into(),
+                    box Expression::Number(FieldPrime::from(1)).into(),
+                )
+                .into(),
+                Expression::Number(FieldPrime::from(1)).into(),
+            )
+            .into();
             assert_eq!(
                 Ok((vec![cond], String::from(""), pos.col(string.len() as isize))),
                 parse_statement1(String::from("foo"), string, pos)

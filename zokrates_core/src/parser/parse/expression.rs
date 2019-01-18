@@ -334,14 +334,18 @@ pub fn parse_term1<T: Field>(
     match next_token::<T>(&input, &pos) {
         (Token::Mult, s1, p1) => match parse_term(&s1, &p1) {
             Ok((e, s2, p2)) => Ok((
-                Node::new(pos, p2, Expression::Mult(box expr, box e)),
+                Node::new(expr.start, p2, Expression::Mult(box expr, box e)),
                 s2,
                 p2,
             )),
             Err(err) => Err(err),
         },
         (Token::Div, s1, p1) => match parse_term(&s1, &p1) {
-            Ok((e, s2, p2)) => Ok((Node::new(pos, p2, Expression::Div(box expr, box e)), s2, p2)),
+            Ok((e, s2, p2)) => Ok((
+                Node::new(expr.start, p2, Expression::Div(box expr, box e)),
+                s2,
+                p2,
+            )),
             Err(err) => Err(err),
         },
         _ => Ok((expr, input, pos)),
@@ -400,6 +404,12 @@ pub fn parse_function_call<T: Field>(
     input: String,
     pos: Position,
 ) -> Result<(ExpressionNode<T>, String, Position), Error<T>> {
+    // backtrack to the beginning of the function identifier, plus one because we're after the `(`
+    let start_pos = Position {
+        col: pos.col - ide.len() - 1,
+        ..pos
+    };
+
     // function call can have 0 .. n args
     let mut args = Vec::new();
     let mut s: String = input;
@@ -410,7 +420,7 @@ pub fn parse_function_call<T: Field>(
             // no arguments
             (Token::Close, s1, p1) => {
                 return parse_term1(
-                    Node::new(pos, p1, Expression::FunctionCall(ide, args)),
+                    Node::new(start_pos, p1, Expression::FunctionCall(ide, args)),
                     s1,
                     p1,
                 );
@@ -426,7 +436,7 @@ pub fn parse_function_call<T: Field>(
                         }
                         (Token::Close, s2, p2) => {
                             return parse_term1(
-                                Node::new(pos, p2, Expression::FunctionCall(ide, args)),
+                                Node::new(start_pos, p2, Expression::FunctionCall(ide, args)),
                                 s2,
                                 p2,
                             );
@@ -507,10 +517,11 @@ pub fn parse_array_select<T: Field>(
     input: String,
     pos: Position,
 ) -> Result<(ExpressionNode<T>, String, Position), Error<T>> {
-    let ide_initial_pos = Position {
-        col: pos.col - ide.len(),
+    let start_pos = Position {
+        col: pos.col - ide.len() - 1,
         ..pos
     };
+
     // array select can have exactly one arg
     match next_token::<T>(&input, &pos) {
         (_, _, _) => match parse_expr(&input, &pos) {
@@ -520,7 +531,7 @@ pub fn parse_array_select<T: Field>(
                         pos,
                         p2,
                         Expression::Select(
-                            box Node::new(pos, p1, Expression::Identifier(ide)),
+                            box Node::new(start_pos, p1, Expression::Identifier(ide)),
                             box e1,
                         ),
                     ),
@@ -594,11 +605,13 @@ mod tests {
             let string = String::from("1 + 2 + 3");
             let expr = Expression::Add(
                 box Expression::Add(
-                    box Expression::Number(FieldPrime::from(1)),
-                    box Expression::Number(FieldPrime::from(2)),
-                ),
-                box Expression::Number(FieldPrime::from(3)),
-            );
+                    box Expression::Number(FieldPrime::from(1)).into(),
+                    box Expression::Number(FieldPrime::from(2)).into(),
+                )
+                .into(),
+                box Expression::Number(FieldPrime::from(3)).into(),
+            )
+            .into();
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
                 parse_expr(&string, &pos)
@@ -611,11 +624,13 @@ mod tests {
             let string = String::from("1 - 2 - 3");
             let expr = Expression::Sub(
                 box Expression::Sub(
-                    box Expression::Number(FieldPrime::from(1)),
-                    box Expression::Number(FieldPrime::from(2)),
-                ),
-                box Expression::Number(FieldPrime::from(3)),
-            );
+                    box Expression::Number(FieldPrime::from(1)).into(),
+                    box Expression::Number(FieldPrime::from(2)).into(),
+                )
+                .into(),
+                box Expression::Number(FieldPrime::from(3)).into(),
+            )
+            .into();
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
                 parse_expr(&string, &pos)
@@ -627,12 +642,14 @@ mod tests {
             let pos = Position { line: 45, col: 121 };
             let string = String::from("1 - f(a)");
             let expr = Expression::Sub(
-                box Expression::Number(FieldPrime::from(1)),
+                box Expression::Number(FieldPrime::from(1)).into(),
                 box Expression::FunctionCall(
                     String::from("f"),
-                    vec![Expression::Identifier(String::from("a"))],
-                ),
-            );
+                    vec![Expression::Identifier(String::from("a")).into()],
+                )
+                .into(),
+            )
+            .into();
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
                 parse_expr(&string, &pos)
@@ -645,11 +662,13 @@ mod tests {
             let string = String::from("1 - f() - 3");
             let expr = Expression::Sub(
                 box Expression::Sub(
-                    box Expression::Number(FieldPrime::from(1)),
-                    box Expression::FunctionCall(String::from("f"), vec![]),
-                ),
-                box Expression::Number(FieldPrime::from(3)),
-            );
+                    box Expression::Number(FieldPrime::from(1)).into(),
+                    box Expression::FunctionCall(String::from("f"), vec![]).into(),
+                )
+                .into(),
+                box Expression::Number(FieldPrime::from(3)).into(),
+            )
+            .into();
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
                 parse_expr(&string, &pos)
@@ -662,11 +681,13 @@ mod tests {
             let string = String::from("1 + f() + 3");
             let expr = Expression::Add(
                 box Expression::Add(
-                    box Expression::Number(FieldPrime::from(1)),
-                    box Expression::FunctionCall(String::from("f"), vec![]),
-                ),
-                box Expression::Number(FieldPrime::from(3)),
-            );
+                    box Expression::Number(FieldPrime::from(1)).into(),
+                    box Expression::FunctionCall(String::from("f"), vec![]).into(),
+                )
+                .into(),
+                box Expression::Number(FieldPrime::from(3)).into(),
+            )
+            .into();
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
                 parse_expr(&string, &pos)
@@ -679,14 +700,17 @@ mod tests {
             let string = String::from("1 - f[2] - 3");
             let expr = Expression::Sub(
                 box Expression::Sub(
-                    box Expression::Number(FieldPrime::from(1)),
+                    box Expression::Number(FieldPrime::from(1)).into(),
                     box Expression::Select(
-                        box Expression::Identifier(String::from("f")),
-                        box Expression::Number(FieldPrime::from(2)),
-                    ),
-                ),
-                box Expression::Number(FieldPrime::from(3)),
-            );
+                        box Expression::Identifier(String::from("f")).into(),
+                        box Expression::Number(FieldPrime::from(2)).into(),
+                    )
+                    .into(),
+                )
+                .into(),
+                box Expression::Number(FieldPrime::from(3)).into(),
+            )
+            .into();
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
                 parse_expr(&string, &pos)
@@ -699,14 +723,17 @@ mod tests {
             let string = String::from("1 + f[2] + 3");
             let expr = Expression::Add(
                 box Expression::Add(
-                    box Expression::Number(FieldPrime::from(1)),
+                    box Expression::Number(FieldPrime::from(1)).into(),
                     box Expression::Select(
-                        box Expression::Identifier(String::from("f")),
-                        box Expression::Number(FieldPrime::from(2)),
-                    ),
-                ),
-                box Expression::Number(FieldPrime::from(3)),
-            );
+                        box Expression::Identifier(String::from("f")).into(),
+                        box Expression::Number(FieldPrime::from(2)).into(),
+                    )
+                    .into(),
+                )
+                .into(),
+                box Expression::Number(FieldPrime::from(3)).into(),
+            )
+            .into();
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
                 parse_expr(&string, &pos)
@@ -719,11 +746,13 @@ mod tests {
             let string = String::from("1 - f - 3");
             let expr = Expression::Sub(
                 box Expression::Sub(
-                    box Expression::Number(FieldPrime::from(1)),
-                    box Expression::Identifier(String::from("f")),
-                ),
-                box Expression::Number(FieldPrime::from(3)),
-            );
+                    box Expression::Number(FieldPrime::from(1)).into(),
+                    box Expression::Identifier(String::from("f")).into(),
+                )
+                .into(),
+                box Expression::Number(FieldPrime::from(3)).into(),
+            )
+            .into();
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
                 parse_expr(&string, &pos)
@@ -736,11 +765,13 @@ mod tests {
             let string = String::from("1 + f + 3");
             let expr = Expression::Add(
                 box Expression::Add(
-                    box Expression::Number(FieldPrime::from(1)),
-                    box Expression::Identifier(String::from("f")),
-                ),
-                box Expression::Number(FieldPrime::from(3)),
-            );
+                    box Expression::Number(FieldPrime::from(1)).into(),
+                    box Expression::Identifier(String::from("f")).into(),
+                )
+                .into(),
+                box Expression::Number(FieldPrime::from(3)).into(),
+            )
+            .into();
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
                 parse_expr(&string, &pos)
@@ -754,12 +785,14 @@ mod tests {
         let string = String::from("if a < b then c else d fi");
         let expr = Expression::IfElse::<FieldPrime>(
             box Expression::Lt(
-                box Expression::Identifier(String::from("a")),
-                box Expression::Identifier(String::from("b")),
-            ),
-            box Expression::Identifier(String::from("c")),
-            box Expression::Identifier(String::from("d")),
-        );
+                box Expression::Identifier(String::from("a")).into(),
+                box Expression::Identifier(String::from("b")).into(),
+            )
+            .into(),
+            box Expression::Identifier(String::from("c")).into(),
+            box Expression::Identifier(String::from("d")).into(),
+        )
+        .into();
         assert_eq!(
             Ok((expr, String::from(""), pos.col(string.len() as isize))),
             parse_if_then_else(&string, &pos)
@@ -774,26 +807,33 @@ mod tests {
         let expr = Expression::IfElse::<FieldPrime>(
             box Expression::And(
                 box Expression::Lt(
-                    box Expression::Identifier(String::from("a")),
-                    box Expression::Identifier(String::from("b")),
-                ),
+                    box Expression::Identifier(String::from("a")).into(),
+                    box Expression::Identifier(String::from("b")).into(),
+                )
+                .into(),
                 box Expression::And(
                     box Expression::Gt(
                         box Expression::Mult(
-                            box Expression::Number(FieldPrime::from(2)),
-                            box Expression::Identifier(String::from("a")),
-                        ),
-                        box Expression::Identifier(String::from("b")),
-                    ),
+                            box Expression::Number(FieldPrime::from(2)).into(),
+                            box Expression::Identifier(String::from("a")).into(),
+                        )
+                        .into(),
+                        box Expression::Identifier(String::from("b")).into(),
+                    )
+                    .into(),
                     box Expression::Gt(
-                        box Expression::Identifier(String::from("b")),
-                        box Expression::Identifier(String::from("a")),
-                    ),
-                ),
-            ),
-            box Expression::Identifier(String::from("c")),
-            box Expression::Identifier(String::from("d")),
-        );
+                        box Expression::Identifier(String::from("b")).into(),
+                        box Expression::Identifier(String::from("a")).into(),
+                    )
+                    .into(),
+                )
+                .into(),
+            )
+            .into(),
+            box Expression::Identifier(String::from("c")).into(),
+            box Expression::Identifier(String::from("d")).into(),
+        )
+        .into();
 
         assert_eq!(
             Ok((expr, String::from(""), pos.col(string.len() as isize))),
@@ -809,12 +849,14 @@ mod tests {
             let pos = Position { line: 45, col: 121 };
             let string = String::from("foo[42 + 33]");
             let expr = Expression::Select::<FieldPrime>(
-                box Expression::Identifier(String::from("foo")),
+                box Expression::Identifier(String::from("foo")).into(),
                 box Expression::Add(
-                    box Expression::Number(FieldPrime::from(42)),
-                    box Expression::Number(FieldPrime::from(33)),
-                ),
-            );
+                    box Expression::Number(FieldPrime::from(42)).into(),
+                    box Expression::Number(FieldPrime::from(33)).into(),
+                )
+                .into(),
+            )
+            .into();
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
                 parse_expr(&string, &pos)
@@ -843,20 +885,25 @@ mod tests {
         let expr = Expression::IfElse::<FieldPrime>(
             box Expression::Or(
                 box Expression::Lt(
-                    box Expression::Identifier(String::from("a")),
-                    box Expression::Identifier(String::from("b")),
-                ),
+                    box Expression::Identifier(String::from("a")).into(),
+                    box Expression::Identifier(String::from("b")).into(),
+                )
+                .into(),
                 box Expression::Gt(
                     box Expression::Mult(
-                        box Expression::Number(FieldPrime::from(2)),
-                        box Expression::Identifier(String::from("a")),
-                    ),
-                    box Expression::Identifier(String::from("b")),
-                ),
-            ),
-            box Expression::Identifier(String::from("c")),
-            box Expression::Identifier(String::from("d")),
-        );
+                        box Expression::Number(FieldPrime::from(2)).into(),
+                        box Expression::Identifier(String::from("a")).into(),
+                    )
+                    .into(),
+                    box Expression::Identifier(String::from("b")).into(),
+                )
+                .into(),
+            )
+            .into(),
+            box Expression::Identifier(String::from("c")).into(),
+            box Expression::Identifier(String::from("d")).into(),
+        )
+        .into();
         assert_eq!(
             Ok((expr, String::from(""), pos.col(string.len() as isize))),
             parse_if_then_else(&string, &pos)
@@ -870,20 +917,25 @@ mod tests {
         let string = String::from("2 == 3 || 4 == 5 && 6 == 7");
         let expr = Or::<FieldPrime>(
             box Eq(
-                box Number(FieldPrime::from(2)),
-                box Number(FieldPrime::from(3)),
-            ),
+                box Number(FieldPrime::from(2)).into(),
+                box Number(FieldPrime::from(3)).into(),
+            )
+            .into(),
             box And(
                 box Eq(
-                    box Number(FieldPrime::from(4)),
-                    box Number(FieldPrime::from(5)),
-                ),
+                    box Number(FieldPrime::from(4)).into(),
+                    box Number(FieldPrime::from(5)).into(),
+                )
+                .into(),
                 box Eq(
-                    box Number(FieldPrime::from(6)),
-                    box Number(FieldPrime::from(7)),
-                ),
-            ),
-        );
+                    box Number(FieldPrime::from(6)).into(),
+                    box Number(FieldPrime::from(7)).into(),
+                )
+                .into(),
+            )
+            .into(),
+        )
+        .into();
         assert_eq!(
             Ok((expr, String::from(""), pos.col(string.len() as isize))),
             parse_bexpr(&string, &pos)
@@ -899,33 +951,43 @@ mod tests {
             box And(
                 box Eq(
                     box Add(
-                        box Identifier(String::from("a")),
-                        box Number(FieldPrime::from(2)),
-                    ),
-                    box Number(FieldPrime::from(3)),
-                ),
+                        box Identifier(String::from("a")).into(),
+                        box Number(FieldPrime::from(2)).into(),
+                    )
+                    .into(),
+                    box Number(FieldPrime::from(3)).into(),
+                )
+                .into(),
                 box Or(
                     box Eq(
                         box Add(
                             box Mult(
-                                box Identifier(String::from("a")),
-                                box Number(FieldPrime::from(2)),
-                            ),
-                            box Number(FieldPrime::from(3)),
-                        ),
-                        box Number(FieldPrime::from(2)),
-                    ),
+                                box Identifier(String::from("a")).into(),
+                                box Number(FieldPrime::from(2)).into(),
+                            )
+                            .into(),
+                            box Number(FieldPrime::from(3)).into(),
+                        )
+                        .into(),
+                        box Number(FieldPrime::from(2)).into(),
+                    )
+                    .into(),
                     box Lt(
-                        box Identifier(String::from("a")),
-                        box Number(FieldPrime::from(3)),
-                    ),
-                ),
-            ),
+                        box Identifier(String::from("a")).into(),
+                        box Number(FieldPrime::from(3)).into(),
+                    )
+                    .into(),
+                )
+                .into(),
+            )
+            .into(),
             box Lt(
-                box Number(FieldPrime::from(1)),
-                box Number(FieldPrime::from(2)),
-            ),
-        );
+                box Number(FieldPrime::from(1)).into(),
+                box Number(FieldPrime::from(2)).into(),
+            )
+            .into(),
+        )
+        .into();
         assert_eq!(
             Ok((expr, String::from(""), pos.col(string.len() as isize))),
             parse_bexpr(&string, &pos)
@@ -940,12 +1002,14 @@ mod tests {
             let string = String::from("if a < b then c else d fi");
             let expr = Expression::IfElse::<FieldPrime>(
                 box Expression::Lt(
-                    box Expression::Identifier(String::from("a")),
-                    box Expression::Identifier(String::from("b")),
-                ),
-                box Expression::Identifier(String::from("c")),
-                box Expression::Identifier(String::from("d")),
-            );
+                    box Expression::Identifier(String::from("a")).into(),
+                    box Expression::Identifier(String::from("b")).into(),
+                )
+                .into(),
+                box Expression::Identifier(String::from("c")).into(),
+                box Expression::Identifier(String::from("d")).into(),
+            )
+            .into();
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
                 parse_factor(&string, &pos)
@@ -956,12 +1020,14 @@ mod tests {
             let pos = Position { line: 45, col: 121 };
             let string = String::from("(5 + a * 6)");
             let expr = Expression::Add(
-                box Expression::Number(FieldPrime::from(5)),
+                box Expression::Number(FieldPrime::from(5)).into(),
                 box Expression::Mult(
-                    box Expression::Identifier(String::from("a")),
-                    box Expression::Number(FieldPrime::from(6)),
-                ),
-            );
+                    box Expression::Identifier(String::from("a")).into(),
+                    box Expression::Number(FieldPrime::from(6)).into(),
+                )
+                .into(),
+            )
+            .into();
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
                 parse_factor(&string, &pos)
@@ -971,7 +1037,7 @@ mod tests {
         fn ide() {
             let pos = Position { line: 45, col: 121 };
             let string = String::from("a");
-            let expr = Expression::Identifier::<FieldPrime>(String::from("a"));
+            let expr = Expression::Identifier::<FieldPrime>(String::from("a")).into();
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
                 parse_factor(&string, &pos)
@@ -981,7 +1047,7 @@ mod tests {
         fn num() {
             let pos = Position { line: 45, col: 121 };
             let string = String::from("234");
-            let expr = Expression::Number(FieldPrime::from(234));
+            let expr = Expression::Number(FieldPrime::from(234)).into();
             assert_eq!(
                 Ok((expr, String::from(""), pos.col(string.len() as isize))),
                 parse_factor(&string, &pos)

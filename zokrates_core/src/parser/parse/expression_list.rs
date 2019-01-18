@@ -44,8 +44,8 @@ mod tests {
     fn parse_comma_separated_list<T: Field>(
         input: String,
         pos: Position,
-    ) -> Result<(ExpressionList<T>, String, Position), Error<T>> {
-        let mut res = ExpressionList::new();
+    ) -> Result<(ExpressionListNode<T>, String, Position), Error<T>> {
+        let mut res = ExpressionList::new().into();
         parse_comma_separated_expression_list_rec(input, pos, &mut res)
     }
 
@@ -55,10 +55,11 @@ mod tests {
         let string = String::from("b, c");
         let expr = ExpressionList::<FieldPrime> {
             expressions: vec![
-                Expression::Identifier(String::from("b")),
-                Expression::Identifier(String::from("c")),
+                Expression::Identifier(String::from("b")).into(),
+                Expression::Identifier(String::from("c")).into(),
             ],
-        };
+        }
+        .into();
         assert_eq!(
             Ok((expr, String::from(""), pos.col(string.len() as isize))),
             parse_expression_list(string, pos)
@@ -70,8 +71,9 @@ mod tests {
         let pos = Position { line: 45, col: 121 };
         let string = String::from("a");
         let exprs = ExpressionList {
-            expressions: vec![Expression::Identifier(String::from("a"))],
-        };
+            expressions: vec![Expression::Identifier(String::from("a")).into()],
+        }
+        .into();
         assert_eq!(
             Ok((exprs, String::from(""), pos.col(string.len() as isize))),
             parse_comma_separated_list::<FieldPrime>(string, pos)
@@ -84,11 +86,12 @@ mod tests {
         let string = String::from("a, b, c");
         let exprs = ExpressionList {
             expressions: vec![
-                Expression::Identifier(String::from("a")),
-                Expression::Identifier(String::from("b")),
-                Expression::Identifier(String::from("c")),
+                Expression::Identifier(String::from("a")).into(),
+                Expression::Identifier(String::from("b")).into(),
+                Expression::Identifier(String::from("c")).into(),
             ],
-        };
+        }
+        .into();
         assert_eq!(
             Ok((exprs, String::from(""), pos.col(string.len() as isize))),
             parse_comma_separated_list::<FieldPrime>(string, pos)
