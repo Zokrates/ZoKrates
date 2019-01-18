@@ -139,76 +139,72 @@ impl Importer {
             let pos = import.pos();
             let import = &import.value;
             // handle the case of special libsnark and packing imports
-            #[cfg(feature = "libsnark")]
-            {
-                if import.source.starts_with("LIBSNARK") {
-                    {
-                        use helpers::LibsnarkGadgetHelper;
-                        use libsnark::{get_ethsha256_constraints, get_sha256_constraints};
-                        use serde_json::from_str;
-                        use standard::{DirectiveR1CS, R1CS};
-                        use std::io::BufReader;
+            if import.source.starts_with("LIBSNARK") {
+                #[cfg(feature = "libsnark")]
+                {
+                    use helpers::LibsnarkGadgetHelper;
+                    use libsnark::{get_ethsha256_constraints, get_sha256_constraints};
+                    use serde_json::from_str;
+                    use standard::{DirectiveR1CS, R1CS};
+                    use std::io::BufReader;
 
-                        match import.source.as_ref() {
-                            "LIBSNARK/sha256" => {
-                                let r1cs: R1CS = from_str(&get_ethsha256_constraints()).unwrap();
-                                let dr1cs: DirectiveR1CS = DirectiveR1CS {
-                                    r1cs,
-                                    directive: LibsnarkGadgetHelper::Sha256Ethereum,
-                                };
-                                let compiled = FlatProg::from(dr1cs);
-                                let alias = match import.alias {
-                                    Some(ref alias) => alias.clone(),
-                                    None => String::from("sha256"),
-                                };
-                                origins.push(CompiledImport::new(compiled, alias));
-                            }
-                            "LIBSNARK/sha256compression" => {
-                                let r1cs: R1CS = from_str(&get_sha256_constraints()).unwrap();
-                                let dr1cs: DirectiveR1CS = DirectiveR1CS {
-                                    r1cs,
-                                    directive: LibsnarkGadgetHelper::Sha256Compress,
-                                };
-                                let compiled = FlatProg::from(dr1cs);
-                                let alias = match import.alias {
-                                    Some(ref alias) => alias.clone(),
-                                    None => String::from("sha256compression"),
-                                };
-                                origins.push(CompiledImport::new(compiled, alias));
-                            }
-                            "LIBSNARK/sha256packed" => {
-                                let source = sha_packed_typed();
-                                let mut reader = BufReader::new(source.as_bytes());
-                                let compiled = compile_aux(
-                                    &mut reader,
-                                    None::<String>,
-                                    None::<
-                                        fn(
-                                            &Option<String>,
-                                            &String,
-                                        )
-                                            -> Result<(S, String, String), E>,
-                                    >,
-                                )?;
-                                let alias = match import.alias {
-                                    Some(ref alias) => alias.clone(),
-                                    None => String::from("sha256packed"),
-                                };
-                                origins.push(CompiledImport::new(compiled, alias));
-                            }
-                            s => {
-                                return Err(CompileErrorInner::ImportError(
-                                    Error::new(format!("Gadget {} not found", s))
-                                        .with_pos(Some(pos)),
-                                )
-                                .with_context(&location)
-                                .into());
-                            }
+                    match import.source.as_ref() {
+                        "LIBSNARK/sha256" => {
+                            let r1cs: R1CS = from_str(&get_ethsha256_constraints()).unwrap();
+                            let dr1cs: DirectiveR1CS = DirectiveR1CS {
+                                r1cs,
+                                directive: LibsnarkGadgetHelper::Sha256Ethereum,
+                            };
+                            let compiled = FlatProg::from(dr1cs);
+                            let alias = match import.alias {
+                                Some(ref alias) => alias.clone(),
+                                None => String::from("sha256"),
+                            };
+                            origins.push(CompiledImport::new(compiled, alias));
+                        }
+                        "LIBSNARK/sha256compression" => {
+                            let r1cs: R1CS = from_str(&get_sha256_constraints()).unwrap();
+                            let dr1cs: DirectiveR1CS = DirectiveR1CS {
+                                r1cs,
+                                directive: LibsnarkGadgetHelper::Sha256Compress,
+                            };
+                            let compiled = FlatProg::from(dr1cs);
+                            let alias = match import.alias {
+                                Some(ref alias) => alias.clone(),
+                                None => String::from("sha256compression"),
+                            };
+                            origins.push(CompiledImport::new(compiled, alias));
+                        }
+                        "LIBSNARK/sha256packed" => {
+                            let source = sha_packed_typed();
+                            let mut reader = BufReader::new(source.as_bytes());
+                            let compiled = compile_aux(
+                                &mut reader,
+                                None::<String>,
+                                None::<
+                                    fn(&Option<String>, &String) -> Result<(S, String, String), E>,
+                                >,
+                            )?;
+                            let alias = match import.alias {
+                                Some(ref alias) => alias.clone(),
+                                None => String::from("sha256packed"),
+                            };
+                            origins.push(CompiledImport::new(compiled, alias));
+                        }
+                        s => {
+                            return Err(CompileErrorInner::ImportError(
+                                Error::new(format!("Gadget {} not found", s)).with_pos(Some(pos)),
+                            )
+                            .with_context(&location)
+                            .into());
                         }
                     }
                 }
-            }
-            if import.source.starts_with("PACKING") {
+                #[cfg(not(feature = "libsnark"))]
+                {
+                    panic!("libsnark is not enabled, cannot access {}", import.source)
+                }
+            } else if import.source.starts_with("PACKING") {
                 use types::conversions::{pack, unpack};
 
                 match import.source.as_ref() {

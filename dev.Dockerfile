@@ -40,4 +40,4 @@ WORKDIR /home/zokrates
 COPY --chown=zokrates:zokrates . ZoKrates
 
 RUN cd ZoKrates \
-    && ./build.sh
+#    && ./build.sh
