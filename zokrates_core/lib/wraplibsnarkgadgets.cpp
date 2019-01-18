@@ -182,7 +182,7 @@ char* _sha256RoundConstraints()
 
     auto json = r1cs_to_json(pb);
 
-    auto result = new char[json.size()];
+    auto result = new char[json.size() + 1];
     memcpy(result, json.c_str(), json.size() + 1);
     return result;
 }
@@ -231,7 +231,7 @@ char* _sha256RoundWitness(const uint8_t* inputs, int inputs_length)
 
     auto json = array_to_json(pb);
 
-    auto result = new char[json.size()];
+    auto result = new char[json.size() + 1];
     memcpy(result, json.c_str(), json.size() + 1);
     return result;
 }
