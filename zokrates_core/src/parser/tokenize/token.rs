@@ -1,6 +1,6 @@
-use field::Field;
 use std::fmt;
 use types::Type;
+use zokrates_field::field::Field;
 
 #[derive(PartialEq)]
 pub enum Token<T: Field> {

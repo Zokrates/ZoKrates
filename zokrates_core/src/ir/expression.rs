@@ -1,9 +1,9 @@
-use field::Field;
 use flat_absy::FlatVariable;
 use num::Zero;
 use std::collections::BTreeMap;
 use std::fmt;
 use std::ops::{Add, Sub};
+use zokrates_field::field::Field;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct QuadComb<T: Field> {
@@ -118,7 +118,7 @@ impl<T: Field> Zero for LinComb<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use field::FieldPrime;
+    use zokrates_field::field::FieldPrime;
 
     mod linear {
 

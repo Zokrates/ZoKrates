@@ -11,13 +11,13 @@ pub mod flat_variable;
 pub use self::flat_parameter::FlatParameter;
 pub use self::flat_variable::FlatVariable;
 
-use field::Field;
 use helpers::{DirectiveStatement, Executable};
 #[cfg(feature = "libsnark")]
 use standard;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use types::Signature;
+use zokrates_field::field::Field;
 
 #[derive(Clone)]
 pub struct FlatProg<T: Field> {

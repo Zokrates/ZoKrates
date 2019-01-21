@@ -12,10 +12,10 @@ pub use absy::parameter::Parameter;
 pub use absy::variable::Variable;
 use types::Signature;
 
-use field::Field;
 use flat_absy::*;
 use imports::Import;
 use std::fmt;
+use zokrates_field::field::Field;
 
 #[derive(Clone, PartialEq)]
 pub struct Prog<T: Field> {

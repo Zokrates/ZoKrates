@@ -1,13 +1,13 @@
 use bimap::BiMap;
-use field::Field;
 use flat_absy::flat_parameter::FlatParameter;
 use flat_absy::flat_variable::FlatVariable;
 use flat_absy::*;
-use helpers::{DirectiveStatement, Helper, RustHelper};
+use helpers::{DirectiveStatement, Helper};
 use reduce::Reduce;
 use types::constraints::Constraint;
 use types::signature::Signature;
 use types::Type;
+use zokrates_field::field::Field;
 
 fn use_variable(
     bijection: &mut BiMap<String, FlatVariable>,
@@ -85,7 +85,7 @@ pub fn unpack<T: Field>(nbits: usize) -> FlatProg<T> {
         .map(|index| use_variable(&mut bijection, format!("o{}", index), &mut counter))
         .collect();
 
-    let helper = Helper::Rust(RustHelper::Bits);
+    let helper = Helper::bits();
 
     let signature = Signature {
         inputs: vec![Type::FieldElement],
@@ -253,8 +253,8 @@ pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
         .collect();
 
     let helper = match (from, to) {
-        (Type::Boolean, Type::FieldElement) => Helper::Rust(RustHelper::Identity),
-        (Type::FieldElement, Type::Boolean) => Helper::Rust(RustHelper::Identity),
+        (Type::Boolean, Type::FieldElement) => Helper::identity(),
+        (Type::FieldElement, Type::Boolean) => Helper::identity(),
         _ => panic!(format!("can't cast {} to {}", from, to)),
     };
 
@@ -294,7 +294,7 @@ pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use field::FieldPrime;
+    use zokrates_field::field::FieldPrime;
 
     #[cfg(test)]
     mod cast {
@@ -313,7 +313,7 @@ mod tests {
                 f2b.statements[0],
                 FlatStatement::Directive(DirectiveStatement::new(
                     vec![FlatVariable::new(1)],
-                    Helper::Rust(RustHelper::Identity),
+                    Helper::identity(),
                     vec![FlatVariable::new(0)]
                 ))
             );
@@ -339,7 +339,7 @@ mod tests {
                 b2f.statements[0],
                 FlatStatement::Directive(DirectiveStatement::new(
                     vec![FlatVariable::new(1)],
-                    Helper::Rust(RustHelper::Identity),
+                    Helper::identity(),
                     vec![FlatVariable::new(0)]
                 ))
             );
@@ -376,7 +376,7 @@ mod tests {
                     (0..FieldPrime::get_required_bits())
                         .map(|i| FlatVariable::new(i + 1))
                         .collect(),
-                    Helper::Rust(RustHelper::Bits),
+                    Helper::bits(),
                     vec![FlatVariable::new(0)]
                 ))
             );

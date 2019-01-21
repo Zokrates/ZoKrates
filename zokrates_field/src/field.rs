@@ -4,10 +4,11 @@
 // @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 // @date 2017
 
-use num::{Integer, Num, One, Zero};
+use lazy_static::lazy_static;
 use num_bigint::{BigInt, BigUint, Sign, ToBigInt};
-use serde::de::{Deserialize, Deserializer, Visitor};
-use serde::{Serialize, Serializer};
+use num_integer::Integer;
+use num_traits::{Num, One, Zero};
+use serde_derive::{Deserialize, Serialize};
 use std::convert::From;
 use std::fmt;
 use std::fmt::{Debug, Display};
@@ -24,7 +25,7 @@ lazy_static! {
 
 pub trait Pow<RHS> {
     type Output;
-    fn pow(self, RHS) -> Self::Output;
+    fn pow(self, _: RHS) -> Self::Output;
 }
 
 pub trait Field:
@@ -56,7 +57,7 @@ pub trait Field:
     /// Returns this `Field`'s contents as little-endian byte vector
     fn into_byte_vector(&self) -> Vec<u8>;
     /// Returns an element of this `Field` from a little-endian byte vector
-    fn from_byte_vector(Vec<u8>) -> Self;
+    fn from_byte_vector(_: Vec<u8>) -> Self;
     /// Returns this `Field`'s contents as decimal string
     fn to_dec_string(&self) -> String;
     /// Returns an element of this `Field` from a decimal string
@@ -71,7 +72,7 @@ pub trait Field:
     fn get_required_bits() -> usize;
 }
 
-#[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash)]
+#[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct FieldPrime {
     value: BigInt,
 }
@@ -120,6 +121,14 @@ impl Field for FieldPrime {
     }
     fn get_required_bits() -> usize {
         (*P).bits()
+    }
+}
+
+impl Default for FieldPrime {
+    fn default() -> Self {
+        FieldPrime {
+            value: BigInt::default(),
+        }
     }
 }
 
@@ -312,49 +321,6 @@ impl<'a> Pow<&'a FieldPrime> for FieldPrime {
             res = res * &self;
             current = current + FieldPrime::one();
         }
-    }
-}
-
-// custom serde serialization
-impl Serialize for FieldPrime {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        // serializer.serialize_bytes(&(*self.value.to_biguint().to_bytes_le().as_slice()))
-        serializer.serialize_bytes(&(*self.into_byte_vector().as_slice()))
-    }
-}
-
-// custom serde deserialization
-
-struct FieldPrimeVisitor;
-
-impl FieldPrimeVisitor {
-    fn new() -> Self {
-        FieldPrimeVisitor {}
-    }
-}
-
-impl<'de> Visitor<'de> for FieldPrimeVisitor {
-    type Value = FieldPrime;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("struct FieldPrime")
-    }
-
-    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E> {
-        let val = BigUint::from_bytes_le(v).to_bigint().unwrap();
-        Ok(FieldPrime { value: val })
-    }
-}
-
-impl<'de> Deserialize<'de> for FieldPrime {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_bytes(FieldPrimeVisitor::new())
     }
 }
 
@@ -622,6 +588,13 @@ mod tests {
         fn serde_ser_deser() {
             let serialized = &serialize(&FieldPrime::from("11"), Infinite).unwrap();
             let deserialized = deserialize(serialized).unwrap();
+            assert_eq!(FieldPrime::from("11"), deserialized);
+        }
+
+        #[test]
+        fn serde_json_ser_deser() {
+            let serialized = serde_json::to_string(&FieldPrime::from("11")).unwrap();
+            let deserialized = serde_json::from_str(&serialized).unwrap();
             assert_eq!(FieldPrime::from("11"), deserialized);
         }
 

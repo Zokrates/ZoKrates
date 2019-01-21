@@ -11,11 +11,11 @@ use absy::parameter::Parameter;
 use absy::variable::Variable;
 use types::Signature;
 
-use field::Field;
 use flat_absy::*;
 use imports::Import;
 use std::fmt;
 use types::Type;
+use zokrates_field::field::Field;
 
 pub use self::folder::Folder;
 
