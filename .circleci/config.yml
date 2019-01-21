@@ -19,6 +19,9 @@ jobs:
           name: Check format
           command: rustup component add rustfmt-preview; cargo fmt --all -- --check
       - run:
+          name: Download wasm32 target
+          command: rustup target add wasm32-unknown-unknown
+      - run:
           name: Build libsnark
           command: LIBSNARK_SOURCE_PATH=$HOME/libsnark ./build_libsnark.sh
       - run:
@@ -27,6 +30,9 @@ jobs:
       - run:
           name: Run tests
           command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark RUSTFLAGS="-D warnings" cargo test --release -- --test-threads=1
+      - run:
+          name: Run tests with WASM enabled
+          command: cd zokrates_core && cargo test --release --features wasm -- --test-threads=1
       - run:
           name: Run integration tests
           command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark RUSTFLAGS="-D warnings" cargo test --release -- --ignored

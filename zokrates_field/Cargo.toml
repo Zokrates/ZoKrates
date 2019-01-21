@@ -5,7 +5,6 @@ authors = ["Guillaume Ballet <gballet@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-
 serde = "1.0"
 serde_derive = "1.0"
 lazy_static = "0.1.*"
