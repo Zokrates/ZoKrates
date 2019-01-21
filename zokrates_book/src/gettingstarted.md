@@ -30,7 +30,7 @@ First, create the text-file `root.code` and implement your program. In this exam
 
 ```zokrates
 def main(private field a, field b) -> (field):
-  field result = if a * a == b then 1 else 0
+  field result = if a * a == b then 1 else 0 fi
   return result
 ```
 
