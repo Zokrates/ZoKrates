@@ -1,0 +1,15 @@
+import "ecc/edwardsAdd.code" as add
+import "ecc/babyJubjubParams.code" as context
+
+def main() -> (field):
+
+	context = context()
+	field[2] G = [context[4], context[5]]
+
+	field[2] G2 = add(G, G, context)
+	field[2] G3 = add(G, G2, context)
+
+	out[0] == 13282989658385007530603476635206463463991923019163685204904754775361287271969
+	out[1] == 10445020144761608541035048475205585114920811274082480410239005399821245687085
+
+return 1 

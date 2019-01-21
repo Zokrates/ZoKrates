@@ -1,17 +1,16 @@
-def main(field[2] pt, field[8] context) -> (field[2]):
+import "ecc/babyJubjubParams.code" as context
+// Source: zCash protcol A.3.3.4
+def main(field[2] pt, field[10] context) -> (field[2]):
 
-	field a = context[0]
-	field d = context[1]
+	context = context()
+	field A = context[8]
+	field B = context[9]
 
 	field x = pt[0]
     field y = pt[1]
 
-    // Note: check if these constants get chached / optimised
-	field A = (2 * (a + d)) / (a - d)
-	field B = 4 / (a - d)
-
-	field alpha = (3*x*x + 2*A*x + 1) / (2*B*y) 
-	field xOut = B*alpha*alpha - A - 2*x 
-	field yOut = alpha * (x - xOut) - y //TODO: add source
+	field lambda = (3*x*x + 2*A*x + 1) / (2*B*y) 
+	field xOut = B*lambda*lambda - A - 2*x 
+	field yOut = lambda * (x - xOut) - y 
 
     return [xOut, yOut]

@@ -2,12 +2,12 @@
  // constraints. 
  // Source: https://en.wikipedia.org/wiki/Montgomery_curve
  // Note: x/y and u/v notation flipped in comparison to the Zcash protocol specs.
-def main(field[2] pt, field[8] context) -> (field[2]):
+def main(field[2] pt) -> (field[2]):
 
 	field u = pt[0]
 	field v = pt[1]
 
-	xOut = (1 + v) / (1 - v)
-	yOut = (1 + v) / ((1 - v) * u)
+	field xOut = (1 + v) / (1 - v)
+	field yOut = (1 + v) / ((1 - v) * u)
 
     return [xOut, yOut]

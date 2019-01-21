@@ -1,25 +1,25 @@
-
+import "ecc/babyJubjubParams.code" as context
 // lamda <-- (in2[1] - in1[1]) / (in2[0] - in1[0]);
 // lamda * (in2[0] - in1[0]) === (in2[1] - in1[1]);
 
 // out[0] <== B*lamda*lamda - A - in1[0] -in2[0];
 // out[1] <== lamda * (in1[0] - out[0]) - in1[1];
-// Source... where is yOut from?
-def main(field[2] pt1, field[2] pt2, field[8] context) -> (field[2]):
 
-	field a = context[0]
-	field d = context[1]
-	
+// Source: zCash protocol  A.3.3.4
+// In an optimal form has 3 instead of 7 constraints
+def main(field[2] pt1, field[2] pt2, field[10] context) -> (field[2]):
+
+	context = context()
+	field A = context[8]
+	field B = context[9]
+
 	field x1 = pt1[0]
 	field y1 = pt1[1]
 	field x2 = pt2[0]
 	field y2 = pt2[1]
 
-	field A = (2 * (a + d)) / (a - d)
-	field B = 4 / (a - d)
-
-	field alpha = (y2 - y1) / (x2 - x1)
-	field xOut = B*alpha*alpha - A - x1 - x2
-	field yOut = alpha * (x1 - xOut) - y1 //TODO: add source
+	field lambda = (y2 - y1) / (x2 - x1)
+	field xOut = B*lambda*lambda - A - x1 - x2
+	field yOut = lambda * (x1 - xOut) - y1 
 
 	return [xOut, yOut]

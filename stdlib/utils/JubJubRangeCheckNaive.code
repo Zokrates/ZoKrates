@@ -1,0 +1,11 @@
+//Checks for if field element is in smaller than the group size
+//Naive implementation: 765 constraints
+import "ecc/babyJubjubParams.code" as context
+def main(field v) -> (field):
+
+context = context()
+field JUBJUBE = context[6]
+
+field out = if v < JUBJUBE then 1 else 0 fi
+
+return out

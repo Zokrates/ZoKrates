@@ -1,0 +1,272 @@
+//TODO: boolean constraints?
+//TODO: compare to optimised version for the jubjub curve (predefined 1 bit selectors)
+//Note: this gadget is not limited to the p/2 size like '<' or '>' of the stdlib
+//See appendix 3.2.2 of Zcash protocol specification for a more optimised implementation which
+//combines binary check with range proofs as well as limits the comparison to non-trailing 1 bits in
+//the constant:
+// https://github.com/zcash/zips/blob/master/protocol/protocol.pdf 
+// Optimised implementation: 257 constraints
+// Checks a < 21888242871839275222246405745257275088614511777268538073601725287587578984328
+def main(field[256] a) -> (field):
+
+	//accumulator
+	field acc = 1 
+
+	a[0] == 0
+	a[1] == 0
+	acc = acc * a[2]
+	acc = acc * a[3]
+	(1 - acc - a[4]) * a[4] == 0
+	(1 - acc - a[5]) * a[5] == 0
+	(1 - acc - a[6]) * a[6] == 0
+	(1 - acc - a[7]) * a[7] == 0
+	(1 - acc - a[8]) * a[8] == 0
+	acc = acc * a[9]
+	acc = acc * a[10]
+	(1 - acc - a[11]) * a[11] == 0
+	(1 - acc - a[12]) * a[12] == 0
+	acc = acc * a[13]
+	(1 - acc - a[14]) * a[14] == 0
+	(1 - acc - a[15]) * a[15] == 0
+	(1 - acc - a[16]) * a[16] == 0
+	acc = acc * a[17]
+	(1 - acc - a[18]) * a[18] == 0
+	(1 - acc - a[19]) * a[19] == 0
+	acc = acc * a[20]
+	acc = acc * a[21]
+	acc = acc * a[22]
+	(1 - acc - a[23]) * a[23] == 0
+	(1 - acc - a[24]) * a[24] == 0
+	acc = acc * a[25]
+	acc = acc * a[26]
+	acc = acc * a[27]
+	(1 - acc - a[28]) * a[28] == 0
+	(1 - acc - a[29]) * a[29] == 0
+	acc = acc * a[30]
+	(1 - acc - a[31]) * a[31] == 0
+	acc = acc * a[32]
+	acc = acc * a[33]
+	acc = acc * a[34]
+	(1 - acc - a[35]) * a[35] == 0
+	(1 - acc - a[36]) * a[36] == 0
+	(1 - acc - a[37]) * a[37] == 0
+	(1 - acc - a[38]) * a[38] == 0
+	acc = acc * a[39]
+	(1 - acc - a[40]) * a[40] == 0
+	(1 - acc - a[41]) * a[41] == 0
+	acc = acc * a[42]
+	acc = acc * a[43]
+	(1 - acc - a[44]) * a[44] == 0
+	(1 - acc - a[45]) * a[45] == 0
+	(1 - acc - a[46]) * a[46] == 0
+	acc = acc * a[47]
+	acc = acc * a[48]
+	(1 - acc - a[49]) * a[49] == 0
+	acc = acc * a[50]
+	(1 - acc - a[51]) * a[51] == 0
+	(1 - acc - a[52]) * a[52] == 0
+	(1 - acc - a[53]) * a[53] == 0
+	(1 - acc - a[54]) * a[54] == 0
+	(1 - acc - a[55]) * a[55] == 0
+	(1 - acc - a[56]) * a[56] == 0
+	(1 - acc - a[57]) * a[57] == 0
+	acc = acc * a[58]
+	(1 - acc - a[59]) * a[59] == 0
+	acc = acc * a[60]
+	(1 - acc - a[61]) * a[61] == 0
+	(1 - acc - a[62]) * a[62] == 0
+	acc = acc * a[63]
+	acc = acc * a[64]
+	(1 - acc - a[65]) * a[65] == 0
+	acc = acc * a[66]
+	acc = acc * a[67]
+	acc = acc * a[68]
+	(1 - acc - a[69]) * a[69] == 0
+	(1 - acc - a[70]) * a[70] == 0
+	(1 - acc - a[71]) * a[71] == 0
+	(1 - acc - a[72]) * a[72] == 0
+	acc = acc * a[73]
+	(1 - acc - a[74]) * a[74] == 0
+	acc = acc * a[75]
+	(1 - acc - a[76]) * a[76] == 0
+	(1 - acc - a[77]) * a[77] == 0
+	(1 - acc - a[78]) * a[78] == 0
+	(1 - acc - a[79]) * a[79] == 0
+	(1 - acc - a[80]) * a[80] == 0
+	acc = acc * a[81]
+	(1 - acc - a[82]) * a[82] == 0
+	(1 - acc - a[83]) * a[83] == 0
+	(1 - acc - a[84]) * a[84] == 0
+	acc = acc * a[85]
+	(1 - acc - a[86]) * a[86] == 0
+	acc = acc * a[87]
+	acc = acc * a[88]
+	(1 - acc - a[89]) * a[89] == 0
+	acc = acc * a[90]
+	acc = acc * a[91]
+	(1 - acc - a[92]) * a[92] == 0
+	acc = acc * a[93]
+	acc = acc * a[94]
+	(1 - acc - a[95]) * a[95] == 0
+	acc = acc * a[96]
+	(1 - acc - a[97]) * a[97] == 0
+	(1 - acc - a[98]) * a[98] == 0
+	(1 - acc - a[99]) * a[99] == 0
+	(1 - acc - a[100]) * a[100] == 0
+	(1 - acc - a[101]) * a[101] == 0
+	(1 - acc - a[102]) * a[102] == 0
+	acc = acc * a[103]
+	acc = acc * a[104]
+	(1 - acc - a[105]) * a[105] == 0
+	(1 - acc - a[106]) * a[106] == 0
+	(1 - acc - a[107]) * a[107] == 0
+	(1 - acc - a[108]) * a[108] == 0
+	(1 - acc - a[109]) * a[109] == 0
+	(1 - acc - a[110]) * a[110] == 0
+	acc = acc * a[111]
+	(1 - acc - a[112]) * a[112] == 0
+	acc = acc * a[113]
+	(1 - acc - a[114]) * a[114] == 0
+	acc = acc * a[115]
+	acc = acc * a[116]
+	(1 - acc - a[117]) * a[117] == 0
+	(1 - acc - a[118]) * a[118] == 0
+	(1 - acc - a[119]) * a[119] == 0
+	(1 - acc - a[120]) * a[120] == 0
+	acc = acc * a[121]
+	(1 - acc - a[122]) * a[122] == 0
+	acc = acc * a[123]
+	acc = acc * a[124]
+	acc = acc * a[125]
+	(1 - acc - a[126]) * a[126] == 0
+	acc = acc * a[127]
+	(1 - acc - a[128]) * a[128] == 0
+	acc = acc * a[129]
+	(1 - acc - a[130]) * a[130] == 0
+	acc = acc * a[131]
+	acc = acc * a[132]
+	(1 - acc - a[133]) * a[133] == 0
+	(1 - acc - a[134]) * a[134] == 0
+	acc = acc * a[135]
+	acc = acc * a[136]
+	acc = acc * a[137]
+	acc = acc * a[138]
+	acc = acc * a[139]
+	(1 - acc - a[140]) * a[140] == 0
+	acc = acc * a[141]
+	acc = acc * a[142]
+	acc = acc * a[143]
+	(1 - acc - a[144]) * a[144] == 0
+	acc = acc * a[145]
+	acc = acc * a[146]
+	(1 - acc - a[147]) * a[147] == 0
+	acc = acc * a[148]
+	acc = acc * a[149]
+	(1 - acc - a[150]) * a[150] == 0
+	acc = acc * a[151]
+	acc = acc * a[152]
+	acc = acc * a[153]
+	(1 - acc - a[154]) * a[154] == 0
+	(1 - acc - a[155]) * a[155] == 0
+	(1 - acc - a[156]) * a[156] == 0
+	(1 - acc - a[157]) * a[157] == 0
+	(1 - acc - a[158]) * a[158] == 0
+	acc = acc * a[159]
+	acc = acc * a[160]
+	acc = acc * a[161]
+	(1 - acc - a[162]) * a[162] == 0
+	(1 - acc - a[163]) * a[163] == 0
+	acc = acc * a[164]
+	(1 - acc - a[165]) * a[165] == 0
+	(1 - acc - a[166]) * a[166] == 0
+	acc = acc * a[167]
+	(1 - acc - a[168]) * a[168] == 0
+	(1 - acc - a[169]) * a[169] == 0
+	(1 - acc - a[170]) * a[170] == 0
+	(1 - acc - a[171]) * a[171] == 0
+	(1 - acc - a[172]) * a[172] == 0
+	acc = acc * a[173]
+	acc = acc * a[174]
+	acc = acc * a[175]
+	(1 - acc - a[176]) * a[176] == 0
+	acc = acc * a[177]
+	acc = acc * a[178]
+	acc = acc * a[179]
+	(1 - acc - a[180]) * a[180] == 0
+	(1 - acc - a[181]) * a[181] == 0
+	(1 - acc - a[182]) * a[182] == 0
+	(1 - acc - a[183]) * a[183] == 0
+	(1 - acc - a[184]) * a[184] == 0
+	acc = acc * a[185]
+	(1 - acc - a[186]) * a[186] == 0
+	acc = acc * a[187]
+	(1 - acc - a[188]) * a[188] == 0
+	(1 - acc - a[189]) * a[189] == 0
+	acc = acc * a[190]
+	acc = acc * a[191]
+	(1 - acc - a[192]) * a[192] == 0
+	(1 - acc - a[193]) * a[193] == 0
+	acc = acc * a[194]
+	acc = acc * a[195]
+	acc = acc * a[196]
+	(1 - acc - a[197]) * a[197] == 0
+	acc = acc * a[198]
+	acc = acc * a[199]
+	acc = acc * a[200]
+	(1 - acc - a[201]) * a[201] == 0
+	(1 - acc - a[202]) * a[202] == 0
+	acc = acc * a[203]
+	(1 - acc - a[204]) * a[204] == 0
+	acc = acc * a[205]
+	(1 - acc - a[206]) * a[206] == 0
+	(1 - acc - a[207]) * a[207] == 0
+	acc = acc * a[208]
+	(1 - acc - a[209]) * a[209] == 0
+	acc = acc * a[210]
+	acc = acc * a[211]
+	acc = acc * a[212]
+	acc = acc * a[213]
+	acc = acc * a[214]
+	(1 - acc - a[215]) * a[215] == 0
+	acc = acc * a[216]
+	acc = acc * a[217]
+	acc = acc * a[218]
+	(1 - acc - a[219]) * a[219] == 0
+	(1 - acc - a[220]) * a[220] == 0
+	(1 - acc - a[221]) * a[221] == 0
+	(1 - acc - a[222]) * a[222] == 0
+	acc = acc * a[223]
+	acc = acc * a[224]
+	acc = acc * a[225]
+	(1 - acc - a[226]) * a[226] == 0
+	(1 - acc - a[227]) * a[227] == 0
+	acc = acc * a[228]
+	(1 - acc - a[229]) * a[229] == 0
+	(1 - acc - a[230]) * a[230] == 0
+	acc = acc * a[231]
+	(1 - acc - a[232]) * a[232] == 0
+	(1 - acc - a[233]) * a[233] == 0
+	(1 - acc - a[234]) * a[234] == 0
+	(1 - acc - a[235]) * a[235] == 0
+	acc = acc * a[236]
+	(1 - acc - a[237]) * a[237] == 0
+	(1 - acc - a[238]) * a[238] == 0
+	acc = acc * a[239]
+	(1 - acc - a[240]) * a[240] == 0
+	(1 - acc - a[241]) * a[241] == 0
+	acc = acc * a[242]
+	acc = acc * a[243]
+	(1 - acc - a[244]) * a[244] == 0
+	acc = acc * a[245]
+	acc = acc * a[246]
+	acc = acc * a[247]
+	acc = acc * a[248]
+	(1 - acc - a[249]) * a[249] == 0
+	(1 - acc - a[250]) * a[250] == 0
+	(1 - acc - a[251]) * a[251] == 0
+	acc = acc * a[252]
+	(1 - acc - a[253]) * a[253] == 0
+	(1 - acc - a[254]) * a[254] == 0
+	(1 - acc - a[255]) * a[255] == 0
+
+	return 0

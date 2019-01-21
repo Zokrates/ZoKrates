@@ -1,0 +1,13 @@
+// /**
+// * One-bit window lookup table using one constraint
+// */
+def main(field selector, field[2] target) -> (field):
+
+	// field out = if selector == 0 then target[0] else target[1] fi
+	// 6 constraints 
+	//TODO: should be equivalent to the following implementation
+	
+	field out = target[0] + selector*target[1] - selector*target[0]
+	// 3 constraints
+
+  return out

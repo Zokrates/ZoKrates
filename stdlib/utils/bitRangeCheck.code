@@ -1,0 +1,23 @@
+//TODO: boolean constraints?
+//TODO: compare to optimised version for the jubjub curve (predefined 1 bit selectors)
+//Note: this gadget is not limited to the p/2 size like '<' or '>' of the stdlib
+//See appendix 3.2.2 of Zcash protocol specification for a more optimised implementation which
+//combines binary check with range proofs as well as limits the comparison to non-trailing 1 bits in
+//the constant:
+// https://github.com/zcash/zips/blob/master/protocol/protocol.pdf 
+import "utils/binary/not.code" as NOT
+import "utils/multiplexer/lookup1bit.code" as lookup
+def main(field[256] a, field[256] c) -> (field):
+
+	//accumulator
+	field acc = 1 
+
+	for field j in 1..256 do
+
+		field upd = if c[j] == 0 then 1 else a[j] fi 
+		acc = acc  * upd
+    	(1 - c[j]) * (1 - acc - a[j]) * a[j] == 0
+	 
+	endfor
+
+	return 1 

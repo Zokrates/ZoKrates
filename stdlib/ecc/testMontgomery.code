@@ -1,0 +1,29 @@
+import "ecc/babyJubjubParams.code" as context
+import "ecc/edwards2Montgomery.code" as e2m 
+import "ecc/montgomery2Edwards.code" as m2e
+import "ecc/montgomeryAdd.code" as mAdd
+import "ecc/montgomeryDouble.code" as mDbl
+import "ecc/edwardsAdd.code" as eAdd 
+def main() -> (field):
+
+	context = context()
+	field[2] G = [context[4], context[5]]
+
+	field[2] GM = e2m(G )
+	field[2] GM2E = m2e(GM)
+
+	GM2E == G
+
+	field[2] G2M = mDbl(GM, context)
+	field[2] G2M2E = m2e(G2M)
+	field[2] G2 = eAdd(G, G, context)
+
+	G2 == G2M2E
+
+	field[2] G3 = eAdd(G, G2, context)
+	field[2] G3M = mAdd(GM, G2M, context)
+	field[2] G3M2E = m2e(G3M)
+
+	G3 == G3M2E
+	
+	return 1
