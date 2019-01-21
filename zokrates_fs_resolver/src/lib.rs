@@ -67,13 +67,16 @@ mod tests {
 
     #[test]
     fn non_existing_file() {
-        let res = resolve(&Some(String::from("./src")), &String::from("rubbish.rs"));
+        let res = resolve(&Some(String::from("./src")), &String::from("./rubbish.rs"));
         assert!(res.is_err());
     }
 
     #[test]
     fn invalid_location() {
-        let res = resolve(&Some(String::from(",8!-$2abc")), &String::from("foo.code"));
+        let res = resolve(
+            &Some(String::from(",8!-$2abc")),
+            &String::from("./foo.code"),
+        );
         assert!(res.is_err());
     }
 
@@ -85,7 +88,7 @@ mod tests {
 
     #[test]
     fn not_a_file() {
-        let res = resolve(&Some(String::from(".")), &String::from("/src/"));
+        let res = resolve(&Some(String::from(".")), &String::from("./src/"));
         assert!(res.is_err());
     }
 
