@@ -32,6 +32,11 @@ fn resolve_with_location(
     };
 
     let path = base.join(PathBuf::from(source));
+
+    if path.is_dir() {
+        return Err(io::Error::new(io::ErrorKind::Other, "Not a file"));
+    }
+
     let (next_location, alias) = generate_next_parameters(&path)?;
 
     File::open(path).and_then(|f| Ok((BufReader::new(f), next_location, alias)))
