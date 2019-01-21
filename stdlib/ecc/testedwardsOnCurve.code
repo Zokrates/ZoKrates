@@ -1,0 +1,13 @@
+import "ecc/babyJubjubParams.code" as context
+import "ecc/edwardsOnCurve.code" as onCurve
+
+def main() -> (field):
+
+	context = context()
+
+	field testU = 17324563846726889236817837922625232543153115346355010501047597319863650987830
+	field testV = 20022170825455209233733649024450576091402881793145646502279487074566492066831
+
+	field out = onCurve([testU, testV], context)
+
+	return 1

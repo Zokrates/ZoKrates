@@ -1,37 +1,26 @@
-import "./edwardsAdd.code" as add
-import "./edwardsOnCurve.code" as assertOnCurve
-// import "./../ZoKrates_primitives/isBooleanValue.code" as boolCheck
+import "ecc/edwardsAdd.code" as add
+import "ecc/edwardsOnCurve.code" as assertOnCurve
 
-def main(field[256] exponent, field[8] params) -> (field[2]):
-    //FIXME: exponent can be field element as needs to be smaller than order
+def main(field[256] exponent, field[2] pt, field[10] context) -> (field[2]):
+    //TODO: exponent can be field element as needs to be smaller than order
+    //TODO: check scalar > 0
     //FIXME: how to deal with bool checks
 
-    //TODO: check scalar > 0
+    field[2] infinity = [context[2], context[3]] 
 
-    field zerou = params[2] 
-    field zerov = params[3]
-    field gu = params[4] 
-    field gv = params[5]  
+    field[2] doubledP = pt
+    field[2] accumulatedP = infinity 
 
-    field[2] doubledPoint = [gu, gv]
-    field[2] currentP = [zerou, zerov]
-
-    field j = 255
-    // 1 == boolCheck(exponent[j])
-    currentP[0] = if exponent[j] == 1 then doubledPoint[0] else currentP[0] fi
-    currentP[1] = if exponent[j] == 1 then doubledPoint[1] else currentP[1] fi
-    //TODO: use new array if .. else
+    field j = 255 
+    accumulatedP = if exponent[j] == 1 then doubledP else accumulatedP fi
     
     for field i in 1..256 do
-    j = 255-i
-    // 1 == boolCheck(exponent[j])
-    doubledPoint = add(doubledPoint, doubledPoint, params)
-    
-    tempP = add(currentP, doubledPoint, params)
-    currentP[0] = if exponent[j] == 1 then tempP[0] else currentP[0] fi
-    currentP[1] = if exponent[j] == 1 then tempP[1] else currentP[1] fi
-    //TODO: use new array if .. else
+        j = 255 - i 
+        doubledP = add(doubledP, doubledP, context)
+        candidateP = add(accumulatedP, doubledP, context)
+        accumulatedP = if exponent[j] == 1 then candidateP else accumulatedP fi
     endfor
 
-    1 == assertOnCurve(currentP, params)
-    return currentP
+    1 == assertOnCurve(accumulatedP, context)
+
+    return accumulatedP

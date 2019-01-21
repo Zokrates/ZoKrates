@@ -1,13 +1,13 @@
- // Note: See appendix 3.3.3 of Zcash protocol specification for faster implementation with only 2
+// Note: See appendix 3.3.3 of Zcash protocol specification for faster implementation with only 2
  // constraints.
  // Source: https://en.wikipedia.org/wiki/Montgomery_curve
  // Note: x/y and u/v notation flipped in comparison to the Zcash protocol specs.
- def main(field[2] pt, field[8] context) -> (field[2]):
+ def main(field[2] pt) -> (field[2]):
 
     field x = pt[0]
     field y = pt[1]
     
-    uOut = x / y
-    vOut = (x - 1) / (x + 1) 
+    field uOut = x / y
+    field vOut = (x - 1) / (x + 1) 
 
 return [uOut, vOut]

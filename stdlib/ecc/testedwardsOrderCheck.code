@@ -1,0 +1,14 @@
+import "ecc/edwardsOrderCheck.code" as orderCheck
+import "ecc/babyJubjubParams.code" as context
+
+def main() -> (field):
+
+	context = context()
+	
+	field testU = 17324563846726889236817837922625232543153115346355010501047597319863650987830
+	field testV = 20022170825455209233733649024450576091402881793145646502279487074566492066831
+
+	field out = orderCheck([testU, testV], context)
+	out == 0
+
+return 1
