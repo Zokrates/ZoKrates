@@ -9,10 +9,14 @@ extern crate serde_json;
 extern crate serde_derive;
 extern crate bimap;
 extern crate bincode;
+#[cfg(feature = "wasm")]
 extern crate parity_wasm;
 extern crate regex;
+#[cfg(feature = "wasm")]
 extern crate rustc_hex;
+#[cfg(feature = "wasm")]
 extern crate serde_bytes;
+#[cfg(feature = "wasm")]
 extern crate wasmi;
 extern crate zokrates_field;
 
