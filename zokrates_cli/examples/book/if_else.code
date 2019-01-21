@@ -1,0 +1,3 @@
+def main(field x) -> (field):
+  field y = if x + 2 == 3 then 1 else 5 fi
+  return y

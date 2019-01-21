@@ -1,0 +1,4 @@
+def main() -> (field):
+    field[3] a = [1, 2, 3]
+    a[2] = 4
+    return a[0] + a[2]
