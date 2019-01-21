@@ -1,0 +1,9 @@
+def incr(field a) -> (field):
+    a = a + 1
+    return a
+
+def main() -> (field):
+    field x = 1
+    field res = incr(x)
+    x == 1 // x has not changed
+    return 1
