@@ -836,6 +836,30 @@ impl Flattener {
                         FieldElementArrayExpression::FunctionCall(..) => {
                             unimplemented!("please use intermediate variables for now")
                         }
+                        FieldElementArrayExpression::IfElse(
+                            condition,
+                            consequence,
+                            alternative,
+                        ) => {
+                            // [if cond then [a, b] else [c, d]][1] == if cond then [a, b][1] else [c, d][1]
+                            self.flatten_field_expression(
+                                functions_flattened,
+                                arguments_flattened,
+                                statements_flattened,
+                                FieldElementExpression::IfElse(
+                                    condition,
+                                    box FieldElementExpression::Select(
+                                        consequence,
+                                        box FieldElementExpression::Number(n.clone()),
+                                    ),
+                                    box FieldElementExpression::Select(
+                                        alternative,
+                                        box FieldElementExpression::Number(n),
+                                    ),
+                                ),
+                            )
+                            .apply_recursive_substitution(&self.substitution)
+                        }
                     },
                     e => {
                         let size = array.size();
@@ -893,6 +917,21 @@ impl Flattener {
                                                 "please use intermediate variables for now"
                                             )
                                         }
+                                        FieldElementArrayExpression::IfElse(
+                                            condition,
+                                            consequence,
+                                            alternative,
+                                        ) => FieldElementExpression::IfElse(
+                                            condition,
+                                            box FieldElementExpression::Select(
+                                                consequence,
+                                                box FieldElementExpression::Number(T::from(i)),
+                                            ),
+                                            box FieldElementExpression::Select(
+                                                alternative,
+                                                box FieldElementExpression::Number(T::from(i)),
+                                            ),
+                                        ),
                                     },
                                     box FieldElementExpression::Number(T::from(0)),
                                 )
@@ -955,6 +994,36 @@ impl Flattener {
                 );
                 assert!(exprs_flattened.expressions.len() == size); // outside of MultipleDefinition, FunctionCalls must return a single value
                 exprs_flattened.expressions
+            }
+            FieldElementArrayExpression::IfElse(
+                ref condition,
+                ref consequence,
+                ref alternative,
+            ) => {
+                let size = match consequence.get_type() {
+                    Type::FieldElementArray(n) => n,
+                    _ => unreachable!(),
+                };
+                (0..size)
+                    .map(|i| {
+                        self.flatten_field_expression(
+                            functions_flattened,
+                            arguments_flattened,
+                            statements_flattened,
+                            FieldElementExpression::IfElse(
+                                condition.clone(),
+                                box FieldElementExpression::Select(
+                                    consequence.clone(),
+                                    box FieldElementExpression::Number(T::from(i)),
+                                ),
+                                box FieldElementExpression::Select(
+                                    alternative.clone(),
+                                    box FieldElementExpression::Number(T::from(i)),
+                                ),
+                            ),
+                        )
+                    })
+                    .collect()
             }
         }
     }
@@ -2303,6 +2372,75 @@ mod tests {
                 )
             )
         );
+    }
+
+    #[test]
+    fn array_if() {
+        // if 1 == 1 then [1] else [3] fi
+
+        let with_arrays = {
+            let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+            let mut functions_flattened = vec![];
+            flattener.load_corelib(&mut functions_flattened);
+            let arguments_flattened = vec![];
+            let mut statements_flattened = vec![];
+
+            let e = FieldElementArrayExpression::IfElse(
+                box BooleanExpression::Eq(
+                    box FieldElementExpression::Number(FieldPrime::from(1)),
+                    box FieldElementExpression::Number(FieldPrime::from(1)),
+                ),
+                box FieldElementArrayExpression::Value(
+                    1,
+                    vec![FieldElementExpression::Number(FieldPrime::from(1))],
+                ),
+                box FieldElementArrayExpression::Value(
+                    1,
+                    vec![FieldElementExpression::Number(FieldPrime::from(3))],
+                ),
+            );
+
+            (
+                flattener.flatten_field_array_expression(
+                    &mut functions_flattened,
+                    &arguments_flattened,
+                    &mut statements_flattened,
+                    e,
+                )[0]
+                .clone(),
+                statements_flattened,
+            )
+        };
+
+        let without_arrays = {
+            let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+            let mut functions_flattened = vec![];
+            flattener.load_corelib(&mut functions_flattened);
+            let arguments_flattened = vec![];
+            let mut statements_flattened = vec![];
+
+            // if 1 == 1 then 1 else 3 fi
+            let e = FieldElementExpression::IfElse(
+                box BooleanExpression::Eq(
+                    box FieldElementExpression::Number(FieldPrime::from(1)),
+                    box FieldElementExpression::Number(FieldPrime::from(1)),
+                ),
+                box FieldElementExpression::Number(FieldPrime::from(1)),
+                box FieldElementExpression::Number(FieldPrime::from(3)),
+            );
+
+            (
+                flattener.flatten_field_expression(
+                    &mut functions_flattened,
+                    &arguments_flattened,
+                    &mut statements_flattened,
+                    e,
+                ),
+                statements_flattened,
+            )
+        };
+
+        assert_eq!(with_arrays, without_arrays);
     }
 
     #[test]

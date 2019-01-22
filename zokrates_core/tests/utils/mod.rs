@@ -1,4 +1,5 @@
 extern crate serde_json;
+extern crate zokrates_field;
 
 use std::io;
 use zokrates_core::compile::{compile as generic_compile, CompileError};
@@ -35,7 +36,7 @@ type Val = String;
 
 impl From<ir::ExecutionResult<FieldPrime>> for ComparableResult {
     fn from(r: ir::ExecutionResult<FieldPrime>) -> ComparableResult {
-        ComparableResult(r.map(|v| v.return_values()))
+        ComparableResult(r.map(|v| v.return_values().iter().map(|&x| x.clone()).collect()))
     }
 }
 

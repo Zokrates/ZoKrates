@@ -10,4 +10,5 @@ mod utils;
 zokrates_test! {
     add,
     assert_one,
+    array_if,
 }
