@@ -1,0 +1,9 @@
+[package]
+name = "zokrates_wasm_plugin"
+version = "0.1.0"
+authors = ["Guillaume Ballet <gballet@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+parity-wasm = "0.35.3"
+clap = "2.32.0"
