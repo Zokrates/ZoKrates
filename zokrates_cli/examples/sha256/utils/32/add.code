@@ -1,6 +1,6 @@
 // ADD
 
-import "./../../binary/fulladd.code" as FULLADD
+import "utils/binary/fulladd.code" as FULLADD
 
 def main(field[32] b, field[32] c) -> (field[32]):
 	field[33] car = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]

@@ -2,8 +2,8 @@
 
 import "./ar6xar11xar25.code" as AR6XAR11XAR25
 import "./ar2xar13xar22.code" as AR2XAR13XAR22
-import "./../../bitwise/32/andxornotand.code" as ANDXORNOTAND
-import "./../../bitwise/32/andxorandxorand.code" as ANDXORANDXORAND
+import "utils/bitwise/32/andxornotand.code" as ANDXORNOTAND
+import "utils/bitwise/32/andxorandxorand.code" as ANDXORANDXORAND
 import "./add.code" as ADD2
 
 def ADD5(field[32] a, field[32] b, field[32] c, field[32] d, field[32] e) -> (field[32]):
