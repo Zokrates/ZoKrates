@@ -1,6 +1,6 @@
-import "../sha256/512bit.code" as sha256
+import "../hashes/sha256/512bit.code" as sha256
 import "../utils/multiplexer/256bit.code" as multiplex
-import "../utils/binary/NOT.code" as NOT
+import "../utils/binary/not.code" as NOT
 
 // Merke-Tree inclusion proof for tree depth 3 
 

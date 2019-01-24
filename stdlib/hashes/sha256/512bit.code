@@ -1,5 +1,5 @@
-import "./IV_constants.code" as IVconstants 
-import "./sha_round.code" as sha256 
+import "./IVconstants.code" as IVconstants 
+import "./shaRound.code" as sha256 
 
 // A function that takes 2 field[256] arrays as inputs 
 // and returns their sha256 compression function as an array of 256 field elements.

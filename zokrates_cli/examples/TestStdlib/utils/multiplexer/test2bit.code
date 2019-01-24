@@ -1,5 +1,4 @@
-import "./2bit.code" as multiplex
-
+import "utils/multiplexer/2bit.code" as multiplex
 def main() -> (field[2]):
 	field bit = 1 
 	
@@ -8,6 +7,6 @@ def main() -> (field[2]):
 	field[2] a  = [0, 1]
 	field[2] b = [1, 0]
 
-	output = multiplex(bit, a, b)
+	output == multiplex(bit, a, b)
 	
 	return output 
