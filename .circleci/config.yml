@@ -28,17 +28,14 @@ jobs:
           name: Build
           command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark RUSTFLAGS="-D warnings" ./build.sh
       - run:
-          name: Set ZOKRATES_HOME
-          command: export ZOKRATES_HOME=$(pwd)/stdlib/
-      - run:
           name: Run tests
-          command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark RUSTFLAGS="-D warnings" cargo test --release -- --test-threads=1
+          command: ZOKRATES_HOME=$HOME/ZoKrates/stdlib WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark RUSTFLAGS="-D warnings" cargo test --release -- --test-threads=1
       - run:
           name: Run tests with WASM enabled
-          command: cd zokrates_core && cargo test --release --features wasm -- --test-threads=1
+          command: ZOKRATES_HOME=$HOME/ZoKrates/stdlib cd zokrates_core && cargo test --release --features wasm -- --test-threads=1
       - run:
           name: Run integration tests
-          command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark RUSTFLAGS="-D warnings" cargo test --release -- --ignored
+          command: ZOKRATES_HOME=$HOME/ZoKrates/stdlib/ WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark RUSTFLAGS="-D warnings" cargo test --release -- --ignored
       - run:
           name: Generate code coverage report
           command: ./scripts/cov.sh
