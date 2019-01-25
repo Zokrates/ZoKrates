@@ -32,7 +32,6 @@ pub trait Field:
     From<i32>
     + From<u32>
     + From<usize>
-    + for<'a> From<&'a str>
     + Zero
     + One
     + Clone
@@ -70,6 +69,8 @@ pub trait Field:
     fn max_value() -> Self;
     /// Returns the number of required bits to represent this field type.
     fn get_required_bits() -> usize;
+    /// Tries to parse a string into this representation
+    fn try_from_str<'a>(s: &'a str) -> Result<Self, ()>;
 }
 
 #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Serialize, Deserialize)]
@@ -122,6 +123,12 @@ impl Field for FieldPrime {
     fn get_required_bits() -> usize {
         (*P).bits()
     }
+    fn try_from_str<'a>(s: &'a str) -> Result<Self, ()> {
+        let x = BigInt::parse_bytes(s.as_bytes(), 10).ok_or(())?;
+        Ok(FieldPrime {
+            value: &x - x.div_floor(&*P) * &*P,
+        })
+    }
 }
 
 impl Default for FieldPrime {
@@ -165,18 +172,6 @@ impl From<u32> for FieldPrime {
 impl From<usize> for FieldPrime {
     fn from(num: usize) -> Self {
         let x = ToBigInt::to_bigint(&num).unwrap();
-        FieldPrime {
-            value: &x - x.div_floor(&*P) * &*P,
-        }
-    }
-}
-
-impl<'a> From<&'a str> for FieldPrime {
-    fn from(s: &'a str) -> Self {
-        let x = match BigInt::parse_bytes(s.as_bytes(), 10) {
-            Some(x) => x,
-            None => panic!("Could not parse {:?} to BigInt!", &s),
-        };
         FieldPrime {
             value: &x - x.div_floor(&*P) * &*P,
         }
@@ -352,6 +347,12 @@ fn extended_euclid(a: &BigInt, b: &BigInt) -> (BigInt, BigInt, BigInt) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    impl<'a> From<&'a str> for FieldPrime {
+        fn from(s: &'a str) -> FieldPrime {
+            FieldPrime::try_from_str(s).unwrap()
+        }
+    }
 
     #[cfg(test)]
     mod field_prime {
