@@ -7,10 +7,6 @@ TAG=$(cat ./zokrates_cli/Cargo.toml | grep '^version' | awk '{print $3}' | sed -
 # Use zokrates github bot
 git config --global user.email $GH_USER
 
-# Release on Github
-git tag $TAG
-git push origin $TAG
-
 # Release on Dockerhub
 
 ## Build
@@ -28,6 +24,10 @@ echo "Published zokrates/zokrates:latest"
 docker tag zokrates:latest zokrates/zokrates:$TAG
 docker push zokrates/zokrates:$TAG
 echo "Published zokrates/zokrates:$TAG"
+
+# Release on Github
+git tag $TAG
+git push origin $TAG
 
 # Publish book
 MDBOOK_TAR="https://github.com/rust-lang-nursery/mdBook/releases/download/v0.2.1/mdbook-v0.2.1-x86_64-unknown-linux-gnu.tar.gz"
