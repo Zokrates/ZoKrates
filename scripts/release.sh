@@ -1,8 +1,6 @@
 # Exit if any subcommand fails
 set -e
 
-ls zokrates_book
-
 # Get tag
 TAG=$(cat ./zokrates_cli/Cargo.toml | grep '^version' | awk '{print $3}' | sed -e 's/"//g') && echo $TAG
 
@@ -37,11 +35,11 @@ cd zokrates_book
 wget -qO- $MDBOOK_SOURCE | tar xvz
 
 ## Build book
-./mdbook build
+./mdbook build > /dev/null
 
-git config --global user.email "stefan.deml+zokratesbot@decentriq.ch"
-git clone https://github.com/Zokrates/zokrates.github.io.git
-git clone https://github.com/davisp/ghp-import.git
+git config --global user.email $GH_USER
+git clone https://github.com/Zokrates/zokrates.github.io.git > /dev/null
+git clone https://github.com/davisp/ghp-import.git > /dev/null
 cd zokrates.github.io
 #../ghp-import/ghp_import.py -n -p -f -m "Documentation upload. Version:  $TAG" -b "master" -r https://zokratesbot:"$GH_TOKEN"@github.com/Zokrates/zokrates.github.io.git ../book
 echo "Published book"
