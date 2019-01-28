@@ -117,10 +117,10 @@ workflows:
       - wasm_test
       - integration_test
       - deploy:
-          # filters:
-          #   branches:
-          #     only:
-          #       - master
+          filters:
+            branches:
+              only:
+                - master
           requires:
             - build
             - test
