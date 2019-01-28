@@ -1,0 +1,13 @@
+def main(field[2] P, field[6] params) -> (field):
+  	// See appendix 3.3.1 of Zcash protocol specification:
+  	// https://github.com/zcash/zips/blob/master/protocol/protocol.pdf
+
+    field d = params[0] 
+    field a = params[1]
+
+  	field uu = P[0] * P[0]
+  	field vv = P[1] * P[1]
+  	field uuvv = uu * vv
+    
+  	a * uu + vv == 1 + d * uuvv
+  	return 1
