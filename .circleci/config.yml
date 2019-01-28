@@ -130,7 +130,6 @@ workflows:
           requires:
             - build
             - test
-            - wasm_test
             - integration_test
 
 
