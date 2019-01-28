@@ -652,6 +652,7 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
     fn examples_with_input_failure() {
         //these examples should compile but not run
         for p in glob("./examples/runtime_errors/*.code").expect("Failed to read glob pattern") {
@@ -678,12 +679,9 @@ mod tests {
 
             let (..) = r1cs_program(program_flattened.clone());
 
-            let result = std::panic::catch_unwind(|| {
-                let _ = program_flattened
-                    .execute(&vec![FieldPrime::from(0)])
-                    .unwrap();
-            });
-            assert!(result.is_err());
+            let _ = program_flattened
+                .execute(&vec![FieldPrime::from(0)])
+                .unwrap();
         }
     }
 }

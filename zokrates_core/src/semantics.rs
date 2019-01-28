@@ -622,26 +622,34 @@ impl Checker {
                 let consequence_checked = self.check_expression(&consequence)?;
                 let alternative_checked = self.check_expression(&alternative)?;
 
-                match (condition_checked, consequence_checked, alternative_checked) {
-					(TypedExpression::Boolean(condition), TypedExpression::FieldElement(consequence), TypedExpression::FieldElement(alternative)) => {
-						Ok(FieldElementExpression::IfElse(box condition, box consequence, box alternative).into())
-					},
-					(condition, consequence, alternative) =>
-						Err(
-							Error {
-                                pos: Some(expr.pos()),
-								message:
-									format!("if {{condition}} then {{consequence}} else {{alternative}} should have types {}, {}, {}, found {}, {}, {}",
-										Type::Boolean,
-										Type::FieldElement,
-										Type::FieldElement,
-										condition.get_type(),
-										consequence.get_type(),
-										alternative.get_type(),
-									)
-							}
-						)
-				}
+                match condition_checked {
+                    TypedExpression::Boolean(condition) => {
+                        let consequence_type = consequence_checked.get_type();
+                        let alternative_type = alternative_checked.get_type();
+                        match consequence_type == alternative_type {
+                            true => match (consequence_checked, alternative_checked) {
+                                (TypedExpression::FieldElement(consequence), TypedExpression::FieldElement(alternative)) => {
+                                    Ok(FieldElementExpression::IfElse(box condition, box consequence, box alternative).into())
+                                },
+                                (TypedExpression::FieldElementArray(consequence), TypedExpression::FieldElementArray(alternative)) => {
+                                    Ok(FieldElementArrayExpression::IfElse(box condition, box consequence, box alternative).into())
+                                },
+                                _ => unimplemented!()
+                            }
+                            false => Err(Error {
+                                pos: Some(alternative.pos()),
+                                message: format!("{{consequence}} and {{alternative}} in `if/else` expression should have the same type, found {}, {}", consequence_type, alternative_type)
+                            })
+                        }
+                    }
+                    c => Err(Error {
+                        pos: Some(condition.pos()),
+                        message: format!(
+                            "{{condition}} after `if` should be a boolean, found {}",
+                            c.get_type()
+                        ),
+                    }),
+                }
             }
             &Expression::Number(ref n) => Ok(FieldElementExpression::Number(n.clone()).into()),
             &Expression::FunctionCall(ref fun_id, ref arguments) => {

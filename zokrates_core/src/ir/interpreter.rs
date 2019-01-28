@@ -8,12 +8,14 @@ pub type ExecutionResult<T> = Result<Witness<T>, Error>;
 pub struct Witness<T: Field>(BTreeMap<FlatVariable, T>);
 
 impl<T: Field> Witness<T> {
-    pub fn return_values(&self) -> Vec<T> {
-        self.0
-            .clone()
-            .into_iter()
+    pub fn return_values(&self) -> Vec<&T> {
+        let out = self
+            .0
+            .iter()
             .filter(|(k, _)| k.is_output())
-            .map(|(_, v)| v)
+            .collect::<HashMap<_, _>>();
+        (0..out.len())
+            .map(|i| *out.get(&FlatVariable::public(i)).unwrap())
             .collect()
     }
 

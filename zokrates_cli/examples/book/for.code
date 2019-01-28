@@ -1,0 +1,6 @@
+def main() -> (field):
+    field res = 0
+    for field i in 0..4 do
+        res = res + i
+    endfor
+    return res

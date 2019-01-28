@@ -10,5 +10,6 @@ default = []
 [dependencies]
 
 [dev-dependencies]
+tempfile = "3"
 
 [lib]
