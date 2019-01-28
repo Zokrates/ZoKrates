@@ -58,9 +58,6 @@ jobs:
           name: Run tests
           command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark RUSTFLAGS="-D warnings" cargo test --release -- --test-threads=1
       - run:
-          name: Run integration tests
-          command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark RUSTFLAGS="-D warnings" cargo test --release -- --ignored
-      - run:
           name: Generate code coverage report
           command: ./scripts/cov.sh
   wasm_test:
@@ -86,6 +83,26 @@ jobs:
       - run:
           name: Run tests with WASM enabled
           command: cd zokrates_core && cargo test --release --features wasm -- --test-threads=1
+  integration_test:
+    docker:
+      - image: rustlang/rust:nightly-slim
+    steps:
+      - checkout
+      - run:
+          name: Version information
+          command: rustc --version; cargo --version; rustup --version
+      - run:
+          name: Calculate dependencies
+          command: cargo generate-lockfile
+      - restore_cache:
+          keys:
+            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - run:
+          name: Build libsnark
+          command: LIBSNARK_SOURCE_PATH=$HOME/libsnark ./build_libsnark.sh
+      - run:
+          name: Run integration tests
+          command: WITH_LIBSNARK=1 LIBSNARK_SOURCE_PATH=$HOME/libsnark RUSTFLAGS="-D warnings" cargo test --release -- --ignored
   deploy:
     docker:
       - image: circleci/python
