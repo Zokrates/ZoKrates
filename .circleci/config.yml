@@ -16,9 +16,6 @@ jobs:
           keys:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
-          name: Check format
-          command: rustup component add rustfmt-preview; cargo fmt --all -- --check
-      - run:
           name: Build libsnark
           command: LIBSNARK_SOURCE_PATH=$HOME/libsnark ./build_libsnark.sh
       - run:
@@ -77,9 +74,6 @@ jobs:
       - run:
           name: Download wasm32 target
           command: rustup target add wasm32-unknown-unknown
-      - run:
-          name: Build libsnark
-          command: LIBSNARK_SOURCE_PATH=$HOME/libsnark ./build_libsnark.sh
       - run:
           name: Run tests with WASM enabled
           command: cd zokrates_core && cargo test --release --features wasm -- --test-threads=1

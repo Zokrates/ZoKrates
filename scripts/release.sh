@@ -16,7 +16,7 @@ git tag $TAG
 docker build -t zokrates .
 
 ## Log into Dockerhub
-docker login -u $DOCKER_USER -p $DOCKER_PASS
+docker login -u $DOCKERHUB_USER -p $DOCKERHUB_PASS
 
 ## Release under `latest` tag
 docker tag zokrates:latest zokrates/zokrates:latest
