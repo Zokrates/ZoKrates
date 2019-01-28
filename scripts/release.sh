@@ -30,12 +30,12 @@ docker push zokrates/zokrates:$TAG
 echo "Published zokrates/zokrates:$TAG"
 
 # Publish book
-MDBOOK_SOURCE="https://github.com/rust-lang-nursery/mdBook/releases/download/v0.2.1/mdbook-v0.2.1-x86_64-unknown-linux-gnu.tar.gz"
+MDBOOK_TAR="https://github.com/rust-lang-nursery/mdBook/releases/download/v0.2.1/mdbook-v0.2.1-x86_64-unknown-linux-gnu.tar.gz"
 
 cd zokrates_book
 
 ## Install mdbook
-wget -qO- $MDBOOK_SOURCE | tar xvz
+wget -qO- $MDBOOK_TAR | tar xvz
 
 ## Build book
 ./mdbook build
