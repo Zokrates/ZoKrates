@@ -1,0 +1,19 @@
+// Parameters are based on: https://github.com/HarryR/ethsnarks/tree/master/src/jubjub
+// Note: paramters will be update soon to be more compatible with zCash's implementation
+
+def main() -> (field[8]):
+
+// 	Order of the curve E
+ 	field JUBJUB_E = 21888242871839275222246405745257275088614511777268538073601725287587578984328	
+    field JUBJUB_C = 8		// Cofactor
+	field JUBJUB_A = 168700	// Coefficient A
+	field JUBJUB_D = 168696	// Coefficient D
+	
+//	Point at infinity
+	field[2] infinity = [0, 1]
+
+//	Generator
+	field Gu = 16540640123574156134436876038791482806971768689494387082833631921987005038935
+	field Gv = 20819045374670962167435360035096875258406992893633759881276124905556507972311
+
+  	return [JUBJUB_A, JUBJUB_D, infinity[0], infinity[1], Gu, Gv, JUBJUB_E, JUBJUB_C) 

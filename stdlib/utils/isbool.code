@@ -1,0 +1,4 @@
+def main(field a) -> (field):
+//TODO: use bool types
+	0 == (a-1)*a
+	return 1
