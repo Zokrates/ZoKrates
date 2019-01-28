@@ -1,6 +1,8 @@
 # Exit if any subcommand fails
 set -e
 
+ls zokrates_book
+
 # Get tag
 TAG=$(cat ./zokrates_cli/Cargo.toml | grep '^version' | awk '{print $3}' | sed -e 's/"//g') && echo $TAG
 
@@ -8,23 +10,35 @@ TAG=$(cat ./zokrates_cli/Cargo.toml | grep '^version' | awk '{print $3}' | sed -
 git tag $TAG
 # git push origin $TAG
 
-# Release on Dockerhub
+## Release on Dockerhub
 
-# Build
+## Build
 docker build -t zokrates .
+
+## Log into Dockerhub
+docker login -u $DOCKER_USER -p $DOCKER_PASS
 
 ## Release under `latest` tag
 docker tag zokrates:latest zokrates/zokrates:latest
-#docker push zokrates/zokrates:latest
+# docker push zokrates/zokrates:latest
+echo "Published zokrates/zokrates:latest"
 
 ## Release under $TAG tag
 docker tag zokrates:latest zokrates/zokrates:$TAG
-#docker push zokrates/zokrates:$TAG
+# docker push zokrates/zokrates:$TAG
+echo "Published zokrates/zokrates:$TAG"
 
 # Publish book
-python --version
-cargo install mdbook
-cd zokrates_book && mdbook build
+MDBOOK_SOURCE="https://github.com/rust-lang-nursery/mdBook/releases/download/v0.2.1/mdbook-v0.2.1-x86_64-unknown-linux-gnu.tar.gz"
+
+cd zokrates_book
+
+## Install mdbook
+wget -qO- $MDBOOK_SOURCE | tar xvz
+
+## Build book
+./mdbook build
+
 git config --global user.email "stefan.deml+zokratesbot@decentriq.ch"
 git clone https://github.com/Zokrates/zokrates.github.io.git
 git clone https://github.com/davisp/ghp-import.git
