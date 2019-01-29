@@ -4,13 +4,6 @@
 // @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
 // @date 2017
 
-extern crate bincode;
-extern crate clap;
-extern crate regex;
-extern crate zokrates_core;
-extern crate zokrates_field;
-extern crate zokrates_fs_resolver;
-
 use bincode::{deserialize_from, serialize_into, Infinite};
 use clap::{App, AppSettings, Arg, SubCommand};
 #[cfg(feature = "libsnark")]
@@ -29,16 +22,14 @@ use zokrates_core::proof_system::{ProofSystem, GM17, PGHR13};
 use zokrates_field::field::{Field, FieldPrime};
 use zokrates_fs_resolver::resolve as fs_resolve;
 
-#[cfg(feature = "libsnark")]
-fn get_backend(backend_str: &str) -> &'static ProofSystem {
-    match backend_str.to_lowercase().as_ref() {
-        "pghr13" => &PGHR13 {},
-        "gm17" => &GM17 {},
-        s => panic!("Backend \"{}\" not supported", s),
-    }
+fn main() {
+    cli().unwrap_or_else(|e| {
+        println!("{}", e);
+        std::process::exit(1);
+    })
 }
 
-fn main() {
+fn cli() -> Result<(), String> {
     const FLATTENED_CODE_DEFAULT_PATH: &str = "out";
     const VERIFICATION_KEY_DEFAULT_PATH: &str = "verification.key";
     const PROVING_KEY_DEFAULT_PATH: &str = "proving.key";
@@ -55,18 +46,18 @@ fn main() {
     .author("Jacob Eberhardt, Thibaut Schaeffer, Dennis Kuhnert")
     .about("Supports generation of zkSNARKs from high level language code including Smart Contracts for proof verification on the Ethereum Blockchain.\n'I know that I show nothing!'")
     .subcommand(SubCommand::with_name("compile")
-        .about("Compiles into flattened conditions. Produces two files: human-readable '.code' file and binary file")
+        .about("Compiles into flattened conditions. Produces two files: human-readable '.code' file for debugging and binary file")
         .arg(Arg::with_name("input")
             .short("i")
             .long("input")
-            .help("path of source code file to compile.")
+            .help("Path of the source code")
             .value_name("FILE")
             .takes_value(true)
             .required(true)
         ).arg(Arg::with_name("output")
             .short("o")
             .long("output")
-            .help("output file path.")
+            .help("Path of the output file")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -78,11 +69,11 @@ fn main() {
         )
      )
     .subcommand(SubCommand::with_name("setup")
-        .about("Performs a trusted setup for a given constraint system.")
+        .about("Performs a trusted setup for a given constraint system")
         .arg(Arg::with_name("input")
             .short("i")
             .long("input")
-            .help("path of compiled code.")
+            .help("Path of compiled code")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -91,7 +82,7 @@ fn main() {
         .arg(Arg::with_name("proving-key-path")
             .short("p")
             .long("proving-key-path")
-            .help("Path of the generated proving key file.")
+            .help("Path of the generated proving key file")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -100,7 +91,7 @@ fn main() {
         .arg(Arg::with_name("verification-key-path")
             .short("v")
             .long("verification-key-path")
-            .help("Path of the generated verification key file.")
+            .help("Path of the generated verification key file")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -109,7 +100,7 @@ fn main() {
         .arg(Arg::with_name("meta-information")
             .short("m")
             .long("meta-information")
-            .help("Path of file containing meta information for variable transformation.")
+            .help("Path of the file containing meta-information for variable transformation")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -126,11 +117,11 @@ fn main() {
         )
     )
     .subcommand(SubCommand::with_name("export-verifier")
-        .about("Exports a verifier as Solidity smart contract.")
+        .about("Exports a verifier as Solidity smart contract")
         .arg(Arg::with_name("input")
             .short("i")
             .long("input")
-            .help("path of verifier.")
+            .help("Path of the verifier")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -139,7 +130,7 @@ fn main() {
         .arg(Arg::with_name("output")
             .short("o")
             .long("output")
-            .help("output file path.")
+            .help("Path of the output file")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -155,11 +146,11 @@ fn main() {
         )
     )
     .subcommand(SubCommand::with_name("compute-witness")
-        .about("Calculates a witness for a given constraint system, i.e., a variable assignment which satisfies all constraints. Private inputs are specified interactively.")
+        .about("Calculates a witness for a given constraint system")
         .arg(Arg::with_name("input")
             .short("i")
             .long("input")
-            .help("path of compiled code.")
+            .help("Path of compiled code")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -167,7 +158,7 @@ fn main() {
         ).arg(Arg::with_name("output")
             .short("o")
             .long("output")
-            .help("output file path.")
+            .help("Path of the output file")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -175,13 +166,13 @@ fn main() {
         ).arg(Arg::with_name("arguments")
             .short("a")
             .long("arguments")
-            .help("Arguments for the program's main method. Space separated list.")
+            .help("Arguments for the program's main method as a space separated list")
             .takes_value(true)
             .multiple(true) // allows multiple values
             .required(false)
         ).arg(Arg::with_name("interactive")
             .long("interactive")
-            .help("enter private inputs interactively.")
+            .help("Enter private inputs interactively. Public inputs still need to be passed non-interactively")
             .required(false)
         )
     )
@@ -190,7 +181,7 @@ fn main() {
         .arg(Arg::with_name("witness")
             .short("w")
             .long("witness")
-            .help("Path of witness file.")
+            .help("Path of the witness file")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -198,7 +189,7 @@ fn main() {
         ).arg(Arg::with_name("provingkey")
             .short("p")
             .long("provingkey")
-            .help("Path of proving key file.")
+            .help("Path of the proving key file")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -206,7 +197,7 @@ fn main() {
         ).arg(Arg::with_name("proofpath")
             .short("j")
             .long("proofpath")
-            .help("Path of the json proof file")
+            .help("Path of the JSON proof file")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -214,7 +205,7 @@ fn main() {
         ).arg(Arg::with_name("meta-information")
             .short("i")
             .long("meta-information")
-            .help("Path of file containing meta information for variable transformation.")
+            .help("Path of file containing meta information for variable transformation")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -256,37 +247,31 @@ fn main() {
             let mut reader = BufReader::new(file);
 
             let program_flattened: ir::Prog<FieldPrime> =
-                match compile(&mut reader, Some(location), Some(fs_resolve)) {
-                    Ok(p) => p,
-                    Err(why) => {
-                        println!("Compilation failed:\n\n{}", why);
-                        std::process::exit(1);
-                    }
-                };
+                compile(&mut reader, Some(location), Some(fs_resolve))
+                    .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
 
             // number of constraints the flattened program will translate to.
             let num_constraints = program_flattened.constraint_count();
 
             // serialize flattened program and write to binary file
-            let mut bin_output_file = match File::create(&bin_output_path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't create {}: {}", bin_output_path.display(), why),
-            };
+            let mut bin_output_file = File::create(&bin_output_path)
+                .map_err(|why| format!("couldn't create {}: {}", bin_output_path.display(), why))?;
 
             serialize_into(&mut bin_output_file, &program_flattened, Infinite)
-                .expect("Unable to write data to file.");
+                .map_err(|_| "Unable to write data to file.".to_string())?;
 
             if !light {
                 // write human-readable output file
-                let hr_output_file = match File::create(&hr_output_path) {
-                    Ok(file) => file,
-                    Err(why) => panic!("couldn't create {}: {}", hr_output_path.display(), why),
-                };
+                let hr_output_file = File::create(&hr_output_path).map_err(|why| {
+                    format!("couldn't create {}: {}", hr_output_path.display(), why)
+                })?;
 
                 let mut hrofb = BufWriter::new(hr_output_file);
                 write!(&mut hrofb, "{}\n", program_flattened)
-                    .expect("Unable to write data to file.");
-                hrofb.flush().expect("Unable to flush buffer.");
+                    .map_err(|_| "Unable to write data to file.".to_string())?;
+                hrofb
+                    .flush()
+                    .map_err(|_| "Unable to flush buffer.".to_string())?;
             }
 
             if !light {
@@ -307,34 +292,21 @@ fn main() {
 
             // read compiled program
             let path = Path::new(sub_matches.value_of("input").unwrap());
-            let mut file = match File::open(&path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't open {}: {}", path.display(), why),
-            };
+            let mut file = File::open(&path)
+                .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
 
-            let program_ast: ir::Prog<FieldPrime> = match deserialize_from(&mut file, Infinite) {
-                Ok(x) => x,
-                Err(why) => {
-                    println!("{:?}", why);
-                    std::process::exit(1);
-                }
-            };
+            let program_ast: ir::Prog<FieldPrime> =
+                deserialize_from(&mut file, Infinite).map_err(|why| why.to_string())?;
 
             // print deserialized flattened program
             println!("{}", program_ast);
 
             // validate #arguments
-            let mut cli_arguments: Vec<FieldPrime> = Vec::new();
-            match sub_matches.values_of("arguments") {
-                Some(p) => {
-                    let arg_strings: Vec<&str> = p.collect();
-                    cli_arguments = arg_strings
-                        .into_iter()
-                        .map(|x| FieldPrime::from(x))
-                        .collect();
-                }
-                None => {}
+            let cli_arguments = match sub_matches.values_of("arguments") {
+                Some(p) => p.map(|x| FieldPrime::try_from_str(x)).collect(),
+                None => Ok(vec![]),
             }
+            .map_err(|_| "Could not parse arguments".to_string())?;
 
             // handle interactive and non-interactive modes
             let is_interactive = sub_matches.occurrences_of("interactive") > 0;
@@ -347,12 +319,11 @@ fn main() {
             };
 
             if cli_arguments.len() != expected_cli_args_count {
-                println!(
+                return Err(format!(
                     "Wrong number of arguments. Given: {}, Required: {}.",
                     cli_arguments.len(),
                     expected_cli_args_count
-                );
-                std::process::exit(1);
+                ));
             }
 
             let mut cli_arguments_iter = cli_arguments.into_iter();
@@ -362,62 +333,64 @@ fn main() {
                 .map(|x| {
                     match x.private && is_interactive {
                         // private inputs are passed interactively when the flag is present
-                        true => {
+                        true => loop {
                             println!("Please enter a value for {:?}:", x.id);
                             let mut input = String::new();
                             let stdin = stdin();
-                            stdin
-                                .lock()
-                                .read_line(&mut input)
-                                .expect("Did not enter a correct String");
-                            FieldPrime::from(input.trim())
-                        }
-                        // otherwise, they are taken from the CLI arguments
-                        false => match cli_arguments_iter.next() {
-                            Some(x) => x,
-                            None => {
-                                std::process::exit(1);
-                            }
+                            let r = stdin.lock().read_line(&mut input);
+
+                            match r {
+                                Ok(_) => {
+                                    let input = input.trim();
+                                    match FieldPrime::try_from_str(&input) {
+                                        Ok(v) => return v,
+                                        Err(_) => {
+                                            println!("Not a correct String, try again");
+                                            continue;
+                                        }
+                                    }
+                                }
+                                Err(_) => {
+                                    println!("Not a correct String, try again");
+                                    continue;
+                                }
+                            };
                         },
+                        // otherwise, they are taken from the CLI arguments
+                        false => cli_arguments_iter.next().unwrap(),
                     }
                 })
                 .collect();
 
             let witness = program_ast
                 .execute(&arguments)
-                .unwrap_or_else(|e| panic!(format!("Execution failed: {}", e)));
+                .map_err(|e| format!("Execution failed: {}", e))?;
 
             println!("\nWitness: \n\n{}", witness.format_outputs());
 
             // write witness to file
             let output_path = Path::new(sub_matches.value_of("output").unwrap());
-            let output_file = match File::create(&output_path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't create {}: {}", output_path.display(), why),
-            };
+            let output_file = File::create(&output_path)
+                .map_err(|why| format!("couldn't create {}: {}", output_path.display(), why))?;
+
             let mut bw = BufWriter::new(output_file);
-            write!(&mut bw, "{}", witness).expect("Unable to write data to file.");
-            bw.flush().expect("Unable to flush buffer.");
+            write!(&mut bw, "{}", witness)
+                .map_err(|_| "Unable to write data to file.".to_string())?;
+            bw.flush()
+                .map_err(|_| "Unable to flush buffer.".to_string())?;
         }
         #[cfg(feature = "libsnark")]
         ("setup", Some(sub_matches)) => {
+            let backend = get_backend(sub_matches.value_of("backend").unwrap())?;
+
             println!("Performing setup...");
 
-            let backend = get_backend(sub_matches.value_of("backend").unwrap());
-
             let path = Path::new(sub_matches.value_of("input").unwrap());
-            let mut file = match File::open(&path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't open {}: {}", path.display(), why),
-            };
+            let mut file = File::open(&path)
+                .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
 
-            let program: ir::Prog<FieldPrime> = match deserialize_from(&mut file, Infinite) {
-                Ok(x) => x,
-                Err(why) => {
-                    println!("{:?}", why);
-                    std::process::exit(1);
-                }
-            };
+            let program: ir::Prog<FieldPrime> =
+                deserialize_from(&mut file, Infinite).map_err(|why| format!("{:?}", why))?;
 
             // print deserialized flattened program
             println!("{}", program);
@@ -427,10 +400,8 @@ fn main() {
 
             // write variables meta information to file
             let var_inf_path = Path::new(sub_matches.value_of("meta-information").unwrap());
-            let var_inf_file = match File::create(&var_inf_path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't open {}: {}", var_inf_path.display(), why),
-            };
+            let var_inf_file = File::create(&var_inf_path)
+                .map_err(|why| format!("couldn't open {}: {}", var_inf_path.display(), why))?;
             let mut bw = BufWriter::new(var_inf_file);
 
             write!(
@@ -438,14 +409,17 @@ fn main() {
                 "Private inputs offset:\n{}\n",
                 public_variables_count
             )
-            .expect("Unable to write data to file.");
-            write!(&mut bw, "R1CS variable order:\n").expect("Unable to write data to file.");
+            .map_err(|_| "Unable to write data to file.".to_string())?;
+            write!(&mut bw, "R1CS variable order:\n")
+                .map_err(|_| "Unable to write data to file.".to_string())?;
 
             for var in &variables {
-                write!(&mut bw, "{} ", var).expect("Unable to write data to file.");
+                write!(&mut bw, "{} ", var)
+                    .map_err(|_| "Unable to write data to file.".to_string())?;
             }
-            write!(&mut bw, "\n").expect("Unable to write data to file.");
-            bw.flush().expect("Unable to flush buffer.");
+            write!(&mut bw, "\n").map_err(|_| "Unable to write data to file.".to_string())?;
+            bw.flush()
+                .map_err(|_| "Unable to flush buffer.".to_string())?;
 
             // get paths for proving and verification keys
             let pk_path = sub_matches.value_of("proving-key-path").unwrap();
@@ -469,30 +443,26 @@ fn main() {
         #[cfg(feature = "libsnark")]
         ("export-verifier", Some(sub_matches)) => {
             {
-                println!("Exporting verifier...");
+                let backend = get_backend(sub_matches.value_of("backend").unwrap())?;
 
-                let backend = get_backend(sub_matches.value_of("backend").unwrap());
+                println!("Exporting verifier...");
 
                 // read vk file
                 let input_path = Path::new(sub_matches.value_of("input").unwrap());
-                let input_file = match File::open(&input_path) {
-                    Ok(input_file) => input_file,
-                    Err(why) => panic!("couldn't open {}: {}", input_path.display(), why),
-                };
+                let input_file = File::open(&input_path)
+                    .map_err(|why| format!("couldn't open {}: {}", input_path.display(), why))?;
                 let reader = BufReader::new(input_file);
 
                 let verifier = backend.export_solidity_verifier(reader);
 
                 //write output file
                 let output_path = Path::new(sub_matches.value_of("output").unwrap());
-                let mut output_file = match File::create(&output_path) {
-                    Ok(file) => file,
-                    Err(why) => panic!("couldn't create {}: {}", output_path.display(), why),
-                };
+                let mut output_file = File::create(&output_path)
+                    .map_err(|why| format!("couldn't create {}: {}", output_path.display(), why))?;
 
                 output_file
                     .write_all(&verifier.as_bytes())
-                    .expect("Failed writing output to file.");
+                    .map_err(|_| "Failed writing output to file.".to_string())?;
                 println!("Finished exporting verifier.");
             }
         }
@@ -500,14 +470,12 @@ fn main() {
         ("generate-proof", Some(sub_matches)) => {
             println!("Generating proof...");
 
-            let backend = get_backend(sub_matches.value_of("backend").unwrap());
+            let backend = get_backend(sub_matches.value_of("backend").unwrap())?;
 
             // deserialize witness
             let witness_path = Path::new(sub_matches.value_of("witness").unwrap());
-            let witness_file = match File::open(&witness_path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't open {}: {}", witness_path.display(), why),
-            };
+            let witness_file = File::open(&witness_path)
+                .map_err(|why| format!("couldn't open {}: {}", witness_path.display(), why))?;
 
             let reader = BufReader::new(witness_file);
             let mut lines = reader.lines();
@@ -523,16 +491,14 @@ fn main() {
                         );
                     }
                     None => break,
-                    Some(Err(err)) => panic!("Error reading witness: {}", err),
+                    Some(Err(err)) => return Err(format!("Error reading witness: {}", err)),
                 }
             }
 
             // determine variable order
             let var_inf_path = Path::new(sub_matches.value_of("meta-information").unwrap());
-            let var_inf_file = match File::open(&var_inf_path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't open {}: {}", var_inf_path.display(), why),
-            };
+            let var_inf_file = File::open(&var_inf_path)
+                .map_err(|why| format!("couldn't open {}: {}", var_inf_path.display(), why))?;
             let var_reader = BufReader::new(var_inf_file);
             let mut var_lines = var_reader.lines();
 
@@ -540,9 +506,11 @@ fn main() {
             let private_inputs_offset;
             if let Some(Ok(ref o)) = var_lines.nth(1) {
                 // consumes first 2 lines
-                private_inputs_offset = o.parse().expect("Failed parsing private inputs offset");
+                private_inputs_offset = o
+                    .parse()
+                    .map_err(|_| "Failed parsing private inputs offset")?;
             } else {
-                panic!("Error reading private inputs offset");
+                return Err(format!("Error reading private inputs offset"));
             }
 
             // get variables vector
@@ -553,7 +521,7 @@ fn main() {
                     variables.push(i.to_string());
                 }
             } else {
-                panic!("Error reading variables.");
+                return Err(format!("Error reading variables"));
             }
 
             println!("Using Witness: {:?}", witness_map);
@@ -576,7 +544,17 @@ fn main() {
                 backend.generate_proof(pk_path, proof_path, public_inputs, private_inputs)
             );
         }
-        _ => unimplemented!(), // Either no subcommand or one not tested for...
+        _ => unreachable!(),
+    }
+    Ok(())
+}
+
+#[cfg(feature = "libsnark")]
+fn get_backend(backend_str: &str) -> Result<&'static ProofSystem, String> {
+    match backend_str.to_lowercase().as_ref() {
+        "pghr13" => Ok(&PGHR13 {}),
+        "gm17" => Ok(&GM17 {}),
+        s => Err(format!("Backend \"{}\" not supported", s)),
     }
 }
 
