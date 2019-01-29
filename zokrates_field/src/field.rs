@@ -145,7 +145,11 @@ impl Display for FieldPrime {
         if self.value <= FieldPrime::max_value().value / 2 {
             write!(f, "{}", self.value.to_str_radix(10))
         } else {
-            write!(f, "({})", (&self.value - (FieldPrime::max_value().value + BigInt::one())).to_str_radix(10))
+            write!(
+                f,
+                "({})",
+                (&self.value - (FieldPrime::max_value().value + BigInt::one())).to_str_radix(10)
+            )
         }
     }
 }
@@ -625,10 +629,18 @@ mod tests {
             let minus_one = FieldPrime::from(0) - one;
             assert_eq!(String::from("(-1)"), format!("{}", minus_one));
             // (p-1)/2 -> positive notation
-            let p_minus_one_over_two = (FieldPrime::from(0) - FieldPrime::from(1)) / FieldPrime::from(2);
-            assert_eq!(String::from("10944121435919637611123202872628637544274182200208017171849102093287904247808"), format!("{}", p_minus_one_over_two));
+            let p_minus_one_over_two =
+                (FieldPrime::from(0) - FieldPrime::from(1)) / FieldPrime::from(2);
+            assert_eq!(
+                String::from(
+                    "10944121435919637611123202872628637544274182200208017171849102093287904247808"
+                ),
+                format!("{}", p_minus_one_over_two)
+            );
             // (p-1)/2 + 1 -> negative notation (p-1)/2 + 1 - p == (-p+1)/2
-            let p_minus_one_over_two_plus_one = ((FieldPrime::from(0) - FieldPrime::from(1)) / FieldPrime::from(2)) + FieldPrime::from(1);
+            let p_minus_one_over_two_plus_one = ((FieldPrime::from(0) - FieldPrime::from(1))
+                / FieldPrime::from(2))
+                + FieldPrime::from(1);
             assert_eq!(String::from("(-10944121435919637611123202872628637544274182200208017171849102093287904247808)"), format!("{}", p_minus_one_over_two_plus_one));
         }
     }
