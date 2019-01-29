@@ -147,6 +147,13 @@ pub fn fold_field_array_expression<T: Field, F: Folder<T>>(
             let exps = exps.into_iter().map(|e| f.fold_expression(e)).collect();
             FieldElementArrayExpression::FunctionCall(size, id, exps)
         }
+        FieldElementArrayExpression::IfElse(box condition, box consequence, box alternative) => {
+            FieldElementArrayExpression::IfElse(
+                box f.fold_boolean_expression(condition),
+                box f.fold_field_array_expression(consequence),
+                box f.fold_field_array_expression(alternative),
+            )
+        }
     }
 }
 

@@ -4,9 +4,8 @@
 # ZoKrates
 
 [![Join the chat at https://gitter.im/ZoKrates/Lobby](https://badges.gitter.im/ZoKrates/Lobby.svg)](https://gitter.im/ZoKrates/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-![Jenkins](https://img.shields.io/jenkins/s/https/jenkins.kyroy.com/job/ZoKrates/job/master.svg?label=master)
-![Jenkins](https://img.shields.io/jenkins/s/https/jenkins.kyroy.com/job/ZoKrates/job/develop.svg?label=develop)
-
+[![CircleCI master](https://img.shields.io/circleci/project/github/Zokrates/ZoKrates/master.svg?label=master)](https://circleci.com/gh/Zokrates/ZoKrates/tree/master)
+[![CircleCI develop](https://img.shields.io/circleci/project/github/Zokrates/ZoKrates/develop.svg?label=develop)](https://circleci.com/gh/Zokrates/ZoKrates/tree/develop)
 
 ZoKrates is a toolbox for zkSNARKs on Ethereum.
 

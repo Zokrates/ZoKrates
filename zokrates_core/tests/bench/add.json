@@ -1,0 +1,27 @@
+{
+	"tests": [
+		{
+			"input": {
+				"values": ["1", "2"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["3"]
+				}
+			}
+		},
+		{
+			"input": {
+				"values": ["1", "2", "42"]
+			},
+			"output": {
+				"Err": {
+					"WrongInputCount": {
+						"expected": 2,
+						"received": 3
+					}
+				}
+			}
+		}
+	]
+}

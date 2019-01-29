@@ -1,0 +1,4 @@
+// just as an example, to be removed
+
+def main() -> (field):
+	return 42

@@ -1,0 +1,6 @@
+def foo() -> (field, field):
+    return 21, 42
+
+def main() -> (field):
+    a, b = foo()
+    return 1
