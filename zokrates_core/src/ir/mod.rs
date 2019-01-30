@@ -7,29 +7,40 @@ use std::mem;
 use zokrates_field::field::Field;
 
 mod expression;
+pub mod folder;
 mod from_flat;
 mod interpreter;
 
-use self::expression::LinComb;
-use self::expression::QuadComb;
+pub use self::expression::LinComb;
+pub use self::expression::QuadComb;
 
 pub use self::interpreter::Error;
 pub use self::interpreter::ExecutionResult;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum Statement<T: Field> {
     Constraint(QuadComb<T>, LinComb<T>),
-    Directive(DirectiveStatement<T>),
+    Directive(Directive<T>),
+}
+
+impl<T: Field> Statement<T> {
+    pub fn definition<U: Into<QuadComb<T>>>(v: FlatVariable, e: U) -> Self {
+        Statement::Constraint(e.into(), v.into())
+    }
+
+    pub fn constraint<U: Into<QuadComb<T>>, V: Into<LinComb<T>>>(quad: U, lin: V) -> Self {
+        Statement::Constraint(quad.into(), lin.into())
+    }
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub struct DirectiveStatement<T: Field> {
+pub struct Directive<T: Field> {
     pub inputs: Vec<LinComb<T>>,
     pub outputs: Vec<FlatVariable>,
     pub helper: Helper,
 }
 
-impl<T: Field> fmt::Display for DirectiveStatement<T> {
+impl<T: Field> fmt::Display for Directive<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -58,7 +69,7 @@ impl<T: Field> fmt::Display for Statement<T> {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Function<T: Field> {
     pub id: String,
     pub statements: Vec<Statement<T>>,

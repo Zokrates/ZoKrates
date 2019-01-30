@@ -9,27 +9,30 @@
 // ```
 
 use flat_absy::flat_variable::FlatVariable;
-use flat_absy::folder::{fold_parameter, fold_statement};
-use flat_absy::*;
+use ir::folder::fold_variable;
+use ir::folder::{fold_statement, Folder};
+use ir::LinComb;
+use ir::*;
+use num::Zero;
 use std::collections::HashMap;
 use zokrates_field::field::Field;
 
-pub struct RedefinitionOptimizer {
+pub struct RedefinitionOptimizer<T: Field> {
     /// Map of renamings for reassigned variables while processing the program.
-    substitution: HashMap<FlatVariable, FlatVariable>,
+    substitution: HashMap<FlatVariable, LinComb<T>>,
     /// Index of the next introduced variable while processing the program.
     next_var_idx: Counter,
 }
 
-impl RedefinitionOptimizer {
-    fn new() -> RedefinitionOptimizer {
+impl<T: Field> RedefinitionOptimizer<T> {
+    fn new() -> RedefinitionOptimizer<T> {
         RedefinitionOptimizer {
             substitution: HashMap::new(),
             next_var_idx: Counter { value: 0 },
         }
     }
 
-    pub fn optimize<T: Field>(p: FlatProg<T>) -> FlatProg<T> {
+    pub fn optimize(p: Prog<T>) -> Prog<T> {
         RedefinitionOptimizer::new().fold_program(p)
     }
 }
@@ -46,8 +49,8 @@ impl Counter {
     }
 }
 
-impl<T: Field> Folder<T> for RedefinitionOptimizer {
-    fn fold_statement(&mut self, s: FlatStatement<T>) -> Vec<FlatStatement<T>> {
+impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
+    fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
         // generate substitution map
         //
         //  (b = a, c = b) => ( b -> a, c -> a )
@@ -56,61 +59,75 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer {
             // Synonym definition
             // if the right side of the assignment is already being reassigned to `x`,
             // reassign the left side to `x` as well, otherwise reassign to a new variable
-            FlatStatement::Definition(ref left, FlatExpression::Identifier(ref right)) => {
-                let r = match self.substitution.get(right) {
-                    Some(value) => value.clone(),
-                    None => unreachable!(), // the right hand side must have been reassigned before
-                };
-                self.substitution.insert(left.clone(), r);
-                // remove this statement
-                vec![]
-            }
-            // Other definitions
-            FlatStatement::Definition(left, _) => {
-                // here the rhs is an expression we haven't seen before, so allocate a new variable
-                self.substitution.insert(
-                    left.clone(),
-                    FlatVariable::new(self.next_var_idx.increment()),
-                );
-                fold_statement(self, s)
-            }
-            FlatStatement::Directive(d) => {
-                for o in d.outputs.iter() {
-                    self.substitution
-                        .insert(o.clone(), FlatVariable::new(self.next_var_idx.increment()));
+            Statement::Constraint(quad, lin) => {
+                let quad = self.fold_quadratic_combination(quad);
+                let lin = self.fold_linear_combination(lin);
+
+                match quad.try_linear() {
+                    Some(l) => match lin.try_summand() {
+                        Some((variable, coefficient)) => {
+                            self.substitution.insert(*variable, l / &coefficient);
+                            return vec![];
+                        }
+                        None => {}
+                    },
+                    None => {}
                 }
-                fold_statement(self, FlatStatement::Directive(d))
+
+                vec![Statement::Constraint(quad, lin)]
             }
-            _ => fold_statement(self, s),
+            Statement::Directive(d) => {
+                for o in d.outputs.iter() {
+                    self.substitution.insert(
+                        o.clone(),
+                        FlatVariable::new(self.next_var_idx.increment()).into(),
+                    );
+                }
+                fold_statement(self, Statement::Directive(d))
+            }
         }
     }
 
-    fn fold_variable(&mut self, v: FlatVariable) -> FlatVariable {
-        *self.substitution.get(&v).unwrap()
-    }
-
-    fn fold_parameter(&mut self, p: FlatParameter) -> FlatParameter {
+    fn fold_argument(&mut self, a: FlatVariable) -> FlatVariable {
         // each parameter is a new variable
         let optimized_variable = FlatVariable::new(self.next_var_idx.increment());
-        self.substitution.insert(p.id, optimized_variable);
-        fold_parameter::<T, _>(self, p)
+        self.substitution.insert(a, optimized_variable.into());
+        fold_variable::<T, _>(self, a)
     }
 
-    fn fold_function(&mut self, funct: FlatFunction<T>) -> FlatFunction<T> {
+    fn fold_linear_combination(&mut self, lc: LinComb<T>) -> LinComb<T> {
+        // for each summand, check if it is equal to a linear term in our substitution, otherwise keep it as is
+        lc.0.into_iter()
+            .map(
+                |(variable, coefficient)| match self.substitution.get(&variable) {
+                    Some(l) => l.clone() * &coefficient, // we only clone in the case that we found a value in the map
+                    None => LinComb::summand(coefficient, variable),
+                },
+            )
+            .fold(LinComb::zero(), |acc, x| acc + x)
+    }
+
+    fn fold_function(&mut self, funct: Function<T>) -> Function<T> {
         let optimized_arguments = funct
             .arguments
             .into_iter()
-            .map(|a| <RedefinitionOptimizer as Folder<T>>::fold_parameter(self, a))
+            .map(|a| <RedefinitionOptimizer<T> as Folder<T>>::fold_argument(self, a))
             .collect();
         let optimized_statements: Vec<_> = funct
             .statements
             .into_iter()
             .flat_map(|s| self.fold_statement(s))
             .collect();
+        let optimized_returns = funct
+            .returns
+            .into_iter()
+            .map(|q| <RedefinitionOptimizer<T> as Folder<T>>::fold_quadratic_combination(self, q))
+            .collect();
 
-        FlatFunction {
+        Function {
             arguments: optimized_arguments,
             statements: optimized_statements,
+            returns: optimized_returns,
             ..funct
         }
     }
@@ -119,8 +136,6 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use flat_absy::flat_parameter::FlatParameter;
-    use types::{Signature, Type};
     use zokrates_field::field::FieldPrime;
 
     #[test]
@@ -134,38 +149,18 @@ mod tests {
         let y = FlatVariable::new(1);
         let z = FlatVariable::new(2);
 
-        let f: FlatFunction<FieldPrime> = FlatFunction {
+        let f: Function<FieldPrime> = Function {
             id: "foo".to_string(),
-            arguments: vec![FlatParameter {
-                id: x,
-                private: false,
-            }],
-            statements: vec![
-                FlatStatement::Definition(y, FlatExpression::Identifier(x)),
-                FlatStatement::Definition(z, FlatExpression::Identifier(y)),
-                FlatStatement::Return(FlatExpressionList {
-                    expressions: vec![FlatExpression::Identifier(z)],
-                }),
-            ],
-            signature: Signature {
-                inputs: vec![Type::FieldElement],
-                outputs: vec![Type::FieldElement],
-            },
+            arguments: vec![x],
+            statements: vec![Statement::definition(y, x), Statement::definition(z, y)],
+            returns: vec![z.into()],
         };
 
-        let optimized: FlatFunction<FieldPrime> = FlatFunction {
+        let optimized: Function<FieldPrime> = Function {
             id: "foo".to_string(),
-            arguments: vec![FlatParameter {
-                id: x,
-                private: false,
-            }],
-            statements: vec![FlatStatement::Return(FlatExpressionList {
-                expressions: vec![FlatExpression::Identifier(x)],
-            })],
-            signature: Signature {
-                inputs: vec![Type::FieldElement],
-                outputs: vec![Type::FieldElement],
-            },
+            arguments: vec![x],
+            statements: vec![],
+            returns: vec![x.into()],
         };
 
         let mut optimizer = RedefinitionOptimizer::new();
@@ -184,48 +179,22 @@ mod tests {
         let y = FlatVariable::new(1);
         let z = FlatVariable::new(2);
 
-        let f: FlatFunction<FieldPrime> = FlatFunction {
+        let f: Function<FieldPrime> = Function {
             id: "foo".to_string(),
-            arguments: vec![FlatParameter {
-                id: x,
-                private: false,
-            }],
+            arguments: vec![x],
             statements: vec![
-                FlatStatement::Definition(y, FlatExpression::Identifier(x)),
-                FlatStatement::Definition(z, FlatExpression::Identifier(y)),
-                FlatStatement::Condition(
-                    FlatExpression::Identifier(z),
-                    FlatExpression::Identifier(y),
-                ),
-                FlatStatement::Return(FlatExpressionList {
-                    expressions: vec![FlatExpression::Identifier(z)],
-                }),
+                Statement::definition(y, x),
+                Statement::definition(z, y),
+                Statement::constraint(z, y),
             ],
-            signature: Signature {
-                inputs: vec![Type::FieldElement],
-                outputs: vec![Type::FieldElement],
-            },
+            returns: vec![z.into()],
         };
 
-        let optimized: FlatFunction<FieldPrime> = FlatFunction {
+        let optimized: Function<FieldPrime> = Function {
             id: "foo".to_string(),
-            arguments: vec![FlatParameter {
-                id: x,
-                private: false,
-            }],
-            statements: vec![
-                FlatStatement::Condition(
-                    FlatExpression::Identifier(x),
-                    FlatExpression::Identifier(x),
-                ),
-                FlatStatement::Return(FlatExpressionList {
-                    expressions: vec![FlatExpression::Identifier(x)],
-                }),
-            ],
-            signature: Signature {
-                inputs: vec![Type::FieldElement],
-                outputs: vec![Type::FieldElement],
-            },
+            arguments: vec![x],
+            statements: vec![],
+            returns: vec![x.into()],
         };
 
         let mut optimizer = RedefinitionOptimizer::new();
@@ -247,43 +216,23 @@ mod tests {
         let t = FlatVariable::new(3);
         let w = FlatVariable::new(4);
 
-        let f: FlatFunction<FieldPrime> = FlatFunction {
+        let f: Function<FieldPrime> = Function {
             id: "foo".to_string(),
-            arguments: vec![FlatParameter {
-                id: x,
-                private: false,
-            }],
+            arguments: vec![x],
             statements: vec![
-                FlatStatement::Definition(y, FlatExpression::Identifier(x)),
-                FlatStatement::Definition(t, FlatExpression::Number(FieldPrime::from(1))),
-                FlatStatement::Definition(z, FlatExpression::Identifier(y)),
-                FlatStatement::Definition(w, FlatExpression::Identifier(t)),
-                FlatStatement::Return(FlatExpressionList {
-                    expressions: vec![FlatExpression::Identifier(z), FlatExpression::Identifier(w)],
-                }),
+                Statement::definition(y, x),
+                Statement::definition(t, FieldPrime::from(1)),
+                Statement::definition(z, y),
+                Statement::definition(w, t),
             ],
-            signature: Signature {
-                inputs: vec![Type::FieldElement],
-                outputs: vec![Type::FieldElement, Type::FieldElement],
-            },
+            returns: vec![z.into(), w.into()],
         };
 
-        let optimized: FlatFunction<FieldPrime> = FlatFunction {
+        let optimized: Function<FieldPrime> = Function {
             id: "foo".to_string(),
-            arguments: vec![FlatParameter {
-                id: x,
-                private: false,
-            }],
-            statements: vec![
-                FlatStatement::Definition(y, FlatExpression::Number(FieldPrime::from(1))),
-                FlatStatement::Return(FlatExpressionList {
-                    expressions: vec![FlatExpression::Identifier(x), FlatExpression::Identifier(y)],
-                }),
-            ],
-            signature: Signature {
-                inputs: vec![Type::FieldElement],
-                outputs: vec![Type::FieldElement, Type::FieldElement],
-            },
+            arguments: vec![x],
+            statements: vec![],
+            returns: vec![x.into(), FieldPrime::from(1).into()],
         };
 
         let mut optimizer = RedefinitionOptimizer::new();

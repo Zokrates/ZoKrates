@@ -7,11 +7,9 @@
 
 pub mod flat_parameter;
 pub mod flat_variable;
-pub mod folder;
 
 pub use self::flat_parameter::FlatParameter;
 pub use self::flat_variable::FlatVariable;
-pub use self::folder::Folder;
 
 use helpers::{DirectiveStatement, Executable};
 #[cfg(feature = "libsnark")]

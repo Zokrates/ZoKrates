@@ -67,7 +67,7 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
 ) -> Result<ir::Prog<T>, CompileError<T>> {
     let compiled = compile_aux(reader, location, resolve_option)?;
-    Ok(ir::Prog::from(compiled.optimize()))
+    Ok(ir::Prog::from(compiled).optimize())
 }
 
 pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(

@@ -2,7 +2,7 @@ use flat_absy::FlatVariable;
 use num::Zero;
 use std::collections::BTreeMap;
 use std::fmt;
-use std::ops::{Add, Sub};
+use std::ops::{Add, Div, Mul, Sub};
 use zokrates_field::field::Field;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -15,23 +15,39 @@ impl<T: Field> QuadComb<T> {
     pub fn from_linear_combinations(left: LinComb<T>, right: LinComb<T>) -> Self {
         QuadComb { left, right }
     }
+
+    pub fn try_linear(&self) -> Option<LinComb<T>> {
+        match self.left.try_summand() {
+            Some((variable, coefficient)) if *variable == FlatVariable::one() => {
+                return Some(self.right.clone() / &coefficient);
+            }
+            _ => {}
+        }
+        match self.right.try_summand() {
+            Some((variable, coefficient)) if *variable == FlatVariable::one() => {
+                return Some(self.left.clone() / &coefficient);
+            }
+            _ => {}
+        }
+        None
+    }
 }
 
-impl<T: Field> From<FlatVariable> for QuadComb<T> {
-    fn from(v: FlatVariable) -> QuadComb<T> {
-        LinComb::from(v).into()
+impl<T: Field> From<T> for LinComb<T> {
+    fn from(x: T) -> LinComb<T> {
+        LinComb::one() * &x
+    }
+}
+
+impl<T: Field, U: Into<LinComb<T>>> From<U> for QuadComb<T> {
+    fn from(x: U) -> QuadComb<T> {
+        QuadComb::from_linear_combinations(LinComb::one(), x.into())
     }
 }
 
 impl<T: Field> fmt::Display for QuadComb<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "({}) * ({})", self.left, self.right,)
-    }
-}
-
-impl<T: Field> From<LinComb<T>> for QuadComb<T> {
-    fn from(lc: LinComb<T>) -> QuadComb<T> {
-        QuadComb::from_linear_combinations(LinComb::one(), lc)
     }
 }
 
@@ -47,6 +63,13 @@ impl<T: Field> LinComb<T> {
 
     pub fn one() -> LinComb<T> {
         Self::summand(1, FlatVariable::one())
+    }
+
+    pub fn try_summand(&self) -> Option<(&FlatVariable, &T)> {
+        if self.0.len() == 1 {
+            return self.0.iter().next().clone();
+        }
+        None
     }
 }
 
@@ -103,6 +126,27 @@ impl<T: Field> Sub<LinComb<T>> for LinComb<T> {
             };
         }
         LinComb(res)
+    }
+}
+
+impl<T: Field> Mul<&T> for LinComb<T> {
+    type Output = LinComb<T>;
+
+    fn mul(self, scalar: &T) -> LinComb<T> {
+        LinComb(
+            self.0
+                .into_iter()
+                .map(|(var, coeff)| (var, coeff * scalar))
+                .collect(),
+        )
+    }
+}
+
+impl<T: Field> Div<&T> for LinComb<T> {
+    type Output = LinComb<T>;
+
+    fn div(self, scalar: &T) -> LinComb<T> {
+        self * &scalar.inverse_mul()
     }
 }
 
