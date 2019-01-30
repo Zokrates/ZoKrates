@@ -71,6 +71,9 @@ pub trait Field:
     fn get_required_bits() -> usize;
     /// Tries to parse a string into this representation
     fn try_from_str<'a>(s: &'a str) -> Result<Self, ()>;
+    /// Returns a decimal string representing a the member of the equivalence class of this `Field` in Z/pZ
+    /// which lies in [-(p-1)/2, (p-1)/2]
+    fn to_compact_dec_string(&self) -> String;
 }
 
 #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Serialize, Deserialize)]
@@ -129,6 +132,17 @@ impl Field for FieldPrime {
             value: &x - x.div_floor(&*P) * &*P,
         })
     }
+    fn to_compact_dec_string(&self) -> String {
+        // values up to (p-1)/2 included are represented as positive, values between (p+1)/2 and p-1 as represented as negative by subtracting p
+        if self.value <= FieldPrime::max_value().value / 2 {
+            format!("{}", self.value.to_str_radix(10))
+        } else {
+            format!(
+                "({})",
+                (&self.value - (FieldPrime::max_value().value + BigInt::one())).to_str_radix(10)
+            )
+        }
+    }
 }
 
 impl Default for FieldPrime {
@@ -141,16 +155,7 @@ impl Default for FieldPrime {
 
 impl Display for FieldPrime {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // values up to (p-1)/2 included are represented as positive, values between (p+1)/2 and p-1 as represented as negative by subtracting p
-        if self.value <= FieldPrime::max_value().value / 2 {
-            write!(f, "{}", self.value.to_str_radix(10))
-        } else {
-            write!(
-                f,
-                "({})",
-                (&self.value - (FieldPrime::max_value().value + BigInt::one())).to_str_radix(10)
-            )
-        }
+        write!(f, "{}", self.value.to_str_radix(10))
     }
 }
 
