@@ -628,25 +628,26 @@ mod tests {
         }
 
         #[test]
-        fn display() {
+        fn compact_representation() {
             let one = FieldPrime::from(1);
-            assert_eq!(String::from("1"), format!("{}", one));
+            assert_eq!("1", &one.to_compact_dec_string());
             let minus_one = FieldPrime::from(0) - one;
-            assert_eq!(String::from("(-1)"), format!("{}", minus_one));
+            assert_eq!("(-1)", &minus_one.to_compact_dec_string());
             // (p-1)/2 -> positive notation
             let p_minus_one_over_two =
                 (FieldPrime::from(0) - FieldPrime::from(1)) / FieldPrime::from(2);
             assert_eq!(
-                String::from(
-                    "10944121435919637611123202872628637544274182200208017171849102093287904247808"
-                ),
-                format!("{}", p_minus_one_over_two)
+                "10944121435919637611123202872628637544274182200208017171849102093287904247808",
+                &p_minus_one_over_two.to_compact_dec_string()
             );
             // (p-1)/2 + 1 -> negative notation (p-1)/2 + 1 - p == (-p+1)/2
             let p_minus_one_over_two_plus_one = ((FieldPrime::from(0) - FieldPrime::from(1))
                 / FieldPrime::from(2))
                 + FieldPrime::from(1);
-            assert_eq!(String::from("(-10944121435919637611123202872628637544274182200208017171849102093287904247808)"), format!("{}", p_minus_one_over_two_plus_one));
+            assert_eq!(
+                "(-10944121435919637611123202872628637544274182200208017171849102093287904247808)",
+                &p_minus_one_over_two_plus_one.to_compact_dec_string()
+            );
         }
     }
 
