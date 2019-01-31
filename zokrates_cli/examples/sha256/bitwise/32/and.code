@@ -1,11 +1,11 @@
-// NOT
+// AND
 
-import "./../../binary/not.code" as NOT
+import "utils/binary/and.code" as AND
 
-def main(field[32] b) -> (field[32]):
+def main(field[32] b, field[32] c) -> (field[32]):
 	field[32] result = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 	for field i in 0..32 do
-		r = NOT(b[i])
+		r = AND(b[i], c[i])
 		result[i] = r
 	endfor
 	return result

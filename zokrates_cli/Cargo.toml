@@ -6,7 +6,6 @@ repository = "https://github.com/JacobEberhardt/ZoKrates.git"
 edition = "2018"
 
 [features]
-# default = []
 default = ["libsnark"]
 libsnark = ["zokrates_core/libsnark"]
 

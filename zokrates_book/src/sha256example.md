@@ -13,7 +13,7 @@ Make sure you have followed the instructions in the [Getting Started](gettingsta
 
 We will start this tutorial by using ZoKrates to compute the hash for an arbitrarily chosen preimage, being the number `5` in this example.
 
-First, make sure that the `zokrates` binary is located in the `ZoKrates` directory. Then, we create a new file named `hashexample.code` with the following content:
+First, we create a new file named `hashexample.code` with the following content:
 
 ```zokrates
 {{#include ../../zokrates_cli/examples/book/hashexample.code}}

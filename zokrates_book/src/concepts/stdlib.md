@@ -1,6 +1,6 @@
 ## Standard library
 
-ZoKrates comes with a number of reusable components which are defined at `./stdlib/` in the ZoKrates root folder. The standard library is solely based on the ZoKrates DSL and can be easily extended.
+ZoKrates comes with a number of reusable components which are defined at `./stdlib/` in the ZoKrates root repository. In order to import the standard library as described in the [imports](./imports.html) section the `$ZOKRATES_HOME` environment variable needs to be set to the `stdlib` folder.  The standard library is solely based on the ZoKrates DSL and can be easily extended.
 
 The following section highlights a subset of available imports:
 
@@ -33,7 +33,7 @@ A function that takes an array of 4 field elements as inputs, unpacks each of th
 
 ### Direct imports
 
-Some components of the standard library can not be efficiently represented in the ZoKrates DSL language. Those functions are injected at compile-time and are available by default.
+Some components of the standard library cannot yet be efficiently represented in the ZoKrates DSL language. Those functions are injected at compile-time and are available by default.
 
 #### pack128
 

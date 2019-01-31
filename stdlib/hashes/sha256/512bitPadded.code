@@ -1,7 +1,7 @@
 import "./1024bit.code" as sha256 
 
 // A function that takes 2 field[256] arrays as inputs 
-// and returns their sha256 compression function as an array of 256 field elements.
+// and returns their sha256 full round output as an array of 256 field elements.
 def main(field[256] a, field[256] b) -> (field[256]):
 
     // Hash is computed on the full 512bit block size 

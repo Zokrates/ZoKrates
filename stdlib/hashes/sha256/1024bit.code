@@ -1,5 +1,5 @@
 import "./IVconstants.code" as IVconstants 
-import "./shaRound.code" as sha256 
+import "./shaRoundNoBoolCheck.code" as sha256 
 
 // A function that takes 4 field[256] arrays as inputs 
 // and applies 2 rounds of sha256 compression.

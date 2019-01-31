@@ -1,7 +1,7 @@
 // FULLADD
 
 import "./halfadd.code" as HALFADD
-import "./or.code" as OR
+import "utils/binary/or.code" as OR
 
 def main(field a, field b, field car) -> (field, field):
 	out1, car1 = HALFADD(a, b)

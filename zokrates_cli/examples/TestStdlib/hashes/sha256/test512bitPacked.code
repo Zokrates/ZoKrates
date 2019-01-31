@@ -1,3 +1,20 @@
+// Python code used to create test vector:
+// import hashlib  
+
+// preimage = bytes.fromhex('00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00\
+// 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 05')
+
+// bin(int(preimage.hex(), 16)) 
+// # '0b101'
+
+// digest = hashlib.sha256(preimage).hexdigest() 
+// # digest = 'c6481e22c5ff4164af680b8cfaa5e8ed3120eeff89c4f307c4a6faaae059ce10'
+
+// int(digest[:32], 16)
+// # 263561599766550617289250058199814760685
+// int(digest[32:], 16)
+// # 65303172752238645975888084098459749904
+
 import "hashes/sha256/512bitPacked.code" as sha256packed
 def main() -> (field):
 

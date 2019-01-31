@@ -3,9 +3,7 @@ def main(field selector, field[2] lhs, field[2] rhs) -> (field[2]):
 	field[2] out = [0, 0] 
 
 	for field i in 0..2 do
-
 		out[i] = if selector == 0 then lhs[i] else rhs[i] fi
-
 	endfor
 
   return out
