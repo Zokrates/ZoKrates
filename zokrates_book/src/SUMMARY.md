@@ -18,5 +18,4 @@
     - [Verification](reference/verification.md)
     - [ZIR](reference/ir.md)
 
-
 - [Tutorial: Proof of preimage](./sha256example.md)
