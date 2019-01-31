@@ -1,0 +1,7 @@
+def main() -> (field):
+	field a = 0
+	for field i in 0..5 do
+		a = a + i
+	endfor
+	// return i <- not allowed
+	return a
