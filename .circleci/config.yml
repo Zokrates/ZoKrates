@@ -14,7 +14,7 @@ jobs:
           command: cargo generate-lockfile
       - restore_cache:
           keys:
-            - v5-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Build libsnark
           command: LIBSNARK_SOURCE_PATH=$HOME/libsnark ./build_libsnark.sh

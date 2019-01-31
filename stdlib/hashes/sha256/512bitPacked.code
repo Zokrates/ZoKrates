@@ -1,7 +1,6 @@
 import "PACKING/pack128" as pack128
 import "PACKING/unpack128" as unpack128
 import "./512bit.code" as sha256
-//FIXME: delete packed stldib
 // A function that takes an array of 4 field elements as inputs, unpacks each of them to 128
 // bits (big endian), concatenates them and applies sha256.
 // It then returns an array of  two field elements, each representing 128 bits of the result.
