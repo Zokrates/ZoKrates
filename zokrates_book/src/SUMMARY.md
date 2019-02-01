@@ -9,6 +9,7 @@
 	- [Types](./concepts/types.md)
 	- [Functions](./concepts/functions.md)
 	- [Control flow](./concepts/control_flow.md)
+	- [Imports](./concepts/imports.md)
 	- [Comments](./concepts/comments.md)
 	- [Standard Library](./concepts/stdlib.md)
 

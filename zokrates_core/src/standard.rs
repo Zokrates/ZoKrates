@@ -161,15 +161,10 @@ impl<T: Field> Into<FlatFunction<T>> for DirectiveR1CS {
 
         // insert a directive to set the witness based on the libsnark gadget and  inputs
         let directive_statement = match self.directive {
-            LibsnarkGadgetHelper::Sha256Compress => FlatStatement::Directive(DirectiveStatement {
+            LibsnarkGadgetHelper::Sha256Round => FlatStatement::Directive(DirectiveStatement {
                 outputs: variables,
                 inputs: inputs,
-                helper: Helper::LibsnarkGadget(LibsnarkGadgetHelper::Sha256Compress),
-            }),
-            LibsnarkGadgetHelper::Sha256Ethereum => FlatStatement::Directive(DirectiveStatement {
-                outputs: variables,
-                inputs: inputs,
-                helper: Helper::LibsnarkGadget(LibsnarkGadgetHelper::Sha256Ethereum),
+                helper: Helper::LibsnarkGadget(LibsnarkGadgetHelper::Sha256Round),
             }),
         };
 
@@ -215,13 +210,13 @@ mod tests {
     #[test]
     fn generate_sha256_constraints() {
         use flat_absy::FlatProg;
-        use libsnark::get_sha256_constraints;
-        let r1cs: R1CS = serde_json::from_str(&get_sha256_constraints()).unwrap();
+        use libsnark::get_sha256round_constraints;
+        let r1cs: R1CS = serde_json::from_str(&get_sha256round_constraints()).unwrap();
         let v_count = r1cs.variable_count;
 
         let dr1cs: DirectiveR1CS = DirectiveR1CS {
             r1cs,
-            directive: LibsnarkGadgetHelper::Sha256Compress,
+            directive: LibsnarkGadgetHelper::Sha256Round,
         };
         let compiled: FlatProg<FieldPrime> = FlatProg::from(dr1cs);
 
