@@ -1,0 +1,4 @@
+def main() -> (field):
+	for field i in 0..5 do
+	endfor
+	return i

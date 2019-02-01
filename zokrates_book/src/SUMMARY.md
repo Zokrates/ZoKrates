@@ -14,6 +14,8 @@
 
 - [Reference](reference/index.md)
     - [CLI](reference/cli.md)
+    - [Backends](reference/backends.md)
     - [Verification](reference/verification.md)
+    - [ZIR](reference/ir.md)
 
 - [Tutorial: Proof of preimage](./sha256example.md)

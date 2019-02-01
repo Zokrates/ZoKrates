@@ -4,12 +4,11 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
-use absy::variable::Variable;
-use field::Field;
 use std::collections::HashMap;
 use typed_absy::folder::*;
 use typed_absy::*;
 use types::Type;
+use zokrates_field::field::Field;
 
 pub struct Unroller {
     substitution: HashMap<String, usize>,
@@ -174,7 +173,7 @@ impl<T: Field> Folder<T> for Unroller {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use field::FieldPrime;
+    use zokrates_field::field::FieldPrime;
 
     #[cfg(test)]
     mod statement {

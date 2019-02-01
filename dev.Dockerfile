@@ -8,6 +8,7 @@ ARG RUST_TOOLCHAIN=nightly-2019-01-01
 ARG LIBSNARK_COMMIT=f7c87b88744ecfd008126d415494d9b34c4c1b20
 ENV LIBSNARK_SOURCE_PATH=/home/zokrates/libsnark-$LIBSNARK_COMMIT
 ENV WITH_LIBSNARK=1
+ENV ZOKRATES_HOME=/home/zokrates/ZoKrates/stdlib/
 
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -40,4 +41,4 @@ WORKDIR /home/zokrates
 COPY --chown=zokrates:zokrates . ZoKrates
 
 RUN cd ZoKrates \
-    && ./build.sh
+#    && ./build.sh

@@ -9,28 +9,27 @@ Function calls can help make programs clearer and more modular. However, using f
 Arguments are passed by value.
 
 ```zokrates
-def incr(field a) -> (field)
-    a = a + 1
-    return 1
-
-def main() -> (field):
-    field x = 1
-    field res = incr(x)
-    x == 1 // x has not changed
-    return 1
+{{#include ../../../zokrates_cli/examples/book/side_effects.code}}
 ```
+
+### If expressions
+
+An if expression allows you to branch your code depending on a condition.
+
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/if_else.code}}
+```
+
+The condition supports `<`, `<=`, `>`, `>=`, `==`, which can be combined with the boolean operators `&&`, `||` and `!`.
+
+>When it comes to inequality checks, there is a caveat: when executing `a < b`, both `a` and `b` will be asserted to be strictly lower than the biggest power of 2 lower than `p/2`. This means that `a` and `b` are both asserted to be between `0` and `2**252 - 1`. The same applies to other inequality checks.
 
 ### For loops
 
 For loops are available with the following syntax:
 
 ```zokrates
-def main() -> (field):
-    field res = 0
-    for field i in 0..4 do
-        res = res + i
-    endfor
-    return res
+{{#include ../../../zokrates_cli/examples/book/for.code}}
 ```
 
 The bounds have to be known at compile time, so only constants are allowed.

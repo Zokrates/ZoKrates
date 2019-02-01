@@ -1,7 +1,7 @@
-use field::Field;
 use parser::tokenize::Position;
 use parser::tokenize::Token;
 use std::fmt;
+use zokrates_field::field::Field;
 
 #[derive(PartialEq)]
 pub struct Error<T: Field> {
@@ -14,7 +14,7 @@ impl<T: Field> fmt::Display for Error<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "Error at {}: Expected one of {:?}, got {:?}",
+            "{}\n\tExpected one of {:?}, got {:?}",
             self.pos.col(-(self.got.to_string().len() as isize)),
             self.expected,
             self.got

@@ -1,0 +1,18 @@
+[package]
+name = "zokrates_field"
+version = "0.3.2"
+authors = ["Guillaume Ballet <gballet@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+serde = "1.0"
+serde_derive = "1.0"
+lazy_static = "0.1.*"
+bincode = "0.8.0"
+serde_json = "1.0"
+num-traits = "0.2"
+num-integer = "0.1"
+
+[dependencies.num-bigint]
+version = "0.2"
+features = ["serde"]
