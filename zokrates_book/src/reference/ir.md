@@ -5,7 +5,7 @@ ZIR is the intermediate representation ZoKrates uses to represent programs. It i
 **Note that ZIR is still in development and can change without notice.**
 
 When generating R1CS constraints, very large numbers are often used, which can make reading ZIR hard for humans.
-To mitigate this, ZIR uses an abuse of language (or an isomorphism) when displaying field elements: they are shown as members of the interval `[-(p-1)/2, (p-1)/2]`.
+To mitigate this, ZIR applies an isomorphism when displaying field elements: they are shown as members of the interval `[-(p-1)/2, (p-1)/2]`.
 
 Therefore, instead of writing p - 1 as:
 ```
