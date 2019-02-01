@@ -1,6 +1,6 @@
 // AND
 
-import "./../../binary/and.code" as AND
+import "utils/binary/and.code" as AND
 
 def main(field[32] b, field[32] c) -> (field[32]):
 	field[32] result = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]

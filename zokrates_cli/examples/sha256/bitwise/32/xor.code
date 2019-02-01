@@ -1,6 +1,6 @@
 // XOR
 
-import "./../../binary/xor.code" as XOR
+import "utils/binary/xor.code" as XOR
 
 def main(field[32] b, field[32] c) -> (field[32]):
 	field[32] result = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
