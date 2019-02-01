@@ -1,4 +1,26 @@
 ## Variables
 
 Variables can have any name which does not start with a number. Underscores are not allowed in variable names.
-Variables are mutable, and always passed by values to functions.
+Variables are mutable, and always passed by value to functions.
+
+### Shadowing
+
+Shadowing is not allowed.
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/no_shadowing.code}}
+```
+
+### Scope
+
+#### Function
+
+Functions have their own scope
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/function_scope.code}}
+```
+
+#### For-loop
+For-loops have their own scope
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/for_scope.code}}
+```

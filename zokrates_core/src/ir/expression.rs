@@ -59,7 +59,7 @@ impl<T: Field> fmt::Display for LinComb<T> {
                 "{}",
                 self.0
                     .iter()
-                    .map(|(k, v)| format!("{} * {}", v, k))
+                    .map(|(k, v)| format!("{} * {}", v.to_compact_dec_string(), k))
                     .collect::<Vec<_>>()
                     .join(" + ")
             ),
