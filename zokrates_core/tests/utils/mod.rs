@@ -2,7 +2,7 @@ extern crate serde_json;
 extern crate zokrates_field;
 
 use std::io;
-use zokrates_core::compile::{compile as generic_compile, CompileError};
+use zokrates_core::compile::{compile as generic_compile, CompileErrors};
 use zokrates_core::ir;
 use zokrates_field::field::{Field, FieldPrime};
 
@@ -81,7 +81,7 @@ pub fn read_file(path: &str) -> String {
     contents
 }
 
-pub fn compile(code: &str) -> Result<ir::Prog<FieldPrime>, CompileError<FieldPrime>> {
+pub fn compile(code: &str) -> Result<ir::Prog<FieldPrime>, CompileErrors<FieldPrime>> {
     generic_compile::<FieldPrime, &[u8], &[u8], io::Error>(&mut code.as_bytes(), None, None)
 }
 

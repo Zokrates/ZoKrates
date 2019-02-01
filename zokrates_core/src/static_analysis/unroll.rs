@@ -4,7 +4,6 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
-use absy::variable::Variable;
 use std::collections::HashMap;
 use typed_absy::folder::*;
 use typed_absy::*;

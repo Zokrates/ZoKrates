@@ -224,7 +224,7 @@ fn cli() -> Result<(), String> {
 
     match matches.subcommand() {
         ("compile", Some(sub_matches)) => {
-            println!("Compiling {}", sub_matches.value_of("input").unwrap());
+            println!("Compiling {}\n", sub_matches.value_of("input").unwrap());
 
             let path = PathBuf::from(sub_matches.value_of("input").unwrap());
 
@@ -248,7 +248,7 @@ fn cli() -> Result<(), String> {
 
             let program_flattened: ir::Prog<FieldPrime> =
                 compile(&mut reader, Some(location), Some(fs_resolve))
-                    .map_err(|e| format!("Compilation failed: {}", e))?;
+                    .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
 
             // number of constraints the flattened program will translate to.
             let num_constraints = program_flattened.constraint_count();

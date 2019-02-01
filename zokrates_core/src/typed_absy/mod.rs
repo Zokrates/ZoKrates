@@ -6,9 +6,11 @@
 //! @date 2017
 
 pub mod folder;
+mod parameter;
+mod variable;
 
-use absy::parameter::Parameter;
-use absy::variable::Variable;
+pub use typed_absy::parameter::Parameter;
+pub use typed_absy::variable::Variable;
 use types::Signature;
 
 use flat_absy::*;
