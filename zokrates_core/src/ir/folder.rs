@@ -110,6 +110,6 @@ pub fn fold_argument<T: Field, F: Folder<T>>(f: &mut F, a: FlatVariable) -> Flat
     f.fold_variable(a)
 }
 
-pub fn fold_variable<T: Field, F: Folder<T>>(f: &mut F, v: FlatVariable) -> FlatVariable {
+pub fn fold_variable<T: Field, F: Folder<T>>(_f: &mut F, v: FlatVariable) -> FlatVariable {
     v
 }
