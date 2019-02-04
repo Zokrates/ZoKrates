@@ -27,6 +27,10 @@ impl FlatVariable {
         }
     }
 
+    pub fn is_public(&self) -> bool {
+        self.id < 0
+    }
+
     pub fn id(&self) -> usize {
         assert!(self.id > 0);
         (self.id as usize) - 1

@@ -66,8 +66,10 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                 match quad.try_linear() {
                     Some(l) => match lin.try_summand() {
                         Some((variable, coefficient)) => {
-                            self.substitution.insert(*variable, l / &coefficient);
-                            return vec![];
+                            if !variable.is_public() {
+                                self.substitution.insert(*variable, l / &coefficient);
+                                return vec![];
+                            }
                         }
                         None => {}
                     },
