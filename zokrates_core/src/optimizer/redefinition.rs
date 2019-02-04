@@ -171,11 +171,16 @@ mod tests {
 
     #[test]
     fn remove_synonyms_in_condition() {
-        // def main(x):
+        // def main(x) -> (1):
         //    y = x
         //    z = y
         //    z == y
         //    return z
+
+        // ->
+
+        // def main(x) -> (1)
+        //    return x
 
         let x = FlatVariable::new(0);
         let y = FlatVariable::new(1);
@@ -205,12 +210,17 @@ mod tests {
 
     #[test]
     fn remove_multiple_synonyms() {
-        // def main(x):
+        // def main(x) -> (2):
         //    y = x
         //    t = 1
         //    z = y
         //    w = t
         //    return z, w
+
+        // ->
+
+        // def main(x):
+        //. return x, 1
 
         let x = FlatVariable::new(0);
         let y = FlatVariable::new(1);
@@ -235,6 +245,56 @@ mod tests {
             arguments: vec![x],
             statements: vec![],
             returns: vec![x.into(), FieldPrime::from(1).into()],
+        };
+
+        let mut optimizer = RedefinitionOptimizer::new();
+        assert_eq!(optimizer.fold_function(f), optimized);
+    }
+
+    #[test]
+    fn substitute_lincomb() {
+        // def main(x, y) -> (1):
+        //     a = x + y
+        //     b = a + x + y
+        //     c = b + x + y
+        //     2*c == 6*x + 6*y
+        //     return a + b + c
+
+        // ->
+
+        // def main(x, y) -> (1):
+        //    6*x + 6*y == 6*x + 6*y // will be eliminated as a tautology
+        //    return 6*x + 6*y
+
+        let x = FlatVariable::new(0);
+        let y = FlatVariable::new(1);
+        let a = FlatVariable::new(2);
+        let b = FlatVariable::new(3);
+        let c = FlatVariable::new(4);
+
+        let f: Function<FieldPrime> = Function {
+            id: "foo".to_string(),
+            arguments: vec![x, y],
+            statements: vec![
+                Statement::definition(a, LinComb::from(x) + LinComb::from(y)),
+                Statement::definition(b, LinComb::from(a) + LinComb::from(x) + LinComb::from(y)),
+                Statement::definition(c, LinComb::from(b) + LinComb::from(x) + LinComb::from(y)),
+                Statement::constraint(
+                    LinComb::summand(2, c),
+                    LinComb::summand(6, x) + LinComb::summand(6, y),
+                ),
+            ],
+            returns: vec![(LinComb::from(a) + LinComb::from(b) + LinComb::from(c)).into()],
+        };
+
+        let optimized: Function<FieldPrime> = Function {
+            id: "foo".to_string(),
+            arguments: vec![x, y],
+            statements: vec![Statement::constraint(
+                LinComb::summand(6, x) + LinComb::summand(6, y),
+                LinComb::summand(6, x) + LinComb::summand(6, y),
+            )],
+            returns: vec![(LinComb::summand(6, x) + LinComb::summand(6, y)).into()],
         };
 
         let mut optimizer = RedefinitionOptimizer::new();
