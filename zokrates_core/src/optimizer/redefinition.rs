@@ -190,6 +190,7 @@ mod tests {
         // ->
 
         // def main(x) -> (1)
+        //    x == x // will be eliminated as a tautology
         //    return x
 
         let x = FlatVariable::new(0);
@@ -210,7 +211,7 @@ mod tests {
         let optimized: Function<FieldPrime> = Function {
             id: "foo".to_string(),
             arguments: vec![x],
-            statements: vec![],
+            statements: vec![Statement::constraint(x, x)],
             returns: vec![x.into()],
         };
 
