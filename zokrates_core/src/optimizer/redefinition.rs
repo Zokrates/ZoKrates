@@ -9,26 +9,23 @@
 // ```
 
 use flat_absy::flat_variable::FlatVariable;
-use ir::folder::fold_variable;
-use ir::folder::{fold_statement, Folder};
+use ir::folder::Folder;
 use ir::LinComb;
 use ir::*;
 use num::Zero;
 use std::collections::HashMap;
 use zokrates_field::field::Field;
 
+#[derive(Debug)]
 pub struct RedefinitionOptimizer<T: Field> {
     /// Map of renamings for reassigned variables while processing the program.
     substitution: HashMap<FlatVariable, LinComb<T>>,
-    /// Index of the next introduced variable while processing the program.
-    next_var_idx: Counter,
 }
 
 impl<T: Field> RedefinitionOptimizer<T> {
     fn new() -> RedefinitionOptimizer<T> {
         RedefinitionOptimizer {
             substitution: HashMap::new(),
-            next_var_idx: Counter { value: 0 },
         }
     }
 
@@ -37,24 +34,8 @@ impl<T: Field> RedefinitionOptimizer<T> {
     }
 }
 
-pub struct Counter {
-    value: usize,
-}
-
-impl Counter {
-    fn increment(&mut self) -> usize {
-        let index = self.value;
-        self.value = self.value + 1;
-        index
-    }
-}
-
 impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
     fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
-        // generate substitution map
-        //
-        //  (b = a, c = b) => ( b -> a, c -> a )
-        // The first variable to appear is used for its synonyms.
         match s {
             // Detect constraints of the form `lincomb * ~ONE == x` where x is not in the map yet
             Statement::Constraint(quad, lin) => {
@@ -89,22 +70,14 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                 }
             }
             Statement::Directive(d) => {
+                let d = self.fold_directive(d);
+                // to prevent the optimiser from replacing variables introduced by directives, add them to the substitution
                 for o in d.outputs.iter() {
-                    self.substitution.insert(
-                        o.clone(),
-                        FlatVariable::new(self.next_var_idx.increment()).into(),
-                    );
+                    self.substitution.insert(o.clone(), o.clone().into());
                 }
-                fold_statement(self, Statement::Directive(d))
+                vec![Statement::Directive(d)]
             }
         }
-    }
-
-    fn fold_argument(&mut self, a: FlatVariable) -> FlatVariable {
-        // each parameter is a new variable
-        let optimized_variable = FlatVariable::new(self.next_var_idx.increment());
-        self.substitution.insert(a, optimized_variable.into());
-        fold_variable::<T, _>(self, a)
     }
 
     fn fold_linear_combination(&mut self, lc: LinComb<T>) -> LinComb<T> {
@@ -119,29 +92,10 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
             .fold(LinComb::zero(), |acc, x| acc + x)
     }
 
-    fn fold_function(&mut self, funct: Function<T>) -> Function<T> {
-        let optimized_arguments = funct
-            .arguments
-            .into_iter()
-            .map(|a| <RedefinitionOptimizer<T> as Folder<T>>::fold_argument(self, a))
-            .collect();
-        let optimized_statements: Vec<_> = funct
-            .statements
-            .into_iter()
-            .flat_map(|s| self.fold_statement(s))
-            .collect();
-        let optimized_returns = funct
-            .returns
-            .into_iter()
-            .map(|q| <RedefinitionOptimizer<T> as Folder<T>>::fold_quadratic_combination(self, q))
-            .collect();
-
-        Function {
-            arguments: optimized_arguments,
-            statements: optimized_statements,
-            returns: optimized_returns,
-            ..funct
-        }
+    fn fold_argument(&mut self, a: FlatVariable) -> FlatVariable {
+        // to prevent the optimiser from replacing user input, add it to the substitution
+        self.substitution.insert(a.clone(), a.clone().into());
+        a
     }
 }
 
@@ -231,7 +185,7 @@ mod tests {
         // ->
 
         // def main(x):
-        //. return x, 1
+        //  return x, 1
 
         let x = FlatVariable::new(0);
         let y = FlatVariable::new(1);
@@ -259,6 +213,7 @@ mod tests {
         };
 
         let mut optimizer = RedefinitionOptimizer::new();
+
         assert_eq!(optimizer.fold_function(f), optimized);
     }
 
