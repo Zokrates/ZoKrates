@@ -9,7 +9,7 @@
 // ```
 
 use flat_absy::flat_variable::FlatVariable;
-use ir::folder::Folder;
+use ir::folder::{fold_function, Folder};
 use ir::LinComb;
 use ir::*;
 use num::Zero;
@@ -47,7 +47,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                     Some(l) => match lin.try_summand() {
                         // right side must be a single variable
                         Some((variable, coefficient)) => {
-                            match variable.is_public() || variable == &FlatVariable::one() {
+                            match variable == &FlatVariable::one() {
                                 // variable must not be public nor ~ONE
                                 false => match self.substitution.get(variable) {
                                     Some(_) => None,
@@ -97,6 +97,15 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
         self.substitution.insert(a.clone(), a.clone().into());
         a
     }
+
+    fn fold_function(&mut self, fun: Function<T>) -> Function<T> {
+        self.substitution.drain();
+
+        self.substitution
+            .extend(fun.returns.iter().map(|x| (x.clone(), x.clone().into())));
+
+        fold_function(self, fun)
+    }
 }
 
 #[cfg(test)]
@@ -125,8 +134,8 @@ mod tests {
         let optimized: Function<FieldPrime> = Function {
             id: "foo".to_string(),
             arguments: vec![x],
-            statements: vec![],
-            returns: vec![x.into()],
+            statements: vec![Statement::definition(z, x)],
+            returns: vec![z],
         };
 
         let mut optimizer = RedefinitionOptimizer::new();
@@ -165,8 +174,8 @@ mod tests {
         let optimized: Function<FieldPrime> = Function {
             id: "foo".to_string(),
             arguments: vec![x],
-            statements: vec![Statement::constraint(x, x)],
-            returns: vec![x.into()],
+            statements: vec![Statement::definition(z, x), Statement::constraint(z, x)],
+            returns: vec![z.into()],
         };
 
         let mut optimizer = RedefinitionOptimizer::new();
@@ -202,14 +211,17 @@ mod tests {
                 Statement::definition(z, y),
                 Statement::definition(w, t),
             ],
-            returns: vec![z.into(), w.into()],
+            returns: vec![z, w],
         };
 
         let optimized: Function<FieldPrime> = Function {
             id: "foo".to_string(),
             arguments: vec![x],
-            statements: vec![],
-            returns: vec![x.into(), FieldPrime::from(1).into()],
+            statements: vec![
+                Statement::definition(z, x),
+                Statement::definition(w, FieldPrime::from(1)),
+            ],
+            returns: vec![z, w],
         };
 
         let mut optimizer = RedefinitionOptimizer::new();
@@ -224,7 +236,8 @@ mod tests {
         //     b = a + x + y
         //     c = b + x + y
         //     2*c == 6*x + 6*y
-        //     return a + b + c
+        //     r = a + b + c
+        //     return r
 
         // ->
 
@@ -237,6 +250,7 @@ mod tests {
         let a = FlatVariable::new(2);
         let b = FlatVariable::new(3);
         let c = FlatVariable::new(4);
+        let r = FlatVariable::new(5);
 
         let f: Function<FieldPrime> = Function {
             id: "foo".to_string(),
@@ -249,18 +263,22 @@ mod tests {
                     LinComb::summand(2, c),
                     LinComb::summand(6, x) + LinComb::summand(6, y),
                 ),
+                Statement::definition(r, LinComb::from(a) + LinComb::from(b) + LinComb::from(c)),
             ],
-            returns: vec![(LinComb::from(a) + LinComb::from(b) + LinComb::from(c)).into()],
+            returns: vec![r],
         };
 
         let optimized: Function<FieldPrime> = Function {
             id: "foo".to_string(),
             arguments: vec![x, y],
-            statements: vec![Statement::constraint(
-                LinComb::summand(6, x) + LinComb::summand(6, y),
-                LinComb::summand(6, x) + LinComb::summand(6, y),
-            )],
-            returns: vec![(LinComb::summand(6, x) + LinComb::summand(6, y)).into()],
+            statements: vec![
+                Statement::constraint(
+                    LinComb::summand(6, x) + LinComb::summand(6, y),
+                    LinComb::summand(6, x) + LinComb::summand(6, y),
+                ),
+                Statement::definition(r, LinComb::summand(6, x) + LinComb::summand(6, y)),
+            ],
+            returns: vec![r],
         };
 
         let mut optimizer = RedefinitionOptimizer::new();

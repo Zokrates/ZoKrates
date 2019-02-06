@@ -100,7 +100,7 @@ pub fn fold_function<T: Field, F: Folder<T>>(f: &mut F, fun: Function<T>) -> Fun
         returns: fun
             .returns
             .into_iter()
-            .map(|e| f.fold_quadratic_combination(e))
+            .map(|v| f.fold_variable(v))
             .collect(),
         ..fun
     }

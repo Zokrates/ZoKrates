@@ -19,8 +19,9 @@ impl<T: Field> From<FlatFunction<T>> for Function<T> {
             id: flat_function.id,
             arguments: flat_function.arguments.into_iter().map(|p| p.id).collect(),
             returns: return_expressions
-                .into_iter()
-                .map(|e| QuadComb::from_flat_expression(e))
+                .iter()
+                .enumerate()
+                .map(|(index, _)| FlatVariable::public(index))
                 .collect(),
             statements: flat_function
                 .statements
@@ -29,6 +30,17 @@ impl<T: Field> From<FlatFunction<T>> for Function<T> {
                     FlatStatement::Return(..) => None,
                     s => Some(s.into()),
                 })
+                .chain(
+                    return_expressions
+                        .into_iter()
+                        .enumerate()
+                        .map(|(index, expression)| {
+                            Statement::Constraint(
+                                expression.into(),
+                                FlatVariable::public(index).into(),
+                            )
+                        }),
+                )
                 .collect(),
         }
     }
@@ -46,41 +58,9 @@ impl<T: Field> From<FlatProg<T>> for Prog<T> {
         // get the interface of the program, ie which inputs are private and public
         let private = main.arguments.iter().map(|p| p.private).collect();
 
-        // convert the main function to this IR for functions
-        let main: Function<T> = main.into();
+        let main = main.into();
 
-        // contrary to other functions, we need to make sure that return values are identifiers, so we define new (public) variables
-        let definitions =
-            main.returns.iter().enumerate().map(|(index, e)| {
-                Statement::Constraint(e.clone(), FlatVariable::public(index).into())
-            });
-
-        // update the main function with the extra definition statements and replace the return values
-        let main = Function {
-            returns: (0..main.returns.len())
-                .map(|i| QuadComb::from_flat_expression(FlatVariable::public(i)))
-                .collect(),
-            statements: main.statements.into_iter().chain(definitions).collect(),
-            ..main
-        };
-
-        let main = Function::from(main);
         Prog { private, main }
-    }
-}
-
-impl<T: Field> QuadComb<T> {
-    fn from_flat_expression<U: Into<FlatExpression<T>>>(flat_expression: U) -> QuadComb<T> {
-        let flat_expression = flat_expression.into();
-        match flat_expression.is_linear() {
-            true => LinComb::from(flat_expression).into(),
-            false => match flat_expression {
-                FlatExpression::Mult(box e1, box e2) => {
-                    QuadComb::from_linear_combinations(e1.into(), e2.into())
-                }
-                e => unimplemented!("{}", e),
-            },
-        }
     }
 }
 

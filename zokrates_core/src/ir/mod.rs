@@ -74,7 +74,7 @@ pub struct Function<T: Field> {
     pub id: String,
     pub statements: Vec<Statement<T>>,
     pub arguments: Vec<FlatVariable>,
-    pub returns: Vec<QuadComb<T>>,
+    pub returns: Vec<FlatVariable>,
 }
 
 impl<T: Field> fmt::Display for Function<T> {
