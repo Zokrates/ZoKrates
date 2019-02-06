@@ -48,7 +48,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                         // right side must be a single variable
                         Some((variable, coefficient)) => {
                             match variable == &FlatVariable::one() {
-                                // variable must not be public nor ~ONE
+                                // variable must not be ~ONE
                                 false => match self.substitution.get(variable) {
                                     Some(_) => None,
                                     None => Some((*variable, l / &coefficient)),
@@ -101,6 +101,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
     fn fold_function(&mut self, fun: Function<T>) -> Function<T> {
         self.substitution.drain();
 
+        // to prevent the optimiser from replacing outputs, add them to the substitution
         self.substitution
             .extend(fun.returns.iter().map(|x| (x.clone(), x.clone().into())));
 

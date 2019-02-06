@@ -17,15 +17,17 @@ impl<T: Field> QuadComb<T> {
     }
 
     pub fn try_linear(&self) -> Option<LinComb<T>> {
+        // identify (k * ~ONE) * (lincomb) and return (k * lincomb)
+
         match self.left.try_summand() {
             Some((variable, coefficient)) if *variable == FlatVariable::one() => {
-                return Some(self.right.clone() / &coefficient);
+                return Some(self.right.clone() * &coefficient);
             }
             _ => {}
         }
         match self.right.try_summand() {
             Some((variable, coefficient)) if *variable == FlatVariable::one() => {
-                return Some(self.left.clone() / &coefficient);
+                return Some(self.left.clone() * &coefficient);
             }
             _ => {}
         }
