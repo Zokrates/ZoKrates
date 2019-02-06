@@ -220,9 +220,44 @@ library BN256G2 {
         uint256, uint256,
         uint256, uint256
     ) {
+        if (
+            pt1xx == 0 && pt1xy == 0 &&
+            pt1yx == 0 && pt1yy == 0
+        ) {
+            if (!(
+                pt2xx == 0 && pt2xy == 0 &&
+                pt2yx == 0 && pt2yy == 0
+            )) {
+                assert(_isOnCurve(
+                    pt2xx, pt2xy,
+                    pt2yx, pt2yy
+                ));
+            }
+            return (
+                pt2xx, pt2xy,
+                pt2yx, pt2yy
+            );
+        } else if (
+            pt2xx == 0 && pt2xy == 0 &&
+            pt2yx == 0 && pt2yy == 0
+        ) {
+            assert(_isOnCurve(
+                pt1xx, pt1xy,
+                pt1yx, pt1yy
+            ));
+            return (
+                pt1xx, pt1xy,
+                pt1yx, pt1yy
+            );
+        }
+
         assert(_isOnCurve(
             pt1xx, pt1xy,
             pt1yx, pt1yy
+        ));
+        assert(_isOnCurve(
+            pt2xx, pt2xy,
+            pt2yx, pt2yy
         ));
 
         uint256[6] memory pt3 = _ECTwistAddJacobian(
@@ -258,16 +293,26 @@ library BN256G2 {
         uint256, uint256,
         uint256, uint256
     ) {
-        assert(_isOnCurve(
-            pt1xx, pt1xy,
-            pt1yx, pt1yy
-        ));
+        uint256 pt1zx = 1;
+        if (
+            pt1xx == 0 && pt1xy == 0 &&
+            pt1yx == 0 && pt1yy == 0
+        ) {
+            pt1xx = 1;
+            pt1yx = 1;
+            pt1zx = 0;
+        } else {
+            assert(_isOnCurve(
+                pt1xx, pt1xy,
+                pt1yx, pt1yy
+            ));
+        }
 
         uint256[6] memory pt2 = _ECTwistMulJacobian(
             s,
             pt1xx, pt1xy,
             pt1yx, pt1yy,
-            1,     0
+            pt1zx, 0
         );
 
         return _fromJacobian(
@@ -374,21 +419,6 @@ library BN256G2 {
         }
     }
 
-    function _toJacobian(
-        uint256 pt1xx, uint256 pt1xy,
-        uint256 pt1yx, uint256 pt1yy
-    ) internal pure returns (
-        uint256, uint256,
-        uint256, uint256,
-        uint256, uint256
-    ) {
-        return (
-            pt1xx, pt1xy,
-            pt1yx, pt1yy,
-            1,     0
-        );
-    }
-
     function _fromJacobian(
         uint256 pt1xx, uint256 pt1xy,
         uint256 pt1yx, uint256 pt1yy,
@@ -454,8 +484,8 @@ library BN256G2 {
                     pt3[PTYX], pt3[PTYY],
                     pt3[PTZX], pt3[PTZY]
                 ) = (
-                    0, 0,
-                    0, 0,
+                    1, 0,
+                    1, 0,
                     0, 0
                 );
                 return;
