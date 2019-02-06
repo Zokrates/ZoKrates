@@ -36,12 +36,27 @@ impl<T: Field> From<FlatFunction<T>> for Function<T> {
                         .enumerate()
                         .map(|(index, expression)| {
                             Statement::Constraint(
-                                expression.into(),
+                                QuadComb::from_flat_expression(expression),
                                 FlatVariable::public(index).into(),
                             )
                         }),
                 )
                 .collect(),
+        }
+    }
+}
+
+impl<T: Field> QuadComb<T> {
+    fn from_flat_expression<U: Into<FlatExpression<T>>>(flat_expression: U) -> QuadComb<T> {
+        let flat_expression = flat_expression.into();
+        match flat_expression.is_linear() {
+            true => LinComb::from(flat_expression).into(),
+            false => match flat_expression {
+                FlatExpression::Mult(box e1, box e2) => {
+                    QuadComb::from_linear_combinations(e1.into(), e2.into())
+                }
+                e => unimplemented!("{}", e),
+            },
         }
     }
 }
