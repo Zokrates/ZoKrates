@@ -1,7 +1,6 @@
 extern crate cc;
 extern crate cmake;
 extern crate git2;
-extern crate tempdir;
 
 fn main() {
     #[cfg(feature = "libsnark")]
