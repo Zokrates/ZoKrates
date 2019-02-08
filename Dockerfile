@@ -1,6 +1,6 @@
 FROM ubuntu:18.04
 
-MAINTAINER JacobEberhardt <jacob.eberhardt@tu-berlin.de>, Dennis Kuhnert <mail@kyroy.com>, Thibaut Schaeffer <thibaut@schaeff.fr>
+MAINTAINER JacobEberhardt <jacob.eberhardt@tu-berlin.de>, Thibaut Schaeffer <thibaut@schaeff.fr>
 
 RUN useradd -u 1000 -m zokrates
 
@@ -10,17 +10,11 @@ ENV ZOKRATES_HOME=/home/zokrates/.zokrates
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
-    build-essential \
-    cmake \
     curl \
-    libboost-dev \
-    libboost-program-options-dev \
-    libgmp3-dev \
-    libprocps-dev \
-    libssl-dev \
-    pkg-config \
-    python-markdown \
     && rm -rf /var/lib/apt/lists/*
+
+COPY ./scripts/install_libsnark_prerequisites.sh /tmp/
+RUN /tmp/install_libsnark_prerequisites.schaeff
 
 USER zokrates
 

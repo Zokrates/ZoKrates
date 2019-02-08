@@ -2,7 +2,6 @@
 
 apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    gcc \
     cmake \
     libboost-dev \
     libboost-program-options-dev \
