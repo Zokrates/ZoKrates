@@ -1,14 +1,38 @@
+extern crate cc;
+extern crate cmake;
+extern crate git2;
+
 fn main() {
     #[cfg(feature = "libsnark")]
     {
-        extern crate cc;
-        extern crate cmake;
+        use git2::{Oid, Repository, ResetType};
         use std::env;
-        use std::path::Path;
+        use std::fs::remove_dir;
+        use std::path::PathBuf;
 
-        let libsnark_source_path_string =
-            env::var_os("LIBSNARK_SOURCE_PATH").expect("$LIBSNARK_SOURCE_PATH not set");
-        let libsnark_source_path = Path::new(&libsnark_source_path_string);
+        // fetch libsnark source
+
+        const LIBSNARK_URL: &'static str = "https://github.com/scipr-lab/libsnark.git";
+        const LIBSNARK_COMMIT: &'static str = "f7c87b88744ecfd008126d415494d9b34c4c1b20";
+
+        let libsnark_source_path = &PathBuf::from(env::var("OUT_DIR").unwrap()).join("LIBSNARK");
+
+        let repo = Repository::open(libsnark_source_path).unwrap_or_else(|_| {
+            remove_dir(libsnark_source_path).ok();
+            Repository::clone(LIBSNARK_URL, libsnark_source_path).unwrap()
+        });
+
+        let commit = Oid::from_str(LIBSNARK_COMMIT).unwrap();
+        let commit = repo.find_commit(commit).unwrap();
+
+        repo.reset(&commit.as_object(), ResetType::Hard, None)
+            .unwrap();
+
+        for mut s in repo.submodules().unwrap() {
+            s.update(true, None).unwrap();
+        }
+
+        // build libsnark
 
         let libsnark = cmake::Config::new(libsnark_source_path)
             .define("WITH_PROCPS", "OFF")
@@ -17,6 +41,8 @@ fn main() {
             .define("MONTGOMERY_OUTPUT", "ON")
             .define("BINARY_OUTPUT", "ON")
             .build();
+
+        // build backends
 
         cc::Build::new()
             .cpp(true)
@@ -30,6 +56,8 @@ fn main() {
             .file("lib/gm17.cpp")
             .file("lib/pghr13.cpp")
             .compile("libwraplibsnark.a");
+
+        // build gadgets
 
         cc::Build::new()
             .cpp(true)
