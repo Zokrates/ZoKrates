@@ -218,7 +218,6 @@ mod tests {
         #[test]
         fn bool_to_field() {
             let b2f: FlatFunction<FieldPrime> = cast(&Type::Boolean, &Type::FieldElement);
-            println!("{}", b2f);
             assert_eq!(b2f.id, String::from("_bool_to_field"));
             assert_eq!(
                 b2f.arguments,
