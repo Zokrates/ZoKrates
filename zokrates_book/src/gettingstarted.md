@@ -29,9 +29,7 @@ cd ZoKrates/target/release
 First, create the text-file `root.code` and implement your program. In this example, we will prove knowledge of the square root `a` of a number `b`:
 
 ```zokrates
-def main(private field a, field b) -> (field):
-  field result = if a * a == b then 1 else 0
-  return result
+{{#include ../../zokrates_cli/examples/book/factorize.code}}
 ```
 
 Some observations:

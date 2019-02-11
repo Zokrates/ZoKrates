@@ -5,23 +5,25 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
+mod node;
 pub mod parameter;
 pub mod variable;
 
-pub use absy::parameter::Parameter;
-pub use absy::variable::Variable;
+pub use absy::node::{Node, NodeValue};
+pub use absy::parameter::{Parameter, ParameterNode};
+pub use absy::variable::{Variable, VariableNode};
 use types::Signature;
 
 use flat_absy::*;
-use imports::Import;
+use imports::ImportNode;
 use std::fmt;
 use zokrates_field::field::Field;
 
 #[derive(Clone, PartialEq)]
 pub struct Prog<T: Field> {
     /// Functions of the program
-    pub functions: Vec<Function<T>>,
-    pub imports: Vec<Import>,
+    pub functions: Vec<FunctionNode<T>>,
+    pub imports: Vec<ImportNode>,
     pub imported_functions: Vec<FlatFunction<T>>,
 }
 
@@ -79,12 +81,14 @@ pub struct Function<T: Field> {
     /// Name of the program
     pub id: String,
     /// Arguments of the function
-    pub arguments: Vec<Parameter>,
+    pub arguments: Vec<ParameterNode>,
     /// Vector of statements that are executed when running the function
-    pub statements: Vec<Statement<T>>,
+    pub statements: Vec<StatementNode<T>>,
     /// function signature
     pub signature: Signature,
 }
+
+pub type FunctionNode<T> = Node<Function<T>>;
 
 impl<T: Field> fmt::Display for Function<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -125,8 +129,10 @@ impl<T: Field> fmt::Debug for Function<T> {
 #[derive(Clone, PartialEq)]
 pub enum Assignee<T: Field> {
     Identifier(String),
-    ArrayElement(Box<Assignee<T>>, Box<Expression<T>>),
+    ArrayElement(Box<AssigneeNode<T>>, Box<ExpressionNode<T>>),
 }
+
+pub type AssigneeNode<T> = Node<Assignee<T>>;
 
 impl<T: Field> fmt::Debug for Assignee<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -143,12 +149,24 @@ impl<T: Field> fmt::Display for Assignee<T> {
     }
 }
 
-impl<T: Field> From<Expression<T>> for Assignee<T> {
-    fn from(e: Expression<T>) -> Self {
-        match e {
-            Expression::Select(box Expression::Identifier(id), box e2) => {
-                Assignee::ArrayElement(box Assignee::Identifier(id), box e2)
-            }
+impl<T: Field> From<ExpressionNode<T>> for AssigneeNode<T> {
+    fn from(e: ExpressionNode<T>) -> Self {
+        match e.value {
+            Expression::Select(box e1, box e2) => match e1 {
+                ExpressionNode {
+                    value: Expression::Identifier(id),
+                    start,
+                    end,
+                } => Node::new(
+                    e.start,
+                    e.end,
+                    Assignee::ArrayElement(
+                        box Node::new(start, end, Assignee::Identifier(id)),
+                        box e2,
+                    ),
+                ),
+                _ => panic!("only use expression to assignee for elements like foo[bar]"),
+            },
             _ => panic!("only use expression to assignee for elements like foo[bar]"),
         }
     }
@@ -156,13 +174,15 @@ impl<T: Field> From<Expression<T>> for Assignee<T> {
 
 #[derive(Clone, PartialEq)]
 pub enum Statement<T: Field> {
-    Return(ExpressionList<T>),
-    Declaration(Variable),
-    Definition(Assignee<T>, Expression<T>),
-    Condition(Expression<T>, Expression<T>),
-    For(Variable, T, T, Vec<Statement<T>>),
-    MultipleDefinition(Vec<Assignee<T>>, Expression<T>),
+    Return(ExpressionListNode<T>),
+    Declaration(VariableNode),
+    Definition(AssigneeNode<T>, ExpressionNode<T>),
+    Condition(ExpressionNode<T>, ExpressionNode<T>),
+    For(VariableNode, T, T, Vec<StatementNode<T>>),
+    MultipleDefinition(Vec<AssigneeNode<T>>, ExpressionNode<T>),
 }
+
+pub type StatementNode<T> = Node<Statement<T>>;
 
 impl<T: Field> fmt::Display for Statement<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -218,24 +238,30 @@ impl<T: Field> fmt::Debug for Statement<T> {
 pub enum Expression<T: Field> {
     Number(T),
     Identifier(String),
-    Add(Box<Expression<T>>, Box<Expression<T>>),
-    Sub(Box<Expression<T>>, Box<Expression<T>>),
-    Mult(Box<Expression<T>>, Box<Expression<T>>),
-    Div(Box<Expression<T>>, Box<Expression<T>>),
-    Pow(Box<Expression<T>>, Box<Expression<T>>),
-    IfElse(Box<Expression<T>>, Box<Expression<T>>, Box<Expression<T>>),
-    FunctionCall(String, Vec<Expression<T>>),
-    Lt(Box<Expression<T>>, Box<Expression<T>>),
-    Le(Box<Expression<T>>, Box<Expression<T>>),
-    Eq(Box<Expression<T>>, Box<Expression<T>>),
-    Ge(Box<Expression<T>>, Box<Expression<T>>),
-    Gt(Box<Expression<T>>, Box<Expression<T>>),
-    And(Box<Expression<T>>, Box<Expression<T>>),
-    Not(Box<Expression<T>>),
-    InlineArray(Vec<Expression<T>>),
-    Select(Box<Expression<T>>, Box<Expression<T>>),
-    Or(Box<Expression<T>>, Box<Expression<T>>),
+    Add(Box<ExpressionNode<T>>, Box<ExpressionNode<T>>),
+    Sub(Box<ExpressionNode<T>>, Box<ExpressionNode<T>>),
+    Mult(Box<ExpressionNode<T>>, Box<ExpressionNode<T>>),
+    Div(Box<ExpressionNode<T>>, Box<ExpressionNode<T>>),
+    Pow(Box<ExpressionNode<T>>, Box<ExpressionNode<T>>),
+    IfElse(
+        Box<ExpressionNode<T>>,
+        Box<ExpressionNode<T>>,
+        Box<ExpressionNode<T>>,
+    ),
+    FunctionCall(String, Vec<ExpressionNode<T>>),
+    Lt(Box<ExpressionNode<T>>, Box<ExpressionNode<T>>),
+    Le(Box<ExpressionNode<T>>, Box<ExpressionNode<T>>),
+    Eq(Box<ExpressionNode<T>>, Box<ExpressionNode<T>>),
+    Ge(Box<ExpressionNode<T>>, Box<ExpressionNode<T>>),
+    Gt(Box<ExpressionNode<T>>, Box<ExpressionNode<T>>),
+    And(Box<ExpressionNode<T>>, Box<ExpressionNode<T>>),
+    Not(Box<ExpressionNode<T>>),
+    InlineArray(Vec<ExpressionNode<T>>),
+    Select(Box<ExpressionNode<T>>, Box<ExpressionNode<T>>),
+    Or(Box<ExpressionNode<T>>, Box<ExpressionNode<T>>),
 }
+
+pub type ExpressionNode<T> = Node<Expression<T>>;
 
 impl<T: Field> fmt::Display for Expression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -325,8 +351,10 @@ impl<T: Field> fmt::Debug for Expression<T> {
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct ExpressionList<T: Field> {
-    pub expressions: Vec<Expression<T>>,
+    pub expressions: Vec<ExpressionNode<T>>,
 }
+
+pub type ExpressionListNode<T> = Node<ExpressionList<T>>;
 
 impl<T: Field> ExpressionList<T> {
     pub fn new() -> ExpressionList<T> {

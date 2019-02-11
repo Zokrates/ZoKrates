@@ -52,15 +52,18 @@ impl<T: Field> LinComb<T> {
 
 impl<T: Field> fmt::Display for LinComb<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.0
-                .iter()
-                .map(|(k, v)| format!("{} * {}", v, k))
-                .collect::<Vec<_>>()
-                .join(" + ")
-        )
+        match self.is_zero() {
+            true => write!(f, "0"),
+            false => write!(
+                f,
+                "{}",
+                self.0
+                    .iter()
+                    .map(|(k, v)| format!("{} * {}", v.to_compact_dec_string(), k))
+                    .collect::<Vec<_>>()
+                    .join(" + ")
+            ),
+        }
     }
 }
 
@@ -146,6 +149,15 @@ mod tests {
             let c = a - b.clone();
             assert_eq!(c, LinComb::zero());
         }
+
+        #[test]
+        fn display() {
+            let a: LinComb<FieldPrime> =
+                LinComb::from(FlatVariable::new(42)) + LinComb::summand(3, FlatVariable::new(21));
+            assert_eq!(&a.to_string(), "3 * _21 + 1 * _42");
+            let zero: LinComb<FieldPrime> = LinComb::zero();
+            assert_eq!(&zero.to_string(), "0");
+        }
     }
 
     mod quadratic {
@@ -169,6 +181,21 @@ mod tests {
                 right: LinComb::zero(),
             };
             assert_eq!(QuadComb::from(a), expected);
+        }
+
+        #[test]
+        fn display() {
+            let a: QuadComb<FieldPrime> = QuadComb {
+                left: LinComb::summand(3, FlatVariable::new(42))
+                    + LinComb::summand(4, FlatVariable::new(33)),
+                right: LinComb::summand(1, FlatVariable::new(21)),
+            };
+            assert_eq!(&a.to_string(), "(4 * _33 + 3 * _42) * (1 * _21)");
+            let a: QuadComb<FieldPrime> = QuadComb {
+                left: LinComb::zero(),
+                right: LinComb::summand(1, FlatVariable::new(21)),
+            };
+            assert_eq!(&a.to_string(), "(0) * (1 * _21)");
         }
     }
 }

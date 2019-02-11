@@ -11,10 +11,7 @@ The prime `p` is set to `2188824287183927522224640574525727508854836440041603434
 While `field` values mostly behave like unsigned integers, one should keep in mind that they overflow at `p` and not some power of 2 and underflow at 0, so that we have:
 
 ```zokrates
-def main() -> (field):
-    field p_minus_one = 21888242871839275222246405745257275088548364400416034343698204186575808495616
-    0 - 1 == p_minus_one
-    return 1
+{{#include ../../../zokrates_cli/examples/book/field_overflow.code}}
 ```
 
 ### `bool`
@@ -30,8 +27,5 @@ Note that while equality checks are cheap, inequality checks should be use wisel
 Static arrays of `field` can be instantiated with a constant size, and their elements can be accessed and updated:
 
 ```zokrates
-def main() -> (field):
-    field[3] a = [1, 2, 3]
-    a[2] = 4
-    return a[0] + a[2]
+{{#include ../../../zokrates_cli/examples/book/array.code}}
 ```

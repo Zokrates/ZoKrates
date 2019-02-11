@@ -6,6 +6,7 @@ use bellman::groth16::{
     Parameters, VerifyingKey,
 };
 use bellman::{Circuit, ConstraintSystem, LinearCombination, SynthesisError, Variable};
+use ir::interpreter::Witness;
 use ir::*;
 use pairing::bn256::{Bn256, Fr};
 use std::collections::BTreeMap;
@@ -17,11 +18,11 @@ use flat_absy::FlatVariable;
 #[derive(Clone)]
 pub struct Computation<T: Field> {
     program: Prog<T>,
-    witness: Option<BTreeMap<FlatVariable, T>>,
+    witness: Option<Witness<T>>,
 }
 
 impl<T: Field> Computation<T> {
-    pub fn with_witness(program: Prog<T>, witness: BTreeMap<FlatVariable, T>) -> Self {
+    pub fn with_witness(program: Prog<T>, witness: Witness<T>) -> Self {
         Computation {
             program,
             witness: Some(witness),
@@ -44,6 +45,7 @@ impl<T: Field> fmt::Display for Computation<T> {
             self.witness
                 .clone()
                 .unwrap()
+                .0
                 .iter()
                 .map(|(k, v)| format!("{} -> {}", k, v))
                 .collect::<Vec<_>>()
@@ -67,14 +69,17 @@ impl LinComb<FieldPrime> {
 fn alloc<CS: ConstraintSystem<Bn256>>(
     cs: &mut CS,
     var: FlatVariable,
-    witness: &BTreeMap<FlatVariable, FieldPrime>,
+    witness: &Witness<FieldPrime>,
 ) -> Result<Variable, SynthesisError> {
     match var.is_output() {
         true => cs.alloc(
             || format!("{}", var),
             || {
                 // let w = witness.ok_or(SynthesisError::AssignmentMissing)?;
-                let val = witness.get(&var).ok_or(SynthesisError::AssignmentMissing)?;
+                let val = witness
+                    .0
+                    .get(&var)
+                    .ok_or(SynthesisError::AssignmentMissing)?;
                 Ok(Fr::from(val.clone()))
             },
         ),
@@ -82,7 +87,10 @@ fn alloc<CS: ConstraintSystem<Bn256>>(
             || format!("{}", var),
             || {
                 // let witness = witness.ok_or(SynthesisError::AssignmentMissing)?;
-                let val = witness.get(&var).ok_or(SynthesisError::AssignmentMissing)?;
+                let val = witness
+                    .0
+                    .get(&var)
+                    .ok_or(SynthesisError::AssignmentMissing)?;
                 Ok(Fr::from(val.clone()))
             },
         ),
@@ -93,7 +101,7 @@ impl Prog<FieldPrime> {
     pub fn synthesize<CS: ConstraintSystem<Bn256>>(
         self,
         cs: &mut CS,
-        witness: Option<BTreeMap<FlatVariable, FieldPrime>>,
+        witness: Option<Witness<FieldPrime>>,
     ) -> Result<(), SynthesisError> {
         let mut symbols = BTreeMap::new();
 
@@ -114,7 +122,10 @@ impl Prog<FieldPrime> {
                     || format!("PRIVATE_INPUT_{}", index),
                     || {
                         // let w = witness.ok_or(SynthesisError::AssignmentMissing)?;
-                        let val = witness.get(&var).ok_or(SynthesisError::AssignmentMissing)?;
+                        let val = witness
+                            .0
+                            .get(&var)
+                            .ok_or(SynthesisError::AssignmentMissing)?;
                         Ok(Fr::from(val.clone()))
                     },
                 ),
@@ -122,7 +133,10 @@ impl Prog<FieldPrime> {
                     || format!("PUBLIC_INPUT_{}", index),
                     || {
                         // let witness = witness.ok_or(SynthesisError::AssignmentMissing)?;
-                        let val = witness.get(&var).ok_or(SynthesisError::AssignmentMissing)?;
+                        let val = witness
+                            .0
+                            .get(&var)
+                            .ok_or(SynthesisError::AssignmentMissing)?;
                         Ok(Fr::from(val.clone()))
                     },
                 ),
@@ -188,10 +202,11 @@ impl Computation<FieldPrime> {
                 self.witness
                     .clone()
                     .unwrap()
+                    .0
                     .keys()
                     .filter(|k| k.is_output()),
             )
-            .map(|v| self.witness.clone().unwrap().get(v).unwrap().clone())
+            .map(|v| self.witness.clone().unwrap().0.get(v).unwrap().clone())
             .map(|v| Fr::from(v.clone()))
             .collect();
 
@@ -281,7 +296,7 @@ mod tests {
                 private: vec![],
             };
 
-            let witness = program.clone().execute(vec![]).unwrap();
+            let witness = program.clone().execute::<FieldPrime>(&vec![]).unwrap();
             let computation = Computation::with_witness(program, witness);
 
             let _proof = computation.setup_prove_verify();
@@ -304,7 +319,7 @@ mod tests {
                     private: vec![],
                 };
 
-                let computation = Computation::with_witness(program, BTreeMap::new());
+                let computation = Computation::with_witness(program, Witness::empty());
 
                 let params = computation.setup();
                 println!("{}", serialize_vk(params.vk));
@@ -341,7 +356,7 @@ mod tests {
                     private: vec![],
                 };
 
-                let witness = program.clone().execute(vec![]).unwrap();
+                let witness = program.clone().execute::<FieldPrime>(&vec![]).unwrap();
                 let computation = Computation::with_witness(program, witness);
 
                 let params = computation.clone().setup();

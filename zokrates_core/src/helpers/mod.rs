@@ -1,10 +1,14 @@
 #[cfg(feature = "libsnark")]
 mod libsnark_gadget;
 mod rust;
+#[cfg(feature = "wasm")]
+mod wasm;
 
 #[cfg(feature = "libsnark")]
 pub use self::libsnark_gadget::LibsnarkGadgetHelper;
 pub use self::rust::RustHelper;
+#[cfg(feature = "wasm")]
+pub use self::wasm::WasmHelper;
 use flat_absy::{FlatExpression, FlatVariable};
 use std::fmt;
 use zokrates_field::field::Field;
@@ -58,6 +62,30 @@ pub enum Helper {
     #[cfg(feature = "libsnark")]
     LibsnarkGadget(LibsnarkGadgetHelper),
     Rust(RustHelper),
+    #[cfg(feature = "wasm")]
+    Wasm(WasmHelper),
+}
+
+#[cfg(feature = "wasm")]
+impl Helper {
+    pub fn identity() -> Self {
+        Helper::Wasm(WasmHelper::from_hex(WasmHelper::IDENTITY_WASM))
+    }
+
+    pub fn bits() -> Self {
+        Helper::Wasm(WasmHelper::from(WasmHelper::BITS_WASM))
+    }
+}
+
+#[cfg(not(feature = "wasm"))]
+impl Helper {
+    pub fn identity() -> Self {
+        Helper::Rust(RustHelper::Identity)
+    }
+
+    pub fn bits() -> Self {
+        Helper::Rust(RustHelper::Bits)
+    }
 }
 
 impl fmt::Display for Helper {
@@ -66,6 +94,8 @@ impl fmt::Display for Helper {
             #[cfg(feature = "libsnark")]
             Helper::LibsnarkGadget(ref h) => write!(f, "LibsnarkGadget::{}", h),
             Helper::Rust(ref h) => write!(f, "Rust::{}", h),
+            #[cfg(feature = "wasm")]
+            Helper::Wasm(ref h) => write!(f, "Wasm::{}", h),
         }
     }
 }
@@ -87,6 +117,8 @@ impl<T: Field> Executable<T> for Helper {
             #[cfg(feature = "libsnark")]
             Helper::LibsnarkGadget(helper) => helper.execute(inputs),
             Helper::Rust(helper) => helper.execute(inputs),
+            #[cfg(feature = "wasm")]
+            Helper::Wasm(helper) => helper.execute(inputs),
         };
 
         match result {
@@ -107,6 +139,8 @@ impl Signed for Helper {
             #[cfg(feature = "libsnark")]
             Helper::LibsnarkGadget(helper) => helper.get_signature(),
             Helper::Rust(helper) => helper.get_signature(),
+            #[cfg(feature = "wasm")]
+            Helper::Wasm(helper) => helper.get_signature(),
         }
     }
 }
@@ -122,7 +156,7 @@ mod tests {
 
         #[test]
         fn execute() {
-            let sha = LibsnarkGadgetHelper::Sha256Compress;
+            let sha = LibsnarkGadgetHelper::Sha256Round;
             // second vector here https://homes.esat.kuleuven.be/~nsmart/MPC/sha-256-test.txt
             let inputs = vec![
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
@@ -144,11 +178,22 @@ mod tests {
                 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1,
                 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0,
                 0, 0, 1, 1, 1, 1, 1, 1,
+                // append SHA256 IV vector (https://en.wikipedia.org/wiki/SHA-2)
+                0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0,
+                0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0,
+                1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1,
+                0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 1,
+                1, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0,
+                1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1,
+                0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1,
+                1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1,
+                0, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1,
+                1, 0, 0, 1,
             ];
             let r = sha
                 .execute(&inputs.iter().map(|&i| FieldPrime::from(i)).collect())
                 .unwrap();
-            let r1 = &r[513..769]; // index of the result
+            let r1 = &r[769..1025]; // index of the result
             let res: Vec<FieldPrime> = vec![
                 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1,
                 1, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0,

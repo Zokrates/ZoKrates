@@ -16,11 +16,7 @@ We will start this tutorial by using ZoKrates to compute the hash for an arbitra
 First, we create a new file named `hashexample.code` with the following content:
 
 ```zokrates
-import "LIBSNARK/sha256packed"
-
-def main(private field a, private field b, private field c, private field d) -> (field, field):
-	h0, h1 = sha256packed(a, b, c, d)
-	return h0, h1
+{{#include ../../zokrates_cli/examples/book/hashexample.code}}
 ```
 
 The first line imports the `sha256packed` function from the ZoKrates standard library.
@@ -74,13 +70,7 @@ To make it work, the two parties have to follow their roles in the protocol:
 First, Victor has to specify what hash he is interested in. Therefore, we have to adjust the zkSNARK circuit, compiled by ZoKrates, such that in addition to computing the digest, it also validates it against the digest of interest, provided by Victor. This leads to the following update for `hashexample.code`:
 
 ```zokrates
-import "LIBSNARK/sha256packed"
-
-def main(private field a, private field b, private field c, private field d) -> (field):
-	h0, h1 = sha256packed(a, b, c, d)
-	h0 == 263561599766550617289250058199814760685
-	h1 == 65303172752238645975888084098459749904
-	return 1
+{{#include ../../zokrates_cli/examples/book/hashexample_updated.code}}
 ```
 
 Note that we now compare the result of `sha256packed` with the hard-coded correct solution defined by Victor. The lines which we added are treated as assertions: the verifier will not accept a proof where these constraints were not satisfied. Clearly, this program only returns 1 if all of the computed bits are equal.

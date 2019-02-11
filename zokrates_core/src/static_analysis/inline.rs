@@ -262,7 +262,6 @@ mod tests {
     #[cfg(test)]
     mod heuristics {
         use super::*;
-        use absy::{Parameter, Variable};
 
         #[test]
         fn inline_constant_field() {

@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_core"
-version = "0.3.2"
+version = "0.3.5"
 authors = ["Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>", "Dennis Kuhnert <mail@kyroy.com>"]
 repository = "https://github.com/JacobEberhardt/ZoKrates"
 readme = "README.md"
@@ -9,6 +9,7 @@ build = "build.rs"
 [features]
 default = []
 libsnark = []
+wasm = []
 
 [dependencies]
 libc = "0.2.0"
@@ -20,6 +21,7 @@ reduce = "0.1.1"
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
+serde_bytes = "0.10"
 bincode = "0.8.0"
 regex = "0.2"
 bimap = "0.1"
@@ -28,6 +30,9 @@ pairing = { git = "https://github.com/matterinc/pairing" }
 ff = { version = "0.4", features = ["derive"] }
 zokrates_field = { version = "0.3.0", path = "../zokrates_field" }
 rand = "0.4"
+wasmi = "0.4.2"
+parity-wasm = "0.35.3"
+rustc-hex = "1.0"
 
 [dev-dependencies]
 glob = "0.2.11"
@@ -36,3 +41,5 @@ assert_cli = "0.5"
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"] }
 cmake = "0.1.31"
+parity-wasm = "0.35.3"
+git2 = "0.8.0"

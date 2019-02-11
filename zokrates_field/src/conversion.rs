@@ -1,6 +1,3 @@
-extern crate ff;
-extern crate pairing;
-
 use crate::field::{Field, FieldPrime};
 use ff::{PrimeField, PrimeFieldRepr};
 use pairing::bn256::Fr;
