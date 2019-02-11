@@ -47,9 +47,8 @@ impl Flattener {
 
     /// Loads the code library
     fn load_corelib<T: Field>(&mut self, functions_flattened: &mut Vec<FlatFunction<T>>) -> () {
-        // Load type casting functions
+        // Load type casting function
         functions_flattened.push(cast(&Type::Boolean, &Type::FieldElement));
-        functions_flattened.push(cast(&Type::FieldElement, &Type::Boolean));
 
         // Load IfElse helper
         let ie = TypedFunction {
