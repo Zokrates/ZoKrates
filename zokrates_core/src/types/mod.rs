@@ -1,9 +1,6 @@
 use std::fmt;
-use types::constraints::Constraints;
 pub use types::signature::Signature;
-use zokrates_field::field::Field;
 
-mod constraints;
 pub mod conversions;
 mod signature;
 
@@ -35,14 +32,6 @@ impl fmt::Debug for Type {
 }
 
 impl Type {
-    fn get_constraints<T: Field>(&self) -> Constraints<T> {
-        match self {
-            Type::FieldElement => Constraints::none(),
-            Type::Boolean => Constraints::boolean(),
-            Type::FieldElementArray(_) => Type::FieldElement.get_constraints(),
-        }
-    }
-
     // the number of field elements the type maps to
     pub fn get_primitive_count(&self) -> usize {
         match self {
@@ -64,21 +53,11 @@ impl Type {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
 
     #[test]
     fn array() {
         let t = Type::FieldElementArray(42);
         assert_eq!(t.get_primitive_count(), 42);
-        assert_eq!(t.get_constraints::<FieldPrime>(), Constraints::none());
         assert_eq!(t.to_slug(), "f[42]");
     }
-
-    // #[test]
-    // fn array_of_arrays() {
-    // 	let t = Type::FieldElementArray(42, box Type::FieldElementArray(33, box Type::Boolean));
-    // 	assert_eq!(t.get_primitive_count(), 1);
-    // 	assert_eq!(t.get_constraints::<FieldPrime>(), Constraints::boolean());
-    // 	assert_eq!(t.to_slug(), "[]");
-    // }
 }

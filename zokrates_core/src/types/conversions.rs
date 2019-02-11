@@ -3,8 +3,6 @@ use flat_absy::flat_parameter::FlatParameter;
 use flat_absy::flat_variable::FlatVariable;
 use flat_absy::*;
 use helpers::{DirectiveStatement, Helper};
-use reduce::Reduce;
-use types::constraints::Constraint;
 use types::signature::Signature;
 use types::Type;
 use zokrates_field::field::Field;
@@ -167,94 +165,24 @@ pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
         })
         .collect();
 
-    let directive_inputs = (0..from.get_primitive_count())
+    let binding_inputs: Vec<_> = (0..from.get_primitive_count())
         .map(|index| use_variable(&mut bijection, format!("i{}", index), &mut counter))
         .collect();
-    let directive_outputs: Vec<FlatVariable> = (0..to.get_primitive_count())
+    let binding_outputs: Vec<FlatVariable> = (0..to.get_primitive_count())
         .map(|index| use_variable(&mut bijection, format!("o{}", index), &mut counter))
         .collect();
 
-    let constraints = to.get_constraints::<T>().constraints;
-
-    let intermediate_variables = match constraints.len() {
-        0 => vec![],
-        _ => constraints[0]
-            .a
-            .iter()
-            .enumerate()
-            .map(|(_, index)| use_variable(&mut bijection, format!("inter{}", index), &mut counter))
-            .collect(),
-    };
-
-    let conditions: Vec<FlatStatement<T>> = to
-        .get_constraints()
-        .constraints
+    let outputs = binding_outputs
         .iter()
-        .map(|constraint: &Constraint<T>| {
-            let rhs_a = match constraint
-                .a
-                .iter()
-                .enumerate()
-                .map(|(key, val)| {
-                    FlatExpression::Mult(
-                        box FlatExpression::Number(val.clone()),
-                        box FlatExpression::Identifier(intermediate_variables[key]),
-                    )
-                })
-                .reduce(|acc, e| FlatExpression::Add(box acc, box e))
-            {
-                Some(e @ FlatExpression::Mult(..)) => {
-                    FlatExpression::Add(box FlatExpression::Number(T::zero()), box e)
-                } // the R1CS serializer only recognizes Add
-                Some(e) => e,
-                None => FlatExpression::Number(T::zero()),
-            };
-
-            let rhs_b = match constraint
-                .b
-                .iter()
-                .enumerate()
-                .map(|(key, val)| {
-                    FlatExpression::Mult(
-                        box FlatExpression::Number(val.clone()),
-                        box FlatExpression::Identifier(intermediate_variables[key]),
-                    )
-                })
-                .reduce(|acc, e| FlatExpression::Add(box acc, box e))
-            {
-                Some(e @ FlatExpression::Mult(..)) => {
-                    FlatExpression::Add(box FlatExpression::Number(T::zero()), box e)
-                } // the R1CS serializer only recognizes Add
-                Some(e) => e,
-                None => FlatExpression::Number(T::zero()),
-            };
-
-            let lhs = match constraint
-                .c
-                .iter()
-                .enumerate()
-                .map(|(key, val)| {
-                    FlatExpression::Mult(
-                        box FlatExpression::Number(val.clone()),
-                        box FlatExpression::Identifier(intermediate_variables[key]),
-                    )
-                })
-                .reduce(|acc, e| FlatExpression::Add(box acc, box e))
-            {
-                Some(e @ FlatExpression::Mult(..)) => {
-                    FlatExpression::Add(box FlatExpression::Number(T::zero()), box e)
-                } // the R1CS serializer only recognizes Add
-                Some(e) => e,
-                None => FlatExpression::Number(T::zero()),
-            };
-
-            FlatStatement::Condition(lhs, FlatExpression::Mult(box rhs_a, box rhs_b))
-        })
+        .map(|o| FlatExpression::Identifier(o.clone()))
         .collect();
 
-    let helper = match (from, to) {
-        (Type::Boolean, Type::FieldElement) => Helper::identity(),
-        (Type::FieldElement, Type::Boolean) => Helper::identity(),
+    let bindings: Vec<_> = match (from, to) {
+        (Type::Boolean, Type::FieldElement) => binding_outputs
+            .into_iter()
+            .zip(binding_inputs.into_iter())
+            .map(|(o, i)| FlatStatement::Definition(o, i.into()))
+            .collect(),
         _ => panic!(format!("can't cast {} to {}", from, to)),
     };
 
@@ -263,25 +191,12 @@ pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
         outputs: vec![to.clone()],
     };
 
-    let outputs = directive_outputs
-        .iter()
-        .map(|o| FlatExpression::Identifier(o.clone()))
+    let statements = bindings
+        .into_iter()
+        .chain(std::iter::once(FlatStatement::Return(FlatExpressionList {
+            expressions: outputs,
+        })))
         .collect();
-
-    let mut statements = conditions;
-
-    statements.insert(
-        0,
-        FlatStatement::Directive(DirectiveStatement::new(
-            directive_outputs,
-            helper,
-            directive_inputs,
-        )),
-    );
-
-    statements.push(FlatStatement::Return(FlatExpressionList {
-        expressions: outputs,
-    }));
 
     FlatFunction {
         id: format!("_{}_to_{}", from, to),
@@ -301,47 +216,18 @@ mod tests {
         use super::*;
 
         #[test]
-        fn field_to_bool() {
-            let f2b: FlatFunction<FieldPrime> = cast(&Type::FieldElement, &Type::Boolean);
-            assert_eq!(f2b.id, String::from("_field_to_bool"));
-            assert_eq!(
-                f2b.arguments,
-                vec![FlatParameter::private(FlatVariable::new(0))]
-            );
-            assert_eq!(f2b.statements.len(), 3); // 1 directive, 1 constraint, 1 return
-            assert_eq!(
-                f2b.statements[0],
-                FlatStatement::Directive(DirectiveStatement::new(
-                    vec![FlatVariable::new(1)],
-                    Helper::identity(),
-                    vec![FlatVariable::new(0)]
-                ))
-            );
-            assert_eq!(
-                f2b.statements[2],
-                FlatStatement::Return(FlatExpressionList {
-                    expressions: vec![FlatExpression::Identifier(FlatVariable::new(1))]
-                })
-            );
-            assert_eq!(f2b.signature.outputs.len(), 1);
-        }
-
-        #[test]
         fn bool_to_field() {
             let b2f: FlatFunction<FieldPrime> = cast(&Type::Boolean, &Type::FieldElement);
+            println!("{}", b2f);
             assert_eq!(b2f.id, String::from("_bool_to_field"));
             assert_eq!(
                 b2f.arguments,
                 vec![FlatParameter::private(FlatVariable::new(0))]
             );
-            assert_eq!(b2f.statements.len(), 2); // 1 directive, 1 return
+            assert_eq!(b2f.statements.len(), 2); // 1 definition, 1 return
             assert_eq!(
                 b2f.statements[0],
-                FlatStatement::Directive(DirectiveStatement::new(
-                    vec![FlatVariable::new(1)],
-                    Helper::identity(),
-                    vec![FlatVariable::new(0)]
-                ))
+                FlatStatement::Definition(FlatVariable::new(1), FlatVariable::new(0).into())
             );
             assert_eq!(
                 b2f.statements[1],
