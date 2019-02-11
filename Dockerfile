@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY ./scripts/install_libsnark_prerequisites.sh /tmp/
-RUN /tmp/install_libsnark_prerequisites.schaeff
+RUN /tmp/install_libsnark_prerequisites.sh
 
 USER zokrates
 
