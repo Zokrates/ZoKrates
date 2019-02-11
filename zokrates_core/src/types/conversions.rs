@@ -172,13 +172,16 @@ pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
         .map(|index| use_variable(&mut bijection, format!("o{}", index), &mut counter))
         .collect();
 
+    let outputs = binding_outputs
+        .iter()
+        .map(|o| FlatExpression::Identifier(o.clone()))
+        .collect();
+
     let bindings: Vec<_> = match (from, to) {
         (Type::Boolean, Type::FieldElement) => binding_outputs
-            .iter()
-            .zip(binding_inputs.iter())
-            .map(|(o, i)| {
-                FlatStatement::Definition(o.clone(), FlatExpression::Identifier(i.clone()))
-            })
+            .into_iter()
+            .zip(binding_inputs.into_iter())
+            .map(|(o, i)| FlatStatement::Definition(o, i.into()))
             .collect(),
         _ => panic!(format!("can't cast {} to {}", from, to)),
     };
@@ -187,11 +190,6 @@ pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
         inputs: vec![from.clone()],
         outputs: vec![to.clone()],
     };
-
-    let outputs = binding_outputs
-        .iter()
-        .map(|o| FlatExpression::Identifier(o.clone()))
-        .collect();
 
     let statements = bindings
         .into_iter()
@@ -226,7 +224,7 @@ mod tests {
                 b2f.arguments,
                 vec![FlatParameter::private(FlatVariable::new(0))]
             );
-            assert_eq!(b2f.statements.len(), 2); // 1 directive, 1 return
+            assert_eq!(b2f.statements.len(), 2); // 1 definition, 1 return
             assert_eq!(
                 b2f.statements[0],
                 FlatStatement::Definition(FlatVariable::new(1), FlatVariable::new(0).into())
