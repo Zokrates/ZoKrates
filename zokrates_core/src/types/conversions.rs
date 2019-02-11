@@ -167,10 +167,10 @@ pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
         })
         .collect();
 
-    let directive_inputs = (0..from.get_primitive_count())
+    let binding_inputs: Vec<_> = (0..from.get_primitive_count())
         .map(|index| use_variable(&mut bijection, format!("i{}", index), &mut counter))
         .collect();
-    let directive_outputs: Vec<FlatVariable> = (0..to.get_primitive_count())
+    let binding_outputs: Vec<FlatVariable> = (0..to.get_primitive_count())
         .map(|index| use_variable(&mut bijection, format!("o{}", index), &mut counter))
         .collect();
 
@@ -252,9 +252,21 @@ pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
         })
         .collect();
 
-    let helper = match (from, to) {
-        (Type::Boolean, Type::FieldElement) => Helper::identity(),
-        (Type::FieldElement, Type::Boolean) => Helper::identity(),
+    let bindings: Vec<_> = match (from, to) {
+        (Type::Boolean, Type::FieldElement) => binding_outputs
+            .iter()
+            .zip(binding_inputs.iter())
+            .map(|(o, i)| {
+                FlatStatement::Definition(o.clone(), FlatExpression::Identifier(i.clone()))
+            })
+            .collect(),
+        (Type::FieldElement, Type::Boolean) => binding_outputs
+            .iter()
+            .zip(binding_inputs.iter())
+            .map(|(o, i)| {
+                FlatStatement::Definition(o.clone(), FlatExpression::Identifier(i.clone()))
+            })
+            .collect(),
         _ => panic!(format!("can't cast {} to {}", from, to)),
     };
 
@@ -263,25 +275,18 @@ pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
         outputs: vec![to.clone()],
     };
 
-    let outputs = directive_outputs
+    let outputs = binding_outputs
         .iter()
         .map(|o| FlatExpression::Identifier(o.clone()))
         .collect();
 
-    let mut statements = conditions;
-
-    statements.insert(
-        0,
-        FlatStatement::Directive(DirectiveStatement::new(
-            directive_outputs,
-            helper,
-            directive_inputs,
-        )),
-    );
-
-    statements.push(FlatStatement::Return(FlatExpressionList {
-        expressions: outputs,
-    }));
+    let statements = bindings
+        .into_iter()
+        .chain(conditions)
+        .chain(std::iter::once(FlatStatement::Return(FlatExpressionList {
+            expressions: outputs,
+        })))
+        .collect();
 
     FlatFunction {
         id: format!("_{}_to_{}", from, to),
@@ -303,19 +308,16 @@ mod tests {
         #[test]
         fn field_to_bool() {
             let f2b: FlatFunction<FieldPrime> = cast(&Type::FieldElement, &Type::Boolean);
+            println!("{}", f2b);
             assert_eq!(f2b.id, String::from("_field_to_bool"));
             assert_eq!(
                 f2b.arguments,
                 vec![FlatParameter::private(FlatVariable::new(0))]
             );
-            assert_eq!(f2b.statements.len(), 3); // 1 directive, 1 constraint, 1 return
+            assert_eq!(f2b.statements.len(), 3); // 1 definition, 1 constraint, 1 return
             assert_eq!(
                 f2b.statements[0],
-                FlatStatement::Directive(DirectiveStatement::new(
-                    vec![FlatVariable::new(1)],
-                    Helper::identity(),
-                    vec![FlatVariable::new(0)]
-                ))
+                FlatStatement::Definition(FlatVariable::new(1), FlatVariable::new(0).into())
             );
             assert_eq!(
                 f2b.statements[2],
@@ -329,6 +331,7 @@ mod tests {
         #[test]
         fn bool_to_field() {
             let b2f: FlatFunction<FieldPrime> = cast(&Type::Boolean, &Type::FieldElement);
+            println!("{}", b2f);
             assert_eq!(b2f.id, String::from("_bool_to_field"));
             assert_eq!(
                 b2f.arguments,
@@ -337,11 +340,7 @@ mod tests {
             assert_eq!(b2f.statements.len(), 2); // 1 directive, 1 return
             assert_eq!(
                 b2f.statements[0],
-                FlatStatement::Directive(DirectiveStatement::new(
-                    vec![FlatVariable::new(1)],
-                    Helper::identity(),
-                    vec![FlatVariable::new(0)]
-                ))
+                FlatStatement::Definition(FlatVariable::new(1), FlatVariable::new(0).into())
             );
             assert_eq!(
                 b2f.statements[1],
