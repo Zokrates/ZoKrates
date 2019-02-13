@@ -1,11 +1,11 @@
 extern crate libc;
 
 use self::libc::{c_char, c_int, uint8_t};
-use flat_absy::flat_variable::FlatVariable;
+use ir;
 use proof_system::utils::{
     prepare_generate_proof, prepare_setup, SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB,
 };
-use proof_system::ProofSystem;
+use proof_system::{Metadata, ProofSystem};
 
 use regex::Regex;
 use std::fs::File;
@@ -47,16 +47,7 @@ extern "C" {
 }
 
 impl ProofSystem for PGHR13 {
-    fn setup(
-        &self,
-        variables: Vec<FlatVariable>,
-        a: Vec<Vec<(usize, FieldPrime)>>,
-        b: Vec<Vec<(usize, FieldPrime)>>,
-        c: Vec<Vec<(usize, FieldPrime)>>,
-        num_inputs: usize,
-        pk_path: &str,
-        vk_path: &str,
-    ) -> bool {
+    fn setup(&self, program: ir::Prog<FieldPrime>, pk_path: &str, vk_path: &str) -> Metadata {
         let (
             a_arr,
             b_arr,
@@ -69,7 +60,8 @@ impl ProofSystem for PGHR13 {
             num_inputs,
             pk_path_cstring,
             vk_path_cstring,
-        ) = prepare_setup(variables, a, b, c, num_inputs, pk_path, vk_path);
+            metadata,
+        ) = prepare_setup(program, pk_path, vk_path);
 
         unsafe {
             _pghr13_setup(
@@ -84,16 +76,18 @@ impl ProofSystem for PGHR13 {
                 num_inputs as i32,
                 pk_path_cstring.as_ptr(),
                 vk_path_cstring.as_ptr(),
-            )
+            );
         }
+
+        metadata
     }
 
     fn generate_proof(
         &self,
+        witness: ir::Witness<FieldPrime>,
+        metadata: Metadata,
         pk_path: &str,
         proof_path: &str,
-        public_inputs: Vec<FieldPrime>,
-        private_inputs: Vec<FieldPrime>,
     ) -> bool {
         let (
             pk_path_cstring,
@@ -102,7 +96,7 @@ impl ProofSystem for PGHR13 {
             public_inputs_length,
             private_inputs_arr,
             private_inputs_length,
-        ) = prepare_generate_proof(pk_path, proof_path, public_inputs, private_inputs);
+        ) = prepare_generate_proof(pk_path, proof_path, witness, metadata);
 
         unsafe {
             _pghr13_generate_proof(

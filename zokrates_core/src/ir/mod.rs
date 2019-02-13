@@ -13,8 +13,7 @@ mod interpreter;
 use self::expression::LinComb;
 use self::expression::QuadComb;
 
-pub use self::interpreter::Error;
-pub use self::interpreter::ExecutionResult;
+pub use self::interpreter::{Error, ExecutionResult, Witness, WitnessVec};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Statement<T: Field> {
