@@ -84,6 +84,7 @@ impl ProofSystem for PGHR13 {
 
     fn generate_proof(
         &self,
+        _: ir::Prog<FieldPrime>,
         witness: ir::Witness<FieldPrime>,
         metadata: Metadata,
         pk_path: &str,

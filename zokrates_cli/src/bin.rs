@@ -197,8 +197,16 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(JSON_PROOF_PATH)
-        ).arg(Arg::with_name("meta-information")
+        ).arg(Arg::with_name("input")
             .short("i")
+            .long("input")
+            .help("Path of compiled code")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(FLATTENED_CODE_DEFAULT_PATH)
+        ).arg(Arg::with_name("meta-information")
+            .short("m")
             .long("meta-information")
             .help("Path of file containing meta information for variable transformation")
             .value_name("FILE")
@@ -476,10 +484,17 @@ fn cli() -> Result<(), String> {
             let pk_path = sub_matches.value_of("provingkey").unwrap();
             let proof_path = sub_matches.value_of("proofpath").unwrap();
 
+            let program_path = Path::new(sub_matches.value_of("input").unwrap());
+            let mut program_file = File::open(&program_path)
+                .map_err(|why| format!("couldn't open {}: {}", program_path.display(), why))?;
+
+            let program: ir::Prog<FieldPrime> = deserialize_from(&mut program_file, Infinite)
+                .map_err(|why| format!("{:?}", why))?;
+
             // run libsnark
             println!(
                 "generate-proof successful: {:?}",
-                backend.generate_proof(witness, metadata, pk_path, proof_path)
+                backend.generate_proof(program, witness, metadata, pk_path, proof_path)
             );
         }
         _ => unreachable!(),

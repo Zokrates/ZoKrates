@@ -83,6 +83,7 @@ impl ProofSystem for GM17 {
 
     fn generate_proof(
         &self,
+        _: ir::Prog<FieldPrime>,
         witness: ir::Witness<FieldPrime>,
         metadata: Metadata,
         pk_path: &str,

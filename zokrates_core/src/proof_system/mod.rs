@@ -1,4 +1,5 @@
 mod bn128;
+#[cfg(feature = "libsnark")]
 mod utils;
 
 use flat_absy::flat_variable::FlatVariable;
@@ -18,6 +19,7 @@ pub trait ProofSystem {
 
     fn generate_proof(
         &self,
+        program: ir::Prog<FieldPrime>,
         witness: ir::Witness<FieldPrime>,
         metadata: Metadata,
         pk_path: &str,
