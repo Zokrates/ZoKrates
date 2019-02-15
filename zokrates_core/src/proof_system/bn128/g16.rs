@@ -1,10 +1,10 @@
 use bellman::groth16::Parameters;
 use ir;
-use ir::backend::Computation;
+use ir::backend::{serialize_proof, Computation};
 use proof_system::Metadata;
 use proof_system::ProofSystem;
 use std::fs::File;
-use std::io::BufReader;
+use std::io::{BufReader, Write};
 use std::path::PathBuf;
 use zokrates_field::field::FieldPrime;
 
@@ -36,8 +36,8 @@ impl ProofSystem for G16 {
 
         let proof = computation.prove(params);
 
-        let proof_file = File::create(PathBuf::from(proof_path)).unwrap();
-        proof.write(proof_file).unwrap();
+        let mut proof_file = File::create(PathBuf::from(proof_path)).unwrap();
+        write!(proof_file, "{}", serialize_proof(proof)).unwrap();
         true
     }
 
