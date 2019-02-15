@@ -1,4 +1,3 @@
-use flat_absy::flat_variable::FlatVariable;
 use ir;
 use proof_system::Metadata;
 use std::cmp::max;
