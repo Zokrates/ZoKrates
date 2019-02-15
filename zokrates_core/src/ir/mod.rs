@@ -6,7 +6,7 @@ use std::fmt;
 use std::mem;
 use zokrates_field::field::Field;
 
-mod backend;
+pub mod backend;
 mod expression;
 mod from_flat;
 mod interpreter;
@@ -14,8 +14,7 @@ mod interpreter;
 use self::expression::LinComb;
 use self::expression::QuadComb;
 
-pub use self::interpreter::Error;
-pub use self::interpreter::ExecutionResult;
+pub use self::interpreter::{Error, ExecutionResult, Witness, WitnessVec};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Statement<T: Field> {
@@ -64,7 +63,7 @@ pub struct Function<T: Field> {
     pub id: String,
     pub statements: Vec<Statement<T>>,
     pub arguments: Vec<FlatVariable>,
-    pub returns: Vec<QuadComb<T>>,
+    pub returns: Vec<FlatVariable>,
 }
 
 impl<T: Field> fmt::Display for Function<T> {

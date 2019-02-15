@@ -72,7 +72,7 @@ fn alloc<CS: ConstraintSystem<Bn256>>(
     witness: &Witness<FieldPrime>,
 ) -> Result<Variable, SynthesisError> {
     match var.is_output() {
-        true => cs.alloc(
+        true => cs.alloc_input(
             || format!("{}", var),
             || {
                 // let w = witness.ok_or(SynthesisError::AssignmentMissing)?;
@@ -83,7 +83,7 @@ fn alloc<CS: ConstraintSystem<Bn256>>(
                 Ok(Fr::from(val.clone()))
             },
         ),
-        false => cs.alloc_input(
+        false => cs.alloc(
             || format!("{}", var),
             || {
                 // let witness = witness.ok_or(SynthesisError::AssignmentMissing)?;
@@ -107,7 +107,7 @@ impl Prog<FieldPrime> {
 
         let mut arguments = vec![];
 
-        let witness = witness.unwrap();
+        let witness = witness.unwrap_or(Witness::empty());
 
         for (index, (var, private)) in self
             .main
@@ -178,6 +178,39 @@ impl Prog<FieldPrime> {
 }
 
 impl Computation<FieldPrime> {
+    pub fn prove(self, params: Parameters<Bn256>) -> Proof<Bn256> {
+        let rng = &mut thread_rng();
+        let proof = create_random_proof(self.clone(), &params, rng).unwrap();
+
+        let pvk = prepare_verifying_key(&params.vk);
+
+        // extract public inputs
+        let public_inputs: Vec<Fr> = self
+            .program
+            .main
+            .arguments
+            .clone()
+            .iter()
+            .zip(self.program.private.clone())
+            .filter(|(_, p)| !p)
+            .map(|(a, _)| a)
+            .chain(
+                self.witness
+                    .clone()
+                    .unwrap()
+                    .0
+                    .keys()
+                    .filter(|k| k.is_output()),
+            )
+            .map(|v| self.witness.clone().unwrap().0.get(v).unwrap().clone())
+            .map(|v| Fr::from(v.clone()))
+            .collect();
+
+        assert!(verify_proof(&pvk, &proof, &public_inputs).unwrap());
+
+        proof
+    }
+
     pub fn setup_prove_verify(self) -> Proof<Bn256> {
         // run setup phase
         let params = self.clone().setup();
@@ -285,7 +318,7 @@ mod tests {
         use super::*;
 
         #[test]
-        fn empty_program() {
+        fn empty() {
             let program: Prog<FieldPrime> = Prog {
                 main: Function {
                     id: String::from("main"),
@@ -297,6 +330,54 @@ mod tests {
             };
 
             let witness = program.clone().execute::<FieldPrime>(&vec![]).unwrap();
+            let computation = Computation::with_witness(program, witness);
+
+            let _proof = computation.setup_prove_verify();
+        }
+
+        #[test]
+        fn identity() {
+            let program: Prog<FieldPrime> = Prog {
+                main: Function {
+                    id: String::from("main"),
+                    arguments: vec![FlatVariable::new(0)],
+                    returns: vec![FlatVariable::public(0)],
+                    statements: vec![Statement::Constraint(
+                        FlatVariable::new(0).into(),
+                        FlatVariable::public(0).into(),
+                    )],
+                },
+                private: vec![true],
+            };
+
+            let witness = program
+                .clone()
+                .execute::<FieldPrime>(&vec![FieldPrime::from(0)])
+                .unwrap();
+            let computation = Computation::with_witness(program, witness);
+
+            let _proof = computation.setup_prove_verify();
+        }
+
+        #[test]
+        fn public_identity() {
+            let program: Prog<FieldPrime> = Prog {
+                main: Function {
+                    id: String::from("main"),
+                    arguments: vec![FlatVariable::new(0)],
+                    returns: vec![FlatVariable::public(0)],
+                    statements: vec![Statement::Constraint(
+                        FlatVariable::new(0).into(),
+                        FlatVariable::public(0).into(),
+                    )],
+                },
+                private: vec![false],
+            };
+
+            let witness = program
+                .clone()
+                .execute::<FieldPrime>(&vec![FieldPrime::from(0)])
+                .unwrap();
             let computation = Computation::with_witness(program, witness);
 
             let _proof = computation.setup_prove_verify();

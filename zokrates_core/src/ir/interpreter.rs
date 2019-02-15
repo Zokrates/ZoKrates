@@ -5,6 +5,21 @@ use zokrates_field::field::Field;
 
 pub type ExecutionResult<T> = Result<Witness<T>, Error>;
 
+#[derive(Serialize, Deserialize)]
+pub struct WitnessVec<T: Field>(Vec<(FlatVariable, T)>);
+
+impl<T: Field> From<Witness<T>> for WitnessVec<T> {
+    fn from(w: Witness<T>) -> WitnessVec<T> {
+        WitnessVec(w.0.into_iter().collect())
+    }
+}
+
+impl<T: Field> From<WitnessVec<T>> for Witness<T> {
+    fn from(w: WitnessVec<T>) -> Witness<T> {
+        Witness(w.0.into_iter().collect())
+    }
+}
+
 #[derive(Clone)]
 pub struct Witness<T: Field>(pub BTreeMap<FlatVariable, T>);
 

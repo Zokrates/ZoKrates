@@ -1,4 +1,6 @@
 use flat_absy::flat_variable::FlatVariable;
+use ir;
+use proof_system::Metadata;
 use std::cmp::max;
 use std::ffi::CString;
 use zokrates_field::field::Field;
@@ -15,11 +17,7 @@ fn vec_as_u8_32_array(vec: &Vec<u8>) -> [u8; 32] {
 
 // proof-system-independent preparation for the setup phase
 pub fn prepare_setup<T: Field>(
-    variables: Vec<FlatVariable>,
-    a: Vec<Vec<(usize, T)>>,
-    b: Vec<Vec<(usize, T)>>,
-    c: Vec<Vec<(usize, T)>>,
-    num_inputs: usize,
+    program: ir::Prog<T>,
     pk_path: &str,
     vk_path: &str,
 ) -> (
@@ -34,9 +32,20 @@ pub fn prepare_setup<T: Field>(
     usize,
     CString,
     CString,
+    Metadata,
 ) {
+    // transform to R1CS
+    let (variables, public_variables_count, a, b, c) = ir::r1cs_program(program);
+
+    let num_inputs = public_variables_count - 1;
+
     let num_constraints = a.len();
     let num_variables = variables.len();
+
+    let metadata = Metadata {
+        offset: public_variables_count,
+        variables,
+    };
 
     // Create single A,B,C vectors of tuples (constraint_number, variable_id, variable_value)
     let mut a_vec = vec![];
@@ -142,6 +151,7 @@ pub fn prepare_setup<T: Field>(
         num_inputs,
         pk_path_cstring,
         vk_path_cstring,
+        metadata,
     )
 }
 
@@ -149,9 +159,19 @@ pub fn prepare_setup<T: Field>(
 pub fn prepare_generate_proof<T: Field>(
     pk_path: &str,
     proof_path: &str,
-    public_inputs: Vec<T>,
-    private_inputs: Vec<T>,
+    witness: ir::Witness<T>,
+    metadata: Metadata,
 ) -> (CString, CString, Vec<[u8; 32]>, usize, Vec<[u8; 32]>, usize) {
+    let witness: Vec<_> = metadata
+        .variables
+        .iter()
+        .map(|x| witness.0[x].clone())
+        .collect();
+
+    // split witness into public and private inputs at offset
+    let mut public_inputs: Vec<_> = witness.clone();
+    let private_inputs: Vec<_> = public_inputs.split_off(metadata.offset);
+
     let pk_path_cstring = CString::new(pk_path).unwrap();
     let proof_path_cstring = CString::new(proof_path).unwrap();
 
