@@ -160,7 +160,7 @@ void printProof(r1cs_se_ppzksnark_proof<libff::alt_bn128_pp> proof, const char* 
         if(i!=1){
           ss << ",";
         }
-        ss << libsnarkBigintFromBytes(public_inputs + i*32);
+        ss << HexStringFromLibsnarkBigint(libsnarkBigintFromBytes(public_inputs + i*32));
       }
       ss << "]" << "\n";
     ss << "}" << "\n";

@@ -34,10 +34,15 @@ impl ProofSystem for G16 {
 
         let params = Parameters::read(parameters_file, true).unwrap();
 
-        let proof = computation.prove(params);
+        let proof = computation.clone().prove(&params);
 
         let mut proof_file = File::create(PathBuf::from(proof_path)).unwrap();
-        write!(proof_file, "{}", serialize_proof(proof)).unwrap();
+        write!(
+            proof_file,
+            "{}",
+            serialize_proof(&proof, &computation.public_inputs_values())
+        )
+        .unwrap();
         true
     }
 

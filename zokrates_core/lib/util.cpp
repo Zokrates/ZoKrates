@@ -19,6 +19,9 @@ libff::bigint<libff::alt_bn128_r_limbs> libsnarkBigintFromBytes(const uint8_t* _
       x.data[3 - i] |= uint64_t(_x[i * 8 + j]) << (8 * (7-j));
     }
   }
+
+  cout << x << "\n";
+
   return x;
 }
 
