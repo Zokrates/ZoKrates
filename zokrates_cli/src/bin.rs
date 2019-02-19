@@ -468,8 +468,6 @@ fn cli() -> Result<(), String> {
 
             let witness = ir::Witness::from(witness);
 
-            println!("Using Witness: {}", witness);
-
             // deserialize metadata
             let metadata_path = Path::new(sub_matches.value_of("meta-information").unwrap());
 

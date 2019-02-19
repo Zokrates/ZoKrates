@@ -1,6 +1,4 @@
 mod bn128;
-#[cfg(feature = "libsnark")]
-mod utils;
 
 use flat_absy::flat_variable::FlatVariable;
 use std::fs::File;

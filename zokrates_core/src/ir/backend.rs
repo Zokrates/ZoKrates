@@ -229,8 +229,7 @@ impl Circuit<Bn256> for Computation<FieldPrime> {
 
 pub fn serialize_vk(vk: VerifyingKey<Bn256>) -> String {
     format!(
-        "
-vk.alpha = {}
+        "vk.alpha = {}
 vk.beta = {}
 vk.gamma = {}
 vk.delta = {}
