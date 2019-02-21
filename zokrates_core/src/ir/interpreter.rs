@@ -5,21 +5,6 @@ use zokrates_field::field::Field;
 
 pub type ExecutionResult<T> = Result<Witness<T>, Error>;
 
-// #[derive(Serialize, Deserialize)]
-// pub struct WitnessVec<T: Field>(pub Vec<(FlatVariable, T)>);
-
-// impl<T: Field> From<Witness<T>> for WitnessVec<T> {
-//     fn from(w: Witness<T>) -> WitnessVec<T> {
-//         WitnessVec(w.0.into_iter().collect())
-//     }
-// }
-
-// impl<T: Field> From<WitnessVec<T>> for Witness<T> {
-//     fn from(w: WitnessVec<T>) -> Witness<T> {
-//         Witness(w.0.into_iter().collect())
-//     }
-// }
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct Witness<T: Field>(pub BTreeMap<FlatVariable, T>);
 
@@ -156,7 +141,7 @@ impl<T: Field> LinComb<T> {
             .map(|v| v.iter().fold(T::from(0), |acc, t| acc + t)) // return the sum
     }
 
-    pub fn is_assignee<U>(&self, witness: &BTreeMap<FlatVariable, U>) -> bool {
+    fn is_assignee<U>(&self, witness: &BTreeMap<FlatVariable, U>) -> bool {
         self.0.iter().count() == 1
             && self.0.iter().next().unwrap().1 == &T::from(1)
             && !witness.contains_key(self.0.iter().next().unwrap().0)
