@@ -164,7 +164,7 @@ mod integration {
 
         #[cfg(feature = "libsnark")]
         {
-            for backend in &["pghr13", "gm17"] {
+            for scheme in &["pghr13", "gm17", "g16"] {
                 // SETUP
                 assert_cli::Assert::command(&[
                     "../target/release/zokrates",
@@ -177,8 +177,8 @@ mod integration {
                     verification_key_path.to_str().unwrap(),
                     "-m",
                     variable_information_path.to_str().unwrap(),
-                    "--backend",
-                    backend,
+                    "--scheme",
+                    scheme,
                 ])
                 .succeeds()
                 .unwrap();
@@ -191,8 +191,8 @@ mod integration {
                     verification_key_path.to_str().unwrap(),
                     "-o",
                     verification_contract_path.to_str().unwrap(),
-                    "--backend",
-                    backend,
+                    "--scheme",
+                    scheme,
                 ])
                 .succeeds()
                 .unwrap();
@@ -209,8 +209,8 @@ mod integration {
                     proving_key_path.to_str().unwrap(),
                     "-m",
                     variable_information_path.to_str().unwrap(),
-                    "--backend",
-                    backend,
+                    "--scheme",
+                    scheme,
                 ])
                 .succeeds()
                 .unwrap();
