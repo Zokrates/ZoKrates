@@ -392,10 +392,10 @@ mod tests {
                 main: Function {
                     id: String::from("main"),
                     arguments: vec![FlatVariable::new(42)],
-                    returns: vec![FlatVariable::public(33)],
+                    returns: vec![FlatVariable::public(0)],
                     statements: vec![Statement::Constraint(
                         (LinComb::from(FlatVariable::new(42)) + LinComb::one()).into(),
-                        FlatVariable::public(33).into(),
+                        FlatVariable::public(0).into(),
                     )],
                 },
                 private: vec![false],
@@ -417,12 +417,12 @@ mod tests {
                 main: Function {
                     id: String::from("main"),
                     arguments: vec![FlatVariable::new(42), FlatVariable::new(51)],
-                    returns: vec![FlatVariable::public(33)],
+                    returns: vec![FlatVariable::public(0)],
                     statements: vec![Statement::Constraint(
                         (LinComb::from(FlatVariable::new(42))
                             + LinComb::from(FlatVariable::new(51)))
                         .into(),
-                        FlatVariable::public(33).into(),
+                        FlatVariable::public(0).into(),
                     )],
                 },
                 private: vec![true, false],
