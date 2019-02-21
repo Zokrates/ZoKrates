@@ -30,7 +30,6 @@ fn cli() -> Result<(), String> {
     const PROVING_KEY_DEFAULT_PATH: &str = "proving.key";
     const VERIFICATION_CONTRACT_DEFAULT_PATH: &str = "verifier.sol";
     const WITNESS_DEFAULT_PATH: &str = "witness";
-    const VARIABLES_INFORMATION_KEY_DEFAULT_PATH: &str = "variables.inf";
     const JSON_PROOF_PATH: &str = "proof.json";
     let default_scheme = env::var("ZOKRATES_BACKEND").unwrap_or(String::from("g16"));
 
@@ -91,15 +90,6 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(VERIFICATION_KEY_DEFAULT_PATH)
-        )
-        .arg(Arg::with_name("meta-information")
-            .short("m")
-            .long("meta-information")
-            .help("Path of the file containing meta-information for variable transformation")
-            .value_name("FILE")
-            .takes_value(true)
-            .required(false)
-            .default_value(VARIABLES_INFORMATION_KEY_DEFAULT_PATH)
         )
         .arg(Arg::with_name("scheme")
             .short("s")
@@ -205,14 +195,6 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(FLATTENED_CODE_DEFAULT_PATH)
-        ).arg(Arg::with_name("meta-information")
-            .short("m")
-            .long("meta-information")
-            .help("Path of file containing meta information for variable transformation")
-            .value_name("FILE")
-            .takes_value(true)
-            .required(false)
-            .default_value(VARIABLES_INFORMATION_KEY_DEFAULT_PATH)
         ).arg(Arg::with_name("scheme")
             .short("s")
             .long("scheme")
@@ -412,23 +394,7 @@ fn cli() -> Result<(), String> {
             let vk_path = sub_matches.value_of("verification-key-path").unwrap();
 
             // run setup phase
-            // number of inputs in the zkSNARK sense, i.e., input variables + output variables
-            let metadata = scheme.setup(program, pk_path, vk_path);
-
-            // write variables meta information to file
-            let var_inf_path = Path::new(sub_matches.value_of("meta-information").unwrap());
-            let var_inf_file = File::create(&var_inf_path)
-                .map_err(|why| format!("couldn't open {}: {}", var_inf_path.display(), why))?;
-            let mut bw = BufWriter::new(var_inf_file);
-
-            write!(
-                &mut bw,
-                "{}",
-                &serde_json::to_string_pretty(&metadata).unwrap()
-            )
-            .map_err(|_| "Unable to write data to file.".to_string())?;
-            bw.flush()
-                .map_err(|_| "Unable to flush buffer.".to_string())?;
+            scheme.setup(program, pk_path, vk_path);
         }
         ("export-verifier", Some(sub_matches)) => {
             {
@@ -467,9 +433,6 @@ fn cli() -> Result<(), String> {
                 Err(why) => panic!("couldn't open {}: {}", witness_path.display(), why),
             };
 
-            // let witness: ir::WitnessVec<FieldPrime> =
-            //     serde_json::from_reader(BufReader::new(witness_file)).unwrap();
-
             let mut rdr = csv::ReaderBuilder::new()
                 .delimiter(b' ')
                 .flexible(true)
@@ -488,7 +451,6 @@ fn cli() -> Result<(), String> {
             let program: ir::Prog<FieldPrime> = deserialize_from(&mut program_file, Infinite)
                 .map_err(|why| format!("{:?}", why))?;
 
-            // run libsnark
             println!(
                 "generate-proof successful: {:?}",
                 scheme.generate_proof(program, witness, pk_path, proof_path)

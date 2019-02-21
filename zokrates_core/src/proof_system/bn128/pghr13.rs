@@ -94,6 +94,11 @@ impl ProofSystem for PGHR13 {
             private_inputs_length,
         ) = prepare_generate_proof(program, witness, pk_path, proof_path);
 
+        println!(
+            "{:?}",
+            (pk_path_cstring.clone(), proof_path_cstring.clone(),)
+        );
+
         unsafe {
             _pghr13_generate_proof(
                 pk_path_cstring.as_ptr(),

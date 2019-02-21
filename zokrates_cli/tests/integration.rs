@@ -11,28 +11,10 @@ mod integration {
     use std::io::prelude::*;
     use std::panic;
     use std::path::Path;
-
-    fn setup() {
-        fs::create_dir(".tmp").unwrap();
-    }
-
-    fn teardown() {
-        fs::remove_dir_all(".tmp").unwrap();
-    }
+    use tempdir::TempDir;
 
     #[test]
     #[ignore]
-    fn run_integration_tests() {
-        // see https://medium.com/@ericdreichert/test-setup-and-teardown-in-rust-without-a-framework-ba32d97aa5ab
-        setup();
-
-        let result = panic::catch_unwind(|| test_compile_and_witness_dir());
-
-        teardown();
-
-        assert!(result.is_ok())
-    }
-
     fn test_compile_and_witness_dir() {
         let dir = Path::new("./tests/code");
         if dir.is_dir() {
@@ -62,7 +44,8 @@ mod integration {
         arguments_path: &Path,
         expected_witness_path: &Path,
     ) {
-        let tmp_base = Path::new(".tmp/");
+        let tmp_dir = TempDir::new(".tmp").unwrap();
+        let tmp_base = tmp_dir.path();
         let test_case_path = tmp_base.join(program_name);
         let flattened_path = tmp_base.join(program_name).join("out");
         let witness_path = tmp_base.join(program_name).join("witness");
@@ -74,10 +57,6 @@ mod integration {
             .join(program_name)
             .join("proving")
             .with_extension("key");
-        let variable_information_path = tmp_base
-            .join(program_name)
-            .join("variables")
-            .with_extension("inf");
         let verification_contract_path = tmp_base
             .join(program_name)
             .join("verifier")
@@ -173,8 +152,6 @@ mod integration {
                     proving_key_path.to_str().unwrap(),
                     "-v",
                     verification_key_path.to_str().unwrap(),
-                    "-m",
-                    variable_information_path.to_str().unwrap(),
                     "--scheme",
                     scheme,
                 ])
@@ -199,12 +176,12 @@ mod integration {
                 assert_cli::Assert::command(&[
                     "../target/release/zokrates",
                     "generate-proof",
+                    "-i",
+                    flattened_path.to_str().unwrap(),
                     "-w",
                     witness_path.to_str().unwrap(),
                     "-p",
                     proving_key_path.to_str().unwrap(),
-                    "-i",
-                    variable_information_path.to_str().unwrap(),
                     "--scheme",
                     scheme,
                 ])
