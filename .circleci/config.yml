@@ -8,7 +8,7 @@ jobs:
       - checkout
       - run:
           name: Version information
-          command: rustup update; rustc --version; cargo --version; rustup --version
+          command: rustc --version; cargo --version; rustup --version
       - run:
           name: Calculate dependencies
           command: cargo generate-lockfile
@@ -35,7 +35,7 @@ jobs:
       - checkout
       - run:
           name: Version information
-          command: rustup update; rustc --version; cargo --version; rustup --version
+          command: rustc --version; cargo --version; rustup --version
       - run:
           name: Calculate dependencies
           command: cargo generate-lockfile
@@ -64,7 +64,7 @@ jobs:
       - checkout
       - run:
           name: Version information
-          command: rustup update; rustc --version; cargo --version; rustup --version
+          command: rustc --version; cargo --version; rustup --version
       - run:
           name: Calculate dependencies
           command: cargo generate-lockfile
@@ -87,7 +87,7 @@ jobs:
       - checkout
       - run:
           name: Version information
-          command: rustup update; rustc --version; cargo --version; rustup --version
+          command: rustc --version; cargo --version; rustup --version
       - run:
           name: Calculate dependencies
           command: cargo generate-lockfile
