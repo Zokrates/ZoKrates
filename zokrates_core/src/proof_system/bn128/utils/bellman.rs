@@ -9,7 +9,6 @@ use bellman::{Circuit, ConstraintSystem, LinearCombination, SynthesisError, Vari
 use ir::{LinComb, Prog, Statement, Witness};
 use pairing::bn256::{Bn256, Fr};
 use std::collections::BTreeMap;
-use std::fmt;
 use zokrates_field::field::{Field, FieldPrime};
 
 use self::rand::*;
@@ -36,62 +35,48 @@ impl<T: Field> Computation<T> {
         }
     }
 }
-impl<T: Field> fmt::Display for Computation<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Compute:\n{}\n\nwith witness {}",
-            self.program,
-            self.witness
-                .clone()
-                .unwrap()
-                .0
-                .iter()
-                .map(|(k, v)| format!("{} -> {}", k, v))
-                .collect::<Vec<_>>()
-                .join("\n"),
-        )
-    }
-}
 
-fn bellman_combination(
+fn bellman_combination<CS: ConstraintSystem<Bn256>>(
     l: LinComb<FieldPrime>,
-    symbols: &BTreeMap<FlatVariable, Variable>,
+    cs: &mut CS,
+    symbols: &mut BTreeMap<FlatVariable, Variable>,
+    witness: &mut Witness<FieldPrime>,
 ) -> LinearCombination<Bn256> {
     l.0.into_iter()
-        .map(|(k, v)| (Fr::from(v), symbols.get(&k).unwrap().clone()))
+        .map(|(k, v)| {
+            (
+                Fr::from(v),
+                symbols
+                    .entry(k)
+                    .or_insert_with(|| {
+                        match k.is_output() {
+                            true => cs.alloc_input(
+                                || format!("{}", k),
+                                || {
+                                    Ok(witness
+                                        .0
+                                        .remove(&k)
+                                        .ok_or(SynthesisError::AssignmentMissing)?
+                                        .into())
+                                },
+                            ),
+                            false => cs.alloc(
+                                || format!("{}", k),
+                                || {
+                                    Ok(witness
+                                        .0
+                                        .remove(&k)
+                                        .ok_or(SynthesisError::AssignmentMissing)?
+                                        .into())
+                                },
+                            ),
+                        }
+                        .unwrap()
+                    })
+                    .clone(),
+            )
+        })
         .fold(LinearCombination::zero(), |acc, e| acc + e)
-}
-
-fn alloc<CS: ConstraintSystem<Bn256>>(
-    cs: &mut CS,
-    var: FlatVariable,
-    witness: &Witness<FieldPrime>,
-) -> Result<Variable, SynthesisError> {
-    match var.is_output() {
-        true => cs.alloc_input(
-            || format!("{}", var),
-            || {
-                // let w = witness.ok_or(SynthesisError::AssignmentMissing)?;
-                let val = witness
-                    .0
-                    .get(&var)
-                    .ok_or(SynthesisError::AssignmentMissing)?;
-                Ok(Fr::from(val.clone()))
-            },
-        ),
-        false => cs.alloc(
-            || format!("{}", var),
-            || {
-                // let witness = witness.ok_or(SynthesisError::AssignmentMissing)?;
-                let val = witness
-                    .0
-                    .get(&var)
-                    .ok_or(SynthesisError::AssignmentMissing)?;
-                Ok(Fr::from(val.clone()))
-            },
-        ),
-    }
 }
 
 impl Prog<FieldPrime> {
@@ -100,73 +85,60 @@ impl Prog<FieldPrime> {
         cs: &mut CS,
         witness: Option<Witness<FieldPrime>>,
     ) -> Result<(), SynthesisError> {
+        // mapping from IR variables
         let mut symbols = BTreeMap::new();
 
-        let mut arguments = vec![];
+        let mut witness = witness.unwrap_or(Witness::empty());
 
-        let witness = witness.unwrap_or(Witness::empty());
+        assert!(symbols.insert(FlatVariable::one(), CS::one()).is_none());
 
-        for (index, (var, private)) in self
-            .main
-            .arguments
-            .clone()
-            .into_iter()
-            .zip(self.private)
-            .enumerate()
-        {
-            let wire = match private {
-                true => cs.alloc(
-                    || format!("PRIVATE_INPUT_{}", index),
-                    || {
-                        // let w = witness.ok_or(SynthesisError::AssignmentMissing)?;
-                        let val = witness
-                            .0
-                            .get(&var)
-                            .ok_or(SynthesisError::AssignmentMissing)?;
-                        Ok(Fr::from(val.clone()))
-                    },
-                ),
-                false => cs.alloc_input(
-                    || format!("PUBLIC_INPUT_{}", index),
-                    || {
-                        // let witness = witness.ok_or(SynthesisError::AssignmentMissing)?;
-                        let val = witness
-                            .0
-                            .get(&var)
-                            .ok_or(SynthesisError::AssignmentMissing)?;
-                        Ok(Fr::from(val.clone()))
-                    },
-                ),
-            }?;
-            arguments.push((var, wire));
-        }
-
-        symbols.extend(arguments);
+        symbols.extend(
+            self.main
+                .arguments
+                .iter()
+                .zip(self.private)
+                .enumerate()
+                .map(|(index, (var, private))| {
+                    let wire = match private {
+                        true => cs.alloc(
+                            || format!("PRIVATE_INPUT_{}", index),
+                            || {
+                                Ok(witness
+                                    .0
+                                    .remove(&var)
+                                    .ok_or(SynthesisError::AssignmentMissing)?
+                                    .into())
+                            },
+                        ),
+                        false => cs.alloc_input(
+                            || format!("PUBLIC_INPUT_{}", index),
+                            || {
+                                Ok(witness
+                                    .0
+                                    .remove(&var)
+                                    .ok_or(SynthesisError::AssignmentMissing)?
+                                    .into())
+                            },
+                        ),
+                    }
+                    .unwrap();
+                    (var.clone(), wire)
+                }),
+        );
 
         let main = self.main;
-        symbols.insert(FlatVariable::one(), CS::one());
 
         for statement in main.statements {
             match statement {
                 Statement::Constraint(quad, lin) => {
-                    if lin.is_assignee(&symbols) {
-                        let flat_var = lin.0.iter().next().unwrap().0.clone();
-                        let var = alloc(cs, flat_var, &witness)?;
-                        symbols.insert(flat_var, var);
-                    }
-                    cs.enforce(
-                        || "Definition",
-                        |lc| lc + &bellman_combination(quad.left.clone(), &symbols),
-                        |lc| lc + &bellman_combination(quad.right.clone(), &symbols),
-                        |lc| lc + &bellman_combination(lin, &symbols),
-                    );
+                    let a = &bellman_combination(quad.left.clone(), cs, &mut symbols, &mut witness);
+                    let b =
+                        &bellman_combination(quad.right.clone(), cs, &mut symbols, &mut witness);
+                    let c = &bellman_combination(lin, cs, &mut symbols, &mut witness);
+
+                    cs.enforce(|| "Constraint", |lc| lc + a, |lc| lc + b, |lc| lc + c);
                 }
-                Statement::Directive(d) => {
-                    for output in d.outputs {
-                        let var = alloc(cs, output, &witness)?;
-                        symbols.insert(output, var);
-                    }
-                }
+                _ => {}
             }
         }
 
@@ -198,15 +170,8 @@ impl Computation<FieldPrime> {
             .zip(self.program.private.clone())
             .filter(|(_, p)| !p)
             .map(|(a, _)| a)
-            .chain(
-                self.witness
-                    .clone()
-                    .unwrap()
-                    .0
-                    .keys()
-                    .filter(|k| k.is_output()),
-            )
             .map(|v| self.witness.clone().unwrap().0.get(v).unwrap().clone())
+            .chain(self.witness.clone().unwrap().return_values())
             .map(|v| Fr::from(v.clone()))
             .collect()
     }
@@ -355,6 +320,117 @@ mod tests {
             let witness = program
                 .clone()
                 .execute::<FieldPrime>(&vec![FieldPrime::from(0)])
+                .unwrap();
+            let computation = Computation::with_witness(program, witness);
+
+            let params = computation.clone().setup();
+            let _proof = computation.prove(&params);
+        }
+
+        #[test]
+        fn no_arguments() {
+            let program: Prog<FieldPrime> = Prog {
+                main: Function {
+                    id: String::from("main"),
+                    arguments: vec![],
+                    returns: vec![FlatVariable::public(0)],
+                    statements: vec![Statement::Constraint(
+                        FlatVariable::one().into(),
+                        FlatVariable::public(0).into(),
+                    )],
+                },
+                private: vec![],
+            };
+
+            let witness = program.clone().execute::<FieldPrime>(&vec![]).unwrap();
+            let computation = Computation::with_witness(program, witness);
+
+            let params = computation.clone().setup();
+            let _proof = computation.prove(&params);
+        }
+
+        #[test]
+        fn unordered_variables() {
+            // public variables must be ordered from 0
+            // private variables can be unordered
+            let program: Prog<FieldPrime> = Prog {
+                main: Function {
+                    id: String::from("main"),
+                    arguments: vec![FlatVariable::new(42), FlatVariable::new(51)],
+                    returns: vec![FlatVariable::public(0), FlatVariable::public(1)],
+                    statements: vec![
+                        Statement::Constraint(
+                            (LinComb::from(FlatVariable::new(42))
+                                + LinComb::from(FlatVariable::new(51)))
+                            .into(),
+                            FlatVariable::public(0).into(),
+                        ),
+                        Statement::Constraint(
+                            (LinComb::from(FlatVariable::one())
+                                + LinComb::from(FlatVariable::new(42)))
+                            .into(),
+                            FlatVariable::public(1).into(),
+                        ),
+                    ],
+                },
+                private: vec![true, false],
+            };
+
+            let witness = program
+                .clone()
+                .execute::<FieldPrime>(&vec![FieldPrime::from(3), FieldPrime::from(4)])
+                .unwrap();
+            let computation = Computation::with_witness(program, witness);
+
+            let params = computation.clone().setup();
+            let _proof = computation.prove(&params);
+        }
+
+        #[test]
+        fn one() {
+            let program: Prog<FieldPrime> = Prog {
+                main: Function {
+                    id: String::from("main"),
+                    arguments: vec![FlatVariable::new(42)],
+                    returns: vec![FlatVariable::public(33)],
+                    statements: vec![Statement::Constraint(
+                        (LinComb::from(FlatVariable::new(42)) + LinComb::one()).into(),
+                        FlatVariable::public(33).into(),
+                    )],
+                },
+                private: vec![false],
+            };
+
+            let witness = program
+                .clone()
+                .execute::<FieldPrime>(&vec![FieldPrime::from(3)])
+                .unwrap();
+            let computation = Computation::with_witness(program, witness);
+
+            let params = computation.clone().setup();
+            let _proof = computation.prove(&params);
+        }
+
+        #[test]
+        fn with_directives() {
+            let program: Prog<FieldPrime> = Prog {
+                main: Function {
+                    id: String::from("main"),
+                    arguments: vec![FlatVariable::new(42), FlatVariable::new(51)],
+                    returns: vec![FlatVariable::public(33)],
+                    statements: vec![Statement::Constraint(
+                        (LinComb::from(FlatVariable::new(42))
+                            + LinComb::from(FlatVariable::new(51)))
+                        .into(),
+                        FlatVariable::public(33).into(),
+                    )],
+                },
+                private: vec![true, false],
+            };
+
+            let witness = program
+                .clone()
+                .execute::<FieldPrime>(&vec![FieldPrime::from(3), FieldPrime::from(4)])
                 .unwrap();
             let computation = Computation::with_witness(program, witness);
 

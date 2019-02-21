@@ -1,5 +1,7 @@
-use ir;
+use flat_absy::FlatVariable;
+use ir::{self, Statement};
 use std::cmp::max;
+use std::collections::HashMap;
 use std::ffi::CString;
 use zokrates_field::field::Field;
 
@@ -32,7 +34,7 @@ pub fn prepare_setup<T: Field>(
     CString,
 ) {
     // transform to R1CS
-    let (variables, public_variables_count, a, b, c) = ir::r1cs_program(program);
+    let (variables, public_variables_count, a, b, c) = r1cs_program(program);
 
     let num_inputs = public_variables_count - 1;
 
@@ -154,7 +156,7 @@ pub fn prepare_generate_proof<T: Field>(
     proof_path: &str,
 ) -> (CString, CString, Vec<[u8; 32]>, usize, Vec<[u8; 32]>, usize) {
     // recover variable order from the program
-    let (variables, public_variables_count, _, _, _) = ir::r1cs_program(program);
+    let (variables, public_variables_count, _, _, _) = r1cs_program(program);
 
     let witness: Vec<_> = variables.iter().map(|x| witness.0[x].clone()).collect();
 
@@ -188,4 +190,117 @@ pub fn prepare_generate_proof<T: Field>(
         private_inputs_arr,
         private_inputs_length,
     )
+}
+
+/// Returns the index of `var` in `variables`, adding `var` with incremented index if it not yet exists.
+///
+/// # Arguments
+///
+/// * `variables` - A mutual map that maps all existing variables to their index.
+/// * `var` - Variable to be searched for.
+pub fn provide_variable_idx(
+    variables: &mut HashMap<FlatVariable, usize>,
+    var: &FlatVariable,
+) -> usize {
+    let index = variables.len();
+    *variables.entry(*var).or_insert(index)
+}
+
+/// Calculates one R1CS row representation of a program and returns (V, A, B, C) so that:
+/// * `V` contains all used variables and the index in the vector represents the used number in `A`, `B`, `C`
+/// * `<A,x>*<B,x> = <C,x>` for a witness `x`
+///
+/// # Arguments
+///
+/// * `prog` - The program the representation is calculated for.
+pub fn r1cs_program<T: Field>(
+    prog: ir::Prog<T>,
+) -> (
+    Vec<FlatVariable>,
+    usize,
+    Vec<Vec<(usize, T)>>,
+    Vec<Vec<(usize, T)>>,
+    Vec<Vec<(usize, T)>>,
+) {
+    let mut variables: HashMap<FlatVariable, usize> = HashMap::new();
+    provide_variable_idx(&mut variables, &FlatVariable::one());
+
+    for x in prog
+        .main
+        .arguments
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| !prog.private[*index])
+    {
+        provide_variable_idx(&mut variables, &x.1);
+    }
+
+    //Only the main function is relevant in this step, since all calls to other functions were resolved during flattening
+    let main = prog.main;
+
+    //~out are added after main's arguments as we want variables (columns)
+    //in the r1cs to be aligned like "public inputs | private inputs"
+    let main_return_count = main.returns.len();
+
+    for i in 0..main_return_count {
+        provide_variable_idx(&mut variables, &FlatVariable::public(i));
+    }
+
+    // position where private part of witness starts
+    let private_inputs_offset = variables.len();
+
+    // first pass through statements to populate `variables`
+    for (quad, lin) in main.statements.iter().filter_map(|s| match s {
+        Statement::Constraint(quad, lin) => Some((quad, lin)),
+        Statement::Directive(..) => None,
+    }) {
+        for (k, _) in &quad.left.0 {
+            provide_variable_idx(&mut variables, &k);
+        }
+        for (k, _) in &quad.right.0 {
+            provide_variable_idx(&mut variables, &k);
+        }
+        for (k, _) in &lin.0 {
+            provide_variable_idx(&mut variables, &k);
+        }
+    }
+
+    let mut a = vec![];
+    let mut b = vec![];
+    let mut c = vec![];
+
+    // second pass to convert program to raw sparse vectors
+    for (quad, lin) in main.statements.into_iter().filter_map(|s| match s {
+        Statement::Constraint(quad, lin) => Some((quad, lin)),
+        Statement::Directive(..) => None,
+    }) {
+        a.push(
+            quad.left
+                .0
+                .into_iter()
+                .map(|(k, v)| (variables.get(&k).unwrap().clone(), v))
+                .collect(),
+        );
+        b.push(
+            quad.right
+                .0
+                .into_iter()
+                .map(|(k, v)| (variables.get(&k).unwrap().clone(), v))
+                .collect(),
+        );
+        c.push(
+            lin.0
+                .into_iter()
+                .map(|(k, v)| (variables.get(&k).unwrap().clone(), v))
+                .collect(),
+        );
+    }
+
+    // Convert map back into list ordered by index
+    let mut variables_list = vec![FlatVariable::new(0); variables.len()];
+    for (k, v) in variables.drain() {
+        assert_eq!(variables_list[v], FlatVariable::new(0));
+        std::mem::replace(&mut variables_list[v], k);
+    }
+    (variables_list, private_inputs_offset, a, b, c)
 }

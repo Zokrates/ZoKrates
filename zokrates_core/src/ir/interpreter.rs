@@ -20,18 +20,20 @@ pub type ExecutionResult<T> = Result<Witness<T>, Error>;
 //     }
 // }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Witness<T: Field>(pub BTreeMap<FlatVariable, T>);
 
 impl<T: Field> Witness<T> {
-    pub fn return_values(&self) -> Vec<&T> {
+    pub fn return_values(&self) -> Vec<T> {
         let out = self
             .0
             .iter()
             .filter(|(k, _)| k.is_output())
             .collect::<HashMap<_, _>>();
+
         (0..out.len())
             .map(|i| *out.get(&FlatVariable::public(i)).unwrap())
+            .cloned()
             .collect()
     }
 
@@ -199,5 +201,30 @@ impl fmt::Display for Error {
 impl fmt::Debug for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use zokrates_field::field::FieldPrime;
+
+    #[test]
+    fn human_readable_witness() {
+        let witness = Witness(
+            vec![
+                (FlatVariable::public(0), 3),
+                (FlatVariable::new(0), 2),
+                (FlatVariable::one(), 1),
+            ]
+            .into_iter()
+            .map(|(x, y)| (x, FieldPrime::from(y)))
+            .collect(),
+        );
+        assert_eq!(
+            witness.clone(),
+            Witness::from_human_readable(witness.into_human_readable())
+        );
     }
 }
