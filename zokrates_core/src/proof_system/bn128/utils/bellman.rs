@@ -6,10 +6,10 @@ use bellman::groth16::{
     Parameters, VerifyingKey,
 };
 use bellman::{Circuit, ConstraintSystem, LinearCombination, SynthesisError, Variable};
-use ir::interpreter::Witness;
-use ir::*;
+use ir::{LinComb, Prog, Statement, Witness};
 use pairing::bn256::{Bn256, Fr};
 use std::collections::BTreeMap;
+use std::fmt;
 use zokrates_field::field::{Field, FieldPrime};
 
 use self::rand::*;
@@ -54,16 +54,13 @@ impl<T: Field> fmt::Display for Computation<T> {
     }
 }
 
-impl LinComb<FieldPrime> {
-    fn into_bellman_combination(
-        self,
-        symbols: &BTreeMap<FlatVariable, Variable>,
-    ) -> LinearCombination<Bn256> {
-        self.0
-            .into_iter()
-            .map(|(k, v)| (Fr::from(v), symbols.get(&k).unwrap().clone()))
-            .fold(LinearCombination::zero(), |acc, e| acc + e)
-    }
+fn bellman_combination(
+    l: LinComb<FieldPrime>,
+    symbols: &BTreeMap<FlatVariable, Variable>,
+) -> LinearCombination<Bn256> {
+    l.0.into_iter()
+        .map(|(k, v)| (Fr::from(v), symbols.get(&k).unwrap().clone()))
+        .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
 fn alloc<CS: ConstraintSystem<Bn256>>(
@@ -159,9 +156,9 @@ impl Prog<FieldPrime> {
                     }
                     cs.enforce(
                         || "Definition",
-                        |lc| lc + &quad.left.clone().into_bellman_combination(&symbols),
-                        |lc| lc + &quad.right.clone().into_bellman_combination(&symbols),
-                        |lc| lc + &lin.into_bellman_combination(&symbols),
+                        |lc| lc + &bellman_combination(quad.left.clone(), &symbols),
+                        |lc| lc + &bellman_combination(quad.right.clone(), &symbols),
+                        |lc| lc + &bellman_combination(lin, &symbols),
                     );
                 }
                 Statement::Directive(d) => {
@@ -290,6 +287,7 @@ pub fn serialize_proof(p: &Proof<Bn256>, inputs: &Vec<Fr>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ir::Function;
     use zokrates_field::field::FieldPrime;
 
     mod prove {

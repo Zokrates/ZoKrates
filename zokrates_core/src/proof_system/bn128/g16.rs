@@ -1,45 +1,40 @@
 use bellman::groth16::Parameters;
 use ir;
-use ir::backend::{serialize_proof, serialize_vk, Computation};
-use proof_system::bn128::utils::SOLIDITY_PAIRING_LIB;
-use proof_system::{Metadata, ProofSystem};
+use proof_system::bn128::utils::bellman::{serialize_proof, serialize_vk, Computation};
+use proof_system::bn128::utils::solidity::SOLIDITY_PAIRING_LIB;
+use proof_system::ProofSystem;
 use regex::Regex;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use zokrates_field::field::FieldPrime;
 
+const G16_WARNING: &str = "WARNING: You are using the Groth16 scheme which is subject to malleability. See zokrates.github.io/reference/backends for implications.";
+
 pub struct G16 {}
 impl ProofSystem for G16 {
-    fn setup(&self, program: ir::Prog<FieldPrime>, pk_path: &str, vk_path: &str) -> Metadata {
+    fn setup(&self, program: ir::Prog<FieldPrime>, pk_path: &str, vk_path: &str) {
         std::env::set_var("BELLMAN_VERBOSE", "0");
 
-        println!("WARNING: You are using the Groth16 scheme which is subject to malleability. See https://eprint.iacr.org/2017/540.pdf for implications.");
+        println!("{}", G16_WARNING);
 
         let parameters = Computation::without_witness(program).setup();
         let parameters_file = File::create(PathBuf::from(pk_path)).unwrap();
         parameters.write(parameters_file).unwrap();
         let mut vk_file = File::create(PathBuf::from(vk_path)).unwrap();
         vk_file.write(serialize_vk(parameters.vk).as_ref()).unwrap();
-
-        // TODO write pk, vk to files
-        Metadata {
-            offset: 42,
-            variables: vec![],
-        }
     }
 
     fn generate_proof(
         &self,
         program: ir::Prog<FieldPrime>,
         witness: ir::Witness<FieldPrime>,
-        _metadata: Metadata,
         pk_path: &str,
         proof_path: &str,
     ) -> bool {
         std::env::set_var("BELLMAN_VERBOSE", "0");
 
-        println!("WARNING: You are using the Groth16 scheme which is subject to malleability. See https://eprint.iacr.org/2017/540.pdf for implications.");
+        println!("{}", G16_WARNING);
 
         let computation = Computation::with_witness(program, witness);
         let parameters_file = File::open(PathBuf::from(pk_path)).unwrap();

@@ -31,6 +31,23 @@ impl FlatVariable {
         assert!(self.id > 0);
         (self.id as usize) - 1
     }
+
+    pub fn from_human_readable(s: &str) -> Self {
+        if s == "~one" {
+            return FlatVariable::one();
+        }
+        let mut public = s.split("~out_");
+        match public.nth(1) {
+            Some(v) => return FlatVariable::public(v.parse().unwrap()),
+            None => {}
+        }
+        let mut private = s.split("_");
+        match private.nth(1) {
+            Some(v) => return FlatVariable::new(v.parse().unwrap()),
+            None => {}
+        }
+        unreachable!()
+    }
 }
 
 impl fmt::Display for FlatVariable {

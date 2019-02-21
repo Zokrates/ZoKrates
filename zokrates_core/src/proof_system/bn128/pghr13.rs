@@ -2,10 +2,9 @@ extern crate libc;
 
 use self::libc::{c_char, c_int, uint8_t};
 use ir;
-use proof_system::utils::{
-    prepare_generate_proof, prepare_setup, SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB,
-};
-use proof_system::{Metadata, ProofSystem};
+use proof_system::bn128::utils::libsnark::{prepare_generate_proof, prepare_setup};
+use proof_system::bn128::utils::solidity::{SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB};
+use proof_system::ProofSystem;
 
 use regex::Regex;
 use std::fs::File;
@@ -47,7 +46,7 @@ extern "C" {
 }
 
 impl ProofSystem for PGHR13 {
-    fn setup(&self, program: ir::Prog<FieldPrime>, pk_path: &str, vk_path: &str) -> Metadata {
+    fn setup(&self, program: ir::Prog<FieldPrime>, pk_path: &str, vk_path: &str) {
         let (
             a_arr,
             b_arr,
@@ -60,7 +59,6 @@ impl ProofSystem for PGHR13 {
             num_inputs,
             pk_path_cstring,
             vk_path_cstring,
-            metadata,
         ) = prepare_setup(program, pk_path, vk_path);
 
         unsafe {
@@ -78,15 +76,12 @@ impl ProofSystem for PGHR13 {
                 vk_path_cstring.as_ptr(),
             );
         }
-
-        metadata
     }
 
     fn generate_proof(
         &self,
-        _: ir::Prog<FieldPrime>,
+        program: ir::Prog<FieldPrime>,
         witness: ir::Witness<FieldPrime>,
-        metadata: Metadata,
         pk_path: &str,
         proof_path: &str,
     ) -> bool {
@@ -97,7 +92,7 @@ impl ProofSystem for PGHR13 {
             public_inputs_length,
             private_inputs_arr,
             private_inputs_length,
-        ) = prepare_generate_proof(pk_path, proof_path, witness, metadata);
+        ) = prepare_generate_proof(program, witness, pk_path, proof_path);
 
         unsafe {
             _pghr13_generate_proof(

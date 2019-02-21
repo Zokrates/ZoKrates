@@ -1,6 +1,4 @@
-use flat_absy::flat_variable::FlatVariable;
 use ir;
-use proof_system::Metadata;
 use std::cmp::max;
 use std::ffi::CString;
 use zokrates_field::field::Field;
@@ -32,7 +30,6 @@ pub fn prepare_setup<T: Field>(
     usize,
     CString,
     CString,
-    Metadata,
 ) {
     // transform to R1CS
     let (variables, public_variables_count, a, b, c) = ir::r1cs_program(program);
@@ -41,11 +38,6 @@ pub fn prepare_setup<T: Field>(
 
     let num_constraints = a.len();
     let num_variables = variables.len();
-
-    let metadata = Metadata {
-        offset: public_variables_count,
-        variables,
-    };
 
     // Create single A,B,C vectors of tuples (constraint_number, variable_id, variable_value)
     let mut a_vec = vec![];
@@ -151,26 +143,24 @@ pub fn prepare_setup<T: Field>(
         num_inputs,
         pk_path_cstring,
         vk_path_cstring,
-        metadata,
     )
 }
 
 // proof-system-independent preparation for proof generation
 pub fn prepare_generate_proof<T: Field>(
+    program: ir::Prog<T>,
+    witness: ir::Witness<T>,
     pk_path: &str,
     proof_path: &str,
-    witness: ir::Witness<T>,
-    metadata: Metadata,
 ) -> (CString, CString, Vec<[u8; 32]>, usize, Vec<[u8; 32]>, usize) {
-    let witness: Vec<_> = metadata
-        .variables
-        .iter()
-        .map(|x| witness.0[x].clone())
-        .collect();
+    // recover variable order from the program
+    let (variables, public_variables_count, _, _, _) = ir::r1cs_program(program);
+
+    let witness: Vec<_> = variables.iter().map(|x| witness.0[x].clone()).collect();
 
     // split witness into public and private inputs at offset
     let mut public_inputs: Vec<_> = witness.clone();
-    let private_inputs: Vec<_> = public_inputs.split_off(metadata.offset);
+    let private_inputs: Vec<_> = public_inputs.split_off(public_variables_count);
 
     let pk_path_cstring = CString::new(pk_path).unwrap();
     let proof_path_cstring = CString::new(proof_path).unwrap();

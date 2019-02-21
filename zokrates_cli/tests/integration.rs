@@ -97,7 +97,7 @@ mod integration {
             "--light",
         ];
 
-        if program_name.contains("libsnark") {
+        if program_name.contains("sha") {
             // we don't want to test libsnark integrations if libsnark is not available
             #[cfg(not(feature = "libsnark"))]
             return;
@@ -150,6 +150,8 @@ mod integration {
         let mut witness_file = File::open(&witness_path).unwrap();
         let mut witness = String::new();
         witness_file.read_to_string(&mut witness).unwrap();
+
+        println!("{}", witness);
 
         for line in expected_witness.as_str().split("\n") {
             assert!(

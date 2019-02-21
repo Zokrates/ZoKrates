@@ -6,15 +6,14 @@ use std::fmt;
 use std::mem;
 use zokrates_field::field::Field;
 
-pub mod backend;
 mod expression;
 mod from_flat;
 mod interpreter;
 
-use self::expression::LinComb;
+pub use self::expression::LinComb;
 use self::expression::QuadComb;
 
-pub use self::interpreter::{Error, ExecutionResult, Witness, WitnessVec};
+pub use self::interpreter::{Error, ExecutionResult, Witness};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Statement<T: Field> {

@@ -117,32 +117,8 @@ void serializeVerificationKeyToFile(r1cs_se_ppzksnark_verification_key<libff::al
   fh.close();
 }
 
-// compliant with solidty verification example
-void exportVerificationKey(r1cs_se_ppzksnark_keypair<libff::alt_bn128_pp> keypair){
-  auto vk = keypair.vk;
-  unsigned queryLength = vk.query.size();
-
-  cout << "\t\tvk.H = " << outputPointG2AffineAsHex(vk.H) << endl;
-  cout << "\t\tvk.Galpha = " << outputPointG1AffineAsHex(vk.G_alpha) << endl;
-  cout << "\t\tvk.Hbeta = " << outputPointG2AffineAsHex(vk.H_beta) << endl;
-  cout << "\t\tvk.Ggamma = " << outputPointG1AffineAsHex(vk.G_gamma) << endl;
-  cout << "\t\tvk.Hgamma = " << outputPointG2AffineAsHex(vk.H_gamma) << endl;
-  cout << "\t\tvk.query.len() = " << queryLength << endl;
-  for (size_t i = 0; i < queryLength; ++i)
-  {
-      auto vkqueryi = outputPointG1AffineAsHex(vk.query[i]);
-      cout << "\t\tvk.query[" << i << "] = " << vkqueryi << endl;
-  }
-  cout << "\t\t}" << endl;
-}
-
-void printProof(r1cs_se_ppzksnark_proof<libff::alt_bn128_pp> proof, const char* proof_path, const uint8_t* public_inputs,
+void exportProof(r1cs_se_ppzksnark_proof<libff::alt_bn128_pp> proof, const char* proof_path, const uint8_t* public_inputs,
             int public_inputs_length){
-    cout << "Proof:"<< endl;
-    cout << "A = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.A)<< ");" << endl;
-    cout << "B = Pairing.G2Point(" << outputPointG2AffineAsHex(proof.B)<< ");" << endl;
-    cout << "C = Pairing.G1Point(" << outputPointG1AffineAsHex(proof.C)<< ");" << endl;
-
     //create JSON file
     std::stringstream ss;
     ss << "{" << "\n";
@@ -170,16 +146,6 @@ void printProof(r1cs_se_ppzksnark_proof<libff::alt_bn128_pp> proof, const char* 
     writeToFile(proof_path, s);
 }
 
-// compliant with solidty verification example
-void exportInput(r1cs_primary_input<libff::Fr<libff::alt_bn128_pp>> input){
-        cout << "\tInput in Solidity compliant format:{" << endl;
-        for (size_t i = 0; i < input.size(); ++i)
-        {
-                cout << "\t\tinput[" << i << "] = " << HexStringFromLibsnarkBigint(input[i].as_bigint()) << ";" << endl;
-        }
-        cout << "\t\t}" << endl;
-}
-
 }
 
 bool _gm17_setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int A_len, int B_len, int C_len, int constraints, int variables, int inputs, const char* pk_path, const char* vk_path)
@@ -202,9 +168,6 @@ bool _gm17_setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int A_len
   // Export vk and pk to files
   gm17::serializeProvingKeyToFile(keypair.pk, pk_path);
   gm17::serializeVerificationKeyToFile(keypair.vk, vk_path);
-
-  // Print VerificationKey in Solidity compatible format
-  gm17::exportVerificationKey(keypair);
 
   return true;
 }
@@ -240,9 +203,7 @@ bool _gm17_generate_proof(const char* pk_path, const char* proof_path, const uin
   // Proof Generation
   auto proof = r1cs_se_ppzksnark_prover<libff::alt_bn128_pp>(pk, primary_input, auxiliary_input);
 
-  // print proof
-  gm17::printProof(proof, proof_path, public_inputs, public_inputs_length);
-  // TODO? print inputs
+  gm17::exportProof(proof, proof_path, public_inputs, public_inputs_length);
 
   return true;
 }

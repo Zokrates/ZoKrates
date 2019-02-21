@@ -32,7 +32,7 @@ fn cli() -> Result<(), String> {
     const WITNESS_DEFAULT_PATH: &str = "witness";
     const VARIABLES_INFORMATION_KEY_DEFAULT_PATH: &str = "variables.inf";
     const JSON_PROOF_PATH: &str = "proof.json";
-    let default_backend = env::var("ZOKRATES_BACKEND").unwrap_or(String::from("pghr13"));
+    let default_scheme = env::var("ZOKRATES_BACKEND").unwrap_or(String::from("g16"));
 
     // cli specification using clap library
     let matches = App::new("ZoKrates")
@@ -101,14 +101,14 @@ fn cli() -> Result<(), String> {
             .required(false)
             .default_value(VARIABLES_INFORMATION_KEY_DEFAULT_PATH)
         )
-        .arg(Arg::with_name("backend")
-            .short("b")
-            .long("backend")
+        .arg(Arg::with_name("scheme")
+            .short("s")
+            .long("scheme")
             .help("Backend to use in the setup. Available options are PGHR13 and GM17")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
-            .default_value(&default_backend)
+            .default_value(&default_scheme)
         )
     )
     .subcommand(SubCommand::with_name("export-verifier")
@@ -130,14 +130,14 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(VERIFICATION_CONTRACT_DEFAULT_PATH)
-        ).arg(Arg::with_name("backend")
-            .short("b")
-            .long("backend")
+        ).arg(Arg::with_name("scheme")
+            .short("s")
+            .long("scheme")
             .help("Backend to use to export the verifier. Available options are PGHR13 and GM17")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
-            .default_value(&default_backend)
+            .default_value(&default_scheme)
         )
     )
     .subcommand(SubCommand::with_name("compute-witness")
@@ -213,14 +213,14 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(VARIABLES_INFORMATION_KEY_DEFAULT_PATH)
-        ).arg(Arg::with_name("backend")
-            .short("b")
-            .long("backend")
+        ).arg(Arg::with_name("scheme")
+            .short("s")
+            .long("scheme")
             .help("Backend to use to generate the proof. Available options are PGHR13 and GM17")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
-            .default_value(&default_backend)
+            .default_value(&default_scheme)
         )
     )
     .get_matches();
@@ -376,20 +376,24 @@ fn cli() -> Result<(), String> {
             let output_file = File::create(&output_path)
                 .map_err(|why| format!("couldn't create {}: {}", output_path.display(), why))?;
 
-            //println!("{:?}", witness);
+            // create a CSV writer
+            let mut wtr = csv::WriterBuilder::new()
+                .delimiter(b' ')
+                .flexible(true)
+                .has_headers(false)
+                .from_writer(output_file);
 
-            let mut bw = BufWriter::new(output_file);
-            write!(
-                &mut bw,
-                "{}",
-                &serde_json::to_string_pretty(&ir::WitnessVec::from(witness)).unwrap()
-            )
-            .map_err(|_| "Unable to write data to file.".to_string())?;
-            bw.flush()
+            // Write each line of the witness to the file
+            for line in witness.into_human_readable() {
+                wtr.serialize(line)
+                    .map_err(|_| "Error writing witness to file".to_string())?;
+            }
+
+            wtr.flush()
                 .map_err(|_| "Unable to flush buffer.".to_string())?;
         }
         ("setup", Some(sub_matches)) => {
-            let backend = get_backend(sub_matches.value_of("backend").unwrap())?;
+            let scheme = get_scheme(sub_matches.value_of("scheme").unwrap())?;
 
             println!("Performing setup...");
 
@@ -409,7 +413,7 @@ fn cli() -> Result<(), String> {
 
             // run setup phase
             // number of inputs in the zkSNARK sense, i.e., input variables + output variables
-            let metadata = backend.setup(program, pk_path, vk_path);
+            let metadata = scheme.setup(program, pk_path, vk_path);
 
             // write variables meta information to file
             let var_inf_path = Path::new(sub_matches.value_of("meta-information").unwrap());
@@ -428,7 +432,7 @@ fn cli() -> Result<(), String> {
         }
         ("export-verifier", Some(sub_matches)) => {
             {
-                let backend = get_backend(sub_matches.value_of("backend").unwrap())?;
+                let scheme = get_scheme(sub_matches.value_of("scheme").unwrap())?;
 
                 println!("Exporting verifier...");
 
@@ -438,7 +442,7 @@ fn cli() -> Result<(), String> {
                     .map_err(|why| format!("couldn't open {}: {}", input_path.display(), why))?;
                 let reader = BufReader::new(input_file);
 
-                let verifier = backend.export_solidity_verifier(reader);
+                let verifier = scheme.export_solidity_verifier(reader);
 
                 //write output file
                 let output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -454,7 +458,7 @@ fn cli() -> Result<(), String> {
         ("generate-proof", Some(sub_matches)) => {
             println!("Generating proof...");
 
-            let backend = get_backend(sub_matches.value_of("backend").unwrap())?;
+            let scheme = get_scheme(sub_matches.value_of("scheme").unwrap())?;
 
             // deserialize witness
             let witness_path = Path::new(sub_matches.value_of("witness").unwrap());
@@ -463,21 +467,16 @@ fn cli() -> Result<(), String> {
                 Err(why) => panic!("couldn't open {}: {}", witness_path.display(), why),
             };
 
-            let witness: ir::WitnessVec<FieldPrime> =
-                serde_json::from_reader(BufReader::new(witness_file)).unwrap();
+            // let witness: ir::WitnessVec<FieldPrime> =
+            //     serde_json::from_reader(BufReader::new(witness_file)).unwrap();
 
-            let witness = ir::Witness::from(witness);
+            let mut rdr = csv::ReaderBuilder::new()
+                .delimiter(b' ')
+                .flexible(true)
+                .has_headers(false)
+                .from_reader(witness_file);
 
-            // deserialize metadata
-            let metadata_path = Path::new(sub_matches.value_of("meta-information").unwrap());
-
-            let metadata_file = match File::open(&metadata_path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't open {}: {}", metadata_path.display(), why),
-            };
-
-            let metadata: Metadata =
-                serde_json::from_reader(BufReader::new(metadata_file)).unwrap();
+            let witness = ir::Witness::from_human_readable(rdr.deserialize().map(|i| i.unwrap()));
 
             let pk_path = sub_matches.value_of("provingkey").unwrap();
             let proof_path = sub_matches.value_of("proofpath").unwrap();
@@ -492,7 +491,7 @@ fn cli() -> Result<(), String> {
             // run libsnark
             println!(
                 "generate-proof successful: {:?}",
-                backend.generate_proof(program, witness, metadata, pk_path, proof_path)
+                scheme.generate_proof(program, witness, pk_path, proof_path)
             );
         }
         _ => unreachable!(),
@@ -500,8 +499,8 @@ fn cli() -> Result<(), String> {
     Ok(())
 }
 
-fn get_backend(backend_str: &str) -> Result<&'static ProofSystem, String> {
-    match backend_str.to_lowercase().as_ref() {
+fn get_scheme(scheme_str: &str) -> Result<&'static ProofSystem, String> {
+    match scheme_str.to_lowercase().as_ref() {
         #[cfg(feature = "libsnark")]
         "pghr13" => Ok(&PGHR13 {}),
         #[cfg(feature = "libsnark")]

@@ -5,20 +5,20 @@ use zokrates_field::field::Field;
 
 pub type ExecutionResult<T> = Result<Witness<T>, Error>;
 
-#[derive(Serialize, Deserialize)]
-pub struct WitnessVec<T: Field>(Vec<(FlatVariable, T)>);
+// #[derive(Serialize, Deserialize)]
+// pub struct WitnessVec<T: Field>(pub Vec<(FlatVariable, T)>);
 
-impl<T: Field> From<Witness<T>> for WitnessVec<T> {
-    fn from(w: Witness<T>) -> WitnessVec<T> {
-        WitnessVec(w.0.into_iter().collect())
-    }
-}
+// impl<T: Field> From<Witness<T>> for WitnessVec<T> {
+//     fn from(w: Witness<T>) -> WitnessVec<T> {
+//         WitnessVec(w.0.into_iter().collect())
+//     }
+// }
 
-impl<T: Field> From<WitnessVec<T>> for Witness<T> {
-    fn from(w: WitnessVec<T>) -> Witness<T> {
-        Witness(w.0.into_iter().collect())
-    }
-}
+// impl<T: Field> From<WitnessVec<T>> for Witness<T> {
+//     fn from(w: WitnessVec<T>) -> Witness<T> {
+//         Witness(w.0.into_iter().collect())
+//     }
+// }
 
 #[derive(Clone)]
 pub struct Witness<T: Field>(pub BTreeMap<FlatVariable, T>);
@@ -48,6 +48,24 @@ impl<T: Field> Witness<T> {
 
     pub fn empty() -> Self {
         Witness(BTreeMap::new())
+    }
+
+    pub fn into_human_readable(self) -> impl Iterator<Item = (String, String)> {
+        self.0
+            .into_iter()
+            .map(|(var, val)| (var.to_string(), val.to_dec_string()))
+    }
+
+    pub fn from_human_readable<I: Iterator<Item = (String, String)>>(i: I) -> Witness<T> {
+        Witness(
+            i.map(|(var, val)| {
+                (
+                    FlatVariable::from_human_readable(&var),
+                    T::from_dec_string(val),
+                )
+            })
+            .collect(),
+        )
     }
 }
 
