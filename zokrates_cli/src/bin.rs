@@ -10,7 +10,7 @@ use clap::{App, AppSettings, Arg, SubCommand};
 use std::collections::HashMap;
 use std::env;
 use std::fs::File;
-use std::io::{stdin, BufRead, BufReader, BufWriter, Write};
+use std::io::{stdin, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::string::String;
 use zokrates_core::compile::compile;
@@ -170,10 +170,6 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .multiple(true) // allows multiple values
             .required(false)
-        ).arg(Arg::with_name("interactive")
-            .long("interactive")
-            .help("Enter private inputs interactively. Public inputs still need to be passed non-interactively")
-            .required(false)
         )
     )
     .subcommand(SubCommand::with_name("generate-proof")
@@ -301,66 +297,41 @@ fn cli() -> Result<(), String> {
             // print deserialized flattened program
             println!("{}", program_ast);
 
-            // validate #arguments
-            let cli_arguments = match sub_matches.values_of("arguments") {
-                Some(p) => p.map(|x| FieldPrime::try_from_str(x)).collect(),
-                None => Ok(vec![]),
-            }
-            .map_err(|_| "Could not parse arguments".to_string())?;
+            let expected_cli_args_count =
+                program_ast.public_arguments_count() + program_ast.private_arguments_count();
 
-            // handle interactive and non-interactive modes
-            let is_interactive = sub_matches.occurrences_of("interactive") > 0;
-
-            // in interactive mode, only public inputs are expected
-            let expected_cli_args_count = if is_interactive {
-                program_ast.public_arguments_count()
-            } else {
-                program_ast.public_arguments_count() + program_ast.private_arguments_count()
-            };
-
-            if cli_arguments.len() != expected_cli_args_count {
-                return Err(format!(
-                    "Wrong number of arguments. Given: {}, Required: {}.",
-                    cli_arguments.len(),
-                    expected_cli_args_count
-                ));
-            }
-
-            let mut cli_arguments_iter = cli_arguments.into_iter();
-            let arguments: Vec<FieldPrime> = program_ast
-                .parameters()
-                .iter()
-                .map(|x| {
-                    match x.private && is_interactive {
-                        // private inputs are passed interactively when the flag is present
-                        true => loop {
-                            println!("Please enter a value for {:?}:", x.id);
-                            let mut input = String::new();
-                            let stdin = stdin();
-                            let r = stdin.lock().read_line(&mut input);
-
-                            match r {
-                                Ok(_) => {
-                                    let input = input.trim();
-                                    match FieldPrime::try_from_str(&input) {
-                                        Ok(v) => return v,
-                                        Err(_) => {
-                                            println!("Not a correct String, try again");
-                                            continue;
-                                        }
-                                    }
-                                }
-                                Err(_) => {
-                                    println!("Not a correct String, try again");
-                                    continue;
-                                }
-                            };
-                        },
-                        // otherwise, they are taken from the CLI arguments
-                        false => cli_arguments_iter.next().unwrap(),
+            // get arguments
+            let arguments: Vec<_> = match sub_matches.values_of("arguments") {
+                // take inline arguments
+                Some(p) => p
+                    .map(|x| FieldPrime::try_from_str(x).map_err(|_| x.to_string()))
+                    .collect(),
+                // take stdin arguments
+                None => {
+                    if expected_cli_args_count > 0 {
+                        let mut stdin = stdin();
+                        let mut input = String::new();
+                        match stdin.read_to_string(&mut input) {
+                            Ok(_) => input
+                                .split(" ")
+                                .map(|x| FieldPrime::try_from_str(x).map_err(|_| x.to_string()))
+                                .collect(),
+                            Err(_) => Err(String::from("???")),
+                        }
+                    } else {
+                        Ok(vec![])
                     }
-                })
-                .collect();
+                }
+            }
+            .map_err(|e| format!("Could not parse argument: {}", e))?;
+
+            if arguments.len() != expected_cli_args_count {
+                Err(format!(
+                    "Wrong number of arguments. Given: {}, Required: {}.",
+                    arguments.len(),
+                    expected_cli_args_count
+                ))?
+            }
 
             let witness = program_ast
                 .execute(&arguments)
