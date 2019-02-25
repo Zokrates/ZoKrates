@@ -10,6 +10,8 @@ use clap::{App, AppSettings, Arg, SubCommand};
 use std::collections::HashMap;
 use std::env;
 use std::fs::File;
+#[cfg(feature = "libsnark")]
+use std::io::BufRead;
 use std::io::{stdin, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::string::String;
