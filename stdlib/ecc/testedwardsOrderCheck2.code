@@ -1,5 +1,5 @@
 import "ecc/edwardsOrderCheck.code" as orderCheck
-import "ecc/babyJubjubParams.code" as context
+import "ecc/babyJubJubParams.code" as context
 
 def main() -> (field):
 

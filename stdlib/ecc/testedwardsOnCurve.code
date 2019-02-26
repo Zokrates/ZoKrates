@@ -1,4 +1,4 @@
-import "ecc/babyJubjubParams.code" as context
+import "ecc/babyJubJubParams.code" as context
 import "ecc/edwardsOnCurve.code" as onCurve
 
 def main() -> (field):
