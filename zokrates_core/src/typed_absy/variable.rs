@@ -1,4 +1,4 @@
-use absy::Node;
+use absy;
 use std::fmt;
 use types::Type;
 
@@ -8,16 +8,7 @@ pub struct Variable {
     pub _type: Type,
 }
 
-pub type VariableNode = Node<Variable>;
-
 impl Variable {
-    pub fn new<S: Into<String>>(id: S, t: Type) -> Variable {
-        Variable {
-            id: id.into(),
-            _type: t,
-        }
-    }
-
     pub fn field_element<S: Into<String>>(id: S) -> Variable {
         Variable {
             id: id.into(),
@@ -53,5 +44,14 @@ impl fmt::Display for Variable {
 impl fmt::Debug for Variable {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Variable(type: {:?}, id: {:?})", self._type, self.id,)
+    }
+}
+
+impl From<absy::Variable> for Variable {
+    fn from(v: absy::Variable) -> Variable {
+        Variable {
+            id: v.id,
+            _type: v._type,
+        }
     }
 }

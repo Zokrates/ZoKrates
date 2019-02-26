@@ -42,7 +42,7 @@ fn cli() -> Result<(), String> {
     // cli specification using clap library
     let matches = App::new("ZoKrates")
     .setting(AppSettings::SubcommandRequiredElseHelp)
-    .version("0.3.3")
+    .version(env!("CARGO_PKG_VERSION"))
     .author("Jacob Eberhardt, Thibaut Schaeffer, Dennis Kuhnert")
     .about("Supports generation of zkSNARKs from high level language code including Smart Contracts for proof verification on the Ethereum Blockchain.\n'I know that I show nothing!'")
     .subcommand(SubCommand::with_name("compile")
@@ -224,7 +224,7 @@ fn cli() -> Result<(), String> {
 
     match matches.subcommand() {
         ("compile", Some(sub_matches)) => {
-            println!("Compiling {}", sub_matches.value_of("input").unwrap());
+            println!("Compiling {}\n", sub_matches.value_of("input").unwrap());
 
             let path = PathBuf::from(sub_matches.value_of("input").unwrap());
 
@@ -248,7 +248,7 @@ fn cli() -> Result<(), String> {
 
             let program_flattened: ir::Prog<FieldPrime> =
                 compile(&mut reader, Some(location), Some(fs_resolve))
-                    .map_err(|e| format!("Compilation failed: {}", e))?;
+                    .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
 
             // number of constraints the flattened program will translate to.
             let num_constraints = program_flattened.constraint_count();

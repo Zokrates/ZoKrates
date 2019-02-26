@@ -5,8 +5,6 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
-use absy::parameter::Parameter;
-use absy::variable::Variable;
 use bimap::BiMap;
 use flat_absy::*;
 use helpers::{DirectiveStatement, Helper, RustHelper};
@@ -51,7 +49,6 @@ impl Flattener {
     fn load_corelib<T: Field>(&mut self, functions_flattened: &mut Vec<FlatFunction<T>>) -> () {
         // Load type casting functions
         functions_flattened.push(cast(&Type::Boolean, &Type::FieldElement));
-        functions_flattened.push(cast(&Type::FieldElement, &Type::Boolean));
 
         // Load IfElse helper
         let ie = TypedFunction {
@@ -1437,6 +1434,7 @@ impl Flattener {
 
         let mut arguments_flattened: Vec<FlatParameter> = Vec::new();
         let mut statements_flattened: Vec<FlatStatement<T>> = Vec::new();
+
         // push parameters
         for arg in &funct.arguments {
             let arg_type = arg.id.get_type();
@@ -1549,7 +1547,6 @@ impl Flattener {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use absy::variable::Variable;
     use types::Signature;
     use types::Type;
     use zokrates_field::field::FieldPrime;

@@ -18,7 +18,11 @@ impl<T: Field> From<FlatFunction<T>> for Function<T> {
         Function {
             id: flat_function.id,
             arguments: flat_function.arguments.into_iter().map(|p| p.id).collect(),
-            returns: return_expressions.into_iter().map(|e| e.into()).collect(),
+            returns: return_expressions
+                .iter()
+                .enumerate()
+                .map(|(index, _)| FlatVariable::public(index))
+                .collect(),
             statements: flat_function
                 .statements
                 .into_iter()
@@ -26,6 +30,17 @@ impl<T: Field> From<FlatFunction<T>> for Function<T> {
                     FlatStatement::Return(..) => None,
                     s => Some(s.into()),
                 })
+                .chain(
+                    return_expressions
+                        .into_iter()
+                        .enumerate()
+                        .map(|(index, expression)| {
+                            Statement::Constraint(
+                                expression.into(),
+                                FlatVariable::public(index).into(),
+                            )
+                        }),
+                )
                 .collect(),
         }
     }
@@ -43,25 +58,8 @@ impl<T: Field> From<FlatProg<T>> for Prog<T> {
         // get the interface of the program, ie which inputs are private and public
         let private = main.arguments.iter().map(|p| p.private).collect();
 
-        // convert the main function to this IR for functions
-        let main: Function<T> = main.into();
+        let main = main.into();
 
-        // contrary to other functions, we need to make sure that return values are identifiers, so we define new (public) variables
-        let definitions =
-            main.returns.iter().enumerate().map(|(index, e)| {
-                Statement::Constraint(e.clone(), FlatVariable::public(index).into())
-            });
-
-        // update the main function with the extra definition statements and replace the return values
-        let main = Function {
-            returns: (0..main.returns.len())
-                .map(|i| FlatVariable::public(i).into())
-                .collect(),
-            statements: main.statements.into_iter().chain(definitions).collect(),
-            ..main
-        };
-
-        let main = Function::from(main);
         Prog { private, main }
     }
 }

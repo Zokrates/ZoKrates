@@ -6,3 +6,4 @@ The reference covers the details of various areas of ZoKrates.
     - [CLI](cli.md)
     - [Backends](backends.md)
     - [Verification](verification.md)
+    - [ZIR](ir.md)

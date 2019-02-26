@@ -16,7 +16,7 @@ pub struct WasmHelper(
 impl WasmHelper {
     // Hand-coded assembly for identity.
     // Source available at https://gist.github.com/gballet/f14d11053d8f846bfbb3687581b0eecb#file-identity-wast
-    pub const IDENTITY_WASM: &'static str = "0061736d010000000105016000017f030302000005030100010615047f0041010b7f0041010b7f0041200b7f0141000b074b06066d656d6f727902000e6765745f696e707574735f6f6666000105736f6c766500000a6d696e5f696e7075747303000b6d696e5f6f75747075747303010a6669656c645f73697a6503020a2c0225000340412023036a410023036a280200360200230341016a240323032302470d000b41200b040041000b0b4b020041000b20ffffffff000000000000000000000000ffffffff0000000000000000000000000041200b20deadbeef000000000000000000000000deadbeef000000000000000000000000";
+    pub const IDENTITY_WASM: &'static str = "0061736d010000000105016000017f030302000005030100010615047f0041010b7f0041010b7f0041200b7f0141000b074b06066d656d6f727902000e6765745f696e707574735f6f6666000105736f6c766500000a6d696e5f696e7075747303000b6d696e5f6f75747075747303010a6669656c645f73697a6503020a300229000340412023036a410023036a280200360200230341016a240323032302470d000b4100240341200b040041000b0b4b020041000b20ffffffff000000000000000000000000ffffffff0000000000000000000000000041200b20deadbeef000000000000000000000000deadbeef000000000000000000000000";
     // Generated from C code, normalized and cleaned up by hand.
     // Source available at https://gist.github.com/gballet/f14d11053d8f846bfbb3687581b0eecb#file-bits_v2-c
     pub const BITS_WASM: &'static [u8] = &[
@@ -501,6 +501,16 @@ mod tests {
     }
 
     #[test]
+    fn check_identity_multiple_calls() {
+        let id = WasmHelper::from_hex(WasmHelper::IDENTITY_WASM);
+        let input = vec![FieldPrime::from(16777216)];
+        for _i in 0..10 {
+            let outputs = id.execute(&input).expect("Identity call failed");
+            assert_eq!(outputs, input);
+        }
+    }
+
+    #[test]
     fn check_invalid_arg_number() {
         let id = WasmHelper::from_hex(WasmHelper::IDENTITY_WASM);
         let input = vec![FieldPrime::from(1)];
@@ -576,6 +586,27 @@ mod tests {
 
         for i in 32..254 {
             assert_eq!(outputs[(253 - i) as usize], FieldPrime::from(0));
+        }
+    }
+
+    #[test]
+    fn check_bits_multiple_times() {
+        let bits = WasmHelper::from(WasmHelper::BITS_WASM);
+        let input = vec![FieldPrime::from(0xdeadbeef as u32)];
+
+        for _ in 0..10 {
+            let outputs = bits.execute(&input).unwrap();
+
+            assert_eq!(254, outputs.len());
+
+            for i in 0..32 {
+                let bitval = (0xdeadbeef as i64 >> i) & 1;
+                assert_eq!(outputs[(253 - i) as usize], FieldPrime::from(bitval as i32));
+            }
+
+            for i in 32..254 {
+                assert_eq!(outputs[(253 - i) as usize], FieldPrime::from(0));
+            }
         }
     }
 }
