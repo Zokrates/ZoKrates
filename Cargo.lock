@@ -785,6 +785,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "stdlib"
+version = "0.1.0"
+dependencies = [
+ "serde 1.0.85 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_derive 1.0.85 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json 1.0.36 (registry+https://github.com/rust-lang/crates.io-index)",
+ "zokrates_core 0.3.6",
+ "zokrates_field 0.3.2",
+ "zokrates_fs_resolver 0.4.0",
+]
+
+[[package]]
 name = "strsim"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
