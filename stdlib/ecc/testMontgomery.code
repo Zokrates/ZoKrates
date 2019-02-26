@@ -1,4 +1,4 @@
-import "ecc/babyJubJubParams.code" as context
+import "ecc/babyjubjubParams.code" as context
 import "ecc/edwards2Montgomery.code" as e2m 
 import "ecc/montgomery2Edwards.code" as m2e
 import "ecc/montgomeryAdd.code" as mAdd

@@ -1,4 +1,4 @@
-import "ecc/babyJubJubParams.code" as context
+import "ecc/babyjubjubParams.code" as context
 // Function adds two points on a twisted Edwards curve
 // Curve parameters are defined with the last argument
 // reference: https://en.wikipedia.org/wiki/Twisted_Edwards_curve#Addition_on_twisted_Edwards_curves

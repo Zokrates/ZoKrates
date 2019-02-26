@@ -1,4 +1,4 @@
-import "ecc/babyJubJubParams.code" as context
+import "ecc/babyjubjubParams.code" as context
 // lamda <-- (in2[1] - in1[1]) / (in2[0] - in1[0]);
 // lamda * (in2[0] - in1[0]) === (in2[1] - in1[1]);
 

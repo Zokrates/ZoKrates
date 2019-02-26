@@ -1,5 +1,5 @@
 import "ecc/edwardsAdd.code" as add
-import "ecc/babyJubJubParams.code" as context
+import "ecc/babyjubjubParams.code" as context
 
 def main() -> (field):
 

@@ -1,4 +1,4 @@
-import "ecc/babyJubJubParams.code" as context
+import "ecc/babyjubjubParams.code" as context
 import "ecc/edwardsScalarMult.code" as mul
 
 def main() -> (field):
