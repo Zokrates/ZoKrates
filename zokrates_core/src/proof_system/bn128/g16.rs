@@ -9,7 +9,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use zokrates_field::field::FieldPrime;
 
-const G16_WARNING: &str = "WARNING: You are using the Groth16 scheme which is subject to malleability. See zokrates.github.io/reference/backends for implications.";
+const G16_WARNING: &str = "WARNING: You are using the Groth16 scheme which is subject to malleability. See zokrates.github.io/reference/schemes.html#groth16-malleability for implications.";
 
 pub struct G16 {}
 impl ProofSystem for G16 {

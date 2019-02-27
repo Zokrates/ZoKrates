@@ -16,3 +16,11 @@ When not using the default, the CLI flag has to be provided for the following co
 - `setup`
 - `export-verifier`
 - `generate-proof`
+
+## Groth16 malleability
+
+When using Groth16, developers should pay attention to the fact that an attacker seeing a valid proof can very easily generate a different but still valid proof. Therefore, depending on the use case, making sure on chain that the same proof cannot be submitted twice is *not* enough to guarantee that attackers cannot replay proofs. Mechanisms to solve this issue include:
+- signed proofs
+- nullifiers
+- usage of an ethereum address as a public input to the program
+- usage of non-malleable schemes such as GM17
