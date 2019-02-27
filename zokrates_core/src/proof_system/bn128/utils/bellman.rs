@@ -209,13 +209,13 @@ vk.gammaABC.len() = {}
             .collect::<Vec<_>>()
             .join("\n")
     )
-    .replace("G2(x=Fq2(Fq(", "[[")
+    .replace("G2(x=Fq2(Fq(", "[")
     .replace("), y=Fq(", ", ")
-    .replace("G1(x=Fq(", "[")
+    .replace("G1(x=Fq(", "")
     .replace(") + Fq(", ", ")
-    .replace("))", "]")
+    .replace("))", "")
     .replace(") * u), y=Fq2(Fq(", "], [")
-    .replace(") * u]", "]]")
+    .replace(") * u", "]")
 }
 
 pub fn serialize_proof(p: &Proof<Bn256>, inputs: &Vec<Fr>) -> String {
