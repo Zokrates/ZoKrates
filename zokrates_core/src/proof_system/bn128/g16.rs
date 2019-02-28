@@ -1,7 +1,7 @@
 use bellman::groth16::Parameters;
 use ir;
 use proof_system::bn128::utils::bellman::{serialize_proof, serialize_vk, Computation};
-use proof_system::bn128::utils::solidity::SOLIDITY_PAIRING_LIB;
+use proof_system::bn128::utils::solidity::{SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB};
 use proof_system::ProofSystem;
 use regex::Regex;
 use std::fs::File;
@@ -124,7 +124,10 @@ impl ProofSystem for G16 {
             .replace(template_text.as_str(), gamma_abc_repeat_text.as_str())
             .into_owned();
 
-        format!("{}{}", SOLIDITY_PAIRING_LIB, template_text)
+        format!(
+            "{}{}{}",
+            SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, template_text
+        )
     }
 }
 
@@ -143,7 +146,7 @@ contract Verifier {
         Pairing.G2Point B;
         Pairing.G1Point C;
     }
-    function verifyingKey() pure internal returns (VerifyingKey vk) {
+    function verifyingKey() pure internal returns (VerifyingKey memory vk) {
         vk.a = Pairing.G1Point(<%vk_a%>);
         vk.b = Pairing.G2Point(<%vk_b%>);
         vk.gamma = Pairing.G2Point(<%vk_gamma%>);
@@ -151,7 +154,7 @@ contract Verifier {
         vk.gammaABC = new Pairing.G1Point[](<%vk_gammaABC_length%>);
         <%vk_gammaABC_pts%>
     }
-    function verify(uint[] input, Proof proof) internal returns (uint) {
+    function verify(uint[] memory input, Proof memory proof) internal returns (uint) {
         VerifyingKey memory vk = verifyingKey();
         require(input.length + 1 == vk.gammaABC.length);
         // Compute the linear combination vk_x
@@ -168,10 +171,10 @@ contract Verifier {
     }
     event Verified(string s);
     function verifyTx(
-            uint[2] a,
-            uint[2][2] b,
-            uint[2] c,
-            uint[<%vk_input_length%>] input
+            uint[2] memory a,
+            uint[2][2] memory b,
+            uint[2] memory c,
+            uint[<%vk_input_length%>] memory input
         ) public returns (bool r) {
         Proof memory proof;
         proof.A = Pairing.G1Point(a[0], a[1]);
