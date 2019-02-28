@@ -1,0 +1,35 @@
+import "ecc/edwardsAdd.code" as add
+import "ecc/edwardsNegate.code" as neg 
+import "ecc/babyjubjubParams.code" as context
+
+def testDoubleViaAdd() -> (field):
+	context = context()
+	field[2] G = [context[4], context[5]]
+
+	field[2] out = add(G, G, context)
+
+	out[0] == 17324563846726889236817837922625232543153115346355010501047597319863650987830
+	out[1] == 20022170825455209233733649024450576091402881793145646502279487074566492066831
+
+	return 1
+
+def testIdentities() -> (field):
+	context = context()
+	field[2] G = [context[4], context[5]]
+	field[2] inf = [context[2], context[3]]
+
+	G == add(G, inf, context)
+	
+	field[2] nG = neg(G, context)
+	field[2] nGaddG = add(G, nG, context)
+
+	inf == nGaddG
+
+	return 1
+
+def main() -> (field):
+
+	1 == testDoubleViaAdd()
+	1 == testIdentities()
+
+return 1

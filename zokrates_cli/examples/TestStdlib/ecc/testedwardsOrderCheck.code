@@ -1,0 +1,31 @@
+import "ecc/edwardsOrderCheck.code" as orderCheck
+import "ecc/babyjubjubParams.code" as context
+
+def testOrderCheckTrue() -> (field):
+	context = context()
+
+	field testU = 17324563846726889236817837922625232543153115346355010501047597319863650987830
+	field testV = 20022170825455209233733649024450576091402881793145646502279487074566492066831
+
+	field out = orderCheck([testU, testV], context)
+	out == 1
+
+	return 1
+
+def testOrderCheckFalse() -> (field):
+	context = context()
+
+	field testU = 4342719913949491028786768530115087822524712248835451589697801404893164183326
+	field testV = 4826523245007015323400664741523384119579596407052839571721035538011798951543
+
+	field out = orderCheck([testU, testV], context)
+	out == 0
+
+	return 1
+
+def main() -> (field):
+
+	1 == testOrderCheckFalse()
+	1 == testOrderCheckTrue()
+
+	return 1
