@@ -206,7 +206,7 @@ contract Verifier {
         Pairing.G2Point B;
         Pairing.G1Point C;
     }
-    function verifyingKey() pure internal returns (VerifyingKey vk) {
+    function verifyingKey() pure internal returns (VerifyingKey memory vk) {
         vk.H = Pairing.G2Point(<%vk_h%>);
         vk.Galpha = Pairing.G1Point(<%vk_g_alpha%>);
         vk.Hbeta = Pairing.G2Point(<%vk_h_beta%>);
@@ -215,7 +215,7 @@ contract Verifier {
         vk.query = new Pairing.G1Point[](<%vk_query_length%>);
         <%vk_query_pts%>
     }
-    function verify(uint[] input, Proof proof) internal returns (uint) {
+    function verify(uint[] memory input, Proof memory proof) internal returns (uint) {
         VerifyingKey memory vk = verifyingKey();
         require(input.length + 1 == vk.query.length);
         // Compute the linear combination vk_x
@@ -237,10 +237,10 @@ contract Verifier {
     }
     event Verified(string s);
     function verifyTx(
-            uint[2] a,
-            uint[2][2] b,
-            uint[2] c,
-            uint[<%vk_input_length%>] input
+            uint[2] memory a,
+            uint[2][2] memory b,
+            uint[2] memory c,
+            uint[<%vk_input_length%>] memory input
         ) public returns (bool r) {
         Proof memory proof;
         proof.A = Pairing.G1Point(a[0], a[1]);

@@ -195,6 +195,22 @@ mod integration {
                 .succeeds()
                 .unwrap();
 
+                let mut verifier_file = File::open(&verification_contract_path).unwrap();
+                let mut verifier_string = String::new();
+                verifier_file.read_to_string(&mut verifier_string).unwrap();
+
+                let solc_json_input = format!(
+                    r#"{{"language": "Solidity", "sources": {{ "this": {{ "content": {:?} }} }} }}"#,
+                    verifier_string
+                );
+
+                assert_cli::Assert::command(&["solcjs", "--standard-json"])
+                    .stdin(&solc_json_input)
+                    .succeeds()
+                    .stdout()
+                    .doesnt_contain(r#""severity":"error""#)
+                    .unwrap();
+
                 // GENERATE-PROOF
                 assert_cli::Assert::command(&[
                     "../target/release/zokrates",
