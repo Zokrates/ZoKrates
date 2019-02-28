@@ -69,7 +69,7 @@ impl<T: Field> LinComb<T> {
 
     pub fn try_summand(&self) -> Option<(&FlatVariable, &T)> {
         if self.0.len() == 1 {
-            return self.0.iter().next().clone();
+            return self.0.iter().next();
         }
         None
     }
@@ -104,7 +104,7 @@ impl<T: Field> Add<LinComb<T>> for LinComb<T> {
     type Output = LinComb<T>;
 
     fn add(self, other: LinComb<T>) -> LinComb<T> {
-        let mut res = self.0.clone();
+        let mut res = self.0;
         for (k, v) in other.0 {
             let new_val = v + res.get(&k).unwrap_or(&T::zero());
             if new_val == T::zero() {
@@ -121,7 +121,7 @@ impl<T: Field> Sub<LinComb<T>> for LinComb<T> {
     type Output = LinComb<T>;
 
     fn sub(self, other: LinComb<T>) -> LinComb<T> {
-        let mut res = self.0.clone();
+        let mut res = self.0;
         for (k, v) in other.0 {
             let new_val = T::zero() - v + res.get(&k).unwrap_or(&T::zero());
             if new_val == T::zero() {
