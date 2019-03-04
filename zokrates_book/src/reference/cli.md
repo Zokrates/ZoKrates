@@ -13,7 +13,7 @@ You can see an overview of the available subcommands by running
 ./zokrates compile -i /path/to/add.code
 ```
 
-Compiles a `.code` file into  ZoKrates internal representation of arithmetic circuits. 
+Compiles a `.code` file into ZoKrates internal representation of arithmetic circuits. 
 
 Creates a compiled `.code` file at `./out.code`.
 
@@ -25,6 +25,7 @@ Creates a compiled `.code` file at `./out.code`.
 
 Computes a witness for the compiled program found at `./out.code` and arguments to the program.
 A witness is a valid assignment of the variables, which include the results of the computation.
+Arguments to the program are passed as a space-separated list with the `-a` flag, or over `stdin`.
 
 Creates a witness file at `./witness`
 
