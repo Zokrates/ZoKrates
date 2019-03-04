@@ -210,7 +210,10 @@ mod tests {
                 unpack.arguments,
                 vec![FlatParameter::private(FlatVariable::new(0))]
             );
-            assert_eq!(unpack.statements.len(), 254 + 1 + 1 + 1); // 128 bit checks, 1 directive, 1 sum check, 1 return
+            assert_eq!(
+                unpack.statements.len(),
+                FieldPrime::get_required_bits() + 1 + 1 + 1
+            ); // 128 bit checks, 1 directive, 1 sum check, 1 return
             assert_eq!(
                 unpack.statements[0],
                 FlatStatement::Directive(DirectiveStatement::new(
@@ -224,8 +227,7 @@ mod tests {
             assert_eq!(
                 *unpack.statements.last().unwrap(),
                 FlatStatement::Return(FlatExpressionList {
-                    expressions: (FieldPrime::get_required_bits() - 254
-                        ..FieldPrime::get_required_bits())
+                    expressions: (0..FieldPrime::get_required_bits())
                         .map(|i| FlatExpression::Identifier(FlatVariable::new(i + 1)))
                         .collect()
                 })
