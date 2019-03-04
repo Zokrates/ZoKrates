@@ -314,10 +314,13 @@ fn cli() -> Result<(), String> {
                         let mut stdin = stdin();
                         let mut input = String::new();
                         match stdin.read_to_string(&mut input) {
-                            Ok(_) => input
-                                .split(" ")
-                                .map(|x| FieldPrime::try_from_str(x).map_err(|_| x.to_string()))
-                                .collect(),
+                            Ok(_) => {
+                                input.retain(|x| x != '\n');
+                                input
+                                    .split(" ")
+                                    .map(|x| FieldPrime::try_from_str(x).map_err(|_| x.to_string()))
+                                    .collect()
+                            }
                             Err(_) => Err(String::from("???")),
                         }
                     } else {
