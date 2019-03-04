@@ -18,50 +18,8 @@ fn use_variable(
     var
 }
 
-pub fn pack<T: Field>(nbits: usize) -> FlatProg<T> {
-    assert!(nbits <= T::get_required_bits()); // we cannot pack more bits than the field
-
-    let arguments = (0..nbits)
-        .map(|i| FlatParameter {
-            id: FlatVariable::new(i),
-            private: true,
-        })
-        .collect();
-
-    let signature = Signature {
-        inputs: vec![Type::FieldElement; nbits],
-        outputs: vec![Type::FieldElement],
-    };
-
-    // sum check
-    let mut ret = FlatExpression::Number(T::from(0));
-
-    for i in 0..nbits {
-        ret = FlatExpression::Add(
-            box ret,
-            box FlatExpression::Mult(
-                box FlatExpression::Identifier(FlatVariable::new(i)),
-                box FlatExpression::Number(T::from(2).pow(nbits - i - 1)),
-            ),
-        );
-    }
-
-    let statements = vec![FlatStatement::Return(FlatExpressionList {
-        expressions: vec![ret],
-    })];
-
-    FlatProg {
-        functions: vec![FlatFunction {
-            id: String::from("main"),
-            arguments,
-            statements,
-            signature,
-        }],
-    }
-}
-
-pub fn unpack<T: Field>(nbits: usize) -> FlatProg<T> {
-    assert!(nbits <= T::get_required_bits()); // we cannot pack more bits than the field
+pub fn split<T: Field>() -> FlatProg<T> {
+    let nbits = T::get_required_bits();
 
     let mut counter = 0;
 
@@ -87,7 +45,7 @@ pub fn unpack<T: Field>(nbits: usize) -> FlatProg<T> {
 
     let signature = Signature {
         inputs: vec![Type::FieldElement],
-        outputs: vec![Type::FieldElement; nbits],
+        outputs: vec![Type::FieldElementArray(nbits)],
     };
 
     let outputs = directive_outputs
@@ -239,14 +197,12 @@ mod tests {
     }
 
     #[cfg(test)]
-    mod unpack {
+    mod split {
         use super::*;
 
         #[test]
-        fn unpack128() {
-            let nbits = 128;
-
-            let unpack: FlatProg<FieldPrime> = unpack(nbits);
+        fn split254() {
+            let unpack: FlatProg<FieldPrime> = split();
             let unpack = &unpack.functions[0];
 
             assert_eq!(unpack.id, String::from("main"));
@@ -254,7 +210,10 @@ mod tests {
                 unpack.arguments,
                 vec![FlatParameter::private(FlatVariable::new(0))]
             );
-            assert_eq!(unpack.statements.len(), nbits + 1 + 1 + 1); // 128 bit checks, 1 directive, 1 sum check, 1 return
+            assert_eq!(
+                unpack.statements.len(),
+                FieldPrime::get_required_bits() + 1 + 1 + 1
+            ); // 128 bit checks, 1 directive, 1 sum check, 1 return
             assert_eq!(
                 unpack.statements[0],
                 FlatStatement::Directive(DirectiveStatement::new(
@@ -268,22 +227,11 @@ mod tests {
             assert_eq!(
                 *unpack.statements.last().unwrap(),
                 FlatStatement::Return(FlatExpressionList {
-                    expressions: (FieldPrime::get_required_bits() - nbits
-                        ..FieldPrime::get_required_bits())
+                    expressions: (0..FieldPrime::get_required_bits())
                         .map(|i| FlatExpression::Identifier(FlatVariable::new(i + 1)))
                         .collect()
                 })
             );
-        }
-
-        #[test]
-        fn pack128() {
-            let pack: FlatProg<FieldPrime> = pack(128);
-            let pack = &pack.functions[0];
-
-            assert_eq!(pack.id, String::from("main"));
-            assert_eq!(pack.arguments.len(), 128);
-            assert_eq!(pack.statements.len(), 1); // just sum bits * 2**i
         }
     }
 }
