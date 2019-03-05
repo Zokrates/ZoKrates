@@ -7,7 +7,7 @@ import "utils/pack/unpack256.code" as unpack256
 import "ecc/edwardsOnCurve.code" as onCurve
 import "ecc/edwardsOrderCheck.code" as orderCheck
 
-def main(field[2] R, field S, field[2] A, field[256] M0, field[256] M1) -> (field):
+def main(private field[2] R, private field S, field[2] A, field[256] M0, field[256] M1) -> (field):
 
 	context = context()
 	field[2] G = [context[4], context[5]]
