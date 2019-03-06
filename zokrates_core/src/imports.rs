@@ -175,23 +175,16 @@ impl Importer {
                     panic!("libsnark is not enabled, cannot access {}", import.source)
                 }
             } else if import.source.starts_with("PACKING") {
-                use types::conversions::{pack, unpack};
+                use types::conversions::split;
 
                 match import.source.as_ref() {
-                    "PACKING/pack128" => {
-                        let compiled = pack(128);
+                    "PACKING/split" => {
+                        let compiled = split();
                         let alias = match import.alias {
                             Some(ref alias) => alias.clone(),
-                            None => String::from("pack128"),
+                            None => String::from("split"),
                         };
-                        origins.push(CompiledImport::new(compiled, alias));
-                    }
-                    "PACKING/unpack128" => {
-                        let compiled = unpack(128);
-                        let alias = match import.alias {
-                            Some(ref alias) => alias.clone(),
-                            None => String::from("unpack128"),
-                        };
+
                         origins.push(CompiledImport::new(compiled, alias));
                     }
                     s => {

@@ -38,7 +38,7 @@ Some components of the standard library cannot yet be efficiently represented in
 #### pack128
 
 ```zokrates
-import "PACKING/pack128"
+import "utils/pack/pack128"
 ```
 
 Packs 128 field elements as one.
@@ -46,7 +46,7 @@ Packs 128 field elements as one.
 #### unpack128
 
 ```zokrates
-import "PACKING/unpack128"
+import "utils/pack/unpack128"
 ```
 
 Unpacks a field element to 128 field elements.
