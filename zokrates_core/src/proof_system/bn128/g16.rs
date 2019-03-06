@@ -124,6 +124,9 @@ impl ProofSystem for G16 {
             .replace(template_text.as_str(), gamma_abc_repeat_text.as_str())
             .into_owned();
 
+        let re = Regex::new(r"(?P<v>0[xX][0-9a-fA-F]{64})").unwrap();
+        template_text = re.replace_all(&template_text, "uint256($v)").to_string();
+
         format!(
             "{}{}{}",
             SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, template_text
