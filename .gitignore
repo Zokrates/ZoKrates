@@ -6,6 +6,7 @@
 out
 out.code
 out.wit
+proof.json
 proving.key
 variables.inf
 verification.key

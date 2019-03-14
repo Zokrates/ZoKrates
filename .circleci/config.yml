@@ -98,6 +98,9 @@ jobs:
           name: Install libsnark prerequisites
           command: ./scripts/install_libsnark_prerequisites.sh
       - run:
+          name: Install solcjs
+          command: ./scripts/install_solcjs_deb.sh
+      - run:
           name: Run integration tests
           command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" cargo test --release -- --ignored
   deploy:

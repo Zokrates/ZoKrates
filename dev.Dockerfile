@@ -11,6 +11,9 @@ ENV ZOKRATES_HOME=/home/zokrates/ZoKrates/zokrates_stdlib/stdlib/
 COPY ./scripts/install_libsnark_prerequisites.sh /tmp/
 RUN /tmp/install_libsnark_prerequisites.sh
 
+COPY ./scripts/install_solcjs_deb.sh /tmp/
+RUN /tmp/install_solcjs_deb.sh
+
 USER zokrates
 
 WORKDIR /home/zokrates

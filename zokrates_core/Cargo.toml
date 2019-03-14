@@ -37,5 +37,4 @@ assert_cli = "0.5"
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"] }
 cmake = "0.1.31"
-parity-wasm = "0.35.3"
 git2 = "0.8.0"
