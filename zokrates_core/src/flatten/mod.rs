@@ -8,7 +8,7 @@
 use bimap::BiMap;
 use flat_absy::*;
 use helpers::{DirectiveStatement, Helper, RustHelper};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use typed_absy::*;
 use types::conversions::cast;
 use types::Signature;
@@ -20,8 +20,6 @@ use zokrates_field::field::Field;
 pub struct Flattener {
     /// Number of bits needed to represent the maximum value.
     bits: usize,
-    /// Vector containing all used variables while processing the program.
-    variables: HashSet<FlatVariable>,
     /// Map of renamings for reassigned variables while processing the program.
     substitution: HashMap<FlatVariable, FlatVariable>,
     /// Index of the next introduced variable while processing the program.
@@ -38,7 +36,6 @@ impl Flattener {
     pub fn new(bits: usize) -> Flattener {
         Flattener {
             bits: bits,
-            variables: HashSet::new(),
             substitution: HashMap::new(),
             next_var_idx: 0,
             bijection: BiMap::new(),
@@ -1085,7 +1082,6 @@ impl Flattener {
                                 // handle return of function call
                                 let var_to_replace = self.get_latest_var_substitution(&debug_name);
                                 if !(var == var_to_replace)
-                                    && self.variables.contains(&var_to_replace)
                                     && !self.substitution.contains_key(&var_to_replace)
                                 {
                                     self.substitution
@@ -1109,7 +1105,6 @@ impl Flattener {
                                                 let var_to_replace =
                                                     self.get_latest_var_substitution(&debug_name);
                                                 if !(var == var_to_replace)
-                                                    && self.variables.contains(&var_to_replace)
                                                     && !self
                                                         .substitution
                                                         .contains_key(&var_to_replace)
@@ -1208,7 +1203,6 @@ impl Flattener {
                             // handle return of function call
                             let var_to_replace = self.get_latest_var_substitution(&debug_name);
                             if !(var == var_to_replace)
-                                && self.variables.contains(&var_to_replace)
                                 && !self.substitution.contains_key(&var_to_replace)
                             {
                                 self.substitution
@@ -1373,7 +1367,6 @@ impl Flattener {
                                         let var_to_replace =
                                             self.get_latest_var_substitution(&debug_name);
                                         if !(var == var_to_replace)
-                                            && self.variables.contains(&var_to_replace)
                                             && !self.substitution.contains_key(&var_to_replace)
                                         {
                                             self.substitution
@@ -1392,7 +1385,6 @@ impl Flattener {
                                     let var_to_replace =
                                         self.get_latest_var_substitution(&debug_name);
                                     if !(var == var_to_replace)
-                                        && self.variables.contains(&var_to_replace)
                                         && !self.substitution.contains_key(&var_to_replace)
                                     {
                                         self.substitution
@@ -1425,7 +1417,6 @@ impl Flattener {
         functions_flattened: &mut Vec<FlatFunction<T>>,
         funct: TypedFunction<T>,
     ) -> FlatFunction<T> {
-        self.variables = HashSet::new();
         self.substitution = HashMap::new();
 
         self.bijection = BiMap::new();
