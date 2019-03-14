@@ -1,4 +1,6 @@
 #[test]
+#[ignore]
+#[allow(non_snake_case)]
 fn {test_name}() {{
     use zokrates_field::field::{{Field, FieldPrime}};
     use std::path::PathBuf;
