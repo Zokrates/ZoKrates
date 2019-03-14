@@ -1,32 +1,29 @@
-// Verify EdDSA Signature
 import "hashes/sha256/1024bitPadded.code" as sha256
 import "ecc/edwardsScalarMult.code" as scalarMult 
-import "ecc/babyjubjubParams.code" as context
 import "ecc/edwardsAdd.code" as add
 import "utils/pack/unpack256.code" as unpack256
 import "ecc/edwardsOnCurve.code" as onCurve
 import "ecc/edwardsOrderCheck.code" as orderCheck
+// Return true for a valid EdDSA Signature, false otherwise
+def main(private field[2] R, private field S, field[2] A, field[256] M0, field[256] M1, field[10] context) -> (field):
 
-def main(private field[2] R, private field S, field[2] A, field[256] M0, field[256] M1) -> (field):
+    field[2] G = [context[4], context[5]]
 
-	context = context()
-	field[2] G = [context[4], context[5]]
+    // Check if R is on curve and in prime-order sub-group. A is public input and can be checked offline 
+    field isOnCurve = onCurve(R, context) // throws if R is not on curve
+    field isPrimeOrder = orderCheck(R, context)
+    1 == isPrimeOrder	
 
-	// Check if R is on curve and in prime-order sub-group. A is public input and can be checked offline 
-	field isOnCurve = onCurve(R, context) // throws if R is not on curve
-	field isPrimeOrder = orderCheck(R, context)
-	1 == isPrimeOrder	
-	
-	field[256] Rx = unpack256(R[0])
-	field[256] Ax = unpack256(A[0]) 
-	field[256] hRAM = sha256(Rx, Ax, M0, M1)
+    field[256] Rx = unpack256(R[0])
+    field[256] Ax = unpack256(A[0]) 
+    field[256] hRAM = sha256(Rx, Ax, M0, M1)
 
-	field[256] sBits = unpack256(S)
-	field[2] lhs = scalarMult(sBits, G, context)
+    field[256] sBits = unpack256(S)
+    field[2] lhs = scalarMult(sBits, G, context)
 
-	field[2] AhRAM = scalarMult(hRAM, A, context)
-	field[2] rhs = add(R, AhRAM, context)
+    field[2] AhRAM = scalarMult(hRAM, A, context)
+    field[2] rhs = add(R, AhRAM, context)
 
-	lhs == rhs
-	
-	return 1
+    field out = if rhs[0] == lhs[0] && rhs[1] == lhs[1] then 1 else 0 fi
+
+    return out 

@@ -1,0 +1,14 @@
+import "ecc/edwardsAdd.code" as add
+import "ecc/edwardsScalarMult.code" as multiply
+import "utils/pack/unpack256.code" as unpack256
+// Return true for a valid public and private key pair, false otherwise 
+def main(field[2] pk, field sk, field[10] context) -> (field):
+
+    field[2] G = [context[4], context[5]]
+
+    field[256] skBits = unpack256(sk)
+    field[2] ptExp = multiply(skBits, G, context)
+
+    field out =	if ptExp[0] == pk[0] && ptExp[1] == pk[1] then 1 else 0 fi
+
+    return out
