@@ -213,13 +213,6 @@ impl<T: Field> fmt::Debug for FlatStatement<T> {
 }
 
 impl<T: Field> FlatStatement<T> {
-    pub fn apply_recursive_substitution(
-        self,
-        substitution: &HashMap<FlatVariable, FlatVariable>,
-    ) -> FlatStatement<T> {
-        self.apply_substitution(substitution, true)
-    }
-
     pub fn apply_direct_substitution(
         self,
         substitution: &HashMap<FlatVariable, FlatVariable>,
@@ -276,13 +269,6 @@ pub enum FlatExpression<T: Field> {
 }
 
 impl<T: Field> FlatExpression<T> {
-    pub fn apply_recursive_substitution(
-        self,
-        substitution: &HashMap<FlatVariable, FlatVariable>,
-    ) -> FlatExpression<T> {
-        self.apply_substitution(substitution, true)
-    }
-
     pub fn apply_direct_substitution(
         self,
         substitution: &HashMap<FlatVariable, FlatVariable>,
@@ -404,13 +390,6 @@ impl<T: Field> FlatExpressionList<T> {
                 .map(|e| e.apply_substitution(substitution, should_fallback))
                 .collect(),
         }
-    }
-
-    pub fn apply_recursive_substitution(
-        self,
-        substitution: &HashMap<FlatVariable, FlatVariable>,
-    ) -> FlatExpressionList<T> {
-        self.apply_substitution(substitution, true)
     }
 
     pub fn apply_direct_substitution(
