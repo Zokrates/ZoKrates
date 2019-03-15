@@ -8,7 +8,7 @@
 use bimap::BiMap;
 use flat_absy::*;
 use helpers::{DirectiveStatement, Helper, RustHelper};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use typed_absy::*;
 use types::conversions::cast;
 use types::Signature;
@@ -20,10 +20,6 @@ use zokrates_field::field::Field;
 pub struct Flattener {
     /// Number of bits needed to represent the maximum value.
     bits: usize,
-    /// Vector containing all used variables while processing the program.
-    variables: HashSet<FlatVariable>,
-    /// Map of renamings for reassigned variables while processing the program.
-    substitution: HashMap<FlatVariable, FlatVariable>,
     /// Index of the next introduced variable while processing the program.
     next_var_idx: usize,
     ///
@@ -38,8 +34,6 @@ impl Flattener {
     pub fn new(bits: usize) -> Flattener {
         Flattener {
             bits: bits,
-            variables: HashSet::new(),
-            substitution: HashMap::new(),
             next_var_idx: 0,
             bijection: BiMap::new(),
         }
@@ -465,11 +459,6 @@ impl Flattener {
             .flat_map(|x| x)
             .collect::<Vec<_>>();
 
-        let params_flattened = params_flattened
-            .into_iter()
-            .map(|e| e.apply_recursive_substitution(&self.substitution))
-            .collect::<Vec<_>>();
-
         for (concrete_argument, formal_argument) in
             params_flattened.into_iter().zip(funct.arguments)
         {
@@ -495,12 +484,12 @@ impl Flattener {
                 FlatStatement::Definition(var, rhs) => {
                     let new_var = self.issue_new_variable();
                     replacement_map.insert(var, new_var);
-                    let new_rhs = rhs.apply_direct_substitution(&replacement_map);
+                    let new_rhs = rhs.apply_substitution(&replacement_map);
                     FlatStatement::Definition(new_var, new_rhs)
                 }
                 FlatStatement::Condition(lhs, rhs) => {
-                    let new_lhs = lhs.apply_direct_substitution(&replacement_map);
-                    let new_rhs = rhs.apply_direct_substitution(&replacement_map);
+                    let new_lhs = lhs.apply_substitution(&replacement_map);
+                    let new_rhs = rhs.apply_substitution(&replacement_map);
                     FlatStatement::Condition(new_lhs, new_rhs)
                 }
                 FlatStatement::Directive(d) => {
@@ -516,7 +505,7 @@ impl Flattener {
                     let new_inputs = d
                         .inputs
                         .into_iter()
-                        .map(|i| i.apply_direct_substitution(&replacement_map))
+                        .map(|i| i.apply_substitution(&replacement_map))
                         .collect();
                     FlatStatement::Directive(DirectiveStatement {
                         outputs: new_outputs,
@@ -534,7 +523,7 @@ impl Flattener {
                 expressions: list
                     .expressions
                     .into_iter()
-                    .map(|x| x.apply_direct_substitution(&replacement_map))
+                    .map(|x| x.apply_substitution(&replacement_map))
                     .collect(),
             },
             _ => unreachable!(),
@@ -730,14 +719,12 @@ impl Flattener {
                 match exponent {
                     FieldElementExpression::Number(ref e) => {
                         // flatten the base expression
-                        let base_flattened = self
-                            .flatten_field_expression(
-                                functions_flattened,
-                                arguments_flattened,
-                                statements_flattened,
-                                base.clone(),
-                            )
-                            .apply_recursive_substitution(&self.substitution);
+                        let base_flattened = self.flatten_field_expression(
+                            functions_flattened,
+                            arguments_flattened,
+                            statements_flattened,
+                            base.clone(),
+                        );
 
                         // we require from the base to be linear
                         // TODO change that
@@ -756,19 +743,15 @@ impl Flattener {
                             // flatten(base ** n) = flatten(base) * flatten(base ** (n-1))
                             e => {
                                 // flatten(base ** (n-1))
-                                let tmp_expression = self
-                                    .flatten_field_expression(
-                                        functions_flattened,
-                                        arguments_flattened,
-                                        statements_flattened,
-                                        FieldElementExpression::Pow(
-                                            box base,
-                                            box FieldElementExpression::Number(
-                                                e.clone() - T::one(),
-                                            ),
-                                        ),
-                                    )
-                                    .apply_recursive_substitution(&self.substitution);
+                                let tmp_expression = self.flatten_field_expression(
+                                    functions_flattened,
+                                    arguments_flattened,
+                                    statements_flattened,
+                                    FieldElementExpression::Pow(
+                                        box base,
+                                        box FieldElementExpression::Number(e.clone() - T::one()),
+                                    ),
+                                );
 
                                 let id = self.use_sym();
 
@@ -826,7 +809,6 @@ impl Flattener {
                                 statements_flattened,
                                 expressions[n.to_dec_string().parse::<usize>().unwrap()].clone(),
                             )
-                            .apply_recursive_substitution(&self.substitution)
                         }
                         FieldElementArrayExpression::FunctionCall(..) => {
                             unimplemented!("please use intermediate variables for now")
@@ -853,7 +835,6 @@ impl Flattener {
                                     ),
                                 ),
                             )
-                            .apply_recursive_substitution(&self.substitution)
                         }
                     },
                     e => {
@@ -941,7 +922,6 @@ impl Flattener {
                             statements_flattened,
                             lookup,
                         )
-                        .apply_recursive_substitution(&self.substitution)
                     }
                 }
             }
@@ -1045,11 +1025,6 @@ impl Flattener {
                     .flat_map(|x| x)
                     .collect::<Vec<_>>();
 
-                let flat_expressions = flat_expressions
-                    .into_iter()
-                    .map(|e| e.apply_recursive_substitution(&self.substitution))
-                    .collect();
-
                 statements_flattened.push(FlatStatement::Return(FlatExpressionList {
                     expressions: flat_expressions,
                 }));
@@ -1069,11 +1044,6 @@ impl Flattener {
                     expr.clone(),
                 );
 
-                let rhs = rhs
-                    .into_iter()
-                    .map(|e| e.apply_recursive_substitution(&self.substitution))
-                    .collect::<Vec<_>>();
-
                 match expr.get_type() {
                     Type::FieldElement | Type::Boolean => {
                         match assignee {
@@ -1081,14 +1051,6 @@ impl Flattener {
                                 let debug_name = v.clone().id;
                                 let var = self.use_variable(&debug_name);
                                 // handle return of function call
-                                let var_to_replace = self.get_latest_var_substitution(&debug_name);
-                                if !(var == var_to_replace)
-                                    && self.variables.contains(&var_to_replace)
-                                    && !self.substitution.contains_key(&var_to_replace)
-                                {
-                                    self.substitution
-                                        .insert(var_to_replace.clone(), var.clone());
-                                }
                                 statements_flattened
                                     .push(FlatStatement::Definition(var, rhs[0].clone()));
                             }
@@ -1098,32 +1060,17 @@ impl Flattener {
                                     _ => panic!("not a field element as rhs of array element update, should have been caught at semantic")
                                 };
                                 match index {
-                                    box FieldElementExpression::Number(n) => {
-                                        match array {
-                                            box TypedAssignee::Identifier(id) => {
-                                                let debug_name = format!("{}_c{}", id.id, n);
-                                                let var = self.use_variable(&debug_name);
-                                                // handle return of function call
-                                                let var_to_replace =
-                                                    self.get_latest_var_substitution(&debug_name);
-                                                if !(var == var_to_replace)
-                                                    && self.variables.contains(&var_to_replace)
-                                                    && !self
-                                                        .substitution
-                                                        .contains_key(&var_to_replace)
-                                                {
-                                                    self.substitution.insert(
-                                                        var_to_replace.clone(),
-                                                        var.clone(),
-                                                    );
-                                                }
-                                                statements_flattened.push(
-                                                    FlatStatement::Definition(var, rhs[0].clone()),
-                                                );
-                                            }
-                                            _ => panic!("no multidimension array for now"),
+                                    box FieldElementExpression::Number(n) => match array {
+                                        box TypedAssignee::Identifier(id) => {
+                                            let debug_name = format!("{}_c{}", id.id, n);
+                                            let var = self.use_variable(&debug_name);
+                                            statements_flattened.push(FlatStatement::Definition(
+                                                var,
+                                                rhs[0].clone(),
+                                            ));
                                         }
-                                    }
+                                        _ => panic!("no multidimension array for now"),
+                                    },
                                     box e => {
                                         // we have array[e] with e an arbitrary expression
                                         // first we check that e is in 0..array.len(), so we check that sum(if e == i then 1 else 0) == 1
@@ -1203,15 +1150,6 @@ impl Flattener {
                                 _ => unimplemented!(),
                             };
                             let var = self.use_variable(&debug_name);
-                            // handle return of function call
-                            let var_to_replace = self.get_latest_var_substitution(&debug_name);
-                            if !(var == var_to_replace)
-                                && self.variables.contains(&var_to_replace)
-                                && !self.substitution.contains_key(&var_to_replace)
-                            {
-                                self.substitution
-                                    .insert(var_to_replace.clone(), var.clone());
-                            }
                             statements_flattened.push(FlatStatement::Definition(var, r));
                         }
                     }
@@ -1229,15 +1167,13 @@ impl Flattener {
                                 arguments_flattened,
                                 statements_flattened,
                                 e1,
-                            )
-                            .apply_recursive_substitution(&self.substitution),
+                            ),
                             self.flatten_field_expression(
                                 functions_flattened,
                                 arguments_flattened,
                                 statements_flattened,
                                 e2,
-                            )
-                            .apply_recursive_substitution(&self.substitution),
+                            ),
                         );
 
                         if lhs.is_linear() {
@@ -1256,15 +1192,13 @@ impl Flattener {
                                 arguments_flattened,
                                 statements_flattened,
                                 e1,
-                            )
-                            .apply_recursive_substitution(&self.substitution),
+                            ),
                             self.flatten_boolean_expression(
                                 functions_flattened,
                                 arguments_flattened,
                                 statements_flattened,
                                 e2,
-                            )
-                            .apply_recursive_substitution(&self.substitution),
+                            ),
                         );
 
                         if lhs.is_linear() {
@@ -1293,13 +1227,6 @@ impl Flattener {
                                 statements_flattened,
                                 e2,
                             ),
-                        );
-
-                        let (lhs, rhs) = (
-                            lhs.into_iter()
-                                .map(|e| e.apply_recursive_substitution(&self.substitution)),
-                            rhs.into_iter()
-                                .map(|e| e.apply_recursive_substitution(&self.substitution)),
                         );
 
                         assert_eq!(lhs.len(), rhs.len());
@@ -1346,16 +1273,14 @@ impl Flattener {
 
                 match rhs {
                     TypedExpressionList::FunctionCall(fun_id, exprs, _) => {
-                        let rhs_flattened = self
-                            .flatten_function_call(
-                                functions_flattened,
-                                arguments_flattened,
-                                statements_flattened,
-                                &fun_id,
-                                var_types,
-                                &exprs,
-                            )
-                            .apply_recursive_substitution(&self.substitution);
+                        let rhs_flattened = self.flatten_function_call(
+                            functions_flattened,
+                            arguments_flattened,
+                            statements_flattened,
+                            &fun_id,
+                            var_types,
+                            &exprs,
+                        );
 
                         let mut iterator = rhs_flattened.expressions.into_iter();
 
@@ -1367,16 +1292,6 @@ impl Flattener {
                                     for index in 0..size {
                                         let debug_name = format!("{}_c{}", v.id, index);
                                         let var = self.use_variable(&debug_name);
-                                        // handle return of function call
-                                        let var_to_replace =
-                                            self.get_latest_var_substitution(&debug_name);
-                                        if !(var == var_to_replace)
-                                            && self.variables.contains(&var_to_replace)
-                                            && !self.substitution.contains_key(&var_to_replace)
-                                        {
-                                            self.substitution
-                                                .insert(var_to_replace.clone(), var.clone());
-                                        }
                                         statements_flattened.push(FlatStatement::Definition(
                                             var,
                                             iterator.next().unwrap(),
@@ -1386,16 +1301,6 @@ impl Flattener {
                                 Type::Boolean | Type::FieldElement => {
                                     let debug_name = v.id;
                                     let var = self.use_variable(&debug_name);
-                                    // handle return of function call
-                                    let var_to_replace =
-                                        self.get_latest_var_substitution(&debug_name);
-                                    if !(var == var_to_replace)
-                                        && self.variables.contains(&var_to_replace)
-                                        && !self.substitution.contains_key(&var_to_replace)
-                                    {
-                                        self.substitution
-                                            .insert(var_to_replace.clone(), var.clone());
-                                    }
                                     statements_flattened.push(FlatStatement::Definition(
                                         var,
                                         iterator.next().unwrap(),
@@ -1423,9 +1328,6 @@ impl Flattener {
         functions_flattened: &mut Vec<FlatFunction<T>>,
         funct: TypedFunction<T>,
     ) -> FlatFunction<T> {
-        self.variables = HashSet::new();
-        self.substitution = HashMap::new();
-
         self.bijection = BiMap::new();
 
         self.next_var_idx = 0;
@@ -1530,15 +1432,7 @@ impl Flattener {
 
     fn get_latest_var_substitution(&mut self, name: &String) -> FlatVariable {
         // start with the variable name
-        let latest_var = self.bijection.get_by_left(name).unwrap().clone();
-        // loop {
-        //     // walk the substitutions
-        //     match self.substitution.get(&latest_var) {
-        //         Some(x) => latest_var = x,
-        //         None => break,
-        //     }
-        // }
-        latest_var
+        self.bijection.get_by_left(name).unwrap().clone()
     }
 
     fn get_function<'a, T: Field>(

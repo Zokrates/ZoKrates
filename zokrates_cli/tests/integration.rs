@@ -98,7 +98,7 @@ mod integration {
             "--light",
         ];
 
-        if program_name.contains("libsnark") {
+        if program_name.contains("sha") {
             // we don't want to test libsnark integrations if libsnark is not available
             #[cfg(not(feature = "libsnark"))]
             return;
