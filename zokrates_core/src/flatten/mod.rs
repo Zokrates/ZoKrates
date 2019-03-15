@@ -18,8 +18,6 @@ use zokrates_field::field::Field;
 /// Flattener, computes flattened program.
 #[derive(Debug)]
 pub struct Flattener {
-    /// Number of bits needed to represent the maximum value.
-    bits: usize,
     /// Vector containing all used variables while processing the program.
     variables: HashSet<FlatVariable>,
     /// Map of renamings for reassigned variables while processing the program.
@@ -35,9 +33,8 @@ impl Flattener {
     /// # Arguments
     ///
     /// * `bits` - Number of bits needed to represent the maximum value.
-    pub fn new(bits: usize) -> Flattener {
+    pub fn new() -> Flattener {
         Flattener {
-            bits: bits,
             variables: HashSet::new(),
             substitution: HashMap::new(),
             next_var_idx: 0,
@@ -135,6 +132,9 @@ impl Flattener {
                 FlatExpression::Identifier(self.bijection.get_by_left(&x).unwrap().clone())
             }
             BooleanExpression::Lt(box lhs, box rhs) => {
+                // Get the bitwidth to know the size of the binary decompsitions for this Field
+                let bitwidth = T::get_required_bits();
+
                 // We know from semantic checking that lhs and rhs have the same type
                 // What the expression will flatten to depends on that type
 
@@ -161,7 +161,7 @@ impl Flattener {
                 {
                     // define variables for the bits
                     let lhs_bits: Vec<FlatVariable> =
-                        (0..self.bits).map(|_| self.use_sym()).collect();
+                        (0..bitwidth).map(|_| self.use_sym()).collect();
 
                     // add a directive to get the bits
                     statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
@@ -171,7 +171,7 @@ impl Flattener {
                     )));
 
                     // bitness checks
-                    for i in 0..self.bits - 2 {
+                    for i in 0..bitwidth - 2 {
                         statements_flattened.push(FlatStatement::Condition(
                             FlatExpression::Identifier(lhs_bits[i + 2]),
                             FlatExpression::Mult(
@@ -184,12 +184,12 @@ impl Flattener {
                     // bit decomposition check
                     let mut lhs_sum = FlatExpression::Number(T::from(0));
 
-                    for i in 0..self.bits - 2 {
+                    for i in 0..bitwidth - 2 {
                         lhs_sum = FlatExpression::Add(
                             box lhs_sum,
                             box FlatExpression::Mult(
                                 box FlatExpression::Identifier(lhs_bits[i + 2]),
-                                box FlatExpression::Number(T::from(2).pow(self.bits - 2 - i - 1)),
+                                box FlatExpression::Number(T::from(2).pow(bitwidth - 2 - i - 1)),
                             ),
                         );
                     }
@@ -208,7 +208,7 @@ impl Flattener {
                 {
                     // define variables for the bits
                     let rhs_bits: Vec<FlatVariable> =
-                        (0..self.bits).map(|_| self.use_sym()).collect();
+                        (0..bitwidth).map(|_| self.use_sym()).collect();
 
                     // add a directive to get the bits
                     statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
@@ -218,7 +218,7 @@ impl Flattener {
                     )));
 
                     // bitness checks
-                    for i in 0..self.bits - 2 {
+                    for i in 0..bitwidth - 2 {
                         statements_flattened.push(FlatStatement::Condition(
                             FlatExpression::Identifier(rhs_bits[i + 2]),
                             FlatExpression::Mult(
@@ -231,12 +231,12 @@ impl Flattener {
                     // bit decomposition check
                     let mut rhs_sum = FlatExpression::Number(T::from(0));
 
-                    for i in 0..self.bits - 2 {
+                    for i in 0..bitwidth - 2 {
                         rhs_sum = FlatExpression::Add(
                             box rhs_sum,
                             box FlatExpression::Mult(
                                 box FlatExpression::Identifier(rhs_bits[i + 2]),
-                                box FlatExpression::Number(T::from(2).pow(self.bits - 2 - i - 1)),
+                                box FlatExpression::Number(T::from(2).pow(bitwidth - 2 - i - 1)),
                             ),
                         );
                     }
@@ -260,7 +260,7 @@ impl Flattener {
                 );
 
                 // define variables for the bits
-                let sub_bits: Vec<FlatVariable> = (0..self.bits).map(|_| self.use_sym()).collect();
+                let sub_bits: Vec<FlatVariable> = (0..bitwidth).map(|_| self.use_sym()).collect();
 
                 // add a directive to get the bits
                 statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
@@ -270,7 +270,7 @@ impl Flattener {
                 )));
 
                 // bitness checks
-                for i in 0..self.bits {
+                for i in 0..bitwidth {
                     statements_flattened.push(FlatStatement::Condition(
                         FlatExpression::Identifier(sub_bits[i]),
                         FlatExpression::Mult(
@@ -283,12 +283,12 @@ impl Flattener {
                 // sum(sym_b{i} * 2**i)
                 let mut expr = FlatExpression::Number(T::from(0));
 
-                for i in 0..self.bits {
+                for i in 0..bitwidth {
                     expr = FlatExpression::Add(
                         box expr,
                         box FlatExpression::Mult(
                             box FlatExpression::Identifier(sub_bits[i]),
-                            box FlatExpression::Number(T::from(2).pow(self.bits - i - 1)),
+                            box FlatExpression::Number(T::from(2).pow(bitwidth - i - 1)),
                         ),
                     );
                 }
@@ -1558,7 +1558,7 @@ mod tests {
         // def main()
         //     a, b = foo()
 
-        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut flattener = Flattener::new();
         let mut functions_flattened = vec![FlatFunction {
             id: "foo".to_string(),
             arguments: vec![],
@@ -1610,7 +1610,7 @@ mod tests {
 
         let a = FlatVariable::new(0);
 
-        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut flattener = Flattener::new();
         let mut functions_flattened = vec![FlatFunction {
             id: "dup".to_string(),
             arguments: vec![FlatParameter {
@@ -1665,7 +1665,7 @@ mod tests {
         // def main()
         //     a = foo()
 
-        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut flattener = Flattener::new();
         let mut functions_flattened = vec![FlatFunction {
             id: "foo".to_string(),
             arguments: vec![],
@@ -1712,7 +1712,7 @@ mod tests {
         //     a_0 = a + 1
         //     return 1
 
-        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut flattener = Flattener::new();
         let mut functions_flattened = vec![];
 
         let funct = TypedFunction {
@@ -1795,7 +1795,7 @@ mod tests {
             },
         };
 
-        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut flattener = Flattener::new();
 
         let foo_flattened = flattener.flatten_function(&mut vec![], foo);
 
@@ -1859,7 +1859,7 @@ mod tests {
             },
         };
 
-        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut flattener = Flattener::new();
 
         let expected = FlatFunction {
             id: String::from("main"),
@@ -1916,7 +1916,7 @@ mod tests {
         //      should not panic
         //
 
-        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut flattener = Flattener::new();
         let functions = vec![
             TypedFunction {
                 id: "foo".to_string(),
@@ -1986,7 +1986,7 @@ mod tests {
 
     #[test]
     fn if_else() {
-        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut flattener = Flattener::new();
         let expression = FieldElementExpression::IfElse(
             box BooleanExpression::Eq(
                 box FieldElementExpression::Number(FieldPrime::from(32)),
@@ -2004,7 +2004,7 @@ mod tests {
 
     #[test]
     fn geq_leq() {
-        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut flattener = Flattener::new();
         let expression_le = BooleanExpression::Le(
             box FieldElementExpression::Number(FieldPrime::from(32)),
             box FieldElementExpression::Number(FieldPrime::from(4)),
@@ -2037,7 +2037,7 @@ mod tests {
             box FieldElementExpression::Number(FieldPrime::from(51)),
         );
 
-        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut flattener = Flattener::new();
         let mut functions_flattened = vec![];
         flattener.load_corelib(&mut functions_flattened);
         flattener.flatten_field_expression(&functions_flattened, &vec![], &mut vec![], expression);
@@ -2046,7 +2046,7 @@ mod tests {
     #[test]
     fn div() {
         // a = 5 / b / b
-        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut flattener = Flattener::new();
         let mut functions_flattened = vec![];
         let arguments_flattened = vec![];
         let mut statements_flattened = vec![];
@@ -2162,7 +2162,7 @@ mod tests {
     fn field_array() {
         // foo = [ , , ]
 
-        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut flattener = Flattener::new();
         let mut functions_flattened = vec![];
         let arguments_flattened = vec![];
         let mut statements_flattened = vec![];
@@ -2208,7 +2208,7 @@ mod tests {
     fn array_definition() {
         // field[3] foo = [1, 2, 3]
 
-        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut flattener = Flattener::new();
         let mut functions_flattened = vec![];
         let arguments_flattened = vec![];
         let mut statements_flattened = vec![];
@@ -2256,7 +2256,7 @@ mod tests {
         // field[3] foo = [1, 2, 3]
         // foo[1]
 
-        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut flattener = Flattener::new();
         let mut functions_flattened = vec![];
         let arguments_flattened = vec![];
         let mut statements_flattened = vec![];
@@ -2304,7 +2304,7 @@ mod tests {
         // bar = foo[0] + foo[1] + foo[2]
         // we don't optimise detecting constants, this will be done in an optimiser pass
 
-        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut flattener = Flattener::new();
         let mut functions_flattened = vec![];
         let arguments_flattened = vec![];
         let mut statements_flattened = vec![];
@@ -2376,7 +2376,7 @@ mod tests {
         // if 1 == 1 then [1] else [3] fi
 
         let with_arrays = {
-            let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+            let mut flattener = Flattener::new();
             let mut functions_flattened = vec![];
             flattener.load_corelib(&mut functions_flattened);
             let arguments_flattened = vec![];
@@ -2410,7 +2410,7 @@ mod tests {
         };
 
         let without_arrays = {
-            let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+            let mut flattener = Flattener::new();
             let mut functions_flattened = vec![];
             flattener.load_corelib(&mut functions_flattened);
             let arguments_flattened = vec![];
@@ -2442,7 +2442,7 @@ mod tests {
 
     #[test]
     fn next_variable() {
-        let mut flattener = Flattener::new(FieldPrime::get_required_bits());
+        let mut flattener = Flattener::new();
         assert_eq!(
             FlatVariable::new(0),
             flattener.use_variable(&String::from("a"))
