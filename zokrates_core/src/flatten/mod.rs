@@ -443,7 +443,9 @@ impl Flattener {
             .inputs(param_expressions.iter().map(|e| e.get_type()).collect())
             .outputs(return_types);
 
-        let funct = self.get_function(passed_signature, &functions_flattened, id).clone();
+        let funct = self
+            .get_function(passed_signature, &functions_flattened, id)
+            .clone();
 
         let mut replacement_map = HashMap::new();
 
@@ -451,7 +453,14 @@ impl Flattener {
         // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions
         let params_flattened = param_expressions
             .into_iter()
-            .map(|param_expr| self.flatten_expression(functions_flattened, arguments_flattened, statements_flattened, param_expr.clone()))
+            .map(|param_expr| {
+                self.flatten_expression(
+                    functions_flattened,
+                    arguments_flattened,
+                    statements_flattened,
+                    param_expr.clone(),
+                )
+            })
             .into_iter()
             .flat_map(|x| x)
             .collect::<Vec<_>>();
@@ -1532,7 +1541,12 @@ impl Flattener {
         latest_var
     }
 
-    fn get_function<'a, T: Field>(&self, s: Signature, functions_flattened: &'a Vec<FlatFunction<T>>, id: &str) -> &'a FlatFunction<T> {
+    fn get_function<'a, T: Field>(
+        &self,
+        s: Signature,
+        functions_flattened: &'a Vec<FlatFunction<T>>,
+        id: &str,
+    ) -> &'a FlatFunction<T> {
         functions_flattened
             .iter()
             .find(|f| f.id == id && f.signature == s)
