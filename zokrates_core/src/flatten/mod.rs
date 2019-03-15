@@ -30,12 +30,16 @@ pub struct Flattener {
     bijection: BiMap<String, FlatVariable>,
 }
 impl Flattener {
+    pub fn flatten<T: Field>(p: TypedProg<T>) -> FlatProg<T> {
+        Flattener::new(T::get_required_bits()).flatten_program(p)
+    }
+
     /// Returns a `Flattener` with fresh a fresh [substitution] and [variables].
     ///
     /// # Arguments
     ///
     /// * `bits` - Number of bits needed to represent the maximum value.
-    pub fn new(bits: usize) -> Flattener {
+    fn new(bits: usize) -> Flattener {
         Flattener {
             bits: bits,
             variables: HashSet::new(),
