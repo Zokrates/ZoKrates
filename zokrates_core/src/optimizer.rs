@@ -103,7 +103,7 @@ impl Optimizer {
                     // filter out synonyms definitions
                     FlatStatement::Definition(_, FlatExpression::Identifier(_)) => None,
                     // substitute all other statements
-                    _ => Some(statement.apply_direct_substitution(&self.substitution)),
+                    _ => Some(statement.apply_substitution(&self.substitution)),
                 }
             })
             .collect();
@@ -112,7 +112,7 @@ impl Optimizer {
         let optimized_arguments = funct
             .arguments
             .into_iter()
-            .map(|arg| arg.apply_direct_substitution(&self.substitution))
+            .map(|arg| arg.apply_substitution(&self.substitution))
             .collect();
 
         FlatFunction {

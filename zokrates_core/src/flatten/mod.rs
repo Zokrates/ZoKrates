@@ -483,19 +483,19 @@ impl Flattener {
                                 expressions: list
                                     .expressions
                                     .into_iter()
-                                    .map(|x| x.apply_direct_substitution(&replacement_map))
+                                    .map(|x| x.apply_substitution(&replacement_map))
                                     .collect(),
                             };
                         }
                         FlatStatement::Definition(var, rhs) => {
                             let new_var = self.issue_new_variable();
                             replacement_map.insert(var, new_var);
-                            let new_rhs = rhs.apply_direct_substitution(&replacement_map);
+                            let new_rhs = rhs.apply_substitution(&replacement_map);
                             statements_flattened.push(FlatStatement::Definition(new_var, new_rhs));
                         }
                         FlatStatement::Condition(lhs, rhs) => {
-                            let new_lhs = lhs.apply_direct_substitution(&replacement_map);
-                            let new_rhs = rhs.apply_direct_substitution(&replacement_map);
+                            let new_lhs = lhs.apply_substitution(&replacement_map);
+                            let new_rhs = rhs.apply_substitution(&replacement_map);
                             statements_flattened.push(FlatStatement::Condition(new_lhs, new_rhs));
                         }
                         FlatStatement::Directive(d) => {
@@ -511,7 +511,7 @@ impl Flattener {
                             let new_inputs = d
                                 .inputs
                                 .into_iter()
-                                .map(|i| i.apply_direct_substitution(&replacement_map))
+                                .map(|i| i.apply_substitution(&replacement_map))
                                 .collect();
                             statements_flattened.push(FlatStatement::Directive(
                                 DirectiveStatement {
