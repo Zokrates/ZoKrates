@@ -410,101 +410,99 @@ impl Flattener {
         param_expressions: &Vec<TypedExpression<T>>,
     ) -> FlatExpressionList<T> {
         let passed_signature = Signature::new()
-            .inputs(
-                param_expressions
-                    .into_iter()
-                    .map(|e| e.get_type())
-                    .collect(),
-            )
+            .inputs(param_expressions.iter().map(|e| e.get_type()).collect())
             .outputs(return_types);
 
-        for funct in functions_flattened {
-            if funct.id == *id && funct.signature == passed_signature {
-                // funct is now the called function
+        let funct = self
+            .get_function(passed_signature, &functions_flattened, id)
+            .clone();
 
-                // Stores prefixed variables
+        let mut replacement_map = HashMap::new();
 
-                let mut replacement_map = HashMap::new();
+        // Handle complex parameters and assign values:
+        // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions
+        let params_flattened = param_expressions
+            .into_iter()
+            .map(|param_expr| {
+                self.flatten_expression(
+                    functions_flattened,
+                    statements_flattened,
+                    param_expr.clone(),
+                )
+            })
+            .into_iter()
+            .flat_map(|x| x)
+            .collect::<Vec<_>>();
 
-                // Handle complex parameters and assign values:
-                // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions
-                let params_flattened = param_expressions
-                    .clone()
-                    .into_iter()
-                    .map(|param_expr| {
-                        self.flatten_expression(
-                            functions_flattened,
-                            statements_flattened,
-                            param_expr,
-                        )
-                    })
-                    .into_iter()
-                    .flat_map(|x| x)
-                    .collect::<Vec<_>>();
-
-                for (index, r) in params_flattened.into_iter().enumerate() {
-                    let new_var = self.use_sym();
-                    statements_flattened.push(FlatStatement::Definition(new_var, r));
-                    replacement_map.insert(funct.arguments.get(index).unwrap().id.clone(), new_var);
-                }
-
-                // Ensure Renaming and correct returns:
-                // add all flattened statements, adapt return statement
-                for stat in funct.statements.clone() {
-                    match stat {
-                        // set return statements right sidreturne as expression result
-                        FlatStatement::Return(list) => {
-                            return FlatExpressionList {
-                                expressions: list
-                                    .expressions
-                                    .into_iter()
-                                    .map(|x| x.apply_substitution(&replacement_map))
-                                    .collect(),
-                            };
-                        }
-                        FlatStatement::Definition(var, rhs) => {
-                            let new_var = self.issue_new_variable();
-                            replacement_map.insert(var, new_var);
-                            let new_rhs = rhs.apply_substitution(&replacement_map);
-                            statements_flattened.push(FlatStatement::Definition(new_var, new_rhs));
-                        }
-                        FlatStatement::Condition(lhs, rhs) => {
-                            let new_lhs = lhs.apply_substitution(&replacement_map);
-                            let new_rhs = rhs.apply_substitution(&replacement_map);
-                            statements_flattened.push(FlatStatement::Condition(new_lhs, new_rhs));
-                        }
-                        FlatStatement::Directive(d) => {
-                            let new_outputs = d
-                                .outputs
-                                .into_iter()
-                                .map(|o| {
-                                    let new_o = self.issue_new_variable();
-                                    replacement_map.insert(o, new_o);
-                                    new_o
-                                })
-                                .collect();
-                            let new_inputs = d
-                                .inputs
-                                .into_iter()
-                                .map(|i| i.apply_substitution(&replacement_map))
-                                .collect();
-                            statements_flattened.push(FlatStatement::Directive(
-                                DirectiveStatement {
-                                    outputs: new_outputs,
-                                    helper: d.helper.clone(),
-                                    inputs: new_inputs,
-                                },
-                            ))
-                        }
-                    }
-                }
-            }
+        for (concrete_argument, formal_argument) in
+            params_flattened.into_iter().zip(funct.arguments)
+        {
+            let new_var = self.use_sym();
+            statements_flattened.push(FlatStatement::Definition(new_var, concrete_argument));
+            replacement_map.insert(formal_argument.id, new_var);
         }
-        panic!(
-            "TypedFunction definition for function {} with {:?} argument(s) not found. Should have been detected during semantic checking.",
-            id,
-            param_expressions
-        );
+
+        // Ensure Renaming and correct returns:
+        // add all flattened statements, adapt return statement
+
+        let (return_statements, statements): (Vec<_>, Vec<_>) =
+            funct.statements.into_iter().partition(|s| match s {
+                FlatStatement::Return(..) => true,
+                _ => false,
+            });
+
+        let statements: Vec<_> = statements
+            .into_iter()
+            .map(|stat| match stat {
+                // set return statements right sidreturne as expression result
+                FlatStatement::Return(..) => unreachable!(),
+                FlatStatement::Definition(var, rhs) => {
+                    let new_var = self.issue_new_variable();
+                    replacement_map.insert(var, new_var);
+                    let new_rhs = rhs.apply_substitution(&replacement_map);
+                    FlatStatement::Definition(new_var, new_rhs)
+                }
+                FlatStatement::Condition(lhs, rhs) => {
+                    let new_lhs = lhs.apply_substitution(&replacement_map);
+                    let new_rhs = rhs.apply_substitution(&replacement_map);
+                    FlatStatement::Condition(new_lhs, new_rhs)
+                }
+                FlatStatement::Directive(d) => {
+                    let new_outputs = d
+                        .outputs
+                        .into_iter()
+                        .map(|o| {
+                            let new_o = self.issue_new_variable();
+                            replacement_map.insert(o, new_o);
+                            new_o
+                        })
+                        .collect();
+                    let new_inputs = d
+                        .inputs
+                        .into_iter()
+                        .map(|i| i.apply_substitution(&replacement_map))
+                        .collect();
+                    FlatStatement::Directive(DirectiveStatement {
+                        outputs: new_outputs,
+                        helper: d.helper,
+                        inputs: new_inputs,
+                    })
+                }
+            })
+            .collect();
+
+        statements_flattened.extend(statements);
+
+        match return_statements[0].clone() {
+            FlatStatement::Return(list) => FlatExpressionList {
+                expressions: list
+                    .expressions
+                    .into_iter()
+                    .map(|x| x.apply_substitution(&replacement_map))
+                    .collect(),
+            },
+            _ => unreachable!(),
+        }
     }
 
     fn flatten_expression<T: Field>(
@@ -1325,6 +1323,18 @@ impl Flattener {
     fn get_latest_var_substitution(&mut self, name: &String) -> FlatVariable {
         // start with the variable name
         self.bijection.get_by_left(name).unwrap().clone()
+    }
+
+    fn get_function<'a, T: Field>(
+        &self,
+        s: Signature,
+        functions_flattened: &'a Vec<FlatFunction<T>>,
+        id: &str,
+    ) -> &'a FlatFunction<T> {
+        functions_flattened
+            .iter()
+            .find(|f| f.id == id && f.signature == s)
+            .unwrap()
     }
 }
 
