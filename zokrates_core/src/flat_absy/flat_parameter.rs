@@ -36,7 +36,7 @@ impl fmt::Debug for FlatParameter {
 }
 
 impl FlatParameter {
-    pub fn apply_direct_substitution(
+    pub fn apply_substitution(
         self,
         substitution: &HashMap<FlatVariable, FlatVariable>,
     ) -> FlatParameter {
