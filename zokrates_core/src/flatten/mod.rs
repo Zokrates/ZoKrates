@@ -1029,7 +1029,7 @@ impl Flattener {
         }
     }
 
-    pub fn flatten_statement<T: Field>(
+    fn flatten_statement<T: Field>(
         &mut self,
         functions_flattened: &Vec<FlatFunction<T>>,
         arguments_flattened: &Vec<FlatParameter>,
@@ -1424,7 +1424,7 @@ impl Flattener {
     ///
     /// * `functions_flattened` - Vector where new flattened functions can be added.
     /// * `funct` - `TypedFunction` that will be flattened.
-    pub fn flatten_function<T: Field>(
+    fn flatten_function<T: Field>(
         &mut self,
         functions_flattened: &mut Vec<FlatFunction<T>>,
         funct: TypedFunction<T>,
@@ -1490,7 +1490,7 @@ impl Flattener {
     /// # Arguments
     ///
     /// * `prog` - `Prog`ram that will be flattened.
-    pub fn flatten_program<T: Field>(&mut self, prog: TypedProg<T>) -> FlatProg<T> {
+    fn flatten_program<T: Field>(&mut self, prog: TypedProg<T>) -> FlatProg<T> {
         let mut functions_flattened = Vec::new();
 
         self.load_corelib(&mut functions_flattened);
