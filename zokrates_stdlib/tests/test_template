@@ -1,0 +1,44 @@
+#[test]
+#[ignore]
+#[allow(non_snake_case)]
+fn {test_name}() {{
+    use zokrates_field::field::{{Field, FieldPrime}};
+    use std::path::PathBuf;
+    use zokrates_fs_resolver::resolve;
+    use zokrates_core::compile::compile;
+    use std::fs::File;
+    use std::io::{{BufReader, Read}};
+
+    let t: utils::Tests = serde_json::from_reader(
+        BufReader::new(
+            File::open(
+                &PathBuf::from("{test_path}")
+            ).unwrap()
+        )
+    ).unwrap();
+
+    let mut code_reader = BufReader::new(File::open(&t.entry_point).unwrap());
+
+    let bin = compile(
+        &mut code_reader,
+        Some(t.entry_point.parent().unwrap().to_str().unwrap().to_string()),
+        Some(resolve)
+    ).unwrap();
+
+    for test in t.tests.into_iter() {{
+        let input = &test.input.values;
+        let output = bin.execute(&input.iter().map(|v| FieldPrime::from_dec_string(v.clone())).collect());
+
+        match utils::compare(output, test.output) {{
+            Err(e) => {{
+                let mut code = File::open(&t.entry_point).unwrap();
+                let mut s = String::new();
+                code.read_to_string(&mut s).unwrap();
+                let context = format!("\n{{}}\nCalled with input ({{}})\n", s, input.iter().map(|i| format!("{{}}", i)).collect::<Vec<_>>().join(", "));
+                panic!("{{}}{{}}", context, e)
+            }},
+            Ok(..) => {{}}
+        }};
+    }}
+}}
+
