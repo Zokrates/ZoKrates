@@ -1,7 +1,9 @@
 import "ecc/edwardsAdd.code" as add
 import "ecc/edwardsScalarMult.code" as multiply
 import "utils/pack/unpack256.code" as unpack256
-// Return true for a valid public and private key pair, false otherwise 
+// Gadget to proof ownership of a private key for a given public key 
+// Returns true for a valid public and private key pair, false otherwise 
+// Curve parameters are defined with the last argument
 def main(field[2] pk, field sk, field[10] context) -> (field):
 
     field[2] G = [context[4], context[5]]

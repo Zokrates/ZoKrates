@@ -4,7 +4,9 @@ import "ecc/edwardsAdd.code" as add
 import "utils/pack/unpack256.code" as unpack256
 import "ecc/edwardsOnCurve.code" as onCurve
 import "ecc/edwardsOrderCheck.code" as orderCheck
+
 // Return true for a valid EdDSA Signature, false otherwise
+// Curve parameters are defined with the last argument
 def main(private field[2] R, private field S, field[2] A, field[256] M0, field[256] M1, field[10] context) -> (field):
 
     field[2] G = [context[4], context[5]]
