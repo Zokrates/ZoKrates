@@ -4,7 +4,7 @@ import "utils/pack/unpack256.code" as unpack256
 // Verifies that the point is not one of the low-order points.
 // If any of the points is multiplied by the cofactor, the resulting point
 // will be infinity. 
-// Returns ture if the point is not one of the low-order points.
+// Returns true if the point is not one of the low-order points, false otherwise.
 // Curve parameters are defined with the last argument
 // https://github.com/zcash-hackworks/sapling-crypto/blob/master/src/jubjub/edwards.rs#L166
 def main(field[2] pt, field[10] context) -> (field):

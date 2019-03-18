@@ -5,8 +5,24 @@ import "utils/pack/unpack256.code" as unpack256
 import "ecc/edwardsOnCurve.code" as onCurve
 import "ecc/edwardsOrderCheck.code" as orderCheck
 
-// Return true for a valid EdDSA Signature, false otherwise
-// Curve parameters are defined with the last argument
+/// Verifies the correctness of EdDSA Signature.
+///
+/// Checks the correctness of a given EdDSA Signature (R,S) for the provided
+/// public key(A) and message (M0 and M1).
+/// For more information see:
+/// https://en.wikipedia.org/wiki/EdDSA
+/// https://eprint.iacr.org/2015/677.pdf
+///
+/// Arguments:
+///    R: Curve point. Hidden version of the per-message nonce.
+///    S: Field element. Signature to be verified.
+///    A: Curve point. Public part of the key used to create S.
+///    M0: 256bit array. First 256bits of the message used to create S  .
+///    M1: 256bit array. Trailing 256bits of the message used to create S  .
+///    context: Curve parameters used to create S.
+///
+/// Returns:
+///     Return true for S being a valid EdDSA Signature, false otherwise.
 def main(private field[2] R, private field S, field[2] A, field[256] M0, field[256] M1, field[10] context) -> (field):
 
     field[2] G = [context[4], context[5]]
