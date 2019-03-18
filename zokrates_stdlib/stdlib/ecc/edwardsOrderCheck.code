@@ -9,11 +9,11 @@ import "utils/pack/unpack256.code" as unpack256
 // https://github.com/zcash-hackworks/sapling-crypto/blob/master/src/jubjub/edwards.rs#L166
 def main(field[2] pt, field[10] context) -> (field):
 
-	field cofactor = context[7] 
-	field[256] cofactorExponent = unpack256(cofactor) 
+    field cofactor = context[7] 
+    field[256] cofactorExponent = unpack256(cofactor) 
 
-	field[2] ptExp = multiply(cofactorExponent, pt, context)
+    field[2] ptExp = multiply(cofactorExponent, pt, context)
 
-	field out =	if ptExp[0] == 0 && ptExp[1] == 1 then 0 else 1 fi
+    field out = if ptExp[0] == 0 && ptExp[1] == 1 then 0 else 1 fi
 
-	return out
+    return out

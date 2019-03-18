@@ -1,6 +1,8 @@
 import "ecc/edwardsOrderCheck.code" as orderCheck
 import "ecc/babyjubjubParams.code" as context
 
+// Code to create test cases:
+// https://github.com/stefandeml/zokrates-pycrypto/blob/master/tests/test_babyjubjub.py
 def testOrderCheckTrue() -> (field):
 	context = context()
 

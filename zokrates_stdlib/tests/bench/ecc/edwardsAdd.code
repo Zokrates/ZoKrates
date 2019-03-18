@@ -2,6 +2,8 @@ import "ecc/edwardsAdd.code" as add
 import "ecc/edwardsNegate.code" as neg 
 import "ecc/babyjubjubParams.code" as context
 
+// Code to create test cases:
+// https://github.com/stefandeml/zokrates-pycrypto/blob/master/tests/test_babyjubjub.py
 def testDoubleViaAdd() -> (field):
 	context = context()
 	field[2] G = [context[4], context[5]]

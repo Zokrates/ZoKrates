@@ -3,6 +3,8 @@ import "ecc/proofOfOwnership.code" as proofOfOwnership
 import "ecc/edwardsScalarMult.code" as multiply
 import "utils/pack/unpack256.code" as unpack256
 
+// Code to create test cases:
+// https://github.com/stefandeml/zokrates-pycrypto/blob/master/tests/test_babyjubjub.py
 def testOwnershipTrue() -> (field):
 	context = context()
 	field[2] G = [context[4], context[5]]

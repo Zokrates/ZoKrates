@@ -1,6 +1,8 @@
 import "signatures/verifyEddsa.code" as verifyEddsa
 import "ecc/babyjubjubParams.code" as context
 
+// Code to create test case:
+// https://github.com/stefandeml/zokrates-pycrypto/blob/master/tests/test_eddsa.py
 def main() -> (field):
 
 context = context()
