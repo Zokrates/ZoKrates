@@ -4,6 +4,8 @@ ZoKrates comes with a number of reusable components which are defined at `./stdl
 
 The following section highlights a subset of available imports:
 
+### Hashes
+
 #### sha256
 
 ```zokrates
@@ -26,14 +28,32 @@ There also is support for 2 round (1024bit input) and and 3 round (1536bit input
 #### sha256packed
 
 ```zokrates
-import "hashes/sha256/512bitPacked.code" 
+import "hashes/sha256/512bitPacked.code"
 ```
 
 A function that takes an array of 4 field elements as inputs, unpacks each of them to 128 bits (big endian), concatenates them and applies sha256. It then returns an array of 2 field elements, each representing 128 bits of the result.
 
-### Direct imports
+### Public-key Cryptography 
 
-Some components of the standard library cannot yet be efficiently represented in the ZoKrates DSL language. Those functions are injected at compile-time and are available by default.
+#### Proof of private-key ownership
+
+```zokrates
+import "ecc/proofOfOwnership.code"
+```
+
+Verifies match of a given public/private keypair. Checks if the following equation holds for the provided keypair:  
+`pk = sk*G`  
+where `G` is the chosen base point of the subgroup and `*` denotes scalar multiplication.
+
+#### Signature verification
+
+```zokrates
+import "signatures/verifyEddsa.code"
+```
+
+Verifies an EdDSA Signature. Checks the correctness of a given EdDSA Signature (`R,S`) for the provided public key(`A`) and message (`M0` and `M1`).
+
+### Packing / Unpacking
 
 #### pack128
 
@@ -50,3 +70,11 @@ import "utils/pack/unpack128"
 ```
 
 Unpacks a field element to 128 field elements.
+
+#### unpack256
+
+```zokrates
+import "utils/pack/unpack256"
+```
+
+Unpacks a field element to 256 field elements.

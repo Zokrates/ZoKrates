@@ -5,7 +5,7 @@ import "utils/pack/unpack256.code" as unpack256
 import "ecc/edwardsOnCurve.code" as onCurve
 import "ecc/edwardsOrderCheck.code" as orderCheck
 
-/// Verifies the correctness of EdDSA Signature.
+/// Verifies an EdDSA Signature.
 ///
 /// Checks the correctness of a given EdDSA Signature (R,S) for the provided
 /// public key(A) and message (M0 and M1).
