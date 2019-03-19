@@ -1,5 +1,5 @@
 // Parameters are based on: https://github.com/HarryR/ethsnarks/tree/master/src/jubjub
-// Note: parameters will be update soon to be more compatible with zCash's implementation
+// Note: parameters will be updated soon to be more compatible with zCash's implementation
 def main() -> (field[10]):
 
 // Order of the curve E

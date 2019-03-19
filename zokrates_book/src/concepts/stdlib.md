@@ -43,7 +43,7 @@ import "ecc/proofOfOwnership.code"
 
 Verifies match of a given public/private keypair. Checks if the following equation holds for the provided keypair:  
 `pk = sk*G`  
-where `G` is the chosen base point of the subgroup and `*` denotes scalar multiplication.
+where `G` is the chosen base point of the subgroup and `*` denotes scalar multiplication in the subgroup.
 
 #### Signature verification
 
@@ -51,7 +51,7 @@ where `G` is the chosen base point of the subgroup and `*` denotes scalar multip
 import "signatures/verifyEddsa.code"
 ```
 
-Verifies an EdDSA Signature. Checks the correctness of a given EdDSA Signature (`R,S`) for the provided public key(`A`) and message (`M0` and `M1`).
+Verifies an EdDSA Signature. Checks the correctness of a given EdDSA Signature `(R,S)` for the provided public key `A` and message `(M0, M1)`.
 
 ### Packing / Unpacking
 

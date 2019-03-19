@@ -7,7 +7,7 @@ import "utils/pack/unpack256.code" as unpack256
 ///    Checks if the following equation holds for the provided keypair:
 ///    pk = sk*G
 ///    where G is the chosen base point of the subgroup
-///    and * denotes scalar multiplication
+///    and * denotes scalar multiplication in the subgroup
 ///
 /// Arguments:
 ///    pk: Curve point. Public key.
@@ -15,7 +15,7 @@ import "utils/pack/unpack256.code" as unpack256
 ///    context: Curve parameters (including generator G) used to create keypair.
 ///
 /// Returns:
-///     Return true for pk/sk being a valid keypair, false otherwise.
+///     Return 1 for pk/sk being a valid keypair, 0 otherwise.
 def main(field[2] pk, field sk, field[10] context) -> (field):
 
     field[2] G = [context[4], context[5]]

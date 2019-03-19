@@ -8,7 +8,7 @@ import "ecc/edwardsOrderCheck.code" as orderCheck
 /// Verifies an EdDSA Signature.
 ///
 /// Checks the correctness of a given EdDSA Signature (R,S) for the provided
-/// public key(A) and message (M0 and M1).
+/// public key A and message (M0, M1).
 /// For more information see:
 /// https://en.wikipedia.org/wiki/EdDSA
 /// https://eprint.iacr.org/2015/677.pdf
@@ -22,7 +22,7 @@ import "ecc/edwardsOrderCheck.code" as orderCheck
 ///    context: Curve parameters used to create S.
 ///
 /// Returns:
-///     Return true for S being a valid EdDSA Signature, false otherwise.
+///     Return 1 for S being a valid EdDSA Signature, 0 otherwise.
 def main(private field[2] R, private field S, field[2] A, field[256] M0, field[256] M1, field[10] context) -> (field):
 
     field[2] G = [context[4], context[5]]
