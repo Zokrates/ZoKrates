@@ -5,6 +5,7 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
+mod from_ast;
 mod node;
 pub mod parameter;
 pub mod variable;

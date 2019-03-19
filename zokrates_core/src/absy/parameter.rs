@@ -8,6 +8,10 @@ pub struct Parameter {
 }
 
 impl Parameter {
+    pub fn new(v: VariableNode, private: bool) -> Self {
+        Parameter { id: v, private }
+    }
+
     pub fn public(v: VariableNode) -> Self {
         Parameter {
             id: v,

@@ -9,24 +9,24 @@ use flatten::Flattener;
 use imports::{self, Importer};
 use ir;
 use optimizer::Optimizer;
-use parser::{self, parse_program};
 use semantics::{self, Checker};
 use static_analysis::Analyse;
 use std::fmt;
 use std::io;
 use std::io::BufRead;
 use zokrates_field::field::Field;
+use zokrates_pest_ast as pest;
 
 #[derive(Debug)]
-pub struct CompileErrors<T: Field>(Vec<CompileError<T>>);
+pub struct CompileErrors(Vec<CompileError>);
 
-impl<T: Field> From<CompileError<T>> for CompileErrors<T> {
-    fn from(e: CompileError<T>) -> CompileErrors<T> {
+impl From<CompileError> for CompileErrors {
+    fn from(e: CompileError) -> CompileErrors {
         CompileErrors(vec![e])
     }
 }
 
-impl<T: Field> fmt::Display for CompileErrors<T> {
+impl fmt::Display for CompileErrors {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -41,15 +41,15 @@ impl<T: Field> fmt::Display for CompileErrors<T> {
 }
 
 #[derive(Debug)]
-pub enum CompileErrorInner<T: Field> {
-    ParserError(parser::Error<T>),
+pub enum CompileErrorInner {
+    ParserError(pest::Error),
     ImportError(imports::Error),
     SemanticError(semantics::Error),
     ReadError(io::Error),
 }
 
-impl<T: Field> CompileErrorInner<T> {
-    pub fn with_context(self, context: &Option<String>) -> CompileError<T> {
+impl CompileErrorInner {
+    pub fn with_context(self, context: &Option<String>) -> CompileError {
         CompileError {
             value: self,
             context: context.clone(),
@@ -58,12 +58,12 @@ impl<T: Field> CompileErrorInner<T> {
 }
 
 #[derive(Debug)]
-pub struct CompileError<T: Field> {
+pub struct CompileError {
     context: Option<String>,
-    value: CompileErrorInner<T>,
+    value: CompileErrorInner,
 }
 
-impl<T: Field> CompileErrors<T> {
+impl CompileErrors {
     pub fn with_context(self, context: Option<String>) -> Self {
         CompileErrors(
             self.0
@@ -77,7 +77,7 @@ impl<T: Field> CompileErrors<T> {
     }
 }
 
-impl<T: Field> fmt::Display for CompileError<T> {
+impl fmt::Display for CompileError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let context = match self.context {
             Some(ref x) => x.clone(),
@@ -87,31 +87,31 @@ impl<T: Field> fmt::Display for CompileError<T> {
     }
 }
 
-impl<T: Field> From<parser::Error<T>> for CompileErrorInner<T> {
-    fn from(error: parser::Error<T>) -> Self {
+impl From<pest::Error> for CompileErrorInner {
+    fn from(error: pest::Error) -> Self {
         CompileErrorInner::ParserError(error)
     }
 }
 
-impl<T: Field> From<imports::Error> for CompileErrorInner<T> {
+impl From<imports::Error> for CompileErrorInner {
     fn from(error: imports::Error) -> Self {
         CompileErrorInner::ImportError(error)
     }
 }
 
-impl<T: Field> From<io::Error> for CompileErrorInner<T> {
+impl From<io::Error> for CompileErrorInner {
     fn from(error: io::Error) -> Self {
         CompileErrorInner::ReadError(error)
     }
 }
 
-impl<T: Field> From<semantics::Error> for CompileErrorInner<T> {
+impl From<semantics::Error> for CompileErrorInner {
     fn from(error: semantics::Error) -> Self {
         CompileErrorInner::SemanticError(error)
     }
 }
 
-impl<T: Field> fmt::Display for CompileErrorInner<T> {
+impl fmt::Display for CompileErrorInner {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let res = match *self {
             CompileErrorInner::ParserError(ref e) => format!("{}", e),
@@ -127,7 +127,7 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     reader: &mut R,
     location: Option<String>,
     resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
-) -> Result<ir::Prog<T>, CompileErrors<T>> {
+) -> Result<ir::Prog<T>, CompileErrors> {
     let compiled = compile_aux(reader, location, resolve_option)?;
     Ok(ir::Prog::from(Optimizer::new().optimize_program(compiled)))
 }
@@ -136,9 +136,14 @@ pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     reader: &mut R,
     location: Option<String>,
     resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
-) -> Result<FlatProg<T>, CompileErrors<T>> {
-    let program_ast_without_imports: Prog<T> = parse_program(reader)
+) -> Result<FlatProg<T>, CompileErrors> {
+    let mut source = String::new();
+    reader.read_to_string(&mut source).unwrap();
+    let ast = pest::generate_ast(&source)
         .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).with_context(&location)))?;
+    let program_ast_without_imports: Prog<T> = Prog::from(ast);
+
+    println!("{}", program_ast_without_imports);
 
     let program_ast = Importer::new().apply_imports(
         program_ast_without_imports,
@@ -186,7 +191,7 @@ mod test {
 		"#
             .as_bytes(),
         );
-        let res: Result<ir::Prog<FieldPrime>, CompileErrors<FieldPrime>> = compile(
+        let res: Result<ir::Prog<FieldPrime>, CompileErrors> = compile(
             &mut r,
             Some(String::from("./path/to/file")),
             None::<
@@ -212,7 +217,7 @@ mod test {
 		"#
             .as_bytes(),
         );
-        let res: Result<ir::Prog<FieldPrime>, CompileErrors<FieldPrime>> = compile(
+        let res: Result<ir::Prog<FieldPrime>, CompileErrors> = compile(
             &mut r,
             Some(String::from("./path/to/file")),
             None::<

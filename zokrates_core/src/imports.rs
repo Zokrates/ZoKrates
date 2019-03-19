@@ -132,7 +132,7 @@ impl Importer {
         destination: Prog<T>,
         location: Option<String>,
         resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
-    ) -> Result<Prog<T>, CompileErrors<T>> {
+    ) -> Result<Prog<T>, CompileErrors> {
         let mut origins: Vec<CompiledImport<T>> = vec![];
 
         for import in destination.imports.iter() {
