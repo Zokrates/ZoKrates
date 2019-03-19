@@ -9,16 +9,13 @@ def main(field[256] exponent, field[2] pt, field[10] context) -> (field[2]):
     field[2] infinity = [context[2], context[3]] 
 
     field[2] doubledP = pt
-    field[2] accumulatedP = infinity 
-
-    field j = 255 
-    accumulatedP = if exponent[j] == 1 then doubledP else accumulatedP fi
+    field[2] accumulatedP = infinity
     
-    for field i in 1..256 do
-        j = 255 - i 
-        doubledP = add(doubledP, doubledP, context)
+    for field i in 0..256 do
+        field j = 255 - i
         candidateP = add(accumulatedP, doubledP, context)
         accumulatedP = if exponent[j] == 1 then candidateP else accumulatedP fi
+        doubledP = add(doubledP, doubledP, context)
     endfor
 
     1 == assertOnCurve(accumulatedP, context)
