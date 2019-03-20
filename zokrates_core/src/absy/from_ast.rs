@@ -78,7 +78,48 @@ fn statements_from_statement<'ast, T: Field>(
         pest::Statement::Assertion(s) => vec![absy::StatementNode::from(s)],
         pest::Statement::Assignment(s) => vec![absy::StatementNode::from(s)],
         pest::Statement::Return(s) => vec![absy::StatementNode::from(s)],
+        pest::Statement::MultiAssignment(s) => statements_from_multi_assignment(s),
     }
+}
+
+fn statements_from_multi_assignment<'ast, T: Field>(
+    assignment: pest::MultiAssignmentStatement<'ast>,
+) -> Vec<absy::StatementNode<T>> {
+    use absy::NodeValue;
+
+    let declarations = assignment
+        .lhs
+        .clone()
+        .into_iter()
+        .filter(|i| i.ty.is_some())
+        .map(|i| {
+            absy::Statement::Declaration(
+                absy::Variable::new(i.id.clone().value, Type::from(i.ty.unwrap())).at(42, 42, 0),
+            )
+            .at(42, 42, 0)
+        });
+
+    let lhs = assignment
+        .lhs
+        .into_iter()
+        .map(|i| absy::Assignee::Identifier(i.id.value).at(42, 42, 0))
+        .collect();
+
+    let multi_def = absy::Statement::MultipleDefinition(
+        lhs,
+        absy::Expression::FunctionCall(
+            assignment.function_id.value,
+            assignment
+                .arguments
+                .into_iter()
+                .map(|e| absy::ExpressionNode::from(e))
+                .collect(),
+        )
+        .at(42, 42, 0),
+    )
+    .at(42, 42, 0);
+
+    declarations.chain(std::iter::once(multi_def)).collect()
 }
 
 fn statements_from_definition<'ast, T: Field>(
@@ -108,7 +149,6 @@ impl<'ast, T: Field> From<pest::ReturnStatement<'ast>> for absy::StatementNode<T
             absy::ExpressionList {
                 expressions: statement
                     .expressions
-                    .values
                     .into_iter()
                     .map(|e| absy::ExpressionNode::from(e))
                     .collect(),
@@ -182,9 +222,11 @@ impl<'ast, T: Field> From<pest::Expression<'ast>> for absy::ExpressionNode<T> {
     fn from(expression: pest::Expression<'ast>) -> absy::ExpressionNode<T> {
         match expression {
             pest::Expression::Binary(e) => absy::ExpressionNode::from(e),
+            pest::Expression::Ternary(e) => absy::ExpressionNode::from(e),
             pest::Expression::Constant(e) => absy::ExpressionNode::from(e),
             pest::Expression::Identifier(e) => absy::ExpressionNode::from(e),
-            o => unimplemented!("{:?}", o),
+            pest::Expression::Postfix(e) => absy::ExpressionNode::from(e),
+            pest::Expression::InlineArray(e) => absy::ExpressionNode::from(e),
         }
     }
 }
@@ -247,6 +289,55 @@ impl<'ast, T: Field> From<pest::BinaryExpression<'ast>> for absy::ExpressionNode
     }
 }
 
+impl<'ast, T: Field> From<pest::TernaryExpression<'ast>> for absy::ExpressionNode<T> {
+    fn from(expression: pest::TernaryExpression<'ast>) -> absy::ExpressionNode<T> {
+        use absy::NodeValue;
+        absy::Expression::IfElse(
+            box absy::ExpressionNode::from(*expression.first),
+            box absy::ExpressionNode::from(*expression.second),
+            box absy::ExpressionNode::from(*expression.third),
+        )
+        .at(42, 42, 0)
+    }
+}
+
+impl<'ast, T: Field> From<pest::InlineArrayExpression<'ast>> for absy::ExpressionNode<T> {
+    fn from(array: pest::InlineArrayExpression<'ast>) -> absy::ExpressionNode<T> {
+        use absy::NodeValue;
+        absy::Expression::InlineArray(
+            array
+                .expressions
+                .into_iter()
+                .map(|e| absy::ExpressionNode::from(e))
+                .collect(),
+        )
+        .at(42, 42, 0)
+    }
+}
+
+impl<'ast, T: Field> From<pest::PostfixExpression<'ast>> for absy::ExpressionNode<T> {
+    fn from(expression: pest::PostfixExpression<'ast>) -> absy::ExpressionNode<T> {
+        use absy::NodeValue;
+
+        assert!(expression.access.len() == 1); // we only allow a single access: function call or array access
+
+        match expression.access[0].clone() {
+            pest::Access::Call(a) => absy::Expression::FunctionCall(
+                expression.id.value,
+                a.expressions
+                    .into_iter()
+                    .map(|e| absy::ExpressionNode::from(e))
+                    .collect(),
+            ),
+            pest::Access::Select(a) => absy::Expression::Select(
+                box absy::ExpressionNode::from(expression.id),
+                box absy::ExpressionNode::from(a.expression),
+            ),
+        }
+        .at(42, 42, 0)
+    }
+}
+
 impl<'ast, T: Field> From<pest::ConstantExpression<'ast>> for absy::ExpressionNode<T> {
     fn from(expression: pest::ConstantExpression<'ast>) -> absy::ExpressionNode<T> {
         use absy::NodeValue;
@@ -300,7 +391,7 @@ impl<'ast> From<pest::Type<'ast>> for Type {
                 };
                 match t.ty {
                     pest::BasicType::Field(_) => Type::FieldElementArray(size),
-                    o => unimplemented!("array of {:?} not surpported", o),
+                    o => unimplemented!("array of {:?} not supported", o),
                 }
             }
         }
