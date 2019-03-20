@@ -19,6 +19,7 @@ pub trait ProofSystem {
         num_inputs: usize,
         pk_path: &str,
         vk_path: &str,
+        r1cs_path: &str,
     ) -> bool;
 
     fn generate_proof(

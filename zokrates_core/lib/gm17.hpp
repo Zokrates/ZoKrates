@@ -24,7 +24,8 @@ bool _gm17_setup(const uint8_t* A,
             int variables,
             int inputs,
             const char* pk_path,
-            const char* vk_path
+            const char* vk_path,
+            const char* r1cs_path
           );
 
 bool _gm17_generate_proof(const char* pk_path,

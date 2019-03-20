@@ -34,6 +34,7 @@ extern "C" {
         inputs: c_int,
         pk_path: *const c_char,
         vk_path: *const c_char,
+        r1cs_path: *const c_char,
     ) -> bool;
 
     fn _pghr13_generate_proof(
@@ -56,6 +57,7 @@ impl ProofSystem for PGHR13 {
         num_inputs: usize,
         pk_path: &str,
         vk_path: &str,
+        r1cs_path: &str,
     ) -> bool {
         let (
             a_arr,
@@ -69,7 +71,8 @@ impl ProofSystem for PGHR13 {
             num_inputs,
             pk_path_cstring,
             vk_path_cstring,
-        ) = prepare_setup(variables, a, b, c, num_inputs, pk_path, vk_path);
+            r1cs_path_cstring,
+        ) = prepare_setup(variables, a, b, c, num_inputs, pk_path, vk_path, r1cs_path);
 
         unsafe {
             _pghr13_setup(
@@ -84,6 +87,7 @@ impl ProofSystem for PGHR13 {
                 num_inputs as i32,
                 pk_path_cstring.as_ptr(),
                 vk_path_cstring.as_ptr(),
+                r1cs_path_cstring.as_ptr(),
             )
         }
     }

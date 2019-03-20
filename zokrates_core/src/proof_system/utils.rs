@@ -22,6 +22,7 @@ pub fn prepare_setup<T: Field>(
     num_inputs: usize,
     pk_path: &str,
     vk_path: &str,
+    r1cs_path: &str,
 ) -> (
     Vec<u8>,
     Vec<u8>,
@@ -32,6 +33,7 @@ pub fn prepare_setup<T: Field>(
     usize,
     usize,
     usize,
+    CString,
     CString,
     CString,
 ) {
@@ -129,6 +131,7 @@ pub fn prepare_setup<T: Field>(
     // convert String slices to 'CString's
     let pk_path_cstring = CString::new(pk_path).unwrap();
     let vk_path_cstring = CString::new(vk_path).unwrap();
+    let r1cs_path_cstring = CString::new(r1cs_path).unwrap();
 
     (
         a_arr,
@@ -142,6 +145,7 @@ pub fn prepare_setup<T: Field>(
         num_inputs,
         pk_path_cstring,
         vk_path_cstring,
+        r1cs_path_cstring,
     )
 }
 

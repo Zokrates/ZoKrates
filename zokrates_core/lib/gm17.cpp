@@ -88,10 +88,101 @@ void serializeProvingKeyToFile(r1cs_se_ppzksnark_proving_key<libff::alt_bn128_pp
   writeToFile(pk_path, pk);
 }
 
+void serializeR1CSToFile(std::string r1cs, const char* r1cs_path){
+  writeToFile(r1cs_path, r1cs);
+}
 r1cs_se_ppzksnark_proving_key<libff::alt_bn128_pp> deserializeProvingKeyFromFile(const char* pk_path){
   return loadFromFile<r1cs_se_ppzksnark_proving_key<libff::alt_bn128_pp>>(pk_path);
 }
 
+std::string serializeOneTerm(linear_term<libff::Fr<libff::alt_bn128_pp>> term) {
+     std::stringstream ss;
+
+    ss << "{" << endl;
+    ss << "\"index\":" << term.index << "," << endl;
+    ss << "\"value\":" << "\"" << HexStringFromLibsnarkBigint(term.coeff.as_bigint()) << "\"" << endl;
+    ss << "}";
+
+    return ss.str();
+
+}
+
+std::string serializeTerms(std::vector<linear_term<libff::Fr<libff::alt_bn128_pp>> > terms) {
+     std::stringstream ss;
+
+     for (size_t i = 0; i < terms.size(); i++) {
+        linear_term<libff::Fr<libff::alt_bn128_pp>> term = terms[i];
+         ss << gm17::serializeOneTerm(term);
+
+         if (i + 1 < terms.size()) {
+             ss << "," << endl;
+         } else {
+             ss << endl;
+         }
+     }
+
+      return ss.str();
+}
+
+std::string serializeLinearCombination(std::string field,
+     linear_combination<libff::Fr<libff::alt_bn128_pp>> combination,
+     bool addCommaSeparator) {
+
+     std::stringstream ss;
+
+     ss << "\"" << field << "\": [" << endl;
+     ss << gm17::serializeTerms(combination.terms);
+     ss << "]";
+     if (addCommaSeparator) {
+          ss << ",";
+     }
+     ss << endl;
+
+     return ss.str();
+}
+
+std::string serializeOneConstraint(r1cs_constraint<libff::Fr<libff::alt_bn128_pp>> constraint) {
+    std::stringstream ss;
+    ss << "{" << endl;
+    ss << gm17::serializeLinearCombination("A", constraint.a, true);
+    ss << gm17::serializeLinearCombination("B", constraint.b, true);
+    ss << gm17::serializeLinearCombination("C", constraint.c, false);
+    ss << "}";
+
+    return ss.str();
+}
+
+
+std::string serializeConstraints(std::vector<r1cs_constraint<libff::Fr<libff::alt_bn128_pp>> > constraints) {
+        std::stringstream ss;
+
+        ss << "[" << endl;
+
+        for (size_t i = 0; i < constraints.size(); i++) {
+            r1cs_constraint<libff::Fr<libff::alt_bn128_pp>> constraint = constraints[i];
+            ss << gm17::serializeOneConstraint(constraint);
+            if (i + 1 < constraints.size()) {
+                ss << "," << endl;
+            } else {
+                ss << endl;
+            }
+        }
+        ss << "]";
+     return ss.str();
+}
+
+
+std::string serializeR1CS(r1cs_se_ppzksnark_constraint_system<libff::alt_bn128_pp> cs) {
+    std::stringstream ss;
+
+    ss << "{" << endl;
+    ss << "\"primary_input_size\": " << cs.primary_input_size << "," << endl;
+    ss << "\"auxiliary_input_size\": " << cs.auxiliary_input_size << "," << endl;
+    ss << "\"constraints\": " << gm17::serializeConstraints(cs.constraints) << endl;
+    ss << "}" << endl;
+
+    return ss.str();
+}
 void serializeVerificationKeyToFile(r1cs_se_ppzksnark_verification_key<libff::alt_bn128_pp> vk, const char* vk_path){
   std::stringstream ss;
 
@@ -182,7 +273,7 @@ void exportInput(r1cs_primary_input<libff::Fr<libff::alt_bn128_pp>> input){
 
 }
 
-bool _gm17_setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int A_len, int B_len, int C_len, int constraints, int variables, int inputs, const char* pk_path, const char* vk_path)
+bool _gm17_setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int A_len, int B_len, int C_len, int constraints, int variables, int inputs, const char* pk_path, const char* vk_path, const char* r1cs_path)
 {
   libff::inhibit_profiling_info = true;
   libff::inhibit_profiling_counters = true;
@@ -202,6 +293,7 @@ bool _gm17_setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int A_len
   // Export vk and pk to files
   gm17::serializeProvingKeyToFile(keypair.pk, pk_path);
   gm17::serializeVerificationKeyToFile(keypair.vk, vk_path);
+  gm17::serializeR1CSToFile(gm17::serializeR1CS(cs), r1cs_path);
 
   // Print VerificationKey in Solidity compatible format
   gm17::exportVerificationKey(keypair);

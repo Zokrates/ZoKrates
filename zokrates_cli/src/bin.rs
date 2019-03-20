@@ -36,6 +36,7 @@ fn cli() -> Result<(), String> {
     const VERIFICATION_CONTRACT_DEFAULT_PATH: &str = "verifier.sol";
     const WITNESS_DEFAULT_PATH: &str = "witness";
     const VARIABLES_INFORMATION_KEY_DEFAULT_PATH: &str = "variables.inf";
+    const RC1S_DEFAULT_PATH: &str = "r1cs.json";
     const JSON_PROOF_PATH: &str = "proof.json";
     let default_backend = env::var("ZOKRATES_BACKEND").unwrap_or(String::from("pghr13"));
 
@@ -114,6 +115,15 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(&default_backend)
+        )
+        .arg(Arg::with_name("r1cs-path")
+            .short("r")
+            .long("R1CS-path")
+            .help("Path of the generated r1cs file")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(RC1S_DEFAULT_PATH)
         )
     )
     .subcommand(SubCommand::with_name("export-verifier")
@@ -424,6 +434,7 @@ fn cli() -> Result<(), String> {
             // get paths for proving and verification keys
             let pk_path = sub_matches.value_of("proving-key-path").unwrap();
             let vk_path = sub_matches.value_of("verification-key-path").unwrap();
+            let r1cs_path = sub_matches.value_of("r1cs-path").unwrap();
 
             // run setup phase
             // number of inputs in the zkSNARK sense, i.e., input variables + output variables
@@ -436,7 +447,8 @@ fn cli() -> Result<(), String> {
                     c,
                     public_variables_count - 1,
                     pk_path,
-                    vk_path
+                    vk_path,
+                    r1cs_path
                 )
             );
         }
