@@ -143,8 +143,6 @@ pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
         .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).with_context(&location)))?;
     let program_ast_without_imports: Prog<T> = Prog::from(ast);
 
-    println!("{}", program_ast_without_imports);
-
     let program_ast = Importer::new().apply_imports(
         program_ast_without_imports,
         location.clone(),
