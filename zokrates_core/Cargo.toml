@@ -29,8 +29,7 @@ zokrates_field = { version = "0.3.0", path = "../zokrates_field" }
 wasmi = "0.4.2"
 parity-wasm = "0.35.3"
 rustc-hex = "1.0"
-zokrates_pest_ast = { path = "../../zokrates-pest-ast" }
-# zokrates_pest_ast = { git = "https://github.com/Schaeff/zokrates_pest_ast", branch = "grammar-overhaul" }
+zokrates_pest_ast = { git = "https://github.com/Schaeff/zokrates_pest_ast", branch = "grammar-overhaul" }
 
 [dev-dependencies]
 glob = "0.2.11"
