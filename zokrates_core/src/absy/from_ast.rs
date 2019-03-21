@@ -76,11 +76,17 @@ impl<'ast> From<pest::Parameter<'ast>> for absy::ParameterNode {
     fn from(param: pest::Parameter<'ast>) -> absy::ParameterNode {
         use absy::NodeValue;
 
-        absy::Parameter::new(
-            absy::Variable::new(param.id.value, Type::from(param.ty)).at(42, 42, 0),
-            true,
-        )
-        .at(42, 42, 0)
+        let private = param
+            .visibility
+            .map(|v| match v {
+                pest::Visibility::Private(_) => true,
+                pest::Visibility::Public(_) => false,
+            })
+            .unwrap_or(false);
+
+        let variable = absy::Variable::new(param.id.value, Type::from(param.ty)).at(42, 42, 0);
+
+        absy::Parameter::new(variable, private).at(42, 42, 0)
     }
 }
 
@@ -464,6 +470,7 @@ mod tests {
         let source = "def main(private field a, bool b) -> (field): return 42
         ";
         let ast = pest::generate_ast(&source).unwrap();
+
         let expected: absy::Prog<FieldPrime> = absy::Prog {
             functions: vec![absy::Function {
                 id: String::from("main"),
@@ -483,13 +490,14 @@ mod tests {
                 )
                 .into()],
                 signature: absy::Signature::new()
-                    .inputs(vec![])
+                    .inputs(vec![Type::FieldElement, Type::Boolean])
                     .outputs(vec![Type::FieldElement]),
             }
             .into()],
             imports: vec![],
             imported_functions: vec![],
         };
+
         assert_eq!(absy::Prog::<FieldPrime>::from(ast), expected);
     }
 }

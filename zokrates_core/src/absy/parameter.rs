@@ -44,6 +44,10 @@ impl fmt::Display for Parameter {
 
 impl fmt::Debug for Parameter {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Parameter(variable: {:?})", self.id)
+        write!(
+            f,
+            "Parameter(variable: {:?}, private: {:?})",
+            self.id, self.private
+        )
     }
 }
