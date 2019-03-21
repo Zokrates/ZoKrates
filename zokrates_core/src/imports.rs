@@ -97,6 +97,11 @@ impl Import {
         }
     }
 
+    pub fn alias(mut self, alias: Option<String>) -> Self {
+        self.alias = alias;
+        self
+    }
+
     pub fn get_source(&self) -> &String {
         &self.source
     }

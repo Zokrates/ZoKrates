@@ -1,4 +1,5 @@
 use absy;
+use imports;
 use types::Type;
 use zokrates_field::field::Field;
 use zokrates_pest_ast as pest;
@@ -11,9 +12,23 @@ impl<'ast, T: Field> From<pest::File<'ast>> for absy::Prog<T> {
                 .into_iter()
                 .map(|f| absy::FunctionNode::from(f))
                 .collect(),
-            imports: vec![],
+            imports: prog
+                .imports
+                .into_iter()
+                .map(|i| absy::ImportNode::from(i))
+                .collect(),
             imported_functions: vec![],
         }
+    }
+}
+
+impl<'ast> From<pest::ImportDirective<'ast>> for absy::ImportNode {
+    fn from(import: pest::ImportDirective<'ast>) -> absy::ImportNode {
+        use absy::NodeValue;
+
+        imports::Import::new(import.source.value)
+            .alias(import.alias.map(|a| a.value))
+            .at(42, 42, 0)
     }
 }
 
