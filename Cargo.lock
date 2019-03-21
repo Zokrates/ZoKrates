@@ -1218,7 +1218,7 @@ dependencies = [
 [[package]]
 name = "zokrates_pest"
 version = "0.1.0"
-source = "git+https://github.com/JacobEberhardt/ZoKratesGrammarSpecPEG#184a625a742cfe935d6146842849547f598d6768"
+source = "git+https://github.com/JacobEberhardt/ZoKratesGrammarSpecPEG#b5565a42b14d5ec2bd15975907e9d147972c5e98"
 dependencies = [
  "pest 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "pest_derive 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1227,7 +1227,7 @@ dependencies = [
 [[package]]
 name = "zokrates_pest_ast"
 version = "0.1.0"
-source = "git+https://github.com/Schaeff/zokrates_pest_ast?branch=grammar-overhaul#7cfe8f9ab44eced1e4a5b16b5de327a0252a99aa"
+source = "git+https://github.com/Schaeff/zokrates_pest_ast?branch=grammar-overhaul#0b07caa537411efaf572dd7d1e20ba96cba0025d"
 dependencies = [
  "from-pest 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",

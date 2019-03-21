@@ -242,6 +242,7 @@ impl<'ast, T: Field> From<pest::Expression<'ast>> for absy::ExpressionNode<T> {
             pest::Expression::Identifier(e) => absy::ExpressionNode::from(e),
             pest::Expression::Postfix(e) => absy::ExpressionNode::from(e),
             pest::Expression::InlineArray(e) => absy::ExpressionNode::from(e),
+            pest::Expression::Unary(e) => absy::ExpressionNode::from(e),
         }
     }
 }
@@ -326,6 +327,19 @@ impl<'ast, T: Field> From<pest::InlineArrayExpression<'ast>> for absy::Expressio
                 .map(|e| absy::ExpressionNode::from(e))
                 .collect(),
         )
+        .at(42, 42, 0)
+    }
+}
+
+impl<'ast, T: Field> From<pest::UnaryExpression<'ast>> for absy::ExpressionNode<T> {
+    fn from(unary: pest::UnaryExpression<'ast>) -> absy::ExpressionNode<T> {
+        use absy::NodeValue;
+
+        match unary.op {
+            pest::UnaryOperator::Not(_) => {
+                absy::Expression::Not(Box::new(absy::ExpressionNode::from(*unary.expression)))
+            }
+        }
         .at(42, 42, 0)
     }
 }
