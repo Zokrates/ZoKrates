@@ -6,7 +6,7 @@ ZoKrates currently exposes three types:
 
 This is the most basic type in ZoKrates, and it represents a positive integer between `0` and `p - 1`, inclusive, where `p` is a (large) prime number.
 
-The prime `p` is set to `21888242871839275222246405745257275088548364400416034343698204186575808495616` as imposed by the pairing curve supported by Ethereum.
+The prime `p` is set to `21888242871839275222246405745257275088548364400416034343698204186575808495617` as imposed by the pairing curve supported by Ethereum.
 
 While `field` values mostly behave like unsigned integers, one should keep in mind that they overflow at `p` and not some power of 2 and underflow if less than `0`, so that we have:
 
