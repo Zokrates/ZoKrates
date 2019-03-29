@@ -51,7 +51,7 @@ where `G` is the chosen base point of the subgroup and `*` denotes scalar multip
 import "signatures/verifyEddsa.code"
 ```
 
-Verifies an EdDSA Signature. Checks the correctness of a given EdDSA Signature `(R,S)` for the provided public key `A` and message `(M0, M1)`.
+Verifies an EdDSA Signature. Checks the correctness of a given EdDSA Signature `(R,S)` for the provided public key `A` and message `(M0, M1)`. Check out this [python repository](https://github.com/Zokrates/pycrypto) for tooling to create valid signatures.
 
 ### Packing / Unpacking
 
