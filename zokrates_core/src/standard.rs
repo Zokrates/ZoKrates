@@ -118,7 +118,7 @@ pub fn sha_round<T: Field>() -> FlatFunction<T> {
         outputs: vec![Type::FieldElement; outputs.len()],
     };
 
-    // insert a directive to set the witness based on the libsnark gadget and  inputs
+    // insert a directive to set the witness based on the bellman gadget and  inputs
     let directive_statement = FlatStatement::Directive(DirectiveStatement {
         outputs: variables,
         inputs: inputs,
@@ -198,7 +198,7 @@ mod tests {
             FlatVariable::new(directive.outputs.len() + 1)
         );
 
-        // libsnark variable #0: index 0 should equal 1
+        // bellman variable #0: index 0 should equal 1
         assert_eq!(
             compiled.statements[1],
             FlatStatement::Condition(
@@ -207,7 +207,7 @@ mod tests {
             )
         );
 
-        // libsnark input #0: index 1 should equal zokrates input #0: index v_count
+        // bellman input #0: index 1 should equal zokrates input #0: index v_count
         assert_eq!(
             compiled.statements[2],
             FlatStatement::Condition(FlatVariable::new(1).into(), FlatVariable::new(26936).into())

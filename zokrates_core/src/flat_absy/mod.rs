@@ -12,8 +12,6 @@ pub use self::flat_parameter::FlatParameter;
 pub use self::flat_variable::FlatVariable;
 
 use helpers::{DirectiveStatement, Executable};
-#[cfg(feature = "libsnark")]
-use standard;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use types::Signature;
@@ -59,15 +57,6 @@ impl<T: Field> fmt::Debug for FlatProg<T> {
                 .collect::<Vec<_>>()
                 .join("\n")
         )
-    }
-}
-
-#[cfg(feature = "libsnark")]
-impl<T: Field> From<standard::DirectiveR1CS> for FlatProg<T> {
-    fn from(dr1cs: standard::DirectiveR1CS) -> Self {
-        FlatProg {
-            functions: vec![dr1cs.into()],
-        }
     }
 }
 

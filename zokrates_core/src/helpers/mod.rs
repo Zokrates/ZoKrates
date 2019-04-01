@@ -1,11 +1,7 @@
-#[cfg(feature = "libsnark")]
-mod libsnark_gadget;
 mod rust;
 #[cfg(feature = "wasm")]
 mod wasm;
 
-#[cfg(feature = "libsnark")]
-pub use self::libsnark_gadget::LibsnarkGadgetHelper;
 pub use self::rust::RustHelper;
 #[cfg(feature = "wasm")]
 pub use self::wasm::WasmHelper;
@@ -59,8 +55,6 @@ impl<T: Field> fmt::Display for DirectiveStatement<T> {
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum Helper {
-    #[cfg(feature = "libsnark")]
-    LibsnarkGadget(LibsnarkGadgetHelper),
     Rust(RustHelper),
     #[cfg(feature = "wasm")]
     Wasm(WasmHelper),
@@ -91,8 +85,6 @@ impl Helper {
 impl fmt::Display for Helper {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            #[cfg(feature = "libsnark")]
-            Helper::LibsnarkGadget(ref h) => write!(f, "LibsnarkGadget::{}", h),
             Helper::Rust(ref h) => write!(f, "Rust::{}", h),
             #[cfg(feature = "wasm")]
             Helper::Wasm(ref h) => write!(f, "Wasm::{}", h),
@@ -114,8 +106,6 @@ impl<T: Field> Executable<T> for Helper {
         assert!(inputs.len() == expected_input_count);
 
         let result = match self {
-            #[cfg(feature = "libsnark")]
-            Helper::LibsnarkGadget(helper) => helper.execute(inputs),
             Helper::Rust(helper) => helper.execute(inputs),
             #[cfg(feature = "wasm")]
             Helper::Wasm(helper) => helper.execute(inputs),
@@ -136,8 +126,6 @@ impl<T: Field> Executable<T> for Helper {
 impl Signed for Helper {
     fn get_signature(&self) -> (usize, usize) {
         match self {
-            #[cfg(feature = "libsnark")]
-            Helper::LibsnarkGadget(helper) => helper.get_signature(),
             Helper::Rust(helper) => helper.get_signature(),
             #[cfg(feature = "wasm")]
             Helper::Wasm(helper) => helper.get_signature(),
@@ -149,69 +137,6 @@ impl Signed for Helper {
 mod tests {
     use super::*;
     use zokrates_field::field::FieldPrime;
-
-    #[cfg(feature = "libsnark")]
-    mod sha256libsnark {
-        use super::*;
-
-        #[test]
-        fn execute() {
-            let sha = LibsnarkGadgetHelper::Sha256Round;
-            // second vector here https://homes.esat.kuleuven.be/~nsmart/MPC/sha-256-test.txt
-            let inputs = vec![
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
-                0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0,
-                0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0,
-                1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1,
-                0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1,
-                0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0,
-                0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 0, 0, 1,
-                1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 1,
-                0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1,
-                1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0,
-                0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0,
-                0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1,
-                0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0,
-                1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0,
-                0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1,
-                0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1,
-                0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1,
-                1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0,
-                0, 0, 1, 1, 1, 1, 1, 1,
-                // append SHA256 IV vector (https://en.wikipedia.org/wiki/SHA-2)
-                0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0,
-                0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0,
-                1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1,
-                0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 1,
-                1, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0,
-                1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1,
-                0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1,
-                1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1,
-                0, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1,
-                1, 0, 0, 1,
-            ];
-            let r = sha
-                .execute(&inputs.iter().map(|&i| FieldPrime::from(i)).collect())
-                .unwrap();
-            let r1 = &r[769..1025]; // index of the result
-            let res: Vec<FieldPrime> = vec![
-                1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1,
-                1, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0,
-                0, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1,
-                0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1,
-                1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1,
-                0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1,
-                0, 1, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0,
-                0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1,
-                0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0,
-                0, 1, 1, 1,
-            ]
-            .iter()
-            .map(|&i| FieldPrime::from(i))
-            .collect();
-            assert_eq!(r1, &res[..]);
-        }
-    }
 
     mod eq_condition {
 
