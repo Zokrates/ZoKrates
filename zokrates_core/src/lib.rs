@@ -21,6 +21,7 @@ extern crate rustc_hex;
 extern crate serde_bytes;
 #[cfg(feature = "wasm")]
 extern crate wasmi;
+extern crate zokrates_embed;
 extern crate zokrates_field;
 
 mod flatten;
@@ -29,7 +30,6 @@ mod imports;
 mod optimizer;
 mod parser;
 mod semantics;
-#[cfg(feature = "libsnark")]
 mod standard;
 mod static_analysis;
 mod typed_absy;
@@ -39,7 +39,4 @@ pub mod absy;
 pub mod compile;
 pub mod flat_absy;
 pub mod ir;
-#[cfg(feature = "libsnark")]
-pub mod libsnark;
-// #[cfg(feature = "libsnark")]
 pub mod proof_system;

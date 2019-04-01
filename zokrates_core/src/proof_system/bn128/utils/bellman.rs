@@ -45,7 +45,7 @@ fn bellman_combination<CS: ConstraintSystem<Bn256>>(
     l.0.into_iter()
         .map(|(k, v)| {
             (
-                Fr::from(v),
+                v.into_bellman(),
                 symbols
                     .entry(k)
                     .or_insert_with(|| {
@@ -57,7 +57,7 @@ fn bellman_combination<CS: ConstraintSystem<Bn256>>(
                                         .0
                                         .remove(&k)
                                         .ok_or(SynthesisError::AssignmentMissing)?
-                                        .into())
+                                        .into_bellman())
                                 },
                             ),
                             false => cs.alloc(
@@ -67,7 +67,7 @@ fn bellman_combination<CS: ConstraintSystem<Bn256>>(
                                         .0
                                         .remove(&k)
                                         .ok_or(SynthesisError::AssignmentMissing)?
-                                        .into())
+                                        .into_bellman())
                                 },
                             ),
                         }
@@ -107,7 +107,7 @@ impl Prog<FieldPrime> {
                                     .0
                                     .remove(&var)
                                     .ok_or(SynthesisError::AssignmentMissing)?
-                                    .into())
+                                    .into_bellman())
                             },
                         ),
                         false => cs.alloc_input(
@@ -117,7 +117,7 @@ impl Prog<FieldPrime> {
                                     .0
                                     .remove(&var)
                                     .ok_or(SynthesisError::AssignmentMissing)?
-                                    .into())
+                                    .into_bellman())
                             },
                         ),
                     }
@@ -172,7 +172,7 @@ impl Computation<FieldPrime> {
             .map(|(a, _)| a)
             .map(|v| self.witness.clone().unwrap().0.get(v).unwrap().clone())
             .chain(self.witness.clone().unwrap().return_values())
-            .map(|v| Fr::from(v.clone()))
+            .map(|v| v.clone().into_bellman())
             .collect()
     }
 
