@@ -1246,7 +1246,6 @@ version = "0.1.0"
 dependencies = [
  "bellman 0.2.0 (git+https://github.com/matterinc/bellman?tag=0.2.0)",
  "sapling-crypto 0.0.4 (git+https://github.com/matterinc/sapling-crypto?tag=0.0.4)",
- "zokrates_field 0.3.2",
 ]
 
 [[package]]

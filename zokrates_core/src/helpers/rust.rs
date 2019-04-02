@@ -57,8 +57,13 @@ impl<T: Field> Executable<T> for RustHelper {
             RustHelper::Sha256Round => {
                 let i = &inputs[0..512];
                 let h = &inputs[512..];
+                let i: Vec<_> = i.iter().map(|x| x.clone().into_bellman()).collect();
+                let h: Vec<_> = h.iter().map(|x| x.clone().into_bellman()).collect();
                 assert!(h.len() == 256);
-                Ok(generate_sha256_round_witness(i, h))
+                Ok(generate_sha256_round_witness::<T::BellmanEngine>(&i, &h)
+                    .into_iter()
+                    .map(|x| T::from_bellman(x))
+                    .collect())
             }
         }
     }

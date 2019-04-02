@@ -3,16 +3,17 @@ use flat_absy::{FlatParameter, FlatVariable};
 use helpers::{DirectiveStatement, Helper, RustHelper};
 use reduce::Reduce;
 use types::{Signature, Type};
+use zokrates_embed::{generate_sha256_round_constraints, BellmanConstraint};
 use zokrates_field::field::Field;
 
-impl<T: Field> From<zokrates_embed::Constraint<T>> for FlatStatement<T> {
-    fn from(c: zokrates_embed::Constraint<T>) -> FlatStatement<T> {
+impl<T: Field> From<BellmanConstraint<T::BellmanEngine>> for FlatStatement<T> {
+    fn from(c: zokrates_embed::BellmanConstraint<T::BellmanEngine>) -> FlatStatement<T> {
         let rhs_a = match c
             .a
             .into_iter()
             .map(|(key, val)| {
                 FlatExpression::Mult(
-                    box FlatExpression::Number(val),
+                    box FlatExpression::Number(T::from_bellman(val)),
                     box FlatExpression::Identifier(FlatVariable::new(key)),
                 )
             })
@@ -30,7 +31,7 @@ impl<T: Field> From<zokrates_embed::Constraint<T>> for FlatStatement<T> {
             .into_iter()
             .map(|(key, val)| {
                 FlatExpression::Mult(
-                    box FlatExpression::Number(val),
+                    box FlatExpression::Number(T::from_bellman(val)),
                     box FlatExpression::Identifier(FlatVariable::new(key)),
                 )
             })
@@ -48,7 +49,7 @@ impl<T: Field> From<zokrates_embed::Constraint<T>> for FlatStatement<T> {
             .into_iter()
             .map(|(key, val)| {
                 FlatExpression::Mult(
-                    box FlatExpression::Number(val),
+                    box FlatExpression::Number(T::from_bellman(val)),
                     box FlatExpression::Identifier(FlatVariable::new(key)),
                 )
             })
@@ -66,7 +67,8 @@ impl<T: Field> From<zokrates_embed::Constraint<T>> for FlatStatement<T> {
 }
 
 pub fn sha_round<T: Field>() -> FlatFunction<T> {
-    let (r1cs, input, current_hash, output) = zokrates_embed::generate_sha256_round_constraints();
+    let (r1cs, input, current_hash, output) =
+        generate_sha256_round_constraints::<T::BellmanEngine>();
 
     let variable_count = r1cs.aux_count + 1; // auxiliary and ONE
 
@@ -218,13 +220,6 @@ mod tests {
             main: f,
             private: vec![true; 768],
         };
-
-        //use rand::Rng;
-
-        // let mut rng = rand::thread_rng();
-        // let input: Vec<_> = (0..768).map(|_| {
-        //     rng.gen_range(0, 2)
-        // }).collect();
 
         let input = (0..512).map(|_| 0).chain((0..256).map(|_| 1)).collect();
 

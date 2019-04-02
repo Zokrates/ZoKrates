@@ -7,4 +7,3 @@ edition = "2018"
 [dependencies]
 sapling-crypto = { git = 'https://github.com/matterinc/sapling-crypto', tag = "0.0.4" }
 bellman = { git = 'https://github.com/matterinc/bellman', tag = "0.2.0" }
-zokrates_field = { path = "../zokrates_field" }

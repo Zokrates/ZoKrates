@@ -138,7 +138,7 @@ impl Importer {
         for import in destination.imports.iter() {
             let pos = import.pos();
             let import = &import.value;
-            // handle the case of special libsnark and packing imports
+            // handle the case of special bellman and packing imports
             if import.source.starts_with("BELLMAN") {
                 match import.source.as_ref() {
                     "BELLMAN/sha256round" => {
