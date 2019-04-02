@@ -8,7 +8,7 @@ This is the most basic type in ZoKrates, and it represents a positive integer in
 
 The prime `p` is set to `21888242871839275222246405745257275088548364400416034343698204186575808495617` as imposed by the pairing curve supported by Ethereum.
 
-While `field` values mostly behave like unsigned integers, one should keep in mind that they overflow at `p` and not some power of 2 and underflow if less than `0`, so that we have:
+While `field` values mostly behave like unsigned integers, one should keep in mind that they overflow at `p` and not some power of 2, so that we have:
 
 ```zokrates
 {{#include ../../../zokrates_cli/examples/book/field_overflow.code}}
