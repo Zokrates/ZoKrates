@@ -4,7 +4,7 @@ ZoKrates currently exposes three types:
 
 ### `field`
 
-This is the most basic type in ZoKrates, and it represents a positive integer between `0` and `p - 1`, inclusive, where `p` is a (large) prime number.
+This is the most basic type in ZoKrates, and it represents a positive integer in `[0,  p - 1]` where `p` is a (large) prime number.
 
 The prime `p` is set to `21888242871839275222246405745257275088548364400416034343698204186575808495617` as imposed by the pairing curve supported by Ethereum.
 
