@@ -41,7 +41,7 @@ test_script:
     )
 
 before_deploy:
-  - cargo rustc --target %TARGET% --release --bin zokrates -- -C lto
+  - cargo build --target %TARGET% --release --bin zokrates
   - ps: ci\before_deploy.ps1
 
 deploy:
