@@ -50,7 +50,7 @@ deploy:
     secure: WDSzWD7r4Il0ZvwjXA0JuJBmxPFuQSDTADKnmWL1mOLa7Pgzefo7HQqc6gtH/Vqd
   description: ''
   on:
-    RUST_VERSION: stable
+    RUST_VERSION: nightly
     appveyor_repo_tag: true
   provider: GitHub
 
