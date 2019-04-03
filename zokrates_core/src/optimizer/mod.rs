@@ -19,10 +19,9 @@ pub trait Optimize {
 
 impl<T: Field> Optimize for Prog<T> {
     fn optimize(self) -> Self {
-        // // only keep the main function
-        // let r = DeadCodeOptimizer::optimize(self);
-        // // remove redefinitions
+        // remove redefinitions
         let r = RedefinitionOptimizer::optimize(self);
+        // remove constraints that are always satisfied
         let r = TautologyOptimizer::optimize(r);
         r
     }

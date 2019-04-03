@@ -2,6 +2,8 @@
 // ```
 // a * 1 == a
 // ```
+//
+// This makes the assumption that ~one has value 1, as should be guaranteed by the verifier
 
 use ir::folder::fold_statement;
 use ir::folder::Folder;
