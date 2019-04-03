@@ -66,6 +66,7 @@ mod integration {
         let test_case_path = tmp_base.join(program_name);
         let flattened_path = tmp_base.join(program_name).join("out");
         let witness_path = tmp_base.join(program_name).join("witness");
+        let inline_witness_path = tmp_base.join(program_name).join("inline_witness");
         let verification_key_path = tmp_base
             .join(program_name)
             .join("verification")
@@ -97,7 +98,7 @@ mod integration {
             "--light",
         ];
 
-        if program_name.contains("libsnark") {
+        if program_name.contains("sha") {
             // we don't want to test libsnark integrations if libsnark is not available
             #[cfg(not(feature = "libsnark"))]
             return;
@@ -123,21 +124,41 @@ mod integration {
             })
             .collect();
 
-        let mut compute = vec![
+        // WITH `-a <arguments>`
+
+        let mut compute_inline = vec![
+            "../target/release/zokrates",
+            "compute-witness",
+            "-i",
+            flattened_path.to_str().unwrap(),
+            "-o",
+            inline_witness_path.to_str().unwrap(),
+            "-a",
+        ];
+
+        for arg in arguments_str_list.iter() {
+            compute_inline.push(arg);
+        }
+
+        assert_cli::Assert::command(&compute_inline)
+            .succeeds()
+            .unwrap();
+
+        // WITH stdin ARGUMENTS
+
+        let compute = vec![
             "../target/release/zokrates",
             "compute-witness",
             "-i",
             flattened_path.to_str().unwrap(),
             "-o",
             witness_path.to_str().unwrap(),
-            "-a",
         ];
 
-        for arg in arguments_str_list.iter() {
-            compute.push(arg);
-        }
-
-        assert_cli::Assert::command(&compute).succeeds().unwrap();
+        assert_cli::Assert::command(&compute)
+            .stdin(&arguments_str_list.join(" "))
+            .succeeds()
+            .unwrap();
 
         // load the expected witness
         let mut expected_witness_file = File::open(&expected_witness_path).unwrap();
@@ -150,6 +171,15 @@ mod integration {
         let mut witness_file = File::open(&witness_path).unwrap();
         let mut witness = String::new();
         witness_file.read_to_string(&mut witness).unwrap();
+
+        // load the actual inline witness
+        let mut inline_witness_file = File::open(&inline_witness_path).unwrap();
+        let mut inline_witness = String::new();
+        inline_witness_file
+            .read_to_string(&mut inline_witness)
+            .unwrap();
+
+        assert_eq!(inline_witness, witness);
 
         for line in expected_witness.as_str().split("\n") {
             assert!(

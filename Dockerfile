@@ -29,6 +29,6 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain $RUST_TOOLCHAI
     && (cd src;./build_release.sh) \
     && mv ./src/target/release/zokrates . \
     && mv ./src/zokrates_cli/examples . \
-    && mv ./src/stdlib/* $ZOKRATES_HOME \
+    && mv ./src/zokrates_stdlib/stdlib/* $ZOKRATES_HOME \
     && rustup self uninstall -y \
     && rm -rf src
