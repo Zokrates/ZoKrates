@@ -72,12 +72,12 @@ matrix:
     # - env: TARGET=thumbv7em-none-eabihf
     # - env: TARGET=thumbv7m-none-eabi
 
-    # Testing other channels
-    - env: TARGET=x86_64-unknown-linux-gnu
-      rust: nightly
-    - env: TARGET=x86_64-apple-darwin
-      os: osx
-      rust: nightly
+    # # Testing other channels
+    # - env: TARGET=x86_64-unknown-linux-gnu
+    #   rust: nightly
+    # - env: TARGET=x86_64-apple-darwin
+    #   os: osx
+    #   rust: nightly
 
 before_install:
   - set -e

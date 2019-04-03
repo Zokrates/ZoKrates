@@ -4,8 +4,6 @@
 environment:
   global:
   # overridden on a case by case basis down below
-    RUST_VERSION: stable
-
     CRATE_NAME: zokrates
     RUST_VERSION: nightly
 
