@@ -19,8 +19,10 @@ extern crate serde_bytes;
 #[cfg(feature = "wasm")]
 extern crate wasmi;
 extern crate zokrates_field;
+//extern crate core;
 
 mod flatten;
+mod zkinterface_builder;
 mod helpers;
 mod imports;
 mod optimizer;

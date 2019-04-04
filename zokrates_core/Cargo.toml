@@ -30,6 +30,11 @@ wasmi = "0.4.2"
 parity-wasm = "0.35.3"
 rustc-hex = "1.0"
 
+# flatbuffers with file format
+zkstandard = { git = "https://github.com/QED-it/gadget_standard" }
+#zkstandard = {version = "0.1.0", path = "../../gadget_standard/rust" }
+
+
 [dev-dependencies]
 glob = "0.2.11"
 assert_cli = "0.5"
