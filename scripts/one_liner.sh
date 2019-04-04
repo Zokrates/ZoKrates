@@ -308,7 +308,7 @@ esac
 say_err "Detected architecture: $arch"
 
 if [ -z $dest ]; then
-    dest="$HOME/.cargo/bin"
+    dest="$HOME/.zokrates"
 fi
 
 say_err "Installing to: $dest"
@@ -321,14 +321,33 @@ td=$(mktemp -d || mktemp -d -t tmp)
 curl -sLf --show-error $url | tar -C $td -xz
 
 for f in $(ls $td); do
-    test -x $td/$f || continue
+    test -d $td/$f || continue
 
     if [ -e "$dest/$f" ] && [ $force = false ]; then
         err "$f already exists in $dest"
     else
         mkdir -p $dest
-        install -m 755 $td/$f $dest
+        cp -rf $td/$f $dest
+        rm -rf $td/$f
+    fi
+done
+
+for f in $(ls $td); do
+    test -x $td/$f || continue
+
+    if [ -e "$dest/$f" ] && [ $force = false ]; then
+        err "$f already exists in $dest"
+    else
+        mkdir -p $dest/bin
+        install -m 755 $td/$f $dest/bin
     fi
 done
 
 rm -rf $td
+
+cat <<'EOF'
+    ZoKrates was installed succesfully!
+    If this is the first time you're installing ZoKrates run the following:
+    export PATH=$PATH:$HOME/.zokrates/bin
+    export ZOKRATES_HOME=$HOME/.zokrates/stdlib
+EOF
