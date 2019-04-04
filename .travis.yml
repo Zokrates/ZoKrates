@@ -15,54 +15,54 @@ env:
 matrix:
   include:
     # Android
-    - env: TARGET=aarch64-linux-android DISABLE_TESTS=1
-    - env: TARGET=arm-linux-androideabi DISABLE_TESTS=1
-    - env: TARGET=armv7-linux-androideabi DISABLE_TESTS=1
-    - env: TARGET=i686-linux-android DISABLE_TESTS=1
-    - env: TARGET=x86_64-linux-android DISABLE_TESTS=1
+    # - env: TARGET=aarch64-linux-android DISABLE_TESTS=1
+    # - env: TARGET=arm-linux-androideabi DISABLE_TESTS=1
+    # - env: TARGET=armv7-linux-androideabi DISABLE_TESTS=1
+    # - env: TARGET=i686-linux-android DISABLE_TESTS=1
+    # - env: TARGET=x86_64-linux-android DISABLE_TESTS=1
 
-    # iOS
-    - env: TARGET=aarch64-apple-ios DISABLE_TESTS=1
-      os: osx
-    - env: TARGET=armv7-apple-ios DISABLE_TESTS=1
-      os: osx
-    - env: TARGET=armv7s-apple-ios DISABLE_TESTS=1
-      os: osx
-    - env: TARGET=i386-apple-ios DISABLE_TESTS=1
-      os: osx
-    - env: TARGET=x86_64-apple-ios DISABLE_TESTS=1
-      os: osx
+    # # iOS
+    # - env: TARGET=aarch64-apple-ios DISABLE_TESTS=1
+    #   os: osx
+    # - env: TARGET=armv7-apple-ios DISABLE_TESTS=1
+    #   os: osx
+    # - env: TARGET=armv7s-apple-ios DISABLE_TESTS=1
+    #   os: osx
+    # - env: TARGET=i386-apple-ios DISABLE_TESTS=1
+    #   os: osx
+    # - env: TARGET=x86_64-apple-ios DISABLE_TESTS=1
+    #   os: osx
 
     # Linux
     - env: TARGET=aarch64-unknown-linux-gnu
-    - env: TARGET=arm-unknown-linux-gnueabi
-    - env: TARGET=armv7-unknown-linux-gnueabihf
-    - env: TARGET=i686-unknown-linux-gnu
-    - env: TARGET=i686-unknown-linux-musl
-    - env: TARGET=mips-unknown-linux-gnu
-    - env: TARGET=mips64-unknown-linux-gnuabi64
-    - env: TARGET=mips64el-unknown-linux-gnuabi64
-    - env: TARGET=mipsel-unknown-linux-gnu
-    - env: TARGET=powerpc-unknown-linux-gnu
-    - env: TARGET=powerpc64-unknown-linux-gnu
-    - env: TARGET=powerpc64le-unknown-linux-gnu
-    - env: TARGET=s390x-unknown-linux-gnu DISABLE_TESTS=1
-    - env: TARGET=x86_64-unknown-linux-gnu
-    - env: TARGET=x86_64-unknown-linux-musl
+    # - env: TARGET=arm-unknown-linux-gnueabi
+    # - env: TARGET=armv7-unknown-linux-gnueabihf
+    # - env: TARGET=i686-unknown-linux-gnu
+    # - env: TARGET=i686-unknown-linux-musl
+    # - env: TARGET=mips-unknown-linux-gnu
+    # - env: TARGET=mips64-unknown-linux-gnuabi64
+    # - env: TARGET=mips64el-unknown-linux-gnuabi64
+    # - env: TARGET=mipsel-unknown-linux-gnu
+    # - env: TARGET=powerpc-unknown-linux-gnu
+    # - env: TARGET=powerpc64-unknown-linux-gnu
+    # - env: TARGET=powerpc64le-unknown-linux-gnu
+    # - env: TARGET=s390x-unknown-linux-gnu DISABLE_TESTS=1
+    # - env: TARGET=x86_64-unknown-linux-gnu
+    # - env: TARGET=x86_64-unknown-linux-musl
 
-    # OSX
-    - env: TARGET=i686-apple-darwin
-      os: osx
-    - env: TARGET=x86_64-apple-darwin
-      os: osx
+    # # OSX
+    # - env: TARGET=i686-apple-darwin
+    #   os: osx
+    # - env: TARGET=x86_64-apple-darwin
+    #   os: osx
 
-    # *BSD
-    - env: TARGET=i686-unknown-freebsd DISABLE_TESTS=1
-    - env: TARGET=x86_64-unknown-freebsd DISABLE_TESTS=1
-    - env: TARGET=x86_64-unknown-netbsd DISABLE_TESTS=1
+    # # *BSD
+    # - env: TARGET=i686-unknown-freebsd DISABLE_TESTS=1
+    # - env: TARGET=x86_64-unknown-freebsd DISABLE_TESTS=1
+    # - env: TARGET=x86_64-unknown-netbsd DISABLE_TESTS=1
 
-    # Windows
-    - env: TARGET=x86_64-pc-windows-gnu
+    # # Windows
+    # - env: TARGET=x86_64-pc-windows-gnu
 
     # Bare metal
     # These targets don't support std and as such are likely not suitable for
@@ -97,7 +97,7 @@ before_deploy:
 
 deploy:
   api_key:
-    secure: i82/R0EkC7Ba0IvAg2mnC/aWOH/78tlL3ZrxpsUK0+QH4nntQXveKr7ynhmyM1cffwCQY+I/5oGHFV/9IvIRNuE0fmoUWYu5jC+e+3hcmy9MFzRPiKADDN1QYHDxGWNhkeJgeLm57/UMvwOT3t7dwjmyfi3kkMOzOtVDMbN57H75W++UKISb4viMfM6FlLnDEXViKFP0jx8pw19EN4PXZ4bbNgGCoNKT5tNqiykZfIQQ7o2EX7QBLHSfgsjCg1Fzon0KkSZtTui+qPY8ozIU/mq6baguFfnnGzL77eWW1t5faOTlxIl2zxoWU8qobhjupbQx5bgkeVCWpY94821hik/c3v0ytpjHFups/Aot/XOwp5C203TRN3dqoJkho841x7lbh+oxNtwR2NW2JllG6wU3rMvwkARZrAy73EqX8vEOM4XsZr5k7FiT5T2cxz90kyRq+CPqDQgBYNF2Pc+7JJq8/tbdnTZtdsAW0bBUADgBdPqNt+oQtjg7f4yYD9qbGPj/ooXzV0m+3X6jRJViUts2wCE6XWNk5UTiLIu3TjQZh7AP2NheGR7kyT2WPXmoe2ZhsNqWykwMMXPrl9tsfF7aZCUrml9Od+7mb5pbBZ2hsnthp0PJn/FrDAQt+EfKdDbZ/qhilGA7xrBOy8E9qc/IrJGf2TFJ6B7Cgms1I4E=
+    secure: bJV3yFnt19nv2mc+0ekX6y6qfrq1mPCo+RZaPfY+KaUNJCposqIlvwZ0+TZIzKNNqrvC+oUyt8/jWU2A/hy1oFTkZmdtdcGkKYkm1C9v62ntOK6xv88qsZ4lz0Q6qKGoa7Ao3MZ9zomDl9WV+IESnPlnE5mCqw0sW1YF+pabZIojHPJyjspsKmcRADpPCSm9Qbotq521Q8+vGcfCLSlVOpGTMfG4MwB2K8FRV9m/wVaFjbKHg97rVMj1RKwtCDt0UNYTUhtfQ0jKqFGnQBxMKGhuvcoWQfjjcAcBGcBPfhXMXhOHEdbxrsdgpj/AJ4UTZlU15iTZ9wZlkSvBx4ttN2I0QEGt8UbzcXyG2JWkNBdKMAecQQU2g+UoAzLWFahzVgxrTfxiTQ8l9ax2hnY4xy+Qh4sMMWg1on1n0iHfIc4co5T0hNeCwXm8tcFIUtbE3FC92r5l23jom8EpQkDR3KnNt22wOqYOXH5yre2ZCi29phK3JkoXBfJfs1A8PQKXw/CiIfpPTQWYR2A6C2eQ27zia2sowzA4RUbplP1CAnCZrhjcNhU2R2DlgklDUkqwmaSetCQ1ZaWzXI6mUs/VJLpMbWKcX5kRT1C+ZhC0ZBbGrxrIPKWEdZHseE5uHNXFWxxvh5QrdpmULpeFL5wnXyWnrDOMpnkZx60w6VUHfbM=
   file_glob: true
   file: $CRATE_NAME-$TRAVIS_TAG-$TARGET.*
   on:
