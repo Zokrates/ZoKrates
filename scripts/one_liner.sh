@@ -240,114 +240,117 @@ need() {
     fi
 }
 
-## MAIN ##
+main() {
+    need_cmd curl
 
-need_cmd curl
+    force=false
+    while test $# -gt 0; do
+        case $1 in
+            --force | -f)
+                force=true
+                ;;
+            --tag)
+                tag=$2
+                shift
+                ;;
+            --to)
+                dest=$2
+                shift
+                ;;
+            *)
+                ;;
+        esac
+        shift
+    done
 
-force=false
-while test $# -gt 0; do
-    case $1 in
-        --force | -f)
-            force=true
-            ;;
-        --tag)
-            tag=$2
-            shift
-            ;;
-        --to)
-            dest=$2
-            shift
-            ;;
-        *)
+    # Dependencies
+    need basename
+    need curl
+    need install
+    need mkdir
+    need mktemp
+    need tar
+
+    # Optional dependencies
+    if [ -z $tag ]; then
+        need cut
+        need rev
+    fi
+
+    git="schaeff/zokrates"
+
+    url="https://github.com/$git"
+
+    if [ -z $crate ]; then
+        crate=$(echo $git | cut -d'/' -f2)
+    fi
+
+    url="$url/releases"
+
+    if [ -z $tag ]; then
+        tag=$(curl -s "$url/latest" | cut -d'"' -f2 | rev | cut -d'/' -f1 | rev)
+        say_err "Tag: latest ($tag)"
+    else
+        say_err "Tag: $tag"
+    fi
+
+    get_architecture || return 1
+    arch="$RETVAL"
+
+    ext="tar.gz"
+    case "$_arch" in
+        *windows*)
+            ext=".exe"
             ;;
     esac
-    shift
-done
 
-# Dependencies
-need basename
-need curl
-need install
-need mkdir
-need mktemp
-need tar
+    say_err "Detected architecture: $arch"
 
-# Optional dependencies
-if [ -z $tag ]; then
-    need cut
-    need rev
-fi
-
-git="schaeff/zokrates"
-
-url="https://github.com/$git"
-
-if [ -z $crate ]; then
-    crate=$(echo $git | cut -d'/' -f2)
-fi
-
-url="$url/releases"
-
-if [ -z $tag ]; then
-    tag=$(curl -s "$url/latest" | cut -d'"' -f2 | rev | cut -d'/' -f1 | rev)
-    say_err "Tag: latest ($tag)"
-else
-    say_err "Tag: $tag"
-fi
-
-get_architecture || return 1
-arch="$RETVAL"
-
-ext="tar.gz"
-case "$_arch" in
-    *windows*)
-        ext=".exe"
-        ;;
-esac
-
-say_err "Detected architecture: $arch"
-
-if [ -z $dest ]; then
-    dest="$HOME/.zokrates"
-fi
-
-say_err "Installing to: $dest"
-
-url="$url/download/$tag/$crate-$tag-$arch.$ext"
-
-say_err "Fetching from: $url"
-
-td=$(mktemp -d || mktemp -d -t tmp)
-curl -sLf --show-error $url | tar -C $td -xz
-
-for f in $(ls $td); do
-    test -d $td/$f || continue
-
-    if [ -e "$dest/$f" ] && [ $force = false ]; then
-        err "$f already exists in $dest"
-    else
-        mkdir -p $dest
-        cp -rf $td/$f $dest
-        rm -rf $td/$f
+    if [ -z $dest ]; then
+        dest="$HOME/.zokrates"
     fi
-done
 
-for f in $(ls $td); do
-    test -x $td/$f || continue
+    say_err "Installing to: $dest"
 
-    if [ -e "$dest/$f" ] && [ $force = false ]; then
-        err "$f already exists in $dest"
-    else
-        mkdir -p $dest/bin
-        install -m 755 $td/$f $dest/bin
-    fi
-done
+    url="$url/download/$tag/$crate-$tag-$arch.$ext"
 
-rm -rf $td
+    say_err "Fetching from: $url"
 
-cat <<'EOF'
-    ZoKrates was installed succesfully!
-    If this is the first time you're installing ZoKrates run the following:
-    export PATH=$PATH:$HOME/.zokrates/bin
-    export ZOKRATES_HOME=$HOME/.zokrates/stdlib
+    td=$(mktemp -d || mktemp -d -t tmp)
+    curl -sLf --show-error $url | tar -C $td -xz
+
+    for f in $(ls $td); do
+        test -d $td/$f || continue
+
+        if [ -e "$dest/$f" ] && [ $force = false ]; then
+            err "$f already exists in $dest, use --force to overwrite"
+        else
+            mkdir -p $dest
+            cp -rf $td/$f $dest
+            rm -rf $td/$f
+        fi
+    done
+
+    for f in $(ls $td); do
+        test -x $td/$f || continue
+
+        if [ -e "$dest/$f" ] && [ $force = false ]; then
+            err "$f already exists in $dest, use --force to overwrite"
+        else
+            mkdir -p $dest/bin
+            install -m 755 $td/$f $dest/bin
+        fi
+    done
+
+    rm -rf $td
+
+    cat <<'EOF'
+
+ZoKrates was installed succesfully!
+If this is the first time you're installing ZoKrates run the following:
+export PATH=$PATH:$HOME/.zokrates/bin
+export ZOKRATES_HOME=$HOME/.zokrates/stdlib
 EOF
+}
+
+main
