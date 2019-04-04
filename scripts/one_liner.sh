@@ -4,15 +4,14 @@ set -e
 
 help() {
     cat <<'EOF'
-Install a binary release ZoKrates
+Install ZoKrates
 
 Usage:
     one_liner.sh [options]
 
 Options:
-    -f, --force     Force overwriting an existing binary
-    --tag TAG       Tag (version) of the crate to install (default <latest release>)
-    --to LOCATION   Where to install the binary (default ~/.cargo/bin)
+    -f, --force     Force overwriting an existing installation
+    --to LOCATION   Where to install (default ~/.zokrates)
 EOF
 }
 
@@ -249,10 +248,6 @@ main() {
             --force | -f)
                 force=true
                 ;;
-            --tag)
-                tag=$2
-                shift
-                ;;
             --to)
                 dest=$2
                 shift
@@ -271,74 +266,60 @@ main() {
     need mktemp
     need tar
 
-    # Optional dependencies
-    if [ -z $tag ]; then
-        need cut
-        need rev
-    fi
-
     git="schaeff/zokrates"
 
     url="https://github.com/$git"
 
-    if [ -z $crate ]; then
-        crate=$(echo $git | cut -d'/' -f2)
-    fi
-
     url="$url/releases"
 
-    if [ -z $tag ]; then
-        tag=$(curl -s "$url/latest" | cut -d'"' -f2 | rev | cut -d'/' -f1 | rev)
-        say_err "Tag: latest ($tag)"
-    else
-        say_err "Tag: $tag"
-    fi
+    tag=$(curl -s "$url/latest" | cut -d'"' -f2 | rev | cut -d'/' -f1 | rev)
+    say_err "Tag: latest ($tag)"
 
+    # detect host architecture
     get_architecture || return 1
     arch="$RETVAL"
 
+    # find file extension. For now always tar.gz
     ext="tar.gz"
-    case "$_arch" in
-        *windows*)
-            ext=".exe"
-            ;;
-    esac
 
     say_err "Detected architecture: $arch"
 
+    # Set target directory
     if [ -z $dest ]; then
         dest="$HOME/.zokrates"
     fi
 
     say_err "Installing to: $dest"
 
-    url="$url/download/$tag/$crate-$tag-$arch.$ext"
+    # Fetch archive
+    url="$url/download/$tag/zokrates-$tag-$arch.$ext"
 
-    say_err "Fetching from: $url"
+    say_err "Fetching: $url"
 
     td=$(mktemp -d || mktemp -d -t tmp)
     curl -sLf --show-error $url | tar -C $td -xz
 
+    # install ZoKrates
     for f in $(ls $td); do
-        test -d $td/$f || continue
-
-        if [ -e "$dest/$f" ] && [ $force = false ]; then
-            err "$f already exists in $dest, use --force to overwrite"
-        else
-            mkdir -p $dest
-            cp -rf $td/$f $dest
-            rm -rf $td/$f
+        # put folders into $dest
+        if [ -d $td/$f ]; then 
+            if [ -e "$dest/$f" ] && [ $force = false ]; then
+                err "$f already exists in $dest, use --force to overwrite"
+            else
+                mkdir -p $dest
+                cp -rf $td/$f $dest
+                rm -rf $td/$f
+            fi
         fi
-    done
 
-    for f in $(ls $td); do
-        test -x $td/$f || continue
-
-        if [ -e "$dest/$f" ] && [ $force = false ]; then
-            err "$f already exists in $dest, use --force to overwrite"
-        else
-            mkdir -p $dest/bin
-            install -m 755 $td/$f $dest/bin
+        # put executables into $dest/bin
+        if [ -x $td/$f ]; then
+            if [ -e "$dest/$f" ] && [ $force = false ]; then
+                err "$f already exists in $dest, use --force to overwrite"
+            else
+                mkdir -p $dest/bin
+                install -m 755 $td/$f $dest/bin
+            fi
         fi
     done
 
