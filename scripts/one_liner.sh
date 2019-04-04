@@ -243,9 +243,9 @@ need() {
 
 ## MAIN ##
 
-## curl installed? 
+## curl installed?
 which curl &> /dev/null 
-if [[ $? -ne 0 ]] ; then
+if [ $? -ne 0 ] ; then
     echo '"curl" binary not found, please install and retry'
     exit 1
 fi
