@@ -184,8 +184,7 @@ get_architecture() {
             ;;
 
         *)
-            err "unknown CPU type: $_cputype"
-
+        err "unknown CPU type: $_cputype"
     esac
 
     # Detect 64-bit linux with 32-bit userland
@@ -243,13 +242,7 @@ need() {
 
 ## MAIN ##
 
-## curl installed?
-which curl &> /dev/null 
-if [ $? -ne 0 ] ; then
-    echo '"curl" binary not found, please install and retry'
-    exit 1
-fi
-##
+need_cmd curl
 
 force=false
 while test $# -gt 0; do
