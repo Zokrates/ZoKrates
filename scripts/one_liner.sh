@@ -16,6 +16,12 @@ Options:
 EOF
 }
 
+need_cmd() {
+    if ! check_cmd "$1"; then
+        err "need '$1' (command not found)"
+    fi
+}
+
 get_bitness() {
     need_cmd head
     # Architecture detection without dependencies beyond coreutils.
