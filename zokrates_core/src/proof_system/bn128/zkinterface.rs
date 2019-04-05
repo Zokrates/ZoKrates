@@ -40,7 +40,7 @@ impl ProofSystem for ZkInterface {
         // message type:
         //zkstandard::zkinterface_generated::zkinterface::R1CSConstraints
 
-        create_zkinterface_r1cs(num_constraints,num_inputs,a,b,c)
+        create_zkinterface_r1cs(num_constraints,a,b,c, pk_path)
     }
 
     fn generate_proof(
@@ -71,13 +71,16 @@ impl ProofSystem for ZkInterface {
 
 fn create_zkinterface_r1cs(
     num_constraints: usize,
-    num_variables: usize,
     a: Vec<Vec<(usize, FieldPrime)>>,
     b: Vec<Vec<(usize, FieldPrime)>>,
-    c: Vec<Vec<(usize, FieldPrime)>>) -> bool {
+    c: Vec<Vec<(usize, FieldPrime)>>,
+    output_path: &str,
+    ) -> bool {
 
-    let builder = ZKinterfaceBuilder::new();
+    let builder = ZKinterfaceBuilder{}; // ::new();
 
-    builder.create_file(num_constraints,num_variables,a,b,c)
+    builder.create_file(num_constraints,&a,&b,&c,output_path);
+
+    return true
 }
 
