@@ -297,7 +297,7 @@ main() {
     say_err "Fetching: $url"
 
     td=$(mktemp -d || mktemp -d -t tmp)
-    curl -sLf --show-error $url | tar -C $td -xz
+    curl -sLf --show-error $url | tar -C $td -xzf -
 
     # install ZoKrates
     for f in $(ls $td); do
