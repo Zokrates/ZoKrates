@@ -15,7 +15,7 @@
 
 - [Reference](reference/index.md)
     - [CLI](reference/cli.md)
-    - [Backends](reference/backends.md)
+    - [Proving schemes](reference/proving_schemes.md)
     - [Verification](reference/verification.md)
     - [ZIR](reference/ir.md)
 

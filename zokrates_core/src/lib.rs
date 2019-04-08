@@ -7,8 +7,11 @@ extern crate serde; // serialization deserialization
 extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
+extern crate bellman;
 extern crate bimap;
 extern crate bincode;
+extern crate ff;
+extern crate pairing;
 #[cfg(feature = "wasm")]
 extern crate parity_wasm;
 extern crate regex;
@@ -38,5 +41,4 @@ pub mod flat_absy;
 pub mod ir;
 #[cfg(feature = "libsnark")]
 pub mod libsnark;
-#[cfg(feature = "libsnark")]
 pub mod proof_system;
