@@ -1,3 +1,0 @@
-def main(private field[4] i, field[2] h) -> (field):
-    h == sha256packed(i)
-    return 1
