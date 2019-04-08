@@ -3,7 +3,7 @@ extern crate rand;
 use bellman::groth16::Proof;
 use bellman::groth16::{
     create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof,
-    Parameters, VerifyingKey,
+    Parameters,
 };
 use bellman::{Circuit, ConstraintSystem, LinearCombination, SynthesisError, Variable};
 use ir::{LinComb, Prog, Statement, Witness};
@@ -187,66 +187,6 @@ impl Circuit<Bn256> for Computation<FieldPrime> {
     fn synthesize<CS: ConstraintSystem<Bn256>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
         self.program.synthesize(cs, self.witness)
     }
-}
-
-pub fn serialize_vk(vk: VerifyingKey<Bn256>) -> String {
-    format!(
-        "vk.alpha = {}
-vk.beta = {}
-vk.gamma = {}
-vk.delta = {}
-vk.gammaABC.len() = {}
-{}",
-        vk.alpha_g1,
-        vk.beta_g2,
-        vk.gamma_g2,
-        vk.delta_g2,
-        vk.ic.len(),
-        vk.ic
-            .iter()
-            .enumerate()
-            .map(|(i, x)| format!("vk.gammaABC[{}] = {}", i, x))
-            .collect::<Vec<_>>()
-            .join("\n")
-    )
-    .replace("G2(x=Fq2(Fq(", "[")
-    .replace("), y=Fq(", ", ")
-    .replace("G1(x=Fq(", "")
-    .replace(") + Fq(", ", ")
-    .replace("))", "")
-    .replace(") * u), y=Fq2(Fq(", "], [")
-    .replace(") * u", "]")
-}
-
-pub fn serialize_proof(p: &Proof<Bn256>, inputs: &Vec<Fr>) -> String {
-    format!(
-        "{{
-    \"proof\": {{
-        \"a\": {},
-        \"b\": {},
-        \"c\": {}
-    }},
-    \"inputs\": [{}]
-}}",
-        p.a,
-        p.b,
-        p.c,
-        inputs
-            .iter()
-            .map(|v| format!("\"{}\"", v))
-            .collect::<Vec<_>>()
-            .join(", "),
-    )
-    .replace("G2(x=Fq2(Fq(", "[[\"")
-    .replace("), y=Fq(", "\", \"")
-    .replace("G1(x=Fq(", "[\"")
-    .replace(") + Fq(", "\", \"")
-    .replace(") * u), y=Fq2(Fq(", "\"], [\"")
-    .replace(") * u]", "\"]]")
-    .replace(") * u))", "\"]]")
-    .replace("))", "\"]")
-    .replace("Fr(", "")
-    .replace(")", "")
 }
 
 #[cfg(test)]

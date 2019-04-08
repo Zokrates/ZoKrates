@@ -1,6 +1,6 @@
 use bellman::groth16::Parameters;
 use ir;
-use proof_system::bn128::utils::bellman::{serialize_proof, serialize_vk, Computation};
+use proof_system::bn128::utils::bellman::Computation;
 use proof_system::bn128::utils::solidity::{SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB};
 use proof_system::ProofSystem;
 use regex::Regex;
@@ -22,7 +22,9 @@ impl ProofSystem for G16 {
         let parameters_file = File::create(PathBuf::from(pk_path)).unwrap();
         parameters.write(parameters_file).unwrap();
         let mut vk_file = File::create(PathBuf::from(vk_path)).unwrap();
-        vk_file.write(serialize_vk(parameters.vk).as_ref()).unwrap();
+        vk_file
+            .write(serialize::serialize_vk(parameters.vk).as_ref())
+            .unwrap();
     }
 
     fn generate_proof(
@@ -47,7 +49,7 @@ impl ProofSystem for G16 {
         write!(
             proof_file,
             "{}",
-            serialize_proof(&proof, &computation.public_inputs_values())
+            serialize::serialize_proof(&proof, &computation.public_inputs_values())
         )
         .unwrap();
         true
@@ -131,6 +133,72 @@ impl ProofSystem for G16 {
             "{}{}{}",
             SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, template_text
         )
+    }
+}
+
+mod serialize {
+
+    use bellman::groth16::{Proof, VerifyingKey};
+    use pairing::bn256::{Bn256, Fr};
+
+    pub fn serialize_vk(vk: VerifyingKey<Bn256>) -> String {
+        format!(
+            "vk.alpha = {}
+    vk.beta = {}
+    vk.gamma = {}
+    vk.delta = {}
+    vk.gammaABC.len() = {}
+    {}",
+            vk.alpha_g1,
+            vk.beta_g2,
+            vk.gamma_g2,
+            vk.delta_g2,
+            vk.ic.len(),
+            vk.ic
+                .iter()
+                .enumerate()
+                .map(|(i, x)| format!("vk.gammaABC[{}] = {}", i, x))
+                .collect::<Vec<_>>()
+                .join("\n")
+        )
+        .replace("G2(x=Fq2(Fq(", "[")
+        .replace("), y=Fq(", ", ")
+        .replace("G1(x=Fq(", "")
+        .replace(") + Fq(", ", ")
+        .replace("))", "")
+        .replace(") * u), y=Fq2(Fq(", "], [")
+        .replace(") * u", "]")
+    }
+
+    pub fn serialize_proof(p: &Proof<Bn256>, inputs: &Vec<Fr>) -> String {
+        format!(
+            "{{
+        \"proof\": {{
+            \"a\": {},
+            \"b\": {},
+            \"c\": {}
+        }},
+        \"inputs\": [{}]
+    }}",
+            p.a,
+            p.b,
+            p.c,
+            inputs
+                .iter()
+                .map(|v| format!("\"{}\"", v))
+                .collect::<Vec<_>>()
+                .join(", "),
+        )
+        .replace("G2(x=Fq2(Fq(", "[[\"")
+        .replace("), y=Fq(", "\", \"")
+        .replace("G1(x=Fq(", "[\"")
+        .replace(") + Fq(", "\", \"")
+        .replace(") * u), y=Fq2(Fq(", "\"], [\"")
+        .replace(") * u]", "\"]]")
+        .replace(") * u))", "\"]]")
+        .replace("))", "\"]")
+        .replace("Fr(", "")
+        .replace(")", "")
     }
 }
 

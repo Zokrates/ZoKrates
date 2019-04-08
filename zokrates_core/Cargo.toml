@@ -33,6 +33,7 @@ rand = "0.4"
 wasmi = "0.4.2"
 parity-wasm = "0.35.3"
 rustc-hex = "1.0"
+csv = "1"
 
 [dev-dependencies]
 glob = "0.2.11"

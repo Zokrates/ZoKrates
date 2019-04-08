@@ -41,5 +41,4 @@ pub mod flat_absy;
 pub mod ir;
 #[cfg(feature = "libsnark")]
 pub mod libsnark;
-// #[cfg(feature = "libsnark")]
 pub mod proof_system;

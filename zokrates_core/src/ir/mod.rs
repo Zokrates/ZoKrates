@@ -1,18 +1,19 @@
 use flat_absy::flat_parameter::FlatParameter;
 use flat_absy::FlatVariable;
 use helpers::Helper;
-use std::collections::HashMap;
 use std::fmt;
 use zokrates_field::field::Field;
 
 mod expression;
 mod from_flat;
 mod interpreter;
+mod witness;
 
 pub use self::expression::LinComb;
 use self::expression::QuadComb;
 
-pub use self::interpreter::{Error, ExecutionResult, Witness};
+pub use self::interpreter::{Error, ExecutionResult};
+pub use self::witness::Witness;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Statement<T: Field> {

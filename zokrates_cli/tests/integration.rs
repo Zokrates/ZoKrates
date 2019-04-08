@@ -185,7 +185,7 @@ mod integration {
                 proving_key_path.to_str().unwrap(),
                 "-v",
                 verification_key_path.to_str().unwrap(),
-                "--scheme",
+                "--proving-scheme",
                 scheme,
             ])
             .succeeds()
@@ -199,7 +199,7 @@ mod integration {
                 verification_key_path.to_str().unwrap(),
                 "-o",
                 verification_contract_path.to_str().unwrap(),
-                "--scheme",
+                "--proving-scheme",
                 scheme,
             ])
             .succeeds()
@@ -231,7 +231,7 @@ mod integration {
                 witness_path.to_str().unwrap(),
                 "-p",
                 proving_key_path.to_str().unwrap(),
-                "--scheme",
+                "--proving-scheme",
                 scheme,
             ])
             .succeeds()

@@ -31,7 +31,7 @@ fn cli() -> Result<(), String> {
     const VERIFICATION_CONTRACT_DEFAULT_PATH: &str = "verifier.sol";
     const WITNESS_DEFAULT_PATH: &str = "witness";
     const JSON_PROOF_PATH: &str = "proof.json";
-    let default_scheme = env::var("ZOKRATES_BACKEND").unwrap_or(String::from("g16"));
+    let default_scheme = env::var("ZOKRATES_PROVING_SCHEME").unwrap_or(String::from("g16"));
 
     // cli specification using clap library
     let matches = App::new("ZoKrates")
@@ -91,10 +91,10 @@ fn cli() -> Result<(), String> {
             .required(false)
             .default_value(VERIFICATION_KEY_DEFAULT_PATH)
         )
-        .arg(Arg::with_name("scheme")
+        .arg(Arg::with_name("proving-scheme")
             .short("s")
-            .long("scheme")
-            .help("Backend to use in the setup. Available options are PGHR13 and GM17")
+            .long("proving-scheme")
+            .help("Proving scheme to use in the setup. Available options are G16 (default), PGHR13 and GM17")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -120,10 +120,10 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(VERIFICATION_CONTRACT_DEFAULT_PATH)
-        ).arg(Arg::with_name("scheme")
+        ).arg(Arg::with_name("proving-scheme")
             .short("s")
-            .long("scheme")
-            .help("Backend to use to export the verifier. Available options are PGHR13 and GM17")
+            .long("proving-scheme")
+            .help("Proving scheme to use to export the verifier. Available options are G16 (default), PGHR13 and GM17")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -191,10 +191,10 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(FLATTENED_CODE_DEFAULT_PATH)
-        ).arg(Arg::with_name("scheme")
+        ).arg(Arg::with_name("proving-scheme")
             .short("s")
-            .long("scheme")
-            .help("Backend to use to generate the proof. Available options are PGHR13 and GM17")
+            .long("proving-scheme")
+            .help("Proving scheme to use to generate the proof. Available options are G16 (default), PGHR13 and GM17")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -289,7 +289,7 @@ fn cli() -> Result<(), String> {
             let arguments: Vec<_> = match sub_matches.values_of("arguments") {
                 // take inline arguments
                 Some(p) => p
-                    .map(|x| FieldPrime::try_from_str(x).map_err(|_| x.to_string()))
+                    .map(|x| FieldPrime::try_from_dec_str(x).map_err(|_| x.to_string()))
                     .collect(),
                 // take stdin arguments
                 None => {
@@ -301,7 +301,9 @@ fn cli() -> Result<(), String> {
                                 input.retain(|x| x != '\n');
                                 input
                                     .split(" ")
-                                    .map(|x| FieldPrime::try_from_str(x).map_err(|_| x.to_string()))
+                                    .map(|x| {
+                                        FieldPrime::try_from_dec_str(x).map_err(|_| x.to_string())
+                                    })
                                     .collect()
                             }
                             Err(_) => Err(String::from("???")),
@@ -332,24 +334,12 @@ fn cli() -> Result<(), String> {
             let output_file = File::create(&output_path)
                 .map_err(|why| format!("couldn't create {}: {}", output_path.display(), why))?;
 
-            // create a CSV writer
-            let mut wtr = csv::WriterBuilder::new()
-                .delimiter(b' ')
-                .flexible(true)
-                .has_headers(false)
-                .from_writer(output_file);
-
-            // Write each line of the witness to the file
-            for line in witness.into_human_readable() {
-                wtr.serialize(line)
-                    .map_err(|_| "Error writing witness to file".to_string())?;
-            }
-
-            wtr.flush()
-                .map_err(|_| "Unable to flush buffer.".to_string())?;
+            witness
+                .write(output_file)
+                .map_err(|why| format!("could not save witness: {:?}", why))?;
         }
         ("setup", Some(sub_matches)) => {
-            let scheme = get_scheme(sub_matches.value_of("scheme").unwrap())?;
+            let scheme = get_scheme(sub_matches.value_of("proving-scheme").unwrap())?;
 
             println!("Performing setup...");
 
@@ -372,7 +362,7 @@ fn cli() -> Result<(), String> {
         }
         ("export-verifier", Some(sub_matches)) => {
             {
-                let scheme = get_scheme(sub_matches.value_of("scheme").unwrap())?;
+                let scheme = get_scheme(sub_matches.value_of("proving-scheme").unwrap())?;
 
                 println!("Exporting verifier...");
 
@@ -398,7 +388,7 @@ fn cli() -> Result<(), String> {
         ("generate-proof", Some(sub_matches)) => {
             println!("Generating proof...");
 
-            let scheme = get_scheme(sub_matches.value_of("scheme").unwrap())?;
+            let scheme = get_scheme(sub_matches.value_of("proving-scheme").unwrap())?;
 
             // deserialize witness
             let witness_path = Path::new(sub_matches.value_of("witness").unwrap());
@@ -407,13 +397,8 @@ fn cli() -> Result<(), String> {
                 Err(why) => panic!("couldn't open {}: {}", witness_path.display(), why),
             };
 
-            let mut rdr = csv::ReaderBuilder::new()
-                .delimiter(b' ')
-                .flexible(true)
-                .has_headers(false)
-                .from_reader(witness_file);
-
-            let witness = ir::Witness::from_human_readable(rdr.deserialize().map(|i| i.unwrap()));
+            let witness = ir::Witness::read(witness_file)
+                .map_err(|why| format!("could not load witness: {:?}", why))?;
 
             let pk_path = sub_matches.value_of("provingkey").unwrap();
             let proof_path = sub_matches.value_of("proofpath").unwrap();
