@@ -32,21 +32,28 @@ impl FlatVariable {
         (self.id as usize) - 1
     }
 
-    pub fn from_human_readable(s: &str) -> Self {
+    pub fn try_from_human_readable(s: &str) -> Result<Self, &str> {
         if s == "~one" {
-            return FlatVariable::one();
+            return Ok(FlatVariable::one());
         }
+
         let mut public = s.split("~out_");
         match public.nth(1) {
-            Some(v) => return FlatVariable::public(v.parse().unwrap()),
-            None => {}
+            Some(v) => {
+                let v = v.parse().map_err(|_| s)?;
+                Ok(FlatVariable::public(v))
+            }
+            None => {
+                let mut private = s.split("_");
+                match private.nth(1) {
+                    Some(v) => {
+                        let v = v.parse().map_err(|_| s)?;
+                        Ok(FlatVariable::new(v))
+                    }
+                    None => Err(s),
+                }
+            }
         }
-        let mut private = s.split("_");
-        match private.nth(1) {
-            Some(v) => return FlatVariable::new(v.parse().unwrap()),
-            None => {}
-        }
-        unreachable!()
     }
 }
 

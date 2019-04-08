@@ -3,7 +3,7 @@ extern crate rand;
 use bellman::groth16::Proof;
 use bellman::groth16::{
     create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof,
-    Parameters, VerifyingKey,
+    Parameters,
 };
 use bellman::{Circuit, ConstraintSystem, LinearCombination, SynthesisError, Variable};
 use ir::{LinComb, Prog, Statement, Witness};
@@ -187,66 +187,6 @@ impl Circuit<Bn256> for Computation<FieldPrime> {
     fn synthesize<CS: ConstraintSystem<Bn256>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
         self.program.synthesize(cs, self.witness)
     }
-}
-
-pub fn serialize_vk(vk: VerifyingKey<Bn256>) -> String {
-    format!(
-        "vk.alpha = {}
-vk.beta = {}
-vk.gamma = {}
-vk.delta = {}
-vk.gammaABC.len() = {}
-{}",
-        vk.alpha_g1,
-        vk.beta_g2,
-        vk.gamma_g2,
-        vk.delta_g2,
-        vk.ic.len(),
-        vk.ic
-            .iter()
-            .enumerate()
-            .map(|(i, x)| format!("vk.gammaABC[{}] = {}", i, x))
-            .collect::<Vec<_>>()
-            .join("\n")
-    )
-    .replace("G2(x=Fq2(Fq(", "[")
-    .replace("), y=Fq(", ", ")
-    .replace("G1(x=Fq(", "")
-    .replace(") + Fq(", ", ")
-    .replace("))", "")
-    .replace(") * u), y=Fq2(Fq(", "], [")
-    .replace(") * u", "]")
-}
-
-pub fn serialize_proof(p: &Proof<Bn256>, inputs: &Vec<Fr>) -> String {
-    format!(
-        "{{
-    \"proof\": {{
-        \"a\": {},
-        \"b\": {},
-        \"c\": {}
-    }},
-    \"inputs\": [{}]
-}}",
-        p.a,
-        p.b,
-        p.c,
-        inputs
-            .iter()
-            .map(|v| format!("\"{}\"", v))
-            .collect::<Vec<_>>()
-            .join(", "),
-    )
-    .replace("G2(x=Fq2(Fq(", "[[\"")
-    .replace("), y=Fq(", "\", \"")
-    .replace("G1(x=Fq(", "[\"")
-    .replace(") + Fq(", "\", \"")
-    .replace(") * u), y=Fq2(Fq(", "\"], [\"")
-    .replace(") * u]", "\"]]")
-    .replace(") * u))", "\"]]")
-    .replace("))", "\"]")
-    .replace("Fr(", "")
-    .replace(")", "")
 }
 
 #[cfg(test)]
@@ -436,59 +376,6 @@ mod tests {
 
             let params = computation.clone().setup();
             let _proof = computation.prove(&params);
-        }
-    }
-
-    mod serialize {
-        use super::*;
-
-        mod proof {
-            use super::*;
-
-            #[allow(dead_code)]
-            #[derive(Deserialize)]
-            struct G16ProofPoints {
-                a: [String; 2],
-                b: [[String; 2]; 2],
-                c: [String; 2],
-            }
-
-            #[allow(dead_code)]
-            #[derive(Deserialize)]
-            struct G16Proof {
-                proof: G16ProofPoints,
-                inputs: Vec<String>,
-            }
-
-            #[test]
-            fn serialize() {
-                let program: Prog<FieldPrime> = Prog {
-                    main: Function {
-                        id: String::from("main"),
-                        arguments: vec![FlatVariable::new(0)],
-                        returns: vec![FlatVariable::public(0)],
-                        statements: vec![Statement::Constraint(
-                            FlatVariable::new(0).into(),
-                            FlatVariable::public(0).into(),
-                        )],
-                    },
-                    private: vec![false],
-                };
-
-                let witness = program
-                    .clone()
-                    .execute::<FieldPrime>(&vec![FieldPrime::from(42)])
-                    .unwrap();
-                let computation = Computation::with_witness(program, witness);
-
-                let public_inputs_values = computation.public_inputs_values();
-
-                let params = computation.clone().setup();
-                let proof = computation.prove(&params);
-
-                let serialized_proof = serialize_proof(&proof, &public_inputs_values);
-                serde_json::from_str::<G16Proof>(&serialized_proof).unwrap();
-            }
         }
     }
 }

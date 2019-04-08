@@ -41,8 +41,8 @@ impl From<TestResult> for ComparableResult {
     fn from(r: TestResult) -> ComparableResult {
         ComparableResult(r.map(|v| {
             v.values
-                .into_iter()
-                .map(|v| FieldPrime::from_dec_string(v))
+                .iter()
+                .map(|v| FieldPrime::try_from_dec_str(v).unwrap())
                 .collect()
         }))
     }
