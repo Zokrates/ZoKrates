@@ -1,74 +1,11 @@
+use flat_absy::flat_variable::FlatVariable;
 use helpers::Executable;
-use ir::*;
+use ir::{LinComb, Prog, QuadComb, Statement, Witness};
 use std::collections::BTreeMap;
+use std::fmt;
 use zokrates_field::field::Field;
 
 pub type ExecutionResult<T> = Result<Witness<T>, Error>;
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct Witness<T: Field>(pub BTreeMap<FlatVariable, T>);
-
-impl<T: Field> Witness<T> {
-    pub fn return_values(&self) -> Vec<T> {
-        let out = self
-            .0
-            .iter()
-            .filter(|(k, _)| k.is_output())
-            .collect::<HashMap<_, _>>();
-
-        (0..out.len())
-            .map(|i| *out.get(&FlatVariable::public(i)).unwrap())
-            .cloned()
-            .collect()
-    }
-
-    pub fn format_outputs(&self) -> String {
-        self.0
-            .iter()
-            .filter_map(|(variable, value)| match variable {
-                variable if variable.is_output() => Some(format!("{} {}", variable, value)),
-                _ => None,
-            })
-            .collect::<Vec<String>>()
-            .join("\n")
-    }
-
-    pub fn empty() -> Self {
-        Witness(BTreeMap::new())
-    }
-
-    pub fn into_human_readable(self) -> impl Iterator<Item = (String, String)> {
-        self.0
-            .into_iter()
-            .map(|(var, val)| (var.to_string(), val.to_dec_string()))
-    }
-
-    pub fn from_human_readable<I: Iterator<Item = (String, String)>>(i: I) -> Witness<T> {
-        Witness(
-            i.map(|(var, val)| {
-                (
-                    FlatVariable::from_human_readable(&var),
-                    T::from_dec_string(val),
-                )
-            })
-            .collect(),
-        )
-    }
-}
-
-impl<T: Field> fmt::Display for Witness<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.0
-                .iter()
-                .map(|(k, v)| format!("{} {}", k, v.to_dec_string()))
-                .collect::<Vec<_>>()
-                .join("\n")
-        )
-    }
-}
 
 impl<T: Field> Prog<T> {
     pub fn execute<U: Into<T> + Clone>(&self, inputs: &Vec<U>) -> ExecutionResult<T> {
@@ -186,30 +123,5 @@ impl fmt::Display for Error {
 impl fmt::Debug for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-
-    use super::*;
-    use zokrates_field::field::FieldPrime;
-
-    #[test]
-    fn human_readable_witness() {
-        let witness = Witness(
-            vec![
-                (FlatVariable::public(0), 3),
-                (FlatVariable::new(0), 2),
-                (FlatVariable::one(), 1),
-            ]
-            .into_iter()
-            .map(|(x, y)| (x, FieldPrime::from(y)))
-            .collect(),
-        );
-        assert_eq!(
-            witness.clone(),
-            Witness::from_human_readable(witness.into_human_readable())
-        );
     }
 }

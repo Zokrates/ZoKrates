@@ -1,6 +1,6 @@
 use bellman::groth16::Parameters;
 use ir;
-use proof_system::bn128::utils::bellman::{serialize_proof, serialize_vk, Computation};
+use proof_system::bn128::utils::bellman::Computation;
 use proof_system::bn128::utils::solidity::{SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB};
 use proof_system::ProofSystem;
 use regex::Regex;
@@ -22,7 +22,9 @@ impl ProofSystem for G16 {
         let parameters_file = File::create(PathBuf::from(pk_path)).unwrap();
         parameters.write(parameters_file).unwrap();
         let mut vk_file = File::create(PathBuf::from(vk_path)).unwrap();
-        vk_file.write(serialize_vk(parameters.vk).as_ref()).unwrap();
+        vk_file
+            .write(serialize::serialize_vk(parameters.vk).as_ref())
+            .unwrap();
     }
 
     fn generate_proof(
@@ -47,7 +49,7 @@ impl ProofSystem for G16 {
         write!(
             proof_file,
             "{}",
-            serialize_proof(&proof, &computation.public_inputs_values())
+            serialize::serialize_proof(&proof, &computation.public_inputs_values())
         )
         .unwrap();
         true
@@ -134,6 +136,72 @@ impl ProofSystem for G16 {
     }
 }
 
+mod serialize {
+
+    use bellman::groth16::{Proof, VerifyingKey};
+    use pairing::bn256::{Bn256, Fr};
+
+    pub fn serialize_vk(vk: VerifyingKey<Bn256>) -> String {
+        format!(
+            "vk.alpha = {}
+    vk.beta = {}
+    vk.gamma = {}
+    vk.delta = {}
+    vk.gammaABC.len() = {}
+    {}",
+            vk.alpha_g1,
+            vk.beta_g2,
+            vk.gamma_g2,
+            vk.delta_g2,
+            vk.ic.len(),
+            vk.ic
+                .iter()
+                .enumerate()
+                .map(|(i, x)| format!("vk.gammaABC[{}] = {}", i, x))
+                .collect::<Vec<_>>()
+                .join("\n")
+        )
+        .replace("G2(x=Fq2(Fq(", "[")
+        .replace("), y=Fq(", ", ")
+        .replace("G1(x=Fq(", "")
+        .replace(") + Fq(", ", ")
+        .replace("))", "")
+        .replace(") * u), y=Fq2(Fq(", "], [")
+        .replace(") * u", "]")
+    }
+
+    pub fn serialize_proof(p: &Proof<Bn256>, inputs: &Vec<Fr>) -> String {
+        format!(
+            "{{
+        \"proof\": {{
+            \"a\": {},
+            \"b\": {},
+            \"c\": {}
+        }},
+        \"inputs\": [{}]
+    }}",
+            p.a,
+            p.b,
+            p.c,
+            inputs
+                .iter()
+                .map(|v| format!("\"{}\"", v))
+                .collect::<Vec<_>>()
+                .join(", "),
+        )
+        .replace("G2(x=Fq2(Fq(", "[[\"")
+        .replace("), y=Fq(", "\", \"")
+        .replace("G1(x=Fq(", "[\"")
+        .replace(") + Fq(", "\", \"")
+        .replace(") * u), y=Fq2(Fq(", "\"], [\"")
+        .replace(") * u]", "\"]]")
+        .replace(") * u))", "\"]]")
+        .replace("))", "\"]")
+        .replace("Fr(", "")
+        .replace(")", "")
+    }
+}
+
 const CONTRACT_TEMPLATE: &str = r#"
 contract Verifier {
     using Pairing for *;
@@ -196,3 +264,63 @@ contract Verifier {
     }
 }
 "#;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    mod serialize {
+        use super::*;
+
+        mod proof {
+            use super::*;
+            use flat_absy::FlatVariable;
+            use ir::*;
+            use proof_system::bn128::g16::serialize::serialize_proof;
+
+            #[allow(dead_code)]
+            #[derive(Deserialize)]
+            struct G16ProofPoints {
+                a: [String; 2],
+                b: [[String; 2]; 2],
+                c: [String; 2],
+            }
+
+            #[allow(dead_code)]
+            #[derive(Deserialize)]
+            struct G16Proof {
+                proof: G16ProofPoints,
+                inputs: Vec<String>,
+            }
+
+            #[test]
+            fn serialize() {
+                let program: Prog<FieldPrime> = Prog {
+                    main: Function {
+                        id: String::from("main"),
+                        arguments: vec![FlatVariable::new(0)],
+                        returns: vec![FlatVariable::public(0)],
+                        statements: vec![Statement::Constraint(
+                            FlatVariable::new(0).into(),
+                            FlatVariable::public(0).into(),
+                        )],
+                    },
+                    private: vec![false],
+                };
+
+                let witness = program
+                    .clone()
+                    .execute::<FieldPrime>(&vec![FieldPrime::from(42)])
+                    .unwrap();
+                let computation = Computation::with_witness(program, witness);
+
+                let public_inputs_values = computation.public_inputs_values();
+
+                let params = computation.clone().setup();
+                let proof = computation.prove(&params);
+
+                let serialized_proof = serialize_proof(&proof, &public_inputs_values);
+                serde_json::from_str::<G16Proof>(&serialized_proof).unwrap();
+            }
+        }
+    }
+}
