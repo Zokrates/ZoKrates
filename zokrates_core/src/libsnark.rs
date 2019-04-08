@@ -118,7 +118,7 @@ mod tests {
 
         #[test]
         fn vec_to_array() {
-            let byte_vector: Vec<u8> = FieldPrime::try_from_str(
+            let byte_vector: Vec<u8> = FieldPrime::try_from_dec_str(
                 "5472060717959818805561601436314318772174077789324455915672259473661306552146",
             )
             .unwrap()
