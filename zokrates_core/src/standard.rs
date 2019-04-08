@@ -51,7 +51,7 @@ impl<T: Field> Into<FlatStatement<T>> for Constraint {
             .into_iter()
             .map(|(key, val)| {
                 FlatExpression::Mult(
-                    box FlatExpression::Number(T::from_dec_string(val.to_string())),
+                    box FlatExpression::Number(T::try_from_dec_str(&val).unwrap()),
                     box FlatExpression::Identifier(FlatVariable::new(key)),
                 )
             })
@@ -69,7 +69,7 @@ impl<T: Field> Into<FlatStatement<T>> for Constraint {
             .into_iter()
             .map(|(key, val)| {
                 FlatExpression::Mult(
-                    box FlatExpression::Number(T::from_dec_string(val.to_string())),
+                    box FlatExpression::Number(T::try_from_dec_str(&val).unwrap()),
                     box FlatExpression::Identifier(FlatVariable::new(key)),
                 )
             })
@@ -87,7 +87,7 @@ impl<T: Field> Into<FlatStatement<T>> for Constraint {
             .into_iter()
             .map(|(key, val)| {
                 FlatExpression::Mult(
-                    box FlatExpression::Number(T::from_dec_string(val.to_string())),
+                    box FlatExpression::Number(T::try_from_dec_str(&val).unwrap()),
                     box FlatExpression::Identifier(FlatVariable::new(key)),
                 )
             })
