@@ -1,10 +1,12 @@
-use bellman::pairing::ff::Field;
-use bellman::pairing::Engine;
-use bellman::ConstraintSystem;
-use bellman::{Index, LinearCombination, SynthesisError, Variable};
-use sapling_crypto::circuit::boolean::{AllocatedBit, Boolean};
-use sapling_crypto::circuit::sha256::sha256_compression_function;
-use sapling_crypto::circuit::uint32::UInt32;
+use bellman::{
+    pairing::{ff::Field, Engine},
+    ConstraintSystem, Index, LinearCombination, SynthesisError, Variable,
+};
+use sapling_crypto::circuit::{
+    boolean::{AllocatedBit, Boolean},
+    sha256::sha256_compression_function,
+    uint32::UInt32,
+};
 
 #[derive(Debug)]
 pub struct BellmanR1CS<E: Engine> {
@@ -38,6 +40,7 @@ fn sha256_round<E: Engine, CS: ConstraintSystem<E>>(
     input: &Vec<Option<E::Fr>>,
     current_hash: &Vec<Option<E::Fr>>,
 ) -> Result<(Vec<usize>, Vec<usize>, Vec<usize>), SynthesisError> {
+    // Allocate bits for `input`
     let input_bits = input
         .iter()
         .enumerate()
@@ -50,11 +53,13 @@ fn sha256_round<E: Engine, CS: ConstraintSystem<E>>(
         })
         .collect::<Vec<_>>();
 
+    // Define Booleans whose values are the defined bits
     let input = input_bits
         .iter()
         .map(|i| Boolean::Is(i.clone()))
         .collect::<Vec<_>>();
 
+    // Allocate bits for `current_hash`
     let current_hash_bits = current_hash
         .iter()
         .enumerate()
@@ -67,6 +72,7 @@ fn sha256_round<E: Engine, CS: ConstraintSystem<E>>(
         })
         .collect::<Vec<_>>();
 
+    // Define Booleans whose values are the defined bits
     let current_hash = current_hash_bits
         .chunks(32)
         .map(|chunk| {
@@ -79,14 +85,17 @@ fn sha256_round<E: Engine, CS: ConstraintSystem<E>>(
         })
         .collect::<Vec<_>>();
 
+    // Apply the compression function, returning the 8 bytes of outputs
     let res = sha256_compression_function::<E, _>(&mut cs, &input, &current_hash).unwrap();
 
+    // Extract the 256 bits of output out of the 8 bytes
     let output_bits = res
         .into_iter()
         .flat_map(|u| u.into_bits_be())
         .map(|b| b.get_variable().unwrap().clone())
         .collect::<Vec<_>>();
 
+    // Return indices of `input`, `current_hash` and `output` in the CS
     Ok((
         input_bits
             .into_iter()
@@ -112,7 +121,6 @@ impl<E: Engine> ConstraintSystem<E> for BellmanWitness<E> {
         A: FnOnce() -> AR,
         AR: Into<String>,
     {
-        // we only care about the value
         let index = self.values.len();
         let var = Variable::new_unchecked(Index::Aux(index));
         self.values.push(f().unwrap());
@@ -165,7 +173,7 @@ impl<E: Engine> ConstraintSystem<E> for BellmanR1CS<E> {
         A: FnOnce() -> AR,
         AR: Into<String>,
     {
-        // we don't care about the value as we're only getting the CS
+        // we don't care about the value as we're only generating the CS
         let index = self.aux_count;
         let var = Variable::new_unchecked(Index::Aux(index));
         self.aux_count += 1;
@@ -236,7 +244,7 @@ pub fn generate_sha256_round_constraints<E: Engine>(
     let (input_bits, current_hash_bits, output_bits) =
         sha256_round(&mut cs, &vec![None; 512], &vec![None; 256]).unwrap();
 
-    // res is now the allocated bits for input, current_hash and sha256_output
+    // res is now the allocated bits for `input`, `current_hash` and `sha256_output`
 
     (cs, input_bits, current_hash_bits, output_bits)
 }
@@ -266,7 +274,7 @@ fn var_to_index(v: Variable) -> usize {
     match v.get_unchecked() {
         Index::Aux(i) => i + 1,
         Index::Input(0) => 0,
-        _ => unreachable!(),
+        _ => unreachable!("No public variables should have been allocated"),
     }
 }
 
