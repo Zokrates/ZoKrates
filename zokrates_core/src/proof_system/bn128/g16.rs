@@ -264,3 +264,63 @@ contract Verifier {
     }
 }
 "#;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    mod serialize {
+        use super::*;
+
+        mod proof {
+            use super::*;
+            use flat_absy::FlatVariable;
+            use ir::*;
+            use proof_system::bn128::g16::serialize::serialize_proof;
+
+            #[allow(dead_code)]
+            #[derive(Deserialize)]
+            struct G16ProofPoints {
+                a: [String; 2],
+                b: [[String; 2]; 2],
+                c: [String; 2],
+            }
+
+            #[allow(dead_code)]
+            #[derive(Deserialize)]
+            struct G16Proof {
+                proof: G16ProofPoints,
+                inputs: Vec<String>,
+            }
+
+            #[test]
+            fn serialize() {
+                let program: Prog<FieldPrime> = Prog {
+                    main: Function {
+                        id: String::from("main"),
+                        arguments: vec![FlatVariable::new(0)],
+                        returns: vec![FlatVariable::public(0)],
+                        statements: vec![Statement::Constraint(
+                            FlatVariable::new(0).into(),
+                            FlatVariable::public(0).into(),
+                        )],
+                    },
+                    private: vec![false],
+                };
+
+                let witness = program
+                    .clone()
+                    .execute::<FieldPrime>(&vec![FieldPrime::from(42)])
+                    .unwrap();
+                let computation = Computation::with_witness(program, witness);
+
+                let public_inputs_values = computation.public_inputs_values();
+
+                let params = computation.clone().setup();
+                let proof = computation.prove(&params);
+
+                let serialized_proof = serialize_proof(&proof, &public_inputs_values);
+                serde_json::from_str::<G16Proof>(&serialized_proof).unwrap();
+            }
+        }
+    }
+}
