@@ -77,7 +77,7 @@ fn create_zkinterface_r1cs(
     output_path: &str,
     ) -> bool {
 
-    let builder = ZKinterfaceBuilder{}; // ::new();
+    let builder = ZKinterfaceBuilder::new();
 
     builder.create_file(num_constraints,&a,&b,&c,output_path);
 

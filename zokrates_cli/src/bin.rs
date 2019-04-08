@@ -18,7 +18,7 @@ use zokrates_core::ir;
 #[cfg(feature = "libsnark")]
 use zokrates_core::ir::r1cs_program;
 #[cfg(feature = "libsnark")]
-use zokrates_core::proof_system::{ProofSystem, GM17, PGHR13};
+use zokrates_core::proof_system::{ProofSystem, GM17, PGHR13,ZkInterface};
 use zokrates_field::field::{Field, FieldPrime};
 use zokrates_fs_resolver::resolve as fs_resolve;
 
@@ -221,6 +221,13 @@ fn cli() -> Result<(), String> {
         )
     )
     .get_matches();
+
+//    let sub_cmd_str = String::new();
+//    let opt_args = Option<&ArgMatches>;
+
+//    let tuple = matches.subcommand();
+//    println!("sub command: {}", tuple.0);
+
 
     match matches.subcommand() {
         ("compile", Some(sub_matches)) => {
@@ -554,6 +561,7 @@ fn get_backend(backend_str: &str) -> Result<&'static ProofSystem, String> {
     match backend_str.to_lowercase().as_ref() {
         "pghr13" => Ok(&PGHR13 {}),
         "gm17" => Ok(&GM17 {}),
+        "zkinterface" => Ok(&ZkInterface{}),
         s => Err(format!("Backend \"{}\" not supported", s)),
     }
 }
