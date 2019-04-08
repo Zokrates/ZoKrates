@@ -1,4 +1,4 @@
-# Provin schemes
+# Proving schemes
 
 ZoKrates supports different proving schemes. All of the available schemes rely on the ALT_BN128 curve, which means that they're all compatible with Ethereum.
 
