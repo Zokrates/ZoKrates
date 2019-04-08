@@ -155,7 +155,6 @@ mod tests {
         }
 
         #[test]
-        #[should_panic]
         fn not_csv() {
             let mut buff = Cursor::new(vec![]);
             buff.write("whatwhat".as_ref()).unwrap();
