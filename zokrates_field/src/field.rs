@@ -7,7 +7,7 @@
 use lazy_static::lazy_static;
 use num_bigint::{BigInt, BigUint, Sign, ToBigInt};
 use num_integer::Integer;
-use num_traits::{Num, One, Zero};
+use num_traits::{One, Zero};
 use serde_derive::{Deserialize, Serialize};
 use std::convert::From;
 use std::fmt;
@@ -59,8 +59,6 @@ pub trait Field:
     fn from_byte_vector(_: Vec<u8>) -> Self;
     /// Returns this `Field`'s contents as decimal string
     fn to_dec_string(&self) -> String;
-    /// Returns an element of this `Field` from a decimal string
-    fn from_dec_string(val: String) -> Self;
     /// Returns the multiplicative inverse, i.e.: self * self.inverse_mul() = Self::one()
     fn inverse_mul(&self) -> Self;
     /// Returns the smallest value that can be represented by this field type.
@@ -70,7 +68,7 @@ pub trait Field:
     /// Returns the number of required bits to represent this field type.
     fn get_required_bits() -> usize;
     /// Tries to parse a string into this representation
-    fn try_from_str<'a>(s: &'a str) -> Result<Self, ()>;
+    fn try_from_dec_str<'a>(s: &'a str) -> Result<Self, ()>;
     /// Returns a decimal string representing a the member of the equivalence class of this `Field` in Z/pZ
     /// which lies in [-(p-1)/2, (p-1)/2]
     fn to_compact_dec_string(&self) -> String;
@@ -100,12 +98,6 @@ impl Field for FieldPrime {
         self.value.to_str_radix(10)
     }
 
-    fn from_dec_string(val: String) -> Self {
-        FieldPrime {
-            value: BigInt::from_str_radix(val.as_str(), 10).unwrap(),
-        }
-    }
-
     fn inverse_mul(&self) -> FieldPrime {
         let (b, s, _) = extended_euclid(&self.value, &*P);
         assert_eq!(b, BigInt::one());
@@ -126,7 +118,7 @@ impl Field for FieldPrime {
     fn get_required_bits() -> usize {
         (*P).bits()
     }
-    fn try_from_str<'a>(s: &'a str) -> Result<Self, ()> {
+    fn try_from_dec_str<'a>(s: &'a str) -> Result<Self, ()> {
         let x = BigInt::parse_bytes(s.as_bytes(), 10).ok_or(())?;
         Ok(FieldPrime {
             value: &x - x.div_floor(&*P) * &*P,
@@ -364,7 +356,7 @@ mod tests {
 
     impl<'a> From<&'a str> for FieldPrime {
         fn from(s: &'a str) -> FieldPrime {
-            FieldPrime::try_from_str(s).unwrap()
+            FieldPrime::try_from_dec_str(s).unwrap()
         }
     }
 
@@ -624,7 +616,7 @@ mod tests {
         fn dec_string_ser_deser() {
             let fp = FieldPrime::from("101");
             let bv = fp.to_dec_string();
-            assert_eq!(fp, FieldPrime::from_dec_string(bv));
+            assert_eq!(fp, FieldPrime::try_from_dec_str(&bv).unwrap());
         }
 
         #[test]
