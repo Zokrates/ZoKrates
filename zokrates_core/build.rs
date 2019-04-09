@@ -1,5 +1,8 @@
+#[cfg(feature = "libsnark")]
 extern crate cc;
+#[cfg(feature = "libsnark")]
 extern crate cmake;
+#[cfg(feature = "libsnark")]
 extern crate git2;
 
 fn main() {
