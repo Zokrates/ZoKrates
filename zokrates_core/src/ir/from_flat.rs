@@ -1,6 +1,6 @@
 use flat_absy::{FlatExpression, FlatFunction, FlatProg, FlatStatement, FlatVariable};
 use helpers;
-use ir::{DirectiveStatement, Function, LinComb, Prog, QuadComb, Statement};
+use ir::{Directive, Function, LinComb, Prog, QuadComb, Statement};
 use num::Zero;
 use zokrates_field::field::Field;
 
@@ -36,12 +36,27 @@ impl<T: Field> From<FlatFunction<T>> for Function<T> {
                         .enumerate()
                         .map(|(index, expression)| {
                             Statement::Constraint(
-                                expression.into(),
+                                QuadComb::from_flat_expression(expression),
                                 FlatVariable::public(index).into(),
                             )
                         }),
                 )
                 .collect(),
+        }
+    }
+}
+
+impl<T: Field> QuadComb<T> {
+    fn from_flat_expression<U: Into<FlatExpression<T>>>(flat_expression: U) -> QuadComb<T> {
+        let flat_expression = flat_expression.into();
+        match flat_expression.is_linear() {
+            true => LinComb::from(flat_expression).into(),
+            false => match flat_expression {
+                FlatExpression::Mult(box e1, box e2) => {
+                    QuadComb::from_linear_combinations(e1.into(), e2.into())
+                }
+                e => unimplemented!("{}", e),
+            },
         }
     }
 }
@@ -61,20 +76,6 @@ impl<T: Field> From<FlatProg<T>> for Prog<T> {
         let main = main.into();
 
         Prog { private, main }
-    }
-}
-
-impl<T: Field> From<FlatExpression<T>> for QuadComb<T> {
-    fn from(flat_expression: FlatExpression<T>) -> QuadComb<T> {
-        match flat_expression.is_linear() {
-            true => LinComb::from(flat_expression).into(),
-            false => match flat_expression {
-                FlatExpression::Mult(box e1, box e2) => {
-                    QuadComb::from_linear_combinations(e1.into(), e2.into())
-                }
-                e => unimplemented!("{}", e),
-            },
-        }
     }
 }
 
@@ -123,9 +124,9 @@ impl<T: Field> From<FlatStatement<T>> for Statement<T> {
     }
 }
 
-impl<T: Field> From<helpers::DirectiveStatement<T>> for DirectiveStatement<T> {
-    fn from(ds: helpers::DirectiveStatement<T>) -> DirectiveStatement<T> {
-        DirectiveStatement {
+impl<T: Field> From<helpers::DirectiveStatement<T>> for Directive<T> {
+    fn from(ds: helpers::DirectiveStatement<T>) -> Directive<T> {
+        Directive {
             inputs: ds.inputs.into_iter().map(|i| i.into()).collect(),
             helper: ds.helper,
             outputs: ds.outputs,
