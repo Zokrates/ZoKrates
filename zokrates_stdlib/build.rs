@@ -1,16 +1,16 @@
 use fs_extra::copy_items;
 use fs_extra::dir::CopyOptions;
 use std::env;
+use std::fs::File;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 
 fn main() {
     // export stdlib folder to OUT_DIR
     export_stdlib();
 
     // generate tests
-    #[cfg(test)]
-    {
-        write_tests();
-    }
+    write_tests();
 }
 
 fn export_stdlib() {
@@ -20,12 +20,8 @@ fn export_stdlib() {
     copy_items(&vec!["stdlib"], out_dir, &options).unwrap();
 }
 
-#[cfg(test)]
 fn write_tests() {
     use glob::glob;
-    use std::fs::File;
-    use std::io::Write;
-    use std::path::{Path, PathBuf};
 
     let out_dir = env::var("OUT_DIR").unwrap();
     let destination = Path::new(&out_dir).join("tests.rs");
@@ -36,7 +32,6 @@ fn write_tests() {
     }
 }
 
-#[cfg(test)]
 fn write_test(test_file: &mut File, test_path: &PathBuf) {
     let test_name = format!(
         "test_{}",
