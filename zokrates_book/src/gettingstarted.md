@@ -22,7 +22,7 @@ From there on, you can use the `zokrates` CLI.
 
 ### From source
 
-You can build the container yourself from [source](https://github.com/JacobEberhardt/ZoKrates/) with the following commands:
+You can build the container yourself from [source](https://github.com/ZoKrates/ZoKrates/) with the following commands:
 
 ```bash
 git clone https://github.com/ZoKrates/ZoKrates
