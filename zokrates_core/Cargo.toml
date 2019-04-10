@@ -8,8 +8,8 @@ build = "build.rs"
 
 [features]
 default = []
-libsnark = []
-wasm = []
+libsnark = ["cc", "cmake", "git2"]
+wasm = ["wasmi", "parity-wasm", "rustc-hex"]
 
 [dependencies]
 libc = "0.2.0"
@@ -31,9 +31,9 @@ ff = { git = 'https://github.com/matterinc/ff', features = ["derive"], tag = "0.
 zokrates_field = { version = "0.3.0", path = "../zokrates_field" }
 zokrates_embed = { path = "../zokrates_embed" }
 rand = "0.4"
-wasmi = "0.4.2"
-parity-wasm = "0.35.3"
-rustc-hex = "1.0"
+wasmi = { version = "0.4.2", optional = true }
+parity-wasm = { version = "0.35.3", optional = true }
+rustc-hex = { version = "1.0", optional = true }
 csv = "1"
 
 [dev-dependencies]
@@ -41,6 +41,6 @@ glob = "0.2.11"
 assert_cli = "0.5"
 
 [build-dependencies]
-cc = { version = "1.0", features = ["parallel"] }
-cmake = "0.1.31"
-git2 = "0.8.0"
+cc = { version = "1.0", features = ["parallel"], optional = true }
+cmake = { version = "0.1.31", optional = true }
+git2 = { version = "0.8.0", optional = true }

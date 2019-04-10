@@ -1,0 +1,8 @@
+def main(field x) -> (field):
+    field f = 1
+    field counter = 0
+    for field i in 1..5 do
+        f = if counter == x then f else f * i fi
+        counter = if counter == x then counter else counter + 1 fi
+    endfor
+    return f
