@@ -8,6 +8,9 @@ use lazy_static::lazy_static;
 use num_bigint::{BigInt, BigUint, Sign, ToBigInt};
 use num_integer::Integer;
 use num_traits::{One, Zero};
+use pairing::bn256::Bn256;
+use pairing::ff::ScalarEngine;
+use pairing::Engine;
 use serde_derive::{Deserialize, Serialize};
 use std::convert::From;
 use std::fmt;
@@ -53,6 +56,22 @@ pub trait Field:
     + Pow<Self, Output = Self>
     + for<'a> Pow<&'a Self, Output = Self>
 {
+    /// An associated type to be able to operate with Bellman ff traits
+    type BellmanEngine: Engine;
+
+    fn from_bellman(e: <Self::BellmanEngine as ScalarEngine>::Fr) -> Self {
+        use ff::{PrimeField, PrimeFieldRepr};
+        let mut res: Vec<u8> = vec![];
+        e.into_repr().write_le(&mut res).unwrap();
+        Self::from_byte_vector(res)
+    }
+
+    fn into_bellman(self) -> <Self::BellmanEngine as ScalarEngine>::Fr {
+        use ff::PrimeField;
+        let s = self.to_dec_string();
+        <Self::BellmanEngine as ScalarEngine>::Fr::from_str(&s).unwrap()
+    }
+
     /// Returns this `Field`'s contents as little-endian byte vector
     fn into_byte_vector(&self) -> Vec<u8>;
     /// Returns an element of this `Field` from a little-endian byte vector
@@ -80,6 +99,8 @@ pub struct FieldPrime {
 }
 
 impl Field for FieldPrime {
+    type BellmanEngine = Bn256;
+
     fn into_byte_vector(&self) -> Vec<u8> {
         match self.value.to_biguint() {
             Option::Some(val) => val.to_bytes_le(),
@@ -708,4 +729,74 @@ mod tests {
             s_field
         );
     }
+
+    mod bellman {
+        use super::*;
+
+        use ff::Field as FField;
+
+        extern crate rand;
+        use pairing::bn256::Fr;
+        use rand::{thread_rng, Rng};
+        use Field;
+
+        #[test]
+        fn fr_to_field_to_fr() {
+            let rng = &mut thread_rng();
+            for _ in 0..1000 {
+                let a: Fr = rng.gen();
+                assert_eq!(FieldPrime::from_bellman(a).into_bellman(), a);
+            }
+        }
+
+        #[test]
+        fn field_to_fr_to_field() {
+            // use Fr to get a random element
+            let rng = &mut thread_rng();
+            for _ in 0..1000 {
+                let a: Fr = rng.gen();
+                // now test idempotence
+                let a = FieldPrime::from_bellman(a);
+                assert_eq!(FieldPrime::from_bellman(a.clone().into_bellman()), a);
+            }
+        }
+
+        #[test]
+        fn one() {
+            let a = FieldPrime::from(1);
+
+            assert_eq!(a.into_bellman(), Fr::one());
+        }
+
+        #[test]
+        fn zero() {
+            let a = FieldPrime::from(0);
+
+            assert_eq!(a.into_bellman(), Fr::zero());
+        }
+
+        #[test]
+        fn minus_one() {
+            let mut a: Fr = Fr::one();
+            a.negate();
+            assert_eq!(FieldPrime::from_bellman(a), FieldPrime::from(-1));
+        }
+
+        #[test]
+        fn add() {
+            let rng = &mut thread_rng();
+
+            let mut a: Fr = rng.gen();
+            let b: Fr = rng.gen();
+
+            let aa = FieldPrime::from_bellman(a);
+            let bb = FieldPrime::from_bellman(b);
+            let cc = aa + bb;
+
+            a.add_assign(&b);
+
+            assert_eq!(FieldPrime::from_bellman(a), cc);
+        }
+    }
+
 }
