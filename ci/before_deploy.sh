@@ -19,8 +19,10 @@ main() {
 
     cross build --bin zokrates --target $TARGET --release
 
-    # TODO Update this to package the right artifacts
+    # Package artifacts
+    # Binary
     cp target/$TARGET/release/zokrates $stage/
+    # Standard library
     cp -r zokrates_stdlib/stdlib $stage
 
     cd $stage
