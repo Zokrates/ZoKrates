@@ -15,19 +15,19 @@ env:
 matrix:
   include:
     # Linux
-    - env: TARGET=aarch64-unknown-linux-gnu DISABLE_TESTS=1
-    - env: TARGET=arm-unknown-linux-gnueabi DISABLE_TESTS=1
-    - env: TARGET=i686-unknown-linux-gnu DISABLE_TESTS=1
-    - env: TARGET=x86_64-unknown-linux-gnu DISABLE_TESTS=1
+    - env: TARGET=aarch64-unknown-linux-gnu
+    - env: TARGET=arm-unknown-linux-gnueabi
+    - env: TARGET=i686-unknown-linux-gnu
+    - env: TARGET=x86_64-unknown-linux-gnu
 
     # OSX
-    - env: TARGET=i686-apple-darwin DISABLE_TESTS=1
+    - env: TARGET=i686-apple-darwin
       os: osx
-    - env: TARGET=x86_64-apple-darwin DISABLE_TESTS=1
+    - env: TARGET=x86_64-apple-darwin
       os: osx
 
     # *BSD
-    - env: TARGET=x86_64-unknown-freebsd DISABLE_TESTS=1
+    - env: TARGET=x86_64-unknown-freebsd
 
 before_install:
   - set -e
@@ -36,6 +36,11 @@ before_install:
 install:
   - sh ci/install.sh
   - source ~/.cargo/env || true
+
+script:
+  - bash ci/script.sh
+
+after_script: set +e
 
 before_deploy:
   - sh ci/before_deploy.sh
