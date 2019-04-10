@@ -2,9 +2,17 @@
 
 ## Installation
 
+### One-line install
+
+We provide a one-line install for Linux, MacOS and FreeBSD:
+
+```bash
+curl -LSfs get.zokrat.es | sh
+```
+
 ### Docker
 
-Using Docker is currently the recommended way to get started with ZoKrates.
+ZoKrates is available on Docker.
 
 ```bash
 docker run -ti zokrates/zokrates /bin/bash
@@ -17,10 +25,9 @@ From there on, you can use the `zokrates` CLI.
 You can build the container yourself from [source](https://github.com/JacobEberhardt/ZoKrates/) with the following commands:
 
 ```bash
-git clone https://github.com/JacobEberhardt/ZoKrates
+git clone https://github.com/ZoKrates/ZoKrates
 cd ZoKrates
-docker build -t zokrates .
-docker run -ti zokrates /bin/bash
+cargo build --release
 cd ZoKrates/target/release
 ```
 
