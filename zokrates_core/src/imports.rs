@@ -138,60 +138,42 @@ impl Importer {
         for import in destination.imports.iter() {
             let pos = import.pos();
             let import = &import.value;
-            // handle the case of special libsnark and packing imports
-            if import.source.starts_with("LIBSNARK") {
-                #[cfg(feature = "libsnark")]
-                {
-                    use helpers::LibsnarkGadgetHelper;
-                    use libsnark::get_sha256round_constraints;
-                    use serde_json::from_str;
-                    use standard::{DirectiveR1CS, R1CS};
-
-                    match import.source.as_ref() {
-                        "LIBSNARK/sha256round" => {
-                            let r1cs: R1CS = from_str(&get_sha256round_constraints()).unwrap();
-                            let dr1cs: DirectiveR1CS = DirectiveR1CS {
-                                r1cs,
-                                directive: LibsnarkGadgetHelper::Sha256Round,
-                            };
-                            let compiled = FlatProg::from(dr1cs);
-                            let alias = match import.alias {
-                                Some(ref alias) => alias.clone(),
-                                None => String::from("sha256round"),
-                            };
-                            origins.push(CompiledImport::new(compiled, alias));
-                        }
-                        s => {
-                            return Err(CompileErrorInner::ImportError(
-                                Error::new(format!("Gadget {} not found", s)).with_pos(Some(pos)),
-                            )
-                            .with_context(&location)
-                            .into());
-                        }
-                    }
-                }
-                #[cfg(not(feature = "libsnark"))]
-                {
-                    panic!("libsnark is not enabled, cannot access {}", import.source)
-                }
-            } else if import.source.starts_with("PACKING") {
-                use types::conversions::{pack, unpack};
-
+            // handle the case of special bellman and packing imports
+            if import.source.starts_with("BELLMAN") {
                 match import.source.as_ref() {
-                    "PACKING/pack128" => {
-                        let compiled = pack(128);
+                    "BELLMAN/sha256round" => {
+                        use standard::sha_round;
+
+                        let compiled = FlatProg {
+                            functions: vec![sha_round()],
+                        };
+
                         let alias = match import.alias {
                             Some(ref alias) => alias.clone(),
-                            None => String::from("pack128"),
+                            None => String::from("sha256round"),
                         };
+
                         origins.push(CompiledImport::new(compiled, alias));
                     }
-                    "PACKING/unpack128" => {
-                        let compiled = unpack(128);
+                    s => {
+                        return Err(CompileErrorInner::ImportError(
+                            Error::new(format!("Gadget {} not found", s)).with_pos(Some(pos)),
+                        )
+                        .with_context(&location)
+                        .into());
+                    }
+                }
+            } else if import.source.starts_with("PACKING") {
+                use types::conversions::split;
+
+                match import.source.as_ref() {
+                    "PACKING/split" => {
+                        let compiled = split();
                         let alias = match import.alias {
                             Some(ref alias) => alias.clone(),
-                            None => String::from("unpack128"),
+                            None => String::from("split"),
                         };
+
                         origins.push(CompiledImport::new(compiled, alias));
                     }
                     s => {

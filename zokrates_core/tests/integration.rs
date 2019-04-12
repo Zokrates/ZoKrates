@@ -11,4 +11,6 @@ zokrates_test! {
     add,
     assert_one,
     array_if,
+    fact_up_to_4,
+    split,
 }

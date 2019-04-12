@@ -12,8 +12,6 @@ pub use self::flat_parameter::FlatParameter;
 pub use self::flat_variable::FlatVariable;
 
 use helpers::{DirectiveStatement, Executable};
-#[cfg(feature = "libsnark")]
-use standard;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use types::Signature;
@@ -59,15 +57,6 @@ impl<T: Field> fmt::Debug for FlatProg<T> {
                 .collect::<Vec<_>>()
                 .join("\n")
         )
-    }
-}
-
-#[cfg(feature = "libsnark")]
-impl<T: Field> From<standard::DirectiveR1CS> for FlatProg<T> {
-    fn from(dr1cs: standard::DirectiveR1CS) -> Self {
-        FlatProg {
-            functions: vec![dr1cs.into()],
-        }
     }
 }
 
@@ -213,47 +202,30 @@ impl<T: Field> fmt::Debug for FlatStatement<T> {
 }
 
 impl<T: Field> FlatStatement<T> {
-    pub fn apply_recursive_substitution(
+    pub fn apply_substitution(
         self,
         substitution: &HashMap<FlatVariable, FlatVariable>,
-    ) -> FlatStatement<T> {
-        self.apply_substitution(substitution, true)
-    }
-
-    pub fn apply_direct_substitution(
-        self,
-        substitution: &HashMap<FlatVariable, FlatVariable>,
-    ) -> FlatStatement<T> {
-        self.apply_substitution(substitution, false)
-    }
-
-    fn apply_substitution(
-        self,
-        substitution: &HashMap<FlatVariable, FlatVariable>,
-        should_fallback: bool,
     ) -> FlatStatement<T> {
         match self {
             FlatStatement::Definition(id, x) => FlatStatement::Definition(
-                id.apply_substitution(substitution, should_fallback),
-                x.apply_substitution(substitution, should_fallback),
+                *id.apply_substitution(substitution),
+                x.apply_substitution(substitution),
             ),
-            FlatStatement::Return(x) => {
-                FlatStatement::Return(x.apply_substitution(substitution, should_fallback))
-            }
+            FlatStatement::Return(x) => FlatStatement::Return(x.apply_substitution(substitution)),
             FlatStatement::Condition(x, y) => FlatStatement::Condition(
-                x.apply_substitution(substitution, should_fallback),
-                y.apply_substitution(substitution, should_fallback),
+                x.apply_substitution(substitution),
+                y.apply_substitution(substitution),
             ),
             FlatStatement::Directive(d) => {
                 let outputs = d
                     .outputs
                     .into_iter()
-                    .map(|o| o.apply_substitution(substitution, should_fallback))
+                    .map(|o| *o.apply_substitution(substitution))
                     .collect();
                 let inputs = d
                     .inputs
                     .into_iter()
-                    .map(|i| i.apply_substitution(substitution, should_fallback))
+                    .map(|i| i.apply_substitution(substitution))
                     .collect();
 
                 FlatStatement::Directive(DirectiveStatement {
@@ -276,41 +248,26 @@ pub enum FlatExpression<T: Field> {
 }
 
 impl<T: Field> FlatExpression<T> {
-    pub fn apply_recursive_substitution(
+    pub fn apply_substitution(
         self,
         substitution: &HashMap<FlatVariable, FlatVariable>,
-    ) -> FlatExpression<T> {
-        self.apply_substitution(substitution, true)
-    }
-
-    pub fn apply_direct_substitution(
-        self,
-        substitution: &HashMap<FlatVariable, FlatVariable>,
-    ) -> FlatExpression<T> {
-        self.apply_substitution(substitution, false)
-    }
-
-    fn apply_substitution(
-        self,
-        substitution: &HashMap<FlatVariable, FlatVariable>,
-        should_fallback: bool,
     ) -> FlatExpression<T> {
         match self {
             e @ FlatExpression::Number(_) => e,
             FlatExpression::Identifier(id) => {
-                FlatExpression::Identifier(id.apply_substitution(substitution, should_fallback))
+                FlatExpression::Identifier(*id.apply_substitution(substitution))
             }
             FlatExpression::Add(e1, e2) => FlatExpression::Add(
-                box e1.apply_substitution(substitution, should_fallback),
-                box e2.apply_substitution(substitution, should_fallback),
+                box e1.apply_substitution(substitution),
+                box e2.apply_substitution(substitution),
             ),
             FlatExpression::Sub(e1, e2) => FlatExpression::Sub(
-                box e1.apply_substitution(substitution, should_fallback),
-                box e2.apply_substitution(substitution, should_fallback),
+                box e1.apply_substitution(substitution),
+                box e2.apply_substitution(substitution),
             ),
             FlatExpression::Mult(e1, e2) => FlatExpression::Mult(
-                box e1.apply_substitution(substitution, should_fallback),
-                box e2.apply_substitution(substitution, should_fallback),
+                box e1.apply_substitution(substitution),
+                box e2.apply_substitution(substitution),
             ),
         }
     }
@@ -392,32 +349,17 @@ impl<T: Field> fmt::Display for FlatExpressionList<T> {
 }
 
 impl<T: Field> FlatExpressionList<T> {
-    fn apply_substitution(
+    pub fn apply_substitution(
         self,
         substitution: &HashMap<FlatVariable, FlatVariable>,
-        should_fallback: bool,
     ) -> FlatExpressionList<T> {
         FlatExpressionList {
             expressions: self
                 .expressions
                 .into_iter()
-                .map(|e| e.apply_substitution(substitution, should_fallback))
+                .map(|e| e.apply_substitution(substitution))
                 .collect(),
         }
-    }
-
-    pub fn apply_recursive_substitution(
-        self,
-        substitution: &HashMap<FlatVariable, FlatVariable>,
-    ) -> FlatExpressionList<T> {
-        self.apply_substitution(substitution, true)
-    }
-
-    pub fn apply_direct_substitution(
-        self,
-        substitution: &HashMap<FlatVariable, FlatVariable>,
-    ) -> FlatExpressionList<T> {
-        self.apply_substitution(substitution, false)
     }
 }
 

@@ -1,10 +1,9 @@
 extern crate libc;
 
 use self::libc::{c_char, c_int, uint8_t};
-use flat_absy::flat_variable::FlatVariable;
-use proof_system::utils::{
-    prepare_generate_proof, prepare_setup, SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB,
-};
+use ir;
+use proof_system::bn128::utils::libsnark::{prepare_generate_proof, prepare_setup};
+use proof_system::bn128::utils::solidity::{SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB};
 use proof_system::ProofSystem;
 use regex::Regex;
 use std::fs::File;
@@ -46,16 +45,7 @@ extern "C" {
 }
 
 impl ProofSystem for GM17 {
-    fn setup(
-        &self,
-        variables: Vec<FlatVariable>,
-        a: Vec<Vec<(usize, FieldPrime)>>,
-        b: Vec<Vec<(usize, FieldPrime)>>,
-        c: Vec<Vec<(usize, FieldPrime)>>,
-        num_inputs: usize,
-        pk_path: &str,
-        vk_path: &str,
-    ) -> bool {
+    fn setup(&self, program: ir::Prog<FieldPrime>, pk_path: &str, vk_path: &str) {
         let (
             a_arr,
             b_arr,
@@ -68,7 +58,7 @@ impl ProofSystem for GM17 {
             num_inputs,
             pk_path_cstring,
             vk_path_cstring,
-        ) = prepare_setup(variables, a, b, c, num_inputs, pk_path, vk_path);
+        ) = prepare_setup(program, pk_path, vk_path);
 
         unsafe {
             _gm17_setup(
@@ -83,32 +73,32 @@ impl ProofSystem for GM17 {
                 num_inputs as i32,
                 pk_path_cstring.as_ptr(),
                 vk_path_cstring.as_ptr(),
-            )
+            );
         }
     }
 
     fn generate_proof(
         &self,
+        program: ir::Prog<FieldPrime>,
+        witness: ir::Witness<FieldPrime>,
         pk_path: &str,
         proof_path: &str,
-        publquery_inputs: Vec<FieldPrime>,
-        private_inputs: Vec<FieldPrime>,
     ) -> bool {
         let (
             pk_path_cstring,
             proof_path_cstring,
-            publquery_inputs_arr,
-            publquery_inputs_length,
+            public_inputs_arr,
+            public_inputs_length,
             private_inputs_arr,
             private_inputs_length,
-        ) = prepare_generate_proof(pk_path, proof_path, publquery_inputs, private_inputs);
+        ) = prepare_generate_proof(program, witness, pk_path, proof_path);
 
         unsafe {
             _gm17_generate_proof(
                 pk_path_cstring.as_ptr(),
                 proof_path_cstring.as_ptr(),
-                publquery_inputs_arr[0].as_ptr(),
-                publquery_inputs_length as i32,
+                public_inputs_arr[0].as_ptr(),
+                public_inputs_length as i32,
                 private_inputs_arr[0].as_ptr(),
                 private_inputs_length as i32,
             )
@@ -183,6 +173,9 @@ impl ProofSystem for GM17 {
             .replace(template_text.as_str(), query_repeat_text.as_str())
             .into_owned();
 
+        let re = Regex::new(r"(?P<v>0[xX][0-9a-fA-F]{64})").unwrap();
+        template_text = re.replace_all(&template_text, "uint256($v)").to_string();
+
         format!(
             "{}{}{}",
             SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, template_text
@@ -206,7 +199,7 @@ contract Verifier {
         Pairing.G2Point B;
         Pairing.G1Point C;
     }
-    function verifyingKey() pure internal returns (VerifyingKey vk) {
+    function verifyingKey() pure internal returns (VerifyingKey memory vk) {
         vk.H = Pairing.G2Point(<%vk_h%>);
         vk.Galpha = Pairing.G1Point(<%vk_g_alpha%>);
         vk.Hbeta = Pairing.G2Point(<%vk_h_beta%>);
@@ -215,7 +208,7 @@ contract Verifier {
         vk.query = new Pairing.G1Point[](<%vk_query_length%>);
         <%vk_query_pts%>
     }
-    function verify(uint[] input, Proof proof) internal returns (uint) {
+    function verify(uint[] memory input, Proof memory proof) internal returns (uint) {
         VerifyingKey memory vk = verifyingKey();
         require(input.length + 1 == vk.query.length);
         // Compute the linear combination vk_x
@@ -237,10 +230,10 @@ contract Verifier {
     }
     event Verified(string s);
     function verifyTx(
-            uint[2] a,
-            uint[2][2] b,
-            uint[2] c,
-            uint[<%vk_input_length%>] input
+            uint[2] memory a,
+            uint[2][2] memory b,
+            uint[2] memory c,
+            uint[<%vk_input_length%>] memory input
         ) public returns (bool r) {
         Proof memory proof;
         proof.A = Pairing.G1Point(a[0], a[1]);
