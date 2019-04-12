@@ -53,7 +53,7 @@ jobs:
           command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./build.sh
       - run:
           name: Run tests
-          command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" cargo test --release -- --test-threads=1
+          command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./test.sh
       - run:
           name: Generate code coverage report
           command: ./scripts/cov.sh
@@ -102,7 +102,7 @@ jobs:
           command: ./scripts/install_solcjs_deb.sh
       - run:
           name: Run integration tests
-          command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" cargo test --release -- --ignored
+          command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./full_test.sh
   deploy:
     docker:
       - image: circleci/python
