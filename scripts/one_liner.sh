@@ -266,7 +266,7 @@ main() {
     need mktemp
     need tar
 
-    git="schaeff/zokrates"
+    git="ZoKrates/ZoKrates"
 
     url="https://github.com/$git"
 
