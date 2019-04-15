@@ -67,9 +67,9 @@ impl<T: Field> LinComb<T> {
         Self::summand(1, FlatVariable::one())
     }
 
-    pub fn try_summand(&self) -> Option<(&FlatVariable, &T)> {
+    pub fn try_summand(&self) -> Option<&(FlatVariable, T)> {
         if self.0.len() == 1 {
-            return self.0.first().map(|(id, k)| (id, k))
+            return self.0.first()
         }
 
         None
