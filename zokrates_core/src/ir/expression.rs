@@ -105,27 +105,8 @@ impl<T: Field> Add<LinComb<T>> for LinComb<T> {
 
     fn add(self, other: LinComb<T>) -> LinComb<T> {
         let mut res = self.0;
-        let mut to_remove = BTreeSet::new();
+        res.extend(other.0);
 
-        for (k, v) in other.0 {
-            let var;
-            {
-                var = res
-                    .iter()
-                    .find(|(id, _)| *id == k)
-                    .map(|(_, v)| v)
-                    .cloned();
-            }
-
-            let new_val = v + var.unwrap_or(T::zero());
-            if new_val != T::zero() {
-                res.push((k, new_val));
-            } else {
-                to_remove.insert(k);
-            }
-        }
-
-        res.retain(|(id, _)| !to_remove.contains(id));
         LinComb(res)
     }
 }
@@ -213,7 +194,7 @@ mod tests {
 
             let expected_vec = vec![
                 (FlatVariable::new(42), FieldPrime::from(1)),
-                (FlatVariable::new(42), FieldPrime::from(2)),
+                (FlatVariable::new(42), FieldPrime::from(1)),
 
             ];
             assert_eq!(c, LinComb(expected_vec));
