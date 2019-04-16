@@ -1,9 +1,9 @@
 use flat_absy::FlatVariable;
 use num::Zero;
+use std::collections::btree_map::{BTreeMap, Entry};
 use std::fmt;
 use std::ops::{Add, Div, Mul, Sub};
 use zokrates_field::field::Field;
-use std::collections::btree_map::{BTreeMap, Entry};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct QuadComb<T: Field> {
@@ -72,7 +72,7 @@ impl<T: Field> LinComb<T> {
 
     pub fn try_summand(&self) -> Option<&(FlatVariable, T)> {
         if self.0.len() == 1 {
-            return self.0.first()
+            return self.0.first();
         }
 
         None
@@ -114,8 +114,7 @@ impl<T: Field> fmt::Display for LinComb<T> {
             false => write!(
                 f,
                 "{}",
-                self
-                    .as_canonical()
+                self.as_canonical()
                     .0
                     .iter()
                     .map(|(k, v)| format!("{} * {}", v.to_compact_dec_string(), k))
@@ -149,7 +148,12 @@ impl<T: Field> Sub<LinComb<T>> for LinComb<T> {
         LinComb(
             self.0
                 .into_iter()
-                .chain(other.0.into_iter().map(|(var, coeff)| (var, T::zero() - coeff)))
+                .chain(
+                    other
+                        .0
+                        .into_iter()
+                        .map(|(var, coeff)| (var, T::zero() - coeff)),
+                )
                 .collect(),
         )
     }
