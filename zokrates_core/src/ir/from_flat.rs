@@ -1,6 +1,6 @@
-use flat_absy::{FlatExpression, FlatFunction, FlatProg, FlatStatement, FlatVariable};
-use helpers;
-use ir::{Directive, Function, LinComb, Prog, QuadComb, Statement};
+use crate::flat_absy::{FlatExpression, FlatFunction, FlatProg, FlatStatement, FlatVariable};
+use crate::helpers;
+use crate::ir::{Directive, Function, LinComb, Prog, QuadComb, Statement};
 use num::Zero;
 use zokrates_field::field::Field;
 

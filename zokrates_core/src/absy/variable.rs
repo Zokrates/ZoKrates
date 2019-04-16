@@ -1,6 +1,6 @@
-use absy::Node;
+use crate::absy::Node;
+use crate::types::Type;
 use std::fmt;
-use types::Type;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Hash, Eq)]
 pub struct Variable {

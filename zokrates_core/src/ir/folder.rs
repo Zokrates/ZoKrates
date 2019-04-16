@@ -1,7 +1,7 @@
 // Generic walk through an IR AST. Not mutating in place
 
-use flat_absy::flat_variable::FlatVariable;
-use ir::*;
+use crate::flat_absy::flat_variable::FlatVariable;
+use crate::ir::*;
 use zokrates_field::field::Field;
 
 pub trait Folder<T: Field>: Sized {

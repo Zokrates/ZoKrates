@@ -1,5 +1,5 @@
+use crate::types::Type;
 use std::fmt;
-use types::Type;
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Signature {
@@ -19,18 +19,18 @@ impl fmt::Debug for Signature {
 
 impl fmt::Display for Signature {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        try!(write!(f, "("));
+        r#try!(write!(f, "("));
         for (i, t) in self.inputs.iter().enumerate() {
-            try!(write!(f, "{}", t));
+            r#try!(write!(f, "{}", t));
             if i < self.inputs.len() - 1 {
-                try!(write!(f, ", "));
+                r#try!(write!(f, ", "));
             }
         }
-        try!(write!(f, ") -> ("));
+        r#try!(write!(f, ") -> ("));
         for (i, t) in self.outputs.iter().enumerate() {
-            try!(write!(f, "{}", t));
+            r#try!(write!(f, "{}", t));
             if i < self.outputs.len() - 1 {
-                try!(write!(f, ", "));
+                r#try!(write!(f, ", "));
             }
         }
         write!(f, ")")

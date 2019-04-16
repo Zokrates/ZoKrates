@@ -5,14 +5,14 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
+use crate::flat_absy::*;
+use crate::helpers::{DirectiveStatement, Helper, RustHelper};
+use crate::typed_absy::*;
+use crate::types::conversions::cast;
+use crate::types::Signature;
+use crate::types::Type;
 use bimap::BiMap;
-use flat_absy::*;
-use helpers::{DirectiveStatement, Helper, RustHelper};
 use std::collections::HashMap;
-use typed_absy::*;
-use types::conversions::cast;
-use types::Signature;
-use types::Type;
 use zokrates_field::field::Field;
 
 /// Flattener, computes flattened program.
@@ -1341,8 +1341,8 @@ impl Flattener {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use types::Signature;
-    use types::Type;
+    use crate::types::Signature;
+    use crate::types::Type;
     use zokrates_field::field::FieldPrime;
 
     #[test]

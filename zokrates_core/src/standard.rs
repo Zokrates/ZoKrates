@@ -1,9 +1,9 @@
+use crate::flat_absy::{FlatExpression, FlatExpressionList, FlatFunction, FlatStatement};
+use crate::flat_absy::{FlatParameter, FlatVariable};
+use crate::helpers::{DirectiveStatement, Helper, RustHelper};
+use crate::types::{Signature, Type};
 use bellman::pairing::ff::ScalarEngine;
-use flat_absy::{FlatExpression, FlatExpressionList, FlatFunction, FlatStatement};
-use flat_absy::{FlatParameter, FlatVariable};
-use helpers::{DirectiveStatement, Helper, RustHelper};
 use reduce::Reduce;
-use types::{Signature, Type};
 use zokrates_embed::{generate_sha256_round_constraints, BellmanConstraint};
 use zokrates_field::field::Field;
 
@@ -219,8 +219,8 @@ mod tests {
             FlatStatement::Condition(FlatVariable::new(1).into(), FlatVariable::new(26936).into())
         );
 
-        let f = ::ir::Function::from(compiled);
-        let prog = ::ir::Prog {
+        let f = crate::ir::Function::from(compiled);
+        let prog = crate::ir::Prog {
             main: f,
             private: vec![true; 768],
         };

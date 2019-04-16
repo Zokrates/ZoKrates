@@ -1,4 +1,4 @@
-use flat_absy::FlatVariable;
+use crate::flat_absy::FlatVariable;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::io;

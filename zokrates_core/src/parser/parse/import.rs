@@ -1,12 +1,12 @@
 use zokrates_field::field::Field;
 
-use parser::tokenize::{next_token, Position, Token};
-use parser::Error;
+use crate::parser::tokenize::{next_token, Position, Token};
+use crate::parser::Error;
 
-use parser::tokenize::parse_quoted_path;
+use crate::parser::tokenize::parse_quoted_path;
 
-use absy::Node;
-use imports::{Import, ImportNode};
+use crate::absy::Node;
+use crate::imports::{Import, ImportNode};
 
 pub fn parse_import<T: Field>(
     input: &String,
