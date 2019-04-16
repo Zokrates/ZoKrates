@@ -82,14 +82,21 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
 
     fn fold_linear_combination(&mut self, lc: LinComb<T>) -> LinComb<T> {
         // for each summand, check if it is equal to a linear term in our substitution, otherwise keep it as is
-        lc.0.into_iter()
-            .map(
-                |(variable, coefficient)| match self.substitution.get(&variable) {
-                    Some(l) => l.clone() * &coefficient, // we only clone in the case that we found a value in the map
-                    None => LinComb::summand(coefficient, variable),
-                },
-            )
-            .fold(LinComb::zero(), |acc, x| acc + x)
+        LinComb(
+            lc.0.into_iter()
+                .map(
+                    |(variable, coefficient)| match self.substitution.get(&variable) {
+                        Some(l) => l.clone() * &coefficient, // we only clone in the case that we found a value in the map
+                        None => LinComb::summand(coefficient, variable),
+                    },
+                )
+                .fold(LinComb::zero(), |acc, x| acc + x)
+                .as_canonical()
+                .0
+                .into_iter()
+                .map(|(k, v)| (k, v))
+                .collect(),
+        )
     }
 
     fn fold_argument(&mut self, a: FlatVariable) -> FlatVariable {
