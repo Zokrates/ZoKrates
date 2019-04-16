@@ -1,6 +1,6 @@
 // Generic walk through a typed AST. Not mutating in place
 
-use typed_absy::*;
+use crate::typed_absy::*;
 use zokrates_field::field::Field;
 
 pub trait Folder<T: Field>: Sized {

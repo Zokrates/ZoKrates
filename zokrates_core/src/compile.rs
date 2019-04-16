@@ -3,15 +3,15 @@
 //! @file compile.rs
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
-use absy::Prog;
-use flat_absy::FlatProg;
-use flatten::Flattener;
-use imports::{self, Importer};
-use ir;
-use optimizer::Optimize;
-use parser::{self, parse_program};
-use semantics::{self, Checker};
-use static_analysis::Analyse;
+use crate::absy::Prog;
+use crate::flat_absy::FlatProg;
+use crate::flatten::Flattener;
+use crate::imports::{self, Importer};
+use crate::ir;
+use crate::optimizer::Optimize;
+use crate::parser::{self, parse_program};
+use crate::semantics::{self, Checker};
+use crate::static_analysis::Analyse;
 use std::fmt;
 use std::io;
 use std::io::BufRead;

@@ -1,5 +1,5 @@
-use parser::tokenize::Position;
-use parser::tokenize::Token;
+use crate::parser::tokenize::Position;
+use crate::parser::tokenize::Token;
 use std::fmt;
 use zokrates_field::field::Field;
 

@@ -11,10 +11,10 @@ pub mod flat_variable;
 pub use self::flat_parameter::FlatParameter;
 pub use self::flat_variable::FlatVariable;
 
-use helpers::{DirectiveStatement, Executable};
+use crate::helpers::{DirectiveStatement, Executable};
+use crate::types::Signature;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
-use types::Signature;
 use zokrates_field::field::Field;
 
 #[derive(Clone)]
@@ -339,9 +339,9 @@ pub struct FlatExpressionList<T: Field> {
 impl<T: Field> fmt::Display for FlatExpressionList<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (i, param) in self.expressions.iter().enumerate() {
-            try!(write!(f, "{}", param));
+            r#try!(write!(f, "{}", param));
             if i < self.expressions.len() - 1 {
-                try!(write!(f, ", "));
+                r#try!(write!(f, ", "));
             }
         }
         write!(f, "")

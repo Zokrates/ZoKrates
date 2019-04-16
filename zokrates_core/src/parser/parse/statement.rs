@@ -3,20 +3,20 @@ use zokrates_field::field::Field;
 use std::io::prelude::*;
 use std::io::Lines;
 
-use parser::tokenize::{next_token, Position, Token};
-use parser::Error;
+use crate::parser::tokenize::{next_token, Position, Token};
+use crate::parser::Error;
 
-use parser::tokenize::skip_whitespaces;
+use crate::parser::tokenize::skip_whitespaces;
 
 use super::expression::{
     parse_array_select, parse_expr, parse_expr1, parse_function_call, parse_term1,
 };
 use super::expression_list::parse_expression_list;
 
-use absy::{
+use crate::absy::{
     Assignee, AssigneeNode, Expression, Node, Statement, StatementNode, Variable, VariableNode,
 };
-use types::Type;
+use crate::types::Type;
 
 pub fn parse_statement<T: Field, R: BufRead>(
     lines: &mut Lines<R>,

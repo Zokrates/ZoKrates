@@ -1,6 +1,6 @@
-use flat_absy::flat_variable::FlatVariable;
-use helpers::Executable;
-use ir::{LinComb, Prog, QuadComb, Statement, Witness};
+use crate::flat_absy::flat_variable::FlatVariable;
+use crate::helpers::Executable;
+use crate::ir::{LinComb, Prog, QuadComb, Statement, Witness};
 use std::collections::BTreeMap;
 use std::fmt;
 use zokrates_field::field::Field;
