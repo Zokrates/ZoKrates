@@ -94,7 +94,6 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                 .as_canonical()
                 .0
                 .into_iter()
-                .map(|(k, v)| (k, v))
                 .collect(),
         )
     }
