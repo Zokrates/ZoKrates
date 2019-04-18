@@ -53,11 +53,17 @@ impl<T: Field> fmt::Display for QuadComb<T> {
     }
 }
 
-#[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Debug, Serialize, Deserialize)]
+#[derive(Eq, PartialOrd, Clone, Ord, Hash, Debug, Serialize, Deserialize)]
 pub struct LinComb<T: Field>(pub Vec<(FlatVariable, T)>);
 
+impl<T: Field> PartialEq for LinComb<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_canonical() == other.as_canonical()
+    }
+}
+
 #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Debug, Serialize, Deserialize)]
-pub struct CanonicalLinComb<T: Field>(pub BTreeMap<FlatVariable, T>);
+pub struct CanonicalLinComb<T: Field>(BTreeMap<FlatVariable, T>);
 
 impl<T: Field> LinComb<T> {
     pub fn summand<U: Into<T>>(mult: U, var: FlatVariable) -> LinComb<T> {
@@ -78,7 +84,7 @@ impl<T: Field> LinComb<T> {
         None
     }
 
-    pub fn as_canonical(&self) -> CanonicalLinComb<T> {
+    fn as_canonical(&self) -> CanonicalLinComb<T> {
         CanonicalLinComb(self.0.clone().into_iter().fold(
             BTreeMap::new(),
             |mut acc, (val, coeff)| {
