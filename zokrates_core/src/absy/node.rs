@@ -1,4 +1,4 @@
-use parser::Position;
+use crate::parser::Position;
 use std::fmt;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -41,8 +41,8 @@ impl<V: NodeValue> From<V> for Node<V> {
     }
 }
 
-use absy::*;
-use imports::*;
+use crate::absy::*;
+use crate::imports::*;
 use zokrates_field::field::Field;
 
 impl<T: Field> NodeValue for Expression<T> {}

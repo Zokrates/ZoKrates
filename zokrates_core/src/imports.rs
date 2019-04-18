@@ -4,11 +4,11 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
-use absy::*;
-use compile::compile_aux;
-use compile::{CompileErrorInner, CompileErrors};
-use flat_absy::*;
-use parser::Position;
+use crate::absy::*;
+use crate::compile::compile_aux;
+use crate::compile::{CompileErrorInner, CompileErrors};
+use crate::flat_absy::*;
+use crate::parser::Position;
 use std::fmt;
 use std::io;
 use std::io::BufRead;
@@ -142,7 +142,7 @@ impl Importer {
             if import.source.starts_with("BELLMAN") {
                 match import.source.as_ref() {
                     "BELLMAN/sha256round" => {
-                        use standard::sha_round;
+                        use crate::standard::sha_round;
 
                         let compiled = FlatProg {
                             functions: vec![sha_round()],
@@ -164,7 +164,7 @@ impl Importer {
                     }
                 }
             } else if import.source.starts_with("PACKING") {
-                use types::conversions::split;
+                use crate::types::conversions::split;
 
                 match import.source.as_ref() {
                     "PACKING/split" => {

@@ -1,11 +1,11 @@
 use zokrates_field::field::Field;
 
-use parser::tokenize::{next_token, Position, Token};
-use parser::Error;
+use crate::parser::tokenize::{next_token, Position, Token};
+use crate::parser::Error;
 
 use super::expression::parse_expr;
 
-use absy::{ExpressionList, ExpressionListNode, Node};
+use crate::absy::{ExpressionList, ExpressionListNode, Node};
 
 // parse an expression list
 pub fn parse_expression_list<T: Field>(
@@ -38,7 +38,7 @@ fn parse_comma_separated_expression_list_rec<T: Field>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use absy::Expression;
+    use crate::absy::Expression;
     use zokrates_field::field::FieldPrime;
 
     fn parse_comma_separated_list<T: Field>(

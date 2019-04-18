@@ -1,4 +1,4 @@
-use flat_absy::flat_variable::FlatVariable;
+use crate::flat_absy::flat_variable::FlatVariable;
 use std::collections::HashMap;
 use std::fmt;
 

@@ -1,5 +1,5 @@
+use crate::types::Type;
 use std::fmt;
-use types::Type;
 use zokrates_field::field::Field;
 
 #[derive(PartialEq)]

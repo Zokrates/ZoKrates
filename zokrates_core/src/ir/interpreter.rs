@@ -1,6 +1,6 @@
-use flat_absy::flat_variable::FlatVariable;
-use helpers::Executable;
-use ir::{LinComb, Prog, QuadComb, Statement, Witness};
+use crate::flat_absy::flat_variable::FlatVariable;
+use crate::helpers::Executable;
+use crate::ir::{LinComb, Prog, QuadComb, Statement, Witness};
 use std::collections::BTreeMap;
 use std::fmt;
 use zokrates_field::field::Field;
@@ -80,8 +80,8 @@ impl<T: Field> LinComb<T> {
 
     fn is_assignee<U>(&self, witness: &BTreeMap<FlatVariable, U>) -> bool {
         self.0.iter().count() == 1
-            && self.0.iter().next().unwrap().1 == &T::from(1)
-            && !witness.contains_key(self.0.iter().next().unwrap().0)
+            && self.0.iter().next().unwrap().1 == T::from(1)
+            && !witness.contains_key(&self.0.iter().next().unwrap().0)
     }
 }
 

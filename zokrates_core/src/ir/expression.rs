@@ -1,6 +1,6 @@
-use flat_absy::FlatVariable;
+use crate::flat_absy::FlatVariable;
 use num::Zero;
-use std::collections::BTreeMap;
+use std::collections::btree_map::{BTreeMap, Entry};
 use std::fmt;
 use std::ops::{Add, Div, Mul, Sub};
 use zokrates_field::field::Field;
@@ -20,13 +20,13 @@ impl<T: Field> QuadComb<T> {
         // identify (k * ~ONE) * (lincomb) and return (k * lincomb)
 
         match self.left.try_summand() {
-            Some((variable, coefficient)) if *variable == FlatVariable::one() => {
+            Some((ref variable, ref coefficient)) if *variable == FlatVariable::one() => {
                 return Some(self.right.clone() * &coefficient);
             }
             _ => {}
         }
         match self.right.try_summand() {
-            Some((variable, coefficient)) if *variable == FlatVariable::one() => {
+            Some((ref variable, ref coefficient)) if *variable == FlatVariable::one() => {
                 return Some(self.left.clone() * &coefficient);
             }
             _ => {}
@@ -53,13 +53,22 @@ impl<T: Field> fmt::Display for QuadComb<T> {
     }
 }
 
+#[derive(Eq, PartialOrd, Clone, Ord, Hash, Debug, Serialize, Deserialize)]
+pub struct LinComb<T: Field>(pub Vec<(FlatVariable, T)>);
+
+impl<T: Field> PartialEq for LinComb<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_canonical() == other.as_canonical()
+    }
+}
+
 #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Debug, Serialize, Deserialize)]
-pub struct LinComb<T: Field>(pub BTreeMap<FlatVariable, T>);
+pub struct CanonicalLinComb<T: Field>(BTreeMap<FlatVariable, T>);
 
 impl<T: Field> LinComb<T> {
     pub fn summand<U: Into<T>>(mult: U, var: FlatVariable) -> LinComb<T> {
-        let mut res = BTreeMap::new();
-        res.insert(var, mult.into());
+        let res = vec![(var, mult.into())];
+
         LinComb(res)
     }
 
@@ -67,11 +76,61 @@ impl<T: Field> LinComb<T> {
         Self::summand(1, FlatVariable::one())
     }
 
-    pub fn try_summand(&self) -> Option<(&FlatVariable, &T)> {
-        if self.0.len() == 1 {
-            return self.0.iter().next();
+    pub fn try_summand(&self) -> Option<(FlatVariable, T)> {
+        match self.0.len() {
+            // if the lincomb is empty, it is not reduceable to a summand
+            0 => None,
+            _ => {
+                // take the first variable in the lincomb
+                let first = &self.0[0].0;
+
+                self.0
+                    .iter()
+                    .map(|element| {
+                        // all terms must contain the same variable
+                        if element.0 == *first {
+                            // if they do, return the coefficient
+                            Ok(&element.1)
+                        } else {
+                            // otherwise, stop
+                            Err(())
+                        }
+                    })
+                    // collect to a Result to short circuit when we hit an error
+                    .collect::<Result<_, _>>()
+                    // we didn't hit an error, do final processing. It's fine to clone here.
+                    .map(|v: Vec<_>| (first.clone(), v.iter().fold(T::zero(), |acc, e| acc + *e)))
+                    .ok()
+            }
         }
-        None
+    }
+
+    fn as_canonical(&self) -> CanonicalLinComb<T> {
+        CanonicalLinComb(self.0.clone().into_iter().fold(
+            BTreeMap::new(),
+            |mut acc, (val, coeff)| {
+                // if we're adding 0 times some variable, we can ignore this term
+                if coeff != T::zero() {
+                    match acc.entry(val) {
+                        Entry::Occupied(o) => {
+                            // if the new value is non zero, update, else remove the term entirely
+                            if o.get().clone() + coeff.clone() != T::zero() {
+                                *o.into_mut() = o.get().clone() + coeff;
+                            } else {
+                                o.remove();
+                            }
+                        }
+                        Entry::Vacant(v) => {
+                            // We checked earlier but let's make sure we're not creating zero-coeff terms
+                            assert!(coeff != T::zero());
+                            v.insert(coeff);
+                        }
+                    }
+                }
+
+                acc
+            },
+        ))
     }
 }
 
@@ -82,7 +141,8 @@ impl<T: Field> fmt::Display for LinComb<T> {
             false => write!(
                 f,
                 "{}",
-                self.0
+                self.as_canonical()
+                    .0
                     .iter()
                     .map(|(k, v)| format!("{} * {}", v.to_compact_dec_string(), k))
                     .collect::<Vec<_>>()
@@ -94,8 +154,7 @@ impl<T: Field> fmt::Display for LinComb<T> {
 
 impl<T: Field> From<FlatVariable> for LinComb<T> {
     fn from(v: FlatVariable) -> LinComb<T> {
-        let mut r = BTreeMap::new();
-        r.insert(v, T::one());
+        let r = vec![(v, T::one())];
         LinComb(r)
     }
 }
@@ -105,14 +164,7 @@ impl<T: Field> Add<LinComb<T>> for LinComb<T> {
 
     fn add(self, other: LinComb<T>) -> LinComb<T> {
         let mut res = self.0;
-        for (k, v) in other.0 {
-            let new_val = v + res.get(&k).unwrap_or(&T::zero());
-            if new_val == T::zero() {
-                res.remove(&k)
-            } else {
-                res.insert(k, new_val)
-            };
-        }
+        res.extend(other.0);
         LinComb(res)
     }
 }
@@ -121,15 +173,9 @@ impl<T: Field> Sub<LinComb<T>> for LinComb<T> {
     type Output = LinComb<T>;
 
     fn sub(self, other: LinComb<T>) -> LinComb<T> {
+        // Concatenate with second vector that have negative coeffs
         let mut res = self.0;
-        for (k, v) in other.0 {
-            let new_val = T::zero() - v + res.get(&k).unwrap_or(&T::zero());
-            if new_val == T::zero() {
-                res.remove(&k)
-            } else {
-                res.insert(k, new_val)
-            };
-        }
+        res.extend(other.0.into_iter().map(|(var, val)| (var, T::zero() - val)));
         LinComb(res)
     }
 }
@@ -157,7 +203,7 @@ impl<T: Field> Div<&T> for LinComb<T> {
 
 impl<T: Field> Zero for LinComb<T> {
     fn zero() -> LinComb<T> {
-        LinComb(BTreeMap::new())
+        LinComb(Vec::new())
     }
     fn is_zero(&self) -> bool {
         self.0.len() == 0
@@ -184,16 +230,26 @@ mod tests {
             let a: LinComb<FieldPrime> = FlatVariable::new(42).into();
             let b: LinComb<FieldPrime> = FlatVariable::new(42).into();
             let c = a + b.clone();
-            let mut expected_map = BTreeMap::new();
-            expected_map.insert(FlatVariable::new(42), FieldPrime::from(2));
-            assert_eq!(c, LinComb(expected_map));
+
+            let expected_vec = vec![
+                (FlatVariable::new(42), FieldPrime::from(1)),
+                (FlatVariable::new(42), FieldPrime::from(1)),
+            ];
+
+            assert_eq!(c, LinComb(expected_vec));
         }
         #[test]
         fn sub() {
             let a: LinComb<FieldPrime> = FlatVariable::new(42).into();
             let b: LinComb<FieldPrime> = FlatVariable::new(42).into();
             let c = a - b.clone();
-            assert_eq!(c, LinComb::zero());
+
+            let expected_vec = vec![
+                (FlatVariable::new(42), FieldPrime::from(1)),
+                (FlatVariable::new(42), FieldPrime::from(-1)),
+            ];
+
+            assert_eq!(c, LinComb(expected_vec));
         }
 
         #[test]
@@ -242,6 +298,33 @@ mod tests {
                 right: LinComb::summand(1, FlatVariable::new(21)),
             };
             assert_eq!(&a.to_string(), "(0) * (1 * _21)");
+        }
+    }
+
+    mod try {
+        use super::*;
+
+        #[test]
+        fn try_summand() {
+            let summand = LinComb(vec![
+                (FlatVariable::new(42), FieldPrime::from(1)),
+                (FlatVariable::new(42), FieldPrime::from(2)),
+                (FlatVariable::new(42), FieldPrime::from(3)),
+            ]);
+            assert_eq!(
+                summand.try_summand(),
+                Some((FlatVariable::new(42), FieldPrime::from(6)))
+            );
+
+            let not_summand = LinComb(vec![
+                (FlatVariable::new(41), FieldPrime::from(1)),
+                (FlatVariable::new(42), FieldPrime::from(2)),
+                (FlatVariable::new(42), FieldPrime::from(3)),
+            ]);
+            assert_eq!(not_summand.try_summand(), None);
+
+            let empty: LinComb<FieldPrime> = LinComb(vec![]);
+            assert_eq!(empty.try_summand(), None);
         }
     }
 }

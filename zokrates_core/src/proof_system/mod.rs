@@ -9,7 +9,7 @@ pub use self::bn128::GM17;
 #[cfg(feature = "libsnark")]
 pub use self::bn128::PGHR13;
 
-use ir;
+use crate::ir;
 use std::io::BufReader;
 
 pub trait ProofSystem {

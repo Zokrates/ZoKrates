@@ -1,4 +1,4 @@
-use helpers::{Executable, Signed};
+use crate::helpers::{Executable, Signed};
 use std::fmt;
 use zokrates_embed::generate_sha256_round_witness;
 use zokrates_field::field::Field;

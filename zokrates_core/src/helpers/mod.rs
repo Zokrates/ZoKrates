@@ -5,7 +5,7 @@ mod wasm;
 pub use self::rust::RustHelper;
 #[cfg(feature = "wasm")]
 pub use self::wasm::WasmHelper;
-use flat_absy::{FlatExpression, FlatVariable};
+use crate::flat_absy::{FlatExpression, FlatVariable};
 use std::fmt;
 use zokrates_field::field::Field;
 

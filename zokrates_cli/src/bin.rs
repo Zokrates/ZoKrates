@@ -235,10 +235,12 @@ fn cli() -> Result<(), String> {
             let num_constraints = program_flattened.constraint_count();
 
             // serialize flattened program and write to binary file
-            let mut bin_output_file = File::create(&bin_output_path)
+            let bin_output_file = File::create(&bin_output_path)
                 .map_err(|why| format!("couldn't create {}: {}", bin_output_path.display(), why))?;
 
-            serialize_into(&mut bin_output_file, &program_flattened, Infinite)
+            let mut writer = BufWriter::new(bin_output_file);
+
+            serialize_into(&mut writer, &program_flattened, Infinite)
                 .map_err(|_| "Unable to write data to file.".to_string())?;
 
             if !light {
@@ -273,11 +275,13 @@ fn cli() -> Result<(), String> {
 
             // read compiled program
             let path = Path::new(sub_matches.value_of("input").unwrap());
-            let mut file = File::open(&path)
+            let file = File::open(&path)
                 .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
 
+            let mut reader = BufReader::new(file);
+
             let program_ast: ir::Prog<FieldPrime> =
-                deserialize_from(&mut file, Infinite).map_err(|why| why.to_string())?;
+                deserialize_from(&mut reader, Infinite).map_err(|why| why.to_string())?;
 
             // print deserialized flattened program
             println!("{}", program_ast);
@@ -334,8 +338,10 @@ fn cli() -> Result<(), String> {
             let output_file = File::create(&output_path)
                 .map_err(|why| format!("couldn't create {}: {}", output_path.display(), why))?;
 
+            let writer = BufWriter::new(output_file);
+
             witness
-                .write(output_file)
+                .write(writer)
                 .map_err(|why| format!("could not save witness: {:?}", why))?;
         }
         ("setup", Some(sub_matches)) => {
@@ -344,11 +350,13 @@ fn cli() -> Result<(), String> {
             println!("Performing setup...");
 
             let path = Path::new(sub_matches.value_of("input").unwrap());
-            let mut file = File::open(&path)
+            let file = File::open(&path)
                 .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
 
+            let mut reader = BufReader::new(file);
+
             let program: ir::Prog<FieldPrime> =
-                deserialize_from(&mut file, Infinite).map_err(|why| format!("{:?}", why))?;
+                deserialize_from(&mut reader, Infinite).map_err(|why| format!("{:?}", why))?;
 
             // print deserialized flattened program
             println!("{}", program);
@@ -376,10 +384,12 @@ fn cli() -> Result<(), String> {
 
                 //write output file
                 let output_path = Path::new(sub_matches.value_of("output").unwrap());
-                let mut output_file = File::create(&output_path)
+                let output_file = File::create(&output_path)
                     .map_err(|why| format!("couldn't create {}: {}", output_path.display(), why))?;
 
-                output_file
+                let mut writer = BufWriter::new(output_file);
+
+                writer
                     .write_all(&verifier.as_bytes())
                     .map_err(|_| "Failed writing output to file.".to_string())?;
                 println!("Finished exporting verifier.");
@@ -404,11 +414,13 @@ fn cli() -> Result<(), String> {
             let proof_path = sub_matches.value_of("proofpath").unwrap();
 
             let program_path = Path::new(sub_matches.value_of("input").unwrap());
-            let mut program_file = File::open(&program_path)
+            let program_file = File::open(&program_path)
                 .map_err(|why| format!("couldn't open {}: {}", program_path.display(), why))?;
 
-            let program: ir::Prog<FieldPrime> = deserialize_from(&mut program_file, Infinite)
-                .map_err(|why| format!("{:?}", why))?;
+            let mut reader = BufReader::new(program_file);
+
+            let program: ir::Prog<FieldPrime> =
+                deserialize_from(&mut reader, Infinite).map_err(|why| format!("{:?}", why))?;
 
             println!(
                 "generate-proof successful: {:?}",
