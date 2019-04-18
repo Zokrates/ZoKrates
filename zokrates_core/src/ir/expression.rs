@@ -163,7 +163,9 @@ impl<T: Field> Add<LinComb<T>> for LinComb<T> {
     type Output = LinComb<T>;
 
     fn add(self, other: LinComb<T>) -> LinComb<T> {
-        LinComb(self.0.into_iter().chain(other.0.into_iter()).collect())
+        let mut res = self.0;
+        res.extend(other.0);
+        LinComb(res)
     }
 }
 
@@ -172,17 +174,9 @@ impl<T: Field> Sub<LinComb<T>> for LinComb<T> {
 
     fn sub(self, other: LinComb<T>) -> LinComb<T> {
         // Concatenate with second vector that have negative coeffs
-        LinComb(
-            self.0
-                .into_iter()
-                .chain(
-                    other
-                        .0
-                        .into_iter()
-                        .map(|(var, coeff)| (var, T::zero() - coeff)),
-                )
-                .collect(),
-        )
+        let mut res = self.0;
+        res.extend(other.0.into_iter().map(|(var, val)| (var, T::zero() - val)));
+        LinComb(res)
     }
 }
 
