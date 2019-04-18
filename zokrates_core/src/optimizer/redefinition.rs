@@ -47,11 +47,11 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                     Some(l) => match lin.try_summand() {
                         // right side must be a single variable
                         Some((variable, coefficient)) => {
-                            match variable == &FlatVariable::one() {
+                            match variable == FlatVariable::one() {
                                 // variable must not be ~ONE
-                                false => match self.substitution.get(variable) {
+                                false => match self.substitution.get(&variable) {
                                     Some(_) => None,
-                                    None => Some((*variable, l / &coefficient)),
+                                    None => Some((variable, l / &coefficient)),
                                 },
                                 true => None,
                             }
