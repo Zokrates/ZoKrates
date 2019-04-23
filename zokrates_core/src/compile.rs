@@ -3,13 +3,13 @@
 //! @file compile.rs
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
-use crate::absy::Prog;
+use crate::absy::Module;
 use crate::flat_absy::FlatProg;
 use crate::flatten::Flattener;
 use crate::imports::{self, Importer};
 use crate::ir;
 use crate::optimizer::Optimize;
-use crate::parser::{self, parse_program};
+use crate::parser::{self, parse_module};
 use crate::semantics::{self, Checker};
 use crate::static_analysis::Analyse;
 use std::fmt;
@@ -137,7 +137,7 @@ pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     location: Option<String>,
     resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
 ) -> Result<FlatProg<T>, CompileErrors<T>> {
-    let program_ast_without_imports: Prog<T> = parse_program(reader)
+    let program_ast_without_imports: Module<T> = parse_module(reader)
         .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).with_context(&location)))?;
 
     let program_ast = Importer::new().apply_imports(
@@ -147,16 +147,14 @@ pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     )?;
 
     // check semantics
-    let typed_ast = Checker::new()
-        .check_program(program_ast)
-        .map_err(|errors| {
-            CompileErrors(
-                errors
-                    .into_iter()
-                    .map(|e| CompileErrorInner::from(e).with_context(&location))
-                    .collect(),
-            )
-        })?;
+    let typed_ast = Checker::new().check_module(program_ast).map_err(|errors| {
+        CompileErrors(
+            errors
+                .into_iter()
+                .map(|e| CompileErrorInner::from(e).with_context(&location))
+                .collect(),
+        )
+    })?;
 
     // analyse (unroll and constant propagation)
     let typed_ast = typed_ast.analyse();

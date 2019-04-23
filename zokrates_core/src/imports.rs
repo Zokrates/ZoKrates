@@ -129,10 +129,10 @@ impl Importer {
 
     pub fn apply_imports<T: Field, S: BufRead, E: Into<Error>>(
         &self,
-        destination: Prog<T>,
+        destination: Module<T>,
         location: Option<String>,
         resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
-    ) -> Result<Prog<T>, CompileErrors<T>> {
+    ) -> Result<Module<T>, CompileErrors<T>> {
         let mut origins: Vec<CompiledImport<T>> = vec![];
 
         for import in destination.imports.iter() {
@@ -217,7 +217,7 @@ impl Importer {
             }
         }
 
-        Ok(Prog {
+        Ok(Module {
             imports: vec![],
             functions: destination.clone().functions,
             imported_functions: origins.into_iter().map(|o| o.flat_func).collect(),

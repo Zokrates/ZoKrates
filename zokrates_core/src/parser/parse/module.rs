@@ -8,9 +8,9 @@ use crate::parser::tokenize::{next_token, Position, Token};
 use super::function::parse_function;
 use super::import::parse_import;
 
-use crate::absy::Prog;
+use crate::absy::Module;
 
-pub fn parse_program<T: Field, R: BufRead>(reader: &mut R) -> Result<Prog<T>, Error<T>> {
+pub fn parse_module<T: Field, R: BufRead>(reader: &mut R) -> Result<Module<T>, Error<T>> {
     let mut current_line = 1;
     let mut lines = reader.lines();
     let mut functions = Vec::new();
@@ -55,7 +55,7 @@ pub fn parse_program<T: Field, R: BufRead>(reader: &mut R) -> Result<Prog<T>, Er
         }
     }
 
-    Ok(Prog {
+    Ok(Module {
         functions,
         imports,
         imported_functions: vec![],

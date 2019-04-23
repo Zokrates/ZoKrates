@@ -20,14 +20,14 @@ use std::fmt;
 use zokrates_field::field::Field;
 
 #[derive(Clone, PartialEq)]
-pub struct Prog<T: Field> {
-    /// Functions of the program
+pub struct Module<T: Field> {
+    /// Functions of the module
     pub functions: Vec<FunctionNode<T>>,
     pub imports: Vec<ImportNode>,
     pub imported_functions: Vec<FlatFunction<T>>,
 }
 
-impl<T: Field> fmt::Display for Prog<T> {
+impl<T: Field> fmt::Display for Module<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut res = vec![];
         res.extend(
@@ -52,11 +52,11 @@ impl<T: Field> fmt::Display for Prog<T> {
     }
 }
 
-impl<T: Field> fmt::Debug for Prog<T> {
+impl<T: Field> fmt::Debug for Module<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "program(\n\timports:\n\t\t{}\n\tfunctions:\n\t\t{}{}\n)",
+            "module(\n\timports:\n\t\t{}\n\tfunctions:\n\t\t{}{}\n)",
             self.imports
                 .iter()
                 .map(|x| format!("{:?}", x))
@@ -78,7 +78,7 @@ impl<T: Field> fmt::Debug for Prog<T> {
 
 #[derive(Clone, PartialEq)]
 pub struct Function<T: Field> {
-    /// Name of the program
+    /// Name of the module
     pub id: String,
     /// Arguments of the function
     pub arguments: Vec<ParameterNode>,

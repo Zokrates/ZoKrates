@@ -135,8 +135,11 @@ impl Checker {
         }
     }
 
-    pub fn check_program<T: Field>(&mut self, prog: Prog<T>) -> Result<TypedProg<T>, Vec<Error>> {
-        for func in &prog.imported_functions {
+    pub fn check_module<T: Field>(
+        &mut self,
+        module: Module<T>,
+    ) -> Result<TypedProg<T>, Vec<Error>> {
+        for func in &module.imported_functions {
             self.functions.insert(FunctionDeclaration {
                 id: func.id.clone(),
                 signature: func.signature.clone(),
@@ -146,7 +149,7 @@ impl Checker {
         let mut errors = vec![];
         let mut checked_functions = vec![];
 
-        for func in prog.functions {
+        for func in module.functions {
             self.enter_scope();
 
             let dec = FunctionDeclaration {
@@ -177,8 +180,8 @@ impl Checker {
 
         Ok(TypedProg {
             functions: checked_functions,
-            imported_functions: prog.imported_functions,
-            imports: prog.imports.into_iter().map(|i| i.value).collect(),
+            imported_functions: module.imported_functions,
+            imports: module.imports.into_iter().map(|i| i.value).collect(),
         })
     }
 
