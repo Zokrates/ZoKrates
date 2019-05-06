@@ -7,12 +7,14 @@
 //! @date 2017
 
 use crate::absy::variable::Variable;
-use crate::absy::*;
-use crate::typed_absy::*;
+use crate::absy::{self, *};
+use crate::typed_absy::{self, *};
 use crate::types::Signature;
 use std::collections::HashSet;
 use std::fmt;
 use zokrates_field::field::Field;
+
+use std::rc::Rc;
 
 use crate::parser::Position;
 
@@ -123,6 +125,7 @@ pub struct FunctionDeclaration {
 pub struct Checker {
     scope: HashSet<ScopedVariable>,
     functions: HashSet<FunctionDeclaration>,
+    //symbols: HashMap<String, FunctionSymbol<T>>,
     level: usize,
 }
 
@@ -138,16 +141,46 @@ impl Checker {
     pub fn check_module<T: Field>(
         &mut self,
         module: Module<T>,
-    ) -> Result<TypedProg<T>, Vec<Error>> {
-        for func in &module.imported_functions {
-            self.functions.insert(FunctionDeclaration {
-                id: func.id.clone(),
-                signature: func.signature.clone(),
-            });
-        }
-
+    ) -> Result<TypedModule<T>, Vec<Error>> {
         let mut errors = vec![];
         let mut checked_functions = vec![];
+
+        for (alias, symbol) in &module.symbols {
+            match symbol {
+                absy::Symbol::Function(f) => match f {
+                    absy::FunctionSymbol::There(name, module) => {
+                        match module.functions.iter().find(|f| f.value.id == *name) {
+                            Some(func) => {
+                                self.enter_scope();
+
+                                let dec = FunctionDeclaration {
+                                    id: alias.clone(),
+                                    signature: func.value.signature.clone(),
+                                };
+
+                                match Checker::new().check_module(module.as_ref().clone()) {
+                                    // TODO avoid clone with cache !!!
+                                    Ok(checked_module) => {
+                                        checked_functions.push(typed_absy::FunctionSymbol::There(
+                                            name.clone(),
+                                            Rc::new(checked_module),
+                                        ));
+                                    }
+                                    Err(e) => {
+                                        errors.extend(e);
+                                    }
+                                }
+
+                                self.functions.insert(dec);
+                                self.exit_scope();
+                            }
+                            None => unimplemented!("wrong import"),
+                        }
+                    }
+                    absy::FunctionSymbol::Here(..) => unimplemented!(),
+                },
+            }
+        }
 
         for func in module.functions {
             self.enter_scope();
@@ -159,7 +192,8 @@ impl Checker {
 
             match self.check_function(func) {
                 Ok(checked_function) => {
-                    checked_functions.push(checked_function);
+                    checked_functions
+                        .push(typed_absy::FunctionSymbol::Here(Rc::new(checked_function)));
                 }
                 Err(e) => {
                     errors.extend(e);
@@ -178,9 +212,8 @@ impl Checker {
             return Err(errors);
         }
 
-        Ok(TypedProg {
+        Ok(TypedModule {
             functions: checked_functions,
-            imported_functions: module.imported_functions,
             imports: module.imports.into_iter().map(|i| i.value).collect(),
         })
     }
@@ -683,6 +716,7 @@ impl Checker {
                             1 => match f.signature.outputs[0] {
                                 Type::FieldElement => Ok(FieldElementExpression::FunctionCall(
                                     f.id.clone(),
+                                    FunctionSymbol(Rc::new(f)),
                                     arguments_checked,
                                 )
                                 .into()),

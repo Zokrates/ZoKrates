@@ -4,7 +4,6 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 use crate::absy::Module;
-use crate::flat_absy::FlatProg;
 use crate::flatten::Flattener;
 use crate::imports::{self, Importer};
 use crate::ir;
@@ -15,6 +14,7 @@ use crate::static_analysis::Analyse;
 use std::fmt;
 use std::io;
 use std::io::BufRead;
+use typed_absy::TypedModule;
 use zokrates_field::field::Field;
 
 #[derive(Debug)]
@@ -128,15 +128,24 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     location: Option<String>,
     resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
 ) -> Result<ir::Prog<T>, CompileErrors<T>> {
-    let compiled = compile_aux(reader, location, resolve_option)?;
-    Ok(ir::Prog::from(compiled).optimize())
+    let typed_ast = compile_aux(reader, location, resolve_option)?;
+
+    // analyse (unroll and constant propagation)
+    let typed_ast = typed_ast.analyse();
+
+    // flatten input program
+    let program_flattened = Flattener::flatten(typed_ast);
+
+    // analyse (constant propagation after call resolution)
+    let program_flattened = program_flattened.analyse();
+    Ok(ir::Prog::from(program_flattened).optimize())
 }
 
 pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     reader: &mut R,
     location: Option<String>,
     resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
-) -> Result<FlatProg<T>, CompileErrors<T>> {
+) -> Result<TypedModule<T>, CompileErrors<T>> {
     let program_ast_without_imports: Module<T> = parse_module(reader)
         .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).with_context(&location)))?;
 
@@ -156,16 +165,7 @@ pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
         )
     })?;
 
-    // analyse (unroll and constant propagation)
-    let typed_ast = typed_ast.analyse();
-
-    // flatten input program
-    let program_flattened = Flattener::flatten(typed_ast);
-
-    // analyse (constant propagation after call resolution)
-    let program_flattened = program_flattened.analyse();
-
-    Ok(program_flattened)
+    Ok(typed_ast)
 }
 
 #[cfg(test)]

@@ -13,18 +13,31 @@ pub use crate::absy::node::{Node, NodeValue};
 pub use crate::absy::parameter::{Parameter, ParameterNode};
 pub use crate::absy::variable::{Variable, VariableNode};
 use crate::types::Signature;
+use std::rc::Rc;
 
 use crate::flat_absy::*;
 use crate::imports::ImportNode;
 use std::fmt;
 use zokrates_field::field::Field;
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Module<T: Field> {
     /// Functions of the module
     pub functions: Vec<FunctionNode<T>>,
     pub imports: Vec<ImportNode>,
     pub imported_functions: Vec<FlatFunction<T>>,
+    pub symbols: Vec<(String, Symbol<T>)>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Symbol<T: Field> {
+    Function(FunctionSymbol<T>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum FunctionSymbol<T: Field> {
+    Here(Function<T>),
+    There(String, Rc<Module<T>>),
 }
 
 impl<T: Field> fmt::Display for Module<T> {
@@ -52,29 +65,29 @@ impl<T: Field> fmt::Display for Module<T> {
     }
 }
 
-impl<T: Field> fmt::Debug for Module<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "module(\n\timports:\n\t\t{}\n\tfunctions:\n\t\t{}{}\n)",
-            self.imports
-                .iter()
-                .map(|x| format!("{:?}", x))
-                .collect::<Vec<_>>()
-                .join("\n\t\t"),
-            self.imported_functions
-                .iter()
-                .map(|x| format!("{}", x))
-                .collect::<Vec<_>>()
-                .join("\n\t\t"),
-            self.functions
-                .iter()
-                .map(|x| format!("{:?}", x))
-                .collect::<Vec<_>>()
-                .join("\n\t\t")
-        )
-    }
-}
+// impl<T: Field> fmt::Debug for Module<T> {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         write!(
+//             f,
+//             "module(\n\timports:\n\t\t{}\n\tfunctions:\n\t\t{}{}\n)",
+//             self.imports
+//                 .iter()
+//                 .map(|x| format!("{:?}", x))
+//                 .collect::<Vec<_>>()
+//                 .join("\n\t\t"),
+//             self.imported_functions
+//                 .iter()
+//                 .map(|x| format!("{}", x))
+//                 .collect::<Vec<_>>()
+//                 .join("\n\t\t"),
+//             self.functions
+//                 .iter()
+//                 .map(|x| format!("{:?}", x))
+//                 .collect::<Vec<_>>()
+//                 .join("\n\t\t")
+//         )
+//     }
+// }
 
 #[derive(Clone, PartialEq)]
 pub struct Function<T: Field> {

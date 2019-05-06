@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use zokrates_field::field::Field;
 
 pub struct Inliner<T: Field> {
-    functions: Vec<TypedFunction<T>>,
+    functions: Vec<FunctionSymbol<T>>,
     statements_buffer: Vec<TypedStatement<T>>,
     context: Vec<(String, usize)>,
     call_count: HashMap<String, usize>,
@@ -102,14 +102,14 @@ impl<T: Field> Inliner<T> {
         }
     }
 
-    pub fn inline(prog: TypedProg<T>) -> TypedProg<T> {
+    pub fn inline(prog: TypedModule<T>) -> TypedModule<T> {
         Inliner::new().fold_program(prog)
     }
 }
 
 impl<T: Field> Folder<T> for Inliner<T> {
     // store the list of functions
-    fn fold_program(&mut self, p: TypedProg<T>) -> TypedProg<T> {
+    fn fold_program(&mut self, p: TypedModule<T>) -> TypedModule<T> {
         self.functions = p.functions.clone();
         fold_program(self, p)
     }
@@ -135,6 +135,10 @@ impl<T: Field> Folder<T> for Inliner<T> {
                         let function = self
                             .functions
                             .iter()
+                            .map(|s| match s {
+                                FunctionSymbol::Here(fun) => fun,
+                                _ => unimplemented!(),
+                            })
                             .find(|f| f.id == id && f.signature == passed_signature)
                             .cloned();
 
@@ -196,6 +200,10 @@ impl<T: Field> Folder<T> for Inliner<T> {
                 let function = self
                     .functions
                     .iter()
+                    .map(|s| match s {
+                        FunctionSymbol::Here(fun) => fun,
+                        _ => unimplemented!(),
+                    })
                     .find(|f| f.id == id && f.signature == passed_signature)
                     .cloned();
 
@@ -233,6 +241,10 @@ impl<T: Field> Folder<T> for Inliner<T> {
                 let function = self
                     .functions
                     .iter()
+                    .map(|s| match s {
+                        FunctionSymbol::Here(fun) => fun,
+                        _ => unimplemented!(),
+                    })
                     .find(|f| f.id == id && f.signature == passed_signature)
                     .cloned();
 

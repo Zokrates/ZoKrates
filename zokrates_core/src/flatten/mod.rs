@@ -13,6 +13,7 @@ use crate::types::Signature;
 use crate::types::Type;
 use bimap::BiMap;
 use std::collections::HashMap;
+use std::rc::Rc;
 use zokrates_field::field::Field;
 
 /// Flattener, computes flattened program.
@@ -24,7 +25,7 @@ pub struct Flattener {
     bijection: BiMap<String, FlatVariable>,
 }
 impl Flattener {
-    pub fn flatten<T: Field>(p: TypedProg<T>) -> FlatProg<T> {
+    pub fn flatten<T: Field>(p: TypedModule<T>) -> FlatProg<T> {
         Flattener::new().flatten_program(p)
     }
 
@@ -43,68 +44,68 @@ impl Flattener {
 
     /// Loads the code library
     fn load_corelib<T: Field>(&mut self, functions_flattened: &mut Vec<FlatFunction<T>>) -> () {
-        // Load type casting functions
-        functions_flattened.push(cast(&Type::Boolean, &Type::FieldElement));
+        // // Load type casting functions
+        // functions_flattened.push(cast(&Type::Boolean, &Type::FieldElement));
 
-        // Load IfElse helper
-        let ie = TypedFunction {
-            id: "_if_else_field".to_string(),
-            arguments: vec![
-                Parameter {
-                    id: Variable {
-                        id: "condition".to_string(),
-                        _type: Type::Boolean,
-                    },
-                    private: true,
-                },
-                Parameter {
-                    id: Variable {
-                        id: "consequence".to_string(),
-                        _type: Type::FieldElement,
-                    },
-                    private: true,
-                },
-                Parameter {
-                    id: Variable {
-                        id: "alternative".to_string(),
-                        _type: Type::FieldElement,
-                    },
-                    private: true,
-                },
-            ],
-            statements: vec![
-                TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("condition_as_field")),
-                    FieldElementExpression::FunctionCall(
-                        "_bool_to_field".to_string(),
-                        vec![BooleanExpression::Identifier("condition".to_string()).into()],
-                    )
-                    .into(),
-                ),
-                TypedStatement::Return(vec![FieldElementExpression::Add(
-                    box FieldElementExpression::Mult(
-                        box FieldElementExpression::Identifier("condition_as_field".to_string()),
-                        box FieldElementExpression::Identifier("consequence".to_string()),
-                    ),
-                    box FieldElementExpression::Mult(
-                        box FieldElementExpression::Sub(
-                            box FieldElementExpression::Number(T::one()),
-                            box FieldElementExpression::Identifier(
-                                "condition_as_field".to_string(),
-                            ),
-                        ),
-                        box FieldElementExpression::Identifier("alternative".to_string()),
-                    ),
-                )
-                .into()]),
-            ],
-            signature: Signature::new()
-                .inputs(vec![Type::Boolean, Type::FieldElement, Type::FieldElement])
-                .outputs(vec![Type::FieldElement]),
-        };
+        // // Load IfElse helper
+        // let ie = TypedFunction {
+        //     id: "_if_else_field".to_string(),
+        //     arguments: vec![
+        //         Parameter {
+        //             id: Variable {
+        //                 id: "condition".to_string(),
+        //                 _type: Type::Boolean,
+        //             },
+        //             private: true,
+        //         },
+        //         Parameter {
+        //             id: Variable {
+        //                 id: "consequence".to_string(),
+        //                 _type: Type::FieldElement,
+        //             },
+        //             private: true,
+        //         },
+        //         Parameter {
+        //             id: Variable {
+        //                 id: "alternative".to_string(),
+        //                 _type: Type::FieldElement,
+        //             },
+        //             private: true,
+        //         },
+        //     ],
+        //     statements: vec![
+        //         TypedStatement::Definition(
+        //             TypedAssignee::Identifier(Variable::field_element("condition_as_field")),
+        //             FieldElementExpression::FunctionCall(
+        //                 "_bool_to_field".to_string(),
+        //                 vec![BooleanExpression::Identifier("condition".to_string()).into()],
+        //             )
+        //             .into(),
+        //         ),
+        //         TypedStatement::Return(vec![FieldElementExpression::Add(
+        //             box FieldElementExpression::Mult(
+        //                 box FieldElementExpression::Identifier("condition_as_field".to_string()),
+        //                 box FieldElementExpression::Identifier("consequence".to_string()),
+        //             ),
+        //             box FieldElementExpression::Mult(
+        //                 box FieldElementExpression::Sub(
+        //                     box FieldElementExpression::Number(T::one()),
+        //                     box FieldElementExpression::Identifier(
+        //                         "condition_as_field".to_string(),
+        //                     ),
+        //                 ),
+        //                 box FieldElementExpression::Identifier("alternative".to_string()),
+        //             ),
+        //         )
+        //         .into()]),
+        //     ],
+        //     signature: Signature::new()
+        //         .inputs(vec![Type::Boolean, Type::FieldElement, Type::FieldElement])
+        //         .outputs(vec![Type::FieldElement]),
+        // };
 
-        let ief = self.flatten_function(functions_flattened, ie);
-        functions_flattened.push(ief);
+        // let ief = self.flatten_function(functions_flattened, ie);
+        // functions_flattened.push(ief);
     }
 
     /// Flattens a boolean expression
@@ -708,7 +709,7 @@ impl Flattener {
                 )
                 .expressions[0]
                 .clone(),
-            FieldElementExpression::FunctionCall(ref id, ref param_expressions) => {
+            FieldElementExpression::FunctionCall(ref id, ref symbol, ref param_expressions) => {
                 let exprs_flattened = self.flatten_function_call(
                     functions_flattened,
                     statements_flattened,
@@ -1276,18 +1277,20 @@ impl Flattener {
     /// # Arguments
     ///
     /// * `prog` - `Prog`ram that will be flattened.
-    fn flatten_program<T: Field>(&mut self, prog: TypedProg<T>) -> FlatProg<T> {
+    fn flatten_program<T: Field>(&mut self, prog: TypedModule<T>) -> FlatProg<T> {
         let mut functions_flattened = Vec::new();
 
         self.load_corelib(&mut functions_flattened);
 
-        for func in prog.imported_functions {
-            functions_flattened.push(func);
-        }
-
-        for func in prog.functions {
-            let flattened_func = self.flatten_function(&mut functions_flattened, func);
-            functions_flattened.push(flattened_func);
+        for symbol in prog.functions {
+            match symbol {
+                FunctionSymbol::Here(func) => {
+                    let flattened_func =
+                        self.flatten_function(&mut functions_flattened, func.as_ref().clone());
+                    functions_flattened.push(flattened_func);
+                }
+                _ => unimplemented!(),
+            }
         }
 
         FlatProg {
@@ -1468,11 +1471,24 @@ mod tests {
                 .inputs(vec![])
                 .outputs(vec![Type::FieldElement]),
         }];
+
+        let foo = TypedFunction {
+            id: "foo".to_string(),
+            signature: Signature::new()
+                .inputs(vec![])
+                .outputs(vec![Type::FieldElement]),
+            statements: vec![TypedStatement::Return(vec![
+                FieldElementExpression::Number(FieldPrime::from(1)).into(),
+            ])],
+            arguments: vec![],
+        };
+
         let mut statements_flattened = vec![];
         let statement = TypedStatement::Definition(
             TypedAssignee::Identifier(Variable::field_element("a")),
             TypedExpression::FieldElement(FieldElementExpression::FunctionCall(
                 "foo".to_string(),
+                FunctionSymbol::Here(Rc::new(foo)),
                 vec![],
             )),
         );
@@ -1577,7 +1593,12 @@ mod tests {
             id: String::from("main"),
             arguments: vec![],
             statements: vec![TypedStatement::Return(vec![
-                FieldElementExpression::FunctionCall(String::from("foo"), vec![]).into(),
+                FieldElementExpression::FunctionCall(
+                    String::from("foo"),
+                    FunctionSymbol::Here(foo),
+                    vec![],
+                )
+                .into(),
             ])],
             signature: Signature {
                 inputs: vec![],
@@ -1692,87 +1713,93 @@ mod tests {
         assert_eq!(flattened, expected);
     }
 
-    #[test]
-    fn overload() {
-        // def foo()
-        //      return 1
-        // def foo()
-        //      return 1, 2
-        // def main()
-        //      a = foo()
-        //      b, c = foo()
-        //      return 1
-        //
-        //      should not panic
-        //
+    // #[test] // outdated: candidate selection is part of semantics now
+    // fn overload() {
+    //     // def foo()
+    //     //      return 1
+    //     // def foo()
+    //     //      return 1, 2
+    //     // def main()
+    //     //      a = foo()
+    //     //      b, c = foo()
+    //     //      return 1
+    //     //
+    //     //      should not panic
+    //     //
 
-        let mut flattener = Flattener::new();
-        let functions = vec![
-            TypedFunction {
-                id: "foo".to_string(),
-                arguments: vec![],
-                statements: vec![TypedStatement::Return(vec![TypedExpression::FieldElement(
-                    FieldElementExpression::Number(FieldPrime::from(1)),
-                )])],
-                signature: Signature::new()
-                    .inputs(vec![])
-                    .outputs(vec![Type::FieldElement]),
-            },
-            TypedFunction {
-                id: "foo".to_string(),
-                arguments: vec![],
-                statements: vec![TypedStatement::Return(vec![
-                    TypedExpression::FieldElement(FieldElementExpression::Number(
-                        FieldPrime::from(1),
-                    )),
-                    TypedExpression::FieldElement(FieldElementExpression::Number(
-                        FieldPrime::from(2),
-                    )),
-                ])],
-                signature: Signature::new()
-                    .inputs(vec![])
-                    .outputs(vec![Type::FieldElement, Type::FieldElement]),
-            },
-            TypedFunction {
-                id: "main".to_string(),
-                arguments: vec![],
-                statements: vec![
-                    TypedStatement::Definition(
-                        TypedAssignee::Identifier(Variable::field_element("a")),
-                        TypedExpression::FieldElement(FieldElementExpression::FunctionCall(
-                            "foo".to_string(),
-                            vec![],
-                        )),
-                    ),
-                    TypedStatement::MultipleDefinition(
-                        vec![
-                            Variable::field_element("b".to_string()),
-                            Variable::field_element("c".to_string()),
-                        ],
-                        TypedExpressionList::FunctionCall(
-                            "foo".to_string(),
-                            vec![],
-                            vec![Type::FieldElement, Type::FieldElement],
-                        ),
-                    ),
-                    TypedStatement::Return(vec![TypedExpression::FieldElement(
-                        FieldElementExpression::Number(FieldPrime::from(1)),
-                    )]),
-                ],
-                signature: Signature::new()
-                    .inputs(vec![])
-                    .outputs(vec![Type::FieldElement]),
-            },
-        ];
+    //     let mut flattener = Flattener::new();
 
-        flattener.flatten_program(TypedProg {
-            functions: functions,
-            imported_functions: vec![],
-            imports: vec![],
-        });
+    //     let foo_0 = TypedFunction {
+    //             id: "foo".to_string(),
+    //             arguments: vec![],
+    //             statements: vec![TypedStatement::Return(vec![TypedExpression::FieldElement(
+    //                 FieldElementExpression::Number(FieldPrime::from(1)),
+    //             )])],
+    //             signature: Signature::new()
+    //                 .inputs(vec![])
+    //                 .outputs(vec![Type::FieldElement]),
+    //         };
 
-        // shouldn't panic
-    }
+    //     let foo_1 = TypedFunction {
+    //             id: "foo".to_string(),
+    //             arguments: vec![],
+    //             statements: vec![TypedStatement::Return(vec![
+    //                 TypedExpression::FieldElement(FieldElementExpression::Number(
+    //                     FieldPrime::from(1),
+    //                 )),
+    //                 TypedExpression::FieldElement(FieldElementExpression::Number(
+    //                     FieldPrime::from(2),
+    //                 )),
+    //             ])],
+    //             signature: Signature::new()
+    //                 .inputs(vec![])
+    //                 .outputs(vec![Type::FieldElement, Type::FieldElement]),
+    //         };
+
+    //     let main = TypedFunction {
+    //             id: "main".to_string(),
+    //             arguments: vec![],
+    //             statements: vec![
+    //                 TypedStatement::Definition(
+    //                     TypedAssignee::Identifier(Variable::field_element("a")),
+    //                     TypedExpression::FieldElement(FieldElementExpression::FunctionCall(
+    //                         "foo".to_string(),
+    //                         vec![],
+    //                     )),
+    //                 ),
+    //                 TypedStatement::MultipleDefinition(
+    //                     vec![
+    //                         Variable::field_element("b".to_string()),
+    //                         Variable::field_element("c".to_string()),
+    //                     ],
+    //                     TypedExpressionList::FunctionCall(
+    //                         "foo".to_string(),
+    //                         vec![],
+    //                         vec![Type::FieldElement, Type::FieldElement],
+    //                     ),
+    //                 ),
+    //                 TypedStatement::Return(vec![TypedExpression::FieldElement(
+    //                     FieldElementExpression::Number(FieldPrime::from(1)),
+    //                 )]),
+    //             ],
+    //             signature: Signature::new()
+    //                 .inputs(vec![])
+    //                 .outputs(vec![Type::FieldElement]),
+    //         };
+
+    //     let functions = vec![
+    //         FunctionSymbol::Here(foo_0),
+    //         FunctionSymbol::Here(foo_1),
+    //         FunctionSymbol::Here(main),
+    //     ];
+
+    //     flattener.flatten_program(TypedModule {
+    //         functions: functions,
+    //         imports: vec![],
+    //     });
+
+    //     // shouldn't panic
+    // }
 
     #[test]
     fn if_else() {

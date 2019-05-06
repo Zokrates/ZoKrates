@@ -39,7 +39,7 @@ impl Unroller {
         res
     }
 
-    pub fn unroll<T: Field>(p: TypedProg<T>) -> TypedProg<T> {
+    pub fn unroll<T: Field>(p: TypedModule<T>) -> TypedModule<T> {
         Unroller::new().fold_program(p)
     }
 }

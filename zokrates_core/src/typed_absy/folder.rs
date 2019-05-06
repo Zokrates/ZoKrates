@@ -4,8 +4,12 @@ use crate::typed_absy::*;
 use zokrates_field::field::Field;
 
 pub trait Folder<T: Field>: Sized {
-    fn fold_program(&mut self, p: TypedProg<T>) -> TypedProg<T> {
+    fn fold_program(&mut self, p: TypedModule<T>) -> TypedModule<T> {
         fold_program(self, p)
+    }
+
+    fn fold_function_symbol(&mut self, s: FunctionSymbol<T>) -> FunctionSymbol<T> {
+        fold_function_symbol(self, s)
     }
 
     fn fold_function(&mut self, f: TypedFunction<T>) -> TypedFunction<T> {
@@ -81,14 +85,24 @@ pub trait Folder<T: Field>: Sized {
     }
 }
 
-pub fn fold_program<T: Field, F: Folder<T>>(f: &mut F, p: TypedProg<T>) -> TypedProg<T> {
-    TypedProg {
+pub fn fold_program<T: Field, F: Folder<T>>(f: &mut F, p: TypedModule<T>) -> TypedModule<T> {
+    TypedModule {
         functions: p
             .functions
             .into_iter()
-            .map(|fun| f.fold_function(fun))
+            .map(|s| f.fold_function_symbol(s))
             .collect(),
         ..p
+    }
+}
+
+pub fn fold_function_symbol<T: Field, F: Folder<T>>(
+    f: &mut F,
+    s: FunctionSymbol<T>,
+) -> FunctionSymbol<T> {
+    match s {
+        FunctionSymbol::Here(fun) => FunctionSymbol::Here(f.fold_function(fun)),
+        FunctionSymbol::There(..) => unimplemented!(),
     }
 }
 

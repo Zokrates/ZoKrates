@@ -59,5 +59,6 @@ pub fn parse_module<T: Field, R: BufRead>(reader: &mut R) -> Result<Module<T>, E
         functions,
         imports,
         imported_functions: vec![],
+        symbols: vec![],
     })
 }

@@ -9,10 +9,13 @@ use crate::compile::compile_aux;
 use crate::compile::{CompileErrorInner, CompileErrors};
 use crate::flat_absy::*;
 use crate::parser::Position;
+use parser::parse_module;
 use std::fmt;
 use std::io;
 use std::io::BufRead;
 use zokrates_field::field::Field;
+
+use std::rc::Rc;
 
 pub struct CompiledImport<T: Field> {
     pub flat_func: FlatFunction<T>,
@@ -70,7 +73,7 @@ impl From<io::Error> for Error {
     }
 }
 
-#[derive(PartialEq, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Clone, Serialize, Deserialize, Hash)]
 pub struct Import {
     source: String,
     alias: Option<String>,
@@ -134,6 +137,7 @@ impl Importer {
         resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
     ) -> Result<Module<T>, CompileErrors<T>> {
         let mut origins: Vec<CompiledImport<T>> = vec![];
+        let mut non_compiled: Vec<(String, Symbol<T>)> = vec![];
 
         for import in destination.imports.iter() {
             let pos = import.pos();
@@ -190,13 +194,25 @@ impl Importer {
                 match resolve_option {
                     Some(resolve) => match resolve(&location, &import.source) {
                         Ok((mut reader, location, auto_alias)) => {
-                            let compiled = compile_aux(&mut reader, Some(location), resolve_option)
-                                .map_err(|e| e.with_context(Some(import.source.clone())))?;
                             let alias = match import.alias {
                                 Some(ref alias) => alias.clone(),
                                 None => auto_alias,
                             };
-                            origins.push(CompiledImport::new(compiled, alias));
+
+                            let parsed = parse_module(&mut reader).unwrap();
+
+                            non_compiled.push((
+                                alias.clone(),
+                                Symbol::Function(FunctionSymbol::There(
+                                    String::from("main"),
+                                    Rc::new(parsed),
+                                )),
+                            ));
+
+                            // let compiled = compile_aux(&mut reader, Some(location), resolve_option)
+                            //     .map_err(|e| e.with_context(Some(import.source.clone())))?;
+
+                            // origins.push(CompiledImport::new(compiled, alias));
                         }
                         Err(err) => {
                             return Err(CompileErrorInner::ImportError(
@@ -221,6 +237,7 @@ impl Importer {
             imports: vec![],
             functions: destination.clone().functions,
             imported_functions: origins.into_iter().map(|o| o.flat_func).collect(),
+            symbols: non_compiled,
         })
     }
 }

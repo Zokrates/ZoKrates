@@ -17,15 +17,17 @@ use self::power_check::PowerChecker;
 use self::propagation::Propagator;
 use self::unroll::Unroller;
 use crate::flat_absy::FlatProg;
-use crate::typed_absy::TypedProg;
+use crate::typed_absy::TypedModule;
 use zokrates_field::field::Field;
 
 pub trait Analyse {
     fn analyse(self) -> Self;
 }
 
-impl<T: Field> Analyse for TypedProg<T> {
+impl<T: Field> Analyse for TypedModule<T> {
     fn analyse(self) -> Self {
+        println!("HERE WE GO...\n {:#?}", self);
+
         let r = PowerChecker::check(self);
         // unroll
         let r = Unroller::unroll(r);

@@ -2,7 +2,7 @@ use crate::absy;
 use crate::typed_absy::Variable;
 use std::fmt;
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, Hash)]
 pub struct Parameter {
     pub id: Variable,
     pub private: bool,

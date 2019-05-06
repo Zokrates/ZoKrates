@@ -12,6 +12,7 @@ mod variable;
 pub use crate::typed_absy::parameter::Parameter;
 pub use crate::typed_absy::variable::Variable;
 use crate::types::Signature;
+use std::rc::Rc;
 
 use crate::flat_absy::*;
 use crate::imports::Import;
@@ -21,15 +22,25 @@ use zokrates_field::field::Field;
 
 pub use self::folder::Folder;
 
-#[derive(Clone, PartialEq)]
-pub struct TypedProg<T: Field> {
-    /// Functions of the program
-    pub functions: Vec<TypedFunction<T>>,
-    pub imports: Vec<Import>,
-    pub imported_functions: Vec<FlatFunction<T>>,
+#[derive(Debug, Clone, PartialEq)]
+pub enum Symbol<T: Field> {
+    Function(FunctionSymbol<T>),
 }
 
-impl<T: Field> fmt::Display for TypedProg<T> {
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum FunctionSymbol<T: Field> {
+    Here(Rc<TypedFunction<T>>),
+    There(String, Rc<TypedModule<T>>),
+}
+
+#[derive(Clone, PartialEq, Hash)]
+pub struct TypedModule<T: Field> {
+    /// Functions of the program
+    pub functions: Vec<FunctionSymbol<T>>,
+    pub imports: Vec<Import>,
+}
+
+impl<T: Field> fmt::Display for TypedModule<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut res = vec![];
         res.extend(
@@ -39,34 +50,23 @@ impl<T: Field> fmt::Display for TypedProg<T> {
                 .collect::<Vec<_>>(),
         );
         res.extend(
-            self.imported_functions
-                .iter()
-                .map(|x| format!("{}", x))
-                .collect::<Vec<_>>(),
-        );
-        res.extend(
             self.functions
                 .iter()
-                .map(|x| format!("{}", x))
+                .map(|x| format!("{:?}", x))
                 .collect::<Vec<_>>(),
         );
         write!(f, "{}", res.join("\n"))
     }
 }
 
-impl<T: Field> fmt::Debug for TypedProg<T> {
+impl<T: Field> fmt::Debug for TypedModule<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "program(\n\timports:\n\t\t{}\n\tfunctions:\n\t\t{}{}\n)",
+            "program(\n\timports:\n\t\t{}\n\tfunctions:\n\t\t{}\n)",
             self.imports
                 .iter()
                 .map(|x| format!("{:?}", x))
-                .collect::<Vec<_>>()
-                .join("\n\t\t"),
-            self.imported_functions
-                .iter()
-                .map(|x| format!("{}", x))
                 .collect::<Vec<_>>()
                 .join("\n\t\t"),
             self.functions
@@ -78,7 +78,7 @@ impl<T: Field> fmt::Debug for TypedProg<T> {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Hash)]
 pub struct TypedFunction<T: Field> {
     /// Name of the program
     pub id: String,
@@ -168,7 +168,7 @@ impl<T: Field> fmt::Display for TypedAssignee<T> {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Hash)]
 pub enum TypedStatement<T: Field> {
     Return(Vec<TypedExpression<T>>),
     Definition(TypedAssignee<T>, TypedExpression<T>),
@@ -322,7 +322,7 @@ pub trait MultiTyped {
     fn get_types(&self) -> &Vec<Type>;
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Hash)]
 pub enum TypedExpressionList<T: Field> {
     FunctionCall(String, Vec<TypedExpression<T>>, Vec<Type>),
 }
@@ -364,7 +364,7 @@ pub enum FieldElementExpression<T: Field> {
         Box<FieldElementExpression<T>>,
         Box<FieldElementExpression<T>>,
     ),
-    FunctionCall(String, Vec<TypedExpression<T>>),
+    FunctionCall(String, FunctionSymbol<T>, Vec<TypedExpression<T>>),
     Select(
         Box<FieldElementArrayExpression<T>>,
         Box<FieldElementExpression<T>>,
@@ -441,7 +441,7 @@ impl<T: Field> fmt::Display for FieldElementExpression<T> {
                     condition, consequent, alternative
                 )
             }
-            FieldElementExpression::FunctionCall(ref i, ref p) => {
+            FieldElementExpression::FunctionCall(ref i, _, ref p) => {
                 r#try!(write!(f, "{}(", i,));
                 for (i, param) in p.iter().enumerate() {
                     r#try!(write!(f, "{}", param));

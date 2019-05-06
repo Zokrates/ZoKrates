@@ -16,21 +16,24 @@ impl DeadCode {
         }
     }
 
-    pub fn clean<T: Field>(p: TypedProg<T>) -> TypedProg<T> {
+    pub fn clean<T: Field>(p: TypedModule<T>) -> TypedModule<T> {
         DeadCode::new().fold_program(p)
     }
 }
 
 impl<T: Field> Folder<T> for DeadCode {
-    fn fold_program(&mut self, p: TypedProg<T>) -> TypedProg<T> {
+    fn fold_program(&mut self, p: TypedModule<T>) -> TypedModule<T> {
         let p = fold_program(self, p);
         // only keep functions which are being called, or `main`
 
-        TypedProg {
+        TypedModule {
             functions: p
                 .functions
                 .into_iter()
-                .filter(|f| f.id == "main" || self.called.contains(&f.to_slug()))
+                .filter(|s| match s {
+                    FunctionSymbol::Here(f) => f.id == "main" || self.called.contains(&f.to_slug()),
+                    _ => false,
+                })
                 .collect(),
             ..p
         }
