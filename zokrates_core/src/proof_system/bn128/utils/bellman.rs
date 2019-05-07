@@ -6,7 +6,7 @@ use bellman::groth16::{
     Parameters,
 };
 use bellman::{Circuit, ConstraintSystem, LinearCombination, SynthesisError, Variable};
-use ir::{LinComb, Prog, Statement, Witness};
+use ir::{CanonicalLinComb, Prog, Statement, Witness};
 use pairing::bn256::{Bn256, Fr};
 use std::collections::BTreeMap;
 use zokrates_field::field::{Field, FieldPrime};
@@ -37,7 +37,7 @@ impl<T: Field> Computation<T> {
 }
 
 fn bellman_combination<CS: ConstraintSystem<Bn256>>(
-    l: LinComb<FieldPrime>,
+    l: CanonicalLinComb<FieldPrime>,
     cs: &mut CS,
     symbols: &mut BTreeMap<FlatVariable, Variable>,
     witness: &mut Witness<FieldPrime>,
@@ -131,10 +131,20 @@ impl Prog<FieldPrime> {
         for statement in main.statements {
             match statement {
                 Statement::Constraint(quad, lin) => {
-                    let a = &bellman_combination(quad.left.clone(), cs, &mut symbols, &mut witness);
-                    let b =
-                        &bellman_combination(quad.right.clone(), cs, &mut symbols, &mut witness);
-                    let c = &bellman_combination(lin, cs, &mut symbols, &mut witness);
+                    let a = &bellman_combination(
+                        quad.left.clone().as_canonical(),
+                        cs,
+                        &mut symbols,
+                        &mut witness,
+                    );
+                    let b = &bellman_combination(
+                        quad.right.clone().as_canonical(),
+                        cs,
+                        &mut symbols,
+                        &mut witness,
+                    );
+                    let c =
+                        &bellman_combination(lin.as_canonical(), cs, &mut symbols, &mut witness);
 
                     cs.enforce(|| "Constraint", |lc| lc + a, |lc| lc + b, |lc| lc + c);
                 }
@@ -192,7 +202,7 @@ impl Circuit<Bn256> for Computation<FieldPrime> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ir::Function;
+    use ir::{Function, LinComb};
     use zokrates_field::field::FieldPrime;
 
     mod prove {

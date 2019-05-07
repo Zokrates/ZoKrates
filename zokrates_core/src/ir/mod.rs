@@ -10,8 +10,8 @@ mod from_flat;
 mod interpreter;
 mod witness;
 
-pub use self::expression::LinComb;
 use self::expression::QuadComb;
+pub use self::expression::{CanonicalLinComb, LinComb};
 
 pub use self::interpreter::{Error, ExecutionResult};
 pub use self::witness::Witness;

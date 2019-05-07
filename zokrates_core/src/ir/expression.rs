@@ -63,7 +63,7 @@ impl<T: Field> PartialEq for LinComb<T> {
 }
 
 #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Debug, Serialize, Deserialize)]
-pub struct CanonicalLinComb<T: Field>(BTreeMap<FlatVariable, T>);
+pub struct CanonicalLinComb<T: Field>(pub BTreeMap<FlatVariable, T>);
 
 impl<T: Field> LinComb<T> {
     pub fn summand<U: Into<T>>(mult: U, var: FlatVariable) -> LinComb<T> {
@@ -84,7 +84,7 @@ impl<T: Field> LinComb<T> {
         None
     }
 
-    fn as_canonical(&self) -> CanonicalLinComb<T> {
+    pub fn as_canonical(&self) -> CanonicalLinComb<T> {
         CanonicalLinComb(self.0.clone().into_iter().fold(
             BTreeMap::new(),
             |mut acc, (val, coeff)| {
