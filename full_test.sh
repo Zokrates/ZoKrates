@@ -4,7 +4,7 @@
 set -e
 
 if [ -n "$WITH_LIBSNARK" ]; then
-	cargo test --release -- --ignored
+	cargo -Z package-features test --release --package zokrates_cli --features="libsnark" -- --ignored
 else
-	cargo -Z package-features test --release --no-default-features -- --ignored
+	cargo test --release -- --ignored
 fi

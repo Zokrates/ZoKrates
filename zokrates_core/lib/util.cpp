@@ -19,6 +19,7 @@ libff::bigint<libff::alt_bn128_r_limbs> libsnarkBigintFromBytes(const uint8_t* _
       x.data[3 - i] |= uint64_t(_x[i * 8 + j]) << (8 * (7-j));
     }
   }
+  
   return x;
 }
 
@@ -34,8 +35,7 @@ std::string HexStringFromLibsnarkBigint(libff::bigint<libff::alt_bn128_r_limbs> 
             ss << std::hex << std::setw(2) << (int)x[i];
     }
 
-    std::string str = ss.str();
-    return str.erase(0, min(str.find_first_not_of('0'), str.size()-1));
+    return ss.str();
 }
 
 std::string outputPointG1AffineAsHex(libff::alt_bn128_G1 _p)

@@ -3,15 +3,15 @@
 //! @file compile.rs
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
-use absy::Prog;
-use flat_absy::FlatProg;
-use flatten::Flattener;
-use imports::{self, Importer};
-use ir;
-use optimizer::Optimizer;
-use parser::{self, parse_program};
-use semantics::{self, Checker};
-use static_analysis::Analyse;
+use crate::absy::Prog;
+use crate::flat_absy::FlatProg;
+use crate::flatten::Flattener;
+use crate::imports::{self, Importer};
+use crate::ir;
+use crate::optimizer::Optimize;
+use crate::parser::{self, parse_program};
+use crate::semantics::{self, Checker};
+use crate::static_analysis::Analyse;
 use std::fmt;
 use std::io;
 use std::io::BufRead;
@@ -129,7 +129,7 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
 ) -> Result<ir::Prog<T>, CompileErrors<T>> {
     let compiled = compile_aux(reader, location, resolve_option)?;
-    Ok(ir::Prog::from(Optimizer::new().optimize_program(compiled)))
+    Ok(ir::Prog::from(compiled).optimize())
 }
 
 pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
@@ -162,7 +162,7 @@ pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     let typed_ast = typed_ast.analyse();
 
     // flatten input program
-    let program_flattened = Flattener::new(T::get_required_bits()).flatten_program(typed_ast);
+    let program_flattened = Flattener::flatten(typed_ast);
 
     // analyse (constant propagation after call resolution)
     let program_flattened = program_flattened.analyse();

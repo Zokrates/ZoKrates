@@ -6,10 +6,12 @@
 out
 out.code
 out.wit
+proof.json
 proving.key
 variables.inf
 verification.key
 verifier.sol
+proof.json
 witness
 
 # Remove Cargo.lock from gitignore if creating an executable, leave it for libraries

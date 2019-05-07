@@ -7,7 +7,10 @@
 use lazy_static::lazy_static;
 use num_bigint::{BigInt, BigUint, Sign, ToBigInt};
 use num_integer::Integer;
-use num_traits::{Num, One, Zero};
+use num_traits::{One, Zero};
+use pairing::bn256::Bn256;
+use pairing::ff::ScalarEngine;
+use pairing::Engine;
 use serde_derive::{Deserialize, Serialize};
 use std::convert::From;
 use std::fmt;
@@ -53,14 +56,28 @@ pub trait Field:
     + Pow<Self, Output = Self>
     + for<'a> Pow<&'a Self, Output = Self>
 {
+    /// An associated type to be able to operate with Bellman ff traits
+    type BellmanEngine: Engine;
+
+    fn from_bellman(e: <Self::BellmanEngine as ScalarEngine>::Fr) -> Self {
+        use ff::{PrimeField, PrimeFieldRepr};
+        let mut res: Vec<u8> = vec![];
+        e.into_repr().write_le(&mut res).unwrap();
+        Self::from_byte_vector(res)
+    }
+
+    fn into_bellman(self) -> <Self::BellmanEngine as ScalarEngine>::Fr {
+        use ff::PrimeField;
+        let s = self.to_dec_string();
+        <Self::BellmanEngine as ScalarEngine>::Fr::from_str(&s).unwrap()
+    }
+
     /// Returns this `Field`'s contents as little-endian byte vector
     fn into_byte_vector(&self) -> Vec<u8>;
     /// Returns an element of this `Field` from a little-endian byte vector
     fn from_byte_vector(_: Vec<u8>) -> Self;
     /// Returns this `Field`'s contents as decimal string
     fn to_dec_string(&self) -> String;
-    /// Returns an element of this `Field` from a decimal string
-    fn from_dec_string(val: String) -> Self;
     /// Returns the multiplicative inverse, i.e.: self * self.inverse_mul() = Self::one()
     fn inverse_mul(&self) -> Self;
     /// Returns the smallest value that can be represented by this field type.
@@ -70,7 +87,7 @@ pub trait Field:
     /// Returns the number of required bits to represent this field type.
     fn get_required_bits() -> usize;
     /// Tries to parse a string into this representation
-    fn try_from_str<'a>(s: &'a str) -> Result<Self, ()>;
+    fn try_from_dec_str<'a>(s: &'a str) -> Result<Self, ()>;
     /// Returns a decimal string representing a the member of the equivalence class of this `Field` in Z/pZ
     /// which lies in [-(p-1)/2, (p-1)/2]
     fn to_compact_dec_string(&self) -> String;
@@ -82,6 +99,8 @@ pub struct FieldPrime {
 }
 
 impl Field for FieldPrime {
+    type BellmanEngine = Bn256;
+
     fn into_byte_vector(&self) -> Vec<u8> {
         match self.value.to_biguint() {
             Option::Some(val) => val.to_bytes_le(),
@@ -98,12 +117,6 @@ impl Field for FieldPrime {
 
     fn to_dec_string(&self) -> String {
         self.value.to_str_radix(10)
-    }
-
-    fn from_dec_string(val: String) -> Self {
-        FieldPrime {
-            value: BigInt::from_str_radix(val.as_str(), 10).unwrap(),
-        }
     }
 
     fn inverse_mul(&self) -> FieldPrime {
@@ -126,7 +139,7 @@ impl Field for FieldPrime {
     fn get_required_bits() -> usize {
         (*P).bits()
     }
-    fn try_from_str<'a>(s: &'a str) -> Result<Self, ()> {
+    fn try_from_dec_str<'a>(s: &'a str) -> Result<Self, ()> {
         let x = BigInt::parse_bytes(s.as_bytes(), 10).ok_or(())?;
         Ok(FieldPrime {
             value: &x - x.div_floor(&*P) * &*P,
@@ -364,7 +377,7 @@ mod tests {
 
     impl<'a> From<&'a str> for FieldPrime {
         fn from(s: &'a str) -> FieldPrime {
-            FieldPrime::try_from_str(s).unwrap()
+            FieldPrime::try_from_dec_str(s).unwrap()
         }
     }
 
@@ -624,7 +637,7 @@ mod tests {
         fn dec_string_ser_deser() {
             let fp = FieldPrime::from("101");
             let bv = fp.to_dec_string();
-            assert_eq!(fp, FieldPrime::from_dec_string(bv));
+            assert_eq!(fp, FieldPrime::try_from_dec_str(&bv).unwrap());
         }
 
         #[test]
@@ -716,4 +729,74 @@ mod tests {
             s_field
         );
     }
+
+    mod bellman {
+        use super::*;
+
+        use ff::Field as FField;
+
+        extern crate rand;
+        use pairing::bn256::Fr;
+        use rand::{thread_rng, Rng};
+        use Field;
+
+        #[test]
+        fn fr_to_field_to_fr() {
+            let rng = &mut thread_rng();
+            for _ in 0..1000 {
+                let a: Fr = rng.gen();
+                assert_eq!(FieldPrime::from_bellman(a).into_bellman(), a);
+            }
+        }
+
+        #[test]
+        fn field_to_fr_to_field() {
+            // use Fr to get a random element
+            let rng = &mut thread_rng();
+            for _ in 0..1000 {
+                let a: Fr = rng.gen();
+                // now test idempotence
+                let a = FieldPrime::from_bellman(a);
+                assert_eq!(FieldPrime::from_bellman(a.clone().into_bellman()), a);
+            }
+        }
+
+        #[test]
+        fn one() {
+            let a = FieldPrime::from(1);
+
+            assert_eq!(a.into_bellman(), Fr::one());
+        }
+
+        #[test]
+        fn zero() {
+            let a = FieldPrime::from(0);
+
+            assert_eq!(a.into_bellman(), Fr::zero());
+        }
+
+        #[test]
+        fn minus_one() {
+            let mut a: Fr = Fr::one();
+            a.negate();
+            assert_eq!(FieldPrime::from_bellman(a), FieldPrime::from(-1));
+        }
+
+        #[test]
+        fn add() {
+            let rng = &mut thread_rng();
+
+            let mut a: Fr = rng.gen();
+            let b: Fr = rng.gen();
+
+            let aa = FieldPrime::from_bellman(a);
+            let bb = FieldPrime::from_bellman(b);
+            let cc = aa + bb;
+
+            a.add_assign(&b);
+
+            assert_eq!(FieldPrime::from_bellman(a), cc);
+        }
+    }
+
 }

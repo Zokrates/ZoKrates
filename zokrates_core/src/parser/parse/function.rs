@@ -3,15 +3,15 @@ use zokrates_field::field::Field;
 use std::io::prelude::*;
 use std::io::Lines;
 
-use parser::tokenize::{next_token, Position, Token};
-use parser::Error;
+use crate::parser::tokenize::{next_token, Position, Token};
+use crate::parser::Error;
 
 use super::statement::parse_statement;
 
-use absy::{
+use crate::absy::{
     Function, FunctionNode, Node, Parameter, ParameterNode, Statement, Variable, VariableNode,
 };
-use types::{Signature, Type};
+use crate::types::{Signature, Type};
 
 fn parse_function_identifier<T: Field>(
     input: &String,

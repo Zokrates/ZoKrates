@@ -1,6 +1,6 @@
 use super::position::Position;
 use super::token::Token;
-use types::Type;
+use crate::types::Type;
 use zokrates_field::field::Field;
 
 pub fn parse_num<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Position) {
@@ -16,7 +16,7 @@ pub fn parse_num<T: Field>(input: &String, pos: &Position) -> (Token<T>, String,
     }
     assert!(end > 0);
     (
-        Token::Num(T::try_from_str(&input[0..end]).unwrap()),
+        Token::Num(T::try_from_dec_str(&input[0..end]).unwrap()),
         input[end..].to_string(),
         Position {
             line: pos.line,

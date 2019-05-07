@@ -1,8 +1,8 @@
+use crate::typed_absy::folder::*;
+use crate::typed_absy::Folder;
+use crate::typed_absy::*;
+use crate::types::{Signature, Type};
 use std::collections::HashSet;
-use typed_absy::folder::*;
-use typed_absy::Folder;
-use typed_absy::*;
-use types::{Signature, Type};
 use zokrates_field::field::Field;
 
 pub struct DeadCode {

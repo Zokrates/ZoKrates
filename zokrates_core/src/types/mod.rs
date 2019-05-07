@@ -1,5 +1,5 @@
+pub use crate::types::signature::Signature;
 use std::fmt;
-pub use types::signature::Signature;
 
 pub mod conversions;
 mod signature;
