@@ -1,15 +1,15 @@
+use crate::ir;
+use crate::proof_system::bn128::utils::bellman::Computation;
+use crate::proof_system::bn128::utils::solidity::{SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB};
+use crate::proof_system::ProofSystem;
 use bellman::groth16::Parameters;
-use ir;
-use proof_system::bn128::utils::bellman::Computation;
-use proof_system::bn128::utils::solidity::{SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB};
-use proof_system::ProofSystem;
 use regex::Regex;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use zokrates_field::field::FieldPrime;
 
-const G16_WARNING: &str = "WARNING: You are using the Groth16 scheme which is subject to malleability. See zokrates.github.io/reference/schemes.html#groth16-malleability for implications.";
+const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/reference/proving_schemes.html#g16-malleability for implications.";
 
 pub struct G16 {}
 impl ProofSystem for G16 {
@@ -273,9 +273,9 @@ mod tests {
 
         mod proof {
             use super::*;
-            use flat_absy::FlatVariable;
-            use ir::*;
-            use proof_system::bn128::g16::serialize::serialize_proof;
+            use crate::flat_absy::FlatVariable;
+            use crate::ir::*;
+            use crate::proof_system::bn128::g16::serialize::serialize_proof;
 
             #[allow(dead_code)]
             #[derive(Deserialize)]

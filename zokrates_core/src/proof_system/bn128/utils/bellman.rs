@@ -1,18 +1,18 @@
 extern crate rand;
 
+use crate::ir::{CanonicalLinComb, Prog, Statement, Witness};
 use bellman::groth16::Proof;
 use bellman::groth16::{
     create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof,
     Parameters,
 };
 use bellman::{Circuit, ConstraintSystem, LinearCombination, SynthesisError, Variable};
-use ir::{CanonicalLinComb, Prog, Statement, Witness};
 use pairing::bn256::{Bn256, Fr};
 use std::collections::BTreeMap;
 use zokrates_field::field::{Field, FieldPrime};
 
 use self::rand::*;
-use flat_absy::FlatVariable;
+use crate::flat_absy::FlatVariable;
 
 #[derive(Clone)]
 pub struct Computation<T: Field> {
@@ -202,7 +202,7 @@ impl Circuit<Bn256> for Computation<FieldPrime> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ir::{Function, LinComb};
+    use crate::ir::{Function, LinComb};
     use zokrates_field::field::FieldPrime;
 
     mod prove {

@@ -1,4 +1,4 @@
-use flat_absy::FlatVariable;
+use crate::flat_absy::FlatVariable;
 use num::Zero;
 use std::collections::btree_map::{BTreeMap, Entry};
 use std::fmt;
@@ -20,13 +20,13 @@ impl<T: Field> QuadComb<T> {
         // identify (k * ~ONE) * (lincomb) and return (k * lincomb)
 
         match self.left.try_summand() {
-            Some((variable, coefficient)) if *variable == FlatVariable::one() => {
+            Some((ref variable, ref coefficient)) if *variable == FlatVariable::one() => {
                 return Some(self.right.clone() * &coefficient);
             }
             _ => {}
         }
         match self.right.try_summand() {
-            Some((variable, coefficient)) if *variable == FlatVariable::one() => {
+            Some((ref variable, ref coefficient)) if *variable == FlatVariable::one() => {
                 return Some(self.left.clone() * &coefficient);
             }
             _ => {}
@@ -76,12 +76,33 @@ impl<T: Field> LinComb<T> {
         Self::summand(1, FlatVariable::one())
     }
 
-    pub fn try_summand(&self) -> Option<&(FlatVariable, T)> {
-        if self.0.len() == 1 {
-            return self.0.first();
-        }
+    pub fn try_summand(&self) -> Option<(FlatVariable, T)> {
+        match self.0.len() {
+            // if the lincomb is empty, it is not reduceable to a summand
+            0 => None,
+            _ => {
+                // take the first variable in the lincomb
+                let first = &self.0[0].0;
 
-        None
+                self.0
+                    .iter()
+                    .map(|element| {
+                        // all terms must contain the same variable
+                        if element.0 == *first {
+                            // if they do, return the coefficient
+                            Ok(&element.1)
+                        } else {
+                            // otherwise, stop
+                            Err(())
+                        }
+                    })
+                    // collect to a Result to short circuit when we hit an error
+                    .collect::<Result<_, _>>()
+                    // we didn't hit an error, do final processing. It's fine to clone here.
+                    .map(|v: Vec<_>| (first.clone(), v.iter().fold(T::zero(), |acc, e| acc + *e)))
+                    .ok()
+            }
+        }
     }
 
     pub fn as_canonical(&self) -> CanonicalLinComb<T> {
@@ -142,7 +163,9 @@ impl<T: Field> Add<LinComb<T>> for LinComb<T> {
     type Output = LinComb<T>;
 
     fn add(self, other: LinComb<T>) -> LinComb<T> {
-        LinComb(self.0.into_iter().chain(other.0.into_iter()).collect())
+        let mut res = self.0;
+        res.extend(other.0);
+        LinComb(res)
     }
 }
 
@@ -151,17 +174,9 @@ impl<T: Field> Sub<LinComb<T>> for LinComb<T> {
 
     fn sub(self, other: LinComb<T>) -> LinComb<T> {
         // Concatenate with second vector that have negative coeffs
-        LinComb(
-            self.0
-                .into_iter()
-                .chain(
-                    other
-                        .0
-                        .into_iter()
-                        .map(|(var, coeff)| (var, T::zero() - coeff)),
-                )
-                .collect(),
-        )
+        let mut res = self.0;
+        res.extend(other.0.into_iter().map(|(var, val)| (var, T::zero() - val)));
+        LinComb(res)
     }
 }
 
@@ -283,6 +298,33 @@ mod tests {
                 right: LinComb::summand(1, FlatVariable::new(21)),
             };
             assert_eq!(&a.to_string(), "(0) * (1 * _21)");
+        }
+    }
+
+    mod try {
+        use super::*;
+
+        #[test]
+        fn try_summand() {
+            let summand = LinComb(vec![
+                (FlatVariable::new(42), FieldPrime::from(1)),
+                (FlatVariable::new(42), FieldPrime::from(2)),
+                (FlatVariable::new(42), FieldPrime::from(3)),
+            ]);
+            assert_eq!(
+                summand.try_summand(),
+                Some((FlatVariable::new(42), FieldPrime::from(6)))
+            );
+
+            let not_summand = LinComb(vec![
+                (FlatVariable::new(41), FieldPrime::from(1)),
+                (FlatVariable::new(42), FieldPrime::from(2)),
+                (FlatVariable::new(42), FieldPrime::from(3)),
+            ]);
+            assert_eq!(not_summand.try_summand(), None);
+
+            let empty: LinComb<FieldPrime> = LinComb(vec![]);
+            assert_eq!(empty.try_summand(), None);
         }
     }
 }

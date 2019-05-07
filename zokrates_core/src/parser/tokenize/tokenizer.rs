@@ -1,6 +1,6 @@
 use super::position::Position;
 use super::token::Token;
-use types::Type;
+use crate::types::Type;
 use zokrates_field::field::Field;
 
 pub fn parse_num<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Position) {

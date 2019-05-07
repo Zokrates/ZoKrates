@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_cli"
-version = "0.4.4"
+version = "0.4.5"
 authors = ["Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>", "Dennis Kuhnert <mail@kyroy.com>", "Thibaut Schaeffer <thibaut@schaeff.fr>"]
 repository = "https://github.com/JacobEberhardt/ZoKrates.git"
 edition = "2018"
@@ -8,6 +8,7 @@ edition = "2018"
 [features]
 default = []
 libsnark = ["zokrates_core/libsnark"]
+wasm = ["zokrates_core/wasm"]
 
 [dependencies]
 clap = "2.26.2"

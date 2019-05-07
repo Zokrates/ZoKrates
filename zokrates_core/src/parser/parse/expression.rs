@@ -1,9 +1,9 @@
 use zokrates_field::field::Field;
 
-use parser::tokenize::{next_token, Position, Token};
-use parser::Error;
+use crate::parser::tokenize::{next_token, Position, Token};
+use crate::parser::Error;
 
-use absy::{Expression, ExpressionNode, Node};
+use crate::absy::{Expression, ExpressionNode, Node};
 
 fn parse_then_else<T: Field>(
     cond: ExpressionNode<T>,
@@ -912,7 +912,7 @@ mod tests {
 
     #[test]
     fn parse_boolean_operator_associativity() {
-        use absy::Expression::*;
+        use crate::absy::Expression::*;
         let pos = Position { line: 45, col: 121 };
         let string = String::from("2 == 3 || 4 == 5 && 6 == 7");
         let expr = Or::<FieldPrime>(
@@ -944,7 +944,7 @@ mod tests {
 
     #[test]
     fn parse_boolean_expr() {
-        use absy::Expression::*;
+        use crate::absy::Expression::*;
         let pos = Position { line: 45, col: 121 };
         let string = String::from("(a + 2 == 3) && (a * 2 + 3 == 2 || a < 3) || 1 < 2");
         let expr = Or::<FieldPrime>(

@@ -1,6 +1,6 @@
-use flat_absy::flat_parameter::FlatParameter;
-use flat_absy::FlatVariable;
-use helpers::Helper;
+use crate::flat_absy::flat_parameter::FlatParameter;
+use crate::flat_absy::FlatVariable;
+use crate::helpers::Helper;
 use std::fmt;
 use zokrates_field::field::Field;
 

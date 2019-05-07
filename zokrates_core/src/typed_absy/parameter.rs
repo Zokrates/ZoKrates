@@ -1,6 +1,6 @@
-use absy;
+use crate::absy;
+use crate::typed_absy::Variable;
 use std::fmt;
-use typed_absy::Variable;
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct Parameter {

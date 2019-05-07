@@ -2,13 +2,13 @@ use zokrates_field::field::Field;
 
 use std::io::prelude::*;
 
-use parser::error::Error;
-use parser::tokenize::{next_token, Position, Token};
+use crate::parser::error::Error;
+use crate::parser::tokenize::{next_token, Position, Token};
 
 use super::function::parse_function;
 use super::import::parse_import;
 
-use absy::Prog;
+use crate::absy::Prog;
 
 pub fn parse_program<T: Field, R: BufRead>(reader: &mut R) -> Result<Prog<T>, Error<T>> {
     let mut current_line = 1;

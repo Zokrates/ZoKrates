@@ -8,10 +8,10 @@
 // c := a
 // ```
 
-use flat_absy::flat_variable::FlatVariable;
-use ir::folder::{fold_function, Folder};
-use ir::LinComb;
-use ir::*;
+use crate::flat_absy::flat_variable::FlatVariable;
+use crate::ir::folder::{fold_function, Folder};
+use crate::ir::LinComb;
+use crate::ir::*;
 use num::Zero;
 use std::collections::HashMap;
 use zokrates_field::field::Field;
@@ -47,11 +47,11 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                     Some(l) => match lin.try_summand() {
                         // right side must be a single variable
                         Some((variable, coefficient)) => {
-                            match variable == &FlatVariable::one() {
+                            match variable == FlatVariable::one() {
                                 // variable must not be ~ONE
-                                false => match self.substitution.get(variable) {
+                                false => match self.substitution.get(&variable) {
                                     Some(_) => None,
-                                    None => Some((*variable, l / &coefficient)),
+                                    None => Some((variable, l / &coefficient)),
                                 },
                                 true => None,
                             }

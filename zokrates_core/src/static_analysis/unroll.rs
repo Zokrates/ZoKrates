@@ -4,10 +4,10 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
+use crate::typed_absy::folder::*;
+use crate::typed_absy::*;
+use crate::types::Type;
 use std::collections::HashMap;
-use typed_absy::folder::*;
-use typed_absy::*;
-use types::Type;
 use zokrates_field::field::Field;
 
 pub struct Unroller {
@@ -338,7 +338,7 @@ mod tests {
 
         #[test]
         fn incremental_multiple_definition() {
-            use types::Type;
+            use crate::types::Type;
 
             // field a
             // a = 2
