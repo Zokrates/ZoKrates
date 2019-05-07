@@ -18,7 +18,7 @@ use zokrates_core::ir;
 #[cfg(feature = "libsnark")]
 use zokrates_core::ir::r1cs_program;
 #[cfg(feature = "libsnark")]
-use zokrates_core::proof_system::{ProofSystem, GM17, PGHR13};
+use zokrates_core::proof_system::{ProofSystem, GM17, PGHR13, ZkInterface};
 use zokrates_field::field::{Field, FieldPrime};
 use zokrates_fs_resolver::resolve as fs_resolve;
 
@@ -109,7 +109,7 @@ fn cli() -> Result<(), String> {
         .arg(Arg::with_name("backend")
             .short("b")
             .long("backend")
-            .help("Backend to use in the setup. Available options are PGHR13 and GM17")
+            .help("Backend to use in the setup. Available options are PGHR13, GM17, and zkinterface")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -213,7 +213,7 @@ fn cli() -> Result<(), String> {
         ).arg(Arg::with_name("backend")
             .short("b")
             .long("backend")
-            .help("Backend to use to generate the proof. Available options are PGHR13 and GM17")
+            .help("Backend to use to generate the proof. Available options are PGHR13, GM17, and zkinterface")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -554,6 +554,7 @@ fn get_backend(backend_str: &str) -> Result<&'static ProofSystem, String> {
     match backend_str.to_lowercase().as_ref() {
         "pghr13" => Ok(&PGHR13 {}),
         "gm17" => Ok(&GM17 {}),
+        "zkinterface" => Ok(&ZkInterface {}),
         s => Err(format!("Backend \"{}\" not supported", s)),
     }
 }

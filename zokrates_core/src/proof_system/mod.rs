@@ -1,11 +1,13 @@
 mod bn128;
 mod utils;
+mod zkinterface;
 
 use std::fs::File;
 use zokrates_field::field::FieldPrime;
 
 pub use self::bn128::GM17;
 pub use self::bn128::PGHR13;
+pub use self::zkinterface::ZkInterface;
 use flat_absy::flat_variable::FlatVariable;
 use std::io::BufReader;
 
