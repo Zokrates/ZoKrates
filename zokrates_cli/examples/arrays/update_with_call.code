@@ -1,9 +1,0 @@
-def foo(field a) -> (field):
-	return 2
-
-def main(field a) -> (field, field):
-	field[2] result = [0, 0]
-	field r = foo(a)
-	result[1] = r
-	result[1] == r
-	return result[1], r

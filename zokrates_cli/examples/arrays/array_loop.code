@@ -1,3 +1,5 @@
+//QUEST: Muss eigentlich woanders hin, da der loop sich ja nicht speziel auf das array bezieht
+
 def main() -> (field):
 	field[3] a = [1, 2, 3]
 	field c = 0
