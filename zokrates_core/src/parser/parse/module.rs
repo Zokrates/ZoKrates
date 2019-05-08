@@ -8,7 +8,7 @@ use crate::parser::tokenize::{next_token, Position, Token};
 use super::function::parse_function;
 use super::import::parse_import;
 
-use crate::absy::Module;
+use crate::absy::{FunctionSymbol, Module, NodeValue};
 
 pub fn parse_module<T: Field, R: BufRead>(reader: &mut R) -> Result<Module<T>, Error<T>> {
     let mut current_line = 1;
@@ -36,7 +36,10 @@ pub fn parse_module<T: Field, R: BufRead>(reader: &mut R) -> Result<Module<T>, E
                 },
                 (Token::Def, ref s1, ref p1) => match parse_function(&mut lines, s1, p1) {
                     Ok((function, p2)) => {
-                        functions.push(function);
+                        functions.push((
+                            function.value.id.clone(),
+                            FunctionSymbol::Here(function).at(0, 0, 0),
+                        ));
                         current_line = p2.line; // this is the line of the return statement
                         current_line += 1;
                     }

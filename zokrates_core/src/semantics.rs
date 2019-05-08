@@ -149,22 +149,28 @@ impl Checker {
         let mut errors = vec![];
         let mut checked_functions = vec![];
 
-        for func in module.functions {
+        for (id, func) in module.functions {
             self.enter_scope();
 
             let dec = FunctionDeclaration {
-                id: func.value.id.clone(),
-                signature: func.value.signature.clone(),
+                id,
+                signature: func.value.signature(),
             };
 
-            match self.check_function(func) {
-                Ok(checked_function) => {
-                    checked_functions.push(checked_function);
+            match func.value {
+                FunctionSymbol::Here(func_node) => {
+                    match self.check_function(func_node) {
+                        Ok(checked_function) => {
+                            checked_functions.push(checked_function);
+                        }
+                        Err(e) => {
+                            errors.extend(e);
+                        }
+                    };
                 }
-                Err(e) => {
-                    errors.extend(e);
-                }
-            };
+                _ => unimplemented!(),
+            }
+
             self.functions.insert(dec);
             self.exit_scope();
         }

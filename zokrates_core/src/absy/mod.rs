@@ -19,12 +19,43 @@ use crate::imports::ImportNode;
 use std::fmt;
 use zokrates_field::field::Field;
 
+use std::rc::Rc;
+
+type Identifier = String;
+type Alias = String;
+
 #[derive(Clone, PartialEq)]
 pub struct Module<T: Field> {
     /// Functions of the module
-    pub functions: Vec<FunctionNode<T>>,
+    pub functions: Vec<(Identifier, FunctionSymbolNode<T>)>,
     pub imports: Vec<ImportNode>,
     pub imported_functions: Vec<FlatFunction<T>>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum FunctionSymbol<T: Field> {
+    Here(FunctionNode<T>),
+    There(Option<Alias>, Identifier, Rc<Module<T>>),
+}
+
+impl<T: Field> FunctionSymbol<T> {
+    pub fn signature(&self) -> Signature {
+        match self {
+            FunctionSymbol::Here(func_node) => func_node.value.signature.clone(),
+            _ => unimplemented!(),
+        }
+    }
+}
+
+pub type FunctionSymbolNode<T> = Node<FunctionSymbol<T>>;
+
+impl<T: Field> fmt::Display for FunctionSymbol<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            FunctionSymbol::Here(fun_node) => write!(f, "{}", fun_node),
+            _ => unimplemented!(),
+        }
+    }
 }
 
 impl<T: Field> fmt::Display for Module<T> {
@@ -45,7 +76,7 @@ impl<T: Field> fmt::Display for Module<T> {
         res.extend(
             self.functions
                 .iter()
-                .map(|x| format!("{}", x))
+                .map(|x| format!("{}", x.1))
                 .collect::<Vec<_>>(),
         );
         write!(f, "{}", res.join("\n"))
@@ -78,8 +109,8 @@ impl<T: Field> fmt::Debug for Module<T> {
 
 #[derive(Clone, PartialEq)]
 pub struct Function<T: Field> {
-    /// Name of the module
-    pub id: String,
+    /// Name of the function
+    pub id: Identifier,
     /// Arguments of the function
     pub arguments: Vec<ParameterNode>,
     /// Vector of statements that are executed when running the function
