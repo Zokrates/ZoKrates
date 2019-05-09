@@ -23,7 +23,7 @@ serde_derive = "1.0"
 serde_json = "1.0"
 serde_bytes = "0.10"
 bincode = "0.8.0"
-regex = "0.2"
+regex = "1.1"
 bimap = "0.1"
 bellman = { git = "https://github.com/matterinc/bellman", tag = "0.2.0" }
 pairing = { git = "https://github.com/matterinc/pairing", tag = "0.16.2" }
