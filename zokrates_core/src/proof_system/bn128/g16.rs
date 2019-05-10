@@ -138,6 +138,9 @@ impl ProofSystem for G16 {
 
 mod serialize {
 
+    use crate::proof_system::bn128::utils::bellman::{
+        parse_fr_json, parse_g1_hex, parse_g1_json, parse_g2_hex, parse_g2_json,
+    };
     use bellman::groth16::{Proof, VerifyingKey};
     use pairing::bn256::{Bn256, Fr};
 
@@ -149,25 +152,18 @@ mod serialize {
     vk.delta = {}
     vk.gammaABC.len() = {}
     {}",
-            vk.alpha_g1,
-            vk.beta_g2,
-            vk.gamma_g2,
-            vk.delta_g2,
+            parse_g1_hex(&vk.alpha_g1),
+            parse_g2_hex(&vk.beta_g2),
+            parse_g2_hex(&vk.gamma_g2),
+            parse_g2_hex(&vk.delta_g2),
             vk.ic.len(),
             vk.ic
                 .iter()
                 .enumerate()
-                .map(|(i, x)| format!("vk.gammaABC[{}] = {}", i, x))
+                .map(|(i, x)| format!("vk.gammaABC[{}] = {}", i, parse_g1_hex(x)))
                 .collect::<Vec<_>>()
                 .join("\n")
         )
-        .replace("G2(x=Fq2(Fq(", "[")
-        .replace("), y=Fq(", ", ")
-        .replace("G1(x=Fq(", "")
-        .replace(") + Fq(", ", ")
-        .replace("))", "")
-        .replace(") * u), y=Fq2(Fq(", "], [")
-        .replace(") * u", "]")
     }
 
     pub fn serialize_proof(p: &Proof<Bn256>, inputs: &Vec<Fr>) -> String {
@@ -180,25 +176,15 @@ mod serialize {
         }},
         \"inputs\": [{}]
     }}",
-            p.a,
-            p.b,
-            p.c,
+            parse_g1_json(&p.a),
+            parse_g2_json(&p.b),
+            parse_g1_json(&p.a),
             inputs
                 .iter()
-                .map(|v| format!("\"{}\"", v))
+                .map(parse_fr_json)
                 .collect::<Vec<_>>()
                 .join(", "),
         )
-        .replace("G2(x=Fq2(Fq(", "[[\"")
-        .replace("), y=Fq(", "\", \"")
-        .replace("G1(x=Fq(", "[\"")
-        .replace(") + Fq(", "\", \"")
-        .replace(") * u), y=Fq2(Fq(", "\"], [\"")
-        .replace(") * u]", "\"]]")
-        .replace(") * u))", "\"]]")
-        .replace("))", "\"]")
-        .replace("Fr(", "")
-        .replace(")", "")
     }
 }
 
