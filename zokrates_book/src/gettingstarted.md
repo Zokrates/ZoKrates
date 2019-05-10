@@ -28,7 +28,7 @@ You can build the container yourself from [source](https://github.com/ZoKrates/Z
 git clone https://github.com/ZoKrates/ZoKrates
 cd ZoKrates
 cargo build --release
-cd ZoKrates/target/release
+cd target/release
 ```
 
 ## Hello ZoKrates!

@@ -11,6 +11,7 @@ extern crate bellman;
 extern crate bimap;
 extern crate bincode;
 extern crate ff;
+extern crate lazy_static;
 extern crate pairing;
 #[cfg(feature = "wasm")]
 extern crate parity_wasm;
