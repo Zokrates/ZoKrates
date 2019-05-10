@@ -1,11 +1,19 @@
+//Python code used to create test vector:
+//
+// from zokrates.gadgets.pedersenHasher import PedersenHasher
+// import bitstring
+// hasher = PedersenHasher("test", 2)  
+// bs = bitstring.BitArray('0b110000')
+// hasher.hash_bits(bs)
+
 import "hashes/pedersen/6bit.code" as pedersen
 
 def main() -> (field):
 	
-	field[6] e = [1, 1, 1, 1, 0, 0]
+	field[6] e = [1, 1, 0, 0, 0, 0]
 	field[2] d = pedersen(e)
 
-	16137288740462763075902195526871618829729574518388297787026197514164604023945 == d[0]
-	9174759393105289305355072261164758995033123269262352021826180718192519854418 == d[1]
+	5483803361072598088157572477433311028290255512997784196805059543720485966024 == d[0]
+	8712718144085345152615259409576985937188455136179509057889474614313734076278 == d[1]
 
 	return 1
