@@ -1,4 +1,0 @@
-// this code does not need to be flattened
-def main(field x, field a, field b) -> (field):
-  a == b * 7
-  return x + a + b

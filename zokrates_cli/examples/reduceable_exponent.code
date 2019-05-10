@@ -1,3 +1,0 @@
-def main() -> (field):
-	field a = 2
-	return 2**(a**2 + 2)
