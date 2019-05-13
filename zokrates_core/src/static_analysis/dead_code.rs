@@ -30,7 +30,7 @@ impl<T: Field> Folder<T> for DeadCode {
             functions: p
                 .functions
                 .into_iter()
-                .filter(|f| f.id == "main" || self.called.contains(&f.to_slug()))
+                .filter(|(key, f)| key.id == "main" || self.called.contains(&f.to_slug()))
                 .collect(),
             ..p
         }

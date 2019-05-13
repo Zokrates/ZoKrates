@@ -86,7 +86,7 @@ pub fn fold_program<T: Field, F: Folder<T>>(f: &mut F, p: TypedProg<T>) -> Typed
         functions: p
             .functions
             .into_iter()
-            .map(|fun| f.fold_function(fun))
+            .map(|(key, fun)| (key, f.fold_function(fun)))
             .collect(),
         ..p
     }

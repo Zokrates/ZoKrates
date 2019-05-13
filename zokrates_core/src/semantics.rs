@@ -152,18 +152,24 @@ impl Checker {
         for (id, func) in module.functions {
             self.enter_scope();
 
-            match self.check_function_symbol(func) {
-                Ok(checked_function) => {
-                    self.functions
-                        .extend(checked_function.iter().map(|f| FunctionDeclaration {
-                            signature: f.signature.clone(),
-                            id: id.clone(),
-                        }));
-                    checked_functions.extend(checked_function.into_iter());
+            match func.value.signature() {
+                Some(signature) => {
+                    let dec = FunctionDeclaration { id, signature };
+
+                    match self.check_function_symbol(func) {
+                        Ok(checked_function) => {
+                            checked_functions.extend(checked_function.into_iter());
+                        }
+                        Err(e) => {
+                            errors.extend(e);
+                        }
+                    }
+
+                    self.functions.insert(dec);
                 }
-                Err(e) => {
-                    errors.extend(e);
-                }
+                None => unimplemented!(
+                    "a function having no signature should probably add an error to the list"
+                ),
             }
 
             self.exit_scope();
@@ -284,12 +290,11 @@ impl Checker {
         &mut self,
         funct_symbol_node: FunctionSymbolNode<T>,
     ) -> Result<Vec<TypedFunction<T>>, Vec<Error>> {
-        let pos = funct_symbol_node.pos();
         let funct_symbol = funct_symbol_node.value;
 
         match funct_symbol {
             FunctionSymbol::Here(funct_node) => self.check_function(funct_node).map(|f| vec![f]),
-            FunctionSymbol::There(id, module) => {
+            FunctionSymbol::There(alias, id, module) => {
                 // this is where we check that there are functions at the other end of the import
                 let candidates: Result<Vec<_>, Vec<_>> = module
                     .functions
@@ -297,11 +302,11 @@ impl Checker {
                     .filter(|(i, _)| *i == id)
                     .map(|(_, f)| self.check_function_symbol(f.clone()))
                     .collect(); // TODO not clone
-                let candidates: Vec<_> = candidates?.into_iter().flat_map(|x| x).collect();
+                let candidates = candidates?.into_iter().flat_map(|x| x).collect();
 
                 match candidates.len() {
                     0 => Err(vec![Error {
-                        pos: Some(pos),
+                        pos: Some(funct_symbol_node.pos()),
                         message: format!("Function {} not found in module {}", id, "TODO"),
                     }]),
                     _ => Ok(candidates),
@@ -986,80 +991,9 @@ impl Checker {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    //use absy::parameter::Parameter;
-    use std::rc::Rc;
-    use zokrates_field::field::FieldPrime;
-
-    mod symbols {
-        use super::*;
-
-        #[test]
-        fn imported_symbol() {
-            // foo.code
-            // def main() -> (field):
-            // 		return 1
-
-            // bar.code
-            // from "./foo.code" import main
-
-            // after semantic check, bar should have one function which returns one (imported from foo.rs)
-
-            let foo: Module<FieldPrime> = Module {
-                functions: vec![(
-                    String::from("main"),
-                    FunctionSymbol::Here(
-                        Function {
-                            id: String::from("main"),
-                            statements: vec![Statement::Return(
-                                ExpressionList {
-                                    expressions: vec![
-                                        Expression::Number(FieldPrime::from(1)).at(0, 0, 0)
-                                    ],
-                                }
-                                .at(0, 0, 0),
-                            )
-                            .at(0, 0, 0)],
-                            signature: Signature::new().outputs(vec![Type::FieldElement]),
-                            arguments: vec![],
-                        }
-                        .at(0, 0, 0),
-                    )
-                    .at(0, 0, 0),
-                )],
-                imported_functions: vec![],
-                imports: vec![],
-            };
-
-            let bar: Module<FieldPrime> = Module {
-                functions: vec![(
-                    String::from("main"),
-                    FunctionSymbol::There(String::from("main"), Rc::new(foo)).at(0, 0, 0),
-                )],
-                imported_functions: vec![],
-                imports: vec![],
-            };
-
-            let mut checker = Checker::new();
-
-            let checked_bar = checker.check_module(bar);
-            assert_eq!(
-                checked_bar,
-                Ok(TypedProg {
-                    functions: vec![TypedFunction {
-                        id: String::from("main"),
-                        signature: Signature::new().outputs(vec![Type::FieldElement]),
-                        arguments: vec![],
-                        statements: vec![TypedStatement::Return(vec![
-                            FieldElementExpression::Number(FieldPrime::from(1)).into()
-                        ])]
-                    }],
-                    imported_functions: vec![],
-                    imports: vec![]
-                })
-            );
-        }
-    }
+    // use super::*;
+    // use absy::parameter::Parameter;
+    // use zokrates_field::field::FieldPrime;
 
     // pub fn new_with_args(
     //     scope: HashSet<ScopedVariable>,

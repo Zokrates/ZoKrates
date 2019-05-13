@@ -1285,7 +1285,7 @@ impl Flattener {
             functions_flattened.push(func);
         }
 
-        for func in prog.functions {
+        for func in prog.functions.into_iter().map(|(_, v)| v) {
             let flattened_func = self.flatten_function(&mut functions_flattened, func);
             functions_flattened.push(flattened_func);
         }

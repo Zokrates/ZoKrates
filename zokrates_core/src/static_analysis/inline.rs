@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use zokrates_field::field::Field;
 
 pub struct Inliner<T: Field> {
-    functions: Vec<TypedFunction<T>>,
+    functions: HashMap<FunctionKey, TypedFunction<T>>,
     statements_buffer: Vec<TypedStatement<T>>,
     context: Vec<(String, usize)>,
     call_count: HashMap<String, usize>,
@@ -15,7 +15,7 @@ pub struct Inliner<T: Field> {
 impl<T: Field> Inliner<T> {
     pub fn new() -> Self {
         Inliner {
-            functions: vec![],
+            functions: HashMap::new(),
             statements_buffer: vec![],
             context: vec![],
             call_count: HashMap::new(),
@@ -132,11 +132,10 @@ impl<T: Field> Folder<T> for Inliner<T> {
                             .outputs(types.clone());
 
                         // find the function
-                        let function = self
-                            .functions
-                            .iter()
-                            .find(|f| f.id == id && f.signature == passed_signature)
-                            .cloned();
+                        let function = self.functions.get(&FunctionKey {
+                            signature: passed_signature,
+                            id,
+                        });
 
                         match self.should_inline(&function, &exps) {
                             true => {

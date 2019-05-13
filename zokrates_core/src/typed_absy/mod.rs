@@ -12,6 +12,7 @@ mod variable;
 pub use crate::typed_absy::parameter::Parameter;
 pub use crate::typed_absy::variable::Variable;
 use crate::types::Signature;
+use std::collections::HashMap;
 
 use crate::flat_absy::*;
 use crate::imports::Import;
@@ -21,12 +22,20 @@ use zokrates_field::field::Field;
 
 pub use self::folder::Folder;
 
-#[derive(Clone, PartialEq)]
+type Identifier = String;
+
+#[derive(PartialEq)]
 pub struct TypedProg<T: Field> {
     /// Functions of the program
-    pub functions: Vec<TypedFunction<T>>,
+    pub functions: HashMap<FunctionKey, TypedFunction<T>>,
     pub imports: Vec<Import>,
     pub imported_functions: Vec<FlatFunction<T>>,
+}
+
+#[derive(PartialEq, Eq, Hash, Debug, Clone)]
+pub struct FunctionKey {
+    pub id: Identifier,
+    pub signature: Signature,
 }
 
 impl<T: Field> fmt::Display for TypedProg<T> {
@@ -46,7 +55,7 @@ impl<T: Field> fmt::Display for TypedProg<T> {
         );
         res.extend(
             self.functions
-                .iter()
+                .values()
                 .map(|x| format!("{}", x))
                 .collect::<Vec<_>>(),
         );
