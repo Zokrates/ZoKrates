@@ -22,7 +22,6 @@ use zokrates_field::field::Field;
 use std::rc::Rc;
 
 type Identifier = String;
-type Alias = String;
 
 #[derive(Clone, PartialEq)]
 pub struct Module<T: Field> {
@@ -35,16 +34,7 @@ pub struct Module<T: Field> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum FunctionSymbol<T: Field> {
     Here(FunctionNode<T>),
-    There(Option<Alias>, Identifier, Rc<Module<T>>),
-}
-
-impl<T: Field> FunctionSymbol<T> {
-    pub fn signature(&self) -> Signature {
-        match self {
-            FunctionSymbol::Here(func_node) => func_node.value.signature.clone(),
-            _ => unimplemented!(),
-        }
-    }
+    There(Identifier, Rc<Module<T>>),
 }
 
 pub type FunctionSymbolNode<T> = Node<FunctionSymbol<T>>;
