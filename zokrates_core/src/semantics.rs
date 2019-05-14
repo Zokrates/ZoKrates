@@ -9,8 +9,7 @@
 use crate::absy::variable::Variable;
 use crate::absy::*;
 use crate::typed_absy::*;
-use crate::types::Signature;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use zokrates_field::field::Field;
 
@@ -74,7 +73,7 @@ impl FunctionQuery {
         }
     }
 
-    fn match_func(&self, func: &FunctionDeclaration) -> bool {
+    fn match_func(&self, func: &FunctionKey) -> bool {
         self.id == func.id
             && self.inputs == func.signature.inputs
             && self.outputs.len() == func.signature.outputs.len()
@@ -84,7 +83,7 @@ impl FunctionQuery {
             })
     }
 
-    fn match_funcs(&self, funcs: &HashSet<FunctionDeclaration>) -> Vec<FunctionDeclaration> {
+    fn match_funcs(&self, funcs: &HashSet<FunctionKey>) -> Vec<FunctionKey> {
         funcs
             .iter()
             .filter(|func| self.match_func(func))
@@ -113,16 +112,10 @@ impl PartialEq for ScopedVariable {
 }
 impl Eq for ScopedVariable {}
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
-pub struct FunctionDeclaration {
-    id: String,
-    signature: Signature,
-}
-
 // Checker, checks the semantics of a program.
 pub struct Checker {
     scope: HashSet<ScopedVariable>,
-    functions: HashSet<FunctionDeclaration>,
+    functions: HashSet<FunctionKey>,
     level: usize,
 }
 
@@ -140,36 +133,38 @@ impl Checker {
         module: Module<T>,
     ) -> Result<TypedProg<T>, Vec<Error>> {
         for func in &module.imported_functions {
-            self.functions.insert(FunctionDeclaration {
+            self.functions.insert(FunctionKey {
                 id: func.id.clone(),
                 signature: func.signature.clone(),
             });
         }
 
         let mut errors = vec![];
-        let mut checked_functions = vec![];
+        let mut checked_functions = HashMap::new();
 
         for (id, func) in module.functions {
             self.enter_scope();
 
-            match func.value.signature() {
-                Some(signature) => {
-                    let dec = FunctionDeclaration { id, signature };
-
-                    match self.check_function_symbol(func) {
-                        Ok(checked_function) => {
-                            checked_functions.extend(checked_function.into_iter());
-                        }
-                        Err(e) => {
-                            errors.extend(e);
-                        }
-                    }
-
-                    self.functions.insert(dec);
+            match self.check_function_symbol(func) {
+                Ok(checked_function) => {
+                    self.functions
+                        .extend(checked_function.iter().map(|f| FunctionKey {
+                            signature: f.signature.clone(),
+                            id: id.clone(),
+                        }));
+                    checked_functions.extend(checked_function.into_iter().map(|f| {
+                        (
+                            FunctionKey {
+                                signature: f.signature.clone(),
+                                id: id.clone(),
+                            },
+                            f,
+                        )
+                    }));
                 }
-                None => unimplemented!(
-                    "a function having no signature should probably add an error to the list"
-                ),
+                Err(e) => {
+                    errors.extend(e);
+                }
             }
 
             self.exit_scope();
@@ -290,11 +285,12 @@ impl Checker {
         &mut self,
         funct_symbol_node: FunctionSymbolNode<T>,
     ) -> Result<Vec<TypedFunction<T>>, Vec<Error>> {
+        let pos = funct_symbol_node.pos();
         let funct_symbol = funct_symbol_node.value;
 
         match funct_symbol {
             FunctionSymbol::Here(funct_node) => self.check_function(funct_node).map(|f| vec![f]),
-            FunctionSymbol::There(alias, id, module) => {
+            FunctionSymbol::There(id, module) => {
                 // this is where we check that there are functions at the other end of the import
                 let candidates: Result<Vec<_>, Vec<_>> = module
                     .functions
@@ -302,11 +298,11 @@ impl Checker {
                     .filter(|(i, _)| *i == id)
                     .map(|(_, f)| self.check_function_symbol(f.clone()))
                     .collect(); // TODO not clone
-                let candidates = candidates?.into_iter().flat_map(|x| x).collect();
+                let candidates: Vec<_> = candidates?.into_iter().flat_map(|x| x).collect();
 
                 match candidates.len() {
                     0 => Err(vec![Error {
-                        pos: Some(funct_symbol_node.pos()),
+                        pos: Some(pos),
                         message: format!("Function {} not found in module {}", id, "TODO"),
                     }]),
                     _ => Ok(candidates),
@@ -973,7 +969,7 @@ impl Checker {
         })
     }
 
-    fn find_candidates(&self, query: &FunctionQuery) -> Vec<FunctionDeclaration> {
+    fn find_candidates(&self, query: &FunctionQuery) -> Vec<FunctionKey> {
         query.match_funcs(&self.functions)
     }
 
@@ -991,14 +987,85 @@ impl Checker {
 
 #[cfg(test)]
 mod tests {
-    // use super::*;
-    // use absy::parameter::Parameter;
-    // use zokrates_field::field::FieldPrime;
+    use super::*;
+    //use absy::parameter::Parameter;
+    use std::rc::Rc;
+    use zokrates_field::field::FieldPrime;
+
+    mod symbols {
+        use super::*;
+
+        #[test]
+        fn imported_symbol() {
+            // foo.code
+            // def main() -> (field):
+            // 		return 1
+
+            // bar.code
+            // from "./foo.code" import main
+
+            // after semantic check, bar should have one function which returns one (imported from foo.rs)
+
+            let foo: Module<FieldPrime> = Module {
+                functions: vec![(
+                    String::from("main"),
+                    FunctionSymbol::Here(
+                        Function {
+                            id: String::from("main"),
+                            statements: vec![Statement::Return(
+                                ExpressionList {
+                                    expressions: vec![
+                                        Expression::Number(FieldPrime::from(1)).at(0, 0, 0)
+                                    ],
+                                }
+                                .at(0, 0, 0),
+                            )
+                            .at(0, 0, 0)],
+                            signature: Signature::new().outputs(vec![Type::FieldElement]),
+                            arguments: vec![],
+                        }
+                        .at(0, 0, 0),
+                    )
+                    .at(0, 0, 0),
+                )],
+                imported_functions: vec![],
+                imports: vec![],
+            };
+
+            let bar: Module<FieldPrime> = Module {
+                functions: vec![(
+                    String::from("main"),
+                    FunctionSymbol::There(String::from("main"), Rc::new(foo)).at(0, 0, 0),
+                )],
+                imported_functions: vec![],
+                imports: vec![],
+            };
+
+            let mut checker = Checker::new();
+
+            let checked_bar = checker.check_module(bar);
+            assert_eq!(
+                checked_bar,
+                Ok(TypedProg {
+                    functions: vec![TypedFunction {
+                        id: String::from("main"),
+                        signature: Signature::new().outputs(vec![Type::FieldElement]),
+                        arguments: vec![],
+                        statements: vec![TypedStatement::Return(vec![
+                            FieldElementExpression::Number(FieldPrime::from(1)).into()
+                        ])]
+                    }],
+                    imported_functions: vec![],
+                    imports: vec![]
+                })
+            );
+        }
+    }
 
     // pub fn new_with_args(
     //     scope: HashSet<ScopedVariable>,
     //     level: usize,
-    //     functions: HashSet<FunctionDeclaration>,
+    //     functions: HashSet<FunctionKey>,
     // ) -> Checker {
     //     Checker {
     //         scope: scope,
@@ -1301,7 +1368,7 @@ mod tests {
     //         ),
     //     ];
 
-    //     let foo = FunctionDeclaration {
+    //     let foo = FunctionKey {
     //         id: "foo".to_string(),
     //         signature: Signature {
     //             inputs: vec![],
@@ -1345,7 +1412,7 @@ mod tests {
     //         Expression::FunctionCall("foo".to_string(), vec![]),
     //     )];
 
-    //     let foo = FunctionDeclaration {
+    //     let foo = FunctionKey {
     //         id: "foo".to_string(),
     //         signature: Signature {
     //             inputs: vec![],
@@ -1588,7 +1655,7 @@ mod tests {
     //         .into()]),
     //     ];
 
-    //     let foo = FunctionDeclaration {
+    //     let foo = FunctionKey {
     //         id: "foo".to_string(),
     //         signature: Signature {
     //             inputs: vec![],
@@ -1646,7 +1713,7 @@ mod tests {
     //         },
     //     ];
 
-    //     let foo1 = FunctionDeclaration {
+    //     let foo1 = FunctionKey {
     //         id: "foo".to_string(),
     //         signature: Signature {
     //             inputs: vec![Type::FieldElement, Type::FieldElement],

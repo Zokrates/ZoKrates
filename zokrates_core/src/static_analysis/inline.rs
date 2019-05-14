@@ -132,10 +132,13 @@ impl<T: Field> Folder<T> for Inliner<T> {
                             .outputs(types.clone());
 
                         // find the function
-                        let function = self.functions.get(&FunctionKey {
-                            signature: passed_signature,
-                            id,
-                        });
+                        let function = self
+                            .functions
+                            .get(&FunctionKey {
+                                signature: passed_signature,
+                                id: id.clone(),
+                            })
+                            .cloned();
 
                         match self.should_inline(&function, &exps) {
                             true => {
@@ -194,8 +197,10 @@ impl<T: Field> Folder<T> for Inliner<T> {
                 // find the function
                 let function = self
                     .functions
-                    .iter()
-                    .find(|f| f.id == id && f.signature == passed_signature)
+                    .get(&FunctionKey {
+                        signature: passed_signature,
+                        id: id.clone(),
+                    })
                     .cloned();
 
                 match self.should_inline(&function, &exps) {
@@ -231,8 +236,10 @@ impl<T: Field> Folder<T> for Inliner<T> {
                 // find the function
                 let function = self
                     .functions
-                    .iter()
-                    .find(|f| f.id == id && f.signature == passed_signature)
+                    .get(&FunctionKey {
+                        signature: passed_signature,
+                        id: id.clone(),
+                    })
                     .cloned();
 
                 match self.should_inline(&function, &exps) {
