@@ -20,16 +20,48 @@ use crate::types::Type;
 use std::fmt;
 use zokrates_field::field::Field;
 
+use std::rc::Rc;
+
 pub use self::folder::Folder;
 
 type Identifier = String;
 
-#[derive(PartialEq)]
-pub struct TypedProg<T: Field> {
+#[derive(PartialEq, Debug)]
+pub struct TypedModule<T: Field> {
     /// Functions of the program
-    pub functions: HashMap<FunctionKey, TypedFunction<T>>,
+    pub functions: HashMap<FunctionKey, TypedFunctionSymbol<T>>,
     pub imports: Vec<Import>,
     pub imported_functions: Vec<FlatFunction<T>>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum TypedFunctionSymbol<T: Field> {
+    Here(TypedFunction<T>),
+    There(FunctionKey, Rc<TypedModule<T>>),
+}
+
+impl<T: Field> TypedFunctionSymbol<T> {
+    pub fn signature(&self) -> Signature {
+        match self {
+            TypedFunctionSymbol::Here(f) => f.signature.clone(),
+            TypedFunctionSymbol::There(key, module) => {
+                module.functions.get(key).unwrap().signature()
+            }
+        }
+    }
+
+    pub fn slug(&self) -> String {
+        match self {
+            TypedFunctionSymbol::Here(f) => f.to_slug(),
+            TypedFunctionSymbol::There(key, module) => module.functions.get(key).unwrap().slug(),
+        }
+    }
+}
+
+impl<T: Field> fmt::Display for TypedFunctionSymbol<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        unimplemented!()
+    }
 }
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone)]
@@ -38,7 +70,7 @@ pub struct FunctionKey {
     pub signature: Signature,
 }
 
-impl<T: Field> fmt::Display for TypedProg<T> {
+impl<T: Field> fmt::Display for TypedModule<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut res = vec![];
         res.extend(
@@ -63,29 +95,29 @@ impl<T: Field> fmt::Display for TypedProg<T> {
     }
 }
 
-impl<T: Field> fmt::Debug for TypedProg<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "program(\n\timports:\n\t\t{}\n\tfunctions:\n\t\t{}{}\n)",
-            self.imports
-                .iter()
-                .map(|x| format!("{:?}", x))
-                .collect::<Vec<_>>()
-                .join("\n\t\t"),
-            self.imported_functions
-                .iter()
-                .map(|x| format!("{}", x))
-                .collect::<Vec<_>>()
-                .join("\n\t\t"),
-            self.functions
-                .iter()
-                .map(|x| format!("{:?}", x))
-                .collect::<Vec<_>>()
-                .join("\n\t\t")
-        )
-    }
-}
+// impl<T: Field> fmt::Debug for TypedModule<T> {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         write!(
+//             f,
+//             "program(\n\timports:\n\t\t{}\n\tfunctions:\n\t\t{}{}\n)",
+//             self.imports
+//                 .iter()
+//                 .map(|x| format!("{:?}", x))
+//                 .collect::<Vec<_>>()
+//                 .join("\n\t\t"),
+//             self.imported_functions
+//                 .iter()
+//                 .map(|x| format!("{}", x))
+//                 .collect::<Vec<_>>()
+//                 .join("\n\t\t"),
+//             self.functions
+//                 .iter()
+//                 .map(|x| format!("{:?}", x))
+//                 .collect::<Vec<_>>()
+//                 .join("\n\t\t")
+//         )
+//     }
+// }
 
 #[derive(Clone, PartialEq)]
 pub struct TypedFunction<T: Field> {

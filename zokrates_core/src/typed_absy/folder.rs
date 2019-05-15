@@ -4,12 +4,16 @@ use crate::typed_absy::*;
 use zokrates_field::field::Field;
 
 pub trait Folder<T: Field>: Sized {
-    fn fold_program(&mut self, p: TypedProg<T>) -> TypedProg<T> {
-        fold_program(self, p)
+    fn fold_module(&mut self, p: TypedModule<T>) -> TypedModule<T> {
+        fold_module(self, p)
     }
 
     fn fold_function(&mut self, f: TypedFunction<T>) -> TypedFunction<T> {
         fold_function(self, f)
+    }
+
+    fn fold_function_symbol(&mut self, s: TypedFunctionSymbol<T>) -> TypedFunctionSymbol<T> {
+        fold_function_symbol(self, s)
     }
 
     fn fold_parameter(&mut self, p: Parameter) -> Parameter {
@@ -81,12 +85,12 @@ pub trait Folder<T: Field>: Sized {
     }
 }
 
-pub fn fold_program<T: Field, F: Folder<T>>(f: &mut F, p: TypedProg<T>) -> TypedProg<T> {
-    TypedProg {
+pub fn fold_module<T: Field, F: Folder<T>>(f: &mut F, p: TypedModule<T>) -> TypedModule<T> {
+    TypedModule {
         functions: p
             .functions
             .into_iter()
-            .map(|(key, fun)| (key, f.fold_function(fun)))
+            .map(|(key, fun)| (key, f.fold_function_symbol(fun)))
             .collect(),
         ..p
     }
@@ -270,5 +274,15 @@ pub fn fold_function<T: Field, F: Folder<T>>(f: &mut F, fun: TypedFunction<T>) -
             .flat_map(|s| f.fold_statement(s))
             .collect(),
         ..fun
+    }
+}
+
+pub fn fold_function_symbol<T: Field, F: Folder<T>>(
+    f: &mut F,
+    s: TypedFunctionSymbol<T>,
+) -> TypedFunctionSymbol<T> {
+    match s {
+        TypedFunctionSymbol::Here(fun) => TypedFunctionSymbol::Here(f.fold_function(fun)),
+        there => there, // by default, do not fold modules recursively
     }
 }

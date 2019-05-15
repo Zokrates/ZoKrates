@@ -24,7 +24,7 @@ pub struct Flattener {
     bijection: BiMap<String, FlatVariable>,
 }
 impl Flattener {
-    pub fn flatten<T: Field>(p: TypedProg<T>) -> FlatProg<T> {
+    pub fn flatten<T: Field>(p: TypedModule<T>) -> FlatProg<T> {
         Flattener::new().flatten_program(p)
     }
 
@@ -1212,6 +1212,17 @@ impl Flattener {
         }
     }
 
+    fn flatten_function_symbol<T: Field>(
+        &mut self,
+        functions_flattened: &mut Vec<FlatFunction<T>>,
+        funct: TypedFunctionSymbol<T>,
+    ) -> FlatFunction<T> {
+        match funct {
+            TypedFunctionSymbol::Here(f) => self.flatten_function(functions_flattened, f),
+            _ => unimplemented!(),
+        }
+    }
+
     /// Returns a flattened `TypedFunction` based on the given `funct`.
     ///
     /// # Arguments
@@ -1276,7 +1287,7 @@ impl Flattener {
     /// # Arguments
     ///
     /// * `prog` - `Prog`ram that will be flattened.
-    fn flatten_program<T: Field>(&mut self, prog: TypedProg<T>) -> FlatProg<T> {
+    fn flatten_program<T: Field>(&mut self, prog: TypedModule<T>) -> FlatProg<T> {
         let mut functions_flattened = Vec::new();
 
         self.load_corelib(&mut functions_flattened);
@@ -1286,7 +1297,7 @@ impl Flattener {
         }
 
         for func in prog.functions.into_iter().map(|(_, v)| v) {
-            let flattened_func = self.flatten_function(&mut functions_flattened, func);
+            let flattened_func = self.flatten_function_symbol(&mut functions_flattened, func);
             functions_flattened.push(flattened_func);
         }
 
@@ -1765,7 +1776,7 @@ mod tests {
             },
         ];
 
-        flattener.flatten_program(TypedProg {
+        flattener.flatten_program(TypedModule {
             functions: functions
                 .into_iter()
                 .map(|f| {

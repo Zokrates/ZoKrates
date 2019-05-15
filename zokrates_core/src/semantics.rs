@@ -19,6 +19,8 @@ use crate::types::Type;
 
 use std::hash::{Hash, Hasher};
 
+use std::rc::Rc;
+
 #[derive(PartialEq, Debug)]
 pub struct Error {
     pos: Option<(Position, Position)>,
@@ -131,7 +133,7 @@ impl Checker {
     pub fn check_module<T: Field>(
         &mut self,
         module: Module<T>,
-    ) -> Result<TypedProg<T>, Vec<Error>> {
+    ) -> Result<TypedModule<T>, Vec<Error>> {
         for func in &module.imported_functions {
             self.functions.insert(FunctionKey {
                 id: func.id.clone(),
@@ -146,16 +148,16 @@ impl Checker {
             self.enter_scope();
 
             match self.check_function_symbol(func) {
-                Ok(checked_function) => {
+                Ok(checked_function_symbols) => {
                     self.functions
-                        .extend(checked_function.iter().map(|f| FunctionKey {
-                            signature: f.signature.clone(),
+                        .extend(checked_function_symbols.iter().map(|f| FunctionKey {
+                            signature: f.signature().clone(),
                             id: id.clone(),
                         }));
-                    checked_functions.extend(checked_function.into_iter().map(|f| {
+                    checked_functions.extend(checked_function_symbols.into_iter().map(|f| {
                         (
                             FunctionKey {
-                                signature: f.signature.clone(),
+                                signature: f.signature().clone(),
                                 id: id.clone(),
                             },
                             f,
@@ -182,7 +184,7 @@ impl Checker {
             return Err(errors);
         }
 
-        Ok(TypedProg {
+        Ok(TypedModule {
             functions: checked_functions,
             imported_functions: module.imported_functions,
             imports: module.imports.into_iter().map(|i| i.value).collect(),
@@ -287,12 +289,14 @@ impl Checker {
     fn check_function_symbol<T: Field>(
         &mut self,
         funct_symbol_node: FunctionSymbolNode<T>,
-    ) -> Result<Vec<TypedFunction<T>>, Vec<Error>> {
+    ) -> Result<Vec<TypedFunctionSymbol<T>>, Vec<Error>> {
         let pos = funct_symbol_node.pos();
         let funct_symbol = funct_symbol_node.value;
 
         match funct_symbol {
-            FunctionSymbol::Here(funct_node) => self.check_function(funct_node).map(|f| vec![f]),
+            FunctionSymbol::Here(funct_node) => self
+                .check_function(funct_node)
+                .map(|f| vec![TypedFunctionSymbol::Here(f)]),
             FunctionSymbol::There(id, module) => {
                 let mut checker = Checker::new();
 
@@ -300,16 +304,25 @@ impl Checker {
                     Ok(module) => {
                         let candidates: Vec<_> = module
                             .functions
-                            .into_iter()
+                            .iter()
                             .filter(|(k, _)| k.id == id)
-                            .map(|(_, v)| v)
+                            .map(|(_, v)| FunctionKey {
+                                id: id.clone(),
+                                signature: v.signature().clone(),
+                            })
                             .collect();
+
+                        let reference = Rc::new(module);
+
                         match candidates.len() {
                             0 => Err(vec![Error {
                                 pos: Some(pos),
                                 message: format!("Function {} not found in module {}", id, "TODO"),
                             }]),
-                            _ => Ok(candidates),
+                            _ => Ok(candidates
+                                .into_iter()
+                                .map(|f| TypedFunctionSymbol::There(f, reference.clone()))
+                                .collect()),
                         }
                     }
                     Err(e) => Err(e),
@@ -1056,7 +1069,7 @@ mod tests {
             let checked_bar = checker.check_module(bar);
             assert_eq!(
                 checked_bar,
-                Ok(TypedProg {
+                Ok(TypedModule {
                     functions: vec![(
                         FunctionKey {
                             id: String::from("main"),

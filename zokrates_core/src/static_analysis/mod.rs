@@ -12,27 +12,29 @@ mod propagation;
 mod unroll;
 
 use self::dead_code::DeadCode;
-use self::inline::Inliner;
+//use self::inline::Inliner;
 use self::power_check::PowerChecker;
 use self::propagation::Propagator;
 use self::unroll::Unroller;
 use crate::flat_absy::FlatProg;
-use crate::typed_absy::TypedProg;
+use crate::typed_absy::TypedModule;
 use zokrates_field::field::Field;
 
 pub trait Analyse {
     fn analyse(self) -> Self;
 }
 
-impl<T: Field> Analyse for TypedProg<T> {
+impl<T: Field> Analyse for TypedModule<T> {
     fn analyse(self) -> Self {
+        println!("{:#?}", self);
+
         let r = PowerChecker::check(self);
         // unroll
         let r = Unroller::unroll(r);
         //propagate a first time for constants to reach function calls
         let r = Propagator::propagate(r);
         // apply inlining strategy
-        let r = Inliner::inline(r);
+        //let r = Inliner::inline(r);
         // Propagate again
         let r = Propagator::propagate(r);
         // remove unused functions

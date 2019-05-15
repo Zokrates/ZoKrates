@@ -10,8 +10,8 @@ impl PowerChecker {
         PowerChecker {}
     }
 
-    pub fn check<T: Field>(p: TypedProg<T>) -> TypedProg<T> {
-        PowerChecker::new().fold_program(p)
+    pub fn check<T: Field>(p: TypedModule<T>) -> TypedModule<T> {
+        PowerChecker::new().fold_module(p)
     }
 }
 
