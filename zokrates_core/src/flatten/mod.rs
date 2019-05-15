@@ -1334,7 +1334,7 @@ impl Flattener {
         functions_flattened
             .iter()
             .find(|f| f.id == id && f.signature == s)
-            .unwrap()
+            .expect(&format!("couldn't find {}", id))
     }
 }
 
@@ -1766,7 +1766,18 @@ mod tests {
         ];
 
         flattener.flatten_program(TypedProg {
-            functions: functions,
+            functions: functions
+                .into_iter()
+                .map(|f| {
+                    (
+                        FunctionKey {
+                            id: f.id.clone(),
+                            signature: f.signature.clone(),
+                        },
+                        f,
+                    )
+                })
+                .collect(),
             imported_functions: vec![],
             imports: vec![],
         });

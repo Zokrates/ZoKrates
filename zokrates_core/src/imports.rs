@@ -12,6 +12,7 @@ use crate::parser::Position;
 use std::fmt;
 use std::io;
 use std::io::BufRead;
+use std::rc::Rc;
 use zokrates_field::field::Field;
 
 pub struct CompiledImport<T: Field> {
@@ -134,6 +135,7 @@ impl Importer {
         resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
     ) -> Result<Module<T>, CompileErrors<T>> {
         let mut origins: Vec<CompiledImport<T>> = vec![];
+        let mut functions = vec![];
 
         for import in destination.imports.iter() {
             let pos = import.pos();
@@ -192,11 +194,13 @@ impl Importer {
                         Ok((mut reader, location, auto_alias)) => {
                             let compiled = compile_aux(&mut reader, Some(location), resolve_option)
                                 .map_err(|e| e.with_context(Some(import.source.clone())))?;
-                            let alias = match import.alias {
-                                Some(ref alias) => alias.clone(),
-                                None => auto_alias,
-                            };
-                            origins.push(CompiledImport::new(compiled, alias));
+                            let alias = import.alias.clone().unwrap_or(auto_alias);
+
+                            functions.push((
+                                alias.clone(),
+                                FunctionSymbol::There(String::from("main"), Rc::new(compiled))
+                                    .at(0, 0, 0),
+                            ));
                         }
                         Err(err) => {
                             return Err(CompileErrorInner::ImportError(
@@ -217,9 +221,11 @@ impl Importer {
             }
         }
 
+        functions.extend(destination.functions);
+
         Ok(Module {
             imports: vec![],
-            functions: destination.clone().functions,
+            functions: functions,
             imported_functions: origins.into_iter().map(|o| o.flat_func).collect(),
         })
     }

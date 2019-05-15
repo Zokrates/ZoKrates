@@ -4,7 +4,6 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 use crate::absy::Module;
-use crate::flat_absy::FlatProg;
 use crate::flatten::Flattener;
 use crate::imports::{self, Importer};
 use crate::ir;
@@ -128,26 +127,10 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     location: Option<String>,
     resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
 ) -> Result<ir::Prog<T>, CompileErrors<T>> {
-    let compiled = compile_aux(reader, location, resolve_option)?;
-    Ok(ir::Prog::from(compiled).optimize())
-}
-
-pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
-    reader: &mut R,
-    location: Option<String>,
-    resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
-) -> Result<FlatProg<T>, CompileErrors<T>> {
-    let program_ast_without_imports: Module<T> = parse_module(reader)
-        .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).with_context(&location)))?;
-
-    let program_ast = Importer::new().apply_imports(
-        program_ast_without_imports,
-        location.clone(),
-        resolve_option,
-    )?;
+    let compiled = compile_aux(reader, location.clone(), resolve_option)?;
 
     // check semantics
-    let typed_ast = Checker::new().check_module(program_ast).map_err(|errors| {
+    let typed_ast = Checker::new().check_module(compiled).map_err(|errors| {
         CompileErrors(
             errors
                 .into_iter()
@@ -165,7 +148,24 @@ pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     // analyse (constant propagation after call resolution)
     let program_flattened = program_flattened.analyse();
 
-    Ok(program_flattened)
+    Ok(ir::Prog::from(program_flattened).optimize())
+}
+
+pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
+    reader: &mut R,
+    location: Option<String>,
+    resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
+) -> Result<Module<T>, CompileErrors<T>> {
+    let program_ast_without_imports: Module<T> = parse_module(reader)
+        .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).with_context(&location)))?;
+
+    let program_ast = Importer::new().apply_imports(
+        program_ast_without_imports,
+        location.clone(),
+        resolve_option,
+    )?;
+
+    Ok(program_ast)
 }
 
 #[cfg(test)]

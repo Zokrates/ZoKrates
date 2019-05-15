@@ -170,6 +170,9 @@ impl Checker {
             self.exit_scope();
         }
 
+        assert!(checked_functions.len() > 0);
+        assert!(self.functions.len() > 0);
+
         match self.check_single_main() {
             Ok(()) => {}
             Err(e) => errors.push(e),
@@ -291,21 +294,25 @@ impl Checker {
         match funct_symbol {
             FunctionSymbol::Here(funct_node) => self.check_function(funct_node).map(|f| vec![f]),
             FunctionSymbol::There(id, module) => {
-                // this is where we check that there are functions at the other end of the import
-                let candidates: Result<Vec<_>, Vec<_>> = module
-                    .functions
-                    .iter()
-                    .filter(|(i, _)| *i == id)
-                    .map(|(_, f)| self.check_function_symbol(f.clone()))
-                    .collect(); // TODO not clone
-                let candidates: Vec<_> = candidates?.into_iter().flat_map(|x| x).collect();
+                let mut checker = Checker::new();
 
-                match candidates.len() {
-                    0 => Err(vec![Error {
-                        pos: Some(pos),
-                        message: format!("Function {} not found in module {}", id, "TODO"),
-                    }]),
-                    _ => Ok(candidates),
+                match checker.check_module(module.as_ref().clone()) {
+                    Ok(module) => {
+                        let candidates: Vec<_> = module
+                            .functions
+                            .into_iter()
+                            .filter(|(k, _)| k.id == id)
+                            .map(|(_, v)| v)
+                            .collect();
+                        match candidates.len() {
+                            0 => Err(vec![Error {
+                                pos: Some(pos),
+                                message: format!("Function {} not found in module {}", id, "TODO"),
+                            }]),
+                            _ => Ok(candidates),
+                        }
+                    }
+                    Err(e) => Err(e),
                 }
             }
         }
@@ -703,6 +710,8 @@ impl Checker {
                 // we use type inference to determine the type of the return, so we don't specify it
                 let query = FunctionQuery::new(fun_id.to_string(), &arguments_types, &vec![None]);
 
+                assert!(self.functions.len() > 0);
+
                 let candidates = self.find_candidates(&query);
 
                 match candidates.len() {
@@ -994,6 +1003,7 @@ mod tests {
 
     mod symbols {
         use super::*;
+        use crate::types::Signature;
 
         #[test]
         fn imported_symbol() {
@@ -1047,14 +1057,22 @@ mod tests {
             assert_eq!(
                 checked_bar,
                 Ok(TypedProg {
-                    functions: vec![TypedFunction {
-                        id: String::from("main"),
-                        signature: Signature::new().outputs(vec![Type::FieldElement]),
-                        arguments: vec![],
-                        statements: vec![TypedStatement::Return(vec![
-                            FieldElementExpression::Number(FieldPrime::from(1)).into()
-                        ])]
-                    }],
+                    functions: vec![(
+                        FunctionKey {
+                            id: String::from("main"),
+                            signature: Signature::new().outputs(vec![Type::FieldElement])
+                        },
+                        TypedFunction {
+                            id: String::from("main"),
+                            signature: Signature::new().outputs(vec![Type::FieldElement]),
+                            arguments: vec![],
+                            statements: vec![TypedStatement::Return(vec![
+                                FieldElementExpression::Number(FieldPrime::from(1)).into()
+                            ])]
+                        }
+                    )]
+                    .into_iter()
+                    .collect(),
                     imported_functions: vec![],
                     imports: vec![]
                 })

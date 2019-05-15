@@ -43,7 +43,7 @@ impl<T: Field> fmt::Display for FunctionSymbol<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             FunctionSymbol::Here(fun_node) => write!(f, "{}", fun_node),
-            _ => unimplemented!(),
+            FunctionSymbol::There(_, _) => write!(f, "import TODO"),
         }
     }
 }
