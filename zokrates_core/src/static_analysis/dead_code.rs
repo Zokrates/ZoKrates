@@ -26,21 +26,23 @@ impl<T: Field> Folder<T> for DeadCode {
         let p = fold_module(self, p);
         // only keep functions which are being called, or `main`
 
-        TypedModule {
-            functions: p
-                .functions
-                .into_iter()
-                .filter(|(key, f)| key.id == "main" || self.called.contains(&f.slug()))
-                .collect(),
-            ..p
-        }
+        unimplemented!()
+
+        // TypedModule {
+        //     functions: p
+        //         .functions
+        //         .into_iter()
+        //         .filter(|(key, f)| key.id == "main" || self.called.contains(&f.slug()))
+        //         .collect(),
+        //     ..p
+        // }
     }
 
     // add extra statements before the modified statement
     fn fold_statement(&mut self, s: TypedStatement<T>) -> Vec<TypedStatement<T>> {
         match s {
             TypedStatement::MultipleDefinition(variables, elist) => match elist {
-                TypedExpressionList::FunctionCall(id, exps, types) => {
+                TypedExpressionList::FunctionCall(key, exps, types) => {
                     let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
 
                     let signature = Signature::new()
@@ -48,10 +50,10 @@ impl<T: Field> Folder<T> for DeadCode {
                         .outputs(types.clone());
 
                     self.called
-                        .insert(format!("{}_{}", id, signature.to_slug()));
+                        .insert(format!("{}_{}", key.id, signature.to_slug()));
                     vec![TypedStatement::MultipleDefinition(
                         variables,
-                        TypedExpressionList::FunctionCall(id, exps, types),
+                        TypedExpressionList::FunctionCall(key, exps, types),
                     )]
                 }
             },
@@ -69,7 +71,7 @@ impl<T: Field> Folder<T> for DeadCode {
                     .outputs(vec![Type::FieldElement]);
 
                 self.called
-                    .insert(format!("{}_{}", id, signature.to_slug()));
+                    .insert(format!("{}_{}", id.id, signature.to_slug()));
                 FieldElementExpression::FunctionCall(id, exps)
             }
             e => fold_field_expression(self, e),
@@ -81,7 +83,7 @@ impl<T: Field> Folder<T> for DeadCode {
         e: FieldElementArrayExpression<T>,
     ) -> FieldElementArrayExpression<T> {
         match e {
-            FieldElementArrayExpression::FunctionCall(size, id, exps) => {
+            FieldElementArrayExpression::FunctionCall(size, key, exps) => {
                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
 
                 let signature = Signature::new()
@@ -89,8 +91,8 @@ impl<T: Field> Folder<T> for DeadCode {
                     .outputs(vec![Type::FieldElementArray(size)]);
 
                 self.called
-                    .insert(format!("{}_{}", id, signature.to_slug()));
-                FieldElementArrayExpression::FunctionCall(size, id, exps)
+                    .insert(format!("{}_{}", key.id, signature.to_slug()));
+                FieldElementArrayExpression::FunctionCall(size, key, exps)
             }
             e => fold_field_array_expression(self, e),
         }

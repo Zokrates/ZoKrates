@@ -20,16 +20,26 @@ use crate::types::Type;
 use std::fmt;
 use zokrates_field::field::Field;
 
-use std::rc::Rc;
-
 pub use self::folder::Folder;
 
 type Identifier = String;
 
+pub type TypedModuleId = String;
+
+pub type TypedModules<T> = HashMap<TypedModuleId, TypedModule<T>>;
+
+pub type TypedFunctionSymbols<T> = HashMap<FunctionKey, TypedFunctionSymbol<T>>;
+
 #[derive(PartialEq, Debug)]
+pub struct TypedProgram<T: Field> {
+    pub modules: TypedModules<T>,
+    pub main: TypedModule<T>,
+}
+
+#[derive(PartialEq, Debug, Clone)]
 pub struct TypedModule<T: Field> {
     /// Functions of the program
-    pub functions: HashMap<FunctionKey, TypedFunctionSymbol<T>>,
+    pub functions: TypedFunctionSymbols<T>,
     pub imports: Vec<Import>,
     pub imported_functions: Vec<FlatFunction<T>>,
 }
@@ -37,23 +47,33 @@ pub struct TypedModule<T: Field> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypedFunctionSymbol<T: Field> {
     Here(TypedFunction<T>),
-    There(FunctionKey, Rc<TypedModule<T>>),
+    There(FunctionKey, TypedModuleId),
 }
 
 impl<T: Field> TypedFunctionSymbol<T> {
-    pub fn signature(&self) -> Signature {
+    pub fn signature(&self, modules: &TypedModules<T>) -> Signature {
         match self {
             TypedFunctionSymbol::Here(f) => f.signature.clone(),
-            TypedFunctionSymbol::There(key, module) => {
-                module.functions.get(key).unwrap().signature()
-            }
+            TypedFunctionSymbol::There(key, module_id) => modules
+                .get(module_id)
+                .unwrap()
+                .functions
+                .get(key)
+                .unwrap()
+                .signature(&modules),
         }
     }
 
-    pub fn slug(&self) -> String {
+    pub fn slug(&self, modules: &TypedModules<T>) -> String {
         match self {
             TypedFunctionSymbol::Here(f) => f.to_slug(),
-            TypedFunctionSymbol::There(key, module) => module.functions.get(key).unwrap().slug(),
+            TypedFunctionSymbol::There(key, module) => modules
+                .get(module)
+                .unwrap()
+                .functions
+                .get(key)
+                .unwrap()
+                .slug(&modules),
         }
     }
 }
@@ -365,7 +385,7 @@ pub trait MultiTyped {
 
 #[derive(Clone, PartialEq)]
 pub enum TypedExpressionList<T: Field> {
-    FunctionCall(String, Vec<TypedExpression<T>>, Vec<Type>),
+    FunctionCall(FunctionKey, Vec<TypedExpression<T>>, Vec<Type>),
 }
 
 impl<T: Field> MultiTyped for TypedExpressionList<T> {
@@ -405,7 +425,7 @@ pub enum FieldElementExpression<T: Field> {
         Box<FieldElementExpression<T>>,
         Box<FieldElementExpression<T>>,
     ),
-    FunctionCall(String, Vec<TypedExpression<T>>),
+    FunctionCall(FunctionKey, Vec<TypedExpression<T>>),
     Select(
         Box<FieldElementArrayExpression<T>>,
         Box<FieldElementExpression<T>>,
@@ -446,7 +466,7 @@ pub enum BooleanExpression<T: Field> {
 pub enum FieldElementArrayExpression<T: Field> {
     Identifier(usize, String),
     Value(usize, Vec<FieldElementExpression<T>>),
-    FunctionCall(usize, String, Vec<TypedExpression<T>>),
+    FunctionCall(usize, FunctionKey, Vec<TypedExpression<T>>),
     IfElse(
         Box<BooleanExpression<T>>,
         Box<FieldElementArrayExpression<T>>,
@@ -482,8 +502,8 @@ impl<T: Field> fmt::Display for FieldElementExpression<T> {
                     condition, consequent, alternative
                 )
             }
-            FieldElementExpression::FunctionCall(ref i, ref p) => {
-                r#try!(write!(f, "{}(", i,));
+            FieldElementExpression::FunctionCall(ref k, ref p) => {
+                r#try!(write!(f, "{}(", k.id,));
                 for (i, param) in p.iter().enumerate() {
                     r#try!(write!(f, "{}", param));
                     if i < p.len() - 1 {
@@ -527,8 +547,8 @@ impl<T: Field> fmt::Display for FieldElementArrayExpression<T> {
                     .collect::<Vec<String>>()
                     .join(", ")
             ),
-            FieldElementArrayExpression::FunctionCall(_, ref i, ref p) => {
-                r#try!(write!(f, "{}(", i,));
+            FieldElementArrayExpression::FunctionCall(_, ref key, ref p) => {
+                r#try!(write!(f, "{}(", key.id,));
                 for (i, param) in p.iter().enumerate() {
                     r#try!(write!(f, "{}", param));
                     if i < p.len() - 1 {
@@ -609,8 +629,8 @@ impl<T: Field> fmt::Debug for FieldElementArrayExpression<T> {
 impl<T: Field> fmt::Display for TypedExpressionList<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            TypedExpressionList::FunctionCall(ref i, ref p, _) => {
-                r#try!(write!(f, "{}(", i,));
+            TypedExpressionList::FunctionCall(ref key, ref p, _) => {
+                r#try!(write!(f, "{}(", key.id,));
                 for (i, param) in p.iter().enumerate() {
                     r#try!(write!(f, "{}", param));
                     if i < p.len() - 1 {

@@ -4,6 +4,10 @@ use crate::typed_absy::*;
 use zokrates_field::field::Field;
 
 pub trait Folder<T: Field>: Sized {
+    fn fold_program(&mut self, p: TypedProgram<T>) -> TypedProgram<T> {
+        fold_program(self, p)
+    }
+
     fn fold_module(&mut self, p: TypedModule<T>) -> TypedModule<T> {
         fold_module(self, p)
     }
@@ -200,9 +204,9 @@ pub fn fold_field_expression<T: Field, F: Folder<T>>(
             let alt = f.fold_field_expression(alt);
             FieldElementExpression::IfElse(box cond, box cons, box alt)
         }
-        FieldElementExpression::FunctionCall(id, exps) => {
+        FieldElementExpression::FunctionCall(key, exps) => {
             let exps = exps.into_iter().map(|e| f.fold_expression(e)).collect();
-            FieldElementExpression::FunctionCall(id, exps)
+            FieldElementExpression::FunctionCall(key, exps)
         }
         FieldElementExpression::Select(box array, box index) => {
             let array = f.fold_field_array_expression(array);
@@ -284,5 +288,16 @@ pub fn fold_function_symbol<T: Field, F: Folder<T>>(
     match s {
         TypedFunctionSymbol::Here(fun) => TypedFunctionSymbol::Here(f.fold_function(fun)),
         there => there, // by default, do not fold modules recursively
+    }
+}
+
+pub fn fold_program<T: Field, F: Folder<T>>(f: &mut F, p: TypedProgram<T>) -> TypedProgram<T> {
+    TypedProgram {
+        modules: p
+            .modules
+            .into_iter()
+            .map(|(module_id, module)| (module_id, f.fold_module(module)))
+            .collect(),
+        main: f.fold_module(p.main),
     }
 }

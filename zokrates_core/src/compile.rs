@@ -3,7 +3,7 @@
 //! @file compile.rs
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
-use crate::absy::Module;
+use crate::absy::{Module, ModuleId, Program};
 use crate::flatten::Flattener;
 use crate::imports::{self, Importer};
 use crate::ir;
@@ -11,6 +11,7 @@ use crate::optimizer::Optimize;
 use crate::parser::{self, parse_module};
 use crate::semantics::{self, Checker};
 use crate::static_analysis::Analyse;
+use std::collections::HashMap;
 use std::fmt;
 use std::io;
 use std::io::BufRead;
@@ -127,10 +128,10 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     location: Option<String>,
     resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
 ) -> Result<ir::Prog<T>, CompileErrors<T>> {
-    let compiled = compile_aux(reader, location.clone(), resolve_option)?;
+    let compiled = compile_program(reader, location.clone(), resolve_option)?;
 
     // check semantics
-    let typed_ast = Checker::new().check_module(compiled).map_err(|errors| {
+    let typed_ast = Checker::new().check_program(compiled).map_err(|errors| {
         CompileErrors(
             errors
                 .into_iter()
@@ -151,21 +152,33 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     Ok(ir::Prog::from(program_flattened).optimize())
 }
 
-pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
+pub fn compile_program<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     reader: &mut R,
     location: Option<String>,
     resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
+) -> Result<Program<T>, CompileErrors<T>> {
+    let mut modules = HashMap::new();
+
+    let main = compile_module(reader, location, resolve_option, &mut modules)?;
+
+    Ok(Program { main, modules })
+}
+
+pub fn compile_module<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
+    reader: &mut R,
+    location: Option<String>,
+    resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
+    modules: &mut HashMap<ModuleId, Module<T>>,
 ) -> Result<Module<T>, CompileErrors<T>> {
-    let program_ast_without_imports: Module<T> = parse_module(reader)
+    let module_without_imports: Module<T> = parse_module(reader)
         .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).with_context(&location)))?;
 
-    let program_ast = Importer::new().apply_imports(
-        program_ast_without_imports,
+    Importer::new().apply_imports(
+        module_without_imports,
         location.clone(),
         resolve_option,
-    )?;
-
-    Ok(program_ast)
+        modules,
+    )
 }
 
 #[cfg(test)]

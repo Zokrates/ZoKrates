@@ -5,17 +5,20 @@
 // use std::collections::HashMap;
 // use zokrates_field::field::Field;
 
+// #[derive(Debug)]
 // pub struct Inliner<T: Field> {
-//     functions: HashMap<FunctionKey, TypedFunctionSymbol<T>>,
+//     functions: TypedFunctionSymbols<T>,
+//     modules: TypedModules<T>,
 //     statements_buffer: Vec<TypedStatement<T>>,
 //     context: Vec<(String, usize)>,
 //     call_count: HashMap<String, usize>,
 // }
 
 // impl<T: Field> Inliner<T> {
-//     pub fn new() -> Self {
+//     fn new() -> Self {
 //         Inliner {
 //             functions: HashMap::new(),
+//             modules: HashMap::new(),
 //             statements_buffer: vec![],
 //             context: vec![],
 //             call_count: HashMap::new(),
@@ -35,137 +38,107 @@
 //         // (inlining enables constant propagation through function calls, which cannot be achieved by our final optimiser in some cases)
 //         // for now, we inline functions whose non-array parameters are constant, as this covers our main use case for inlining: propagation of
 //         // constant array indices
-//         match function {
-//             Some(..) => {
-//                 // check whether non-array arguments are constant
-//                 arguments.iter().all(|e| match e {
-//                     TypedExpression::FieldElementArray(..) => true,
-//                     TypedExpression::FieldElement(FieldElementExpression::Number(..)) => true,
-//                     TypedExpression::Boolean(BooleanExpression::Value(..)) => true,
-//                     _ => false,
-//                 })
-//             }
-//             None => false,
-//         }
+//         // match function {
+//         //     Some(..) => {
+//         //         // check whether non-array arguments are constant
+//         //         arguments.iter().all(|e| match e {
+//         //             TypedExpression::FieldElementArray(..) => true,
+//         //             TypedExpression::FieldElement(FieldElementExpression::Number(..)) => true,
+//         //             TypedExpression::Boolean(BooleanExpression::Value(..)) => true,
+//         //             _ => false,
+//         //         })
+//         //     }
+//         //     None => false,
+//         // }
+//         true
 //     }
 
 //     // inline a call to `function` taking `expressions` as inputs
 //     // this function mutates `self.call` by incrementing the counter for `function`, and mutates `self.context`
 //     fn inline_call(
 //         &mut self,
-//         function: &TypedFunctionSymbol<T>,
+//         symbol: &TypedFunctionSymbol<T>,
 //         expressions: Vec<TypedExpression<T>>,
 //     ) -> Vec<TypedExpression<T>> {
-//         self.call_count
-//             .entry(function.slug())
-//             .and_modify(|i| *i += 1)
-//             .or_insert(1);
-//         self.context.push((
-//             function.slug(),
-//             *self.call_count.get(&function.slug()).unwrap(),
-//         ));
+//         match symbol {
+//             TypedFunctionSymbol::Here(function) => {
+//                 self.call_count
+//                     .entry(function.to_slug())
+//                     .and_modify(|i| *i += 1)
+//                     .or_insert(1);
+//                 self.context.push((
+//                     function.to_slug(),
+//                     *self.call_count.get(&function.to_slug()).unwrap(),
+//                 ));
 
-//         // add definitions for the inputs
-//         let mut inputs_bindings = function
-//             .arguments
-//             .iter()
-//             .zip(expressions)
-//             .map(|(a, e)| {
-//                 TypedStatement::Definition(
-//                     TypedAssignee::Identifier(self.fold_variable(a.id.clone())),
-//                     e,
-//                 )
-//             })
-//             .collect();
-//         self.statements_buffer.append(&mut inputs_bindings);
+//                 // add definitions for the inputs
+//                 let mut inputs_bindings = function
+//                     .arguments
+//                     .iter()
+//                     .zip(expressions)
+//                     .map(|(a, e)| {
+//                         TypedStatement::Definition(
+//                             TypedAssignee::Identifier(self.fold_variable(a.id.clone())),
+//                             e,
+//                         )
+//                     })
+//                     .collect();
+//                 self.statements_buffer.append(&mut inputs_bindings);
 
-//         // filter out the return statement and keep it aside
-//         let (mut statements, ret): (Vec<_>, Vec<_>) = function
-//             .statements
-//             .clone()
-//             .into_iter()
-//             .flat_map(|s| self.fold_statement(s))
-//             .partition(|s| match s {
-//                 TypedStatement::Return(..) => false,
-//                 _ => true,
-//             });
+//                 // filter out the return statement and keep it aside
+//                 let (mut statements, ret): (Vec<_>, Vec<_>) = function
+//                     .statements
+//                     .clone()
+//                     .into_iter()
+//                     .flat_map(|s| self.fold_statement(s))
+//                     .partition(|s| match s {
+//                         TypedStatement::Return(..) => false,
+//                         _ => true,
+//                     });
 
-//         // add all statements to the buffer
-//         self.statements_buffer.append(&mut statements);
+//                 // add all statements to the buffer
+//                 self.statements_buffer.append(&mut statements);
 
-//         // remove this call from the context
-//         self.context.pop();
+//                 // remove this call from the context
+//                 self.context.pop();
 
-//         match ret[0].clone() {
-//             TypedStatement::Return(exprs) => exprs,
-//             _ => panic!(""),
+//                 match ret[0].clone() {
+//                     TypedStatement::Return(exprs) => exprs,
+//                     _ => panic!(""),
+//                 }
+//             }
+//             _ => unimplemented!(),
 //         }
 //     }
 
-//     pub fn inline(prog: TypedModule<T>) -> TypedModule<T> {
-//         Inliner::new().fold_module(prog)
+//     pub fn inline(prog: TypedProgram<T>) -> TypedProgram<T> {
+//         Inliner::new().fold_program(prog)
 //     }
 // }
 
 // impl<T: Field> Folder<T> for Inliner<T> {
-//     // store the list of functions
-//     fn fold_module(&mut self, p: TypedModule<T>) -> TypedModule<T> {
-//         self.functions = p.functions.clone();
-//         fold_module(self, p)
+//     fn fold_program(&mut self, p: TypedProgram<T>) -> TypedProgram<T> {
+//         self.modules = p.modules;
+//         let main = p.main;
+//         self.functions = main.functions.clone();
+//         TypedProgram {
+//             main: TypedModule {
+//                 imported_functions: vec![],
+//                 imports: vec![],
+//                 functions: main
+//                     .functions
+//                     .into_iter()
+//                     .filter(|(k, v)| k.id == "main")
+//                     .take(1)
+//                     .map(|(k, v)| (k, self.fold_function_symbol(v)))
+//                     .collect(),
+//             },
+//             modules: HashMap::new(),
+//         }
 //     }
 
-//     // add extra statements before the modified statement
-//     fn fold_statement(&mut self, s: TypedStatement<T>) -> Vec<TypedStatement<T>> {
-//         let mut statements = match s {
-//             TypedStatement::MultipleDefinition(variables, elist) => {
-//                 match elist {
-//                     TypedExpressionList::FunctionCall(id, exps, types) => {
-//                         let variables: Vec<_> = variables
-//                             .into_iter()
-//                             .map(|a| self.fold_variable(a))
-//                             .collect();
-//                         let exps: Vec<_> =
-//                             exps.into_iter().map(|e| self.fold_expression(e)).collect();
-
-//                         let passed_signature = Signature::new()
-//                             .inputs(exps.iter().map(|e| e.get_type()).collect())
-//                             .outputs(types.clone());
-
-//                         // find the function
-//                         let function = self
-//                             .functions
-//                             .get(&FunctionKey {
-//                                 signature: passed_signature,
-//                                 id: id.clone(),
-//                             })
-//                             .cloned();
-
-//                         match self.should_inline(&function, &exps) {
-//                             true => {
-//                                 let ret = self.inline_call(&function.unwrap(), exps);
-//                                 variables
-//                                     .into_iter()
-//                                     .zip(ret.into_iter())
-//                                     .map(|(v, e)| {
-//                                         TypedStatement::Definition(TypedAssignee::Identifier(v), e)
-//                                     })
-//                                     .collect()
-//                             }
-//                             false => vec![TypedStatement::MultipleDefinition(
-//                                 variables,
-//                                 TypedExpressionList::FunctionCall(id, exps, types),
-//                             )],
-//                         }
-//                     }
-//                 }
-//             }
-//             s => fold_statement(self, s),
-//         };
-
-//         // add the result of folding to the buffer
-//         self.statements_buffer.append(&mut statements);
-//         // return the whole buffer
-//         self.statements_buffer.drain(..).collect()
+//     fn fold_module(&mut self, m: TypedModule<T>) -> TypedModule<T> {
+//         unreachable!("we don't want to inline modules, only functions!")
 //     }
 
 //     // prefix all names with the context
@@ -184,24 +157,38 @@
 //         }
 //     }
 
+//     fn fold_function_symbol(&mut self, s: TypedFunctionSymbol<T>) -> TypedFunctionSymbol<T> {
+//         match s {
+//             TypedFunctionSymbol::Here(function) => TypedFunctionSymbol::Here(self.fold_function(function)),
+//             TypedFunctionSymbol::There(function_id, module_id) => {
+//             	let mut inliner = Inliner::new();
+//             	let module = self.modules.get(&module_id).unwrap();
+//             	let function_symbol  = module.functions.get(&function_id).unwrap().clone();
+
+//             	inliner.modules = self.modules.clone();
+//             	inliner.functions = module.functions.clone();
+
+// 				inliner.fold_function_symbol(function_symbol)
+//             },
+//         }
+//     }
+
 //     // inline calls which return a field element
 //     fn fold_field_expression(&mut self, e: FieldElementExpression<T>) -> FieldElementExpression<T> {
+//     	println!("{:#?}", self);
+
 //         match e {
-//             FieldElementExpression::FunctionCall(id, exps) => {
+//             FieldElementExpression::FunctionCall(key, exps) => {
 //                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
 
 //                 let passed_signature = Signature::new()
 //                     .inputs(exps.iter().map(|e| e.get_type()).collect())
 //                     .outputs(vec![Type::FieldElement]);
 
+//                 println!("{:?} {:?}", key, self.functions);
+
 //                 // find the function
-//                 let function = self
-//                     .functions
-//                     .get(&FunctionKey {
-//                         signature: passed_signature,
-//                         id: id.clone(),
-//                     })
-//                     .cloned();
+//                 let function = self.functions.get(&key).cloned();
 
 //                 match self.should_inline(&function, &exps) {
 //                     true => {
@@ -212,50 +199,11 @@
 //                             _ => panic!(""),
 //                         }
 //                     }
-//                     false => FieldElementExpression::FunctionCall(id, exps),
+//                     false => FieldElementExpression::FunctionCall(key, exps),
 //                 }
 //             }
 //             // default
 //             e => fold_field_expression(self, e),
-//         }
-//     }
-
-//     // inline calls which return a field element array
-//     fn fold_field_array_expression(
-//         &mut self,
-//         e: FieldElementArrayExpression<T>,
-//     ) -> FieldElementArrayExpression<T> {
-//         match e {
-//             FieldElementArrayExpression::FunctionCall(size, id, exps) => {
-//                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
-
-//                 let passed_signature = Signature::new()
-//                     .inputs(exps.iter().map(|e| e.get_type()).collect())
-//                     .outputs(vec![Type::FieldElementArray(size)]);
-
-//                 // find the function
-//                 let function = self
-//                     .functions
-//                     .get(&FunctionKey {
-//                         signature: passed_signature,
-//                         id: id.clone(),
-//                     })
-//                     .cloned();
-
-//                 match self.should_inline(&function, &exps) {
-//                     true => {
-//                         let ret = self.inline_call(&function.unwrap(), exps);
-//                         // unwrap the result to return a field element
-//                         match ret[0].clone() {
-//                             TypedExpression::FieldElementArray(e) => e,
-//                             _ => panic!(""),
-//                         }
-//                     }
-//                     false => FieldElementArrayExpression::FunctionCall(size, id, exps),
-//                 }
-//             }
-//             // default
-//             e => fold_field_array_expression(self, e),
 //         }
 //     }
 // }

@@ -20,8 +20,8 @@ impl<T: Field> Propagator<T> {
         }
     }
 
-    pub fn propagate(p: TypedModule<T>) -> TypedModule<T> {
-        Propagator::new().fold_module(p)
+    pub fn propagate(p: TypedProgram<T>) -> TypedProgram<T> {
+        Propagator::new().fold_program(p)
     }
 }
 

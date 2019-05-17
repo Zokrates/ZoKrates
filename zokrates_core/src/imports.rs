@@ -5,14 +5,14 @@
 //! @date 2018
 
 use crate::absy::*;
-use crate::compile::compile_aux;
+use crate::compile::compile_module;
 use crate::compile::{CompileErrorInner, CompileErrors};
 use crate::flat_absy::*;
 use crate::parser::Position;
+use std::collections::HashMap;
 use std::fmt;
 use std::io;
 use std::io::BufRead;
-use std::rc::Rc;
 use zokrates_field::field::Field;
 
 pub struct CompiledImport<T: Field> {
@@ -133,6 +133,7 @@ impl Importer {
         destination: Module<T>,
         location: Option<String>,
         resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
+        modules: &mut HashMap<ModuleId, Module<T>>,
     ) -> Result<Module<T>, CompileErrors<T>> {
         let mut origins: Vec<CompiledImport<T>> = vec![];
         let mut functions = vec![];
@@ -192,13 +193,20 @@ impl Importer {
                 match resolve_option {
                     Some(resolve) => match resolve(&location, &import.source) {
                         Ok((mut reader, location, auto_alias)) => {
-                            let compiled = compile_aux(&mut reader, Some(location), resolve_option)
-                                .map_err(|e| e.with_context(Some(import.source.clone())))?;
+                            let compiled = compile_module(
+                                &mut reader,
+                                Some(location),
+                                resolve_option,
+                                modules,
+                            )
+                            .map_err(|e| e.with_context(Some(import.source.clone())))?;
                             let alias = import.alias.clone().unwrap_or(auto_alias);
+
+                            modules.insert(import.source.clone(), compiled);
 
                             functions.push((
                                 alias.clone(),
-                                FunctionSymbol::There(String::from("main"), Rc::new(compiled))
+                                FunctionSymbol::There(String::from("main"), import.source.clone())
                                     .at(0, 0, 0),
                             ));
                         }

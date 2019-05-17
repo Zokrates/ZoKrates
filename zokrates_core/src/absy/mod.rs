@@ -19,9 +19,18 @@ use crate::imports::ImportNode;
 use std::fmt;
 use zokrates_field::field::Field;
 
-use std::rc::Rc;
+use std::collections::HashMap;
 
 type Identifier = String;
+
+pub type ModuleId = String;
+
+pub type Modules<T> = HashMap<ModuleId, Module<T>>;
+
+pub struct Program<T: Field> {
+    pub modules: HashMap<ModuleId, Module<T>>,
+    pub main: Module<T>,
+}
 
 #[derive(Clone, PartialEq)]
 pub struct Module<T: Field> {
@@ -34,7 +43,7 @@ pub struct Module<T: Field> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum FunctionSymbol<T: Field> {
     Here(FunctionNode<T>),
-    There(Identifier, Rc<Module<T>>),
+    There(Identifier, ModuleId),
 }
 
 pub type FunctionSymbolNode<T> = Node<FunctionSymbol<T>>;
