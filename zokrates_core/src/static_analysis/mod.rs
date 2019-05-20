@@ -4,15 +4,11 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
-mod dead_code;
 mod flat_propagation;
-mod inline;
 mod power_check;
 mod propagation;
 mod unroll;
 
-use self::dead_code::DeadCode;
-//use self::inline::Inliner;
 use self::power_check::PowerChecker;
 use self::propagation::Propagator;
 use self::unroll::Unroller;
@@ -26,17 +22,12 @@ pub trait Analyse {
 
 impl<T: Field> Analyse for TypedProgram<T> {
     fn analyse(self) -> Self {
+        println!("{}", self);
         let r = PowerChecker::check(self);
         // unroll
         let r = Unroller::unroll(r);
-        //propagate a first time for constants to reach function calls
+        //propagate
         let r = Propagator::propagate(r);
-        // apply inlining strategy
-        // let r = Inliner::inline(r);
-        // Propagate again
-        let r = Propagator::propagate(r);
-        // // remove unused functions
-        // let r = DeadCode::clean(r);
         r
     }
 }

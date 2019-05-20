@@ -36,7 +36,25 @@ pub struct TypedProgram<T: Field> {
     pub main: TypedModule<T>,
 }
 
-#[derive(PartialEq, Debug, Clone)]
+impl<T: Field> fmt::Display for TypedProgram<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "| main: |")?;
+        writeln!(f, "{}", "-".repeat(100))?;
+        writeln!(f, "{}", self.main)?;
+        writeln!(f, "{}", "-".repeat(100))?;
+        writeln!(f, "")?;
+        for (module_id, module) in &self.modules {
+            writeln!(f, "| {}: |", module_id)?;
+            writeln!(f, "{}", "-".repeat(100))?;
+            writeln!(f, "{}", module)?;
+            writeln!(f, "{}", "-".repeat(100))?;
+            writeln!(f, "")?;
+        }
+        write!(f, "")
+    }
+}
+
+#[derive(PartialEq, Clone)]
 pub struct TypedModule<T: Field> {
     /// Functions of the program
     pub functions: TypedFunctionSymbols<T>,
@@ -63,24 +81,18 @@ impl<T: Field> TypedFunctionSymbol<T> {
                 .signature(&modules),
         }
     }
-
-    pub fn slug(&self, modules: &TypedModules<T>) -> String {
-        match self {
-            TypedFunctionSymbol::Here(f) => f.to_slug(),
-            TypedFunctionSymbol::There(key, module) => modules
-                .get(module)
-                .unwrap()
-                .functions
-                .get(key)
-                .unwrap()
-                .slug(&modules),
-        }
-    }
 }
 
 impl<T: Field> fmt::Display for TypedFunctionSymbol<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        unimplemented!()
+        match self {
+            TypedFunctionSymbol::Here(fun) => write!(f, "{}", fun),
+            TypedFunctionSymbol::There(key, module_id) => write!(
+                f,
+                "import {} from {} // with signature {}",
+                key.id, module_id, key.signature
+            ),
+        }
     }
 }
 
@@ -109,34 +121,34 @@ impl<T: Field> fmt::Display for TypedModule<T> {
     }
 }
 
-// impl<T: Field> fmt::Debug for TypedModule<T> {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         write!(
-//             f,
-//             "program(\n\timports:\n\t\t{}\n\tfunctions:\n\t\t{}{}\n)",
-//             self.imports
-//                 .iter()
-//                 .map(|x| format!("{:?}", x))
-//                 .collect::<Vec<_>>()
-//                 .join("\n\t\t"),
-//             self.imported_functions
-//                 .iter()
-//                 .map(|x| format!("{}", x))
-//                 .collect::<Vec<_>>()
-//                 .join("\n\t\t"),
-//             self.functions
-//                 .iter()
-//                 .map(|x| format!("{:?}", x))
-//                 .collect::<Vec<_>>()
-//                 .join("\n\t\t")
-//         )
-//     }
-// }
+impl<T: Field> fmt::Debug for TypedModule<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "program(\n\timports:\n\t\t{}\n\tfunctions:\n\t\t{}{}\n)",
+            self.imports
+                .iter()
+                .map(|x| format!("{:?}", x))
+                .collect::<Vec<_>>()
+                .join("\n\t\t"),
+            self.imported_functions
+                .iter()
+                .map(|x| format!("{}", x))
+                .collect::<Vec<_>>()
+                .join("\n\t\t"),
+            self.functions
+                .iter()
+                .map(|x| format!("{:?}", x))
+                .collect::<Vec<_>>()
+                .join("\n\t\t")
+        )
+    }
+}
 
 #[derive(Clone, PartialEq)]
 pub struct TypedFunction<T: Field> {
     /// Name of the program
-    pub id: String,
+    pub id: Identifier,
     /// Arguments of the function
     pub arguments: Vec<Parameter>,
     /// Vector of statements that are executed when running the function
@@ -393,7 +405,7 @@ impl<T: Field> MultiTyped for TypedExpressionList<T> {
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum FieldElementExpression<T: Field> {
     Number(T),
-    Identifier(String),
+    Identifier(Identifier),
     Add(
         Box<FieldElementExpression<T>>,
         Box<FieldElementExpression<T>>,
@@ -428,7 +440,7 @@ pub enum FieldElementExpression<T: Field> {
 
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum BooleanExpression<T: Field> {
-    Identifier(String),
+    Identifier(Identifier),
     Value(bool),
     Lt(
         Box<FieldElementExpression<T>>,
@@ -458,7 +470,7 @@ pub enum BooleanExpression<T: Field> {
 // for now we store the array size in the variants
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum FieldElementArrayExpression<T: Field> {
-    Identifier(usize, String),
+    Identifier(usize, Identifier),
     Value(usize, Vec<FieldElementExpression<T>>),
     FunctionCall(usize, FunctionKey, Vec<TypedExpression<T>>),
     IfElse(
@@ -646,11 +658,5 @@ impl<T: Field> fmt::Debug for TypedExpressionList<T> {
                 write!(f, ")")
             }
         }
-    }
-}
-
-impl<T: Field> TypedFunction<T> {
-    pub fn to_slug(&self) -> String {
-        format!("{}_{}", self.id, self.signature.to_slug())
     }
 }
