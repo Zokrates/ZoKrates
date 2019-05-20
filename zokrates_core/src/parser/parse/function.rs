@@ -9,7 +9,8 @@ use crate::parser::Error;
 use super::statement::parse_statement;
 
 use crate::absy::{
-    Function, FunctionNode, Node, Parameter, ParameterNode, Statement, Variable, VariableNode,
+    Function, FunctionNode, Identifier, Node, Parameter, ParameterNode, Statement, Variable,
+    VariableNode,
 };
 use crate::types::{Signature, Type};
 
@@ -251,7 +252,7 @@ pub fn parse_function<T: Field, R: BufRead>(
     mut lines: &mut Lines<R>,
     input: &String,
     pos: &Position,
-) -> Result<(FunctionNode<T>, Position), Error<T>> {
+) -> Result<(Identifier, FunctionNode<T>, Position), Error<T>> {
     let mut current_line = pos.line;
 
     let (id, args, sig) = parse_function_header(input, pos)?;
@@ -303,11 +304,11 @@ pub fn parse_function<T: Field, R: BufRead>(
     };
 
     Ok((
+        id,
         Node::new(
             *pos,
             next_pos,
             Function {
-                id: id,
                 arguments: args,
                 statements: stats,
                 signature: sig,

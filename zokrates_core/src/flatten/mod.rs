@@ -60,7 +60,6 @@ impl<T: Field> Flattener<T> {
 
         // Load IfElse helper
         let ie = TypedFunction {
-            id: "_if_else_field".to_string(),
             arguments: vec![
                 Parameter {
                     id: Variable {
@@ -1401,7 +1400,6 @@ impl<T: Field> Flattener<T> {
         }
 
         FlatFunction {
-            id: funct.id.clone(),
             arguments: arguments_flattened,
             statements: statements_flattened,
             signature: funct.signature,
@@ -1438,7 +1436,7 @@ impl<T: Field> Flattener<T> {
         let main_flattened = self.flatten_function_symbol(&symbols, &mut functions_flattened, main);
 
         FlatProg {
-            functions: vec![main_flattened],
+            main: main_flattened,
         }
     }
 
@@ -1483,11 +1481,12 @@ impl<T: Field> Flattener<T> {
 
         match symbols.get(&key) {
             Some(f) => self.flatten_function_symbol(symbols, functions_flattened, f.clone()),
-            None => functions_flattened
-                .iter()
-                .find(|f| f.id == id && f.signature == s)
-                .expect(&format!("couldn't find {}", id))
-                .clone(),
+            None => unimplemented!("need to refactor storage of low level functions")
+            // functions_flattened
+            //     .iter()
+            //     .find(|f| f.id == id && f.signature == s)
+            //     .expect(&format!("couldn't find {}", id))
+            //     .clone(),
         }
     }
 }

@@ -16,7 +16,7 @@ impl<T: Field> From<FlatFunction<T>> for Function<T> {
             .next()
             .unwrap();
         Function {
-            id: flat_function.id,
+            id: String::from("main"),
             arguments: flat_function.arguments.into_iter().map(|p| p.id).collect(),
             returns: return_expressions
                 .iter()
@@ -63,12 +63,8 @@ impl<T: Field> QuadComb<T> {
 
 impl<T: Field> From<FlatProg<T>> for Prog<T> {
     fn from(flat_prog: FlatProg<T>) -> Prog<T> {
-        // get the main function as all calls have been resolved
-        let main = flat_prog
-            .functions
-            .into_iter()
-            .find(|f| f.id == "main")
-            .unwrap();
+        // get the main function
+        let main = flat_prog.main;
 
         // get the interface of the program, ie which inputs are private and public
         let private = main.arguments.iter().map(|p| p.private).collect();

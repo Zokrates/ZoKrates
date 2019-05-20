@@ -21,15 +21,7 @@ pub struct CompiledImport<T: Field> {
 
 impl<T: Field> CompiledImport<T> {
     fn new(prog: FlatProg<T>, alias: String) -> CompiledImport<T> {
-        match prog.functions.iter().find(|fun| fun.id == "main") {
-            Some(fun) => CompiledImport {
-                flat_func: FlatFunction {
-                    id: alias,
-                    ..fun.clone()
-                },
-            },
-            None => panic!("no main"),
-        }
+        unimplemented!("refactor imported flattened funcs")
     }
 }
 
@@ -147,9 +139,7 @@ impl Importer {
                     "BELLMAN/sha256round" => {
                         use crate::standard::sha_round;
 
-                        let compiled = FlatProg {
-                            functions: vec![sha_round()],
-                        };
+                        let compiled = FlatProg { main: sha_round() };
 
                         let alias = match import.alias {
                             Some(ref alias) => alias.clone(),
@@ -204,11 +194,17 @@ impl Importer {
 
                             modules.insert(import.source.clone(), compiled);
 
-                            functions.push((
-                                alias.clone(),
-                                FunctionSymbol::There(String::from("main"), import.source.clone())
+                            functions.push(
+                                FunctionDeclaration {
+                                    id: alias.clone(),
+                                    symbol: FunctionSymbol::There(
+                                        String::from("main"),
+                                        import.source.clone(),
+                                    )
                                     .at(0, 0, 0),
-                            ));
+                                }
+                                .at(0, 0, 0),
+                            );
                         }
                         Err(err) => {
                             return Err(CompileErrorInner::ImportError(

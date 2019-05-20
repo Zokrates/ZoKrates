@@ -101,12 +101,11 @@ pub fn split<T: Field>() -> FlatProg<T> {
     }));
 
     FlatProg {
-        functions: vec![FlatFunction {
-            id: String::from("main"),
+        main: FlatFunction {
             arguments,
             statements,
             signature,
-        }],
+        },
     }
 }
 
@@ -157,7 +156,6 @@ pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
         .collect();
 
     FlatFunction {
-        id: format!("_{}_to_{}", from, to),
         arguments,
         statements,
         signature,
@@ -176,7 +174,6 @@ mod tests {
         #[test]
         fn bool_to_field() {
             let b2f: FlatFunction<FieldPrime> = cast(&Type::Boolean, &Type::FieldElement);
-            assert_eq!(b2f.id, String::from("_bool_to_field"));
             assert_eq!(
                 b2f.arguments,
                 vec![FlatParameter::private(FlatVariable::new(0))]
@@ -203,9 +200,8 @@ mod tests {
         #[test]
         fn split254() {
             let unpack: FlatProg<FieldPrime> = split();
-            let unpack = &unpack.functions[0];
+            let unpack = &unpack.main;
 
-            assert_eq!(unpack.id, String::from("main"));
             assert_eq!(
                 unpack.arguments,
                 vec![FlatParameter::private(FlatVariable::new(0))]

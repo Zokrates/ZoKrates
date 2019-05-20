@@ -21,21 +21,44 @@ use zokrates_field::field::Field;
 
 use std::collections::HashMap;
 
-type Identifier = String;
+pub type Identifier = String;
 
 pub type ModuleId = String;
 
 pub type Modules<T> = HashMap<ModuleId, Module<T>>;
+
+pub type FunctionDeclarations<T> = Vec<FunctionDeclarationNode<T>>;
 
 pub struct Program<T: Field> {
     pub modules: HashMap<ModuleId, Module<T>>,
     pub main: Module<T>,
 }
 
+#[derive(PartialEq, Debug, Clone)]
+pub struct FunctionDeclaration<T: Field> {
+    pub id: Identifier,
+    pub symbol: FunctionSymbolNode<T>,
+}
+
+impl<T: Field> fmt::Display for FunctionDeclaration<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.symbol.value {
+            FunctionSymbol::Here(ref fun) => write!(f, "def {}{}", self.id, fun),
+            FunctionSymbol::There(ref function_id, ref module_id) => write!(
+                f,
+                "import {} from {} as {}",
+                function_id, module_id, self.id
+            ),
+        }
+    }
+}
+
+type FunctionDeclarationNode<T> = Node<FunctionDeclaration<T>>;
+
 #[derive(Clone, PartialEq)]
 pub struct Module<T: Field> {
     /// Functions of the module
-    pub functions: Vec<(Identifier, FunctionSymbolNode<T>)>,
+    pub functions: FunctionDeclarations<T>,
     pub imports: Vec<ImportNode>,
     pub imported_functions: Vec<FlatFunction<T>>,
 }
@@ -52,11 +75,7 @@ impl<T: Field> fmt::Display for FunctionSymbol<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             FunctionSymbol::Here(fun_node) => write!(f, "{}", fun_node),
-            FunctionSymbol::There(id, module_id) => write!(
-                f,
-                "import {} from {}",
-                id, module_id
-            ),
+            FunctionSymbol::There(id, module_id) => write!(f, "import {} from {}", id, module_id),
         }
     }
 }
@@ -79,7 +98,7 @@ impl<T: Field> fmt::Display for Module<T> {
         res.extend(
             self.functions
                 .iter()
-                .map(|x| format!("{}", x.1))
+                .map(|x| format!("{}", x))
                 .collect::<Vec<_>>(),
         );
         write!(f, "{}", res.join("\n"))
@@ -112,8 +131,6 @@ impl<T: Field> fmt::Debug for Module<T> {
 
 #[derive(Clone, PartialEq)]
 pub struct Function<T: Field> {
-    /// Name of the function
-    pub id: Identifier,
     /// Arguments of the function
     pub arguments: Vec<ParameterNode>,
     /// Vector of statements that are executed when running the function
@@ -128,8 +145,7 @@ impl<T: Field> fmt::Display for Function<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "def {}({}):\n{}",
-            self.id,
+            "({}):\n{}",
             self.arguments
                 .iter()
                 .map(|x| format!("{}", x))
@@ -148,8 +164,7 @@ impl<T: Field> fmt::Debug for Function<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "Function(id: {:?}, arguments: {:?}, ...):\n{}",
-            self.id,
+            "Function(arguments: {:?}, ...):\n{}",
             self.arguments,
             self.statements
                 .iter()

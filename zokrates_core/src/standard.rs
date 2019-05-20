@@ -140,7 +140,6 @@ pub fn sha_round<T: Field>() -> FlatFunction<T> {
         .collect();
 
     FlatFunction {
-        id: "main".to_owned(),
         arguments,
         statements,
         signature,

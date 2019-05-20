@@ -147,8 +147,6 @@ impl<T: Field> fmt::Debug for TypedModule<T> {
 
 #[derive(Clone, PartialEq)]
 pub struct TypedFunction<T: Field> {
-    /// Name of the program
-    pub id: Identifier,
     /// Arguments of the function
     pub arguments: Vec<Parameter>,
     /// Vector of statements that are executed when running the function
@@ -161,8 +159,7 @@ impl<T: Field> fmt::Display for TypedFunction<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "def {}({}) -> ({}):\n{}",
-            self.id,
+            "({}) -> ({}):\n{}",
             self.arguments
                 .iter()
                 .map(|x| format!("{}", x))
@@ -187,8 +184,7 @@ impl<T: Field> fmt::Debug for TypedFunction<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "TypedFunction(id: {:?}, arguments: {:?}, ...):\n{}",
-            self.id,
+            "TypedFunction(arguments: {:?}, ...):\n{}",
             self.arguments,
             self.statements
                 .iter()

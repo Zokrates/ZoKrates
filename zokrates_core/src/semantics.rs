@@ -152,34 +152,63 @@ impl Checker {
         typed_modules: &mut TypedModules<T>,
     ) -> Result<TypedModule<T>, Vec<Error>> {
         for func in &module.imported_functions {
-            self.functions.insert(FunctionKey {
-                id: func.id.clone(),
-                signature: func.signature.clone(),
-            });
+            // self.functions.insert(FunctionKey {
+            //     id: func.id.clone(),
+            //     signature: func.signature.clone(),
+            // });
+            unimplemented!("need to refactor imported functions")
         }
 
         let mut errors = vec![];
         let mut checked_functions = HashMap::new();
 
-        for (id, func) in module.functions {
+        for declaration in module.functions {
             self.enter_scope();
 
-            match self.check_function_symbol(func, modules, typed_modules) {
+            let pos = declaration.pos();
+            let declaration = declaration.value;
+
+            match self.check_function_symbol(declaration.symbol, modules, typed_modules) {
                 Ok(checked_function_symbols) => {
-                    self.functions
-                        .extend(checked_function_symbols.iter().map(|f| FunctionKey {
-                            signature: f.signature(&typed_modules).clone(),
-                            id: id.clone(),
-                        }));
-                    checked_functions.extend(checked_function_symbols.into_iter().map(|f| {
-                        (
-                            FunctionKey {
-                                signature: f.signature(&typed_modules).clone(),
-                                id: id.clone(),
-                            },
-                            f,
-                        )
-                    }));
+                    for funct in checked_function_symbols {
+                        let query = FunctionQuery::new(
+                            declaration.id.clone(),
+                            &funct.signature(&typed_modules).inputs,
+                            &funct
+                                .signature(&typed_modules)
+                                .outputs
+                                .clone()
+                                .into_iter()
+                                .map(|o| Some(o))
+                                .collect(),
+                        );
+
+                        let candidates = self.find_candidates(&query);
+
+                        match candidates.len() {
+                            1 => {
+                                errors.push(Error {
+                                    pos: Some(pos),
+                                    message: format!(
+                                        "Duplicate definition for function {} with signature {}",
+                                        declaration.id,
+                                        funct.signature(&typed_modules)
+                                    ),
+                                });
+                            }
+                            0 => {}
+                            _ => panic!("duplicate function declaration should have been caught"),
+                        }
+                        self.functions.insert(
+                            FunctionKey::with_id(declaration.id.clone())
+                                .signature(funct.signature(&typed_modules).clone()),
+                        );
+                        checked_functions.insert(
+                            FunctionKey::with_id(declaration.id.clone())
+                                .signature(funct.signature(&typed_modules).clone()),
+                            funct,
+                        );
+                    }
                 }
                 Err(e) => {
                     errors.extend(e);
@@ -234,38 +263,9 @@ impl Checker {
         funct_node: FunctionNode<T>,
     ) -> Result<TypedFunction<T>, Vec<Error>> {
         let mut errors = vec![];
-        let pos = funct_node.pos();
         let funct = funct_node.value;
 
         assert_eq!(funct.arguments.len(), funct.signature.inputs.len());
-
-        let query = FunctionQuery::new(
-            funct.id.clone(),
-            &funct.signature.inputs,
-            &funct
-                .signature
-                .outputs
-                .clone()
-                .into_iter()
-                .map(|o| Some(o))
-                .collect(),
-        );
-
-        let candidates = self.find_candidates(&query);
-
-        match candidates.len() {
-            1 => {
-                errors.push(Error {
-                    pos: Some(pos),
-                    message: format!(
-                        "Duplicate definition for function {} with signature {}",
-                        funct.id, funct.signature
-                    ),
-                });
-            }
-            0 => {}
-            _ => panic!("duplicate function declaration should have been caught"),
-        }
 
         for arg in funct.arguments.clone() {
             self.insert_scope(arg.value.id.value);
@@ -289,7 +289,6 @@ impl Checker {
         }
 
         Ok(TypedFunction {
-            id: funct.id.clone(),
             arguments: funct
                 .arguments
                 .iter()
@@ -1078,11 +1077,10 @@ mod tests {
             // after semantic check, `bar` should import a checked function
 
             let foo: Module<FieldPrime> = Module {
-                functions: vec![(
-                    String::from("main"),
-                    FunctionSymbol::Here(
+                functions: vec![FunctionDeclaration {
+                    id: String::from("main"),
+                    symbol: FunctionSymbol::Here(
                         Function {
-                            id: String::from("main"),
                             statements: vec![Statement::Return(
                                 ExpressionList {
                                     expressions: vec![
@@ -1098,16 +1096,19 @@ mod tests {
                         .at(0, 0, 0),
                     )
                     .at(0, 0, 0),
-                )],
+                }
+                .mock()],
                 imported_functions: vec![],
                 imports: vec![],
             };
 
             let bar: Module<FieldPrime> = Module {
-                functions: vec![(
-                    String::from("main"),
-                    FunctionSymbol::There(String::from("main"), String::from("foo")).at(0, 0, 0),
-                )],
+                functions: vec![FunctionDeclaration {
+                    id: String::from("main"),
+                    symbol: FunctionSymbol::There(String::from("main"), String::from("foo"))
+                        .at(0, 0, 0),
+                }
+                .mock()],
                 imported_functions: vec![],
                 imports: vec![],
             };
@@ -1217,7 +1218,6 @@ mod tests {
             .mock(),
         ];
         let foo = Function {
-            id: "foo".to_string(),
             arguments: foo_args,
             statements: foo_statements,
             signature: Signature {
@@ -1237,7 +1237,6 @@ mod tests {
         .mock()];
 
         let bar = Function {
-            id: "bar".to_string(),
             arguments: bar_args,
             statements: bar_statements,
             signature: Signature {
@@ -1248,8 +1247,16 @@ mod tests {
         .mock();
 
         let funcs = vec![
-            (String::from("foo"), FunctionSymbol::Here(foo).mock()),
-            (String::from("bar"), FunctionSymbol::Here(bar).mock()),
+            FunctionDeclaration {
+                id: String::from("foo"),
+                symbol: FunctionSymbol::Here(foo).mock(),
+            }
+            .mock(),
+            FunctionDeclaration {
+                id: String::from("bar"),
+                symbol: FunctionSymbol::Here(bar).mock(),
+            }
+            .mock(),
         ];
         let module = Module {
             functions: funcs,
@@ -1288,7 +1295,6 @@ mod tests {
         ];
 
         let foo = Function {
-            id: "foo".to_string(),
             arguments: foo_args,
             statements: foo_statements,
             signature: Signature {
@@ -1315,7 +1321,6 @@ mod tests {
             .mock(),
         ];
         let bar = Function {
-            id: "bar".to_string(),
             arguments: bar_args,
             statements: bar_statements,
             signature: Signature {
@@ -1335,7 +1340,6 @@ mod tests {
         .mock()];
 
         let main = Function {
-            id: "main".to_string(),
             arguments: main_args,
             statements: main_statements,
             signature: Signature {
@@ -1346,9 +1350,21 @@ mod tests {
         .mock();
 
         let funcs = vec![
-            (String::from("foo"), FunctionSymbol::Here(foo).mock()),
-            (String::from("bar"), FunctionSymbol::Here(bar).mock()),
-            (String::from("main"), FunctionSymbol::Here(main).mock()),
+            FunctionDeclaration {
+                id: String::from("foo"),
+                symbol: FunctionSymbol::Here(foo).mock(),
+            }
+            .mock(),
+            FunctionDeclaration {
+                id: String::from("bar"),
+                symbol: FunctionSymbol::Here(bar).mock(),
+            }
+            .mock(),
+            FunctionDeclaration {
+                id: String::from("main"),
+                symbol: FunctionSymbol::Here(main).mock(),
+            }
+            .mock(),
         ];
         let module = Module {
             functions: funcs,
@@ -1386,7 +1402,6 @@ mod tests {
             .mock(),
         ];
         let foo = Function {
-            id: "foo".to_string(),
             arguments: vec![],
             statements: foo_statements,
             signature: Signature {
@@ -1447,7 +1462,6 @@ mod tests {
         )];
 
         let foo = Function {
-            id: "foo".to_string(),
             arguments: vec![],
             statements: foo_statements,
             signature: Signature {
@@ -1458,7 +1472,6 @@ mod tests {
         .mock();
 
         let foo_checked = TypedFunction {
-            id: "foo".to_string(),
             arguments: Vec::<Parameter>::new(),
             statements: foo_statements_checked,
             signature: Signature {
@@ -1498,7 +1511,6 @@ mod tests {
         let functions = vec![foo].into_iter().collect();
 
         let bar = Function {
-            id: "bar".to_string(),
             arguments: vec![],
             statements: bar_statements,
             signature: Signature {
@@ -1544,7 +1556,6 @@ mod tests {
         let functions = vec![foo].into_iter().collect();
 
         let bar = Function {
-            id: "bar".to_string(),
             arguments: vec![],
             statements: bar_statements,
             signature: Signature {
@@ -1580,7 +1591,6 @@ mod tests {
         ];
 
         let bar = Function {
-            id: "bar".to_string(),
             arguments: vec![],
             statements: bar_statements,
             signature: Signature {
@@ -1624,7 +1634,6 @@ mod tests {
         .mock()];
 
         let foo = Function {
-            id: "foo".to_string(),
             arguments: vec![crate::absy::Parameter {
                 id: Variable::field_element("x").mock(),
                 private: false,
@@ -1663,7 +1672,6 @@ mod tests {
         ];
 
         let main = Function {
-            id: "main".to_string(),
             arguments: vec![],
             statements: main_statements,
             signature: Signature {
@@ -1675,8 +1683,16 @@ mod tests {
 
         let module = Module {
             functions: vec![
-                (String::from("foo"), FunctionSymbol::Here(foo).mock()),
-                (String::from("main"), FunctionSymbol::Here(main).mock()),
+                FunctionDeclaration {
+                    id: String::from("foo"),
+                    symbol: FunctionSymbol::Here(foo).mock(),
+                }
+                .mock(),
+                FunctionDeclaration {
+                    id: String::from("main"),
+                    symbol: FunctionSymbol::Here(main).mock(),
+                }
+                .mock(),
             ],
             imports: vec![],
             imported_functions: vec![],
@@ -1704,7 +1720,6 @@ mod tests {
         .mock()];
 
         let bar = Function {
-            id: "bar".to_string(),
             arguments: vec![],
             statements: bar_statements,
             signature: Signature {
@@ -1743,7 +1758,6 @@ mod tests {
         .mock()];
 
         let bar = Function {
-            id: "bar".to_string(),
             arguments: vec![],
             statements: bar_statements,
             signature: Signature {
@@ -1828,7 +1842,6 @@ mod tests {
         functions.insert(foo);
 
         let bar = Function {
-            id: "bar".to_string(),
             arguments: vec![],
             statements: bar_statements,
             signature: Signature {
@@ -1839,7 +1852,6 @@ mod tests {
         .mock();
 
         let bar_checked = TypedFunction {
-            id: "bar".to_string(),
             arguments: vec![],
             statements: bar_statements_checked,
             signature: Signature {
@@ -1860,7 +1872,8 @@ mod tests {
         //   return 2
         //
         // should fail
-        let foo2_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+
+        let foo1_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
             ExpressionList {
                 expressions: vec![Expression::Number(FieldPrime::from(1)).mock()],
             }
@@ -1868,7 +1881,7 @@ mod tests {
         )
         .mock()];
 
-        let foo2_arguments = vec![
+        let foo1_arguments = vec![
             crate::absy::Parameter {
                 id: Variable::field_element("a").mock(),
                 private: true,
@@ -1881,18 +1894,38 @@ mod tests {
             .mock(),
         ];
 
-        let foo1 = FunctionKey {
-            id: "foo".to_string(),
+        let foo2_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+            ExpressionList {
+                expressions: vec![Expression::Number(FieldPrime::from(1)).mock()],
+            }
+            .mock(),
+        )
+        .mock()];
+
+        let foo2_arguments = vec![
+            crate::absy::Parameter {
+                id: Variable::field_element("c").mock(),
+                private: true,
+            }
+            .mock(),
+            crate::absy::Parameter {
+                id: Variable::field_element("d").mock(),
+                private: true,
+            }
+            .mock(),
+        ];
+
+        let foo1 = Function {
+            arguments: foo1_arguments,
+            statements: foo1_statements,
             signature: Signature {
                 inputs: vec![Type::FieldElement, Type::FieldElement],
                 outputs: vec![Type::FieldElement],
             },
-        };
-
-        let functions = vec![foo1].into_iter().collect();
+        }
+        .mock();
 
         let foo2 = Function {
-            id: "foo".to_string(),
             arguments: foo2_arguments,
             statements: foo2_statements,
             signature: Signature {
@@ -1902,9 +1935,26 @@ mod tests {
         }
         .mock();
 
-        let mut checker = new_with_args(HashSet::new(), 0, functions);
+        let module = Module {
+            functions: vec![
+                FunctionDeclaration {
+                    id: String::from("foo"),
+                    symbol: FunctionSymbol::Here(foo1).mock(),
+                }
+                .mock(),
+                FunctionDeclaration {
+                    id: String::from("foo"),
+                    symbol: FunctionSymbol::Here(foo2).mock(),
+                }
+                .mock(),
+            ],
+            imported_functions: vec![],
+            imports: vec![],
+        };
+
+        let mut checker = Checker::new();
         assert_eq!(
-            checker.check_function(foo2),
+            checker.check_module(module, &mut HashMap::new(), &mut HashMap::new()),
             Err(vec![Error {
                 pos: Some((Position::mock(), Position::mock())),
 
@@ -1948,7 +1998,6 @@ mod tests {
         let main2_arguments = vec![];
 
         let main1 = Function {
-            id: "main".to_string(),
             arguments: main1_arguments,
             statements: main1_statements,
             signature: Signature {
@@ -1959,7 +2008,6 @@ mod tests {
         .mock();
 
         let main2 = Function {
-            id: "main".to_string(),
             arguments: main2_arguments,
             statements: main2_statements,
             signature: Signature {
@@ -1970,8 +2018,16 @@ mod tests {
         .mock();
 
         let functions = vec![
-            (String::from("main"), FunctionSymbol::Here(main1).mock()),
-            (String::from("main"), FunctionSymbol::Here(main2).mock()),
+            FunctionDeclaration {
+                id: String::from("main"),
+                symbol: FunctionSymbol::Here(main1).mock(),
+            }
+            .mock(),
+            FunctionDeclaration {
+                id: String::from("main"),
+                symbol: FunctionSymbol::Here(main2).mock(),
+            }
+            .mock(),
         ];
 
         let main_module = Module {
