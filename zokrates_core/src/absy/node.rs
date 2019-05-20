@@ -31,9 +31,13 @@ pub trait NodeValue: fmt::Display + Sized + PartialEq {
         let start = Position { col, line };
         Node::new(start, start.col(delta), self)
     }
+
+    #[cfg(test)]
+    fn mock(self) -> Node<Self> {
+        Node::new(Position::mock(), Position::mock(), self)
+    }
 }
 
-#[cfg(test)]
 impl<V: NodeValue> From<V> for Node<V> {
     fn from(v: V) -> Node<V> {
         let mock_position = Position { col: 42, line: 42 };

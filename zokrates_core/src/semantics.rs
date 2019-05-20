@@ -15,11 +15,9 @@ use zokrates_field::field::Field;
 
 use crate::parser::Position;
 
-use crate::types::Type;
+use crate::types::{FunctionKey, Type};
 
 use std::hash::{Hash, Hasher};
-
-use std::rc::Rc;
 
 #[derive(PartialEq, Debug)]
 pub struct Error {
@@ -135,13 +133,14 @@ impl Checker {
         program: Program<T>,
     ) -> Result<TypedProgram<T>, Vec<Error>> {
         let mut modules = program.modules;
-
         let mut typed_modules = HashMap::new();
 
-        let main = self.check_module(program.main, &mut modules, &mut typed_modules)?;
+        let main_module = self.check_module(program.main, &mut modules, &mut typed_modules)?;
+
+        Checker::check_single_main(&main_module).map_err(|e| vec![e])?;
 
         Ok(TypedProgram {
-            main,
+            main: main_module,
             modules: typed_modules,
         })
     }
@@ -190,14 +189,6 @@ impl Checker {
             self.exit_scope();
         }
 
-        assert!(checked_functions.len() > 0);
-        assert!(self.functions.len() > 0);
-
-        match self.check_single_main() {
-            Ok(()) => {}
-            Err(e) => errors.push(e),
-        };
-
         if errors.len() > 0 {
             return Err(errors);
         }
@@ -209,8 +200,13 @@ impl Checker {
         })
     }
 
-    fn check_single_main(&mut self) -> Result<(), Error> {
-        match self.functions.iter().filter(|fun| fun.id == "main").count() {
+    fn check_single_main<T: Field>(module: &TypedModule<T>) -> Result<(), Error> {
+        match module
+            .functions
+            .iter()
+            .filter(|(key, _)| key.id == "main")
+            .count()
+        {
             1 => Ok(()),
             0 => Err(Error {
                 pos: None,
@@ -620,8 +616,7 @@ impl Checker {
                     },
                     None => Err(Error {
                         pos: Some(expr.pos()),
-
-                        message: format!("Identifier is undefined"),
+                        message: format!("Identifier is undefined: {}", name),
                     }),
                 }
             }
@@ -771,8 +766,6 @@ impl Checker {
                 // outside of multidef, function calls must have a single return value
                 // we use type inference to determine the type of the return, so we don't specify it
                 let query = FunctionQuery::new(fun_id.to_string(), &arguments_types, &vec![None]);
-
-                assert!(self.functions.len() > 0);
 
                 let candidates = self.find_candidates(&query);
 
@@ -1062,927 +1055,1043 @@ impl Checker {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     //use absy::parameter::Parameter;
-//     use std::rc::Rc;
-//     use zokrates_field::field::FieldPrime;
-
-//     mod symbols {
-//         use super::*;
-//         use crate::types::Signature;
-
-//         #[test]
-//         fn imported_symbol() {
-//             // foo.code
-//             // def main() -> (field):
-//             // 		return 1
-
-//             // bar.code
-//             // from "./foo.code" import main
-
-//             // after semantic check, bar should have one function which returns one (imported from foo.rs)
-
-//             let foo: Module<FieldPrime> = Module {
-//                 functions: vec![(
-//                     String::from("main"),
-//                     FunctionSymbol::Here(
-//                         Function {
-//                             id: String::from("main"),
-//                             statements: vec![Statement::Return(
-//                                 ExpressionList {
-//                                     expressions: vec![
-//                                         Expression::Number(FieldPrime::from(1)).at(0, 0, 0)
-//                                     ],
-//                                 }
-//                                 .at(0, 0, 0),
-//                             )
-//                             .at(0, 0, 0)],
-//                             signature: Signature::new().outputs(vec![Type::FieldElement]),
-//                             arguments: vec![],
-//                         }
-//                         .at(0, 0, 0),
-//                     )
-//                     .at(0, 0, 0),
-//                 )],
-//                 imported_functions: vec![],
-//                 imports: vec![],
-//             };
-
-//             let bar: Module<FieldPrime> = Module {
-//                 functions: vec![(
-//                     String::from("main"),
-//                     FunctionSymbol::There(String::from("main"), Rc::new(foo)).at(0, 0, 0),
-//                 )],
-//                 imported_functions: vec![],
-//                 imports: vec![],
-//             };
-
-//             let mut checker = Checker::new();
-
-//             let checked_bar = checker.check_module(bar);
-//             assert_eq!(
-//                 checked_bar,
-//                 Ok(TypedModule {
-//                     functions: vec![(
-//                         FunctionKey {
-//                             id: String::from("main"),
-//                             signature: Signature::new().outputs(vec![Type::FieldElement])
-//                         },
-//                         TypedFunction {
-//                             id: String::from("main"),
-//                             signature: Signature::new().outputs(vec![Type::FieldElement]),
-//                             arguments: vec![],
-//                             statements: vec![TypedStatement::Return(vec![
-//                                 FieldElementExpression::Number(FieldPrime::from(1)).into()
-//                             ])]
-//                         }
-//                     )]
-//                     .into_iter()
-//                     .collect(),
-//                     imported_functions: vec![],
-//                     imports: vec![]
-//                 })
-//             );
-//         }
-//     }
-
-//     // pub fn new_with_args(
-//     //     scope: HashSet<ScopedVariable>,
-//     //     level: usize,
-//     //     functions: HashSet<FunctionKey>,
-//     // ) -> Checker {
-//     //     Checker {
-//     //         scope: scope,
-//     //         functions: functions,
-//     //         level: level,
-//     //     }
-//     // }
-
-//     // #[test]
-//     // fn undefined_variable_in_statement() {
-//     //     // a = b
-//     //     // b undefined
-//     //     let statement: Statement<FieldPrime> = Statement::Definition(
-//     //         Assignee::Identifier(String::from("a")),
-//     //         Expression::Identifier(String::from("b")),
-//     //     );
-//     //     let mut checker = Checker::new();
-//     //     assert_eq!(
-//     //         checker.check_statement(&statement, &vec![]),
-//     //         Err(Error {
-//     //             message: "b is undefined".to_string()
-//     //         })
-//     //     );
-//     // }
-
-//     // #[test]
-//     // fn defined_variable_in_statement() {
-//     //     // a = b
-//     //     // b defined
-//     //     let statement: Statement<FieldPrime> = Statement::Definition(
-//     //         Assignee::Identifier(String::from("a")),
-//     //         Expression::Identifier(String::from("b")),
-//     //     );
-
-//     //     let mut scope = HashSet::new();
-//     //     scope.insert(ScopedVariable {
-//     //         id: Variable::field_element("a"),
-//     //         level: 0,
-//     //     });
-//     //     scope.insert(ScopedVariable {
-//     //         id: Variable::field_element("b"),
-//     //         level: 0,
-//     //     });
-//     //     let mut checker = new_with_args(scope, 1, HashSet::new());
-//     //     assert_eq!(
-//     //         checker.check_statement(&statement, &vec![]),
-//     //         Ok(TypedStatement::Definition(
-//     //             TypedAssignee::Identifier(Variable::field_element("a")),
-//     //             FieldElementExpression::Identifier(String::from("b")).into()
-//     //         ))
-//     //     );
-//     // }
-
-//     // #[test]
-//     // fn declared_in_other_function() {
-//     //     // def foo():
-//     //     //   field a = 1
-//     //     // def bar():
-//     //     //   return a
-//     //     // should fail
-//     //     let foo_args = Vec::<Parameter>::new();
-//     //     let mut foo_statements = Vec::<Statement<FieldPrime>>::new();
-//     //     foo_statements.push(Statement::Declaration(Variable::field_element("a")));
-//     //     foo_statements.push(Statement::Definition(
-//     //         Assignee::Identifier(String::from("a")),
-//     //         Expression::Number(FieldPrime::from(1)),
-//     //     ));
-//     //     let foo = Function {
-//     //         id: "foo".to_string(),
-//     //         arguments: foo_args,
-//     //         statements: foo_statements,
-//     //         signature: Signature {
-//     //             inputs: vec![],
-//     //             outputs: vec![Type::FieldElement],
-//     //         },
-//     //     };
-
-//     //     let bar_args = Vec::<Parameter>::new();
-//     //     let mut bar_statements = Vec::<Statement<FieldPrime>>::new();
-//     //     bar_statements.push(Statement::Return(ExpressionList {
-//     //         expressions: vec![Expression::Identifier(String::from("a"))],
-//     //     }));
-//     //     let bar = Function {
-//     //         id: "bar".to_string(),
-//     //         arguments: bar_args,
-//     //         statements: bar_statements,
-//     //         signature: Signature {
-//     //             inputs: vec![],
-//     //             outputs: vec![Type::FieldElement],
-//     //         },
-//     //     };
-
-//     //     let mut funcs = Vec::<Function<FieldPrime>>::new();
-//     //     funcs.push(foo);
-//     //     funcs.push(bar);
-//     //     let prog = Prog {
-//     //         functions: funcs,
-//     //         imports: vec![],
-//     //         imported_functions: vec![],
-//     //     };
-
-//     //     let mut checker = Checker::new();
-//     //     assert_eq!(
-//     //         checker.check_program(prog),
-//     //         Err(Error {
-//     //             message: "a is undefined".to_string()
-//     //         })
-//     //     );
-//     // }
-
-//     // #[test]
-//     // fn declared_in_two_scopes() {
-//     //     // def foo():
-//     //     //   a = 1
-//     //     // def bar():
-//     //     //   a = 2
-//     //     //   return a
-//     //     // def main():
-//     //     //   return 1
-//     //     // should pass
-//     //     let foo_args = vec![];
-//     //     let foo_statements = vec![
-//     //         Statement::Declaration(Variable::field_element("a")),
-//     //         Statement::Definition(
-//     //             Assignee::Identifier(String::from("a")),
-//     //             Expression::Number(FieldPrime::from(1)),
-//     //         ),
-//     //     ];
-
-//     //     let foo = Function {
-//     //         id: "foo".to_string(),
-//     //         arguments: foo_args,
-//     //         statements: foo_statements,
-//     //         signature: Signature {
-//     //             inputs: vec![],
-//     //             outputs: vec![Type::FieldElement],
-//     //         },
-//     //     };
-
-//     //     let bar_args = Vec::<Parameter>::new();
-//     //     let bar_statements = vec![
-//     //         Statement::Declaration(Variable::field_element("a")),
-//     //         Statement::Definition(
-//     //             Assignee::Identifier(String::from("a")),
-//     //             Expression::Number(FieldPrime::from(2)),
-//     //         ),
-//     //         Statement::Return(ExpressionList {
-//     //             expressions: vec![Expression::Identifier(String::from("a"))],
-//     //         }),
-//     //     ];
-//     //     let bar = Function {
-//     //         id: "bar".to_string(),
-//     //         arguments: bar_args,
-//     //         statements: bar_statements,
-//     //         signature: Signature {
-//     //             inputs: vec![],
-//     //             outputs: vec![Type::FieldElement],
-//     //         },
-//     //     };
-
-//     //     let main_args = vec![];
-//     //     let main_statements = vec![Statement::Return(ExpressionList {
-//     //         expressions: vec![Expression::Number(FieldPrime::from(1))],
-//     //     })];
-
-//     //     let main = Function {
-//     //         id: "main".to_string(),
-//     //         arguments: main_args,
-//     //         statements: main_statements,
-//     //         signature: Signature {
-//     //             inputs: vec![],
-//     //             outputs: vec![Type::FieldElement],
-//     //         },
-//     //     };
-
-//     //     let mut funcs = Vec::<Function<FieldPrime>>::new();
-//     //     funcs.push(foo);
-//     //     funcs.push(bar);
-//     //     funcs.push(main);
-//     //     let prog = Prog {
-//     //         functions: funcs,
-//     //         imports: vec![],
-//     //         imported_functions: vec![],
-//     //     };
-
-//     //     let mut checker = Checker::new();
-//     //     assert!(checker.check_program(prog).is_ok());
-//     // }
-
-//     // #[test]
-//     // fn for_index_after_end() {
-//     //     // def foo():
-//     //     //   for field i in 0..10 do
-//     //     //   endfor
-//     //     //   return i
-//     //     // should fail
-//     //     let mut foo_statements = Vec::<Statement<FieldPrime>>::new();
-//     //     foo_statements.push(Statement::For(
-//     //         Variable::field_element("i"),
-//     //         FieldPrime::from(0),
-//     //         FieldPrime::from(10),
-//     //         Vec::<Statement<FieldPrime>>::new(),
-//     //     ));
-//     //     foo_statements.push(Statement::Return(ExpressionList {
-//     //         expressions: vec![Expression::Identifier(String::from("i"))],
-//     //     }));
-//     //     let foo = Function {
-//     //         id: "foo".to_string(),
-//     //         arguments: Vec::<Parameter>::new(),
-//     //         statements: foo_statements,
-//     //         signature: Signature {
-//     //             inputs: vec![],
-//     //             outputs: vec![Type::FieldElement],
-//     //         },
-//     //     };
-
-//     //     let mut checker = Checker::new();
-//     //     assert_eq!(
-//     //         checker.check_function(&foo),
-//     //         Err(Error {
-//     //             message: "i is undefined".to_string()
-//     //         })
-//     //     );
-//     // }
-
-//     // #[test]
-//     // fn for_index_in_for() {
-//     //     // def foo():
-//     //     //   for i in 0..10 do
-//     //     //     a = i
-//     //     //   endfor
-//     //     // should pass
-//     //     let mut foo_statements = Vec::<Statement<FieldPrime>>::new();
-//     //     let mut for_statements = Vec::<Statement<FieldPrime>>::new();
-//     //     for_statements.push(Statement::Declaration(Variable::field_element("a")));
-//     //     for_statements.push(Statement::Definition(
-//     //         Assignee::Identifier(String::from("a")),
-//     //         Expression::Identifier(String::from("i")),
-//     //     ));
-//     //     foo_statements.push(Statement::For(
-//     //         Variable::field_element("i"),
-//     //         FieldPrime::from(0),
-//     //         FieldPrime::from(10),
-//     //         for_statements,
-//     //     ));
-
-//     //     let mut foo_statements_checked = Vec::<TypedStatement<FieldPrime>>::new();
-//     //     let mut for_statements_checked = Vec::<TypedStatement<FieldPrime>>::new();
-
-//     //     for_statements_checked.push(TypedStatement::Declaration(Variable::field_element("a")));
-
-//     //     for_statements_checked.push(TypedStatement::Definition(
-//     //         TypedAssignee::Identifier(Variable::field_element("a")),
-//     //         FieldElementExpression::Identifier(String::from("i")).into(),
-//     //     ));
-
-//     //     foo_statements_checked.push(TypedStatement::For(
-//     //         Variable::field_element("i"),
-//     //         FieldPrime::from(0),
-//     //         FieldPrime::from(10),
-//     //         for_statements_checked,
-//     //     ));
-
-//     //     let foo = Function {
-//     //         id: "foo".to_string(),
-//     //         arguments: Vec::<Parameter>::new(),
-//     //         statements: foo_statements,
-//     //         signature: Signature {
-//     //             inputs: vec![],
-//     //             outputs: vec![Type::FieldElement],
-//     //         },
-//     //     };
-
-//     //     let foo_checked = TypedFunction {
-//     //         id: "foo".to_string(),
-//     //         arguments: Vec::<Parameter>::new(),
-//     //         statements: foo_statements_checked,
-//     //         signature: Signature {
-//     //             inputs: vec![],
-//     //             outputs: vec![Type::FieldElement],
-//     //         },
-//     //     };
-
-//     //     let mut checker = Checker::new();
-//     //     assert_eq!(checker.check_function(&foo), Ok(foo_checked));
-//     // }
-
-//     // #[test]
-//     // fn arity_mismatch() {
-//     //     // def foo():
-//     //     //   return 1, 2
-//     //     // def bar():
-//     //     //   field c = foo()
-//     //     // should fail
-//     //     let bar_statements: Vec<Statement<FieldPrime>> = vec![
-//     //         Statement::Declaration(Variable::field_element("a")),
-//     //         Statement::MultipleDefinition(
-//     //             vec![Assignee::Identifier(String::from("a"))],
-//     //             Expression::FunctionCall("foo".to_string(), vec![]),
-//     //         ),
-//     //     ];
-
-//     //     let foo = FunctionKey {
-//     //         id: "foo".to_string(),
-//     //         signature: Signature {
-//     //             inputs: vec![],
-//     //             outputs: vec![Type::FieldElement, Type::FieldElement],
-//     //         },
-//     //     };
-
-//     //     let mut functions = HashSet::new();
-//     //     functions.insert(foo);
-
-//     //     let bar = Function {
-//     //         id: "bar".to_string(),
-//     //         arguments: vec![],
-//     //         statements: bar_statements,
-//     //         signature: Signature {
-//     //             inputs: vec![],
-//     //             outputs: vec![Type::FieldElement],
-//     //         },
-//     //     };
-
-//     //     let mut checker = new_with_args(HashSet::new(), 0, functions);
-//     //     assert_eq!(
-//     //         checker.check_function(&bar),
-//     //         Err(Error {
-//     //             message:
-//     //                 "Function definition for function foo with signature () -> (field) not found."
-//     //                     .to_string()
-//     //         })
-//     //     );
-//     // }
-
-//     // #[test]
-//     // fn multi_return_outside_multidef() {
-//     //     // def foo():
-//     //     //   return 1, 2
-//     //     // def bar():
-//     //     //   4 == foo()
-//     //     // should fail
-//     //     let bar_statements: Vec<Statement<FieldPrime>> = vec![Statement::Condition(
-//     //         Expression::Number(FieldPrime::from(2)),
-//     //         Expression::FunctionCall("foo".to_string(), vec![]),
-//     //     )];
-
-//     //     let foo = FunctionKey {
-//     //         id: "foo".to_string(),
-//     //         signature: Signature {
-//     //             inputs: vec![],
-//     //             outputs: vec![Type::FieldElement, Type::FieldElement],
-//     //         },
-//     //     };
-
-//     //     let mut functions = HashSet::new();
-//     //     functions.insert(foo);
-
-//     //     let bar = Function {
-//     //         id: "bar".to_string(),
-//     //         arguments: vec![],
-//     //         statements: bar_statements,
-//     //         signature: Signature {
-//     //             inputs: vec![],
-//     //             outputs: vec![Type::FieldElement],
-//     //         },
-//     //     };
-
-//     //     let mut checker = new_with_args(HashSet::new(), 0, functions);
-//     //     assert_eq!(
-//     //         checker.check_function(&bar),
-//     //         Err(Error {
-//     //             message: "Function definition for function foo with signature () -> (_) not found."
-//     //                 .to_string()
-//     //         })
-//     //     );
-//     // }
-
-//     // #[test]
-//     // fn function_undefined_in_multidef() {
-//     //     // def bar():
-//     //     //   field a = foo()
-//     //     // should fail
-//     //     let bar_statements: Vec<Statement<FieldPrime>> = vec![
-//     //         Statement::Declaration(Variable::field_element("a")),
-//     //         Statement::MultipleDefinition(
-//     //             vec![Assignee::Identifier(String::from("a"))],
-//     //             Expression::FunctionCall("foo".to_string(), vec![]),
-//     //         ),
-//     //     ];
-
-//     //     let bar = Function {
-//     //         id: "bar".to_string(),
-//     //         arguments: vec![],
-//     //         statements: bar_statements,
-//     //         signature: Signature {
-//     //             inputs: vec![],
-//     //             outputs: vec![Type::FieldElement],
-//     //         },
-//     //     };
-
-//     //     let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
-//     //     assert_eq!(
-//     //         checker.check_function(&bar),
-//     //         Err(Error {
-//     //             message:
-//     //                 "Function definition for function foo with signature () -> (field) not found."
-//     //                     .to_string()
-//     //         })
-//     //     );
-//     // }
-
-//     // #[test]
-//     // fn undefined_variable_in_multireturn_call() {
-//     //     // def foo(x):
-//     //     // 	return 1, 2
-//     //     // def main():
-//     //     // 	a, b = foo(x)
-//     //     // 	return 1
-//     //     // should fail
-
-//     //     let foo_statements: Vec<Statement<FieldPrime>> = vec![Statement::Return(ExpressionList {
-//     //         expressions: vec![
-//     //             Expression::Number(FieldPrime::from(1)),
-//     //             Expression::Number(FieldPrime::from(2)),
-//     //         ],
-//     //     })];
-
-//     //     let foo = Function {
-//     //         id: "foo".to_string(),
-//     //         arguments: vec![Parameter {
-//     //             id: Variable::field_element("x"),
-//     //             private: false,
-//     //         }],
-//     //         statements: foo_statements,
-//     //         signature: Signature {
-//     //             inputs: vec![Type::FieldElement],
-//     //             outputs: vec![Type::FieldElement, Type::FieldElement],
-//     //         },
-//     //     };
-
-//     //     let main_statements: Vec<Statement<FieldPrime>> = vec![
-//     //         Statement::Declaration(Variable::field_element("a")),
-//     //         Statement::Declaration(Variable::field_element("b")),
-//     //         Statement::MultipleDefinition(
-//     //             vec![
-//     //                 Assignee::Identifier(String::from("a")),
-//     //                 Assignee::Identifier(String::from("b")),
-//     //             ],
-//     //             Expression::FunctionCall(
-//     //                 "foo".to_string(),
-//     //                 vec![Expression::Identifier("x".to_string())],
-//     //             ),
-//     //         ),
-//     //         Statement::Return(ExpressionList {
-//     //             expressions: vec![Expression::Number(FieldPrime::from(1))],
-//     //         }),
-//     //     ];
-
-//     //     let main = Function {
-//     //         id: "main".to_string(),
-//     //         arguments: vec![],
-//     //         statements: main_statements,
-//     //         signature: Signature {
-//     //             inputs: vec![],
-//     //             outputs: vec![Type::FieldElement, Type::FieldElement],
-//     //         },
-//     //     };
-
-//     //     let program = Prog {
-//     //         functions: vec![foo, main],
-//     //         imports: vec![],
-//     //         imported_functions: vec![],
-//     //     };
-
-//     //     let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
-//     //     assert_eq!(
-//     //         checker.check_program(program),
-//     //         Err(Error {
-//     //             message: "x is undefined".to_string()
-//     //         })
-//     //     );
-//     // }
-
-//     // #[test]
-//     // fn function_undefined() {
-//     //     // def bar():
-//     //     //   1 == foo()
-//     //     // should fail
-//     //     let bar_statements: Vec<Statement<FieldPrime>> = vec![Statement::Condition(
-//     //         Expression::Number(FieldPrime::from(1)),
-//     //         Expression::FunctionCall("foo".to_string(), vec![]),
-//     //     )];
-
-//     //     let bar = Function {
-//     //         id: "bar".to_string(),
-//     //         arguments: vec![],
-//     //         statements: bar_statements,
-//     //         signature: Signature {
-//     //             inputs: vec![],
-//     //             outputs: vec![Type::FieldElement],
-//     //         },
-//     //     };
-
-//     //     let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
-//     //     assert_eq!(
-//     //         checker.check_function(&bar),
-//     //         Err(Error {
-//     //             message: "Function definition for function foo with signature () -> (_) not found."
-//     //                 .to_string()
-//     //         })
-//     //     );
-//     // }
-
-//     // #[test]
-//     // fn return_undefined() {
-//     //     // def bar():
-//     //     //   return a, b
-//     //     // should fail
-//     //     let bar_statements: Vec<Statement<FieldPrime>> = vec![Statement::Return(ExpressionList {
-//     //         expressions: vec![
-//     //             Expression::Identifier("a".to_string()),
-//     //             Expression::Identifier("b".to_string()),
-//     //         ],
-//     //     })];
-
-//     //     let bar = Function {
-//     //         id: "bar".to_string(),
-//     //         arguments: vec![],
-//     //         statements: bar_statements,
-//     //         signature: Signature {
-//     //             inputs: vec![],
-//     //             outputs: vec![Type::FieldElement, Type::FieldElement],
-//     //         },
-//     //     };
-
-//     //     let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
-//     //     assert_eq!(
-//     //         checker.check_function(&bar),
-//     //         Err(Error {
-//     //             message: "a is undefined".to_string()
-//     //         })
-//     //     );
-//     // }
-
-//     // #[test]
-//     // fn multi_def() {
-//     //     // def foo():
-//     //     //   return 1, 2
-//     //     // def bar():
-//     //     //   field a, field b = foo()
-//     //     //   return a + b
-//     //     //
-//     //     // should pass
-//     //     let bar_statements: Vec<Statement<FieldPrime>> = vec![
-//     //         Statement::Declaration(Variable::field_element("a")),
-//     //         Statement::Declaration(Variable::field_element("b")),
-//     //         Statement::MultipleDefinition(
-//     //             vec![
-//     //                 Assignee::Identifier(String::from("a")),
-//     //                 Assignee::Identifier(String::from("b")),
-//     //             ],
-//     //             Expression::FunctionCall("foo".to_string(), vec![]),
-//     //         ),
-//     //         Statement::Return(ExpressionList {
-//     //             expressions: vec![Expression::Add(
-//     //                 box Expression::Identifier("a".to_string()),
-//     //                 box Expression::Identifier("b".to_string()),
-//     //             )],
-//     //         }),
-//     //     ];
-
-//     //     let bar_statements_checked: Vec<TypedStatement<FieldPrime>> = vec![
-//     //         TypedStatement::Declaration(Variable::field_element("a")),
-//     //         TypedStatement::Declaration(Variable::field_element("b")),
-//     //         TypedStatement::MultipleDefinition(
-//     //             vec![Variable::field_element("a"), Variable::field_element("b")],
-//     //             TypedExpressionList::FunctionCall(
-//     //                 "foo".to_string(),
-//     //                 vec![],
-//     //                 vec![Type::FieldElement, Type::FieldElement],
-//     //             ),
-//     //         ),
-//     //         TypedStatement::Return(vec![FieldElementExpression::Add(
-//     //             box FieldElementExpression::Identifier("a".to_string()),
-//     //             box FieldElementExpression::Identifier("b".to_string()),
-//     //         )
-//     //         .into()]),
-//     //     ];
-
-//     //     let foo = FunctionKey {
-//     //         id: "foo".to_string(),
-//     //         signature: Signature {
-//     //             inputs: vec![],
-//     //             outputs: vec![Type::FieldElement, Type::FieldElement],
-//     //         },
-//     //     };
-
-//     //     let mut functions = HashSet::new();
-//     //     functions.insert(foo);
-
-//     //     let bar = Function {
-//     //         id: "bar".to_string(),
-//     //         arguments: vec![],
-//     //         statements: bar_statements,
-//     //         signature: Signature {
-//     //             inputs: vec![],
-//     //             outputs: vec![Type::FieldElement],
-//     //         },
-//     //     };
-
-//     //     let bar_checked = TypedFunction {
-//     //         id: "bar".to_string(),
-//     //         arguments: vec![],
-//     //         statements: bar_statements_checked,
-//     //         signature: Signature {
-//     //             inputs: vec![],
-//     //             outputs: vec![Type::FieldElement],
-//     //         },
-//     //     };
-
-//     //     let mut checker = new_with_args(HashSet::new(), 0, functions);
-//     //     assert_eq!(checker.check_function(&bar), Ok(bar_checked));
-//     // }
-
-//     // #[test]
-//     // fn duplicate_function_declaration() {
-//     //     // def foo(a, b):
-//     //     //   return 1
-//     //     // def foo(c, d):
-//     //     //   return 2
-//     //     //
-//     //     // should fail
-//     //     let foo2_statements: Vec<Statement<FieldPrime>> = vec![Statement::Return(ExpressionList {
-//     //         expressions: vec![Expression::Number(FieldPrime::from(1))],
-//     //     })];
-
-//     //     let foo2_arguments = vec![
-//     //         Parameter {
-//     //             id: Variable::field_element("a"),
-//     //             private: true,
-//     //         },
-//     //         Parameter {
-//     //             id: Variable::field_element("b"),
-//     //             private: true,
-//     //         },
-//     //     ];
-
-//     //     let foo1 = FunctionKey {
-//     //         id: "foo".to_string(),
-//     //         signature: Signature {
-//     //             inputs: vec![Type::FieldElement, Type::FieldElement],
-//     //             outputs: vec![Type::FieldElement],
-//     //         },
-//     //     };
-
-//     //     let mut functions = HashSet::new();
-//     //     functions.insert(foo1);
-
-//     //     let foo2 = Function {
-//     //         id: "foo".to_string(),
-//     //         arguments: foo2_arguments,
-//     //         statements: foo2_statements,
-//     //         signature: Signature {
-//     //             inputs: vec![Type::FieldElement, Type::FieldElement],
-//     //             outputs: vec![Type::FieldElement],
-//     //         },
-//     //     };
-
-//     //     let mut checker = new_with_args(HashSet::new(), 0, functions);
-//     //     assert_eq!(
-//     //         checker.check_function(&foo2),
-//     //         Err(Error {
-//     //             message:
-//     //                 "Duplicate definition for function foo with signature (field, field) -> (field)"
-//     //                     .to_string()
-//     //         })
-//     //     );
-//     // }
-
-//     // #[test]
-//     // fn duplicate_main_function() {
-//     //     // def main(a):
-//     //     //   return 1
-//     //     // def main():
-//     //     //   return 1
-//     //     //
-//     //     // should fail
-//     //     let main1_statements: Vec<Statement<FieldPrime>> =
-//     //         vec![Statement::Return(ExpressionList {
-//     //             expressions: vec![Expression::Number(FieldPrime::from(1))],
-//     //         })];
-
-//     //     let main1_arguments = vec![Parameter {
-//     //         id: Variable::field_element("a"),
-//     //         private: false,
-//     //     }];
-
-//     //     let main2_statements: Vec<Statement<FieldPrime>> =
-//     //         vec![Statement::Return(ExpressionList {
-//     //             expressions: vec![Expression::Number(FieldPrime::from(1))],
-//     //         })];
-
-//     //     let main2_arguments = vec![];
-
-//     //     let main1 = Function {
-//     //         id: "main".to_string(),
-//     //         arguments: main1_arguments,
-//     //         statements: main1_statements,
-//     //         signature: Signature {
-//     //             inputs: vec![Type::FieldElement],
-//     //             outputs: vec![Type::FieldElement],
-//     //         },
-//     //     };
-
-//     //     let main2 = Function {
-//     //         id: "main".to_string(),
-//     //         arguments: main2_arguments,
-//     //         statements: main2_statements,
-//     //         signature: Signature {
-//     //             inputs: vec![],
-//     //             outputs: vec![Type::FieldElement],
-//     //         },
-//     //     };
-
-//     //     let prog = Prog {
-//     //         functions: vec![main1, main2],
-//     //         imports: vec![],
-//     //         imported_functions: vec![],
-//     //     };
-
-//     //     let mut checker = Checker::new();
-//     //     assert_eq!(
-//     //         checker.check_program(prog),
-//     //         Err(Error {
-//     //             message: "Only one main function allowed, found 2".to_string()
-//     //         })
-//     //     );
-//     // }
-
-//     // #[test]
-//     // fn shadowing_with_same_type() {
-//     //     //   field a
-//     //     //	 field a
-//     //     //
-//     //     // should fail
-
-//     //     let mut checker = Checker::new();
-//     //     let _: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(
-//     //         &Statement::Declaration(Variable::field_element("a")),
-//     //         &vec![],
-//     //     );
-//     //     let s2_checked: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(
-//     //         &Statement::Declaration(Variable::field_element("a")),
-//     //         &vec![],
-//     //     );
-//     //     assert_eq!(
-//     //         s2_checked,
-//     //         Err(Error {
-//     //             message: "Duplicate declaration for variable named a".to_string()
-//     //         })
-//     //     );
-//     // }
-
-//     // #[test]
-//     // fn shadowing_with_different_type() {
-//     //     //   field a
-//     //     //	 bool a
-//     //     //
-//     //     // should fail
-
-//     //     let mut checker = Checker::new();
-//     //     let _: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(
-//     //         &Statement::Declaration(Variable::field_element("a")),
-//     //         &vec![],
-//     //     );
-//     //     let s2_checked: Result<TypedStatement<FieldPrime>, Error> =
-//     //         checker.check_statement(&Statement::Declaration(Variable::boolean("a")), &vec![]);
-//     //     assert_eq!(
-//     //         s2_checked,
-//     //         Err(Error {
-//     //             message: "Duplicate declaration for variable named a".to_string()
-//     //         })
-//     //     );
-//     // }
-
-//     // mod assignee {
-//     //     use super::*;
-
-//     //     #[test]
-//     //     fn identifier() {
-//     //         // a = 42
-//     //         let a = Assignee::Identifier::<FieldPrime>(String::from("a"));
-
-//     //         let mut checker: Checker = Checker::new();
-//     //         checker
-//     //             .check_statement::<FieldPrime>(
-//     //                 &Statement::Declaration(Variable::field_element("a")),
-//     //                 &vec![],
-//     //             )
-//     //             .unwrap();
-
-//     //         assert_eq!(
-//     //             checker.check_assignee(&a),
-//     //             Ok(TypedAssignee::Identifier(Variable::field_element("a")))
-//     //         );
-//     //     }
-
-//     //     #[test]
-//     //     fn array_element() {
-//     //         // field[33] a
-//     //         // a[2] = 42
-//     //         let a = Assignee::ArrayElement(
-//     //             box Assignee::Identifier(String::from("a")),
-//     //             box Expression::Number(FieldPrime::from(2)),
-//     //         );
-
-//     //         let mut checker: Checker = Checker::new();
-//     //         checker
-//     //             .check_statement::<FieldPrime>(
-//     //                 &Statement::Declaration(Variable::field_array("a", 33)),
-//     //                 &vec![],
-//     //             )
-//     //             .unwrap();
-
-//     //         assert_eq!(
-//     //             checker.check_assignee(&a),
-//     //             Ok(TypedAssignee::ArrayElement(
-//     //                 box TypedAssignee::Identifier(Variable::field_array("a", 33)),
-//     //                 box FieldElementExpression::Number(FieldPrime::from(2)).into()
-//     //             ))
-//     //         );
-//     //     }
-//     // }
-// }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use types::Signature;
+    //use absy::parameter::Parameter;
+    use zokrates_field::field::FieldPrime;
+
+    mod symbols {
+        use super::*;
+        use crate::types::Signature;
+
+        #[test]
+        fn imported_symbol() {
+            // foo.code
+            // def main() -> (field):
+            // 		return 1
+
+            // bar.code
+            // from "./foo.code" import main
+
+            // after semantic check, `bar` should import a checked function
+
+            let foo: Module<FieldPrime> = Module {
+                functions: vec![(
+                    String::from("main"),
+                    FunctionSymbol::Here(
+                        Function {
+                            id: String::from("main"),
+                            statements: vec![Statement::Return(
+                                ExpressionList {
+                                    expressions: vec![
+                                        Expression::Number(FieldPrime::from(1)).at(0, 0, 0)
+                                    ],
+                                }
+                                .at(0, 0, 0),
+                            )
+                            .at(0, 0, 0)],
+                            signature: Signature::new().outputs(vec![Type::FieldElement]),
+                            arguments: vec![],
+                        }
+                        .at(0, 0, 0),
+                    )
+                    .at(0, 0, 0),
+                )],
+                imported_functions: vec![],
+                imports: vec![],
+            };
+
+            let bar: Module<FieldPrime> = Module {
+                functions: vec![(
+                    String::from("main"),
+                    FunctionSymbol::There(String::from("main"), String::from("foo")).at(0, 0, 0),
+                )],
+                imported_functions: vec![],
+                imports: vec![],
+            };
+
+            let mut modules = vec![(String::from("foo"), foo)].into_iter().collect();
+            let mut typed_modules = HashMap::new();
+
+            let mut checker = Checker::new();
+
+            let checked_bar = checker.check_module(bar, &mut modules, &mut typed_modules);
+            assert_eq!(
+                checked_bar,
+                Ok(TypedModule {
+                    functions: vec![(
+                        FunctionKey::with_id("main")
+                            .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                        TypedFunctionSymbol::There(
+                            FunctionKey::with_id("main")
+                                .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                            String::from("foo")
+                        )
+                    )]
+                    .into_iter()
+                    .collect(),
+                    imported_functions: vec![],
+                    imports: vec![]
+                })
+            );
+        }
+    }
+
+    pub fn new_with_args(
+        scope: HashSet<ScopedVariable>,
+        level: usize,
+        functions: HashSet<FunctionKey>,
+    ) -> Checker {
+        Checker {
+            scope: scope,
+            functions: functions,
+            level: level,
+        }
+    }
+
+    #[test]
+    fn undefined_variable_in_statement() {
+        // a = b
+        // b undefined
+        let statement: StatementNode<FieldPrime> = Statement::Definition(
+            Assignee::Identifier(String::from("a")).mock(),
+            Expression::Identifier(String::from("b")).mock(),
+        )
+        .mock();
+
+        let mut checker = Checker::new();
+        assert_eq!(
+            checker.check_statement(&statement, &vec![]),
+            Err(Error {
+                pos: Some((Position::mock(), Position::mock())),
+                message: "Identifier is undefined: b".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn defined_variable_in_statement() {
+        // a = b
+        // b defined
+        let statement: StatementNode<FieldPrime> = Statement::Definition(
+            Assignee::Identifier(String::from("a")).mock(),
+            Expression::Identifier(String::from("b")).mock(),
+        )
+        .mock();
+
+        let mut scope = HashSet::new();
+        scope.insert(ScopedVariable {
+            id: Variable::field_element("a"),
+            level: 0,
+        });
+        scope.insert(ScopedVariable {
+            id: Variable::field_element("b"),
+            level: 0,
+        });
+        let mut checker = new_with_args(scope, 1, HashSet::new());
+        assert_eq!(
+            checker.check_statement(&statement, &vec![]),
+            Ok(TypedStatement::Definition(
+                TypedAssignee::Identifier(Variable::field_element("a")),
+                FieldElementExpression::Identifier(String::from("b")).into()
+            ))
+        );
+    }
+
+    #[test]
+    fn declared_in_other_function() {
+        // def foo():
+        //   field a = 1
+        // def bar():
+        //   return a
+        // should fail
+        let foo_args = vec![];
+        let foo_statements = vec![
+            Statement::Declaration(Variable::field_element("a").mock()).mock(),
+            Statement::Definition(
+                Assignee::Identifier(String::from("a")).mock(),
+                Expression::Number(FieldPrime::from(1)).mock(),
+            )
+            .mock(),
+        ];
+        let foo = Function {
+            id: "foo".to_string(),
+            arguments: foo_args,
+            statements: foo_statements,
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement],
+            },
+        }
+        .mock();
+
+        let bar_args = vec![];
+        let bar_statements = vec![Statement::Return(
+            ExpressionList {
+                expressions: vec![Expression::Identifier(String::from("a")).mock()],
+            }
+            .mock(),
+        )
+        .mock()];
+
+        let bar = Function {
+            id: "bar".to_string(),
+            arguments: bar_args,
+            statements: bar_statements,
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement],
+            },
+        }
+        .mock();
+
+        let funcs = vec![
+            (String::from("foo"), FunctionSymbol::Here(foo).mock()),
+            (String::from("bar"), FunctionSymbol::Here(bar).mock()),
+        ];
+        let module = Module {
+            functions: funcs,
+            imports: vec![],
+            imported_functions: vec![],
+        };
+
+        let mut checker = Checker::new();
+        assert_eq!(
+            checker.check_module(module, &mut HashMap::new(), &mut HashMap::new()),
+            Err(vec![Error {
+                pos: Some((Position::mock(), Position::mock())),
+                message: "Identifier is undefined: a".to_string()
+            }])
+        );
+    }
+
+    #[test]
+    fn declared_in_two_scopes() {
+        // def foo():
+        //   a = 1
+        // def bar():
+        //   a = 2
+        //   return a
+        // def main():
+        //   return 1
+        // should pass
+        let foo_args = vec![];
+        let foo_statements = vec![
+            Statement::Declaration(Variable::field_element("a").mock()).mock(),
+            Statement::Definition(
+                Assignee::Identifier(String::from("a")).mock(),
+                Expression::Number(FieldPrime::from(1)).mock(),
+            )
+            .mock(),
+        ];
+
+        let foo = Function {
+            id: "foo".to_string(),
+            arguments: foo_args,
+            statements: foo_statements,
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement],
+            },
+        }
+        .mock();
+
+        let bar_args = vec![];
+        let bar_statements = vec![
+            Statement::Declaration(Variable::field_element("a").mock()).mock(),
+            Statement::Definition(
+                Assignee::Identifier(String::from("a")).mock(),
+                Expression::Number(FieldPrime::from(2)).mock(),
+            )
+            .mock(),
+            Statement::Return(
+                ExpressionList {
+                    expressions: vec![Expression::Identifier(String::from("a")).mock()],
+                }
+                .mock(),
+            )
+            .mock(),
+        ];
+        let bar = Function {
+            id: "bar".to_string(),
+            arguments: bar_args,
+            statements: bar_statements,
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement],
+            },
+        }
+        .mock();
+
+        let main_args = vec![];
+        let main_statements = vec![Statement::Return(
+            ExpressionList {
+                expressions: vec![Expression::Number(FieldPrime::from(1)).mock()],
+            }
+            .mock(),
+        )
+        .mock()];
+
+        let main = Function {
+            id: "main".to_string(),
+            arguments: main_args,
+            statements: main_statements,
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement],
+            },
+        }
+        .mock();
+
+        let funcs = vec![
+            (String::from("foo"), FunctionSymbol::Here(foo).mock()),
+            (String::from("bar"), FunctionSymbol::Here(bar).mock()),
+            (String::from("main"), FunctionSymbol::Here(main).mock()),
+        ];
+        let module = Module {
+            functions: funcs,
+            imports: vec![],
+            imported_functions: vec![],
+        };
+
+        let mut checker = Checker::new();
+        assert!(checker
+            .check_module(module, &mut HashMap::new(), &mut HashMap::new())
+            .is_ok());
+    }
+
+    #[test]
+    fn for_index_after_end() {
+        // def foo():
+        //   for field i in 0..10 do
+        //   endfor
+        //   return i
+        // should fail
+        let foo_statements = vec![
+            Statement::For(
+                Variable::field_element("i").mock(),
+                FieldPrime::from(0),
+                FieldPrime::from(10),
+                vec![],
+            )
+            .mock(),
+            Statement::Return(
+                ExpressionList {
+                    expressions: vec![Expression::Identifier(String::from("i")).mock()],
+                }
+                .mock(),
+            )
+            .mock(),
+        ];
+        let foo = Function {
+            id: "foo".to_string(),
+            arguments: vec![],
+            statements: foo_statements,
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement],
+            },
+        }
+        .mock();
+
+        let mut checker = Checker::new();
+        assert_eq!(
+            checker.check_function(foo),
+            Err(vec![Error {
+                pos: Some((Position::mock(), Position::mock())),
+                message: "Identifier is undefined: i".to_string()
+            }])
+        );
+    }
+
+    #[test]
+    fn for_index_in_for() {
+        // def foo():
+        //   for i in 0..10 do
+        //     a = i
+        //   endfor
+        // should pass
+
+        let for_statements = vec![
+            Statement::Declaration(Variable::field_element("a").mock()).mock(),
+            Statement::Definition(
+                Assignee::Identifier(String::from("a")).mock(),
+                Expression::Identifier(String::from("i")).mock(),
+            )
+            .mock(),
+        ];
+
+        let foo_statements = vec![Statement::For(
+            Variable::field_element("i").mock(),
+            FieldPrime::from(0),
+            FieldPrime::from(10),
+            for_statements,
+        )
+        .mock()];
+
+        let for_statements_checked = vec![
+            TypedStatement::Declaration(Variable::field_element("a")),
+            TypedStatement::Definition(
+                TypedAssignee::Identifier(Variable::field_element("a")),
+                FieldElementExpression::Identifier(String::from("i")).into(),
+            ),
+        ];
+
+        let foo_statements_checked = vec![TypedStatement::For(
+            Variable::field_element("i"),
+            FieldPrime::from(0),
+            FieldPrime::from(10),
+            for_statements_checked,
+        )];
+
+        let foo = Function {
+            id: "foo".to_string(),
+            arguments: vec![],
+            statements: foo_statements,
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement],
+            },
+        }
+        .mock();
+
+        let foo_checked = TypedFunction {
+            id: "foo".to_string(),
+            arguments: Vec::<Parameter>::new(),
+            statements: foo_statements_checked,
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement],
+            },
+        };
+
+        let mut checker = Checker::new();
+        assert_eq!(checker.check_function(foo), Ok(foo_checked));
+    }
+
+    #[test]
+    fn arity_mismatch() {
+        // def foo():
+        //   return 1, 2
+        // def bar():
+        //   field a = foo()
+        // should fail
+        let bar_statements: Vec<StatementNode<FieldPrime>> = vec![
+            Statement::Declaration(Variable::field_element("a").mock()).mock(),
+            Statement::MultipleDefinition(
+                vec![Assignee::Identifier(String::from("a")).mock()],
+                Expression::FunctionCall("foo".to_string(), vec![]).mock(),
+            )
+            .mock(),
+        ];
+
+        let foo = FunctionKey {
+            id: "foo".to_string(),
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement, Type::FieldElement],
+            },
+        };
+
+        let functions = vec![foo].into_iter().collect();
+
+        let bar = Function {
+            id: "bar".to_string(),
+            arguments: vec![],
+            statements: bar_statements,
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement],
+            },
+        }
+        .mock();
+
+        let mut checker = new_with_args(HashSet::new(), 0, functions);
+        assert_eq!(
+            checker.check_function(bar),
+            Err(vec![Error {
+                pos: Some((Position::mock(), Position::mock())),
+                message:
+                    "Function definition for function foo with signature () -> (field) not found."
+                        .to_string()
+            }])
+        );
+    }
+
+    #[test]
+    fn multi_return_outside_multidef() {
+        // def foo():
+        //   return 1, 2
+        // def bar():
+        //   2 == foo()
+        // should fail
+        let bar_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Condition(
+            Expression::Number(FieldPrime::from(2)).mock(),
+            Expression::FunctionCall("foo".to_string(), vec![]).mock(),
+        )
+        .mock()];
+
+        let foo = FunctionKey {
+            id: "foo".to_string(),
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement, Type::FieldElement],
+            },
+        };
+
+        let functions = vec![foo].into_iter().collect();
+
+        let bar = Function {
+            id: "bar".to_string(),
+            arguments: vec![],
+            statements: bar_statements,
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement],
+            },
+        }
+        .mock();
+
+        let mut checker = new_with_args(HashSet::new(), 0, functions);
+        assert_eq!(
+            checker.check_function(bar),
+            Err(vec![Error {
+                pos: Some((Position::mock(), Position::mock())),
+                message: "Function definition for function foo with signature () -> (_) not found."
+                    .to_string()
+            }])
+        );
+    }
+
+    #[test]
+    fn function_undefined_in_multidef() {
+        // def bar():
+        //   field a = foo()
+        // should fail
+        let bar_statements: Vec<StatementNode<FieldPrime>> = vec![
+            Statement::Declaration(Variable::field_element("a").mock()).mock(),
+            Statement::MultipleDefinition(
+                vec![Assignee::Identifier(String::from("a")).mock()],
+                Expression::FunctionCall("foo".to_string(), vec![]).mock(),
+            )
+            .mock(),
+        ];
+
+        let bar = Function {
+            id: "bar".to_string(),
+            arguments: vec![],
+            statements: bar_statements,
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement],
+            },
+        }
+        .mock();
+
+        let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
+        assert_eq!(
+            checker.check_function(bar),
+            Err(vec![Error {
+                pos: Some((Position::mock(), Position::mock())),
+
+                message:
+                    "Function definition for function foo with signature () -> (field) not found."
+                        .to_string()
+            }])
+        );
+    }
+
+    #[test]
+    fn undefined_variable_in_multireturn_call() {
+        // def foo(x):
+        // 	return 1, 2
+        // def main():
+        // 	a, b = foo(x)
+        // 	return 1
+        // should fail
+
+        let foo_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+            ExpressionList {
+                expressions: vec![
+                    Expression::Number(FieldPrime::from(1)).mock(),
+                    Expression::Number(FieldPrime::from(2)).mock(),
+                ],
+            }
+            .mock(),
+        )
+        .mock()];
+
+        let foo = Function {
+            id: "foo".to_string(),
+            arguments: vec![crate::absy::Parameter {
+                id: Variable::field_element("x").mock(),
+                private: false,
+            }
+            .mock()],
+            statements: foo_statements,
+            signature: Signature {
+                inputs: vec![Type::FieldElement],
+                outputs: vec![Type::FieldElement, Type::FieldElement],
+            },
+        }
+        .mock();
+
+        let main_statements: Vec<StatementNode<FieldPrime>> = vec![
+            Statement::Declaration(Variable::field_element("a").mock()).mock(),
+            Statement::Declaration(Variable::field_element("b").mock()).mock(),
+            Statement::MultipleDefinition(
+                vec![
+                    Assignee::Identifier(String::from("a")).mock(),
+                    Assignee::Identifier(String::from("b")).mock(),
+                ],
+                Expression::FunctionCall(
+                    "foo".to_string(),
+                    vec![Expression::Identifier("x".to_string()).mock()],
+                )
+                .mock(),
+            )
+            .mock(),
+            Statement::Return(
+                ExpressionList {
+                    expressions: vec![Expression::Number(FieldPrime::from(1)).mock()],
+                }
+                .mock(),
+            )
+            .mock(),
+        ];
+
+        let main = Function {
+            id: "main".to_string(),
+            arguments: vec![],
+            statements: main_statements,
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement],
+            },
+        }
+        .mock();
+
+        let module = Module {
+            functions: vec![
+                (String::from("foo"), FunctionSymbol::Here(foo).mock()),
+                (String::from("main"), FunctionSymbol::Here(main).mock()),
+            ],
+            imports: vec![],
+            imported_functions: vec![],
+        };
+
+        let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
+        assert_eq!(
+            checker.check_module(module, &mut HashMap::new(), &mut HashMap::new()),
+            Err(vec![Error {
+                pos: Some((Position::mock(), Position::mock())),
+                message: "Identifier is undefined: x".to_string()
+            }])
+        );
+    }
+
+    #[test]
+    fn function_undefined() {
+        // def bar():
+        //   1 == foo()
+        // should fail
+        let bar_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Condition(
+            Expression::Number(FieldPrime::from(1)).mock(),
+            Expression::FunctionCall("foo".to_string(), vec![]).mock(),
+        )
+        .mock()];
+
+        let bar = Function {
+            id: "bar".to_string(),
+            arguments: vec![],
+            statements: bar_statements,
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement],
+            },
+        }
+        .mock();
+
+        let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
+        assert_eq!(
+            checker.check_function(bar),
+            Err(vec![Error {
+                pos: Some((Position::mock(), Position::mock())),
+
+                message: "Function definition for function foo with signature () -> (_) not found."
+                    .to_string()
+            }])
+        );
+    }
+
+    #[test]
+    fn return_undefined() {
+        // def bar():
+        //   return a, b
+        // should fail
+        let bar_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+            ExpressionList {
+                expressions: vec![
+                    Expression::Identifier("a".to_string()).mock(),
+                    Expression::Identifier("b".to_string()).mock(),
+                ],
+            }
+            .mock(),
+        )
+        .mock()];
+
+        let bar = Function {
+            id: "bar".to_string(),
+            arguments: vec![],
+            statements: bar_statements,
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement, Type::FieldElement],
+            },
+        }
+        .mock();
+
+        let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
+        assert_eq!(
+            checker.check_function(bar),
+            Err(vec![Error {
+                pos: Some((Position::mock(), Position::mock())),
+                message: "Identifier is undefined: a".to_string()
+            }])
+        );
+    }
+
+    #[test]
+    fn multi_def() {
+        // def foo():
+        //   return 1, 2
+        // def bar():
+        //   field a, field b = foo()
+        //   return a + b
+        //
+        // should pass
+        let bar_statements: Vec<StatementNode<FieldPrime>> = vec![
+            Statement::Declaration(Variable::field_element("a").mock()).mock(),
+            Statement::Declaration(Variable::field_element("b").mock()).mock(),
+            Statement::MultipleDefinition(
+                vec![
+                    Assignee::Identifier(String::from("a")).mock(),
+                    Assignee::Identifier(String::from("b")).mock(),
+                ],
+                Expression::FunctionCall("foo".to_string(), vec![]).mock(),
+            )
+            .mock(),
+            Statement::Return(
+                ExpressionList {
+                    expressions: vec![Expression::Add(
+                        box Expression::Identifier("a".to_string()).mock(),
+                        box Expression::Identifier("b".to_string()).mock(),
+                    )
+                    .mock()],
+                }
+                .mock(),
+            )
+            .mock(),
+        ];
+
+        let bar_statements_checked: Vec<TypedStatement<FieldPrime>> = vec![
+            TypedStatement::Declaration(Variable::field_element("a")),
+            TypedStatement::Declaration(Variable::field_element("b")),
+            TypedStatement::MultipleDefinition(
+                vec![Variable::field_element("a"), Variable::field_element("b")],
+                TypedExpressionList::FunctionCall(
+                    FunctionKey::with_id("foo").signature(
+                        Signature::new().outputs(vec![Type::FieldElement, Type::FieldElement]),
+                    ),
+                    vec![],
+                    vec![Type::FieldElement, Type::FieldElement],
+                ),
+            ),
+            TypedStatement::Return(vec![FieldElementExpression::Add(
+                box FieldElementExpression::Identifier("a".to_string()),
+                box FieldElementExpression::Identifier("b".to_string()),
+            )
+            .into()]),
+        ];
+
+        let foo = FunctionKey {
+            id: "foo".to_string(),
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement, Type::FieldElement],
+            },
+        };
+
+        let mut functions = HashSet::new();
+        functions.insert(foo);
+
+        let bar = Function {
+            id: "bar".to_string(),
+            arguments: vec![],
+            statements: bar_statements,
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement],
+            },
+        }
+        .mock();
+
+        let bar_checked = TypedFunction {
+            id: "bar".to_string(),
+            arguments: vec![],
+            statements: bar_statements_checked,
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement],
+            },
+        };
+
+        let mut checker = new_with_args(HashSet::new(), 0, functions);
+        assert_eq!(checker.check_function(bar), Ok(bar_checked));
+    }
+
+    #[test]
+    fn duplicate_function_declaration() {
+        // def foo(a, b):
+        //   return 1
+        // def foo(c, d):
+        //   return 2
+        //
+        // should fail
+        let foo2_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+            ExpressionList {
+                expressions: vec![Expression::Number(FieldPrime::from(1)).mock()],
+            }
+            .mock(),
+        )
+        .mock()];
+
+        let foo2_arguments = vec![
+            crate::absy::Parameter {
+                id: Variable::field_element("a").mock(),
+                private: true,
+            }
+            .mock(),
+            crate::absy::Parameter {
+                id: Variable::field_element("b").mock(),
+                private: true,
+            }
+            .mock(),
+        ];
+
+        let foo1 = FunctionKey {
+            id: "foo".to_string(),
+            signature: Signature {
+                inputs: vec![Type::FieldElement, Type::FieldElement],
+                outputs: vec![Type::FieldElement],
+            },
+        };
+
+        let functions = vec![foo1].into_iter().collect();
+
+        let foo2 = Function {
+            id: "foo".to_string(),
+            arguments: foo2_arguments,
+            statements: foo2_statements,
+            signature: Signature {
+                inputs: vec![Type::FieldElement, Type::FieldElement],
+                outputs: vec![Type::FieldElement],
+            },
+        }
+        .mock();
+
+        let mut checker = new_with_args(HashSet::new(), 0, functions);
+        assert_eq!(
+            checker.check_function(foo2),
+            Err(vec![Error {
+                pos: Some((Position::mock(), Position::mock())),
+
+                message:
+                    "Duplicate definition for function foo with signature (field, field) -> (field)"
+                        .to_string()
+            }])
+        );
+    }
+
+    #[test]
+    fn duplicate_main_function() {
+        // def main(a):
+        //   return 1
+        // def main():
+        //   return 1
+        //
+        // should fail
+        let main1_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+            ExpressionList {
+                expressions: vec![Expression::Number(FieldPrime::from(1)).mock()],
+            }
+            .mock(),
+        )
+        .mock()];
+
+        let main1_arguments = vec![crate::absy::Parameter {
+            id: Variable::field_element("a").mock(),
+            private: false,
+        }
+        .mock()];
+
+        let main2_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+            ExpressionList {
+                expressions: vec![Expression::Number(FieldPrime::from(1)).mock()],
+            }
+            .mock(),
+        )
+        .mock()];
+
+        let main2_arguments = vec![];
+
+        let main1 = Function {
+            id: "main".to_string(),
+            arguments: main1_arguments,
+            statements: main1_statements,
+            signature: Signature {
+                inputs: vec![Type::FieldElement],
+                outputs: vec![Type::FieldElement],
+            },
+        }
+        .mock();
+
+        let main2 = Function {
+            id: "main".to_string(),
+            arguments: main2_arguments,
+            statements: main2_statements,
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement],
+            },
+        }
+        .mock();
+
+        let functions = vec![
+            (String::from("main"), FunctionSymbol::Here(main1).mock()),
+            (String::from("main"), FunctionSymbol::Here(main2).mock()),
+        ];
+
+        let main_module = Module {
+            functions: functions,
+            imports: vec![],
+            imported_functions: vec![],
+        };
+
+        let program = Program {
+            modules: HashMap::new(),
+            main: main_module,
+        };
+
+        let mut checker = Checker::new();
+        assert_eq!(
+            checker.check_program(program),
+            Err(vec![Error {
+                pos: None,
+                message: "Only one main function allowed, found 2".to_string()
+            }])
+        );
+    }
+
+    #[test]
+    fn shadowing_with_same_type() {
+        //   field a
+        //	 field a
+        //
+        // should fail
+
+        let mut checker = Checker::new();
+        let _: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(
+            &Statement::Declaration(Variable::field_element("a").mock()).mock(),
+            &vec![],
+        );
+        let s2_checked: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(
+            &Statement::Declaration(Variable::field_element("a").mock()).mock(),
+            &vec![],
+        );
+        assert_eq!(
+            s2_checked,
+            Err(Error {
+                pos: Some((Position::mock(), Position::mock())),
+                message: "Duplicate declaration for variable named a".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn shadowing_with_different_type() {
+        //   field a
+        //	 bool a
+        //
+        // should fail
+
+        let mut checker = Checker::new();
+        let _: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(
+            &Statement::Declaration(Variable::field_element("a").mock()).mock(),
+            &vec![],
+        );
+        let s2_checked: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(
+            &Statement::Declaration(Variable::boolean("a").mock()).mock(),
+            &vec![],
+        );
+        assert_eq!(
+            s2_checked,
+            Err(Error {
+                pos: Some((Position::mock(), Position::mock())),
+                message: "Duplicate declaration for variable named a".to_string()
+            })
+        );
+    }
+
+    mod assignee {
+        use super::*;
+
+        #[test]
+        fn identifier() {
+            // a = 42
+            let a = Assignee::Identifier::<FieldPrime>(String::from("a")).mock();
+
+            let mut checker: Checker = Checker::new();
+            checker
+                .check_statement::<FieldPrime>(
+                    &Statement::Declaration(Variable::field_element("a").mock()).mock(),
+                    &vec![],
+                )
+                .unwrap();
+
+            assert_eq!(
+                checker.check_assignee(&a),
+                Ok(TypedAssignee::Identifier(Variable::field_element("a")))
+            );
+        }
+
+        #[test]
+        fn array_element() {
+            // field[33] a
+            // a[2] = 42
+            let a = Assignee::ArrayElement(
+                box Assignee::Identifier(String::from("a")).mock(),
+                box Expression::Number(FieldPrime::from(2)).mock(),
+            )
+            .mock();
+
+            let mut checker: Checker = Checker::new();
+            checker
+                .check_statement::<FieldPrime>(
+                    &Statement::Declaration(Variable::field_array("a", 33).mock()).mock(),
+                    &vec![],
+                )
+                .unwrap();
+
+            assert_eq!(
+                checker.check_assignee(&a),
+                Ok(TypedAssignee::ArrayElement(
+                    box TypedAssignee::Identifier(Variable::field_array("a", 33)),
+                    box FieldElementExpression::Number(FieldPrime::from(2)).into()
+                ))
+            );
+        }
+    }
+}

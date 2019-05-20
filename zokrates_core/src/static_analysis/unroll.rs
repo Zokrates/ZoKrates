@@ -178,6 +178,7 @@ mod tests {
     #[cfg(test)]
     mod statement {
         use super::*;
+        use crate::types::{FunctionKey, Signature};
 
         #[test]
         fn for_loop() {
@@ -369,7 +370,11 @@ mod tests {
             let s: TypedStatement<FieldPrime> = TypedStatement::MultipleDefinition(
                 vec![Variable::field_element("a")],
                 TypedExpressionList::FunctionCall(
-                    String::from("foo"),
+                    FunctionKey::with_id("foo").signature(
+                        Signature::new()
+                            .inputs(vec![Type::FieldElement])
+                            .outputs(vec![Type::FieldElement]),
+                    ),
                     vec![FieldElementExpression::Identifier(String::from("a")).into()],
                     vec![Type::FieldElement],
                 ),
@@ -379,7 +384,11 @@ mod tests {
                 vec![TypedStatement::MultipleDefinition(
                     vec![Variable::field_element("a_1")],
                     TypedExpressionList::FunctionCall(
-                        String::from("foo"),
+                        FunctionKey::with_id("foo").signature(
+                            Signature::new()
+                                .inputs(vec![Type::FieldElement])
+                                .outputs(vec![Type::FieldElement])
+                        ),
                         vec![FieldElementExpression::Identifier(String::from("a_0")).into()],
                         vec![Type::FieldElement],
                     )

@@ -9,8 +9,8 @@ use crate::flat_absy::*;
 use crate::helpers::{DirectiveStatement, Helper, RustHelper};
 use crate::typed_absy::*;
 use crate::types::conversions::cast;
-use crate::types::Signature;
 use crate::types::Type;
+use crate::types::{FunctionKey, Signature};
 use bimap::BiMap;
 use std::collections::HashMap;
 use zokrates_field::field::Field;
@@ -88,12 +88,11 @@ impl<T: Field> Flattener<T> {
                 TypedStatement::Definition(
                     TypedAssignee::Identifier(Variable::field_element("condition_as_field")),
                     FieldElementExpression::FunctionCall(
-                        FunctionKey {
-                            id: "_bool_to_field".to_string(),
-                            signature: Signature::new()
+                        FunctionKey::with_id("_bool_to_field").signature(
+                            Signature::new()
                                 .inputs(vec![Type::Boolean])
                                 .outputs(vec![Type::FieldElement]),
-                        },
+                        ),
                         vec![BooleanExpression::Identifier("condition".to_string()).into()],
                     )
                     .into(),
@@ -1480,10 +1479,7 @@ impl<T: Field> Flattener<T> {
         functions_flattened: &'a Vec<FlatFunction<T>>,
         id: &str,
     ) -> FlatFunction<T> {
-        let key = FunctionKey {
-            id: id.to_string(),
-            signature: s.clone(),
-        };
+        let key = FunctionKey::with_id(id).signature(s.clone());
 
         match symbols.get(&key) {
             Some(f) => self.flatten_function_symbol(symbols, functions_flattened, f.clone()),

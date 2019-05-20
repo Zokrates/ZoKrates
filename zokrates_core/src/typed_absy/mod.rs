@@ -11,7 +11,7 @@ mod variable;
 
 pub use crate::typed_absy::parameter::Parameter;
 pub use crate::typed_absy::variable::Variable;
-use crate::types::Signature;
+use crate::types::{FunctionKey, Signature};
 use std::collections::HashMap;
 
 use crate::flat_absy::*;
@@ -82,12 +82,6 @@ impl<T: Field> fmt::Display for TypedFunctionSymbol<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         unimplemented!()
     }
-}
-
-#[derive(PartialEq, Eq, Hash, Debug, Clone)]
-pub struct FunctionKey {
-    pub id: Identifier,
-    pub signature: Signature,
 }
 
 impl<T: Field> fmt::Display for TypedModule<T> {
