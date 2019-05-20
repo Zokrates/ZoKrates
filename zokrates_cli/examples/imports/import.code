@@ -1,4 +1,5 @@
-import "./foo.code" as foo
+import "./foo.code"
+import "./bar.code"
 
 def main() -> (field):
-	return foo()
+	return foo() + bar()
