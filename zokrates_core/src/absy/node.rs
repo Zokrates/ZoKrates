@@ -32,6 +32,10 @@ pub trait NodeValue: fmt::Display + Sized + PartialEq {
         Node::new(start, start.col(delta), self)
     }
 
+    fn start_end(self, start: Position, end: Position) -> Node<Self> {
+        Node::new(start, end, self)
+    }
+
     #[cfg(test)]
     fn mock(self) -> Node<Self> {
         Node::new(Position::mock(), Position::mock(), self)

@@ -7,23 +7,12 @@
 use crate::absy::*;
 use crate::compile::compile_module;
 use crate::compile::{CompileErrorInner, CompileErrors};
-use crate::flat_absy::*;
 use crate::parser::Position;
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
 use std::io::BufRead;
 use zokrates_field::field::Field;
-
-pub struct CompiledImport<T: Field> {
-    pub flat_func: FlatFunction<T>,
-}
-
-impl<T: Field> CompiledImport<T> {
-    fn new(prog: FlatProg<T>, alias: String) -> CompiledImport<T> {
-        unimplemented!("refactor imported flattened funcs")
-    }
-}
 
 #[derive(PartialEq, Debug)]
 pub struct Error {
@@ -151,7 +140,7 @@ impl Importer {
                                 id: alias.clone(),
                                 symbol: FunctionSymbol::Flat(compiled),
                             }
-                            .at(0, 0, 0),
+                            .start_end(pos.0, pos.1),
                         );
                     }
                     s => {
@@ -178,7 +167,7 @@ impl Importer {
                                 id: alias.clone(),
                                 symbol: FunctionSymbol::Flat(compiled),
                             }
-                            .at(0, 0, 0),
+                            .start_end(pos.0, pos.1),
                         );
                     }
                     s => {
@@ -214,10 +203,10 @@ impl Importer {
                                             "main",
                                             import.source.clone(),
                                         )
-                                        .at(0, 0, 0),
+                                        .start_end(pos.0, pos.1),
                                     ),
                                 }
-                                .at(0, 0, 0),
+                                .start_end(pos.0, pos.1),
                             );
                         }
                         Err(err) => {

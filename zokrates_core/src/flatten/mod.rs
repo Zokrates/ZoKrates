@@ -1234,60 +1234,60 @@ impl<T: Field> Flattener<T> {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use crate::types::Signature;
-//     use crate::types::Type;
-//     use zokrates_field::field::FieldPrime;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::Signature;
+    use crate::types::Type;
+    use zokrates_field::field::FieldPrime;
 
-//     #[test]
-//     fn multiple_definition() {
-//         // def foo()
-//         //     return 1, 2
-//         // def main()
-//         //     a, b = foo()
+    #[test]
+    fn multiple_definition() {
+        // def foo()
+        //     return 1, 2
+        // def main()
+        //     a, b = foo()
 
-//         let mut flattener = Flattener::new();
-//         let mut functions_flattened = vec![FlatFunction {
-//             id: "foo".to_string(),
-//             arguments: vec![],
-//             statements: vec![FlatStatement::Return(FlatExpressionList {
-//                 expressions: vec![
-//                     FlatExpression::Number(FieldPrime::from(1)),
-//                     FlatExpression::Number(FieldPrime::from(2)),
-//                 ],
-//             })],
-//             signature: Signature::new()
-//                 .inputs(vec![])
-//                 .outputs(vec![Type::FieldElement, Type::FieldElement]),
-//         }];
-//         let mut statements_flattened = vec![];
-//         let statement = TypedStatement::MultipleDefinition(
-//             vec![
-//                 Variable::field_element("a".to_string()),
-//                 Variable::field_element("b".to_string()),
-//             ],
-//             TypedExpressionList::FunctionCall(
-//                 "foo".to_string(),
-//                 vec![],
-//                 vec![Type::FieldElement, Type::FieldElement],
-//             ),
-//         );
+        let mut flattener = Flattener::new();
+        let foo = TypedFunction {
+            arguments: vec![],
+            statements: vec![TypedStatement::Return(vec![
+                    FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                    FieldElementExpression::Number(FieldPrime::from(2)).into(),
+                ],
+            )],
+            signature: Signature::new()
+                .inputs(vec![])
+                .outputs(vec![Type::FieldElement, Type::FieldElement]),
+        };
+        let mut statements_flattened = vec![];
+        let statement = TypedStatement::MultipleDefinition(
+            vec![
+                Variable::field_element("a".to_string()),
+                Variable::field_element("b".to_string()),
+            ],
+            TypedExpressionList::FunctionCall(
+                FunctionKey::with_id("foo").signature(Signature::new().outputs(vec![Type::FieldElement, Type::FieldElement])),
+                vec![],
+                vec![Type::FieldElement, Type::FieldElement],
+            ),
+        );
 
-//         flattener.flatten_statement(
-//             &mut functions_flattened,
-//             &mut statements_flattened,
-//             statement,
-//         );
+        let symbols = vec![(FunctionKey::with_id("foo").signature(Signature::new().outputs(vec![Type::FieldElement, Type::FieldElement])), TypedFunctionSymbol::Here(foo))].into_iter().collect();
 
-//         let a = FlatVariable::new(0);
+        flattener.flatten_statement(
+            &symbols,
+            &mut statements_flattened,
+            statement,
+        );
 
-//         assert_eq!(
-//             statements_flattened[0],
-//             FlatStatement::Definition(a, FlatExpression::Number(FieldPrime::from(1)))
-//         );
-//     }
+        let a = FlatVariable::new(0);
+
+        assert_eq!(
+            statements_flattened[0],
+            FlatStatement::Definition(a, FlatExpression::Number(FieldPrime::from(1)))
+        );
+    }
 
 //     #[test]
 //     fn multiple_definition2() {
@@ -2147,4 +2147,4 @@ impl<T: Field> Flattener<T> {
 //             FlatVariable::new(2)
 //         );
 //     }
-// }
+}
