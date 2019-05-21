@@ -83,19 +83,6 @@ impl<T: Field> TypedFunctionSymbol<T> {
     }
 }
 
-impl<T: Field> fmt::Display for TypedFunctionSymbol<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            TypedFunctionSymbol::Here(fun) => write!(f, "{}", fun),
-            TypedFunctionSymbol::There(key, module_id) => write!(
-                f,
-                "import {} from {} // with signature {}",
-                key.id, module_id, key.signature
-            ),
-        }
-    }
-}
-
 impl<T: Field> fmt::Display for TypedModule<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut res = vec![];
@@ -113,8 +100,16 @@ impl<T: Field> fmt::Display for TypedModule<T> {
         );
         res.extend(
             self.functions
-                .values()
-                .map(|x| format!("{}", x))
+                .iter()
+                .map(|(key, symbol)| match symbol {
+                    TypedFunctionSymbol::Here(ref function) => {
+                        format!("def {}{}", key.id, function)
+                    }
+                    TypedFunctionSymbol::There(ref fun_key, ref module_id) => format!(
+                        "import {} from \"{}\" as {} // with signature {}",
+                        fun_key.id, module_id, key.id, key.signature
+                    ),
+                })
                 .collect::<Vec<_>>(),
         );
         write!(f, "{}", res.join("\n"))

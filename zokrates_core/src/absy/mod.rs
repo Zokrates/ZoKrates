@@ -85,8 +85,6 @@ impl FunctionImport {
     }
 }
 
-pub type FunctionSymbolNode<T> = Node<FunctionSymbol<T>>;
-
 impl fmt::Display for FunctionImport {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} from {}", self.function_id, self.module_id)
