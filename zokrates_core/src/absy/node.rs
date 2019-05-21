@@ -56,7 +56,7 @@ impl<T: Field> NodeValue for Statement<T> {}
 impl<T: Field> NodeValue for FunctionDeclaration<T> {}
 impl<T: Field> NodeValue for Function<T> {}
 impl<T: Field> NodeValue for Module<T> {}
-impl<T: Field> NodeValue for FunctionSymbol<T> {}
+impl NodeValue for FunctionImport {}
 impl NodeValue for Variable {}
 impl NodeValue for Parameter {}
 impl NodeValue for Import {}

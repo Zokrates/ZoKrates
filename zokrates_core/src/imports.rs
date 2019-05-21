@@ -198,10 +198,12 @@ impl Importer {
                                 FunctionDeclaration {
                                     id: alias.clone(),
                                     symbol: FunctionSymbol::There(
-                                        String::from("main"),
-                                        import.source.clone(),
-                                    )
-                                    .at(0, 0, 0),
+                                        FunctionImport::with_id_in_module(
+                                            "main",
+                                            import.source.clone(),
+                                        )
+                                        .at(0, 0, 0),
+                                    ),
                                 }
                                 .at(0, 0, 0),
                             );

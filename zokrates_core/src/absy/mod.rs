@@ -37,18 +37,14 @@ pub struct Program<T: Field> {
 #[derive(PartialEq, Debug, Clone)]
 pub struct FunctionDeclaration<T: Field> {
     pub id: Identifier,
-    pub symbol: FunctionSymbolNode<T>,
+    pub symbol: FunctionSymbol<T>,
 }
 
 impl<T: Field> fmt::Display for FunctionDeclaration<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.symbol.value {
+        match self.symbol {
             FunctionSymbol::Here(ref fun) => write!(f, "def {}{}", self.id, fun),
-            FunctionSymbol::There(ref function_id, ref module_id) => write!(
-                f,
-                "import {} from {} as {}",
-                function_id, module_id, self.id
-            ),
+            FunctionSymbol::There(ref import) => write!(f, "import {} as {}", import, self.id),
         }
     }
 }
@@ -66,17 +62,34 @@ pub struct Module<T: Field> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum FunctionSymbol<T: Field> {
     Here(FunctionNode<T>),
-    There(Identifier, ModuleId),
+    There(FunctionImportNode),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FunctionImport {
+    pub function_id: Identifier,
+    pub module_id: ModuleId,
+}
+
+type FunctionImportNode = Node<FunctionImport>;
+
+impl FunctionImport {
+    pub fn with_id_in_module<S: Into<Identifier>, U: Into<ModuleId>>(
+        function_id: S,
+        module_id: U,
+    ) -> Self {
+        FunctionImport {
+            function_id: function_id.into(),
+            module_id: module_id.into(),
+        }
+    }
 }
 
 pub type FunctionSymbolNode<T> = Node<FunctionSymbol<T>>;
 
-impl<T: Field> fmt::Display for FunctionSymbol<T> {
+impl fmt::Display for FunctionImport {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            FunctionSymbol::Here(fun_node) => write!(f, "{}", fun_node),
-            FunctionSymbol::There(id, module_id) => write!(f, "import {} from {}", id, module_id),
-        }
+        write!(f, "{} from {}", self.function_id, self.module_id)
     }
 }
 

@@ -301,28 +301,28 @@ impl Checker {
 
     fn check_function_symbol<T: Field>(
         &mut self,
-        funct_symbol_node: FunctionSymbolNode<T>,
+        funct_symbol: FunctionSymbol<T>,
         modules: &mut Modules<T>,
         typed_modules: &mut TypedModules<T>,
     ) -> Result<Vec<TypedFunctionSymbol<T>>, Vec<Error>> {
-        let pos = funct_symbol_node.pos();
-        let funct_symbol = funct_symbol_node.value;
-
         let mut errors = vec![];
 
         match funct_symbol {
             FunctionSymbol::Here(funct_node) => self
                 .check_function(funct_node)
                 .map(|f| vec![TypedFunctionSymbol::Here(f)]),
-            FunctionSymbol::There(id, module_id) => {
+            FunctionSymbol::There(import_node) => {
+                let pos = import_node.pos();
+                let import = import_node.value;
+
                 // check if the module was already checked
-                let to_insert = match typed_modules.get(&module_id).clone() {
+                let to_insert = match typed_modules.get(&import.module_id).clone() {
                     // if it was, do nothing
                     Some(_) => None,
                     // if it was not, check it
                     None => {
                         match Checker::new().check_module(
-                            modules.remove(&module_id.clone()).unwrap(),
+                            modules.remove(&import.module_id.clone()).unwrap(),
                             modules,
                             typed_modules,
                         ) {
@@ -343,20 +343,20 @@ impl Checker {
                 // insert into typed_modules if we checked anything
                 match to_insert {
                     Some(typed_module) => {
-                        typed_modules.insert(module_id.clone(), typed_module);
+                        typed_modules.insert(import.module_id.clone(), typed_module);
                     }
                     None => {}
                 };
 
                 // find candidates in the checked module
                 let candidates: Vec<_> = typed_modules
-                    .get(&module_id)
+                    .get(&import.module_id)
                     .unwrap()
                     .functions
                     .iter()
-                    .filter(|(k, _)| k.id == id)
+                    .filter(|(k, _)| k.id == import.function_id)
                     .map(|(_, v)| FunctionKey {
-                        id: id.clone(),
+                        id: import.function_id.clone(),
                         signature: v.signature(&typed_modules).clone(),
                     })
                     .collect();
@@ -364,11 +364,14 @@ impl Checker {
                 match candidates.len() {
                     0 => Err(vec![Error {
                         pos: Some(pos),
-                        message: format!("Function {} not found in module {}", id, "TODO"),
+                        message: format!(
+                            "Function {} not found in module {}",
+                            import.function_id, import.module_id
+                        ),
                     }]),
                     _ => Ok(candidates
                         .into_iter()
-                        .map(|f| TypedFunctionSymbol::There(f, module_id.clone()))
+                        .map(|f| TypedFunctionSymbol::There(f, import.module_id.clone()))
                         .collect()),
                 }
             }
@@ -1084,18 +1087,17 @@ mod tests {
                             statements: vec![Statement::Return(
                                 ExpressionList {
                                     expressions: vec![
-                                        Expression::Number(FieldPrime::from(1)).at(0, 0, 0)
+                                        Expression::Number(FieldPrime::from(1)).mock()
                                     ],
                                 }
-                                .at(0, 0, 0),
+                                .mock(),
                             )
-                            .at(0, 0, 0)],
+                            .mock()],
                             signature: Signature::new().outputs(vec![Type::FieldElement]),
                             arguments: vec![],
                         }
-                        .at(0, 0, 0),
-                    )
-                    .at(0, 0, 0),
+                        .mock(),
+                    ),
                 }
                 .mock()],
                 imported_functions: vec![],
@@ -1105,8 +1107,9 @@ mod tests {
             let bar: Module<FieldPrime> = Module {
                 functions: vec![FunctionDeclaration {
                     id: String::from("main"),
-                    symbol: FunctionSymbol::There(String::from("main"), String::from("foo"))
-                        .at(0, 0, 0),
+                    symbol: FunctionSymbol::There(
+                        FunctionImport::with_id_in_module("main", "foo").mock(),
+                    ),
                 }
                 .mock()],
                 imported_functions: vec![],
@@ -1249,12 +1252,12 @@ mod tests {
         let funcs = vec![
             FunctionDeclaration {
                 id: String::from("foo"),
-                symbol: FunctionSymbol::Here(foo).mock(),
+                symbol: FunctionSymbol::Here(foo),
             }
             .mock(),
             FunctionDeclaration {
                 id: String::from("bar"),
-                symbol: FunctionSymbol::Here(bar).mock(),
+                symbol: FunctionSymbol::Here(bar),
             }
             .mock(),
         ];
@@ -1352,17 +1355,17 @@ mod tests {
         let funcs = vec![
             FunctionDeclaration {
                 id: String::from("foo"),
-                symbol: FunctionSymbol::Here(foo).mock(),
+                symbol: FunctionSymbol::Here(foo),
             }
             .mock(),
             FunctionDeclaration {
                 id: String::from("bar"),
-                symbol: FunctionSymbol::Here(bar).mock(),
+                symbol: FunctionSymbol::Here(bar),
             }
             .mock(),
             FunctionDeclaration {
                 id: String::from("main"),
-                symbol: FunctionSymbol::Here(main).mock(),
+                symbol: FunctionSymbol::Here(main),
             }
             .mock(),
         ];
@@ -1685,12 +1688,12 @@ mod tests {
             functions: vec![
                 FunctionDeclaration {
                     id: String::from("foo"),
-                    symbol: FunctionSymbol::Here(foo).mock(),
+                    symbol: FunctionSymbol::Here(foo),
                 }
                 .mock(),
                 FunctionDeclaration {
                     id: String::from("main"),
-                    symbol: FunctionSymbol::Here(main).mock(),
+                    symbol: FunctionSymbol::Here(main),
                 }
                 .mock(),
             ],
@@ -1939,12 +1942,12 @@ mod tests {
             functions: vec![
                 FunctionDeclaration {
                     id: String::from("foo"),
-                    symbol: FunctionSymbol::Here(foo1).mock(),
+                    symbol: FunctionSymbol::Here(foo1),
                 }
                 .mock(),
                 FunctionDeclaration {
                     id: String::from("foo"),
-                    symbol: FunctionSymbol::Here(foo2).mock(),
+                    symbol: FunctionSymbol::Here(foo2),
                 }
                 .mock(),
             ],
@@ -2020,12 +2023,12 @@ mod tests {
         let functions = vec![
             FunctionDeclaration {
                 id: String::from("main"),
-                symbol: FunctionSymbol::Here(main1).mock(),
+                symbol: FunctionSymbol::Here(main1),
             }
             .mock(),
             FunctionDeclaration {
                 id: String::from("main"),
-                symbol: FunctionSymbol::Here(main2).mock(),
+                symbol: FunctionSymbol::Here(main2),
             }
             .mock(),
         ];

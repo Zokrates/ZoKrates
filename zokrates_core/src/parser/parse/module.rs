@@ -39,7 +39,7 @@ pub fn parse_module<T: Field, R: BufRead>(reader: &mut R) -> Result<Module<T>, E
                         functions.push(
                             FunctionDeclaration {
                                 id: identifier,
-                                symbol: FunctionSymbol::Here(function).at(0, 0, 0),
+                                symbol: FunctionSymbol::Here(function),
                             }
                             .at(0, 0, 0),
                         );
