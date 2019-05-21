@@ -22,7 +22,7 @@ use zokrates_field::field::Field;
 
 pub use self::folder::Folder;
 
-type Identifier = String;
+pub type Identifier = String;
 
 pub type TypedModuleId = String;
 
