@@ -458,8 +458,10 @@ impl<T: Field> Flattener<T> {
             .inputs(param_expressions.iter().map(|e| e.get_type()).collect())
             .outputs(return_types);
 
+        let key = FunctionKey::with_id(id.to_string()).signature(passed_signature);
+
         let funct = self
-            .get_function(passed_signature, &symbols, &functions_flattened, id)
+            .get_function(&key, &symbols, &functions_flattened)
             .clone();
 
         let mut replacement_map = HashMap::new();
@@ -1420,7 +1422,7 @@ impl<T: Field> Flattener<T> {
 
         let symbols = main_module.functions.clone();
 
-        self.load_corelib(&symbols, &mut functions_flattened);
+        //self.load_corelib(&symbols, &mut functions_flattened);
 
         for func in main_module.imported_functions {
             functions_flattened.push(func);
@@ -1472,13 +1474,10 @@ impl<T: Field> Flattener<T> {
 
     fn get_function<'a>(
         &mut self,
-        s: Signature,
+        key: &FunctionKey,
         symbols: &'a HashMap<FunctionKey, TypedFunctionSymbol<T>>,
         functions_flattened: &'a Vec<FlatFunction<T>>,
-        id: &str,
     ) -> FlatFunction<T> {
-        let key = FunctionKey::with_id(id).signature(s.clone());
-
         match symbols.get(&key) {
             Some(f) => self.flatten_function_symbol(symbols, functions_flattened, f.clone()),
             None => unimplemented!("need to refactor storage of low level functions")
