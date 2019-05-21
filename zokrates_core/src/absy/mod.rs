@@ -45,6 +45,9 @@ impl<T: Field> fmt::Display for FunctionDeclaration<T> {
         match self.symbol {
             FunctionSymbol::Here(ref fun) => write!(f, "def {}{}", self.id, fun),
             FunctionSymbol::There(ref import) => write!(f, "import {} as {}", import, self.id),
+            FunctionSymbol::Flat(ref flat_fun) => {
+                write!(f, "def {}{}:\n\t// hidden", self.id, flat_fun.signature)
+            }
         }
     }
 }
@@ -56,13 +59,13 @@ pub struct Module<T: Field> {
     /// Functions of the module
     pub functions: FunctionDeclarations<T>,
     pub imports: Vec<ImportNode>,
-    pub imported_functions: Vec<FlatFunction<T>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum FunctionSymbol<T: Field> {
     Here(FunctionNode<T>),
     There(FunctionImportNode),
+    Flat(FlatFunction<T>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -101,12 +104,6 @@ impl<T: Field> fmt::Display for Module<T> {
                 .collect::<Vec<_>>(),
         );
         res.extend(
-            self.imported_functions
-                .iter()
-                .map(|x| format!("{}", x))
-                .collect::<Vec<_>>(),
-        );
-        res.extend(
             self.functions
                 .iter()
                 .map(|x| format!("{}", x))
@@ -120,15 +117,10 @@ impl<T: Field> fmt::Debug for Module<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "module(\n\timports:\n\t\t{}\n\tfunctions:\n\t\t{}{}\n)",
+            "module(\n\timports:\n\t\t{}\n\tfunctions:\n\t\t{}\n)",
             self.imports
                 .iter()
                 .map(|x| format!("{:?}", x))
-                .collect::<Vec<_>>()
-                .join("\n\t\t"),
-            self.imported_functions
-                .iter()
-                .map(|x| format!("{}", x))
                 .collect::<Vec<_>>()
                 .join("\n\t\t"),
             self.functions

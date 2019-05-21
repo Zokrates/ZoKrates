@@ -120,6 +120,7 @@ impl Importer {
         Importer {}
     }
 
+    // Based on Imports of a program, populate `functions` for external imports and `flat_functions` for flat imports
     pub fn apply_imports<T: Field, S: BufRead, E: Into<Error>>(
         &self,
         destination: Module<T>,
@@ -127,8 +128,7 @@ impl Importer {
         resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
         modules: &mut HashMap<ModuleId, Module<T>>,
     ) -> Result<Module<T>, CompileErrors<T>> {
-        let mut origins: Vec<CompiledImport<T>> = vec![];
-        let mut functions = vec![];
+        let mut functions = vec![]; // functions, base case to import from other modules
 
         for import in destination.imports.iter() {
             let pos = import.pos();
@@ -139,14 +139,20 @@ impl Importer {
                     "BELLMAN/sha256round" => {
                         use crate::standard::sha_round;
 
-                        let compiled = FlatProg { main: sha_round() };
+                        let compiled = sha_round();
 
                         let alias = match import.alias {
                             Some(ref alias) => alias.clone(),
                             None => String::from("sha256round"),
                         };
 
-                        origins.push(CompiledImport::new(compiled, alias));
+                        functions.push(
+                            FunctionDeclaration {
+                                id: alias.clone(),
+                                symbol: FunctionSymbol::Flat(compiled),
+                            }
+                            .at(0, 0, 0),
+                        );
                     }
                     s => {
                         return Err(CompileErrorInner::ImportError(
@@ -167,7 +173,13 @@ impl Importer {
                             None => String::from("split"),
                         };
 
-                        origins.push(CompiledImport::new(compiled, alias));
+                        functions.push(
+                            FunctionDeclaration {
+                                id: alias.clone(),
+                                symbol: FunctionSymbol::Flat(compiled),
+                            }
+                            .at(0, 0, 0),
+                        );
                     }
                     s => {
                         return Err(CompileErrorInner::ImportError(
@@ -232,7 +244,6 @@ impl Importer {
         Ok(Module {
             imports: vec![],
             functions: functions,
-            imported_functions: origins.into_iter().map(|o| o.flat_func).collect(),
         })
     }
 }

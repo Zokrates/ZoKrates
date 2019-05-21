@@ -18,7 +18,7 @@ fn use_variable(
     var
 }
 
-pub fn split<T: Field>() -> FlatProg<T> {
+pub fn split<T: Field>() -> FlatFunction<T> {
     let nbits = T::get_required_bits();
 
     let mut counter = 0;
@@ -100,12 +100,10 @@ pub fn split<T: Field>() -> FlatProg<T> {
         expressions: outputs,
     }));
 
-    FlatProg {
-        main: FlatFunction {
-            arguments,
-            statements,
-            signature,
-        },
+    FlatFunction {
+        arguments,
+        statements,
+        signature,
     }
 }
 
@@ -199,8 +197,7 @@ mod tests {
 
         #[test]
         fn split254() {
-            let unpack: FlatProg<FieldPrime> = split();
-            let unpack = &unpack.main;
+            let unpack: FlatFunction<FieldPrime> = split();
 
             assert_eq!(
                 unpack.arguments,

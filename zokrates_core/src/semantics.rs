@@ -151,14 +151,6 @@ impl Checker {
         modules: &mut Modules<T>,
         typed_modules: &mut TypedModules<T>,
     ) -> Result<TypedModule<T>, Vec<Error>> {
-        for func in &module.imported_functions {
-            // self.functions.insert(FunctionKey {
-            //     id: func.id.clone(),
-            //     signature: func.signature.clone(),
-            // });
-            unimplemented!("need to refactor imported functions")
-        }
-
         let mut errors = vec![];
         let mut checked_functions = HashMap::new();
 
@@ -224,7 +216,6 @@ impl Checker {
 
         Ok(TypedModule {
             functions: checked_functions,
-            imported_functions: module.imported_functions,
             imports: module.imports.into_iter().map(|i| i.value).collect(),
         })
     }
@@ -375,6 +366,7 @@ impl Checker {
                         .collect()),
                 }
             }
+            FunctionSymbol::Flat(flat_fun) => Ok(vec![TypedFunctionSymbol::Flat(flat_fun)]),
         }
     }
 
@@ -1100,7 +1092,6 @@ mod tests {
                     ),
                 }
                 .mock()],
-                imported_functions: vec![],
                 imports: vec![],
             };
 
@@ -1112,7 +1103,6 @@ mod tests {
                     ),
                 }
                 .mock()],
-                imported_functions: vec![],
                 imports: vec![],
             };
 
@@ -1136,7 +1126,6 @@ mod tests {
                     )]
                     .into_iter()
                     .collect(),
-                    imported_functions: vec![],
                     imports: vec![]
                 })
             );
@@ -1264,7 +1253,6 @@ mod tests {
         let module = Module {
             functions: funcs,
             imports: vec![],
-            imported_functions: vec![],
         };
 
         let mut checker = Checker::new();
@@ -1372,7 +1360,6 @@ mod tests {
         let module = Module {
             functions: funcs,
             imports: vec![],
-            imported_functions: vec![],
         };
 
         let mut checker = Checker::new();
@@ -1698,7 +1685,6 @@ mod tests {
                 .mock(),
             ],
             imports: vec![],
-            imported_functions: vec![],
         };
 
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
@@ -1951,7 +1937,6 @@ mod tests {
                 }
                 .mock(),
             ],
-            imported_functions: vec![],
             imports: vec![],
         };
 
@@ -2036,7 +2021,6 @@ mod tests {
         let main_module = Module {
             functions: functions,
             imports: vec![],
-            imported_functions: vec![],
         };
 
         let program = Program {

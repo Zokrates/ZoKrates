@@ -59,19 +59,19 @@ pub struct TypedModule<T: Field> {
     /// Functions of the program
     pub functions: TypedFunctionSymbols<T>,
     pub imports: Vec<Import>,
-    pub imported_functions: Vec<FlatFunction<T>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypedFunctionSymbol<T: Field> {
     Here(TypedFunction<T>),
     There(FunctionKey, TypedModuleId),
+    Flat(FlatFunction<T>),
 }
 
 impl<T: Field> TypedFunctionSymbol<T> {
-    pub fn signature(&self, modules: &TypedModules<T>) -> Signature {
+    pub fn signature<'a>(&'a self, modules: &'a TypedModules<T>) -> &'a Signature {
         match self {
-            TypedFunctionSymbol::Here(f) => f.signature.clone(),
+            TypedFunctionSymbol::Here(f) => &f.signature,
             TypedFunctionSymbol::There(key, module_id) => modules
                 .get(module_id)
                 .unwrap()
@@ -79,6 +79,7 @@ impl<T: Field> TypedFunctionSymbol<T> {
                 .get(key)
                 .unwrap()
                 .signature(&modules),
+            TypedFunctionSymbol::Flat(flat_fun) => &flat_fun.signature,
         }
     }
 }
@@ -88,12 +89,6 @@ impl<T: Field> fmt::Display for TypedModule<T> {
         let mut res = vec![];
         res.extend(
             self.imports
-                .iter()
-                .map(|x| format!("{}", x))
-                .collect::<Vec<_>>(),
-        );
-        res.extend(
-            self.imported_functions
                 .iter()
                 .map(|x| format!("{}", x))
                 .collect::<Vec<_>>(),
@@ -109,6 +104,9 @@ impl<T: Field> fmt::Display for TypedModule<T> {
                         "import {} from \"{}\" as {} // with signature {}",
                         fun_key.id, module_id, key.id, key.signature
                     ),
+                    TypedFunctionSymbol::Flat(ref flat_fun) => {
+                        format!("def {}{}:\n\t// hidden", key.id, flat_fun.signature)
+                    }
                 })
                 .collect::<Vec<_>>(),
         );
@@ -120,15 +118,10 @@ impl<T: Field> fmt::Debug for TypedModule<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "program(\n\timports:\n\t\t{}\n\tfunctions:\n\t\t{}{}\n)",
+            "program(\n\timports:\n\t\t{}\n\tfunctions:\n\t\t{}\n)",
             self.imports
                 .iter()
                 .map(|x| format!("{:?}", x))
-                .collect::<Vec<_>>()
-                .join("\n\t\t"),
-            self.imported_functions
-                .iter()
-                .map(|x| format!("{}", x))
                 .collect::<Vec<_>>()
                 .join("\n\t\t"),
             self.functions
