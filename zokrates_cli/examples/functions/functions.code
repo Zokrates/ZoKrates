@@ -1,6 +1,0 @@
-def add(field f,field g) -> (field):
-  return f+g
-
-def main(field a, field b) -> (field):
-  c = add(a,b)
-  return c
