@@ -38,10 +38,6 @@ std::string HexStringFromLibsnarkBigint(libff::bigint<libff::alt_bn128_r_limbs> 
     return ss.str();
 }
 
-std::string outputInputAsHex(libff::bigint<libff::alt_bn128_r_limbs> _x){
-        return "\"0x" + HexStringFromLibsnarkBigint(_x) + "\"";
-}
-
 std::string outputPointG1AffineAsHex(libff::alt_bn128_G1 _p)
 {
         libff::alt_bn128_G1 aff = _p;
