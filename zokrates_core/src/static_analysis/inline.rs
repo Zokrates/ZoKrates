@@ -328,7 +328,9 @@ impl<'a, T: Field> Folder<T> for Inliner<'a, T> {
                     .iter()
                     .map(|(module_id, function_key, i)| format!(
                         "{}::{}_{}",
-                        module_id, function_key.to_slug(), i
+                        module_id,
+                        function_key.to_slug(),
+                        i
                     ))
                     .collect::<Vec<_>>()
                     .join("_"),
