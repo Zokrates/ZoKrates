@@ -122,6 +122,10 @@ impl FunctionKey {
         self.signature = signature;
         self
     }
+
+    pub fn to_slug(&self) -> String {
+        format!("{}_{}", self.id, self.signature.to_slug())
+    }
 }
 
 #[cfg(test)]

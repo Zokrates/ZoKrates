@@ -105,7 +105,7 @@ impl<T: Field> Folder<T> for CoreLibInjector {
         };
 
         TypedProgram {
-            main: self.fold_module(p.main),
+            main: p.main,
             modules: p
                 .modules
                 .into_iter()

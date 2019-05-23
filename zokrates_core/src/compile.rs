@@ -159,9 +159,14 @@ pub fn compile_program<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>
 ) -> Result<Program<T>, CompileErrors<T>> {
     let mut modules = HashMap::new();
 
-    let main = compile_module(reader, location, resolve_option, &mut modules)?;
+    let main = compile_module(reader, location.clone(), resolve_option, &mut modules)?;
 
-    Ok(Program { main, modules })
+    modules.insert(location.clone().unwrap(), main);
+
+    Ok(Program {
+        main: location.unwrap(),
+        modules,
+    })
 }
 
 pub fn compile_module<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(

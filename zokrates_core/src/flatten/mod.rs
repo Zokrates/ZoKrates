@@ -458,9 +458,12 @@ impl<T: Field> Flattener<T> {
     ) -> FlatExpression<T> {
         match expr {
             FieldElementExpression::Number(x) => FlatExpression::Number(x), // force to be a field element
-            FieldElementExpression::Identifier(x) => {
-                FlatExpression::Identifier(self.bijection.get_by_left(&x).unwrap().clone())
-            }
+            FieldElementExpression::Identifier(x) => FlatExpression::Identifier(
+                self.bijection
+                    .get_by_left(&x)
+                    .expect(&format!("{} should be defined", x))
+                    .clone(),
+            ),
             FieldElementExpression::Add(box left, box right) => {
                 let left_flattened =
                     self.flatten_field_expression(symbols, statements_flattened, left);
@@ -1173,7 +1176,7 @@ impl<T: Field> Flattener<T> {
     ///
     /// * `prog` - `Prog`ram that will be flattened.
     fn flatten_program(&mut self, prog: TypedProgram<T>) -> FlatProg<T> {
-        let main_module = prog.main;
+        let main_module = prog.modules.get(&prog.main).unwrap().clone();
 
         self.modules = prog.modules;
 
@@ -1229,6 +1232,7 @@ impl<T: Field> Flattener<T> {
         key: &FunctionKey,
         symbols: &'a HashMap<FunctionKey, TypedFunctionSymbol<T>>,
     ) -> FlatFunction<T> {
+        println!("search {:#?} in {:#?}", key, symbols.keys());
         let f = symbols.get(&key).unwrap().clone();
         self.flatten_function_symbol(symbols, f)
     }

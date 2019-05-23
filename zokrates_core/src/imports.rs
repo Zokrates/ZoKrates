@@ -131,8 +131,19 @@ impl Importer {
                         let compiled = sha_round();
 
                         let alias = match import.alias {
-                            Some(ref alias) => alias.clone(),
-                            None => String::from("sha256round"),
+                            Some(ref alias) => {
+                                if alias == "sha256" {
+                                    alias.clone()
+                                } else {
+                                    return Err(CompileErrorInner::from(Error::new(format!(
+                                        "Aliasing gadgets is not supported, found alias {}",
+                                        alias
+                                    )))
+                                    .with_context(&location)
+                                    .into());
+                                }
+                            }
+                            None => String::from("sha256"),
                         };
 
                         functions.push(
@@ -158,7 +169,18 @@ impl Importer {
                     "PACKING/split" => {
                         let compiled = split();
                         let alias = match import.alias {
-                            Some(ref alias) => alias.clone(),
+                            Some(ref alias) => {
+                                if alias == "split" {
+                                    alias.clone()
+                                } else {
+                                    return Err(CompileErrorInner::from(Error::new(format!(
+                                        "Aliasing gadgets is not supported, found alias {}",
+                                        alias
+                                    )))
+                                    .with_context(&location)
+                                    .into());
+                                }
+                            }
                             None => String::from("split"),
                         };
 

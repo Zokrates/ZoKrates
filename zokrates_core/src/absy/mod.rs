@@ -31,7 +31,7 @@ pub type FunctionDeclarations<T> = Vec<FunctionDeclarationNode<T>>;
 
 pub struct Program<T: Field> {
     pub modules: HashMap<ModuleId, Module<T>>,
-    pub main: Module<T>,
+    pub main: ModuleId,
 }
 
 #[derive(PartialEq, Debug, Clone)]

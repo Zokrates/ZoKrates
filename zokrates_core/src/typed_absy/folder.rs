@@ -298,6 +298,6 @@ pub fn fold_program<T: Field, F: Folder<T>>(f: &mut F, p: TypedProgram<T>) -> Ty
             .into_iter()
             .map(|(module_id, module)| (module_id, f.fold_module(module)))
             .collect(),
-        main: f.fold_module(p.main),
+        main: p.main,
     }
 }

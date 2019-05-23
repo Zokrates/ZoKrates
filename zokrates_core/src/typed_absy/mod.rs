@@ -33,18 +33,22 @@ pub type TypedFunctionSymbols<T> = HashMap<FunctionKey, TypedFunctionSymbol<T>>;
 #[derive(PartialEq, Debug)]
 pub struct TypedProgram<T: Field> {
     pub modules: TypedModules<T>,
-    pub main: TypedModule<T>,
+    pub main: TypedModuleId,
 }
 
 impl<T: Field> fmt::Display for TypedProgram<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "| main: |")?;
-        writeln!(f, "{}", "-".repeat(100))?;
-        writeln!(f, "{}", self.main)?;
-        writeln!(f, "{}", "-".repeat(100))?;
-        writeln!(f, "")?;
         for (module_id, module) in &self.modules {
-            writeln!(f, "| {}: |", module_id)?;
+            writeln!(
+                f,
+                "| {}: |{}",
+                module_id,
+                if *module_id == self.main {
+                    "<---- main"
+                } else {
+                    ""
+                }
+            )?;
             writeln!(f, "{}", "-".repeat(100))?;
             writeln!(f, "{}", module)?;
             writeln!(f, "{}", "-".repeat(100))?;
@@ -118,7 +122,7 @@ impl<T: Field> fmt::Debug for TypedModule<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "program(\n\timports:\n\t\t{}\n\tfunctions:\n\t\t{}\n)",
+            "module(\n\timports:\n\t\t{}\n\tfunctions:\n\t\t{}\n)",
             self.imports
                 .iter()
                 .map(|x| format!("{:?}", x))

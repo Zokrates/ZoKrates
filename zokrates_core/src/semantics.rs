@@ -133,14 +133,17 @@ impl Checker {
         program: Program<T>,
     ) -> Result<TypedProgram<T>, Vec<Error>> {
         let mut modules = program.modules;
+        let main = modules.remove(&program.main).unwrap();
         let mut typed_modules = HashMap::new();
 
-        let main_module = self.check_module(program.main, &mut modules, &mut typed_modules)?;
+        let main_module = self.check_module(main, &mut modules, &mut typed_modules)?;
 
         Checker::check_single_main(&main_module).map_err(|e| vec![e])?;
 
+        typed_modules.insert(program.main.clone(), main_module);
+
         Ok(TypedProgram {
-            main: main_module,
+            main: program.main,
             modules: typed_modules,
         })
     }
@@ -2024,8 +2027,10 @@ mod tests {
         };
 
         let program = Program {
-            modules: HashMap::new(),
-            main: main_module,
+            modules: vec![(String::from("main"), main_module)]
+                .into_iter()
+                .collect(),
+            main: String::from("main"),
         };
 
         let mut checker = Checker::new();
