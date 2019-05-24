@@ -40,14 +40,6 @@ impl Type {
             Type::FieldElementArray(size) => size * Type::FieldElement.get_primitive_count(),
         }
     }
-
-    fn to_slug(&self) -> String {
-        match *self {
-            Type::FieldElement => String::from("f"),
-            Type::Boolean => String::from("b"),
-            Type::FieldElementArray(size) => format!("{}[{}]", Type::FieldElement.to_slug(), size), // TODO differentiate types?
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Hash, Eq)]
@@ -122,10 +114,6 @@ impl FunctionKey {
         self.signature = signature;
         self
     }
-
-    pub fn to_slug(&self) -> String {
-        format!("{}_{}", self.id, self.signature.to_slug())
-    }
 }
 
 #[cfg(test)]
@@ -136,6 +124,5 @@ mod tests {
     fn array() {
         let t = Type::FieldElementArray(42);
         assert_eq!(t.get_primitive_count(), 42);
-        assert_eq!(t.to_slug(), "f[42]");
     }
 }

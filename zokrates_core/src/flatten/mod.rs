@@ -1232,7 +1232,6 @@ impl<T: Field> Flattener<T> {
         key: &FunctionKey,
         symbols: &'a HashMap<FunctionKey, TypedFunctionSymbol<T>>,
     ) -> FlatFunction<T> {
-        println!("search {:#?} in {:#?}", key, symbols.keys());
         let f = symbols.get(&key).unwrap().clone();
         self.flatten_function_symbol(symbols, f)
     }

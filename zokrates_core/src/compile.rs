@@ -128,6 +128,7 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     location: Option<String>,
     resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
 ) -> Result<ir::Prog<T>, CompileErrors<T>> {
+    println!("{:?}", location);
     let compiled = compile_program(reader, location.clone(), resolve_option)?;
 
     // check semantics
@@ -161,10 +162,12 @@ pub fn compile_program<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>
 
     let main = compile_module(reader, location.clone(), resolve_option, &mut modules)?;
 
-    modules.insert(location.clone().unwrap(), main);
+    let location = location.unwrap_or("???".to_string());
+
+    modules.insert(location.clone(), main);
 
     Ok(Program {
-        main: location.unwrap(),
+        main: location,
         modules,
     })
 }

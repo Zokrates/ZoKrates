@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use bimap::BiMap;
 use typed_absy::{folder::*, *};
-use types::FunctionKey;
+use types::{FunctionKey, Type};
 use zokrates_field::field::Field;
 
 #[derive(Debug)]
@@ -8,35 +8,33 @@ pub struct Inliner<'a, T: Field> {
     modules: &'a TypedModules<T>,
     module_id: TypedModuleId,
     statement_buffer: Vec<TypedStatement<T>>,
-    context: Vec<(TypedModuleId, FunctionKey, usize)>,
-    call_count: HashMap<(TypedModuleId, FunctionKey), usize>,
+    bijection: BiMap<Variable, Variable>,
+    next_var_idx: usize,
 }
 
 impl<'a, T: Field> Inliner<'a, T> {
-    fn with_modules_and_module_id_and_call_count_and_context<S: Into<TypedModuleId>>(
+    fn with_modules_and_module_id_and_bijection_and_next_var_idx<S: Into<TypedModuleId>>(
         modules: &'a TypedModules<T>,
         module_id: S,
-        call_count: HashMap<(TypedModuleId, FunctionKey), usize>,
-        context: Vec<(TypedModuleId, FunctionKey, usize)>,
+        bijection: BiMap<Variable, Variable>,
+        next_var_idx: usize,
     ) -> Self {
         Inliner {
             modules,
             module_id: module_id.into(),
             statement_buffer: vec![],
-            call_count,
-            context,
+            bijection,
+            next_var_idx,
         }
     }
 
     pub fn inline(p: TypedProgram<T>) -> TypedProgram<T> {
         let modules = p.modules.clone();
-        let context = vec![];
-        let call_count = HashMap::new();
-        Inliner::with_modules_and_module_id_and_call_count_and_context(
+        Inliner::with_modules_and_module_id_and_bijection_and_next_var_idx(
             &modules,
             p.main.clone(),
-            call_count,
-            context,
+            BiMap::new(),
+            0,
         )
         .fold_program(p)
     }
@@ -53,7 +51,7 @@ impl<'a, T: Field> Inliner<'a, T> {
             .zip(expressions)
             .map(|(a, e)| {
                 TypedStatement::Definition(
-                    TypedAssignee::Identifier(self.fold_variable(a.id.clone())),
+                    self.fold_assignee(TypedAssignee::Identifier(a.id.clone())),
                     e,
                 )
             })
@@ -75,7 +73,7 @@ impl<'a, T: Field> Inliner<'a, T> {
         // add all statements to the buffer
         self.statement_buffer.extend(statements);
 
-        self.context.pop();
+        //self.context.pop();
 
         match ret[0].clone() {
             TypedStatement::Return(exprs) => exprs,
@@ -84,22 +82,40 @@ impl<'a, T: Field> Inliner<'a, T> {
     }
 
     fn fork(&mut self, module_id: TypedModuleId) -> Self {
-        Self::with_modules_and_module_id_and_call_count_and_context(
+        Self::with_modules_and_module_id_and_bijection_and_next_var_idx(
             &self.modules,
             module_id,
-            std::mem::replace(&mut self.call_count, HashMap::new()),
-            std::mem::replace(&mut self.context, vec![]),
+            std::mem::replace(&mut self.bijection, BiMap::new()),
+            self.next_var_idx,
         )
     }
 
     fn merge(&mut self, other: Inliner<T>) {
         self.statement_buffer.extend(other.statement_buffer);
-        self.call_count = other.call_count;
-        self.context = other.context;
+        self.bijection = other.bijection;
+        self.next_var_idx = other.next_var_idx;
     }
 
     fn module(&self) -> &TypedModule<T> {
         self.modules.get(&self.module_id).unwrap()
+    }
+
+    /// Checks if the given name is a not used variable and returns a fresh variable.
+    /// # Arguments
+    ///
+    /// * `name` - a String that holds the name of the variable
+    fn use_variable(&mut self, name: &Variable) -> Variable {
+        // issue the variable we'll use
+        let var = self.issue_new_variable(name.get_type());
+
+        self.bijection.insert(name.clone(), var.clone());
+        var
+    }
+
+    fn issue_new_variable(&mut self, ty: Type) -> Variable {
+        let var = Variable::new(format!("_{}", self.next_var_idx.to_string()), ty);
+        self.next_var_idx += 1;
+        var
     }
 }
 
@@ -144,41 +160,31 @@ impl<'a, T: Field> Folder<T> for Inliner<'a, T> {
         }
     }
 
+    fn fold_parameter(&mut self, p: Parameter) -> Parameter {
+        Parameter {
+            id: self.use_variable(&p.id),
+            ..p
+        }
+    }
+
     fn fold_statement(&mut self, s: TypedStatement<T>) -> Vec<TypedStatement<T>> {
         let folded = match s {
             TypedStatement::MultipleDefinition(variables, elist) => {
                 match elist {
                     TypedExpressionList::FunctionCall(key, expressions, types) => {
-                        let expressions: Vec<_> = expressions
-                            .into_iter()
-                            .map(|e| self.fold_expression(e))
-                            .collect();
-
-                        let expressions = expressions
-                            .into_iter()
-                            .map(|e| self.fold_expression(e))
-                            .collect();
                         // get the symbol
                         let symbol = self.module().functions.get(&key).unwrap().clone();
                         match symbol {
                             TypedFunctionSymbol::Here(function) => {
-                                self.call_count
-                                    .entry((self.module_id.clone(), key.clone()))
-                                    .and_modify(|i| *i += 1)
-                                    .or_insert(1);
-                                self.context.push((
-                                    self.module_id.clone(),
-                                    key.clone(),
-                                    *self
-                                        .call_count
-                                        .get(&(self.module_id.clone(), key.clone()))
-                                        .unwrap(),
-                                ));
                                 // if it's here, we can inline the call recursively with the same checker as the context is the same
+                                let expressions = expressions
+                                    .into_iter()
+                                    .map(|e| self.fold_expression(e))
+                                    .collect();
                                 let ret = self.inline_call(&function, expressions);
                                 let variables: Vec<_> = variables
                                     .into_iter()
-                                    .map(|a| self.fold_variable(a))
+                                    .map(|a| self.use_variable(&a))
                                     .collect();
                                 variables
                                     .into_iter()
@@ -205,8 +211,18 @@ impl<'a, T: Field> Folder<T> for Inliner<'a, T> {
                                 statements
                             }
                             _ => vec![TypedStatement::MultipleDefinition(
-                                variables,
-                                TypedExpressionList::FunctionCall(key, expressions, types),
+                                variables
+                                    .into_iter()
+                                    .map(|a| self.use_variable(&a))
+                                    .collect(),
+                                TypedExpressionList::FunctionCall(
+                                    key,
+                                    expressions
+                                        .into_iter()
+                                        .map(|e| self.fold_expression(e))
+                                        .collect(),
+                                    types,
+                                ),
                             )],
                             // we do not inline flat calls as we can't do it before flattening
                         }
@@ -220,29 +236,19 @@ impl<'a, T: Field> Folder<T> for Inliner<'a, T> {
 
     fn fold_field_expression(&mut self, e: FieldElementExpression<T>) -> FieldElementExpression<T> {
         match e {
+            FieldElementExpression::Identifier(id) => FieldElementExpression::Identifier(
+                self.fold_variable(Variable::field_element(id)).id,
+            ),
             FieldElementExpression::FunctionCall(key, expressions) => {
-                let expressions = expressions
-                    .into_iter()
-                    .map(|e| self.fold_expression(e))
-                    .collect();
                 // get the symbol
                 let symbol = self.module().functions.get(&key).unwrap().clone();
                 match symbol {
                     TypedFunctionSymbol::Here(function) => {
                         // if it's here, we can inline the call recursively with the same checker as the context is the same
-
-                        self.call_count
-                            .entry((self.module_id.clone(), key.clone()))
-                            .and_modify(|i| *i += 1)
-                            .or_insert(1);
-                        self.context.push((
-                            self.module_id.clone(),
-                            key.clone(),
-                            *self
-                                .call_count
-                                .get(&(self.module_id.clone(), key.clone()))
-                                .unwrap(),
-                        ));
+                        let expressions = expressions
+                            .into_iter()
+                            .map(|e| self.fold_expression(e))
+                            .collect();
                         let ret = self.inline_call(&function, expressions);
                         match ret[0].clone() {
                             TypedExpression::FieldElement(e) => e,
@@ -259,7 +265,13 @@ impl<'a, T: Field> Folder<T> for Inliner<'a, T> {
                         self.merge(inliner); // merge the inliner back
                         expression // return the return expression
                     }
-                    _ => FieldElementExpression::FunctionCall(key, expressions), // we do not inline flat calls as we can't do it before flattening
+                    _ => FieldElementExpression::FunctionCall(
+                        key,
+                        expressions
+                            .into_iter()
+                            .map(|e| self.fold_expression(e))
+                            .collect(),
+                    ), // we do not inline flat calls as we can't do it before flattening
                 }
             }
             e => fold_field_expression(self, e),
@@ -271,25 +283,22 @@ impl<'a, T: Field> Folder<T> for Inliner<'a, T> {
         e: FieldElementArrayExpression<T>,
     ) -> FieldElementArrayExpression<T> {
         match e {
+            FieldElementArrayExpression::Identifier(size, id) => {
+                FieldElementArrayExpression::Identifier(
+                    size,
+                    self.fold_variable(Variable::field_array(id, size)).id,
+                )
+            }
             FieldElementArrayExpression::FunctionCall(size, key, expressions) => {
                 // get the symbol
                 let symbol = self.module().functions.get(&key).unwrap().clone();
                 match symbol {
                     TypedFunctionSymbol::Here(function) => {
                         // if it's here, we can inline the call recursively with the same checker as the context is the same
-
-                        self.call_count
-                            .entry((self.module_id.clone(), key.clone()))
-                            .and_modify(|i| *i += 1)
-                            .or_insert(1);
-                        self.context.push((
-                            self.module_id.clone(),
-                            key.clone(),
-                            *self
-                                .call_count
-                                .get(&(self.module_id.clone(), key.clone()))
-                                .unwrap(),
-                        ));
+                        let expressions = expressions
+                            .into_iter()
+                            .map(|e| self.fold_expression(e))
+                            .collect();
                         let ret = self.inline_call(&function, expressions);
 
                         match ret[0].clone() {
@@ -311,7 +320,14 @@ impl<'a, T: Field> Folder<T> for Inliner<'a, T> {
                         self.merge(inliner); // merge the inliner back
                         expression // return the return expression
                     }
-                    _ => FieldElementArrayExpression::FunctionCall(size, key, expressions),
+                    _ => FieldElementArrayExpression::FunctionCall(
+                        size,
+                        key,
+                        expressions
+                            .into_iter()
+                            .map(|e| self.fold_expression(e))
+                            .collect(),
+                    ),
                 }
             }
             e => fold_field_array_expression(self, e),
@@ -319,22 +335,17 @@ impl<'a, T: Field> Folder<T> for Inliner<'a, T> {
     }
 
     // prefix all names with context
-    fn fold_name(&mut self, n: String) -> String {
-        match self.context.len() {
-            0 => n,
-            _ => format!(
-                "{}_{}",
-                self.context
-                    .iter()
-                    .map(|(module_id, function_key, i)| format!(
-                        "{}::{}_{}",
-                        module_id,
-                        function_key.to_slug(),
-                        i
-                    ))
-                    .collect::<Vec<_>>()
-                    .join("_"),
-                n
+    fn fold_variable(&mut self, v: Variable) -> Variable {
+        self.bijection.get_by_left(&v).unwrap().clone()
+    }
+
+    // introduce new variables in assignees
+    fn fold_assignee(&mut self, a: TypedAssignee<T>) -> TypedAssignee<T> {
+        match a {
+            TypedAssignee::Identifier(v) => TypedAssignee::Identifier(self.use_variable(&v)),
+            TypedAssignee::ArrayElement(box a, box index) => TypedAssignee::ArrayElement(
+                box self.fold_assignee(a),
+                box self.fold_field_expression(index),
             ),
         }
     }
@@ -566,17 +577,17 @@ mod tests {
                 )
                 .unwrap(),
             &TypedFunctionSymbol::Here(TypedFunction {
-                arguments: vec![Parameter::private(Variable::field_element("a"))],
+                arguments: vec![Parameter::private(Variable::field_element("_0"))],
                 statements: vec![
                     TypedStatement::Definition(
-                        TypedAssignee::Identifier(Variable::field_element("a_0")),
-                        FieldElementExpression::Identifier(String::from("a")).into()
+                        TypedAssignee::Identifier(Variable::field_element("_1")),
+                        FieldElementExpression::Identifier(String::from("_0")).into()
                     ),
                     TypedStatement::Return(vec![FieldElementExpression::Mult(
-                        box FieldElementExpression::Identifier(String::from("a")),
+                        box FieldElementExpression::Identifier(String::from("_0")),
                         box FieldElementExpression::Mult(
-                            box FieldElementExpression::Identifier(String::from("a_0")),
-                            box FieldElementExpression::Identifier(String::from("a_0"))
+                            box FieldElementExpression::Identifier(String::from("_1")),
+                            box FieldElementExpression::Identifier(String::from("_1"))
                         )
                     )
                     .into(),])
@@ -601,8 +612,8 @@ mod tests {
 
         // inlined
         // def main() -> (field)
-        //     field a_0 = 42
-        //     return a_0
+        //     field _0 = 42
+        //     return _0
 
         let main = TypedModule {
             functions: vec![
@@ -689,11 +700,11 @@ mod tests {
                 arguments: vec![],
                 statements: vec![
                     TypedStatement::Definition(
-                        TypedAssignee::Identifier(Variable::field_element("a_0")),
+                        TypedAssignee::Identifier(Variable::field_element("_0")),
                         FieldElementExpression::Number(FieldPrime::from(42)).into()
                     ),
                     TypedStatement::Return(vec![FieldElementExpression::Identifier(String::from(
-                        "a_0"
+                        "_0"
                     ))
                     .into(),])
                 ],
@@ -713,8 +724,8 @@ mod tests {
 
         // inlined
         // def main() -> (field)
-        //     field a_0 = 42
-        //     return a_0
+        //     field _0 = 42
+        //     return _0
 
         let main = TypedModule {
             functions: vec![
@@ -784,11 +795,11 @@ mod tests {
                 arguments: vec![],
                 statements: vec![
                     TypedStatement::Definition(
-                        TypedAssignee::Identifier(Variable::field_element("a_0")),
+                        TypedAssignee::Identifier(Variable::field_element("_0")),
                         FieldElementExpression::Number(FieldPrime::from(42)).into()
                     ),
                     TypedStatement::Return(vec![FieldElementExpression::Identifier(String::from(
-                        "a_0"
+                        "_0"
                     ))
                     .into(),])
                 ],

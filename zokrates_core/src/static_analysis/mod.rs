@@ -29,12 +29,10 @@ impl<T: Field> Analyse for TypedProgram<T> {
         let r = PowerChecker::check(self);
         // unroll
         let r = Unroller::unroll(r);
-        println!("CHECKED\n{}", r);
         // inline
         let r = Inliner::inline(r);
         // propagate
         let r = Propagator::propagate(r);
-        println!("HEYYY\n{}", r);
         // inject core lib
         let r = CoreLibInjector::inject(r);
         r
