@@ -128,7 +128,6 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     location: Option<String>,
     resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
 ) -> Result<ir::Prog<T>, CompileErrors<T>> {
-    println!("{:?}", location);
     let compiled = compile_program(reader, location.clone(), resolve_option)?;
 
     // check semantics
