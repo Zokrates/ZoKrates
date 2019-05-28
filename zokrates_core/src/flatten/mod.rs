@@ -780,7 +780,6 @@ impl<T: Field> Flattener<T> {
     fn flatten_field_array_expression(
         &mut self,
         symbols: &HashMap<FunctionKey, TypedFunctionSymbol<T>>,
-
         statements_flattened: &mut Vec<FlatStatement<T>>,
         expr: FieldElementArrayExpression<T>,
     ) -> Vec<FlatExpression<T>> {

@@ -1,20 +1,20 @@
 use bimap::BiMap;
 use typed_absy::{folder::*, *};
-use types::{FunctionKey, Type};
+use types::FunctionKey;
 use zokrates_field::field::Field;
 
 #[derive(Debug)]
-pub struct Inliner<'a, T: Field> {
-    modules: &'a TypedModules<T>,
+pub struct Inliner<T: Field> {
+    modules: TypedModules<T>,
     module_id: TypedModuleId,
     statement_buffer: Vec<TypedStatement<T>>,
     bijection: BiMap<Variable, Variable>,
     next_var_idx: usize,
 }
 
-impl<'a, T: Field> Inliner<'a, T> {
+impl<T: Field> Inliner<T> {
     fn with_modules_and_module_id_and_bijection_and_next_var_idx<S: Into<TypedModuleId>>(
-        modules: &'a TypedModules<T>,
+        modules: TypedModules<T>,
         module_id: S,
         bijection: BiMap<Variable, Variable>,
         next_var_idx: usize,
@@ -29,110 +29,24 @@ impl<'a, T: Field> Inliner<'a, T> {
     }
 
     pub fn inline(p: TypedProgram<T>) -> TypedProgram<T> {
-        let modules = p.modules.clone();
-        Inliner::with_modules_and_module_id_and_bijection_and_next_var_idx(
-            &modules,
-            p.main.clone(),
-            BiMap::new(),
-            0,
-        )
-        .fold_program(p)
-    }
+        let main_module_id = p.main;
 
-    fn inline_call(
-        &mut self,
-        function: &TypedFunction<T>,
-        expressions: Vec<TypedExpression<T>>,
-    ) -> Vec<TypedExpression<T>> {
-        // add definitions for the inputs
-        let inputs_bindings: Vec<_> = function
-            .arguments
-            .iter()
-            .zip(expressions)
-            .map(|(a, e)| {
-                TypedStatement::Definition(
-                    self.fold_assignee(TypedAssignee::Identifier(a.id.clone())),
-                    e,
-                )
-            })
-            .collect();
-
-        self.statement_buffer.extend(inputs_bindings);
-
-        // filter out the return statement and keep it aside
-        let (statements, ret): (Vec<_>, Vec<_>) = function
-            .statements
-            .clone()
-            .into_iter()
-            .flat_map(|s| self.fold_statement(s))
-            .partition(|s| match s {
-                TypedStatement::Return(..) => false,
-                _ => true,
-            });
-
-        // add all statements to the buffer
-        self.statement_buffer.extend(statements);
-
-        //self.context.pop();
-
-        match ret[0].clone() {
-            TypedStatement::Return(exprs) => exprs,
-            _ => panic!(""),
-        }
-    }
-
-    fn fork(&mut self, module_id: TypedModuleId) -> Self {
-        Self::with_modules_and_module_id_and_bijection_and_next_var_idx(
-            &self.modules,
-            module_id,
-            std::mem::replace(&mut self.bijection, BiMap::new()),
-            self.next_var_idx,
-        )
-    }
-
-    fn merge(&mut self, other: Inliner<T>) {
-        self.statement_buffer.extend(other.statement_buffer);
-        self.bijection = other.bijection;
-        self.next_var_idx = other.next_var_idx;
-    }
-
-    fn module(&self) -> &TypedModule<T> {
-        self.modules.get(&self.module_id).unwrap()
-    }
-
-    /// Checks if the given name is a not used variable and returns a fresh variable.
-    /// # Arguments
-    ///
-    /// * `name` - a String that holds the name of the variable
-    fn use_variable(&mut self, name: &Variable) -> Variable {
-        // issue the variable we'll use
-        let var = self.issue_new_variable(name.get_type());
-
-        self.bijection.insert(name.clone(), var.clone());
-        var
-    }
-
-    fn issue_new_variable(&mut self, ty: Type) -> Variable {
-        let var = Variable::new(format!("_{}", self.next_var_idx.to_string()), ty);
-        self.next_var_idx += 1;
-        var
-    }
-}
-
-impl<'a, T: Field> Folder<T> for Inliner<'a, T> {
-    fn fold_program(&mut self, p: TypedProgram<T>) -> TypedProgram<T> {
-        let main_module = p.modules.get(&p.main).unwrap().clone();
+        let main_module = p.modules.get(&main_module_id).unwrap().clone();
 
         let (main_key, main) = main_module
             .functions
-            .iter()
+            .into_iter()
             .find(|(k, _)| k.id == "main")
             .unwrap();
 
-        let main = self.fold_function_symbol(main.clone());
+        let mut inliner = Inliner::with_modules_and_module_id_and_bijection_and_next_var_idx(
+            p.modules,
+            main_module_id,
+            BiMap::new(),
+            0,
+        );
 
-        // TODO import flat used anywhere here :/
-        // maybe flag them when we find a call to them and then add them here with the correct path
+        let main = inliner.fold_function_symbol(main);
 
         let split = crate::types::conversions::split();
         let split_key = FunctionKey::with_id("split").signature(split.signature.clone());
@@ -160,6 +74,93 @@ impl<'a, T: Field> Folder<T> for Inliner<'a, T> {
         }
     }
 
+    // try to inline a call to function with key `key` in the context of `self`
+    // if inlining succeeds, return the expressions returned by the function call
+    // if inlining fails (as in the case of flat function symbols), return the arguments to the function call for further processing
+    fn try_inline_call(
+        &mut self,
+        key: &FunctionKey,
+        expressions: Vec<TypedExpression<T>>,
+    ) -> Result<Vec<TypedExpression<T>>, Vec<TypedExpression<T>>> {
+        // here we clone a function symbol, which is cheap except when it contains the function body, in which case we'd clone anyways
+        match self.module().functions.get(&key).unwrap().clone() {
+            // if the function called is in the same module, we can go ahead and inline in this module
+            TypedFunctionSymbol::Here(function) => {
+                // add definitions for the inputs
+                let inputs_bindings: Vec<_> = function
+                    .arguments
+                    .iter()
+                    .zip(expressions)
+                    .map(|(a, e)| {
+                        TypedStatement::Definition(
+                            self.fold_assignee(TypedAssignee::Identifier(a.id.clone())),
+                            e,
+                        )
+                    })
+                    .collect();
+
+                self.statement_buffer.extend(inputs_bindings);
+
+                // filter out the return statement and keep it aside
+                let (statements, mut ret): (Vec<_>, Vec<_>) = function
+                    .statements
+                    .into_iter()
+                    .flat_map(|s| self.fold_statement(s))
+                    .partition(|s| match s {
+                        TypedStatement::Return(..) => false,
+                        _ => true,
+                    });
+
+                // add all statements to the buffer
+                self.statement_buffer.extend(statements);
+
+                match ret.pop().unwrap() {
+                    TypedStatement::Return(exprs) => Ok(exprs),
+                    _ => panic!(""),
+                }
+            }
+            // if the function called is in some other module, we switch context to that module and call the function locally there
+            TypedFunctionSymbol::There(function_key, module_id) => {
+                let current_module = self.change_module(module_id);
+                let res = self.try_inline_call(&function_key, expressions)?;
+                self.change_module(current_module);
+                Ok(res)
+            }
+            // if the function is a flat symbol, there's nothing we can inline at this stage so we return the inputs
+            TypedFunctionSymbol::Flat(_) => Err(expressions),
+        }
+    }
+
+    // Focus the Inliner on another module with id `module_id` and return the current `module_id`
+    fn change_module(&mut self, module_id: TypedModuleId) -> TypedModuleId {
+        std::mem::replace(&mut self.module_id, module_id)
+    }
+
+    fn module(&self) -> &TypedModule<T> {
+        self.modules.get(&self.module_id).unwrap()
+    }
+
+    /// Checks if the given name is a not used variable and returns a fresh variable.
+    /// # Arguments
+    ///
+    /// * `variable` - a Variable that holds the name of the variable
+    fn use_variable(&mut self, variable: &Variable) -> Variable {
+        let name = self.issue_new_name();
+        // issue the variable we'll use
+        let var = Variable::new(name.clone(), variable.get_type());
+
+        self.bijection.insert(variable.clone(), var.clone());
+        var
+    }
+
+    fn issue_new_name(&mut self) -> Identifier {
+        let var = format!("_{}", self.next_var_idx.to_string());
+        self.next_var_idx += 1;
+        var
+    }
+}
+
+impl<T: Field> Folder<T> for Inliner<T> {
     fn fold_parameter(&mut self, p: Parameter) -> Parameter {
         Parameter {
             id: self.use_variable(&p.id),
@@ -169,66 +170,34 @@ impl<'a, T: Field> Folder<T> for Inliner<'a, T> {
 
     fn fold_statement(&mut self, s: TypedStatement<T>) -> Vec<TypedStatement<T>> {
         let folded = match s {
-            TypedStatement::MultipleDefinition(variables, elist) => {
-                match elist {
-                    TypedExpressionList::FunctionCall(key, expressions, types) => {
-                        // get the symbol
-                        let symbol = self.module().functions.get(&key).unwrap().clone();
-                        match symbol {
-                            TypedFunctionSymbol::Here(function) => {
-                                // if it's here, we can inline the call recursively with the same checker as the context is the same
-                                let expressions = expressions
-                                    .into_iter()
-                                    .map(|e| self.fold_expression(e))
-                                    .collect();
-                                let ret = self.inline_call(&function, expressions);
-                                let variables: Vec<_> = variables
-                                    .into_iter()
-                                    .map(|a| self.use_variable(&a))
-                                    .collect();
-                                variables
-                                    .into_iter()
-                                    .zip(ret.into_iter())
-                                    .map(|(v, e)| {
-                                        TypedStatement::Definition(TypedAssignee::Identifier(v), e)
-                                    })
-                                    .collect()
-                            }
-                            TypedFunctionSymbol::There(function_key, typed_module_id) => {
-                                // if it's there, create a new Inliner, inline there and get the statements back
-                                // calling `There(key, module)` is calling `key` in `module`
-                                let mut inliner = self.fork(typed_module_id); // create a new inliner for `typed_module_id` with the call count starting from where we got to
-                                let statements =
-                                    inliner.fold_statement(TypedStatement::MultipleDefinition(
-                                        variables,
-                                        TypedExpressionList::FunctionCall(
-                                            function_key,
-                                            expressions,
-                                            types,
-                                        ),
-                                    )); // inline the function call
-                                self.merge(inliner); // merge the inliner back
-                                statements
-                            }
-                            _ => vec![TypedStatement::MultipleDefinition(
-                                variables
-                                    .into_iter()
-                                    .map(|a| self.use_variable(&a))
-                                    .collect(),
-                                TypedExpressionList::FunctionCall(
-                                    key,
-                                    expressions
-                                        .into_iter()
-                                        .map(|e| self.fold_expression(e))
-                                        .collect(),
-                                    types,
-                                ),
-                            )],
-                            // we do not inline flat calls as we can't do it before flattening
-                        }
+            TypedStatement::MultipleDefinition(variables, elist) => match elist {
+                TypedExpressionList::FunctionCall(key, expressions, types) => {
+                    let expressions: Vec<_> = expressions
+                        .into_iter()
+                        .map(|e| self.fold_expression(e))
+                        .collect();
+
+                    match self.try_inline_call(&key, expressions) {
+                        Ok(ret) => variables
+                            .into_iter()
+                            .zip(ret.into_iter())
+                            .map(|(v, e)| {
+                                TypedStatement::Definition(
+                                    TypedAssignee::Identifier(self.use_variable(&v)),
+                                    e,
+                                )
+                            })
+                            .collect(),
+                        Err(expressions) => vec![TypedStatement::MultipleDefinition(
+                            variables
+                                .into_iter()
+                                .map(|a| self.use_variable(&a))
+                                .collect(),
+                            TypedExpressionList::FunctionCall(key, expressions, types),
+                        )],
                     }
                 }
-            }
+            },
             s => fold_statement(self, s),
         };
         self.statement_buffer.drain(..).chain(folded).collect()
@@ -240,38 +209,18 @@ impl<'a, T: Field> Folder<T> for Inliner<'a, T> {
                 self.fold_variable(Variable::field_element(id)).id,
             ),
             FieldElementExpression::FunctionCall(key, expressions) => {
-                // get the symbol
-                let symbol = self.module().functions.get(&key).unwrap().clone();
-                match symbol {
-                    TypedFunctionSymbol::Here(function) => {
-                        // if it's here, we can inline the call recursively with the same checker as the context is the same
-                        let expressions = expressions
-                            .into_iter()
-                            .map(|e| self.fold_expression(e))
-                            .collect();
-                        let ret = self.inline_call(&function, expressions);
-                        match ret[0].clone() {
-                            TypedExpression::FieldElement(e) => e,
-                            _ => unreachable!(),
-                        }
-                    }
-                    TypedFunctionSymbol::There(function_key, typed_module_id) => {
-                        // if it's there, create a new Inliner, inline there and get the statements back
-                        // calling `There(key, module)` is calling `key` in `module`
-                        let mut inliner = self.fork(typed_module_id); // create a new inliner for `typed_module_id` with the call count starting from where we got to
-                        let expression = inliner.fold_field_expression(
-                            FieldElementExpression::FunctionCall(function_key, expressions),
-                        ); // inline the function call
-                        self.merge(inliner); // merge the inliner back
-                        expression // return the return expression
-                    }
-                    _ => FieldElementExpression::FunctionCall(
-                        key,
-                        expressions
-                            .into_iter()
-                            .map(|e| self.fold_expression(e))
-                            .collect(),
-                    ), // we do not inline flat calls as we can't do it before flattening
+                //inline the arguments
+                let expressions: Vec<_> = expressions
+                    .into_iter()
+                    .map(|e| self.fold_expression(e))
+                    .collect();
+
+                match self.try_inline_call(&key, expressions) {
+                    Ok(mut ret) => match ret.pop().unwrap() {
+                        TypedExpression::FieldElement(e) => e,
+                        _ => unreachable!(),
+                    },
+                    Err(expressions) => FieldElementExpression::FunctionCall(key, expressions),
                 }
             }
             e => fold_field_expression(self, e),
@@ -290,51 +239,27 @@ impl<'a, T: Field> Folder<T> for Inliner<'a, T> {
                 )
             }
             FieldElementArrayExpression::FunctionCall(size, key, expressions) => {
-                // get the symbol
-                let symbol = self.module().functions.get(&key).unwrap().clone();
-                match symbol {
-                    TypedFunctionSymbol::Here(function) => {
-                        // if it's here, we can inline the call recursively with the same checker as the context is the same
-                        let expressions = expressions
-                            .into_iter()
-                            .map(|e| self.fold_expression(e))
-                            .collect();
-                        let ret = self.inline_call(&function, expressions);
+                //inline the arguments
+                let expressions: Vec<_> = expressions
+                    .into_iter()
+                    .map(|e| self.fold_expression(e))
+                    .collect();
 
-                        match ret[0].clone() {
-                            TypedExpression::FieldElementArray(e) => e,
-                            _ => unreachable!(),
-                        }
+                match self.try_inline_call(&key, expressions) {
+                    Ok(mut ret) => match ret.pop().unwrap() {
+                        TypedExpression::FieldElementArray(e) => e,
+                        _ => unreachable!(),
+                    },
+                    Err(expressions) => {
+                        FieldElementArrayExpression::FunctionCall(size, key, expressions)
                     }
-                    TypedFunctionSymbol::There(function_key, typed_module_id) => {
-                        // if it's there, create a new Inliner, inline there and get the statements back
-                        // calling `There(key, module)` is calling `key` in `module`
-                        let mut inliner = self.fork(typed_module_id); // create a new inliner for `typed_module_id` with the call count starting from where we got to
-                        let expression = inliner.fold_field_array_expression(
-                            FieldElementArrayExpression::FunctionCall(
-                                size,
-                                function_key,
-                                expressions,
-                            ),
-                        ); // inline the function call
-                        self.merge(inliner); // merge the inliner back
-                        expression // return the return expression
-                    }
-                    _ => FieldElementArrayExpression::FunctionCall(
-                        size,
-                        key,
-                        expressions
-                            .into_iter()
-                            .map(|e| self.fold_expression(e))
-                            .collect(),
-                    ),
                 }
             }
             e => fold_field_array_expression(self, e),
         }
     }
 
-    // prefix all names with context
+    // use renamed variables
     fn fold_variable(&mut self, v: Variable) -> Variable {
         self.bijection.get_by_left(&v).unwrap().clone()
     }
@@ -804,6 +729,143 @@ mod tests {
                     .into(),])
                 ],
                 signature: Signature::new().outputs(vec![Type::FieldElement]),
+            })
+        );
+    }
+
+    #[test]
+    fn recursive_call_in_other_module() {
+        // // main
+        // def main(field a) -> (field):
+        //     return id(id(a))
+
+        // // id
+        // def main(field a) -> (field)
+        //     return a
+
+        let main = TypedModule {
+            functions: vec![
+                (
+                    FunctionKey::with_id("main").signature(
+                        Signature::new()
+                            .inputs(vec![Type::FieldElement])
+                            .outputs(vec![Type::FieldElement]),
+                    ),
+                    TypedFunctionSymbol::Here(TypedFunction {
+                        arguments: vec![Parameter::private(Variable::field_element("a"))],
+                        statements: vec![TypedStatement::Return(vec![
+                            FieldElementExpression::FunctionCall(
+                                FunctionKey::with_id("id").signature(
+                                    Signature::new()
+                                        .inputs(vec![Type::FieldElement])
+                                        .outputs(vec![Type::FieldElement]),
+                                ),
+                                vec![FieldElementExpression::FunctionCall(
+                                    FunctionKey::with_id("id").signature(
+                                        Signature::new()
+                                            .inputs(vec![Type::FieldElement])
+                                            .outputs(vec![Type::FieldElement]),
+                                    ),
+                                    vec![FieldElementExpression::Identifier(String::from("a"))
+                                        .into()],
+                                )
+                                .into()],
+                            )
+                            .into(),
+                        ])],
+                        signature: Signature::new()
+                            .inputs(vec![Type::FieldElement])
+                            .outputs(vec![Type::FieldElement]),
+                    }),
+                ),
+                (
+                    FunctionKey::with_id("id").signature(
+                        Signature::new()
+                            .inputs(vec![Type::FieldElement])
+                            .outputs(vec![Type::FieldElement]),
+                    ),
+                    TypedFunctionSymbol::There(
+                        FunctionKey::with_id("main").signature(
+                            Signature::new()
+                                .inputs(vec![Type::FieldElement])
+                                .outputs(vec![Type::FieldElement]),
+                        ),
+                        String::from("id"),
+                    ),
+                ),
+            ]
+            .into_iter()
+            .collect(),
+            imports: vec![],
+        };
+
+        let id = TypedModule {
+            functions: vec![(
+                FunctionKey::with_id("main").signature(
+                    Signature::new()
+                        .inputs(vec![Type::FieldElement])
+                        .outputs(vec![Type::FieldElement]),
+                ),
+                TypedFunctionSymbol::Here(TypedFunction {
+                    arguments: vec![Parameter::private(Variable::field_element("a"))],
+                    statements: vec![TypedStatement::Return(vec![
+                        FieldElementExpression::Identifier(String::from("a")).into(),
+                    ])],
+                    signature: Signature::new()
+                        .inputs(vec![Type::FieldElement])
+                        .outputs(vec![Type::FieldElement]),
+                }),
+            )]
+            .into_iter()
+            .collect(),
+            imports: vec![],
+        };
+
+        let modules: HashMap<_, _> = vec![(String::from("main"), main), (String::from("id"), id)]
+            .into_iter()
+            .collect();
+
+        let program: TypedProgram<FieldPrime> = TypedProgram {
+            main: String::from("main"),
+            modules,
+        };
+
+        let program = Inliner::inline(program);
+
+        assert_eq!(program.modules.len(), 1);
+        assert_eq!(
+            program
+                .modules
+                .get(&String::from("main"))
+                .unwrap()
+                .functions
+                .get(
+                    &FunctionKey::with_id("main").signature(
+                        Signature::new()
+                            .inputs(vec![Type::FieldElement])
+                            .outputs(vec![Type::FieldElement])
+                    )
+                )
+                .unwrap(),
+            &TypedFunctionSymbol::Here(TypedFunction {
+                arguments: vec![Parameter::private(Variable::field_element("_0"))],
+                statements: vec![
+                    TypedStatement::Definition(
+                        TypedAssignee::Identifier(Variable::field_element("_1")),
+                        FieldElementExpression::Identifier(String::from("_0")).into()
+                    ),
+                    TypedStatement::Definition(
+                        TypedAssignee::Identifier(Variable::field_element("_2")),
+                        FieldElementExpression::Identifier(String::from("_1")).into()
+                    ),
+                    TypedStatement::Return(vec![FieldElementExpression::Identifier(String::from(
+                        "_2"
+                    ))
+                    .into(),])
+                ],
+                signature: Signature::new()
+                    .inputs(vec![Type::FieldElement])
+                    .outputs(vec![Type::FieldElement]),
             })
         );
     }

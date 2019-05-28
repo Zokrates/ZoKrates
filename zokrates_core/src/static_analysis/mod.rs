@@ -31,10 +31,12 @@ impl<T: Field> Analyse for TypedProgram<T> {
         let r = Unroller::unroll(r);
         // inline
         let r = Inliner::inline(r);
+        print!("{}", r);
         // propagate
         let r = Propagator::propagate(r);
         // inject core lib
         let r = CoreLibInjector::inject(r);
+        print!("{}", r);
         r
     }
 }
