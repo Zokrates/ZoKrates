@@ -17,7 +17,7 @@ use std::collections::HashMap;
 use std::fmt;
 use zokrates_field::field::Field;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct FlatProg<T: Field> {
     /// FlatFunctions of the program
     pub main: FlatFunction<T>,

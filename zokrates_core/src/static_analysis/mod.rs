@@ -11,7 +11,7 @@ mod power_check;
 mod propagation;
 mod unroll;
 
-use self::core_lib_injector::CoreLibInjector;
+pub use self::core_lib_injector::CoreLibInjector;
 use self::inline::Inliner;
 use self::power_check::PowerChecker;
 use self::propagation::Propagator;
