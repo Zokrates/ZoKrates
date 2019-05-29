@@ -244,25 +244,9 @@ const CONTRACT_TEMPLATE: &str = r#"contract Verifier {
     }
     event Verified(string s);
     function verifyTx(
-            uint[2] memory a,
-            uint[2] memory a_p,
-            uint[2][2] memory b,
-            uint[2] memory b_p,
-            uint[2] memory c,
-            uint[2] memory c_p,
-            uint[2] memory h,
-            uint[2] memory k,
+            Proof memory proof,
             uint[<%vk_input_length%>] memory input
         ) public returns (bool r) {
-        Proof memory proof;
-        proof.A = Pairing.G1Point(a[0], a[1]);
-        proof.A_p = Pairing.G1Point(a_p[0], a_p[1]);
-        proof.B = Pairing.G2Point([b[0][0], b[0][1]], [b[1][0], b[1][1]]);
-        proof.B_p = Pairing.G1Point(b_p[0], b_p[1]);
-        proof.C = Pairing.G1Point(c[0], c[1]);
-        proof.C_p = Pairing.G1Point(c_p[0], c_p[1]);
-        proof.H = Pairing.G1Point(h[0], h[1]);
-        proof.K = Pairing.G1Point(k[0], k[1]);
         uint[] memory inputValues = new uint[](input.length);
         for(uint i = 0; i < input.length; i++){
             inputValues[i] = input[i];

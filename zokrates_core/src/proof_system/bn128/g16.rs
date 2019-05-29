@@ -228,15 +228,9 @@ contract Verifier {
     }
     event Verified(string s);
     function verifyTx(
-            uint[2] memory a,
-            uint[2][2] memory b,
-            uint[2] memory c,
+            Proof memory proof,
             uint[<%vk_input_length%>] memory input
         ) public returns (bool r) {
-        Proof memory proof;
-        proof.A = Pairing.G1Point(a[0], a[1]);
-        proof.B = Pairing.G2Point([b[0][0], b[0][1]], [b[1][0], b[1][1]]);
-        proof.C = Pairing.G1Point(c[0], c[1]);
         uint[] memory inputValues = new uint[](input.length);
         for(uint i = 0; i < input.length; i++){
             inputValues[i] = input[i];
