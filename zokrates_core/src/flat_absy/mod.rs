@@ -11,12 +11,10 @@ pub mod flat_variable;
 pub use self::flat_parameter::FlatParameter;
 pub use self::flat_variable::FlatVariable;
 
-use helpers::{DirectiveStatement, Executable};
-#[cfg(feature = "libsnark")]
-use standard;
+use crate::helpers::{DirectiveStatement, Executable};
+use crate::types::Signature;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
-use types::Signature;
 use zokrates_field::field::Field;
 
 #[derive(Clone)]
@@ -59,15 +57,6 @@ impl<T: Field> fmt::Debug for FlatProg<T> {
                 .collect::<Vec<_>>()
                 .join("\n")
         )
-    }
-}
-
-#[cfg(feature = "libsnark")]
-impl<T: Field> From<standard::DirectiveR1CS> for FlatProg<T> {
-    fn from(dr1cs: standard::DirectiveR1CS) -> Self {
-        FlatProg {
-            functions: vec![dr1cs.into()],
-        }
     }
 }
 
@@ -350,9 +339,9 @@ pub struct FlatExpressionList<T: Field> {
 impl<T: Field> fmt::Display for FlatExpressionList<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (i, param) in self.expressions.iter().enumerate() {
-            try!(write!(f, "{}", param));
+            r#try!(write!(f, "{}", param));
             if i < self.expressions.len() - 1 {
-                try!(write!(f, ", "));
+                r#try!(write!(f, ", "));
             }
         }
         write!(f, "")

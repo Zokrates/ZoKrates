@@ -27,7 +27,7 @@ fn {test_name}() {{
 
     for test in t.tests.into_iter() {{
         let input = &test.input.values;
-        let output = bin.execute(&input.iter().map(|v| FieldPrime::from_dec_string(v.clone())).collect());
+        let output = bin.execute(&input.iter().map(|v| FieldPrime::try_from_dec_str(&v.clone()).unwrap()).collect());
 
         match utils::compare(output, test.output) {{
             Err(e) => {{

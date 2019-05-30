@@ -1,4 +1,4 @@
-use absy::{Node, VariableNode};
+use crate::absy::{Node, VariableNode};
 use std::fmt;
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]

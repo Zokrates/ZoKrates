@@ -1,5 +1,6 @@
-use helpers::{Executable, Signed};
+use crate::helpers::{Executable, Signed};
 use std::fmt;
+use zokrates_embed::generate_sha256_round_witness;
 use zokrates_field::field::Field;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
@@ -8,16 +9,12 @@ pub enum RustHelper {
     ConditionEq,
     Bits,
     Div,
+    Sha256Round,
 }
 
 impl fmt::Display for RustHelper {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            RustHelper::Identity => write!(f, "Identity"),
-            RustHelper::ConditionEq => write!(f, "ConditionEq"),
-            RustHelper::Bits => write!(f, "Bits"),
-            RustHelper::Div => write!(f, "Div"),
-        }
+        write!(f, "{:?}", self)
     }
 }
 
@@ -28,6 +25,7 @@ impl Signed for RustHelper {
             RustHelper::ConditionEq => (1, 2),
             RustHelper::Bits => (1, 254),
             RustHelper::Div => (2, 1),
+            RustHelper::Sha256Round => (768, 26935),
         }
     }
 }
@@ -56,6 +54,17 @@ impl<T: Field> Executable<T> for RustHelper {
                 Ok(res)
             }
             RustHelper::Div => Ok(vec![inputs[0].clone() / inputs[1].clone()]),
+            RustHelper::Sha256Round => {
+                let i = &inputs[0..512];
+                let h = &inputs[512..];
+                let i: Vec<_> = i.iter().map(|x| x.clone().into_bellman()).collect();
+                let h: Vec<_> = h.iter().map(|x| x.clone().into_bellman()).collect();
+                assert!(h.len() == 256);
+                Ok(generate_sha256_round_witness::<T::BellmanEngine>(&i, &h)
+                    .into_iter()
+                    .map(|x| T::from_bellman(x))
+                    .collect())
+            }
         }
     }
 }

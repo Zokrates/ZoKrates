@@ -4,8 +4,8 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
-use flat_absy::*;
-use helpers::DirectiveStatement;
+use crate::flat_absy::*;
+use crate::helpers::DirectiveStatement;
 use std::collections::HashMap;
 use zokrates_field::field::Field;
 

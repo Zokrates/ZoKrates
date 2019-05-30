@@ -8,7 +8,7 @@ use flat_absy::FlatProg;
 use flatten::Flattener;
 use imports::{self, Importer};
 use ir;
-use optimizer::Optimizer;
+use optimizer::Optimize;
 use semantics::{self, Checker};
 use static_analysis::Analyse;
 use std::fmt;
@@ -129,7 +129,7 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
 ) -> Result<ir::Prog<T>, CompileErrors> {
     let compiled = compile_aux(reader, location, resolve_option)?;
-    Ok(ir::Prog::from(Optimizer::new().optimize_program(compiled)))
+    Ok(ir::Prog::from(compiled).optimize())
 }
 
 pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(

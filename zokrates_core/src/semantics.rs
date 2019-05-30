@@ -6,17 +6,17 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2017
 
-use absy::variable::Variable;
-use absy::*;
+use crate::absy::variable::Variable;
+use crate::absy::*;
+use crate::typed_absy::*;
+use crate::types::Signature;
 use std::collections::HashSet;
 use std::fmt;
-use typed_absy::*;
-use types::Signature;
 use zokrates_field::field::Field;
 
-use parser::Position;
+use crate::parser::Position;
 
-use types::Type;
+use crate::types::Type;
 
 use std::hash::{Hash, Hasher};
 
@@ -44,21 +44,21 @@ pub struct FunctionQuery {
 
 impl fmt::Display for FunctionQuery {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        try!(write!(f, "("));
+        r#try!(write!(f, "("));
         for (i, t) in self.inputs.iter().enumerate() {
-            try!(write!(f, "{}", t));
+            r#try!(write!(f, "{}", t));
             if i < self.inputs.len() - 1 {
-                try!(write!(f, ", "));
+                r#try!(write!(f, ", "));
             }
         }
-        try!(write!(f, ") -> ("));
+        r#try!(write!(f, ") -> ("));
         for (i, t) in self.outputs.iter().enumerate() {
             match t {
-                Some(t) => try!(write!(f, "{}", t)),
-                None => try!(write!(f, "_")),
+                Some(t) => r#try!(write!(f, "{}", t)),
+                None => r#try!(write!(f, "_")),
             }
             if i < self.outputs.len() - 1 {
-                try!(write!(f, ", "));
+                r#try!(write!(f, ", "));
             }
         }
         write!(f, ")")

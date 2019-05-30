@@ -19,6 +19,7 @@ libff::bigint<libff::alt_bn128_r_limbs> libsnarkBigintFromBytes(const uint8_t* _
       x.data[3 - i] |= uint64_t(_x[i * 8 + j]) << (8 * (7-j));
     }
   }
+  
   return x;
 }
 
@@ -35,6 +36,10 @@ std::string HexStringFromLibsnarkBigint(libff::bigint<libff::alt_bn128_r_limbs> 
     }
 
     return ss.str();
+}
+
+std::string outputInputAsHex(libff::bigint<libff::alt_bn128_r_limbs> _x){
+        return "\"0x" + HexStringFromLibsnarkBigint(_x) + "\"";
 }
 
 std::string outputPointG1AffineAsHex(libff::alt_bn128_G1 _p)

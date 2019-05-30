@@ -4,9 +4,9 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
+use crate::typed_absy::folder::*;
+use crate::typed_absy::*;
 use std::collections::HashMap;
-use typed_absy::folder::*;
-use typed_absy::*;
 use zokrates_field::field::Field;
 
 pub struct Propagator<T: Field> {

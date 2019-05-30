@@ -10,13 +10,13 @@ mod node;
 pub mod parameter;
 pub mod variable;
 
-pub use absy::node::{Node, NodeValue};
-pub use absy::parameter::{Parameter, ParameterNode};
-pub use absy::variable::{Variable, VariableNode};
-use types::Signature;
+pub use crate::absy::node::{Node, NodeValue};
+pub use crate::absy::parameter::{Parameter, ParameterNode};
+pub use crate::absy::variable::{Variable, VariableNode};
+use crate::types::Signature;
 
-use flat_absy::*;
-use imports::ImportNode;
+use crate::flat_absy::*;
+use crate::imports::ImportNode;
 use std::fmt;
 use zokrates_field::field::Field;
 
@@ -193,17 +193,17 @@ impl<T: Field> fmt::Display for Statement<T> {
             Statement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             Statement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             Statement::For(ref var, ref start, ref stop, ref list) => {
-                try!(write!(f, "for {} in {}..{} do\n", var, start, stop));
+                r#try!(write!(f, "for {} in {}..{} do\n", var, start, stop));
                 for l in list {
-                    try!(write!(f, "\t\t{}\n", l));
+                    r#try!(write!(f, "\t\t{}\n", l));
                 }
                 write!(f, "\tendfor")
             }
             Statement::MultipleDefinition(ref ids, ref rhs) => {
                 for (i, id) in ids.iter().enumerate() {
-                    try!(write!(f, "{}", id));
+                    r#try!(write!(f, "{}", id));
                     if i < ids.len() - 1 {
-                        try!(write!(f, ", "));
+                        r#try!(write!(f, ", "));
                     }
                 }
                 write!(f, " = {}", rhs)
@@ -222,9 +222,9 @@ impl<T: Field> fmt::Debug for Statement<T> {
             }
             Statement::Condition(ref lhs, ref rhs) => write!(f, "Condition({:?}, {:?})", lhs, rhs),
             Statement::For(ref var, ref start, ref stop, ref list) => {
-                try!(write!(f, "for {:?} in {:?}..{:?} do\n", var, start, stop));
+                r#try!(write!(f, "for {:?} in {:?}..{:?} do\n", var, start, stop));
                 for l in list {
-                    try!(write!(f, "\t\t{:?}\n", l));
+                    r#try!(write!(f, "\t\t{:?}\n", l));
                 }
                 write!(f, "\tendfor")
             }
@@ -280,11 +280,11 @@ impl<T: Field> fmt::Display for Expression<T> {
                 condition, consequent, alternative
             ),
             Expression::FunctionCall(ref i, ref p) => {
-                try!(write!(f, "{}(", i,));
+                r#try!(write!(f, "{}(", i,));
                 for (i, param) in p.iter().enumerate() {
-                    try!(write!(f, "{}", param));
+                    r#try!(write!(f, "{}", param));
                     if i < p.len() - 1 {
-                        try!(write!(f, ", "));
+                        r#try!(write!(f, ", "));
                     }
                 }
                 write!(f, ")")
@@ -297,11 +297,11 @@ impl<T: Field> fmt::Display for Expression<T> {
             Expression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             Expression::Not(ref exp) => write!(f, "!{}", exp),
             Expression::InlineArray(ref exprs) => {
-                try!(write!(f, "["));
+                r#try!(write!(f, "["));
                 for (i, e) in exprs.iter().enumerate() {
-                    try!(write!(f, "{}", e));
+                    r#try!(write!(f, "{}", e));
                     if i < exprs.len() - 1 {
-                        try!(write!(f, ", "));
+                        r#try!(write!(f, ", "));
                     }
                 }
                 write!(f, "]")
@@ -328,8 +328,8 @@ impl<T: Field> fmt::Debug for Expression<T> {
                 condition, consequent, alternative
             ),
             Expression::FunctionCall(ref i, ref p) => {
-                try!(write!(f, "FunctionCall({:?}, (", i));
-                try!(f.debug_list().entries(p.iter()).finish());
+                r#try!(write!(f, "FunctionCall({:?}, (", i));
+                r#try!(f.debug_list().entries(p.iter()).finish());
                 write!(f, ")")
             }
             Expression::Lt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
@@ -340,8 +340,8 @@ impl<T: Field> fmt::Debug for Expression<T> {
             Expression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             Expression::Not(ref exp) => write!(f, "!{}", exp),
             Expression::InlineArray(ref exprs) => {
-                try!(write!(f, "InlineArray(["));
-                try!(f.debug_list().entries(exprs.iter()).finish());
+                r#try!(write!(f, "InlineArray(["));
+                r#try!(f.debug_list().entries(exprs.iter()).finish());
                 write!(f, "]")
             }
             Expression::Select(ref array, ref index) => write!(f, "{}[{}]", array, index),
@@ -368,9 +368,9 @@ impl<T: Field> ExpressionList<T> {
 impl<T: Field> fmt::Display for ExpressionList<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (i, param) in self.expressions.iter().enumerate() {
-            try!(write!(f, "{}", param));
+            r#try!(write!(f, "{}", param));
             if i < self.expressions.len() - 1 {
-                try!(write!(f, ", "));
+                r#try!(write!(f, ", "));
             }
         }
         write!(f, "")

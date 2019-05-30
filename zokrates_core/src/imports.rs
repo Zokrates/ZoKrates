@@ -4,11 +4,11 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
-use absy::*;
-use compile::compile_aux;
-use compile::{CompileErrorInner, CompileErrors};
-use flat_absy::*;
-use parser::Position;
+use crate::absy::*;
+use crate::compile::compile_aux;
+use crate::compile::{CompileErrorInner, CompileErrors};
+use crate::flat_absy::*;
+use crate::parser::Position;
 use std::fmt;
 use std::io;
 use std::io::BufRead;
@@ -143,44 +143,33 @@ impl Importer {
         for import in destination.imports.iter() {
             let pos = import.pos();
             let import = &import.value;
-            // handle the case of special libsnark and packing imports
-            if import.source.starts_with("LIBSNARK") {
-                #[cfg(feature = "libsnark")]
-                {
-                    use helpers::LibsnarkGadgetHelper;
-                    use libsnark::get_sha256round_constraints;
-                    use serde_json::from_str;
-                    use standard::{DirectiveR1CS, R1CS};
+            // handle the case of special bellman and packing imports
+            if import.source.starts_with("BELLMAN") {
+                match import.source.as_ref() {
+                    "BELLMAN/sha256round" => {
+                        use crate::standard::sha_round;
 
-                    match import.source.as_ref() {
-                        "LIBSNARK/sha256round" => {
-                            let r1cs: R1CS = from_str(&get_sha256round_constraints()).unwrap();
-                            let dr1cs: DirectiveR1CS = DirectiveR1CS {
-                                r1cs,
-                                directive: LibsnarkGadgetHelper::Sha256Round,
-                            };
-                            let compiled = FlatProg::from(dr1cs);
-                            let alias = match import.alias {
-                                Some(ref alias) => alias.clone(),
-                                None => String::from("sha256round"),
-                            };
-                            origins.push(CompiledImport::new(compiled, alias));
-                        }
-                        s => {
-                            return Err(CompileErrorInner::ImportError(
-                                Error::new(format!("Gadget {} not found", s)).with_pos(Some(pos)),
-                            )
-                            .with_context(&location)
-                            .into());
-                        }
+                        let compiled = FlatProg {
+                            functions: vec![sha_round()],
+                        };
+
+                        let alias = match import.alias {
+                            Some(ref alias) => alias.clone(),
+                            None => String::from("sha256round"),
+                        };
+
+                        origins.push(CompiledImport::new(compiled, alias));
+                    }
+                    s => {
+                        return Err(CompileErrorInner::ImportError(
+                            Error::new(format!("Gadget {} not found", s)).with_pos(Some(pos)),
+                        )
+                        .with_context(&location)
+                        .into());
                     }
                 }
-                #[cfg(not(feature = "libsnark"))]
-                {
-                    panic!("libsnark is not enabled, cannot access {}", import.source)
-                }
             } else if import.source.starts_with("PACKING") {
-                use types::conversions::split;
+                use crate::types::conversions::split;
 
                 match import.source.as_ref() {
                     "PACKING/split" => {

@@ -1,12 +1,8 @@
 [package]
 name = "zokrates_stdlib"
-version = "0.1.0"
-authors = ["schaeff <thibaut@schaeff.fr>"]
+version = "0.1.1"
+authors = ["Stefan Deml <stefandeml@gmail.com>", "schaeff <thibaut@schaeff.fr>"]
 edition = "2018"
-
-[features]
-default = ["libsnark"]
-libsnark = ["zokrates_core/libsnark"]
 
 [dev-dependencies]
 zokrates_field = { version = "0.3", path = "../zokrates_field" }
@@ -18,3 +14,4 @@ serde_json = "1.0"
 
 [build-dependencies]
 glob = "0.3.0"
+fs_extra = "1.1.0"

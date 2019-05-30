@@ -36,7 +36,7 @@ type Val = String;
 
 impl From<ir::ExecutionResult<FieldPrime>> for ComparableResult {
     fn from(r: ir::ExecutionResult<FieldPrime>) -> ComparableResult {
-        ComparableResult(r.map(|v| v.return_values().iter().map(|&x| x.clone()).collect()))
+        ComparableResult(r.map(|v| v.return_values()))
     }
 }
 
@@ -44,8 +44,8 @@ impl From<TestResult> for ComparableResult {
     fn from(r: TestResult) -> ComparableResult {
         ComparableResult(r.map(|v| {
             v.values
-                .into_iter()
-                .map(|v| FieldPrime::from_dec_string(v))
+                .iter()
+                .map(|v| FieldPrime::try_from_dec_str(v).unwrap())
                 .collect()
         }))
     }
@@ -102,7 +102,7 @@ macro_rules! zokrates_test {
 
                 for test in t.tests.into_iter() {
                     let input = &test.input.values;
-                    let output = bin.execute(&input.iter().map(|v| FieldPrime::from_dec_string(v.clone())).collect());
+                    let output = bin.execute(&input.iter().map(|v| FieldPrime::try_from_dec_str(v).unwrap()).collect());
 
                     let context = format!("
 {}

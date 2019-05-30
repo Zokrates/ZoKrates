@@ -5,4 +5,5 @@ members = [
     "zokrates_cli",
     "zokrates_fs_resolver",
     "zokrates_stdlib",
+    "zokrates_embed",
 ]

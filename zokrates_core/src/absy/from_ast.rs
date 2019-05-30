@@ -376,7 +376,7 @@ impl<'ast, T: Field> From<pest::PostfixExpression<'ast>> for absy::ExpressionNod
 impl<'ast, T: Field> From<pest::ConstantExpression<'ast>> for absy::ExpressionNode<T> {
     fn from(expression: pest::ConstantExpression<'ast>) -> absy::ExpressionNode<T> {
         use absy::NodeValue;
-        absy::Expression::Number(T::try_from_str(&expression.value).unwrap()).at(42, 42, 0)
+        absy::Expression::Number(T::try_from_dec_str(&expression.value).unwrap()).at(42, 42, 0)
     }
 }
 

@@ -1,10 +1,10 @@
+use crate::flat_absy::flat_parameter::FlatParameter;
+use crate::flat_absy::flat_variable::FlatVariable;
+use crate::flat_absy::*;
+use crate::helpers::{DirectiveStatement, Helper};
+use crate::types::signature::Signature;
+use crate::types::Type;
 use bimap::BiMap;
-use flat_absy::flat_parameter::FlatParameter;
-use flat_absy::flat_variable::FlatVariable;
-use flat_absy::*;
-use helpers::{DirectiveStatement, Helper};
-use types::signature::Signature;
-use types::Type;
 use zokrates_field::field::Field;
 
 fn use_variable(
