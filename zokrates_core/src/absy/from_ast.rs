@@ -193,9 +193,15 @@ impl<'ast, T: Field> From<pest::AssertionStatement<'ast>> for absy::StatementNod
                     absy::ExpressionNode::from(*e.left),
                     absy::ExpressionNode::from(*e.right),
                 ),
-                o => unimplemented!("{:?}", o),
+                _ => unimplemented!(
+                    "Assertion statements should be an equality check, found {}",
+                    statement.span.as_str()
+                ),
             },
-            o => unimplemented!("{:?}", o),
+            _ => unimplemented!(
+                "Assertion statements should be an equality check, found {}",
+                statement.span.as_str()
+            ),
         }
         .span(statement.span)
     }
@@ -216,12 +222,12 @@ impl<'ast, T: Field> From<pest::IterationStatement<'ast>> for absy::StatementNod
 
         let from = match from.value {
             absy::Expression::Number(n) => n,
-            e => unimplemented!("{:?} as for loop bound", e),
+            e => unimplemented!("For loop bounds should be constants, found {}", e),
         };
 
         let to = match to.value {
             absy::Expression::Number(n) => n,
-            e => unimplemented!("{:?} as for loop bound", e),
+            e => unimplemented!("For loop bounds should be constants, found {}", e),
         };
 
         let var = absy::Variable::new(index, ty).span(statement.index.span);
@@ -308,7 +314,7 @@ impl<'ast, T: Field> From<pest::BinaryExpression<'ast>> for absy::ExpressionNode
                 box absy::ExpressionNode::from(*expression.left),
                 box absy::ExpressionNode::from(*expression.right),
             ),
-            o => unimplemented!("{:?}", o),
+            o => unimplemented!("Operator {:?} not implemented", o),
         }
         .span(expression.span)
     }
@@ -411,7 +417,7 @@ impl<'ast, T: Field> From<pest::Assignee<'ast>> for absy::AssigneeNode<T> {
                 box absy::ExpressionNode::from(assignee.indices[0].clone()),
             )
             .span(assignee.span),
-            _ => unimplemented!("multidim array"),
+            n => unimplemented!("Array should have one dimension, found {} in {}", n, a),
         }
     }
 }
@@ -426,11 +432,13 @@ impl<'ast> From<pest::Type<'ast>> for Type {
             pest::Type::Array(t) => {
                 let size = match t.size {
                     pest::Expression::Constant(c) => str::parse::<usize>(&c.value).unwrap(),
-                    _ => unimplemented!("non constant array size"),
+                    e => {
+                        unimplemented!("Array size should be constant, found {}", e.span().as_str())
+                    }
                 };
                 match t.ty {
                     pest::BasicType::Field(_) => Type::FieldElementArray(size),
-                    o => unimplemented!("array of {:?} not supported", o),
+                    o => unimplemented!("Array elements should be field elements, found {:?}", o),
                 }
             }
         }
