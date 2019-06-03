@@ -29,7 +29,7 @@ bellman = { git = "https://github.com/matterinc/bellman", tag = "0.2.0" }
 pairing = { git = "https://github.com/matterinc/pairing", tag = "0.16.2" }
 ff = { git = 'https://github.com/matterinc/ff', features = ["derive"], tag = "0.5" }
 zokrates_field = { version = "0.3.0", path = "../zokrates_field" }
-zokrates_pest_ast = { git = "https://github.com/Schaeff/zokrates_pest_ast", branch = "grammar-overhaul" }
+zokrates_pest_ast = { version = "0.1.0", path = "../zokrates_pest_ast" }
 zokrates_embed = { path = "../zokrates_embed" }
 rand = "0.4"
 wasmi = { version = "0.4.2", optional = true }

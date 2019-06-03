@@ -1,0 +1,105 @@
+/** 
+* ZoKrates Grammar
+* Author: Jacob Eberhardt
+*/
+
+// TODO: 
+// exclude language keywords as identifiers: DONE
+// Ignore linebreak after \
+// Doc: associativity and precedence table for operators
+
+file = { SOI ~ NEWLINE* ~ import_directive* ~ NEWLINE* ~ function_definition* ~ EOI }
+import_directive = {"import" ~ "\"" ~ import_source ~ "\"" ~ ("as" ~ identifier)? ~ NEWLINE+}
+import_source = @{(!"\"" ~ ANY)*}
+function_definition = {"def" ~ identifier ~ "(" ~ parameter_list ~ ")" ~ "->" ~ "(" ~ type_list ~ ")" ~ ":" ~ NEWLINE* ~ statement* }
+
+parameter_list = _{(parameter ~ ("," ~ parameter)*)?}
+parameter = {vis? ~ ty ~ identifier}
+
+// basic types
+ty_field = {"field"}
+ty_bool = {"bool"}
+ty_basic = { ty_field | ty_bool }
+// (unidimensional for now) arrays of (basic for now) types 
+ty_array = { ty_basic ~ ("[" ~ expression ~ "]") }
+ty = { ty_array | ty_basic }
+type_list = _{(ty ~ ("," ~ ty)*)?}
+
+vis_private = {"private"}
+vis_public = {"public"}
+vis = { vis_private | vis_public }
+
+// Statements 
+statement = { (return_statement // does not require subsequent newline
+              | (iteration_statement
+                | multi_assignment_statement // try this first as we want all assignments based on return of function calls match here and not later
+                | definition_statement
+                | assignment_statement
+                | expression_statement 
+                ) ~ NEWLINE 
+            ) ~ NEWLINE* }
+
+iteration_statement = { "for" ~ ty ~ identifier ~ "in" ~ expression ~ ".." ~ expression ~ "do" ~ NEWLINE* ~ statement* ~ "endfor"}
+return_statement = { "return" ~ expression_list}
+multi_assignment_statement = { optionally_typed_identifier_list ~ "=" ~ identifier ~ "(" ~ expression_list ~ ")"} // This is very specific with regards to parsing. However, I think more generality is not needed here.
+definition_statement = {ty ~ identifier ~ "=" ~ expression} // declare and assign, so only identifiers are allowed, unlike `assignment_statement`
+assignment_statement = {assignee ~ "=" ~ expression } // TODO: Is this optimal? Can the left side be written more elegantly?
+expression_statement = {expression}
+
+optionally_typed_identifier_list = _{ optionally_typed_identifier ~ ("," ~ optionally_typed_identifier)* }
+optionally_typed_identifier = { ty? ~ identifier }
+
+// Expressions
+expression_list = _{(expression ~ ("," ~ expression)*)?}
+
+expression = { term ~ (op_binary ~ term)* }
+term = { ("(" ~ expression ~ ")") | conditional_expression | postfix_expression | primary_expression | inline_array_expression | unary_expression }
+
+conditional_expression = { "if" ~ expression ~ "then" ~ expression ~ "else" ~ expression ~ "fi"}
+
+postfix_expression = { identifier ~ access+ } // we force there to be at least one access, otherwise this matches single identifiers. Not sure that's what we want.
+access = { array_access | call_access }
+array_access = { "[" ~ expression ~ "]" }
+call_access = { "(" ~ expression_list ~ ")" }
+
+primary_expression = { identifier
+                    | constant
+                    }
+
+inline_array_expression = { "[" ~ expression_list ~ "]" }
+unary_expression = { op_unary ~ term }
+
+// End Expressions
+
+assignee = { identifier ~ ("[" ~ expression ~ "]")* }
+identifier = @{ ((!keyword ~ ASCII_ALPHA) | (keyword ~ (ASCII_ALPHANUMERIC | "_"))) ~ (ASCII_ALPHANUMERIC | "_")* }
+constant = @{ "0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
+
+op_inclusive_or = {"||"}
+op_exclusive_or = {"^"}
+op_and = {"&&"}
+op_equal = {"=="}
+op_not_equal = {"!="}
+op_lt = {"<"}
+op_lte = {"<="}
+op_gt = {">"}
+op_gte = {">="}
+op_add = {"+"}
+op_sub = {"-"}
+op_mul = {"*"}
+op_div = {"/"}
+op_pow = {"**"}
+op_not = {"!"}
+op_binary = _ { op_pow | op_inclusive_or | op_exclusive_or | op_and | op_equal | op_not_equal | op_lte | op_lt | op_gte | op_gt | op_add | op_sub | op_mul | op_div }
+op_unary = { op_not }
+
+
+WHITESPACE = _{ " " | "\t" | "\\" ~ NEWLINE}
+COMMENT = _{ ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!NEWLINE ~ ANY)*) }
+
+// TODO: Order by alphabet
+keyword = @{"for" | "endfor" | "as" | "in" | "return" | "byte" | "field" | "bool" | "if" | "do" | "else" | "export" | "false" |
+            "def" | "for" | "import" | "uint" |
+            "in" | "public" | "private" | "return" |
+            "struct" | "true"
+            }
