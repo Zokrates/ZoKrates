@@ -1,6 +1,6 @@
 extern crate libc;
 
-use self::libc::{c_char, c_int, u8};
+use self::libc::{c_char, c_int};
 use ir;
 use proof_system::bn128::utils::libsnark::{prepare_generate_proof, prepare_setup};
 use proof_system::bn128::utils::solidity::{SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB};
