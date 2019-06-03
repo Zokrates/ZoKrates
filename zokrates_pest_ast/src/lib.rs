@@ -12,7 +12,7 @@ pub use ast::{
     BinaryExpression, BinaryOperator, CallAccess, ConstantExpression, DefinitionStatement,
     Expression, File, Function, IdentifierExpression, ImportDirective, ImportSource,
     InlineArrayExpression, IterationStatement, MultiAssignmentStatement, Parameter,
-    PostfixExpression, ReturnStatement, Statement, TernaryExpression, Type, UnaryExpression,
+    PostfixExpression, ReturnStatement, Span, Statement, TernaryExpression, Type, UnaryExpression,
     UnaryOperator, Visibility,
 };
 
@@ -22,7 +22,7 @@ mod ast {
     use from_pest::Void;
     use pest::iterators::{Pair, Pairs};
     use pest::prec_climber::{Assoc, Operator, PrecClimber};
-    use pest::Span;
+    pub use pest::Span;
     use pest_ast::FromPest;
     use zokrates_parser::Rule;
 

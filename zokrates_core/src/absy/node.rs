@@ -1,5 +1,6 @@
 use crate::parser::Position;
 use std::fmt;
+use zokrates_pest_ast::Span;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Node<T: fmt::Display> {
@@ -30,6 +31,22 @@ pub trait NodeValue: fmt::Display + Sized + PartialEq {
     fn at(self, line: usize, col: usize, delta: isize) -> Node<Self> {
         let start = Position { col, line };
         Node::new(start, start.col(delta), self)
+    }
+
+    fn span(self, span: Span) -> Node<Self> {
+        let from = span.start_pos().line_col();
+        let to = span.end_pos().line_col();
+
+        let from = Position {
+            line: from.0,
+            col: from.1,
+        };
+        let to = Position {
+            line: to.0,
+            col: to.1,
+        };
+
+        Node::new(from, to, self)
     }
 }
 

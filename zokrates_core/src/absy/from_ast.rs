@@ -28,13 +28,15 @@ impl<'ast> From<pest::ImportDirective<'ast>> for absy::ImportNode {
 
         imports::Import::new(import.source.value)
             .alias(import.alias.map(|a| a.value))
-            .at(42, 42, 0)
+            .span(import.span)
     }
 }
 
 impl<'ast, T: Field> From<pest::Function<'ast>> for absy::FunctionNode<T> {
     fn from(function: pest::Function<'ast>) -> absy::FunctionNode<T> {
         use absy::NodeValue;
+
+        let span = function.span;
 
         let signature = absy::Signature::new()
             .inputs(
@@ -68,7 +70,7 @@ impl<'ast, T: Field> From<pest::Function<'ast>> for absy::FunctionNode<T> {
                 .collect(),
             signature,
         }
-        .at(42, 42, 0)
+        .span(span)
     }
 }
 
@@ -84,9 +86,10 @@ impl<'ast> From<pest::Parameter<'ast>> for absy::ParameterNode {
             })
             .unwrap_or(false);
 
-        let variable = absy::Variable::new(param.id.value, Type::from(param.ty)).at(42, 42, 0);
+        let variable =
+            absy::Variable::new(param.id.value, Type::from(param.ty)).span(param.id.span);
 
-        absy::Parameter::new(variable, private).at(42, 42, 0)
+        absy::Parameter::new(variable, private).span(param.span)
     }
 }
 
@@ -115,15 +118,15 @@ fn statements_from_multi_assignment<'ast, T: Field>(
         .filter(|i| i.ty.is_some())
         .map(|i| {
             absy::Statement::Declaration(
-                absy::Variable::new(i.id.clone().value, Type::from(i.ty.unwrap())).at(42, 42, 0),
+                absy::Variable::new(i.id.clone().value, Type::from(i.ty.unwrap())).span(i.id.span),
             )
-            .at(42, 42, 0)
+            .span(i.span)
         });
 
     let lhs = assignment
         .lhs
         .into_iter()
-        .map(|i| absy::Assignee::Identifier(i.id.value).at(42, 42, 0))
+        .map(|i| absy::Assignee::Identifier(i.id.value).span(i.id.span))
         .collect();
 
     let multi_def = absy::Statement::MultipleDefinition(
@@ -136,9 +139,9 @@ fn statements_from_multi_assignment<'ast, T: Field>(
                 .map(|e| absy::ExpressionNode::from(e))
                 .collect(),
         )
-        .at(42, 42, 0),
+        .span(assignment.function_id.span),
     )
-    .at(42, 42, 0);
+    .span(assignment.span);
 
     declarations.chain(std::iter::once(multi_def)).collect()
 }
@@ -151,14 +154,14 @@ fn statements_from_definition<'ast, T: Field>(
     vec![
         absy::Statement::Declaration(
             absy::Variable::new(definition.id.clone().value, Type::from(definition.ty))
-                .at(42, 42, 0),
+                .span(definition.id.span.clone()),
         )
-        .at(42, 42, 0),
+        .span(definition.span.clone()),
         absy::Statement::Definition(
             absy::AssigneeNode::from(definition.id),
             absy::ExpressionNode::from(definition.expression),
         )
-        .at(42, 42, 0),
+        .span(definition.span),
     ]
 }
 
@@ -174,9 +177,9 @@ impl<'ast, T: Field> From<pest::ReturnStatement<'ast>> for absy::StatementNode<T
                     .map(|e| absy::ExpressionNode::from(e))
                     .collect(),
             }
-            .at(42, 42, 0),
+            .span(statement.span.clone()),
         )
-        .at(42, 42, 0)
+        .span(statement.span)
     }
 }
 
@@ -194,7 +197,7 @@ impl<'ast, T: Field> From<pest::AssertionStatement<'ast>> for absy::StatementNod
             },
             o => unimplemented!("{:?}", o),
         }
-        .at(42, 42, 0)
+        .span(statement.span)
     }
 }
 
@@ -221,9 +224,9 @@ impl<'ast, T: Field> From<pest::IterationStatement<'ast>> for absy::StatementNod
             e => unimplemented!("{:?} as for loop bound", e),
         };
 
-        let var = absy::Variable::new(index, ty).at(42, 42, 0);
+        let var = absy::Variable::new(index, ty).span(statement.index.span);
 
-        absy::Statement::For(var, from, to, statements).at(42, 42, 0)
+        absy::Statement::For(var, from, to, statements).span(statement.span)
     }
 }
 
@@ -235,7 +238,7 @@ impl<'ast, T: Field> From<pest::AssignmentStatement<'ast>> for absy::StatementNo
             absy::AssigneeNode::from(statement.assignee),
             absy::ExpressionNode::from(statement.expression),
         )
-        .at(42, 42, 0)
+        .span(statement.span)
     }
 }
 
@@ -307,7 +310,7 @@ impl<'ast, T: Field> From<pest::BinaryExpression<'ast>> for absy::ExpressionNode
             ),
             o => unimplemented!("{:?}", o),
         }
-        .at(42, 42, 0)
+        .span(expression.span)
     }
 }
 
@@ -319,7 +322,7 @@ impl<'ast, T: Field> From<pest::TernaryExpression<'ast>> for absy::ExpressionNod
             box absy::ExpressionNode::from(*expression.second),
             box absy::ExpressionNode::from(*expression.third),
         )
-        .at(42, 42, 0)
+        .span(expression.span)
     }
 }
 
@@ -333,7 +336,7 @@ impl<'ast, T: Field> From<pest::InlineArrayExpression<'ast>> for absy::Expressio
                 .map(|e| absy::ExpressionNode::from(e))
                 .collect(),
         )
-        .at(42, 42, 0)
+        .span(array.span)
     }
 }
 
@@ -346,7 +349,7 @@ impl<'ast, T: Field> From<pest::UnaryExpression<'ast>> for absy::ExpressionNode<
                 absy::Expression::Not(Box::new(absy::ExpressionNode::from(*unary.expression)))
             }
         }
-        .at(42, 42, 0)
+        .span(unary.span)
     }
 }
 
@@ -369,21 +372,22 @@ impl<'ast, T: Field> From<pest::PostfixExpression<'ast>> for absy::ExpressionNod
                 box absy::ExpressionNode::from(a.expression),
             ),
         }
-        .at(42, 42, 0)
+        .span(expression.span)
     }
 }
 
 impl<'ast, T: Field> From<pest::ConstantExpression<'ast>> for absy::ExpressionNode<T> {
     fn from(expression: pest::ConstantExpression<'ast>) -> absy::ExpressionNode<T> {
         use absy::NodeValue;
-        absy::Expression::Number(T::try_from_dec_str(&expression.value).unwrap()).at(42, 42, 0)
+        absy::Expression::Number(T::try_from_dec_str(&expression.value).unwrap())
+            .span(expression.span)
     }
 }
 
 impl<'ast, T: Field> From<pest::IdentifierExpression<'ast>> for absy::ExpressionNode<T> {
     fn from(expression: pest::IdentifierExpression<'ast>) -> absy::ExpressionNode<T> {
         use absy::NodeValue;
-        absy::Expression::Identifier(expression.value).at(42, 42, 0)
+        absy::Expression::Identifier(expression.value).span(expression.span)
     }
 }
 
@@ -391,7 +395,7 @@ impl<'ast, T: Field> From<pest::IdentifierExpression<'ast>> for absy::AssigneeNo
     fn from(expression: pest::IdentifierExpression<'ast>) -> absy::AssigneeNode<T> {
         use absy::NodeValue;
 
-        absy::Assignee::Identifier(expression.value).at(42, 42, 0)
+        absy::Assignee::Identifier(expression.value).span(expression.span)
     }
 }
 
@@ -406,7 +410,7 @@ impl<'ast, T: Field> From<pest::Assignee<'ast>> for absy::AssigneeNode<T> {
                 box a,
                 box absy::ExpressionNode::from(assignee.indices[0].clone()),
             )
-            .at(42, 42, 0),
+            .span(assignee.span),
             _ => unimplemented!("multidim array"),
         }
     }
