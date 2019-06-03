@@ -438,7 +438,10 @@ impl<'ast> From<pest::Type<'ast>> for Type {
                 };
                 match t.ty {
                     pest::BasicType::Field(_) => Type::FieldElementArray(size),
-                    o => unimplemented!("Array elements should be field elements, found {:?}", o),
+                    _ => unimplemented!(
+                        "Array elements should be field elements, found {}",
+                        t.span.as_str()
+                    ),
                 }
             }
         }
