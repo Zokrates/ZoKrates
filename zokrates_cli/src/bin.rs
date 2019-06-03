@@ -432,7 +432,7 @@ fn cli() -> Result<(), String> {
     Ok(())
 }
 
-fn get_scheme(scheme_str: &str) -> Result<&'static ProofSystem, String> {
+fn get_scheme(scheme_str: &str) -> Result<&'static dyn ProofSystem, String> {
     match scheme_str.to_lowercase().as_ref() {
         #[cfg(feature = "libsnark")]
         "pghr13" => Ok(&PGHR13 {}),

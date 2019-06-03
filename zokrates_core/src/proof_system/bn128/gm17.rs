@@ -1,6 +1,6 @@
 extern crate libc;
 
-use self::libc::{c_char, c_int, uint8_t};
+use self::libc::{c_char, c_int, u8};
 use ir;
 use proof_system::bn128::utils::libsnark::{prepare_generate_proof, prepare_setup};
 use proof_system::bn128::utils::solidity::{SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB};
@@ -21,9 +21,9 @@ impl GM17 {
 
 extern "C" {
     fn _gm17_setup(
-        A: *const uint8_t,
-        B: *const uint8_t,
-        C: *const uint8_t,
+        A: *const u8,
+        B: *const u8,
+        C: *const u8,
         A_len: c_int,
         B_len: c_int,
         C_len: c_int,
@@ -37,9 +37,9 @@ extern "C" {
     fn _gm17_generate_proof(
         pk_path: *const c_char,
         proof_path: *const c_char,
-        publquery_inputs: *const uint8_t,
+        publquery_inputs: *const u8,
         publquery_inputs_length: c_int,
-        private_inputs: *const uint8_t,
+        private_inputs: *const u8,
         private_inputs_length: c_int,
     ) -> bool;
 }
