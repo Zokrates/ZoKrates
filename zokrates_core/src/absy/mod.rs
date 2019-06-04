@@ -152,29 +152,6 @@ impl<'ast, T: Field> fmt::Display for Assignee<'ast, T> {
     }
 }
 
-// impl<'ast, T: Field> From<ExpressionNode<'ast, T>> for AssigneeNode<T> {
-//     fn from(e: ExpressionNode<'ast, T>) -> Self {
-//         match e.value {
-//             Expression::Select(box e1, box e2) => match e1 {
-//                 ExpressionNode {
-//                     value: Expression::Identifier(id),
-//                     start,
-//                     end,
-//                 } => Node::new(
-//                     e.start,
-//                     e.end,
-//                     Assignee::ArrayElement(
-//                         box Node::new(start, end, Assignee::Identifier(id)),
-//                         box e2,
-//                     ),
-//                 ),
-//                 _ => panic!("only use expression to assignee for elements like foo[bar]"),
-//             },
-//             _ => panic!("only use expression to assignee for elements like foo[bar]"),
-//         }
-//     }
-// }
-
 #[derive(Clone, PartialEq)]
 pub enum Statement<'ast, T: Field> {
     Return(ExpressionListNode<'ast, T>),
