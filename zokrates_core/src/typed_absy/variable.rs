@@ -47,10 +47,10 @@ impl fmt::Debug for Variable {
     }
 }
 
-impl From<absy::Variable> for Variable {
+impl<'ast> From<absy::Variable<'ast>> for Variable {
     fn from(v: absy::Variable) -> Variable {
         Variable {
-            id: v.id,
+            id: v.id.to_string(),
             _type: v._type,
         }
     }

@@ -1,25 +1,25 @@
 use crate::absy::{Node, VariableNode};
 use std::fmt;
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub struct Parameter {
-    pub id: VariableNode,
+#[derive(Clone, PartialEq)]
+pub struct Parameter<'ast> {
+    pub id: VariableNode<'ast>,
     pub private: bool,
 }
 
-impl Parameter {
-    pub fn new(v: VariableNode, private: bool) -> Self {
+impl<'ast> Parameter<'ast> {
+    pub fn new(v: VariableNode<'ast>, private: bool) -> Self {
         Parameter { id: v, private }
     }
 
-    pub fn public(v: VariableNode) -> Self {
+    pub fn public(v: VariableNode<'ast>) -> Self {
         Parameter {
             id: v,
             private: false,
         }
     }
 
-    pub fn private(v: VariableNode) -> Self {
+    pub fn private(v: VariableNode<'ast>) -> Self {
         Parameter {
             id: v,
             private: true,
@@ -27,9 +27,9 @@ impl Parameter {
     }
 }
 
-pub type ParameterNode = Node<Parameter>;
+pub type ParameterNode<'ast> = Node<Parameter<'ast>>;
 
-impl fmt::Display for Parameter {
+impl<'ast> fmt::Display for Parameter<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let visibility = if self.private { "private " } else { "" };
         write!(
@@ -42,7 +42,7 @@ impl fmt::Display for Parameter {
     }
 }
 
-impl fmt::Debug for Parameter {
+impl<'ast> fmt::Debug for Parameter<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,

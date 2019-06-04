@@ -62,14 +62,14 @@ use crate::absy::*;
 use crate::imports::*;
 use zokrates_field::field::Field;
 
-impl<T: Field> NodeValue for Expression<T> {}
-impl<T: Field> NodeValue for ExpressionList<T> {}
-impl<T: Field> NodeValue for Assignee<T> {}
-impl<T: Field> NodeValue for Statement<T> {}
-impl<T: Field> NodeValue for Function<T> {}
-impl<T: Field> NodeValue for Prog<T> {}
-impl NodeValue for Variable {}
-impl NodeValue for Parameter {}
+impl<'ast, T: Field> NodeValue for Expression<'ast, T> {}
+impl<'ast, T: Field> NodeValue for ExpressionList<'ast, T> {}
+impl<'ast, T: Field> NodeValue for Assignee<'ast, T> {}
+impl<'ast, T: Field> NodeValue for Statement<'ast, T> {}
+impl<'ast, T: Field> NodeValue for Function<'ast, T> {}
+impl<'ast, T: Field> NodeValue for Prog<'ast, T> {}
+impl<'ast> NodeValue for Variable<'ast> {}
+impl<'ast> NodeValue for Parameter<'ast> {}
 impl NodeValue for Import {}
 
 impl<T: NodeValue> std::cmp::PartialEq for Node<T> {

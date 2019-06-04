@@ -31,8 +31,8 @@ impl fmt::Debug for Parameter {
     }
 }
 
-impl From<absy::Parameter> for Parameter {
-    fn from(p: absy::Parameter) -> Parameter {
+impl<'ast> From<absy::Parameter<'ast>> for Parameter {
+    fn from(p: absy::Parameter<'ast>) -> Parameter {
         Parameter {
             private: p.private,
             id: p.id.value.into(),
