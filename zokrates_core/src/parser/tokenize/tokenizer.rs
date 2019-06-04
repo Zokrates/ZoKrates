@@ -8,7 +8,7 @@ pub fn parse_num<T: Field>(input: &String, pos: &Position) -> (Token<T>, String,
     loop {
         match input.chars().nth(end) {
             Some(x) => match x {
-                '0'...'9' => end += 1,
+                '0'..='9' => end += 1,
                 _ => break,
             },
             None => break,
@@ -27,14 +27,14 @@ pub fn parse_num<T: Field>(input: &String, pos: &Position) -> (Token<T>, String,
 
 pub fn parse_ide<T: Field>(input: &String, pos: &Position) -> (Token<T>, String, Position) {
     assert!(match input.chars().next().unwrap() {
-        'a'...'z' | 'A'...'Z' => true,
+        'a'..='z' | 'A'..='Z' => true,
         _ => false,
     });
     let mut end = 1;
     loop {
         match input.chars().nth(end) {
             Some(x) => match x {
-                'a'...'z' | 'A'...'Z' | '0'...'9' => end += 1,
+                'a'..='z' | 'A'..='Z' | '0'..='9' => end += 1,
                 _ => break,
             },
             None => break,
@@ -62,7 +62,7 @@ pub fn parse_ide<T: Field>(input: &String, pos: &Position) -> (Token<T>, String,
                 loop {
                     match input.chars().nth(size_start + size_len) {
                         Some(x) => match x {
-                            '0'...'9' => size_len += 1,
+                            '0'..='9' => size_len += 1,
                             _ => break,
                         },
                         None => break,
@@ -368,14 +368,14 @@ pub fn next_token<T: Field>(input: &String, pos: &Position) -> (Token<T>, String
             },
         ),
         Some(x) => match x {
-            '0'...'9' => parse_num(
+            '0'..='9' => parse_num(
                 &input[offset..].to_string(),
                 &Position {
                     line: pos.line,
                     col: pos.col + offset,
                 },
             ),
-            'a'...'z' | 'A'...'Z' => parse_ide(
+            'a'..='z' | 'A'..='Z' => parse_ide(
                 &input[offset..].to_string(),
                 &Position {
                     line: pos.line,
