@@ -10,6 +10,7 @@ use crate::absy::variable::Variable;
 use crate::absy::*;
 use crate::typed_absy::*;
 use crate::types::Signature;
+use absy::Identifier;
 use std::collections::HashSet;
 use std::fmt;
 use zokrates_field::field::Field;
@@ -36,13 +37,13 @@ impl fmt::Display for Error {
     }
 }
 
-pub struct FunctionQuery {
-    id: String,
+pub struct FunctionQuery<'ast> {
+    id: Identifier<'ast>,
     inputs: Vec<Type>,
     outputs: Vec<Option<Type>>,
 }
 
-impl fmt::Display for FunctionQuery {
+impl<'ast> fmt::Display for FunctionQuery<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         r#try!(write!(f, "("));
         for (i, t) in self.inputs.iter().enumerate() {
@@ -65,8 +66,12 @@ impl fmt::Display for FunctionQuery {
     }
 }
 
-impl FunctionQuery {
-    fn new(id: String, inputs: &Vec<Type>, outputs: &Vec<Option<Type>>) -> FunctionQuery {
+impl<'ast> FunctionQuery<'ast> {
+    fn new(
+        id: Identifier<'ast>,
+        inputs: &Vec<Type>,
+        outputs: &Vec<Option<Type>>,
+    ) -> FunctionQuery<'ast> {
         FunctionQuery {
             id,
             inputs: inputs.clone(),
@@ -95,23 +100,23 @@ impl FunctionQuery {
 
 #[derive(Clone, Debug)]
 
-pub struct ScopedVariable {
-    id: Variable,
+pub struct ScopedVariable<'ast> {
+    id: Variable<'ast>,
     level: usize,
 }
 
-impl Hash for ScopedVariable {
+impl<'ast> Hash for ScopedVariable<'ast> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.id.hash(state);
     }
 }
 
-impl PartialEq for ScopedVariable {
+impl<'ast> PartialEq for ScopedVariable<'ast> {
     fn eq(&self, other: &ScopedVariable) -> bool {
         self.id.id == other.id.id
     }
 }
-impl Eq for ScopedVariable {}
+impl<'ast> Eq for ScopedVariable<'ast> {}
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct FunctionDeclaration {
@@ -120,14 +125,14 @@ pub struct FunctionDeclaration {
 }
 
 // Checker, checks the semantics of a program.
-pub struct Checker {
-    scope: HashSet<ScopedVariable>,
+pub struct Checker<'ast> {
+    scope: HashSet<ScopedVariable<'ast>>,
     functions: HashSet<FunctionDeclaration>,
     level: usize,
 }
 
-impl Checker {
-    pub fn new() -> Checker {
+impl<'ast> Checker<'ast> {
+    pub fn new() -> Checker<'ast> {
         Checker {
             scope: HashSet::new(),
             functions: HashSet::new(),
@@ -135,10 +140,13 @@ impl Checker {
         }
     }
 
-    pub fn check_program<T: Field>(&mut self, prog: Prog<T>) -> Result<TypedProg<T>, Vec<Error>> {
+    pub fn check_program<T: 'ast + Field>(
+        &mut self,
+        prog: Prog<'ast, T>,
+    ) -> Result<TypedProg<T>, Vec<Error>> {
         for func in &prog.imported_functions {
             self.functions.insert(FunctionDeclaration {
-                id: func.id.clone(),
+                id: func.id.to_string(),
                 signature: func.signature.clone(),
             });
         }
@@ -150,7 +158,7 @@ impl Checker {
             self.enter_scope();
 
             let dec = FunctionDeclaration {
-                id: func.value.id.clone(),
+                id: func.value.id.to_string(),
                 signature: func.value.signature.clone(),
             };
 
@@ -208,7 +216,7 @@ impl Checker {
 
     fn check_function<T: Field>(
         &mut self,
-        funct_node: FunctionNode<T>,
+        funct_node: FunctionNode<'ast, T>,
     ) -> Result<TypedFunction<T>, Vec<Error>> {
         let mut errors = vec![];
         let pos = funct_node.pos();
@@ -266,7 +274,7 @@ impl Checker {
         }
 
         Ok(TypedFunction {
-            id: funct.id.clone(),
+            id: funct.id.to_string(),
             arguments: funct
                 .arguments
                 .iter()
@@ -279,7 +287,7 @@ impl Checker {
 
     fn check_statement<T: Field>(
         &mut self,
-        stat: &StatementNode<T>,
+        stat: &StatementNode<'ast, T>,
         header_return_types: &Vec<Type>,
     ) -> Result<TypedStatement<T>, Error> {
         match stat.value {
@@ -425,8 +433,7 @@ impl Checker {
                         let arguments_types =
                             arguments_checked.iter().map(|a| a.get_type()).collect();
 
-                        let query =
-                            FunctionQuery::new(fun_id.to_string(), &arguments_types, &vars_types);
+                        let query = FunctionQuery::new(&fun_id, &arguments_types, &vars_types);
                         let candidates = self.find_candidates(&query).clone();
 
                         match candidates.len() {
@@ -435,7 +442,7 @@ impl Checker {
                     			let f = &candidates[0];
 
                     			let lhs = var_names.iter().enumerate().map(|(index, name)|
-                    				Variable::new(name.to_string(), f.signature.outputs[index].clone())
+                    				Variable::new(**name, f.signature.outputs[index].clone())
                     			);
 
                     			// we can infer the left hand side to be typed as the return values
@@ -443,7 +450,7 @@ impl Checker {
 	                    			self.insert_scope(var);
                     			}
 
-                    			Ok(TypedStatement::MultipleDefinition(lhs.map(|v| v.into()).collect(), TypedExpressionList::FunctionCall(f.id.clone(), arguments_checked, f.signature.outputs.clone())))
+                    			Ok(TypedStatement::MultipleDefinition(lhs.map(|v| v.into()).collect(), TypedExpressionList::FunctionCall(f.id.to_string(), arguments_checked, f.signature.outputs.clone())))
                     		},
                     		0 => Err(Error {                         pos: Some(stat.pos()),
  message: format!("Function definition for function {} with signature {} not found.", fun_id, query) }),
@@ -667,7 +674,7 @@ impl Checker {
 
                 // outside of multidef, function calls must have a single return value
                 // we use type inference to determine the type of the return, so we don't specify it
-                let query = FunctionQuery::new(fun_id.to_string(), &arguments_types, &vec![None]);
+                let query = FunctionQuery::new(&fun_id, &arguments_types, &vec![None]);
 
                 let candidates = self.find_candidates(&query);
 
@@ -679,14 +686,14 @@ impl Checker {
                         match f.signature.outputs.len() {
                             1 => match f.signature.outputs[0] {
                                 Type::FieldElement => Ok(FieldElementExpression::FunctionCall(
-                                    f.id.clone(),
+                                    f.id.to_string(),
                                     arguments_checked,
                                 )
                                 .into()),
                                 Type::FieldElementArray(size) => {
                                     Ok(FieldElementArrayExpression::FunctionCall(
                                         size,
-                                        f.id.clone(),
+                                        f.id.to_string(),
                                         arguments_checked,
                                     )
                                     .into())
@@ -921,21 +928,21 @@ impl Checker {
         }
     }
 
-    fn get_scope(&self, variable_name: &String) -> Option<&ScopedVariable> {
+    fn get_scope(&self, variable_name: &'ast str) -> Option<&ScopedVariable> {
         self.scope.get(&ScopedVariable {
             id: Variable::new(variable_name.clone(), Type::FieldElement),
             level: 0,
         })
     }
 
-    fn insert_scope(&mut self, v: Variable) -> bool {
+    fn insert_scope(&mut self, v: Variable<'ast>) -> bool {
         self.scope.insert(ScopedVariable {
             id: v,
             level: self.level,
         })
     }
 
-    fn find_candidates(&self, query: &FunctionQuery) -> Vec<FunctionDeclaration> {
+    fn find_candidates(&self, query: &FunctionQuery<'ast>) -> Vec<FunctionDeclaration> {
         query.match_funcs(&self.functions)
     }
 
