@@ -16,6 +16,7 @@ use zokrates_core::ir;
 use zokrates_core::proof_system::*;
 use zokrates_field::field::{Field, FieldPrime};
 use zokrates_fs_resolver::resolve as fs_resolve;
+use serde_json::Value;
 
 fn main() {
     cli().unwrap_or_else(|e| {
@@ -199,6 +200,24 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(&default_scheme)
+        )
+    )
+     .subcommand(SubCommand::with_name("print-proof")
+        .about("Prints proof in chosen format [remix, json]")
+        .arg(Arg::with_name("proofpath")
+            .short("j")
+            .long("proofpath")
+            .help("Path of the JSON proof file")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(JSON_PROOF_PATH)
+        ).arg(Arg::with_name("format")
+            .short("f")
+            .long("format")
+            .help("Format in which the proof should be printed. [remix, json]")
+            .takes_value(true)
+            .required(true)
         )
     )
     .get_matches();
@@ -426,6 +445,39 @@ fn cli() -> Result<(), String> {
                 "generate-proof successful: {:?}",
                 scheme.generate_proof(program, witness, pk_path, proof_path)
             );
+        }
+         ("print-proof", Some(sub_matches)) => {
+            let format = sub_matches.value_of("format").unwrap();
+
+            let path = Path::new(sub_matches.value_of("proofpath").unwrap());
+
+            let file = File::open(&path)
+                .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
+
+            let proof_object: Value = serde_json::from_reader(file)
+                .map_err(|why| format!("{:?}", why))?;
+
+            if format == String::from("json") {
+                println!("~~~~~~~~ Copy the output below for valid ABIv2 format ~~~~~~~~");
+                println!();
+                print!("{}", proof_object["proof"]);
+                print!(",");
+                println!("{}", proof_object["inputs"]);
+                println!();
+                println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+            } else if format == String::from("remix") {
+                println!("~~~~~~~~ Copy the output below for valid ABIv1 format ~~~~~~~~");
+                println!();
+
+                for (_key, value) in proof_object["proof"].as_object().unwrap().iter() {
+                    print!("{}", value);
+                    print!(",");
+                }
+
+                println!("{}", proof_object["inputs"]);
+                println!();
+                println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+            }
         }
         _ => unreachable!(),
     }
