@@ -344,3 +344,19 @@ pub fn r1cs_program<T: Field>(
     }
     (variables_list, private_inputs_offset, a, b, c)
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+        #[test]
+        fn test_example() {
+//            let (_, next_location, alias) =
+//                resolve(&Some(String::from("./src")), &String::from("./lib.rs")).unwrap();
+//            assert_eq!(next_location, String::from("./src"));
+//            assert_eq!(alias, String::from("lib"));
+        }
+}
+
+
