@@ -1,33 +1,29 @@
 use crate::absy;
+use crate::typed_absy::Identifier;
 use crate::types::Type;
 use std::fmt;
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Hash, Eq)]
-pub struct Variable {
-    pub id: String,
+#[derive(Clone, PartialEq, Hash, Eq)]
+pub struct Variable<'ast> {
+    pub id: Identifier<'ast>,
     pub _type: Type,
 }
 
-impl Variable {
-    pub fn field_element<S: Into<String>>(id: S) -> Variable {
-        Variable {
-            id: id.into(),
-            _type: Type::FieldElement,
-        }
+impl<'ast> Variable<'ast> {
+    pub fn field_element(id: Identifier<'ast>) -> Variable<'ast> {
+        Self::with_id_and_type(id, Type::FieldElement)
     }
 
-    pub fn boolean<S: Into<String>>(id: S) -> Variable {
-        Variable {
-            id: id.into(),
-            _type: Type::Boolean,
-        }
+    pub fn boolean(id: Identifier<'ast>) -> Variable<'ast> {
+        Self::with_id_and_type(id, Type::Boolean)
     }
 
-    pub fn field_array<S: Into<String>>(id: S, size: usize) -> Variable {
-        Variable {
-            id: id.into(),
-            _type: Type::FieldElementArray(size),
-        }
+    pub fn field_array(id: Identifier<'ast>, size: usize) -> Variable<'ast> {
+        Self::with_id_and_type(id, Type::FieldElementArray(size))
+    }
+
+    pub fn with_id_and_type(id: Identifier<'ast>, _type: Type) -> Variable<'ast> {
+        Variable { id, _type }
     }
 
     pub fn get_type(&self) -> Type {
@@ -35,23 +31,26 @@ impl Variable {
     }
 }
 
-impl fmt::Display for Variable {
+impl<'ast> fmt::Display for Variable<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} {}", self._type, self.id,)
     }
 }
 
-impl fmt::Debug for Variable {
+impl<'ast> fmt::Debug for Variable<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Variable(type: {:?}, id: {:?})", self._type, self.id,)
     }
 }
 
-impl<'ast> From<absy::Variable<'ast>> for Variable {
+impl<'ast> From<absy::Variable<'ast>> for Variable<'ast> {
     fn from(v: absy::Variable) -> Variable {
-        Variable {
-            id: v.id.to_string(),
-            _type: v._type,
-        }
+        Variable::with_id_and_type(
+            Identifier {
+                id: v.id,
+                version: 0,
+            },
+            v._type,
+        )
     }
 }

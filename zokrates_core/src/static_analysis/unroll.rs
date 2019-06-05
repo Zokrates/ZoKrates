@@ -10,27 +10,27 @@ use crate::types::Type;
 use std::collections::HashMap;
 use zokrates_field::field::Field;
 
-pub struct Unroller {
-    substitution: HashMap<String, usize>,
+pub struct Unroller<'ast> {
+    substitution: HashMap<Identifier<'ast>, usize>,
 }
 
-impl Unroller {
+impl<'ast> Unroller<'ast> {
     fn new() -> Self {
         Unroller {
             substitution: HashMap::new(),
         }
     }
 
-    fn issue_next_ssa_variable(&mut self, v: Variable) -> Variable {
+    fn issue_next_ssa_variable(&mut self, v: Variable<'ast>) -> Variable<'ast> {
         let res = match self.substitution.get(&v.id) {
             Some(i) => Variable {
-                id: format!("{}_{}", v.id, i + 1),
+                id: Identifier {
+                    id: v.id.id,
+                    version: i + 1,
+                },
                 ..v
             },
-            None => Variable {
-                id: format!("{}_{}", v.id, 0),
-                ..v
-            },
+            None => Variable { ..v },
         };
         self.substitution
             .entry(v.id)
@@ -44,8 +44,8 @@ impl Unroller {
     }
 }
 
-impl<T: Field> Folder<T> for Unroller {
-    fn fold_statement(&mut self, s: TypedStatement<T>) -> Vec<TypedStatement<T>> {
+impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
+    fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
         match s {
             TypedStatement::Declaration(_) => vec![],
             TypedStatement::Definition(TypedAssignee::Identifier(variable), expr) => {
@@ -156,7 +156,7 @@ impl<T: Field> Folder<T> for Unroller {
         }
     }
 
-    fn fold_function(&mut self, f: TypedFunction<T>) -> TypedFunction<T> {
+    fn fold_function(&mut self, f: TypedFunction<'ast, T>) -> TypedFunction<'ast, T> {
         self.substitution = HashMap::new();
         for arg in &f.arguments {
             self.substitution.insert(arg.id.id.clone(), 0);
@@ -165,8 +165,11 @@ impl<T: Field> Folder<T> for Unroller {
         fold_function(self, f)
     }
 
-    fn fold_name(&mut self, n: String) -> String {
-        format!("{}_{}", n, self.substitution.get(&n).unwrap())
+    fn fold_name(&mut self, n: Identifier<'ast>) -> Identifier<'ast> {
+        Identifier {
+            version: self.substitution.get(&n).unwrap_or(&0).clone(),
+            ..n
+        }
     }
 }
 
