@@ -477,7 +477,19 @@ fn cli() -> Result<(), String> {
                 println!("{}", proof_object["inputs"]);
                 println!();
                 println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            }
+            } else if format == String::from("testingV1") {
+                //used by testing pipeline to generate arguments for contract call
+                for (_key, value) in proof_object["proof"].as_object().unwrap().iter() {
+                    print!("{}", value);
+                    print!(",");
+                }
+                println!("{}", proof_object["inputs"]);
+            } else if format == String::from("testingV2") {
+                //used by testing pipeline to generate arguments for contract call
+                print!("{}", proof_object["proof"]);
+                print!(",");
+                println!("{}", proof_object["inputs"]);
+            } 
         }
         _ => unreachable!(),
     }
