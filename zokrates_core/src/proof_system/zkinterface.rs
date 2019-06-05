@@ -346,6 +346,11 @@ pub fn r1cs_program<T: Field>(
 }
 
 
+// tests:
+// 1. write_r1cs
+// 2. convert_linear_combination
+// 3. write_assignment
+// 4. write_circuit
 #[cfg(test)]
 mod tests {
     use super::*;
