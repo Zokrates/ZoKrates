@@ -27,10 +27,11 @@ impl<'ast> Unroller<'ast> {
                 id: Identifier {
                     id: v.id.id,
                     version: i + 1,
+                    stack: vec![],
                 },
                 ..v
             },
-            None => Variable { ..v },
+            None => Variable { ..v.clone() },
         };
         self.substitution
             .entry(v.id)

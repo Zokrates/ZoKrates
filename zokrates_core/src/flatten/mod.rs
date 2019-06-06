@@ -47,7 +47,7 @@ impl<'ast> Flattener<'ast> {
 
         // Load IfElse helper
         let ie = TypedFunction {
-            id: "_if_else_field".to_string(),
+            id: "_if_else_field",
             arguments: vec![
                 Parameter {
                     id: Variable {
@@ -1230,7 +1230,7 @@ impl<'ast> Flattener<'ast> {
         }
 
         FlatFunction {
-            id: funct.id.clone(),
+            id: funct.id.to_string(),
             arguments: arguments_flattened,
             statements: statements_flattened,
             signature: funct.signature,
@@ -1272,7 +1272,7 @@ impl<'ast> Flattener<'ast> {
             Type::FieldElementArray(size) => self.issue_new_variables(size),
         };
 
-        self.layout.insert(variable.id, vars.clone());
+        self.layout.insert(variable.id.clone(), vars.clone());
         vars
     }
 
@@ -1398,7 +1398,7 @@ mod tests {
         );
 
         let fun = TypedFunction {
-            id: String::from("main"),
+            id: "main",
             arguments: vec![],
             statements: vec![statement],
             signature: Signature {
@@ -1473,7 +1473,7 @@ mod tests {
         let mut functions_flattened = vec![];
 
         let funct = TypedFunction {
-            id: "foo".to_string(),
+            id: "foo",
             signature: Signature::new()
                 .inputs(vec![Type::FieldElement])
                 .outputs(vec![Type::FieldElement]),
@@ -1523,7 +1523,7 @@ mod tests {
         //     return foo()
 
         let foo = TypedFunction {
-            id: String::from("foo"),
+            id: "foo",
             arguments: vec![],
             statements: vec![
                 TypedStatement::Definition(
@@ -1539,7 +1539,7 @@ mod tests {
         };
 
         let main = TypedFunction {
-            id: String::from("main"),
+            id: "main",
             arguments: vec![],
             statements: vec![TypedStatement::Return(vec![
                 FieldElementExpression::FunctionCall(String::from("foo"), vec![]).into(),
@@ -1589,7 +1589,7 @@ mod tests {
         //     return _3
 
         let function = TypedFunction {
-            id: String::from("main"),
+            id: "main",
             arguments: vec![],
             statements: vec![
                 TypedStatement::Definition(
@@ -1672,7 +1672,7 @@ mod tests {
         let mut flattener = Flattener::new();
         let functions = vec![
             TypedFunction {
-                id: "foo".to_string(),
+                id: "foo",
                 arguments: vec![],
                 statements: vec![TypedStatement::Return(vec![TypedExpression::FieldElement(
                     FieldElementExpression::Number(FieldPrime::from(1)),
@@ -1682,7 +1682,7 @@ mod tests {
                     .outputs(vec![Type::FieldElement]),
             },
             TypedFunction {
-                id: "foo".to_string(),
+                id: "foo",
                 arguments: vec![],
                 statements: vec![TypedStatement::Return(vec![
                     TypedExpression::FieldElement(FieldElementExpression::Number(
@@ -1697,7 +1697,7 @@ mod tests {
                     .outputs(vec![Type::FieldElement, Type::FieldElement]),
             },
             TypedFunction {
-                id: "main".to_string(),
+                id: "main",
                 arguments: vec![],
                 statements: vec![
                     TypedStatement::Definition(

@@ -279,7 +279,7 @@ impl<'ast> Checker<'ast> {
         }
 
         Ok(TypedFunction {
-            id: funct.id.to_string(),
+            id: funct.id,
             arguments: funct
                 .arguments
                 .iter()

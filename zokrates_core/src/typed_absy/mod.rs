@@ -21,21 +21,38 @@ use zokrates_field::field::Field;
 
 pub use self::folder::Folder;
 
-#[derive(Debug, PartialEq, Clone, Hash, Eq, Copy)]
+#[derive(Debug, PartialEq, Clone, Hash, Eq)]
 pub struct Identifier<'ast> {
     pub id: &'ast str,
     pub version: usize,
+    pub stack: Vec<(&'ast str, Signature, usize)>,
 }
+
+pub type FunctionIdentifier<'ast> = &'ast str;
 
 impl<'ast> fmt::Display for Identifier<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}_{}", self.id, self.version)
+        write!(
+            f,
+            "{}_{}_{}",
+            self.stack
+                .iter()
+                .map(|(name, sig, count)| format!("{}_{}_{}", name, sig.to_slug(), count))
+                .collect::<Vec<_>>()
+                .join("_"),
+            self.id,
+            self.version
+        )
     }
 }
 
 impl<'ast> From<&'ast str> for Identifier<'ast> {
     fn from(id: &'ast str) -> Identifier<'ast> {
-        Identifier { id, version: 0 }
+        Identifier {
+            id,
+            version: 0,
+            stack: vec![],
+        }
     }
 }
 
@@ -107,7 +124,7 @@ impl<'ast, T: Field> fmt::Debug for TypedProg<'ast, T> {
 #[derive(Clone, PartialEq)]
 pub struct TypedFunction<'ast, T: Field> {
     /// Name of the program
-    pub id: String,
+    pub id: FunctionIdentifier<'ast>,
     /// Arguments of the function
     pub arguments: Vec<Parameter<'ast>>,
     /// Vector of statements that are executed when running the function

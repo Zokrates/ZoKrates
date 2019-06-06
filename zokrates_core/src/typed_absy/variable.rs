@@ -49,6 +49,7 @@ impl<'ast> From<absy::Variable<'ast>> for Variable<'ast> {
             Identifier {
                 id: v.id,
                 version: 0,
+                stack: vec![],
             },
             v._type,
         )
