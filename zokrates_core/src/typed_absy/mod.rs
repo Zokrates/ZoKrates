@@ -39,6 +39,14 @@ impl<'ast> From<&'ast str> for Identifier<'ast> {
     }
 }
 
+#[cfg(test)]
+impl<'ast> Identifier<'ast> {
+    pub fn version(mut self, version: usize) -> Self {
+        self.version = version;
+        self
+    }
+}
+
 #[derive(Clone, PartialEq)]
 pub struct TypedProg<'ast, T: Field> {
     /// Functions of the program

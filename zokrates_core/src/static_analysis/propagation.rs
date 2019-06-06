@@ -601,9 +601,9 @@ mod tests {
                 // a[1] = 42
                 // // constants should store [21, 42]
 
-                let declaration = TypedStatement::Declaration(Variable::field_array("a", 2));
+                let declaration = TypedStatement::Declaration(Variable::field_array("a".into(), 2));
                 let definition = TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_array("a", 2)),
+                    TypedAssignee::Identifier(Variable::field_array("a".into(), 2)),
                     FieldElementArrayExpression::Value(
                         2,
                         vec![
@@ -615,7 +615,7 @@ mod tests {
                 );
                 let overwrite = TypedStatement::Definition(
                     TypedAssignee::ArrayElement(
-                        box TypedAssignee::Identifier(Variable::field_array("a", 2)),
+                        box TypedAssignee::Identifier(Variable::field_array("a".into(), 2)),
                         box FieldElementExpression::Number(FieldPrime::from(1)),
                     ),
                     FieldElementExpression::Number(FieldPrime::from(42)).into(),
@@ -637,7 +637,10 @@ mod tests {
 
                 assert_eq!(
                     p.constants
-                        .get(&TypedAssignee::Identifier(Variable::field_array("a", 2)))
+                        .get(&TypedAssignee::Identifier(Variable::field_array(
+                            "a".into(),
+                            2
+                        )))
                         .unwrap(),
                     &expected_value
                 );
@@ -655,7 +658,10 @@ mod tests {
 
                 assert_eq!(
                     p.constants
-                        .get(&TypedAssignee::Identifier(Variable::field_array("a", 2)))
+                        .get(&TypedAssignee::Identifier(Variable::field_array(
+                            "a".into(),
+                            2
+                        )))
                         .unwrap(),
                     &expected_value
                 );
@@ -671,11 +677,11 @@ mod tests {
                 // a[1] = 42
                 // // constants should store nothing
 
-                let declaration = TypedStatement::Declaration(Variable::field_array("a", 2));
+                let declaration = TypedStatement::Declaration(Variable::field_array("a".into(), 2));
 
                 let overwrite = TypedStatement::Definition(
                     TypedAssignee::ArrayElement(
-                        box TypedAssignee::Identifier(Variable::field_array("a", 2)),
+                        box TypedAssignee::Identifier(Variable::field_array("a".into(), 2)),
                         box FieldElementExpression::Number(FieldPrime::from(1)),
                     ),
                     FieldElementExpression::Number(FieldPrime::from(42)).into(),
@@ -688,7 +694,10 @@ mod tests {
 
                 assert_eq!(
                     p.constants
-                        .get(&TypedAssignee::Identifier(Variable::field_array("a", 2))),
+                        .get(&TypedAssignee::Identifier(Variable::field_array(
+                            "a".into(),
+                            2
+                        ))),
                     None
                 );
             }
