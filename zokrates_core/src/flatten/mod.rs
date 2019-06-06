@@ -40,71 +40,69 @@ impl<'ast> Flattener<'ast> {
         }
     }
 
-    // /// Loads the code library
-    // fn load_corelib<T: Field>(&mut self, functions_flattened: &mut Vec<FlatFunction<T>>) -> () {
-    //     // Load type casting functions
-    //     functions_flattened.push(cast(&Type::Boolean, &Type::FieldElement));
+    /// Loads the code library
+    fn load_corelib<T: Field>(&mut self, functions_flattened: &mut Vec<FlatFunction<T>>) -> () {
+        // Load type casting functions
+        functions_flattened.push(cast(&Type::Boolean, &Type::FieldElement));
 
-    //     // Load IfElse helper
-    //     let ie = TypedFunction {
-    //         id: "_if_else_field".to_string(),
-    //         arguments: vec![
-    //             Parameter {
-    //                 id: Variable {
-    //                     id: "condition".to_string(),
-    //                     _type: Type::Boolean,
-    //                 },
-    //                 private: true,
-    //             },
-    //             Parameter {
-    //                 id: Variable {
-    //                     id: "consequence".to_string(),
-    //                     _type: Type::FieldElement,
-    //                 },
-    //                 private: true,
-    //             },
-    //             Parameter {
-    //                 id: Variable {
-    //                     id: "alternative".to_string(),
-    //                     _type: Type::FieldElement,
-    //                 },
-    //                 private: true,
-    //             },
-    //         ],
-    //         statements: vec![
-    //             TypedStatement::Definition(
-    //                 TypedAssignee::Identifier(Variable::field_element("condition_as_field")),
-    //                 FieldElementExpression::FunctionCall(
-    //                     "_bool_to_field".to_string(),
-    //                     vec![BooleanExpression::Identifier("condition".to_string()).into()],
-    //                 )
-    //                 .into(),
-    //             ),
-    //             TypedStatement::Return(vec![FieldElementExpression::Add(
-    //                 box FieldElementExpression::Mult(
-    //                     box FieldElementExpression::Identifier("condition_as_field".to_string()),
-    //                     box FieldElementExpression::Identifier("consequence".to_string()),
-    //                 ),
-    //                 box FieldElementExpression::Mult(
-    //                     box FieldElementExpression::Sub(
-    //                         box FieldElementExpression::Number(T::one()),
-    //                         box FieldElementExpression::Identifier(
-    //                             "condition_as_field".to_string(),
-    //                         ),
-    //                     ),
-    //                     box FieldElementExpression::Identifier("alternative".to_string()),
-    //                 ),
-    //             )
-    //             .into()]),
-    //         ],
-    //         signature: Signature::new()
-    //             .inputs(vec![Type::Boolean, Type::FieldElement, Type::FieldElement])
-    //             .outputs(vec![Type::FieldElement]),
-    //     };
+        // Load IfElse helper
+        let ie = TypedFunction {
+            id: "_if_else_field".to_string(),
+            arguments: vec![
+                Parameter {
+                    id: Variable {
+                        id: "condition".into(),
+                        _type: Type::Boolean,
+                    },
+                    private: true,
+                },
+                Parameter {
+                    id: Variable {
+                        id: "consequence".into(),
+                        _type: Type::FieldElement,
+                    },
+                    private: true,
+                },
+                Parameter {
+                    id: Variable {
+                        id: "alternative".into(),
+                        _type: Type::FieldElement,
+                    },
+                    private: true,
+                },
+            ],
+            statements: vec![
+                TypedStatement::Definition(
+                    TypedAssignee::Identifier(Variable::field_element("condition_as_field".into())),
+                    FieldElementExpression::FunctionCall(
+                        "_bool_to_field".to_string(),
+                        vec![BooleanExpression::Identifier("condition".into()).into()],
+                    )
+                    .into(),
+                ),
+                TypedStatement::Return(vec![FieldElementExpression::Add(
+                    box FieldElementExpression::Mult(
+                        box FieldElementExpression::Identifier("condition_as_field".into()),
+                        box FieldElementExpression::Identifier("consequence".into()),
+                    ),
+                    box FieldElementExpression::Mult(
+                        box FieldElementExpression::Sub(
+                            box FieldElementExpression::Number(T::one()),
+                            box FieldElementExpression::Identifier("condition_as_field".into()),
+                        ),
+                        box FieldElementExpression::Identifier("alternative".into()),
+                    ),
+                )
+                .into()]),
+            ],
+            signature: Signature::new()
+                .inputs(vec![Type::Boolean, Type::FieldElement, Type::FieldElement])
+                .outputs(vec![Type::FieldElement]),
+        };
 
-    //     let ief = self.flatten_function(functions_flattened, ie);
-    //     functions_flattened.push(ief);
-    // }
+        let ief = self.flatten_function(functions_flattened, ie);
+        functions_flattened.push(ief);
+    }
 
     /// Flattens a boolean expression
     ///
@@ -804,7 +802,9 @@ impl<'ast> Flattener<'ast> {
                                     box match array.clone() {
                                         FieldElementArrayExpression::Identifier(size, id) => {
                                             FieldElementExpression::Select(
-                                                box FieldElementArrayExpression::Identifier(size, id),
+                                                box FieldElementArrayExpression::Identifier(
+                                                    size, id,
+                                                ),
                                                 box FieldElementExpression::Number(T::from(i)),
                                             )
                                         }
@@ -1245,7 +1245,7 @@ impl<'ast> Flattener<'ast> {
     fn flatten_program<T: Field>(&mut self, prog: TypedProg<'ast, T>) -> FlatProg<T> {
         let mut functions_flattened = Vec::new();
 
-        //self.load_corelib(&mut functions_flattened);
+        self.load_corelib(&mut functions_flattened);
 
         for func in prog.imported_functions {
             functions_flattened.push(func);
@@ -1286,18 +1286,11 @@ impl<'ast> Flattener<'ast> {
             .collect()
     }
 
+    // create an internal variable. We do not register it in the layout
     fn use_sym(&mut self) -> FlatVariable {
-        unimplemented!()
-        // let name = format!("sym_{}", self.next_var_idx);
-        // let var = self.issue_new_variable();
-        // self.layout.insert(&name, var);
-        // var
+        let var = self.issue_new_variables(1);
+        var[0]
     }
-
-    // fn get_latest_var_substitution(&mut self, name: &Identifier<'ast>) -> FlatVariable {
-    //     // start with the variable name
-    //     self.layout.get(name).unwrap().clone()
-    // }
 
     fn get_function<'a, T: Field>(
         &self,
