@@ -28,9 +28,7 @@ impl<'ast, T: Field> Analyse for TypedProg<'ast, T> {
     fn analyse(self) -> Self {
         let r = PowerChecker::check(self);
         // unroll
-        println!("{}", r);
         let r = Unroller::unroll(r);
-        println!("{}", r);
         //propagate a first time for constants to reach function calls
         let r = Propagator::propagate(r);
         // apply inlining strategy
