@@ -132,10 +132,8 @@ pub struct Checker<'ast> {
 
 impl<'ast> Checker<'ast> {
     fn new() -> Checker<'ast> {
-        let scope = HashSet::new();
-
         Checker {
-            scope: scope,
+            scope: HashSet::new(),
             functions: HashSet::new(),
             level: 0,
         }
@@ -282,11 +280,11 @@ impl<'ast> Checker<'ast> {
             id: funct.id,
             arguments: funct
                 .arguments
-                .iter()
-                .map(|a| a.value.clone().into())
+                .into_iter()
+                .map(|a| a.value.into())
                 .collect(),
             statements: statements_checked,
-            signature: funct.signature.clone(),
+            signature: funct.signature,
         })
     }
 
@@ -298,9 +296,9 @@ impl<'ast> Checker<'ast> {
         let pos = stat.pos();
 
         match stat.value {
-            Statement::Return(ref list) => {
+            Statement::Return(list) => {
                 let mut expression_list_checked = vec![];
-                for e in list.value.expressions.clone() {
+                for e in list.value.expressions {
                     let e_checked = self.check_expression(e)?;
                     expression_list_checked.push(e_checked);
                 }
@@ -330,8 +328,8 @@ impl<'ast> Checker<'ast> {
                     }),
                 }
             }
-            Statement::Declaration(ref var) => match self.insert_scope(var.clone().value) {
-                true => Ok(TypedStatement::Declaration(var.value.clone().into())),
+            Statement::Declaration(var) => match self.insert_scope(var.clone().value) {
+                true => Ok(TypedStatement::Declaration(var.value.into())),
                 false => Err(Error {
                     pos: Some(pos),
                     message: format!("Duplicate declaration for variable named {}", var.value.id),
@@ -371,7 +369,7 @@ impl<'ast> Checker<'ast> {
                 let checked_rhs = self.check_expression(rhs)?;
 
                 match (checked_lhs.clone(), checked_rhs.clone()) {
-                    (ref r, ref l) if r.get_type() == l.get_type() => {
+                    (ref l, ref r) if r.get_type() == l.get_type() => {
                         Ok(TypedStatement::Condition(checked_lhs, checked_rhs))
                     }
                     (e1, e2) => Err(Error {
@@ -402,9 +400,9 @@ impl<'ast> Checker<'ast> {
 
                 self.exit_scope();
                 Ok(TypedStatement::For(
-                    var.value.clone().into(),
-                    from.clone(),
-                    to.clone(),
+                    var.value.into(),
+                    from,
+                    to,
                     checked_statements,
                 ))
             }
@@ -676,7 +674,7 @@ impl<'ast> Checker<'ast> {
                     }),
                 }
             }
-            Expression::Number(ref n) => Ok(FieldElementExpression::Number(n.clone()).into()),
+            Expression::Number(n) => Ok(FieldElementExpression::Number(n).into()),
             Expression::FunctionCall(fun_id, arguments) => {
                 // check the arguments
                 let mut arguments_checked = vec![];
@@ -837,11 +835,10 @@ impl<'ast> Checker<'ast> {
             Expression::Select(box array, box index) => {
                 let array = self.check_expression(array)?;
                 let index = self.check_expression(index)?;
-                match (array.clone(), index.clone()) {
-                    (
-                        TypedExpression::FieldElementArray(ref a),
-                        TypedExpression::FieldElement(ref i),
-                    ) => Ok(FieldElementExpression::Select(box a.clone(), box i.clone()).into()),
+                match (array, index) {
+                    (TypedExpression::FieldElementArray(a), TypedExpression::FieldElement(i)) => {
+                        Ok(FieldElementExpression::Select(box a, box i).into())
+                    }
                     (a, e) => Err(Error {
                         pos: Some(pos),
                         message: format!(
@@ -948,7 +945,7 @@ impl<'ast> Checker<'ast> {
 
     fn get_scope(&self, variable_name: &Identifier<'ast>) -> Option<&ScopedVariable> {
         self.scope.get(&ScopedVariable {
-            id: Variable::new(variable_name.clone(), Type::FieldElement),
+            id: Variable::new(*variable_name, Type::FieldElement),
             level: 0,
         })
     }
