@@ -33,7 +33,6 @@ impl<'ast, T: Field> Analyse for TypedProg<'ast, T> {
         let r = Propagator::propagate(r);
         // apply inlining strategy
         let r = Inliner::inline(r);
-        println!("{}", r);
         // Propagate again
         let r = Propagator::propagate(r);
         // remove unused functions
