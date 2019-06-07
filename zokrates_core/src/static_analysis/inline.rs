@@ -5,14 +5,14 @@ use crate::types::{Signature, Type};
 use std::collections::HashMap;
 use zokrates_field::field::Field;
 
-pub struct Inliner<T: Field> {
-    functions: Vec<TypedFunction<T>>,
-    statements_buffer: Vec<TypedStatement<T>>,
-    context: Vec<(String, usize)>,
+pub struct Inliner<'ast, T: Field> {
+    functions: Vec<TypedFunction<'ast, T>>,
+    statements_buffer: Vec<TypedStatement<'ast, T>>,
+    context: Vec<(&'ast str, Signature, usize)>,
     call_count: HashMap<String, usize>,
 }
 
-impl<T: Field> Inliner<T> {
+impl<'ast, T: Field> Inliner<'ast, T> {
     pub fn new() -> Self {
         Inliner {
             functions: vec![],
@@ -53,15 +53,16 @@ impl<T: Field> Inliner<T> {
     // this function mutates `self.call` by incrementing the counter for `function`, and mutates `self.context`
     fn inline_call(
         &mut self,
-        function: &TypedFunction<T>,
-        expressions: Vec<TypedExpression<T>>,
-    ) -> Vec<TypedExpression<T>> {
+        function: TypedFunction<'ast, T>,
+        expressions: Vec<TypedExpression<'ast, T>>,
+    ) -> Vec<TypedExpression<'ast, T>> {
         self.call_count
             .entry(function.to_slug())
             .and_modify(|i| *i += 1)
             .or_insert(1);
         self.context.push((
-            function.to_slug(),
+            function.id.clone(),
+            function.signature.clone(),
             *self.call_count.get(&function.to_slug()).unwrap(),
         ));
 
@@ -107,15 +108,15 @@ impl<T: Field> Inliner<T> {
     }
 }
 
-impl<T: Field> Folder<T> for Inliner<T> {
+impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
     // store the list of functions
-    fn fold_program(&mut self, p: TypedProg<T>) -> TypedProg<T> {
+    fn fold_program(&mut self, p: TypedProg<'ast, T>) -> TypedProg<'ast, T> {
         self.functions = p.functions.clone();
         fold_program(self, p)
     }
 
     // add extra statements before the modified statement
-    fn fold_statement(&mut self, s: TypedStatement<T>) -> Vec<TypedStatement<T>> {
+    fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
         let mut statements = match s {
             TypedStatement::MultipleDefinition(variables, elist) => {
                 match elist {
@@ -140,7 +141,7 @@ impl<T: Field> Folder<T> for Inliner<T> {
 
                         match self.should_inline(&function, &exps) {
                             true => {
-                                let ret = self.inline_call(&function.unwrap(), exps);
+                                let ret = self.inline_call(function.unwrap(), exps);
                                 variables
                                     .into_iter()
                                     .zip(ret.into_iter())
@@ -167,23 +168,18 @@ impl<T: Field> Folder<T> for Inliner<T> {
     }
 
     // prefix all names with the context
-    fn fold_name(&mut self, n: String) -> String {
-        match self.context.len() {
-            0 => n,
-            _ => format!(
-                "{}_{}",
-                self.context
-                    .iter()
-                    .map(|(s, i)| format!("{}_{}", s, i))
-                    .collect::<Vec<_>>()
-                    .join("_"),
-                n
-            ),
+    fn fold_name(&mut self, n: Identifier<'ast>) -> Identifier<'ast> {
+        Identifier {
+            stack: self.context.clone(),
+            ..n
         }
     }
 
     // inline calls which return a field element
-    fn fold_field_expression(&mut self, e: FieldElementExpression<T>) -> FieldElementExpression<T> {
+    fn fold_field_expression(
+        &mut self,
+        e: FieldElementExpression<'ast, T>,
+    ) -> FieldElementExpression<'ast, T> {
         match e {
             FieldElementExpression::FunctionCall(id, exps) => {
                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
@@ -201,7 +197,7 @@ impl<T: Field> Folder<T> for Inliner<T> {
 
                 match self.should_inline(&function, &exps) {
                     true => {
-                        let ret = self.inline_call(&function.unwrap(), exps);
+                        let ret = self.inline_call(function.unwrap(), exps);
                         // unwrap the result to return a field element
                         match ret[0].clone() {
                             TypedExpression::FieldElement(e) => e,
@@ -219,8 +215,8 @@ impl<T: Field> Folder<T> for Inliner<T> {
     // inline calls which return a field element array
     fn fold_field_array_expression(
         &mut self,
-        e: FieldElementArrayExpression<T>,
-    ) -> FieldElementArrayExpression<T> {
+        e: FieldElementArrayExpression<'ast, T>,
+    ) -> FieldElementArrayExpression<'ast, T> {
         match e {
             FieldElementArrayExpression::FunctionCall(size, id, exps) => {
                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
@@ -238,7 +234,7 @@ impl<T: Field> Folder<T> for Inliner<T> {
 
                 match self.should_inline(&function, &exps) {
                     true => {
-                        let ret = self.inline_call(&function.unwrap(), exps);
+                        let ret = self.inline_call(function.unwrap(), exps);
                         // unwrap the result to return a field element
                         match ret[0].clone() {
                             TypedExpression::FieldElementArray(e) => e,
@@ -266,15 +262,15 @@ mod tests {
         #[test]
         fn inline_constant_field() {
             let f: TypedFunction<FieldPrime> = TypedFunction {
-                id: String::from("foo"),
+                id: "foo",
                 arguments: vec![
-                    Parameter::private(Variable::field_element("a")),
-                    Parameter::private(Variable::field_array("b", 3)),
+                    Parameter::private(Variable::field_element("a".into())),
+                    Parameter::private(Variable::field_array("b".into(), 3)),
                 ],
                 statements: vec![TypedStatement::Return(vec![
                     FieldElementExpression::Select(
-                        box FieldElementArrayExpression::Identifier(3, String::from("b")),
-                        box FieldElementExpression::Identifier(String::from("a")),
+                        box FieldElementArrayExpression::Identifier(3, Identifier::from("b")),
+                        box FieldElementExpression::Identifier(Identifier::from("a")),
                     )
                     .into(),
                 ])],
@@ -285,7 +281,7 @@ mod tests {
 
             let arguments = vec![
                 FieldElementExpression::Number(FieldPrime::from(0)).into(),
-                FieldElementArrayExpression::Identifier(3, String::from("random")).into(),
+                FieldElementArrayExpression::Identifier(3, Identifier::from("random")).into(),
             ];
 
             let i = Inliner::new();
@@ -296,15 +292,15 @@ mod tests {
         #[test]
         fn no_inline_non_constant_field() {
             let f: TypedFunction<FieldPrime> = TypedFunction {
-                id: String::from("foo"),
+                id: "foo",
                 arguments: vec![
-                    Parameter::private(Variable::field_element("a")),
-                    Parameter::private(Variable::field_array("b", 3)),
+                    Parameter::private(Variable::field_element("a".into())),
+                    Parameter::private(Variable::field_array("b".into(), 3)),
                 ],
                 statements: vec![TypedStatement::Return(vec![
                     FieldElementExpression::Select(
-                        box FieldElementArrayExpression::Identifier(3, String::from("b")),
-                        box FieldElementExpression::Identifier(String::from("a")),
+                        box FieldElementArrayExpression::Identifier(3, Identifier::from("b")),
+                        box FieldElementExpression::Identifier(Identifier::from("a")),
                     )
                     .into(),
                 ])],
@@ -314,8 +310,8 @@ mod tests {
             };
 
             let arguments = vec![
-                FieldElementExpression::Identifier(String::from("notconstant")).into(),
-                FieldElementArrayExpression::Identifier(3, String::from("random")).into(),
+                FieldElementExpression::Identifier(Identifier::from("notconstant")).into(),
+                FieldElementArrayExpression::Identifier(3, Identifier::from("random")).into(),
             ];
 
             let i = Inliner::new();

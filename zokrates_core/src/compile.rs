@@ -150,16 +150,14 @@ pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     )?;
 
     // check semantics
-    let typed_ast = Checker::new()
-        .check_program(program_ast)
-        .map_err(|errors| {
-            CompileErrors(
-                errors
-                    .into_iter()
-                    .map(|e| CompileErrorInner::from(e).with_context(&location))
-                    .collect(),
-            )
-        })?;
+    let typed_ast = Checker::check(program_ast).map_err(|errors| {
+        CompileErrors(
+            errors
+                .into_iter()
+                .map(|e| CompileErrorInner::from(e).with_context(&location))
+                .collect(),
+        )
+    })?;
 
     // analyse (unroll and constant propagation)
     let typed_ast = typed_ast.analyse();
