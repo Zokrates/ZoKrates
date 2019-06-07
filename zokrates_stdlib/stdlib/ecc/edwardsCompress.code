@@ -1,0 +1,19 @@
+import "utils/pack/unpack256.code" as unpack256
+// Compress JubJub Curve Point to 256bit array using big endianness bit order
+// Python reference code from pycrypto:
+// def compress(self):
+// 	x = self.x.n
+// 	y = self.y.n
+// 	return int.to_bytes(y | ((x & 1) << 255), 32, "big")
+
+def main(field[2] pt, field[10] context)  -> (field[256]):
+	field x = pt[0]
+	field y = pt[1]
+
+	field[256] xBits = unpack256(x)
+	field[256] yBits = unpack256(y)
+
+	field sign = if xBits[255] == 1 then 1 else 0 fi
+	yBits[0] = sign
+
+	return yBits
