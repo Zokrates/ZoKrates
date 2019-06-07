@@ -8,7 +8,6 @@ extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
 extern crate bellman;
-extern crate bimap;
 extern crate bincode;
 extern crate ff;
 extern crate lazy_static;

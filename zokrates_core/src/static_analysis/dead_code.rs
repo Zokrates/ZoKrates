@@ -21,8 +21,8 @@ impl DeadCode {
     }
 }
 
-impl<T: Field> Folder<T> for DeadCode {
-    fn fold_program(&mut self, p: TypedProg<T>) -> TypedProg<T> {
+impl<'ast, T: Field> Folder<'ast, T> for DeadCode {
+    fn fold_program(&mut self, p: TypedProg<'ast, T>) -> TypedProg<'ast, T> {
         let p = fold_program(self, p);
         // only keep functions which are being called, or `main`
 
@@ -37,7 +37,7 @@ impl<T: Field> Folder<T> for DeadCode {
     }
 
     // add extra statements before the modified statement
-    fn fold_statement(&mut self, s: TypedStatement<T>) -> Vec<TypedStatement<T>> {
+    fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
         match s {
             TypedStatement::MultipleDefinition(variables, elist) => match elist {
                 TypedExpressionList::FunctionCall(id, exps, types) => {
@@ -59,7 +59,10 @@ impl<T: Field> Folder<T> for DeadCode {
         }
     }
 
-    fn fold_field_expression(&mut self, e: FieldElementExpression<T>) -> FieldElementExpression<T> {
+    fn fold_field_expression(
+        &mut self,
+        e: FieldElementExpression<'ast, T>,
+    ) -> FieldElementExpression<'ast, T> {
         match e {
             FieldElementExpression::FunctionCall(id, exps) => {
                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
@@ -78,8 +81,8 @@ impl<T: Field> Folder<T> for DeadCode {
 
     fn fold_field_array_expression(
         &mut self,
-        e: FieldElementArrayExpression<T>,
-    ) -> FieldElementArrayExpression<T> {
+        e: FieldElementArrayExpression<'ast, T>,
+    ) -> FieldElementArrayExpression<'ast, T> {
         match e {
             FieldElementArrayExpression::FunctionCall(size, id, exps) => {
                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
