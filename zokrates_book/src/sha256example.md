@@ -88,17 +88,17 @@ Based on that Victor can run the setup phase and export verifier smart contract 
 ./zokrates export-verifier
 ```
 
-`setup` creates a `verifiation.key` file and a `proving.key` file. Victor gives the proving key to Alice.
+`setup` creates a `verifiation.key` file and a `proving.key` file. Victor gives the proving key to Peggy.
 
 `export-verifier` creates a `verifier.sol` contract that contains our verification key and a function `verifyTx`. Victor deploys this smart contract to the Ethereum network.
 
-Alice provides the correct pre-image as an argument to the program.
+Peggy provides the correct pre-image as an argument to the program.
 
 ```sh
 ./zokrates compute-witness -a 0 0 0 5
 ```
 
-Finally, Alice can run the command to construct the proof:
+Finally, Peggy can run the command to construct the proof:
 
 ```sh
 ./zokrates generate-proof
@@ -111,18 +111,18 @@ ZoKrates creates a file, `proof.json`,  consisting of the eight variables that m
 * any public inputs to the main function, declared without the `private` keyword
 * the return values of the ZoKrates function
 
-In the example we're considering, all inputs are private and there is a single return value of `1`, hence Alice has to define her public input array as follows: `[1]`  
+In the example we're considering, all inputs are private and there is a single return value of `1`, hence Peggy has to define her public input array as follows: `[1]`  
 
-Alice can then submit her proof by calling `verifyTx`.
+Peggy can then submit her proof by calling `verifyTx`.
 
-Victor monitors the verification smart contract for the `Verified` event, which is emitted upon successful verification of a transaction. As soon as he observes the event triggered by a transaction from Alice's public address, he can be sure that Alice has a valid pre-image for the hash he set in the smart contract.
+Victor monitors the verification smart contract for the `Verified` event, which is emitted upon successful verification of a transaction. As soon as he observes the event triggered by a transaction from Peggy's public address, he can be sure that Peggy has a valid pre-image for the hash he set in the smart contract.
 
 ## Conclusion
 
 At this point, you’ve successfully ran you first zkSNARK on the Ethereum blockchain. Congratulations!  
 
->Remember that in this example only two parties were involved. This special case makes it easy to deal with the trust assumptions of zkSNARKs: only Victor was interested in verifying the claim by Alice, hence he can trust his execution of the setup phase.
+>Remember that in this example only two parties were involved. This special case makes it easy to deal with the trust assumptions of zkSNARKs: only Victor was interested in verifying the claim by Peggy, hence he can trust his execution of the setup phase.
 >
->In general, multiple parties may be interested in verifying the correctness of Alice's statement. For example, in the zero-knowledge based cryptocurrency Zcash, each node needs to be able to validate the correctness of transactions. In order to generalize the setup phase to these multi-party use-cases a tricky process, commonly referred to as “trusted setup” or "ceremony" needs to be conducted.
+>In general, multiple parties may be interested in verifying the correctness of Peggy's statement. For example, in the zero-knowledge based cryptocurrency Zcash, each node needs to be able to validate the correctness of transactions. In order to generalize the setup phase to these multi-party use-cases a tricky process, commonly referred to as “trusted setup” or "ceremony" needs to be conducted.
 >
 >ZoKrates would welcome ideas to add support for such ceremonies!
