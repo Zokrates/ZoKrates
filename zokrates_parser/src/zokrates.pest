@@ -1,12 +1,7 @@
 /** 
 * ZoKrates Grammar
-* Author: Jacob Eberhardt
+* Author: Jacob Eberhardt, Thibaut Schaeffer
 */
-
-// TODO: 
-// exclude language keywords as identifiers: DONE
-// Ignore linebreak after \
-// Doc: associativity and precedence table for operators
 
 file = { SOI ~ NEWLINE* ~ import_directive* ~ NEWLINE* ~ function_definition* ~ EOI }
 import_directive = {"import" ~ "\"" ~ import_source ~ "\"" ~ ("as" ~ identifier)? ~ NEWLINE+}

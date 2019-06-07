@@ -87,7 +87,6 @@ mod ast {
     // Precondition: `pair` MUST be a term
     fn build_factor(pair: Pair<Rule>) -> Box<Expression> {
         Box::new(match pair.as_rule() {
-            // all factors are terms TODO rename factor to term?
             Rule::term => {
                 // clone the pair to peek into what we should create
                 let clone = pair.clone();
