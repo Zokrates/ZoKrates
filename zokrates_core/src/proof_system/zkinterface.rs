@@ -36,71 +36,80 @@ impl ZkInterface {
 }
 
 impl ProofSystem for ZkInterface {
-    fn setup(&self, program: ir::Prog<FieldPrime>, pk_path: &str, vk_path: &str) {
-        // transform to R1CS
-        let (variables, first_local_id, a, b, c) = r1cs_program(program);
-        let free_variable_id = variables.len() as u64;
-
+    fn setup(&self, program: ir::Prog<FieldPrime>, pk_path: &str, _vk_path: &str) {
         let mut out_file = File::create(pk_path).unwrap();
-
-        // Write Return message including free_variable_id.
-        write_ciruit(
-            first_local_id as u64,
-            free_variable_id,
-            None,
-            true,
-            &mut out_file);
-
-        // Write R1CSConstraints message.
-        write_r1cs(&a, &b, &c, &mut out_file);
+        setup(program, &mut out_file)
     }
 
     fn generate_proof(
         &self,
         program: ir::Prog<FieldPrime>,
         witness: ir::Witness<FieldPrime>,
-        pk_path: &str,
+        _pk_path: &str,
         proof_path: &str,
     ) -> bool {
-        let (
-            public_inputs_arr,
-            private_inputs_arr,
-        ) = prepare_generate_proof(program, witness);
-
-        let first_local_id = public_inputs_arr.len() as u64;
-        let free_variable_id = first_local_id + private_inputs_arr.len() as u64;
-
         let mut out_file = File::create(proof_path).unwrap();
-
-        // Write Return message including output values.
-        write_ciruit(
-            first_local_id,
-            free_variable_id,
-            Some(&public_inputs_arr),
-            false,
-            &mut out_file);
-
-        // Write assignment to local variables.
-        write_assignment(first_local_id as u64, &private_inputs_arr, &mut out_file);
-
-        true
+        generate_proof(program, witness, &mut out_file)
     }
 
     fn export_solidity_verifier(&self, _reader: BufReader<File>) -> String {
-        format!(
-            "func export_solidity_verifier is not implemented",
-        );
-
-        return String::from("func export_solidity_verifier is not implemented");
+        "export_solidity_verifier is not implemented".to_string()
     }
 }
 
+fn setup<W: Write>(program: ir::Prog<FieldPrime>, out_file: &mut W) {
+    // transform to R1CS
+    let (variables, first_local_id, a, b, c) = r1cs_program(program);
+    let free_variable_id = variables.len() as u64;
 
-fn write_r1cs(
+    // Write Return message including free_variable_id.
+    write_ciruit(
+        first_local_id as u64,
+        free_variable_id,
+        None,
+        true,
+        out_file);
+
+    // Write R1CSConstraints message.
+    write_r1cs(&a, &b, &c, out_file);
+}
+
+fn generate_proof<W: Write>(
+    program: ir::Prog<FieldPrime>,
+    witness: ir::Witness<FieldPrime>,
+    out_file: &mut W,
+) -> bool {
+    let (
+        public_inputs_arr,
+        private_inputs_arr,
+    ) = prepare_generate_proof(program, witness);
+
+    let first_local_id = public_inputs_arr.len() as u64;
+    let free_variable_id = first_local_id + private_inputs_arr.len() as u64;
+
+    // Write Return message including output values.
+    write_ciruit(
+        first_local_id,
+        free_variable_id,
+        Some(&public_inputs_arr),
+        false,
+        out_file);
+
+    // Write assignment to local variables.
+    write_assignment(
+        first_local_id as u64,
+        &private_inputs_arr,
+        out_file);
+
+    true
+}
+
+
+fn write_r1cs<W: Write>(
     a: &Vec<Vec<(usize, FieldPrime)>>,
     b: &Vec<Vec<(usize, FieldPrime)>>,
     c: &Vec<Vec<(usize, FieldPrime)>>,
-    out_file: &mut File,
+    out_file: &mut W,
 ) {
     let mut builder = FlatBufferBuilder::new();
 
@@ -153,10 +162,10 @@ fn convert_linear_combination<'a>(builder: &mut FlatBufferBuilder<'a>, item: &Ve
     })
 }
 
-fn write_assignment(
+fn write_assignment<W: Write>(
     first_local_id: u64,
     local_values: &[FieldPrime],
-    out_file: &mut File,
+    out_file: &mut W,
 ) {
     let mut builder = &mut FlatBufferBuilder::new();
 
@@ -190,12 +199,12 @@ fn write_assignment(
 }
 
 
-fn write_ciruit(
+fn write_ciruit<W: Write>(
     first_local_id: u64,
     free_variable_id: u64,
     public_inputs: Option<&[FieldPrime]>,
     r1cs_generation: bool,
-    out_file: &mut File,
+    out_file: &mut W,
 ) {
     // Convert element representations.
     let values = public_inputs.map(|public_inputs| {
@@ -350,13 +359,80 @@ pub fn r1cs_program<T: Field>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::flat_absy::FlatVariable;
+    use crate::ir::*;
+    use zkinterface::reading::Messages;
 
     #[test]
-    fn test_example() {
-//            let (_, next_location, alias) =
-//                resolve(&Some(String::from("./src")), &String::from("./lib.rs")).unwrap();
-//            assert_eq!(next_location, String::from("./src"));
-//            assert_eq!(alias, String::from("lib"));
+    fn test_zkinterface() {
+        let program: Prog<FieldPrime> = Prog {
+            main: Function {
+                id: String::from("main"),
+                arguments: vec![FlatVariable::new(0)],
+                returns: vec![FlatVariable::public(0)],
+                statements: vec![Statement::Constraint(
+                    FlatVariable::new(0).into(),
+                    FlatVariable::public(0).into(),
+                )],
+            },
+            private: vec![false],
+        };
+
+        let witness = program
+            .clone()
+            .execute::<FieldPrime>(&vec![FieldPrime::from(42)])
+            .unwrap();
+
+        {
+            let mut buf = Vec::<u8>::new();
+
+            setup(program.clone(), &mut buf);
+
+            let mut messages = Messages::new(0);
+            messages.push_message(buf).unwrap();
+            assert_eq!(messages.into_iter().count(), 2);
+
+            let circuit = messages.last_circuit().unwrap();
+            assert_eq!(circuit.free_variable_id(), 3);
+
+            let pub_vars = messages.connection_variables().unwrap();
+            let empty = &[] as &[u8];
+            assert_eq!(pub_vars[0].id, 0);
+            assert_eq!(pub_vars[0].value, empty);
+            assert_eq!(pub_vars[1].id, 1);
+            assert_eq!(pub_vars[1].value, empty);
+            assert_eq!(pub_vars[2].id, 2);
+            assert_eq!(pub_vars[2].value, empty);
+
+            let pri_vars = messages.private_variables().unwrap();
+            assert_eq!(pri_vars.len(), 0);
+
+            assert_eq!(messages.iter_constraints().count(), 1);
+        }
+
+        {
+            let mut buf = Vec::<u8>::new();
+
+            generate_proof(program, witness, &mut buf);
+
+            let mut messages = Messages::new(0);
+            messages.push_message(buf).unwrap();
+            assert_eq!(messages.into_iter().count(), 2);
+
+            let circuit = messages.last_circuit().unwrap();
+            assert_eq!(circuit.free_variable_id(), 3);
+
+            let pub_vars = messages.connection_variables().unwrap();
+            assert_eq!(pub_vars[0].id, 0);
+            assert_eq!(pub_vars[0].value, &[1 as u8]);
+            assert_eq!(pub_vars[1].id, 1);
+            assert_eq!(pub_vars[1].value, &[42 as u8]);
+            assert_eq!(pub_vars[2].id, 2);
+            assert_eq!(pub_vars[2].value, &[42 as u8]);
+
+            let pri_vars = messages.private_variables().unwrap();
+            assert_eq!(pri_vars.len(), 0);
+        }
     }
 }
 
