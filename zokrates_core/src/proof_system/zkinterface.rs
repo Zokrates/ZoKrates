@@ -40,8 +40,8 @@ impl ProofSystem for ZkInterface {
         // transform to R1CS
         let (variables, first_local_id, a, b, c) = r1cs_program(program);
         let free_variable_id = variables.len() as u64;
-        // Write R1CSConstraints message.
-        write_r1cs(&a, &b, &c, pk_path);
+
+        let mut out_file = File::create(pk_path).unwrap();
 
         // Write Return message including free_variable_id.
         write_ciruit(
@@ -49,7 +49,10 @@ impl ProofSystem for ZkInterface {
             free_variable_id,
             None,
             true,
-            &format!("circuit_{}", pk_path));
+            &mut out_file);
+
+        // Write R1CSConstraints message.
+        write_r1cs(&a, &b, &c, &mut out_file);
     }
 
     fn generate_proof(
@@ -67,10 +70,7 @@ impl ProofSystem for ZkInterface {
         let first_local_id = public_inputs_arr.len() as u64;
         let free_variable_id = first_local_id + private_inputs_arr.len() as u64;
 
-//        println!("{:?}", program);
-
-        // Write assignment to local variables.
-        write_assignment(first_local_id as u64, &private_inputs_arr, proof_path);
+        let mut out_file = File::create(proof_path).unwrap();
 
         // Write Return message including output values.
         write_ciruit(
@@ -78,7 +78,10 @@ impl ProofSystem for ZkInterface {
             free_variable_id,
             Some(&public_inputs_arr),
             false,
-            &format!("circuit_{}", proof_path));
+            &mut out_file);
+
+        // Write assignment to local variables.
+        write_assignment(first_local_id as u64, &private_inputs_arr, &mut out_file);
 
         true
     }
@@ -97,7 +100,7 @@ fn write_r1cs(
     a: &Vec<Vec<(usize, FieldPrime)>>,
     b: &Vec<Vec<(usize, FieldPrime)>>,
     c: &Vec<Vec<(usize, FieldPrime)>>,
-    to_path: &str,
+    out_file: &mut File,
 ) {
     let mut builder = FlatBufferBuilder::new();
 
@@ -127,9 +130,7 @@ fn write_r1cs(
 
     builder.finish_size_prefixed(root, None);
 
-    println!("Writing {}", to_path);
-    let mut file = File::create(to_path).unwrap();
-    file.write_all(builder.finished_data()).unwrap();
+    out_file.write_all(builder.finished_data()).unwrap();
 }
 
 fn convert_linear_combination<'a>(builder: &mut FlatBufferBuilder<'a>, item: &Vec<(usize, FieldPrime)>) -> (WIPOffset<Variables<'a>>) {
@@ -155,7 +156,7 @@ fn convert_linear_combination<'a>(builder: &mut FlatBufferBuilder<'a>, item: &Ve
 fn write_assignment(
     first_local_id: u64,
     local_values: &[FieldPrime],
-    to_path: &str,
+    out_file: &mut File,
 ) {
     let mut builder = &mut FlatBufferBuilder::new();
 
@@ -185,9 +186,7 @@ fn write_assignment(
     });
     builder.finish_size_prefixed(message, None);
 
-    println!("Writing {}", to_path);
-    let mut file = File::create(to_path).unwrap();
-    file.write_all(builder.finished_data()).unwrap();
+    out_file.write_all(builder.finished_data()).unwrap();
 }
 
 
@@ -196,7 +195,7 @@ fn write_ciruit(
     free_variable_id: u64,
     public_inputs: Option<&[FieldPrime]>,
     r1cs_generation: bool,
-    to_path: &str,
+    out_file: &mut File,
 ) {
     // Convert element representations.
     let values = public_inputs.map(|public_inputs| {
@@ -219,9 +218,7 @@ fn write_ciruit(
         field_maximum: None,
     };
 
-    println!("Writing {}", to_path);
-    let mut file = File::create(to_path).unwrap();
-    gadget_return.write(&mut file).unwrap();
+    gadget_return.write(out_file).unwrap();
 }
 
 
