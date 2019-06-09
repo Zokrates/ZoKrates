@@ -34,24 +34,23 @@ impl ZkInterface {
         ZkInterface {}
     }
 }
+
 impl ProofSystem for ZkInterface {
     fn setup(&self, program: ir::Prog<FieldPrime>, pk_path: &str, vk_path: &str) {
-    // transform to R1CS
-    let (variables, public_variables_count, a, b, c) = r1cs_program(program);
-    let first_local_id = 1 + public_variables_count as u64;
-    let free_variable_id = variables.len() as u64;
-    // Write R1CSConstraints message.
+        // transform to R1CS
+        let (variables, first_local_id, a, b, c) = r1cs_program(program);
+        let free_variable_id = variables.len() as u64;
+        // Write R1CSConstraints message.
         write_r1cs(&a, &b, &c, pk_path);
 
         // Write Return message including free_variable_id.
         write_ciruit(
-            first_local_id,
+            first_local_id as u64,
             free_variable_id,
             None,
             true,
             &format!("circuit_{}", pk_path));
-
-}
+    }
 
     fn generate_proof(
         &self,
@@ -217,7 +216,7 @@ fn write_ciruit(
         },
         free_variable_id,
         r1cs_generation,
-        field_order: None,
+        field_maximum: None,
     };
 
     println!("Writing {}", to_path);
@@ -229,7 +228,7 @@ fn write_ciruit(
 pub fn prepare_generate_proof<T: Field>(
     program: ir::Prog<T>,
     witness: ir::Witness<T>,
-) -> (Vec<T>,Vec<T>) {
+) -> (Vec<T>, Vec<T>) {
     // recover variable order from the program
     let (variables, public_variables_count, _, _, _) = r1cs_program(program);
 
@@ -355,13 +354,13 @@ pub fn r1cs_program<T: Field>(
 mod tests {
     use super::*;
 
-        #[test]
-        fn test_example() {
+    #[test]
+    fn test_example() {
 //            let (_, next_location, alias) =
 //                resolve(&Some(String::from("./src")), &String::from("./lib.rs")).unwrap();
 //            assert_eq!(next_location, String::from("./src"));
 //            assert_eq!(alias, String::from("lib"));
-        }
+    }
 }
 
 
