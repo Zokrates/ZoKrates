@@ -1,10 +1,10 @@
 extern crate core;
 extern crate libc;
 
-use ir::{self, Statement};
-use std::collections::HashMap;
 use flat_absy::flat_variable::FlatVariable;
+use ir::{self, Statement};
 use proof_system::ProofSystem;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Write};
 use zkinterface::{
@@ -24,7 +24,6 @@ use zkinterface::{
         WitnessArgs,
     },
 };
-
 use zokrates_field::field::{Field, FieldPrime};
 
 pub struct ZkInterface {}
@@ -57,13 +56,13 @@ impl ProofSystem for ZkInterface {
     }
 }
 
-fn setup<W: Write>(program: ir::Prog<FieldPrime>, out_file: &mut W) {
+pub fn setup<W: Write>(program: ir::Prog<FieldPrime>, out_file: &mut W) {
     // transform to R1CS
     let (variables, first_local_id, a, b, c) = r1cs_program(program);
     let free_variable_id = variables.len() as u64;
 
     // Write Return message including free_variable_id.
-    write_ciruit(
+    write_circuit(
         first_local_id as u64,
         free_variable_id,
         None,
@@ -74,7 +73,7 @@ fn setup<W: Write>(program: ir::Prog<FieldPrime>, out_file: &mut W) {
     write_r1cs(&a, &b, &c, out_file);
 }
 
-fn generate_proof<W: Write>(
+pub fn generate_proof<W: Write>(
     program: ir::Prog<FieldPrime>,
     witness: ir::Witness<FieldPrime>,
     out_file: &mut W,
@@ -88,7 +87,7 @@ fn generate_proof<W: Write>(
     let free_variable_id = first_local_id + private_inputs_arr.len() as u64;
 
     // Write Return message including output values.
-    write_ciruit(
+    write_circuit(
         first_local_id,
         free_variable_id,
         Some(&public_inputs_arr),
@@ -199,7 +198,7 @@ fn write_assignment<W: Write>(
 }
 
 
-fn write_ciruit<W: Write>(
+fn write_circuit<W: Write>(
     first_local_id: u64,
     free_variable_id: u64,
     public_inputs: Option<&[FieldPrime]>,
@@ -358,9 +357,9 @@ pub fn r1cs_program<T: Field>(
 // 4. write_circuit
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::flat_absy::FlatVariable;
     use crate::ir::*;
+    use super::*;
     use zkinterface::reading::Messages;
 
     #[test]

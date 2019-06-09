@@ -1,5 +1,5 @@
 mod bn128;
-mod zkinterface;
+pub mod zkinterface;
 
 use std::fs::File;
 use zokrates_field::field::FieldPrime;
