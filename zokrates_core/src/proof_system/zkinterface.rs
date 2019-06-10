@@ -350,38 +350,25 @@ pub fn r1cs_program<T: Field>(
 }
 
 
-// tests:
-// 1. write_r1cs
-// 2. convert_linear_combination
-// 3. write_assignment
-// 4. write_circuit
 #[cfg(test)]
 mod tests {
-    use crate::flat_absy::FlatVariable;
-    use crate::ir::*;
-    use super::*;
-    use zkinterface::reading::Messages;
+    use super::{generate_proof, setup};
+    use zkinterface::reading::{Constraint, Messages, Term, Variable};
+    use zokrates_field::field::FieldPrime;
 
     #[test]
     fn test_zkinterface() {
-        let program: Prog<FieldPrime> = Prog {
-            main: Function {
-                id: String::from("main"),
-                arguments: vec![FlatVariable::new(0)],
-                returns: vec![FlatVariable::public(0)],
-                statements: vec![Statement::Constraint(
-                    FlatVariable::new(0).into(),
-                    FlatVariable::public(0).into(),
-                )],
-            },
-            private: vec![false],
-        };
+        let code = "
+            def main(field x, private field y) -> (field):
+                field xx = x * x
+                field yy = y * y
+                return xx + yy
+        ";
 
-        let witness = program
-            .clone()
-            .execute::<FieldPrime>(&vec![FieldPrime::from(42)])
-            .unwrap();
+        let compile = crate::compile::compile::<FieldPrime, &[u8], &[u8], crate::imports::Error>;
+        let program = compile(&mut code.as_bytes(), None, None).unwrap();
 
+        // Check the constraint system.
         {
             let mut buf = Vec::<u8>::new();
 
@@ -392,23 +379,49 @@ mod tests {
             assert_eq!(messages.into_iter().count(), 2);
 
             let circuit = messages.last_circuit().unwrap();
-            assert_eq!(circuit.free_variable_id(), 3);
+            assert_eq!(circuit.free_variable_id(), 6);
 
             let pub_vars = messages.connection_variables().unwrap();
             let empty = &[] as &[u8];
-            assert_eq!(pub_vars[0].id, 0);
-            assert_eq!(pub_vars[0].value, empty);
-            assert_eq!(pub_vars[1].id, 1);
-            assert_eq!(pub_vars[1].value, empty);
-            assert_eq!(pub_vars[2].id, 2);
-            assert_eq!(pub_vars[2].value, empty);
+            assert_eq!(pub_vars, vec![
+                Variable { id: 0, value: empty }, // one
+                Variable { id: 1, value: empty }, // x
+                Variable { id: 2, value: empty }, // return
+            ]);
 
             let pri_vars = messages.private_variables().unwrap();
-            assert_eq!(pri_vars.len(), 0);
+            assert_eq!(pri_vars, vec![
+                Variable { id: 3, value: empty }, // xx
+                Variable { id: 4, value: empty }, // y
+                Variable { id: 5, value: empty }, // yy
+            ]);
 
-            assert_eq!(messages.iter_constraints().count(), 1);
+            let cs: Vec<_> = messages.iter_constraints().collect();
+            assert_eq!(cs, vec![
+                Constraint {
+                    a: vec![Term { id: 1, value: &[1] }], // x
+                    b: vec![Term { id: 1, value: &[1] }], // x
+                    c: vec![Term { id: 3, value: &[1] }], // xx
+                },
+                Constraint {
+                    a: vec![Term { id: 4, value: &[1] }], // y
+                    b: vec![Term { id: 4, value: &[1] }], // y
+                    c: vec![Term { id: 5, value: &[1] }], // yy
+                },
+                Constraint {
+                    a: vec![Term { id: 0, value: &[1] }], // 1
+                    b: vec![Term { id: 3, value: &[1] }, Term { id: 5, value: &[1] }], // xx + yy
+                    c: vec![Term { id: 2, value: &[1] }], // return
+                },
+            ]);
         }
 
+        let witness = program
+            .clone()
+            .execute::<FieldPrime>(&vec![FieldPrime::from(3), FieldPrime::from(4)])
+            .unwrap();
+
+        // Check the witness.
         {
             let mut buf = Vec::<u8>::new();
 
@@ -419,18 +432,21 @@ mod tests {
             assert_eq!(messages.into_iter().count(), 2);
 
             let circuit = messages.last_circuit().unwrap();
-            assert_eq!(circuit.free_variable_id(), 3);
+            assert_eq!(circuit.free_variable_id(), 6);
 
             let pub_vars = messages.connection_variables().unwrap();
-            assert_eq!(pub_vars[0].id, 0);
-            assert_eq!(pub_vars[0].value, &[1 as u8]);
-            assert_eq!(pub_vars[1].id, 1);
-            assert_eq!(pub_vars[1].value, &[42 as u8]);
-            assert_eq!(pub_vars[2].id, 2);
-            assert_eq!(pub_vars[2].value, &[42 as u8]);
+            assert_eq!(pub_vars, vec![
+                Variable { id: 0, value: &[1 as u8] },     // one
+                Variable { id: 1, value: &[3 as u8] },     // x
+                Variable { id: 2, value: &[5 * 5 as u8] }, // return
+            ]);
 
             let pri_vars = messages.private_variables().unwrap();
-            assert_eq!(pri_vars.len(), 0);
+            assert_eq!(pri_vars, vec![
+                Variable { id: 3, value: &[3 * 3 as u8] }, // xx
+                Variable { id: 4, value: &[4 as u8] },     // y
+                Variable { id: 5, value: &[4 * 4 as u8] }, // yy
+            ]);
         }
     }
 }

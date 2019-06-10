@@ -35,7 +35,7 @@ wasmi = { version = "0.4.2", optional = true }
 parity-wasm = { version = "0.35.3", optional = true }
 rustc-hex = { version = "1.0", optional = true }
 csv = "1"
-zkinterface = "1.0.2"
+zkinterface = "1.0.3"
 
 [dev-dependencies]
 glob = "0.2.11"
