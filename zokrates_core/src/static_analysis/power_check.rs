@@ -15,8 +15,11 @@ impl PowerChecker {
     }
 }
 
-impl<T: Field> Folder<T> for PowerChecker {
-    fn fold_field_expression(&mut self, e: FieldElementExpression<T>) -> FieldElementExpression<T> {
+impl<'ast, T: Field> Folder<'ast, T> for PowerChecker {
+    fn fold_field_expression(
+        &mut self,
+        e: FieldElementExpression<'ast, T>,
+    ) -> FieldElementExpression<'ast, T> {
         match e {
             FieldElementExpression::Pow(box FieldElementExpression::Identifier(..), _) |  FieldElementExpression::Pow(box FieldElementExpression::Number(..), _)=> {
 				fold_field_expression(self, e)

@@ -97,6 +97,11 @@ impl Import {
         }
     }
 
+    pub fn alias(mut self, alias: Option<String>) -> Self {
+        self.alias = alias;
+        self
+    }
+
     pub fn get_source(&self) -> &String {
         &self.source
     }
@@ -127,12 +132,17 @@ impl Importer {
         Importer {}
     }
 
-    pub fn apply_imports<T: Field, S: BufRead, E: Into<Error>>(
+    // Inject dependencies declared for `destination`
+    // The lifetime of the Program before injection outlives the lifetime after
+    pub fn apply_imports<'before, 'after, T: Field, S: BufRead, E: Into<Error>>(
         &self,
-        destination: Prog<T>,
+        destination: Prog<'before, T>,
         location: Option<String>,
         resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
-    ) -> Result<Prog<T>, CompileErrors<T>> {
+    ) -> Result<Prog<'after, T>, CompileErrors>
+    where
+        'before: 'after,
+    {
         let mut origins: Vec<CompiledImport<T>> = vec![];
 
         for import in destination.imports.iter() {

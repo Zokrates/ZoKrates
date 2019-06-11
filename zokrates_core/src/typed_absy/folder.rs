@@ -3,34 +3,34 @@
 use crate::typed_absy::*;
 use zokrates_field::field::Field;
 
-pub trait Folder<T: Field>: Sized {
-    fn fold_program(&mut self, p: TypedProg<T>) -> TypedProg<T> {
+pub trait Folder<'ast, T: Field>: Sized {
+    fn fold_program(&mut self, p: TypedProg<'ast, T>) -> TypedProg<'ast, T> {
         fold_program(self, p)
     }
 
-    fn fold_function(&mut self, f: TypedFunction<T>) -> TypedFunction<T> {
+    fn fold_function(&mut self, f: TypedFunction<'ast, T>) -> TypedFunction<'ast, T> {
         fold_function(self, f)
     }
 
-    fn fold_parameter(&mut self, p: Parameter) -> Parameter {
+    fn fold_parameter(&mut self, p: Parameter<'ast>) -> Parameter<'ast> {
         Parameter {
             id: self.fold_variable(p.id),
             ..p
         }
     }
 
-    fn fold_name(&mut self, n: String) -> String {
+    fn fold_name(&mut self, n: Identifier<'ast>) -> Identifier<'ast> {
         n
     }
 
-    fn fold_variable(&mut self, v: Variable) -> Variable {
+    fn fold_variable(&mut self, v: Variable<'ast>) -> Variable<'ast> {
         Variable {
             id: self.fold_name(v.id),
             ..v
         }
     }
 
-    fn fold_assignee(&mut self, a: TypedAssignee<T>) -> TypedAssignee<T> {
+    fn fold_assignee(&mut self, a: TypedAssignee<'ast, T>) -> TypedAssignee<'ast, T> {
         match a {
             TypedAssignee::Identifier(v) => TypedAssignee::Identifier(self.fold_variable(v)),
             TypedAssignee::ArrayElement(box a, box index) => TypedAssignee::ArrayElement(
@@ -40,11 +40,11 @@ pub trait Folder<T: Field>: Sized {
         }
     }
 
-    fn fold_statement(&mut self, s: TypedStatement<T>) -> Vec<TypedStatement<T>> {
+    fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
         fold_statement(self, s)
     }
 
-    fn fold_expression(&mut self, e: TypedExpression<T>) -> TypedExpression<T> {
+    fn fold_expression(&mut self, e: TypedExpression<'ast, T>) -> TypedExpression<'ast, T> {
         match e {
             TypedExpression::FieldElement(e) => self.fold_field_expression(e).into(),
             TypedExpression::Boolean(e) => self.fold_boolean_expression(e).into(),
@@ -52,7 +52,10 @@ pub trait Folder<T: Field>: Sized {
         }
     }
 
-    fn fold_expression_list(&mut self, es: TypedExpressionList<T>) -> TypedExpressionList<T> {
+    fn fold_expression_list(
+        &mut self,
+        es: TypedExpressionList<'ast, T>,
+    ) -> TypedExpressionList<'ast, T> {
         match es {
             TypedExpressionList::FunctionCall(id, arguments, types) => {
                 TypedExpressionList::FunctionCall(
@@ -67,21 +70,30 @@ pub trait Folder<T: Field>: Sized {
         }
     }
 
-    fn fold_field_expression(&mut self, e: FieldElementExpression<T>) -> FieldElementExpression<T> {
+    fn fold_field_expression(
+        &mut self,
+        e: FieldElementExpression<'ast, T>,
+    ) -> FieldElementExpression<'ast, T> {
         fold_field_expression(self, e)
     }
-    fn fold_boolean_expression(&mut self, e: BooleanExpression<T>) -> BooleanExpression<T> {
+    fn fold_boolean_expression(
+        &mut self,
+        e: BooleanExpression<'ast, T>,
+    ) -> BooleanExpression<'ast, T> {
         fold_boolean_expression(self, e)
     }
     fn fold_field_array_expression(
         &mut self,
-        e: FieldElementArrayExpression<T>,
-    ) -> FieldElementArrayExpression<T> {
+        e: FieldElementArrayExpression<'ast, T>,
+    ) -> FieldElementArrayExpression<'ast, T> {
         fold_field_array_expression(self, e)
     }
 }
 
-pub fn fold_program<T: Field, F: Folder<T>>(f: &mut F, p: TypedProg<T>) -> TypedProg<T> {
+pub fn fold_program<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    p: TypedProg<'ast, T>,
+) -> TypedProg<'ast, T> {
     TypedProg {
         functions: p
             .functions
@@ -92,10 +104,10 @@ pub fn fold_program<T: Field, F: Folder<T>>(f: &mut F, p: TypedProg<T>) -> Typed
     }
 }
 
-pub fn fold_statement<T: Field, F: Folder<T>>(
+pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
-    s: TypedStatement<T>,
-) -> Vec<TypedStatement<T>> {
+    s: TypedStatement<'ast, T>,
+) -> Vec<TypedStatement<'ast, T>> {
     let res = match s {
         TypedStatement::Return(expressions) => TypedStatement::Return(
             expressions
@@ -127,10 +139,10 @@ pub fn fold_statement<T: Field, F: Folder<T>>(
     vec![res]
 }
 
-pub fn fold_field_array_expression<T: Field, F: Folder<T>>(
+pub fn fold_field_array_expression<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
-    e: FieldElementArrayExpression<T>,
-) -> FieldElementArrayExpression<T> {
+    e: FieldElementArrayExpression<'ast, T>,
+) -> FieldElementArrayExpression<'ast, T> {
     match e {
         FieldElementArrayExpression::Identifier(size, id) => {
             FieldElementArrayExpression::Identifier(size, f.fold_name(id))
@@ -156,10 +168,10 @@ pub fn fold_field_array_expression<T: Field, F: Folder<T>>(
     }
 }
 
-pub fn fold_field_expression<T: Field, F: Folder<T>>(
+pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
-    e: FieldElementExpression<T>,
-) -> FieldElementExpression<T> {
+    e: FieldElementExpression<'ast, T>,
+) -> FieldElementExpression<'ast, T> {
     match e {
         FieldElementExpression::Number(n) => FieldElementExpression::Number(n),
         FieldElementExpression::Identifier(id) => {
@@ -208,10 +220,10 @@ pub fn fold_field_expression<T: Field, F: Folder<T>>(
     }
 }
 
-pub fn fold_boolean_expression<T: Field, F: Folder<T>>(
+pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
-    e: BooleanExpression<T>,
-) -> BooleanExpression<T> {
+    e: BooleanExpression<'ast, T>,
+) -> BooleanExpression<'ast, T> {
     match e {
         BooleanExpression::Value(v) => BooleanExpression::Value(v),
         BooleanExpression::Identifier(id) => BooleanExpression::Identifier(f.fold_name(id)),
@@ -257,7 +269,10 @@ pub fn fold_boolean_expression<T: Field, F: Folder<T>>(
     }
 }
 
-pub fn fold_function<T: Field, F: Folder<T>>(f: &mut F, fun: TypedFunction<T>) -> TypedFunction<T> {
+pub fn fold_function<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    fun: TypedFunction<'ast, T>,
+) -> TypedFunction<'ast, T> {
     TypedFunction {
         arguments: fun
             .arguments
