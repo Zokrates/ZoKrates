@@ -14,6 +14,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::io;
 use std::io::BufRead;
+use typed_arena::Arena;
 use zokrates_field::field::Field;
 use zokrates_pest_ast as pest;
 
@@ -123,15 +124,21 @@ impl fmt::Display for CompileErrorInner {
     }
 }
 
+pub type Resolve<S, E> = fn(Option<String>, &str) -> Result<(S, String, &str), E>;
+
 pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     reader: &mut R,
     location: Option<String>,
-    resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
+    resolve_option: Option<Resolve<S, E>>,
 ) -> Result<ir::Prog<T>, CompileErrors> {
+    let arena = Arena::new();
+
     let mut source = String::new();
     reader.read_to_string(&mut source).unwrap();
 
-    let compiled = compile_program(&source, location.clone(), resolve_option)?;
+    let source = arena.alloc(source);
+
+    let compiled = compile_program(source, location.clone(), resolve_option, &arena)?;
 
     // check semantics
     let typed_ast = Checker::check(compiled).map_err(|errors| {
@@ -158,11 +165,18 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
 pub fn compile_program<'ast, T: Field, S: BufRead, E: Into<imports::Error>>(
     source: &'ast str,
     location: Option<String>,
-    resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
-) -> Result<Program<T>, CompileErrors> {
+    resolve_option: Option<Resolve<S, E>>,
+    arena: &'ast Arena<String>,
+) -> Result<Program<'ast, T>, CompileErrors> {
     let mut modules = HashMap::new();
 
-    let main = compile_module(&source, location.clone(), resolve_option, &mut modules)?;
+    let main = compile_module(
+        &source,
+        location.clone(),
+        resolve_option,
+        &mut modules,
+        &arena,
+    )?;
 
     let location = location.unwrap_or("???".to_string());
 
@@ -177,8 +191,9 @@ pub fn compile_program<'ast, T: Field, S: BufRead, E: Into<imports::Error>>(
 pub fn compile_module<'ast, T: Field, S: BufRead, E: Into<imports::Error>>(
     source: &'ast str,
     location: Option<String>,
-    resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
+    resolve_option: Option<Resolve<S, E>>,
     modules: &mut HashMap<ModuleId, Module<'ast, T>>,
+    arena: &'ast Arena<String>,
 ) -> Result<Module<'ast, T>, CompileErrors> {
     let ast = pest::generate_ast(&source)
         .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).with_context(&location)))?;
@@ -189,6 +204,7 @@ pub fn compile_module<'ast, T: Field, S: BufRead, E: Into<imports::Error>>(
         location.clone(),
         resolve_option,
         modules,
+        &arena,
     )
 }
 

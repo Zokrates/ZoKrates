@@ -59,7 +59,7 @@ type FunctionDeclarationNode<'ast, T> = Node<FunctionDeclaration<'ast, T>>;
 pub struct Module<'ast, T: Field> {
     /// Functions of the module
     pub functions: FunctionDeclarations<'ast, T>,
-    pub imports: Vec<ImportNode>,
+    pub imports: Vec<ImportNode<'ast>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

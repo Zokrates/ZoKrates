@@ -65,7 +65,7 @@ impl<'ast, T: Field> fmt::Display for TypedProgram<'ast, T> {
 pub struct TypedModule<'ast, T: Field> {
     /// Functions of the program
     pub functions: TypedFunctionSymbols<'ast, T>,
-    pub imports: Vec<Import>,
+    pub imports: Vec<Import<'ast>>,
 }
 
 impl<'ast> fmt::Display for Identifier<'ast> {

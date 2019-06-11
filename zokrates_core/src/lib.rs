@@ -5,6 +5,7 @@ extern crate num_bigint;
 extern crate reduce; // better reduce function than Iter.fold
 extern crate serde; // serialization deserialization
 extern crate serde_json;
+extern crate typed_arena;
 #[macro_use]
 extern crate serde_derive;
 extern crate bellman;

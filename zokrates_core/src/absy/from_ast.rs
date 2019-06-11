@@ -21,12 +21,11 @@ impl<'ast, T: Field> From<pest::File<'ast>> for absy::Module<'ast, T> {
     }
 }
 
-impl<'ast> From<pest::ImportDirective<'ast>> for absy::ImportNode {
+impl<'ast> From<pest::ImportDirective<'ast>> for absy::ImportNode<'ast> {
     fn from(import: pest::ImportDirective<'ast>) -> absy::ImportNode {
         use absy::NodeValue;
-
-        imports::Import::new(import.source.value)
-            .alias(import.alias.map(|a| a.value))
+        imports::Import::new(import.source.span.as_str())
+            .alias(import.alias.map(|a| a.span.as_str()))
             .span(import.span)
     }
 }
