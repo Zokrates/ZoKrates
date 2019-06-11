@@ -1,0 +1,12 @@
+[package]
+name = "zokrates_parser"
+version = "0.1.0"
+authors = ["JacobEberhardt <jacob.eberhardt@tu-berlin.de>"]
+edition = "2018"
+
+[dependencies]
+pest = "2.0"
+pest_derive = "2.0"
+
+[dev-dependencies]
+glob = "0.2"

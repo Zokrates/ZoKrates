@@ -104,7 +104,26 @@ mod tests {
     }
 
     #[test]
-    fn no_file_name() {
+    #[should_panic]
+    fn no_file_name_without_stdlib() {
+        // an empty string is interpreted relative to the HOME folder. If there's none, panic
+        std::env::remove_var(ZOKRATES_HOME);
+        let _res = resolve(&Some(String::from(".")), &String::from(""));
+    }
+
+    #[test]
+    fn no_file_name_with_stdlib() {
+        use std::io::Write;
+
+        // create a HOME folder with a code file
+        let zokrates_home_folder = tempfile::tempdir().unwrap();
+        let file_path = zokrates_home_folder.path().join("bar.code");
+        let mut file = File::create(file_path).unwrap();
+        writeln!(file, "<stdlib code>").unwrap();
+
+        // assign HOME folder to ZOKRATES_HOME
+        std::env::set_var(ZOKRATES_HOME, zokrates_home_folder.path());
+
         let res = resolve(&Some(String::from(".")), &String::from(""));
         assert!(res.is_err());
     }

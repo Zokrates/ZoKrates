@@ -38,6 +38,49 @@ impl fmt::Display for Signature {
 }
 
 impl Signature {
+    /// Returns a slug for a signature, with the following encoding:
+    /// i{inputs}o{outputs} where {inputs} and {outputs} each encode a list of types.
+    /// A list of types is encoded by compressing sequences of the same type like so:
+    ///
+    /// [field, field, field] -> 3f
+    /// [field] -> f
+    /// [field, bool, field] -> fbf
+    /// [field, field, bool, field] -> 2fbf
+    ///
+    pub fn to_slug(&self) -> String {
+        let to_slug = |types| {
+            let mut res = vec![];
+            for t in types {
+                let len = res.len();
+                if len == 0 {
+                    res.push((1, t))
+                } else {
+                    if res[len - 1].1 == t {
+                        res[len - 1].0 += 1;
+                    } else {
+                        res.push((1, t))
+                    }
+                }
+            }
+            res.into_iter()
+                .map(|(n, t): (usize, &Type)| {
+                    let mut r = String::new();
+
+                    if n > 1 {
+                        r.push_str(&format!("{}", n));
+                    }
+                    r.push_str(&t.to_slug());
+                    r
+                })
+                .fold(String::new(), |mut acc, e| {
+                    acc.push_str(&e);
+                    acc
+                })
+        };
+
+        format!("i{}o{}", to_slug(&self.inputs), to_slug(&self.outputs))
+    }
+
     pub fn new() -> Signature {
         Signature {
             inputs: vec![],

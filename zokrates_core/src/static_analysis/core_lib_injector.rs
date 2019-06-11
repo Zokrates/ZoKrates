@@ -16,8 +16,8 @@ impl CoreLibInjector {
     }
 }
 
-impl<T: Field> Folder<T> for CoreLibInjector {
-    fn fold_program(&mut self, p: TypedProgram<T>) -> TypedProgram<T> {
+impl<'ast, T: Field> Folder<'ast, T> for CoreLibInjector {
+    fn fold_program(&mut self, p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
         // instanciate core lib functions
 
         // IfElse
@@ -30,21 +30,21 @@ impl<T: Field> Folder<T> for CoreLibInjector {
             arguments: vec![
                 Parameter {
                     id: Variable {
-                        id: "condition".to_string(),
+                        id: "condition".into(),
                         _type: Type::Boolean,
                     },
                     private: true,
                 },
                 Parameter {
                     id: Variable {
-                        id: "consequence".to_string(),
+                        id: "consequence".into(),
                         _type: Type::FieldElement,
                     },
                     private: true,
                 },
                 Parameter {
                     id: Variable {
-                        id: "alternative".to_string(),
+                        id: "alternative".into(),
                         _type: Type::FieldElement,
                     },
                     private: true,
@@ -52,30 +52,28 @@ impl<T: Field> Folder<T> for CoreLibInjector {
             ],
             statements: vec![
                 TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("condition_as_field")),
+                    TypedAssignee::Identifier(Variable::field_element("condition_as_field".into())),
                     FieldElementExpression::FunctionCall(
                         FunctionKey::with_id("_bool_to_field").signature(
                             Signature::new()
                                 .inputs(vec![Type::Boolean])
                                 .outputs(vec![Type::FieldElement]),
                         ),
-                        vec![BooleanExpression::Identifier("condition".to_string()).into()],
+                        vec![BooleanExpression::Identifier("condition".into()).into()],
                     )
                     .into(),
                 ),
                 TypedStatement::Return(vec![FieldElementExpression::Add(
                     box FieldElementExpression::Mult(
-                        box FieldElementExpression::Identifier("condition_as_field".to_string()),
-                        box FieldElementExpression::Identifier("consequence".to_string()),
+                        box FieldElementExpression::Identifier("condition_as_field".into()),
+                        box FieldElementExpression::Identifier("consequence".into()),
                     ),
                     box FieldElementExpression::Mult(
                         box FieldElementExpression::Sub(
                             box FieldElementExpression::Number(T::one()),
-                            box FieldElementExpression::Identifier(
-                                "condition_as_field".to_string(),
-                            ),
+                            box FieldElementExpression::Identifier("condition_as_field".into()),
                         ),
-                        box FieldElementExpression::Identifier("alternative".to_string()),
+                        box FieldElementExpression::Identifier("alternative".into()),
                     ),
                 )
                 .into()]),
@@ -118,7 +116,7 @@ impl<T: Field> Folder<T> for CoreLibInjector {
         }
     }
 
-    fn fold_module(&mut self, m: TypedModule<T>) -> TypedModule<T> {
+    fn fold_module(&mut self, m: TypedModule<'ast, T>) -> TypedModule<'ast, T> {
         let mut functions = m.functions;
         functions.extend(vec![
             (

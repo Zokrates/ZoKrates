@@ -4,16 +4,16 @@ use crate::flat_absy::*;
 use crate::helpers::{DirectiveStatement, Helper};
 use crate::types::signature::Signature;
 use crate::types::Type;
-use bimap::BiMap;
+use std::collections::HashMap;
 use zokrates_field::field::Field;
 
 fn use_variable(
-    bijection: &mut BiMap<String, FlatVariable>,
+    layout: &mut HashMap<String, FlatVariable>,
     name: String,
     index: &mut usize,
 ) -> FlatVariable {
     let var = FlatVariable::new(*index);
-    bijection.insert(name, var);
+    layout.insert(name, var);
     *index = *index + 1;
     var
 }
@@ -23,7 +23,7 @@ pub fn split<T: Field>() -> FlatFunction<T> {
 
     let mut counter = 0;
 
-    let mut bijection = BiMap::new();
+    let mut layout = HashMap::new();
 
     let arguments = vec![FlatParameter {
         id: FlatVariable::new(0),
@@ -33,12 +33,12 @@ pub fn split<T: Field>() -> FlatFunction<T> {
     // o0, ..., o253 = ToBits(i0)
 
     let directive_inputs = vec![FlatExpression::Identifier(use_variable(
-        &mut bijection,
+        &mut layout,
         format!("i0"),
         &mut counter,
     ))];
     let directive_outputs: Vec<FlatVariable> = (0..T::get_required_bits())
-        .map(|index| use_variable(&mut bijection, format!("o{}", index), &mut counter))
+        .map(|index| use_variable(&mut layout, format!("o{}", index), &mut counter))
         .collect();
 
     let helper = Helper::bits();
@@ -110,7 +110,7 @@ pub fn split<T: Field>() -> FlatFunction<T> {
 pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
     let mut counter = 0;
 
-    let mut bijection = BiMap::new();
+    let mut layout = HashMap::new();
 
     let arguments = (0..from.get_primitive_count())
         .enumerate()
@@ -121,10 +121,10 @@ pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
         .collect();
 
     let binding_inputs: Vec<_> = (0..from.get_primitive_count())
-        .map(|index| use_variable(&mut bijection, format!("i{}", index), &mut counter))
+        .map(|index| use_variable(&mut layout, format!("i{}", index), &mut counter))
         .collect();
     let binding_outputs: Vec<FlatVariable> = (0..to.get_primitive_count())
-        .map(|index| use_variable(&mut bijection, format!("o{}", index), &mut counter))
+        .map(|index| use_variable(&mut layout, format!("o{}", index), &mut counter))
         .collect();
 
     let outputs = binding_outputs

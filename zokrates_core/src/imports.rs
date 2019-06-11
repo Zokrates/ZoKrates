@@ -79,6 +79,11 @@ impl Import {
         }
     }
 
+    pub fn alias(mut self, alias: Option<String>) -> Self {
+        self.alias = alias;
+        self
+    }
+
     pub fn get_source(&self) -> &String {
         &self.source
     }
@@ -109,154 +114,165 @@ impl Importer {
         Importer {}
     }
 
-    // Based on Imports of a program, populate `functions` for external imports and `flat_functions` for flat imports
-    pub fn apply_imports<T: Field, S: BufRead, E: Into<Error>>(
+    // Inject dependencies declared for `destination`
+    // The lifetime of the Program before injection outlives the lifetime after
+    pub fn apply_imports<'before, 'after, T: Field, S: BufRead, E: Into<Error>>(
         &self,
-        destination: Module<T>,
+        destination: Module<'before, T>,
         location: Option<String>,
         resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
         modules: &mut HashMap<ModuleId, Module<T>>,
-    ) -> Result<Module<T>, CompileErrors<T>> {
-        let mut functions = vec![]; // functions, base case to import from other modules
-
-        for import in destination.imports.iter() {
-            let pos = import.pos();
-            let import = &import.value;
-            // handle the case of special bellman and packing imports
-            if import.source.starts_with("BELLMAN") {
-                match import.source.as_ref() {
-                    "BELLMAN/sha256round" => {
-                        use crate::standard::sha_round;
-
-                        let compiled = sha_round();
-
-                        let alias = match import.alias {
-                            Some(ref alias) => {
-                                if alias == "sha256" {
-                                    alias.clone()
-                                } else {
-                                    return Err(CompileErrorInner::from(Error::new(format!(
-                                        "Aliasing gadgets is not supported, found alias {}",
-                                        alias
-                                    )))
-                                    .with_context(&location)
-                                    .into());
-                                }
-                            }
-                            None => String::from("sha256"),
-                        };
-
-                        functions.push(
-                            FunctionDeclaration {
-                                id: alias.clone(),
-                                symbol: FunctionSymbol::Flat(compiled),
-                            }
-                            .start_end(pos.0, pos.1),
-                        );
-                    }
-                    s => {
-                        return Err(CompileErrorInner::ImportError(
-                            Error::new(format!("Gadget {} not found", s)).with_pos(Some(pos)),
-                        )
-                        .with_context(&location)
-                        .into());
-                    }
-                }
-            } else if import.source.starts_with("PACKING") {
-                use crate::types::conversions::split;
-
-                match import.source.as_ref() {
-                    "PACKING/split" => {
-                        let compiled = split();
-                        let alias = match import.alias {
-                            Some(ref alias) => {
-                                if alias == "split" {
-                                    alias.clone()
-                                } else {
-                                    return Err(CompileErrorInner::from(Error::new(format!(
-                                        "Aliasing gadgets is not supported, found alias {}",
-                                        alias
-                                    )))
-                                    .with_context(&location)
-                                    .into());
-                                }
-                            }
-                            None => String::from("split"),
-                        };
-
-                        functions.push(
-                            FunctionDeclaration {
-                                id: alias.clone(),
-                                symbol: FunctionSymbol::Flat(compiled),
-                            }
-                            .start_end(pos.0, pos.1),
-                        );
-                    }
-                    s => {
-                        return Err(CompileErrorInner::ImportError(
-                            Error::new(format!("Packing helper {} not found", s))
-                                .with_pos(Some(pos)),
-                        )
-                        .with_context(&location)
-                        .into());
-                    }
-                }
-            } else {
-                // to resolve imports, we need a resolver
-                match resolve_option {
-                    Some(resolve) => match resolve(&location, &import.source) {
-                        Ok((mut reader, location, auto_alias)) => {
-                            let compiled = compile_module(
-                                &mut reader,
-                                Some(location),
-                                resolve_option,
-                                modules,
-                            )
-                            .map_err(|e| e.with_context(Some(import.source.clone())))?;
-                            let alias = import.alias.clone().unwrap_or(auto_alias);
-
-                            modules.insert(import.source.clone(), compiled);
-
-                            functions.push(
-                                FunctionDeclaration {
-                                    id: alias.clone(),
-                                    symbol: FunctionSymbol::There(
-                                        FunctionImport::with_id_in_module(
-                                            "main",
-                                            import.source.clone(),
-                                        )
-                                        .start_end(pos.0, pos.1),
-                                    ),
-                                }
-                                .start_end(pos.0, pos.1),
-                            );
-                        }
-                        Err(err) => {
-                            return Err(CompileErrorInner::ImportError(
-                                err.into().with_pos(Some(pos)),
-                            )
-                            .with_context(&location)
-                            .into());
-                        }
-                    },
-                    None => {
-                        return Err(CompileErrorInner::from(Error::new(
-                            "Can't resolve import without a resolver",
-                        ))
-                        .with_context(&location)
-                        .into());
-                    }
-                }
-            }
-        }
-
-        functions.extend(destination.functions);
-
-        Ok(Module {
-            imports: vec![],
-            functions: functions,
-        })
+    ) -> Result<Module<'after, T>, CompileErrors>
+    where
+        'before: 'after,
+    {
+        unimplemented!()
     }
+    // {
+    //     let mut functions: Vec<_> = vec![];
+
+    //     for import in destination.imports {
+    //         let pos = import.pos();
+    //         let import = import.value;
+    //         // handle the case of special bellman and packing imports
+    //         if import.source.starts_with("BELLMAN") {
+    //             match import.source.as_ref() {
+    //                 "BELLMAN/sha256round" => {
+    //                     use crate::standard::sha_round;
+
+    //                     let compiled = sha_round();
+
+    //                     let alias = match import.alias {
+    //                         Some(alias) => {
+    //                             if alias == "sha256" {
+    //                                 alias.clone()
+    //                             } else {
+    //                                 return Err(CompileErrorInner::from(Error::new(format!(
+    //                                     "Aliasing gadgets is not supported, found alias {}",
+    //                                     alias
+    //                                 )))
+    //                                 .with_context(&location)
+    //                                 .into());
+    //                             }
+    //                         }
+    //                         None => String::from("sha256"),
+    //                     };
+
+    //                     functions.push(
+    //                         FunctionDeclaration {
+    //                             id: &alias,
+    //                             symbol: FunctionSymbol::Flat(compiled),
+    //                         }
+    //                         .start_end(pos.0, pos.1),
+    //                     );
+    //                 }
+    //                 s => {
+    //                     return Err(CompileErrorInner::ImportError(
+    //                         Error::new(format!("Gadget {} not found", s)).with_pos(Some(pos)),
+    //                     )
+    //                     .with_context(&location)
+    //                     .into());
+    //                 }
+    //             }
+    //         } else if import.source.starts_with("PACKING") {
+    //             use crate::types::conversions::split;
+
+    //             match import.source.as_ref() {
+    //                 "PACKING/split" => {
+    //                     let compiled = split();
+    //                     let alias = match import.alias {
+    //                         Some(alias) => {
+    //                             if alias == "split" {
+    //                                 alias.clone()
+    //                             } else {
+    //                                 return Err(CompileErrorInner::from(Error::new(format!(
+    //                                     "Aliasing gadgets is not supported, found alias {}",
+    //                                     alias
+    //                                 )))
+    //                                 .with_context(&location)
+    //                                 .into());
+    //                             }
+    //                         }
+    //                         None => String::from("split"),
+    //                     };
+
+    //                     functions.push(
+    //                         FunctionDeclaration {
+    //                             id: &alias,
+    //                             symbol: FunctionSymbol::Flat(compiled),
+    //                         }
+    //                         .start_end(pos.0, pos.1),
+    //                     );
+    //                 }
+    //                 s => {
+    //                     return Err(CompileErrorInner::ImportError(
+    //                         Error::new(format!("Packing helper {} not found", s))
+    //                             .with_pos(Some(pos)),
+    //                     )
+    //                     .with_context(&location)
+    //                     .into());
+    //                 }
+    //             }
+    //         } else {
+    //             // to resolve imports, we need a resolver
+    //             match resolve_option {
+    //                 Some(resolve) => match resolve(&location, &import.source) {
+    //                     Ok((mut reader, location, auto_alias)) => {
+
+    //                         let mut source = String::new();
+    //                         reader.read_to_string(&mut source).unwrap();
+
+    //                         let compiled = compile_module(
+    //                             &source,
+    //                             Some(location),
+    //                             resolve_option,
+    //                             modules,
+    //                         )
+    //                         .map_err(|e| e.with_context(Some(import.source.clone())))?;
+    //                         let alias = import.alias.clone().unwrap_or(auto_alias);
+
+    //                         modules.insert(import.source.clone(), compiled);
+
+    //                         functions.push(
+    //                             FunctionDeclaration {
+    //                                 id: &alias,
+    //                                 symbol: FunctionSymbol::There(
+    //                                     FunctionImport::with_id_in_module(
+    //                                         "main",
+    //                                         import.source.clone(),
+    //                                     )
+    //                                     .start_end(pos.0, pos.1),
+    //                                 ),
+    //                             }
+    //                             .start_end(pos.0, pos.1),
+    //                         );
+    //                     }
+    //                     Err(err) => {
+    //                         return Err(CompileErrorInner::ImportError(
+    //                             err.into().with_pos(Some(pos)),
+    //                         )
+    //                         .with_context(&location)
+    //                         .into());
+    //                     }
+    //                 },
+    //                 None => {
+    //                     return Err(CompileErrorInner::from(Error::new(
+    //                         "Can't resolve import without a resolver",
+    //                     ))
+    //                     .with_context(&location)
+    //                     .into());
+    //                 }
+    //             }
+    //         }
+    //     }
+
+    //     functions.extend(destination.functions);
+
+    //     Ok(Module {
+    //         imports: vec![],
+    //         functions: functions,
+    //     })
+    // }
 }
 
 #[cfg(test)]

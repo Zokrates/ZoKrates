@@ -8,7 +8,6 @@ use crate::flatten::Flattener;
 use crate::imports::{self, Importer};
 use crate::ir;
 use crate::optimizer::Optimize;
-use crate::parser::{self, parse_module};
 use crate::semantics::{self, Checker};
 use crate::static_analysis::Analyse;
 use std::collections::HashMap;
@@ -16,17 +15,18 @@ use std::fmt;
 use std::io;
 use std::io::BufRead;
 use zokrates_field::field::Field;
+use zokrates_pest_ast as pest;
 
 #[derive(Debug)]
-pub struct CompileErrors<T: Field>(Vec<CompileError<T>>);
+pub struct CompileErrors(Vec<CompileError>);
 
-impl<T: Field> From<CompileError<T>> for CompileErrors<T> {
-    fn from(e: CompileError<T>) -> CompileErrors<T> {
+impl From<CompileError> for CompileErrors {
+    fn from(e: CompileError) -> CompileErrors {
         CompileErrors(vec![e])
     }
 }
 
-impl<T: Field> fmt::Display for CompileErrors<T> {
+impl fmt::Display for CompileErrors {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -41,15 +41,15 @@ impl<T: Field> fmt::Display for CompileErrors<T> {
 }
 
 #[derive(Debug)]
-pub enum CompileErrorInner<T: Field> {
-    ParserError(parser::Error<T>),
+pub enum CompileErrorInner {
+    ParserError(pest::Error),
     ImportError(imports::Error),
     SemanticError(semantics::Error),
     ReadError(io::Error),
 }
 
-impl<T: Field> CompileErrorInner<T> {
-    pub fn with_context(self, context: &Option<String>) -> CompileError<T> {
+impl CompileErrorInner {
+    pub fn with_context(self, context: &Option<String>) -> CompileError {
         CompileError {
             value: self,
             context: context.clone(),
@@ -58,12 +58,12 @@ impl<T: Field> CompileErrorInner<T> {
 }
 
 #[derive(Debug)]
-pub struct CompileError<T: Field> {
+pub struct CompileError {
     context: Option<String>,
-    value: CompileErrorInner<T>,
+    value: CompileErrorInner,
 }
 
-impl<T: Field> CompileErrors<T> {
+impl CompileErrors {
     pub fn with_context(self, context: Option<String>) -> Self {
         CompileErrors(
             self.0
@@ -77,7 +77,7 @@ impl<T: Field> CompileErrors<T> {
     }
 }
 
-impl<T: Field> fmt::Display for CompileError<T> {
+impl fmt::Display for CompileError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let context = match self.context {
             Some(ref x) => x.clone(),
@@ -87,31 +87,31 @@ impl<T: Field> fmt::Display for CompileError<T> {
     }
 }
 
-impl<T: Field> From<parser::Error<T>> for CompileErrorInner<T> {
-    fn from(error: parser::Error<T>) -> Self {
+impl From<pest::Error> for CompileErrorInner {
+    fn from(error: pest::Error) -> Self {
         CompileErrorInner::ParserError(error)
     }
 }
 
-impl<T: Field> From<imports::Error> for CompileErrorInner<T> {
+impl From<imports::Error> for CompileErrorInner {
     fn from(error: imports::Error) -> Self {
         CompileErrorInner::ImportError(error)
     }
 }
 
-impl<T: Field> From<io::Error> for CompileErrorInner<T> {
+impl From<io::Error> for CompileErrorInner {
     fn from(error: io::Error) -> Self {
         CompileErrorInner::ReadError(error)
     }
 }
 
-impl<T: Field> From<semantics::Error> for CompileErrorInner<T> {
+impl From<semantics::Error> for CompileErrorInner {
     fn from(error: semantics::Error) -> Self {
         CompileErrorInner::SemanticError(error)
     }
 }
 
-impl<T: Field> fmt::Display for CompileErrorInner<T> {
+impl fmt::Display for CompileErrorInner {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let res = match *self {
             CompileErrorInner::ParserError(ref e) => format!("{}", e),
@@ -127,11 +127,14 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     reader: &mut R,
     location: Option<String>,
     resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
-) -> Result<ir::Prog<T>, CompileErrors<T>> {
-    let compiled = compile_program(reader, location.clone(), resolve_option)?;
+) -> Result<ir::Prog<T>, CompileErrors> {
+    let mut source = String::new();
+    reader.read_to_string(&mut source).unwrap();
+
+    let compiled = compile_program(&source, location.clone(), resolve_option)?;
 
     // check semantics
-    let typed_ast = Checker::new().check_program(compiled).map_err(|errors| {
+    let typed_ast = Checker::check(compiled).map_err(|errors| {
         CompileErrors(
             errors
                 .into_iter()
@@ -152,14 +155,14 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     Ok(ir::Prog::from(program_flattened).optimize())
 }
 
-pub fn compile_program<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
-    reader: &mut R,
+pub fn compile_program<'ast, T: Field, S: BufRead, E: Into<imports::Error>>(
+    source: &'ast str,
     location: Option<String>,
     resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
-) -> Result<Program<T>, CompileErrors<T>> {
+) -> Result<Program<T>, CompileErrors> {
     let mut modules = HashMap::new();
 
-    let main = compile_module(reader, location.clone(), resolve_option, &mut modules)?;
+    let main = compile_module(&source, location.clone(), resolve_option, &mut modules)?;
 
     let location = location.unwrap_or("???".to_string());
 
@@ -171,14 +174,15 @@ pub fn compile_program<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>
     })
 }
 
-pub fn compile_module<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
-    reader: &mut R,
+pub fn compile_module<'ast, T: Field, S: BufRead, E: Into<imports::Error>>(
+    source: &'ast str,
     location: Option<String>,
     resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
-    modules: &mut HashMap<ModuleId, Module<T>>,
-) -> Result<Module<T>, CompileErrors<T>> {
-    let module_without_imports: Module<T> = parse_module(reader)
+    modules: &mut HashMap<ModuleId, Module<'ast, T>>,
+) -> Result<Module<'ast, T>, CompileErrors> {
+    let ast = pest::generate_ast(&source)
         .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).with_context(&location)))?;
+    let module_without_imports: Module<T> = Module::from(ast);
 
     Importer::new().apply_imports(
         module_without_imports,
@@ -204,7 +208,7 @@ mod test {
 		"#
             .as_bytes(),
         );
-        let res: Result<ir::Prog<FieldPrime>, CompileErrors<FieldPrime>> = compile(
+        let res: Result<ir::Prog<FieldPrime>, CompileErrors> = compile(
             &mut r,
             Some(String::from("./path/to/file")),
             None::<
@@ -230,7 +234,7 @@ mod test {
 		"#
             .as_bytes(),
         );
-        let res: Result<ir::Prog<FieldPrime>, CompileErrors<FieldPrime>> = compile(
+        let res: Result<ir::Prog<FieldPrime>, CompileErrors> = compile(
             &mut r,
             Some(String::from("./path/to/file")),
             None::<
