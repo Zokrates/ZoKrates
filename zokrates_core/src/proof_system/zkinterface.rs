@@ -230,7 +230,7 @@ fn write_circuit<W: Write>(
 }
 
 
-pub fn prepare_generate_proof<T: Field>(
+fn prepare_generate_proof<T: Field>(
     program: ir::Prog<T>,
     witness: ir::Witness<T>,
 ) -> (Vec<T>, Vec<T>) {
@@ -249,7 +249,7 @@ pub fn prepare_generate_proof<T: Field>(
     )
 }
 
-pub fn provide_variable_idx(
+fn provide_variable_idx(
     variables: &mut HashMap<FlatVariable, usize>,
     var: &FlatVariable,
 ) -> usize {
@@ -257,7 +257,7 @@ pub fn provide_variable_idx(
     *variables.entry(*var).or_insert(index)
 }
 
-pub fn r1cs_program<T: Field>(
+fn r1cs_program<T: Field>(
     prog: ir::Prog<T>,
 ) -> (
     Vec<FlatVariable>,
