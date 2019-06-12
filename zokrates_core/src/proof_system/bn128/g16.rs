@@ -178,7 +178,7 @@ mod serialize {
     }}",
             parse_g1_json(&p.a),
             parse_g2_json(&p.b),
-            parse_g1_json(&p.a),
+            parse_g1_json(&p.c),
             inputs
                 .iter()
                 .map(parse_fr_json)
