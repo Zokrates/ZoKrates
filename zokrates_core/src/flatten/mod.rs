@@ -19,11 +19,11 @@ use zokrates_field::field::Field;
 pub struct Flattener<'ast, T: Field> {
     /// Index of the next introduced variable while processing the program.
     next_var_idx: usize,
-    ///
+    /// `FlatVariable`s corresponding to each `Identifier`
     layout: HashMap<Identifier<'ast>, Vec<FlatVariable>>,
-    ///
+    /// Modules
     modules: TypedModules<'ast, T>,
-    ///
+    /// Cached `FlatFunction`s to avoid re-flattening them
     flat_cache: HashMap<FunctionKey<'ast>, FlatFunction<T>>,
 }
 impl<'ast, T: Field> Flattener<'ast, T> {
@@ -434,7 +434,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
     fn flatten_expression(
         &mut self,
-        symbols: &HashMap<FunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>,
+        symbols: &TypedFunctionSymbols<'ast, T>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
         expr: TypedExpression<'ast, T>,
     ) -> Vec<FlatExpression<T>> {
@@ -453,7 +453,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
     fn flatten_field_expression(
         &mut self,
-        symbols: &HashMap<FunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>,
+        symbols: &TypedFunctionSymbols<'ast, T>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
         expr: FieldElementExpression<'ast, T>,
     ) -> FlatExpression<T> {
@@ -843,7 +843,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
     fn flatten_statement(
         &mut self,
-        symbols: &HashMap<FunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>,
+        symbols: &TypedFunctionSymbols<'ast, T>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
         stat: TypedStatement<'ast, T>,
     ) {
@@ -1105,7 +1105,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// * `funct` - `TypedFunction` that will be flattened.
     fn flatten_function(
         &mut self,
-        symbols: &HashMap<FunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>,
+        symbols: &TypedFunctionSymbols<'ast, T>,
         funct: TypedFunction<'ast, T>,
     ) -> FlatFunction<T> {
         self.layout = HashMap::new();
@@ -1195,13 +1195,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     }
 
     fn issue_new_variables(&mut self, count: usize) -> Vec<FlatVariable> {
-        (0..count)
-            .map(|_| {
-                let var = FlatVariable::new(self.next_var_idx);
-                self.next_var_idx += 1;
-                var
-            })
-            .collect()
+        (0..count).map(|_| self.issue_new_variable()).collect()
     }
 
     fn issue_new_variable(&mut self) -> FlatVariable {
