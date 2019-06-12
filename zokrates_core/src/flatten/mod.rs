@@ -23,6 +23,8 @@ pub struct Flattener<'ast, T: Field> {
     layout: HashMap<Identifier<'ast>, Vec<FlatVariable>>,
     ///
     modules: TypedModules<'ast, T>,
+    ///
+    flat_cache: HashMap<FunctionKey<'ast>, FlatFunction<T>>,
 }
 impl<'ast, T: Field> Flattener<'ast, T> {
     pub fn flatten(p: TypedProgram<'ast, T>) -> FlatProg<T> {
@@ -40,6 +42,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             next_var_idx: 0,
             layout: HashMap::new(),
             modules: HashMap::new(),
+            flat_cache: HashMap::new(),
         }
     }
 
@@ -1229,11 +1232,17 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
     fn get_function<'a>(
         &mut self,
-        key: &FunctionKey,
+        key: &'a FunctionKey<'ast>,
         symbols: &'a TypedFunctionSymbols<'ast, T>,
     ) -> FlatFunction<T> {
-        let f = symbols.get(&key).unwrap().clone();
-        self.flatten_function_symbol(symbols, f)
+        let cached = self.flat_cache.get(&key).cloned();
+
+        cached.unwrap_or_else(|| {
+            let f = symbols.get(&key).unwrap().clone();
+            let res = self.flatten_function_symbol(symbols, f);
+            self.flat_cache.insert(key.clone(), res.clone());
+            res
+        })
     }
 }
 
