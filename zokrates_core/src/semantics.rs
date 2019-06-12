@@ -1075,8 +1075,8 @@ impl<'ast> Checker<'ast> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use typed_absy;
     use types::Signature;
-    //use absy::parameter::Parameter;
     use zokrates_field::field::FieldPrime;
 
     mod symbols {
@@ -1096,7 +1096,7 @@ mod tests {
 
             let foo: Module<FieldPrime> = Module {
                 functions: vec![FunctionDeclaration {
-                    id: String::from("main"),
+                    id: "main",
                     symbol: FunctionSymbol::Here(
                         Function {
                             statements: vec![Statement::Return(
@@ -1120,7 +1120,7 @@ mod tests {
 
             let bar: Module<FieldPrime> = Module {
                 functions: vec![FunctionDeclaration {
-                    id: String::from("main"),
+                    id: "main",
                     symbol: FunctionSymbol::There(
                         FunctionImport::with_id_in_module("main", "foo").mock(),
                     ),
@@ -1144,7 +1144,7 @@ mod tests {
                         TypedFunctionSymbol::There(
                             FunctionKey::with_id("main")
                                 .signature(Signature::new().outputs(vec![Type::FieldElement])),
-                            String::from("foo")
+                            "foo".to_string()
                         )
                     )]
                     .into_iter()
@@ -1156,9 +1156,9 @@ mod tests {
     }
 
     pub fn new_with_args<'ast>(
-        scope: HashSet<ScopedVariable>,
+        scope: HashSet<ScopedVariable<'ast>>,
         level: usize,
-        functions: HashSet<FunctionKey>,
+        functions: HashSet<FunctionKey<'ast>>,
     ) -> Checker<'ast> {
         Checker {
             scope: scope,
@@ -1172,14 +1172,14 @@ mod tests {
         // a = b
         // b undefined
         let statement: StatementNode<FieldPrime> = Statement::Definition(
-            Assignee::Identifier(String::from("a")).mock(),
-            Expression::Identifier(String::from("b")).mock(),
+            Assignee::Identifier("a").mock(),
+            Expression::Identifier("b").mock(),
         )
         .mock();
 
         let mut checker = Checker::new();
         assert_eq!(
-            checker.check_statement(&statement, &vec![]),
+            checker.check_statement(statement, &vec![]),
             Err(Error {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Identifier is undefined: b".to_string()
@@ -1192,8 +1192,8 @@ mod tests {
         // a = b
         // b defined
         let statement: StatementNode<FieldPrime> = Statement::Definition(
-            Assignee::Identifier(String::from("a")).mock(),
-            Expression::Identifier(String::from("b")).mock(),
+            Assignee::Identifier("a").mock(),
+            Expression::Identifier("b").mock(),
         )
         .mock();
 
@@ -1208,10 +1208,10 @@ mod tests {
         });
         let mut checker = new_with_args(scope, 1, HashSet::new());
         assert_eq!(
-            checker.check_statement(&statement, &vec![]),
+            checker.check_statement(statement, &vec![]),
             Ok(TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element("a")),
-                FieldElementExpression::Identifier(String::from("b")).into()
+                TypedAssignee::Identifier(typed_absy::Variable::field_element("a".into())),
+                FieldElementExpression::Identifier("b".into()).into()
             ))
         );
     }
@@ -1227,7 +1227,7 @@ mod tests {
         let foo_statements = vec![
             Statement::Declaration(Variable::field_element("a").mock()).mock(),
             Statement::Definition(
-                Assignee::Identifier(String::from("a")).mock(),
+                Assignee::Identifier("a").mock(),
                 Expression::Number(FieldPrime::from(1)).mock(),
             )
             .mock(),
@@ -1245,7 +1245,7 @@ mod tests {
         let bar_args = vec![];
         let bar_statements = vec![Statement::Return(
             ExpressionList {
-                expressions: vec![Expression::Identifier(String::from("a")).mock()],
+                expressions: vec![Expression::Identifier("a").mock()],
             }
             .mock(),
         )
@@ -1263,12 +1263,12 @@ mod tests {
 
         let funcs = vec![
             FunctionDeclaration {
-                id: String::from("foo"),
+                id: "foo",
                 symbol: FunctionSymbol::Here(foo),
             }
             .mock(),
             FunctionDeclaration {
-                id: String::from("bar"),
+                id: "bar",
                 symbol: FunctionSymbol::Here(bar),
             }
             .mock(),
@@ -1302,7 +1302,7 @@ mod tests {
         let foo_statements = vec![
             Statement::Declaration(Variable::field_element("a").mock()).mock(),
             Statement::Definition(
-                Assignee::Identifier(String::from("a")).mock(),
+                Assignee::Identifier("a").mock(),
                 Expression::Number(FieldPrime::from(1)).mock(),
             )
             .mock(),
@@ -1322,13 +1322,13 @@ mod tests {
         let bar_statements = vec![
             Statement::Declaration(Variable::field_element("a").mock()).mock(),
             Statement::Definition(
-                Assignee::Identifier(String::from("a")).mock(),
+                Assignee::Identifier("a").mock(),
                 Expression::Number(FieldPrime::from(2)).mock(),
             )
             .mock(),
             Statement::Return(
                 ExpressionList {
-                    expressions: vec![Expression::Identifier(String::from("a")).mock()],
+                    expressions: vec![Expression::Identifier("a").mock()],
                 }
                 .mock(),
             )
@@ -1365,17 +1365,17 @@ mod tests {
 
         let funcs = vec![
             FunctionDeclaration {
-                id: String::from("foo"),
+                id: "foo",
                 symbol: FunctionSymbol::Here(foo),
             }
             .mock(),
             FunctionDeclaration {
-                id: String::from("bar"),
+                id: "bar",
                 symbol: FunctionSymbol::Here(bar),
             }
             .mock(),
             FunctionDeclaration {
-                id: String::from("main"),
+                id: "main",
                 symbol: FunctionSymbol::Here(main),
             }
             .mock(),
@@ -1408,7 +1408,7 @@ mod tests {
             .mock(),
             Statement::Return(
                 ExpressionList {
-                    expressions: vec![Expression::Identifier(String::from("i")).mock()],
+                    expressions: vec![Expression::Identifier("i").mock()],
                 }
                 .mock(),
             )
@@ -1445,8 +1445,8 @@ mod tests {
         let for_statements = vec![
             Statement::Declaration(Variable::field_element("a").mock()).mock(),
             Statement::Definition(
-                Assignee::Identifier(String::from("a")).mock(),
-                Expression::Identifier(String::from("i")).mock(),
+                Assignee::Identifier("a").mock(),
+                Expression::Identifier("i").mock(),
             )
             .mock(),
         ];
@@ -1460,15 +1460,15 @@ mod tests {
         .mock()];
 
         let for_statements_checked = vec![
-            TypedStatement::Declaration(Variable::field_element("a")),
+            TypedStatement::Declaration(typed_absy::Variable::field_element("a".into())),
             TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element("a")),
-                FieldElementExpression::Identifier(String::from("i")).into(),
+                TypedAssignee::Identifier(typed_absy::Variable::field_element("a".into())),
+                FieldElementExpression::Identifier("i".into()).into(),
             ),
         ];
 
         let foo_statements_checked = vec![TypedStatement::For(
-            Variable::field_element("i"),
+            typed_absy::Variable::field_element("i".into()),
             FieldPrime::from(0),
             FieldPrime::from(10),
             for_statements_checked,
@@ -1507,14 +1507,14 @@ mod tests {
         let bar_statements: Vec<StatementNode<FieldPrime>> = vec![
             Statement::Declaration(Variable::field_element("a").mock()).mock(),
             Statement::MultipleDefinition(
-                vec![Assignee::Identifier(String::from("a")).mock()],
-                Expression::FunctionCall("foo".to_string(), vec![]).mock(),
+                vec![Assignee::Identifier("a").mock()],
+                Expression::FunctionCall("foo", vec![]).mock(),
             )
             .mock(),
         ];
 
         let foo = FunctionKey {
-            id: "foo".to_string(),
+            id: "foo",
             signature: Signature {
                 inputs: vec![],
                 outputs: vec![Type::FieldElement, Type::FieldElement],
@@ -1554,12 +1554,12 @@ mod tests {
         // should fail
         let bar_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Condition(
             Expression::Number(FieldPrime::from(2)).mock(),
-            Expression::FunctionCall("foo".to_string(), vec![]).mock(),
+            Expression::FunctionCall("foo", vec![]).mock(),
         )
         .mock()];
 
         let foo = FunctionKey {
-            id: "foo".to_string(),
+            id: "foo",
             signature: Signature {
                 inputs: vec![],
                 outputs: vec![Type::FieldElement, Type::FieldElement],
@@ -1597,8 +1597,8 @@ mod tests {
         let bar_statements: Vec<StatementNode<FieldPrime>> = vec![
             Statement::Declaration(Variable::field_element("a").mock()).mock(),
             Statement::MultipleDefinition(
-                vec![Assignee::Identifier(String::from("a")).mock()],
-                Expression::FunctionCall("foo".to_string(), vec![]).mock(),
+                vec![Assignee::Identifier("a").mock()],
+                Expression::FunctionCall("foo", vec![]).mock(),
             )
             .mock(),
         ];
@@ -1665,14 +1665,10 @@ mod tests {
             Statement::Declaration(Variable::field_element("b").mock()).mock(),
             Statement::MultipleDefinition(
                 vec![
-                    Assignee::Identifier(String::from("a")).mock(),
-                    Assignee::Identifier(String::from("b")).mock(),
+                    Assignee::Identifier("a").mock(),
+                    Assignee::Identifier("b").mock(),
                 ],
-                Expression::FunctionCall(
-                    "foo".to_string(),
-                    vec![Expression::Identifier("x".to_string()).mock()],
-                )
-                .mock(),
+                Expression::FunctionCall("foo", vec![Expression::Identifier("x").mock()]).mock(),
             )
             .mock(),
             Statement::Return(
@@ -1697,12 +1693,12 @@ mod tests {
         let module = Module {
             functions: vec![
                 FunctionDeclaration {
-                    id: String::from("foo"),
+                    id: "foo",
                     symbol: FunctionSymbol::Here(foo),
                 }
                 .mock(),
                 FunctionDeclaration {
-                    id: String::from("main"),
+                    id: "main",
                     symbol: FunctionSymbol::Here(main),
                 }
                 .mock(),
@@ -1727,7 +1723,7 @@ mod tests {
         // should fail
         let bar_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Condition(
             Expression::Number(FieldPrime::from(1)).mock(),
-            Expression::FunctionCall("foo".to_string(), vec![]).mock(),
+            Expression::FunctionCall("foo", vec![]).mock(),
         )
         .mock()];
 
@@ -1761,8 +1757,8 @@ mod tests {
         let bar_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
             ExpressionList {
                 expressions: vec![
-                    Expression::Identifier("a".to_string()).mock(),
-                    Expression::Identifier("b".to_string()).mock(),
+                    Expression::Identifier("a").mock(),
+                    Expression::Identifier("b").mock(),
                 ],
             }
             .mock(),
@@ -1803,17 +1799,17 @@ mod tests {
             Statement::Declaration(Variable::field_element("b").mock()).mock(),
             Statement::MultipleDefinition(
                 vec![
-                    Assignee::Identifier(String::from("a")).mock(),
-                    Assignee::Identifier(String::from("b")).mock(),
+                    Assignee::Identifier("a").mock(),
+                    Assignee::Identifier("b").mock(),
                 ],
-                Expression::FunctionCall("foo".to_string(), vec![]).mock(),
+                Expression::FunctionCall("foo", vec![]).mock(),
             )
             .mock(),
             Statement::Return(
                 ExpressionList {
                     expressions: vec![Expression::Add(
-                        box Expression::Identifier("a".to_string()).mock(),
-                        box Expression::Identifier("b".to_string()).mock(),
+                        box Expression::Identifier("a").mock(),
+                        box Expression::Identifier("b").mock(),
                     )
                     .mock()],
                 }
@@ -1823,10 +1819,13 @@ mod tests {
         ];
 
         let bar_statements_checked: Vec<TypedStatement<FieldPrime>> = vec![
-            TypedStatement::Declaration(Variable::field_element("a")),
-            TypedStatement::Declaration(Variable::field_element("b")),
+            TypedStatement::Declaration(typed_absy::Variable::field_element("a".into())),
+            TypedStatement::Declaration(typed_absy::Variable::field_element("b".into())),
             TypedStatement::MultipleDefinition(
-                vec![Variable::field_element("a"), Variable::field_element("b")],
+                vec![
+                    typed_absy::Variable::field_element("a".into()),
+                    typed_absy::Variable::field_element("b".into()),
+                ],
                 TypedExpressionList::FunctionCall(
                     FunctionKey::with_id("foo").signature(
                         Signature::new().outputs(vec![Type::FieldElement, Type::FieldElement]),
@@ -1836,14 +1835,14 @@ mod tests {
                 ),
             ),
             TypedStatement::Return(vec![FieldElementExpression::Add(
-                box FieldElementExpression::Identifier("a".to_string()),
-                box FieldElementExpression::Identifier("b".to_string()),
+                box FieldElementExpression::Identifier("a".into()),
+                box FieldElementExpression::Identifier("b".into()),
             )
             .into()]),
         ];
 
         let foo = FunctionKey {
-            id: "foo".to_string(),
+            id: "foo",
             signature: Signature {
                 inputs: vec![],
                 outputs: vec![Type::FieldElement, Type::FieldElement],
@@ -1950,12 +1949,12 @@ mod tests {
         let module = Module {
             functions: vec![
                 FunctionDeclaration {
-                    id: String::from("foo"),
+                    id: "foo",
                     symbol: FunctionSymbol::Here(foo1),
                 }
                 .mock(),
                 FunctionDeclaration {
-                    id: String::from("foo"),
+                    id: "foo",
                     symbol: FunctionSymbol::Here(foo2),
                 }
                 .mock(),
@@ -2030,12 +2029,12 @@ mod tests {
 
         let functions = vec![
             FunctionDeclaration {
-                id: String::from("main"),
+                id: "main",
                 symbol: FunctionSymbol::Here(main1),
             }
             .mock(),
             FunctionDeclaration {
-                id: String::from("main"),
+                id: "main",
                 symbol: FunctionSymbol::Here(main2),
             }
             .mock(),
@@ -2072,11 +2071,11 @@ mod tests {
 
         let mut checker = Checker::new();
         let _: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(
-            &Statement::Declaration(Variable::field_element("a").mock()).mock(),
+            Statement::Declaration(Variable::field_element("a").mock()).mock(),
             &vec![],
         );
         let s2_checked: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(
-            &Statement::Declaration(Variable::field_element("a").mock()).mock(),
+            Statement::Declaration(Variable::field_element("a").mock()).mock(),
             &vec![],
         );
         assert_eq!(
@@ -2097,11 +2096,11 @@ mod tests {
 
         let mut checker = Checker::new();
         let _: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(
-            &Statement::Declaration(Variable::field_element("a").mock()).mock(),
+            Statement::Declaration(Variable::field_element("a").mock()).mock(),
             &vec![],
         );
         let s2_checked: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(
-            &Statement::Declaration(Variable::boolean("a").mock()).mock(),
+            Statement::Declaration(Variable::boolean("a").mock()).mock(),
             &vec![],
         );
         assert_eq!(
@@ -2119,19 +2118,21 @@ mod tests {
         #[test]
         fn identifier() {
             // a = 42
-            let a = Assignee::Identifier::<FieldPrime>(String::from("a")).mock();
+            let a = Assignee::Identifier::<FieldPrime>("a").mock();
 
             let mut checker: Checker = Checker::new();
             checker
                 .check_statement::<FieldPrime>(
-                    &Statement::Declaration(Variable::field_element("a").mock()).mock(),
+                    Statement::Declaration(Variable::field_element("a").mock()).mock(),
                     &vec![],
                 )
                 .unwrap();
 
             assert_eq!(
-                checker.check_assignee(&a),
-                Ok(TypedAssignee::Identifier(Variable::field_element("a")))
+                checker.check_assignee(a),
+                Ok(TypedAssignee::Identifier(
+                    typed_absy::Variable::field_element("a".into())
+                ))
             );
         }
 
@@ -2140,7 +2141,7 @@ mod tests {
             // field[33] a
             // a[2] = 42
             let a = Assignee::ArrayElement(
-                box Assignee::Identifier(String::from("a")).mock(),
+                box Assignee::Identifier("a").mock(),
                 box Expression::Number(FieldPrime::from(2)).mock(),
             )
             .mock();
@@ -2148,15 +2149,18 @@ mod tests {
             let mut checker: Checker = Checker::new();
             checker
                 .check_statement::<FieldPrime>(
-                    &Statement::Declaration(Variable::field_array("a", 33).mock()).mock(),
+                    Statement::Declaration(Variable::field_array("a", 33).mock()).mock(),
                     &vec![],
                 )
                 .unwrap();
 
             assert_eq!(
-                checker.check_assignee(&a),
+                checker.check_assignee(a),
                 Ok(TypedAssignee::ArrayElement(
-                    box TypedAssignee::Identifier(Variable::field_array("a", 33)),
+                    box TypedAssignee::Identifier(typed_absy::Variable::field_array(
+                        "a".into(),
+                        33
+                    )),
                     box FieldElementExpression::Number(FieldPrime::from(2)).into()
                 ))
             );

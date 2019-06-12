@@ -153,13 +153,16 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     // analyse (unroll and constant propagation)
     let typed_ast = typed_ast.analyse();
 
+    println!("start flatten");
     // flatten input program
     let program_flattened = Flattener::flatten(typed_ast);
-
+    println!("start flat analysis");
     // analyse (constant propagation after call resolution)
     let program_flattened = program_flattened.analyse();
-
-    Ok(ir::Prog::from(program_flattened).optimize())
+    println!("start ir optimizer");
+    let res = ir::Prog::from(program_flattened).optimize();
+    println!("done");
+    Ok(res)
 }
 
 pub fn compile_program<'ast, T: Field, S: BufRead, E: Into<imports::Error>>(
@@ -227,12 +230,7 @@ mod test {
         let res: Result<ir::Prog<FieldPrime>, CompileErrors> = compile(
             &mut r,
             Some(String::from("./path/to/file")),
-            None::<
-                fn(
-                    &Option<String>,
-                    &String,
-                ) -> Result<(BufReader<Empty>, String, String), io::Error>,
-            >,
+            None::<Resolve<BufReader<Empty>, io::Error>>,
         );
 
         assert!(res
@@ -253,12 +251,7 @@ mod test {
         let res: Result<ir::Prog<FieldPrime>, CompileErrors> = compile(
             &mut r,
             Some(String::from("./path/to/file")),
-            None::<
-                fn(
-                    &Option<String>,
-                    &String,
-                ) -> Result<(BufReader<Empty>, String, String), io::Error>,
-            >,
+            None::<Resolve<BufReader<Empty>, io::Error>>,
         );
         assert!(res.is_ok());
     }

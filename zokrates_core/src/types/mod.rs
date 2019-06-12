@@ -58,40 +58,6 @@ pub struct Variable<'ast> {
     pub _type: Type,
 }
 
-impl<'ast> Variable<'ast> {
-    pub fn new<S: Into<Identifier<'ast>>>(id: S, t: Type) -> Variable<'ast> {
-        Variable {
-            id: id.into(),
-            _type: t,
-        }
-    }
-
-    pub fn field_element<S: Into<Identifier<'ast>>>(id: S) -> Variable<'ast> {
-        Variable {
-            id: id.into(),
-            _type: Type::FieldElement,
-        }
-    }
-
-    pub fn boolean<S: Into<Identifier<'ast>>>(id: S) -> Variable<'ast> {
-        Variable {
-            id: id.into(),
-            _type: Type::Boolean,
-        }
-    }
-
-    pub fn field_array<S: Into<Identifier<'ast>>>(id: S, size: usize) -> Variable<'ast> {
-        Variable {
-            id: id.into(),
-            _type: Type::FieldElementArray(size),
-        }
-    }
-
-    pub fn get_type(&self) -> Type {
-        self._type.clone()
-    }
-}
-
 impl<'ast> fmt::Display for Variable<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} {}", self._type, self.id,)
@@ -123,6 +89,10 @@ impl<'ast> FunctionKey<'ast> {
     pub fn signature(mut self, signature: Signature) -> Self {
         self.signature = signature;
         self
+    }
+
+    pub fn to_slug(&self) -> String {
+        format!("{}_{}", self.id, self.signature.to_slug())
     }
 }
 

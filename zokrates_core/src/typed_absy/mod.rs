@@ -24,7 +24,7 @@ pub use self::folder::Folder;
 pub struct Identifier<'ast> {
     pub id: &'ast str,
     pub version: usize,
-    pub stack: Vec<(&'ast str, Signature, usize)>,
+    pub stack: Vec<(TypedModuleId, FunctionKey<'ast>, usize)>,
 }
 
 pub type TypedModuleId = String;
@@ -692,12 +692,5 @@ impl<'ast, T: Field> fmt::Debug for TypedExpressionList<'ast, T> {
                 write!(f, ")")
             }
         }
-    }
-}
-
-impl<'ast, T: Field> TypedFunction<'ast, T> {
-    pub fn to_slug(&self) -> String {
-        unimplemented!()
-        // format!("NONAME_{}", self.signature.to_slug())
     }
 }

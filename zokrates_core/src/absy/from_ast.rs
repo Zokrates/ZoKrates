@@ -463,26 +463,32 @@ mod tests {
         let source = "def main() -> (field): return 42
 		";
         let ast = pest::generate_ast(&source).unwrap();
-        let expected: absy::Prog<FieldPrime> = absy::Prog {
-            functions: vec![absy::Function {
+        let expected: absy::Module<FieldPrime> = absy::Module {
+            functions: vec![absy::FunctionDeclaration {
                 id: &source[4..8],
-                arguments: vec![],
-                statements: vec![absy::Statement::Return(
-                    absy::ExpressionList {
-                        expressions: vec![absy::Expression::Number(FieldPrime::from(42)).into()],
+                symbol: absy::FunctionSymbol::Here(
+                    absy::Function {
+                        arguments: vec![],
+                        statements: vec![absy::Statement::Return(
+                            absy::ExpressionList {
+                                expressions: vec![
+                                    absy::Expression::Number(FieldPrime::from(42)).into()
+                                ],
+                            }
+                            .into(),
+                        )
+                        .into()],
+                        signature: absy::Signature::new()
+                            .inputs(vec![])
+                            .outputs(vec![Type::FieldElement]),
                     }
                     .into(),
-                )
-                .into()],
-                signature: absy::Signature::new()
-                    .inputs(vec![])
-                    .outputs(vec![Type::FieldElement]),
+                ),
             }
             .into()],
             imports: vec![],
-            imported_functions: vec![],
         };
-        assert_eq!(absy::Prog::<FieldPrime>::from(ast), expected);
+        assert_eq!(absy::Module::<FieldPrime>::from(ast), expected);
     }
 
     #[test]
@@ -491,30 +497,41 @@ mod tests {
         ";
         let ast = pest::generate_ast(&source).unwrap();
 
-        let expected: absy::Prog<FieldPrime> = absy::Prog {
-            functions: vec![absy::Function {
+        let expected: absy::Module<FieldPrime> = absy::Module {
+            functions: vec![absy::FunctionDeclaration {
                 id: &source[4..8],
-                arguments: vec![
-                    absy::Parameter::private(absy::Variable::field_element(&source[23..24]).into())
-                        .into(),
-                    absy::Parameter::public(absy::Variable::boolean(&source[31..32]).into()).into(),
-                ],
-                statements: vec![absy::Statement::Return(
-                    absy::ExpressionList {
-                        expressions: vec![absy::Expression::Number(FieldPrime::from(42)).into()],
+                symbol: absy::FunctionSymbol::Here(
+                    absy::Function {
+                        arguments: vec![
+                            absy::Parameter::private(
+                                absy::Variable::field_element(&source[23..24]).into(),
+                            )
+                            .into(),
+                            absy::Parameter::public(
+                                absy::Variable::boolean(&source[31..32]).into(),
+                            )
+                            .into(),
+                        ],
+                        statements: vec![absy::Statement::Return(
+                            absy::ExpressionList {
+                                expressions: vec![
+                                    absy::Expression::Number(FieldPrime::from(42)).into()
+                                ],
+                            }
+                            .into(),
+                        )
+                        .into()],
+                        signature: absy::Signature::new()
+                            .inputs(vec![Type::FieldElement, Type::Boolean])
+                            .outputs(vec![Type::FieldElement]),
                     }
                     .into(),
-                )
-                .into()],
-                signature: absy::Signature::new()
-                    .inputs(vec![Type::FieldElement, Type::Boolean])
-                    .outputs(vec![Type::FieldElement]),
+                ),
             }
             .into()],
             imports: vec![],
-            imported_functions: vec![],
         };
 
-        assert_eq!(absy::Prog::<FieldPrime>::from(ast), expected);
+        assert_eq!(absy::Module::<FieldPrime>::from(ast), expected);
     }
 }
