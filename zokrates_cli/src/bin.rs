@@ -6,6 +6,7 @@
 
 use bincode::{deserialize_from, serialize_into, Infinite};
 use clap::{App, AppSettings, Arg, SubCommand};
+use serde_json::Value;
 use std::env;
 use std::fs::File;
 use std::io::{stdin, BufReader, BufWriter, Read, Write};
@@ -16,7 +17,6 @@ use zokrates_core::ir;
 use zokrates_core::proof_system::*;
 use zokrates_field::field::{Field, FieldPrime};
 use zokrates_fs_resolver::resolve as fs_resolve;
-use serde_json::Value;
 
 fn main() {
     cli().unwrap_or_else(|e| {
@@ -215,8 +215,10 @@ fn cli() -> Result<(), String> {
         ).arg(Arg::with_name("format")
             .short("f")
             .long("format")
+            .value_name("FORMAT")
             .help("Format in which the proof should be printed. [remix, json]")
             .takes_value(true)
+            .possible_values(&["remix", "json", "testingV1", "testingV2"])
             .required(true)
         )
     )
@@ -446,7 +448,7 @@ fn cli() -> Result<(), String> {
                 scheme.generate_proof(program, witness, pk_path, proof_path)
             );
         }
-         ("print-proof", Some(sub_matches)) => {
+        ("print-proof", Some(sub_matches)) => {
             let format = sub_matches.value_of("format").unwrap();
 
             let path = Path::new(sub_matches.value_of("proofpath").unwrap());
@@ -454,42 +456,48 @@ fn cli() -> Result<(), String> {
             let file = File::open(&path)
                 .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
 
-            let proof_object: Value = serde_json::from_reader(file)
-                .map_err(|why| format!("{:?}", why))?;
+            let proof_object: Value =
+                serde_json::from_reader(file).map_err(|why| format!("{:?}", why))?;
 
-            if format == String::from("json") {
-                println!("~~~~~~~~ Copy the output below for valid ABIv2 format ~~~~~~~~");
-                println!();
-                print!("{}", proof_object["proof"]);
-                print!(",");
-                println!("{}", proof_object["inputs"]);
-                println!();
-                println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            } else if format == String::from("remix") {
-                println!("~~~~~~~~ Copy the output below for valid ABIv1 format ~~~~~~~~");
-                println!();
-
-                for (_key, value) in proof_object["proof"].as_object().unwrap().iter() {
-                    print!("{}", value);
+            match format {
+                "json" => {
+                    println!("~~~~~~~~ Copy the output below for valid ABIv2 format ~~~~~~~~");
+                    println!();
+                    print!("{}", proof_object["proof"]);
                     print!(",");
+                    println!("{}", proof_object["inputs"]);
+                    println!();
+                    println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
                 }
+                "remix" => {
+                    println!("~~~~~~~~ Copy the output below for valid ABIv1 format ~~~~~~~~");
+                    println!();
 
-                println!("{}", proof_object["inputs"]);
-                println!();
-                println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            } else if format == String::from("testingV1") {
-                //used by testing pipeline to generate arguments for contract call
-                for (_key, value) in proof_object["proof"].as_object().unwrap().iter() {
-                    print!("{}", value);
-                    print!(",");
+                    for (_, value) in proof_object["proof"].as_object().unwrap().iter() {
+                        print!("{}", value);
+                        print!(",");
+                    }
+
+                    println!("{}", proof_object["inputs"]);
+                    println!();
+                    println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
                 }
-                println!("{}", proof_object["inputs"]);
-            } else if format == String::from("testingV2") {
-                //used by testing pipeline to generate arguments for contract call
-                print!("{}", proof_object["proof"]);
-                print!(",");
-                println!("{}", proof_object["inputs"]);
-            } 
+                "testingV1" => {
+                    //used by testing pipeline to generate arguments for contract call
+                    for (_, value) in proof_object["proof"].as_object().unwrap().iter() {
+                        print!("{}", value);
+                        print!(",");
+                    }
+                    println!("{}", proof_object["inputs"]);
+                }
+                "testingV2" => {
+                    //used by testing pipeline to generate arguments for contract call
+                    print!("{}", proof_object["proof"]);
+                    print!(",");
+                    println!("{}", proof_object["inputs"]);
+                }
+                _ => unreachable!(),
+            }
         }
         _ => unreachable!(),
     }
