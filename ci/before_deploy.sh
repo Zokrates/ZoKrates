@@ -21,7 +21,8 @@ main() {
 
     # Package artifacts
     # Binary
-    cp target/$TARGET/release/zokrates $stage/
+    ls target/$TARGET/release/
+    cp target/$TARGET/release/zokrates.exe $stage/
     # Standard library
     cp -r zokrates_stdlib/stdlib $stage
 
