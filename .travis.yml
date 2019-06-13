@@ -56,6 +56,8 @@ deploy:
   bucket: "zokrates"
   acl: public_read
   skip_cleanup: true
+  on:
+    branch: windows-build
 
 cache: cargo
 before_cache:
