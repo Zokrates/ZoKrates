@@ -15,22 +15,22 @@ env:
 matrix:
   include:
     # Linux
-    # - env: TARGET=aarch64-unknown-linux-gnu
-    # - env: TARGET=arm-unknown-linux-gnueabi
-    # - env: TARGET=i686-unknown-linux-gnu
-    # - env: TARGET=x86_64-unknown-linux-gnu
+    - env: TARGET=aarch64-unknown-linux-gnu
+    - env: TARGET=arm-unknown-linux-gnueabi
+    - env: TARGET=i686-unknown-linux-gnu
+    - env: TARGET=x86_64-unknown-linux-gnu
 
-    # # OSX
-    # - env: TARGET=i686-apple-darwin
-    #   os: osx
-    # - env: TARGET=x86_64-apple-darwin
-    #   os: osx
+    # OSX
+    - env: TARGET=i686-apple-darwin
+      os: osx
+    - env: TARGET=x86_64-apple-darwin
+      os: osx
 
-    # # *BSD
-    # - env: TARGET=x86_64-unknown-freebsd
+    # *BSD
+    - env: TARGET=x86_64-unknown-freebsd
 
+    # Windows
     - env: TARGET=x86_64-pc-windows-gnu
-    - env: TARGET=x86_64-pc-windows-msvc
 
 before_install:
   - set -e
@@ -49,26 +49,25 @@ before_deploy:
   - sh ci/before_deploy.sh
 
 deploy:
-  provider: s3
-  access_key_id: "AKIAITSVMKXUVHEDEPLQ"
+  api_key:
+    secure: cpo6ukDxL+h6Dw2A4eVaC0ddU/zguuds2yhHp1UE0DUWo/lpBNtg3bw51o/GrX8JyTWJCUMLZOKJyoyUWiht41BtlqRl5Egp/ugFEfCoPS+J6u0BIBEULwXrvOmxxF+K+DLH1MX179z1R2SYBYcm8V7GvygzAwaSP4fRq3Uwqr2l3lc6Q+V2kQ0Hylmeguaqhj9lG5BQA/fG1qlWdUMTHMInCCnb2z7SP3/kWEhkdCavCWtRjaeKoWSgKDcB/UUVVnRwnq5dE76DTJU6wEqG4njityxPTTZ+u0a5FiFnUhmqtqszicAs3jAKAcekyeM0B2prTF/xPGsPqLnce4ljoSK93VU08Ut1bJNMyfRLBzd/jEwOCp6ADUQnCTDxUP4Z2iK0EGya2ciXnZi/sCwPJZPV8uqUnfHdHYOdky1+64MJE1tBgC9ZaTcLFsATD6KkffKa2rmqgZCZNeHITs6HOGZhatw6u0eLknNqqBkQIMKvGRLjI6kZxDA2HsMYNTHPevUOKu68Kebi3aQG3H3OODXO3cKvGGoPHFx4uf3E5Gn4GJEePQqC1r5zYpdrQyOEN3VyLRZVHlAR/Kzm+5mameP4CyT8ppfLfQhy+sl6OfAV6X0Ap96gbWWj0I6w0CrZ10VLgJD2W5sllyiBnsNzkccW3Yg9DCuf75/ydme/JCc=
+  file_glob: true
   file: $CRATE_NAME-$TRAVIS_TAG-$TARGET.*
-  secret_access_key:
-    secure: "WK3WkT3l1T8KMHtjs4IShyNkf6Q4XdLN25VfNPGJZOK/KNfwy7hrvajlxv3fvXpKa5WuxmdQfZdbFIvZomSN5useZkIGfVdTE4HgMr9t7iOzT4e1HDfenmgkhHmAgZ7K6W5YUrqI4aXQwfTNPTdMMZXDmWl5bQKOVTH3mYTB8JZgUy8Xvb9UHghJc2TDbqMzGCV+m5UxLiLOF4KhEqAKrNRcmv8FyUqzpwqSlv5OjbncRcH3WtnpTtbvHMz+NaoVgXem48QrnMXtr530DVosnJJmjIcVLDU1XIfZmLBNnYxsNQtWlwXkYJrqkGNk9jV//ItBA8d2VRfIx4Dvc7RgKd+GAUyfzfOznPgWF8bA+0Cfog1funXdhMrXLNLPxMb4pnCPcHvZp1z95AsisqiPGXdIHKGl3o/pmjUBBZPiN9MK6m05O3xluYDYbGDlDjqwbrCvV9VVAB/YlAi/1VA3jacyRkqwXFZhZD4MeXKvjqXxtFo+WYvaCvipaOfzyeW1g0PU3xreJtQArVfOXLgdrmHToeJJhjqZGPhkZO7M4rkFbH9Zt+JPgSudVP9Wcs81AeG8kKVPUIVuCOicsMquD4KYNFhhwOeUjaG+xI7G1G/QfIZWP8shC64w6GlO9xPd/eCA7TrIsC8b56Y2XrCqaeBKMoKxZM+rspQL9qYteyY="
-  bucket: zokrates
-  skip_cleanup: true
   on:
-    branch: windows-build
+    tags: true
+  provider: releases
+  skip_cleanup: true
 
 cache: cargo
 before_cache:
   # Travis can't cache files that are not readable by "others"
   - chmod -R a+r $HOME/.cargo
 
-# branches:
-#   only:
-#     # release tags
-#     - /^\d+\.\d+\.\d+.*$/
-#     - master
+branches:
+  only:
+    # release tags
+    - /^\d+\.\d+\.\d+.*$/
+    - master
 
 notifications:
   email:

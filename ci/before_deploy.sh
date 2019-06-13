@@ -30,7 +30,6 @@ main() {
 
     # Package artifacts
     # Binary
-    ls target/$TARGET/release/
     cp target/$TARGET/release/$BINARY_NAME $stage/
     # Standard library
     cp -r zokrates_stdlib/stdlib $stage
