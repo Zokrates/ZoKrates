@@ -2,37 +2,39 @@ use crate::absy::Node;
 use crate::types::Type;
 use std::fmt;
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Hash, Eq)]
-pub struct Variable {
-    pub id: String,
+use crate::absy::Identifier;
+
+#[derive(Clone, PartialEq, Hash, Eq)]
+pub struct Variable<'ast> {
+    pub id: Identifier<'ast>,
     pub _type: Type,
 }
 
-pub type VariableNode = Node<Variable>;
+pub type VariableNode<'ast> = Node<Variable<'ast>>;
 
-impl Variable {
-    pub fn new<S: Into<String>>(id: S, t: Type) -> Variable {
+impl<'ast> Variable<'ast> {
+    pub fn new<S: Into<&'ast str>>(id: S, t: Type) -> Variable<'ast> {
         Variable {
             id: id.into(),
             _type: t,
         }
     }
 
-    pub fn field_element<S: Into<String>>(id: S) -> Variable {
+    pub fn field_element<S: Into<&'ast str>>(id: S) -> Variable<'ast> {
         Variable {
             id: id.into(),
             _type: Type::FieldElement,
         }
     }
 
-    pub fn boolean<S: Into<String>>(id: S) -> Variable {
+    pub fn boolean<S: Into<&'ast str>>(id: S) -> Variable<'ast> {
         Variable {
             id: id.into(),
             _type: Type::Boolean,
         }
     }
 
-    pub fn field_array<S: Into<String>>(id: S, size: usize) -> Variable {
+    pub fn field_array<S: Into<&'ast str>>(id: S, size: usize) -> Variable<'ast> {
         Variable {
             id: id.into(),
             _type: Type::FieldElementArray(size),
@@ -44,13 +46,13 @@ impl Variable {
     }
 }
 
-impl fmt::Display for Variable {
+impl<'ast> fmt::Display for Variable<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} {}", self._type, self.id,)
     }
 }
 
-impl fmt::Debug for Variable {
+impl<'ast> fmt::Debug for Variable<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Variable(type: {:?}, id: {:?})", self._type, self.id,)
     }

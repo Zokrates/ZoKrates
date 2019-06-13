@@ -24,7 +24,7 @@ pub trait Analyse {
     fn analyse(self) -> Self;
 }
 
-impl<T: Field> Analyse for TypedProg<T> {
+impl<'ast, T: Field> Analyse for TypedProg<'ast, T> {
     fn analyse(self) -> Self {
         let r = PowerChecker::check(self);
         // unroll
