@@ -357,7 +357,7 @@ impl<'ast, T: Field> From<pest::ArrayInitializerExpression<'ast>>
         let count: absy::ExpressionNode<T> = absy::ExpressionNode::from(initializer.count);
         let count = match count.value {
             absy::Expression::Number(v) => v.to_dec_string().parse::<usize>().unwrap(),
-            _ => unimplemented!(),
+            _ => unreachable!(),
         };
         absy::Expression::InlineArray(vec![value; count]).span(initializer.span)
     }
