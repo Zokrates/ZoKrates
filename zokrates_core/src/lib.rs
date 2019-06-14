@@ -8,7 +8,6 @@ extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
 extern crate bellman;
-extern crate bimap;
 extern crate bincode;
 extern crate ff;
 extern crate lazy_static;
@@ -24,6 +23,7 @@ extern crate serde_bytes;
 extern crate wasmi;
 extern crate zokrates_embed;
 extern crate zokrates_field;
+extern crate zokrates_pest_ast;
 
 mod flatten;
 mod helpers;

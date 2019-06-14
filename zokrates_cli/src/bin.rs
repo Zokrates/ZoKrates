@@ -6,6 +6,7 @@
 
 use bincode::{deserialize_from, serialize_into, Infinite};
 use clap::{App, AppSettings, Arg, SubCommand};
+use serde_json::Value;
 use std::env;
 use std::fs::File;
 use std::io::{stdin, BufReader, BufWriter, Read, Write};
@@ -199,6 +200,26 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(&default_scheme)
+        )
+    )
+     .subcommand(SubCommand::with_name("print-proof")
+        .about("Prints proof in chosen format [remix, json]")
+        .arg(Arg::with_name("proofpath")
+            .short("j")
+            .long("proofpath")
+            .help("Path of the JSON proof file")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(JSON_PROOF_PATH)
+        ).arg(Arg::with_name("format")
+            .short("f")
+            .long("format")
+            .value_name("FORMAT")
+            .help("Format in which the proof should be printed. [remix, json]")
+            .takes_value(true)
+            .possible_values(&["remix", "json", "testingV1", "testingV2"])
+            .required(true)
         )
     )
     .get_matches();
@@ -427,12 +448,63 @@ fn cli() -> Result<(), String> {
                 scheme.generate_proof(program, witness, pk_path, proof_path)
             );
         }
+        ("print-proof", Some(sub_matches)) => {
+            let format = sub_matches.value_of("format").unwrap();
+
+            let path = Path::new(sub_matches.value_of("proofpath").unwrap());
+
+            let file = File::open(&path)
+                .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
+
+            let proof_object: Value =
+                serde_json::from_reader(file).map_err(|why| format!("{:?}", why))?;
+
+            match format {
+                "json" => {
+                    println!("~~~~~~~~ Copy the output below for valid ABIv2 format ~~~~~~~~");
+                    println!();
+                    print!("{}", proof_object["proof"]);
+                    print!(",");
+                    println!("{}", proof_object["inputs"]);
+                    println!();
+                    println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+                }
+                "remix" => {
+                    println!("~~~~~~~~ Copy the output below for valid ABIv1 format ~~~~~~~~");
+                    println!();
+
+                    for (_, value) in proof_object["proof"].as_object().unwrap().iter() {
+                        print!("{}", value);
+                        print!(",");
+                    }
+
+                    println!("{}", proof_object["inputs"]);
+                    println!();
+                    println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+                }
+                "testingV1" => {
+                    //used by testing pipeline to generate arguments for contract call
+                    for (_, value) in proof_object["proof"].as_object().unwrap().iter() {
+                        print!("{}", value);
+                        print!(",");
+                    }
+                    println!("{}", proof_object["inputs"]);
+                }
+                "testingV2" => {
+                    //used by testing pipeline to generate arguments for contract call
+                    print!("{}", proof_object["proof"]);
+                    print!(",");
+                    println!("{}", proof_object["inputs"]);
+                }
+                _ => unreachable!(),
+            }
+        }
         _ => unreachable!(),
     }
     Ok(())
 }
 
-fn get_scheme(scheme_str: &str) -> Result<&'static ProofSystem, String> {
+fn get_scheme(scheme_str: &str) -> Result<&'static dyn ProofSystem, String> {
     match scheme_str.to_lowercase().as_ref() {
         #[cfg(feature = "libsnark")]
         "pghr13" => Ok(&PGHR13 {}),

@@ -11,19 +11,18 @@ use crate::typed_absy::*;
 use crate::types::conversions::cast;
 use crate::types::Signature;
 use crate::types::Type;
-use bimap::BiMap;
 use std::collections::HashMap;
 use zokrates_field::field::Field;
 
 /// Flattener, computes flattened program.
 #[derive(Debug)]
-pub struct Flattener {
+pub struct Flattener<'ast> {
     /// Index of the next introduced variable while processing the program.
     next_var_idx: usize,
     ///
-    bijection: BiMap<String, FlatVariable>,
+    layout: HashMap<Identifier<'ast>, Vec<FlatVariable>>,
 }
-impl Flattener {
+impl<'ast> Flattener<'ast> {
     pub fn flatten<T: Field>(p: TypedProg<T>) -> FlatProg<T> {
         Flattener::new().flatten_program(p)
     }
@@ -34,10 +33,10 @@ impl Flattener {
     ///
     /// * `bits` - Number of bits needed to represent the maximum value.
 
-    fn new() -> Flattener {
+    fn new() -> Flattener<'ast> {
         Flattener {
             next_var_idx: 0,
-            bijection: BiMap::new(),
+            layout: HashMap::new(),
         }
     }
 
@@ -48,25 +47,25 @@ impl Flattener {
 
         // Load IfElse helper
         let ie = TypedFunction {
-            id: "_if_else_field".to_string(),
+            id: "_if_else_field",
             arguments: vec![
                 Parameter {
                     id: Variable {
-                        id: "condition".to_string(),
+                        id: "condition".into(),
                         _type: Type::Boolean,
                     },
                     private: true,
                 },
                 Parameter {
                     id: Variable {
-                        id: "consequence".to_string(),
+                        id: "consequence".into(),
                         _type: Type::FieldElement,
                     },
                     private: true,
                 },
                 Parameter {
                     id: Variable {
-                        id: "alternative".to_string(),
+                        id: "alternative".into(),
                         _type: Type::FieldElement,
                     },
                     private: true,
@@ -74,26 +73,24 @@ impl Flattener {
             ],
             statements: vec![
                 TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("condition_as_field")),
+                    TypedAssignee::Identifier(Variable::field_element("condition_as_field".into())),
                     FieldElementExpression::FunctionCall(
                         "_bool_to_field".to_string(),
-                        vec![BooleanExpression::Identifier("condition".to_string()).into()],
+                        vec![BooleanExpression::Identifier("condition".into()).into()],
                     )
                     .into(),
                 ),
                 TypedStatement::Return(vec![FieldElementExpression::Add(
                     box FieldElementExpression::Mult(
-                        box FieldElementExpression::Identifier("condition_as_field".to_string()),
-                        box FieldElementExpression::Identifier("consequence".to_string()),
+                        box FieldElementExpression::Identifier("condition_as_field".into()),
+                        box FieldElementExpression::Identifier("consequence".into()),
                     ),
                     box FieldElementExpression::Mult(
                         box FieldElementExpression::Sub(
                             box FieldElementExpression::Number(T::one()),
-                            box FieldElementExpression::Identifier(
-                                "condition_as_field".to_string(),
-                            ),
+                            box FieldElementExpression::Identifier("condition_as_field".into()),
                         ),
-                        box FieldElementExpression::Identifier("alternative".to_string()),
+                        box FieldElementExpression::Identifier("alternative".into()),
                     ),
                 )
                 .into()]),
@@ -122,12 +119,12 @@ impl Flattener {
         &mut self,
         functions_flattened: &Vec<FlatFunction<T>>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
-        expression: BooleanExpression<T>,
+        expression: BooleanExpression<'ast, T>,
     ) -> FlatExpression<T> {
         // those will be booleans in the future
         match expression {
             BooleanExpression::Identifier(x) => {
-                FlatExpression::Identifier(self.bijection.get_by_left(&x).unwrap().clone())
+                FlatExpression::Identifier(self.layout.get(&x).unwrap().clone()[0])
             }
             BooleanExpression::Lt(box lhs, box rhs) => {
                 // Get the bitwidth to know the size of the binary decompsitions for this Field
@@ -407,7 +404,7 @@ impl Flattener {
         statements_flattened: &mut Vec<FlatStatement<T>>,
         id: &String,
         return_types: Vec<Type>,
-        param_expressions: &Vec<TypedExpression<T>>,
+        param_expressions: &Vec<TypedExpression<'ast, T>>,
     ) -> FlatExpressionList<T> {
         let passed_signature = Signature::new()
             .inputs(param_expressions.iter().map(|e| e.get_type()).collect())
@@ -457,7 +454,7 @@ impl Flattener {
                 // set return statements right sidreturne as expression result
                 FlatStatement::Return(..) => unreachable!(),
                 FlatStatement::Definition(var, rhs) => {
-                    let new_var = self.issue_new_variable();
+                    let new_var = self.issue_new_variables(1)[0];
                     replacement_map.insert(var, new_var);
                     let new_rhs = rhs.apply_substitution(&replacement_map);
                     FlatStatement::Definition(new_var, new_rhs)
@@ -472,7 +469,7 @@ impl Flattener {
                         .outputs
                         .into_iter()
                         .map(|o| {
-                            let new_o = self.issue_new_variable();
+                            let new_o = self.issue_new_variables(1)[0];
                             replacement_map.insert(o, new_o);
                             new_o
                         })
@@ -509,7 +506,7 @@ impl Flattener {
         &mut self,
         functions_flattened: &Vec<FlatFunction<T>>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
-        expr: TypedExpression<T>,
+        expr: TypedExpression<'ast, T>,
     ) -> Vec<FlatExpression<T>> {
         match expr {
             TypedExpression::FieldElement(e) => {
@@ -528,12 +525,12 @@ impl Flattener {
         &mut self,
         functions_flattened: &Vec<FlatFunction<T>>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
-        expr: FieldElementExpression<T>,
+        expr: FieldElementExpression<'ast, T>,
     ) -> FlatExpression<T> {
         match expr {
             FieldElementExpression::Number(x) => FlatExpression::Number(x), // force to be a field element
             FieldElementExpression::Identifier(x) => {
-                FlatExpression::Identifier(self.bijection.get_by_left(&x).unwrap().clone())
+                FlatExpression::Identifier(self.layout.get(&x).unwrap().clone()[0])
             }
             FieldElementExpression::Add(box left, box right) => {
                 let left_flattened =
@@ -725,8 +722,8 @@ impl Flattener {
                         FieldElementArrayExpression::Identifier(size, id) => {
                             assert!(n < T::from(size));
                             FlatExpression::Identifier(
-                                self.get_latest_var_substitution(&format!("{}_c{}", id, n))
-                                    .clone(),
+                                self.layout.get(&id).unwrap().clone()
+                                    [n.to_dec_string().parse::<usize>().unwrap()],
                             )
                         }
                         FieldElementArrayExpression::Value(size, expressions) => {
@@ -803,11 +800,13 @@ impl Flattener {
                                         box FieldElementExpression::Number(T::from(i)),
                                     ),
                                     box match array.clone() {
-                                        FieldElementArrayExpression::Identifier(_, id) => {
-                                            FieldElementExpression::Identifier(format!(
-                                                "{}_c{}",
-                                                id, i
-                                            ))
+                                        FieldElementArrayExpression::Identifier(size, id) => {
+                                            FieldElementExpression::Select(
+                                                box FieldElementArrayExpression::Identifier(
+                                                    size, id,
+                                                ),
+                                                box FieldElementExpression::Number(T::from(i)),
+                                            )
                                         }
                                         FieldElementArrayExpression::Value(size, expressions) => {
                                             assert_eq!(size, expressions.len());
@@ -856,16 +855,15 @@ impl Flattener {
         &mut self,
         functions_flattened: &Vec<FlatFunction<T>>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
-        expr: FieldElementArrayExpression<T>,
+        expr: FieldElementArrayExpression<'ast, T>,
     ) -> Vec<FlatExpression<T>> {
         match expr {
-            FieldElementArrayExpression::Identifier(size, x) => (0..size)
-                .map(|index| {
-                    FlatExpression::Identifier(
-                        self.get_latest_var_substitution(&format!("{}_c{}", x, index))
-                            .clone(),
-                    )
-                })
+            FieldElementArrayExpression::Identifier(_, x) => self
+                .layout
+                .get(&x)
+                .unwrap()
+                .iter()
+                .map(|v| FlatExpression::Identifier(v.clone()))
                 .collect(),
             FieldElementArrayExpression::Value(size, values) => {
                 assert_eq!(size, values.len());
@@ -923,7 +921,7 @@ impl Flattener {
         &mut self,
         functions_flattened: &Vec<FlatFunction<T>>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
-        stat: TypedStatement<T>,
+        stat: TypedStatement<'ast, T>,
     ) {
         match stat {
             TypedStatement::Return(exprs) => {
@@ -957,30 +955,32 @@ impl Flattener {
                     Type::FieldElement | Type::Boolean => {
                         match assignee {
                             TypedAssignee::Identifier(ref v) => {
-                                let debug_name = v.clone().id;
-                                let var = self.use_variable(&debug_name);
+                                let var = self.use_variable(&v)[0];
                                 // handle return of function call
                                 statements_flattened
                                     .push(FlatStatement::Definition(var, rhs[0].clone()));
                             }
-                            TypedAssignee::ArrayElement(ref array, ref index) => {
+                            TypedAssignee::ArrayElement(box array, box index) => {
                                 let expr = match expr {
                                     TypedExpression::FieldElement(e) => e,
                                     _ => panic!("not a field element as rhs of array element update, should have been caught at semantic")
                                 };
                                 match index {
-                                    box FieldElementExpression::Number(n) => match array {
-                                        box TypedAssignee::Identifier(id) => {
-                                            let debug_name = format!("{}_c{}", id.id, n);
-                                            let var = self.use_variable(&debug_name);
+                                    FieldElementExpression::Number(n) => match array {
+                                        TypedAssignee::Identifier(id) => {
+                                            let var = self.issue_new_variables(1);
+                                            let variables = self.layout.get_mut(&id.id).unwrap();
+                                            variables
+                                                [n.to_dec_string().parse::<usize>().unwrap()] =
+                                                var[0];
                                             statements_flattened.push(FlatStatement::Definition(
-                                                var,
+                                                var[0],
                                                 rhs[0].clone(),
                                             ));
                                         }
                                         _ => panic!("no multidimension array for now"),
                                     },
-                                    box e => {
+                                    e => {
                                         // we have array[e] with e an arbitrary expression
                                         // first we check that e is in 0..array.len(), so we check that sum(if e == i then 1 else 0) == 1
                                         // here depending on the size, we could use a proper range check based on bits
@@ -1021,44 +1021,52 @@ impl Flattener {
 
                                         // now we redefine the whole array, updating only the piece that changed
                                         // stat(array[i] = if e == i then `expr` else `array[i]`)
-                                        for i in 0..size {
-                                            let rhs = FieldElementExpression::IfElse(
-                                                box BooleanExpression::Eq(
+                                        let vars = match array {
+                                            TypedAssignee::Identifier(v) => self.use_variable(&v),
+                                            _ => unimplemented!(),
+                                        };
+
+                                        let statements = vars
+                                            .into_iter()
+                                            .enumerate()
+                                            .map(|(i, v)| {
+                                                let rhs = FieldElementExpression::IfElse(
+                                                    box BooleanExpression::Eq(
+                                                        box e.clone(),
+                                                        box FieldElementExpression::Number(
+                                                            T::from(i),
+                                                        ),
+                                                    ),
+                                                    box expr.clone(),
                                                     box e.clone(),
-                                                    box FieldElementExpression::Number(T::from(i)),
-                                                ),
-                                                box expr.clone(),
-                                                box e.clone(),
-                                            );
+                                                );
 
-                                            let rhs_flattened = self.flatten_field_expression(
-                                                functions_flattened,
-                                                statements_flattened,
-                                                rhs,
-                                            );
+                                                let rhs_flattened = self.flatten_field_expression(
+                                                    functions_flattened,
+                                                    statements_flattened,
+                                                    rhs,
+                                                );
 
-                                            let var =
-                                                self.use_variable(&format!("{}_c{}", array, i));
+                                                FlatStatement::Definition(v, rhs_flattened)
+                                            })
+                                            .collect::<Vec<_>>();
 
-                                            statements_flattened.push(FlatStatement::Definition(
-                                                var,
-                                                rhs_flattened,
-                                            ));
-                                        }
+                                        statements_flattened.extend(statements);
                                     }
                                 }
                             }
                         }
                     }
                     Type::FieldElementArray(..) => {
-                        for (index, r) in rhs.into_iter().enumerate() {
-                            let debug_name = match assignee {
-                                TypedAssignee::Identifier(ref v) => format!("{}_c{}", v.id, index),
-                                _ => unimplemented!(),
-                            };
-                            let var = self.use_variable(&debug_name);
-                            statements_flattened.push(FlatStatement::Definition(var, r));
-                        }
+                        let vars = match assignee {
+                            TypedAssignee::Identifier(v) => self.use_variable(&v),
+                            _ => unimplemented!(),
+                        };
+                        statements_flattened.extend(
+                            vars.into_iter()
+                                .zip(rhs.into_iter())
+                                .map(|(v, r)| FlatStatement::Definition(v, r)),
+                        );
                     }
                 }
             }
@@ -1152,7 +1160,7 @@ impl Flattener {
                 let mut current = start;
                 while current < end {
                     statements_flattened.push(FlatStatement::Definition(
-                        self.use_variable(&var.id),
+                        self.use_variable(&var)[0],
                         FlatExpression::Number(current.clone()),
                     ));
                     for s in statements.clone() {
@@ -1177,35 +1185,12 @@ impl Flattener {
                             &exprs,
                         );
 
-                        let mut iterator = rhs_flattened.expressions.into_iter();
+                        let rhs = rhs_flattened.expressions.into_iter();
 
-                        // take each new variable being assigned
-                        for v in vars {
-                            // determine how many field elements it carries
-                            match v.get_type() {
-                                Type::FieldElementArray(size) => {
-                                    for index in 0..size {
-                                        let debug_name = format!("{}_c{}", v.id, index);
-                                        let var = self.use_variable(&debug_name);
-                                        statements_flattened.push(FlatStatement::Definition(
-                                            var,
-                                            iterator.next().unwrap(),
-                                        ));
-                                    }
-                                }
-                                Type::Boolean | Type::FieldElement => {
-                                    let debug_name = v.id;
-                                    let var = self.use_variable(&debug_name);
-                                    statements_flattened.push(FlatStatement::Definition(
-                                        var,
-                                        iterator.next().unwrap(),
-                                    ));
-                                }
-                            }
-                        }
+                        let vars = vars.into_iter().flat_map(|v| self.use_variable(&v));
 
-                        // we should have exhausted the return values
-                        assert_eq!(iterator.next(), None);
+                        statements_flattened
+                            .extend(vars.zip(rhs).map(|(v, r)| FlatStatement::Definition(v, r)));
                     }
                 }
             }
@@ -1221,42 +1206,19 @@ impl Flattener {
     fn flatten_function<T: Field>(
         &mut self,
         functions_flattened: &mut Vec<FlatFunction<T>>,
-        funct: TypedFunction<T>,
+        funct: TypedFunction<'ast, T>,
     ) -> FlatFunction<T> {
-        self.bijection = BiMap::new();
+        self.layout = HashMap::new();
 
         self.next_var_idx = 0;
-
-        let mut arguments_flattened: Vec<FlatParameter> = Vec::new();
         let mut statements_flattened: Vec<FlatStatement<T>> = Vec::new();
 
         // push parameters
-        for arg in &funct.arguments {
-            let arg_type = arg.id.get_type();
-
-            match arg_type {
-                Type::FieldElement => {
-                    arguments_flattened.push(FlatParameter {
-                        id: self.use_variable(&arg.id.id),
-                        private: arg.private,
-                    });
-                }
-                Type::Boolean => {
-                    arguments_flattened.push(FlatParameter {
-                        id: self.use_variable(&arg.id.id),
-                        private: arg.private,
-                    });
-                }
-                Type::FieldElementArray(size) => {
-                    for i in 0..size {
-                        arguments_flattened.push(FlatParameter {
-                            id: self.use_variable(&format!("{}_c{}", arg.id.id, i)),
-                            private: arg.private,
-                        })
-                    }
-                }
-            }
-        }
+        let arguments_flattened = funct
+            .arguments
+            .into_iter()
+            .flat_map(|p| self.use_parameter(&p, &mut statements_flattened))
+            .collect();
 
         // flatten statements in functions and apply substitution
         for stat in funct.statements {
@@ -1264,7 +1226,7 @@ impl Flattener {
         }
 
         FlatFunction {
-            id: funct.id.clone(),
+            id: funct.id.to_string(),
             arguments: arguments_flattened,
             statements: statements_flattened,
             signature: funct.signature,
@@ -1276,7 +1238,7 @@ impl Flattener {
     /// # Arguments
     ///
     /// * `prog` - `Prog`ram that will be flattened.
-    fn flatten_program<T: Field>(&mut self, prog: TypedProg<T>) -> FlatProg<T> {
+    fn flatten_program<T: Field>(&mut self, prog: TypedProg<'ast, T>) -> FlatProg<T> {
         let mut functions_flattened = Vec::new();
 
         self.load_corelib(&mut functions_flattened);
@@ -1299,30 +1261,66 @@ impl Flattener {
     /// # Arguments
     ///
     /// * `name` - a String that holds the name of the variable
-    fn use_variable(&mut self, name: &String) -> FlatVariable {
-        // issue the variable we'll use
-        let var = self.issue_new_variable();
+    fn use_variable(&mut self, variable: &Variable<'ast>) -> Vec<FlatVariable> {
+        let vars = match variable.get_type() {
+            Type::FieldElement => self.issue_new_variables(1),
+            Type::Boolean => self.issue_new_variables(1),
+            Type::FieldElementArray(size) => self.issue_new_variables(size),
+        };
 
-        self.bijection.insert(name.to_string(), var);
-        var
+        self.layout.insert(variable.id.clone(), vars.clone());
+        vars
     }
 
-    fn issue_new_variable(&mut self) -> FlatVariable {
-        let var = FlatVariable::new(self.next_var_idx);
-        self.next_var_idx += 1;
-        var
+    fn use_parameter<T: Field>(
+        &mut self,
+        parameter: &Parameter<'ast>,
+        statements: &mut Vec<FlatStatement<T>>,
+    ) -> Vec<FlatParameter> {
+        let variables = self.use_variable(&parameter.id);
+        match parameter.id.get_type() {
+            Type::Boolean => statements.extend(Self::boolean_constraint(&variables)),
+            _ => {}
+        };
+
+        variables
+            .into_iter()
+            .map(|v| FlatParameter {
+                id: v,
+                private: parameter.private,
+            })
+            .collect()
     }
 
+    fn issue_new_variables(&mut self, count: usize) -> Vec<FlatVariable> {
+        (0..count)
+            .map(|_| {
+                let var = FlatVariable::new(self.next_var_idx);
+                self.next_var_idx += 1;
+                var
+            })
+            .collect()
+    }
+
+    fn boolean_constraint<T: Field>(variables: &Vec<FlatVariable>) -> Vec<FlatStatement<T>> {
+        variables
+            .iter()
+            .map(|v| {
+                FlatStatement::Condition(
+                    FlatExpression::Identifier(*v),
+                    FlatExpression::Mult(
+                        box FlatExpression::Identifier(*v),
+                        box FlatExpression::Identifier(*v),
+                    ),
+                )
+            })
+            .collect()
+    }
+
+    // create an internal variable. We do not register it in the layout
     fn use_sym(&mut self) -> FlatVariable {
-        let name = format!("sym_{}", self.next_var_idx);
-        let var = self.issue_new_variable();
-        self.bijection.insert(name, var);
-        var
-    }
-
-    fn get_latest_var_substitution(&mut self, name: &String) -> FlatVariable {
-        // start with the variable name
-        self.bijection.get_by_left(name).unwrap().clone()
+        let var = self.issue_new_variables(1);
+        var[0]
     }
 
     fn get_function<'a, T: Field>(
@@ -1344,6 +1342,60 @@ mod tests {
     use crate::types::Signature;
     use crate::types::Type;
     use zokrates_field::field::FieldPrime;
+
+    mod boolean_checks {
+        use super::*;
+
+        #[test]
+        fn boolean_arg() {
+            // def main(bool a):
+            //    return a
+            //
+            // -> should flatten to
+            //
+            // def main(_0) -> (1):
+            //    _0 * _0 == _0
+            //    return _0
+
+            let function: TypedFunction<FieldPrime> = TypedFunction {
+                id: "main",
+                arguments: vec![Parameter::private(Variable::boolean("a".into()))],
+                statements: vec![TypedStatement::Return(vec![BooleanExpression::Identifier(
+                    "a".into(),
+                )
+                .into()])],
+                signature: Signature::new()
+                    .inputs(vec![Type::Boolean])
+                    .outputs(vec![Type::Boolean]),
+            };
+
+            let expected = FlatFunction {
+                id: String::from("main"),
+                arguments: vec![FlatParameter::private(FlatVariable::new(0))],
+                statements: vec![
+                    FlatStatement::Condition(
+                        FlatExpression::Identifier(FlatVariable::new(0)),
+                        FlatExpression::Mult(
+                            box FlatExpression::Identifier(FlatVariable::new(0)),
+                            box FlatExpression::Identifier(FlatVariable::new(0)),
+                        ),
+                    ),
+                    FlatStatement::Return(FlatExpressionList {
+                        expressions: vec![FlatExpression::Identifier(FlatVariable::new(0))],
+                    }),
+                ],
+                signature: Signature::new()
+                    .inputs(vec![Type::Boolean])
+                    .outputs(vec![Type::Boolean]),
+            };
+
+            let mut flattener = Flattener::new();
+
+            let flat_function = flattener.flatten_function(&mut vec![], function);
+
+            assert_eq!(flat_function, expected);
+        }
+    }
 
     #[test]
     fn multiple_definition() {
@@ -1369,8 +1421,8 @@ mod tests {
         let mut statements_flattened = vec![];
         let statement = TypedStatement::MultipleDefinition(
             vec![
-                Variable::field_element("a".to_string()),
-                Variable::field_element("b".to_string()),
+                Variable::field_element("a".into()),
+                Variable::field_element("b".into()),
             ],
             TypedExpressionList::FunctionCall(
                 "foo".to_string(),
@@ -1418,8 +1470,8 @@ mod tests {
         }];
         let statement = TypedStatement::MultipleDefinition(
             vec![
-                Variable::field_element("a".to_string()),
-                Variable::field_element("b".to_string()),
+                Variable::field_element("a".into()),
+                Variable::field_element("b".into()),
             ],
             TypedExpressionList::FunctionCall(
                 "dup".to_string(),
@@ -1431,7 +1483,7 @@ mod tests {
         );
 
         let fun = TypedFunction {
-            id: String::from("main"),
+            id: "main",
             arguments: vec![],
             statements: vec![statement],
             signature: Signature {
@@ -1470,7 +1522,7 @@ mod tests {
         }];
         let mut statements_flattened = vec![];
         let statement = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_element("a")),
+            TypedAssignee::Identifier(Variable::field_element("a".into())),
             TypedExpression::FieldElement(FieldElementExpression::FunctionCall(
                 "foo".to_string(),
                 vec![],
@@ -1506,19 +1558,19 @@ mod tests {
         let mut functions_flattened = vec![];
 
         let funct = TypedFunction {
-            id: "foo".to_string(),
+            id: "foo",
             signature: Signature::new()
                 .inputs(vec![Type::FieldElement])
                 .outputs(vec![Type::FieldElement]),
             arguments: vec![Parameter {
-                id: Variable::field_element("a"),
+                id: Variable::field_element("a".into()),
                 private: true,
             }],
             statements: vec![
                 TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("a")),
+                    TypedAssignee::Identifier(Variable::field_element("a".into())),
                     FieldElementExpression::Add(
-                        box FieldElementExpression::Identifier("a".to_string()),
+                        box FieldElementExpression::Identifier("a".into()),
                         box FieldElementExpression::Number(FieldPrime::from(1)),
                     )
                     .into(),
@@ -1556,16 +1608,14 @@ mod tests {
         //     return foo()
 
         let foo = TypedFunction {
-            id: String::from("foo"),
+            id: "foo",
             arguments: vec![],
             statements: vec![
                 TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("a")),
+                    TypedAssignee::Identifier(Variable::field_element("a".into())),
                     FieldElementExpression::Number(FieldPrime::from(3)).into(),
                 ),
-                TypedStatement::Return(vec![
-                    FieldElementExpression::Identifier(String::from("a")).into()
-                ]),
+                TypedStatement::Return(vec![FieldElementExpression::Identifier("a".into()).into()]),
             ],
             signature: Signature {
                 inputs: vec![],
@@ -1574,7 +1624,7 @@ mod tests {
         };
 
         let main = TypedFunction {
-            id: String::from("main"),
+            id: "main",
             arguments: vec![],
             statements: vec![TypedStatement::Return(vec![
                 FieldElementExpression::FunctionCall(String::from("foo"), vec![]).into(),
@@ -1624,24 +1674,22 @@ mod tests {
         //     return _3
 
         let function = TypedFunction {
-            id: String::from("main"),
+            id: "main",
             arguments: vec![],
             statements: vec![
                 TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("a")),
+                    TypedAssignee::Identifier(Variable::field_element("a".into())),
                     FieldElementExpression::Number(FieldPrime::from(7)).into(),
                 ),
                 TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("b")),
+                    TypedAssignee::Identifier(Variable::field_element("b".into())),
                     FieldElementExpression::Pow(
-                        box FieldElementExpression::Identifier(String::from("a")),
+                        box FieldElementExpression::Identifier("a".into()),
                         box FieldElementExpression::Number(FieldPrime::from(4)),
                     )
                     .into(),
                 ),
-                TypedStatement::Return(vec![
-                    FieldElementExpression::Identifier(String::from("b")).into()
-                ]),
+                TypedStatement::Return(vec![FieldElementExpression::Identifier("b".into()).into()]),
             ],
             signature: Signature {
                 inputs: vec![],
@@ -1709,7 +1757,7 @@ mod tests {
         let mut flattener = Flattener::new();
         let functions = vec![
             TypedFunction {
-                id: "foo".to_string(),
+                id: "foo",
                 arguments: vec![],
                 statements: vec![TypedStatement::Return(vec![TypedExpression::FieldElement(
                     FieldElementExpression::Number(FieldPrime::from(1)),
@@ -1719,7 +1767,7 @@ mod tests {
                     .outputs(vec![Type::FieldElement]),
             },
             TypedFunction {
-                id: "foo".to_string(),
+                id: "foo",
                 arguments: vec![],
                 statements: vec![TypedStatement::Return(vec![
                     TypedExpression::FieldElement(FieldElementExpression::Number(
@@ -1734,11 +1782,11 @@ mod tests {
                     .outputs(vec![Type::FieldElement, Type::FieldElement]),
             },
             TypedFunction {
-                id: "main".to_string(),
+                id: "main",
                 arguments: vec![],
                 statements: vec![
                     TypedStatement::Definition(
-                        TypedAssignee::Identifier(Variable::field_element("a")),
+                        TypedAssignee::Identifier(Variable::field_element("a".into())),
                         TypedExpression::FieldElement(FieldElementExpression::FunctionCall(
                             "foo".to_string(),
                             vec![],
@@ -1746,8 +1794,8 @@ mod tests {
                     ),
                     TypedStatement::MultipleDefinition(
                         vec![
-                            Variable::field_element("b".to_string()),
-                            Variable::field_element("c".to_string()),
+                            Variable::field_element("b".into()),
+                            Variable::field_element("c".into()),
                         ],
                         TypedExpressionList::FunctionCall(
                             "foo".to_string(),
@@ -1841,18 +1889,18 @@ mod tests {
         let mut statements_flattened = vec![];
 
         let definition = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_element("b")),
+            TypedAssignee::Identifier(Variable::field_element("b".into())),
             FieldElementExpression::Number(FieldPrime::from(42)).into(),
         );
 
         let statement = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_element("a")),
+            TypedAssignee::Identifier(Variable::field_element("a".into())),
             FieldElementExpression::Div(
                 box FieldElementExpression::Div(
                     box FieldElementExpression::Number(FieldPrime::from(5)),
-                    box FieldElementExpression::Identifier(String::from("b")),
+                    box FieldElementExpression::Identifier("b".into()),
                 ),
-                box FieldElementExpression::Identifier(String::from("b")),
+                box FieldElementExpression::Identifier("b".into()),
             )
             .into(),
         );
@@ -1953,7 +2001,7 @@ mod tests {
         let mut functions_flattened = vec![];
         let mut statements_flattened = vec![];
         let statement = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_array("foo", 3)),
+            TypedAssignee::Identifier(Variable::field_array("foo".into(), 3)),
             FieldElementArrayExpression::Value(
                 3,
                 vec![
@@ -1964,7 +2012,7 @@ mod tests {
             )
             .into(),
         );
-        let expression = FieldElementArrayExpression::Identifier(3, String::from("foo"));
+        let expression = FieldElementArrayExpression::Identifier(3, "foo".into());
 
         flattener.flatten_statement(
             &mut functions_flattened,
@@ -1996,7 +2044,7 @@ mod tests {
         let mut functions_flattened = vec![];
         let mut statements_flattened = vec![];
         let statement = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_array("foo", 3)),
+            TypedAssignee::Identifier(Variable::field_array("foo".into(), 3)),
             FieldElementArrayExpression::Value(
                 3,
                 vec![
@@ -2042,7 +2090,7 @@ mod tests {
         let mut functions_flattened = vec![];
         let mut statements_flattened = vec![];
         let statement = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_array("foo", 3)),
+            TypedAssignee::Identifier(Variable::field_array("foo".into(), 3)),
             FieldElementArrayExpression::Value(
                 3,
                 vec![
@@ -2055,7 +2103,7 @@ mod tests {
         );
 
         let expression = FieldElementExpression::Select(
-            box FieldElementArrayExpression::Identifier(3, String::from("foo")),
+            box FieldElementArrayExpression::Identifier(3, "foo".into()),
             box FieldElementExpression::Number(FieldPrime::from(1)),
         );
 
@@ -2087,7 +2135,7 @@ mod tests {
         let mut functions_flattened = vec![];
         let mut statements_flattened = vec![];
         let def = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_array("foo", 3)),
+            TypedAssignee::Identifier(Variable::field_array("foo".into(), 3)),
             FieldElementArrayExpression::Value(
                 3,
                 vec![
@@ -2100,20 +2148,20 @@ mod tests {
         );
 
         let sum = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_element("bar")),
+            TypedAssignee::Identifier(Variable::field_element("bar".into())),
             FieldElementExpression::Add(
                 box FieldElementExpression::Add(
                     box FieldElementExpression::Select(
-                        box FieldElementArrayExpression::Identifier(3, String::from("foo")),
+                        box FieldElementArrayExpression::Identifier(3, "foo".into()),
                         box FieldElementExpression::Number(FieldPrime::from(0)),
                     ),
                     box FieldElementExpression::Select(
-                        box FieldElementArrayExpression::Identifier(3, String::from("foo")),
+                        box FieldElementArrayExpression::Identifier(3, "foo".into()),
                         box FieldElementExpression::Number(FieldPrime::from(1)),
                     ),
                 ),
                 box FieldElementExpression::Select(
-                    box FieldElementArrayExpression::Identifier(3, String::from("foo")),
+                    box FieldElementArrayExpression::Identifier(3, "foo".into()),
                     box FieldElementExpression::Number(FieldPrime::from(2)),
                 ),
             )
@@ -2216,28 +2264,28 @@ mod tests {
     fn next_variable() {
         let mut flattener = Flattener::new();
         assert_eq!(
-            FlatVariable::new(0),
-            flattener.use_variable(&String::from("a"))
+            vec![FlatVariable::new(0)],
+            flattener.use_variable(&Variable::field_element("a".into()))
         );
         assert_eq!(
-            flattener.get_latest_var_substitution(&String::from("a")),
-            FlatVariable::new(0)
+            flattener.layout.get(&"a".into()),
+            Some(&vec![FlatVariable::new(0)])
         );
         assert_eq!(
-            FlatVariable::new(1),
-            flattener.use_variable(&String::from("a"))
+            vec![FlatVariable::new(1)],
+            flattener.use_variable(&Variable::field_element("a".into()))
         );
         assert_eq!(
-            flattener.get_latest_var_substitution(&String::from("a")),
-            FlatVariable::new(1)
+            flattener.layout.get(&"a".into()),
+            Some(&vec![FlatVariable::new(1)])
         );
         assert_eq!(
-            FlatVariable::new(2),
-            flattener.use_variable(&String::from("a"))
+            vec![FlatVariable::new(2)],
+            flattener.use_variable(&Variable::field_element("a".into()))
         );
         assert_eq!(
-            flattener.get_latest_var_substitution(&String::from("a")),
-            FlatVariable::new(2)
+            flattener.layout.get(&"a".into()),
+            Some(&vec![FlatVariable::new(2)])
         );
     }
 }
