@@ -215,6 +215,49 @@ impl<'ast, T: Field> fmt::Debug for Statement<'ast, T> {
 }
 
 #[derive(Clone, PartialEq)]
+pub enum SpreadOrExpression<'ast, T: Field> {
+    Spread(SpreadNode<'ast, T>),
+    Expression(ExpressionNode<'ast, T>),
+}
+
+impl<'ast, T: Field> fmt::Display for SpreadOrExpression<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            SpreadOrExpression::Spread(ref s) => write!(f, "{}", s),
+            SpreadOrExpression::Expression(ref e) => write!(f, "{}", e),
+        }
+    }
+}
+
+impl<'ast, T: Field> fmt::Debug for SpreadOrExpression<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            SpreadOrExpression::Spread(ref s) => write!(f, "{:?}", s),
+            SpreadOrExpression::Expression(ref e) => write!(f, "{:?}", e),
+        }
+    }
+}
+
+pub type SpreadNode<'ast, T> = Node<Spread<'ast, T>>;
+
+impl<'ast, T: Field> fmt::Display for Spread<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "...{}", self.expression)
+    }
+}
+
+impl<'ast, T: Field> fmt::Debug for Spread<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Spread({:?})", self.expression)
+    }
+}
+
+#[derive(Clone, PartialEq)]
+pub struct Spread<'ast, T: Field> {
+    pub expression: ExpressionNode<'ast, T>,
+}
+
+#[derive(Clone, PartialEq)]
 pub enum Expression<'ast, T: Field> {
     Number(T),
     Identifier(Identifier<'ast>),
@@ -236,7 +279,7 @@ pub enum Expression<'ast, T: Field> {
     Gt(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
     And(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
     Not(Box<ExpressionNode<'ast, T>>),
-    InlineArray(Vec<ExpressionNode<'ast, T>>),
+    InlineArray(Vec<SpreadOrExpression<'ast, T>>),
     Select(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
     Or(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
 }

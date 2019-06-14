@@ -332,6 +332,31 @@ impl<'ast, T: Field> From<pest::TernaryExpression<'ast>> for absy::ExpressionNod
     }
 }
 
+impl<'ast, T: Field> From<pest::Spread<'ast>> for absy::SpreadNode<'ast, T> {
+    fn from(spread: pest::Spread<'ast>) -> absy::SpreadNode<'ast, T> {
+        use absy::NodeValue;
+        absy::Spread {
+            expression: absy::ExpressionNode::from(spread.expression),
+        }
+        .span(spread.span)
+    }
+}
+
+impl<'ast, T: Field> From<pest::SpreadOrExpression<'ast>> for absy::SpreadOrExpression<'ast, T> {
+    fn from(
+        spread_or_expression: pest::SpreadOrExpression<'ast>,
+    ) -> absy::SpreadOrExpression<'ast, T> {
+        match spread_or_expression {
+            pest::SpreadOrExpression::Expression(e) => {
+                absy::SpreadOrExpression::Expression(absy::ExpressionNode::from(e))
+            }
+            pest::SpreadOrExpression::Spread(s) => {
+                absy::SpreadOrExpression::Spread(absy::SpreadNode::from(s))
+            }
+        }
+    }
+}
+
 impl<'ast, T: Field> From<pest::InlineArrayExpression<'ast>> for absy::ExpressionNode<'ast, T> {
     fn from(array: pest::InlineArrayExpression<'ast>) -> absy::ExpressionNode<'ast, T> {
         use absy::NodeValue;
@@ -339,7 +364,7 @@ impl<'ast, T: Field> From<pest::InlineArrayExpression<'ast>> for absy::Expressio
             array
                 .expressions
                 .into_iter()
-                .map(|e| absy::ExpressionNode::from(e))
+                .map(|e| absy::SpreadOrExpression::from(e))
                 .collect(),
         )
         .span(array.span)

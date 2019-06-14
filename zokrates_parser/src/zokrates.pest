@@ -49,6 +49,7 @@ expression_list = _{(expression ~ ("," ~ expression)*)?}
 
 expression = { term ~ (op_binary ~ term)* }
 term = { ("(" ~ expression ~ ")") | conditional_expression | postfix_expression | primary_expression | inline_array_expression | unary_expression }
+spread = { "..." ~ expression }
 
 conditional_expression = { "if" ~ expression ~ "then" ~ expression ~ "else" ~ expression ~ "fi"}
 
@@ -61,7 +62,9 @@ primary_expression = { identifier
                     | constant
                     }
 
-inline_array_expression = { "[" ~ expression_list ~ "]" }
+inline_array_expression = { "[" ~ inline_array_inner ~ "]" }
+inline_array_inner = _{(spread_or_expression ~ ("," ~ spread_or_expression)*)?}
+spread_or_expression = { spread | expression }
 unary_expression = { op_unary ~ term }
 
 // End Expressions

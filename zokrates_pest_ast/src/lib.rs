@@ -12,8 +12,8 @@ pub use ast::{
     BinaryExpression, BinaryOperator, CallAccess, ConstantExpression, DefinitionStatement,
     Expression, File, Function, IdentifierExpression, ImportDirective, ImportSource,
     InlineArrayExpression, IterationStatement, MultiAssignmentStatement, Parameter,
-    PostfixExpression, ReturnStatement, Span, Statement, TernaryExpression, Type, UnaryExpression,
-    UnaryOperator, Visibility,
+    PostfixExpression, ReturnStatement, Span, Spread, SpreadOrExpression, Statement,
+    TernaryExpression, Type, UnaryExpression, UnaryOperator, Visibility,
 };
 
 mod ast {
@@ -356,6 +356,21 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::spread_or_expression))]
+    pub enum SpreadOrExpression<'ast> {
+        Spread(Spread<'ast>),
+        Expression(Expression<'ast>),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::spread))]
+    pub struct Spread<'ast> {
+        pub expression: Expression<'ast>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::postfix_expression))]
     pub struct PostfixExpression<'ast> {
         pub id: IdentifierExpression<'ast>,
@@ -376,7 +391,7 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::inline_array_expression))]
     pub struct InlineArrayExpression<'ast> {
-        pub expressions: Vec<Expression<'ast>>,
+        pub expressions: Vec<SpreadOrExpression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
