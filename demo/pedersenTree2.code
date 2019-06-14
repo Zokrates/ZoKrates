@@ -1,0 +1,29 @@
+import "./pedersen.code" as hash
+import "ecc/edwardsCompress.code" as edwardsCompress
+import "ecc/babyjubjubParams.code" as context
+import "utils/multiplexer/256bitsCond.code" as multiplex
+import "utils/binary/not.code" as NOT
+// Merke-Tree inclusion proof for tree depth 2 using SNARK efficient pedersen hashes 
+// directionSelector=> 1/true if current digest is on the rhs of the hash
+def main(field[256] rootDigest, private field[256] leafDigest, private field[2] directionSelector, field[256] PathDigest0, private field[256] PathDigest1) -> (field):
+	context = context()
+
+	//Setup
+	field[256] currentDigest = leafDigest
+	field counter = 1
+	
+	//Loop up the tree
+	preimage = multiplex(directionSelector[0], currentDigest, PathDigest0)
+	currentDigest = hash(preimage)
+	counter = counter + 1
+
+	preimage = multiplex(directionSelector[1], currentDigest, PathDigest1)
+	currentDigest = hash(preimage)
+	counter = counter + 1
+
+	//Asserts
+	//TODO: is depth comparison needed?
+	// counter == treeDepth
+	rootDigest == currentDigest
+	
+	return 1 //return true in success 
