@@ -336,9 +336,9 @@ mod tests {
             #[allow(dead_code)]
             #[derive(Deserialize)]
             struct G16ProofPoints {
-                a: [String; 2],
-                b: [[String; 2]; 2],
-                c: [String; 2],
+                A: [String; 2],
+                B: [[String; 2]; 2],
+                C: [String; 2],
             }
 
             #[allow(dead_code)]
