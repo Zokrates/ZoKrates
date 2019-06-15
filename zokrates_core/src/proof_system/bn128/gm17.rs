@@ -190,7 +190,7 @@ impl ProofSystem for GM17 {
 
         format!(
             "{}{}{}",
-             SOLIDITY_G2_ADDITION_LIB, solidity_pairing_lib, template_text
+            SOLIDITY_G2_ADDITION_LIB, solidity_pairing_lib, template_text
         )
     }
 }
