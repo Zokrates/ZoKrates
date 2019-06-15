@@ -73,7 +73,6 @@ impl ProofSystem for G16 {
 
         let gamma_abc_template = String::from("vk.gammaABC[index] = Pairing.G1Point(points);"); //copy this for each entry
         
-        
         //replace things in template
         let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
         let vk_gamma_abc_len_regex = Regex::new(r#"(<%vk_gammaABC_length%>)"#).unwrap();
