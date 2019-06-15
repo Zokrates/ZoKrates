@@ -115,7 +115,7 @@ impl ProofSystem for PGHR13 {
         let mut lines = reader.lines();
 
         let mut template_text;
-        let mut solidity_pairing_lib;
+        let solidity_pairing_lib;
 
         if *abiv2 {
             template_text = String::from(CONTRACT_TEMPLATE_V2);

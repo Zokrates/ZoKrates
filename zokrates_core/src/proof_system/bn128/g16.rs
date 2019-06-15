@@ -59,7 +59,7 @@ impl ProofSystem for G16 {
         let mut lines = reader.lines();
 
         let mut template_text;
-        let mut solidity_pairing_lib;
+        let solidity_pairing_lib;
 
         if *abiv2 {
             template_text = String::from(CONTRACT_TEMPLATE_V2);
@@ -142,7 +142,7 @@ impl ProofSystem for G16 {
 
         format!(
             "{}{}{}",
-           SOLIDITY_G2_ADDITION_LIB, solidity_pairing_lib, template_text
+            SOLIDITY_G2_ADDITION_LIB, solidity_pairing_lib, template_text
         )
     }
 }
