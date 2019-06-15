@@ -3,7 +3,7 @@ extern crate libc;
 use self::libc::{c_char, c_int};
 use ir;
 use proof_system::bn128::utils::libsnark::{prepare_generate_proof, prepare_setup};
-use proof_system::bn128::utils::solidity::{SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB};
+use proof_system::bn128::utils::solidity::{SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2};
 use proof_system::ProofSystem;
 use regex::Regex;
 use std::fs::File;
@@ -105,10 +105,20 @@ impl ProofSystem for GM17 {
         }
     }
 
-    fn export_solidity_verifier(&self, reader: BufReader<File>) -> String {
+    fn export_solidity_verifier(&self, reader: BufReader<File>, abiv2: &bool) -> String {
         let mut lines = reader.lines();
 
-        let mut template_text = String::from(CONTRACT_TEMPLATE);
+        let mut template_text;
+        let mut solidity_pairing_lib;
+
+        if *abiv2 {
+            template_text = String::from(CONTRACT_TEMPLATE_V2);
+            solidity_pairing_lib = String::from(SOLIDITY_PAIRING_LIB_V2);
+        } else {
+            template_text = String::from(CONTRACT_TEMPLATE);
+            solidity_pairing_lib = String::from(SOLIDITY_PAIRING_LIB);
+        }
+
         let query_template = String::from("vk.query[index] = Pairing.G1Point(points);"); //copy this for each entry
 
         //replace things in template
@@ -178,10 +188,74 @@ impl ProofSystem for GM17 {
 
         format!(
             "{}{}{}",
-            SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, template_text
+             SOLIDITY_G2_ADDITION_LIB, solidity_pairing_lib, template_text
         )
     }
 }
+
+const CONTRACT_TEMPLATE_V2: &str = r#"
+contract Verifier {
+    using Pairing for *;
+    struct VerifyingKey {
+        Pairing.G2Point H;
+        Pairing.G1Point Galpha;
+        Pairing.G2Point Hbeta;
+        Pairing.G1Point Ggamma;
+        Pairing.G2Point Hgamma;
+        Pairing.G1Point[] query;
+    }
+    struct Proof {
+        Pairing.G1Point A;
+        Pairing.G2Point B;
+        Pairing.G1Point C;
+    }
+    function verifyingKey() pure internal returns (VerifyingKey memory vk) {
+        vk.H = Pairing.G2Point(<%vk_h%>);
+        vk.Galpha = Pairing.G1Point(<%vk_g_alpha%>);
+        vk.Hbeta = Pairing.G2Point(<%vk_h_beta%>);
+        vk.Ggamma = Pairing.G1Point(<%vk_g_gamma%>);
+        vk.Hgamma = Pairing.G2Point(<%vk_h_gamma%>);
+        vk.query = new Pairing.G1Point[](<%vk_query_length%>);
+        <%vk_query_pts%>
+    }
+    function verify(uint[] memory input, Proof memory proof) internal returns (uint) {
+        VerifyingKey memory vk = verifyingKey();
+        require(input.length + 1 == vk.query.length);
+        // Compute the linear combination vk_x
+        Pairing.G1Point memory vk_x = Pairing.G1Point(0, 0);
+        for (uint i = 0; i < input.length; i++)
+            vk_x = Pairing.addition(vk_x, Pairing.scalar_mul(vk.query[i + 1], input[i]));
+        vk_x = Pairing.addition(vk_x, vk.query[0]);
+        /**
+         * e(A*G^{alpha}, B*H^{beta}) = e(G^{alpha}, H^{beta}) * e(G^{psi}, H^{gamma})
+         *                              * e(C, H)
+         * where psi = \sum_{i=0}^l input_i pvk.query[i]
+         */
+        if (!Pairing.pairingProd4(vk.Galpha, vk.Hbeta, vk_x, vk.Hgamma, proof.C, vk.H, Pairing.negate(Pairing.addition(proof.A, vk.Galpha)), Pairing.addition(proof.B, vk.Hbeta))) return 1;
+        /**
+         * e(A, H^{gamma}) = e(G^{gamma}, B)
+         */
+        if (!Pairing.pairingProd2(proof.A, vk.Hgamma, Pairing.negate(vk.Ggamma), proof.B)) return 2;
+        return 0;
+    }
+    event Verified(string s);
+    function verifyTx(
+            Proof memory proof,
+            uint[<%vk_input_length%>] memory input
+        ) public returns (bool r) {
+        uint[] memory inputValues = new uint[](input.length);
+        for(uint i = 0; i < input.length; i++){
+            inputValues[i] = input[i];
+        }
+        if (verify(inputValues, proof) == 0) {
+            emit Verified("Transaction successfully verified.");
+            return true;
+        } else {
+            return false;
+        }
+    }
+}
+"#;
 
 const CONTRACT_TEMPLATE: &str = r#"
 contract Verifier {

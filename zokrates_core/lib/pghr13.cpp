@@ -139,7 +139,7 @@ void exportProof(r1cs_ppzksnark_proof<libff::alt_bn128_pp> proof, const char* pr
                       ss << "\t\t\"K\":" <<outputPointG1AffineAsHexJson(proof.g_K) << "\n";
                     ss << "\t}," << "\n";
                   //add input to json
-                  ss << "\t\"input\":" << "[";
+                  ss << "\t\"inputs\":" << "[";
                   for (int i = 1; i < public_inputs_length; i++) {
                     if(i!=1){
                       ss << ",";

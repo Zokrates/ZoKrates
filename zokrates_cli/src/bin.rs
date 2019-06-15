@@ -130,6 +130,11 @@ fn cli() -> Result<(), String> {
             .required(false)
             .default_value(&default_scheme)
         )
+         .arg(Arg::with_name("abiv2")
+            .long("abiv2")
+            .help("Flag for setting version of ABI Encoder used in the contract. Default is ABIv1")
+            .required(false)
+        )
     )
     .subcommand(SubCommand::with_name("compute-witness")
         .about("Calculates a witness for a given constraint system")
@@ -392,6 +397,7 @@ fn cli() -> Result<(), String> {
         ("export-verifier", Some(sub_matches)) => {
             {
                 let scheme = get_scheme(sub_matches.value_of("proving-scheme").unwrap())?;
+                let abiv2 = sub_matches.occurrences_of("abiv2") > 0;
 
                 println!("Exporting verifier...");
 
@@ -401,7 +407,7 @@ fn cli() -> Result<(), String> {
                     .map_err(|why| format!("couldn't open {}: {}", input_path.display(), why))?;
                 let reader = BufReader::new(input_file);
 
-                let verifier = scheme.export_solidity_verifier(reader);
+                let verifier = scheme.export_solidity_verifier(reader, &abiv2);
 
                 //write output file
                 let output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -481,20 +487,6 @@ fn cli() -> Result<(), String> {
                     println!("{}", proof_object["inputs"]);
                     println!();
                     println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-                }
-                "testingV1" => {
-                    //used by testing pipeline to generate arguments for contract call
-                    for (_, value) in proof_object["proof"].as_object().unwrap().iter() {
-                        print!("{}", value);
-                        print!(",");
-                    }
-                    println!("{}", proof_object["inputs"]);
-                }
-                "testingV2" => {
-                    //used by testing pipeline to generate arguments for contract call
-                    print!("{}", proof_object["proof"]);
-                    print!(",");
-                    println!("{}", proof_object["inputs"]);
                 }
                 _ => unreachable!(),
             }

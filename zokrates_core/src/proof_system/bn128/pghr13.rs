@@ -3,7 +3,7 @@ extern crate libc;
 use self::libc::{c_char, c_int};
 use ir;
 use proof_system::bn128::utils::libsnark::{prepare_generate_proof, prepare_setup};
-use proof_system::bn128::utils::solidity::{SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB};
+use proof_system::bn128::utils::solidity::{SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2};
 use proof_system::ProofSystem;
 
 use regex::Regex;
@@ -111,10 +111,20 @@ impl ProofSystem for PGHR13 {
         }
     }
 
-    fn export_solidity_verifier(&self, reader: BufReader<File>) -> String {
+    fn export_solidity_verifier(&self, reader: BufReader<File>, abiv2: &bool) -> String {
         let mut lines = reader.lines();
 
-        let mut template_text = String::from(CONTRACT_TEMPLATE);
+        let mut template_text;
+        let mut solidity_pairing_lib;
+
+        if *abiv2 {
+            template_text = String::from(CONTRACT_TEMPLATE_V2);
+            solidity_pairing_lib = String::from(SOLIDITY_PAIRING_LIB_V2);
+        } else {
+            template_text = String::from(CONTRACT_TEMPLATE);
+            solidity_pairing_lib = String::from(SOLIDITY_PAIRING_LIB);
+        }
+
         let ic_template = String::from("vk.IC[index] = Pairing.G1Point(points);"); //copy this for each entry
 
         //replace things in template
@@ -181,10 +191,85 @@ impl ProofSystem for PGHR13 {
 
         format!(
             "{}{}{}",
-            SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, template_text
+            SOLIDITY_G2_ADDITION_LIB, solidity_pairing_lib, template_text
         )
     }
 }
+
+const CONTRACT_TEMPLATE_V2: &str = r#"contract Verifier {
+    using Pairing for *;
+    struct VerifyingKey {
+        Pairing.G2Point A;
+        Pairing.G1Point B;
+        Pairing.G2Point C;
+        Pairing.G2Point gamma;
+        Pairing.G1Point gammaBeta1;
+        Pairing.G2Point gammaBeta2;
+        Pairing.G2Point Z;
+        Pairing.G1Point[] IC;
+    }
+    struct Proof {
+        Pairing.G1Point A;
+        Pairing.G1Point A_p;
+        Pairing.G2Point B;
+        Pairing.G1Point B_p;
+        Pairing.G1Point C;
+        Pairing.G1Point C_p;
+        Pairing.G1Point K;
+        Pairing.G1Point H;
+    }
+    function verifyingKey() pure internal returns (VerifyingKey memory vk) {
+        vk.A = Pairing.G2Point(<%vk_a%>);
+        vk.B = Pairing.G1Point(<%vk_b%>);
+        vk.C = Pairing.G2Point(<%vk_c%>);
+        vk.gamma = Pairing.G2Point(<%vk_g%>);
+        vk.gammaBeta1 = Pairing.G1Point(<%vk_gb1%>);
+        vk.gammaBeta2 = Pairing.G2Point(<%vk_gb2%>);
+        vk.Z = Pairing.G2Point(<%vk_z%>);
+        vk.IC = new Pairing.G1Point[](<%vk_ic_length%>);
+        <%vk_ic_pts%>
+    }
+    function verify(uint[] memory input, Proof memory proof) internal returns (uint) {
+        VerifyingKey memory vk = verifyingKey();
+        require(input.length + 1 == vk.IC.length);
+        // Compute the linear combination vk_x
+        Pairing.G1Point memory vk_x = Pairing.G1Point(0, 0);
+        for (uint i = 0; i < input.length; i++)
+            vk_x = Pairing.addition(vk_x, Pairing.scalar_mul(vk.IC[i + 1], input[i]));
+        vk_x = Pairing.addition(vk_x, vk.IC[0]);
+        if (!Pairing.pairingProd2(proof.A, vk.A, Pairing.negate(proof.A_p), Pairing.P2())) return 1;
+        if (!Pairing.pairingProd2(vk.B, proof.B, Pairing.negate(proof.B_p), Pairing.P2())) return 2;
+        if (!Pairing.pairingProd2(proof.C, vk.C, Pairing.negate(proof.C_p), Pairing.P2())) return 3;
+        if (!Pairing.pairingProd3(
+            proof.K, vk.gamma,
+            Pairing.negate(Pairing.addition(vk_x, Pairing.addition(proof.A, proof.C))), vk.gammaBeta2,
+            Pairing.negate(vk.gammaBeta1), proof.B
+        )) return 4;
+        if (!Pairing.pairingProd3(
+                Pairing.addition(vk_x, proof.A), proof.B,
+                Pairing.negate(proof.H), vk.Z,
+                Pairing.negate(proof.C), Pairing.P2()
+        )) return 5;
+        return 0;
+    }
+    event Verified(string s);
+    function verifyTx(
+            Proof memory proof,
+            uint[<%vk_input_length%>] memory input
+        ) public returns (bool r) {
+        uint[] memory inputValues = new uint[](input.length);
+        for(uint i = 0; i < input.length; i++){
+            inputValues[i] = input[i];
+        }
+        if (verify(inputValues, proof) == 0) {
+            emit Verified("Transaction successfully verified.");
+            return true;
+        } else {
+            return false;
+        }
+    }
+}
+"#;
 
 const CONTRACT_TEMPLATE: &str = r#"contract Verifier {
     using Pairing for *;

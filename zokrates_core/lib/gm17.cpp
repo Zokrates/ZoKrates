@@ -128,10 +128,10 @@ void exportProof(r1cs_se_ppzksnark_proof<libff::alt_bn128_pp> proof, const char*
           ss << "\t\t\"B\":" << "\n";
             ss << "\t\t\t" << outputPointG2AffineAsHexJson(proof.B) << ",\n";
           ss << "\t\t\n";
-          ss << "\t\t\"C\":" <<outputPointG1AffineAsHexJson(proof.C) << ",\n";
+          ss << "\t\t\"C\":" <<outputPointG1AffineAsHexJson(proof.C) << "\n";
         ss << "\t}," << "\n";
       //add input to json
-      ss << "\t\"input\":" << "[";
+      ss << "\t\"inputs\":" << "[";
       for (int i = 1; i < public_inputs_length; i++) {
         if(i!=1){
           ss << ",";

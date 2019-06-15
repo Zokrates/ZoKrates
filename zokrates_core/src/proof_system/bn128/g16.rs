@@ -1,6 +1,6 @@
 use crate::ir;
 use crate::proof_system::bn128::utils::bellman::Computation;
-use crate::proof_system::bn128::utils::solidity::{SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB};
+use crate::proof_system::bn128::utils::solidity::{SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2};
 use crate::proof_system::ProofSystem;
 use bellman::groth16::Parameters;
 use regex::Regex;
@@ -55,12 +55,23 @@ impl ProofSystem for G16 {
         true
     }
 
-    fn export_solidity_verifier(&self, reader: BufReader<File>) -> String {
+    fn export_solidity_verifier(&self, reader: BufReader<File>, abiv2: &bool) -> String {
         let mut lines = reader.lines();
 
-        let mut template_text = String::from(CONTRACT_TEMPLATE);
-        let gamma_abc_template = String::from("vk.gammaABC[index] = Pairing.G1Point(points);"); //copy this for each entry
+        let mut template_text;
+        let mut solidity_pairing_lib;
 
+        if *abiv2 {
+            template_text = String::from(CONTRACT_TEMPLATE_V2);
+            solidity_pairing_lib = String::from(SOLIDITY_PAIRING_LIB_V2);
+        } else {
+            template_text = String::from(CONTRACT_TEMPLATE);
+            solidity_pairing_lib = String::from(SOLIDITY_PAIRING_LIB);
+        }
+
+        let gamma_abc_template = String::from("vk.gammaABC[index] = Pairing.G1Point(points);"); //copy this for each entry
+        
+        
         //replace things in template
         let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
         let vk_gamma_abc_len_regex = Regex::new(r#"(<%vk_gammaABC_length%>)"#).unwrap();
@@ -131,7 +142,7 @@ impl ProofSystem for G16 {
 
         format!(
             "{}{}{}",
-            SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, template_text
+           SOLIDITY_G2_ADDITION_LIB, solidity_pairing_lib, template_text
         )
     }
 }
@@ -170,9 +181,9 @@ mod serialize {
         format!(
             "{{
         \"proof\": {{
-            \"a\": {},
-            \"b\": {},
-            \"c\": {}
+            \"A\": {},
+            \"B\": {},
+            \"C\": {}
         }},
         \"inputs\": [{}]
     }}",
@@ -187,6 +198,63 @@ mod serialize {
         )
     }
 }
+
+const CONTRACT_TEMPLATE_V2: &str = r#"
+contract Verifier {
+    using Pairing for *;
+    struct VerifyingKey {
+        Pairing.G1Point a;
+        Pairing.G2Point b;
+        Pairing.G2Point gamma;
+        Pairing.G2Point delta;
+        Pairing.G1Point[] gammaABC;
+    }
+    struct Proof {
+        Pairing.G1Point A;
+        Pairing.G2Point B;
+        Pairing.G1Point C;
+    }
+    function verifyingKey() pure internal returns (VerifyingKey memory vk) {
+        vk.a = Pairing.G1Point(<%vk_a%>);
+        vk.b = Pairing.G2Point(<%vk_b%>);
+        vk.gamma = Pairing.G2Point(<%vk_gamma%>);
+        vk.delta = Pairing.G2Point(<%vk_delta%>);
+        vk.gammaABC = new Pairing.G1Point[](<%vk_gammaABC_length%>);
+        <%vk_gammaABC_pts%>
+    }
+    function verify(uint[] memory input, Proof memory proof) internal returns (uint) {
+        VerifyingKey memory vk = verifyingKey();
+        require(input.length + 1 == vk.gammaABC.length);
+        // Compute the linear combination vk_x
+        Pairing.G1Point memory vk_x = Pairing.G1Point(0, 0);
+        for (uint i = 0; i < input.length; i++)
+            vk_x = Pairing.addition(vk_x, Pairing.scalar_mul(vk.gammaABC[i + 1], input[i]));
+        vk_x = Pairing.addition(vk_x, vk.gammaABC[0]);
+        if(!Pairing.pairingProd4(
+             proof.A, proof.B,
+             Pairing.negate(vk_x), vk.gamma,
+             Pairing.negate(proof.C), vk.delta,
+             Pairing.negate(vk.a), vk.b)) return 1;
+        return 0;
+    }
+    event Verified(string s);
+    function verifyTx(
+            Proof memory proof,
+            uint[<%vk_input_length%>] memory input
+        ) public returns (bool r) {
+        uint[] memory inputValues = new uint[](input.length);
+        for(uint i = 0; i < input.length; i++){
+            inputValues[i] = input[i];
+        }
+        if (verify(inputValues, proof) == 0) {
+            emit Verified("Transaction successfully verified.");
+            return true;
+        } else {
+            return false;
+        }
+    }
+}
+"#;
 
 const CONTRACT_TEMPLATE: &str = r#"
 contract Verifier {
