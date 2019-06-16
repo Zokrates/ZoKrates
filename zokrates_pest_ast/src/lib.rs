@@ -8,12 +8,13 @@ use zokrates_parser::Rule;
 extern crate lazy_static;
 
 pub use ast::{
-    Access, ArrayAccess, ArrayType, AssertionStatement, Assignee, AssignmentStatement, BasicType,
-    BinaryExpression, BinaryOperator, CallAccess, ConstantExpression, DefinitionStatement,
-    Expression, File, FromExpression, Function, IdentifierExpression, ImportDirective,
-    ImportSource, InlineArrayExpression, IterationStatement, MultiAssignmentStatement, Parameter,
-    PostfixExpression, Range, RangeOrExpression, ReturnStatement, Span, Spread, SpreadOrExpression,
-    Statement, TernaryExpression, ToExpression, Type, UnaryExpression, UnaryOperator, Visibility,
+    Access, ArrayAccess, ArrayInitializerExpression, ArrayType, AssertionStatement, Assignee,
+    AssignmentStatement, BasicType, BinaryExpression, BinaryOperator, CallAccess,
+    ConstantExpression, DefinitionStatement, Expression, File, FromExpression, Function,
+    IdentifierExpression, ImportDirective, ImportSource, InlineArrayExpression, IterationStatement,
+    MultiAssignmentStatement, Parameter, PostfixExpression, Range, RangeOrExpression,
+    ReturnStatement, Span, Spread, SpreadOrExpression, Statement, TernaryExpression, ToExpression,
+    Type, UnaryExpression, UnaryOperator, Visibility,
 };
 
 mod ast {
@@ -123,6 +124,9 @@ mod ast {
                     Rule::inline_array_expression => Expression::InlineArray(
                         InlineArrayExpression::from_pest(&mut pair.into_inner()).unwrap(),
                     ),
+                    Rule::array_initializer_expression => Expression::ArrayInitializer(
+                        ArrayInitializerExpression::from_pest(&mut pair.into_inner()).unwrap()
+                    ),
                     Rule::unary_expression => {
                         let span = next.as_span();
                         let mut inner = next.into_inner();
@@ -137,7 +141,7 @@ mod ast {
                             span
                         })
                     },
-                    r => unreachable!("`term` should contain one of [`expression`, `conditional_expression`, `primary_expression`, `postfix_expression`, `inline_array_expression`, `unary_expression`], found {:#?}", r)
+                    r => unreachable!("`term` should contain one of [`expression`, `conditional_expression`, `primary_expression`, `postfix_expression`, `inline_array_expression`, `unary_expression`, `array_initializer_expression`], found {:#?}", r)
                 }
             }
             r => unreachable!(
@@ -352,6 +356,7 @@ mod ast {
         Identifier(IdentifierExpression<'ast>),
         Constant(ConstantExpression<'ast>),
         InlineArray(InlineArrayExpression<'ast>),
+        ArrayInitializer(ArrayInitializerExpression<'ast>),
         Unary(UnaryExpression<'ast>),
     }
 
@@ -416,6 +421,15 @@ mod ast {
     #[pest_ast(rule(Rule::inline_array_expression))]
     pub struct InlineArrayExpression<'ast> {
         pub expressions: Vec<SpreadOrExpression<'ast>>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::array_initializer_expression))]
+    pub struct ArrayInitializerExpression<'ast> {
+        pub value: Box<Expression<'ast>>,
+        pub count: ConstantExpression<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -507,6 +521,7 @@ mod ast {
                 Expression::Ternary(t) => &t.span,
                 Expression::Postfix(p) => &p.span,
                 Expression::InlineArray(a) => &a.span,
+                Expression::ArrayInitializer(a) => &a.span,
                 Expression::Unary(u) => &u.span,
             }
         }
