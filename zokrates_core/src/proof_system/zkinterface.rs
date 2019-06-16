@@ -369,7 +369,11 @@ mod tests {
         assert!(FieldPrime::get_required_bits() < FIELD_LENGTH * 8);
         let empty = &[] as &[u8];
         let one = &encode(1);
-        let minus_one = &[0, 0, 0, 240, 147, 245, 225, 67, 145, 112, 185, 121, 72, 232, 51, 40, 93, 88, 129, 129, 182, 69, 80, 184, 41, 160, 49, 225, 114, 78, 100, 48 as u8];
+        let minus_one = &{
+            let mut mo = FieldPrime::max_value().into_byte_vector();
+            mo.resize(FIELD_LENGTH, 0);
+            mo
+        };
 
         let code = "
             def main(field x, private field y) -> (field):

@@ -4,6 +4,10 @@ version = "0.3.3"
 authors = ["Thibaut Schaeffer <thibaut@schaeff.fr>", "Guillaume Ballet <gballet@gmail.com>"]
 edition = "2018"
 
+[features]
+default = []
+curve25519 = []
+
 [dependencies]
 serde = "1.0"
 serde_derive = "1.0"

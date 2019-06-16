@@ -18,9 +18,19 @@ use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::ops::{Add, Div, Mul, Sub};
 
+#[cfg(not(feature = "curve25519"))]
 lazy_static! {
     static ref P: BigInt = BigInt::parse_bytes(
-        b"21888242871839275222246405745257275088548364400416034343698204186575808495617",
+        b"21888242871839275222246405745257275088548364400416034343698204186575808495617", // BN128 order.
+        10
+    )
+    .unwrap();
+}
+
+#[cfg(feature = "curve25519")]
+lazy_static! {
+    static ref P: BigInt = BigInt::parse_bytes(
+        b"7237005577332262213973186563042994240857116359379907606001950938285454250989", // Curve25519 order.
         10
     )
     .unwrap();
