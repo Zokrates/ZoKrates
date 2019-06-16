@@ -13,4 +13,5 @@ zokrates_test! {
     array_if,
     fact_up_to_4,
     split,
+    spread_slice,
 }
