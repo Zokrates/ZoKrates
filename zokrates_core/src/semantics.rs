@@ -895,8 +895,6 @@ impl<'ast> Checker<'ast> {
                                 .map(|v| v.to_dec_string().parse::<usize>().unwrap())
                                 .unwrap_or(array_size);
 
-                            println!("from {} to {}", from, to);
-
                             match (from, to, array_size) {
                                 (f, _, s) if f > s => Err(Error {
                                     pos: Some(pos),
