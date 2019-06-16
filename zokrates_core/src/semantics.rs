@@ -497,7 +497,13 @@ impl<'ast> Checker<'ast> {
             },
             Assignee::ArrayElement(box assignee, box index) => {
                 let checked_assignee = self.check_assignee(assignee)?;
-                let checked_index = self.check_expression(index)?;
+                let checked_index = match index {
+                    RangeOrExpression::Expression(e) => self.check_expression(e)?,
+                    r => unimplemented!(
+                        "Using slices in assignments is not supported yet, found {}",
+                        r
+                    ),
+                };
 
                 let checked_typed_index = match checked_index {
                     TypedExpression::FieldElement(e) => Ok(e),
@@ -870,19 +876,79 @@ impl<'ast> Checker<'ast> {
             }
             Expression::Select(box array, box index) => {
                 let array = self.check_expression(array)?;
-                let index = self.check_expression(index)?;
-                match (array, index) {
-                    (TypedExpression::FieldElementArray(a), TypedExpression::FieldElement(i)) => {
-                        Ok(FieldElementExpression::Select(box a, box i).into())
-                    }
-                    (a, e) => Err(Error {
-                        pos: Some(pos),
-                        message: format!(
-                            "Cannot access element {} on expression of type {}",
-                            e,
-                            a.get_type()
-                        ),
-                    }),
+                //let index = self.check_range_or_expression(index)?;
+
+                match index {
+                    RangeOrExpression::Range(r) => match array {
+                        TypedExpression::FieldElementArray(array) => {
+                            let array_size = array.size();
+
+                            let from = r
+                                .value
+                                .from
+                                .map(|v| v.to_dec_string().parse::<usize>().unwrap())
+                                .unwrap_or(0);
+
+                            let to = r
+                                .value
+                                .to
+                                .map(|v| v.to_dec_string().parse::<usize>().unwrap())
+                                .unwrap_or(array_size);
+
+                            println!("from {} to {}", from, to);
+
+                            match (from, to, array_size) {
+                                (f, _, s) if f > s => Err(Error {
+                                    pos: Some(pos),
+                                    message: format!(
+                                        "Lower range bound {} is out of array bounds [0, {}]",
+                                        f, s,
+                                    ),
+                                }),
+                                (_, t, s) if t > s => Err(Error {
+                                    pos: Some(pos),
+                                    message: format!(
+                                        "Higher range bound {} is out of array bounds [0, {}]",
+                                        t, s,
+                                    ),
+                                }),
+                                (f, t, _) if f > t => Err(Error {
+                                    pos: Some(pos),
+                                    message: format!(
+                                        "Lower range bound {} is larger than higher range bound {}",
+                                        f, t,
+                                    ),
+                                }),
+                                (f, t, _) => Ok(FieldElementArrayExpression::Value(
+                                    t - f,
+                                    (f..t)
+                                        .map(|i| {
+                                            FieldElementExpression::Select(
+                                                box array.clone(),
+                                                box FieldElementExpression::Number(T::from(i)),
+                                            )
+                                        })
+                                        .collect(),
+                                )
+                                .into()),
+                            }
+                        }
+                        _ => panic!(""),
+                    },
+                    RangeOrExpression::Expression(e) => match (array, self.check_expression(e)?) {
+                        (
+                            TypedExpression::FieldElementArray(a),
+                            TypedExpression::FieldElement(i),
+                        ) => Ok(FieldElementExpression::Select(box a, box i).into()),
+                        (a, e) => Err(Error {
+                            pos: Some(pos),
+                            message: format!(
+                                "Cannot access element {} on expression of type {}",
+                                e,
+                                a.get_type()
+                            ),
+                        }),
+                    },
                 }
             }
             Expression::InlineArray(expressions) => {

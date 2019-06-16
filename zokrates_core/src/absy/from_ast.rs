@@ -342,6 +342,43 @@ impl<'ast, T: Field> From<pest::Spread<'ast>> for absy::SpreadNode<'ast, T> {
     }
 }
 
+impl<'ast, T: Field> From<pest::Range<'ast>> for absy::RangeNode<T> {
+    fn from(range: pest::Range<'ast>) -> absy::RangeNode<T> {
+        use absy::NodeValue;
+
+        let from = range
+            .from
+            .map(|e| match absy::ExpressionNode::from(e.0).value {
+                absy::Expression::Number(n) => n,
+                e => unimplemented!("Range bounds should be constants, found {}", e),
+            });
+
+        let to = range
+            .to
+            .map(|e| match absy::ExpressionNode::from(e.0).value {
+                absy::Expression::Number(n) => n,
+                e => unimplemented!("Range bounds should be constants, found {}", e),
+            });
+
+        absy::Range { from, to }.span(range.span)
+    }
+}
+
+impl<'ast, T: Field> From<pest::RangeOrExpression<'ast>> for absy::RangeOrExpression<'ast, T> {
+    fn from(
+        range_or_expression: pest::RangeOrExpression<'ast>,
+    ) -> absy::RangeOrExpression<'ast, T> {
+        match range_or_expression {
+            pest::RangeOrExpression::Expression(e) => {
+                absy::RangeOrExpression::Expression(absy::ExpressionNode::from(e))
+            }
+            pest::RangeOrExpression::Range(r) => {
+                absy::RangeOrExpression::Range(absy::RangeNode::from(r))
+            }
+        }
+    }
+}
+
 impl<'ast, T: Field> From<pest::SpreadOrExpression<'ast>> for absy::SpreadOrExpression<'ast, T> {
     fn from(
         spread_or_expression: pest::SpreadOrExpression<'ast>,
@@ -400,7 +437,7 @@ impl<'ast, T: Field> From<pest::PostfixExpression<'ast>> for absy::ExpressionNod
             ),
             pest::Access::Select(a) => absy::Expression::Select(
                 box absy::ExpressionNode::from(expression.id),
-                box absy::ExpressionNode::from(a.expression),
+                box absy::RangeOrExpression::from(a.expression),
             ),
         }
         .span(expression.span)
@@ -439,7 +476,7 @@ impl<'ast, T: Field> From<pest::Assignee<'ast>> for absy::AssigneeNode<'ast, T> 
             0 => a,
             1 => absy::Assignee::ArrayElement(
                 box a,
-                box absy::ExpressionNode::from(assignee.indices[0].clone()),
+                box absy::RangeOrExpression::from(assignee.indices[0].clone()),
             )
             .span(assignee.span),
             n => unimplemented!("Array should have one dimension, found {} in {}", n, a),

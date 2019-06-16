@@ -50,12 +50,15 @@ expression_list = _{(expression ~ ("," ~ expression)*)?}
 expression = { term ~ (op_binary ~ term)* }
 term = { ("(" ~ expression ~ ")") | conditional_expression | postfix_expression | primary_expression | inline_array_expression | unary_expression }
 spread = { "..." ~ expression }
+range = { from_expression? ~ ".." ~ to_expression? }
+from_expression = { expression }
+to_expression = { expression }
 
 conditional_expression = { "if" ~ expression ~ "then" ~ expression ~ "else" ~ expression ~ "fi"}
 
 postfix_expression = { identifier ~ access+ } // we force there to be at least one access, otherwise this matches single identifiers. Not sure that's what we want.
 access = { array_access | call_access }
-array_access = { "[" ~ expression ~ "]" }
+array_access = { "[" ~ range_or_expression ~ "]" }
 call_access = { "(" ~ expression_list ~ ")" }
 
 primary_expression = { identifier
@@ -65,11 +68,12 @@ primary_expression = { identifier
 inline_array_expression = { "[" ~ inline_array_inner ~ "]" }
 inline_array_inner = _{(spread_or_expression ~ ("," ~ spread_or_expression)*)?}
 spread_or_expression = { spread | expression }
+range_or_expression = { range | expression }
 unary_expression = { op_unary ~ term }
 
 // End Expressions
 
-assignee = { identifier ~ ("[" ~ expression ~ "]")* }
+assignee = { identifier ~ ("[" ~ range_or_expression ~ "]")* }
 identifier = @{ ((!keyword ~ ASCII_ALPHA) | (keyword ~ (ASCII_ALPHANUMERIC | "_"))) ~ (ASCII_ALPHANUMERIC | "_")* }
 constant = @{ "0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
 

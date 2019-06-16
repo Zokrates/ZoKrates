@@ -10,10 +10,10 @@ extern crate lazy_static;
 pub use ast::{
     Access, ArrayAccess, ArrayType, AssertionStatement, Assignee, AssignmentStatement, BasicType,
     BinaryExpression, BinaryOperator, CallAccess, ConstantExpression, DefinitionStatement,
-    Expression, File, Function, IdentifierExpression, ImportDirective, ImportSource,
-    InlineArrayExpression, IterationStatement, MultiAssignmentStatement, Parameter,
-    PostfixExpression, ReturnStatement, Span, Spread, SpreadOrExpression, Statement,
-    TernaryExpression, Type, UnaryExpression, UnaryOperator, Visibility,
+    Expression, File, FromExpression, Function, IdentifierExpression, ImportDirective,
+    ImportSource, InlineArrayExpression, IterationStatement, MultiAssignmentStatement, Parameter,
+    PostfixExpression, Range, RangeOrExpression, ReturnStatement, Span, Spread, SpreadOrExpression,
+    Statement, TernaryExpression, ToExpression, Type, UnaryExpression, UnaryOperator, Visibility,
 };
 
 mod ast {
@@ -371,6 +371,30 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::range_or_expression))]
+    pub enum RangeOrExpression<'ast> {
+        Range(Range<'ast>),
+        Expression(Expression<'ast>),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::range))]
+    pub struct Range<'ast> {
+        pub from: Option<FromExpression<'ast>>,
+        pub to: Option<ToExpression<'ast>>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::from_expression))]
+    pub struct FromExpression<'ast>(pub Expression<'ast>);
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::to_expression))]
+    pub struct ToExpression<'ast>(pub Expression<'ast>);
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::postfix_expression))]
     pub struct PostfixExpression<'ast> {
         pub id: IdentifierExpression<'ast>,
@@ -423,7 +447,7 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::array_access))]
     pub struct ArrayAccess<'ast> {
-        pub expression: Expression<'ast>,
+        pub expression: RangeOrExpression<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -532,8 +556,8 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::assignee))]
     pub struct Assignee<'ast> {
-        pub id: IdentifierExpression<'ast>, // a
-        pub indices: Vec<Expression<'ast>>, // [42 + x][31][7]
+        pub id: IdentifierExpression<'ast>,        // a
+        pub indices: Vec<RangeOrExpression<'ast>>, // [42 + x][31][7]
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
