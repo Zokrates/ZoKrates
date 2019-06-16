@@ -1,6 +1,3 @@
-extern crate core;
-extern crate libc;
-
 use flat_absy::flat_variable::FlatVariable;
 use ir::{self, Statement};
 use proof_system::ProofSystem;
@@ -25,6 +22,8 @@ use zkinterface::{
     },
 };
 use zokrates_field::field::{Field, FieldPrime};
+
+pub static FIELD_LENGTH: usize = 32;
 
 pub struct ZkInterface {}
 
@@ -149,6 +148,7 @@ fn convert_linear_combination<'a>(builder: &mut FlatBufferBuilder<'a>, item: &Ve
         variable_ids.push(item[i].0 as u64);
 
         let mut bytes = item[i].1.into_byte_vector();
+        bytes.resize(FIELD_LENGTH, 0);
         values.append(&mut bytes);
     }
 
@@ -175,6 +175,7 @@ fn write_assignment<W: Write>(
         ids.push(first_local_id + i as u64);
 
         let mut bytes = local_values[i].into_byte_vector();
+        bytes.resize(FIELD_LENGTH, 0);
         values.append(&mut bytes);
     }
 
@@ -211,6 +212,7 @@ fn write_circuit<W: Write>(
         let mut values = vec![];
         for value in public_inputs {
             let mut bytes = value.into_byte_vector();
+            bytes.resize(FIELD_LENGTH, 0);
             values.append(&mut bytes);
         }
         values
@@ -352,21 +354,32 @@ fn r1cs_program<T: Field>(
 
 #[cfg(test)]
 mod tests {
-    use super::{generate_proof, setup};
+    use crate::compile::compile;
+    use crate::imports::Error;
+    use super::{FIELD_LENGTH, generate_proof, setup};
     use zkinterface::reading::{Constraint, Messages, Term, Variable};
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::field::{Field, FieldPrime};
+
+    fn encode(x: u8) -> [u8; 32] {
+        return [x, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    }
 
     #[test]
     fn test_zkinterface() {
+        assert!(FieldPrime::get_required_bits() < FIELD_LENGTH * 8);
+        let empty = &[] as &[u8];
+        let one = &encode(1);
+        let minus_one = &[0, 0, 0, 240, 147, 245, 225, 67, 145, 112, 185, 121, 72, 232, 51, 40, 93, 88, 129, 129, 182, 69, 80, 184, 41, 160, 49, 225, 114, 78, 100, 48 as u8];
+
         let code = "
             def main(field x, private field y) -> (field):
                 field xx = x * x
                 field yy = y * y
-                return xx + yy
+                return xx + yy - 1
         ";
 
-        let compile = crate::compile::compile::<FieldPrime, &[u8], &[u8], crate::imports::Error>;
-        let program = compile(&mut code.as_bytes(), None, None).unwrap();
+        let program = compile::<FieldPrime, &[u8], &[u8], Error>(
+            &mut code.as_bytes(), None, None).unwrap();
 
         // Check the constraint system.
         {
@@ -382,7 +395,6 @@ mod tests {
             assert_eq!(circuit.free_variable_id(), 6);
 
             let pub_vars = messages.connection_variables().unwrap();
-            let empty = &[] as &[u8];
             assert_eq!(pub_vars, vec![
                 Variable { id: 0, value: empty }, // one
                 Variable { id: 1, value: empty }, // x
@@ -399,19 +411,19 @@ mod tests {
             let cs: Vec<_> = messages.iter_constraints().collect();
             assert_eq!(cs, vec![
                 Constraint {
-                    a: vec![Term { id: 1, value: &[1] }], // x
-                    b: vec![Term { id: 1, value: &[1] }], // x
-                    c: vec![Term { id: 3, value: &[1] }], // xx
+                    a: vec![Term { id: 1, value: one }], // x
+                    b: vec![Term { id: 1, value: one }], // x
+                    c: vec![Term { id: 3, value: one }], // xx
                 },
                 Constraint {
-                    a: vec![Term { id: 4, value: &[1] }], // y
-                    b: vec![Term { id: 4, value: &[1] }], // y
-                    c: vec![Term { id: 5, value: &[1] }], // yy
+                    a: vec![Term { id: 4, value: one }], // y
+                    b: vec![Term { id: 4, value: one }], // y
+                    c: vec![Term { id: 5, value: one }], // yy
                 },
                 Constraint {
-                    a: vec![Term { id: 0, value: &[1] }], // 1
-                    b: vec![Term { id: 3, value: &[1] }, Term { id: 5, value: &[1] }], // xx + yy
-                    c: vec![Term { id: 2, value: &[1] }], // return
+                    a: vec![Term { id: 0, value: one }], // 1
+                    b: vec![Term { id: 3, value: one }, Term { id: 5, value: one }, Term { id: 0, value: minus_one }], // xx + yy - 1
+                    c: vec![Term { id: 2, value: one }], // return
                 },
             ]);
         }
@@ -436,19 +448,17 @@ mod tests {
 
             let pub_vars = messages.connection_variables().unwrap();
             assert_eq!(pub_vars, vec![
-                Variable { id: 0, value: &[1 as u8] },     // one
-                Variable { id: 1, value: &[3 as u8] },     // x
-                Variable { id: 2, value: &[5 * 5 as u8] }, // return
+                Variable { id: 0, value: &encode(1) },         // one
+                Variable { id: 1, value: &encode(3) },         // x
+                Variable { id: 2, value: &encode(5 * 5 - 1) }, // return
             ]);
 
             let pri_vars = messages.private_variables().unwrap();
             assert_eq!(pri_vars, vec![
-                Variable { id: 3, value: &[3 * 3 as u8] }, // xx
-                Variable { id: 4, value: &[4 as u8] },     // y
-                Variable { id: 5, value: &[4 * 4 as u8] }, // yy
+                Variable { id: 3, value: &encode(3 * 3) }, // xx
+                Variable { id: 4, value: &encode(4) },     // y
+                Variable { id: 5, value: &encode(4 * 4) }, // yy
             ]);
         }
     }
 }
-
-

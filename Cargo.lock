@@ -1455,7 +1455,7 @@ dependencies = [
 
 [[package]]
 name = "zkinterface"
-version = "1.0.3"
+version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "cmake 0.1.40 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1507,7 +1507,7 @@ dependencies = [
  "serde_derive 1.0.91 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmi 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "zkinterface 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "zkinterface 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "zokrates_embed 0.1.0",
  "zokrates_field 0.3.3",
  "zokrates_pest_ast 0.1.0",
@@ -1758,4 +1758,4 @@ dependencies = [
 "checksum winapi-util 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "7168bab6e1daee33b4557efd0e95d5ca70a03706d39fa5f3fe7a236f584b03c9"
 "checksum winapi-x86_64-pc-windows-gnu 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 "checksum winconsole 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3ef84b96d10db72dd980056666d7f1e7663ce93d82fa33b63e71c966f4cf5032"
-"checksum zkinterface 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)" = "c893db25a6c000e69c3640e340d1aa87786537b4da3d0ef0da9b0457ecfe8de3"
+"checksum zkinterface 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "ae1b46036bfea429f184b4d343f555c2042de6d21b8e4479941c3bcf75ec381e"
