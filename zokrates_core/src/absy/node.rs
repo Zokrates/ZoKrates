@@ -68,6 +68,8 @@ impl<'ast, T: Field> NodeValue for Assignee<'ast, T> {}
 impl<'ast, T: Field> NodeValue for Statement<'ast, T> {}
 impl<'ast, T: Field> NodeValue for Function<'ast, T> {}
 impl<'ast, T: Field> NodeValue for Prog<'ast, T> {}
+impl<'ast, T: Field> NodeValue for Spread<'ast, T> {}
+impl<T: Field> NodeValue for Range<T> {}
 impl<'ast> NodeValue for Variable<'ast> {}
 impl<'ast> NodeValue for Parameter<'ast> {}
 impl NodeValue for Import {}
