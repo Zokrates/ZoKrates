@@ -1,0 +1,52 @@
+#!/bin/bash
+
+
+# # Exit if any subcommand fails
+set -e
+
+cd target/release/
+
+# #Generate proof file used for testing
+printf '%s\n' \
+    'def main(private field a, field b) -> (field):' \
+    '    field result = if a * a == b then 1 else 0 fi' \
+    '    return result' > root.code
+
+# #Compile test file:
+# ./zokrates compile -i root.code
+
+# #PGHR13:
+# ./zokrates setup --proving-scheme pghr13
+# ./zokrates compute-witness -a 337 113569
+
+# ./zokrates generate-proof --proving-scheme pghr13 -j pghr13-proof.json
+# ./zokrates export-verifier --proving-scheme pghr13 -o pghr13-v1-verifier.sol
+# ./zokrates export-verifier --proving-scheme pghr13 -o pghr13-v2-verifier.sol --abiv2
+
+# #GM17:
+# ./zokrates setup --proving-scheme gm17
+# ./zokrates compute-witness -a 337 113569
+
+# ./zokrates generate-proof --proving-scheme gm17 -j gm17-proof.json
+# ./zokrates export-verifier --proving-scheme gm17 -o gm17-v1-verifier.sol
+# ./zokrates export-verifier --proving-scheme gm17 -o gm17-v2-verifier.sol --abiv2
+
+# #G16:
+# ./zokrates setup --proving-scheme g16
+# ./zokrates compute-witness -a 337 113569
+
+# ./zokrates generate-proof --proving-scheme g16 -j g16-proof.json
+# ./zokrates export-verifier --proving-scheme g16 -o g16-v1-verifier.sol
+# ./zokrates export-verifier --proving-scheme g16 -o g16-v2-verifier.sol --abiv2
+cd ../../zokrates_core/tests/application_tests
+npm install
+cd ../../../
+#Compile, Deploy and Call contracts
+node zokrates_core/tests/application_tests/test.js g16 v1
+node zokrates_core/tests/application_tests/test.js g16 v2
+node zokrates_core/tests/application_tests/test.js pghr13 v1
+node zokrates_core/tests/application_tests/test.js pghr13 v2
+
+
+
+
