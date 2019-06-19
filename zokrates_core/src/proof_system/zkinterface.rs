@@ -1,5 +1,6 @@
 use flat_absy::flat_variable::FlatVariable;
 use ir::{self, Statement};
+use lazy_static::lazy_static;
 use proof_system::ProofSystem;
 use std::collections::HashMap;
 use std::fs::File;
@@ -23,7 +24,9 @@ use zkinterface::{
 };
 use zokrates_field::field::{Field, FieldPrime};
 
-pub static FIELD_LENGTH: usize = 32;
+lazy_static! {
+    pub static ref FIELD_LENGTH: usize = FieldPrime::max_value().into_byte_vector().len();
+}
 
 pub struct ZkInterface {}
 
@@ -56,13 +59,17 @@ impl ProofSystem for ZkInterface {
 }
 
 pub fn setup<W: Write>(program: ir::Prog<FieldPrime>, out_file: &mut W) {
-    // transform to R1CS
-    let (variables, first_local_id, a, b, c) = r1cs_program(program);
-    let free_variable_id = variables.len() as u64;
 
-    // Write Return message including free_variable_id.
+    // Extract variables from the program
+    let (variables_map, first_private_id) = convert_variable_ids(&program);
+
+    let (a, b, c) = r1cs_program(program, &variables_map);
+
+    let free_variable_id = variables_map.len() as u64;
+
+    // Write Circuit message including free_variable_id.
     write_circuit(
-        first_local_id as u64,
+        first_private_id,
         free_variable_id,
         None,
         true,
@@ -77,17 +84,21 @@ pub fn generate_proof<W: Write>(
     witness: ir::Witness<FieldPrime>,
     out_file: &mut W,
 ) -> bool {
+
+    // Extract variables from the program
+    let (variables_map, first_private_id) = convert_variable_ids(&program);
+
     let (
         public_inputs_arr,
         private_inputs_arr,
-    ) = prepare_generate_proof(program, witness);
+    ) = convert_variable_values(&variables_map, first_private_id, &witness);
 
-    let first_local_id = public_inputs_arr.len() as u64;
-    let free_variable_id = first_local_id + private_inputs_arr.len() as u64;
+    let first_private_id = public_inputs_arr.len() as u64;
+    let free_variable_id = first_private_id + private_inputs_arr.len() as u64;
 
-    // Write Return message including output values.
+    // Write Return message including public values.
     write_circuit(
-        first_local_id,
+        first_private_id,
         free_variable_id,
         Some(&public_inputs_arr),
         false,
@@ -95,7 +106,7 @@ pub fn generate_proof<W: Write>(
 
     // Write assignment to local variables.
     write_assignment(
-        first_local_id as u64,
+        first_private_id,
         &private_inputs_arr,
         out_file);
 
@@ -104,9 +115,9 @@ pub fn generate_proof<W: Write>(
 
 
 fn write_r1cs<W: Write>(
-    a: &Vec<Vec<(usize, FieldPrime)>>,
-    b: &Vec<Vec<(usize, FieldPrime)>>,
-    c: &Vec<Vec<(usize, FieldPrime)>>,
+    a: &Vec<Vec<(u64, FieldPrime)>>,
+    b: &Vec<Vec<(u64, FieldPrime)>>,
+    c: &Vec<Vec<(u64, FieldPrime)>>,
     out_file: &mut W,
 ) {
     let mut builder = FlatBufferBuilder::new();
@@ -140,16 +151,20 @@ fn write_r1cs<W: Write>(
     out_file.write_all(builder.finished_data()).unwrap();
 }
 
-fn convert_linear_combination<'a>(builder: &mut FlatBufferBuilder<'a>, item: &Vec<(usize, FieldPrime)>) -> (WIPOffset<Variables<'a>>) {
+
+fn convert_field(value: &FieldPrime) -> Vec<u8> {
+    let mut le_bytes = value.into_byte_vector();
+    le_bytes.resize(*FIELD_LENGTH, 0);
+    le_bytes
+}
+
+fn convert_linear_combination<'a>(builder: &mut FlatBufferBuilder<'a>, item: &Vec<(u64, FieldPrime)>) -> (WIPOffset<Variables<'a>>) {
     let mut variable_ids: Vec<u64> = Vec::new();
     let mut values: Vec<u8> = Vec::new();
 
     for i in 0..item.len() {
-        variable_ids.push(item[i].0 as u64);
-
-        let mut bytes = item[i].1.into_byte_vector();
-        bytes.resize(FIELD_LENGTH, 0);
-        values.append(&mut bytes);
+        variable_ids.push(item[i].0);
+        values.append(&mut convert_field(&item[i].1));
     }
 
     let variable_ids = Some(builder.create_vector(&variable_ids));
@@ -162,8 +177,8 @@ fn convert_linear_combination<'a>(builder: &mut FlatBufferBuilder<'a>, item: &Ve
 }
 
 fn write_assignment<W: Write>(
-    first_local_id: u64,
-    local_values: &[FieldPrime],
+    first_private_id: u64,
+    private_values: &[FieldPrime],
     out_file: &mut W,
 ) {
     let mut builder = &mut FlatBufferBuilder::new();
@@ -171,12 +186,9 @@ fn write_assignment<W: Write>(
     let mut ids = vec![];
     let mut values = vec![];
 
-    for i in 0..local_values.len() {
-        ids.push(first_local_id + i as u64);
-
-        let mut bytes = local_values[i].into_byte_vector();
-        bytes.resize(FIELD_LENGTH, 0);
-        values.append(&mut bytes);
+    for i in 0..private_values.len() {
+        ids.push(first_private_id + i as u64);
+        values.append(&mut convert_field(&private_values[i]));
     }
 
     let ids = builder.create_vector(&ids);
@@ -200,27 +212,25 @@ fn write_assignment<W: Write>(
 
 
 fn write_circuit<W: Write>(
-    first_local_id: u64,
+    first_private_id: u64,
     free_variable_id: u64,
-    public_inputs: Option<&[FieldPrime]>,
+    public_values: Option<&[FieldPrime]>,
     r1cs_generation: bool,
     out_file: &mut W,
 ) {
     // Convert element representations.
-    let values = public_inputs.map(|public_inputs| {
-        assert_eq!(public_inputs.len() as u64, first_local_id);
+    let values = public_values.map(|public_inputs| {
+        assert_eq!(public_inputs.len() as u64, first_private_id);
         let mut values = vec![];
         for value in public_inputs {
-            let mut bytes = value.into_byte_vector();
-            bytes.resize(FIELD_LENGTH, 0);
-            values.append(&mut bytes);
+            values.append(&mut convert_field(value));
         }
         values
     });
 
     let gadget_return = CircuitOwned {
         connections: VariablesOwned {
-            variable_ids: (0..first_local_id).collect(),
+            variable_ids: (0..first_private_id).collect(),
             values,
         },
         free_variable_id,
@@ -231,46 +241,49 @@ fn write_circuit<W: Write>(
     gadget_return.write(out_file).unwrap();
 }
 
-
-fn prepare_generate_proof<T: Field>(
-    program: ir::Prog<T>,
-    witness: ir::Witness<T>,
+fn convert_variable_values<T: Field>(
+    variables_map: &HashMap<FlatVariable, u64>,
+    first_private_id: u64,
+    witness: &ir::Witness<T>,
 ) -> (Vec<T>, Vec<T>) {
-    // recover variable order from the program
-    let (variables, public_variables_count, _, _, _) = r1cs_program(program);
+    let num_public = first_private_id as usize;
+    let num_private = variables_map.len() - num_public;
+    let mut public_values = vec![T::zero(); num_public];
+    let mut private_values = vec![T::zero(); num_private];
 
-    let witness: Vec<T> = variables.iter().map(|x| witness.0[x].clone()).collect();
+    for (zok_var, zkif_id) in variables_map.iter() {
+        let value = witness.0[zok_var].clone();
 
-    // split witness into public and private inputs at offset
-    let mut public_inputs: Vec<T> = witness.clone();
-    let private_inputs: Vec<T> = public_inputs.split_off(public_variables_count);
+        if *zkif_id < first_private_id {
+            public_values[*zkif_id as usize] = value;
+        } else {
+            let index = *zkif_id - first_private_id;
+            private_values[index as usize] = value;
+        }
+    }
 
-    (
-        public_inputs,
-        private_inputs,
-    )
+    (public_values, private_values)
 }
 
 fn provide_variable_idx(
-    variables: &mut HashMap<FlatVariable, usize>,
+    variables: &mut HashMap<FlatVariable, u64>,
     var: &FlatVariable,
-) -> usize {
-    let index = variables.len();
+) -> u64 {
+    let index = variables.len() as u64;
     *variables.entry(*var).or_insert(index)
 }
 
-fn r1cs_program<T: Field>(
-    prog: ir::Prog<T>,
+fn convert_variable_ids<T: Field>(
+    prog: &ir::Prog<T>,
 ) -> (
-    Vec<FlatVariable>,
-    usize,
-    Vec<Vec<(usize, T)>>,
-    Vec<Vec<(usize, T)>>,
-    Vec<Vec<(usize, T)>>,
+    HashMap<FlatVariable, u64>,
+    u64,
 ) {
-    let mut variables: HashMap<FlatVariable, usize> = HashMap::new();
-    provide_variable_idx(&mut variables, &FlatVariable::one());
+    let mut variables_map: HashMap<FlatVariable, u64> = HashMap::new();
 
+    provide_variable_idx(&mut variables_map, &FlatVariable::one());
+
+    // Map public arguments.
     for x in prog
         .main
         .arguments
@@ -278,45 +291,51 @@ fn r1cs_program<T: Field>(
         .enumerate()
         .filter(|(index, _)| !prog.private[*index])
         {
-            provide_variable_idx(&mut variables, &x.1);
+            provide_variable_idx(&mut variables_map, &x.1);
         }
 
-    //Only the main function is relevant in this step, since all calls to other functions were resolved during flattening
-    let main = prog.main;
-
-    //~out are added after main's arguments as we want variables (columns)
-    //in the r1cs to be aligned like "public inputs | private inputs"
-    let main_return_count = main.returns.len();
+    // Map public return variables.
+    let main_return_count = prog.main.returns.len();
 
     for i in 0..main_return_count {
-        provide_variable_idx(&mut variables, &FlatVariable::public(i));
+        provide_variable_idx(&mut variables_map, &FlatVariable::public(i));
     }
 
     // position where private part of witness starts
-    let private_inputs_offset = variables.len();
+    let first_private_id = variables_map.len() as u64;
 
-    // first pass through statements to populate `variables`
-    for (quad, lin) in main.statements.iter().filter_map(|s| match s {
+    // Go through the statements to populate `variables_map` with the private variables.
+    for (quad, lin) in prog.main.statements.iter().filter_map(|s| match s {
         Statement::Constraint(quad, lin) => Some((quad, lin)),
         Statement::Directive(..) => None,
     }) {
         for (k, _) in &quad.left.0 {
-            provide_variable_idx(&mut variables, &k);
+            provide_variable_idx(&mut variables_map, &k);
         }
         for (k, _) in &quad.right.0 {
-            provide_variable_idx(&mut variables, &k);
+            provide_variable_idx(&mut variables_map, &k);
         }
         for (k, _) in &lin.0 {
-            provide_variable_idx(&mut variables, &k);
+            provide_variable_idx(&mut variables_map, &k);
         }
     }
 
+    (variables_map, first_private_id)
+}
+
+fn r1cs_program<T: Field>(
+    prog: ir::Prog<T>,
+    variables_map: &HashMap<FlatVariable, u64>,
+) -> (
+    Vec<Vec<(u64, T)>>,
+    Vec<Vec<(u64, T)>>,
+    Vec<Vec<(u64, T)>>,
+) {
     let mut a = vec![];
     let mut b = vec![];
     let mut c = vec![];
 
-    // second pass to convert program to raw sparse vectors
-    for (quad, lin) in main.statements.into_iter().filter_map(|s| match s {
+    for (quad, lin) in prog.main.statements.into_iter().filter_map(|s| match s {
         Statement::Constraint(quad, lin) => Some((quad, lin)),
         Statement::Directive(..) => None,
     }) {
@@ -324,31 +343,25 @@ fn r1cs_program<T: Field>(
             quad.left
                 .0
                 .into_iter()
-                .map(|(k, v)| (variables.get(&k).unwrap().clone(), v))
+                .map(|(k, v)| (variables_map.get(&k).unwrap().clone(), v))
                 .collect(),
         );
         b.push(
             quad.right
                 .0
                 .into_iter()
-                .map(|(k, v)| (variables.get(&k).unwrap().clone(), v))
+                .map(|(k, v)| (variables_map.get(&k).unwrap().clone(), v))
                 .collect(),
         );
         c.push(
             lin.0
                 .into_iter()
-                .map(|(k, v)| (variables.get(&k).unwrap().clone(), v))
+                .map(|(k, v)| (variables_map.get(&k).unwrap().clone(), v))
                 .collect(),
         );
     }
 
-    // Convert map back into list ordered by index
-    let mut variables_list = vec![FlatVariable::new(0); variables.len()];
-    for (k, v) in variables.drain() {
-        assert_eq!(variables_list[v], FlatVariable::new(0));
-        std::mem::replace(&mut variables_list[v], k);
-    }
-    (variables_list, private_inputs_offset, a, b, c)
+    (a, b, c)
 }
 
 
@@ -356,7 +369,7 @@ fn r1cs_program<T: Field>(
 mod tests {
     use crate::compile::compile;
     use crate::imports::Error;
-    use super::{FIELD_LENGTH, generate_proof, setup};
+    use super::{convert_field, FIELD_LENGTH, generate_proof, setup};
     use zkinterface::reading::{Constraint, Messages, Term, Variable};
     use zokrates_field::field::{Field, FieldPrime};
 
@@ -366,14 +379,10 @@ mod tests {
 
     #[test]
     fn test_zkinterface() {
-        assert!(FieldPrime::get_required_bits() < FIELD_LENGTH * 8);
+        assert!(FieldPrime::get_required_bits() <= *FIELD_LENGTH * 8);
         let empty = &[] as &[u8];
         let one = &encode(1);
-        let minus_one = &{
-            let mut mo = FieldPrime::max_value().into_byte_vector();
-            mo.resize(FIELD_LENGTH, 0);
-            mo
-        };
+        let minus_one = &convert_field(&FieldPrime::max_value());
 
         let code = "
             def main(field x, private field y) -> (field):
