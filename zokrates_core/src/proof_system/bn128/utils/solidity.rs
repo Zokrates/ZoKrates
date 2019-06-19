@@ -449,7 +449,7 @@ library Pairing {
         require(success);
     }
     /// @return the sum of two points of G2
-    function addition(G2Point memory p1, G2Point memory p2) internal pure returns (G2Point memory r) {
+    function addition(G2Point memory p1, G2Point memory p2) internal returns (G2Point memory r) {
         (r.X[1], r.X[0], r.Y[1], r.Y[0]) = BN256G2.ECTwistAdd(p1.X[1],p1.X[0],p1.Y[1],p1.Y[0],p2.X[1],p2.X[0],p2.Y[1],p2.Y[0]);
     }
     /// @return the product of a point on G1 and a scalar, i.e.
