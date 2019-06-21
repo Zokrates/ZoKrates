@@ -517,7 +517,7 @@ mod ast {
             match self {
                 Expression::Binary(b) => &b.span,
                 Expression::Identifier(i) => &i.span,
-                Expression::Constant(c) => &c.span,
+                Expression::Constant(c) => &c.span(),
                 Expression::Ternary(t) => &t.span,
                 Expression::Postfix(p) => &p.span,
                 Expression::InlineArray(a) => &a.span,
@@ -552,7 +552,32 @@ mod ast {
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::constant))]
-    pub struct ConstantExpression<'ast> {
+    pub enum ConstantExpression<'ast> {
+        DecimalNumber(DecimalNumberExpression<'ast>),
+        BooleanConstant(BooleanConstantExpression<'ast>),
+    }
+
+    impl<'ast> ConstantExpression<'ast> {
+        pub fn span(&self) -> &Span<'ast> {
+            match self {
+                ConstantExpression::DecimalNumber(n) => &n.span,
+                ConstantExpression::BooleanConstant(c) => &c.span,
+            }
+        }
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::decimal_number))]
+    pub struct DecimalNumberExpression<'ast> {
+        #[pest_ast(outer(with(span_into_str)))]
+        pub value: String,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::boolean_constant))]
+    pub struct BooleanConstantExpression<'ast> {
         #[pest_ast(outer(with(span_into_str)))]
         pub value: String,
         #[pest_ast(outer())]

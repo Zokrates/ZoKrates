@@ -465,8 +465,14 @@ impl<'ast, T: Field> From<pest::PostfixExpression<'ast>> for absy::ExpressionNod
 impl<'ast, T: Field> From<pest::ConstantExpression<'ast>> for absy::ExpressionNode<'ast, T> {
     fn from(expression: pest::ConstantExpression<'ast>) -> absy::ExpressionNode<'ast, T> {
         use absy::NodeValue;
-        absy::Expression::Number(T::try_from_dec_str(&expression.value).unwrap())
-            .span(expression.span)
+        match expression {
+            pest::ConstantExpression::BooleanConstant(c) => {
+                absy::Expression::BooleanConstant(c.value.parse().unwrap()).span(c.span)
+            }
+            pest::ConstantExpression::DecimalNumber(n) => {
+                absy::Expression::Number(T::try_from_dec_str(&n.value).unwrap()).span(n.span)
+            }
+        }
     }
 }
 
@@ -511,7 +517,12 @@ impl<'ast> From<pest::Type<'ast>> for Type {
             },
             pest::Type::Array(t) => {
                 let size = match t.size {
-                    pest::Expression::Constant(c) => str::parse::<usize>(&c.value).unwrap(),
+                    pest::Expression::Constant(c) => match c {
+                        pest::ConstantExpression::DecimalNumber(n) => {
+                            str::parse::<usize>(&n.value).unwrap()
+                        }
+                        _ => unimplemented!("Array size should be a decimal number, found"),
+                    },
                     e => {
                         unimplemented!("Array size should be constant, found {}", e.span().as_str())
                     }
