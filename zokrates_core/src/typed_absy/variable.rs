@@ -18,8 +18,8 @@ impl<'ast> Variable<'ast> {
         Self::with_id_and_type(id, Type::Boolean)
     }
 
-    pub fn field_array(id: Identifier<'ast>, size: usize) -> Variable<'ast> {
-        Self::with_id_and_type(id, Type::FieldElementArray(size))
+    pub fn array(id: Identifier<'ast>, ty: Type, size: usize) -> Variable<'ast> {
+        Self::with_id_and_type(id, Type::array(ty, size))
     }
 
     pub fn with_id_and_type(id: Identifier<'ast>, _type: Type) -> Variable<'ast> {

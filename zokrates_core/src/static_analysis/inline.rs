@@ -39,7 +39,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
             Some(..) => {
                 // check whether non-array arguments are constant
                 arguments.iter().all(|e| match e {
-                    TypedExpression::FieldElementArray(..) => true,
+                    TypedExpression::Array(..) => true,
                     TypedExpression::FieldElement(FieldElementExpression::Number(..)) => true,
                     TypedExpression::Boolean(BooleanExpression::Value(..)) => true,
                     _ => false,
@@ -213,17 +213,19 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
     }
 
     // inline calls which return a field element array
-    fn fold_field_array_expression(
+    fn fold_array_expression_inner(
         &mut self,
-        e: FieldElementArrayExpression<'ast, T>,
-    ) -> FieldElementArrayExpression<'ast, T> {
+        ty: &Type,
+        size: usize,
+        e: ArrayExpressionInner<'ast, T>,
+    ) -> ArrayExpressionInner<'ast, T> {
         match e {
-            FieldElementArrayExpression::FunctionCall(size, id, exps) => {
+            ArrayExpressionInner::FunctionCall(id, exps) => {
                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
 
                 let passed_signature = Signature::new()
                     .inputs(exps.iter().map(|e| e.get_type()).collect())
-                    .outputs(vec![Type::FieldElementArray(size)]);
+                    .outputs(vec![Type::array(ty.clone(), size)]);
 
                 // find the function
                 let function = self
@@ -237,15 +239,15 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         let ret = self.inline_call(function.unwrap(), exps);
                         // unwrap the result to return a field element
                         match ret[0].clone() {
-                            TypedExpression::FieldElementArray(e) => e,
+                            TypedExpression::Array(e) => e.inner,
                             _ => panic!(""),
                         }
                     }
-                    false => FieldElementArrayExpression::FunctionCall(size, id, exps),
+                    false => ArrayExpressionInner::FunctionCall(id, exps),
                 }
             }
             // default
-            e => fold_field_array_expression(self, e),
+            e => fold_array_expression_inner(self, ty, size, e),
         }
     }
 }
@@ -269,19 +271,19 @@ mod tests {
                 ],
                 statements: vec![TypedStatement::Return(vec![
                     FieldElementExpression::Select(
-                        box FieldElementArrayExpression::Identifier(3, Identifier::from("b")),
+                        box ArrayExpressionInner::Identifier(3, Identifier::from("b")),
                         box FieldElementExpression::Identifier(Identifier::from("a")),
                     )
                     .into(),
                 ])],
                 signature: Signature::new()
-                    .inputs(vec![Type::FieldElement, Type::FieldElementArray(3)])
+                    .inputs(vec![Type::FieldElement, Type::Array(3)])
                     .outputs(vec![Type::FieldElement]),
             };
 
             let arguments = vec![
                 FieldElementExpression::Number(FieldPrime::from(0)).into(),
-                FieldElementArrayExpression::Identifier(3, Identifier::from("random")).into(),
+                ArrayExpressionInner::Identifier(3, Identifier::from("random")).into(),
             ];
 
             let i = Inliner::new();
@@ -299,19 +301,19 @@ mod tests {
                 ],
                 statements: vec![TypedStatement::Return(vec![
                     FieldElementExpression::Select(
-                        box FieldElementArrayExpression::Identifier(3, Identifier::from("b")),
+                        box ArrayExpressionInner::Identifier(3, Identifier::from("b")),
                         box FieldElementExpression::Identifier(Identifier::from("a")),
                     )
                     .into(),
                 ])],
                 signature: Signature::new()
-                    .inputs(vec![Type::FieldElement, Type::FieldElementArray(3)])
+                    .inputs(vec![Type::FieldElement, Type::Array(3)])
                     .outputs(vec![Type::FieldElement]),
             };
 
             let arguments = vec![
                 FieldElementExpression::Identifier(Identifier::from("notconstant")).into(),
-                FieldElementArrayExpression::Identifier(3, Identifier::from("random")).into(),
+                ArrayExpressionInner::Identifier(3, Identifier::from("random")).into(),
             ];
 
             let i = Inliner::new();

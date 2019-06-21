@@ -536,7 +536,7 @@ impl<'ast> Checker<'ast> {
 
                 let checked_expression = self.check_expression(s.value.expression)?;
                 match checked_expression {
-                    TypedExpression::FieldElementArray(e) => {
+                    TypedExpression::Array(e) => {
                         let size = e.size();
                         Ok((0..size)
                             .map(|i| {
@@ -577,9 +577,12 @@ impl<'ast> Checker<'ast> {
                         Type::FieldElement => {
                             Ok(FieldElementExpression::Identifier(name.into()).into())
                         }
-                        Type::FieldElementArray(n) => {
-                            Ok(FieldElementArrayExpression::Identifier(n, name.into()).into())
+                        Type::Array(ty, size) => Ok(ArrayExpression {
+                            ty: *ty,
+                            size,
+                            inner: ArrayExpressionInner::Identifier(name.into()),
                         }
+                        .into()),
                     },
                     None => Err(Error {
                         pos: Some(pos),
@@ -696,8 +699,16 @@ impl<'ast> Checker<'ast> {
                                 (TypedExpression::FieldElement(consequence), TypedExpression::FieldElement(alternative)) => {
                                     Ok(FieldElementExpression::IfElse(box condition, box consequence, box alternative).into())
                                 },
-                                (TypedExpression::FieldElementArray(consequence), TypedExpression::FieldElementArray(alternative)) => {
-                                    Ok(FieldElementArrayExpression::IfElse(box condition, box consequence, box alternative).into())
+                                (TypedExpression::Array(consequence), TypedExpression::Array(alternative)) => {
+                                    if consequence.get_type() == alternative.get_type() && consequence.size() == alternative.size() {
+                                        Ok(ArrayExpression {
+                                            ty: consequence.get_type(),
+                                            size: consequence.size(),
+                                            inner: ArrayExpressionInner::IfElse(box condition, box consequence, box alternative)
+                                        }.into())
+                                    } else {
+                                        unimplemented!("handle consequence alternative inner type mismatch")
+                                    }
                                 },
                                 _ => unimplemented!()
                             }
@@ -742,20 +753,21 @@ impl<'ast> Checker<'ast> {
                         let f = &candidates[0];
                         // the return count has to be 1
                         match f.signature.outputs.len() {
-                            1 => match f.signature.outputs[0] {
+                            1 => match f.signature.outputs[0].clone() {
                                 Type::FieldElement => Ok(FieldElementExpression::FunctionCall(
                                     f.id.to_string(),
                                     arguments_checked,
                                 )
                                 .into()),
-                                Type::FieldElementArray(size) => {
-                                    Ok(FieldElementArrayExpression::FunctionCall(
-                                        size,
+                                Type::Array(ty, size) => Ok(ArrayExpression {
+                                    ty: *ty,
+                                    size,
+                                    inner: ArrayExpressionInner::FunctionCall(
                                         f.id.to_string(),
                                         arguments_checked,
-                                    )
-                                    .into())
+                                    ),
                                 }
+                                .into()),
                                 _ => unimplemented!(),
                             },
                             n => Err(Error {
@@ -880,8 +892,9 @@ impl<'ast> Checker<'ast> {
 
                 match index {
                     RangeOrExpression::Range(r) => match array {
-                        TypedExpression::FieldElementArray(array) => {
+                        TypedExpression::Array(array) => {
                             let array_size = array.size();
+                            let inner_type = array.get_type();
 
                             let from = r
                                 .value
@@ -894,8 +907,6 @@ impl<'ast> Checker<'ast> {
                                 .to
                                 .map(|v| v.to_dec_string().parse::<usize>().unwrap())
                                 .unwrap_or(array_size);
-
-                            println!("from {} to {}", from, to);
 
                             match (from, to, array_size) {
                                 (f, _, s) if f > s => Err(Error {
@@ -919,27 +930,36 @@ impl<'ast> Checker<'ast> {
                                         f, t,
                                     ),
                                 }),
-                                (f, t, _) => Ok(FieldElementArrayExpression::Value(
-                                    t - f,
-                                    (f..t)
-                                        .map(|i| {
-                                            FieldElementExpression::Select(
-                                                box array.clone(),
-                                                box FieldElementExpression::Number(T::from(i)),
-                                            )
-                                        })
-                                        .collect(),
-                                )
+                                (f, t, _) => Ok(ArrayExpression {
+                                    ty: inner_type,
+                                    size: t - f,
+                                    inner: ArrayExpressionInner::Value(
+                                        (f..t)
+                                            .map(|i| {
+                                                FieldElementExpression::Select(
+                                                    box array.clone(),
+                                                    box FieldElementExpression::Number(T::from(i)),
+                                                )
+                                                .into()
+                                            })
+                                            .collect(),
+                                    ),
+                                }
                                 .into()),
                             }
                         }
                         _ => panic!(""),
                     },
                     RangeOrExpression::Expression(e) => match (array, self.check_expression(e)?) {
-                        (
-                            TypedExpression::FieldElementArray(a),
-                            TypedExpression::FieldElement(i),
-                        ) => Ok(FieldElementExpression::Select(box a, box i).into()),
+                        (TypedExpression::Array(a), TypedExpression::FieldElement(i)) => {
+                            match a.inner_type() {
+                                Type::FieldElement => {
+                                    Ok(FieldElementExpression::Select(box a, box i).into())
+                                }
+                                Type::Boolean => Ok(BooleanExpression::Select(box a, box i).into()),
+                                Type::Array(_, _) => unimplemented!("multi dim wow"),
+                            }
+                        }
                         (a, e) => Err(Error {
                             pos: Some(pos),
                             message: format!(
@@ -984,13 +1004,14 @@ impl<'ast> Checker<'ast> {
                                     ),
                                 }),
                             }?;
-                            unwrapped_expressions.push(unwrapped_e);
+                            unwrapped_expressions.push(unwrapped_e.into());
                         }
 
-                        Ok(FieldElementArrayExpression::Value(
-                            unwrapped_expressions.len(),
-                            unwrapped_expressions,
-                        )
+                        Ok(ArrayExpression {
+                            ty: Type::FieldElement,
+                            size: unwrapped_expressions.len(),
+                            inner: ArrayExpressionInner::Value(unwrapped_expressions),
+                        }
                         .into())
                     }
                     _ => Err(Error {

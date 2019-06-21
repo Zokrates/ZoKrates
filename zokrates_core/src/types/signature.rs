@@ -150,8 +150,8 @@ mod tests {
     fn array_slug() {
         let s = Signature::new()
             .inputs(vec![
-                Type::FieldElementArray(42),
-                Type::FieldElementArray(21),
+                Type::Array(Type::FieldElement, 42),
+                Type::Array(Type::FieldElement, 21),
             ])
             .outputs(vec![]);
 

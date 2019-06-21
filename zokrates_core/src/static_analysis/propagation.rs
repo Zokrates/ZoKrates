@@ -7,6 +7,8 @@
 use crate::typed_absy::folder::*;
 use crate::typed_absy::*;
 use std::collections::HashMap;
+use std::convert::TryFrom;
+use types::Type;
 use zokrates_field::field::Field;
 
 pub struct Propagator<'ast, T: Field> {
@@ -42,20 +44,31 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 						self.constants.insert(TypedAssignee::Identifier(var), e);
 						None
 					},
-					TypedExpression::FieldElementArray(FieldElementArrayExpression::Value(size, array)) => {
-						match array.iter().all(|e| match e {
-							FieldElementExpression::Number(..) => true,
-							_ => false
-						}) {
-							true => {
-								// all elements of the array are constants
-								self.constants.insert(TypedAssignee::Identifier(var), FieldElementArrayExpression::Value(size, array).into());
-								None
-							},
-							false => {
-								Some(TypedStatement::Definition(TypedAssignee::Identifier(var), FieldElementArrayExpression::Value(size, array).into()))
-							}
-						}
+					TypedExpression::Array(e) => {
+                        let inner_type = e.inner_type();
+                        match e.inner {
+                            ArrayExpressionInner::Value(array) =>
+                                match array.iter().all(|e| match e {
+                                    TypedExpression::FieldElement(FieldElementExpression::Number(..)) => true,
+                                    TypedExpression::Boolean(BooleanExpression::Value(..)) => true,
+                                    _ => false
+                                }) {
+                                    true => {
+                                        // all elements of the array are constants
+                                        self.constants.insert(TypedAssignee::Identifier(var), ArrayExpression {
+                                            inner: ArrayExpressionInner::Value(array),
+                                            ..e}.into());
+                                        None
+                                    },
+                                    false => {
+                                        Some(TypedStatement::Definition(TypedAssignee::Identifier(var), ArrayExpression {
+                                            inner: ArrayExpressionInner::Value(array),
+                                            ..e}.into()))
+                                    }
+                                }
+                            ,
+                            e => unimplemented!()
+                        }
 					},
 					e => {
 						Some(TypedStatement::Definition(TypedAssignee::Identifier(var), e))
@@ -75,16 +88,22 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 						// a[42] = 33
 						// -> store (a[42] -> 33) in the constants, possibly overwriting the previous entry
 						self.constants.entry(TypedAssignee::Identifier(var)).and_modify(|e| {
-							match *e {
-								TypedExpression::FieldElementArray(FieldElementArrayExpression::Value(size, ref mut v)) => {
-									let n_as_usize = n.to_dec_string().parse::<usize>().unwrap();
-									if n_as_usize < size {
-										v[n_as_usize] = expr;
-									} else {
-										panic!(format!("out of bounds index ({} >= {}) found during static analysis", n_as_usize, size));
-									}
-								},
-								_ => panic!("constants should only store constants")
+							match e {
+								TypedExpression::Array(e) => {
+                                    let size = e.size();
+                                    match e.inner {
+                                    ArrayExpressionInner::Value(ref mut v) => {
+    									let n_as_usize = n.to_dec_string().parse::<usize>().unwrap();
+    									if n_as_usize < size {
+    										v[n_as_usize] = expr.into();
+    									} else {
+    										panic!(format!("out of bounds index ({} >= {}) found during static analysis", n_as_usize, size));
+    									}
+    								},
+    								_ => panic!("constants should only store constants")
+                                }
+                            },
+                                _ => unimplemented!()
 							}
 						});
 						None
@@ -201,17 +220,17 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                 }
             }
             FieldElementExpression::Select(box array, box index) => {
-                let array = self.fold_field_array_expression(array);
+                let array = self.fold_array_expression(array);
                 let index = self.fold_field_expression(index);
 
-                match (array, index) {
-                    (
-                        FieldElementArrayExpression::Value(size, v),
-                        FieldElementExpression::Number(n),
-                    ) => {
+                let inner_type = array.inner_type().clone();
+                let size = array.size();
+
+                match (array.inner, index) {
+                    (ArrayExpressionInner::Value(v), FieldElementExpression::Number(n)) => {
                         let n_as_usize = n.to_dec_string().parse::<usize>().unwrap();
                         if n_as_usize < size {
-                            v[n_as_usize].clone()
+                            FieldElementExpression::try_from(v[n_as_usize].clone()).unwrap()
                         } else {
                             panic!(format!(
                                 "out of bounds index ({} >= {}) found during static analysis",
@@ -219,49 +238,66 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                             ));
                         }
                     }
-                    (
-                        FieldElementArrayExpression::Identifier(size, id),
-                        FieldElementExpression::Number(n),
-                    ) => match self.constants.get(&TypedAssignee::ArrayElement(
-                        box TypedAssignee::Identifier(Variable::field_array(id.clone(), size)),
-                        box FieldElementExpression::Number(n.clone()).into(),
-                    )) {
-                        Some(e) => match e {
-                            TypedExpression::FieldElement(e) => e.clone(),
-                            _ => panic!(""),
+                    (ArrayExpressionInner::Identifier(id), FieldElementExpression::Number(n)) => {
+                        match self.constants.get(&TypedAssignee::ArrayElement(
+                            box TypedAssignee::Identifier(Variable::array(
+                                id.clone(),
+                                inner_type.clone(),
+                                size,
+                            )),
+                            box FieldElementExpression::Number(n.clone()).into(),
+                        )) {
+                            Some(e) => match e {
+                                TypedExpression::FieldElement(e) => e.clone(),
+                                _ => panic!(""),
+                            },
+                            None => FieldElementExpression::Select(
+                                box ArrayExpression {
+                                    ty: inner_type,
+                                    size,
+                                    inner: ArrayExpressionInner::Identifier(id),
+                                },
+                                box FieldElementExpression::Number(n),
+                            ),
+                        }
+                    }
+                    (a, i) => FieldElementExpression::Select(
+                        box ArrayExpression {
+                            ty: inner_type,
+                            size,
+                            inner: a,
                         },
-                        None => FieldElementExpression::Select(
-                            box FieldElementArrayExpression::Identifier(size, id),
-                            box FieldElementExpression::Number(n),
-                        ),
-                    },
-                    (a, i) => FieldElementExpression::Select(box a, box i),
+                        box i,
+                    ),
                 }
             }
             e => fold_field_expression(self, e),
         }
     }
 
-    fn fold_field_array_expression(
+    fn fold_array_expression_inner(
         &mut self,
-        e: FieldElementArrayExpression<'ast, T>,
-    ) -> FieldElementArrayExpression<'ast, T> {
+        ty: &Type,
+        size: usize,
+        e: ArrayExpressionInner<'ast, T>,
+    ) -> ArrayExpressionInner<'ast, T> {
         match e {
-            FieldElementArrayExpression::Identifier(size, id) => {
+            ArrayExpressionInner::Identifier(id) => {
                 match self
                     .constants
-                    .get(&TypedAssignee::Identifier(Variable::field_array(
+                    .get(&TypedAssignee::Identifier(Variable::array(
                         id.clone(),
+                        ty.clone(),
                         size,
                     ))) {
                     Some(e) => match e {
-                        TypedExpression::FieldElementArray(e) => e.clone(),
+                        TypedExpression::Array(e) => e.inner.clone(),
                         _ => panic!("constant stored for an array should be an array"),
                     },
-                    None => FieldElementArrayExpression::Identifier(size, id),
+                    None => ArrayExpressionInner::Identifier(id),
                 }
             }
-            e => fold_field_array_expression(self, e),
+            e => fold_array_expression_inner(self, ty, size, e),
         }
     }
 
@@ -449,7 +485,7 @@ mod tests {
             #[test]
             fn select() {
                 let e = FieldElementExpression::Select(
-                    box FieldElementArrayExpression::Value(
+                    box ArrayExpressionInner::Value(
                         3,
                         vec![
                             FieldElementExpression::Number(FieldPrime::from(1)),
@@ -604,7 +640,7 @@ mod tests {
                 let declaration = TypedStatement::Declaration(Variable::field_array("a".into(), 2));
                 let definition = TypedStatement::Definition(
                     TypedAssignee::Identifier(Variable::field_array("a".into(), 2)),
-                    FieldElementArrayExpression::Value(
+                    ArrayExpressionInner::Value(
                         2,
                         vec![
                             FieldElementExpression::Number(FieldPrime::from(21)),
@@ -625,15 +661,14 @@ mod tests {
 
                 p.fold_statement(declaration);
                 p.fold_statement(definition);
-                let expected_value: TypedExpression<FieldPrime> =
-                    FieldElementArrayExpression::Value(
-                        2,
-                        vec![
-                            FieldElementExpression::Number(FieldPrime::from(21)),
-                            FieldElementExpression::Number(FieldPrime::from(22)),
-                        ],
-                    )
-                    .into();
+                let expected_value: TypedExpression<FieldPrime> = ArrayExpressionInner::Value(
+                    2,
+                    vec![
+                        FieldElementExpression::Number(FieldPrime::from(21)),
+                        FieldElementExpression::Number(FieldPrime::from(22)),
+                    ],
+                )
+                .into();
 
                 assert_eq!(
                     p.constants
@@ -646,15 +681,14 @@ mod tests {
                 );
 
                 p.fold_statement(overwrite);
-                let expected_value: TypedExpression<FieldPrime> =
-                    FieldElementArrayExpression::Value(
-                        2,
-                        vec![
-                            FieldElementExpression::Number(FieldPrime::from(21)),
-                            FieldElementExpression::Number(FieldPrime::from(42)),
-                        ],
-                    )
-                    .into();
+                let expected_value: TypedExpression<FieldPrime> = ArrayExpressionInner::Value(
+                    2,
+                    vec![
+                        FieldElementExpression::Number(FieldPrime::from(21)),
+                        FieldElementExpression::Number(FieldPrime::from(42)),
+                    ],
+                )
+                .into();
 
                 assert_eq!(
                     p.constants

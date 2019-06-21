@@ -45,7 +45,7 @@ pub fn split<T: Field>() -> FlatProg<T> {
 
     let signature = Signature {
         inputs: vec![Type::FieldElement],
-        outputs: vec![Type::FieldElementArray(nbits)],
+        outputs: vec![Type::array(Type::FieldElement, nbits)],
     };
 
     let outputs = directive_outputs

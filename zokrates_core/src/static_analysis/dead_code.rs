@@ -79,23 +79,25 @@ impl<'ast, T: Field> Folder<'ast, T> for DeadCode {
         }
     }
 
-    fn fold_field_array_expression(
+    fn fold_array_expression_inner(
         &mut self,
-        e: FieldElementArrayExpression<'ast, T>,
-    ) -> FieldElementArrayExpression<'ast, T> {
+        ty: &Type,
+        size: usize,
+        e: ArrayExpressionInner<'ast, T>,
+    ) -> ArrayExpressionInner<'ast, T> {
         match e {
-            FieldElementArrayExpression::FunctionCall(size, id, exps) => {
+            ArrayExpressionInner::FunctionCall(id, exps) => {
                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
 
                 let signature = Signature::new()
                     .inputs(exps.iter().map(|e| e.get_type()).collect())
-                    .outputs(vec![Type::FieldElementArray(size)]);
+                    .outputs(vec![Type::array(ty.clone(), size)]);
 
                 self.called
                     .insert(format!("{}_{}", id, signature.to_slug()));
-                FieldElementArrayExpression::FunctionCall(size, id, exps)
+                ArrayExpressionInner::FunctionCall(id, exps)
             }
-            e => fold_field_array_expression(self, e),
+            _ => fold_array_expression_inner(self, ty, size, e),
         }
     }
 }

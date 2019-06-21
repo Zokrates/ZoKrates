@@ -37,7 +37,7 @@ impl<'ast> Variable<'ast> {
     pub fn field_array<S: Into<&'ast str>>(id: S, size: usize) -> Variable<'ast> {
         Variable {
             id: id.into(),
-            _type: Type::FieldElementArray(size),
+            _type: Type::array(Type::FieldElement, size),
         }
     }
 

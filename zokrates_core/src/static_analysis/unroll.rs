@@ -76,7 +76,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                 };
 
                 let array_size = match original_variable.get_type() {
-                    Type::FieldElementArray(size) => size,
+                    Type::Array(_, size) => size,
                     _ => panic!("array identifier should be a field element array"),
                 };
 
@@ -87,27 +87,34 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
 
                 let new_variable = self.issue_next_ssa_variable(original_variable);
 
-                let new_array = FieldElementArrayExpression::Value(
-                    array_size,
-                    (0..array_size)
-                        .map(|i| {
-                            FieldElementExpression::IfElse(
-                                box BooleanExpression::Eq(
-                                    box index.clone(),
-                                    box FieldElementExpression::Number(T::from(i)),
-                                ),
-                                box expr.clone(),
-                                box FieldElementExpression::Select(
-                                    box FieldElementArrayExpression::Identifier(
-                                        array_size,
-                                        current_ssa_variable.id.clone(),
+                let new_array = ArrayExpression {
+                    ty: Type::FieldElement,
+                    size: array_size,
+                    inner: ArrayExpressionInner::Value(
+                        (0..array_size)
+                            .map(|i| {
+                                FieldElementExpression::IfElse(
+                                    box BooleanExpression::Eq(
+                                        box index.clone(),
+                                        box FieldElementExpression::Number(T::from(i)),
                                     ),
-                                    box FieldElementExpression::Number(T::from(i)),
-                                ),
-                            )
-                        })
-                        .collect(),
-                );
+                                    box expr.clone(),
+                                    box FieldElementExpression::Select(
+                                        box ArrayExpression {
+                                            ty: Type::FieldElement,
+                                            size: array_size,
+                                            inner: ArrayExpressionInner::Identifier(
+                                                current_ssa_variable.id.clone(),
+                                            ),
+                                        },
+                                        box FieldElementExpression::Number(T::from(i)),
+                                    ),
+                                )
+                                .into()
+                            })
+                            .collect(),
+                    ),
+                };
 
                 vec![TypedStatement::Definition(
                     TypedAssignee::Identifier(new_variable),
@@ -433,7 +440,7 @@ mod tests {
 
             let s = TypedStatement::Definition(
                 TypedAssignee::Identifier(Variable::field_array("a".into(), 2)),
-                FieldElementArrayExpression::Value(
+                ArrayExpressionInner::Value(
                     2,
                     vec![
                         FieldElementExpression::Number(FieldPrime::from(1)),
@@ -450,7 +457,7 @@ mod tests {
                         Identifier::from("a").version(0),
                         2
                     )),
-                    FieldElementArrayExpression::Value(
+                    ArrayExpressionInner::Value(
                         2,
                         vec![
                             FieldElementExpression::Number(FieldPrime::from(1)),
@@ -476,7 +483,7 @@ mod tests {
                         Identifier::from("a").version(1),
                         2
                     )),
-                    FieldElementArrayExpression::Value(
+                    ArrayExpressionInner::Value(
                         2,
                         vec![
                             FieldElementExpression::IfElse(
@@ -486,7 +493,7 @@ mod tests {
                                 ),
                                 box FieldElementExpression::Number(FieldPrime::from(2)),
                                 box FieldElementExpression::Select(
-                                    box FieldElementArrayExpression::Identifier(
+                                    box ArrayExpressionInner::Identifier(
                                         2,
                                         Identifier::from("a").version(0)
                                     ),
@@ -500,7 +507,7 @@ mod tests {
                                 ),
                                 box FieldElementExpression::Number(FieldPrime::from(2)),
                                 box FieldElementExpression::Select(
-                                    box FieldElementArrayExpression::Identifier(
+                                    box ArrayExpressionInner::Identifier(
                                         2,
                                         Identifier::from("a").version(0)
                                     ),

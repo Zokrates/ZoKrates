@@ -16,6 +16,7 @@ use crate::types::Signature;
 use crate::flat_absy::*;
 use crate::imports::Import;
 use crate::types::Type;
+use std::convert::TryFrom;
 use std::fmt;
 use zokrates_field::field::Field;
 
@@ -191,7 +192,7 @@ impl<'ast, T: Field> Typed for TypedAssignee<'ast, T> {
             TypedAssignee::ArrayElement(ref a, _) => {
                 let a_type = a.get_type();
                 match a_type {
-                    Type::FieldElementArray(_) => Type::FieldElement,
+                    Type::Array(..) => Type::FieldElement,
                     _ => panic!("array element has to take array"),
                 }
             }
@@ -302,7 +303,7 @@ pub trait Typed {
 pub enum TypedExpression<'ast, T: Field> {
     Boolean(BooleanExpression<'ast, T>),
     FieldElement(FieldElementExpression<'ast, T>),
-    FieldElementArray(FieldElementArrayExpression<'ast, T>),
+    Array(ArrayExpression<'ast, T>),
 }
 
 impl<'ast, T: Field> From<BooleanExpression<'ast, T>> for TypedExpression<'ast, T> {
@@ -317,9 +318,9 @@ impl<'ast, T: Field> From<FieldElementExpression<'ast, T>> for TypedExpression<'
     }
 }
 
-impl<'ast, T: Field> From<FieldElementArrayExpression<'ast, T>> for TypedExpression<'ast, T> {
-    fn from(e: FieldElementArrayExpression<'ast, T>) -> TypedExpression<T> {
-        TypedExpression::FieldElementArray(e)
+impl<'ast, T: Field> From<ArrayExpression<'ast, T>> for TypedExpression<'ast, T> {
+    fn from(e: ArrayExpression<'ast, T>) -> TypedExpression<T> {
+        TypedExpression::Array(e)
     }
 }
 
@@ -328,7 +329,7 @@ impl<'ast, T: Field> fmt::Display for TypedExpression<'ast, T> {
         match *self {
             TypedExpression::Boolean(ref e) => write!(f, "{}", e),
             TypedExpression::FieldElement(ref e) => write!(f, "{}", e),
-            TypedExpression::FieldElementArray(ref e) => write!(f, "{}", e),
+            TypedExpression::Array(ref e) => write!(f, "{}", e.inner),
         }
     }
 }
@@ -338,8 +339,20 @@ impl<'ast, T: Field> fmt::Debug for TypedExpression<'ast, T> {
         match *self {
             TypedExpression::Boolean(ref e) => write!(f, "{:?}", e),
             TypedExpression::FieldElement(ref e) => write!(f, "{:?}", e),
-            TypedExpression::FieldElementArray(ref e) => write!(f, "{:?}", e),
+            TypedExpression::Array(ref e) => write!(f, "{:?}", e),
         }
+    }
+}
+
+impl<'ast, T: Field> fmt::Display for ArrayExpression<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.inner)
+    }
+}
+
+impl<'ast, T: Field> fmt::Debug for ArrayExpression<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self.inner)
     }
 }
 
@@ -348,19 +361,14 @@ impl<'ast, T: Field> Typed for TypedExpression<'ast, T> {
         match *self {
             TypedExpression::Boolean(_) => Type::Boolean,
             TypedExpression::FieldElement(_) => Type::FieldElement,
-            TypedExpression::FieldElementArray(ref e) => e.get_type(),
+            TypedExpression::Array(ref e) => e.get_type(),
         }
     }
 }
 
-impl<'ast, T: Field> Typed for FieldElementArrayExpression<'ast, T> {
+impl<'ast, T: Field> Typed for ArrayExpression<'ast, T> {
     fn get_type(&self) -> Type {
-        match *self {
-            FieldElementArrayExpression::Identifier(n, _) => Type::FieldElementArray(n),
-            FieldElementArrayExpression::Value(n, _) => Type::FieldElementArray(n),
-            FieldElementArrayExpression::FunctionCall(n, _, _) => Type::FieldElementArray(n),
-            FieldElementArrayExpression::IfElse(_, ref consequence, _) => consequence.get_type(),
-        }
+        Type::array(self.ty.clone(), self.size)
     }
 }
 
@@ -412,7 +420,7 @@ pub enum FieldElementExpression<'ast, T: Field> {
     ),
     FunctionCall(String, Vec<TypedExpression<'ast, T>>),
     Select(
-        Box<FieldElementArrayExpression<'ast, T>>,
+        Box<ArrayExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
 }
@@ -450,28 +458,68 @@ pub enum BooleanExpression<'ast, T: Field> {
         Box<BooleanExpression<'ast, T>>,
     ),
     Not(Box<BooleanExpression<'ast, T>>),
-}
-
-// for now we store the array size in the variants
-#[derive(Clone, PartialEq, Hash, Eq)]
-pub enum FieldElementArrayExpression<'ast, T: Field> {
-    Identifier(usize, Identifier<'ast>),
-    Value(usize, Vec<FieldElementExpression<'ast, T>>),
-    FunctionCall(usize, String, Vec<TypedExpression<'ast, T>>),
     IfElse(
         Box<BooleanExpression<'ast, T>>,
-        Box<FieldElementArrayExpression<'ast, T>>,
-        Box<FieldElementArrayExpression<'ast, T>>,
+        Box<BooleanExpression<'ast, T>>,
+        Box<BooleanExpression<'ast, T>>,
+    ),
+    Select(
+        Box<ArrayExpression<'ast, T>>,
+        Box<FieldElementExpression<'ast, T>>,
     ),
 }
 
-impl<'ast, T: Field> FieldElementArrayExpression<'ast, T> {
+#[derive(Clone, PartialEq, Hash, Eq)]
+pub struct ArrayExpression<'ast, T: Field> {
+    pub size: usize,
+    pub ty: Type,
+    pub inner: ArrayExpressionInner<'ast, T>,
+}
+
+#[derive(Clone, PartialEq, Hash, Eq)]
+pub enum ArrayExpressionInner<'ast, T: Field> {
+    Identifier(Identifier<'ast>),
+    Value(Vec<TypedExpression<'ast, T>>),
+    FunctionCall(String, Vec<TypedExpression<'ast, T>>),
+    IfElse(
+        Box<BooleanExpression<'ast, T>>,
+        Box<ArrayExpression<'ast, T>>,
+        Box<ArrayExpression<'ast, T>>,
+    ),
+}
+
+impl<'ast, T: Field> ArrayExpression<'ast, T> {
+    pub fn inner_type(&self) -> &Type {
+        &self.ty
+    }
+
     pub fn size(&self) -> usize {
-        match *self {
-            FieldElementArrayExpression::Identifier(s, _)
-            | FieldElementArrayExpression::Value(s, _)
-            | FieldElementArrayExpression::FunctionCall(s, ..) => s,
-            FieldElementArrayExpression::IfElse(_, ref consequence, _) => consequence.size(),
+        self.size
+    }
+}
+
+// Downcasts
+
+impl<'ast, T: Field> TryFrom<TypedExpression<'ast, T>> for FieldElementExpression<'ast, T> {
+    type Error = ();
+
+    fn try_from(
+        te: TypedExpression<'ast, T>,
+    ) -> Result<FieldElementExpression<'ast, T>, Self::Error> {
+        match te {
+            TypedExpression::FieldElement(e) => Ok(e),
+            _ => Err(()),
+        }
+    }
+}
+
+impl<'ast, T: Field> TryFrom<TypedExpression<'ast, T>> for BooleanExpression<'ast, T> {
+    type Error = ();
+
+    fn try_from(te: TypedExpression<'ast, T>) -> Result<BooleanExpression<'ast, T>, Self::Error> {
+        match te {
+            TypedExpression::Boolean(e) => Ok(e),
+            _ => Err(()),
         }
     }
 }
@@ -521,15 +569,21 @@ impl<'ast, T: Field> fmt::Display for BooleanExpression<'ast, T> {
             BooleanExpression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             BooleanExpression::Not(ref exp) => write!(f, "!{}", exp),
             BooleanExpression::Value(b) => write!(f, "{}", b),
+            BooleanExpression::IfElse(ref condition, ref consequent, ref alternative) => write!(
+                f,
+                "if {} then {} else {} fi",
+                condition, consequent, alternative
+            ),
+            BooleanExpression::Select(ref id, ref index) => write!(f, "{}[{}]", id, index),
         }
     }
 }
 
-impl<'ast, T: Field> fmt::Display for FieldElementArrayExpression<'ast, T> {
+impl<'ast, T: Field> fmt::Display for ArrayExpressionInner<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            FieldElementArrayExpression::Identifier(_, ref var) => write!(f, "{}", var),
-            FieldElementArrayExpression::Value(_, ref values) => write!(
+            ArrayExpressionInner::Identifier(ref var) => write!(f, "{}", var),
+            ArrayExpressionInner::Value(ref values) => write!(
                 f,
                 "[{}]",
                 values
@@ -538,7 +592,7 @@ impl<'ast, T: Field> fmt::Display for FieldElementArrayExpression<'ast, T> {
                     .collect::<Vec<String>>()
                     .join(", ")
             ),
-            FieldElementArrayExpression::FunctionCall(_, ref i, ref p) => {
+            ArrayExpressionInner::FunctionCall(ref i, ref p) => {
                 r#try!(write!(f, "{}(", i,));
                 for (i, param) in p.iter().enumerate() {
                     r#try!(write!(f, "{}", param));
@@ -548,13 +602,11 @@ impl<'ast, T: Field> fmt::Display for FieldElementArrayExpression<'ast, T> {
                 }
                 write!(f, ")")
             }
-            FieldElementArrayExpression::IfElse(ref condition, ref consequent, ref alternative) => {
-                write!(
-                    f,
-                    "if {} then {} else {} fi",
-                    condition, consequent, alternative
-                )
-            }
+            ArrayExpressionInner::IfElse(ref condition, ref consequent, ref alternative) => write!(
+                f,
+                "if {} then {} else {} fi",
+                condition, consequent, alternative
+            ),
         }
     }
 }
@@ -596,23 +648,21 @@ impl<'ast, T: Field> fmt::Debug for FieldElementExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> fmt::Debug for FieldElementArrayExpression<'ast, T> {
+impl<'ast, T: Field> fmt::Debug for ArrayExpressionInner<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            FieldElementArrayExpression::Identifier(_, ref var) => write!(f, "{:?}", var),
-            FieldElementArrayExpression::Value(_, ref values) => write!(f, "{:?}", values),
-            FieldElementArrayExpression::FunctionCall(_, ref i, ref p) => {
+            ArrayExpressionInner::Identifier(ref var) => write!(f, "{:?}", var),
+            ArrayExpressionInner::Value(ref values) => write!(f, "{:?}", values),
+            ArrayExpressionInner::FunctionCall(ref i, ref p) => {
                 r#try!(write!(f, "FunctionCall({:?}, (", i));
                 r#try!(f.debug_list().entries(p.iter()).finish());
                 write!(f, ")")
             }
-            FieldElementArrayExpression::IfElse(ref condition, ref consequent, ref alternative) => {
-                write!(
-                    f,
-                    "IfElse({:?}, {:?}, {:?})",
-                    condition, consequent, alternative
-                )
-            }
+            ArrayExpressionInner::IfElse(ref condition, ref consequent, ref alternative) => write!(
+                f,
+                "IfElse({:?}, {:?}, {:?})",
+                condition, consequent, alternative
+            ),
         }
     }
 }

@@ -78,10 +78,10 @@ pub fn sha_round<T: Field>() -> FlatFunction<T> {
     // define the signature of the resulting function
     let signature = Signature {
         inputs: vec![
-            Type::FieldElementArray(input_indices.len()),
-            Type::FieldElementArray(current_hash_indices.len()),
+            Type::array(Type::FieldElement, input_indices.len()),
+            Type::array(Type::FieldElement, current_hash_indices.len()),
         ],
-        outputs: vec![Type::FieldElementArray(output_indices.len())],
+        outputs: vec![Type::array(Type::FieldElement, output_indices.len())],
     };
 
     // define parameters to the function based on the variables
@@ -160,11 +160,8 @@ mod tests {
         assert_eq!(
             compiled.signature,
             Signature::new()
-                .inputs(vec![
-                    Type::FieldElementArray(512),
-                    Type::FieldElementArray(256)
-                ])
-                .outputs(vec![Type::FieldElementArray(256)])
+                .inputs(vec![Type::Array(512), Type::Array(256)])
+                .outputs(vec![Type::Array(256)])
         );
 
         // function should have 768 inputs
