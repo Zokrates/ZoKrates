@@ -100,6 +100,10 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(&default_scheme)
+        ).arg(Arg::with_name("light")
+            .long("light")
+            .help("Skip logs and human readable output")
+            .required(false)
         )
     )
     .subcommand(SubCommand::with_name("export-verifier")
@@ -155,6 +159,10 @@ fn cli() -> Result<(), String> {
             .help("Arguments for the program's main method as a space separated list")
             .takes_value(true)
             .multiple(true) // allows multiple values
+            .required(false)
+        ).arg(Arg::with_name("light")
+            .long("light")
+            .help("Skip logs and human readable output")
             .required(false)
         )
     )
@@ -292,7 +300,7 @@ fn cli() -> Result<(), String> {
             println!("Number of constraints: {}", num_constraints);
         }
         ("compute-witness", Some(sub_matches)) => {
-            println!("Computing witness for:");
+            println!("Computing witness...");
 
             // read compiled program
             let path = Path::new(sub_matches.value_of("input").unwrap());
@@ -305,7 +313,9 @@ fn cli() -> Result<(), String> {
                 deserialize_from(&mut reader, Infinite).map_err(|why| why.to_string())?;
 
             // print deserialized flattened program
-            println!("{}", program_ast);
+            if !sub_matches.is_present("light") {
+                println!("{}", program_ast);
+            }
 
             let expected_cli_args_count =
                 program_ast.public_arguments_count() + program_ast.private_arguments_count();
@@ -380,7 +390,9 @@ fn cli() -> Result<(), String> {
                 deserialize_from(&mut reader, Infinite).map_err(|why| format!("{:?}", why))?;
 
             // print deserialized flattened program
-            println!("{}", program);
+            if !sub_matches.is_present("light") {
+                println!("{}", program);
+            }
 
             // get paths for proving and verification keys
             let pk_path = sub_matches.value_of("proving-key-path").unwrap();
