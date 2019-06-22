@@ -1427,7 +1427,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_cli"
-version = "0.4.7"
+version = "0.4.8"
 dependencies = [
  "assert_cli 0.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "bincode 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1436,14 +1436,14 @@ dependencies = [
  "regex 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
  "tempdir 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
- "zokrates_core 0.3.10",
+ "zokrates_core 0.3.11",
  "zokrates_field 0.3.3",
  "zokrates_fs_resolver 0.4.1",
 ]
 
 [[package]]
 name = "zokrates_core"
-version = "0.3.10"
+version = "0.3.11"
 dependencies = [
  "assert_cli 0.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "bellman 0.2.0 (git+https://github.com/matterinc/bellman?tag=0.2.0)",
@@ -1471,7 +1471,7 @@ dependencies = [
  "wasmi 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "zokrates_embed 0.1.0",
  "zokrates_field 0.3.3",
- "zokrates_pest_ast 0.1.0",
+ "zokrates_pest_ast 0.1.1",
 ]
 
 [[package]]
@@ -1508,7 +1508,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_parser"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "glob 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "pest 2.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1517,7 +1517,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_pest_ast"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "from-pest 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "glob 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1525,19 +1525,19 @@ dependencies = [
  "pest 2.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "pest-ast 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "zokrates_field 0.3.3",
- "zokrates_parser 0.1.0",
+ "zokrates_parser 0.1.1",
 ]
 
 [[package]]
 name = "zokrates_stdlib"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "fs_extra 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "glob 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.92 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.92 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
- "zokrates_core 0.3.10",
+ "zokrates_core 0.3.11",
  "zokrates_field 0.3.3",
  "zokrates_fs_resolver 0.4.1",
 ]

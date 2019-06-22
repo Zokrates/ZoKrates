@@ -3,7 +3,9 @@ pub const SOLIDITY_G2_ADDITION_LIB: &str = r#"// This file is LGPL3 Licensed
 /**
  * @title Elliptic curve operations on twist points for alt_bn128
  * @author Mustafa Al-Bassam (mus@musalbas.com)
+ * @dev Homepage: https://github.com/musalbas/solidity-BN256G2
  */
+
 library BN256G2 {
     uint256 internal constant FIELD_MODULUS = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47;
     uint256 internal constant TWISTBX = 0x2b149d40ceb8aaae81be18991be06ac3b5b4c5e559dbefa33267e6dc24a138e5;
@@ -32,7 +34,7 @@ library BN256G2 {
         uint256 pt1yx, uint256 pt1yy,
         uint256 pt2xx, uint256 pt2xy,
         uint256 pt2yx, uint256 pt2yy
-    ) public pure returns (
+    ) public view returns (
         uint256, uint256,
         uint256, uint256
     ) {
@@ -105,7 +107,7 @@ library BN256G2 {
         uint256 s,
         uint256 pt1xx, uint256 pt1xy,
         uint256 pt1yx, uint256 pt1yy
-    ) public pure returns (
+    ) public view returns (
         uint256, uint256,
         uint256, uint256
     ) {
@@ -153,7 +155,7 @@ library BN256G2 {
     function _FQ2Mul(
         uint256 xx, uint256 xy,
         uint256 yx, uint256 yy
-    ) internal pure returns(uint256, uint256) {
+    ) internal pure returns (uint256, uint256) {
         return (
             submod(mulmod(xx, yx, FIELD_MODULUS), mulmod(xy, yy, FIELD_MODULUS), FIELD_MODULUS),
             addmod(mulmod(xx, yy, FIELD_MODULUS), mulmod(xy, yx, FIELD_MODULUS), FIELD_MODULUS)
@@ -163,7 +165,7 @@ library BN256G2 {
     function _FQ2Muc(
         uint256 xx, uint256 xy,
         uint256 c
-    ) internal pure returns(uint256, uint256) {
+    ) internal pure returns (uint256, uint256) {
         return (
             mulmod(xx, c, FIELD_MODULUS),
             mulmod(xy, c, FIELD_MODULUS)
@@ -173,7 +175,7 @@ library BN256G2 {
     function _FQ2Add(
         uint256 xx, uint256 xy,
         uint256 yx, uint256 yy
-    ) internal pure returns(uint256, uint256) {
+    ) internal pure returns (uint256, uint256) {
         return (
             addmod(xx, yx, FIELD_MODULUS),
             addmod(xy, yy, FIELD_MODULUS)
@@ -183,7 +185,7 @@ library BN256G2 {
     function _FQ2Sub(
         uint256 xx, uint256 xy,
         uint256 yx, uint256 yy
-    ) internal pure returns(uint256 rx, uint256 ry) {
+    ) internal pure returns (uint256 rx, uint256 ry) {
         return (
             submod(xx, yx, FIELD_MODULUS),
             submod(xy, yy, FIELD_MODULUS)
@@ -193,12 +195,12 @@ library BN256G2 {
     function _FQ2Div(
         uint256 xx, uint256 xy,
         uint256 yx, uint256 yy
-    ) internal pure returns(uint256, uint256) {
+    ) internal view returns (uint256, uint256) {
         (yx, yy) = _FQ2Inv(yx, yy);
         return _FQ2Mul(xx, xy, yx, yy);
     }
 
-    function _FQ2Inv(uint256 x, uint256 y) internal pure returns(uint256, uint256) {
+    function _FQ2Inv(uint256 x, uint256 y) internal view returns (uint256, uint256) {
         uint256 inv = _modInv(addmod(mulmod(y, y, FIELD_MODULUS), mulmod(x, x, FIELD_MODULUS), FIELD_MODULUS), FIELD_MODULUS);
         return (
             mulmod(x, inv, FIELD_MODULUS),
@@ -222,24 +224,27 @@ library BN256G2 {
         return yyx == 0 && yyy == 0;
     }
 
-    function _modInv(uint256 a, uint256 n) internal pure returns(uint256 t) {
-        t = 0;
-        uint256 newT = 1;
-        uint256 r = n;
-        uint256 newR = a;
-        uint256 q;
-        while (newR != 0) {
-            q = r / newR;
-            (t, newT) = (newT, submod(t, mulmod(q, newT, n), n));
-            (r, newR) = (newR, r - q * newR);
+    function _modInv(uint256 a, uint256 n) internal view returns (uint256 result) {
+        bool success;
+        assembly {
+            let freemem := mload(0x40)
+            mstore(freemem, 0x20)
+            mstore(add(freemem,0x20), 0x20)
+            mstore(add(freemem,0x40), 0x20)
+            mstore(add(freemem,0x60), a)
+            mstore(add(freemem,0x80), sub(n, 2))
+            mstore(add(freemem,0xA0), n)
+            success := staticcall(sub(gas, 2000), 5, freemem, 0xC0, freemem, 0x20)
+            result := mload(freemem)
         }
+        require(success);
     }
 
     function _fromJacobian(
         uint256 pt1xx, uint256 pt1xy,
         uint256 pt1yx, uint256 pt1yy,
         uint256 pt1zx, uint256 pt1zy
-    ) internal pure returns (
+    ) internal view returns (
         uint256 pt2xx, uint256 pt2xy,
         uint256 pt2yx, uint256 pt2yy
     ) {
@@ -330,7 +335,7 @@ library BN256G2 {
         uint256 pt1xx, uint256 pt1xy,
         uint256 pt1yx, uint256 pt1yy,
         uint256 pt1zx, uint256 pt1zy
-    ) internal pure returns(
+    ) internal pure returns (
         uint256 pt2xx, uint256 pt2xy,
         uint256 pt2yx, uint256 pt2yy,
         uint256 pt2zx, uint256 pt2zy
@@ -362,7 +367,7 @@ library BN256G2 {
         uint256 pt1xx, uint256 pt1xy,
         uint256 pt1yx, uint256 pt1yy,
         uint256 pt1zx, uint256 pt1zy
-    ) internal pure returns(uint256[6] memory pt2) {
+    ) internal pure returns (uint256[6] memory pt2) {
         while (d != 0) {
             if ((d & 1) != 0) {
                 pt2 = _ECTwistAddJacobian(
@@ -387,8 +392,6 @@ library BN256G2 {
         }
     }
 }
-
-
 "#;
 
 pub const SOLIDITY_PAIRING_LIB : &str = r#"// This file is MIT Licensed.
@@ -446,7 +449,7 @@ library Pairing {
         require(success);
     }
     /// @return the sum of two points of G2
-    function addition(G2Point memory p1, G2Point memory p2) internal pure returns (G2Point memory r) {
+    function addition(G2Point memory p1, G2Point memory p2) internal returns (G2Point memory r) {
         (r.X[1], r.X[0], r.Y[1], r.Y[0]) = BN256G2.ECTwistAdd(p1.X[1],p1.X[0],p1.Y[1],p1.Y[0],p2.X[1],p2.X[0],p2.Y[1],p2.Y[0]);
     }
     /// @return the product of a point on G1 and a scalar, i.e.
