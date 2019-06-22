@@ -709,14 +709,18 @@ mod tests {
                     returns: vec![Type::Basic(BasicType::Field(FieldType {}))],
                     statements: vec![Statement::Return(ReturnStatement {
                         expressions: vec![Expression::add(
-                            Expression::Constant(ConstantExpression {
-                                value: String::from("1"),
-                                span: Span::new(&source, 59, 60).unwrap()
-                            }),
-                            Expression::Constant(ConstantExpression {
-                                value: String::from("1"),
-                                span: Span::new(&source, 63, 64).unwrap()
-                            }),
+                            Expression::Constant(ConstantExpression::DecimalNumber(
+                                DecimalNumberExpression {
+                                    value: String::from("1"),
+                                    span: Span::new(&source, 59, 60).unwrap()
+                                }
+                            )),
+                            Expression::Constant(ConstantExpression::DecimalNumber(
+                                DecimalNumberExpression {
+                                    value: String::from("1"),
+                                    span: Span::new(&source, 63, 64).unwrap()
+                                }
+                            )),
                             Span::new(&source, 59, 64).unwrap()
                         )],
                         span: Span::new(&source, 52, 64).unwrap(),
@@ -754,24 +758,32 @@ mod tests {
                     returns: vec![Type::Basic(BasicType::Field(FieldType {}))],
                     statements: vec![Statement::Return(ReturnStatement {
                         expressions: vec![Expression::add(
-                            Expression::Constant(ConstantExpression {
-                                value: String::from("1"),
-                                span: Span::new(&source, 59, 60).unwrap()
-                            }),
+                            Expression::Constant(ConstantExpression::DecimalNumber(
+                                DecimalNumberExpression {
+                                    value: String::from("1"),
+                                    span: Span::new(&source, 59, 60).unwrap()
+                                }
+                            )),
                             Expression::mul(
-                                Expression::Constant(ConstantExpression {
-                                    value: String::from("2"),
-                                    span: Span::new(&source, 63, 64).unwrap()
-                                }),
+                                Expression::Constant(ConstantExpression::DecimalNumber(
+                                    DecimalNumberExpression {
+                                        value: String::from("2"),
+                                        span: Span::new(&source, 63, 64).unwrap()
+                                    }
+                                )),
                                 Expression::pow(
-                                    Expression::Constant(ConstantExpression {
-                                        value: String::from("3"),
-                                        span: Span::new(&source, 67, 68).unwrap()
-                                    }),
-                                    Expression::Constant(ConstantExpression {
-                                        value: String::from("4"),
-                                        span: Span::new(&source, 72, 73).unwrap()
-                                    }),
+                                    Expression::Constant(ConstantExpression::DecimalNumber(
+                                        DecimalNumberExpression {
+                                            value: String::from("3"),
+                                            span: Span::new(&source, 67, 68).unwrap()
+                                        }
+                                    )),
+                                    Expression::Constant(ConstantExpression::DecimalNumber(
+                                        DecimalNumberExpression {
+                                            value: String::from("4"),
+                                            span: Span::new(&source, 72, 73).unwrap()
+                                        }
+                                    )),
                                     Span::new(&source, 67, 73).unwrap()
                                 ),
                                 Span::new(&source, 63, 73).unwrap()
@@ -813,18 +825,24 @@ mod tests {
                     returns: vec![Type::Basic(BasicType::Field(FieldType {}))],
                     statements: vec![Statement::Return(ReturnStatement {
                         expressions: vec![Expression::if_else(
-                            Expression::Constant(ConstantExpression {
-                                value: String::from("1"),
-                                span: Span::new(&source, 62, 63).unwrap()
-                            }),
-                            Expression::Constant(ConstantExpression {
-                                value: String::from("2"),
-                                span: Span::new(&source, 69, 70).unwrap()
-                            }),
-                            Expression::Constant(ConstantExpression {
-                                value: String::from("3"),
-                                span: Span::new(&source, 76, 77).unwrap()
-                            }),
+                            Expression::Constant(ConstantExpression::DecimalNumber(
+                                DecimalNumberExpression {
+                                    value: String::from("1"),
+                                    span: Span::new(&source, 62, 63).unwrap()
+                                }
+                            )),
+                            Expression::Constant(ConstantExpression::DecimalNumber(
+                                DecimalNumberExpression {
+                                    value: String::from("2"),
+                                    span: Span::new(&source, 69, 70).unwrap()
+                                }
+                            )),
+                            Expression::Constant(ConstantExpression::DecimalNumber(
+                                DecimalNumberExpression {
+                                    value: String::from("3"),
+                                    span: Span::new(&source, 76, 77).unwrap()
+                                }
+                            )),
                             Span::new(&source, 59, 80).unwrap()
                         )],
                         span: Span::new(&source, 52, 80).unwrap(),
@@ -860,10 +878,12 @@ mod tests {
                     parameters: vec![],
                     returns: vec![Type::Basic(BasicType::Field(FieldType {}))],
                     statements: vec![Statement::Return(ReturnStatement {
-                        expressions: vec![Expression::Constant(ConstantExpression {
-                            value: String::from("1"),
-                            span: Span::new(&source, 31, 32).unwrap()
-                        })],
+                        expressions: vec![Expression::Constant(ConstantExpression::DecimalNumber(
+                            DecimalNumberExpression {
+                                value: String::from("1"),
+                                span: Span::new(&source, 31, 32).unwrap()
+                            }
+                        ))],
                         span: Span::new(&source, 23, 33).unwrap(),
                     })],
                     span: Span::new(&source, 0, 34).unwrap(),
@@ -913,19 +933,25 @@ mod tests {
                             },
                         ],
                         arguments: vec![
-                            Expression::Constant(ConstantExpression {
-                                value: String::from("1"),
-                                span: Span::new(&source, 40, 41).unwrap()
-                            }),
+                            Expression::Constant(ConstantExpression::DecimalNumber(
+                                DecimalNumberExpression {
+                                    value: String::from("1"),
+                                    span: Span::new(&source, 40, 41).unwrap()
+                                }
+                            )),
                             Expression::add(
-                                Expression::Constant(ConstantExpression {
-                                    value: String::from("2"),
-                                    span: Span::new(&source, 43, 44).unwrap()
-                                }),
-                                Expression::Constant(ConstantExpression {
-                                    value: String::from("3"),
-                                    span: Span::new(&source, 47, 48).unwrap()
-                                }),
+                                Expression::Constant(ConstantExpression::DecimalNumber(
+                                    DecimalNumberExpression {
+                                        value: String::from("2"),
+                                        span: Span::new(&source, 43, 44).unwrap()
+                                    }
+                                )),
+                                Expression::Constant(ConstantExpression::DecimalNumber(
+                                    DecimalNumberExpression {
+                                        value: String::from("3"),
+                                        span: Span::new(&source, 47, 48).unwrap()
+                                    }
+                                )),
                                 Span::new(&source, 43, 48).unwrap()
                             ),
                         ],
