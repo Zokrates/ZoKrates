@@ -1,6 +1,0 @@
-def main(field[256] a) -> (field[128], field[128]):
-
-	field[128] out1 = a[0..128]
-	field[128] out2 = a[128..256]
-
-    return out1, out2 
