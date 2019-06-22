@@ -192,7 +192,7 @@ impl<'ast, T: Field> Typed for TypedAssignee<'ast, T> {
             TypedAssignee::ArrayElement(ref a, _) => {
                 let a_type = a.get_type();
                 match a_type {
-                    Type::Array(..) => Type::FieldElement,
+                    Type::Array(box t, _) => t,
                     _ => panic!("array element has to take array"),
                 }
             }

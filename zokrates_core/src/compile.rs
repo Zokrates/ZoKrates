@@ -159,11 +159,17 @@ pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
         )
     })?;
 
+    println!("{}", typed_ast);
+
     // analyse (unroll and constant propagation)
     let typed_ast = typed_ast.analyse();
 
+    println!("analysed {}", typed_ast);
+
     // flatten input program
     let program_flattened = Flattener::flatten(typed_ast);
+
+    println!("{}", program_flattened);
 
     // analyse (constant propagation after call resolution)
     let program_flattened = program_flattened.analyse();

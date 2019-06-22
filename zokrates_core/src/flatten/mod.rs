@@ -401,7 +401,7 @@ impl<'ast> Flattener<'ast> {
                     functions_flattened,
                     statements_flattened,
                     &"_if_else_field".to_string(),
-                    vec![Type::Boolean],
+                    vec![Type::FieldElement],
                     &vec![
                         condition.into(),
                         FieldElementExpression::FunctionCall(
@@ -422,9 +422,6 @@ impl<'ast> Flattener<'ast> {
                 let size = array.size();
                 let ty = array.inner_type();
                 assert_eq!(ty, &Type::Boolean);
-
-                println!("{}[{}]", array, index);
-                println!("{:?}", self.layout);
 
                 match index {
                     FieldElementExpression::Number(n) => match array.inner {
@@ -1025,6 +1022,7 @@ impl<'ast> Flattener<'ast> {
         expr: ArrayExpression<'ast, T>,
     ) -> Vec<FlatExpression<T>> {
         let ty = expr.get_type();
+        let inner_type = expr.inner_type().clone();
         let size = expr.size();
 
         match expr.inner {
@@ -1037,52 +1035,69 @@ impl<'ast> Flattener<'ast> {
                 .collect(),
             ArrayExpressionInner::Value(values) => {
                 assert_eq!(size, values.len());
-                values
-                    .into_iter()
-                    .map(|v| {
-                        self.flatten_field_expression(
-                            functions_flattened,
-                            statements_flattened,
-                            FieldElementExpression::try_from(v).unwrap(),
-                        )
-                    })
-                    .collect()
+                match inner_type {
+                    Type::FieldElement => values
+                        .into_iter()
+                        .map(|v| {
+                            self.flatten_field_expression(
+                                functions_flattened,
+                                statements_flattened,
+                                FieldElementExpression::try_from(v).unwrap(),
+                            )
+                        })
+                        .collect(),
+                    Type::Boolean => values
+                        .into_iter()
+                        .map(|v| {
+                            self.flatten_boolean_expression(
+                                functions_flattened,
+                                statements_flattened,
+                                BooleanExpression::try_from(v).unwrap(),
+                            )
+                        })
+                        .collect(),
+                    t => unimplemented!("array of {}", t),
+                }
             }
             ArrayExpressionInner::FunctionCall(ref id, ref param_expressions) => {
                 let exprs_flattened = self.flatten_function_call(
                     functions_flattened,
                     statements_flattened,
                     id,
-                    vec![Type::array(ty, size)],
+                    vec![ty],
                     param_expressions,
                 );
                 assert!(exprs_flattened.expressions.len() == size); // outside of MultipleDefinition, FunctionCalls must return a single value
                 exprs_flattened.expressions
             }
             ArrayExpressionInner::IfElse(ref condition, ref consequence, ref alternative) => {
-                let size = match consequence.get_type() {
-                    Type::Array(_, n) => n,
+                let (inner_type, size) = match consequence.get_type() {
+                    Type::Array(t, n) => (*t, n),
                     _ => unreachable!(),
                 };
-                (0..size)
-                    .map(|i| {
-                        self.flatten_field_expression(
-                            functions_flattened,
-                            statements_flattened,
-                            FieldElementExpression::IfElse(
-                                condition.clone(),
-                                box FieldElementExpression::Select(
-                                    consequence.clone(),
-                                    box FieldElementExpression::Number(T::from(i)),
+                match inner_type {
+                    Type::FieldElement => (0..size)
+                        .map(|i| {
+                            self.flatten_field_expression(
+                                functions_flattened,
+                                statements_flattened,
+                                FieldElementExpression::IfElse(
+                                    condition.clone(),
+                                    box FieldElementExpression::Select(
+                                        consequence.clone(),
+                                        box FieldElementExpression::Number(T::from(i)),
+                                    ),
+                                    box FieldElementExpression::Select(
+                                        alternative.clone(),
+                                        box FieldElementExpression::Number(T::from(i)),
+                                    ),
                                 ),
-                                box FieldElementExpression::Select(
-                                    alternative.clone(),
-                                    box FieldElementExpression::Number(T::from(i)),
-                                ),
-                            ),
-                        )
-                    })
-                    .collect()
+                            )
+                        })
+                        .collect(),
+                    Type::Boolean => unimplemented!(),
+                    Type::Array(..) => unimplemented!(),
+                }
             }
         }
     }
@@ -1095,6 +1110,15 @@ impl<'ast> Flattener<'ast> {
     ) {
         match stat {
             TypedStatement::Return(exprs) => {
+                println!(
+                    "BEFORE {}\n\n",
+                    statements_flattened
+                        .iter()
+                        .map(|x| format!("{}", x))
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                );
+
                 let flat_expressions = exprs
                     .into_iter()
                     .map(|expr| {
@@ -1102,6 +1126,15 @@ impl<'ast> Flattener<'ast> {
                     })
                     .flat_map(|x| x)
                     .collect::<Vec<_>>();
+
+                println!(
+                    "AFTER {}\n\n",
+                    statements_flattened
+                        .iter()
+                        .map(|x| format!("{}", x))
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                );
 
                 statements_flattened.push(FlatStatement::Return(FlatExpressionList {
                     expressions: flat_expressions,
@@ -1447,6 +1480,9 @@ impl<'ast> Flattener<'ast> {
         let variables = self.use_variable(&parameter.id);
         match parameter.id.get_type() {
             Type::Boolean => statements.extend(Self::boolean_constraint(&variables)),
+            Type::Array(box Type::Boolean, _) => {
+                statements.extend(Self::boolean_constraint(&variables))
+            }
             _ => {}
         };
 

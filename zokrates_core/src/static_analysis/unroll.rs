@@ -80,40 +80,66 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                     _ => panic!("array identifier should be a field element array"),
                 };
 
-                let expr = match expr {
-                    TypedExpression::FieldElement(e) => e,
-                    _ => panic!("right side of array element definition must be a field element"),
-                };
-
                 let new_variable = self.issue_next_ssa_variable(original_variable);
 
-                let new_array = ArrayExpression {
-                    ty: Type::FieldElement,
-                    size: array_size,
-                    inner: ArrayExpressionInner::Value(
-                        (0..array_size)
-                            .map(|i| {
-                                FieldElementExpression::IfElse(
-                                    box BooleanExpression::Eq(
-                                        box index.clone(),
-                                        box FieldElementExpression::Number(T::from(i)),
-                                    ),
-                                    box expr.clone(),
-                                    box FieldElementExpression::Select(
-                                        box ArrayExpression {
-                                            ty: Type::FieldElement,
-                                            size: array_size,
-                                            inner: ArrayExpressionInner::Identifier(
-                                                current_ssa_variable.id.clone(),
-                                            ),
-                                        },
-                                        box FieldElementExpression::Number(T::from(i)),
-                                    ),
-                                )
-                                .into()
-                            })
-                            .collect(),
-                    ),
+                let new_array = match expr {
+                    TypedExpression::FieldElement(e) => ArrayExpression {
+                        ty: Type::FieldElement,
+                        size: array_size,
+                        inner: ArrayExpressionInner::Value(
+                            (0..array_size)
+                                .map(|i| {
+                                    FieldElementExpression::IfElse(
+                                        box BooleanExpression::Eq(
+                                            box index.clone(),
+                                            box FieldElementExpression::Number(T::from(i)),
+                                        ),
+                                        box e.clone(),
+                                        box FieldElementExpression::Select(
+                                            box ArrayExpression {
+                                                ty: Type::FieldElement,
+                                                size: array_size,
+                                                inner: ArrayExpressionInner::Identifier(
+                                                    current_ssa_variable.id.clone(),
+                                                ),
+                                            },
+                                            box FieldElementExpression::Number(T::from(i)),
+                                        ),
+                                    )
+                                    .into()
+                                })
+                                .collect(),
+                        ),
+                    },
+                    TypedExpression::Boolean(e) => ArrayExpression {
+                        ty: Type::Boolean,
+                        size: array_size,
+                        inner: ArrayExpressionInner::Value(
+                            (0..array_size)
+                                .map(|i| {
+                                    BooleanExpression::IfElse(
+                                        box BooleanExpression::Eq(
+                                            box index.clone(),
+                                            box FieldElementExpression::Number(T::from(i)),
+                                        ),
+                                        box e.clone(),
+                                        box BooleanExpression::Select(
+                                            box ArrayExpression {
+                                                ty: Type::Boolean,
+                                                size: array_size,
+                                                inner: ArrayExpressionInner::Identifier(
+                                                    current_ssa_variable.id.clone(),
+                                                ),
+                                            },
+                                            box FieldElementExpression::Number(T::from(i)),
+                                        ),
+                                    )
+                                    .into()
+                                })
+                                .collect(),
+                        ),
+                    },
+                    TypedExpression::Array(..) => unimplemented!(),
                 };
 
                 vec![TypedStatement::Definition(

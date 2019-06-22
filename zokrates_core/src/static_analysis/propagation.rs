@@ -47,7 +47,11 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 					TypedExpression::Array(e) => {
                         let inner_type = e.inner_type();
                         match e.inner {
-                            ArrayExpressionInner::Value(array) =>
+                            ArrayExpressionInner::Value(array) => {
+                                let array: Vec<_> = array.into_iter().map(|e| self.fold_expression(e)).collect();
+
+                                println!("{}", ArrayExpressionInner::Value(array.clone()));
+
                                 match array.iter().all(|e| match e {
                                     TypedExpression::FieldElement(FieldElementExpression::Number(..)) => true,
                                     TypedExpression::Boolean(BooleanExpression::Value(..)) => true,
@@ -66,7 +70,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                             ..e}.into()))
                                     }
                                 }
-                            ,
+                            },
                             e => unimplemented!()
                         }
 					},
@@ -414,6 +418,15 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                 match e {
                     BooleanExpression::Value(v) => BooleanExpression::Value(!v),
                     e => e,
+                }
+            }
+            BooleanExpression::IfElse(box condition, box consequence, box alternative) => {
+                let consequence = self.fold_boolean_expression(consequence);
+                let alternative = self.fold_boolean_expression(alternative);
+                match self.fold_boolean_expression(condition) {
+                    BooleanExpression::Value(true) => consequence,
+                    BooleanExpression::Value(false) => alternative,
+                    c => BooleanExpression::IfElse(box c, box consequence, box alternative),
                 }
             }
             e => fold_boolean_expression(self, e),
