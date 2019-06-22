@@ -10,20 +10,16 @@ def main(field[256] rootDigest, private field[256] leafDigest, private field[3] 
 
 	//Setup
 	field[256] currentDigest = leafDigest
-	field counter = 1
 	
 	//Loop up the tree
 	preimage = multiplex(directionSelector[0], currentDigest, PathDigest0)
 	currentDigest = hash(preimage)
-	counter = counter + 1
 
 	preimage = multiplex(directionSelector[1], currentDigest, PathDigest1)
 	currentDigest = hash(preimage)
-	counter = counter + 1
 
 	preimage = multiplex(directionSelector[2], currentDigest, PathDigest2)
 	currentDigest = hash(preimage)
-	counter = counter + 1
 
 	rootDigest == currentDigest
 	
