@@ -549,7 +549,7 @@ mod tests {
 
     #[test]
     fn forty_two() {
-        let source = "def main() -> (field): return 42
+        let source = "def main() -> (field): return true
 		";
         let ast = pest::generate_ast(&source).unwrap();
         let expected: absy::Prog<FieldPrime> = absy::Prog {
@@ -558,7 +558,7 @@ mod tests {
                 arguments: vec![],
                 statements: vec![absy::Statement::Return(
                     absy::ExpressionList {
-                        expressions: vec![absy::Expression::Number(FieldPrime::from(42)).into()],
+                        expressions: vec![absy::Expression::BooleanConstant(true).into()],
                     }
                     .into(),
                 )
