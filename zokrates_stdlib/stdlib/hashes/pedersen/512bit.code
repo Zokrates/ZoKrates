@@ -4,6 +4,17 @@ import "ecc/babyjubjubParams.code" as context
 import "ecc/edwardsAdd.code" as add
 import "ecc/edwardsCompress.code" as edwardsCompress
 
+// Code to export generators used in this example:
+// import bitstring
+// from zokrates_pycrypto.gadgets.pedersenHasher import PedersenHasher
+// import numpy as np
+
+// #%%
+// entropy = np.random.bytes(64)
+// hasher = PedersenHasher("test")
+// print(hasher.dsl_code) 
+
+// 512bit to 256bit Pedersen hash using compression of the field elements
 def main(field[512] e) -> (field[256]):
 	context = context()
 	field[2] a = [context[2], context[3]] //Infinity
