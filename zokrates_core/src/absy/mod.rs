@@ -315,6 +315,7 @@ impl<'ast, T: Field> fmt::Debug for Range<T> {
 #[derive(Clone, PartialEq)]
 pub enum Expression<'ast, T: Field> {
     Number(T),
+    BooleanConstant(bool),
     Identifier(Identifier<'ast>),
     Add(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
     Sub(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
@@ -354,6 +355,7 @@ impl<'ast, T: Field> fmt::Display for Expression<'ast, T> {
             Expression::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
             Expression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
             Expression::Pow(ref lhs, ref rhs) => write!(f, "{}**{}", lhs, rhs),
+            Expression::BooleanConstant(b) => write!(f, "{}", b),
             Expression::IfElse(ref condition, ref consequent, ref alternative) => write!(
                 f,
                 "if {} then {} else {} fi",
@@ -402,6 +404,7 @@ impl<'ast, T: Field> fmt::Debug for Expression<'ast, T> {
             Expression::Mult(ref lhs, ref rhs) => write!(f, "Mult({:?}, {:?})", lhs, rhs),
             Expression::Div(ref lhs, ref rhs) => write!(f, "Div({:?}, {:?})", lhs, rhs),
             Expression::Pow(ref lhs, ref rhs) => write!(f, "Pow({:?}, {:?})", lhs, rhs),
+            Expression::BooleanConstant(b) => write!(f, "{}", b),
             Expression::IfElse(ref condition, ref consequent, ref alternative) => write!(
                 f,
                 "IfElse({:?}, {:?}, {:?})",

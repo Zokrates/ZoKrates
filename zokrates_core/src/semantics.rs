@@ -569,6 +569,7 @@ impl<'ast> Checker<'ast> {
         let pos = expr.pos();
 
         match expr.value {
+            Expression::BooleanConstant(b) => Ok(BooleanExpression::Value(b).into()),
             Expression::Identifier(name) => {
                 // check that `id` is defined in the scope
                 match self.get_scope(&name) {
