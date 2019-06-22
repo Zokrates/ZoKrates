@@ -521,7 +521,10 @@ impl<'ast> From<pest::Type<'ast>> for Type {
                         pest::ConstantExpression::DecimalNumber(n) => {
                             str::parse::<usize>(&n.value).unwrap()
                         }
-                        _ => unimplemented!("Array size should be a decimal number, found"),
+                        _ => unimplemented!(
+                            "Array size should be a decimal number, found {}",
+                            c.span().as_str()
+                        ),
                     },
                     e => {
                         unimplemented!("Array size should be constant, found {}", e.span().as_str())
