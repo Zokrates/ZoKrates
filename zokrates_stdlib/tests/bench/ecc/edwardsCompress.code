@@ -1,0 +1,22 @@
+import "ecc/edwardsCompress.code" as edwardsCompress 
+import "ecc/babyjubjubParams.code" as context
+
+// Code to create test cases:
+// https://github.com/Zokrates/pycrypto 
+def testCompress() -> (field):
+	context = context()
+
+	field Gu = context[4]
+	field Gv = context[5]
+
+	Gcompressed = edwardsCompress([Gu, Gv], context)
+
+	Gcompressed = [1,0,1,0,1,1,1,0,0,0,0,0,0,1,1,1,0,0,1,0,1,0,0,1,0,1,1,1,1,1,1,1,1,0,0,0,1,1,0,1,0,0,1,1,1,1,0,0,0,0,1,1,1,1,0,1,0,1,1,1,1,0,0,0,0,0,0,1,1,0,0,0,1,1,0,1,1,0,1,1,1,1,0,1,1,1,0,1,1,1,1,1,1,1,0,1,0,0,1,0,0,1,0,0,1,1,0,0,0,0,1,1,0,1,0,1,0,1,0,1,1,0,0,0,0,0,1,1,1,1,1,1,1,0,0,1,1,0,1,0,1,0,0,1,1,1,0,1,0,1,0,0,1,1,1,0,1,1,0,1,0,0,0,0,1,1,0,0,1,0,1,1,0,0,0,0,1,1,0,0,0,0,0,1,1,1,0,1,0,0,0,1,0,0,1,1,0,1,0,0,1,0,0,0,1,1,0,1,1,1,0,1,1,0,0,0,1,1,1,1,0,1,1,1,1,1,1,1,1,0,0,1,1,0,0,1,0,0,0,1,0,1,0,1,0,0,1,0,1,1,0,1,0,1,1,1]
+
+	return 1
+
+def main() -> (field):
+
+	1 == testCompress()
+
+	return 1

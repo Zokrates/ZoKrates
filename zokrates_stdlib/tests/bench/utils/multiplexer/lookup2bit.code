@@ -1,0 +1,42 @@
+import "utils/multiplexer/lookup2bit.code" as lookup 
+
+def first() -> (field):
+	field[2] sel = [0,0] 
+	field[4] t  = [0, 1, 2 , 3]
+	
+	0 == lookup(sel, t)
+	
+	return 1 
+	
+def second() -> (field):
+	field[2] sel = [1,0] 
+	field[4] t  = [0, 1, 2 , 3]
+	
+	1 == lookup(sel, t)
+	
+	return 1 
+	
+def thrid() -> (field):
+	field[2] sel = [0,1] 
+	field[4] t  = [0, 1, 2 , 3]
+	
+	2 == lookup(sel, t)
+	
+	return 1 
+
+def fourth() -> (field):
+	field[2] sel = [1,1] 
+	field[4] t  = [0, 1, 2 , 3]
+	
+	3 == lookup(sel, t)
+	
+	return 1 
+	
+def main() -> (field):
+
+	1 == first()
+	1 == second()
+	1 == thrid()
+	1 == fourth()
+	
+	return 1

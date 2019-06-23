@@ -1,0 +1,11 @@
+import "./lookup2bit.code" as lookup
+// /**
+// * Three-bit window lookup (2bits + signature bit) in 2bit table
+// * using two constraints. Maps the bits `b` to a list of constants `c`
+// */
+def main(field[3] b, field[4] c) -> (field):
+
+	field alpha = lookup([b[0], b[1]], c) 
+	field out = alpha - 2*b[2]*alpha
+	
+	return out

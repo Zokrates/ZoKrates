@@ -1,7 +1,7 @@
 import "hashes/sha256/1024bitPadded.code" as sha256
 import "ecc/edwardsScalarMult.code" as scalarMult 
 import "ecc/edwardsAdd.code" as add
-import "utils/pack/unpack256.code" as unpack256
+import "utils/pack/nonStrictUnpack256.code" as unpack256
 import "ecc/edwardsOnCurve.code" as onCurve
 import "ecc/edwardsOrderCheck.code" as orderCheck
 
