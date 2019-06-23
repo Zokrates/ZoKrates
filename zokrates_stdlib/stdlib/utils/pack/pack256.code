@@ -1,0 +1,10 @@
+def main(field[256] bits) -> (field):
+
+	field out = 0
+
+	for field j in 0..256 do
+		field i = 256 - (j + 1)
+		out = out + bits[i] * (2 ** j)
+	endfor
+
+    return out 

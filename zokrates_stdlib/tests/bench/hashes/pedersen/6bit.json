@@ -1,0 +1,15 @@
+{
+	"entry_point": "./tests/bench/hashes/pedersen/6bit.code",
+	"tests": [
+		{
+			"input": {
+				"values": []
+			},
+			"output": {
+				"Ok": {
+					"values": ["1"]
+				}
+			}
+		}
+	]
+}

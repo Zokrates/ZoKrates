@@ -1,0 +1,8 @@
+// /**
+// * One-bit window lookup table using one constraint
+// */
+def main(field selector, field[2] target) -> (field):
+
+	field out = target[0] + selector*target[1] - selector*target[0]
+
+  return out
