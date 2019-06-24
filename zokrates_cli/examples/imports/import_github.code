@@ -1,0 +1,5 @@
+import "github:eupn/test/master/examples/imports/foo.code"
+import "github:eupn/test/master/examples/imports/bar.code"
+
+def main() -> (field):
+	return foo() + bar()

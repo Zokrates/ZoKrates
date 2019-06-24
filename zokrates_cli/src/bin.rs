@@ -7,7 +7,7 @@
 use bincode::{deserialize_from, serialize_into, Infinite};
 use clap::{App, AppSettings, Arg, SubCommand};
 use serde_json::Value;
-use std::env;
+use std::{env, io};
 use std::fs::File;
 use std::io::{stdin, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
@@ -17,12 +17,22 @@ use zokrates_core::ir;
 use zokrates_core::proof_system::*;
 use zokrates_field::field::{Field, FieldPrime};
 use zokrates_fs_resolver::resolve as fs_resolve;
+use zokrates_github_resolver::{resolve as github_resolve, is_github_import};
 
 fn main() {
     cli().unwrap_or_else(|e| {
         println!("{}", e);
         std::process::exit(1);
     })
+}
+
+fn resolve_fs_or_github(location: &Option<String>, source: &String)
+    -> Result<(BufReader<File>, String, String), io::Error> {
+    if is_github_import(source) {
+        github_resolve(location, source)
+    } else {
+        fs_resolve(location, source)
+    }
 }
 
 fn cli() -> Result<(), String> {
@@ -257,7 +267,7 @@ fn cli() -> Result<(), String> {
             let mut reader = BufReader::new(file);
 
             let program_flattened: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(fs_resolve))
+                compile(&mut reader, Some(location), Some(resolve_fs_or_github))
                     .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
 
             // number of constraints the flattened program will translate to.
@@ -559,7 +569,7 @@ mod tests {
                 .unwrap();
 
             let _: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
+                compile(&mut reader, Some(location), Some(resolve_fs_or_github)).unwrap();
         }
     }
 
@@ -586,7 +596,7 @@ mod tests {
             let mut reader = BufReader::new(file);
 
             let program_flattened: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
+                compile(&mut reader, Some(location), Some(resolve_fs_or_github)).unwrap();
 
             let _ = program_flattened
                 .execute(&vec![FieldPrime::from(0)])
@@ -618,7 +628,7 @@ mod tests {
             let mut reader = BufReader::new(file);
 
             let program_flattened: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
+                compile(&mut reader, Some(location), Some(resolve_fs_or_github)).unwrap();
 
             let _ = program_flattened
                 .execute(&vec![FieldPrime::from(0)])
