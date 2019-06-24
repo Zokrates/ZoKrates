@@ -7,17 +7,17 @@
 use bincode::{deserialize_from, serialize_into, Infinite};
 use clap::{App, AppSettings, Arg, SubCommand};
 use serde_json::Value;
-use std::{env, io};
 use std::fs::File;
 use std::io::{stdin, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::string::String;
+use std::{env, io};
 use zokrates_core::compile::compile;
 use zokrates_core::ir;
 use zokrates_core::proof_system::*;
 use zokrates_field::field::{Field, FieldPrime};
 use zokrates_fs_resolver::resolve as fs_resolve;
-use zokrates_github_resolver::{resolve as github_resolve, is_github_import};
+use zokrates_github_resolver::{is_github_import, resolve as github_resolve};
 
 fn main() {
     cli().unwrap_or_else(|e| {
@@ -26,8 +26,10 @@ fn main() {
     })
 }
 
-fn resolve_fs_or_github(location: &Option<String>, source: &String)
-    -> Result<(BufReader<File>, String, String), io::Error> {
+fn resolve_fs_or_github(
+    location: &Option<String>,
+    source: &String,
+) -> Result<(BufReader<File>, String, String), io::Error> {
     if is_github_import(source) {
         github_resolve(location, source)
     } else {

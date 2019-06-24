@@ -17,10 +17,10 @@
 //! https://raw.githubusercontent.com/eupn/test/master/examples/merkleTree/sha256PathProof3.code
 //!
 
+use reqwest;
 use std::fs::File;
 use std::io::{self, copy, BufReader};
 use std::path::PathBuf;
-use reqwest;
 use tempfile::NamedTempFile;
 
 /// Prefix for github import source to be distinguished.
@@ -40,7 +40,12 @@ pub fn resolve(
         let file = File::open(&pb)?;
         let br = BufReader::new(file);
 
-        let alias = PathBuf::from(path.clone()).as_path().file_stem().unwrap().to_string_lossy().to_string();
+        let alias = PathBuf::from(path.clone())
+            .as_path()
+            .file_stem()
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
 
         Ok((br, location.to_owned(), alias))
     } else {
@@ -62,14 +67,20 @@ pub fn is_github_import(source: &str) -> bool {
 fn parse_input_path(path: &str) -> Result<(String, String, String, String), io::Error> {
     let path = path.replacen("github:", "", 1);
     if path.contains("..") {
-        return Err(io::Error::new(io::ErrorKind::Other, "Invalid github import syntax. It must not contain '..'"));
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            "Invalid github import syntax. It must not contain '..'",
+        ));
     }
 
     let components = path.split("/").collect::<Vec<_>>();
 
     // Check that root, repo, branch & path are specified
     if components.len() < 4 {
-        return Err(io::Error::new(io::ErrorKind::Other, "Invalid github import syntax. Should be: github:<root>/<repo>/<branch>/<path>"));
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            "Invalid github import syntax. Should be: github:<root>/<repo>/<branch>/<path>",
+        ));
     }
 
     let root = components[0];
@@ -77,20 +88,39 @@ fn parse_input_path(path: &str) -> Result<(String, String, String, String), io::
     let branch = components[2];
     let path = components[3..].join("/"); // Collect the rest of the import path into single string
 
-    Ok((root.to_owned(), repo.to_owned(), branch.to_owned(), path.to_owned()))
+    Ok((
+        root.to_owned(),
+        repo.to_owned(),
+        branch.to_owned(),
+        path.to_owned(),
+    ))
 }
 
 /// Downloads the file from github by specific root (user/org), repository, branch and path.
-fn download_from_github(root: &str, repo: &str, branch: &str, path: &str) -> Result<PathBuf, io::Error> {
-    let url = format!("https://raw.githubusercontent.com/{root}/{repo}/{branch}/{path}",
-        root = root, repo = repo, branch = branch, path = path);
+fn download_from_github(
+    root: &str,
+    repo: &str,
+    branch: &str,
+    path: &str,
+) -> Result<PathBuf, io::Error> {
+    let url = format!(
+        "https://raw.githubusercontent.com/{root}/{repo}/{branch}/{path}",
+        root = root,
+        repo = repo,
+        branch = branch,
+        path = path
+    );
 
     Ok(download_url(&url)?)
 }
 
 fn download_url(url: &str) -> Result<PathBuf, io::Error> {
-    let mut response = reqwest::get(url)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Unable to access github: {}", e.to_string())))?;
+    let mut response = reqwest::get(url).map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::Other,
+            format!("Unable to access github: {}", e.to_string()),
+        )
+    })?;
 
     let (mut dest, pb) = NamedTempFile::new()?.keep()?;
     copy(&mut response, &mut dest)?;
