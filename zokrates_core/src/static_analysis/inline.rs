@@ -271,19 +271,28 @@ mod tests {
                 ],
                 statements: vec![TypedStatement::Return(vec![
                     FieldElementExpression::Select(
-                        box ArrayExpressionInner::Identifier(3, Identifier::from("b")),
+                        box ArrayExpression {
+                            ty: Type::FieldElement,
+                            size: 3,
+                            inner: ArrayExpressionInner::Identifier(Identifier::from("b")),
+                        },
                         box FieldElementExpression::Identifier(Identifier::from("a")),
                     )
                     .into(),
                 ])],
                 signature: Signature::new()
-                    .inputs(vec![Type::FieldElement, Type::Array(3)])
+                    .inputs(vec![Type::FieldElement, Type::array(Type::FieldElement, 3)])
                     .outputs(vec![Type::FieldElement]),
             };
 
             let arguments = vec![
                 FieldElementExpression::Number(FieldPrime::from(0)).into(),
-                ArrayExpressionInner::Identifier(3, Identifier::from("random")).into(),
+                ArrayExpression {
+                    ty: Type::FieldElement,
+                    size: 3,
+                    inner: ArrayExpressionInner::Identifier(Identifier::from("random")).into(),
+                }
+                .into(),
             ];
 
             let i = Inliner::new();
@@ -301,19 +310,28 @@ mod tests {
                 ],
                 statements: vec![TypedStatement::Return(vec![
                     FieldElementExpression::Select(
-                        box ArrayExpressionInner::Identifier(3, Identifier::from("b")),
+                        box ArrayExpression {
+                            ty: Type::FieldElement,
+                            size: 3,
+                            inner: ArrayExpressionInner::Identifier(Identifier::from("b")),
+                        },
                         box FieldElementExpression::Identifier(Identifier::from("a")),
                     )
                     .into(),
                 ])],
                 signature: Signature::new()
-                    .inputs(vec![Type::FieldElement, Type::Array(3)])
+                    .inputs(vec![Type::FieldElement, Type::array(Type::FieldElement, 3)])
                     .outputs(vec![Type::FieldElement]),
             };
 
             let arguments = vec![
                 FieldElementExpression::Identifier(Identifier::from("notconstant")).into(),
-                ArrayExpressionInner::Identifier(3, Identifier::from("random")).into(),
+                ArrayExpression {
+                    ty: Type::FieldElement,
+                    size: 3,
+                    inner: ArrayExpressionInner::Identifier(Identifier::from("random")),
+                }
+                .into(),
             ];
 
             let i = Inliner::new();

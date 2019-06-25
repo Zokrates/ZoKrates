@@ -466,13 +466,14 @@ mod tests {
 
             let s = TypedStatement::Definition(
                 TypedAssignee::Identifier(Variable::field_array("a".into(), 2)),
-                ArrayExpressionInner::Value(
-                    2,
-                    vec![
-                        FieldElementExpression::Number(FieldPrime::from(1)),
-                        FieldElementExpression::Number(FieldPrime::from(1)),
-                    ],
-                )
+                ArrayExpression {
+                    ty: Type::FieldElement,
+                    size: 2,
+                    inner: ArrayExpressionInner::Value(vec![
+                        FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                        FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                    ]),
+                }
                 .into(),
             );
 
@@ -483,13 +484,14 @@ mod tests {
                         Identifier::from("a").version(0),
                         2
                     )),
-                    ArrayExpressionInner::Value(
-                        2,
-                        vec![
-                            FieldElementExpression::Number(FieldPrime::from(1)),
-                            FieldElementExpression::Number(FieldPrime::from(1))
-                        ]
-                    )
+                    ArrayExpression {
+                        ty: Type::FieldElement,
+                        size: 2,
+                        inner: ArrayExpressionInner::Value(vec![
+                            FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                            FieldElementExpression::Number(FieldPrime::from(1)).into()
+                        ])
+                    }
                     .into()
                 )]
             );
@@ -509,9 +511,10 @@ mod tests {
                         Identifier::from("a").version(1),
                         2
                     )),
-                    ArrayExpressionInner::Value(
-                        2,
-                        vec![
+                    ArrayExpression {
+                        ty: Type::FieldElement,
+                        size: 2,
+                        inner: ArrayExpressionInner::Value(vec![
                             FieldElementExpression::IfElse(
                                 box BooleanExpression::Eq(
                                     box FieldElementExpression::Number(FieldPrime::from(1)),
@@ -519,13 +522,17 @@ mod tests {
                                 ),
                                 box FieldElementExpression::Number(FieldPrime::from(2)),
                                 box FieldElementExpression::Select(
-                                    box ArrayExpressionInner::Identifier(
-                                        2,
-                                        Identifier::from("a").version(0)
-                                    ),
+                                    box ArrayExpression {
+                                        ty: Type::FieldElement,
+                                        size: 2,
+                                        inner: ArrayExpressionInner::Identifier(
+                                            Identifier::from("a").version(0)
+                                        )
+                                    },
                                     box FieldElementExpression::Number(FieldPrime::from(0))
                                 ),
-                            ),
+                            )
+                            .into(),
                             FieldElementExpression::IfElse(
                                 box BooleanExpression::Eq(
                                     box FieldElementExpression::Number(FieldPrime::from(1)),
@@ -533,15 +540,19 @@ mod tests {
                                 ),
                                 box FieldElementExpression::Number(FieldPrime::from(2)),
                                 box FieldElementExpression::Select(
-                                    box ArrayExpressionInner::Identifier(
-                                        2,
-                                        Identifier::from("a").version(0)
-                                    ),
+                                    box ArrayExpression {
+                                        ty: Type::FieldElement,
+                                        size: 2,
+                                        inner: ArrayExpressionInner::Identifier(
+                                            Identifier::from("a").version(0)
+                                        )
+                                    },
                                     box FieldElementExpression::Number(FieldPrime::from(1))
                                 ),
-                            ),
-                        ]
-                    )
+                            )
+                            .into(),
+                        ])
+                    }
                     .into()
                 )]
             );

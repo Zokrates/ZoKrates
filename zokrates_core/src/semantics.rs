@@ -703,7 +703,7 @@ impl<'ast> Checker<'ast> {
                                 (TypedExpression::Array(consequence), TypedExpression::Array(alternative)) => {
                                     if consequence.get_type() == alternative.get_type() && consequence.size() == alternative.size() {
                                         Ok(ArrayExpression {
-                                            ty: consequence.get_type(),
+                                            ty: consequence.inner_type().clone(),
                                             size: consequence.size(),
                                             inner: ArrayExpressionInner::IfElse(box condition, box consequence, box alternative)
                                         }.into())
@@ -895,7 +895,7 @@ impl<'ast> Checker<'ast> {
                     RangeOrExpression::Range(r) => match array {
                         TypedExpression::Array(array) => {
                             let array_size = array.size();
-                            let inner_type = array.get_type();
+                            let inner_type = array.inner_type().clone();
 
                             let from = r
                                 .value
@@ -1015,12 +1015,41 @@ impl<'ast> Checker<'ast> {
                         }
                         .into())
                     }
+                    Type::Boolean => {
+                        // we check all expressions have that same type
+                        let mut unwrapped_expressions = vec![];
+
+                        for e in expressions_checked {
+                            let unwrapped_e = match e {
+                                TypedExpression::Boolean(e) => Ok(e),
+                                e => Err(Error {
+                                    pos: Some(pos),
+
+                                    message: format!(
+                                        "Expected {} to have type {}, but type is {}",
+                                        e,
+                                        inferred_type,
+                                        e.get_type()
+                                    ),
+                                }),
+                            }?;
+                            unwrapped_expressions.push(unwrapped_e.into());
+                        }
+
+                        Ok(ArrayExpression {
+                            ty: Type::Boolean,
+                            size: unwrapped_expressions.len(),
+                            inner: ArrayExpressionInner::Value(unwrapped_expressions),
+                        }
+                        .into())
+                    }
                     _ => Err(Error {
                         pos: Some(pos),
 
                         message: format!(
-                            "Only arrays of {} are supported, found {}",
+                            "Only arrays of {} or {} are supported, found {}",
                             Type::FieldElement,
+                            Type::Boolean,
                             inferred_type
                         ),
                     }),

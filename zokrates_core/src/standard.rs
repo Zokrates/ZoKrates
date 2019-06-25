@@ -160,8 +160,11 @@ mod tests {
         assert_eq!(
             compiled.signature,
             Signature::new()
-                .inputs(vec![Type::Array(512), Type::Array(256)])
-                .outputs(vec![Type::Array(256)])
+                .inputs(vec![
+                    Type::array(Type::FieldElement, 512),
+                    Type::array(Type::FieldElement, 256)
+                ])
+                .outputs(vec![Type::array(Type::FieldElement, 256)])
         );
 
         // function should have 768 inputs

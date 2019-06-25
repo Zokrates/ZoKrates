@@ -147,8 +147,8 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
 
 pub fn fold_array_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
-    ty: &Type,
-    size: usize,
+    _: &Type,
+    _: usize,
     e: ArrayExpressionInner<'ast, T>,
 ) -> ArrayExpressionInner<'ast, T> {
     match e {

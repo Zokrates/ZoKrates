@@ -533,10 +533,6 @@ impl<'ast> From<pest::Type<'ast>> for Type {
                 match t.ty {
                     pest::BasicType::Field(_) => Type::array(Type::FieldElement, size),
                     pest::BasicType::Boolean(_) => Type::array(Type::Boolean, size),
-                    _ => unimplemented!(
-                        "Array elements of {} are not implemented yet",
-                        t.span.as_str()
-                    ),
                 }
             }
         }
