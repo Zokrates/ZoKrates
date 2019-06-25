@@ -3,12 +3,12 @@
 //! GitHub import resolver allows to import files located in github.com repos.
 //!
 //! To import file from github, use following syntax:
-//! ```
+//! ```zokrates
 //! import "github:user/repo/branch/path/to/file.code"
 //! ```
 //!
 //! For example:
-//! ```
+//! ```zokrates
 //! import "github:eupn/test/master/examples/merkleTree/sha256PathProof3.code" as merkleTreeProof
 //! ```
 //!
