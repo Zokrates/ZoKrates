@@ -587,7 +587,7 @@ impl<'ast> Checker<'ast> {
                     },
                     None => Err(Error {
                         pos: Some(pos),
-                        message: format!("Identifier is undefined"),
+                        message: format!("Identifier \"{}\" is undefined", name),
                     }),
                 }
             }

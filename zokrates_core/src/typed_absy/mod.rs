@@ -33,17 +33,7 @@ pub type FunctionIdentifier<'ast> = &'ast str;
 
 impl<'ast> fmt::Display for Identifier<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}_{}_{}",
-            self.stack
-                .iter()
-                .map(|(name, sig, count)| format!("{}_{}_{}", name, sig.to_slug(), count))
-                .collect::<Vec<_>>()
-                .join("_"),
-            self.id,
-            self.version
-        )
+        write!(f, "{}", self.id,)
     }
 }
 

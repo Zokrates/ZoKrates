@@ -7,7 +7,7 @@ use std::rc::Rc;
 use wasmi::{ImportsBuilder, ModuleInstance, ModuleRef, NopExternals};
 use zokrates_field::field::Field;
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, PartialEq, Hash, Eq)]
 pub struct WasmHelper(
     #[serde(skip)] std::rc::Rc<ModuleRef>,
     #[serde(serialize_with = "serde_bytes::serialize")] Vec<u8>,
