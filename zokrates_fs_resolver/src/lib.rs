@@ -86,12 +86,6 @@ mod tests {
     }
 
     #[test]
-    fn invalid_file() {
-        let res = resolve(&Some(String::from("./src")), &String::from(",8!-$2abc"));
-        assert!(res.is_err());
-    }
-
-    #[test]
     fn not_a_file() {
         let res = resolve(&Some(String::from(".")), &String::from("./src/"));
         assert!(res.is_err());
