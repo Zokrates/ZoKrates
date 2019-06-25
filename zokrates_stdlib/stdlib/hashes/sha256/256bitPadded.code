@@ -5,7 +5,7 @@ import "./512bit.code" as sha256
 def main(field[256] a) -> (field[256]):
 
     // Hash is computed on 256 bits of input
-    // padding does not fit in the primary block
+    // padding fits in the remaining 256 bits of the first block
     // add dummy block (single "1" followed by "0" + total length) 
     field[256] dummyblock1 = [ \
         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
