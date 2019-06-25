@@ -36,7 +36,7 @@ pub fn resolve(
     if let Some(location) = location {
         let (root, repo, branch, path) = parse_input_path(&path)?;
 
-        let pb = download_from_github(&root, &repo, &branch, &path).unwrap();
+        let pb = download_from_github(&root, &repo, &branch, &path)?;
         let file = File::open(&pb)?;
         let br = BufReader::new(file);
 
@@ -111,7 +111,7 @@ fn download_from_github(
         path = path
     );
 
-    Ok(download_url(&url)?)
+    download_url(&url)
 }
 
 fn download_url(url: &str) -> Result<PathBuf, io::Error> {
@@ -121,6 +121,13 @@ fn download_url(url: &str) -> Result<PathBuf, io::Error> {
             format!("Unable to access github: {}", e.to_string()),
         )
     })?;
+
+    if !response.status().is_success() {
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            format!("Unable to access github: {}", response.status()),
+        ));
+    }
 
     let (mut dest, pb) = NamedTempFile::new()?.keep()?;
     copy(&mut response, &mut dest)?;
