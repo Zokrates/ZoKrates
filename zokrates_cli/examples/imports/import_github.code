@@ -1,5 +1,5 @@
-import "github:eupn/test/master/examples/imports/foo.code"
-import "github:eupn/test/master/examples/imports/bar.code"
+import "github:Zokrates/ZoKrates/master/zokrates_cli/examples/imports/foo.code"
+import "github:Zokrates/ZoKrfates/master/zokrates_cli/examples/imports/bar.code"
 
 def main() -> (field):
 	return foo() + bar()

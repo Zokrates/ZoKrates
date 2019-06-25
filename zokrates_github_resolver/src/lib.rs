@@ -9,12 +9,12 @@
 //!
 //! For example:
 //! ```zokrates
-//! import "github:eupn/test/master/examples/merkleTree/sha256PathProof3.code" as merkleTreeProof
+//! import "github:Zokrates/ZoKrates/master/zokrates_cli/examples/merkleTree/sha256PathProof3.code" as merkleTreeProof
 //! ```
 //!
-//! Example above imports file `examples/merkleTree/sha256PathProof3.code` located at @eupn's `test`
+//! Example above imports file `zokrates_cli/examples/merkleTree/sha256PathProof3.code` located at ZoKrates
 //! repository's `master` branch by downloading from URL:
-//! https://raw.githubusercontent.com/eupn/test/master/examples/merkleTree/sha256PathProof3.code
+//! https://raw.githubusercontent.com/Zokrates/ZoKrates/master/zokrates_cli/examples/merkleTree/sha256PathProof3.code
 //!
 
 use reqwest;
@@ -134,27 +134,27 @@ mod tests {
 
     #[test]
     pub fn import_simple() {
-        let res = parse_input_path("github:eupn/test/master/examples/imports.code").unwrap();
+        let res = parse_input_path("github:Zokrates/ZoKrates/master/zokrates_cli/examples/imports/import.code").unwrap();
         let (root, repo, branch, path) = res;
 
-        assert_eq!(root, "eupn");
-        assert_eq!(repo, "test");
+        assert_eq!(root, "Zokrates");
+        assert_eq!(repo, "ZoKrates");
         assert_eq!(branch, "master");
-        assert_eq!(path, "examples/imports.code");
+        assert_eq!(path, "zokrates_cli/examples/imports/import.code");
     }
 
     #[test]
     #[should_panic]
     pub fn import_no_branch() {
-        // Correct syntax should be: github:eupn/test/master/imports.code
+        // Correct syntax should be: github:Zokrates/ZoKrates/master/zokrates_cli/examples/imports/import.code
         // but branch name is not specified
-        parse_input_path("github:eupn/test/imports.code").unwrap();
+        parse_input_path("github:Zokrates/ZoKrates/test.code").unwrap();
     }
 
     #[test]
     #[should_panic]
     pub fn import_relative_paths() {
         // Relative paths should not be allowed
-        parse_input_path("github:eupn/test/master/examples/../imports.code").unwrap();
+        parse_input_path("github:Zokrates/ZoKrates/master/examples/../imports.code").unwrap();
     }
 }
