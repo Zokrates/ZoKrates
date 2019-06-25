@@ -79,7 +79,10 @@ fn parse_input_path(path: &str) -> Result<(String, String, String, String), io::
     if components.len() < 4 {
         return Err(io::Error::new(
             io::ErrorKind::Other,
-            format!("Invalid github import syntax. Should be: {}<root>/<repo>/<branch>/<path>", GITHUB_IMPORT_PREFIX),
+            format!(
+                "Invalid github import syntax. Should be: {}<root>/<repo>/<branch>/<path>",
+                GITHUB_IMPORT_PREFIX
+            ),
         ));
     }
 
@@ -141,7 +144,10 @@ mod tests {
 
     #[test]
     pub fn import_simple() {
-        let res = parse_input_path("github:Zokrates/ZoKrates/master/zokrates_cli/examples/imports/import.code").unwrap();
+        let res = parse_input_path(
+            "github:Zokrates/ZoKrates/master/zokrates_cli/examples/imports/import.code",
+        )
+        .unwrap();
         let (root, repo, branch, path) = res;
 
         assert_eq!(root, "Zokrates");
