@@ -65,7 +65,7 @@ pub fn is_github_import(source: &str) -> bool {
 /// - <branch> is the branch/snapshot name, e.g. `master`
 /// - <path/to/file> is the absolute path to file in the specified branch of the repository
 fn parse_input_path(path: &str) -> Result<(String, String, String, String), io::Error> {
-    let path = path.replacen("github:", "", 1);
+    let path = path.replacen(GITHUB_IMPORT_PREFIX, "", 1);
     if path.contains("..") {
         return Err(io::Error::new(
             io::ErrorKind::Other,
@@ -79,7 +79,7 @@ fn parse_input_path(path: &str) -> Result<(String, String, String, String), io::
     if components.len() < 4 {
         return Err(io::Error::new(
             io::ErrorKind::Other,
-            "Invalid github import syntax. Should be: github:<root>/<repo>/<branch>/<path>",
+            format!("Invalid github import syntax. Should be: {}<root>/<repo>/<branch>/<path>", GITHUB_IMPORT_PREFIX),
         ));
     }
 
