@@ -53,7 +53,7 @@ impl<T: Field> fmt::Display for DirectiveStatement<T> {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
 pub enum Helper {
     Rust(RustHelper),
     #[cfg(feature = "wasm")]
