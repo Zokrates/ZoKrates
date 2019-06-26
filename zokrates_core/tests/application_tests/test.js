@@ -28,7 +28,6 @@ let jsonContractSource = JSON.stringify({
 });
 
 let jsonInterface = JSON.parse(solc.compile(jsonContractSource));
-
 (async () => {
     const accounts = await web3.eth.getAccounts();
     let abi = jsonInterface.contracts[CONTRACT_NAME]["Verifier"].abi
@@ -170,7 +169,7 @@ let jsonInterface = JSON.parse(solc.compile(jsonContractSource));
         let proof = json["proof"]
         //falsifies proof to check if verification fails
         if (!correct) {
-            proof["A"][0] = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+            proof["a"][0] = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         }
         if (abiVersion == "v1") {
             return [Object.values(proof), Object.values(inputs)];

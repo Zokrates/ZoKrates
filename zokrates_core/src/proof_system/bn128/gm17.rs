@@ -212,7 +212,7 @@ contract Verifier {
         Pairing.G1Point c;
     }
     function verifyingKey() pure internal returns (VerifyingKey memory vk) {
-        vk.H = Pairing.G2Point(<%vk_h%>);
+        vk.h= Pairing.G2Point(<%vk_h%>);
         vk.g_alpha = Pairing.G1Point(<%vk_g_alpha%>);
         vk.h_beta = Pairing.G2Point(<%vk_h_beta%>);
         vk.g_gamma = Pairing.G1Point(<%vk_g_gamma%>);
@@ -233,7 +233,7 @@ contract Verifier {
          *                              * e(C, H)
          * where psi = \sum_{i=0}^l input_i pvk.query[i]
          */
-        if (!Pairing.pairingProd4(vk.g_alpha, vk.h_beta, vk_x, vk.h_gamma, proof.c, vk.H, Pairing.negate(Pairing.addition(proofa, vk.g_alpha)), Pairing.addition(proof.b, vk.h_beta))) return 1;
+        if (!Pairing.pairingProd4(vk.g_alpha, vk.h_beta, vk_x, vk.h_gamma, proof.c, vk.h, Pairing.negate(Pairing.addition(proof.a, vk.g_alpha)), Pairing.addition(proof.b, vk.h_beta))) return 1;
         /**
          * e(A, H^{gamma}) = e(G^{gamma}, B)
          */
@@ -263,7 +263,7 @@ const CONTRACT_TEMPLATE: &str = r#"
 contract Verifier {
     using Pairing for *;
     struct VerifyingKey {
-        Pairing.G2Point H;
+        Pairing.G2Point h;
         Pairing.G1Point g_alpha;
         Pairing.G2Point h_beta;
         Pairing.G1Point g_gamma;
@@ -276,7 +276,7 @@ contract Verifier {
         Pairing.G1Point c;
     }
     function verifyingKey() pure internal returns (VerifyingKey memory vk) {
-        vk.H = Pairing.G2Point(<%vk_h%>);
+        vk.h = Pairing.G2Point(<%vk_h%>);
         vk.g_alpha = Pairing.G1Point(<%vk_g_alpha%>);
         vk.h_beta = Pairing.G2Point(<%vk_h_beta%>);
         vk.g_gamma = Pairing.G1Point(<%vk_g_gamma%>);
@@ -297,7 +297,7 @@ contract Verifier {
          *                              * e(C, H)
          * where psi = \sum_{i=0}^l input_i pvk.query[i]
          */
-        if (!Pairing.pairingProd4(vk.g_alpha, vk.h_beta, vk_x, vk.h_gamma, proof.c, vk.H, Pairing.negate(Pairing.addition(proof.a, vk.g_alpha)), Pairing.addition(proof.b, vk.h_beta))) return 1;
+        if (!Pairing.pairingProd4(vk.g_alpha, vk.h_beta, vk_x, vk.h_gamma, proof.c, vk.h, Pairing.negate(Pairing.addition(proof.a, vk.g_alpha)), Pairing.addition(proof.b, vk.h_beta))) return 1;
         /**
          * e(A, H^{gamma}) = e(G^{gamma}, b)
          */

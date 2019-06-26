@@ -127,7 +127,7 @@ impl ProofSystem for PGHR13 {
             solidity_pairing_lib = String::from(SOLIDITY_PAIRING_LIB);
         }
 
-        let ic_template = String::from("vk.IC[index] = Pairing.G1Point(points);"); //copy this for each entry
+        let ic_template = String::from("vk.ic[index] = Pairing.G1Point(points);"); //copy this for each entry
 
         //replace things in template
         let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
@@ -237,8 +237,8 @@ const CONTRACT_TEMPLATE_V2: &str = r#"contract Verifier {
         // Compute the linear combination vk_x
         Pairing.G1Point memory vk_x = Pairing.G1Point(0, 0);
         for (uint i = 0; i < input.length; i++)
-            vk_x = Pairing.addition(vk_x, Pairing.scalar_mul(vk.IC[i + 1], input[i]));
-        vk_x = Pairing.addition(vk_x, vk.IC[0]);
+            vk_x = Pairing.addition(vk_x, Pairing.scalar_mul(vk.ic[i + 1], input[i]));
+        vk_x = Pairing.addition(vk_x, vk.ic[0]);
         if (!Pairing.pairingProd2(proof.a, vk.a, Pairing.negate(proof.a_p), Pairing.P2())) return 1;
         if (!Pairing.pairingProd2(vk.b, proof.b, Pairing.negate(proof.b_p), Pairing.P2())) return 2;
         if (!Pairing.pairingProd2(proof.c, vk.c, Pairing.negate(proof.c_p), Pairing.P2())) return 3;
@@ -249,7 +249,7 @@ const CONTRACT_TEMPLATE_V2: &str = r#"contract Verifier {
         )) return 4;
         if (!Pairing.pairingProd3(
                 Pairing.addition(vk_x, proof.a), proof.b,
-                Pairing.negate(proof.h), vk.Z,
+                Pairing.negate(proof.h), vk.z,
                 Pairing.negate(proof.c), Pairing.P2()
         )) return 5;
         return 0;
