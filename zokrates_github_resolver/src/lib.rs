@@ -9,7 +9,7 @@
 //!
 //! For example:
 //! ```zokrates
-//! import "github:Zokrates/ZoKrates/master/zokrates_cli/examples/merkleTree/sha256PathProof3.code" as merkleTreeProof
+//! import "github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/merkleTree/sha256PathProof3.code" as merkleTreeProof
 //! ```
 //!
 //! Example above imports file `zokrates_cli/examples/merkleTree/sha256PathProof3.code` located at ZoKrates
@@ -24,7 +24,7 @@ use std::path::PathBuf;
 use tempfile::NamedTempFile;
 
 /// Prefix for github import source to be distinguished.
-const GITHUB_IMPORT_PREFIX: &str = "github:";
+const GITHUB_IMPORT_PREFIX: &str = "github.com/";
 
 /// Resolves import from the Github.
 /// This importer needs to be provided with location since relative paths could be used inside the
@@ -58,7 +58,7 @@ pub fn is_github_import(source: &str) -> bool {
     source.starts_with(GITHUB_IMPORT_PREFIX)
 }
 
-/// Parses github import syntax: "github:<root>/<repo>/<branch>/<path/to/file>"
+/// Parses github import syntax: "github.com/<root>/<repo>/<branch>/<path/to/file>"
 /// Where:
 /// - <root> is the user or organization name
 /// - <repo> is the repository name
@@ -145,7 +145,7 @@ mod tests {
     #[test]
     pub fn import_simple() {
         let res = parse_input_path(
-            "github:Zokrates/ZoKrates/master/zokrates_cli/examples/imports/import.code",
+            "github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/import.code",
         )
         .unwrap();
         let (root, repo, branch, path) = res;
@@ -159,15 +159,15 @@ mod tests {
     #[test]
     #[should_panic]
     pub fn import_no_branch() {
-        // Correct syntax should be: github:Zokrates/ZoKrates/master/zokrates_cli/examples/imports/import.code
+        // Correct syntax should be: github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/import.code
         // but branch name is not specified
-        parse_input_path("github:Zokrates/ZoKrates/test.code").unwrap();
+        parse_input_path("github.com/Zokrates/ZoKrates/test.code").unwrap();
     }
 
     #[test]
     #[should_panic]
     pub fn import_relative_paths() {
         // Relative paths should not be allowed
-        parse_input_path("github:Zokrates/ZoKrates/master/examples/../imports.code").unwrap();
+        parse_input_path("github.com/Zokrates/ZoKrates/master/examples/../imports.code").unwrap();
     }
 }
