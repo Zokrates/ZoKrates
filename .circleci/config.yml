@@ -103,6 +103,37 @@ jobs:
       - run:
           name: Run integration tests
           command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./full_test.sh
+  application_test:
+    docker:
+      - image: rustlang/rust:nightly-slim
+      - image: trufflesuite/ganache-cli:next 
+        port: 8545:8545
+    steps:
+      - run:
+          name: Install git
+          command: apt-get update && apt-get upgrade -y && apt-get install -y git
+      - checkout
+      - run:
+          name: Version information
+          command: rustc --version; cargo --version; rustup --version
+      - run:
+          name: Calculate dependencies
+          command: cargo generate-lockfile
+      - restore_cache:
+          keys:
+            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - run:
+          name: Install libsnark prerequisites
+          command: ./scripts/install_libsnark_prerequisites.sh
+      - run:
+          name: Install solcjs
+          command: ./scripts/install_solcjs_deb.sh
+      - run:
+          name: Build
+          command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./build.sh
+      - run:
+          name: Test Contracts
+          command: ./scripts/application_test.sh    
   deploy:
     docker:
       - image: circleci/python
