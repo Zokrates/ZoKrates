@@ -17,7 +17,9 @@ use zokrates_core::ir;
 use zokrates_core::proof_system::*;
 use zokrates_field::field::{Field, FieldPrime};
 use zokrates_fs_resolver::resolve as fs_resolve;
-use zokrates_github_resolver::{is_github_import, resolve as github_resolve, resolve_with_mock as github_resolve_with_mock};
+use zokrates_github_resolver::{
+    is_github_import, resolve as github_resolve, resolve_with_mock as github_resolve_with_mock,
+};
 
 fn main() {
     cli().unwrap_or_else(|e| {
@@ -35,7 +37,6 @@ fn resolve_fs_or_github(
             github_resolve_with_mock(location, source)
         } else {
             github_resolve(location, source)
-
         }
     } else {
         fs_resolve(location, source)

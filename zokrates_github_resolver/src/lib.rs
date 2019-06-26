@@ -70,7 +70,8 @@ pub fn resolve_with_mock(
 
         let (root, repo, branch, path) = parse_input_path(&path)?;
 
-        let pb = download_from_github(mockito::server_url().as_str(), &root, &repo, &branch, &path)?;
+        let pb =
+            download_from_github(mockito::server_url().as_str(), &root, &repo, &branch, &path)?;
         let file = File::open(&pb)?;
         let br = BufReader::new(file);
 
@@ -90,15 +91,21 @@ pub fn resolve_with_mock(
 /// Initializes github.com mocks for `import_github` example to run from `examples` tests.
 /// Note that returned mock objects should be alive prior to github requests.
 fn init_github_mock(location: &str) -> (Mock, Mock) {
-    let m1 = mockito::mock("GET", "/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/foo.code")
-        .with_status(200)
-        .with_body_from_file(&format!("{}/foo.code", location))
-        .create();
+    let m1 = mockito::mock(
+        "GET",
+        "/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/foo.code",
+    )
+    .with_status(200)
+    .with_body_from_file(&format!("{}/foo.code", location))
+    .create();
 
-    let m2 = mockito::mock("GET", "/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/bar.code")
-        .with_status(200)
-        .with_body_from_file(&format!("{}/bar.code", location))
-        .create();
+    let m2 = mockito::mock(
+        "GET",
+        "/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/bar.code",
+    )
+    .with_status(200)
+    .with_body_from_file(&format!("{}/bar.code", location))
+    .create();
 
     (m1, m2)
 }
