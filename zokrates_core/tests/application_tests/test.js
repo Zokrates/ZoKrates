@@ -34,13 +34,15 @@ let jsonInterface = JSON.parse(solc.compile(jsonContractSource));
     let abi = jsonInterface.contracts[CONTRACT_NAME]["Verifier"].abi
     let bytecode = jsonInterface.contracts[CONTRACT_NAME]['Verifier'].evm.bytecode
 
-    //needed for gm17, because solc wont implement the BN256G2 Library by itself for that contract. Not sure why this is happening
-    if (format == "gm17") {
+    //There is a solc issue, that for unknown reasons wont link the BN256G2 Library automatically for gm17 v1 and v2 contracts. I dont know why this is happening, 
+    //the contracts compile and deploy without any issue on remix. To fix this, the the BN256G2 Library must be compiled and deployed by itself, after that, 
+    //the library placeholder must be replaced with the library address in the contracts bytecode
+    if(format == "gm17"){
         let library = await deployLibrary();
         //replace lib placeholder with lib address in bytecode
         bytecode.object = bytecode.object.replace(/\_\_\$[a-f0-9]{34}\$\_\_/g, library["_address"].replace("0x", ""))
     }
-
+    
     let contract = new web3.eth.Contract(abi)
         .deploy({ data: '0x' + bytecode.object })
         .send({
@@ -149,7 +151,7 @@ let jsonInterface = JSON.parse(solc.compile(jsonContractSource));
 
                 if (tx.status == true) {
                     console.log("Correct proof works! Gas used: " + tx.gasUsed)
-                }
+                } 
 
             })
             .catch(err => {
@@ -177,7 +179,8 @@ let jsonInterface = JSON.parse(solc.compile(jsonContractSource));
         }
     }
 
-    function deployLibrary() {
+    //function used for deploying BN256G2 Library, used for gm17 only
+    function deployLibrary(){
         let jsonContractSourceBin = JSON.stringify({
             language: 'Solidity',
             sources: {

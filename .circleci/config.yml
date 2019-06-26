@@ -106,7 +106,7 @@ jobs:
   application_test:
     docker:
       - image: rustlang/rust:nightly-slim
-      - image: trufflesuite/ganache-cli:latest 
+      - image: trufflesuite/ganache-cli:next 
         port: 8545:8545
     steps:
       - run:

@@ -4,7 +4,7 @@
 # # Exit if any subcommand fails
 set -e
 
-cd target/release/
+cd target/debug/
 
 # #Generate proof file used for testing
 printf '%s\n' \
@@ -12,7 +12,7 @@ printf '%s\n' \
     '    field result = if a * a == b then 1 else 0 fi' \
     '    return result' > root.code
 
-#Compile test file:
+# Compile test file:
 ./zokrates compile -i root.code
 
 #PGHR13:
