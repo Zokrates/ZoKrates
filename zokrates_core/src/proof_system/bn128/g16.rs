@@ -71,14 +71,14 @@ impl ProofSystem for G16 {
             solidity_pairing_lib = String::from(SOLIDITY_PAIRING_LIB);
         }
 
-        let gamma_abc_template = String::from("vk.gammaABC[index] = Pairing.G1Point(points);"); //copy this for each entry
+        let gamma_abc_template = String::from("vk.gamma_abc[index] = Pairing.G1Point(points);"); //copy this for each entry
         
         //replace things in template
         let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
-        let vk_gamma_abc_len_regex = Regex::new(r#"(<%vk_gammaABC_length%>)"#).unwrap();
+        let vk_gamma_abc_len_regex = Regex::new(r#"(<%vk_gamma_abc_length%>)"#).unwrap();
         let vk_gamma_abc_index_regex = Regex::new(r#"index"#).unwrap();
         let vk_gamma_abc_points_regex = Regex::new(r#"points"#).unwrap();
-        let vk_gamma_abc_repeat_regex = Regex::new(r#"(<%vk_gammaABC_pts%>)"#).unwrap();
+        let vk_gamma_abc_repeat_regex = Regex::new(r#"(<%vk_gamma_abc_pts%>)"#).unwrap();
         let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
 
         for _ in 0..4 {
@@ -162,7 +162,7 @@ mod serialize {
     vk.beta = {}
     vk.gamma = {}
     vk.delta = {}
-    vk.gammaABC.len() = {}
+    vk.gamma_abc.len() = {}
     {}",
             parse_g1_hex(&vk.alpha_g1),
             parse_g2_hex(&vk.beta_g2),
@@ -172,7 +172,7 @@ mod serialize {
             vk.ic
                 .iter()
                 .enumerate()
-                .map(|(i, x)| format!("vk.gammaABC[{}] = {}", i, parse_g1_hex(x)))
+                .map(|(i, x)| format!("vk.gamma_abc[{}] = {}", i, parse_g1_hex(x)))
                 .collect::<Vec<_>>()
                 .join("\n")
         )
@@ -182,9 +182,9 @@ mod serialize {
         format!(
             "{{
         \"proof\": {{
-            \"A\": {},
-            \"B\": {},
-            \"C\": {}
+            \"a\": {},
+            \"b\": {},
+            \"c\": {}
         }},
         \"inputs\": [{}]
     }}",
@@ -208,33 +208,33 @@ contract Verifier {
         Pairing.G2Point b;
         Pairing.G2Point gamma;
         Pairing.G2Point delta;
-        Pairing.G1Point[] gammaABC;
+        Pairing.G1Point[] gamma_abc;
     }
     struct Proof {
-        Pairing.G1Point A;
-        Pairing.G2Point B;
-        Pairing.G1Point C;
+        Pairing.G1Point a;
+        Pairing.G2Point b;
+        Pairing.G1Point c;
     }
     function verifyingKey() pure internal returns (VerifyingKey memory vk) {
         vk.a = Pairing.G1Point(<%vk_a%>);
         vk.b = Pairing.G2Point(<%vk_b%>);
         vk.gamma = Pairing.G2Point(<%vk_gamma%>);
         vk.delta = Pairing.G2Point(<%vk_delta%>);
-        vk.gammaABC = new Pairing.G1Point[](<%vk_gammaABC_length%>);
-        <%vk_gammaABC_pts%>
+        vk.gamma_abc = new Pairing.G1Point[](<%vk_gamma_abc_length%>);
+        <%vk_gamma_abc_pts%>
     }
     function verify(uint[] memory input, Proof memory proof) internal returns (uint) {
         VerifyingKey memory vk = verifyingKey();
-        require(input.length + 1 == vk.gammaABC.length);
+        require(input.length + 1 == vk.gamma_abc.length);
         // Compute the linear combination vk_x
         Pairing.G1Point memory vk_x = Pairing.G1Point(0, 0);
         for (uint i = 0; i < input.length; i++)
-            vk_x = Pairing.addition(vk_x, Pairing.scalar_mul(vk.gammaABC[i + 1], input[i]));
-        vk_x = Pairing.addition(vk_x, vk.gammaABC[0]);
+            vk_x = Pairing.addition(vk_x, Pairing.scalar_mul(vk.gamma_abc[i + 1], input[i]));
+        vk_x = Pairing.addition(vk_x, vk.gamma_abc[0]);
         if(!Pairing.pairingProd4(
-             proof.A, proof.B,
+             proof.a, proof.b,
              Pairing.negate(vk_x), vk.gamma,
-             Pairing.negate(proof.C), vk.delta,
+             Pairing.negate(proof.c), vk.delta,
              Pairing.negate(vk.a), vk.b)) return 1;
         return 0;
     }
@@ -265,33 +265,33 @@ contract Verifier {
         Pairing.G2Point b;
         Pairing.G2Point gamma;
         Pairing.G2Point delta;
-        Pairing.G1Point[] gammaABC;
+        Pairing.G1Point[] gamma_abc;
     }
     struct Proof {
-        Pairing.G1Point A;
-        Pairing.G2Point B;
-        Pairing.G1Point C;
+        Pairing.G1Point a;
+        Pairing.G2Point b;
+        Pairing.G1Point c;
     }
     function verifyingKey() pure internal returns (VerifyingKey memory vk) {
         vk.a = Pairing.G1Point(<%vk_a%>);
         vk.b = Pairing.G2Point(<%vk_b%>);
         vk.gamma = Pairing.G2Point(<%vk_gamma%>);
         vk.delta = Pairing.G2Point(<%vk_delta%>);
-        vk.gammaABC = new Pairing.G1Point[](<%vk_gammaABC_length%>);
-        <%vk_gammaABC_pts%>
+        vk.gamma_abc = new Pairing.G1Point[](<%vk_gamma_abc_length%>);
+        <%vk_gamma_abc_pts%>
     }
     function verify(uint[] memory input, Proof memory proof) internal returns (uint) {
         VerifyingKey memory vk = verifyingKey();
-        require(input.length + 1 == vk.gammaABC.length);
+        require(input.length + 1 == vk.gamma_abc.length);
         // Compute the linear combination vk_x
         Pairing.G1Point memory vk_x = Pairing.G1Point(0, 0);
         for (uint i = 0; i < input.length; i++)
-            vk_x = Pairing.addition(vk_x, Pairing.scalar_mul(vk.gammaABC[i + 1], input[i]));
-        vk_x = Pairing.addition(vk_x, vk.gammaABC[0]);
+            vk_x = Pairing.addition(vk_x, Pairing.scalar_mul(vk.gamma_abc[i + 1], input[i]));
+        vk_x = Pairing.addition(vk_x, vk.gamma_abc[0]);
         if(!Pairing.pairingProd4(
-             proof.A, proof.B,
+             proof.a, proof.b,
              Pairing.negate(vk_x), vk.gamma,
-             Pairing.negate(proof.C), vk.delta,
+             Pairing.negate(proof.c), vk.delta,
              Pairing.negate(vk.a), vk.b)) return 1;
         return 0;
     }
@@ -303,9 +303,9 @@ contract Verifier {
             uint[<%vk_input_length%>] memory input
         ) public returns (bool r) {
         Proof memory proof;
-        proof.A = Pairing.G1Point(a[0], a[1]);
-        proof.B = Pairing.G2Point([b[0][0], b[0][1]], [b[1][0], b[1][1]]);
-        proof.C = Pairing.G1Point(c[0], c[1]);
+        proof.a = Pairing.G1Point(a[0], a[1]);
+        proof.b = Pairing.G2Point([b[0][0], b[0][1]], [b[1][0], b[1][1]]);
+        proof.c = Pairing.G1Point(c[0], c[1]);
         uint[] memory inputValues = new uint[](input.length);
         for(uint i = 0; i < input.length; i++){
             inputValues[i] = input[i];
@@ -335,9 +335,9 @@ mod tests {
             #[allow(dead_code)]
             #[derive(Deserialize)]
             struct G16ProofPoints {
-                A: [String; 2],
-                B: [[String; 2]; 2],
-                C: [String; 2],
+                a: [String; 2],
+                b: [[String; 2]; 2],
+                c: [String; 2],
             }
 
             #[allow(dead_code)]
