@@ -11,5 +11,6 @@ default = []
 [dependencies]
 reqwest = "0.9"
 tempfile = "3"
+mockito = "0.17"
 
 [lib]
