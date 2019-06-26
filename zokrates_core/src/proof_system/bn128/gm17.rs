@@ -3,7 +3,9 @@ extern crate libc;
 use self::libc::{c_char, c_int};
 use ir;
 use proof_system::bn128::utils::libsnark::{prepare_generate_proof, prepare_setup};
-use proof_system::bn128::utils::solidity::{SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2};
+use proof_system::bn128::utils::solidity::{
+    SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
+};
 use proof_system::ProofSystem;
 use regex::Regex;
 use std::fs::File;
@@ -188,7 +190,7 @@ impl ProofSystem for GM17 {
 
         format!(
             "{}{}{}",
-             SOLIDITY_G2_ADDITION_LIB, solidity_pairing_lib, template_text
+            SOLIDITY_G2_ADDITION_LIB, solidity_pairing_lib, template_text
         )
     }
 }
@@ -197,24 +199,24 @@ const CONTRACT_TEMPLATE_V2: &str = r#"
 contract Verifier {
     using Pairing for *;
     struct VerifyingKey {
-        Pairing.G2Point H;
-        Pairing.G1Point Galpha;
-        Pairing.G2Point Hbeta;
-        Pairing.G1Point Ggamma;
-        Pairing.G2Point Hgamma;
+        Pairing.G2Point h;
+        Pairing.G1Point g_alpha;
+        Pairing.G2Point h_beta;
+        Pairing.G1Point g_gamma;
+        Pairing.G2Point h_gamma;
         Pairing.G1Point[] query;
     }
     struct Proof {
-        Pairing.G1Point A;
-        Pairing.G2Point B;
-        Pairing.G1Point C;
+        Pairing.G1Point a;
+        Pairing.G2Point b;
+        Pairing.G1Point c;
     }
     function verifyingKey() pure internal returns (VerifyingKey memory vk) {
-        vk.H = Pairing.G2Point(<%vk_h%>);
-        vk.Galpha = Pairing.G1Point(<%vk_g_alpha%>);
-        vk.Hbeta = Pairing.G2Point(<%vk_h_beta%>);
-        vk.Ggamma = Pairing.G1Point(<%vk_g_gamma%>);
-        vk.Hgamma = Pairing.G2Point(<%vk_h_gamma%>);
+        vk.h= Pairing.G2Point(<%vk_h%>);
+        vk.g_alpha = Pairing.G1Point(<%vk_g_alpha%>);
+        vk.h_beta = Pairing.G2Point(<%vk_h_beta%>);
+        vk.g_gamma = Pairing.G1Point(<%vk_g_gamma%>);
+        vk.h_gamma = Pairing.G2Point(<%vk_h_gamma%>);
         vk.query = new Pairing.G1Point[](<%vk_query_length%>);
         <%vk_query_pts%>
     }
@@ -231,11 +233,11 @@ contract Verifier {
          *                              * e(C, H)
          * where psi = \sum_{i=0}^l input_i pvk.query[i]
          */
-        if (!Pairing.pairingProd4(vk.Galpha, vk.Hbeta, vk_x, vk.Hgamma, proof.C, vk.H, Pairing.negate(Pairing.addition(proof.A, vk.Galpha)), Pairing.addition(proof.B, vk.Hbeta))) return 1;
+        if (!Pairing.pairingProd4(vk.g_alpha, vk.h_beta, vk_x, vk.h_gamma, proof.c, vk.h, Pairing.negate(Pairing.addition(proof.a, vk.g_alpha)), Pairing.addition(proof.b, vk.h_beta))) return 1;
         /**
          * e(A, H^{gamma}) = e(G^{gamma}, B)
          */
-        if (!Pairing.pairingProd2(proof.A, vk.Hgamma, Pairing.negate(vk.Ggamma), proof.B)) return 2;
+        if (!Pairing.pairingProd2(proof.a, vk.h_gamma, Pairing.negate(vk.g_gamma), proof.b)) return 2;
         return 0;
     }
     event Verified(string s);
@@ -261,24 +263,24 @@ const CONTRACT_TEMPLATE: &str = r#"
 contract Verifier {
     using Pairing for *;
     struct VerifyingKey {
-        Pairing.G2Point H;
-        Pairing.G1Point Galpha;
-        Pairing.G2Point Hbeta;
-        Pairing.G1Point Ggamma;
-        Pairing.G2Point Hgamma;
+        Pairing.G2Point h;
+        Pairing.G1Point g_alpha;
+        Pairing.G2Point h_beta;
+        Pairing.G1Point g_gamma;
+        Pairing.G2Point h_gamma;
         Pairing.G1Point[] query;
     }
     struct Proof {
-        Pairing.G1Point A;
-        Pairing.G2Point B;
-        Pairing.G1Point C;
+        Pairing.G1Point a;
+        Pairing.G2Point b;
+        Pairing.G1Point c;
     }
     function verifyingKey() pure internal returns (VerifyingKey memory vk) {
-        vk.H = Pairing.G2Point(<%vk_h%>);
-        vk.Galpha = Pairing.G1Point(<%vk_g_alpha%>);
-        vk.Hbeta = Pairing.G2Point(<%vk_h_beta%>);
-        vk.Ggamma = Pairing.G1Point(<%vk_g_gamma%>);
-        vk.Hgamma = Pairing.G2Point(<%vk_h_gamma%>);
+        vk.h = Pairing.G2Point(<%vk_h%>);
+        vk.g_alpha = Pairing.G1Point(<%vk_g_alpha%>);
+        vk.h_beta = Pairing.G2Point(<%vk_h_beta%>);
+        vk.g_gamma = Pairing.G1Point(<%vk_g_gamma%>);
+        vk.h_gamma = Pairing.G2Point(<%vk_h_gamma%>);
         vk.query = new Pairing.G1Point[](<%vk_query_length%>);
         <%vk_query_pts%>
     }
@@ -295,11 +297,11 @@ contract Verifier {
          *                              * e(C, H)
          * where psi = \sum_{i=0}^l input_i pvk.query[i]
          */
-        if (!Pairing.pairingProd4(vk.Galpha, vk.Hbeta, vk_x, vk.Hgamma, proof.C, vk.H, Pairing.negate(Pairing.addition(proof.A, vk.Galpha)), Pairing.addition(proof.B, vk.Hbeta))) return 1;
+        if (!Pairing.pairingProd4(vk.g_alpha, vk.h_beta, vk_x, vk.h_gamma, proof.c, vk.h, Pairing.negate(Pairing.addition(proof.a, vk.g_alpha)), Pairing.addition(proof.b, vk.h_beta))) return 1;
         /**
-         * e(A, H^{gamma}) = e(G^{gamma}, B)
+         * e(A, H^{gamma}) = e(G^{gamma}, b)
          */
-        if (!Pairing.pairingProd2(proof.A, vk.Hgamma, Pairing.negate(vk.Ggamma), proof.B)) return 2;
+        if (!Pairing.pairingProd2(proof.a, vk.h_gamma, Pairing.negate(vk.g_gamma), proof.b)) return 2;
         return 0;
     }
     event Verified(string s);
@@ -310,9 +312,9 @@ contract Verifier {
             uint[<%vk_input_length%>] memory input
         ) public returns (bool r) {
         Proof memory proof;
-        proof.A = Pairing.G1Point(a[0], a[1]);
-        proof.B = Pairing.G2Point([b[0][0], b[0][1]], [b[1][0], b[1][1]]);
-        proof.C = Pairing.G1Point(c[0], c[1]);
+        proof.a = Pairing.G1Point(a[0], a[1]);
+        proof.b = Pairing.G2Point([b[0][0], b[0][1]], [b[1][0], b[1][1]]);
+        proof.c = Pairing.G1Point(c[0], c[1]);
         uint[] memory inputValues = new uint[](input.length);
         for(uint i = 0; i < input.length; i++){
             inputValues[i] = input[i];
