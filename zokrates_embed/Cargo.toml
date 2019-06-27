@@ -5,5 +5,5 @@ authors = ["schaeff <thibaut@schaeff.fr>"]
 edition = "2018"
 
 [dependencies]
-sapling-crypto = { git = 'https://github.com/matterinc/sapling-crypto', tag = "0.0.4" }
-bellman = { git = 'https://github.com/matterinc/bellman', tag = "0.2.0" }
+sapling-crypto_ce = { version =  "0.0.5", default-features = false }
+bellman_ce = { version = "0.3.0", features=["wasm"], default-features = false }
