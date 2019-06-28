@@ -23,13 +23,14 @@ use std::io::{self, copy, BufReader};
 use std::path::PathBuf;
 use tempfile::NamedTempFile;
 
-use mockito;
-use mockito::Mock;
+#[cfg(test)]
+use mockito::{self, Mock};
 
 /// Prefix for github import source to be distinguished.
 const GITHUB_IMPORT_PREFIX: &str = "github.com/";
 
 /// GitHub download URL base
+#[cfg(not(test))]
 const GITHUB_URL_BASE: &str = "https://raw.githubusercontent.com";
 
 /// Resolves import from the Github.
@@ -42,7 +43,12 @@ pub fn resolve(
     if let Some(location) = location {
         let (root, repo, branch, path) = parse_input_path(&path)?;
 
-        let pb = download_from_github(GITHUB_URL_BASE, &root, &repo, &branch, &path)?;
+        #[cfg(not(test))]
+        let url = GITHUB_URL_BASE;
+        #[cfg(test)]
+        let url = mockito::server_url();
+
+        let pb = download_from_github(&url, &root, &repo, &branch, &path)?;
         let file = File::open(&pb)?;
         let br = BufReader::new(file);
 
@@ -57,57 +63,6 @@ pub fn resolve(
     } else {
         Err(io::Error::new(io::ErrorKind::Other, "No location provided"))
     }
-}
-
-/// Similar to the `resolve`, but uses mock for github for `examples/import_github.code` test and
-/// not require internet connection.
-pub fn resolve_with_mock(
-    location: &Option<String>,
-    path: &String,
-) -> Result<(BufReader<File>, String, String), io::Error> {
-    if let Some(location) = location {
-        let (_m1, _m2) = init_github_mock(&location);
-
-        let (root, repo, branch, path) = parse_input_path(&path)?;
-
-        let pb =
-            download_from_github(mockito::server_url().as_str(), &root, &repo, &branch, &path)?;
-        let file = File::open(&pb)?;
-        let br = BufReader::new(file);
-
-        let alias = PathBuf::from(path.clone())
-            .as_path()
-            .file_stem()
-            .unwrap()
-            .to_string_lossy()
-            .to_string();
-
-        Ok((br, location.to_owned(), alias))
-    } else {
-        Err(io::Error::new(io::ErrorKind::Other, "No location provided"))
-    }
-}
-
-/// Initializes github.com mocks for `import_github` example to run from `examples` tests.
-/// Note that returned mock objects should be alive prior to github requests.
-fn init_github_mock(location: &str) -> (Mock, Mock) {
-    let m1 = mockito::mock(
-        "GET",
-        "/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/foo.code",
-    )
-    .with_status(200)
-    .with_body_from_file(&format!("{}/foo.code", location))
-    .create();
-
-    let m2 = mockito::mock(
-        "GET",
-        "/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/bar.code",
-    )
-    .with_status(200)
-    .with_body_from_file(&format!("{}/bar.code", location))
-    .create();
-
-    (m1, m2)
 }
 
 /// Checks that import source is using github import location.
@@ -201,6 +156,27 @@ fn download_url(url: &str) -> Result<PathBuf, io::Error> {
 mod tests {
     use super::*;
 
+    /// Initializes github.com mocks for `import_github` example to run from `examples` tests.
+    /// Note that returned mock objects should be alive prior to github requests.
+    fn init_github_mock() -> (Mock, Mock) {
+        let m1 = mockito::mock(
+            "GET",
+            "/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/foo.code",
+        )
+        .with_status(200)
+        .with_body_from_file("./static/foo.code")
+        .create();
+
+        let m2 = mockito::mock(
+            "GET",
+            "/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/notfound.code",
+        )
+        .with_status(404)
+        .create();
+
+        (m1, m2)
+    }
+
     #[test]
     pub fn import_simple() {
         let res = parse_input_path(
@@ -228,5 +204,29 @@ mod tests {
     pub fn import_relative_paths() {
         // Relative paths should not be allowed
         parse_input_path("github.com/Zokrates/ZoKrates/master/examples/../imports.code").unwrap();
+    }
+
+    #[test]
+    pub fn resolve_ok() {
+        let (_m0, _m1) = init_github_mock();
+        let res = resolve(
+            &Some("".to_string()),
+            &String::from(
+                "github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/foo.code",
+            ),
+        );
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    pub fn resolve_err() {
+        let (_m0, _m1) = init_github_mock();
+        assert!(resolve(
+            &Some("".to_string()),
+            &String::from(
+                "github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/notfound.code"
+            )
+        )
+        .is_err());
     }
 }
