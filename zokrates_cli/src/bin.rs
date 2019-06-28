@@ -133,6 +133,12 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(&default_scheme)
+        ).arg(Arg::with_name("abiv2")
+            .short("abiv2")
+            .long("abiv2")
+            .help("Flag for setting version of ABI Encoder used in the contract. Default is ABIv1")
+            .takes_value(false)
+            .required(false)
         )
     )
     .subcommand(SubCommand::with_name("compute-witness")
@@ -226,7 +232,7 @@ fn cli() -> Result<(), String> {
             .value_name("FORMAT")
             .help("Format in which the proof should be printed. [remix, json]")
             .takes_value(true)
-            .possible_values(&["remix", "json", "testingV1", "testingV2"])
+            .possible_values(&["remix", "json"])
             .required(true)
         )
     )
@@ -404,7 +410,7 @@ fn cli() -> Result<(), String> {
         ("export-verifier", Some(sub_matches)) => {
             {
                 let scheme = get_scheme(sub_matches.value_of("proving-scheme").unwrap())?;
-
+                let abiv2 = sub_matches.occurrences_of("abiv2") > 0;
                 println!("Exporting verifier...");
 
                 // read vk file
@@ -413,7 +419,7 @@ fn cli() -> Result<(), String> {
                     .map_err(|why| format!("couldn't open {}: {}", input_path.display(), why))?;
                 let reader = BufReader::new(input_file);
 
-                let verifier = scheme.export_solidity_verifier(reader);
+                let verifier = scheme.export_solidity_verifier(reader, &abiv2);
 
                 //write output file
                 let output_path = Path::new(sub_matches.value_of("output").unwrap());
