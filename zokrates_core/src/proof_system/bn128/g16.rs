@@ -70,8 +70,9 @@ impl ProofSystem for G16 {
             template_text = String::from(CONTRACT_TEMPLATE);
             solidity_pairing_lib = String::from(SOLIDITY_PAIRING_LIB);
         }
+
         let gamma_abc_template = String::from("vk.gamma_abc[index] = Pairing.G1Point(points);"); //copy this for each entry
-        
+
         //replace things in template
         let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
         let vk_gamma_abc_len_regex = Regex::new(r#"(<%vk_gamma_abc_length%>)"#).unwrap();
