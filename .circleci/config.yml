@@ -106,9 +106,6 @@ jobs:
           name: Install solcjs
           command: ./scripts/install_solcjs_deb.sh
       - run:
-          name: Build
-          command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./build.sh
-      - run:
           name: Run integration tests
           command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./full_test.sh
   deploy:
