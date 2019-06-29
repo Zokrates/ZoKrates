@@ -11,6 +11,8 @@ default = []
 [dependencies]
 reqwest = "0.9"
 tempfile = "3"
+
+[dev-dependencies]
 mockito = "0.17"
 
 [lib]
