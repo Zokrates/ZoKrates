@@ -229,7 +229,7 @@ fn cli() -> Result<(), String> {
             .possible_values(&["remix", "json", "testingV1", "testingV2"])
             .required(true)
         ).arg(Arg::with_name("abiversion")
-            .short("abi")
+            .short("a")
             .long("abiversion")
             .value_name("ABIVERSION")
             .help("ABI version of contract. Will print proof in remix compatible format [v1, v2]")
@@ -470,7 +470,7 @@ fn cli() -> Result<(), String> {
         }
         ("print-proof", Some(sub_matches)) => {
             let format = sub_matches.value_of("format").unwrap();
-
+            let abiversion = sub_matches.value_of("abiversion").unwrap();
             let path = Path::new(sub_matches.value_of("proofpath").unwrap());
 
             let file = File::open(&path)
@@ -527,7 +527,9 @@ fn cli() -> Result<(), String> {
                         _ => unreachable!(),
                     }
                 }
+                _ => unreachable!(),
             }
+        }
         _ => unreachable!(),
     }
     Ok(())
