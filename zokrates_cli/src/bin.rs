@@ -229,7 +229,7 @@ fn cli() -> Result<(), String> {
             .possible_values(&["remix", "json", "testingV1", "testingV2"])
             .required(true)
         ).arg(Arg::with_name("abiversion")
-            .short("abi")
+            .short("a")
             .long("abiversion")
             .value_name("ABIVERSION")
             .help("ABI version of contract. Will print proof in remix compatible format [v1, v2]")
@@ -470,7 +470,7 @@ fn cli() -> Result<(), String> {
         }
         ("print-proof", Some(sub_matches)) => {
             let format = sub_matches.value_of("format").unwrap();
-
+            let abiversion = sub_matches.value_of("abiversion").unwrap();
             let path = Path::new(sub_matches.value_of("proofpath").unwrap());
 
             let file = File::open(&path)
@@ -502,7 +502,9 @@ fn cli() -> Result<(), String> {
 
                             println!("{}", proof_object["inputs"]);
                             println!();
-                            println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+                            println!(
+                                "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+                            );
                         }
                         "v2" => {
                             //returns proof data as remix tupel (uses [] for tupel notation), as required by new remix version for abiv2
@@ -512,7 +514,12 @@ fn cli() -> Result<(), String> {
                             println!();
 
                             print!("[");
-                            for (i, item) in proof_object["proof"].as_object().unwrap().iter().enumerate() {
+                            for (i, item) in proof_object["proof"]
+                                .as_object()
+                                .unwrap()
+                                .iter()
+                                .enumerate()
+                            {
                                 print!("{}", item.1);
                                 if i < proof_length - 1 {
                                     print!(",");
@@ -522,12 +529,16 @@ fn cli() -> Result<(), String> {
 
                             println!("{}", proof_object["inputs"]);
                             println!();
-                            println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+                            println!(
+                                "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+                            );
                         }
                         _ => unreachable!(),
                     }
                 }
+                _ => unreachable!(),
             }
+        }
         _ => unreachable!(),
     }
     Ok(())
