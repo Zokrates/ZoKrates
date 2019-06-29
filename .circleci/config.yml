@@ -90,15 +90,15 @@ jobs:
           name: Install git
           command: apt-get update && apt-get upgrade -y && apt-get install -y git
       - checkout
-      # - run:
-      #     name: Version information
-      #     command: rustc --version; cargo --version; rustup --version
-      # - run:
-      #     name: Calculate dependencies
-      #     command: cargo generate-lockfile
-      # - restore_cache:
-      #     keys:
-      #       - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - run:
+          name: Version information
+          command: rustc --version; cargo --version; rustup --version
+      - run:
+          name: Calculate dependencies
+          command: cargo generate-lockfile
+      - restore_cache:
+          keys:
+            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Install libsnark prerequisites
           command: ./scripts/install_libsnark_prerequisites.sh

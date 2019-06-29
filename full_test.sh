@@ -3,10 +3,10 @@
 # Exit if any subcommand fails
 set -e
 
-# cargo test --release -- --ignored
+cargo test --release -- --ignored
 
-# if [ -n "$WITH_LIBSNARK" ]; then
-	# cargo -Z package-features test --release --package zokrates_cli --features="libsnark" -- --ignored
+if [ -n "$WITH_LIBSNARK" ]; then
+	cargo -Z package-features test --release --package zokrates_cli --features="libsnark" -- --ignored
 	ls
 	cd target/debug/
 
@@ -57,4 +57,4 @@ set -e
 	node zokrates_core/tests/integration/test.js pghr13 v2
 	node zokrates_core/tests/integration/test.js gm17 v1
 	node zokrates_core/tests/integration/test.js gm17 v2
-# fi
+fi

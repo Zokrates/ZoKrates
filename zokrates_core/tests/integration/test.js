@@ -1,13 +1,10 @@
 var fs = require("fs");
 let Web3 = require('web3');
 const solc = require('solc');
-console.log(process.argv)
 const format = process.argv[2]
 const abiVersion = process.argv[3];
 const CONTRACT_NAME = format + "-" + abiVersion + "-verifier.sol";
 const web3 = new Web3(new Web3.providers.HttpProvider('http://localhost:8545'));
-console.log(__dirname);
-console.log(fs.existsSync("target/"));
 console.log(CONTRACT_NAME)
 
 // -----Compile contract-----
