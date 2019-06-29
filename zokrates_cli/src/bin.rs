@@ -228,6 +228,14 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .possible_values(&["remix", "json", "testingV1", "testingV2"])
             .required(true)
+        ).arg(Arg::with_name("abiversion")
+            .short("abi")
+            .long("abiversion")
+            .value_name("ABIVERSION")
+            .help("ABI version of contract. Will print proof in remix compatible format [v1, v2]")
+            .takes_value(true)
+            .possible_values(&["v1", "v2"])
+            .required(true)
         )
     )
     .get_matches();
@@ -482,35 +490,44 @@ fn cli() -> Result<(), String> {
                     println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
                 }
                 "remix" => {
-                    println!("~~~~~~~~ Copy the output below for valid ABIv1 format ~~~~~~~~");
-                    println!();
+                    match abiversion {
+                        "v1" => {
+                            println!("~~~~~~~~ Copy the output below for valid remix ABIv1 format ~~~~~~~~");
+                            println!();
 
-                    for (_, value) in proof_object["proof"].as_object().unwrap().iter() {
-                        print!("{}", value);
-                        print!(",");
-                    }
+                            for (_, value) in proof_object["proof"].as_object().unwrap().iter() {
+                                print!("{}", value);
+                                print!(",");
+                            }
 
-                    println!("{}", proof_object["inputs"]);
-                    println!();
-                    println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-                }
-                "testingV1" => {
-                    //used by testing pipeline to generate arguments for contract call
-                    for (_, value) in proof_object["proof"].as_object().unwrap().iter() {
-                        print!("{}", value);
-                        print!(",");
+                            println!("{}", proof_object["inputs"]);
+                            println!();
+                            println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+                        }
+                        "v2" => {
+                            //returns proof data as remix tupel (uses [] for tupel notation), as required by new remix version for abiv2
+                            let proof_length = proof_object["proof"].as_object().unwrap().len();
+
+                            println!("~~~~~~~~ Copy the output below for valid remix ABIv2 format ~~~~~~~~");
+                            println!();
+
+                            print!("[");
+                            for (i, item) in proof_object["proof"].as_object().unwrap().iter().enumerate() {
+                                print!("{}", item.1);
+                                if i < proof_length - 1 {
+                                    print!(",");
+                                }
+                            }
+                            print!("],");
+
+                            println!("{}", proof_object["inputs"]);
+                            println!();
+                            println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+                        }
+                        _ => unreachable!(),
                     }
-                    println!("{}", proof_object["inputs"]);
                 }
-                "testingV2" => {
-                    //used by testing pipeline to generate arguments for contract call
-                    print!("{}", proof_object["proof"]);
-                    print!(",");
-                    println!("{}", proof_object["inputs"]);
-                }
-                _ => unreachable!(),
             }
-        }
         _ => unreachable!(),
     }
     Ok(())
