@@ -1,3 +1,7 @@
+// Non-strict version:
+// Note that this does not strongly enforce that the commitment is
+// in the field.
+
 import "PACKING/split" as split
 
 def main(field i) -> (field[256]):

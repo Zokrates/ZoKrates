@@ -1,0 +1,2 @@
+def main(field selector, field[256] lhs, field[256] rhs) -> (field[512]):
+	return if selector == 0 then [...lhs, ...rhs] else [...rhs, ...lhs] fi
