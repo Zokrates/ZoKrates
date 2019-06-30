@@ -81,7 +81,6 @@ impl<T: Field> From<FlatProg<T>> for Prog<T> {
 
 impl<T: Field> From<FlatExpression<T>> for LinComb<T> {
     fn from(flat_expression: FlatExpression<T>) -> LinComb<T> {
-        assert!(flat_expression.is_linear());
         match flat_expression {
             FlatExpression::Number(ref n) if *n == T::from(0) => LinComb::zero(),
             FlatExpression::Number(n) => LinComb::summand(n, FlatVariable::one()),

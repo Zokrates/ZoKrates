@@ -1,4 +1,4 @@
-import "utils/pack/unpack256.code" as unpack256
+import "utils/pack/nonStrictUnpack256.code" as unpack256
 
 def testFive() -> (field):
 

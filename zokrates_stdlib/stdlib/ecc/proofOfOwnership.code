@@ -1,6 +1,6 @@
 import "ecc/edwardsAdd.code" as add
 import "ecc/edwardsScalarMult.code" as multiply
-import "utils/pack/unpack256.code" as unpack256
+import "utils/pack/nonStrictUnpack256.code" as unpack256
 
 /// Verifies match of a given public/private keypair.
 ///
