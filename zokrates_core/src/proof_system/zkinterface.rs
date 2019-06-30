@@ -235,7 +235,7 @@ fn write_circuit<W: Write>(
         },
         free_variable_id,
         r1cs_generation,
-        field_maximum: None,
+        field_maximum: Some(convert_field(&FieldPrime::max_value())),
     };
 
     gadget_return.write(out_file).unwrap();
