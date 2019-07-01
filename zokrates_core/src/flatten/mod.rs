@@ -625,16 +625,49 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     _ => panic!("Expected number as pow exponent"),
                 }
             }
-            FieldElementExpression::IfElse(box condition, box consequent, box alternative) => self
-                .flatten_function_call(
-                    symbols,
-                    statements_flattened,
-                    &"_if_else_field",
-                    vec![Type::FieldElement],
-                    vec![condition.into(), consequent.into(), alternative.into()],
-                )
-                .expressions[0]
-                .clone(),
+            FieldElementExpression::IfElse(box condition, box consequence, box alternative) => {
+                let condition =
+                    self.flatten_boolean_expression(symbols, statements_flattened, condition);
+                let consequence =
+                    self.flatten_field_expression(symbols, statements_flattened, consequence);
+                let alternative =
+                    self.flatten_field_expression(symbols, statements_flattened, alternative);
+
+                let condition_id = self.use_sym();
+                statements_flattened.push(FlatStatement::Definition(condition_id, condition));
+
+                let consequence_id = self.use_sym();
+                statements_flattened.push(FlatStatement::Definition(consequence_id, consequence));
+
+                let alternative_id = self.use_sym();
+                statements_flattened.push(FlatStatement::Definition(alternative_id, alternative));
+
+                let term0 = self.use_sym();
+                statements_flattened.push(FlatStatement::Definition(
+                    term0,
+                    FlatExpression::Mult(
+                        box condition_id.clone().into(),
+                        box consequence_id.into(),
+                    ),
+                ));
+                let term1 = self.use_sym();
+                statements_flattened.push(FlatStatement::Definition(
+                    term1,
+                    FlatExpression::Mult(
+                        box FlatExpression::Sub(
+                            box FlatExpression::Number(T::one()),
+                            box condition_id.into(),
+                        ),
+                        box alternative_id.into(),
+                    ),
+                ));
+                let res = self.use_sym();
+                statements_flattened.push(FlatStatement::Definition(
+                    res,
+                    FlatExpression::Add(box term0.into(), box term1.into()),
+                ));
+                res.into()
+            }
             FieldElementExpression::FunctionCall(id, param_expressions) => {
                 let exprs_flattened = self.flatten_function_call(
                     symbols,

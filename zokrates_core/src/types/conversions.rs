@@ -107,89 +107,10 @@ pub fn split<T: Field>() -> FlatFunction<T> {
     }
 }
 
-pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
-    let mut counter = 0;
-
-    let mut layout = HashMap::new();
-
-    let arguments = (0..from.get_primitive_count())
-        .enumerate()
-        .map(|(index, _)| FlatParameter {
-            id: FlatVariable::new(index),
-            private: true,
-        })
-        .collect();
-
-    let binding_inputs: Vec<_> = (0..from.get_primitive_count())
-        .map(|index| use_variable(&mut layout, format!("i{}", index), &mut counter))
-        .collect();
-    let binding_outputs: Vec<FlatVariable> = (0..to.get_primitive_count())
-        .map(|index| use_variable(&mut layout, format!("o{}", index), &mut counter))
-        .collect();
-
-    let outputs = binding_outputs
-        .iter()
-        .map(|o| FlatExpression::Identifier(o.clone()))
-        .collect();
-
-    let bindings: Vec<_> = match (from, to) {
-        (Type::Boolean, Type::FieldElement) => binding_outputs
-            .into_iter()
-            .zip(binding_inputs.into_iter())
-            .map(|(o, i)| FlatStatement::Definition(o, i.into()))
-            .collect(),
-        _ => panic!(format!("can't cast {} to {}", from, to)),
-    };
-
-    let signature = Signature {
-        inputs: vec![from.clone()],
-        outputs: vec![to.clone()],
-    };
-
-    let statements = bindings
-        .into_iter()
-        .chain(std::iter::once(FlatStatement::Return(FlatExpressionList {
-            expressions: outputs,
-        })))
-        .collect();
-
-    FlatFunction {
-        arguments,
-        statements,
-        signature,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use zokrates_field::field::FieldPrime;
-
-    #[cfg(test)]
-    mod cast {
-        use super::*;
-
-        #[test]
-        fn bool_to_field() {
-            let b2f: FlatFunction<FieldPrime> = cast(&Type::Boolean, &Type::FieldElement);
-            assert_eq!(
-                b2f.arguments,
-                vec![FlatParameter::private(FlatVariable::new(0))]
-            );
-            assert_eq!(b2f.statements.len(), 2); // 1 definition, 1 return
-            assert_eq!(
-                b2f.statements[0],
-                FlatStatement::Definition(FlatVariable::new(1), FlatVariable::new(0).into())
-            );
-            assert_eq!(
-                b2f.statements[1],
-                FlatStatement::Return(FlatExpressionList {
-                    expressions: vec![FlatExpression::Identifier(FlatVariable::new(1))]
-                })
-            );
-            assert_eq!(b2f.signature.outputs.len(), 1);
-        }
-    }
 
     #[cfg(test)]
     mod split {
