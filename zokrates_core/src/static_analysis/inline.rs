@@ -132,7 +132,12 @@ impl<'ast, T: Field> Inliner<'ast, T> {
             // if the function called is in some other module, we switch context to that module and call the function locally there
             TypedFunctionSymbol::There(function_key, module_id) => {
                 let current_module = self.change_module(module_id);
-                let res = self.try_inline_call(&function_key, expressions)?;
+                let res = self
+                    .try_inline_call(&function_key, expressions)
+                    .expect(&format!(
+                        "inlining external symbols should always succeed, failed for {:?}",
+                        function_key
+                    ));
                 self.change_module(current_module);
                 Ok(res)
             }
@@ -366,12 +371,76 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use std::collections::HashMap;
-//     use types::{FunctionKey, Signature, Type};
-//     use zokrates_field::field::FieldPrime;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use flat_absy::*;
+    use std::collections::HashMap;
+    use types::{FunctionKey, Signature, Type};
+    use zokrates_field::field::FieldPrime;
+
+    #[test]
+    #[should_panic]
+    fn non_resolved_flat_call() {
+        let main = TypedModule {
+            functions: vec![
+                (
+                    FunctionKey::with_id("foo")
+                        .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                    TypedFunctionSymbol::There(
+                        FunctionKey::with_id("myflatfun")
+                            .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                        String::from("other"),
+                    ),
+                ),
+                (
+                    FunctionKey::with_id("main")
+                        .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                    TypedFunctionSymbol::Here(TypedFunction {
+                        signature: Signature::new().outputs(vec![Type::FieldElement]),
+                        arguments: vec![],
+                        statements: vec![TypedStatement::Return(vec![
+                            FieldElementExpression::FunctionCall(
+                                FunctionKey::with_id("foo")
+                                    .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                                vec![],
+                            )
+                            .into(),
+                        ])],
+                    }),
+                ),
+            ]
+            .into_iter()
+            .collect(),
+            imports: vec![],
+        };
+        let other = TypedModule {
+            functions: vec![(
+                FunctionKey::with_id("myflatfun")
+                    .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                TypedFunctionSymbol::Flat(FlatFunction {
+                    arguments: vec![],
+                    signature: Signature::new().outputs(vec![Type::FieldElement]),
+                    statements: vec![FlatStatement::Return(FlatExpressionList {
+                        expressions: vec![FlatExpression::Number(FieldPrime::from(42))],
+                    })],
+                }),
+            )]
+            .into_iter()
+            .collect(),
+            imports: vec![],
+        };
+
+        let prog = TypedProgram {
+            main: String::from("main"),
+            modules: vec![(String::from("main"), main), (String::from("other"), other)]
+                .into_iter()
+                .collect(),
+        };
+
+        let _ = Inliner::inline(prog);
+    }
+}
 
 // <<<<<<< HEAD
 //     #[test]
