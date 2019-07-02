@@ -5,13 +5,11 @@
 //! @date 2018
 
 mod flat_propagation;
-mod flat_resolver;
 mod inline;
 mod power_check;
 mod propagation;
 mod unroll;
 
-use self::flat_resolver::FlatResolver;
 use self::inline::Inliner;
 use self::power_check::PowerChecker;
 use self::propagation::Propagator;
@@ -27,8 +25,6 @@ pub trait Analyse {
 impl<'ast, T: Field> Analyse for TypedProgram<'ast, T> {
     fn analyse(self) -> Self {
         let r = PowerChecker::check(self);
-        // remove chains of imports ending by a flat function
-        let r = FlatResolver::resolve(r);
         // unroll
         let r = Unroller::unroll(r);
         // inline

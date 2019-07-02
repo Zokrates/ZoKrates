@@ -1,0 +1,3 @@
+import "./dep.code" as sha256
+def main() -> (field):
+	return sha256()

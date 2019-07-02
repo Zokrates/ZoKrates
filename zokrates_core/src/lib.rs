@@ -26,13 +26,13 @@ extern crate zokrates_embed;
 extern crate zokrates_field;
 extern crate zokrates_pest_ast;
 
+mod embed;
 mod flatten;
 mod helpers;
 mod imports;
 mod optimizer;
 mod parser;
 mod semantics;
-mod standard;
 mod static_analysis;
 mod typed_absy;
 mod types;

@@ -48,11 +48,11 @@ impl<'ast, T: Field> Inliner<'ast, T> {
 
         let main = inliner.fold_function_symbol(main);
 
-        let split = crate::types::conversions::split();
-        let split_key = FunctionKey::with_id("split").signature(split.signature.clone());
+        let split = crate::embed::FlatEmbed::Unpack;
+        let split_key = split.key::<T>();
 
-        let sha_round = crate::standard::sha_round();
-        let sha_round_key = FunctionKey::with_id("sha256").signature(sha_round.signature.clone());
+        let sha_round = crate::embed::FlatEmbed::Sha256Round;
+        let sha_round_key = sha_round.key::<T>();
 
         TypedProgram {
             main: String::from("main"),
@@ -62,7 +62,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                     functions: vec![
                         (split_key, TypedFunctionSymbol::Flat(split)),
                         (sha_round_key, TypedFunctionSymbol::Flat(sha_round)),
-                        (main_key.clone(), main),
+                        (main_key, main),
                     ]
                     .into_iter()
                     .collect(),
@@ -81,7 +81,8 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         &mut self,
         key: &FunctionKey<'ast>,
         expressions: Vec<TypedExpression<'ast, T>>,
-    ) -> Result<Vec<TypedExpression<'ast, T>>, Vec<TypedExpression<'ast, T>>> {
+    ) -> Result<Vec<TypedExpression<'ast, T>>, (FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>)>
+    {
         // here we clone a function symbol, which is cheap except when it contains the function body, in which case we'd clone anyways
         match self.module().functions.get(&key).unwrap().clone() {
             // if the function called is in the same module, we can go ahead and inline in this module
@@ -142,7 +143,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                 Ok(res)
             }
             // if the function is a flat symbol, there's nothing we can inline at this stage so we return the inputs
-            TypedFunctionSymbol::Flat(_) => Err(expressions),
+            TypedFunctionSymbol::Flat(embed) => Err((embed.key::<T>(), expressions)),
         }
     }
     // =======
@@ -277,7 +278,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                                 TypedStatement::Definition(TypedAssignee::Identifier(v), e)
                             })
                             .collect(),
-                        Err(expressions) => vec![TypedStatement::MultipleDefinition(
+                        Err((key, expressions)) => vec![TypedStatement::MultipleDefinition(
                             variables,
                             TypedExpressionList::FunctionCall(key, expressions, types),
                         )],
@@ -331,7 +332,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         TypedExpression::FieldElement(e) => e,
                         _ => unreachable!(),
                     },
-                    Err(expressions) => FieldElementExpression::FunctionCall(key, expressions),
+                    Err((key, expressions)) => {
+                        FieldElementExpression::FunctionCall(key, expressions)
+                    }
                 }
             }
             e => fold_field_expression(self, e),
@@ -361,7 +364,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         TypedExpression::FieldElementArray(e) => e,
                         _ => unreachable!(),
                     },
-                    Err(expressions) => {
+                    Err((key, expressions)) => {
                         FieldElementArrayExpression::FunctionCall(size, key, expressions)
                     }
                 }
@@ -374,15 +377,14 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use flat_absy::*;
-    use std::collections::HashMap;
     use types::{FunctionKey, Signature, Type};
     use zokrates_field::field::FieldPrime;
 
     #[test]
     #[should_panic]
     fn non_resolved_flat_call() {
-        let main = TypedModule {
+        use embed::FlatEmbed;
+        let main: TypedModule<FieldPrime> = TypedModule {
             functions: vec![
                 (
                     FunctionKey::with_id("foo")
@@ -418,13 +420,7 @@ mod tests {
             functions: vec![(
                 FunctionKey::with_id("myflatfun")
                     .signature(Signature::new().outputs(vec![Type::FieldElement])),
-                TypedFunctionSymbol::Flat(FlatFunction {
-                    arguments: vec![],
-                    signature: Signature::new().outputs(vec![Type::FieldElement]),
-                    statements: vec![FlatStatement::Return(FlatExpressionList {
-                        expressions: vec![FlatExpression::Number(FieldPrime::from(42))],
-                    })],
-                }),
+                TypedFunctionSymbol::Flat(FlatEmbed::Sha256Round),
             )]
             .into_iter()
             .collect(),

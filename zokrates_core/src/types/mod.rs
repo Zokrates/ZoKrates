@@ -3,7 +3,6 @@ use std::fmt;
 
 pub type Identifier<'ast> = &'ast str;
 
-pub mod conversions;
 mod signature;
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

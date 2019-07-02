@@ -9,11 +9,11 @@ pub mod folder;
 mod parameter;
 mod variable;
 
-use crate::flat_absy::*;
 use crate::imports::Import;
 pub use crate::typed_absy::parameter::Parameter;
 pub use crate::typed_absy::variable::Variable;
 use crate::types::{FunctionKey, Signature, Type};
+use embed::FlatEmbed;
 use std::collections::HashMap;
 use std::fmt;
 use zokrates_field::field::Field;
@@ -106,21 +106,22 @@ impl<'ast> Identifier<'ast> {
 pub enum TypedFunctionSymbol<'ast, T: Field> {
     Here(TypedFunction<'ast, T>),
     There(FunctionKey<'ast>, TypedModuleId),
-    Flat(FlatFunction<T>),
+    Flat(FlatEmbed),
 }
 
 impl<'ast, T: Field> TypedFunctionSymbol<'ast, T> {
-    pub fn signature<'a>(&'a self, modules: &'a TypedModules<T>) -> &'a Signature {
+    pub fn signature<'a>(&'a self, modules: &'a TypedModules<T>) -> Signature {
         match self {
-            TypedFunctionSymbol::Here(f) => &f.signature,
+            TypedFunctionSymbol::Here(f) => f.signature.clone(),
             TypedFunctionSymbol::There(key, module_id) => modules
                 .get(module_id)
                 .unwrap()
                 .functions
                 .get(key)
                 .unwrap()
-                .signature(&modules),
-            TypedFunctionSymbol::Flat(flat_fun) => &flat_fun.signature,
+                .signature(&modules)
+                .clone(),
+            TypedFunctionSymbol::Flat(flat_fun) => flat_fun.signature::<T>(),
         }
     }
 }
@@ -146,7 +147,7 @@ impl<'ast, T: Field> fmt::Display for TypedModule<'ast, T> {
                         fun_key.id, module_id, key.id, key.signature
                     ),
                     TypedFunctionSymbol::Flat(ref flat_fun) => {
-                        format!("def {}{}:\n\t// hidden", key.id, flat_fun.signature)
+                        format!("def {}{}:\n\t// hidden", key.id, flat_fun.signature::<T>())
                     }
                 })
                 .collect::<Vec<_>>(),

@@ -7,6 +7,7 @@
 use crate::absy::*;
 use crate::compile::compile_module;
 use crate::compile::{CompileErrorInner, CompileErrors, Resolve};
+use crate::embed::FlatEmbed;
 use crate::parser::Position;
 use std::collections::HashMap;
 use std::fmt;
@@ -128,34 +129,17 @@ impl Importer {
         for import in destination.imports {
             let pos = import.pos();
             let import = import.value;
+            let alias = import.alias;
             // handle the case of special bellman and packing imports
             if import.source.starts_with("BELLMAN") {
                 match import.source.as_ref() {
                     "BELLMAN/sha256round" => {
-                        use crate::standard::sha_round;
-
-                        let compiled = sha_round();
-
-                        let alias = match import.alias {
-                            Some(alias) => {
-                                if alias == "sha256" {
-                                    alias.clone()
-                                } else {
-                                    return Err(CompileErrorInner::from(Error::new(format!(
-                                        "Aliasing gadgets is not supported, found alias {}",
-                                        alias
-                                    )))
-                                    .with_context(&location)
-                                    .into());
-                                }
-                            }
-                            None => "sha256",
-                        };
+                        let alias = alias.unwrap_or("sha256");
 
                         functions.push(
                             FunctionDeclaration {
                                 id: &alias,
-                                symbol: FunctionSymbol::Flat(compiled),
+                                symbol: FunctionSymbol::Flat(FlatEmbed::Sha256Round),
                             }
                             .start_end(pos.0, pos.1),
                         );
@@ -169,31 +153,14 @@ impl Importer {
                     }
                 }
             } else if import.source.starts_with("PACKING") {
-                use crate::types::conversions::split;
-
                 match import.source.as_ref() {
                     "PACKING/split" => {
-                        let compiled = split();
-                        let alias = match import.alias {
-                            Some(alias) => {
-                                if alias == "split" {
-                                    alias.clone()
-                                } else {
-                                    return Err(CompileErrorInner::from(Error::new(format!(
-                                        "Aliasing gadgets is not supported, found alias {}",
-                                        alias
-                                    )))
-                                    .with_context(&location)
-                                    .into());
-                                }
-                            }
-                            None => "split",
-                        };
+                        let alias = alias.unwrap_or("split");
 
                         functions.push(
                             FunctionDeclaration {
                                 id: &alias,
-                                symbol: FunctionSymbol::Flat(compiled),
+                                symbol: FunctionSymbol::Flat(FlatEmbed::Unpack),
                             }
                             .start_end(pos.0, pos.1),
                         );

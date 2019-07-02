@@ -14,8 +14,8 @@ pub use crate::absy::node::{Node, NodeValue};
 pub use crate::absy::parameter::{Parameter, ParameterNode};
 pub use crate::absy::variable::{Variable, VariableNode};
 use crate::types::{FunctionIdentifier, Signature};
+use embed::FlatEmbed;
 
-use crate::flat_absy::*;
 use crate::imports::ImportNode;
 use std::fmt;
 use zokrates_field::field::Field;
@@ -46,9 +46,12 @@ impl<'ast, T: Field> fmt::Display for FunctionDeclaration<'ast, T> {
         match self.symbol {
             FunctionSymbol::Here(ref fun) => write!(f, "def {}{}", self.id, fun),
             FunctionSymbol::There(ref import) => write!(f, "import {} as {}", import, self.id),
-            FunctionSymbol::Flat(ref flat_fun) => {
-                write!(f, "def {}{}:\n\t// hidden", self.id, flat_fun.signature)
-            }
+            FunctionSymbol::Flat(ref flat_fun) => write!(
+                f,
+                "def {}{}:\n\t// hidden",
+                self.id,
+                flat_fun.signature::<T>()
+            ),
         }
     }
 }
@@ -66,7 +69,7 @@ pub struct Module<'ast, T: Field> {
 pub enum FunctionSymbol<'ast, T: Field> {
     Here(FunctionNode<'ast, T>),
     There(FunctionImportNode<'ast>),
-    Flat(FlatFunction<T>),
+    Flat(FlatEmbed),
 }
 
 #[derive(Debug, Clone, PartialEq)]
