@@ -1,8 +1,8 @@
-import "PACKING/split" as split
+import "EMBED/unpack" as unpack
 
 def main(field i) -> (field[128]):
 
-    field[254] b = split(i)
+    field[254] b = unpack(i)
 
     for field i in 0..126 do
     	b[i] == 0

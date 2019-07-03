@@ -131,10 +131,10 @@ impl Importer {
             let import = import.value;
             let alias = import.alias;
             // handle the case of special bellman and packing imports
-            if import.source.starts_with("BELLMAN") {
+            if import.source.starts_with("EMBED") {
                 match import.source.as_ref() {
-                    "BELLMAN/sha256round" => {
-                        let alias = alias.unwrap_or("sha256");
+                    "EMBED/sha256round" => {
+                        let alias = alias.unwrap_or("sha256round");
 
                         functions.push(
                             FunctionDeclaration {
@@ -144,18 +144,8 @@ impl Importer {
                             .start_end(pos.0, pos.1),
                         );
                     }
-                    s => {
-                        return Err(CompileErrorInner::ImportError(
-                            Error::new(format!("Gadget {} not found", s)).with_pos(Some(pos)),
-                        )
-                        .with_context(&location)
-                        .into());
-                    }
-                }
-            } else if import.source.starts_with("PACKING") {
-                match import.source.as_ref() {
-                    "PACKING/split" => {
-                        let alias = alias.unwrap_or("split");
+                    "EMBED/unpack" => {
+                        let alias = alias.unwrap_or("unpack");
 
                         functions.push(
                             FunctionDeclaration {
@@ -167,8 +157,7 @@ impl Importer {
                     }
                     s => {
                         return Err(CompileErrorInner::ImportError(
-                            Error::new(format!("Packing helper {} not found", s))
-                                .with_pos(Some(pos)),
+                            Error::new(format!("Embed {} not found. Options are \"EMBED/sha256round\", \"EMBED/unpack\"", s)).with_pos(Some(pos)),
                         )
                         .with_context(&location)
                         .into());

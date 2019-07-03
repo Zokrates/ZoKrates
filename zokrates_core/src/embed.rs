@@ -1,11 +1,11 @@
-use crate::flat_absy::{FlatExpression, FlatExpressionList, FlatFunction, FlatStatement};
-use crate::flat_absy::{FlatParameter, FlatVariable};
 use crate::helpers::{DirectiveStatement, Helper, RustHelper};
-use crate::types::{Signature, Type};
 use bellman::pairing::ff::ScalarEngine;
+use flat_absy::{
+    FlatExpression, FlatExpressionList, FlatFunction, FlatParameter, FlatStatement, FlatVariable,
+};
 use reduce::Reduce;
 use std::collections::HashMap;
-use types::FunctionKey;
+use types::{FunctionKey, Signature, Type};
 use zokrates_embed::{generate_sha256_round_constraints, BellmanConstraint};
 use zokrates_field::field::Field;
 
@@ -43,8 +43,8 @@ impl FlatEmbed {
 
     pub fn synthetize<T: Field>(&self) -> FlatFunction<T> {
         match self {
-            FlatEmbed::Sha256Round => sha_round(),
-            FlatEmbed::Unpack => split(),
+            FlatEmbed::Sha256Round => sha256_round(),
+            FlatEmbed::Unpack => unpack(),
         }
     }
 }
@@ -88,7 +88,7 @@ impl<T: Field> From<BellmanConstraint<T::BellmanEngine>> for FlatStatement<T> {
 /// The variables inside the function are set in this order:
 /// - constraint system variables
 /// - arguments
-pub fn sha_round<T: Field>() -> FlatFunction<T> {
+pub fn sha256_round<T: Field>() -> FlatFunction<T> {
     // Define iterators for all indices at hand
     let (r1cs, input_indices, current_hash_indices, output_indices) =
         generate_sha256_round_constraints::<T::BellmanEngine>();
@@ -199,7 +199,7 @@ fn use_variable(
     var
 }
 
-pub fn split<T: Field>() -> FlatFunction<T> {
+pub fn unpack<T: Field>() -> FlatFunction<T> {
     let nbits = T::get_required_bits();
 
     let mut counter = 0;
@@ -299,7 +299,7 @@ mod tests {
 
         #[test]
         fn split254() {
-            let unpack: FlatFunction<FieldPrime> = split();
+            let unpack: FlatFunction<FieldPrime> = unpack();
 
             assert_eq!(
                 unpack.arguments,
@@ -336,7 +336,7 @@ mod tests {
 
         #[test]
         fn generate_sha256_constraints() {
-            let compiled = sha_round();
+            let compiled = sha256_round();
 
             // function should have a signature of 768 inputs and 256 outputs
             assert_eq!(
