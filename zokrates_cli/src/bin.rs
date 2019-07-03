@@ -232,10 +232,11 @@ fn cli() -> Result<(), String> {
             .short("a")
             .long("abiversion")
             .value_name("ABIVERSION")
-            .help("ABI version of contract. Will print proof in remix compatible format [v1, v2]")
+            .help("ABI version of contract. Will print proof in remix compatible format [v1 (default), v2]")
             .takes_value(true)
             .possible_values(&["v1", "v2"])
-            .required(true)
+            .required(false)
+            .default_value("v1")
         )
     )
     .get_matches();
