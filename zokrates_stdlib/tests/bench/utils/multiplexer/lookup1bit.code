@@ -1,0 +1,24 @@
+import "utils/multiplexer/lookup1bit.code" as lookup 
+
+def left() -> (field):
+	field sel = 0  //left
+	field[2] t  = [0, 1]
+	
+	0 == lookup(sel, t)
+	
+	return 1 
+	
+def right() -> (field):
+	field sel = 1  //right
+	field[2] t = [0, 1]
+	
+	1 == lookup(sel, t)
+	
+	return 1 
+	
+def main() -> (field):
+
+	1 == left()
+	1 == right()
+
+	return 1

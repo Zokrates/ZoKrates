@@ -3,13 +3,13 @@
 //! @file compile.rs
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
-use crate::absy::{Module, ModuleId, Program};
-use crate::flatten::Flattener;
-use crate::imports::{self, Importer};
-use crate::ir;
-use crate::optimizer::Optimize;
-use crate::semantics::{self, Checker};
-use crate::static_analysis::Analyse;
+use absy::{Module, ModuleId, Program};
+use flatten::Flattener;
+use imports::{self, Importer};
+use ir;
+use optimizer::Optimize;
+use semantics::{self, Checker};
+use static_analysis::Analyse;
 use std::collections::HashMap;
 use std::fmt;
 use std::io;

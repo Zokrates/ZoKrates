@@ -11,7 +11,7 @@ def left() -> (field):
 	return 1 
 	
 def right() -> (field):
-	field bit = 1  //left
+	field bit = 1  //right
 	field[2] a  = [0, 1]
 	field[2] b = [1, 0]
 	

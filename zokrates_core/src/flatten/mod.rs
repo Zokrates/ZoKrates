@@ -1209,14 +1209,14 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             .collect()
     }
 
-    fn issue_new_variables(&mut self, count: usize) -> Vec<FlatVariable> {
-        (0..count).map(|_| self.issue_new_variable()).collect()
-    }
-
     fn issue_new_variable(&mut self) -> FlatVariable {
         let var = FlatVariable::new(self.next_var_idx);
         self.next_var_idx += 1;
         var
+    }
+
+    fn issue_new_variables(&mut self, count: usize) -> Vec<FlatVariable> {
+        (0..count).map(|_| self.issue_new_variable()).collect()
     }
 
     fn boolean_constraint(variables: &Vec<FlatVariable>) -> Vec<FlatStatement<T>> {
@@ -1409,72 +1409,6 @@ mod tests {
             },
         };
         assert_eq!(flat_prog, expected);
-    }
-
-    #[test]
-    fn overload() {
-        //         // def foo()
-        //         //      return 1
-        //         // def foo()
-        //         //      return 1, 2
-        //         // def main()
-        //         //      a = foo()
-        //         //      b, c = foo()
-        //         //      return 1
-        //         //
-        //         //      should not panic
-        //         //
-
-        //         let mut flattener = Flattener::new();
-        //         let functions = vec![
-        //             TypedFunction {
-        //                 id: "foo",
-        //                 arguments: vec![],
-        //                 statements: vec![TypedStatement::Return(vec![TypedExpression::FieldElement(
-        //                     FieldElementExpression::Number(FieldPrime::from(1)),
-        //                 )])],
-        //                 signature: Signature::new()
-        //                     .inputs(vec![])
-        //                     .outputs(vec![Type::FieldElement]),
-        //             },
-        //             TypedFunction {
-        //                 id: "foo",
-        //                 arguments: vec![],
-        //                 statements: vec![TypedStatement::Return(vec![
-        //                     TypedExpression::FieldElement(FieldElementExpression::Number(
-        //                         FieldPrime::from(1),
-        //                     )),
-        //                     TypedExpression::FieldElement(FieldElementExpression::Number(
-        //                         FieldPrime::from(2),
-        //                     )),
-        //                 ])],
-        //                 signature: Signature::new()
-        //                     .inputs(vec![])
-        //                     .outputs(vec![Type::FieldElement, Type::FieldElement]),
-        //             },
-        //             TypedFunction {
-        //                 id: "main",
-        //                 arguments: vec![],
-        //                 statements: vec![
-        //                     TypedStatement::Definition(
-        //                         TypedAssignee::Identifier(Variable::field_element("a".into())),
-        //                         TypedExpression::FieldElement(FieldElementExpression::FunctionCall(
-        //                             "foo".to_string(),
-        //                             vec![],
-        //                         )),
-        //                     ),
-        //                     TypedStatement::MultipleDefinition(
-        //                         vec![
-        //                             Variable::field_element("b".into()),
-        //                             Variable::field_element("c".into()),
-        //                         ],
-        //                         TypedExpressionList::FunctionCall(
-        //                             "foo".to_string(),
-        //                             vec![],
-        //                             vec![Type::FieldElement, Type::FieldElement],
-        // >>>>>>> 14a579f21ffab83a3d2ba94703077da8ae8fe244
-
-        //         assert_eq!(flat_prog, expected);
     }
 
     #[test]

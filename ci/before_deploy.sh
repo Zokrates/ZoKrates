@@ -15,13 +15,22 @@ main() {
             ;;
     esac
 
+    case $TARGET in
+        x86_64-pc-windows-gnu)
+            BINARY_NAME=zokrates.exe
+            ;;
+        *)
+            BINARY_NAME=zokrates
+            ;;
+    esac
+
     test -f Cargo.lock || cargo generate-lockfile
 
     cross build --bin zokrates --target $TARGET --release
 
     # Package artifacts
     # Binary
-    cp target/$TARGET/release/zokrates $stage/
+    cp target/$TARGET/release/$BINARY_NAME $stage/
     # Standard library
     cp -r zokrates_stdlib/stdlib $stage
 

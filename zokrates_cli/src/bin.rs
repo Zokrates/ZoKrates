@@ -6,22 +6,35 @@
 
 use bincode::{deserialize_from, serialize_into, Infinite};
 use clap::{App, AppSettings, Arg, SubCommand};
-use std::env;
+use serde_json::Value;
 use std::fs::File;
 use std::io::{stdin, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::string::String;
+use std::{env, io};
 use zokrates_core::compile::compile;
 use zokrates_core::ir;
 use zokrates_core::proof_system::*;
 use zokrates_field::field::{Field, FieldPrime};
 use zokrates_fs_resolver::resolve as fs_resolve;
+use zokrates_github_resolver::{is_github_import, resolve as github_resolve};
 
 fn main() {
     cli().unwrap_or_else(|e| {
         println!("{}", e);
         std::process::exit(1);
     })
+}
+
+fn resolve_fs_or_github<'a>(
+    location: Option<String>,
+    source: &'a str,
+) -> Result<(BufReader<File>, String, &'a str), io::Error> {
+    if is_github_import(source) {
+        github_resolve(location, source)
+    } else {
+        fs_resolve(location, source)
+    }
 }
 
 fn cli() -> Result<(), String> {
@@ -99,6 +112,10 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(&default_scheme)
+        ).arg(Arg::with_name("light")
+            .long("light")
+            .help("Skip logs and human readable output")
+            .required(false)
         )
     )
     .subcommand(SubCommand::with_name("export-verifier")
@@ -155,6 +172,10 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .multiple(true) // allows multiple values
             .required(false)
+        ).arg(Arg::with_name("light")
+            .long("light")
+            .help("Skip logs and human readable output")
+            .required(false)
         )
     )
     .subcommand(SubCommand::with_name("generate-proof")
@@ -201,6 +222,26 @@ fn cli() -> Result<(), String> {
             .default_value(&default_scheme)
         )
     )
+     .subcommand(SubCommand::with_name("print-proof")
+        .about("Prints proof in chosen format [remix, json]")
+        .arg(Arg::with_name("proofpath")
+            .short("j")
+            .long("proofpath")
+            .help("Path of the JSON proof file")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(JSON_PROOF_PATH)
+        ).arg(Arg::with_name("format")
+            .short("f")
+            .long("format")
+            .value_name("FORMAT")
+            .help("Format in which the proof should be printed. [remix, json]")
+            .takes_value(true)
+            .possible_values(&["remix", "json", "testingV1", "testingV2"])
+            .required(true)
+        )
+    )
     .get_matches();
 
     match matches.subcommand() {
@@ -228,7 +269,7 @@ fn cli() -> Result<(), String> {
             let mut reader = BufReader::new(file);
 
             let program_flattened: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(fs_resolve))
+                compile(&mut reader, Some(location), Some(resolve_fs_or_github))
                     .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
 
             // number of constraints the flattened program will translate to.
@@ -271,7 +312,7 @@ fn cli() -> Result<(), String> {
             println!("Number of constraints: {}", num_constraints);
         }
         ("compute-witness", Some(sub_matches)) => {
-            println!("Computing witness for:");
+            println!("Computing witness...");
 
             // read compiled program
             let path = Path::new(sub_matches.value_of("input").unwrap());
@@ -284,7 +325,9 @@ fn cli() -> Result<(), String> {
                 deserialize_from(&mut reader, Infinite).map_err(|why| why.to_string())?;
 
             // print deserialized flattened program
-            println!("{}", program_ast);
+            if !sub_matches.is_present("light") {
+                println!("{}", program_ast);
+            }
 
             let expected_cli_args_count =
                 program_ast.public_arguments_count() + program_ast.private_arguments_count();
@@ -359,7 +402,9 @@ fn cli() -> Result<(), String> {
                 deserialize_from(&mut reader, Infinite).map_err(|why| format!("{:?}", why))?;
 
             // print deserialized flattened program
-            println!("{}", program);
+            if !sub_matches.is_present("light") {
+                println!("{}", program);
+            }
 
             // get paths for proving and verification keys
             let pk_path = sub_matches.value_of("proving-key-path").unwrap();
@@ -427,6 +472,57 @@ fn cli() -> Result<(), String> {
                 scheme.generate_proof(program, witness, pk_path, proof_path)
             );
         }
+        ("print-proof", Some(sub_matches)) => {
+            let format = sub_matches.value_of("format").unwrap();
+
+            let path = Path::new(sub_matches.value_of("proofpath").unwrap());
+
+            let file = File::open(&path)
+                .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
+
+            let proof_object: Value =
+                serde_json::from_reader(file).map_err(|why| format!("{:?}", why))?;
+
+            match format {
+                "json" => {
+                    println!("~~~~~~~~ Copy the output below for valid ABIv2 format ~~~~~~~~");
+                    println!();
+                    print!("{}", proof_object["proof"]);
+                    print!(",");
+                    println!("{}", proof_object["inputs"]);
+                    println!();
+                    println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+                }
+                "remix" => {
+                    println!("~~~~~~~~ Copy the output below for valid ABIv1 format ~~~~~~~~");
+                    println!();
+
+                    for (_, value) in proof_object["proof"].as_object().unwrap().iter() {
+                        print!("{}", value);
+                        print!(",");
+                    }
+
+                    println!("{}", proof_object["inputs"]);
+                    println!();
+                    println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+                }
+                "testingV1" => {
+                    //used by testing pipeline to generate arguments for contract call
+                    for (_, value) in proof_object["proof"].as_object().unwrap().iter() {
+                        print!("{}", value);
+                        print!(",");
+                    }
+                    println!("{}", proof_object["inputs"]);
+                }
+                "testingV2" => {
+                    //used by testing pipeline to generate arguments for contract call
+                    print!("{}", proof_object["proof"]);
+                    print!(",");
+                    println!("{}", proof_object["inputs"]);
+                }
+                _ => unreachable!(),
+            }
+        }
         _ => unreachable!(),
     }
     Ok(())
@@ -475,7 +571,7 @@ mod tests {
                 .unwrap();
 
             let _: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
+                compile(&mut reader, Some(location), Some(resolve_fs_or_github)).unwrap();
         }
     }
 
@@ -502,7 +598,7 @@ mod tests {
             let mut reader = BufReader::new(file);
 
             let program_flattened: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
+                compile(&mut reader, Some(location), Some(resolve_fs_or_github)).unwrap();
 
             let _ = program_flattened
                 .execute(&vec![FieldPrime::from(0)])
@@ -534,7 +630,7 @@ mod tests {
             let mut reader = BufReader::new(file);
 
             let program_flattened: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
+                compile(&mut reader, Some(location), Some(resolve_fs_or_github)).unwrap();
 
             let _ = program_flattened
                 .execute(&vec![FieldPrime::from(0)])

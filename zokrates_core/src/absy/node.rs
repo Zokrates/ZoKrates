@@ -81,6 +81,8 @@ impl<'ast> NodeValue for FunctionImport<'ast> {}
 impl<'ast> NodeValue for Variable<'ast> {}
 impl<'ast> NodeValue for Parameter<'ast> {}
 impl<'ast> NodeValue for Import<'ast> {}
+impl<'ast, T: Field> NodeValue for Spread<'ast, T> {}
+impl<T: Field> NodeValue for Range<T> {}
 
 impl<T: NodeValue> std::cmp::PartialEq for Node<T> {
     fn eq(&self, other: &Node<T>) -> bool {
