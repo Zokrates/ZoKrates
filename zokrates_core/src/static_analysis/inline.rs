@@ -23,11 +23,11 @@ use zokrates_field::field::Field;
 
 #[derive(Debug)]
 pub struct Inliner<'ast, T: Field> {
-    modules: TypedModules<'ast, T>,                            // the modules to look for functions in when inlining
-    module_id: TypedModuleId,                                  // the current module we're visiting
-    statement_buffer: Vec<TypedStatement<'ast, T>>,            // a buffer of statements to be added to the inlined statements
-    stack: Vec<(String, FunctionKey<'ast>, usize)>,          // the current call stack
-    call_count: HashMap<(String, FunctionKey<'ast>), usize>,   // the call count for each function
+    modules: TypedModules<'ast, T>, // the modules to look for functions in when inlining
+    module_id: TypedModuleId,       // the current module we're visiting
+    statement_buffer: Vec<TypedStatement<'ast, T>>, // a buffer of statements to be added to the inlined statements
+    stack: Vec<(String, FunctionKey<'ast>, usize)>, // the current call stack
+    call_count: HashMap<(String, FunctionKey<'ast>), usize>, // the call count for each function
 }
 
 impl<'ast, T: Field> Inliner<'ast, T> {
@@ -58,10 +58,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
             .unwrap();
 
         // initialize an inliner over all modules, starting from the main module
-        let mut inliner = Inliner::with_modules_and_module_id(
-            p.modules,
-            main_module_id,
-        );
+        let mut inliner = Inliner::with_modules_and_module_id(p.modules, main_module_id);
 
         // inline all calls in the main function, recursively
         let main = inliner.fold_function_symbol(main);
