@@ -100,6 +100,11 @@ impl<'ast> Identifier<'ast> {
         self.version = version;
         self
     }
+
+    pub fn stack(mut self, stack: Vec<(TypedModuleId, FunctionKey<'ast>, usize)>) -> Self {
+        self.stack = stack;
+        self
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

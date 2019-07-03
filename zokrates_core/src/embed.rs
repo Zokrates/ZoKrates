@@ -36,7 +36,7 @@ impl FlatEmbed {
 
     pub fn id(&self) -> &'static str {
         match self {
-            FlatEmbed::Sha256Round => "_SHA_256_ROUND",
+            FlatEmbed::Sha256Round => "_SHA256_ROUND",
             FlatEmbed::Unpack => "_UNPACK",
         }
     }

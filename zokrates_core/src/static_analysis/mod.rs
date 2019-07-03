@@ -5,12 +5,12 @@
 //! @date 2018
 
 mod flat_propagation;
-mod inline;
+// mod inline;
 mod power_check;
 mod propagation;
 mod unroll;
 
-use self::inline::Inliner;
+// use self::inline::Inliner;
 use self::power_check::PowerChecker;
 use self::propagation::Propagator;
 use self::unroll::Unroller;
@@ -28,7 +28,7 @@ impl<'ast, T: Field> Analyse for TypedProgram<'ast, T> {
         // unroll
         let r = Unroller::unroll(r);
         // inline
-        let r = Inliner::inline(r);
+        // let r = Inliner::inline(r);
         // propagate
         let r = Propagator::propagate(r);
         r
