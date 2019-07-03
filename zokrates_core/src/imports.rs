@@ -6,12 +6,14 @@
 
 use crate::absy::*;
 use crate::compile::compile_module;
-use crate::compile::{CompileErrorInner, CompileErrors};
+use crate::compile::{CompileErrorInner, CompileErrors, Resolve};
+use crate::embed::FlatEmbed;
 use crate::parser::Position;
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
 use std::io::BufRead;
+use typed_arena::Arena;
 use zokrates_field::field::Field;
 
 #[derive(PartialEq, Debug)]
@@ -52,39 +54,44 @@ impl From<io::Error> for Error {
     }
 }
 
-#[derive(PartialEq, Clone, Serialize, Deserialize)]
-pub struct Import {
-    source: String,
-    alias: Option<String>,
+#[derive(PartialEq, Clone)]
+pub struct Import<'ast> {
+    source: Identifier<'ast>,
+    alias: Option<Identifier<'ast>>,
 }
 
-pub type ImportNode = Node<Import>;
+pub type ImportNode<'ast> = Node<Import<'ast>>;
 
-impl Import {
-    pub fn new(source: String) -> Import {
+impl<'ast> Import<'ast> {
+    pub fn new(source: Identifier<'ast>) -> Import<'ast> {
         Import {
             source: source,
             alias: None,
         }
     }
 
-    pub fn get_alias(&self) -> &Option<String> {
+    pub fn get_alias(&self) -> &Option<Identifier<'ast>> {
         &self.alias
     }
 
-    pub fn new_with_alias(source: String, alias: &String) -> Import {
+    pub fn new_with_alias(source: Identifier<'ast>, alias: Identifier<'ast>) -> Import<'ast> {
         Import {
             source: source,
-            alias: Some(alias.clone()),
+            alias: Some(alias),
         }
     }
 
-    pub fn get_source(&self) -> &String {
+    pub fn alias(mut self, alias: Option<Identifier<'ast>>) -> Self {
+        self.alias = alias;
+        self
+    }
+
+    pub fn get_source(&self) -> &Identifier<'ast> {
         &self.source
     }
 }
 
-impl fmt::Display for Import {
+impl<'ast> fmt::Display for Import<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.alias {
             Some(ref alias) => write!(f, "import {} as {}", self.source, alias),
@@ -93,7 +100,7 @@ impl fmt::Display for Import {
     }
 }
 
-impl fmt::Debug for Import {
+impl<'ast> fmt::Debug for Import<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.alias {
             Some(ref alias) => write!(f, "import(source: {}, alias: {})", self.source, alias),
@@ -109,93 +116,48 @@ impl Importer {
         Importer {}
     }
 
-    // Based on Imports of a program, populate `functions` for external imports and `flat_functions` for flat imports
-    pub fn apply_imports<T: Field, S: BufRead, E: Into<Error>>(
+    pub fn apply_imports<'ast, T: Field, S: BufRead, E: Into<Error>>(
         &self,
-        destination: Module<T>,
+        destination: Module<'ast, T>,
         location: Option<String>,
-        resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
-        modules: &mut HashMap<ModuleId, Module<T>>,
-    ) -> Result<Module<T>, CompileErrors<T>> {
-        let mut functions = vec![]; // functions, base case to import from other modules
+        resolve_option: Option<Resolve<S, E>>,
+        modules: &mut HashMap<ModuleId, Module<'ast, T>>,
+        arena: &'ast Arena<String>,
+    ) -> Result<Module<'ast, T>, CompileErrors> {
+        let mut functions: Vec<_> = vec![];
 
-        for import in destination.imports.iter() {
+        for import in destination.imports {
             let pos = import.pos();
-            let import = &import.value;
+            let import = import.value;
+            let alias = import.alias;
             // handle the case of special bellman and packing imports
-            if import.source.starts_with("BELLMAN") {
+            if import.source.starts_with("EMBED") {
                 match import.source.as_ref() {
-                    "BELLMAN/sha256round" => {
-                        use crate::standard::sha_round;
-
-                        let compiled = sha_round();
-
-                        let alias = match import.alias {
-                            Some(ref alias) => {
-                                if alias == "sha256" {
-                                    alias.clone()
-                                } else {
-                                    return Err(CompileErrorInner::from(Error::new(format!(
-                                        "Aliasing gadgets is not supported, found alias {}",
-                                        alias
-                                    )))
-                                    .with_context(&location)
-                                    .into());
-                                }
-                            }
-                            None => String::from("sha256"),
-                        };
+                    "EMBED/sha256round" => {
+                        let alias = alias.unwrap_or("sha256round");
 
                         functions.push(
                             FunctionDeclaration {
-                                id: alias.clone(),
-                                symbol: FunctionSymbol::Flat(compiled),
+                                id: &alias,
+                                symbol: FunctionSymbol::Flat(FlatEmbed::Sha256Round),
+                            }
+                            .start_end(pos.0, pos.1),
+                        );
+                    }
+                    "EMBED/unpack" => {
+                        let alias = alias.unwrap_or("unpack");
+
+                        functions.push(
+                            FunctionDeclaration {
+                                id: &alias,
+                                symbol: FunctionSymbol::Flat(FlatEmbed::Unpack),
                             }
                             .start_end(pos.0, pos.1),
                         );
                     }
                     s => {
                         return Err(CompileErrorInner::ImportError(
-                            Error::new(format!("Gadget {} not found", s)).with_pos(Some(pos)),
-                        )
-                        .with_context(&location)
-                        .into());
-                    }
-                }
-            } else if import.source.starts_with("PACKING") {
-                use crate::types::conversions::split;
-
-                match import.source.as_ref() {
-                    "PACKING/split" => {
-                        let compiled = split();
-                        let alias = match import.alias {
-                            Some(ref alias) => {
-                                if alias == "split" {
-                                    alias.clone()
-                                } else {
-                                    return Err(CompileErrorInner::from(Error::new(format!(
-                                        "Aliasing gadgets is not supported, found alias {}",
-                                        alias
-                                    )))
-                                    .with_context(&location)
-                                    .into());
-                                }
-                            }
-                            None => String::from("split"),
-                        };
-
-                        functions.push(
-                            FunctionDeclaration {
-                                id: alias.clone(),
-                                symbol: FunctionSymbol::Flat(compiled),
-                            }
-                            .start_end(pos.0, pos.1),
-                        );
-                    }
-                    s => {
-                        return Err(CompileErrorInner::ImportError(
-                            Error::new(format!("Packing helper {} not found", s))
-                                .with_pos(Some(pos)),
+                            Error::new(format!("Embed {} not found. Options are \"EMBED/sha256round\", \"EMBED/unpack\"", s)).with_pos(Some(pos)),
                         )
                         .with_context(&location)
                         .into());
@@ -204,22 +166,28 @@ impl Importer {
             } else {
                 // to resolve imports, we need a resolver
                 match resolve_option {
-                    Some(resolve) => match resolve(&location, &import.source) {
-                        Ok((mut reader, location, auto_alias)) => {
+                    Some(resolve) => match resolve(location.clone(), &import.source) {
+                        Ok((mut reader, location, alias)) => {
+                            let mut source = String::new();
+                            reader.read_to_string(&mut source).unwrap();
+
+                            let source = arena.alloc(source);
+
                             let compiled = compile_module(
-                                &mut reader,
+                                source,
                                 Some(location),
                                 resolve_option,
                                 modules,
+                                &arena,
                             )
-                            .map_err(|e| e.with_context(Some(import.source.clone())))?;
-                            let alias = import.alias.clone().unwrap_or(auto_alias);
+                            .map_err(|e| e.with_context(Some(import.source.to_string())))?;
+                            let alias = import.alias.clone().unwrap_or(alias);
 
-                            modules.insert(import.source.clone(), compiled);
+                            modules.insert(import.source.to_string(), compiled);
 
                             functions.push(
                                 FunctionDeclaration {
-                                    id: alias.clone(),
+                                    id: &alias,
                                     symbol: FunctionSymbol::There(
                                         FunctionImport::with_id_in_module(
                                             "main",
@@ -267,9 +235,9 @@ mod tests {
     #[test]
     fn create_with_no_alias() {
         assert_eq!(
-            Import::new("./foo/bar/baz.code".to_string()),
+            Import::new("./foo/bar/baz.code"),
             Import {
-                source: String::from("./foo/bar/baz.code"),
+                source: "./foo/bar/baz.code",
                 alias: None,
             }
         );
@@ -278,10 +246,10 @@ mod tests {
     #[test]
     fn create_with_alias() {
         assert_eq!(
-            Import::new_with_alias("./foo/bar/baz.code".to_string(), &"myalias".to_string()),
+            Import::new_with_alias("./foo/bar/baz.code", &"myalias"),
             Import {
-                source: String::from("./foo/bar/baz.code"),
-                alias: Some("myalias".to_string()),
+                source: "./foo/bar/baz.code",
+                alias: Some("myalias"),
             }
         );
     }

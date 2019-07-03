@@ -9,29 +9,29 @@ use crate::typed_absy::*;
 use std::collections::HashMap;
 use zokrates_field::field::Field;
 
-pub struct Propagator<T: Field> {
-    constants: HashMap<TypedAssignee<T>, TypedExpression<T>>,
+pub struct Propagator<'ast, T: Field> {
+    constants: HashMap<TypedAssignee<'ast, T>, TypedExpression<'ast, T>>,
 }
 
-impl<T: Field> Propagator<T> {
+impl<'ast, T: Field> Propagator<'ast, T> {
     fn new() -> Self {
         Propagator {
             constants: HashMap::new(),
         }
     }
 
-    pub fn propagate(p: TypedProgram<T>) -> TypedProgram<T> {
+    pub fn propagate(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
         Propagator::new().fold_program(p)
     }
 }
 
-impl<T: Field> Folder<T> for Propagator<T> {
-    fn fold_function(&mut self, f: TypedFunction<T>) -> TypedFunction<T> {
+impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
+    fn fold_function(&mut self, f: TypedFunction<'ast, T>) -> TypedFunction<'ast, T> {
         self.constants = HashMap::new();
         fold_function(self, f)
     }
 
-    fn fold_statement(&mut self, s: TypedStatement<T>) -> Vec<TypedStatement<T>> {
+    fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
         let res = match s {
 			TypedStatement::Declaration(v) => Some(TypedStatement::Declaration(v)),
 			TypedStatement::Return(expressions) => Some(TypedStatement::Return(expressions.into_iter().map(|e| self.fold_expression(e)).collect())),
@@ -116,7 +116,10 @@ impl<T: Field> Folder<T> for Propagator<T> {
         }
     }
 
-    fn fold_field_expression(&mut self, e: FieldElementExpression<T>) -> FieldElementExpression<T> {
+    fn fold_field_expression(
+        &mut self,
+        e: FieldElementExpression<'ast, T>,
+    ) -> FieldElementExpression<'ast, T> {
         match e {
             FieldElementExpression::Identifier(id) => {
                 match self
@@ -241,8 +244,8 @@ impl<T: Field> Folder<T> for Propagator<T> {
 
     fn fold_field_array_expression(
         &mut self,
-        e: FieldElementArrayExpression<T>,
-    ) -> FieldElementArrayExpression<T> {
+        e: FieldElementArrayExpression<'ast, T>,
+    ) -> FieldElementArrayExpression<'ast, T> {
         match e {
             FieldElementArrayExpression::Identifier(size, id) => {
                 match self
@@ -262,7 +265,10 @@ impl<T: Field> Folder<T> for Propagator<T> {
         }
     }
 
-    fn fold_boolean_expression(&mut self, e: BooleanExpression<T>) -> BooleanExpression<T> {
+    fn fold_boolean_expression(
+        &mut self,
+        e: BooleanExpression<'ast, T>,
+    ) -> BooleanExpression<'ast, T> {
         match e {
             BooleanExpression::Identifier(id) => match self
                 .constants
@@ -595,9 +601,9 @@ mod tests {
                 // a[1] = 42
                 // // constants should store [21, 42]
 
-                let declaration = TypedStatement::Declaration(Variable::field_array("a", 2));
+                let declaration = TypedStatement::Declaration(Variable::field_array("a".into(), 2));
                 let definition = TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_array("a", 2)),
+                    TypedAssignee::Identifier(Variable::field_array("a".into(), 2)),
                     FieldElementArrayExpression::Value(
                         2,
                         vec![
@@ -609,7 +615,7 @@ mod tests {
                 );
                 let overwrite = TypedStatement::Definition(
                     TypedAssignee::ArrayElement(
-                        box TypedAssignee::Identifier(Variable::field_array("a", 2)),
+                        box TypedAssignee::Identifier(Variable::field_array("a".into(), 2)),
                         box FieldElementExpression::Number(FieldPrime::from(1)),
                     ),
                     FieldElementExpression::Number(FieldPrime::from(42)).into(),
@@ -631,7 +637,10 @@ mod tests {
 
                 assert_eq!(
                     p.constants
-                        .get(&TypedAssignee::Identifier(Variable::field_array("a", 2)))
+                        .get(&TypedAssignee::Identifier(Variable::field_array(
+                            "a".into(),
+                            2
+                        )))
                         .unwrap(),
                     &expected_value
                 );
@@ -649,7 +658,10 @@ mod tests {
 
                 assert_eq!(
                     p.constants
-                        .get(&TypedAssignee::Identifier(Variable::field_array("a", 2)))
+                        .get(&TypedAssignee::Identifier(Variable::field_array(
+                            "a".into(),
+                            2
+                        )))
                         .unwrap(),
                     &expected_value
                 );
@@ -665,11 +677,11 @@ mod tests {
                 // a[1] = 42
                 // // constants should store nothing
 
-                let declaration = TypedStatement::Declaration(Variable::field_array("a", 2));
+                let declaration = TypedStatement::Declaration(Variable::field_array("a".into(), 2));
 
                 let overwrite = TypedStatement::Definition(
                     TypedAssignee::ArrayElement(
-                        box TypedAssignee::Identifier(Variable::field_array("a", 2)),
+                        box TypedAssignee::Identifier(Variable::field_array("a".into(), 2)),
                         box FieldElementExpression::Number(FieldPrime::from(1)),
                     ),
                     FieldElementExpression::Number(FieldPrime::from(42)).into(),
@@ -682,7 +694,10 @@ mod tests {
 
                 assert_eq!(
                     p.constants
-                        .get(&TypedAssignee::Identifier(Variable::field_array("a", 2))),
+                        .get(&TypedAssignee::Identifier(Variable::field_array(
+                            "a".into(),
+                            2
+                        ))),
                     None
                 );
             }

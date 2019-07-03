@@ -1,7 +1,8 @@
 pub use crate::types::signature::Signature;
 use std::fmt;
 
-pub mod conversions;
+pub type Identifier<'ast> = &'ast str;
+
 mod signature;
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -32,6 +33,14 @@ impl fmt::Debug for Type {
 }
 
 impl Type {
+    fn to_slug(&self) -> String {
+        match *self {
+            Type::FieldElement => String::from("f"),
+            Type::Boolean => String::from("b"),
+            Type::FieldElementArray(size) => format!("{}[{}]", Type::FieldElement.to_slug(), size), // TODO differentiate types?
+        }
+    }
+
     // the number of field elements the type maps to
     pub fn get_primitive_count(&self) -> usize {
         match self {
@@ -42,68 +51,34 @@ impl Type {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Hash, Eq)]
-pub struct Variable {
-    pub id: Identifier,
+#[derive(Clone, PartialEq, Hash, Eq)]
+pub struct Variable<'ast> {
+    pub id: Identifier<'ast>,
     pub _type: Type,
 }
 
-impl Variable {
-    pub fn new<S: Into<String>>(id: S, t: Type) -> Variable {
-        Variable {
-            id: id.into(),
-            _type: t,
-        }
-    }
-
-    pub fn field_element<S: Into<String>>(id: S) -> Variable {
-        Variable {
-            id: id.into(),
-            _type: Type::FieldElement,
-        }
-    }
-
-    pub fn boolean<S: Into<String>>(id: S) -> Variable {
-        Variable {
-            id: id.into(),
-            _type: Type::Boolean,
-        }
-    }
-
-    pub fn field_array<S: Into<String>>(id: S, size: usize) -> Variable {
-        Variable {
-            id: id.into(),
-            _type: Type::FieldElementArray(size),
-        }
-    }
-
-    pub fn get_type(&self) -> Type {
-        self._type.clone()
-    }
-}
-
-impl fmt::Display for Variable {
+impl<'ast> fmt::Display for Variable<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} {}", self._type, self.id,)
     }
 }
 
-impl fmt::Debug for Variable {
+impl<'ast> fmt::Debug for Variable<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Variable(type: {:?}, id: {:?})", self._type, self.id,)
     }
 }
 
-type Identifier = String;
+pub type FunctionIdentifier<'ast> = &'ast str;
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone)]
-pub struct FunctionKey {
-    pub id: Identifier,
+pub struct FunctionKey<'ast> {
+    pub id: FunctionIdentifier<'ast>,
     pub signature: Signature,
 }
 
-impl FunctionKey {
-    pub fn with_id<S: Into<Identifier>>(id: S) -> Self {
+impl<'ast> FunctionKey<'ast> {
+    pub fn with_id<S: Into<Identifier<'ast>>>(id: S) -> Self {
         FunctionKey {
             id: id.into(),
             signature: Signature::new(),
@@ -113,6 +88,10 @@ impl FunctionKey {
     pub fn signature(mut self, signature: Signature) -> Self {
         self.signature = signature;
         self
+    }
+
+    pub fn to_slug(&self) -> String {
+        format!("{}_{}", self.id, self.signature.to_slug())
     }
 }
 

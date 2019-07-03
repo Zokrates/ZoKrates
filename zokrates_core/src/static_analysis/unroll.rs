@@ -10,27 +10,28 @@ use crate::types::Type;
 use std::collections::HashMap;
 use zokrates_field::field::Field;
 
-pub struct Unroller {
-    substitution: HashMap<String, usize>,
+pub struct Unroller<'ast> {
+    substitution: HashMap<Identifier<'ast>, usize>,
 }
 
-impl Unroller {
+impl<'ast> Unroller<'ast> {
     fn new() -> Self {
         Unroller {
             substitution: HashMap::new(),
         }
     }
 
-    fn issue_next_ssa_variable(&mut self, v: Variable) -> Variable {
+    fn issue_next_ssa_variable(&mut self, v: Variable<'ast>) -> Variable<'ast> {
         let res = match self.substitution.get(&v.id) {
             Some(i) => Variable {
-                id: format!("{}_{}", v.id, i + 1),
+                id: Identifier {
+                    id: v.id.id,
+                    version: i + 1,
+                    stack: vec![],
+                },
                 ..v
             },
-            None => Variable {
-                id: format!("{}_{}", v.id, 0),
-                ..v
-            },
+            None => Variable { ..v.clone() },
         };
         self.substitution
             .entry(v.id)
@@ -44,8 +45,8 @@ impl Unroller {
     }
 }
 
-impl<T: Field> Folder<T> for Unroller {
-    fn fold_statement(&mut self, s: TypedStatement<T>) -> Vec<TypedStatement<T>> {
+impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
+    fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
         match s {
             TypedStatement::Declaration(_) => vec![],
             TypedStatement::Definition(TypedAssignee::Identifier(variable), expr) => {
@@ -156,7 +157,7 @@ impl<T: Field> Folder<T> for Unroller {
         }
     }
 
-    fn fold_function(&mut self, f: TypedFunction<T>) -> TypedFunction<T> {
+    fn fold_function(&mut self, f: TypedFunction<'ast, T>) -> TypedFunction<'ast, T> {
         self.substitution = HashMap::new();
         for arg in &f.arguments {
             self.substitution.insert(arg.id.id.clone(), 0);
@@ -165,8 +166,11 @@ impl<T: Field> Folder<T> for Unroller {
         fold_function(self, f)
     }
 
-    fn fold_name(&mut self, n: String) -> String {
-        format!("{}_{}", n, self.substitution.get(&n).unwrap())
+    fn fold_name(&mut self, n: Identifier<'ast>) -> Identifier<'ast> {
+        Identifier {
+            version: self.substitution.get(&n).unwrap_or(&0).clone(),
+            ..n
+        }
     }
 }
 
@@ -194,42 +198,54 @@ mod tests {
             // foo_2 = i_2
 
             let s = TypedStatement::For(
-                Variable::field_element("i"),
+                Variable::field_element("i".into()),
                 FieldPrime::from(2),
                 FieldPrime::from(5),
                 vec![
-                    TypedStatement::Declaration(Variable::field_element("foo")),
+                    TypedStatement::Declaration(Variable::field_element("foo".into())),
                     TypedStatement::Definition(
-                        TypedAssignee::Identifier(Variable::field_element("foo")),
-                        FieldElementExpression::Identifier(String::from("i")).into(),
+                        TypedAssignee::Identifier(Variable::field_element("foo".into())),
+                        FieldElementExpression::Identifier("i".into()).into(),
                     ),
                 ],
             );
 
             let expected = vec![
                 TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("i_0")),
+                    TypedAssignee::Identifier(Variable::field_element(
+                        Identifier::from("i").version(0),
+                    )),
                     FieldElementExpression::Number(FieldPrime::from(2)).into(),
                 ),
                 TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("foo_0")),
-                    FieldElementExpression::Identifier(String::from("i_0")).into(),
+                    TypedAssignee::Identifier(Variable::field_element(
+                        Identifier::from("foo").version(0),
+                    )),
+                    FieldElementExpression::Identifier(Identifier::from("i").version(0)).into(),
                 ),
                 TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("i_1")),
+                    TypedAssignee::Identifier(Variable::field_element(
+                        Identifier::from("i").version(1),
+                    )),
                     FieldElementExpression::Number(FieldPrime::from(3)).into(),
                 ),
                 TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("foo_1")),
-                    FieldElementExpression::Identifier(String::from("i_1")).into(),
+                    TypedAssignee::Identifier(Variable::field_element(
+                        Identifier::from("foo").version(1),
+                    )),
+                    FieldElementExpression::Identifier(Identifier::from("i").version(1)).into(),
                 ),
                 TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("i_2")),
+                    TypedAssignee::Identifier(Variable::field_element(
+                        Identifier::from("i").version(2),
+                    )),
                     FieldElementExpression::Number(FieldPrime::from(4)).into(),
                 ),
                 TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("foo_2")),
-                    FieldElementExpression::Identifier(String::from("i_2")).into(),
+                    TypedAssignee::Identifier(Variable::field_element(
+                        Identifier::from("foo").version(2),
+                    )),
+                    FieldElementExpression::Identifier(Identifier::from("i").version(2)).into(),
                 ),
             ];
 
@@ -253,38 +269,42 @@ mod tests {
             let mut u = Unroller::new();
 
             let s: TypedStatement<FieldPrime> =
-                TypedStatement::Declaration(Variable::field_element("a"));
+                TypedStatement::Declaration(Variable::field_element("a".into()));
             assert_eq!(u.fold_statement(s), vec![]);
 
             let s = TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element("a")),
+                TypedAssignee::Identifier(Variable::field_element("a".into())),
                 FieldElementExpression::Number(FieldPrime::from(5)).into(),
             );
             assert_eq!(
                 u.fold_statement(s),
                 vec![TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("a_0")),
+                    TypedAssignee::Identifier(Variable::field_element(
+                        Identifier::from("a").version(0)
+                    )),
                     FieldElementExpression::Number(FieldPrime::from(5)).into()
                 )]
             );
 
             let s = TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element("a")),
+                TypedAssignee::Identifier(Variable::field_element("a".into())),
                 FieldElementExpression::Number(FieldPrime::from(6)).into(),
             );
             assert_eq!(
                 u.fold_statement(s),
                 vec![TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("a_1")),
+                    TypedAssignee::Identifier(Variable::field_element(
+                        Identifier::from("a").version(1)
+                    )),
                     FieldElementExpression::Number(FieldPrime::from(6)).into()
                 )]
             );
 
             let e: FieldElementExpression<FieldPrime> =
-                FieldElementExpression::Identifier(String::from("a"));
+                FieldElementExpression::Identifier("a".into());
             assert_eq!(
                 u.fold_field_expression(e),
-                FieldElementExpression::Identifier(String::from("a_1"))
+                FieldElementExpression::Identifier(Identifier::from("a").version(1))
             );
         }
 
@@ -301,25 +321,27 @@ mod tests {
             let mut u = Unroller::new();
 
             let s: TypedStatement<FieldPrime> =
-                TypedStatement::Declaration(Variable::field_element("a"));
+                TypedStatement::Declaration(Variable::field_element("a".into()));
             assert_eq!(u.fold_statement(s), vec![]);
 
             let s = TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element("a")),
+                TypedAssignee::Identifier(Variable::field_element("a".into())),
                 FieldElementExpression::Number(FieldPrime::from(5)).into(),
             );
             assert_eq!(
                 u.fold_statement(s),
                 vec![TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("a_0")),
+                    TypedAssignee::Identifier(Variable::field_element(
+                        Identifier::from("a").version(0)
+                    )),
                     FieldElementExpression::Number(FieldPrime::from(5)).into()
                 )]
             );
 
             let s = TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element("a")),
+                TypedAssignee::Identifier(Variable::field_element("a".into())),
                 FieldElementExpression::Add(
-                    box FieldElementExpression::Identifier(String::from("a")),
+                    box FieldElementExpression::Identifier("a".into()),
                     box FieldElementExpression::Number(FieldPrime::from(1)),
                 )
                 .into(),
@@ -327,9 +349,11 @@ mod tests {
             assert_eq!(
                 u.fold_statement(s),
                 vec![TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("a_1")),
+                    TypedAssignee::Identifier(Variable::field_element(
+                        Identifier::from("a").version(1)
+                    )),
                     FieldElementExpression::Add(
-                        box FieldElementExpression::Identifier(String::from("a_0")),
+                        box FieldElementExpression::Identifier(Identifier::from("a").version(0)),
                         box FieldElementExpression::Number(FieldPrime::from(1))
                     )
                     .into()
@@ -352,44 +376,49 @@ mod tests {
             let mut u = Unroller::new();
 
             let s: TypedStatement<FieldPrime> =
-                TypedStatement::Declaration(Variable::field_element("a"));
+                TypedStatement::Declaration(Variable::field_element("a".into()));
             assert_eq!(u.fold_statement(s), vec![]);
 
             let s = TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element("a")),
+                TypedAssignee::Identifier(Variable::field_element("a".into())),
                 FieldElementExpression::Number(FieldPrime::from(2)).into(),
             );
             assert_eq!(
                 u.fold_statement(s),
                 vec![TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("a_0")),
+                    TypedAssignee::Identifier(Variable::field_element(
+                        Identifier::from("a").version(0)
+                    )),
                     FieldElementExpression::Number(FieldPrime::from(2)).into()
                 )]
             );
 
             let s: TypedStatement<FieldPrime> = TypedStatement::MultipleDefinition(
-                vec![Variable::field_element("a")],
+                vec![Variable::field_element("a".into())],
                 TypedExpressionList::FunctionCall(
                     FunctionKey::with_id("foo").signature(
                         Signature::new()
                             .inputs(vec![Type::FieldElement])
                             .outputs(vec![Type::FieldElement]),
                     ),
-                    vec![FieldElementExpression::Identifier(String::from("a")).into()],
+                    vec![FieldElementExpression::Identifier("a".into()).into()],
                     vec![Type::FieldElement],
                 ),
             );
             assert_eq!(
                 u.fold_statement(s),
                 vec![TypedStatement::MultipleDefinition(
-                    vec![Variable::field_element("a_1")],
+                    vec![Variable::field_element(Identifier::from("a").version(1))],
                     TypedExpressionList::FunctionCall(
                         FunctionKey::with_id("foo").signature(
                             Signature::new()
                                 .inputs(vec![Type::FieldElement])
                                 .outputs(vec![Type::FieldElement])
                         ),
-                        vec![FieldElementExpression::Identifier(String::from("a_0")).into()],
+                        vec![
+                            FieldElementExpression::Identifier(Identifier::from("a").version(0))
+                                .into()
+                        ],
                         vec![Type::FieldElement],
                     )
                 )]
@@ -408,11 +437,11 @@ mod tests {
             let mut u = Unroller::new();
 
             let s: TypedStatement<FieldPrime> =
-                TypedStatement::Declaration(Variable::field_array("a", 2));
+                TypedStatement::Declaration(Variable::field_array("a".into(), 2));
             assert_eq!(u.fold_statement(s), vec![]);
 
             let s = TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_array("a", 2)),
+                TypedAssignee::Identifier(Variable::field_array("a".into(), 2)),
                 FieldElementArrayExpression::Value(
                     2,
                     vec![
@@ -426,7 +455,10 @@ mod tests {
             assert_eq!(
                 u.fold_statement(s),
                 vec![TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_array("a_0", 2)),
+                    TypedAssignee::Identifier(Variable::field_array(
+                        Identifier::from("a").version(0),
+                        2
+                    )),
                     FieldElementArrayExpression::Value(
                         2,
                         vec![
@@ -440,7 +472,7 @@ mod tests {
 
             let s: TypedStatement<FieldPrime> = TypedStatement::Definition(
                 TypedAssignee::ArrayElement(
-                    box TypedAssignee::Identifier(Variable::field_array("a", 2)),
+                    box TypedAssignee::Identifier(Variable::field_array("a".into(), 2)),
                     box FieldElementExpression::Number(FieldPrime::from(1)),
                 ),
                 FieldElementExpression::Number(FieldPrime::from(2)).into(),
@@ -449,7 +481,10 @@ mod tests {
             assert_eq!(
                 u.fold_statement(s),
                 vec![TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_array("a_1", 2)),
+                    TypedAssignee::Identifier(Variable::field_array(
+                        Identifier::from("a").version(1),
+                        2
+                    )),
                     FieldElementArrayExpression::Value(
                         2,
                         vec![
@@ -462,7 +497,7 @@ mod tests {
                                 box FieldElementExpression::Select(
                                     box FieldElementArrayExpression::Identifier(
                                         2,
-                                        String::from("a_0")
+                                        Identifier::from("a").version(0)
                                     ),
                                     box FieldElementExpression::Number(FieldPrime::from(0))
                                 ),
@@ -476,7 +511,7 @@ mod tests {
                                 box FieldElementExpression::Select(
                                     box FieldElementArrayExpression::Identifier(
                                         2,
-                                        String::from("a_0")
+                                        Identifier::from("a").version(0)
                                     ),
                                     box FieldElementExpression::Number(FieldPrime::from(1))
                                 ),

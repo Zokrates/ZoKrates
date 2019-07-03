@@ -4,14 +4,12 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
-mod core_lib_injector;
 mod flat_propagation;
 mod inline;
 mod power_check;
 mod propagation;
 mod unroll;
 
-pub use self::core_lib_injector::CoreLibInjector;
 use self::inline::Inliner;
 use self::power_check::PowerChecker;
 use self::propagation::Propagator;
@@ -24,19 +22,15 @@ pub trait Analyse {
     fn analyse(self) -> Self;
 }
 
-impl<T: Field> Analyse for TypedProgram<T> {
+impl<'ast, T: Field> Analyse for TypedProgram<'ast, T> {
     fn analyse(self) -> Self {
         let r = PowerChecker::check(self);
         // unroll
         let r = Unroller::unroll(r);
         // inline
         let r = Inliner::inline(r);
-        print!("{}", r);
         // propagate
         let r = Propagator::propagate(r);
-        // inject core lib
-        let r = CoreLibInjector::inject(r);
-        print!("{}", r);
         r
     }
 }
