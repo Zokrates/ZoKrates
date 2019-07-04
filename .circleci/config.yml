@@ -83,12 +83,9 @@ jobs:
   integration_test:
     docker:
       - image: rustlang/rust:nightly-slim
-      - image: trufflesuite/ganache-cli:next 
+      - image: trufflesuite/ganache-cli:next
         port: 8545:8545
     steps:
-      - run:
-          name: Install git
-          command: apt-get update && apt-get upgrade -y && apt-get install -y git
       - checkout
       - run:
           name: Version information
