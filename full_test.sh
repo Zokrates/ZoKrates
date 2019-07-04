@@ -9,7 +9,7 @@ if [ -n "$WITH_LIBSNARK" ]; then
 	cargo -Z package-features test --release --package zokrates_cli --features="libsnark" -- --ignored
 	cargo -Z package-features build --package zokrates_cli --features="libsnark"
 
-	cd target/debug/
+	cd target/release/
 
 	#Generate proof file used for testing
 	printf '%s\n' \

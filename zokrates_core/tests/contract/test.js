@@ -8,7 +8,7 @@ const web3 = new Web3(new Web3.providers.HttpProvider('http://localhost:8545'));
 console.log(CONTRACT_NAME)
 
 // -----Compile contract-----
-const source = fs.readFileSync("target/debug/" + CONTRACT_NAME, 'UTF-8');
+const source = fs.readFileSync("target/release/" + CONTRACT_NAME, 'UTF-8');
 let jsonContractSource = JSON.stringify({
     language: 'Solidity',
     sources: {
@@ -162,7 +162,7 @@ let jsonInterface = JSON.parse(solc.compile(jsonContractSource));
     }
 
     function getProof(correct) {
-        let json = JSON.parse(fs.readFileSync("target/debug/" + format + "-proof.json"));
+        let json = JSON.parse(fs.readFileSync("target/release/" + format + "-proof.json"));
         let inputs = json["inputs"];
         let proof = json["proof"]
         //falsifies proof to check if verification fails
