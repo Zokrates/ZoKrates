@@ -41,21 +41,21 @@ pub fn resolve<'a>(
     path: &'a str,
 ) -> Result<(BufReader<File>, String, &'a str), io::Error> {
     if let Some(location) = location {
-        let (root, repo, branch, path) = parse_input_path(&path)?;
+        let path = Path::new(path);
+        let (root, repo, branch, file_path) = parse_input_path(&path)?;
 
         #[cfg(not(test))]
         let url = GITHUB_URL_BASE;
         #[cfg(test)]
         let url = mockito::server_url();
 
-        let pb = download_from_github(&url, &root, &repo, &branch, &path)?;
+        let pb = download_from_github(&url, &root, &repo, &branch, &file_path)?;
         let file = File::open(&pb)?;
         let br = BufReader::new(file);
 
-        let alias = Path::new(&path).file_stem().unwrap().to_str().unwrap();
+        let alias = path.file_stem().unwrap().to_str().unwrap();
 
-        //Ok((br, location.to_owned(), &alias))
-        unimplemented!()
+        Ok((br, location.to_owned(), &alias))
     } else {
         Err(io::Error::new(io::ErrorKind::Other, "No location provided"))
     }
@@ -72,41 +72,35 @@ pub fn is_github_import(source: &str) -> bool {
 /// - <repo> is the repository name
 /// - <branch> is the branch/snapshot name, e.g. `master`
 /// - <path/to/file> is the absolute path to file in the specified branch of the repository
-fn parse_input_path<'a>(path: &'a str) -> Result<(String, String, String, &'a str), io::Error> {
-    // let path_owned = path.replacen(GITHUB_IMPORT_PREFIX, "", 1);
-    // if path.contains("..") {
-    //     return Err(io::Error::new(
-    //         io::ErrorKind::Other,
-    //         "Invalid github import syntax. It must not contain '..'",
-    //     ));
-    // }
+fn parse_input_path<'a>(path: &'a Path) -> Result<(&'a str, &'a str, &'a str, &'a str), io::Error> {
+    //let path_owned = path.replacen(GITHUB_IMPORT_PREFIX, "", 1);
+    if path.to_str().unwrap().contains("..") {
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            "Invalid github import syntax. It must not contain '..'",
+        ));
+    }
 
-    // let components = path.split("/").collect::<Vec<_>>();
+    let mut components = path.components();
 
-    // // Check that root, repo, branch & path are specified
-    // if components.len() < 4 {
-    //     return Err(io::Error::new(
-    //         io::ErrorKind::Other,
-    //         format!(
-    //             "Invalid github import syntax. Should be: {}<root>/<repo>/<branch>/<path>",
-    //             GITHUB_IMPORT_PREFIX
-    //         ),
-    //     ));
-    // }
+    // Check that root, repo, branch & path are specified
+    if components.clone().count() < 5 {
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            format!(
+                "Invalid github import syntax. Should be: {}<root>/<repo>/<branch>/<path>",
+                GITHUB_IMPORT_PREFIX
+            ),
+        ));
+    }
 
-    // let root = components[0];
-    // let repo = components[1];
-    // let branch = components[2];
-    // let path = components[3..].join("/"); // Collect the rest of the import path into single string
+    let _ = components.next().unwrap().as_os_str().to_str().unwrap();
+    let root = components.next().unwrap().as_os_str().to_str().unwrap();
+    let repo = components.next().unwrap().as_os_str().to_str().unwrap();
+    let branch = components.next().unwrap().as_os_str().to_str().unwrap();
+    let path = components.as_path().to_str().unwrap(); // Collect the rest of the import path into single string
 
-    // Ok((
-    //     root.to_owned(),
-    //     repo.to_owned(),
-    //     branch.to_owned(),
-    //     &path,
-    // ))
-
-    unimplemented!()
+    Ok((root, repo, branch, path))
 }
 
 /// Downloads the file from github by specific root (user/org), repository, branch and path.
@@ -177,9 +171,9 @@ mod tests {
 
     #[test]
     pub fn import_simple() {
-        let res = parse_input_path(
+        let res = parse_input_path(Path::new(
             "github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/import.code",
-        )
+        ))
         .unwrap();
         let (root, repo, branch, path) = res;
 
@@ -194,14 +188,17 @@ mod tests {
     pub fn import_no_branch() {
         // Correct syntax should be: github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/import.code
         // but branch name is not specified
-        parse_input_path("github.com/Zokrates/ZoKrates/test.code").unwrap();
+        parse_input_path(Path::new("github.com/Zokrates/ZoKrates/test.code")).unwrap();
     }
 
     #[test]
     #[should_panic]
     pub fn import_relative_paths() {
         // Relative paths should not be allowed
-        parse_input_path("github.com/Zokrates/ZoKrates/master/examples/../imports.code").unwrap();
+        parse_input_path(Path::new(
+            "github.com/Zokrates/ZoKrates/master/examples/../imports.code",
+        ))
+        .unwrap();
     }
 
     #[test]
