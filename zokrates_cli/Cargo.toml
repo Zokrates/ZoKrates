@@ -25,6 +25,9 @@ glob = "0.2.11"
 assert_cli = "0.5"
 tempdir = "0.3"
 
+[build-dependencies]
+fs_extra = "1.1.0"
+
 [[bin]]
 name = "zokrates"
 path = "src/bin.rs"

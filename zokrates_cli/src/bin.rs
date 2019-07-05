@@ -45,6 +45,7 @@ fn cli() -> Result<(), String> {
     const WITNESS_DEFAULT_PATH: &str = "witness";
     const JSON_PROOF_PATH: &str = "proof.json";
     let default_scheme = env::var("ZOKRATES_PROVING_SCHEME").unwrap_or(String::from("g16"));
+    let default_solidity_abi = "v1";
 
     // cli specification using clap library
     let matches = App::new("ZoKrates")
@@ -145,6 +146,14 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(&default_scheme)
+        ).arg(Arg::with_name("abi")
+            .short("a")
+            .long("abi")
+            .help("Flag for setting the version of the ABI Encoder used in the contract. Default is v1.")
+            .takes_value(true)
+            .possible_values(&["v1", "v2"])
+            .default_value(&default_solidity_abi)
+            .required(false)
         )
     )
     .subcommand(SubCommand::with_name("compute-witness")
@@ -238,7 +247,7 @@ fn cli() -> Result<(), String> {
             .value_name("FORMAT")
             .help("Format in which the proof should be printed. [remix, json]")
             .takes_value(true)
-            .possible_values(&["remix", "json", "testingV1", "testingV2"])
+            .possible_values(&["remix", "json"])
             .required(true)
         )
     )
@@ -416,7 +425,7 @@ fn cli() -> Result<(), String> {
         ("export-verifier", Some(sub_matches)) => {
             {
                 let scheme = get_scheme(sub_matches.value_of("proving-scheme").unwrap())?;
-
+                let is_abiv2 = sub_matches.value_of("abi").unwrap() == "v2";
                 println!("Exporting verifier...");
 
                 // read vk file
@@ -425,7 +434,7 @@ fn cli() -> Result<(), String> {
                     .map_err(|why| format!("couldn't open {}: {}", input_path.display(), why))?;
                 let reader = BufReader::new(input_file);
 
-                let verifier = scheme.export_solidity_verifier(reader);
+                let verifier = scheme.export_solidity_verifier(reader, is_abiv2);
 
                 //write output file
                 let output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -505,20 +514,6 @@ fn cli() -> Result<(), String> {
                     println!("{}", proof_object["inputs"]);
                     println!();
                     println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-                }
-                "testingV1" => {
-                    //used by testing pipeline to generate arguments for contract call
-                    for (_, value) in proof_object["proof"].as_object().unwrap().iter() {
-                        print!("{}", value);
-                        print!(",");
-                    }
-                    println!("{}", proof_object["inputs"]);
-                }
-                "testingV2" => {
-                    //used by testing pipeline to generate arguments for contract call
-                    print!("{}", proof_object["proof"]);
-                    print!(",");
-                    println!("{}", proof_object["inputs"]);
                 }
                 _ => unreachable!(),
             }

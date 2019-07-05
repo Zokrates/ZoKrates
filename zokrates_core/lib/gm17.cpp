@@ -97,11 +97,11 @@ void serializeVerificationKeyToFile(r1cs_se_ppzksnark_verification_key<libff::al
 
   unsigned queryLength = vk.query.size();
 
-  ss << "\t\tvk.H = " << outputPointG2AffineAsHex(vk.H) << endl;
-  ss << "\t\tvk.Galpha = " << outputPointG1AffineAsHex(vk.G_alpha) << endl;
-  ss << "\t\tvk.Hbeta = " << outputPointG2AffineAsHex(vk.H_beta) << endl;
-  ss << "\t\tvk.Ggamma = " << outputPointG1AffineAsHex(vk.G_gamma) << endl;
-  ss << "\t\tvk.Hgamma = " << outputPointG2AffineAsHex(vk.H_gamma) << endl;
+  ss << "\t\tvk.h = " << outputPointG2AffineAsHex(vk.H) << endl;
+  ss << "\t\tvk.g_alpha = " << outputPointG1AffineAsHex(vk.G_alpha) << endl;
+  ss << "\t\tvk.h_beta = " << outputPointG2AffineAsHex(vk.H_beta) << endl;
+  ss << "\t\tvk.g_gamma = " << outputPointG1AffineAsHex(vk.G_gamma) << endl;
+  ss << "\t\tvk.h_gamma = " << outputPointG2AffineAsHex(vk.H_gamma) << endl;
   ss << "\t\tvk.query.len() = " << queryLength << endl;
   for (size_t i = 0; i < queryLength; ++i)
   {
@@ -124,14 +124,14 @@ void exportProof(r1cs_se_ppzksnark_proof<libff::alt_bn128_pp> proof, const char*
     ss << "{" << "\n";
       ss << "\t\"proof\":" << "\n";
         ss << "\t{" << "\n";
-          ss << "\t\t\"A\":" <<outputPointG1AffineAsHexJson(proof.A) << ",\n";
-          ss << "\t\t\"B\":" << "\n";
+          ss << "\t\t\"a\":" <<outputPointG1AffineAsHexJson(proof.A) << ",\n";
+          ss << "\t\t\"b\":" << "\n";
             ss << "\t\t\t" << outputPointG2AffineAsHexJson(proof.B) << ",\n";
           ss << "\t\t\n";
-          ss << "\t\t\"C\":" <<outputPointG1AffineAsHexJson(proof.C) << ",\n";
+          ss << "\t\t\"c\":" <<outputPointG1AffineAsHexJson(proof.C) << "\n";
         ss << "\t}," << "\n";
       //add input to json
-      ss << "\t\"input\":" << "[";
+      ss << "\t\"inputs\":" << "[";
       for (int i = 1; i < public_inputs_length; i++) {
         if(i!=1){
           ss << ",";
