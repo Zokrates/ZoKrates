@@ -503,20 +503,6 @@ fn cli() -> Result<(), String> {
                     println!();
                     println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
                 }
-                "testingV1" => {
-                    //used by testing pipeline to generate arguments for contract call
-                    for (_, value) in proof_object["proof"].as_object().unwrap().iter() {
-                        print!("{}", value);
-                        print!(",");
-                    }
-                    println!("{}", proof_object["inputs"]);
-                }
-                "testingV2" => {
-                    //used by testing pipeline to generate arguments for contract call
-                    print!("{}", proof_object["proof"]);
-                    print!(",");
-                    println!("{}", proof_object["inputs"]);
-                }
                 _ => unreachable!(),
             }
         }
