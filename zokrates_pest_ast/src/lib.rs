@@ -554,14 +554,14 @@ mod ast {
     #[pest_ast(rule(Rule::constant))]
     pub enum ConstantExpression<'ast> {
         DecimalNumber(DecimalNumberExpression<'ast>),
-        BooleanConstant(BooleanConstantExpression<'ast>),
+        BooleanLiteral(BooleanLiteralExpression<'ast>),
     }
 
     impl<'ast> ConstantExpression<'ast> {
         pub fn span(&self) -> &Span<'ast> {
             match self {
                 ConstantExpression::DecimalNumber(n) => &n.span,
-                ConstantExpression::BooleanConstant(c) => &c.span,
+                ConstantExpression::BooleanLiteral(c) => &c.span,
             }
         }
     }
@@ -576,8 +576,8 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::boolean_constant))]
-    pub struct BooleanConstantExpression<'ast> {
+    #[pest_ast(rule(Rule::boolean_literal))]
+    pub struct BooleanLiteralExpression<'ast> {
         #[pest_ast(outer(with(span_into_str)))]
         pub value: String,
         #[pest_ast(outer())]

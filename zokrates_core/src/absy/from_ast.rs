@@ -221,12 +221,12 @@ impl<'ast, T: Field> From<pest::IterationStatement<'ast>> for absy::StatementNod
             .collect();
 
         let from = match from.value {
-            absy::Expression::Number(n) => n,
+            absy::Expression::FieldConstant(n) => n,
             e => unimplemented!("For loop bounds should be constants, found {}", e),
         };
 
         let to = match to.value {
-            absy::Expression::Number(n) => n,
+            absy::Expression::FieldConstant(n) => n,
             e => unimplemented!("For loop bounds should be constants, found {}", e),
         };
 
@@ -350,14 +350,14 @@ impl<'ast, T: Field> From<pest::Range<'ast>> for absy::RangeNode<T> {
         let from = range
             .from
             .map(|e| match absy::ExpressionNode::from(e.0).value {
-                absy::Expression::Number(n) => n,
+                absy::Expression::FieldConstant(n) => n,
                 e => unimplemented!("Range bounds should be constants, found {}", e),
             });
 
         let to = range
             .to
             .map(|e| match absy::ExpressionNode::from(e.0).value {
-                absy::Expression::Number(n) => n,
+                absy::Expression::FieldConstant(n) => n,
                 e => unimplemented!("Range bounds should be constants, found {}", e),
             });
 
@@ -418,7 +418,7 @@ impl<'ast, T: Field> From<pest::ArrayInitializerExpression<'ast>>
         let value = absy::ExpressionNode::from(*initializer.value);
         let count: absy::ExpressionNode<T> = absy::ExpressionNode::from(initializer.count);
         let count = match count.value {
-            absy::Expression::Number(v) => v.to_dec_string().parse::<usize>().unwrap(),
+            absy::Expression::FieldConstant(v) => v.to_dec_string().parse::<usize>().unwrap(),
             _ => unreachable!(),
         };
         absy::Expression::InlineArray(vec![absy::SpreadOrExpression::Expression(value); count])
@@ -466,11 +466,11 @@ impl<'ast, T: Field> From<pest::ConstantExpression<'ast>> for absy::ExpressionNo
     fn from(expression: pest::ConstantExpression<'ast>) -> absy::ExpressionNode<'ast, T> {
         use absy::NodeValue;
         match expression {
-            pest::ConstantExpression::BooleanConstant(c) => {
+            pest::ConstantExpression::BooleanLiteral(c) => {
                 absy::Expression::BooleanConstant(c.value.parse().unwrap()).span(c.span)
             }
             pest::ConstantExpression::DecimalNumber(n) => {
-                absy::Expression::Number(T::try_from_dec_str(&n.value).unwrap()).span(n.span)
+                absy::Expression::FieldConstant(T::try_from_dec_str(&n.value).unwrap()).span(n.span)
             }
         }
     }
@@ -548,9 +548,38 @@ mod tests {
     use zokrates_field::field::FieldPrime;
 
     #[test]
-    fn forty_two() {
-        let source = "def main() -> (field): return true
-		";
+    fn return_forty_two() {
+        let source = "def main() -> (field): return 42
+        ";
+        let ast = pest::generate_ast(&source).unwrap();
+        let expected: absy::Prog<FieldPrime> = absy::Prog {
+            functions: vec![absy::Function {
+                id: &source[4..8],
+                arguments: vec![],
+                statements: vec![absy::Statement::Return(
+                    absy::ExpressionList {
+                        expressions: vec![
+                            absy::Expression::FieldConstant(FieldPrime::from(42)).into()
+                        ],
+                    }
+                    .into(),
+                )
+                .into()],
+                signature: absy::Signature::new()
+                    .inputs(vec![])
+                    .outputs(vec![Type::FieldElement]),
+            }
+            .into()],
+            imports: vec![],
+            imported_functions: vec![],
+        };
+        assert_eq!(absy::Prog::<FieldPrime>::from(ast), expected);
+    }
+
+    #[test]
+    fn return_true() {
+        let source = "def main() -> (bool): return true
+        ";
         let ast = pest::generate_ast(&source).unwrap();
         let expected: absy::Prog<FieldPrime> = absy::Prog {
             functions: vec![absy::Function {
@@ -565,7 +594,7 @@ mod tests {
                 .into()],
                 signature: absy::Signature::new()
                     .inputs(vec![])
-                    .outputs(vec![Type::FieldElement]),
+                    .outputs(vec![Type::Boolean]),
             }
             .into()],
             imports: vec![],
@@ -590,7 +619,9 @@ mod tests {
                 ],
                 statements: vec![absy::Statement::Return(
                     absy::ExpressionList {
-                        expressions: vec![absy::Expression::Number(FieldPrime::from(42)).into()],
+                        expressions: vec![
+                            absy::Expression::FieldConstant(FieldPrime::from(42)).into()
+                        ],
                     }
                     .into(),
                 )

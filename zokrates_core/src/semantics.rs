@@ -717,7 +717,7 @@ impl<'ast> Checker<'ast> {
                     }),
                 }
             }
-            Expression::Number(n) => Ok(FieldElementExpression::Number(n).into()),
+            Expression::FieldConstant(n) => Ok(FieldElementExpression::Number(n).into()),
             Expression::FunctionCall(fun_id, arguments) => {
                 // check the arguments
                 let mut arguments_checked = vec![];
@@ -1156,7 +1156,7 @@ mod tests {
     //     foo_statements.push(Statement::Declaration(Variable::field_element("a")));
     //     foo_statements.push(Statement::Definition(
     //         Assignee::Identifier(String::from("a")),
-    //         Expression::Number(FieldPrime::from(1)),
+    //         Expression::FieldConstant(FieldPrime::from(1)),
     //     ));
     //     let foo = Function {
     //         id: "foo".to_string(),
@@ -1216,7 +1216,7 @@ mod tests {
     //         Statement::Declaration(Variable::field_element("a")),
     //         Statement::Definition(
     //             Assignee::Identifier(String::from("a")),
-    //             Expression::Number(FieldPrime::from(1)),
+    //             Expression::FieldConstant(FieldPrime::from(1)),
     //         ),
     //     ];
 
@@ -1235,7 +1235,7 @@ mod tests {
     //         Statement::Declaration(Variable::field_element("a")),
     //         Statement::Definition(
     //             Assignee::Identifier(String::from("a")),
-    //             Expression::Number(FieldPrime::from(2)),
+    //             Expression::FieldConstant(FieldPrime::from(2)),
     //         ),
     //         Statement::Return(ExpressionList {
     //             expressions: vec![Expression::Identifier(String::from("a"))],
@@ -1253,7 +1253,7 @@ mod tests {
 
     //     let main_args = vec![];
     //     let main_statements = vec![Statement::Return(ExpressionList {
-    //         expressions: vec![Expression::Number(FieldPrime::from(1))],
+    //         expressions: vec![Expression::FieldConstant(FieldPrime::from(1))],
     //     })];
 
     //     let main = Function {
@@ -1433,7 +1433,7 @@ mod tests {
     //     //   4 == foo()
     //     // should fail
     //     let bar_statements: Vec<Statement<FieldPrime>> = vec![Statement::Condition(
-    //         Expression::Number(FieldPrime::from(2)),
+    //         Expression::FieldConstant(FieldPrime::from(2)),
     //         Expression::FunctionCall("foo".to_string(), vec![]),
     //     )];
 
@@ -1513,8 +1513,8 @@ mod tests {
 
     //     let foo_statements: Vec<Statement<FieldPrime>> = vec![Statement::Return(ExpressionList {
     //         expressions: vec![
-    //             Expression::Number(FieldPrime::from(1)),
-    //             Expression::Number(FieldPrime::from(2)),
+    //             Expression::FieldConstant(FieldPrime::from(1)),
+    //             Expression::FieldConstant(FieldPrime::from(2)),
     //         ],
     //     })];
 
@@ -1545,7 +1545,7 @@ mod tests {
     //             ),
     //         ),
     //         Statement::Return(ExpressionList {
-    //             expressions: vec![Expression::Number(FieldPrime::from(1))],
+    //             expressions: vec![Expression::FieldConstant(FieldPrime::from(1))],
     //         }),
     //     ];
 
@@ -1580,7 +1580,7 @@ mod tests {
     //     //   1 == foo()
     //     // should fail
     //     let bar_statements: Vec<Statement<FieldPrime>> = vec![Statement::Condition(
-    //         Expression::Number(FieldPrime::from(1)),
+    //         Expression::FieldConstant(FieldPrime::from(1)),
     //         Expression::FunctionCall("foo".to_string(), vec![]),
     //     )];
 
@@ -1724,7 +1724,7 @@ mod tests {
     //     //
     //     // should fail
     //     let foo2_statements: Vec<Statement<FieldPrime>> = vec![Statement::Return(ExpressionList {
-    //         expressions: vec![Expression::Number(FieldPrime::from(1))],
+    //         expressions: vec![Expression::FieldConstant(FieldPrime::from(1))],
     //     })];
 
     //     let foo2_arguments = vec![
@@ -1780,7 +1780,7 @@ mod tests {
     //     // should fail
     //     let main1_statements: Vec<Statement<FieldPrime>> =
     //         vec![Statement::Return(ExpressionList {
-    //             expressions: vec![Expression::Number(FieldPrime::from(1))],
+    //             expressions: vec![Expression::FieldConstant(FieldPrime::from(1))],
     //         })];
 
     //     let main1_arguments = vec![Parameter {
@@ -1790,7 +1790,7 @@ mod tests {
 
     //     let main2_statements: Vec<Statement<FieldPrime>> =
     //         vec![Statement::Return(ExpressionList {
-    //             expressions: vec![Expression::Number(FieldPrime::from(1))],
+    //             expressions: vec![Expression::FieldConstant(FieldPrime::from(1))],
     //         })];
 
     //     let main2_arguments = vec![];
@@ -1904,7 +1904,7 @@ mod tests {
     //         // a[2] = 42
     //         let a = Assignee::ArrayElement(
     //             box Assignee::Identifier(String::from("a")),
-    //             box Expression::Number(FieldPrime::from(2)),
+    //             box Expression::FieldConstant(FieldPrime::from(2)),
     //         );
 
     //         let mut checker: Checker = Checker::new();
