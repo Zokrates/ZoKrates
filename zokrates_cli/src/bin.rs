@@ -16,7 +16,6 @@ use zokrates_core::compile::compile;
 use zokrates_core::ir;
 use zokrates_core::proof_system::*;
 use zokrates_field::field::{Field, FieldPrime};
-#[cfg(feature = "fs")]
 use zokrates_fs_resolver::resolve as fs_resolve;
 #[cfg(feature = "github")]
 use zokrates_github_resolver::{is_github_import, resolve as github_resolve};
@@ -38,7 +37,6 @@ fn resolve(
             return github_resolve(location, source);
         };
     }
-    #[cfg(feature = "fs")]
     fs_resolve(location, source)
 }
 
@@ -576,7 +574,7 @@ mod tests {
                 .unwrap();
 
             let _: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(resolve_fs_or_github)).unwrap();
+                compile(&mut reader, Some(location), Some(resolve)).unwrap();
         }
     }
 
@@ -603,7 +601,7 @@ mod tests {
             let mut reader = BufReader::new(file);
 
             let program_flattened: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(resolve_fs_or_github)).unwrap();
+                compile(&mut reader, Some(location), Some(resolve)).unwrap();
 
             let _ = program_flattened
                 .execute(&vec![FieldPrime::from(0)])
@@ -635,7 +633,7 @@ mod tests {
             let mut reader = BufReader::new(file);
 
             let program_flattened: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(resolve_fs_or_github)).unwrap();
+                compile(&mut reader, Some(location), Some(resolve)).unwrap();
 
             let _ = program_flattened
                 .execute(&vec![FieldPrime::from(0)])
