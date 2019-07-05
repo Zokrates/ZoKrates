@@ -1,6 +1,6 @@
 // ANDXORNOTAND
 
-import "./../../binary/andxornotand.code" as ANDXORNOTAND
+import "./../../binary/andxornotand" as ANDXORNOTAND
 
 def main(field[32] b, field[32] c, field[32] d) -> (field[32]):
 	field[32] result = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]

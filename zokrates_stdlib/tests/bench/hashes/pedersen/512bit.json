@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/bench/hashes/pedersen/512bit.code",
+	"entry_point": "./tests/bench/hashes/pedersen/512bit",
 	"tests": [
 		{
 			"input": {

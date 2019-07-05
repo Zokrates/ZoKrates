@@ -1,5 +1,5 @@
 {
-	"entry_point": "./stdlib/hashes/sha256/512bitPacked.code",
+	"entry_point": "./stdlib/hashes/sha256/512bitPacked",
 	"tests": [
 		{
 			"input": {

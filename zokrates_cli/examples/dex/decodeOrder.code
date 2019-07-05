@@ -1,4 +1,4 @@
-import "./popLeastSignificantBit.code"
+import "./popLeastSignificantBit"
 
 def main(field order) -> (field, field, field, field):
   // MSB

@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/bench/ecc/edwardsOnCurve.code",
+	"entry_point": "./tests/bench/ecc/edwardsOnCurve",
 	"tests": [
 		{
 			"input": {

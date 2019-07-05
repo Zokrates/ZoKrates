@@ -1,5 +1,5 @@
-import "signatures/verifyEddsa.code" as verifyEddsa
-import "ecc/babyjubjubParams.code" as context
+import "signatures/verifyEddsa" as verifyEddsa
+import "ecc/babyjubjubParams" as context
 
 // Code to create test case:
 // https://github.com/Zokrates/pycrypto 

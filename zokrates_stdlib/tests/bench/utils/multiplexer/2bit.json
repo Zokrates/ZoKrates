@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/bench/utils/multiplexer/2bit.code",
+	"entry_point": "./tests/bench/utils/multiplexer/2bit",
 	"tests": [
 		{
 			"input": {

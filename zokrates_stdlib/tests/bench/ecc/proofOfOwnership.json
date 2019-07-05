@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/bench/ecc/proofOfOwnership.code",
+	"entry_point": "./tests/bench/ecc/proofOfOwnership",
 	"tests": [
 		{
 			"input": {

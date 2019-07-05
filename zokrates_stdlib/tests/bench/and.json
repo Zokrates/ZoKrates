@@ -1,5 +1,5 @@
 {
-	"entry_point": "./stdlib/utils/binary/and.code",
+	"entry_point": "./stdlib/utils/binary/and",
 	"tests": [
 		{
 			"input": {

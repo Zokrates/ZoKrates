@@ -15,7 +15,7 @@
 // int(digest[32:], 16)
 // # 65303172752238645975888084098459749904
 
-import "hashes/sha256/512bitPacked.code" as sha256packed
+import "hashes/sha256/512bitPacked" as sha256packed
 def main() -> (field):
 
 	field a = 0

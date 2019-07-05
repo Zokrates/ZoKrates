@@ -6,22 +6,22 @@ You can separate your code into multiple ZoKrates files using `import` statement
 
 You can import a resource in the same folder directly, like this:
 ```zokrates
-import "./mycode.code"
+import "./mycode"
 ```
 
 There also is a handy syntax to import from the parent directory:
 ```zokrates
-import "../mycode.code"
+import "../mycode"
 ```
 
 Also imports further up the file-system are supported:
 ```zokrates
-import "../../../mycode.code"
+import "../../../mycode"
 ```
 
 You can also choose to rename the imported resource, like so:
 ```zokrates
-import "./mycode.code" as abc
+import "./mycode" as abc
 ```
 
 ### Absolute Imports

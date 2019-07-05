@@ -82,7 +82,7 @@ mod tests {
     fn invalid_location() {
         let res = resolve(
             &Some(String::from(",8!-$2abc")),
-            &String::from("./foo.code"),
+            &String::from("./foo"),
         );
         assert!(res.is_err());
     }
@@ -113,7 +113,7 @@ mod tests {
 
         // create a HOME folder with a code file
         let zokrates_home_folder = tempfile::tempdir().unwrap();
-        let file_path = zokrates_home_folder.path().join("bar.code");
+        let file_path = zokrates_home_folder.path().join("bar");
         let mut file = File::create(file_path).unwrap();
         writeln!(file, "<stdlib code>").unwrap();
 
@@ -152,7 +152,7 @@ mod tests {
                     .to_string_lossy()
                     .to_string(),
             ),
-            &"./bar.code".to_string(),
+            &"./bar".to_string(),
         );
         assert!(result.is_ok());
         let mut code = String::new();
@@ -189,7 +189,7 @@ mod tests {
                     .to_string_lossy()
                     .to_string(),
             ),
-            &"bar.code".to_string(),
+            &"bar".to_string(),
         );
         assert!(result.is_ok());
         let mut code = String::new();
@@ -218,7 +218,7 @@ mod tests {
                     .to_string_lossy()
                     .to_string(),
             ),
-            &"../bar.code".to_string(),
+            &"../bar".to_string(),
         );
         assert!(result.is_ok());
         let mut code = String::new();
@@ -242,7 +242,7 @@ mod tests {
 
         let result = resolve(
             &Some("/path/to/user/folder".to_string()),
-            &"./bar.code".to_string(),
+            &"./bar".to_string(),
         );
         assert!(result.is_err());
     }
@@ -252,7 +252,7 @@ mod tests {
         std::env::set_var(ZOKRATES_HOME, "");
         let result = resolve(
             &Some("/path/to/source".to_string()),
-            &"bar.code".to_string(),
+            &"bar".to_string(),
         );
         assert!(result.is_err());
     }
@@ -263,7 +263,7 @@ mod tests {
         std::env::remove_var(ZOKRATES_HOME);
         let _ = resolve(
             &Some("/path/to/source".to_string()),
-            &"bar.code".to_string(),
+            &"bar".to_string(),
         );
     }
 }

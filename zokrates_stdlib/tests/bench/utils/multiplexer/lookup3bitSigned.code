@@ -1,4 +1,4 @@
-import "utils/multiplexer/lookup3bitSigned.code" as lookup 
+import "utils/multiplexer/lookup3bitSigned" as lookup 
 
 def first() -> (field):
 	field[3] sel = [0,0,0] 

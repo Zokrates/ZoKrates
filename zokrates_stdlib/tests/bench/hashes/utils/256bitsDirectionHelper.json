@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/bench/hashes/utils/256bitsDirectionHelper.code",
+	"entry_point": "./tests/bench/hashes/utils/256bitsDirectionHelper",
 	"tests": [
 		{
 			"input": {

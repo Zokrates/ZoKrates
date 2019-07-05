@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/bench/ecc/edwardsAdd.code",
+	"entry_point": "./tests/bench/ecc/edwardsAdd",
 	"tests": [
 		{
 			"input": {

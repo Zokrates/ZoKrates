@@ -1,4 +1,4 @@
-import "./foo.code" as d
+import "./foo" as d
 
 def main() -> (field):
 	return d()

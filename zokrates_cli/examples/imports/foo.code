@@ -1,4 +1,4 @@
-import "./baz.code"
+import "./baz"
 
 def main() -> (field):
 	return baz()

@@ -6,7 +6,7 @@
 // bs = bitstring.BitArray('0b110000')
 // hasher.hash_bits(bs)
 
-import "hashes/pedersen/6bit.code" as pedersen
+import "hashes/pedersen/6bit" as pedersen
 
 def main() -> (field):
 	

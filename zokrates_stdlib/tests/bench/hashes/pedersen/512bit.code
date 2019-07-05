@@ -12,7 +12,7 @@
 // entropy_bits = bitstring.BitArray(bytes=entropy).bin
 // digest_bits = bitstring.BitArray(bytes=digest.compress()).bin
 
-import "hashes/pedersen/512bit.code" as pedersen
+import "hashes/pedersen/512bit" as pedersen
 
 def main() -> (field):
 	

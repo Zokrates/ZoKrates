@@ -1,5 +1,5 @@
-import "./decodeOrder.code"
-import "./limitLessThanPrice.code"
+import "./decodeOrder"
+import "./limitLessThanPrice"
 
 def tupleForTokensWithValue(field value) -> (field[3]):
   return [value, value, value]

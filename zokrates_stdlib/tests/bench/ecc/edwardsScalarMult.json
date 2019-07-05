@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/bench/ecc/edwardsScalarMult.code",
+	"entry_point": "./tests/bench/ecc/edwardsScalarMult",
 	"tests": [
 		{
 			"input": {

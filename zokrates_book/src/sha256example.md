@@ -32,7 +32,7 @@ Having our problem described in ZoKrates' DSL, we can now continue using ZoKrate
 First, we compile the program into an arithmetic circuit using the `compile` command.
 
 ```sh
-./zokrates compile -i hashexample.code
+./zokrates compile -i hashexample
 ```
 
 As a next step we can create a witness file using the following command:
@@ -78,7 +78,7 @@ Note that we now compare the result of `sha256packed` with the hard-coded correc
 So, having defined the program, Victor is now ready to compile the code:
 
 ```sh
-./zokrates compile -i hashexample.code
+./zokrates compile -i hashexample
 ```
 
 Based on that Victor can run the setup phase and export verifier smart contract as a Solidity file:

@@ -1,4 +1,4 @@
-import "utils/multiplexer/lookup2bit.code" as lookup 
+import "utils/multiplexer/lookup2bit" as lookup 
 
 def first() -> (field):
 	field[2] sel = [0,0] 

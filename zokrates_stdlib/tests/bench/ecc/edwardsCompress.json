@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/bench/ecc/edwardsCompress.code",
+	"entry_point": "./tests/bench/ecc/edwardsCompress",
 	"tests": [
 		{
 			"input": {

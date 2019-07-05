@@ -1,6 +1,6 @@
 // NOT
 
-import "utils/binary/not.code" as NOT
+import "utils/binary/not" as NOT
 
 def main(field[32] b) -> (field[32]):
 	field[32] result = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]

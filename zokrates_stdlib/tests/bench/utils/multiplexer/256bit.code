@@ -1,4 +1,4 @@
-import "utils/multiplexer/256bit.code" as multiplex
+import "utils/multiplexer/256bit" as multiplex
 
 def left() -> (field):
 	field bit = 0  //left

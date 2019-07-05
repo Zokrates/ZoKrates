@@ -1,7 +1,7 @@
 // OR
 
-import "./and.code" as AND
-import "./not.code" as NOT
+import "./and" as AND
+import "./not" as NOT
 
 def main(field x, field y) -> (field):
 	return NOT(AND(NOT(x), NOT(y)))

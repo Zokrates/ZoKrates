@@ -1,4 +1,4 @@
-import "utils/multiplexer/lookup1bit.code" as lookup 
+import "utils/multiplexer/lookup1bit" as lookup 
 
 def left() -> (field):
 	field sel = 0  //left

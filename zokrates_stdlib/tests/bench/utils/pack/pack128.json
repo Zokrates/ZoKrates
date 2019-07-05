@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/bench/utils/pack/pack128.code",
+	"entry_point": "./tests/bench/utils/pack/pack128",
 	"tests": [
 		{
 			"input": {

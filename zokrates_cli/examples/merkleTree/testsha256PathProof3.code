@@ -1,4 +1,4 @@
-import "./sha256PathProof3.code" as merkleTreeProof
+import "./sha256PathProof3" as merkleTreeProof
 def main() -> (field):
 
     field treeDepth = 3

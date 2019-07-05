@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/bench/hashes/sha256/512bitPacked.code",
+	"entry_point": "./tests/bench/hashes/sha256/512bitPacked",
 	"tests": [
 		{
 			"input": {

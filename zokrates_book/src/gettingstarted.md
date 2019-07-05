@@ -47,7 +47,7 @@ Then run the different phases of the protocol:
 
 ```bash
 # compile
-./zokrates compile -i root.code
+./zokrates compile -i root
 # perform the setup phase
 ./zokrates setup
 # execute the program

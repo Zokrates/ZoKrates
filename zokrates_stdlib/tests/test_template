@@ -17,7 +17,9 @@ fn {test_name}() {{
         )
     ).unwrap();
 
-    let mut code_reader = BufReader::new(File::open(&t.entry_point).unwrap());
+    let mut source = PathBuf::from(&t.entry_point);
+    source.set_extension("code");
+    let mut code_reader = BufReader::new(File::open(source.as_path()).unwrap());
 
     let bin = compile(
         &mut code_reader,

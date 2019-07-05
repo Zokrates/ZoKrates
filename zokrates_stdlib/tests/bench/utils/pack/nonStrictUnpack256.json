@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/bench/utils/pack/nonStrictUnpack256.code",
+	"entry_point": "./tests/bench/utils/pack/nonStrictUnpack256",
 	"tests": [
 		{
 			"input": {

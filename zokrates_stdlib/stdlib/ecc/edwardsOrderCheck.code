@@ -1,6 +1,6 @@
-import "ecc/edwardsAdd.code" as add
-import "ecc/edwardsScalarMult.code" as multiply
-import "utils/pack/nonStrictUnpack256.code" as unpack256
+import "ecc/edwardsAdd" as add
+import "ecc/edwardsScalarMult" as multiply
+import "utils/pack/nonStrictUnpack256" as unpack256
 // Verifies that the point is not one of the low-order points.
 // If any of the points is multiplied by the cofactor, the resulting point
 // will be infinity. 

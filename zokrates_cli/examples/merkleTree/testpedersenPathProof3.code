@@ -1,4 +1,4 @@
-import "./pedersenPathProof3.code"
+import "./pedersenPathProof3"
 // Merke-Tree inclusion proof for tree depth 3 
 // def main(field treeDepth, field[256] rootDigest, private field[256] leafDigest, private field[2] directionSelector, field[256] PathDigest0, private field[256] PathDigest1) -> (field):
 def main() -> (field):

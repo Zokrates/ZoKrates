@@ -10,7 +10,7 @@ You can see an overview of the available subcommands by running
 ## `compile`
 
 ```sh
-./zokrates compile -i /path/to/add.code
+./zokrates compile -i /path/to/add
 ```
 
 Compiles a `.code` file into ZoKrates internal representation of arithmetic circuits. 

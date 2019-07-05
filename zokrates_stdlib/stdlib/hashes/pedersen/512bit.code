@@ -1,8 +1,8 @@
-import "utils/multiplexer/lookup3bitSigned.code" as sel3s
-import "utils/multiplexer/lookup2bit.code" as sel2
-import "ecc/babyjubjubParams.code" as context
-import "ecc/edwardsAdd.code" as add
-import "ecc/edwardsCompress.code" as edwardsCompress
+import "utils/multiplexer/lookup3bitSigned" as sel3s
+import "utils/multiplexer/lookup2bit" as sel2
+import "ecc/babyjubjubParams" as context
+import "ecc/edwardsAdd" as add
+import "ecc/edwardsCompress" as edwardsCompress
 
 // Code to export generators used in this example:
 // import bitstring

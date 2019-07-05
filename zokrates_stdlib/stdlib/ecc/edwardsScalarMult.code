@@ -1,5 +1,5 @@
-import "ecc/edwardsAdd.code" as add
-import "ecc/edwardsOnCurve.code" as assertOnCurve
+import "ecc/edwardsAdd" as add
+import "ecc/edwardsOnCurve" as assertOnCurve
 // Function that implements scalar multiplication for a fixed base point
 // Curve parameters are defined with the last argument
 // The exponent is hard-coded to a 256bit scalar, hence we allow wrapping around the group for certain

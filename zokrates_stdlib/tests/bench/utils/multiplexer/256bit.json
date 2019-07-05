@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/bench/utils/multiplexer/256bit.code",
+	"entry_point": "./tests/bench/utils/multiplexer/256bit",
 	"tests": [
 		{
 			"input": {

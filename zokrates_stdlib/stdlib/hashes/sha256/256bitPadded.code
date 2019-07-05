@@ -1,4 +1,4 @@
-import "./512bit.code" as sha256 
+import "./512bit" as sha256 
 
 // A function that takes 1 field[256] array as input 
 // and returns the sha256 full round output as an array of 256 field elements.
