@@ -419,7 +419,7 @@ fn cli() -> Result<(), String> {
                     .map_err(|why| format!("couldn't open {}: {}", input_path.display(), why))?;
                 let reader = BufReader::new(input_file);
 
-                let verifier = scheme.export_solidity_verifier(reader, &abiv2);
+                let verifier = scheme.export_solidity_verifier(reader, abiv2);
 
                 //write output file
                 let output_path = Path::new(sub_matches.value_of("output").unwrap());

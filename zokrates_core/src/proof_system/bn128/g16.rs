@@ -57,19 +57,21 @@ impl ProofSystem for G16 {
         true
     }
 
-    fn export_solidity_verifier(&self, reader: BufReader<File>, abiv2: &bool) -> String {
+    fn export_solidity_verifier(&self, reader: BufReader<File>, abiv2: bool) -> String {
         let mut lines = reader.lines();
 
-        let mut template_text;
-        let solidity_pairing_lib;
-
-        if *abiv2 {
-            template_text = String::from(CONTRACT_TEMPLATE_V2);
-            solidity_pairing_lib = String::from(SOLIDITY_PAIRING_LIB_V2);
+        let (mut template_text, solidity_pairing_lib) = if abiv2 {
+            (
+                String::from(CONTRACT_TEMPLATE_V2),
+                String::from(SOLIDITY_PAIRING_LIB_V2),
+            )
         } else {
-            template_text = String::from(CONTRACT_TEMPLATE);
-            solidity_pairing_lib = String::from(SOLIDITY_PAIRING_LIB);
-        }
+            (
+                String::from(CONTRACT_TEMPLATE),
+                String::from(SOLIDITY_PAIRING_LIB),
+            )
+        };
+
         let gamma_abc_template = String::from("vk.gamma_abc[index] = Pairing.G1Point(points);"); //copy this for each entry
 
         //replace things in template
