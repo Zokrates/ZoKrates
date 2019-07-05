@@ -1,4 +1,4 @@
-import "BELLMAN/sha256round" as sha256
+import "EMBED/sha256round" as sha256
 
 def main(field unused) -> (field[256]):
 
