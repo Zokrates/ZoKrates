@@ -1,2 +1,6 @@
-def main(field[3] a) -> (field):
-	return a[0] + a[1] + a[2]
+def main(field[256] a, field[256] b) -> (field):
+    field res = 0
+    for field i in 0..256 do
+        res = res + if a[i] == b[i] then 1 else 0 fi
+    endfor
+    return if res == 256 then 1 else 0 fi
