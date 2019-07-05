@@ -31,6 +31,11 @@ impl<T: Field> QuadComb<T> {
             }
             _ => {}
         }
+
+        if self.left.is_zero() || self.right.is_zero() {
+            return Some(LinComb::zero());
+        }
+
         None
     }
 }
