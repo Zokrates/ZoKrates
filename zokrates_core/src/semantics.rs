@@ -1286,7 +1286,7 @@ mod tests {
             checker.check_statement(statement, &vec![]),
             Err(Error {
                 pos: Some((Position::mock(), Position::mock())),
-                message: "Identifier is undefined: b".to_string()
+                message: "Identifier \"b\" is undefined".to_string()
             })
         );
     }
@@ -1387,7 +1387,7 @@ mod tests {
             checker.check_module(module, &mut HashMap::new(), &mut HashMap::new()),
             Err(vec![Error {
                 pos: Some((Position::mock(), Position::mock())),
-                message: "Identifier is undefined: a".to_string()
+                message: "Identifier \"a\" is undefined".to_string()
             }])
         );
     }
@@ -1533,7 +1533,7 @@ mod tests {
             checker.check_function(foo),
             Err(vec![Error {
                 pos: Some((Position::mock(), Position::mock())),
-                message: "Identifier is undefined: i".to_string()
+                message: "Identifier \"i\" is undefined".to_string()
             }])
         );
     }
@@ -1815,7 +1815,7 @@ mod tests {
             checker.check_module(module, &mut HashMap::new(), &mut HashMap::new()),
             Err(vec![Error {
                 pos: Some((Position::mock(), Position::mock())),
-                message: "Identifier is undefined: x".to_string()
+                message: "Identifier \"x\" is undefined".to_string()
             }])
         );
     }
@@ -1884,7 +1884,7 @@ mod tests {
             checker.check_function(bar),
             Err(vec![Error {
                 pos: Some((Position::mock(), Position::mock())),
-                message: "Identifier is undefined: a".to_string()
+                message: "Identifier \"a\" is undefined".to_string()
             }])
         );
     }
