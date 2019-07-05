@@ -135,7 +135,7 @@ fn cli() -> Result<(), String> {
             .required(false)
             .default_value(&default_scheme)
         ).arg(Arg::with_name("abi")
-            .short("abi")
+            .short("a")
             .long("abi")
             .help("Flag for setting the version of the ABI Encoder used in the contract. Default is v1.")
             .takes_value(true)
