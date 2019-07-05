@@ -107,10 +107,10 @@ impl ProofSystem for GM17 {
         }
     }
 
-    fn export_solidity_verifier(&self, reader: BufReader<File>, abiv2: bool) -> String {
+    fn export_solidity_verifier(&self, reader: BufReader<File>, is_abiv2: bool) -> String {
         let mut lines = reader.lines();
 
-        let (mut template_text, solidity_pairing_lib) = if abiv2 {
+        let (mut template_text, solidity_pairing_lib) = if is_abiv2 {
             (
                 String::from(CONTRACT_TEMPLATE_V2),
                 String::from(SOLIDITY_PAIRING_LIB_V2),

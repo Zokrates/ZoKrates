@@ -33,6 +33,7 @@ fn cli() -> Result<(), String> {
     const WITNESS_DEFAULT_PATH: &str = "witness";
     const JSON_PROOF_PATH: &str = "proof.json";
     let default_scheme = env::var("ZOKRATES_PROVING_SCHEME").unwrap_or(String::from("g16"));
+    let default_solidity_abi = "v1";
 
     // cli specification using clap library
     let matches = App::new("ZoKrates")
@@ -133,11 +134,13 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(&default_scheme)
-        ).arg(Arg::with_name("abiv2")
-            .short("abiv2")
-            .long("abiv2")
-            .help("Flag for setting version of ABI Encoder used in the contract. Default is ABIv1")
-            .takes_value(false)
+        ).arg(Arg::with_name("abi")
+            .short("abi")
+            .long("abi")
+            .help("Flag for setting the version of the ABI Encoder used in the contract. Default is v1.")
+            .takes_value(true)
+            .possible_values(&["v1", "v2"])
+            .default_value(&default_solidity_abi)
             .required(false)
         )
     )
@@ -410,7 +413,7 @@ fn cli() -> Result<(), String> {
         ("export-verifier", Some(sub_matches)) => {
             {
                 let scheme = get_scheme(sub_matches.value_of("proving-scheme").unwrap())?;
-                let abiv2 = sub_matches.occurrences_of("abiv2") > 0;
+                let is_abiv2 = sub_matches.value_of("abi").unwrap() == "v2";
                 println!("Exporting verifier...");
 
                 // read vk file
@@ -419,7 +422,7 @@ fn cli() -> Result<(), String> {
                     .map_err(|why| format!("couldn't open {}: {}", input_path.display(), why))?;
                 let reader = BufReader::new(input_file);
 
-                let verifier = scheme.export_solidity_verifier(reader, abiv2);
+                let verifier = scheme.export_solidity_verifier(reader, is_abiv2);
 
                 //write output file
                 let output_path = Path::new(sub_matches.value_of("output").unwrap());
