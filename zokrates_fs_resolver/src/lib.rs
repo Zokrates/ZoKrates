@@ -20,11 +20,13 @@ fn resolve_with_location(
     location: &String,
     source: &String,
 ) -> Result<(BufReader<File>, String, String), io::Error> {
-    let source = PathBuf::from(source);
+    let mut source = PathBuf::from(source);
+
+    source.set_extension("code");
 
     // paths starting with `./` or `../` are interpreted relative to the current file
     // other paths `abc/def.code` are interpreted relative to $ZOKRATES_HOME
-    let base = match source.components().next() {
+    let base = match source.as_path().components().next() {
         Some(Component::CurDir) | Some(Component::ParentDir) => PathBuf::from(location),
         _ => PathBuf::from(
             std::env::var(ZOKRATES_HOME).expect("$ZOKRATES_HOME is not set, please set it"),
