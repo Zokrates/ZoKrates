@@ -8,7 +8,7 @@ use crate::typed_absy::folder::*;
 use crate::typed_absy::*;
 use crate::types::Type;
 use std::collections::HashMap;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub struct Unroller<'ast> {
     substitution: HashMap<Identifier<'ast>, usize>,
@@ -177,7 +177,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[cfg(test)]
     mod statement {

@@ -11,7 +11,7 @@ use regex::Regex;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
-use zokrates_field::field::FieldPrime;
+use zokrates_field::Bn128Field;
 
 pub struct GM17 {}
 

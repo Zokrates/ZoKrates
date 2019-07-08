@@ -2,7 +2,7 @@ use crate::flat_absy::flat_parameter::FlatParameter;
 use crate::flat_absy::FlatVariable;
 use crate::helpers::Helper;
 use std::fmt;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 mod expression;
 pub mod folder;
@@ -17,7 +17,7 @@ pub use self::interpreter::{Error, ExecutionResult};
 pub use self::witness::Witness;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-pub enum Statement<T: Field> {
+pub enum Statement<T> {
     Constraint(QuadComb<T>, LinComb<T>),
     Directive(Directive<T>),
 }
@@ -33,7 +33,7 @@ impl<T: Field> Statement<T> {
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub struct Directive<T: Field> {
+pub struct Directive<T> {
     pub inputs: Vec<LinComb<T>>,
     pub outputs: Vec<FlatVariable>,
     pub helper: Helper,
@@ -69,7 +69,7 @@ impl<T: Field> fmt::Display for Statement<T> {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-pub struct Function<T: Field> {
+pub struct Function<T> {
     pub id: String,
     pub statements: Vec<Statement<T>>,
     pub arguments: Vec<FlatVariable>,
@@ -103,7 +103,7 @@ impl<T: Field> fmt::Display for Function<T> {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Prog<T: Field> {
+pub struct Prog<T> {
     pub main: Function<T>,
     pub private: Vec<bool>,
 }
@@ -150,7 +150,7 @@ impl<T: Field> fmt::Display for Prog<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     mod statement {
         use super::*;

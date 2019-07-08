@@ -1,7 +1,7 @@
 // Generic walk through a typed AST. Not mutating in place
 
 use crate::typed_absy::*;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub trait Folder<'ast, T: Field>: Sized {
     fn fold_program(&mut self, p: TypedProg<'ast, T>) -> TypedProg<'ast, T> {

@@ -5,7 +5,7 @@ use crate::helpers::{DirectiveStatement, Helper};
 use crate::types::signature::Signature;
 use crate::types::Type;
 use std::collections::HashMap;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 fn use_variable(
     layout: &mut HashMap<String, FlatVariable>,
@@ -167,7 +167,7 @@ pub fn cast<T: Field>(from: &Type, to: &Type) -> FlatFunction<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[cfg(test)]
     mod cast {

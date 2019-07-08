@@ -14,7 +14,7 @@ use crate::ir::LinComb;
 use crate::ir::*;
 use num::Zero;
 use std::collections::HashMap;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 #[derive(Debug)]
 pub struct RedefinitionOptimizer<T: Field> {
@@ -112,7 +112,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[test]
     fn remove_synonyms() {

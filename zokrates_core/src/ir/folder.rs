@@ -2,7 +2,7 @@
 
 use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::*;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub trait Folder<T: Field>: Sized {
     fn fold_program(&mut self, p: Prog<T>) -> Prog<T> {

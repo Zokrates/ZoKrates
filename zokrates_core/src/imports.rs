@@ -12,7 +12,7 @@ use crate::parser::Position;
 use std::fmt;
 use std::io;
 use std::io::BufRead;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub struct CompiledImport<T: Field> {
     pub flat_func: FlatFunction<T>,

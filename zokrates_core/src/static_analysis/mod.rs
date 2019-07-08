@@ -18,7 +18,7 @@ use self::propagation::Propagator;
 use self::unroll::Unroller;
 use crate::flat_absy::FlatProg;
 use crate::typed_absy::TypedProg;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub trait Analyse {
     fn analyse(self) -> Self;

@@ -1,7 +1,7 @@
 use crate::typed_absy::folder::*;
 use crate::typed_absy::Folder;
 use crate::typed_absy::*;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub struct PowerChecker {}
 

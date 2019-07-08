@@ -15,10 +15,10 @@ use crate::helpers::{DirectiveStatement, Executable};
 use crate::types::Signature;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 #[derive(Clone)]
-pub struct FlatProg<T: Field> {
+pub struct FlatProg<T> {
     /// FlatFunctions of the program
     pub functions: Vec<FlatFunction<T>>,
 }
@@ -32,7 +32,7 @@ impl<T: Field> FlatProg<T> {
     }
 }
 
-impl<T: Field> fmt::Display for FlatProg<T> {
+impl<T: fmt::Debug + fmt::Display> fmt::Display for FlatProg<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -46,7 +46,7 @@ impl<T: Field> fmt::Display for FlatProg<T> {
     }
 }
 
-impl<T: Field> fmt::Debug for FlatProg<T> {
+impl<T: fmt::Debug + fmt::Display> fmt::Debug for FlatProg<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -61,7 +61,7 @@ impl<T: Field> fmt::Debug for FlatProg<T> {
 }
 
 #[derive(Clone, PartialEq)]
-pub struct FlatFunction<T: Field> {
+pub struct FlatFunction<T> {
     /// Name of the program
     pub id: String,
     /// Arguments of the function
@@ -122,7 +122,7 @@ impl<T: Field> FlatFunction<T> {
     }
 }
 
-impl<T: Field> fmt::Display for FlatFunction<T> {
+impl<T: fmt::Debug + fmt::Display> fmt::Display for FlatFunction<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -142,7 +142,7 @@ impl<T: Field> fmt::Display for FlatFunction<T> {
     }
 }
 
-impl<T: Field> fmt::Debug for FlatFunction<T> {
+impl<T: fmt::Debug + fmt::Display> fmt::Debug for FlatFunction<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -170,14 +170,14 @@ impl<T: Field> fmt::Debug for FlatFunction<T> {
 /// * r1cs - R1CS in standard JSON data format
 
 #[derive(Clone, PartialEq)]
-pub enum FlatStatement<T: Field> {
+pub enum FlatStatement<T> {
     Return(FlatExpressionList<T>),
     Condition(FlatExpression<T>, FlatExpression<T>),
     Definition(FlatVariable, FlatExpression<T>),
     Directive(DirectiveStatement<T>),
 }
 
-impl<T: Field> fmt::Display for FlatStatement<T> {
+impl<T: fmt::Debug + fmt::Display> fmt::Display for FlatStatement<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             FlatStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
@@ -188,7 +188,7 @@ impl<T: Field> fmt::Display for FlatStatement<T> {
     }
 }
 
-impl<T: Field> fmt::Debug for FlatStatement<T> {
+impl<T: fmt::Debug + fmt::Display> fmt::Debug for FlatStatement<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             FlatStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
@@ -201,7 +201,7 @@ impl<T: Field> fmt::Debug for FlatStatement<T> {
     }
 }
 
-impl<T: Field> FlatStatement<T> {
+impl<T> FlatStatement<T> {
     pub fn apply_substitution(
         self,
         substitution: &HashMap<FlatVariable, FlatVariable>,
@@ -239,7 +239,7 @@ impl<T: Field> FlatStatement<T> {
 }
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub enum FlatExpression<T: Field> {
+pub enum FlatExpression<T> {
     Number(T),
     Identifier(FlatVariable),
     Add(Box<FlatExpression<T>>, Box<FlatExpression<T>>),
@@ -247,7 +247,7 @@ pub enum FlatExpression<T: Field> {
     Mult(Box<FlatExpression<T>>, Box<FlatExpression<T>>),
 }
 
-impl<T: Field> FlatExpression<T> {
+impl<T> FlatExpression<T> {
     pub fn apply_substitution(
         self,
         substitution: &HashMap<FlatVariable, FlatVariable>,
@@ -272,19 +272,6 @@ impl<T: Field> FlatExpression<T> {
         }
     }
 
-    fn solve(&self, inputs: &mut BTreeMap<FlatVariable, T>) -> T {
-        match *self {
-            FlatExpression::Number(ref x) => x.clone(),
-            FlatExpression::Identifier(ref var) => match inputs.get(var) {
-                Some(v) => v.clone(),
-                None => panic!("Variable {:?} is undeclared in witness: {:?}", var, inputs),
-            },
-            FlatExpression::Add(ref x, ref y) => x.solve(inputs) + y.solve(inputs),
-            FlatExpression::Sub(ref x, ref y) => x.solve(inputs) - y.solve(inputs),
-            FlatExpression::Mult(ref x, ref y) => x.solve(inputs) * y.solve(inputs),
-        }
-    }
-
     pub fn is_linear(&self) -> bool {
         match *self {
             FlatExpression::Number(_) | FlatExpression::Identifier(_) => true,
@@ -301,7 +288,22 @@ impl<T: Field> FlatExpression<T> {
     }
 }
 
-impl<T: Field> fmt::Display for FlatExpression<T> {
+impl<T: Field> FlatExpression<T> {
+    fn solve(&self, inputs: &mut BTreeMap<FlatVariable, T>) -> T {
+        match *self {
+            FlatExpression::Number(ref x) => x.clone(),
+            FlatExpression::Identifier(ref var) => match inputs.get(var) {
+                Some(v) => v.clone(),
+                None => panic!("Variable {:?} is undeclared in witness: {:?}", var, inputs),
+            },
+            FlatExpression::Add(ref x, ref y) => x.solve(inputs) + y.solve(inputs),
+            FlatExpression::Sub(ref x, ref y) => x.solve(inputs) - y.solve(inputs),
+            FlatExpression::Mult(ref x, ref y) => x.solve(inputs) * y.solve(inputs),
+        }
+    }
+}
+
+impl<T: fmt::Debug + fmt::Display> fmt::Display for FlatExpression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             FlatExpression::Number(ref i) => write!(f, "{}", i),
@@ -313,7 +315,7 @@ impl<T: Field> fmt::Display for FlatExpression<T> {
     }
 }
 
-impl<T: Field> fmt::Debug for FlatExpression<T> {
+impl<T: fmt::Debug + fmt::Display> fmt::Debug for FlatExpression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             FlatExpression::Number(ref i) => write!(f, "Num({})", i),
@@ -325,18 +327,18 @@ impl<T: Field> fmt::Debug for FlatExpression<T> {
     }
 }
 
-impl<T: Field> From<FlatVariable> for FlatExpression<T> {
+impl<T> From<FlatVariable> for FlatExpression<T> {
     fn from(v: FlatVariable) -> FlatExpression<T> {
         FlatExpression::Identifier(v)
     }
 }
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub struct FlatExpressionList<T: Field> {
+pub struct FlatExpressionList<T> {
     pub expressions: Vec<FlatExpression<T>>,
 }
 
-impl<T: Field> fmt::Display for FlatExpressionList<T> {
+impl<T: fmt::Debug + fmt::Display> fmt::Display for FlatExpressionList<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (i, param) in self.expressions.iter().enumerate() {
             r#try!(write!(f, "{}", param));
@@ -348,7 +350,7 @@ impl<T: Field> fmt::Display for FlatExpressionList<T> {
     }
 }
 
-impl<T: Field> FlatExpressionList<T> {
+impl<T> FlatExpressionList<T> {
     pub fn apply_substitution(
         self,
         substitution: &HashMap<FlatVariable, FlatVariable>,
@@ -363,7 +365,7 @@ impl<T: Field> FlatExpressionList<T> {
     }
 }
 
-impl<T: Field> fmt::Debug for FlatExpressionList<T> {
+impl<T: fmt::Debug + fmt::Display> fmt::Debug for FlatExpressionList<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "ExpressionList({:?})", self.expressions)
     }

@@ -3,7 +3,7 @@ use crate::typed_absy::Folder;
 use crate::typed_absy::*;
 use crate::types::{Signature, Type};
 use std::collections::HashMap;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub struct Inliner<'ast, T: Field> {
     functions: Vec<TypedFunction<'ast, T>>,
@@ -253,7 +253,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[cfg(test)]
     mod heuristics {

@@ -2,7 +2,7 @@ use crate::flat_absy::{FlatExpression, FlatFunction, FlatProg, FlatStatement, Fl
 use crate::helpers;
 use crate::ir::{Directive, Function, LinComb, Prog, QuadComb, Statement};
 use num::Zero;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 impl<T: Field> From<FlatFunction<T>> for Function<T> {
     fn from(flat_function: FlatFunction<T>) -> Function<T> {
@@ -136,7 +136,7 @@ impl<T: Field> From<helpers::DirectiveStatement<T>> for Directive<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[test]
     fn zero() {

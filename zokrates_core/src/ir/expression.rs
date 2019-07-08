@@ -1,12 +1,11 @@
 use crate::flat_absy::FlatVariable;
-use num::Zero;
 use std::collections::btree_map::{BTreeMap, Entry};
 use std::fmt;
 use std::ops::{Add, Div, Mul, Sub};
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct QuadComb<T: Field> {
+pub struct QuadComb<T> {
     pub left: LinComb<T>,
     pub right: LinComb<T>,
 }
@@ -58,29 +57,29 @@ impl<T: Field> fmt::Display for QuadComb<T> {
     }
 }
 
-#[derive(Eq, PartialOrd, Clone, Ord, Hash, Debug, Serialize, Deserialize)]
-pub struct LinComb<T: Field>(pub Vec<(FlatVariable, T)>);
-
-impl<T: Field> PartialEq for LinComb<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.as_canonical() == other.as_canonical()
-    }
-}
+#[derive(PartialEq, Eq, Clone, Hash, Debug, Serialize, Deserialize)]
+pub struct LinComb<T>(pub Vec<(FlatVariable, T)>);
 
 #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Debug, Serialize, Deserialize)]
-pub struct CanonicalLinComb<T: Field>(pub BTreeMap<FlatVariable, T>);
+pub struct CanonicalLinComb<T>(pub BTreeMap<FlatVariable, T>);
 
-impl<T: Field> LinComb<T> {
+impl<T> LinComb<T> {
     pub fn summand<U: Into<T>>(mult: U, var: FlatVariable) -> LinComb<T> {
         let res = vec![(var, mult.into())];
 
         LinComb(res)
     }
 
-    pub fn one() -> LinComb<T> {
-        Self::summand(1, FlatVariable::one())
+    pub fn zero() -> LinComb<T> {
+        LinComb(Vec::new())
     }
 
+    pub fn is_zero(&self) -> bool {
+        self.0.len() == 0
+    }
+}
+
+impl<T: Field> LinComb<T> {
     pub fn try_summand(&self) -> Option<(FlatVariable, T)> {
         match self.0.len() {
             // if the lincomb is empty, it is not reduceable to a summand
@@ -110,6 +109,12 @@ impl<T: Field> LinComb<T> {
         }
     }
 
+    pub fn one() -> LinComb<T> {
+        Self::summand(1, FlatVariable::one())
+    }
+}
+
+impl<T: Field> LinComb<T> {
     pub fn as_canonical(&self) -> CanonicalLinComb<T> {
         CanonicalLinComb(self.0.clone().into_iter().fold(
             BTreeMap::new(),
@@ -141,6 +146,7 @@ impl<T: Field> LinComb<T> {
 
 impl<T: Field> fmt::Display for LinComb<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use num::Zero;
         match self.is_zero() {
             true => write!(f, "0"),
             false => write!(
@@ -206,19 +212,10 @@ impl<T: Field> Div<&T> for LinComb<T> {
     }
 }
 
-impl<T: Field> Zero for LinComb<T> {
-    fn zero() -> LinComb<T> {
-        LinComb(Vec::new())
-    }
-    fn is_zero(&self) -> bool {
-        self.0.len() == 0
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     mod linear {
 

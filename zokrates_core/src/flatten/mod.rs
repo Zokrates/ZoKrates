@@ -12,7 +12,7 @@ use crate::types::conversions::cast;
 use crate::types::Signature;
 use crate::types::Type;
 use std::collections::HashMap;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 /// Flattener, computes flattened program.
 #[derive(Debug)]
@@ -1369,7 +1369,7 @@ mod tests {
     use super::*;
     use crate::types::Signature;
     use crate::types::Type;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     mod boolean_checks {
         use super::*;

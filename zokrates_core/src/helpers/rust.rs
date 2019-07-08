@@ -1,7 +1,7 @@
 use crate::helpers::{Executable, Signed};
 use std::fmt;
 use zokrates_embed::generate_sha256_round_witness;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum RustHelper {
@@ -72,7 +72,7 @@ impl<T: Field> Executable<T> for RustHelper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[test]
     fn bits_of_one() {

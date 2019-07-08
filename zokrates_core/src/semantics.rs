@@ -13,7 +13,7 @@ use crate::typed_absy::*;
 use crate::types::Signature;
 use std::collections::HashSet;
 use std::fmt;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 use crate::parser::Position;
 
@@ -1083,7 +1083,7 @@ impl<'ast> Checker<'ast> {
 mod tests {
     // use super::*;
     // use absy::parameter::Parameter;
-    // use zokrates_field::field::FieldPrime;
+    // use zokrates_field::Bn128Field;
 
     // pub fn new_with_args(
     //     scope: HashSet<ScopedVariable>,

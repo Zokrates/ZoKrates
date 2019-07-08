@@ -1,7 +1,7 @@
 use absy;
 use imports;
 use types::Type;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 use zokrates_pest_ast as pest;
 
 impl<'ast, T: Field> From<pest::File<'ast>> for absy::Prog<'ast, T> {
@@ -545,7 +545,7 @@ impl<'ast> From<pest::Type<'ast>> for Type {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[test]
     fn return_forty_two() {

@@ -3,7 +3,7 @@ use crate::typed_absy::Folder;
 use crate::typed_absy::*;
 use crate::types::{Signature, Type};
 use std::collections::HashSet;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub struct DeadCode {
     called: HashSet<String>,

@@ -5,7 +5,7 @@ use rustc_hex::FromHex;
 use serde::{Deserialize, Deserializer};
 use std::rc::Rc;
 use wasmi::{ImportsBuilder, ModuleInstance, ModuleRef, NopExternals};
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct WasmHelper(
@@ -208,7 +208,7 @@ mod tests {
     use parity_wasm::builder::*;
     use parity_wasm::elements::{Instruction, Instructions, ValueType};
     use std::panic;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     fn remove_export(code: &str, symbol: &str) -> Vec<u8> {
         let code = FromHex::from_hex(code).unwrap();

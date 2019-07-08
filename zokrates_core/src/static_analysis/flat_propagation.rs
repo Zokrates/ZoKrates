@@ -7,7 +7,7 @@
 use crate::flat_absy::*;
 use crate::helpers::DirectiveStatement;
 use std::collections::HashMap;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub trait Propagate<T: Field> {
     fn propagate(self) -> Self;
@@ -117,7 +117,7 @@ impl<T: Field> FlatProg<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[cfg(test)]
     mod expression {

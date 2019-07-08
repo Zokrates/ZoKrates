@@ -7,16 +7,22 @@ pub use self::rust::RustHelper;
 pub use self::wasm::WasmHelper;
 use crate::flat_absy::{FlatExpression, FlatVariable};
 use std::fmt;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub struct DirectiveStatement<T: Field> {
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+pub struct DirectiveStatement<T> {
     pub inputs: Vec<FlatExpression<T>>,
     pub outputs: Vec<FlatVariable>,
     pub helper: Helper,
 }
 
-impl<T: Field> DirectiveStatement<T> {
+impl<T: fmt::Debug + fmt::Display> fmt::Debug for DirectiveStatement<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        unimplemented!()
+    }
+}
+
+impl<T> DirectiveStatement<T> {
     pub fn new<E: Into<FlatExpression<T>>>(
         outputs: Vec<FlatVariable>,
         helper: Helper,
@@ -33,7 +39,7 @@ impl<T: Field> DirectiveStatement<T> {
     }
 }
 
-impl<T: Field> fmt::Display for DirectiveStatement<T> {
+impl<T: fmt::Display + fmt::Debug> fmt::Display for DirectiveStatement<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -136,7 +142,7 @@ impl Signed for Helper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     mod eq_condition {
 

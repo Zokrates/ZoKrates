@@ -5,7 +5,7 @@ use crate::types::{Signature, Type};
 use bellman::pairing::ff::ScalarEngine;
 use reduce::Reduce;
 use zokrates_embed::{generate_sha256_round_constraints, BellmanConstraint};
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 // util to convert a vector of `(variable_id, coefficient)` to a flat_expression
 fn flat_expression_from_vec<T: Field>(
@@ -150,7 +150,7 @@ pub fn sha_round<T: Field>() -> FlatFunction<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[test]
     fn generate_sha256_constraints() {

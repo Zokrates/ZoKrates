@@ -7,7 +7,7 @@
 use crate::typed_absy::folder::*;
 use crate::typed_absy::*;
 use std::collections::HashMap;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub struct Propagator<'ast, T: Field> {
     constants: HashMap<TypedAssignee<'ast, T>, TypedExpression<'ast, T>>,
@@ -388,7 +388,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[cfg(test)]
     mod expression {

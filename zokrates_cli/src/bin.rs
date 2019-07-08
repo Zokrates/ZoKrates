@@ -15,13 +15,28 @@ use std::{env, io};
 use zokrates_core::compile::compile;
 use zokrates_core::ir;
 use zokrates_core::proof_system::*;
-use zokrates_field::field::{Field, FieldPrime};
+use zokrates_field::{Bls12Field, Bn128Field, Field};
 use zokrates_fs_resolver::resolve as fs_resolve;
 #[cfg(feature = "github")]
 use zokrates_github_resolver::{is_github_import, resolve as github_resolve};
 
 fn main() {
-    cli().unwrap_or_else(|e| {
+    let curve_str = env::var("ZOKRATES_CURVE").unwrap_or(String::from("bls12_381"));
+    let scheme_str = env::var("ZOKRATES_PROVING_SCHEME").unwrap_or(String::from("g16"));
+
+    match scheme_str.to_lowercase().as_ref() {
+        #[cfg(feature = "libsnark")]
+        "pghr13" => Ok(&PGHR13 {}),
+        #[cfg(feature = "libsnark")]
+        "gm17" => Ok(&GM17 {}),
+        "g16" => match curve_str.to_lowercase().as_ref() {
+            "bn128" => cli::<Bn128Field, G16>(),
+            "bls12_381" => cli::<Bls12Field, G16>(),
+            c => Err(format!("curve {} not supported", c)),
+        },
+        s => Err(format!("Backend \"{}\" not supported", s)),
+    }
+    .unwrap_or_else(|e| {
         println!("{}", e);
         std::process::exit(1);
     })
@@ -40,13 +55,14 @@ fn resolve(
     fs_resolve(location, source)
 }
 
-fn cli() -> Result<(), String> {
+fn cli<T: Field, P: ProofSystem>() -> Result<(), String> {
     const FLATTENED_CODE_DEFAULT_PATH: &str = "out";
     const VERIFICATION_KEY_DEFAULT_PATH: &str = "verification.key";
     const PROVING_KEY_DEFAULT_PATH: &str = "proving.key";
     const VERIFICATION_CONTRACT_DEFAULT_PATH: &str = "verifier.sol";
     const WITNESS_DEFAULT_PATH: &str = "witness";
     const JSON_PROOF_PATH: &str = "proof.json";
+    let default_curve = env::var("ZOKRATES_CURVE").unwrap_or(String::from("bn128"));
     let default_scheme = env::var("ZOKRATES_PROVING_SCHEME").unwrap_or(String::from("g16"));
     let default_solidity_abi = "v1";
 
@@ -280,7 +296,7 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(file);
 
-            let program_flattened: ir::Prog<FieldPrime> =
+            let program_flattened: ir::Prog<T> =
                 compile(&mut reader, Some(location), Some(resolve))
                     .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
 
@@ -333,7 +349,7 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(file);
 
-            let program_ast: ir::Prog<FieldPrime> =
+            let program_ast: ir::Prog<T> =
                 deserialize_from(&mut reader, Infinite).map_err(|why| why.to_string())?;
 
             // print deserialized flattened program
@@ -348,7 +364,7 @@ fn cli() -> Result<(), String> {
             let arguments: Vec<_> = match sub_matches.values_of("arguments") {
                 // take inline arguments
                 Some(p) => p
-                    .map(|x| FieldPrime::try_from_dec_str(x).map_err(|_| x.to_string()))
+                    .map(|x| T::try_from_dec_str(x).map_err(|_| x.to_string()))
                     .collect(),
                 // take stdin arguments
                 None => {
@@ -360,9 +376,7 @@ fn cli() -> Result<(), String> {
                                 input.retain(|x| x != '\n');
                                 input
                                     .split(" ")
-                                    .map(|x| {
-                                        FieldPrime::try_from_dec_str(x).map_err(|_| x.to_string())
-                                    })
+                                    .map(|x| T::try_from_dec_str(x).map_err(|_| x.to_string()))
                                     .collect()
                             }
                             Err(_) => Err(String::from("???")),
@@ -400,8 +414,6 @@ fn cli() -> Result<(), String> {
                 .map_err(|why| format!("could not save witness: {:?}", why))?;
         }
         ("setup", Some(sub_matches)) => {
-            let scheme = get_scheme(sub_matches.value_of("proving-scheme").unwrap())?;
-
             println!("Performing setup...");
 
             let path = Path::new(sub_matches.value_of("input").unwrap());
@@ -410,7 +422,7 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(file);
 
-            let program: ir::Prog<FieldPrime> =
+            let program: ir::Prog<T> =
                 deserialize_from(&mut reader, Infinite).map_err(|why| format!("{:?}", why))?;
 
             // print deserialized flattened program
@@ -423,11 +435,10 @@ fn cli() -> Result<(), String> {
             let vk_path = sub_matches.value_of("verification-key-path").unwrap();
 
             // run setup phase
-            scheme.setup(program, pk_path, vk_path);
+            P::setup(program, pk_path, vk_path);
         }
         ("export-verifier", Some(sub_matches)) => {
             {
-                let scheme = get_scheme(sub_matches.value_of("proving-scheme").unwrap())?;
                 let is_abiv2 = sub_matches.value_of("abi").unwrap() == "v2";
                 println!("Exporting verifier...");
 
@@ -437,7 +448,7 @@ fn cli() -> Result<(), String> {
                     .map_err(|why| format!("couldn't open {}: {}", input_path.display(), why))?;
                 let reader = BufReader::new(input_file);
 
-                let verifier = scheme.export_solidity_verifier(reader, is_abiv2);
+                let verifier = P::export_solidity_verifier(reader, is_abiv2);
 
                 //write output file
                 let output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -454,8 +465,6 @@ fn cli() -> Result<(), String> {
         }
         ("generate-proof", Some(sub_matches)) => {
             println!("Generating proof...");
-
-            let scheme = get_scheme(sub_matches.value_of("proving-scheme").unwrap())?;
 
             // deserialize witness
             let witness_path = Path::new(sub_matches.value_of("witness").unwrap());
@@ -476,12 +485,12 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(program_file);
 
-            let program: ir::Prog<FieldPrime> =
+            let program: ir::Prog<T> =
                 deserialize_from(&mut reader, Infinite).map_err(|why| format!("{:?}", why))?;
 
             println!(
                 "generate-proof successful: {:?}",
-                scheme.generate_proof(program, witness, pk_path, proof_path)
+                P::generate_proof(program, witness, pk_path, proof_path)
             );
         }
         ("print-proof", Some(sub_matches)) => {
@@ -526,17 +535,6 @@ fn cli() -> Result<(), String> {
     Ok(())
 }
 
-fn get_scheme(scheme_str: &str) -> Result<&'static dyn ProofSystem, String> {
-    match scheme_str.to_lowercase().as_ref() {
-        #[cfg(feature = "libsnark")]
-        "pghr13" => Ok(&PGHR13 {}),
-        #[cfg(feature = "libsnark")]
-        "gm17" => Ok(&GM17 {}),
-        "g16" => Ok(&G16 {}),
-        s => Err(format!("Backend \"{}\" not supported", s)),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     extern crate glob;
@@ -568,7 +566,7 @@ mod tests {
                 .into_string()
                 .unwrap();
 
-            let _: ir::Prog<FieldPrime> =
+            let _: ir::Prog<Bn128Field> =
                 compile(&mut reader, Some(location), Some(resolve)).unwrap();
         }
     }
@@ -595,11 +593,11 @@ mod tests {
 
             let mut reader = BufReader::new(file);
 
-            let program_flattened: ir::Prog<FieldPrime> =
+            let program_flattened: ir::Prog<Bn128Field> =
                 compile(&mut reader, Some(location), Some(resolve)).unwrap();
 
             let _ = program_flattened
-                .execute(&vec![FieldPrime::from(0)])
+                .execute(&vec![Bn128Field::from(0)])
                 .unwrap();
         }
     }
@@ -627,11 +625,11 @@ mod tests {
 
             let mut reader = BufReader::new(file);
 
-            let program_flattened: ir::Prog<FieldPrime> =
+            let program_flattened: ir::Prog<Bn128Field> =
                 compile(&mut reader, Some(location), Some(resolve)).unwrap();
 
             let _ = program_flattened
-                .execute(&vec![FieldPrime::from(0)])
+                .execute(&vec![Bn128Field::from(0)])
                 .unwrap();
         }
     }

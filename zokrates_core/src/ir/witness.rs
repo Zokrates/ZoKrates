@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::io;
 use std::io::{Read, Write};
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Witness<T: Field>(pub BTreeMap<FlatVariable, T>);
@@ -106,7 +106,7 @@ impl<T: Field> fmt::Display for Witness<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     mod io {
         use super::*;
