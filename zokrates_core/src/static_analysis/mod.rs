@@ -7,13 +7,11 @@
 mod dead_code;
 mod flat_propagation;
 mod inline;
-mod power_check;
 mod propagation;
 mod unroll;
 
 use self::dead_code::DeadCode;
 use self::inline::Inliner;
-use self::power_check::PowerChecker;
 use self::propagation::Propagator;
 use self::unroll::Unroller;
 use crate::flat_absy::FlatProg;
@@ -26,9 +24,8 @@ pub trait Analyse {
 
 impl<'ast, T: Field> Analyse for TypedProg<'ast, T> {
     fn analyse(self) -> Self {
-        let r = PowerChecker::check(self);
         // unroll
-        let r = Unroller::unroll(r);
+        let r = Unroller::unroll(self);
         //propagate a first time for constants to reach function calls
         let r = Propagator::propagate(r);
         // apply inlining strategy
