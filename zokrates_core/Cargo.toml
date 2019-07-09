@@ -32,7 +32,7 @@ zokrates_field = { version = "0.3.0", path = "../zokrates_field" }
 zokrates_pest_ast = { version = "0.1.0", path = "../zokrates_pest_ast" }
 zokrates_embed = { path = "../zokrates_embed" }
 rand = "0.4"
-wasmi = { version = "0.4.2", optional = true }
+wasmi = { version = "=0.4.5", optional = true }
 parity-wasm = { version = "0.35.3", optional = true }
 rustc-hex = { version = "1.0", optional = true }
 csv = "1"

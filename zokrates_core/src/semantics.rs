@@ -690,6 +690,7 @@ impl<'ast> Checker<'ast> {
         let pos = expr.pos();
 
         match expr.value {
+            Expression::BooleanConstant(b) => Ok(BooleanExpression::Value(b).into()),
             Expression::Identifier(name) => {
                 // check that `id` is defined in the scope
                 match self.get_scope(&name) {
@@ -837,7 +838,7 @@ impl<'ast> Checker<'ast> {
                     }),
                 }
             }
-            Expression::Number(n) => Ok(FieldElementExpression::Number(n).into()),
+            Expression::FieldConstant(n) => Ok(FieldElementExpression::Number(n).into()),
             Expression::FunctionCall(fun_id, arguments) => {
                 // check the arguments
                 let mut arguments_checked = vec![];
@@ -1233,9 +1234,10 @@ mod tests {
                         Function {
                             statements: vec![Statement::Return(
                                 ExpressionList {
-                                    expressions: vec![
-                                        Expression::Number(FieldPrime::from(1)).mock()
-                                    ],
+                                    expressions: vec![Expression::FieldConstant(FieldPrime::from(
+                                        1,
+                                    ))
+                                    .mock()],
                                 }
                                 .mock(),
                             )
@@ -1261,12 +1263,16 @@ mod tests {
                 imports: vec![],
             };
 
-            let mut modules = vec![(String::from("foo"), foo)].into_iter().collect();
+            let mut modules = vec![(String::from("foo"), foo), (String::from("bar"), bar)]
+                .into_iter()
+                .collect();
             let mut typed_modules = HashMap::new();
 
             let mut checker = Checker::new();
 
-            checker.check_module(&String::from("bar"), &mut modules, &mut typed_modules);
+            checker
+                .check_module(&String::from("bar"), &mut modules, &mut typed_modules)
+                .unwrap();
             assert_eq!(
                 typed_modules.get(&String::from("bar")),
                 Some(&TypedModule {
@@ -1360,7 +1366,7 @@ mod tests {
             Statement::Declaration(Variable::field_element("a").mock()).mock(),
             Statement::Definition(
                 Assignee::Identifier("a").mock(),
-                Expression::Number(FieldPrime::from(1)).mock(),
+                Expression::FieldConstant(FieldPrime::from(1)).mock(),
             )
             .mock(),
         ];
@@ -1437,7 +1443,7 @@ mod tests {
             Statement::Declaration(Variable::field_element("a").mock()).mock(),
             Statement::Definition(
                 Assignee::Identifier("a").mock(),
-                Expression::Number(FieldPrime::from(1)).mock(),
+                Expression::FieldConstant(FieldPrime::from(1)).mock(),
             )
             .mock(),
         ];
@@ -1457,7 +1463,7 @@ mod tests {
             Statement::Declaration(Variable::field_element("a").mock()).mock(),
             Statement::Definition(
                 Assignee::Identifier("a").mock(),
-                Expression::Number(FieldPrime::from(2)).mock(),
+                Expression::FieldConstant(FieldPrime::from(2)).mock(),
             )
             .mock(),
             Statement::Return(
@@ -1481,7 +1487,7 @@ mod tests {
         let main_args = vec![];
         let main_statements = vec![Statement::Return(
             ExpressionList {
-                expressions: vec![Expression::Number(FieldPrime::from(1)).mock()],
+                expressions: vec![Expression::FieldConstant(FieldPrime::from(1)).mock()],
             }
             .mock(),
         )
@@ -1689,7 +1695,7 @@ mod tests {
         //   2 == foo()
         // should fail
         let bar_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Condition(
-            Expression::Number(FieldPrime::from(2)).mock(),
+            Expression::FieldConstant(FieldPrime::from(2)).mock(),
             Expression::FunctionCall("foo", vec![]).mock(),
         )
         .mock()];
@@ -1774,8 +1780,8 @@ mod tests {
         let foo_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
             ExpressionList {
                 expressions: vec![
-                    Expression::Number(FieldPrime::from(1)).mock(),
-                    Expression::Number(FieldPrime::from(2)).mock(),
+                    Expression::FieldConstant(FieldPrime::from(1)).mock(),
+                    Expression::FieldConstant(FieldPrime::from(2)).mock(),
                 ],
             }
             .mock(),
@@ -1809,7 +1815,7 @@ mod tests {
             .mock(),
             Statement::Return(
                 ExpressionList {
-                    expressions: vec![Expression::Number(FieldPrime::from(1)).mock()],
+                    expressions: vec![Expression::FieldConstant(FieldPrime::from(1)).mock()],
                 }
                 .mock(),
             )
@@ -1860,7 +1866,7 @@ mod tests {
         //   1 == foo()
         // should fail
         let bar_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Condition(
-            Expression::Number(FieldPrime::from(1)).mock(),
+            Expression::FieldConstant(FieldPrime::from(1)).mock(),
             Expression::FunctionCall("foo", vec![]).mock(),
         )
         .mock()];
@@ -2024,7 +2030,7 @@ mod tests {
 
         let foo1_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
             ExpressionList {
-                expressions: vec![Expression::Number(FieldPrime::from(1)).mock()],
+                expressions: vec![Expression::FieldConstant(FieldPrime::from(1)).mock()],
             }
             .mock(),
         )
@@ -2045,7 +2051,7 @@ mod tests {
 
         let foo2_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
             ExpressionList {
-                expressions: vec![Expression::Number(FieldPrime::from(1)).mock()],
+                expressions: vec![Expression::FieldConstant(FieldPrime::from(1)).mock()],
             }
             .mock(),
         )
@@ -2125,7 +2131,7 @@ mod tests {
         // should fail
         let main1_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
             ExpressionList {
-                expressions: vec![Expression::Number(FieldPrime::from(1)).mock()],
+                expressions: vec![Expression::FieldConstant(FieldPrime::from(1)).mock()],
             }
             .mock(),
         )
@@ -2139,7 +2145,7 @@ mod tests {
 
         let main2_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
             ExpressionList {
-                expressions: vec![Expression::Number(FieldPrime::from(1)).mock()],
+                expressions: vec![Expression::FieldConstant(FieldPrime::from(1)).mock()],
             }
             .mock(),
         )
@@ -2282,7 +2288,9 @@ mod tests {
             // a[2] = 42
             let a = Assignee::ArrayElement(
                 box Assignee::Identifier("a").mock(),
-                box RangeOrExpression::Expression(Expression::Number(FieldPrime::from(2)).mock()),
+                box RangeOrExpression::Expression(
+                    Expression::FieldConstant(FieldPrime::from(2)).mock(),
+                ),
             )
             .mock();
 

@@ -335,6 +335,51 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     (e1, e2) => BooleanExpression::Ge(box e1, box e2),
                 }
             }
+            BooleanExpression::Or(box e1, box e2) => {
+                let e1 = self.fold_boolean_expression(e1);
+                let e2 = self.fold_boolean_expression(e2);
+
+                match (e1, e2) {
+                    // reduction of constants
+                    (BooleanExpression::Value(v1), BooleanExpression::Value(v2)) => {
+                        BooleanExpression::Value(v1 || v2)
+                    }
+                    // x || true == true
+                    (_, BooleanExpression::Value(true)) | (BooleanExpression::Value(true), _) => {
+                        BooleanExpression::Value(true)
+                    }
+                    // x || false == x
+                    (e, BooleanExpression::Value(false)) | (BooleanExpression::Value(false), e) => {
+                        e
+                    }
+                    (e1, e2) => BooleanExpression::Or(box e1, box e2),
+                }
+            }
+            BooleanExpression::And(box e1, box e2) => {
+                let e1 = self.fold_boolean_expression(e1);
+                let e2 = self.fold_boolean_expression(e2);
+
+                match (e1, e2) {
+                    // reduction of constants
+                    (BooleanExpression::Value(v1), BooleanExpression::Value(v2)) => {
+                        BooleanExpression::Value(v1 && v2)
+                    }
+                    // x && true == x
+                    (e, BooleanExpression::Value(true)) | (BooleanExpression::Value(true), e) => e,
+                    // x && false == false
+                    (_, BooleanExpression::Value(false)) | (BooleanExpression::Value(false), _) => {
+                        BooleanExpression::Value(false)
+                    }
+                    (e1, e2) => BooleanExpression::And(box e1, box e2),
+                }
+            }
+            BooleanExpression::Not(box e) => {
+                let e = self.fold_boolean_expression(e);
+                match e {
+                    BooleanExpression::Value(v) => BooleanExpression::Value(!v),
+                    e => e,
+                }
+            }
             e => fold_boolean_expression(self, e),
         }
     }
@@ -580,6 +625,146 @@ mod tests {
                 );
                 assert_eq!(
                     Propagator::new().fold_boolean_expression(e_false),
+                    BooleanExpression::Value(false)
+                );
+            }
+
+            #[test]
+            fn and() {
+                let a_bool: Identifier = "a".into();
+
+                assert_eq!(
+                    Propagator::<FieldPrime>::new().fold_boolean_expression(
+                        BooleanExpression::And(
+                            box BooleanExpression::Value(true),
+                            box BooleanExpression::Identifier(a_bool.clone())
+                        )
+                    ),
+                    BooleanExpression::Identifier(a_bool.clone())
+                );
+                assert_eq!(
+                    Propagator::<FieldPrime>::new().fold_boolean_expression(
+                        BooleanExpression::And(
+                            box BooleanExpression::Identifier(a_bool.clone()),
+                            box BooleanExpression::Value(true),
+                        )
+                    ),
+                    BooleanExpression::Identifier(a_bool.clone())
+                );
+                assert_eq!(
+                    Propagator::<FieldPrime>::new().fold_boolean_expression(
+                        BooleanExpression::And(
+                            box BooleanExpression::Value(false),
+                            box BooleanExpression::Identifier(a_bool.clone())
+                        )
+                    ),
+                    BooleanExpression::Value(false)
+                );
+                assert_eq!(
+                    Propagator::<FieldPrime>::new().fold_boolean_expression(
+                        BooleanExpression::And(
+                            box BooleanExpression::Identifier(a_bool.clone()),
+                            box BooleanExpression::Value(false),
+                        )
+                    ),
+                    BooleanExpression::Value(false)
+                );
+                assert_eq!(
+                    Propagator::<FieldPrime>::new().fold_boolean_expression(
+                        BooleanExpression::And(
+                            box BooleanExpression::Value(true),
+                            box BooleanExpression::Value(false),
+                        )
+                    ),
+                    BooleanExpression::Value(false)
+                );
+                assert_eq!(
+                    Propagator::<FieldPrime>::new().fold_boolean_expression(
+                        BooleanExpression::And(
+                            box BooleanExpression::Value(false),
+                            box BooleanExpression::Value(true),
+                        )
+                    ),
+                    BooleanExpression::Value(false)
+                );
+                assert_eq!(
+                    Propagator::<FieldPrime>::new().fold_boolean_expression(
+                        BooleanExpression::And(
+                            box BooleanExpression::Value(true),
+                            box BooleanExpression::Value(true),
+                        )
+                    ),
+                    BooleanExpression::Value(true)
+                );
+                assert_eq!(
+                    Propagator::<FieldPrime>::new().fold_boolean_expression(
+                        BooleanExpression::And(
+                            box BooleanExpression::Value(false),
+                            box BooleanExpression::Value(false),
+                        )
+                    ),
+                    BooleanExpression::Value(false)
+                );
+            }
+
+            #[test]
+            fn or() {
+                let a_bool: Identifier = "a".into();
+
+                assert_eq!(
+                    Propagator::<FieldPrime>::new().fold_boolean_expression(BooleanExpression::Or(
+                        box BooleanExpression::Value(true),
+                        box BooleanExpression::Identifier(a_bool.clone())
+                    )),
+                    BooleanExpression::Value(true)
+                );
+                assert_eq!(
+                    Propagator::<FieldPrime>::new().fold_boolean_expression(BooleanExpression::Or(
+                        box BooleanExpression::Identifier(a_bool.clone()),
+                        box BooleanExpression::Value(true),
+                    )),
+                    BooleanExpression::Value(true)
+                );
+                assert_eq!(
+                    Propagator::<FieldPrime>::new().fold_boolean_expression(BooleanExpression::Or(
+                        box BooleanExpression::Value(false),
+                        box BooleanExpression::Identifier(a_bool.clone())
+                    )),
+                    BooleanExpression::Identifier(a_bool.clone())
+                );
+                assert_eq!(
+                    Propagator::<FieldPrime>::new().fold_boolean_expression(BooleanExpression::Or(
+                        box BooleanExpression::Identifier(a_bool.clone()),
+                        box BooleanExpression::Value(false),
+                    )),
+                    BooleanExpression::Identifier(a_bool.clone())
+                );
+                assert_eq!(
+                    Propagator::<FieldPrime>::new().fold_boolean_expression(BooleanExpression::Or(
+                        box BooleanExpression::Value(true),
+                        box BooleanExpression::Value(false),
+                    )),
+                    BooleanExpression::Value(true)
+                );
+                assert_eq!(
+                    Propagator::<FieldPrime>::new().fold_boolean_expression(BooleanExpression::Or(
+                        box BooleanExpression::Value(false),
+                        box BooleanExpression::Value(true),
+                    )),
+                    BooleanExpression::Value(true)
+                );
+                assert_eq!(
+                    Propagator::<FieldPrime>::new().fold_boolean_expression(BooleanExpression::Or(
+                        box BooleanExpression::Value(true),
+                        box BooleanExpression::Value(true),
+                    )),
+                    BooleanExpression::Value(true)
+                );
+                assert_eq!(
+                    Propagator::<FieldPrime>::new().fold_boolean_expression(BooleanExpression::Or(
+                        box BooleanExpression::Value(false),
+                        box BooleanExpression::Value(false),
+                    )),
                     BooleanExpression::Value(false)
                 );
             }
