@@ -47,8 +47,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// # Arguments
     ///
+    /// * `symbols` - Available functions in in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
-    /// * `condition` - `Condition` that will be flattened.
+    /// * `expression` - `BooleanExpression` that will be flattened.
     ///
     /// # Postconditions
     ///
@@ -424,6 +425,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
+    /// Flattens an expression
+    ///
+    /// # Arguments
+    ///
+    /// * `symbols` - Available functions in in this context
+    /// * `statements_flattened` - Vector where new flattened statements can be added.
+    /// * `expression` - `TypedExpression` that will be flattened.
     fn flatten_expression(
         &mut self,
         symbols: &TypedFunctionSymbols<'ast, T>,
@@ -443,6 +451,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
+    /// Flattens a field expression
+    ///
+    /// # Arguments
+    ///
+    /// * `symbols` - Available functions in in this context
+    /// * `statements_flattened` - Vector where new flattened statements can be added.
+    /// * `expression` - `FieldElementExpression` that will be flattened.
     fn flatten_field_expression(
         &mut self,
         symbols: &TypedFunctionSymbols<'ast, T>,
@@ -660,16 +675,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 ));
                 res.into()
             }
-            FieldElementExpression::FunctionCall(id, param_expressions) => {
-                let exprs_flattened = self.flatten_function_call(
-                    symbols,
-                    statements_flattened,
-                    &id.id,
-                    vec![Type::FieldElement],
-                    param_expressions,
-                );
-                assert!(exprs_flattened.expressions.len() == 1); // outside of MultipleDefinition, FunctionCalls must return a single value
-                exprs_flattened.expressions[0].clone()
+            FieldElementExpression::FunctionCall(..) => {
+                unreachable!("None of the FlatEmbeds return a single field element")
             }
             FieldElementExpression::Select(box array, box index) => {
                 match index {
@@ -802,6 +809,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
+    /// Flattens a field array expression
+    ///
+    /// # Arguments
+    ///
+    /// * `symbols` - Available functions in in this context
+    /// * `statements_flattened` - Vector where new flattened statements can be added.
+    /// * `expression` - `FieldElementArrayExpression` that will be flattened.
     fn flatten_field_array_expression(
         &mut self,
         symbols: &HashMap<FunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>,
@@ -866,6 +880,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
+    /// Flattens a statement
+    ///
+    /// # Arguments
+    ///
+    /// * `symbols` - Available functions in in this context
+    /// * `statements_flattened` - Vector where new flattened statements can be added.
+    /// * `stat` - `TypedStatement` that will be flattened.
     fn flatten_statement(
         &mut self,
         symbols: &TypedFunctionSymbols<'ast, T>,
@@ -1104,6 +1125,14 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
+    /// Flattens a function symbol
+    ///
+    /// # Arguments
+    ///
+    /// * `funct` - `TypedFunctionSymbol` that will be flattened.
+    ///
+    /// # Remarks
+    /// * Only "flat" symbols can be flattened here. Other function calls must have been inlined previously.
     fn flatten_function_symbol(&mut self, funct: TypedFunctionSymbol<'ast, T>) -> FlatFunction<T> {
         match funct {
             TypedFunctionSymbol::Flat(flat_function) => flat_function.synthetize(),
@@ -1111,12 +1140,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
-    /// Returns a flattened `TypedFunction` based on the given `funct`.
+    /// Flattens a function
     ///
     /// # Arguments
     ///
-    /// * `functions_flattened` - Vector where new flattened functions can be added.
-    /// * `funct` - `TypedFunction` that will be flattened.
+    /// * `symbols` - Available functions in in this context
+    /// * `funct` - `TypedFunction` that will be flattened
     fn flatten_function(
         &mut self,
         symbols: &TypedFunctionSymbols<'ast, T>,
@@ -1146,11 +1175,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
-    /// Returns a flattened `Prog`ram based on the given `prog`.
+    /// Flattens a program
     ///
     /// # Arguments
     ///
-    /// * `prog` - `Prog`ram that will be flattened.
+    /// * `prog` - `TypedProgram` that will be flattened.
     fn flatten_program(&mut self, prog: TypedProgram<'ast, T>) -> FlatProg<T> {
         let main_module = prog.modules.get(&prog.main).unwrap();
 

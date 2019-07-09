@@ -4,23 +4,24 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2019
 
-// Start from the `main` function in the `main` module and inline all calls except those to flat embeds
-// The resulting program has a single module, where we define a function for each flat embed, and replace function calls to the embeds found
-// during inlining by calls to these functions, to be resolved during flattening.
+//! Start from the `main` function in the `main` module and inline all calls except those to flat embeds
+//! The resulting program has a single module, where we define a function for each flat embed, and replace function calls to the embeds found
+//! during inlining by calls to these functions, to be resolved during flattening.
 
-// The resulting program has a single module of the form
+//! The resulting program has a single module of the form
 
-// def main() -> ():
-// def _SHA_256_ROUND() -> ():
-// def _UNPACK() -> ():
+//! def main() -> ():
+//! def _SHA_256_ROUND() -> ():
+//! def _UNPACK() -> ():
 
-// where any call in `main` must be to `_SHA_256_ROUND` or `_UNPACK`
+//! where any call in `main` must be to `_SHA_256_ROUND` or `_UNPACK`
 
 use std::collections::HashMap;
 use typed_absy::{folder::*, *};
 use types::FunctionKey;
 use zokrates_field::field::Field;
 
+/// An inliner
 #[derive(Debug)]
 pub struct Inliner<'ast, T: Field> {
     modules: TypedModules<'ast, T>, // the modules to look for functions in when inlining
@@ -92,9 +93,9 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         }
     }
 
-    // try to inline a call to function with key `key` in the stack of `self`
-    // if inlining succeeds, return the expressions returned by the function call
-    // if inlining fails (as in the case of flat function symbols), return the arguments to the function call for further processing
+    /// try to inline a call to function with key `key` in the stack of `self`
+    /// if inlining succeeds, return the expressions returned by the function call
+    /// if inlining fails (as in the case of flat function symbols), return the arguments to the function call for further processing
     fn try_inline_call(
         &mut self,
         key: &FunctionKey<'ast>,
