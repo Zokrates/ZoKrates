@@ -1,6 +1,4 @@
 //! Module containing semantic analysis tools to run at compile time
-//! The goal is to detect semantic errors such as undefined variables
-//! A variable is undefined if it isn't present in the static scope
 //!
 //! @file semantics.rs
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
@@ -36,9 +34,11 @@ impl fmt::Display for Error {
     }
 }
 
-pub struct FunctionQuery<'ast> {
+/// A function query in the current module.
+struct FunctionQuery<'ast> {
     id: Identifier<'ast>,
     inputs: Vec<Type>,
+    /// Output types are optional as we try to infer them
     outputs: Vec<Option<Type>>,
 }
 
@@ -66,6 +66,7 @@ impl<'ast> fmt::Display for FunctionQuery<'ast> {
 }
 
 impl<'ast> FunctionQuery<'ast> {
+    /// Create a new query.
     fn new(
         id: Identifier<'ast>,
         inputs: &Vec<Type>,
@@ -78,6 +79,7 @@ impl<'ast> FunctionQuery<'ast> {
         }
     }
 
+    /// match a `FunctionKey` against this `FunctionQuery`
     fn match_func(&self, func: &FunctionKey) -> bool {
         self.id == func.id
             && self.inputs == func.signature.inputs
@@ -97,10 +99,18 @@ impl<'ast> FunctionQuery<'ast> {
     }
 }
 
+/// A scoped variable, so that we can delete all variables of a given scope when exiting it
 #[derive(Clone, Debug)]
 pub struct ScopedVariable<'ast> {
     id: Variable<'ast>,
     level: usize,
+}
+
+/// Identifiers of different `ScopedVariable`s should not conflict, so we define them as equivalent
+impl<'ast> PartialEq for ScopedVariable<'ast> {
+    fn eq(&self, other: &ScopedVariable) -> bool {
+        self.id.id == other.id.id
+    }
 }
 
 impl<'ast> Hash for ScopedVariable<'ast> {
@@ -109,14 +119,9 @@ impl<'ast> Hash for ScopedVariable<'ast> {
     }
 }
 
-impl<'ast> PartialEq for ScopedVariable<'ast> {
-    fn eq(&self, other: &ScopedVariable) -> bool {
-        self.id.id == other.id.id
-    }
-}
 impl<'ast> Eq for ScopedVariable<'ast> {}
 
-// Checker, checks the semantics of a program.
+/// Checker, checks the semantics of a program, keeping track of functions and variables in scope
 pub struct Checker<'ast> {
     scope: HashSet<ScopedVariable<'ast>>,
     functions: HashSet<FunctionKey<'ast>>,
@@ -132,6 +137,11 @@ impl<'ast> Checker<'ast> {
         }
     }
 
+    /// Check a `Program`
+    ///
+    /// # Arguments
+    ///
+    /// * `prog` - The `Program` to be checked
     pub fn check<T: Field>(prog: Program<'ast, T>) -> Result<TypedProgram<'ast, T>, Vec<Error>> {
         Checker::new().check_program(prog)
     }
@@ -140,15 +150,27 @@ impl<'ast> Checker<'ast> {
         &mut self,
         program: Program<'ast, T>,
     ) -> Result<TypedProgram<'ast, T>, Vec<Error>> {
+        // start with full `modules`
         let mut modules = program.modules;
-        let main = modules.remove(&program.main).unwrap();
+        // and empty `typed_modules`
         let mut typed_modules = HashMap::new();
 
-        let main_module = self.check_module(main, &mut modules, &mut typed_modules)?;
+        let mut errors = vec![];
 
-        Checker::check_single_main(&main_module).map_err(|e| vec![e])?;
+        match Checker::check_single_main(modules.get(&program.main).unwrap()) {
+            Ok(_) => {}
+            Err(e) => errors.push(e),
+        };
 
-        typed_modules.insert(program.main.clone(), main_module);
+        // recursively type-check modules starting with `main`
+        match self.check_module(&program.main, &mut modules, &mut typed_modules) {
+            Ok(()) => {}
+            Err(e) => errors.extend(e),
+        };
+
+        if errors.len() > 0 {
+            return Err(errors);
+        }
 
         Ok(TypedProgram {
             main: program.main,
@@ -158,84 +180,108 @@ impl<'ast> Checker<'ast> {
 
     fn check_module<T: Field>(
         &mut self,
-        module: Module<'ast, T>,
+        module_id: &ModuleId,
         modules: &mut Modules<'ast, T>,
         typed_modules: &mut TypedModules<'ast, T>,
-    ) -> Result<TypedModule<'ast, T>, Vec<Error>> {
+    ) -> Result<(), Vec<Error>> {
         let mut errors = vec![];
         let mut checked_functions = HashMap::new();
 
-        for declaration in module.functions {
-            self.enter_scope();
+        // check if the module was already removed from the untyped ones
+        let to_insert = match modules.remove(module_id) {
+            // if it was, do nothing
+            None => None,
+            // if it was not, check it
+            Some(module) => {
+                for declaration in module.functions {
+                    self.enter_scope();
 
-            let pos = declaration.pos();
-            let declaration = declaration.value;
+                    let pos = declaration.pos();
+                    let declaration = declaration.value;
 
-            match self.check_function_symbol(declaration.symbol, modules, typed_modules) {
-                Ok(checked_function_symbols) => {
-                    for funct in checked_function_symbols {
-                        let query = FunctionQuery::new(
-                            declaration.id.clone(),
-                            &funct.signature(&typed_modules).inputs,
-                            &funct
-                                .signature(&typed_modules)
-                                .outputs
-                                .clone()
-                                .into_iter()
-                                .map(|o| Some(o))
-                                .collect(),
-                        );
+                    match self.check_function_symbol(declaration.symbol, modules, typed_modules) {
+                        Ok(checked_function_symbols) => {
+                            for funct in checked_function_symbols {
+                                let query = FunctionQuery::new(
+                                    declaration.id.clone(),
+                                    &funct.signature(&typed_modules).inputs,
+                                    &funct
+                                        .signature(&typed_modules)
+                                        .outputs
+                                        .clone()
+                                        .into_iter()
+                                        .map(|o| Some(o))
+                                        .collect(),
+                                );
 
-                        let candidates = self.find_candidates(&query);
+                                let candidates = self.find_candidates(&query);
 
-                        match candidates.len() {
-                            1 => {
-                                errors.push(Error {
-                                    pos: Some(pos),
-                                    message: format!(
-                                        "Duplicate definition for function {} with signature {}",
-                                        declaration.id,
-                                        funct.signature(&typed_modules)
+                                match candidates.len() {
+                                    1 => {
+                                        errors.push(Error {
+                                            pos: Some(pos),
+                                            message: format!(
+                                                "Duplicate definition for function {} with signature {}",
+                                                declaration.id,
+                                                funct.signature(&typed_modules)
+                                            ),
+                                        });
+                                    }
+                                    0 => {}
+                                    _ => panic!(
+                                        "duplicate function declaration should have been caught"
                                     ),
-                                });
+                                }
+                                self.functions.insert(
+                                    FunctionKey::with_id(declaration.id.clone())
+                                        .signature(funct.signature(&typed_modules).clone()),
+                                );
+                                checked_functions.insert(
+                                    FunctionKey::with_id(declaration.id.clone())
+                                        .signature(funct.signature(&typed_modules).clone()),
+                                    funct,
+                                );
                             }
-                            0 => {}
-                            _ => panic!("duplicate function declaration should have been caught"),
                         }
-                        self.functions.insert(
-                            FunctionKey::with_id(declaration.id.clone())
-                                .signature(funct.signature(&typed_modules).clone()),
-                        );
-                        checked_functions.insert(
-                            FunctionKey::with_id(declaration.id.clone())
-                                .signature(funct.signature(&typed_modules).clone()),
-                            funct,
-                        );
+                        Err(e) => {
+                            errors.extend(e);
+                        }
                     }
-                }
-                Err(e) => {
-                    errors.extend(e);
-                }
-            }
 
-            self.exit_scope();
+                    self.exit_scope();
+                }
+                Some(TypedModule {
+                    functions: checked_functions,
+                    imports: module.imports.into_iter().map(|i| i.value).collect(),
+                })
+            }
+        };
+
+        // return if any errors occured
+        if errors.len() > 0 {
+            return Err(errors);
         }
+
+        // insert into typed_modules if we checked anything
+        match to_insert {
+            Some(typed_module) => {
+                typed_modules.insert(module_id.clone(), typed_module);
+            }
+            None => {}
+        };
 
         if errors.len() > 0 {
             return Err(errors);
         }
 
-        Ok(TypedModule {
-            functions: checked_functions,
-            imports: module.imports.into_iter().map(|i| i.value).collect(),
-        })
+        Ok(())
     }
 
-    fn check_single_main<T: Field>(module: &TypedModule<T>) -> Result<(), Error> {
+    fn check_single_main<T: Field>(module: &Module<T>) -> Result<(), Error> {
         match module
             .functions
             .iter()
-            .filter(|(key, _)| key.id == "main")
+            .filter(|node| node.value.id == "main")
             .count()
         {
             1 => Ok(()),
@@ -269,8 +315,8 @@ impl<'ast> Checker<'ast> {
 
         assert_eq!(funct.arguments.len(), funct.signature.inputs.len());
 
-        for arg in funct.arguments.clone() {
-            self.insert_scope(arg.value.id.value);
+        for arg in &funct.arguments {
+            self.insert_into_scope(arg.value.id.value.clone());
         }
 
         let mut statements_checked = vec![];
@@ -307,6 +353,7 @@ impl<'ast> Checker<'ast> {
         modules: &mut Modules<'ast, T>,
         typed_modules: &mut TypedModules<'ast, T>,
     ) -> Result<Vec<TypedFunctionSymbol<'ast, T>>, Vec<Error>> {
+        let mut symbols = vec![];
         let mut errors = vec![];
 
         match funct_symbol {
@@ -317,23 +364,38 @@ impl<'ast> Checker<'ast> {
                 let pos = import_node.pos();
                 let import = import_node.value;
 
-                // check if the module was already checked
-                let to_insert = match typed_modules.get(&import.module_id).clone() {
-                    // if it was, do nothing
-                    Some(_) => None,
-                    // if it was not, check it
-                    None => {
-                        match Checker::new().check_module(
-                            modules.remove(&import.module_id.clone()).unwrap(),
-                            modules,
-                            typed_modules,
-                        ) {
-                            Ok(typed_module) => Some(typed_module),
-                            Err(e) => {
-                                errors.extend(e);
-                                None
+                match Checker::new().check_module(&import.module_id, modules, typed_modules) {
+                    Ok(()) => {
+                        // find candidates in the checked module
+                        let candidates: Vec<_> = typed_modules
+                            .get(&import.module_id)
+                            .unwrap()
+                            .functions
+                            .iter()
+                            .filter(|(k, _)| k.id == import.function_id)
+                            .map(|(_, v)| FunctionKey {
+                                id: import.function_id.clone(),
+                                signature: v.signature(&typed_modules).clone(),
+                            })
+                            .collect();
+
+                        match candidates.len() {
+                            0 => errors.push(Error {
+                                pos: Some(pos),
+                                message: format!(
+                                    "Function {} not found in module {}",
+                                    import.function_id, import.module_id
+                                ),
+                            }),
+                            _ => {
+                                symbols.extend(candidates.into_iter().map(|f| {
+                                    TypedFunctionSymbol::There(f, import.module_id.clone())
+                                }))
                             }
                         }
+                    }
+                    Err(e) => {
+                        errors.extend(e);
                     }
                 };
 
@@ -342,40 +404,7 @@ impl<'ast> Checker<'ast> {
                     return Err(errors);
                 }
 
-                // insert into typed_modules if we checked anything
-                match to_insert {
-                    Some(typed_module) => {
-                        typed_modules.insert(import.module_id.clone(), typed_module);
-                    }
-                    None => {}
-                };
-
-                // find candidates in the checked module
-                let candidates: Vec<_> = typed_modules
-                    .get(&import.module_id)
-                    .unwrap()
-                    .functions
-                    .iter()
-                    .filter(|(k, _)| k.id == import.function_id)
-                    .map(|(_, v)| FunctionKey {
-                        id: import.function_id.clone(),
-                        signature: v.signature(&typed_modules).clone(),
-                    })
-                    .collect();
-
-                match candidates.len() {
-                    0 => Err(vec![Error {
-                        pos: Some(pos),
-                        message: format!(
-                            "Function {} not found in module {}",
-                            import.function_id, import.module_id
-                        ),
-                    }]),
-                    _ => Ok(candidates
-                        .into_iter()
-                        .map(|f| TypedFunctionSymbol::There(f, import.module_id.clone()))
-                        .collect()),
-                }
+                Ok(symbols)
             }
             FunctionSymbol::Flat(flat_fun) => Ok(vec![TypedFunctionSymbol::Flat(flat_fun)]),
         }
@@ -421,7 +450,7 @@ impl<'ast> Checker<'ast> {
                     }),
                 }
             }
-            Statement::Declaration(var) => match self.insert_scope(var.clone().value) {
+            Statement::Declaration(var) => match self.insert_into_scope(var.clone().value) {
                 true => Ok(TypedStatement::Declaration(var.value.into())),
                 false => Err(Error {
                     pos: Some(pos),
@@ -461,20 +490,19 @@ impl<'ast> Checker<'ast> {
                 let checked_lhs = self.check_expression(lhs)?;
                 let checked_rhs = self.check_expression(rhs)?;
 
-                match (checked_lhs.clone(), checked_rhs.clone()) {
-                    (ref l, ref r) if r.get_type() == l.get_type() => {
-                        Ok(TypedStatement::Condition(checked_lhs, checked_rhs))
-                    }
-                    (e1, e2) => Err(Error {
+                if checked_lhs.get_type() == checked_rhs.get_type() {
+                    Ok(TypedStatement::Condition(checked_lhs, checked_rhs))
+                } else {
+                    Err(Error {
                         pos: Some(pos),
                         message: format!(
                             "Cannot compare {} of type {:?} to {} of type {:?}",
                             checked_lhs,
-                            e1.get_type(),
+                            checked_lhs.get_type(),
                             checked_rhs,
-                            e2.get_type(),
+                            checked_rhs.get_type(),
                         ),
-                    }),
+                    })
                 }
             }
             Statement::For(var, from, to, statements) => {
@@ -482,7 +510,7 @@ impl<'ast> Checker<'ast> {
 
                 self.check_for_var(&var)?;
 
-                self.insert_scope(var.clone().value);
+                self.insert_into_scope(var.clone().value);
 
                 let mut checked_statements = vec![];
 
@@ -540,8 +568,8 @@ impl<'ast> Checker<'ast> {
                     			let f = &candidates[0];
 
                                 // we can infer the left hand side to be typed as the return values
-                    			let lhs: Vec<_> = var_names.iter().enumerate().map(|(index, name)|
-                    				Variable::new(*name, f.signature.outputs[index].clone())
+                    			let lhs: Vec<_> = var_names.iter().zip(f.signature.outputs.iter()).map(|(name, ty)|
+                    				Variable::new(*name, ty.clone())
                     			).collect();
 
                                 let assignees: Vec<_> = lhs.iter().map(|v| v.clone().into()).collect();
@@ -549,7 +577,7 @@ impl<'ast> Checker<'ast> {
                                 let call = TypedExpressionList::FunctionCall(f.clone(), arguments_checked, f.signature.outputs.clone());
 
                                 for var in lhs {
-                                    self.insert_scope(var);
+                                    self.insert_into_scope(var);
                                 }
 
                                 Ok(TypedStatement::MultipleDefinition(assignees, call))
@@ -1153,7 +1181,7 @@ impl<'ast> Checker<'ast> {
         })
     }
 
-    fn insert_scope(&mut self, v: Variable<'ast>) -> bool {
+    fn insert_into_scope(&mut self, v: Variable<'ast>) -> bool {
         self.scope.insert(ScopedVariable {
             id: v,
             level: self.level,
@@ -1238,10 +1266,10 @@ mod tests {
 
             let mut checker = Checker::new();
 
-            let checked_bar = checker.check_module(bar, &mut modules, &mut typed_modules);
+            checker.check_module(&String::from("bar"), &mut modules, &mut typed_modules);
             assert_eq!(
-                checked_bar,
-                Ok(TypedModule {
+                typed_modules.get(&String::from("bar")),
+                Some(&TypedModule {
                     functions: vec![(
                         FunctionKey::with_id("main")
                             .signature(Signature::new().outputs(vec![Type::FieldElement])),
@@ -1382,9 +1410,11 @@ mod tests {
             imports: vec![],
         };
 
+        let mut modules = vec![(String::from("main"), module)].into_iter().collect();
+
         let mut checker = Checker::new();
         assert_eq!(
-            checker.check_module(module, &mut HashMap::new(), &mut HashMap::new()),
+            checker.check_module(&String::from("main"), &mut modules, &mut HashMap::new()),
             Err(vec![Error {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Identifier \"a\" is undefined".to_string()
@@ -1489,9 +1519,11 @@ mod tests {
             imports: vec![],
         };
 
+        let mut modules = vec![(String::from("main"), module)].into_iter().collect();
+
         let mut checker = Checker::new();
         assert!(checker
-            .check_module(module, &mut HashMap::new(), &mut HashMap::new())
+            .check_module(&String::from("main"), &mut modules, &mut HashMap::new())
             .is_ok());
     }
 
@@ -1810,9 +1842,11 @@ mod tests {
             imports: vec![],
         };
 
+        let mut modules = vec![(String::from("main"), module)].into_iter().collect();
+
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
-            checker.check_module(module, &mut HashMap::new(), &mut HashMap::new()),
+            checker.check_module(&String::from("main"), &mut modules, &mut HashMap::new()),
             Err(vec![Error {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Identifier \"x\" is undefined".to_string()
@@ -2066,9 +2100,11 @@ mod tests {
             imports: vec![],
         };
 
+        let mut modules = vec![(String::from("main"), module)].into_iter().collect();
+
         let mut checker = Checker::new();
         assert_eq!(
-            checker.check_module(module, &mut HashMap::new(), &mut HashMap::new()),
+            checker.check_module(&String::from("main"), &mut modules, &mut HashMap::new()),
             Err(vec![Error {
                 pos: Some((Position::mock(), Position::mock())),
 

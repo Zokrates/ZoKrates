@@ -9,6 +9,8 @@ use types::{FunctionKey, Signature, Type};
 use zokrates_embed::{generate_sha256_round_constraints, BellmanConstraint};
 use zokrates_field::field::Field;
 
+/// A low level function that contains non-deterministic introduction of variables. It is carried as is until
+/// the flattening step when it can be inlined.
 #[derive(Debug, Clone, PartialEq)]
 pub enum FlatEmbed {
     Sha256Round,
@@ -41,6 +43,7 @@ impl FlatEmbed {
         }
     }
 
+    /// Actually get the `FlatFunction` that this `FlatEmbed` represents
     pub fn synthetize<T: Field>(&self) -> FlatFunction<T> {
         match self {
             FlatEmbed::Sha256Round => sha256_round(),
@@ -199,6 +202,11 @@ fn use_variable(
     var
 }
 
+/// A `FlatFunction` which returns a bit decomposition of a field element
+///
+/// # Remarks
+/// * the return value of the `FlatFunction` is not deterministic: as we decompose over log_2(p) + 1 bits, some
+///   elements can have multiple representations: For example, `unpack(0)` is `[0, ..., 0]` but also `unpack(p)`
 pub fn unpack<T: Field>() -> FlatFunction<T> {
     let nbits = T::get_required_bits();
 
