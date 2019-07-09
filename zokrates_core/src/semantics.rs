@@ -193,6 +193,7 @@ impl<'ast> Checker<'ast> {
             None => None,
             // if it was not, check it
             Some(module) => {
+                assert_eq!(module.imports.len(), 0);
                 for declaration in module.functions {
                     self.enter_scope();
 
@@ -252,7 +253,6 @@ impl<'ast> Checker<'ast> {
                 }
                 Some(TypedModule {
                     functions: checked_functions,
-                    imports: module.imports.into_iter().map(|i| i.value).collect(),
                 })
             }
         };
@@ -1287,7 +1287,6 @@ mod tests {
                     )]
                     .into_iter()
                     .collect(),
-                    imports: vec![]
                 })
             );
         }

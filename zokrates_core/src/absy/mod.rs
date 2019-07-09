@@ -22,19 +22,25 @@ use zokrates_field::field::Field;
 
 use std::collections::HashMap;
 
+/// An identifier in a function or a variable
 pub type Identifier<'ast> = &'ast str;
 
+/// The identifier of a `Module`, typically a path or uri
 pub type ModuleId = String;
 
+/// A collection of `Module`s
 pub type Modules<'ast, T> = HashMap<ModuleId, Module<'ast, T>>;
 
+/// A collection of `FunctionDeclaration`. Duplicates are allowed here as they are fine syntatically.
 pub type FunctionDeclarations<'ast, T> = Vec<FunctionDeclarationNode<'ast, T>>;
 
+/// A `Program` is a collection of `Module`s and an id of the main `Module`
 pub struct Program<'ast, T: Field> {
     pub modules: HashMap<ModuleId, Module<'ast, T>>,
     pub main: ModuleId,
 }
 
+/// A declaration of a `FunctionSymbol`, be it from an import or a function definition
 #[derive(PartialEq, Debug, Clone)]
 pub struct FunctionDeclaration<'ast, T: Field> {
     pub id: Identifier<'ast>,
@@ -58,13 +64,15 @@ impl<'ast, T: Field> fmt::Display for FunctionDeclaration<'ast, T> {
 
 type FunctionDeclarationNode<'ast, T> = Node<FunctionDeclaration<'ast, T>>;
 
+/// A module as a collection of `FunctionDeclaration`s
 #[derive(Clone, PartialEq)]
 pub struct Module<'ast, T: Field> {
     /// Functions of the module
     pub functions: FunctionDeclarations<'ast, T>,
-    pub imports: Vec<ImportNode<'ast>>,
+    pub imports: Vec<ImportNode<'ast>>, // we still use `imports` as they are not directly converted into `FunctionDeclaration`s after the importer is done, `imports` is empty
 }
 
+/// A function, be it defined in this module, imported from another module or a flat embed
 #[derive(Debug, Clone, PartialEq)]
 pub enum FunctionSymbol<'ast, T: Field> {
     Here(FunctionNode<'ast, T>),
@@ -72,9 +80,12 @@ pub enum FunctionSymbol<'ast, T: Field> {
     Flat(FlatEmbed),
 }
 
+/// A function import
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionImport<'ast> {
+    /// the id of the function in the target module. Note: there may be many candidates as imports statements do not specify the signature
     pub function_id: Identifier<'ast>,
+    /// the id of the module to import from
     pub module_id: ModuleId,
 }
 
@@ -136,6 +147,7 @@ impl<'ast, T: Field> fmt::Debug for Module<'ast, T> {
     }
 }
 
+/// A function defined locally
 #[derive(Clone, PartialEq)]
 pub struct Function<'ast, T: Field> {
     /// Arguments of the function
@@ -182,6 +194,7 @@ impl<'ast, T: Field> fmt::Debug for Function<'ast, T> {
     }
 }
 
+/// Something that we can assign to
 #[derive(Clone, PartialEq)]
 pub enum Assignee<'ast, T: Field> {
     Identifier(Identifier<'ast>),
@@ -205,6 +218,7 @@ impl<'ast, T: Field> fmt::Display for Assignee<'ast, T> {
     }
 }
 
+/// A statement in a `Function`
 #[derive(Clone, PartialEq)]
 pub enum Statement<'ast, T: Field> {
     Return(ExpressionListNode<'ast, T>),
@@ -267,6 +281,7 @@ impl<'ast, T: Field> fmt::Debug for Statement<'ast, T> {
     }
 }
 
+/// An element of an inline array, can be a spread `...a` or an expression `a`
 #[derive(Clone, PartialEq)]
 pub enum SpreadOrExpression<'ast, T: Field> {
     Spread(SpreadNode<'ast, T>),
@@ -291,6 +306,7 @@ impl<'ast, T: Field> fmt::Debug for SpreadOrExpression<'ast, T> {
     }
 }
 
+/// The index in an array selector. Can be a range or an expression.
 #[derive(Clone, PartialEq)]
 pub enum RangeOrExpression<'ast, T: Field> {
     Range(RangeNode<T>),
@@ -329,11 +345,13 @@ impl<'ast, T: Field> fmt::Debug for Spread<'ast, T> {
     }
 }
 
+/// A spread
 #[derive(Clone, PartialEq)]
 pub struct Spread<'ast, T: Field> {
     pub expression: ExpressionNode<'ast, T>,
 }
 
+/// A range
 #[derive(Clone, PartialEq)]
 pub struct Range<T: Field> {
     pub from: Option<T>,
@@ -365,6 +383,7 @@ impl<'ast, T: Field> fmt::Debug for Range<T> {
     }
 }
 
+/// An expression
 #[derive(Clone, PartialEq)]
 pub enum Expression<'ast, T: Field> {
     FieldConstant(T),
@@ -486,6 +505,7 @@ impl<'ast, T: Field> fmt::Debug for Expression<'ast, T> {
     }
 }
 
+/// A list of expressions, used in return statements
 #[derive(Clone, PartialEq)]
 pub struct ExpressionList<'ast, T: Field> {
     pub expressions: Vec<ExpressionNode<'ast, T>>,

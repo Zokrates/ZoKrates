@@ -85,7 +85,6 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                     ]
                     .into_iter()
                     .collect(),
-                    imports: vec![],
                 },
             )]
             .into_iter()
