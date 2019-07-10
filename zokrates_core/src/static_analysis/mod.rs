@@ -6,12 +6,10 @@
 
 mod flat_propagation;
 mod inline;
-mod power_check;
 mod propagation;
 mod unroll;
 
 use self::inline::Inliner;
-use self::power_check::PowerChecker;
 use self::propagation::Propagator;
 use self::unroll::Unroller;
 use crate::flat_absy::FlatProg;
@@ -24,9 +22,8 @@ pub trait Analyse {
 
 impl<'ast, T: Field> Analyse for TypedProgram<'ast, T> {
     fn analyse(self) -> Self {
-        let r = PowerChecker::check(self);
         // unroll
-        let r = Unroller::unroll(r);
+        let r = Unroller::unroll(self);
         // inline
         let r = Inliner::inline(r);
         // propagate
