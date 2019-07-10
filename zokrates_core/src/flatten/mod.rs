@@ -23,6 +23,87 @@ pub struct Flattener<'ast> {
     ///
     layout: HashMap<Identifier<'ast>, Vec<FlatVariable>>,
 }
+
+trait Flatten<'ast, T: Field>: TryFrom<TypedExpression<'ast, T>, Error = std::fmt::Debug> {
+    fn flatten(
+        self,
+        flattener: &mut Flattener<'ast>,
+        functions_flattened: &Vec<FlatFunction<T>>,
+        statements_flattened: &mut Vec<FlatStatement<T>>,
+    ) -> FlatExpression<T>;
+
+    fn get_type() -> Type;
+
+    fn if_else(condition: BooleanExpression<'ast, T>, consequence: Self, alternative: Self)
+        -> Self;
+
+    fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self;
+
+    fn zero() -> Self;
+}
+
+impl<'ast, T: Field> Flatten<'ast, T> for FieldElementExpression<'ast, T> {
+    fn flatten(
+        self,
+        flattener: &mut Flattener<'ast>,
+        functions_flattened: &Vec<FlatFunction<T>>,
+        statements_flattened: &mut Vec<FlatStatement<T>>,
+    ) -> FlatExpression<T> {
+        flattener.flatten_field_expression(functions_flattened, statements_flattened, self)
+    }
+
+    fn get_type() -> Type {
+        Type::FieldElement
+    }
+
+    fn if_else(
+        condition: BooleanExpression<'ast, T>,
+        consequence: Self,
+        alternative: Self,
+    ) -> Self {
+        FieldElementExpression::IfElse(box condition, box consequence, box alternative)
+    }
+
+    fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
+        FieldElementExpression::Select(box array, box index)
+    }
+
+    fn zero() -> Self {
+        FieldElementExpression::Number(T::from(0))
+    }
+}
+
+impl<'ast, T: Field> Flatten<'ast, T> for BooleanExpression<'ast, T> {
+    fn flatten(
+        self,
+        flattener: &mut Flattener<'ast>,
+        functions_flattened: &Vec<FlatFunction<T>>,
+        statements_flattened: &mut Vec<FlatStatement<T>>,
+    ) -> FlatExpression<T> {
+        flattener.flatten_boolean_expression(functions_flattened, statements_flattened, self)
+    }
+
+    fn get_type() -> Type {
+        Type::Boolean
+    }
+
+    fn if_else(
+        condition: BooleanExpression<'ast, T>,
+        consequence: Self,
+        alternative: Self,
+    ) -> Self {
+        BooleanExpression::IfElse(box condition, box consequence, box alternative)
+    }
+
+    fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
+        BooleanExpression::Select(box array, box index)
+    }
+
+    fn zero() -> Self {
+        BooleanExpression::Value(false)
+    }
+}
+
 impl<'ast> Flattener<'ast> {
     pub fn flatten<T: Field>(p: TypedProg<T>) -> FlatProg<T> {
         Flattener::new().flatten_program(p)
@@ -103,6 +184,131 @@ impl<'ast> Flattener<'ast> {
 
         let ief = self.flatten_function(functions_flattened, ie);
         functions_flattened.push(ief);
+    }
+
+    fn flatten_select_expression<U: Flatten<'ast, T>, T: Field>(
+        &mut self,
+        functions_flattened: &Vec<FlatFunction<T>>,
+        statements_flattened: &mut Vec<FlatStatement<T>>,
+        array: ArrayExpression<'ast, T>,
+        index: FieldElementExpression<'ast, T>,
+    ) -> FlatExpression<T> {
+        let size = array.size();
+        let ty = array.inner_type();
+        assert_eq!(ty, &U::get_type());
+
+        match index {
+            FieldElementExpression::Number(n) => match array.inner {
+                ArrayExpressionInner::Identifier(id) => {
+                    assert!(n < T::from(size));
+                    FlatExpression::Identifier(
+                        self.layout.get(&id).unwrap().clone()
+                            [n.to_dec_string().parse::<usize>().unwrap()],
+                    )
+                }
+                ArrayExpressionInner::Value(expressions) => {
+                    assert!(n < T::from(size));
+                    U::try_from(expressions[n.to_dec_string().parse::<usize>().unwrap()].clone())
+                        .unwrap()
+                        .flatten(self, functions_flattened, statements_flattened)
+                }
+                ArrayExpressionInner::FunctionCall(..) => {
+                    unimplemented!("please use intermediate variables for now")
+                }
+                ArrayExpressionInner::IfElse(condition, consequence, alternative) => {
+                    // [if cond then [a, b] else [c, d]][1] == if cond then [a, b][1] else [c, d][1]
+                    U::if_else(
+                        *condition,
+                        U::select(*consequence, FieldElementExpression::Number(n.clone())),
+                        U::select(*alternative, FieldElementExpression::Number(n)),
+                    )
+                    .flatten(self, functions_flattened, statements_flattened)
+                }
+            },
+            e => {
+                let size = array.size();
+                // we have array[e] with e an arbitrary expression
+                // first we check that e is in 0..array.len(), so we check that sum(if e == i then 1 else 0) == 1
+                // here depending on the size, we could use a proper range check based on bits
+                let range_check = (0..size)
+                    .map(|i| {
+                        FieldElementExpression::IfElse(
+                            box BooleanExpression::Eq(
+                                box e.clone(),
+                                box FieldElementExpression::Number(T::from(i)),
+                            ),
+                            box FieldElementExpression::Number(T::from(1)),
+                            box FieldElementExpression::Number(T::from(0)),
+                        )
+                    })
+                    .fold(FieldElementExpression::Number(T::from(0)), |acc, e| {
+                        FieldElementExpression::Add(box acc, box e)
+                    });
+
+                let range_check_statement = TypedStatement::Condition(
+                    FieldElementExpression::Number(T::from(1)).into(),
+                    range_check.into(),
+                );
+
+                self.flatten_statement(
+                    functions_flattened,
+                    statements_flattened,
+                    range_check_statement,
+                );
+
+                // now we flatten to sum(if e == i then array[i] else false)
+                (0..size)
+                    .map(|i| {
+                        U::if_else(
+                            BooleanExpression::Eq(
+                                box e.clone(),
+                                box FieldElementExpression::Number(T::from(i)),
+                            ),
+                            match array.clone().inner {
+                                ArrayExpressionInner::Identifier(id) => U::select(
+                                    ArrayExpression {
+                                        ty: ty.clone(),
+                                        size,
+                                        inner: ArrayExpressionInner::Identifier(id),
+                                    },
+                                    FieldElementExpression::Number(T::from(i)),
+                                ),
+                                ArrayExpressionInner::Value(expressions) => {
+                                    assert_eq!(size, expressions.len());
+                                    U::try_from(expressions[i].clone()).unwrap()
+                                }
+                                ArrayExpressionInner::FunctionCall(..) => {
+                                    unimplemented!("please use intermediate variables for now")
+                                }
+                                ArrayExpressionInner::IfElse(
+                                    condition,
+                                    consequence,
+                                    alternative,
+                                ) => U::if_else(
+                                    *condition,
+                                    U::select(
+                                        *consequence,
+                                        FieldElementExpression::Number(T::from(i)),
+                                    ),
+                                    U::select(
+                                        *alternative,
+                                        FieldElementExpression::Number(T::from(i)),
+                                    ),
+                                ),
+                            },
+                            U::zero(),
+                        )
+                        .flatten(
+                            self,
+                            functions_flattened,
+                            statements_flattened,
+                        )
+                    })
+                    .fold(FlatExpression::Number(T::from(0)), |acc, e| {
+                        FlatExpression::Add(box acc, box e)
+                    })
+            }
+        }
     }
 
     /// Flattens a boolean expression
@@ -418,143 +624,13 @@ impl<'ast> Flattener<'ast> {
                 )
                 .expressions[0]
                 .clone(),
-            BooleanExpression::Select(box array, box index) => {
-                let size = array.size();
-                let ty = array.inner_type();
-                assert_eq!(ty, &Type::Boolean);
-
-                match index {
-                    FieldElementExpression::Number(n) => match array.inner {
-                        ArrayExpressionInner::Identifier(id) => {
-                            assert!(n < T::from(size));
-                            FlatExpression::Identifier(
-                                self.layout.get(&id).unwrap().clone()
-                                    [n.to_dec_string().parse::<usize>().unwrap()],
-                            )
-                        }
-                        ArrayExpressionInner::Value(expressions) => {
-                            assert!(n < T::from(size));
-                            self.flatten_boolean_expression(
-                                functions_flattened,
-                                statements_flattened,
-                                BooleanExpression::try_from(
-                                    expressions[n.to_dec_string().parse::<usize>().unwrap()]
-                                        .clone(),
-                                )
-                                .unwrap(),
-                            )
-                        }
-                        ArrayExpressionInner::FunctionCall(..) => {
-                            unimplemented!("please use intermediate variables for now")
-                        }
-                        ArrayExpressionInner::IfElse(condition, consequence, alternative) => {
-                            // [if cond then [a, b] else [c, d]][1] == if cond then [a, b][1] else [c, d][1]
-                            self.flatten_boolean_expression(
-                                functions_flattened,
-                                statements_flattened,
-                                BooleanExpression::IfElse(
-                                    condition,
-                                    box BooleanExpression::Select(
-                                        consequence,
-                                        box FieldElementExpression::Number(n.clone()),
-                                    ),
-                                    box BooleanExpression::Select(
-                                        alternative,
-                                        box FieldElementExpression::Number(n),
-                                    ),
-                                ),
-                            )
-                        }
-                    },
-                    e => {
-                        let size = array.size();
-                        // we have array[e] with e an arbitrary expression
-                        // first we check that e is in 0..array.len(), so we check that sum(if e == i then 1 else 0) == 1
-                        // here depending on the size, we could use a proper range check based on bits
-                        let range_check = (0..size)
-                            .map(|i| {
-                                FieldElementExpression::IfElse(
-                                    box BooleanExpression::Eq(
-                                        box e.clone(),
-                                        box FieldElementExpression::Number(T::from(i)),
-                                    ),
-                                    box FieldElementExpression::Number(T::from(1)),
-                                    box FieldElementExpression::Number(T::from(0)),
-                                )
-                            })
-                            .fold(FieldElementExpression::Number(T::from(0)), |acc, e| {
-                                FieldElementExpression::Add(box acc, box e)
-                            });
-
-                        let range_check_statement = TypedStatement::Condition(
-                            FieldElementExpression::Number(T::from(1)).into(),
-                            range_check.into(),
-                        );
-
-                        self.flatten_statement(
-                            functions_flattened,
-                            statements_flattened,
-                            range_check_statement,
-                        );
-
-                        // now we flatten to sum(if e == i then array[i] else false)
-                        (0..size)
-                            .map(|i| {
-                                self.flatten_boolean_expression(
-                                    functions_flattened,
-                                    statements_flattened,
-                                    BooleanExpression::IfElse(
-                                        box BooleanExpression::Eq(
-                                            box e.clone(),
-                                            box FieldElementExpression::Number(T::from(i)),
-                                        ),
-                                        box match array.clone().inner {
-                                            ArrayExpressionInner::Identifier(id) => {
-                                                BooleanExpression::Select(
-                                                    box ArrayExpression {
-                                                        ty: ty.clone(),
-                                                        size,
-                                                        inner: ArrayExpressionInner::Identifier(id),
-                                                    },
-                                                    box FieldElementExpression::Number(T::from(i)),
-                                                )
-                                            }
-                                            ArrayExpressionInner::Value(expressions) => {
-                                                assert_eq!(size, expressions.len());
-                                                BooleanExpression::try_from(expressions[i].clone())
-                                                    .unwrap()
-                                            }
-                                            ArrayExpressionInner::FunctionCall(..) => {
-                                                unimplemented!(
-                                                    "please use intermediate variables for now"
-                                                )
-                                            }
-                                            ArrayExpressionInner::IfElse(
-                                                condition,
-                                                consequence,
-                                                alternative,
-                                            ) => BooleanExpression::IfElse(
-                                                condition,
-                                                box BooleanExpression::Select(
-                                                    consequence,
-                                                    box FieldElementExpression::Number(T::from(i)),
-                                                ),
-                                                box BooleanExpression::Select(
-                                                    alternative,
-                                                    box FieldElementExpression::Number(T::from(i)),
-                                                ),
-                                            ),
-                                        },
-                                        box BooleanExpression::Value(false),
-                                    ),
-                                )
-                            })
-                            .fold(FlatExpression::Number(T::from(0)), |acc, e| {
-                                FlatExpression::Add(box acc, box e)
-                            })
-                    }
-                }
-            }
+            BooleanExpression::Select(box array, box index) => self
+                .flatten_select_expression::<BooleanExpression<'ast, T>, _>(
+                    functions_flattened,
+                    statements_flattened,
+                    array,
+                    index,
+                ),
         }
     }
 
@@ -904,142 +980,13 @@ impl<'ast> Flattener<'ast> {
                 assert!(exprs_flattened.expressions.len() == 1); // outside of MultipleDefinition, FunctionCalls must return a single value
                 exprs_flattened.expressions[0].clone()
             }
-            FieldElementExpression::Select(box array, box index) => {
-                let size = array.size();
-                let ty = array.inner_type();
-                assert_eq!(ty, &Type::FieldElement);
-                match index {
-                    FieldElementExpression::Number(n) => match array.inner {
-                        ArrayExpressionInner::Identifier(id) => {
-                            assert!(n < T::from(size));
-                            FlatExpression::Identifier(
-                                self.layout.get(&id).unwrap().clone()
-                                    [n.to_dec_string().parse::<usize>().unwrap()],
-                            )
-                        }
-                        ArrayExpressionInner::Value(expressions) => {
-                            assert!(n < T::from(size));
-                            self.flatten_field_expression(
-                                functions_flattened,
-                                statements_flattened,
-                                FieldElementExpression::try_from(
-                                    expressions[n.to_dec_string().parse::<usize>().unwrap()]
-                                        .clone(),
-                                )
-                                .unwrap(),
-                            )
-                        }
-                        ArrayExpressionInner::FunctionCall(..) => {
-                            unimplemented!("please use intermediate variables for now")
-                        }
-                        ArrayExpressionInner::IfElse(condition, consequence, alternative) => {
-                            // [if cond then [a, b] else [c, d]][1] == if cond then [a, b][1] else [c, d][1]
-                            self.flatten_field_expression(
-                                functions_flattened,
-                                statements_flattened,
-                                FieldElementExpression::IfElse(
-                                    condition,
-                                    box FieldElementExpression::Select(
-                                        consequence,
-                                        box FieldElementExpression::Number(n.clone()),
-                                    ),
-                                    box FieldElementExpression::Select(
-                                        alternative,
-                                        box FieldElementExpression::Number(n),
-                                    ),
-                                ),
-                            )
-                        }
-                    },
-                    e => {
-                        let size = array.size();
-                        // we have array[e] with e an arbitrary expression
-                        // first we check that e is in 0..array.len(), so we check that sum(if e == i then 1 else 0) == 1
-                        // here depending on the size, we could use a proper range check based on bits
-                        let range_check = (0..size)
-                            .map(|i| {
-                                FieldElementExpression::IfElse(
-                                    box BooleanExpression::Eq(
-                                        box e.clone(),
-                                        box FieldElementExpression::Number(T::from(i)),
-                                    ),
-                                    box FieldElementExpression::Number(T::from(1)),
-                                    box FieldElementExpression::Number(T::from(0)),
-                                )
-                            })
-                            .fold(FieldElementExpression::Number(T::from(0)), |acc, e| {
-                                FieldElementExpression::Add(box acc, box e)
-                            });
-
-                        let range_check_statement = TypedStatement::Condition(
-                            FieldElementExpression::Number(T::from(1)).into(),
-                            range_check.into(),
-                        );
-
-                        self.flatten_statement(
-                            functions_flattened,
-                            statements_flattened,
-                            range_check_statement,
-                        );
-
-                        // now we flatten to sum(if e == i then array[i] else 0)
-                        let lookup = (0..size)
-                            .map(|i| {
-                                FieldElementExpression::IfElse(
-                                    box BooleanExpression::Eq(
-                                        box e.clone(),
-                                        box FieldElementExpression::Number(T::from(i)),
-                                    ),
-                                    box match array.clone().inner {
-                                        ArrayExpressionInner::Identifier(id) => {
-                                            FieldElementExpression::Select(
-                                                box ArrayExpression {
-                                                    ty: ty.clone(),
-                                                    size,
-                                                    inner: ArrayExpressionInner::Identifier(id),
-                                                },
-                                                box FieldElementExpression::Number(T::from(i)),
-                                            )
-                                        }
-                                        ArrayExpressionInner::Value(expressions) => {
-                                            assert_eq!(size, expressions.len());
-                                            FieldElementExpression::try_from(expressions[i].clone())
-                                                .unwrap()
-                                        }
-                                        ArrayExpressionInner::FunctionCall(..) => unimplemented!(
-                                            "please use intermediate variables for now"
-                                        ),
-                                        ArrayExpressionInner::IfElse(
-                                            condition,
-                                            consequence,
-                                            alternative,
-                                        ) => FieldElementExpression::IfElse(
-                                            condition,
-                                            box FieldElementExpression::Select(
-                                                consequence,
-                                                box FieldElementExpression::Number(T::from(i)),
-                                            ),
-                                            box FieldElementExpression::Select(
-                                                alternative,
-                                                box FieldElementExpression::Number(T::from(i)),
-                                            ),
-                                        ),
-                                    },
-                                    box FieldElementExpression::Number(T::from(0)),
-                                )
-                            })
-                            .fold(FieldElementExpression::Number(T::from(0)), |acc, e| {
-                                FieldElementExpression::Add(box acc, box e)
-                            });
-
-                        self.flatten_field_expression(
-                            functions_flattened,
-                            statements_flattened,
-                            lookup,
-                        )
-                    }
-                }
-            }
+            FieldElementExpression::Select(box array, box index) => self
+                .flatten_select_expression::<FieldElementExpression<'ast, T>, _>(
+                    functions_flattened,
+                    statements_flattened,
+                    array,
+                    index,
+                ),
         }
     }
 

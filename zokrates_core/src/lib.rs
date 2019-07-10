@@ -1,4 +1,4 @@
-#![feature(box_patterns, box_syntax)]
+#![feature(box_patterns, box_syntax, associated_type_bounds)]
 
 extern crate num;
 extern crate num_bigint;
