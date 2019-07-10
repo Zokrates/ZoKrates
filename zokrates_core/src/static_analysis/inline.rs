@@ -440,7 +440,6 @@ mod tests {
             ]
             .into_iter()
             .collect(),
-            imports: vec![],
         };
 
         let foo = TypedModule {
@@ -464,7 +463,6 @@ mod tests {
             )]
             .into_iter()
             .collect(),
-            imports: vec![],
         };
 
         let modules: HashMap<_, _> = vec![(String::from("main"), main), (String::from("foo"), foo)]
@@ -587,7 +585,6 @@ mod tests {
             ]
             .into_iter()
             .collect(),
-            imports: vec![],
         };
 
         let foo = TypedModule {
@@ -604,7 +601,6 @@ mod tests {
             )]
             .into_iter()
             .collect(),
-            imports: vec![],
         };
 
         let modules: HashMap<_, _> = vec![(String::from("main"), main), (String::from("foo"), foo)]
@@ -698,9 +694,7 @@ mod tests {
                     }),
                 ),
             ]
-            .into_iter()
-            .collect(),
-            imports: vec![],
+            .into_iter(),
         };
 
         let modules: HashMap<_, _> = vec![(String::from("main"), main)].into_iter().collect();
@@ -808,7 +802,6 @@ mod tests {
             ]
             .into_iter()
             .collect(),
-            imports: vec![],
         };
 
         let id = TypedModule {
@@ -830,7 +823,6 @@ mod tests {
             )]
             .into_iter()
             .collect(),
-            imports: vec![],
         };
 
         let modules = vec![(String::from("main"), main), (String::from("id"), id)]
