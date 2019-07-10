@@ -818,39 +818,67 @@ impl<'ast> Flattener<'ast> {
                         // TODO change that
                         assert!(base_flattened.is_linear());
 
-                        match e {
-                            e if *e == T::zero() => FlatExpression::Number(T::one()),
-                            // flatten(base ** 1) == flatten(base)
-                            e if *e == T::one() => base_flattened,
-                            // flatten(base ** 2) == flatten(base) * flatten(base)
-                            // in this case, no need to define an intermediate variable
-                            // as if a is linear, a ** 2 quadratic
-                            e if *e == T::from(2) => {
-                                FlatExpression::Mult(box base_flattened.clone(), box base_flattened)
-                            }
-                            // flatten(base ** n) = flatten(base) * flatten(base ** (n-1))
-                            e => {
-                                // flatten(base ** (n-1))
-                                let tmp_expression = self.flatten_field_expression(
-                                    functions_flattened,
-                                    statements_flattened,
-                                    FieldElementExpression::Pow(
-                                        box base,
-                                        box FieldElementExpression::Number(e.clone() - T::one()),
-                                    ),
-                                );
+                        let e = e.to_dec_string().parse::<usize>().unwrap();
 
-                                let id = self.use_sym();
+                        // convert the exponent to bytes, big endian
+                        let ebytes_be = e.to_be_bytes();
+                        // convert the bytes to bits, remove leading zeroes (we only need powers up to the highest non-zero bit)
+                        let ebits_be: Vec<_> = ebytes_be
+                            .into_iter()
+                            .flat_map(|byte| (0..8).rev().map(move |i| byte & (1 << i) != 0)) // byte to bit, big endian
+                            .skip_while(|b| !b) // skip trailing false bits
+                            .collect();
 
-                                statements_flattened
-                                    .push(FlatStatement::Definition(id, tmp_expression));
+                        // reverse to start with the lowest bit first
+                        let ebits_le: Vec<_> = ebits_be.into_iter().rev().collect();
 
-                                FlatExpression::Mult(
-                                    box FlatExpression::Identifier(id),
-                                    box base_flattened,
-                                )
-                            }
-                        }
+                        // calculate all powers e**(2**i) by squaring
+                        let powers: Vec<FlatExpression<T>> = ebits_le
+                            .iter()
+                            .scan(None, |state, _| {
+                                match state {
+                                    // the first element is the base
+                                    None => {
+                                        *state = Some(base_flattened.clone());
+                                        Some(base_flattened.clone())
+                                    }
+                                    // any subsequent element is the square of the previous one
+                                    Some(previous) => {
+                                        // introduce a new variable
+                                        let id = self.use_sym();
+                                        // set it to the square of the previous one, stored in state
+                                        statements_flattened.push(FlatStatement::Definition(
+                                            id.clone(),
+                                            FlatExpression::Mult(
+                                                box previous.clone(),
+                                                box previous.clone(),
+                                            ),
+                                        ));
+                                        // store it in the state for later squaring
+                                        *state = Some(FlatExpression::Identifier(id.clone()));
+                                        // return it for later use constructing the result
+                                        Some(FlatExpression::Identifier(id.clone()))
+                                    }
+                                }
+                            })
+                            .collect();
+
+                        // construct the result iterating through the bits, multiplying by the associated power iff the bit is true
+                        ebits_le.into_iter().zip(powers).fold(
+                            FlatExpression::Number(T::from(1)), // initialise the result at 1. If we have no bits to iterate through, we're computing x**0 == 1
+                            |acc, (bit, power)| match bit {
+                                true => {
+                                    // update the result by introducing a new variable
+                                    let id = self.use_sym();
+                                    statements_flattened.push(FlatStatement::Definition(
+                                        id,
+                                        FlatExpression::Mult(box acc.clone(), box power), // set the new result to the current result times the current power
+                                    ));
+                                    FlatExpression::Identifier(id)
+                                }
+                                false => acc, // this bit is false, keep the previous result
+                            },
+                        )
                     }
                     _ => panic!("Expected number as pow exponent"),
                 }
@@ -1845,18 +1873,164 @@ mod tests {
     }
 
     #[test]
-    fn powers() {
+    fn power_zero() {
         // def main():
         //     field a = 7
-        //     field b = a**4
+        //     field b = a**0
         //     return b
 
         // def main():
         //     _0 = 7
-        //     _1 = (_0 * _0)
-        //     _2 = (_1 * _0)
-        //     _3 = (_2 * _0)
-        //     return _3
+        //     _1 = 1         // power flattening returns 1, definition introduces _7
+        //     return _1
+        let function = TypedFunction {
+            id: "main",
+            arguments: vec![],
+            statements: vec![
+                TypedStatement::Definition(
+                    TypedAssignee::Identifier(Variable::field_element("a".into())),
+                    FieldElementExpression::Number(FieldPrime::from(7)).into(),
+                ),
+                TypedStatement::Definition(
+                    TypedAssignee::Identifier(Variable::field_element("b".into())),
+                    FieldElementExpression::Pow(
+                        box FieldElementExpression::Identifier("a".into()),
+                        box FieldElementExpression::Number(FieldPrime::from(0)),
+                    )
+                    .into(),
+                ),
+                TypedStatement::Return(vec![FieldElementExpression::Identifier("b".into()).into()]),
+            ],
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement],
+            },
+        };
+
+        let mut flattener = Flattener::new();
+
+        let expected = FlatFunction {
+            id: String::from("main"),
+            arguments: vec![],
+            statements: vec![
+                FlatStatement::Definition(
+                    FlatVariable::new(0),
+                    FlatExpression::Number(FieldPrime::from(7)),
+                ),
+                FlatStatement::Definition(
+                    FlatVariable::new(1),
+                    FlatExpression::Number(FieldPrime::from(1)),
+                ),
+                FlatStatement::Return(FlatExpressionList {
+                    expressions: vec![FlatExpression::Identifier(FlatVariable::new(1))],
+                }),
+            ],
+            signature: Signature::new().outputs(vec![Type::FieldElement]),
+        };
+
+        let flattened = flattener.flatten_function(&mut vec![], function);
+
+        assert_eq!(flattened, expected);
+    }
+
+    #[test]
+    fn power_one() {
+        // def main():
+        //     field a = 7
+        //     field b = a**1
+        //     return b
+
+        // def main():
+        //     _0 = 7
+        //     _1 = 1 * _0     // x**1
+        //     _2 = _1         // power flattening returns _1, definition introduces _2
+        //     return _2
+        let function = TypedFunction {
+            id: "main",
+            arguments: vec![],
+            statements: vec![
+                TypedStatement::Definition(
+                    TypedAssignee::Identifier(Variable::field_element("a".into())),
+                    FieldElementExpression::Number(FieldPrime::from(7)).into(),
+                ),
+                TypedStatement::Definition(
+                    TypedAssignee::Identifier(Variable::field_element("b".into())),
+                    FieldElementExpression::Pow(
+                        box FieldElementExpression::Identifier("a".into()),
+                        box FieldElementExpression::Number(FieldPrime::from(1)),
+                    )
+                    .into(),
+                ),
+                TypedStatement::Return(vec![FieldElementExpression::Identifier("b".into()).into()]),
+            ],
+            signature: Signature {
+                inputs: vec![],
+                outputs: vec![Type::FieldElement],
+            },
+        };
+
+        let mut flattener = Flattener::new();
+
+        let expected = FlatFunction {
+            id: String::from("main"),
+            arguments: vec![],
+            statements: vec![
+                FlatStatement::Definition(
+                    FlatVariable::new(0),
+                    FlatExpression::Number(FieldPrime::from(7)),
+                ),
+                FlatStatement::Definition(
+                    FlatVariable::new(1),
+                    FlatExpression::Mult(
+                        box FlatExpression::Number(FieldPrime::from(1)),
+                        box FlatExpression::Identifier(FlatVariable::new(0)),
+                    ),
+                ),
+                FlatStatement::Definition(
+                    FlatVariable::new(2),
+                    FlatExpression::Identifier(FlatVariable::new(1)),
+                ),
+                FlatStatement::Return(FlatExpressionList {
+                    expressions: vec![FlatExpression::Identifier(FlatVariable::new(2))],
+                }),
+            ],
+            signature: Signature::new().outputs(vec![Type::FieldElement]),
+        };
+
+        let flattened = flattener.flatten_function(&mut vec![], function);
+
+        assert_eq!(flattened, expected);
+    }
+
+    #[test]
+    fn power_13() {
+        // def main():
+        //     field a = 7
+        //     field b = a**13
+        //     return b
+
+        // we apply double and add
+        // 13 == 0b1101
+        // a ** 13 == a**(2**0 + 2**2 + 2**3) == a**1 * a**4 * a**8
+
+        // a_0 = a * a      // a**2
+        // a_1 = a_0 * a_0  // a**4
+        // a_2 = a_1 * a_1  // a**8
+
+        // a_3 = a * a_1    // a * a**4 == a**5
+        // a_4 = a_3 * a_2  // a**5 * a**8 == a**13
+
+        // def main():
+        //     _0 = 7
+        //     _1 = (_0 * _0)  // a**2
+        //     _2 = (_1 * _1)  // a**4
+        //     _3 = (_2 * _2)  // a**8
+        //
+        //     _4 = 1 * _0     // a
+        //     _5 = _4 * _2    // a**5
+        //     _6 = _5 * _3    // a**13
+        //     _7 = _6         // power flattening returns _6, definition introduces _7
+        //     return _7
 
         let function = TypedFunction {
             id: "main",
@@ -1870,7 +2044,7 @@ mod tests {
                     TypedAssignee::Identifier(Variable::field_element("b".into())),
                     FieldElementExpression::Pow(
                         box FieldElementExpression::Identifier("a".into()),
-                        box FieldElementExpression::Number(FieldPrime::from(4)),
+                        box FieldElementExpression::Number(FieldPrime::from(13)),
                     )
                     .into(),
                 ),
@@ -1903,18 +2077,43 @@ mod tests {
                     FlatVariable::new(2),
                     FlatExpression::Mult(
                         box FlatExpression::Identifier(FlatVariable::new(1)),
-                        box FlatExpression::Identifier(FlatVariable::new(0)),
+                        box FlatExpression::Identifier(FlatVariable::new(1)),
                     ),
                 ),
                 FlatStatement::Definition(
                     FlatVariable::new(3),
                     FlatExpression::Mult(
                         box FlatExpression::Identifier(FlatVariable::new(2)),
+                        box FlatExpression::Identifier(FlatVariable::new(2)),
+                    ),
+                ),
+                FlatStatement::Definition(
+                    FlatVariable::new(4),
+                    FlatExpression::Mult(
+                        box FlatExpression::Number(FieldPrime::from(1)),
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                     ),
                 ),
+                FlatStatement::Definition(
+                    FlatVariable::new(5),
+                    FlatExpression::Mult(
+                        box FlatExpression::Identifier(FlatVariable::new(4)),
+                        box FlatExpression::Identifier(FlatVariable::new(2)),
+                    ),
+                ),
+                FlatStatement::Definition(
+                    FlatVariable::new(6),
+                    FlatExpression::Mult(
+                        box FlatExpression::Identifier(FlatVariable::new(5)),
+                        box FlatExpression::Identifier(FlatVariable::new(3)),
+                    ),
+                ),
+                FlatStatement::Definition(
+                    FlatVariable::new(7),
+                    FlatExpression::Identifier(FlatVariable::new(6)),
+                ),
                 FlatStatement::Return(FlatExpressionList {
-                    expressions: vec![FlatExpression::Identifier(FlatVariable::new(3))],
+                    expressions: vec![FlatExpression::Identifier(FlatVariable::new(7))],
                 }),
             ],
             signature: Signature::new().outputs(vec![Type::FieldElement]),

@@ -1,3 +1,5 @@
+#![allow(deprecated)] // TODO remove when lazy_static is warning-free
+
 extern crate rand;
 
 use crate::ir::{CanonicalLinComb, Prog, Statement, Witness};

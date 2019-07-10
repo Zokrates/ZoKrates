@@ -314,7 +314,7 @@ impl<'ast, T: Field> fmt::Debug for Range<T> {
 
 #[derive(Clone, PartialEq)]
 pub enum Expression<'ast, T: Field> {
-    Number(T),
+    FieldConstant(T),
     BooleanConstant(bool),
     Identifier(Identifier<'ast>),
     Add(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
@@ -348,7 +348,7 @@ pub type ExpressionNode<'ast, T> = Node<Expression<'ast, T>>;
 impl<'ast, T: Field> fmt::Display for Expression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Expression::Number(ref i) => write!(f, "{}", i),
+            Expression::FieldConstant(ref i) => write!(f, "{}", i),
             Expression::Identifier(ref var) => write!(f, "{}", var),
             Expression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
             Expression::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
@@ -397,7 +397,7 @@ impl<'ast, T: Field> fmt::Display for Expression<'ast, T> {
 impl<'ast, T: Field> fmt::Debug for Expression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Expression::Number(ref i) => write!(f, "Num({})", i),
+            Expression::FieldConstant(ref i) => write!(f, "Num({})", i),
             Expression::Identifier(ref var) => write!(f, "Ide({})", var),
             Expression::Add(ref lhs, ref rhs) => write!(f, "Add({:?}, {:?})", lhs, rhs),
             Expression::Sub(ref lhs, ref rhs) => write!(f, "Sub({:?}, {:?})", lhs, rhs),
