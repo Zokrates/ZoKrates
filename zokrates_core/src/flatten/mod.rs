@@ -24,7 +24,8 @@ pub struct Flattener<'ast> {
     layout: HashMap<Identifier<'ast>, Vec<FlatVariable>>,
 }
 
-trait Flatten<'ast, T: Field>: TryFrom<TypedExpression<'ast, T>, Error = std::fmt::Debug> {
+#[rustfmt::skip]
+trait Flatten<'ast, T: Field>: TryFrom<TypedExpression<'ast, T>, Error: std::fmt::Debug> {
     fn flatten(
         self,
         flattener: &mut Flattener<'ast>,
