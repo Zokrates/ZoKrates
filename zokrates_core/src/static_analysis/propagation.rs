@@ -68,7 +68,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                     }
                                 }
                             },
-                            _ => unimplemented!()
+                            _ => Some(TypedStatement::Definition(TypedAssignee::Identifier(var), TypedExpression::Array(e)))
                         }
 					},
 					e => {
