@@ -93,18 +93,18 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 								TypedExpression::Array(e) => {
                                     let size = e.size();
                                     match e.inner {
-                                    ArrayExpressionInner::Value(ref mut v) => {
-    									let n_as_usize = n.to_dec_string().parse::<usize>().unwrap();
-    									if n_as_usize < size {
-    										v[n_as_usize] = expr.into();
-    									} else {
-    										panic!(format!("out of bounds index ({} >= {}) found during static analysis", n_as_usize, size));
-    									}
-    								},
-    								_ => panic!("constants should only store constants")
-                                }
-                            },
-                                _ => unimplemented!()
+                                        ArrayExpressionInner::Value(ref mut v) => {
+        									let n_as_usize = n.to_dec_string().parse::<usize>().unwrap();
+        									if n_as_usize < size {
+        										v[n_as_usize] = expr.into();
+        									} else {
+        										panic!(format!("out of bounds index ({} >= {}) found during static analysis", n_as_usize, size));
+        									}
+        								},
+        								_ => panic!("constants should only store constants")
+                                    }
+                                },
+                                _ => unreachable!()
 							}
 						});
 						None
