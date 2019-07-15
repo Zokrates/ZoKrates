@@ -4,8 +4,19 @@ use crate::typed_absy::*;
 use zokrates_field::field::Field;
 
 pub trait Folder<'ast, T: Field>: Sized {
-    fn fold_program(&mut self, p: TypedProg<'ast, T>) -> TypedProg<'ast, T> {
+    fn fold_program(&mut self, p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
         fold_program(self, p)
+    }
+
+    fn fold_module(&mut self, p: TypedModule<'ast, T>) -> TypedModule<'ast, T> {
+        fold_module(self, p)
+    }
+
+    fn fold_function_symbol(
+        &mut self,
+        s: TypedFunctionSymbol<'ast, T>,
+    ) -> TypedFunctionSymbol<'ast, T> {
+        fold_function_symbol(self, s)
     }
 
     fn fold_function(&mut self, f: TypedFunction<'ast, T>) -> TypedFunction<'ast, T> {
@@ -96,15 +107,15 @@ pub trait Folder<'ast, T: Field>: Sized {
     }
 }
 
-pub fn fold_program<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_module<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
-    p: TypedProg<'ast, T>,
-) -> TypedProg<'ast, T> {
-    TypedProg {
+    p: TypedModule<'ast, T>,
+) -> TypedModule<'ast, T> {
+    TypedModule {
         functions: p
             .functions
             .into_iter()
-            .map(|fun| f.fold_function(fun))
+            .map(|(key, fun)| (key, f.fold_function_symbol(fun)))
             .collect(),
         ..p
     }
@@ -210,9 +221,9 @@ pub fn fold_field_expression<'ast, T: Field, F: Folder<'ast, T>>(
             let alt = f.fold_field_expression(alt);
             FieldElementExpression::IfElse(box cond, box cons, box alt)
         }
-        FieldElementExpression::FunctionCall(id, exps) => {
+        FieldElementExpression::FunctionCall(key, exps) => {
             let exps = exps.into_iter().map(|e| f.fold_expression(e)).collect();
-            FieldElementExpression::FunctionCall(id, exps)
+            FieldElementExpression::FunctionCall(key, exps)
         }
         FieldElementExpression::Select(box array, box index) => {
             let array = f.fold_array_expression(array);
@@ -308,5 +319,29 @@ pub fn fold_array_expression<'ast, T: Field, F: Folder<'ast, T>>(
     ArrayExpression {
         inner: f.fold_array_expression_inner(&e.ty, e.size, e.inner),
         ..e
+    }
+}
+
+pub fn fold_function_symbol<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    s: TypedFunctionSymbol<'ast, T>,
+) -> TypedFunctionSymbol<'ast, T> {
+    match s {
+        TypedFunctionSymbol::Here(fun) => TypedFunctionSymbol::Here(f.fold_function(fun)),
+        there => there, // by default, do not fold modules recursively
+    }
+}
+
+pub fn fold_program<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    p: TypedProgram<'ast, T>,
+) -> TypedProgram<'ast, T> {
+    TypedProgram {
+        modules: p
+            .modules
+            .into_iter()
+            .map(|(module_id, module)| (module_id, f.fold_module(module)))
+            .collect(),
+        main: p.main,
     }
 }

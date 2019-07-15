@@ -28,7 +28,7 @@ impl DuplicateOptimizer {
     }
 
     pub fn optimize<T: Field>(p: Prog<T>) -> Prog<T> {
-        Self::new().fold_program(p)
+        Self::new().fold_module(p)
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::absy::Node;
-use crate::types::Type;
 use std::fmt;
+use types::Type;
 
 use crate::absy::Identifier;
 

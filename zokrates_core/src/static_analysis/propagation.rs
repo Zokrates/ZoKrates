@@ -22,7 +22,7 @@ impl<'ast, T: Field> Propagator<'ast, T> {
         }
     }
 
-    pub fn propagate(p: TypedProg<'ast, T>) -> TypedProg<'ast, T> {
+    pub fn propagate(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
         Propagator::new().fold_program(p)
     }
 }

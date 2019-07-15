@@ -40,7 +40,7 @@ impl<'ast> Unroller<'ast> {
         res
     }
 
-    pub fn unroll<T: Field>(p: TypedProg<T>) -> TypedProg<T> {
+    pub fn unroll<T: Field>(p: TypedProgram<T>) -> TypedProgram<T> {
         Unroller::new().fold_program(p)
     }
 }
@@ -215,6 +215,7 @@ mod tests {
     #[cfg(test)]
     mod statement {
         use super::*;
+        use crate::types::{FunctionKey, Signature};
 
         #[test]
         fn for_loop() {
@@ -428,7 +429,11 @@ mod tests {
             let s: TypedStatement<FieldPrime> = TypedStatement::MultipleDefinition(
                 vec![Variable::field_element("a".into())],
                 TypedExpressionList::FunctionCall(
-                    String::from("foo"),
+                    FunctionKey::with_id("foo").signature(
+                        Signature::new()
+                            .inputs(vec![Type::FieldElement])
+                            .outputs(vec![Type::FieldElement]),
+                    ),
                     vec![FieldElementExpression::Identifier("a".into()).into()],
                     vec![Type::FieldElement],
                 ),
@@ -438,7 +443,11 @@ mod tests {
                 vec![TypedStatement::MultipleDefinition(
                     vec![Variable::field_element(Identifier::from("a").version(1))],
                     TypedExpressionList::FunctionCall(
-                        String::from("foo"),
+                        FunctionKey::with_id("foo").signature(
+                            Signature::new()
+                                .inputs(vec![Type::FieldElement])
+                                .outputs(vec![Type::FieldElement])
+                        ),
                         vec![
                             FieldElementExpression::Identifier(Identifier::from("a").version(0))
                                 .into()
