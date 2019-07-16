@@ -35,16 +35,25 @@ pub type Modules<'ast, T> = HashMap<ModuleId, Module<'ast, T>>;
 pub type FunctionDeclarations<'ast, T> = Vec<FunctionDeclarationNode<'ast, T>>;
 
 /// A `Program` is a collection of `Module`s and an id of the main `Module`
-pub struct Program<'ast, T: Field> {
+pub struct Program<'ast, T> {
     pub modules: HashMap<ModuleId, Module<'ast, T>>,
     pub main: ModuleId,
 }
 
 /// A declaration of a `FunctionSymbol`, be it from an import or a function definition
-#[derive(PartialEq, Debug, Clone)]
-pub struct FunctionDeclaration<'ast, T: Field> {
+#[derive(PartialEq, Clone)]
+pub struct FunctionDeclaration<'ast, T> {
     pub id: Identifier<'ast>,
     pub symbol: FunctionSymbol<'ast, T>,
+}
+
+impl<'ast, T: Field> fmt::Debug for FunctionDeclaration<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("FunctionDeclaration")
+            .field("id", &self.id)
+            .field("symbol", &self.symbol)
+            .finish()
+    }
 }
 
 impl<'ast, T: Field> fmt::Display for FunctionDeclaration<'ast, T> {
@@ -66,18 +75,28 @@ type FunctionDeclarationNode<'ast, T> = Node<FunctionDeclaration<'ast, T>>;
 
 /// A module as a collection of `FunctionDeclaration`s
 #[derive(Clone, PartialEq)]
-pub struct Module<'ast, T: Field> {
+pub struct Module<'ast, T> {
     /// Functions of the module
     pub functions: FunctionDeclarations<'ast, T>,
     pub imports: Vec<ImportNode<'ast>>, // we still use `imports` as they are not directly converted into `FunctionDeclaration`s after the importer is done, `imports` is empty
 }
 
 /// A function, be it defined in this module, imported from another module or a flat embed
-#[derive(Debug, Clone, PartialEq)]
-pub enum FunctionSymbol<'ast, T: Field> {
+#[derive(Clone, PartialEq)]
+pub enum FunctionSymbol<'ast, T> {
     Here(FunctionNode<'ast, T>),
     There(FunctionImportNode<'ast>),
     Flat(FlatEmbed),
+}
+
+impl<'ast, T: Field> fmt::Debug for FunctionSymbol<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            FunctionSymbol::Here(fun) => write!(f, "{:?}", fun),
+            FunctionSymbol::There(import) => write!(f, "{:?}", import),
+            FunctionSymbol::Flat(embed) => write!(f, "{:?}", embed),
+        }
+    }
 }
 
 /// A function import
@@ -149,7 +168,7 @@ impl<'ast, T: Field> fmt::Debug for Module<'ast, T> {
 
 /// A function defined locally
 #[derive(Clone, PartialEq)]
-pub struct Function<'ast, T: Field> {
+pub struct Function<'ast, T> {
     /// Arguments of the function
     pub arguments: Vec<ParameterNode<'ast>>,
     /// Vector of statements that are executed when running the function
@@ -196,7 +215,7 @@ impl<'ast, T: Field> fmt::Debug for Function<'ast, T> {
 
 /// Something that we can assign to
 #[derive(Clone, PartialEq)]
-pub enum Assignee<'ast, T: Field> {
+pub enum Assignee<'ast, T> {
     Identifier(Identifier<'ast>),
     ArrayElement(Box<AssigneeNode<'ast, T>>, Box<RangeOrExpression<'ast, T>>),
 }
@@ -220,7 +239,7 @@ impl<'ast, T: Field> fmt::Display for Assignee<'ast, T> {
 
 /// A statement in a `Function`
 #[derive(Clone, PartialEq)]
-pub enum Statement<'ast, T: Field> {
+pub enum Statement<'ast, T> {
     Return(ExpressionListNode<'ast, T>),
     Declaration(VariableNode<'ast>),
     Definition(AssigneeNode<'ast, T>, ExpressionNode<'ast, T>),
@@ -283,7 +302,7 @@ impl<'ast, T: Field> fmt::Debug for Statement<'ast, T> {
 
 /// An element of an inline array, can be a spread `...a` or an expression `a`
 #[derive(Clone, PartialEq)]
-pub enum SpreadOrExpression<'ast, T: Field> {
+pub enum SpreadOrExpression<'ast, T> {
     Spread(SpreadNode<'ast, T>),
     Expression(ExpressionNode<'ast, T>),
 }
@@ -308,7 +327,7 @@ impl<'ast, T: Field> fmt::Debug for SpreadOrExpression<'ast, T> {
 
 /// The index in an array selector. Can be a range or an expression.
 #[derive(Clone, PartialEq)]
-pub enum RangeOrExpression<'ast, T: Field> {
+pub enum RangeOrExpression<'ast, T> {
     Range(RangeNode<T>),
     Expression(ExpressionNode<'ast, T>),
 }
@@ -347,13 +366,13 @@ impl<'ast, T: Field> fmt::Debug for Spread<'ast, T> {
 
 /// A spread
 #[derive(Clone, PartialEq)]
-pub struct Spread<'ast, T: Field> {
+pub struct Spread<'ast, T> {
     pub expression: ExpressionNode<'ast, T>,
 }
 
 /// A range
 #[derive(Clone, PartialEq)]
-pub struct Range<T: Field> {
+pub struct Range<T> {
     pub from: Option<T>,
     pub to: Option<T>,
 }
@@ -385,7 +404,7 @@ impl<'ast, T: Field> fmt::Debug for Range<T> {
 
 /// An expression
 #[derive(Clone, PartialEq)]
-pub enum Expression<'ast, T: Field> {
+pub enum Expression<'ast, T> {
     FieldConstant(T),
     BooleanConstant(bool),
     Identifier(Identifier<'ast>),
@@ -507,7 +526,7 @@ impl<'ast, T: Field> fmt::Debug for Expression<'ast, T> {
 
 /// A list of expressions, used in return statements
 #[derive(Clone, PartialEq)]
-pub struct ExpressionList<'ast, T: Field> {
+pub struct ExpressionList<'ast, T> {
     pub expressions: Vec<ExpressionNode<'ast, T>>,
 }
 
