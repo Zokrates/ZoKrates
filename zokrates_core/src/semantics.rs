@@ -1302,6 +1302,52 @@ mod tests {
     use types::Signature;
     use zokrates_field::field::FieldPrime;
 
+    mod array {
+        use super::*;
+
+        #[test]
+        fn element_type_mismatch() {
+            // [3, true]
+            let a = Expression::InlineArray(vec![
+                Expression::FieldConstant(FieldPrime::from(3)).mock().into(),
+                Expression::BooleanConstant(true).mock().into(),
+            ])
+            .mock();
+            assert!(Checker::new().check_expression(a).is_err());
+
+            // [[0], [0, 0]]
+            let a = Expression::InlineArray(vec![
+                Expression::InlineArray(vec![Expression::FieldConstant(FieldPrime::from(0))
+                    .mock()
+                    .into()])
+                .mock()
+                .into(),
+                Expression::InlineArray(vec![
+                    Expression::FieldConstant(FieldPrime::from(0)).mock().into(),
+                    Expression::FieldConstant(FieldPrime::from(0)).mock().into(),
+                ])
+                .mock()
+                .into(),
+            ])
+            .mock();
+            assert!(Checker::new().check_expression(a).is_err());
+
+            // [[0], true]
+            let a = Expression::InlineArray(vec![
+                Expression::InlineArray(vec![Expression::FieldConstant(FieldPrime::from(0))
+                    .mock()
+                    .into()])
+                .mock()
+                .into(),
+                Expression::InlineArray(vec![Expression::BooleanConstant(true).mock().into()])
+                    .mock()
+                    .into(),
+            ])
+            .mock();
+            assert!(Checker::new().check_expression(a).is_err());
+        }
+    }
+
     mod symbols {
         use super::*;
         use crate::types::Signature;
@@ -2398,6 +2444,51 @@ mod tests {
                         "a".into(),
                         33
                     )),
+                    box FieldElementExpression::Number(FieldPrime::from(2)).into()
+                ))
+            );
+        }
+
+        #[test]
+        fn array_of_array_element() {
+            // field[33][42] a
+            // a[1][2]
+            let a = Assignee::ArrayElement(
+                box Assignee::ArrayElement(
+                    box Assignee::Identifier("a").mock(),
+                    box RangeOrExpression::Expression(
+                        Expression::FieldConstant(FieldPrime::from(1)).mock(),
+                    ),
+                )
+                .mock(),
+                box RangeOrExpression::Expression(
+                    Expression::FieldConstant(FieldPrime::from(2)).mock(),
+                ),
+            )
+            .mock();
+
+            let mut checker: Checker = Checker::new();
+            checker
+                .check_statement::<FieldPrime>(
+                    Statement::Declaration(
+                        Variable::array("a", Type::array(Type::FieldElement, 33), 42).mock(),
+                    )
+                    .mock(),
+                    &vec![],
+                )
+                .unwrap();
+
+            assert_eq!(
+                checker.check_assignee(a),
+                Ok(TypedAssignee::ArrayElement(
+                    box TypedAssignee::ArrayElement(
+                        box TypedAssignee::Identifier(typed_absy::Variable::array(
+                            "a".into(),
+                            Type::array(Type::FieldElement, 33),
+                            42
+                        )),
+                        box FieldElementExpression::Number(FieldPrime::from(1)).into()
+                    ),
                     box FieldElementExpression::Number(FieldPrime::from(2)).into()
                 ))
             );

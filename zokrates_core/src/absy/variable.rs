@@ -41,6 +41,13 @@ impl<'ast> Variable<'ast> {
         }
     }
 
+    pub fn array<S: Into<&'ast str>>(id: S, inner_ty: Type, size: usize) -> Variable<'ast> {
+        Variable {
+            id: id.into(),
+            _type: Type::array(inner_ty, size),
+        }
+    }
+
     pub fn get_type(&self) -> Type {
         self._type.clone()
     }

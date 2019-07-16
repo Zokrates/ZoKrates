@@ -288,6 +288,12 @@ pub enum SpreadOrExpression<'ast, T: Field> {
     Expression(ExpressionNode<'ast, T>),
 }
 
+impl<'ast, T: Field> From<ExpressionNode<'ast, T>> for SpreadOrExpression<'ast, T> {
+    fn from(e: ExpressionNode<'ast, T>) -> SpreadOrExpression<'ast, T> {
+        SpreadOrExpression::Expression(e)
+    }
+}
+
 impl<'ast, T: Field> fmt::Display for SpreadOrExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
