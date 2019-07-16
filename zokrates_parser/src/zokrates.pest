@@ -77,7 +77,9 @@ unary_expression = { op_unary ~ term }
 
 assignee = { identifier ~ ("[" ~ range_or_expression ~ "]")* }
 identifier = @{ ((!keyword ~ ASCII_ALPHA) | (keyword ~ (ASCII_ALPHANUMERIC | "_"))) ~ (ASCII_ALPHANUMERIC | "_")* }
-constant = @{ "0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
+constant = { decimal_number | boolean_literal }
+decimal_number = @{ "0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
+boolean_literal = { "true" | "false" }
 
 op_inclusive_or = {"||"}
 op_exclusive_or = {"^"}
