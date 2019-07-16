@@ -16,7 +16,7 @@ ty_field = {"field"}
 ty_bool = {"bool"}
 ty_basic = { ty_field | ty_bool }
 // (unidimensional for now) arrays of (basic for now) types 
-ty_array = { ty_basic ~ ("[" ~ expression ~ "]") }
+ty_array = { ty_basic ~ ("[" ~ expression ~ "]")+ }
 ty = { ty_array | ty_basic }
 type_list = _{(ty ~ ("," ~ ty)*)?}
 

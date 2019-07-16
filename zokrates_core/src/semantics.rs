@@ -1084,7 +1084,12 @@ impl<'ast> Checker<'ast> {
                                     Ok(FieldElementExpression::Select(box a, box i).into())
                                 }
                                 Type::Boolean => Ok(BooleanExpression::Select(box a, box i).into()),
-                                Type::Array(_, _) => unimplemented!("multi dim wow"),
+                                Type::Array(box ty, size) => Ok(ArrayExpression {
+                                    size: *size,
+                                    ty: ty.clone(),
+                                    inner: ArrayExpressionInner::Select(box a, box i),
+                                }
+                                .into()),
                             }
                         }
                         (a, e) => Err(Error {
@@ -1110,7 +1115,7 @@ impl<'ast> Checker<'ast> {
                 }
 
                 // we infer the type to be the type of the first element
-                let inferred_type = expressions_checked.get(0).unwrap().get_type();
+                let inferred_type = expressions_checked.get(0).unwrap().get_type().clone();
 
                 match inferred_type {
                     Type::FieldElement => {
@@ -1169,16 +1174,49 @@ impl<'ast> Checker<'ast> {
                         }
                         .into())
                     }
-                    _ => Err(Error {
-                        pos: Some(pos),
+                    ty @ Type::Array(..) => {
+                        // we check all expressions have that same type
+                        let mut unwrapped_expressions = vec![];
 
-                        message: format!(
-                            "Only arrays of {} or {} are supported, found {}",
-                            Type::FieldElement,
-                            Type::Boolean,
-                            inferred_type
-                        ),
-                    }),
+                        for e in expressions_checked {
+                            let unwrapped_e = match e {
+                                TypedExpression::Array(e) => {
+                                    if e.get_type() == ty {
+                                        Ok(e)
+                                    } else {
+                                        Err(Error {
+                                            pos: Some(pos),
+
+                                            message: format!(
+                                                "Expected {} to have type {}, but type is {}",
+                                                e,
+                                                ty,
+                                                e.get_type()
+                                            ),
+                                        })
+                                    }
+                                }
+                                e => Err(Error {
+                                    pos: Some(pos),
+
+                                    message: format!(
+                                        "Expected {} to have type {}, but type is {}",
+                                        e,
+                                        ty,
+                                        e.get_type()
+                                    ),
+                                }),
+                            }?;
+                            unwrapped_expressions.push(unwrapped_e.into());
+                        }
+
+                        Ok(ArrayExpression {
+                            ty,
+                            size: unwrapped_expressions.len(),
+                            inner: ArrayExpressionInner::Value(unwrapped_expressions),
+                        }
+                        .into())
+                    }
                 }
             }
             Expression::And(box e1, box e2) => {

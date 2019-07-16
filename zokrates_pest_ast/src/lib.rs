@@ -212,7 +212,7 @@ mod ast {
     #[pest_ast(rule(Rule::ty_array))]
     pub struct ArrayType<'ast> {
         pub ty: BasicType<'ast>,
-        pub size: Expression<'ast>,
+        pub size: Vec<Expression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -403,7 +403,7 @@ mod ast {
     #[pest_ast(rule(Rule::postfix_expression))]
     pub struct PostfixExpression<'ast> {
         pub id: IdentifierExpression<'ast>,
-        pub access: Vec<Access<'ast>>,
+        pub accesses: Vec<Access<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }

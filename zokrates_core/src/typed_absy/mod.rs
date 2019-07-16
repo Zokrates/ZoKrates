@@ -543,6 +543,10 @@ pub enum ArrayExpressionInner<'ast, T: Field> {
         Box<ArrayExpression<'ast, T>>,
         Box<ArrayExpression<'ast, T>>,
     ),
+    Select(
+        Box<ArrayExpression<'ast, T>>,
+        Box<FieldElementExpression<'ast, T>>,
+    ),
 }
 
 impl<'ast, T: Field> ArrayExpression<'ast, T> {
@@ -576,6 +580,17 @@ impl<'ast, T: Field> TryFrom<TypedExpression<'ast, T>> for BooleanExpression<'as
     fn try_from(te: TypedExpression<'ast, T>) -> Result<BooleanExpression<'ast, T>, Self::Error> {
         match te {
             TypedExpression::Boolean(e) => Ok(e),
+            _ => Err(()),
+        }
+    }
+}
+
+impl<'ast, T: Field> TryFrom<TypedExpression<'ast, T>> for ArrayExpression<'ast, T> {
+    type Error = ();
+
+    fn try_from(te: TypedExpression<'ast, T>) -> Result<ArrayExpression<'ast, T>, Self::Error> {
+        match te {
+            TypedExpression::Array(e) => Ok(e),
             _ => Err(()),
         }
     }
@@ -664,6 +679,7 @@ impl<'ast, T: Field> fmt::Display for ArrayExpressionInner<'ast, T> {
                 "if {} then {} else {} fi",
                 condition, consequent, alternative
             ),
+            ArrayExpressionInner::Select(ref id, ref index) => write!(f, "{}[{}]", id, index),
         }
     }
 }
@@ -720,6 +736,9 @@ impl<'ast, T: Field> fmt::Debug for ArrayExpressionInner<'ast, T> {
                 "IfElse({:?}, {:?}, {:?})",
                 condition, consequent, alternative
             ),
+            ArrayExpressionInner::Select(ref id, ref index) => {
+                write!(f, "Select({:?}, {:?})", id, index)
+            }
         }
     }
 }
