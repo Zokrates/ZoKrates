@@ -3,11 +3,12 @@ use std::fmt;
 
 use rustc_hex::FromHex;
 use serde::{Deserialize, Deserializer};
+use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 use wasmi::{ImportsBuilder, ModuleInstance, ModuleRef, NopExternals};
 use zokrates_field::field::Field;
 
-#[derive(Clone, Debug, Serialize, PartialEq, Hash, Eq)]
+#[derive(Clone, Debug, Serialize)]
 pub struct WasmHelper(
     #[serde(skip)] std::rc::Rc<ModuleRef>,
     #[serde(serialize_with = "serde_bytes::serialize")] Vec<u8>,
@@ -68,6 +69,14 @@ impl<'de> Deserialize<'de> for WasmHelper {
 impl PartialEq for WasmHelper {
     fn eq(&self, other: &WasmHelper) -> bool {
         self.1 == other.1
+    }
+}
+
+impl Eq for WasmHelper {}
+
+impl Hash for WasmHelper {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.1.hash(state);
     }
 }
 
