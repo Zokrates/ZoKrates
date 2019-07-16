@@ -9,11 +9,21 @@ use crate::flat_absy::{FlatExpression, FlatVariable};
 use std::fmt;
 use zokrates_field::field::Field;
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub struct DirectiveStatement<T: Field> {
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+pub struct DirectiveStatement<T> {
     pub inputs: Vec<FlatExpression<T>>,
     pub outputs: Vec<FlatVariable>,
     pub helper: Helper,
+}
+
+impl<T: Field> fmt::Debug for DirectiveStatement<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("DirectiveStatement")
+            .field("inputs", &self.inputs)
+            .field("outputs", &self.outputs)
+            .field("helper", &self.helper)
+            .finish()
+    }
 }
 
 impl<T: Field> DirectiveStatement<T> {

@@ -15,8 +15,7 @@ use types::FunctionIdentifier;
 use zokrates_field::field::Field;
 
 /// Flattener, computes flattened program.
-#[derive(Debug)]
-pub struct Flattener<'ast, T: Field> {
+pub struct Flattener<'ast, T> {
     /// Index of the next introduced variable while processing the program.
     next_var_idx: usize,
     /// `FlatVariable`s corresponding to each `Identifier`
@@ -24,6 +23,7 @@ pub struct Flattener<'ast, T: Field> {
     /// Cached `FlatFunction`s to avoid re-flattening them
     flat_cache: HashMap<FunctionKey<'ast>, FlatFunction<T>>,
 }
+
 impl<'ast, T: Field> Flattener<'ast, T> {
     pub fn flatten(p: TypedProgram<'ast, T>) -> FlatProg<T> {
         Flattener::new().flatten_program(p)
