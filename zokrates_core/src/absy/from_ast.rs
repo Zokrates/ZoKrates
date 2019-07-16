@@ -448,22 +448,26 @@ impl<'ast, T: Field> From<pest::PostfixExpression<'ast>> for absy::ExpressionNod
     fn from(expression: pest::PostfixExpression<'ast>) -> absy::ExpressionNode<'ast, T> {
         use absy::NodeValue;
 
-        assert!(expression.access.len() == 1); // we only allow a single access: function call or array access
+        let id_str = expression.id.span.as_str();
+        let id = absy::ExpressionNode::from(expression.id);
 
-        match expression.access[0].clone() {
-            pest::Access::Call(a) => absy::Expression::FunctionCall(
-                &expression.id.span.as_str(),
-                a.expressions
-                    .into_iter()
-                    .map(|e| absy::ExpressionNode::from(e))
-                    .collect(),
-            ),
-            pest::Access::Select(a) => absy::Expression::Select(
-                box absy::ExpressionNode::from(expression.id),
-                box absy::RangeOrExpression::from(a.expression),
-            ),
-        }
-        .span(expression.span)
+        expression.accesses.into_iter().fold(id, |acc, a| match a {
+            pest::Access::Call(a) => match acc.value {
+                absy::Expression::Identifier(_) => absy::Expression::FunctionCall(
+                    &id_str,
+                    a.expressions
+                        .into_iter()
+                        .map(|e| absy::ExpressionNode::from(e))
+                        .collect(),
+                ),
+                e => unimplemented!("only identifiers are callable, found \"{}\"", e),
+            }
+            .span(a.span),
+            pest::Access::Select(a) => {
+                absy::Expression::Select(box acc, box absy::RangeOrExpression::from(a.expression))
+                    .span(a.span)
+            }
+        })
     }
 }
 
@@ -521,24 +525,33 @@ impl<'ast> From<pest::Type<'ast>> for Type {
                 pest::BasicType::Boolean(_) => Type::Boolean,
             },
             pest::Type::Array(t) => {
-                let size = match t.size {
-                    pest::Expression::Constant(c) => match c {
-                        pest::ConstantExpression::DecimalNumber(n) => {
-                            str::parse::<usize>(&n.value).unwrap()
-                        }
-                        _ => unimplemented!(
-                            "Array size should be a decimal number, found {}",
-                            c.span().as_str()
-                        ),
-                    },
-                    e => {
-                        unimplemented!("Array size should be constant, found {}", e.span().as_str())
-                    }
+                let inner_type = match t.ty {
+                    pest::BasicType::Field(_) => Type::FieldElement,
+                    pest::BasicType::Boolean(_) => Type::Boolean,
                 };
-                match t.ty {
-                    pest::BasicType::Field(_) => Type::array(Type::FieldElement, size),
-                    pest::BasicType::Boolean(_) => Type::array(Type::Boolean, size),
-                }
+
+                t.size
+                    .into_iter()
+                    .map(|s| match s {
+                        pest::Expression::Constant(c) => match c {
+                            pest::ConstantExpression::DecimalNumber(n) => {
+                                str::parse::<usize>(&n.value).unwrap()
+                            }
+                            _ => unimplemented!(
+                                "Array size should be a decimal number, found {}",
+                                c.span().as_str()
+                            ),
+                        },
+                        e => unimplemented!(
+                            "Array size should be constant, found {}",
+                            e.span().as_str()
+                        ),
+                    })
+                    .fold(None, |acc, s| match acc {
+                        None => Some(Type::array(inner_type.clone(), s)),
+                        Some(acc) => Some(Type::array(acc, s)),
+                    })
+                    .unwrap()
             }
         }
     }

@@ -178,6 +178,11 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
                 box f.fold_array_expression(alternative),
             )
         }
+        ArrayExpressionInner::Select(box array, box index) => {
+            let array = f.fold_array_expression(array);
+            let index = f.fold_field_expression(index);
+            ArrayExpressionInner::Select(box array, box index)
+        }
     }
 }
 
