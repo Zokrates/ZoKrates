@@ -2,7 +2,7 @@ use crate::flat_absy::flat_parameter::FlatParameter;
 use crate::flat_absy::FlatVariable;
 use crate::helpers::Helper;
 use std::fmt;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 mod expression;
 pub mod folder;
@@ -150,14 +150,14 @@ impl<T: Field> fmt::Display for Prog<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     mod statement {
         use super::*;
 
         #[test]
         fn print_constraint() {
-            let c: Statement<FieldPrime> = Statement::Constraint(
+            let c: Statement<Bn128Field> = Statement::Constraint(
                 QuadComb::from_linear_combinations(
                     FlatVariable::new(42).into(),
                     FlatVariable::new(42).into(),

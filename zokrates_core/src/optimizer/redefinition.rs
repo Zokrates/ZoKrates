@@ -12,9 +12,8 @@ use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::folder::{fold_function, Folder};
 use crate::ir::LinComb;
 use crate::ir::*;
-use num::Zero;
 use std::collections::HashMap;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 #[derive(Debug)]
 pub struct RedefinitionOptimizer<T> {
@@ -112,7 +111,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[test]
     fn remove_synonyms() {
@@ -125,14 +124,14 @@ mod tests {
         let y = FlatVariable::new(1);
         let z = FlatVariable::new(2);
 
-        let f: Function<FieldPrime> = Function {
+        let f: Function<Bn128Field> = Function {
             id: "foo".to_string(),
             arguments: vec![x],
             statements: vec![Statement::definition(y, x), Statement::definition(z, y)],
             returns: vec![z.into()],
         };
 
-        let optimized: Function<FieldPrime> = Function {
+        let optimized: Function<Bn128Field> = Function {
             id: "foo".to_string(),
             arguments: vec![x],
             statements: vec![Statement::definition(z, x)],
@@ -161,7 +160,7 @@ mod tests {
         let y = FlatVariable::new(1);
         let z = FlatVariable::new(2);
 
-        let f: Function<FieldPrime> = Function {
+        let f: Function<Bn128Field> = Function {
             id: "foo".to_string(),
             arguments: vec![x],
             statements: vec![
@@ -172,7 +171,7 @@ mod tests {
             returns: vec![z.into()],
         };
 
-        let optimized: Function<FieldPrime> = Function {
+        let optimized: Function<Bn128Field> = Function {
             id: "foo".to_string(),
             arguments: vec![x],
             statements: vec![Statement::definition(z, x), Statement::constraint(z, x)],
@@ -203,24 +202,24 @@ mod tests {
         let t = FlatVariable::new(3);
         let w = FlatVariable::new(4);
 
-        let f: Function<FieldPrime> = Function {
+        let f: Function<Bn128Field> = Function {
             id: "foo".to_string(),
             arguments: vec![x],
             statements: vec![
                 Statement::definition(y, x),
-                Statement::definition(t, FieldPrime::from(1)),
+                Statement::definition(t, Bn128Field::from(1)),
                 Statement::definition(z, y),
                 Statement::definition(w, t),
             ],
             returns: vec![z, w],
         };
 
-        let optimized: Function<FieldPrime> = Function {
+        let optimized: Function<Bn128Field> = Function {
             id: "foo".to_string(),
             arguments: vec![x],
             statements: vec![
                 Statement::definition(z, x),
-                Statement::definition(w, FieldPrime::from(1)),
+                Statement::definition(w, Bn128Field::from(1)),
             ],
             returns: vec![z, w],
         };
@@ -253,7 +252,7 @@ mod tests {
         let c = FlatVariable::new(4);
         let r = FlatVariable::new(5);
 
-        let f: Function<FieldPrime> = Function {
+        let f: Function<Bn128Field> = Function {
             id: "foo".to_string(),
             arguments: vec![x, y],
             statements: vec![
@@ -269,7 +268,7 @@ mod tests {
             returns: vec![r],
         };
 
-        let optimized: Function<FieldPrime> = Function {
+        let optimized: Function<Bn128Field> = Function {
             id: "foo".to_string(),
             arguments: vec![x, y],
             statements: vec![
@@ -299,12 +298,12 @@ mod tests {
 
         let x = FlatVariable::new(0);
 
-        let f: Function<FieldPrime> = Function {
+        let f: Function<Bn128Field> = Function {
             id: "foo".to_string(),
             arguments: vec![x],
             statements: vec![
-                Statement::constraint(x, FieldPrime::from(1)),
-                Statement::constraint(x, FieldPrime::from(2)),
+                Statement::constraint(x, Bn128Field::from(1)),
+                Statement::constraint(x, Bn128Field::from(2)),
             ],
             returns: vec![x.into()],
         };

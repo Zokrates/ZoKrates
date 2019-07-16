@@ -1,7 +1,7 @@
 use absy;
 use imports;
 use types::Type;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 use zokrates_pest_ast as pest;
 
 impl<'ast, T: Field> From<pest::File<'ast>> for absy::Module<'ast, T> {
@@ -550,14 +550,14 @@ impl<'ast> From<pest::Type<'ast>> for Type {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[test]
     fn return_forty_two() {
         let source = "def main() -> (field): return 42
         ";
         let ast = pest::generate_ast(&source).unwrap();
-        let expected: absy::Module<FieldPrime> = absy::Module {
+        let expected: absy::Module<Bn128Field> = absy::Module {
             functions: vec![absy::FunctionDeclaration {
                 id: &source[4..8],
                 symbol: absy::FunctionSymbol::Here(
@@ -566,7 +566,7 @@ mod tests {
                         statements: vec![absy::Statement::Return(
                             absy::ExpressionList {
                                 expressions: vec![absy::Expression::FieldConstant(
-                                    FieldPrime::from(42),
+                                    Bn128Field::from(42),
                                 )
                                 .into()],
                             }
@@ -583,7 +583,7 @@ mod tests {
             .into()],
             imports: vec![],
         };
-        assert_eq!(absy::Module::<FieldPrime>::from(ast), expected);
+        assert_eq!(absy::Module::<Bn128Field>::from(ast), expected);
     }
 
     #[test]
@@ -591,7 +591,7 @@ mod tests {
         let source = "def main() -> (bool): return true
         ";
         let ast = pest::generate_ast(&source).unwrap();
-        let expected: absy::Module<FieldPrime> = absy::Module {
+        let expected: absy::Module<Bn128Field> = absy::Module {
             functions: vec![absy::FunctionDeclaration {
                 id: &source[4..8],
                 symbol: absy::FunctionSymbol::Here(
@@ -614,7 +614,7 @@ mod tests {
             .into()],
             imports: vec![],
         };
-        assert_eq!(absy::Module::<FieldPrime>::from(ast), expected);
+        assert_eq!(absy::Module::<Bn128Field>::from(ast), expected);
     }
 
     #[test]
@@ -623,7 +623,7 @@ mod tests {
         ";
         let ast = pest::generate_ast(&source).unwrap();
 
-        let expected: absy::Module<FieldPrime> = absy::Module {
+        let expected: absy::Module<Bn128Field> = absy::Module {
             functions: vec![absy::FunctionDeclaration {
                 id: &source[4..8],
                 symbol: absy::FunctionSymbol::Here(
@@ -641,7 +641,7 @@ mod tests {
                         statements: vec![absy::Statement::Return(
                             absy::ExpressionList {
                                 expressions: vec![absy::Expression::FieldConstant(
-                                    FieldPrime::from(42),
+                                    Bn128Field::from(42),
                                 )
                                 .into()],
                             }
@@ -659,6 +659,6 @@ mod tests {
             imports: vec![],
         };
 
-        assert_eq!(absy::Module::<FieldPrime>::from(ast), expected);
+        assert_eq!(absy::Module::<Bn128Field>::from(ast), expected);
     }
 }

@@ -1,8 +1,7 @@
 use crate::flat_absy::{FlatExpression, FlatFunction, FlatProg, FlatStatement, FlatVariable};
 use crate::helpers;
 use crate::ir::{Directive, Function, LinComb, Prog, QuadComb, Statement};
-use num::Zero;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 impl<T: Field> From<FlatFunction<T>> for Function<T> {
     fn from(flat_function: FlatFunction<T>) -> Function<T> {
@@ -132,29 +131,29 @@ impl<T: Field> From<helpers::DirectiveStatement<T>> for Directive<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[test]
     fn zero() {
         // 0
-        let zero = FlatExpression::Number(FieldPrime::from(0));
-        let expected: LinComb<FieldPrime> = LinComb::zero();
+        let zero = FlatExpression::Number(Bn128Field::from(0));
+        let expected: LinComb<Bn128Field> = LinComb::zero();
         assert_eq!(LinComb::from(zero), expected);
     }
 
     #[test]
     fn one() {
         // 1
-        let one = FlatExpression::Number(FieldPrime::from(1));
-        let expected: LinComb<FieldPrime> = FlatVariable::one().into();
+        let one = FlatExpression::Number(Bn128Field::from(1));
+        let expected: LinComb<Bn128Field> = FlatVariable::one().into();
         assert_eq!(LinComb::from(one), expected);
     }
 
     #[test]
     fn forty_two() {
         // 42
-        let one = FlatExpression::Number(FieldPrime::from(42));
-        let expected: LinComb<FieldPrime> = LinComb::summand(42, FlatVariable::one());
+        let one = FlatExpression::Number(Bn128Field::from(42));
+        let expected: LinComb<Bn128Field> = LinComb::summand(42, FlatVariable::one());
         assert_eq!(LinComb::from(one), expected);
     }
 
@@ -165,7 +164,7 @@ mod tests {
             box FlatExpression::Identifier(FlatVariable::new(42)),
             box FlatExpression::Identifier(FlatVariable::new(21)),
         );
-        let expected: LinComb<FieldPrime> =
+        let expected: LinComb<Bn128Field> =
             LinComb::summand(1, FlatVariable::new(42)) + LinComb::summand(1, FlatVariable::new(21));
         assert_eq!(LinComb::from(add), expected);
     }
@@ -175,15 +174,15 @@ mod tests {
         // 42*x + 21*y
         let add = FlatExpression::Add(
             box FlatExpression::Mult(
-                box FlatExpression::Number(FieldPrime::from(42)),
+                box FlatExpression::Number(Bn128Field::from(42)),
                 box FlatExpression::Identifier(FlatVariable::new(42)),
             ),
             box FlatExpression::Mult(
-                box FlatExpression::Number(FieldPrime::from(21)),
+                box FlatExpression::Number(Bn128Field::from(21)),
                 box FlatExpression::Identifier(FlatVariable::new(21)),
             ),
         );
-        let expected: LinComb<FieldPrime> = LinComb::summand(42, FlatVariable::new(42))
+        let expected: LinComb<Bn128Field> = LinComb::summand(42, FlatVariable::new(42))
             + LinComb::summand(21, FlatVariable::new(21));
         assert_eq!(LinComb::from(add), expected);
     }
@@ -194,14 +193,14 @@ mod tests {
         let add = FlatExpression::Add(
             box FlatExpression::Mult(
                 box FlatExpression::Identifier(FlatVariable::new(42)),
-                box FlatExpression::Number(FieldPrime::from(42)),
+                box FlatExpression::Number(Bn128Field::from(42)),
             ),
             box FlatExpression::Mult(
                 box FlatExpression::Identifier(FlatVariable::new(21)),
-                box FlatExpression::Number(FieldPrime::from(21)),
+                box FlatExpression::Number(Bn128Field::from(21)),
             ),
         );
-        let expected: LinComb<FieldPrime> = LinComb::summand(42, FlatVariable::new(42))
+        let expected: LinComb<Bn128Field> = LinComb::summand(42, FlatVariable::new(42))
             + LinComb::summand(21, FlatVariable::new(21));
         assert_eq!(LinComb::from(add), expected);
     }

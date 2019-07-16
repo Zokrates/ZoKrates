@@ -14,7 +14,7 @@ use std::fmt;
 use std::io;
 use std::io::BufRead;
 use typed_arena::Arena;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 #[derive(PartialEq, Debug)]
 pub struct Error {

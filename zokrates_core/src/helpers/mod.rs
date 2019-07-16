@@ -7,7 +7,7 @@ pub use self::rust::RustHelper;
 pub use self::wasm::WasmHelper;
 use crate::flat_absy::{FlatExpression, FlatVariable};
 use std::fmt;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct DirectiveStatement<T> {
@@ -32,7 +32,7 @@ impl<T: Field> DirectiveStatement<T> {
         helper: Helper,
         inputs: Vec<E>,
     ) -> Self {
-        let (in_len, out_len) = helper.get_signature();
+        let (in_len, out_len) = helper.get_signature::<T>();
         assert_eq!(in_len, inputs.len());
         assert_eq!(out_len, outputs.len());
         DirectiveStatement {
@@ -107,12 +107,12 @@ pub trait Executable<T: Field>: Signed {
 }
 
 pub trait Signed {
-    fn get_signature(&self) -> (usize, usize);
+    fn get_signature<T: Field>(&self) -> (usize, usize);
 }
 
 impl<T: Field> Executable<T> for Helper {
     fn execute(&self, inputs: &Vec<T>) -> Result<Vec<T>, String> {
-        let (expected_input_count, expected_output_count) = self.get_signature();
+        let (expected_input_count, expected_output_count) = self.get_signature::<T>();
         assert!(inputs.len() == expected_input_count);
 
         let result = match self {
@@ -134,11 +134,11 @@ impl<T: Field> Executable<T> for Helper {
 }
 
 impl Signed for Helper {
-    fn get_signature(&self) -> (usize, usize) {
+    fn get_signature<T: Field>(&self) -> (usize, usize) {
         match self {
-            Helper::Rust(helper) => helper.get_signature(),
+            Helper::Rust(helper) => helper.get_signature::<T>(),
             #[cfg(feature = "wasm")]
-            Helper::Wasm(helper) => helper.get_signature(),
+            Helper::Wasm(helper) => helper.get_signature::<T>(),
         }
     }
 }
@@ -146,7 +146,7 @@ impl Signed for Helper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     mod eq_condition {
 
@@ -161,9 +161,9 @@ mod tests {
             let cond_eq = RustHelper::ConditionEq;
             let inputs = vec![0];
             let r = cond_eq
-                .execute(&inputs.iter().map(|&i| FieldPrime::from(i)).collect())
+                .execute(&inputs.iter().map(|&i| Bn128Field::from(i)).collect())
                 .unwrap();
-            let res: Vec<FieldPrime> = vec![0, 1].iter().map(|&i| FieldPrime::from(i)).collect();
+            let res: Vec<Bn128Field> = vec![0, 1].iter().map(|&i| Bn128Field::from(i)).collect();
             assert_eq!(r, &res[..]);
         }
 
@@ -172,9 +172,9 @@ mod tests {
             let cond_eq = RustHelper::ConditionEq;
             let inputs = vec![1];
             let r = cond_eq
-                .execute(&inputs.iter().map(|&i| FieldPrime::from(i)).collect())
+                .execute(&inputs.iter().map(|&i| Bn128Field::from(i)).collect())
                 .unwrap();
-            let res: Vec<FieldPrime> = vec![1, 1].iter().map(|&i| FieldPrime::from(i)).collect();
+            let res: Vec<Bn128Field> = vec![1, 1].iter().map(|&i| Bn128Field::from(i)).collect();
             assert_eq!(r, &res[..]);
         }
     }

@@ -15,7 +15,7 @@ use crate::types::{FunctionKey, Signature, Type};
 use embed::FlatEmbed;
 use std::collections::HashMap;
 use std::fmt;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub use self::folder::Folder;
 

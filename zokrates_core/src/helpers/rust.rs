@@ -1,7 +1,7 @@
 use crate::helpers::{Executable, Signed};
 use std::fmt;
 use zokrates_embed::generate_sha256_round_witness;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum RustHelper {
@@ -19,11 +19,11 @@ impl fmt::Display for RustHelper {
 }
 
 impl Signed for RustHelper {
-    fn get_signature(&self) -> (usize, usize) {
+    fn get_signature<T: Field>(&self) -> (usize, usize) {
         match self {
             RustHelper::Identity => (1, 1),
             RustHelper::ConditionEq => (1, 2),
-            RustHelper::Bits => (1, 254),
+            RustHelper::Bits => (1, T::get_required_bits()),
             RustHelper::Div => (2, 1),
             RustHelper::Sha256Round => (768, 26935),
         }
@@ -72,28 +72,28 @@ impl<T: Field> Executable<T> for RustHelper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[test]
     fn bits_of_one() {
-        let inputs = vec![FieldPrime::from(1)];
+        let inputs = vec![Bn128Field::from(1)];
         let res = RustHelper::Bits.execute(&inputs).unwrap();
-        assert_eq!(res[253], FieldPrime::from(1));
+        assert_eq!(res[253], Bn128Field::from(1));
         for i in 0..252 {
-            assert_eq!(res[i], FieldPrime::from(0));
+            assert_eq!(res[i], Bn128Field::from(0));
         }
     }
 
     #[test]
     fn bits_of_42() {
-        let inputs = vec![FieldPrime::from(42)];
+        let inputs = vec![Bn128Field::from(42)];
         let res = RustHelper::Bits.execute(&inputs).unwrap();
-        assert_eq!(res[253], FieldPrime::from(0));
-        assert_eq!(res[252], FieldPrime::from(1));
-        assert_eq!(res[251], FieldPrime::from(0));
-        assert_eq!(res[250], FieldPrime::from(1));
-        assert_eq!(res[249], FieldPrime::from(0));
-        assert_eq!(res[248], FieldPrime::from(1));
-        assert_eq!(res[247], FieldPrime::from(0));
+        assert_eq!(res[253], Bn128Field::from(0));
+        assert_eq!(res[252], Bn128Field::from(1));
+        assert_eq!(res[251], Bn128Field::from(0));
+        assert_eq!(res[250], Bn128Field::from(1));
+        assert_eq!(res[249], Bn128Field::from(0));
+        assert_eq!(res[248], Bn128Field::from(1));
+        assert_eq!(res[247], Bn128Field::from(0));
     }
 }

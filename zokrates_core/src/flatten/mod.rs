@@ -12,7 +12,7 @@ use crate::types::Type;
 use crate::types::{FunctionKey, Signature};
 use std::collections::HashMap;
 use types::FunctionIdentifier;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 /// Flattener, computes flattened program.
 pub struct Flattener<'ast, T> {
@@ -1317,7 +1317,7 @@ mod tests {
     use super::*;
     use crate::types::Signature;
     use crate::types::Type;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     mod boolean_checks {
         use super::*;
@@ -1333,7 +1333,7 @@ mod tests {
             //    _0 * _0 == _0
             //    return _0
 
-            let function: TypedFunction<FieldPrime> = TypedFunction {
+            let function: TypedFunction<Bn128Field> = TypedFunction {
                 arguments: vec![Parameter::private(Variable::boolean("a".into()))],
                 statements: vec![TypedStatement::Return(vec![BooleanExpression::Identifier(
                     "a".into(),
@@ -1387,13 +1387,13 @@ mod tests {
             statements: vec![
                 TypedStatement::Definition(
                     TypedAssignee::Identifier(Variable::field_element("a".into())),
-                    FieldElementExpression::Number(FieldPrime::from(7)).into(),
+                    FieldElementExpression::Number(Bn128Field::from(7)).into(),
                 ),
                 TypedStatement::Definition(
                     TypedAssignee::Identifier(Variable::field_element("b".into())),
                     FieldElementExpression::Pow(
                         box FieldElementExpression::Identifier("a".into()),
-                        box FieldElementExpression::Number(FieldPrime::from(0)),
+                        box FieldElementExpression::Number(Bn128Field::from(0)),
                     )
                     .into(),
                 ),
@@ -1412,11 +1412,11 @@ mod tests {
             statements: vec![
                 FlatStatement::Definition(
                     FlatVariable::new(0),
-                    FlatExpression::Number(FieldPrime::from(7)),
+                    FlatExpression::Number(Bn128Field::from(7)),
                 ),
                 FlatStatement::Definition(
                     FlatVariable::new(1),
-                    FlatExpression::Number(FieldPrime::from(1)),
+                    FlatExpression::Number(Bn128Field::from(1)),
                 ),
                 FlatStatement::Return(FlatExpressionList {
                     expressions: vec![FlatExpression::Identifier(FlatVariable::new(1))],
@@ -1447,13 +1447,13 @@ mod tests {
             statements: vec![
                 TypedStatement::Definition(
                     TypedAssignee::Identifier(Variable::field_element("a".into())),
-                    FieldElementExpression::Number(FieldPrime::from(7)).into(),
+                    FieldElementExpression::Number(Bn128Field::from(7)).into(),
                 ),
                 TypedStatement::Definition(
                     TypedAssignee::Identifier(Variable::field_element("b".into())),
                     FieldElementExpression::Pow(
                         box FieldElementExpression::Identifier("a".into()),
-                        box FieldElementExpression::Number(FieldPrime::from(1)),
+                        box FieldElementExpression::Number(Bn128Field::from(1)),
                     )
                     .into(),
                 ),
@@ -1472,12 +1472,12 @@ mod tests {
             statements: vec![
                 FlatStatement::Definition(
                     FlatVariable::new(0),
-                    FlatExpression::Number(FieldPrime::from(7)),
+                    FlatExpression::Number(Bn128Field::from(7)),
                 ),
                 FlatStatement::Definition(
                     FlatVariable::new(1),
                     FlatExpression::Mult(
-                        box FlatExpression::Number(FieldPrime::from(1)),
+                        box FlatExpression::Number(Bn128Field::from(1)),
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                     ),
                 ),
@@ -1532,13 +1532,13 @@ mod tests {
             statements: vec![
                 TypedStatement::Definition(
                     TypedAssignee::Identifier(Variable::field_element("a".into())),
-                    FieldElementExpression::Number(FieldPrime::from(7)).into(),
+                    FieldElementExpression::Number(Bn128Field::from(7)).into(),
                 ),
                 TypedStatement::Definition(
                     TypedAssignee::Identifier(Variable::field_element("b".into())),
                     FieldElementExpression::Pow(
                         box FieldElementExpression::Identifier("a".into()),
-                        box FieldElementExpression::Number(FieldPrime::from(13)),
+                        box FieldElementExpression::Number(Bn128Field::from(13)),
                     )
                     .into(),
                 ),
@@ -1557,7 +1557,7 @@ mod tests {
             statements: vec![
                 FlatStatement::Definition(
                     FlatVariable::new(0),
-                    FlatExpression::Number(FieldPrime::from(7)),
+                    FlatExpression::Number(Bn128Field::from(7)),
                 ),
                 FlatStatement::Definition(
                     FlatVariable::new(1),
@@ -1583,7 +1583,7 @@ mod tests {
                 FlatStatement::Definition(
                     FlatVariable::new(4),
                     FlatExpression::Mult(
-                        box FlatExpression::Number(FieldPrime::from(1)),
+                        box FlatExpression::Number(Bn128Field::from(1)),
                         box FlatExpression::Identifier(FlatVariable::new(0)),
                     ),
                 ),
@@ -1621,11 +1621,11 @@ mod tests {
     fn if_else() {
         let expression = FieldElementExpression::IfElse(
             box BooleanExpression::Eq(
-                box FieldElementExpression::Number(FieldPrime::from(32)),
-                box FieldElementExpression::Number(FieldPrime::from(4)),
+                box FieldElementExpression::Number(Bn128Field::from(32)),
+                box FieldElementExpression::Number(Bn128Field::from(4)),
             ),
-            box FieldElementExpression::Number(FieldPrime::from(12)),
-            box FieldElementExpression::Number(FieldPrime::from(51)),
+            box FieldElementExpression::Number(Bn128Field::from(12)),
+            box FieldElementExpression::Number(Bn128Field::from(51)),
         );
 
         let mut statements_flattened = vec![];
@@ -1639,15 +1639,15 @@ mod tests {
     fn geq_leq() {
         let mut flattener = Flattener::new();
         let expression_le = BooleanExpression::Le(
-            box FieldElementExpression::Number(FieldPrime::from(32)),
-            box FieldElementExpression::Number(FieldPrime::from(4)),
+            box FieldElementExpression::Number(Bn128Field::from(32)),
+            box FieldElementExpression::Number(Bn128Field::from(4)),
         );
         flattener.flatten_boolean_expression(&HashMap::new(), &mut vec![], expression_le);
 
         let mut flattener = Flattener::new();
         let expression_ge = BooleanExpression::Ge(
-            box FieldElementExpression::Number(FieldPrime::from(32)),
-            box FieldElementExpression::Number(FieldPrime::from(4)),
+            box FieldElementExpression::Number(Bn128Field::from(32)),
+            box FieldElementExpression::Number(Bn128Field::from(4)),
         );
         flattener.flatten_boolean_expression(&HashMap::new(), &mut vec![], expression_ge);
     }
@@ -1659,16 +1659,16 @@ mod tests {
         let expression = FieldElementExpression::IfElse(
             box BooleanExpression::And(
                 box BooleanExpression::Eq(
-                    box FieldElementExpression::Number(FieldPrime::from(4)),
-                    box FieldElementExpression::Number(FieldPrime::from(4)),
+                    box FieldElementExpression::Number(Bn128Field::from(4)),
+                    box FieldElementExpression::Number(Bn128Field::from(4)),
                 ),
                 box BooleanExpression::Lt(
-                    box FieldElementExpression::Number(FieldPrime::from(4)),
-                    box FieldElementExpression::Number(FieldPrime::from(20)),
+                    box FieldElementExpression::Number(Bn128Field::from(4)),
+                    box FieldElementExpression::Number(Bn128Field::from(20)),
                 ),
             ),
-            box FieldElementExpression::Number(FieldPrime::from(12)),
-            box FieldElementExpression::Number(FieldPrime::from(51)),
+            box FieldElementExpression::Number(Bn128Field::from(12)),
+            box FieldElementExpression::Number(Bn128Field::from(51)),
         );
 
         flattener.flatten_field_expression(&HashMap::new(), &mut vec![], expression);
@@ -1683,14 +1683,14 @@ mod tests {
 
         let definition = TypedStatement::Definition(
             TypedAssignee::Identifier(Variable::field_element("b".into())),
-            FieldElementExpression::Number(FieldPrime::from(42)).into(),
+            FieldElementExpression::Number(Bn128Field::from(42)).into(),
         );
 
         let statement = TypedStatement::Definition(
             TypedAssignee::Identifier(Variable::field_element("a".into())),
             FieldElementExpression::Div(
                 box FieldElementExpression::Div(
-                    box FieldElementExpression::Number(FieldPrime::from(5)),
+                    box FieldElementExpression::Number(Bn128Field::from(5)),
                     box FieldElementExpression::Identifier("b".into()),
                 ),
                 box FieldElementExpression::Identifier("b".into()),
@@ -1725,18 +1725,18 @@ mod tests {
         assert_eq!(
             statements_flattened,
             vec![
-                FlatStatement::Definition(b, FlatExpression::Number(FieldPrime::from(42))),
+                FlatStatement::Definition(b, FlatExpression::Number(Bn128Field::from(42))),
                 // inputs to first div (5/b)
-                FlatStatement::Definition(five, FlatExpression::Number(FieldPrime::from(5))),
+                FlatStatement::Definition(five, FlatExpression::Number(Bn128Field::from(5))),
                 FlatStatement::Definition(b0, b.into()),
                 // check div by 0
                 FlatStatement::Directive(DirectiveStatement::new(
                     vec![invb0],
                     Helper::Rust(RustHelper::Div),
-                    vec![FlatExpression::Number(FieldPrime::from(1)), b0.into()]
+                    vec![FlatExpression::Number(Bn128Field::from(1)), b0.into()]
                 )),
                 FlatStatement::Condition(
-                    FlatExpression::Number(FieldPrime::from(1)),
+                    FlatExpression::Number(Bn128Field::from(1)),
                     FlatExpression::Mult(box invb0.into(), box b0.into()),
                 ),
                 // execute div
@@ -1756,10 +1756,10 @@ mod tests {
                 FlatStatement::Directive(DirectiveStatement::new(
                     vec![invb1],
                     Helper::Rust(RustHelper::Div),
-                    vec![FlatExpression::Number(FieldPrime::from(1)), b1.into()]
+                    vec![FlatExpression::Number(Bn128Field::from(1)), b1.into()]
                 )),
                 FlatStatement::Condition(
-                    FlatExpression::Number(FieldPrime::from(1)),
+                    FlatExpression::Number(Bn128Field::from(1)),
                     FlatExpression::Mult(box invb1.into(), box b1.into()),
                 ),
                 // execute div
@@ -1789,9 +1789,9 @@ mod tests {
             FieldElementArrayExpression::Value(
                 3,
                 vec![
-                    FieldElementExpression::Number(FieldPrime::from(1)),
-                    FieldElementExpression::Number(FieldPrime::from(2)),
-                    FieldElementExpression::Number(FieldPrime::from(3)),
+                    FieldElementExpression::Number(Bn128Field::from(1)),
+                    FieldElementExpression::Number(Bn128Field::from(2)),
+                    FieldElementExpression::Number(Bn128Field::from(3)),
                 ],
             )
             .into(),
@@ -1826,9 +1826,9 @@ mod tests {
             FieldElementArrayExpression::Value(
                 3,
                 vec![
-                    FieldElementExpression::Number(FieldPrime::from(1)),
-                    FieldElementExpression::Number(FieldPrime::from(2)),
-                    FieldElementExpression::Number(FieldPrime::from(3)),
+                    FieldElementExpression::Number(Bn128Field::from(1)),
+                    FieldElementExpression::Number(Bn128Field::from(2)),
+                    FieldElementExpression::Number(Bn128Field::from(3)),
                 ],
             )
             .into(),
@@ -1841,15 +1841,15 @@ mod tests {
             vec![
                 FlatStatement::Definition(
                     FlatVariable::new(0),
-                    FlatExpression::Number(FieldPrime::from(1))
+                    FlatExpression::Number(Bn128Field::from(1))
                 ),
                 FlatStatement::Definition(
                     FlatVariable::new(1),
-                    FlatExpression::Number(FieldPrime::from(2))
+                    FlatExpression::Number(Bn128Field::from(2))
                 ),
                 FlatStatement::Definition(
                     FlatVariable::new(2),
-                    FlatExpression::Number(FieldPrime::from(3))
+                    FlatExpression::Number(Bn128Field::from(3))
                 ),
             ]
         );
@@ -1867,9 +1867,9 @@ mod tests {
             FieldElementArrayExpression::Value(
                 3,
                 vec![
-                    FieldElementExpression::Number(FieldPrime::from(1)),
-                    FieldElementExpression::Number(FieldPrime::from(2)),
-                    FieldElementExpression::Number(FieldPrime::from(3)),
+                    FieldElementExpression::Number(Bn128Field::from(1)),
+                    FieldElementExpression::Number(Bn128Field::from(2)),
+                    FieldElementExpression::Number(Bn128Field::from(3)),
                 ],
             )
             .into(),
@@ -1877,7 +1877,7 @@ mod tests {
 
         let expression = FieldElementExpression::Select(
             box FieldElementArrayExpression::Identifier(3, "foo".into()),
-            box FieldElementExpression::Number(FieldPrime::from(1)),
+            box FieldElementExpression::Number(Bn128Field::from(1)),
         );
 
         flattener.flatten_statement(&HashMap::new(), &mut statements_flattened, statement);
@@ -1908,9 +1908,9 @@ mod tests {
             FieldElementArrayExpression::Value(
                 3,
                 vec![
-                    FieldElementExpression::Number(FieldPrime::from(1)),
-                    FieldElementExpression::Number(FieldPrime::from(2)),
-                    FieldElementExpression::Number(FieldPrime::from(3)),
+                    FieldElementExpression::Number(Bn128Field::from(1)),
+                    FieldElementExpression::Number(Bn128Field::from(2)),
+                    FieldElementExpression::Number(Bn128Field::from(3)),
                 ],
             )
             .into(),
@@ -1922,16 +1922,16 @@ mod tests {
                 box FieldElementExpression::Add(
                     box FieldElementExpression::Select(
                         box FieldElementArrayExpression::Identifier(3, "foo".into()),
-                        box FieldElementExpression::Number(FieldPrime::from(0)),
+                        box FieldElementExpression::Number(Bn128Field::from(0)),
                     ),
                     box FieldElementExpression::Select(
                         box FieldElementArrayExpression::Identifier(3, "foo".into()),
-                        box FieldElementExpression::Number(FieldPrime::from(1)),
+                        box FieldElementExpression::Number(Bn128Field::from(1)),
                     ),
                 ),
                 box FieldElementExpression::Select(
                     box FieldElementArrayExpression::Identifier(3, "foo".into()),
-                    box FieldElementExpression::Number(FieldPrime::from(2)),
+                    box FieldElementExpression::Number(Bn128Field::from(2)),
                 ),
             )
             .into(),
@@ -1965,16 +1965,16 @@ mod tests {
 
             let e = FieldElementArrayExpression::IfElse(
                 box BooleanExpression::Eq(
-                    box FieldElementExpression::Number(FieldPrime::from(1)),
-                    box FieldElementExpression::Number(FieldPrime::from(1)),
+                    box FieldElementExpression::Number(Bn128Field::from(1)),
+                    box FieldElementExpression::Number(Bn128Field::from(1)),
                 ),
                 box FieldElementArrayExpression::Value(
                     1,
-                    vec![FieldElementExpression::Number(FieldPrime::from(1))],
+                    vec![FieldElementExpression::Number(Bn128Field::from(1))],
                 ),
                 box FieldElementArrayExpression::Value(
                     1,
-                    vec![FieldElementExpression::Number(FieldPrime::from(3))],
+                    vec![FieldElementExpression::Number(Bn128Field::from(3))],
                 ),
             );
 
@@ -1995,11 +1995,11 @@ mod tests {
             // if 1 == 1 then 1 else 3 fi
             let e = FieldElementExpression::IfElse(
                 box BooleanExpression::Eq(
-                    box FieldElementExpression::Number(FieldPrime::from(1)),
-                    box FieldElementExpression::Number(FieldPrime::from(1)),
+                    box FieldElementExpression::Number(Bn128Field::from(1)),
+                    box FieldElementExpression::Number(Bn128Field::from(1)),
                 ),
-                box FieldElementExpression::Number(FieldPrime::from(1)),
-                box FieldElementExpression::Number(FieldPrime::from(3)),
+                box FieldElementExpression::Number(Bn128Field::from(1)),
+                box FieldElementExpression::Number(Bn128Field::from(3)),
             );
 
             (
@@ -2013,7 +2013,7 @@ mod tests {
 
     #[test]
     fn next_variable() {
-        let mut flattener: Flattener<FieldPrime> = Flattener::new();
+        let mut flattener: Flattener<Bn128Field> = Flattener::new();
         assert_eq!(
             vec![FlatVariable::new(0)],
             flattener.use_variable(&Variable::field_element("a".into()))

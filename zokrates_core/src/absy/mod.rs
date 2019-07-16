@@ -18,7 +18,7 @@ use embed::FlatEmbed;
 
 use crate::imports::ImportNode;
 use std::fmt;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 use std::collections::HashMap;
 

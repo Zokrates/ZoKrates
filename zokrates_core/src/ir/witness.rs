@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::io;
 use std::io::{Read, Write};
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Witness<T>(pub BTreeMap<FlatVariable, T>);
@@ -106,7 +106,7 @@ impl<T: Field> fmt::Display for Witness<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     mod io {
         use super::*;
@@ -116,9 +116,9 @@ mod tests {
         fn serialize_deserialize() {
             let w = Witness(
                 vec![
-                    (FlatVariable::new(42), FieldPrime::from(42)),
-                    (FlatVariable::public(8), FieldPrime::from(8)),
-                    (FlatVariable::one(), FieldPrime::from(1)),
+                    (FlatVariable::new(42), Bn128Field::from(42)),
+                    (FlatVariable::public(8), Bn128Field::from(8)),
+                    (FlatVariable::one(), Bn128Field::from(1)),
                 ]
                 .into_iter()
                 .collect(),
@@ -141,7 +141,7 @@ mod tests {
             buff.write("_1 123bug".as_ref()).unwrap();
             buff.set_position(0);
 
-            assert!(Witness::<FieldPrime>::read(buff).is_err());
+            assert!(Witness::<Bn128Field>::read(buff).is_err());
         }
 
         #[test]
@@ -151,7 +151,7 @@ mod tests {
             buff.write("_1bug 123".as_ref()).unwrap();
             buff.set_position(0);
 
-            assert!(Witness::<FieldPrime>::read(buff).is_err());
+            assert!(Witness::<Bn128Field>::read(buff).is_err());
         }
 
         #[test]
@@ -160,7 +160,7 @@ mod tests {
             buff.write("whatwhat".as_ref()).unwrap();
             buff.set_position(0);
 
-            assert!(Witness::<FieldPrime>::read(buff).is_err());
+            assert!(Witness::<Bn128Field>::read(buff).is_err());
         }
     }
 }

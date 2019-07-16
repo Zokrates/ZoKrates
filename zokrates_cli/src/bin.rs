@@ -5,7 +5,7 @@
 // @date 2017
 
 use bincode::{deserialize_from, serialize_into, Infinite};
-use clap::{App, AppSettings, Arg, SubCommand};
+use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
 use serde_json::Value;
 use std::fs::File;
 use std::io::{stdin, BufReader, BufWriter, Read, Write};
@@ -15,12 +15,24 @@ use std::{env, io};
 use zokrates_core::compile::compile;
 use zokrates_core::ir;
 use zokrates_core::proof_system::*;
-use zokrates_field::field::{Field, FieldPrime};
+use zokrates_field::{Bls12Field, Bn128Field, Field};
 use zokrates_fs_resolver::resolve as fs_resolve;
 #[cfg(feature = "github")]
 use zokrates_github_resolver::{is_github_import, resolve as github_resolve};
 
 fn main() {
+    // match scheme_str.to_lowercase().as_ref() {
+    //     #[cfg(feature = "libsnark")]
+    //     "pghr13" => Ok(&PGHR13 {}),
+    //     #[cfg(feature = "libsnark")]
+    //     "gm17" => Ok(&GM17 {}),
+    //     "g16" => match curve_str.to_lowercase().as_ref() {
+    //         "bn128" => cli::<Bn128Field, G16>(),
+    //         "bls12_381" => cli::<Bls12Field, G16>(),
+    //         c => Err(format!("curve {} not supported", c)),
+    //     },
+    //     s => Err(format!("Backend \"{}\" not supported", s)),
+    // }
     cli().unwrap_or_else(|e| {
         println!("{}", e);
         std::process::exit(1);
@@ -40,6 +52,236 @@ fn resolve<'a>(
     fs_resolve(location, source)
 }
 
+fn cli_generate_proof<T: Field, P: ProofSystem<T>>(sub_matches: &ArgMatches) -> Result<(), String> {
+    println!("Generating proof...");
+
+    // deserialize witness
+    let witness_path = Path::new(sub_matches.value_of("witness").unwrap());
+    let witness_file = match File::open(&witness_path) {
+        Ok(file) => file,
+        Err(why) => panic!("couldn't open {}: {}", witness_path.display(), why),
+    };
+
+    let witness = ir::Witness::read(witness_file)
+        .map_err(|why| format!("could not load witness: {:?}", why))?;
+
+    let pk_path = sub_matches.value_of("provingkey").unwrap();
+    let proof_path = sub_matches.value_of("proofpath").unwrap();
+
+    let program_path = Path::new(sub_matches.value_of("input").unwrap());
+    let program_file = File::open(&program_path)
+        .map_err(|why| format!("couldn't open {}: {}", program_path.display(), why))?;
+
+    let mut reader = BufReader::new(program_file);
+
+    let program: ir::Prog<T> =
+        deserialize_from(&mut reader, Infinite).map_err(|why| format!("{:?}", why))?;
+
+    println!(
+        "generate-proof successful: {:?}",
+        P::generate_proof(program, witness, pk_path, proof_path)
+    );
+    Ok(())
+}
+
+fn cli_export_verifier<T: Field, P: ProofSystem<T>>(
+    sub_matches: &ArgMatches,
+) -> Result<(), String> {
+    let is_abiv2 = sub_matches.value_of("abi").unwrap() == "v2";
+    println!("Exporting verifier...");
+
+    // read vk file
+    let input_path = Path::new(sub_matches.value_of("input").unwrap());
+    let input_file = File::open(&input_path)
+        .map_err(|why| format!("couldn't open {}: {}", input_path.display(), why))?;
+    let reader = BufReader::new(input_file);
+
+    let verifier = P::export_solidity_verifier(reader, is_abiv2);
+
+    //write output file
+    let output_path = Path::new(sub_matches.value_of("output").unwrap());
+    let output_file = File::create(&output_path)
+        .map_err(|why| format!("couldn't create {}: {}", output_path.display(), why))?;
+
+    let mut writer = BufWriter::new(output_file);
+
+    writer
+        .write_all(&verifier.as_bytes())
+        .map_err(|_| "Failed writing output to file.".to_string())?;
+    println!("Finished exporting verifier.");
+    Ok(())
+}
+
+fn cli_setup<T: Field, P: ProofSystem<T>>(sub_matches: &ArgMatches) -> Result<(), String> {
+    println!("Performing setup...");
+
+    let path = Path::new(sub_matches.value_of("input").unwrap());
+    let file =
+        File::open(&path).map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
+
+    let mut reader = BufReader::new(file);
+
+    let program: ir::Prog<T> =
+        deserialize_from(&mut reader, Infinite).map_err(|why| format!("{:?}", why))?;
+
+    // print deserialized flattened program
+    if !sub_matches.is_present("light") {
+        println!("{}", program);
+    }
+
+    // get paths for proving and verification keys
+    let pk_path = sub_matches.value_of("proving-key-path").unwrap();
+    let vk_path = sub_matches.value_of("verification-key-path").unwrap();
+
+    // run setup phase
+    P::setup(program, pk_path, vk_path);
+
+    Ok(())
+}
+
+fn cli_compute<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
+    println!("Computing witness...");
+
+    // read compiled program
+    let path = Path::new(sub_matches.value_of("input").unwrap());
+    let file =
+        File::open(&path).map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
+
+    let mut reader = BufReader::new(file);
+
+    let program_ast: ir::Prog<T> =
+        deserialize_from(&mut reader, Infinite).map_err(|why| why.to_string())?;
+
+    // print deserialized flattened program
+    if !sub_matches.is_present("light") {
+        println!("{}", program_ast);
+    }
+
+    let expected_cli_args_count =
+        program_ast.public_arguments_count() + program_ast.private_arguments_count();
+
+    // get arguments
+    let arguments: Vec<_> = match sub_matches.values_of("arguments") {
+        // take inline arguments
+        Some(p) => p
+            .map(|x| T::try_from_dec_str(x).map_err(|_| x.to_string()))
+            .collect(),
+        // take stdin arguments
+        None => {
+            if expected_cli_args_count > 0 {
+                let mut stdin = stdin();
+                let mut input = String::new();
+                match stdin.read_to_string(&mut input) {
+                    Ok(_) => {
+                        input.retain(|x| x != '\n');
+                        input
+                            .split(" ")
+                            .map(|x| T::try_from_dec_str(x).map_err(|_| x.to_string()))
+                            .collect()
+                    }
+                    Err(_) => Err(String::from("???")),
+                }
+            } else {
+                Ok(vec![])
+            }
+        }
+    }
+    .map_err(|e| format!("Could not parse argument: {}", e))?;
+
+    if arguments.len() != expected_cli_args_count {
+        Err(format!(
+            "Wrong number of arguments. Given: {}, Required: {}.",
+            arguments.len(),
+            expected_cli_args_count
+        ))?
+    }
+
+    let witness = program_ast
+        .execute(&arguments)
+        .map_err(|e| format!("Execution failed: {}", e))?;
+
+    println!("\nWitness: \n\n{}", witness.format_outputs());
+
+    // write witness to file
+    let output_path = Path::new(sub_matches.value_of("output").unwrap());
+    let output_file = File::create(&output_path)
+        .map_err(|why| format!("couldn't create {}: {}", output_path.display(), why))?;
+
+    let writer = BufWriter::new(output_file);
+
+    witness
+        .write(writer)
+        .map_err(|why| format!("could not save witness: {:?}", why))?;
+
+    Ok(())
+}
+
+fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
+    println!("Compiling {}\n", sub_matches.value_of("input").unwrap());
+
+    let path = PathBuf::from(sub_matches.value_of("input").unwrap());
+
+    let location = path
+        .parent()
+        .unwrap()
+        .to_path_buf()
+        .into_os_string()
+        .into_string()
+        .unwrap();
+
+    let light = sub_matches.occurrences_of("light") > 0;
+
+    let bin_output_path = Path::new(sub_matches.value_of("output").unwrap());
+
+    let hr_output_path = bin_output_path.to_path_buf().with_extension("code");
+
+    let file = File::open(path.clone()).unwrap();
+
+    let mut reader = BufReader::new(file);
+
+    let program_flattened: ir::Prog<T> = compile(&mut reader, Some(location), Some(resolve))
+        .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
+
+    // number of constraints the flattened program will translate to.
+    let num_constraints = program_flattened.constraint_count();
+
+    // serialize flattened program and write to binary file
+    let bin_output_file = File::create(&bin_output_path)
+        .map_err(|why| format!("couldn't create {}: {}", bin_output_path.display(), why))?;
+
+    let mut writer = BufWriter::new(bin_output_file);
+
+    serialize_into(&mut writer, &program_flattened, Infinite)
+        .map_err(|_| "Unable to write data to file.".to_string())?;
+
+    if !light {
+        // write human-readable output file
+        let hr_output_file = File::create(&hr_output_path)
+            .map_err(|why| format!("couldn't create {}: {}", hr_output_path.display(), why))?;
+
+        let mut hrofb = BufWriter::new(hr_output_file);
+        write!(&mut hrofb, "{}\n", program_flattened)
+            .map_err(|_| "Unable to write data to file.".to_string())?;
+        hrofb
+            .flush()
+            .map_err(|_| "Unable to flush buffer.".to_string())?;
+    }
+
+    if !light {
+        // debugging output
+        println!("Compiled program:\n{}", program_flattened);
+    }
+
+    println!("Compiled code written to '{}'", bin_output_path.display());
+
+    if !light {
+        println!("Human readable code to '{}'", hr_output_path.display());
+    }
+
+    println!("Number of constraints: {}", num_constraints);
+    Ok(())
+}
+
 fn cli() -> Result<(), String> {
     const FLATTENED_CODE_DEFAULT_PATH: &str = "out";
     const VERIFICATION_KEY_DEFAULT_PATH: &str = "verification.key";
@@ -47,6 +289,7 @@ fn cli() -> Result<(), String> {
     const VERIFICATION_CONTRACT_DEFAULT_PATH: &str = "verifier.sol";
     const WITNESS_DEFAULT_PATH: &str = "witness";
     const JSON_PROOF_PATH: &str = "proof.json";
+    let default_curve = env::var("ZOKRATES_CURVE").unwrap_or(String::from("bn128"));
     let default_scheme = env::var("ZOKRATES_PROVING_SCHEME").unwrap_or(String::from("g16"));
     let default_solidity_abi = "v1";
 
@@ -257,232 +500,22 @@ fn cli() -> Result<(), String> {
     .get_matches();
 
     match matches.subcommand() {
-        ("compile", Some(sub_matches)) => {
-            println!("Compiling {}\n", sub_matches.value_of("input").unwrap());
-
-            let path = PathBuf::from(sub_matches.value_of("input").unwrap());
-
-            let location = path
-                .parent()
-                .unwrap()
-                .to_path_buf()
-                .into_os_string()
-                .into_string()
-                .unwrap();
-
-            let light = sub_matches.occurrences_of("light") > 0;
-
-            let bin_output_path = Path::new(sub_matches.value_of("output").unwrap());
-
-            let hr_output_path = bin_output_path.to_path_buf().with_extension("code");
-
-            let file = File::open(path.clone()).unwrap();
-
-            let mut reader = BufReader::new(file);
-
-            let program_flattened: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(resolve))
-                    .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
-
-            // number of constraints the flattened program will translate to.
-            let num_constraints = program_flattened.constraint_count();
-
-            // serialize flattened program and write to binary file
-            let bin_output_file = File::create(&bin_output_path)
-                .map_err(|why| format!("couldn't create {}: {}", bin_output_path.display(), why))?;
-
-            let mut writer = BufWriter::new(bin_output_file);
-
-            serialize_into(&mut writer, &program_flattened, Infinite)
-                .map_err(|_| "Unable to write data to file.".to_string())?;
-
-            if !light {
-                // write human-readable output file
-                let hr_output_file = File::create(&hr_output_path).map_err(|why| {
-                    format!("couldn't create {}: {}", hr_output_path.display(), why)
-                })?;
-
-                let mut hrofb = BufWriter::new(hr_output_file);
-                write!(&mut hrofb, "{}\n", program_flattened)
-                    .map_err(|_| "Unable to write data to file.".to_string())?;
-                hrofb
-                    .flush()
-                    .map_err(|_| "Unable to flush buffer.".to_string())?;
-            }
-
-            if !light {
-                // debugging output
-                println!("Compiled program:\n{}", program_flattened);
-            }
-
-            println!("Compiled code written to '{}'", bin_output_path.display());
-
-            if !light {
-                println!("Human readable code to '{}'", hr_output_path.display());
-            }
-
-            println!("Number of constraints: {}", num_constraints);
-        }
-        ("compute-witness", Some(sub_matches)) => {
-            println!("Computing witness...");
-
-            // read compiled program
-            let path = Path::new(sub_matches.value_of("input").unwrap());
-            let file = File::open(&path)
-                .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
-
-            let mut reader = BufReader::new(file);
-
-            let program_ast: ir::Prog<FieldPrime> =
-                deserialize_from(&mut reader, Infinite).map_err(|why| why.to_string())?;
-
-            // print deserialized flattened program
-            if !sub_matches.is_present("light") {
-                println!("{}", program_ast);
-            }
-
-            let expected_cli_args_count =
-                program_ast.public_arguments_count() + program_ast.private_arguments_count();
-
-            // get arguments
-            let arguments: Vec<_> = match sub_matches.values_of("arguments") {
-                // take inline arguments
-                Some(p) => p
-                    .map(|x| FieldPrime::try_from_dec_str(x).map_err(|_| x.to_string()))
-                    .collect(),
-                // take stdin arguments
-                None => {
-                    if expected_cli_args_count > 0 {
-                        let mut stdin = stdin();
-                        let mut input = String::new();
-                        match stdin.read_to_string(&mut input) {
-                            Ok(_) => {
-                                input.retain(|x| x != '\n');
-                                input
-                                    .split(" ")
-                                    .map(|x| {
-                                        FieldPrime::try_from_dec_str(x).map_err(|_| x.to_string())
-                                    })
-                                    .collect()
-                            }
-                            Err(_) => Err(String::from("???")),
-                        }
-                    } else {
-                        Ok(vec![])
-                    }
-                }
-            }
-            .map_err(|e| format!("Could not parse argument: {}", e))?;
-
-            if arguments.len() != expected_cli_args_count {
-                Err(format!(
-                    "Wrong number of arguments. Given: {}, Required: {}.",
-                    arguments.len(),
-                    expected_cli_args_count
-                ))?
-            }
-
-            let witness = program_ast
-                .execute(&arguments)
-                .map_err(|e| format!("Execution failed: {}", e))?;
-
-            println!("\nWitness: \n\n{}", witness.format_outputs());
-
-            // write witness to file
-            let output_path = Path::new(sub_matches.value_of("output").unwrap());
-            let output_file = File::create(&output_path)
-                .map_err(|why| format!("couldn't create {}: {}", output_path.display(), why))?;
-
-            let writer = BufWriter::new(output_file);
-
-            witness
-                .write(writer)
-                .map_err(|why| format!("could not save witness: {:?}", why))?;
-        }
-        ("setup", Some(sub_matches)) => {
-            let scheme = get_scheme(sub_matches.value_of("proving-scheme").unwrap())?;
-
-            println!("Performing setup...");
-
-            let path = Path::new(sub_matches.value_of("input").unwrap());
-            let file = File::open(&path)
-                .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
-
-            let mut reader = BufReader::new(file);
-
-            let program: ir::Prog<FieldPrime> =
-                deserialize_from(&mut reader, Infinite).map_err(|why| format!("{:?}", why))?;
-
-            // print deserialized flattened program
-            if !sub_matches.is_present("light") {
-                println!("{}", program);
-            }
-
-            // get paths for proving and verification keys
-            let pk_path = sub_matches.value_of("proving-key-path").unwrap();
-            let vk_path = sub_matches.value_of("verification-key-path").unwrap();
-
-            // run setup phase
-            scheme.setup(program, pk_path, vk_path);
-        }
+        ("compile", Some(sub_matches)) => match default_curve.as_str() {
+            "bn128" => cli_compile::<Bn128Field>(sub_matches)?,
+            "bls12_381" => cli_compile::<Bls12Field>(sub_matches)?,
+            _ => unimplemented!(),
+        },
+        ("compute-witness", Some(sub_matches)) => match default_curve.as_str() {
+            "bn128" => cli_compute::<Bn128Field>(sub_matches)?,
+            "bls12_381" => cli_compute::<Bls12Field>(sub_matches)?,
+            _ => unimplemented!(),
+        },
+        ("setup", Some(sub_matches)) => cli_setup::<Bn128Field, G16>(sub_matches)?,
         ("export-verifier", Some(sub_matches)) => {
-            {
-                let scheme = get_scheme(sub_matches.value_of("proving-scheme").unwrap())?;
-                let is_abiv2 = sub_matches.value_of("abi").unwrap() == "v2";
-                println!("Exporting verifier...");
-
-                // read vk file
-                let input_path = Path::new(sub_matches.value_of("input").unwrap());
-                let input_file = File::open(&input_path)
-                    .map_err(|why| format!("couldn't open {}: {}", input_path.display(), why))?;
-                let reader = BufReader::new(input_file);
-
-                let verifier = scheme.export_solidity_verifier(reader, is_abiv2);
-
-                //write output file
-                let output_path = Path::new(sub_matches.value_of("output").unwrap());
-                let output_file = File::create(&output_path)
-                    .map_err(|why| format!("couldn't create {}: {}", output_path.display(), why))?;
-
-                let mut writer = BufWriter::new(output_file);
-
-                writer
-                    .write_all(&verifier.as_bytes())
-                    .map_err(|_| "Failed writing output to file.".to_string())?;
-                println!("Finished exporting verifier.");
-            }
+            cli_export_verifier::<Bn128Field, G16>(sub_matches)?
         }
         ("generate-proof", Some(sub_matches)) => {
-            println!("Generating proof...");
-
-            let scheme = get_scheme(sub_matches.value_of("proving-scheme").unwrap())?;
-
-            // deserialize witness
-            let witness_path = Path::new(sub_matches.value_of("witness").unwrap());
-            let witness_file = match File::open(&witness_path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't open {}: {}", witness_path.display(), why),
-            };
-
-            let witness = ir::Witness::read(witness_file)
-                .map_err(|why| format!("could not load witness: {:?}", why))?;
-
-            let pk_path = sub_matches.value_of("provingkey").unwrap();
-            let proof_path = sub_matches.value_of("proofpath").unwrap();
-
-            let program_path = Path::new(sub_matches.value_of("input").unwrap());
-            let program_file = File::open(&program_path)
-                .map_err(|why| format!("couldn't open {}: {}", program_path.display(), why))?;
-
-            let mut reader = BufReader::new(program_file);
-
-            let program: ir::Prog<FieldPrime> =
-                deserialize_from(&mut reader, Infinite).map_err(|why| format!("{:?}", why))?;
-
-            println!(
-                "generate-proof successful: {:?}",
-                scheme.generate_proof(program, witness, pk_path, proof_path)
-            );
+            cli_generate_proof::<Bn128Field, G16>(sub_matches)?
         }
         ("print-proof", Some(sub_matches)) => {
             let format = sub_matches.value_of("format").unwrap();
@@ -526,17 +559,6 @@ fn cli() -> Result<(), String> {
     Ok(())
 }
 
-fn get_scheme(scheme_str: &str) -> Result<&'static dyn ProofSystem, String> {
-    match scheme_str.to_lowercase().as_ref() {
-        #[cfg(feature = "libsnark")]
-        "pghr13" => Ok(&PGHR13 {}),
-        #[cfg(feature = "libsnark")]
-        "gm17" => Ok(&GM17 {}),
-        "g16" => Ok(&G16 {}),
-        s => Err(format!("Backend \"{}\" not supported", s)),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     extern crate glob;
@@ -568,7 +590,7 @@ mod tests {
                 .into_string()
                 .unwrap();
 
-            let _: ir::Prog<FieldPrime> =
+            let _: ir::Prog<Bn128Field> =
                 compile(&mut reader, Some(location), Some(resolve)).unwrap();
         }
     }
@@ -595,11 +617,11 @@ mod tests {
 
             let mut reader = BufReader::new(file);
 
-            let program_flattened: ir::Prog<FieldPrime> =
+            let program_flattened: ir::Prog<Bn128Field> =
                 compile(&mut reader, Some(location), Some(resolve)).unwrap();
 
             let _ = program_flattened
-                .execute(&vec![FieldPrime::from(0)])
+                .execute(&vec![Bn128Field::from(0)])
                 .unwrap();
         }
     }
@@ -627,11 +649,11 @@ mod tests {
 
             let mut reader = BufReader::new(file);
 
-            let program_flattened: ir::Prog<FieldPrime> =
+            let program_flattened: ir::Prog<Bn128Field> =
                 compile(&mut reader, Some(location), Some(resolve)).unwrap();
 
             let _ = program_flattened
-                .execute(&vec![FieldPrime::from(0)])
+                .execute(&vec![Bn128Field::from(0)])
                 .unwrap();
         }
     }

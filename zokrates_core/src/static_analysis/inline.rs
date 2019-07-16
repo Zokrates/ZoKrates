@@ -19,7 +19,7 @@
 use std::collections::HashMap;
 use typed_absy::{folder::*, *};
 use types::FunctionKey;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 /// An inliner
 pub struct Inliner<'ast, T> {
@@ -274,7 +274,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
 mod tests {
     use super::*;
     use types::{FunctionKey, Signature, Type};
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[test]
     fn call_other_module_without_variables() {
@@ -331,7 +331,7 @@ mod tests {
                 TypedFunctionSymbol::Here(TypedFunction {
                     arguments: vec![],
                     statements: vec![TypedStatement::Return(vec![
-                        FieldElementExpression::Number(FieldPrime::from(42)).into(),
+                        FieldElementExpression::Number(Bn128Field::from(42)).into(),
                     ])],
                     signature: Signature::new().outputs(vec![Type::FieldElement]),
                 }),
@@ -366,7 +366,7 @@ mod tests {
             &TypedFunctionSymbol::Here(TypedFunction {
                 arguments: vec![],
                 statements: vec![TypedStatement::Return(vec![
-                    FieldElementExpression::Number(FieldPrime::from(42)).into(),
+                    FieldElementExpression::Number(Bn128Field::from(42)).into(),
                 ])],
                 signature: Signature::new().outputs(vec![Type::FieldElement]),
             })
@@ -466,7 +466,7 @@ mod tests {
             .into_iter()
             .collect();
 
-        let program: TypedProgram<FieldPrime> = TypedProgram {
+        let program: TypedProgram<Bn128Field> = TypedProgram {
             main: String::from("main"),
             modules,
         };
@@ -591,7 +591,7 @@ mod tests {
                 TypedFunctionSymbol::Here(TypedFunction {
                     arguments: vec![],
                     statements: vec![TypedStatement::Return(vec![
-                        FieldElementExpression::Number(FieldPrime::from(42)).into(),
+                        FieldElementExpression::Number(Bn128Field::from(42)).into(),
                     ])],
                     signature: Signature::new().outputs(vec![Type::FieldElement]),
                 }),
@@ -628,7 +628,7 @@ mod tests {
                 statements: vec![
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::field_element("a".into())),
-                        FieldElementExpression::Number(FieldPrime::from(42)).into()
+                        FieldElementExpression::Number(Bn128Field::from(42)).into()
                     ),
                     TypedStatement::Return(vec![
                         FieldElementExpression::Identifier("a".into()).into(),
@@ -685,7 +685,7 @@ mod tests {
                     TypedFunctionSymbol::Here(TypedFunction {
                         arguments: vec![],
                         statements: vec![TypedStatement::Return(vec![
-                            FieldElementExpression::Number(FieldPrime::from(42)).into(),
+                            FieldElementExpression::Number(Bn128Field::from(42)).into(),
                         ])],
                         signature: Signature::new().outputs(vec![Type::FieldElement]),
                     }),
@@ -721,7 +721,7 @@ mod tests {
                 statements: vec![
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::field_element("a".into())),
-                        FieldElementExpression::Number(FieldPrime::from(42)).into()
+                        FieldElementExpression::Number(Bn128Field::from(42)).into()
                     ),
                     TypedStatement::Return(vec![
                         FieldElementExpression::Identifier("a".into()).into(),
@@ -827,7 +827,7 @@ mod tests {
             .into_iter()
             .collect();
 
-        let program: TypedProgram<FieldPrime> = TypedProgram {
+        let program: TypedProgram<Bn128Field> = TypedProgram {
             main: String::from("main"),
             modules,
         };

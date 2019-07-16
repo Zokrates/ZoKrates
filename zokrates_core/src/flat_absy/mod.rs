@@ -15,7 +15,7 @@ use crate::helpers::DirectiveStatement;
 use crate::types::Signature;
 use std::collections::HashMap;
 use std::fmt;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 #[derive(Clone, PartialEq)]
 pub struct FlatProg<T> {
