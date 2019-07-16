@@ -22,8 +22,7 @@ use types::FunctionKey;
 use zokrates_field::field::Field;
 
 /// An inliner
-#[derive(Debug)]
-pub struct Inliner<'ast, T: Field> {
+pub struct Inliner<'ast, T> {
     modules: TypedModules<'ast, T>, // the modules to look for functions in when inlining
     module_id: TypedModuleId,       // the current module we're visiting
     statement_buffer: Vec<TypedStatement<'ast, T>>, // a buffer of statements to be added to the inlined statements

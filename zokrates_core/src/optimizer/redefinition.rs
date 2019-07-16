@@ -17,7 +17,7 @@ use std::collections::HashMap;
 use zokrates_field::field::Field;
 
 #[derive(Debug)]
-pub struct RedefinitionOptimizer<T: Field> {
+pub struct RedefinitionOptimizer<T> {
     /// Map of renamings for reassigned variables while processing the program.
     substitution: HashMap<FlatVariable, LinComb<T>>,
 }

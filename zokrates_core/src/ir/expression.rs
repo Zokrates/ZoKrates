@@ -6,7 +6,7 @@ use std::ops::{Add, Div, Mul, Sub};
 use zokrates_field::field::Field;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct QuadComb<T: Field> {
+pub struct QuadComb<T> {
     pub left: LinComb<T>,
     pub right: LinComb<T>,
 }
@@ -58,14 +58,8 @@ impl<T: Field> fmt::Display for QuadComb<T> {
     }
 }
 
-#[derive(Eq, PartialOrd, Clone, Ord, Hash, Debug, Serialize, Deserialize)]
-pub struct LinComb<T: Field>(pub Vec<(FlatVariable, T)>);
-
-impl<T: Field> PartialEq for LinComb<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.as_canonical() == other.as_canonical()
-    }
-}
+#[derive(PartialEq, Eq, PartialOrd, Clone, Ord, Hash, Debug, Serialize, Deserialize)]
+pub struct LinComb<T>(pub Vec<(FlatVariable, T)>);
 
 #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Debug, Serialize, Deserialize)]
 pub struct CanonicalLinComb<T: Field>(pub BTreeMap<FlatVariable, T>);

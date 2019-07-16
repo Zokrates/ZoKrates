@@ -43,10 +43,19 @@ pub type TypedModules<'ast, T> = HashMap<TypedModuleId, TypedModule<'ast, T>>;
 pub type TypedFunctionSymbols<'ast, T> = HashMap<FunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>;
 
 /// A typed program as a collection of modules, one of them being the main
-#[derive(PartialEq, Debug)]
-pub struct TypedProgram<'ast, T: Field> {
+#[derive(PartialEq)]
+pub struct TypedProgram<'ast, T> {
     pub modules: TypedModules<'ast, T>,
     pub main: TypedModuleId,
+}
+
+impl<'ast, T: Field> fmt::Debug for TypedProgram<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("TypedProgram")
+            .field("modules", &self.modules)
+            .field("main", &self.main)
+            .finish()
+    }
 }
 
 impl<'ast, T: Field> fmt::Display for TypedProgram<'ast, T> {
@@ -73,7 +82,7 @@ impl<'ast, T: Field> fmt::Display for TypedProgram<'ast, T> {
 
 /// A
 #[derive(PartialEq, Clone)]
-pub struct TypedModule<'ast, T: Field> {
+pub struct TypedModule<'ast, T> {
     /// Functions of the program
     pub functions: TypedFunctionSymbols<'ast, T>,
 }
@@ -117,11 +126,21 @@ impl<'ast> Identifier<'ast> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum TypedFunctionSymbol<'ast, T: Field> {
+#[derive(Clone, PartialEq)]
+pub enum TypedFunctionSymbol<'ast, T> {
     Here(TypedFunction<'ast, T>),
     There(FunctionKey<'ast>, TypedModuleId),
     Flat(FlatEmbed),
+}
+
+impl<'ast, T: Field> fmt::Debug for TypedFunctionSymbol<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            TypedFunctionSymbol::Here(fun) => write!(f, "{:?}", fun),
+            TypedFunctionSymbol::There(key, id) => write!(f, "{:?}, {:?}", key, id),
+            TypedFunctionSymbol::Flat(embed) => write!(f, "{:?}", embed),
+        }
+    }
 }
 
 impl<'ast, T: Field> TypedFunctionSymbol<'ast, T> {
@@ -177,7 +196,7 @@ impl<'ast, T: Field> fmt::Debug for TypedModule<'ast, T> {
 
 /// A typed function
 #[derive(Clone, PartialEq)]
-pub struct TypedFunction<'ast, T: Field> {
+pub struct TypedFunction<'ast, T> {
     /// Arguments of the function
     pub arguments: Vec<Parameter<'ast>>,
     /// Vector of statements that are executed when running the function
@@ -228,7 +247,7 @@ impl<'ast, T: Field> fmt::Debug for TypedFunction<'ast, T> {
 
 /// Something we can assign to.
 #[derive(Clone, PartialEq, Hash, Eq)]
-pub enum TypedAssignee<'ast, T: Field> {
+pub enum TypedAssignee<'ast, T> {
     Identifier(Variable<'ast>),
     ArrayElement(
         Box<TypedAssignee<'ast, T>>,
@@ -268,7 +287,7 @@ impl<'ast, T: Field> fmt::Display for TypedAssignee<'ast, T> {
 
 /// A statement in a `TypedFunction`
 #[derive(Clone, PartialEq)]
-pub enum TypedStatement<'ast, T: Field> {
+pub enum TypedStatement<'ast, T> {
     Return(Vec<TypedExpression<'ast, T>>),
     Definition(TypedAssignee<'ast, T>, TypedExpression<'ast, T>),
     Declaration(Variable<'ast>),
@@ -353,7 +372,7 @@ pub trait Typed {
 
 /// A typed expression
 #[derive(Clone, PartialEq, Hash, Eq)]
-pub enum TypedExpression<'ast, T: Field> {
+pub enum TypedExpression<'ast, T> {
     Boolean(BooleanExpression<'ast, T>),
     FieldElement(FieldElementExpression<'ast, T>),
     FieldElementArray(FieldElementArrayExpression<'ast, T>),
@@ -423,7 +442,7 @@ pub trait MultiTyped {
 }
 
 #[derive(Clone, PartialEq)]
-pub enum TypedExpressionList<'ast, T: Field> {
+pub enum TypedExpressionList<'ast, T> {
     FunctionCall(FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>, Vec<Type>),
 }
 
@@ -437,7 +456,7 @@ impl<'ast, T: Field> MultiTyped for TypedExpressionList<'ast, T> {
 
 /// An expression of type `field`
 #[derive(Clone, PartialEq, Hash, Eq)]
-pub enum FieldElementExpression<'ast, T: Field> {
+pub enum FieldElementExpression<'ast, T> {
     Number(T),
     Identifier(Identifier<'ast>),
     Add(
@@ -474,7 +493,7 @@ pub enum FieldElementExpression<'ast, T: Field> {
 
 /// An expression of type `bool`
 #[derive(Clone, PartialEq, Hash, Eq)]
-pub enum BooleanExpression<'ast, T: Field> {
+pub enum BooleanExpression<'ast, T> {
     Identifier(Identifier<'ast>),
     Value(bool),
     Lt(
@@ -512,7 +531,7 @@ pub enum BooleanExpression<'ast, T: Field> {
 /// # Remarks
 /// * for now we store the array size in the variants
 #[derive(Clone, PartialEq, Hash, Eq)]
-pub enum FieldElementArrayExpression<'ast, T: Field> {
+pub enum FieldElementArrayExpression<'ast, T> {
     Identifier(usize, Identifier<'ast>),
     Value(usize, Vec<FieldElementExpression<'ast, T>>),
     FunctionCall(usize, FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),

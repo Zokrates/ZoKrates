@@ -9,7 +9,7 @@ use crate::typed_absy::*;
 use std::collections::HashMap;
 use zokrates_field::field::Field;
 
-pub struct Propagator<'ast, T: Field> {
+pub struct Propagator<'ast, T> {
     constants: HashMap<TypedAssignee<'ast, T>, TypedExpression<'ast, T>>,
 }
 

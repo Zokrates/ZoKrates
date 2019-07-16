@@ -6,7 +6,7 @@ use std::io::{Read, Write};
 use zokrates_field::field::Field;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Witness<T: Field>(pub BTreeMap<FlatVariable, T>);
+pub struct Witness<T>(pub BTreeMap<FlatVariable, T>);
 
 impl<T: Field> Witness<T> {
     pub fn return_values(&self) -> Vec<T> {
