@@ -80,10 +80,7 @@ mod tests {
 
     #[test]
     fn invalid_location() {
-        let res = resolve(
-            &Some(String::from(",8!-$2abc")),
-            &String::from("./foo"),
-        );
+        let res = resolve(&Some(String::from(",8!-$2abc")), &String::from("./foo"));
         assert!(res.is_err());
     }
 
@@ -250,10 +247,7 @@ mod tests {
     #[test]
     fn fail_if_not_found_in_std() {
         std::env::set_var(ZOKRATES_HOME, "");
-        let result = resolve(
-            &Some("/path/to/source".to_string()),
-            &"bar".to_string(),
-        );
+        let result = resolve(&Some("/path/to/source".to_string()), &"bar".to_string());
         assert!(result.is_err());
     }
 
@@ -261,9 +255,6 @@ mod tests {
     #[should_panic]
     fn panic_if_home_not_set() {
         std::env::remove_var(ZOKRATES_HOME);
-        let _ = resolve(
-            &Some("/path/to/source".to_string()),
-            &"bar".to_string(),
-        );
+        let _ = resolve(&Some("/path/to/source".to_string()), &"bar".to_string());
     }
 }
