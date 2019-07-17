@@ -69,14 +69,17 @@ mod tests {
         let mut file = File::create(file_path).unwrap();
         writeln!(file, "<user code>").unwrap();
 
-        let (_, next_location, alias) =
-            resolve(&Some(source_subfolder
+        let (_, next_location, alias) = resolve(
+            &Some(
+                source_subfolder
                     .path()
                     .to_path_buf()
                     .to_string_lossy()
                     .to_string(),
             ),
-            &"../bar".to_string()).unwrap();
+            &"../bar".to_string(),
+        )
+        .unwrap();
         assert_eq!(next_location, String::from("./src"));
         assert_eq!(alias, String::from("lib"));
     }
