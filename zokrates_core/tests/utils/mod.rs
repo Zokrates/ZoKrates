@@ -93,7 +93,7 @@ macro_rules! zokrates_test {
 
                 use zokrates_field::field::{Field, FieldPrime};
 
-                let code_string = $crate::utils::read_file(&format!("./{}.code", stringify!($name)));
+                let code_string = $crate::utils::read_file(&format!("./{}.zok", stringify!($name)));
                 let test_string = $crate::utils::read_file(&format!("./{}.json", stringify!($name)));
 
                 let bin = $crate::utils::compile(&code_string).unwrap();

@@ -16,7 +16,7 @@ mod integration {
     #[test]
     #[ignore]
     fn test_compile_and_witness_dir() {
-        let dir = Path::new("./tests/code");
+        let dir = Path::new("./code");
         if dir.is_dir() {
             for entry in fs::read_dir(dir).unwrap() {
                 let entry = entry.unwrap();
@@ -24,7 +24,7 @@ mod integration {
                 if path.extension().unwrap() == "witness" {
                     let program_name =
                         Path::new(Path::new(path.file_stem().unwrap()).file_stem().unwrap());
-                    let prog = dir.join(program_name).with_extension("code");
+                    let prog = dir.join(program_name).with_extension("zok");
                     let witness = dir.join(program_name).with_extension("expected.witness");
                     let args = dir.join(program_name).with_extension("arguments.json");
                     test_compile_and_witness(

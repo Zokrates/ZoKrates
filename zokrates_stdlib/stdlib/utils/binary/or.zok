@@ -1,5 +1,4 @@
 // OR
-
 import "./and" as AND
 import "./not" as NOT
 

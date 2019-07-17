@@ -13,10 +13,10 @@ Make sure you have followed the instructions in the [Getting Started](gettingsta
 
 We will start this tutorial by using ZoKrates to compute the hash for an arbitrarily chosen preimage, being the number `5` in this example.
 
-First, we create a new file named `hashexample.code` with the following content:
+First, we create a new file named `hashexample.zok` with the following content:
 
 ```zokrates
-{{#include ../../zokrates_cli/examples/book/hashexample.code}}
+{{#include ../../zokrates_cli/examples/book/hashexample.zok}}
 ```
 
 The first line imports the `sha256packed` function from the ZoKrates standard library.
@@ -67,10 +67,10 @@ Let's recall our goal: Peggy wants to prove that she knows a preimage for a dige
 
 To make it work, the two parties have to follow their roles in the protocol:
 
-First, Victor has to specify what hash he is interested in. Therefore, we have to adjust the zkSNARK circuit, compiled by ZoKrates, such that in addition to computing the digest, it also validates it against the digest of interest, provided by Victor. This leads to the following update for `hashexample.code`:
+First, Victor has to specify what hash he is interested in. Therefore, we have to adjust the zkSNARK circuit, compiled by ZoKrates, such that in addition to computing the digest, it also validates it against the digest of interest, provided by Victor. This leads to the following update for `hashexample.zok`:
 
 ```zokrates
-{{#include ../../zokrates_cli/examples/book/hashexample_updated.code}}
+{{#include ../../zokrates_cli/examples/book/hashexample_updated.zok}}
 ```
 
 Note that we now compare the result of `sha256packed` with the hard-coded correct solution defined by Victor. The lines which we added are treated as assertions: the verifier will not accept a proof where these constraints were not satisfied. Clearly, this program only returns 1 if all of the computed bits are equal.

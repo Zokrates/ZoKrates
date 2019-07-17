@@ -11,7 +11,7 @@ The prime `p` is set to `2188824287183927522224640574525727508854836440041603434
 While `field` values mostly behave like unsigned integers, one should keep in mind that they overflow at `p` and not some power of 2, so that we have:
 
 ```zokrates
-{{#include ../../../zokrates_cli/examples/book/field_overflow.code}}
+{{#include ../../../zokrates_cli/examples/book/field_overflow.zok}}
 ```
 
 ### `bool`
@@ -27,5 +27,5 @@ Note that while equality checks are cheap, inequality checks should be use wisel
 Static arrays of `field` can be instantiated with a constant size, and their elements can be accessed and updated:
 
 ```zokrates
-{{#include ../../../zokrates_cli/examples/book/array.code}}
+{{#include ../../../zokrates_cli/examples/book/array.zok}}
 ```

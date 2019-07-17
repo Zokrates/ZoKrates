@@ -9,7 +9,7 @@ The following section highlights a subset of available imports:
 #### sha256
 
 ```zokrates
-import "hashes/sha256/512Padded.code"
+import "hashes/sha256/512Padded"
 ```
 
 A function that takes 2 `field[256]` arrays as inputs and returns their sha256 compression function as an array of 256 field elements.
@@ -17,18 +17,18 @@ A function that takes 2 `field[256]` arrays as inputs and returns their sha256 c
 #### sha256compression
 
 ```zokrates
-import "hashes/sha256/512bit.code"
+import "hashes/sha256/512bit"
 ```
 
 A function that takes 2 `field[256]` arrays as inputs and returns their sha256 compression function as an array of 256 field elements.
 The difference with `sha256` is that no padding is added at the end of the message, which makes it more efficient but also less compatible with Solidity.
 
-There also is support for 2-round (1024-bit input) and and 3-round (1536-bit input) variants, using  `hashes/1024bit.code` or `hashes/1536bit.code` respectively.
+There also is support for 2-round (1024-bit input) and and 3-round (1536-bit input) variants, using  `hashes/1024bit.zok` or `hashes/1536bit.zok` respectively.
 
 #### sha256packed
 
 ```zokrates
-import "hashes/sha256/512bitPacked.code"
+import "hashes/sha256/512bitPacked"
 ```
 
 A function that takes an array of 4 field elements as inputs, unpacks each of them to 128 bits (big endian), concatenates them and applies sha256. It then returns an array of 2 field elements, each representing 128 bits of the result.
@@ -38,7 +38,7 @@ A function that takes an array of 4 field elements as inputs, unpacks each of th
 #### Proof of private-key ownership
 
 ```zokrates
-import "ecc/proofOfOwnership.code"
+import "ecc/proofOfOwnership"
 ```
 
 Verifies match of a given public/private keypair. Checks if the following equation holds for the provided keypair:  
@@ -48,7 +48,7 @@ where `G` is the chosen base point of the subgroup and `*` denotes scalar multip
 #### Signature verification
 
 ```zokrates
-import "signatures/verifyEddsa.code"
+import "signatures/verifyEddsa"
 ```
 
 Verifies an EdDSA Signature. Checks the correctness of a given EdDSA Signature `(R,S)` for the provided public key `A` and message `(M0, M1)`. Check out this [python repository](https://github.com/Zokrates/pycrypto) for tooling to create valid signatures.

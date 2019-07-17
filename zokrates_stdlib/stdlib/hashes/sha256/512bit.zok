@@ -3,7 +3,7 @@ import "./shaRoundNoBoolCheck" as sha256
 
 // A function that takes 2 field[256] arrays as inputs 
 // and returns their sha256 compression function as an array of 256 field elements.
-// In contrast to full_round.code no padding is being applied 
+// In contrast to full_round.zok no padding is being applied 
 def main(field[256] a, field[256] b) -> (field[256]):
 
     // a and b is NOT checked to be of type bool

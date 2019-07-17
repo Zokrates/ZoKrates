@@ -18,7 +18,7 @@ fn {test_name}() {{
     ).unwrap();
 
     let mut source = PathBuf::from(&t.entry_point);
-    source.set_extension("code");
+    source.set_extension("zok");
     let mut code_reader = BufReader::new(File::open(source.as_path()).unwrap());
 
     let bin = compile(
@@ -33,7 +33,7 @@ fn {test_name}() {{
 
         match utils::compare(output, test.output) {{
             Err(e) => {{
-                let mut code = File::open(&t.entry_point).unwrap();
+                let mut code = File::open(source.as_path()).unwrap();
                 let mut s = String::new();
                 code.read_to_string(&mut s).unwrap();
                 let context = format!("\n{{}}\nCalled with input ({{}})\n", s, input.iter().map(|i| format!("{{}}", i)).collect::<Vec<_>>().join(", "));

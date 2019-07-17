@@ -33,10 +33,10 @@ cd target/release
 
 ## Hello ZoKrates!
 
-First, create the text-file `root.code` and implement your program. In this example, we will prove knowledge of the square root `a` of a number `b`:
+First, create the text-file `root.zok` and implement your program. In this example, we will prove knowledge of the square root `a` of a number `b`:
 
 ```zokrates
-{{#include ../../zokrates_cli/examples/book/factorize.code}}
+{{#include ../../zokrates_cli/examples/book/factorize.zok}}
 ```
 
 Some observations:

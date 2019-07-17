@@ -245,7 +245,7 @@ mod tests {
         assert_eq!(
             Import::new("./foo/bar/baz".to_string()),
             Import {
-                source: String::from("./foo/bar/baz.code"),
+                source: String::from("./foo/bar/baz.zok"),
                 alias: None,
             }
         );
@@ -256,7 +256,7 @@ mod tests {
         assert_eq!(
             Import::new_with_alias("./foo/bar/baz".to_string(), &"myalias".to_string()),
             Import {
-                source: String::from("./foo/bar/baz.code"),
+                source: String::from("./foo/bar/baz.zok"),
                 alias: Some("myalias".to_string()),
             }
         );

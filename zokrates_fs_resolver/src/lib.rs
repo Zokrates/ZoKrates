@@ -21,11 +21,10 @@ fn resolve_with_location(
     source: &String,
 ) -> Result<(BufReader<File>, String, String), io::Error> {
     let mut source = PathBuf::from(source);
-
-    source.set_extension("code");
+    source.set_extension("zok");
 
     // paths starting with `./` or `../` are interpreted relative to the current file
-    // other paths `abc/def.code` are interpreted relative to $ZOKRATES_HOME
+    // other paths `abc/def.zok` are interpreted relative to $ZOKRATES_HOME
     let base = match source.as_path().components().next() {
         Some(Component::CurDir) | Some(Component::ParentDir) => PathBuf::from(location),
         _ => PathBuf::from(
@@ -131,13 +130,13 @@ mod tests {
 
         // create a HOME folder with a code file
         let zokrates_home_folder = tempfile::tempdir().unwrap();
-        let file_path = zokrates_home_folder.path().join("bar.code");
+        let file_path = zokrates_home_folder.path().join("bar.zok");
         let mut file = File::create(file_path).unwrap();
         writeln!(file, "<stdlib code>").unwrap();
 
         // create a user folder with a code file
         let source_folder = tempfile::tempdir().unwrap();
-        let file_path = source_folder.path().join("bar.code");
+        let file_path = source_folder.path().join("bar.zok");
         let mut file = File::create(file_path).unwrap();
         writeln!(file, "<user code>").unwrap();
 
@@ -168,13 +167,13 @@ mod tests {
 
         // create a HOME folder with a code file
         let zokrates_home_folder = tempfile::tempdir().unwrap();
-        let file_path = zokrates_home_folder.path().join("bar.code");
+        let file_path = zokrates_home_folder.path().join("bar.zok");
         let mut file = File::create(file_path).unwrap();
         writeln!(file, "<stdlib code>").unwrap();
 
         // create a user folder with a code file
         let source_folder = tempfile::tempdir().unwrap();
-        let file_path = source_folder.path().join("bar.code");
+        let file_path = source_folder.path().join("bar.zok");
         let mut file = File::create(file_path).unwrap();
         writeln!(file, "<user code>").unwrap();
 
@@ -206,7 +205,7 @@ mod tests {
         // create a user folder with a code file
         let source_folder = tempfile::tempdir().unwrap();
         let source_subfolder = tempfile::tempdir_in(&source_folder).unwrap();
-        let file_path = source_folder.path().join("bar.code");
+        let file_path = source_folder.path().join("bar.zok");
         let mut file = File::create(file_path).unwrap();
         writeln!(file, "<user code>").unwrap();
 
@@ -233,7 +232,7 @@ mod tests {
 
         // create a HOME folder
         let zokrates_home_folder = tempfile::tempdir().unwrap();
-        let file_path = zokrates_home_folder.path().join("bar.code");
+        let file_path = zokrates_home_folder.path().join("bar.zok");
         let mut file = File::create(file_path).unwrap();
         writeln!(file, "<stdlib code>").unwrap();
 

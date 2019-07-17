@@ -53,7 +53,7 @@ fn cli() -> Result<(), String> {
     .author("Jacob Eberhardt, Thibaut Schaeffer, Stefan Deml")
     .about("Supports generation of zkSNARKs from high level language code including Smart Contracts for proof verification on the Ethereum Blockchain.\n'I know that I show nothing!'")
     .subcommand(SubCommand::with_name("compile")
-        .about("Compiles into flattened conditions. Produces two files: human-readable '.code' file for debugging and binary file")
+        .about("Compiles into flattened conditions. Produces two files: human-readable '.zok' file for debugging and binary file")
         .arg(Arg::with_name("input")
             .short("i")
             .long("input")
@@ -549,7 +549,7 @@ mod tests {
 
     #[test]
     fn examples() {
-        for p in glob("./examples/**/*.code").expect("Failed to read glob pattern") {
+        for p in glob("./examples/**/*.zok").expect("Failed to read glob pattern") {
             let path = match p {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
@@ -580,7 +580,7 @@ mod tests {
     #[test]
     fn examples_with_input_success() {
         //these examples should compile and run
-        for p in glob("./examples/test*.code").expect("Failed to read glob pattern") {
+        for p in glob("./examples/test*.zok").expect("Failed to read glob pattern") {
             let path = match p {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
@@ -612,7 +612,7 @@ mod tests {
     #[should_panic]
     fn examples_with_input_failure() {
         //these examples should compile but not run
-        for p in glob("./examples/runtime_errors/*.code").expect("Failed to read glob pattern") {
+        for p in glob("./examples/runtime_errors/*.zok").expect("Failed to read glob pattern") {
             let path = match p {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
