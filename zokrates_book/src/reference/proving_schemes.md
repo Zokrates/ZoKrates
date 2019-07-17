@@ -17,6 +17,16 @@ When not using the default, the CLI flag has to be provided for the following co
 - `export-verifier`
 - `generate-proof`
 
+## Supporting backends
+
+As shown in the table above, the `PGHR13` and `GM17`schemes require [libsnark](https://github.com/scipr-lab/libsnark) as a backend, while G16 uses [bellman](https://github.com/zkcrypto/bellman), which is included as the default backend.
+
+To include libsnark in the build, compile ZoKrates from [source](https://github.com/ZoKrates/ZoKrates/) with the `libsnark` feature:
+```bash
+cargo +nightly -Z package-features build --release --package zokrates_cli --features="libsnark"
+```
+ Note, that this is only tested for Linux. If you are on another OS, consider using our Docker container, which includes a libsnark installation.
+
 ## G16 malleability
 
 When using G16, developers should pay attention to the fact that an attacker seeing a valid proof can very easily generate a different but still valid proof. Therefore, depending on the use case, making sure on chain that the same proof cannot be submitted twice may *not* be enough to guarantee that attackers cannot replay proofs. Mechanisms to solve this issue include:

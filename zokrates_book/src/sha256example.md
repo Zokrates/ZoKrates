@@ -106,7 +106,7 @@ Finally, Peggy can run the command to construct the proof:
 
 As the inputs were declared as private in the program, they do not appear in the proof thanks to the zero knowledge property of the protocol.
 
-ZoKrates creates a file, `proof.json`,  consisting of the eight variables that make up the zkSNARKs proof. The `verifyTx` function in the smart contract deployed by Victor accepts these eight values, along with an array of public inputs. The array of public inputs consists of:
+ZoKrates creates a file, `proof.json`,  consisting of the three elliptic curve points that make up the zkSNARKs proof. The `verifyTx` function in the smart contract deployed by Victor accepts these three values, along with an array of public inputs. The array of public inputs consists of:
 
 * any public inputs to the main function, declared without the `private` keyword
 * the return values of the ZoKrates function

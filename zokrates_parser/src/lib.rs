@@ -100,7 +100,9 @@ mod tests {
                                 expression(43, 44, [
                                     term(43, 44, [
                                         primary_expression(43, 44, [
-                                            constant(43, 44)
+                                            constant(43, 44, [
+                                                decimal_number(43, 44)
+                                            ])
                                         ])
                                     ])
                                 ])

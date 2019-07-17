@@ -38,6 +38,15 @@ mod integration {
         }
     }
 
+    fn install_nodejs_deps() {
+        let out_dir = concat!(env!("OUT_DIR"), "/contract");
+
+        assert_cli::Assert::command(&["npm", "install"])
+            .current_dir(out_dir)
+            .succeeds()
+            .unwrap();
+    }
+
     fn test_compile_and_witness(
         program_name: &str,
         program_path: &Path,
@@ -50,6 +59,7 @@ mod integration {
         let flattened_path = tmp_base.join(program_name).join("out");
         let witness_path = tmp_base.join(program_name).join("witness");
         let inline_witness_path = tmp_base.join(program_name).join("inline_witness");
+        let proof_path = tmp_base.join(program_name).join("proof.json");
         let verification_key_path = tmp_base
             .join(program_name)
             .join("verification")
@@ -76,12 +86,6 @@ mod integration {
             flattened_path.to_str().unwrap(),
             "--light",
         ];
-
-        if program_name.contains("sha") {
-            // we don't want to test libsnark integrations if libsnark is not available
-            #[cfg(not(feature = "libsnark"))]
-            return;
-        }
 
         // compile
         assert_cli::Assert::command(&compile).succeeds().unwrap();
@@ -205,22 +209,6 @@ mod integration {
             .succeeds()
             .unwrap();
 
-            let mut verifier_file = File::open(&verification_contract_path).unwrap();
-            let mut verifier_string = String::new();
-            verifier_file.read_to_string(&mut verifier_string).unwrap();
-
-            let solc_json_input = format!(
-                r#"{{"language": "Solidity", "sources": {{ "this": {{ "content": {:?} }} }} }}"#,
-                verifier_string
-            );
-
-            assert_cli::Assert::command(&["solcjs", "--standard-json"])
-                .stdin(&solc_json_input)
-                .succeeds()
-                .stdout()
-                .doesnt_contain(r#""severity":"error""#)
-                .unwrap();
-
             // GENERATE-PROOF
             assert_cli::Assert::command(&[
                 "../target/release/zokrates",
@@ -233,7 +221,23 @@ mod integration {
                 proving_key_path.to_str().unwrap(),
                 "--proving-scheme",
                 scheme,
+                "-j",
+                proof_path.to_str().unwrap(),
             ])
+            .succeeds()
+            .unwrap();
+
+            // TEST VERIFIER
+
+            assert_cli::Assert::command(&[
+                "node",
+                "test.js",
+                verification_contract_path.to_str().unwrap(),
+                proof_path.to_str().unwrap(),
+                scheme,
+                "v1",
+            ])
+            .current_dir(concat!(env!("OUT_DIR"), "/contract"))
             .succeeds()
             .unwrap();
         }
