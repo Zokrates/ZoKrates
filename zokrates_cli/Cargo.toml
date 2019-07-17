@@ -6,9 +6,10 @@ repository = "https://github.com/JacobEberhardt/ZoKrates.git"
 edition = "2018"
 
 [features]
-default = []
+default = ["github"]
 libsnark = ["zokrates_core/libsnark"]
 wasm = ["zokrates_core/wasm"]
+github = ["zokrates_github_resolver"]
 
 [dependencies]
 clap = "2.26.2"
@@ -17,13 +18,16 @@ regex = "0.2"
 zokrates_field = { version = "0.3", path = "../zokrates_field" }
 zokrates_core = { version = "0.3", path = "../zokrates_core" }
 zokrates_fs_resolver = { version = "0.4", path = "../zokrates_fs_resolver"}
-zokrates_github_resolver = { version = "0.1", path = "../zokrates_github_resolver"}
+zokrates_github_resolver = { version = "0.1", path = "../zokrates_github_resolver", optional = true}
 serde_json = "1.0"
 
 [dev-dependencies]
 glob = "0.2.11"
 assert_cli = "0.5"
 tempdir = "0.3"
+
+[build-dependencies]
+fs_extra = "1.1.0"
 
 [[bin]]
 name = "zokrates"
