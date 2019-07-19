@@ -20,6 +20,8 @@ curl -LSfs get.zokrat.es | sh
 Have a look at the [documentation](https://zokrates.github.io/) for more information about using ZoKrates.  
 A getting started tutorial can be found [here](https://zokrates.github.io/sha256example.html).
 
+Examples are located inside zokrates_cli/examples folder.
+
 ## Getting Help
 
 If you run into problems, ZoKrates has a Gitter room. You can come ask for help on [Gitter](https://gitter.im/ZoKrates/Lobby).
