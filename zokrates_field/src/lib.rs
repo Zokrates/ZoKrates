@@ -75,12 +75,14 @@ pub trait Field:
     /// Returns a decimal string representing a the member of the equivalence class of this `Field` in Z/pZ
     /// which lies in [-(p-1)/2, (p-1)/2]
     fn to_compact_dec_string(&self) -> String;
+    /// Returns the size of the field as a decimal string
+    fn id() -> [u8; 4];
 }
 
 #[macro_use]
 mod prime_field {
     macro_rules! prime_field {
-        ($modulus:expr, $bellman_type:ty) => {
+        ($modulus:expr, $bellman_type:ty, $magic:expr) => {
             use crate::{Field, Pow};
             use lazy_static::lazy_static;
             use num_bigint::{BigInt, BigUint, Sign, ToBigInt};
@@ -159,6 +161,15 @@ mod prime_field {
                                 .to_str_radix(10)
                         )
                     }
+                }
+                fn id() -> [u8; 4] {
+                    let mut res = [0u8; 4];
+                    use sha2::{Digest, Sha256};
+                    let hash = Sha256::digest(&P.to_bytes_le().1);
+                    for i in 0..4 {
+                        res[i] = hash[i];
+                    }
+                    res
                 }
             }
 

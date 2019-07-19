@@ -20,23 +20,57 @@ use zokrates_fs_resolver::resolve as fs_resolve;
 #[cfg(feature = "github")]
 use zokrates_github_resolver::{is_github_import, resolve as github_resolve};
 
+const ZOKRATES_MAGIC: &[u8; 4] = &[0x5a, 0x4f, 0x4b, 0];
+const ZOKRATES_VERSION_1: &[u8; 4] = &[0, 0, 0, 1];
+
 fn main() {
-    // match scheme_str.to_lowercase().as_ref() {
-    //     #[cfg(feature = "libsnark")]
-    //     "pghr13" => Ok(&PGHR13 {}),
-    //     #[cfg(feature = "libsnark")]
-    //     "gm17" => Ok(&GM17 {}),
-    //     "g16" => match curve_str.to_lowercase().as_ref() {
-    //         "bn128" => cli::<Bn128Field, G16>(),
-    //         "bls12_381" => cli::<Bls12Field, G16>(),
-    //         c => Err(format!("curve {} not supported", c)),
-    //     },
-    //     s => Err(format!("Backend \"{}\" not supported", s)),
-    // }
     cli().unwrap_or_else(|e| {
         println!("{}", e);
         std::process::exit(1);
     })
+}
+
+enum ProgEnum {
+    Bls12Program(ir::Prog<Bls12Field>),
+    Bn128Program(ir::Prog<Bn128Field>),
+}
+
+fn deserialize_prog<R: Read>(mut r: R) -> ProgEnum {
+    // Check the magic number, `ZOK`
+    let mut magic = [0; 4];
+    r.read_exact(&mut magic).unwrap();
+
+    assert_eq!(&magic, ZOKRATES_MAGIC);
+
+    // Check the version, 1
+    let mut version = [0; 4];
+    r.read_exact(&mut version).unwrap();
+
+    assert_eq!(&version, ZOKRATES_VERSION_1);
+
+    // Check the curve identifier, deserializing accordingly
+    let mut curve = [0; 4];
+    r.read_exact(&mut curve).unwrap();
+
+    match curve {
+        m if m == Bls12Field::id() => {
+            ProgEnum::Bls12Program(deserialize_from(&mut r, Infinite).unwrap())
+        }
+        m if m == Bn128Field::id() => {
+            ProgEnum::Bn128Program(deserialize_from(&mut r, Infinite).unwrap())
+        }
+        _ => unreachable!(),
+    }
+}
+
+fn serialize_prog<T: Field, W: Write>(prog: &ir::Prog<T>, mut w: W) {
+    w.write(ZOKRATES_MAGIC).unwrap();
+    w.write(ZOKRATES_VERSION_1).unwrap();
+    w.write(&T::id()).unwrap();
+
+    serialize_into(&mut w, prog, Infinite)
+        .map_err(|_| "Unable to write data to file.".to_string())
+        .unwrap();
 }
 
 fn resolve<'a>(
@@ -52,7 +86,10 @@ fn resolve<'a>(
     fs_resolve(location, source)
 }
 
-fn cli_generate_proof<T: Field, P: ProofSystem<T>>(sub_matches: &ArgMatches) -> Result<(), String> {
+fn cli_generate_proof<T: Field, P: ProofSystem<T>>(
+    program: ir::Prog<T>,
+    sub_matches: &ArgMatches,
+) -> Result<(), String> {
     println!("Generating proof...");
 
     // deserialize witness
@@ -67,15 +104,6 @@ fn cli_generate_proof<T: Field, P: ProofSystem<T>>(sub_matches: &ArgMatches) -> 
 
     let pk_path = sub_matches.value_of("provingkey").unwrap();
     let proof_path = sub_matches.value_of("proofpath").unwrap();
-
-    let program_path = Path::new(sub_matches.value_of("input").unwrap());
-    let program_file = File::open(&program_path)
-        .map_err(|why| format!("couldn't open {}: {}", program_path.display(), why))?;
-
-    let mut reader = BufReader::new(program_file);
-
-    let program: ir::Prog<T> =
-        deserialize_from(&mut reader, Infinite).map_err(|why| format!("{:?}", why))?;
 
     println!(
         "generate-proof successful: {:?}",
@@ -112,17 +140,11 @@ fn cli_export_verifier<T: Field, P: ProofSystem<T>>(
     Ok(())
 }
 
-fn cli_setup<T: Field, P: ProofSystem<T>>(sub_matches: &ArgMatches) -> Result<(), String> {
+fn cli_setup<T: Field, P: ProofSystem<T>>(
+    program: ir::Prog<T>,
+    sub_matches: &ArgMatches,
+) -> Result<(), String> {
     println!("Performing setup...");
-
-    let path = Path::new(sub_matches.value_of("input").unwrap());
-    let file =
-        File::open(&path).map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
-
-    let mut reader = BufReader::new(file);
-
-    let program: ir::Prog<T> =
-        deserialize_from(&mut reader, Infinite).map_err(|why| format!("{:?}", why))?;
 
     // print deserialized flattened program
     if !sub_matches.is_present("light") {
@@ -139,18 +161,8 @@ fn cli_setup<T: Field, P: ProofSystem<T>>(sub_matches: &ArgMatches) -> Result<()
     Ok(())
 }
 
-fn cli_compute<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
+fn cli_compute<T: Field>(program_ast: ir::Prog<T>, sub_matches: &ArgMatches) -> Result<(), String> {
     println!("Computing witness...");
-
-    // read compiled program
-    let path = Path::new(sub_matches.value_of("input").unwrap());
-    let file =
-        File::open(&path).map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
-
-    let mut reader = BufReader::new(file);
-
-    let program_ast: ir::Prog<T> =
-        deserialize_from(&mut reader, Infinite).map_err(|why| why.to_string())?;
 
     // print deserialized flattened program
     if !sub_matches.is_present("light") {
@@ -251,8 +263,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let mut writer = BufWriter::new(bin_output_file);
 
-    serialize_into(&mut writer, &program_flattened, Infinite)
-        .map_err(|_| "Unable to write data to file.".to_string())?;
+    serialize_prog(&program_flattened, &mut writer);
 
     if !light {
         // write human-readable output file
@@ -316,6 +327,13 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(FLATTENED_CODE_DEFAULT_PATH)
+        ).arg(Arg::with_name("curve")
+            .short("c")
+            .long("curve")
+            .help("Curve to be used in the compilation. Available options are bn128 (default) and bls12_381")
+            .takes_value(true)
+            .required(false)
+            .default_value(&default_curve)
         ).arg(Arg::with_name("light")
             .long("light")
             .help("Skip logs and human readable output")
@@ -351,6 +369,14 @@ fn cli() -> Result<(), String> {
             .required(false)
             .default_value(VERIFICATION_KEY_DEFAULT_PATH)
         )
+        .arg(Arg::with_name("curve")
+            .short("c")
+            .long("curve")
+            .help("Curve to be used in the setup. Available options are bn128 (default) and bls12_381. SHOULD NOT BE REQUIRED")
+            .takes_value(true)
+            .required(false)
+            .default_value(&default_curve)
+        )
         .arg(Arg::with_name("proving-scheme")
             .short("s")
             .long("proving-scheme")
@@ -384,6 +410,13 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(VERIFICATION_CONTRACT_DEFAULT_PATH)
+        ).arg(Arg::with_name("curve")
+            .short("c")
+            .long("curve")
+            .help("Curve to be used to export the verifier. Available options are bn128 (default) and bls12_381")
+            .takes_value(true)
+            .required(false)
+            .default_value(&default_curve)
         ).arg(Arg::with_name("proving-scheme")
             .short("s")
             .long("proving-scheme")
@@ -467,6 +500,13 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(FLATTENED_CODE_DEFAULT_PATH)
+        ).arg(Arg::with_name("curve")
+            .short("c")
+            .long("curve")
+            .help("Curve to be used in the proof generation. Available options are bn128 (default) and bls12_381. SHOULD NOT BE REQUIRED")
+            .takes_value(true)
+            .required(false)
+            .default_value(&default_curve)
         ).arg(Arg::with_name("proving-scheme")
             .short("s")
             .long("proving-scheme")
@@ -500,22 +540,68 @@ fn cli() -> Result<(), String> {
     .get_matches();
 
     match matches.subcommand() {
-        ("compile", Some(sub_matches)) => match default_curve.as_str() {
-            "bn128" => cli_compile::<Bn128Field>(sub_matches)?,
-            "bls12_381" => cli_compile::<Bls12Field>(sub_matches)?,
-            _ => unimplemented!(),
-        },
-        ("compute-witness", Some(sub_matches)) => match default_curve.as_str() {
-            "bn128" => cli_compute::<Bn128Field>(sub_matches)?,
-            "bls12_381" => cli_compute::<Bls12Field>(sub_matches)?,
-            _ => unimplemented!(),
-        },
-        ("setup", Some(sub_matches)) => cli_setup::<Bn128Field, G16>(sub_matches)?,
+        ("compile", Some(sub_matches)) => {
+            let curve = sub_matches.value_of("curve").unwrap();
+
+            match curve {
+                "bn128" => cli_compile::<Bn128Field>(sub_matches)?,
+                "bls12_381" => cli_compile::<Bls12Field>(sub_matches)?,
+                _ => unimplemented!(),
+            }
+        }
+        ("compute-witness", Some(sub_matches)) => {
+            // read compiled program
+            let path = Path::new(sub_matches.value_of("input").unwrap());
+            let file = File::open(&path)
+                .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
+
+            let mut reader = BufReader::new(file);
+
+            match deserialize_prog(&mut reader) {
+                ProgEnum::Bn128Program(p) => cli_compute(p, sub_matches)?,
+                ProgEnum::Bls12Program(p) => cli_compute(p, sub_matches)?,
+            }
+        }
+        ("setup", Some(sub_matches)) => {
+            let proof_system = sub_matches.value_of("proving-scheme").unwrap();
+
+            // read compiled program
+            let path = Path::new(sub_matches.value_of("input").unwrap());
+            let file = File::open(&path)
+                .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
+
+            let mut reader = BufReader::new(file);
+
+            match (deserialize_prog(&mut reader), proof_system) {
+                (ProgEnum::Bn128Program(p), "g16") => cli_setup::<_, G16>(p, sub_matches)?,
+                (ProgEnum::Bls12Program(p), "g16") => cli_setup::<_, G16>(p, sub_matches)?,
+                _ => unimplemented!(),
+            }
+        }
         ("export-verifier", Some(sub_matches)) => {
-            cli_export_verifier::<Bn128Field, G16>(sub_matches)?
+            let curve = sub_matches.value_of("curve").unwrap();
+            let proof_system = sub_matches.value_of("proving-scheme").unwrap();
+
+            match (curve, proof_system) {
+                ("bn128", "g16") => cli_export_verifier::<Bn128Field, G16>(sub_matches)?,
+                _ => unimplemented!(),
+            }
         }
         ("generate-proof", Some(sub_matches)) => {
-            cli_generate_proof::<Bn128Field, G16>(sub_matches)?
+            let proof_system = sub_matches.value_of("proving-scheme").unwrap();
+
+            // read compiled program
+            let path = Path::new(sub_matches.value_of("input").unwrap());
+            let file = File::open(&path)
+                .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
+
+            let mut reader = BufReader::new(file);
+
+            match (deserialize_prog(&mut reader), proof_system) {
+                (ProgEnum::Bn128Program(p), "g16") => cli_generate_proof::<_, G16>(p, sub_matches)?,
+                (ProgEnum::Bls12Program(p), "g16") => cli_generate_proof::<_, G16>(p, sub_matches)?,
+                _ => unimplemented!(),
+            }
         }
         ("print-proof", Some(sub_matches)) => {
             let format = sub_matches.value_of("format").unwrap();

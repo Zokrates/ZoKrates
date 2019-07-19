@@ -14,10 +14,11 @@ num-traits = "0.2"
 num-integer = "0.1"
 pairing = { git = "https://github.com/matterinc/pairing", tag = "0.16.2" }
 ff = { git = 'https://github.com/matterinc/ff', features = ["derive"], tag = "0.5" }
-
-[dev-dependencies]
-rand = "0.4"
+sha2 = "0.8.0"
 
 [dependencies.num-bigint]
 version = "0.2"
 features = ["serde"]
+
+[dev-dependencies]
+rand = "0.4"
