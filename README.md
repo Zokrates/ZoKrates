@@ -15,6 +15,10 @@ _This is a proof-of-concept implementation. It has not been tested for productio
 
 ```bash
 curl -LSfs get.zokrat.es | sh
+
+If current version returns errors, please install older one:
+RUST_TOOLCHAIN=nightly-2019-06-02
+curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain $RUST_TOOLCHAIN -y
 ```
 
 Have a look at the [documentation](https://zokrates.github.io/) for more information about using ZoKrates.  
