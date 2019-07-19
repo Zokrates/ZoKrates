@@ -1,6 +1,6 @@
 // See also mock URLs in zokrates_github_resolver
-import "github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/foo"
-import "github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/bar"
+import "github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/foo.code"
+import "github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/bar.code"
 
 def main() -> (field):
 	return foo() + bar()

@@ -243,7 +243,7 @@ mod tests {
     #[test]
     fn create_with_no_alias() {
         assert_eq!(
-            Import::new("./foo/bar/baz".to_string()),
+            Import::new("./foo/bar/baz.code".to_string()),
             Import {
                 source: String::from("./foo/bar/baz.zok"),
                 alias: None,
@@ -254,7 +254,7 @@ mod tests {
     #[test]
     fn create_with_alias() {
         assert_eq!(
-            Import::new_with_alias("./foo/bar/baz".to_string(), &"myalias".to_string()),
+            Import::new_with_alias("./foo/bar/baz.code".to_string(), &"myalias".to_string()),
             Import {
                 source: String::from("./foo/bar/baz.zok"),
                 alias: Some("myalias".to_string()),
