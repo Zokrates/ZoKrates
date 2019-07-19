@@ -62,26 +62,36 @@ mod tests {
     fn valid_path_with_location() {
         use std::io::Write;
 
-        // create a user folder with a code file
-        let source_folder = tempfile::tempdir().unwrap();
-        let source_subfolder = tempfile::tempdir_in(&source_folder).unwrap();
-        let file_path = source_folder.path().join("bar.code");
+        // create a HOME folder with a code file
+        let zokrates_home_folder = tempfile::tempdir().unwrap();
+        let file_path = zokrates_home_folder.path().join("bar.code");
         let mut file = File::create(file_path).unwrap();
-        writeln!(file, "<user code>").unwrap();
+        writeln!(file, "<stdlib code>").unwrap();
+
+        // assign HOME folder to ZOKRATES_HOME
+        std::env::set_var(ZOKRATES_HOME, zokrates_home_folder.path());
 
         let (_, next_location, alias) = resolve(
             &Some(
-                source_subfolder
+                zokrates_home_folder
                     .path()
                     .to_path_buf()
                     .to_string_lossy()
                     .to_string(),
             ),
-            &"../bar".to_string(),
+            &String::from("bar"),
         )
         .unwrap();
-        assert_eq!(next_location, String::from("./src"));
-        assert_eq!(alias, String::from("lib"));
+
+        assert_eq!(
+            next_location,
+            zokrates_home_folder
+                .path()
+                .to_path_buf()
+                .to_string_lossy()
+                .to_string()
+        );
+        assert_eq!(alias, String::from("bar"));
     }
 
     #[test]
