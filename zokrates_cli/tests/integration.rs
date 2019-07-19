@@ -16,6 +16,8 @@ mod integration {
     #[test]
     #[ignore]
     fn test_compile_and_witness_dir() {
+        install_nodejs_deps();
+
         let dir = Path::new("./code");
         if dir.is_dir() {
             for entry in fs::read_dir(dir).unwrap() {
