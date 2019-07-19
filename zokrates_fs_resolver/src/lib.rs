@@ -63,7 +63,7 @@ mod tests {
 
         // create a HOME folder with a code file
         let zokrates_home_folder = tempfile::tempdir().unwrap();
-        let file_path = zokrates_home_folder.path().join("bar.code");
+        let file_path = zokrates_home_folder.path().join("bar.zok");
         let mut file = File::create(file_path).unwrap();
         writeln!(file, "<stdlib code>").unwrap();
 
