@@ -3,7 +3,10 @@
 * Author: Jacob Eberhardt, Thibaut Schaeffer
 */
 
-file = { SOI ~ NEWLINE* ~ import_directive* ~ NEWLINE* ~ function_definition* ~ EOI }
+// intuition for current issue: since type annotations are optional for multidef and struct types have arbitrary names, there is an ambiguity
+// when parsing `a, b = foo()` as `a` could be the type or the identifier
+
+file = { SOI ~ NEWLINE* ~ import_directive* ~ NEWLINE* ~ ty_struct_definition* ~ NEWLINE* ~ function_definition* ~ EOI }
 import_directive = {"import" ~ "\"" ~ import_source ~ "\"" ~ ("as" ~ identifier)? ~ NEWLINE+}
 import_source = @{(!"\"" ~ ANY)*}
 function_definition = {"def" ~ identifier ~ "(" ~ parameter_list ~ ")" ~ "->" ~ "(" ~ type_list ~ ")" ~ ":" ~ NEWLINE* ~ statement* }
@@ -17,8 +20,14 @@ ty_bool = {"bool"}
 ty_basic = { ty_field | ty_bool }
 // (unidimensional for now) arrays of (basic for now) types 
 ty_array = { ty_basic ~ ("[" ~ expression ~ "]")+ }
-ty = { ty_array | ty_basic }
+ty = { ty_array | ty_basic | ty_struct }
 type_list = _{(ty ~ ("," ~ ty)*)?}
+// structs
+ty_struct = { identifier }
+// type definitions
+ty_struct_definition = { "struct" ~ identifier ~ "{" ~ NEWLINE* ~ struct_field_list ~ NEWLINE* ~ "}" }
+struct_field_list = _{(struct_field ~ ("," ~ NEWLINE* ~ struct_field)*)? ~ ","? }
+struct_field = { identifier ~ ":" ~ ty }
 
 vis_private = {"private"}
 vis_public = {"public"}

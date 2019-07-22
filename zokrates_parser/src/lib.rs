@@ -126,6 +126,48 @@ mod tests {
         }
 
         #[test]
+        fn parse_struct_def() {
+            parses_to! {
+                parser: ZoKratesParser,
+                input: "struct Foo { foo: field, bar: field[2] }
+                ",
+                rule: Rule::ty_struct_definition,
+                tokens: [
+                    ty_struct_definition(0, 40, [
+                        identifier(7, 10),
+                        struct_field(13, 23, [
+                            identifier(13, 16),
+                            ty(18, 23, [
+                                ty_basic(18, 23, [
+                                    ty_field(18, 23)
+                                ])
+                            ])
+                        ]),
+                        struct_field(25, 39, [
+                            identifier(25, 28),
+                            ty(30, 39, [
+                                ty_array(30, 39, [
+                                    ty_basic(30, 35, [
+                                        ty_field(30, 35)
+                                    ]),
+                                    expression(36, 37, [
+                                        term(36, 37, [
+                                            primary_expression(36, 37, [
+                                                constant(36, 37, [
+                                                    decimal_number(36, 37)
+                                                ])
+                                            ])
+                                        ])
+                                    ])
+                                ])
+                            ])
+                        ])
+                    ])
+                ]
+            };
+        }
+
+        #[test]
         fn parse_invalid_identifier_because_keyword() {
             fails_with! {
                 parser: ZoKratesParser,
