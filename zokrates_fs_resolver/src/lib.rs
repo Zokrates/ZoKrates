@@ -1,6 +1,6 @@
-use std::fs::File;
+use std::fs::read_to_string;
 use std::io;
-use std::io::BufReader;
+
 use std::path::Path;
 use std::path::{Component, PathBuf};
 
@@ -9,7 +9,7 @@ const ZOKRATES_HOME: &str = &"ZOKRATES_HOME";
 pub fn resolve<'a>(
     location: Option<String>,
     source: &'a str,
-) -> Result<(BufReader<File>, String, &'a str), io::Error> {
+) -> Result<(String, String, &'a str), io::Error> {
     // the fs resolver has to be provided a location, as it supports relative paths
     match location {
         Some(location) => resolve_with_location(location, source),
@@ -20,7 +20,7 @@ pub fn resolve<'a>(
 fn resolve_with_location<'a>(
     location: String,
     source: &'a str,
-) -> Result<(BufReader<File>, String, &'a str), io::Error> {
+) -> Result<(String, String, &'a str), io::Error> {
     let source = Path::new(source);
 
     // paths starting with `./` or `../` are interpreted relative to the current file
@@ -40,8 +40,9 @@ fn resolve_with_location<'a>(
 
     let alias = generate_alias(source);
     let next_location = generate_next_location(&path_owned)?;
+    let source = read_to_string(path_owned)?;
 
-    File::open(path_owned).and_then(|f| Ok((BufReader::new(f), next_location, alias)))
+    Ok((source, next_location, alias))
 }
 
 fn generate_next_location<'a>(path: &'a PathBuf) -> Result<String, io::Error> {
@@ -57,6 +58,7 @@ fn generate_alias<'a>(path: &'a Path) -> &'a str {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs::File;
 
     #[test]
     fn valid_path_with_location() {
@@ -122,7 +124,6 @@ mod tests {
 
     #[test]
     fn treat_relative_as_local() {
-        use std::io::BufRead;
         use std::io::Write;
 
         // create a HOME folder with a code file
@@ -151,15 +152,12 @@ mod tests {
             &"./bar.code",
         );
         assert!(result.is_ok());
-        let mut code = String::new();
-        result.unwrap().0.read_line(&mut code).unwrap();
         // the imported file should be the user's
-        assert_eq!(code, "<user code>\n".to_string());
+        assert_eq!(result.unwrap().0, String::from("<user code>\n"));
     }
 
     #[test]
     fn treat_absolute_as_std() {
-        use std::io::BufRead;
         use std::io::Write;
 
         // create a HOME folder with a code file
@@ -188,15 +186,12 @@ mod tests {
             &"bar.code",
         );
         assert!(result.is_ok());
-        let mut code = String::new();
-        result.unwrap().0.read_line(&mut code).unwrap();
         // the imported file should be the user's
-        assert_eq!(code, "<stdlib code>\n".to_string());
+        assert_eq!(result.unwrap().0, String::from("<stdlib code>\n"));
     }
 
     #[test]
     fn navigate_up() {
-        use std::io::BufRead;
         use std::io::Write;
 
         // create a user folder with a code file
@@ -217,10 +212,8 @@ mod tests {
             &"../bar.code",
         );
         assert!(result.is_ok());
-        let mut code = String::new();
-        result.unwrap().0.read_line(&mut code).unwrap();
         // the imported file should be the user's
-        assert_eq!(code, "<user code>\n".to_string());
+        assert_eq!(result.unwrap().0, String::from("<user code>\n"));
     }
 
     #[test]

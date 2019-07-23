@@ -82,7 +82,7 @@ pub fn read_file(path: &str) -> String {
 }
 
 pub fn compile(code: &str) -> Result<ir::Prog<FieldPrime>, CompileErrors> {
-    generic_compile::<FieldPrime, &[u8], &[u8], io::Error>(&mut code.as_bytes(), None, None)
+    generic_compile::<FieldPrime, io::Error>(code.to_string(), None, None)
 }
 
 macro_rules! zokrates_test {

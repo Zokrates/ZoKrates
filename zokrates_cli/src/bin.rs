@@ -7,7 +7,7 @@
 use bincode::{deserialize_from, serialize_into, Infinite};
 use clap::{App, AppSettings, Arg, SubCommand};
 use serde_json::Value;
-use std::fs::File;
+use std::fs::{read_to_string, File};
 use std::io::{stdin, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::string::String;
@@ -30,7 +30,7 @@ fn main() {
 fn resolve<'a>(
     location: Option<String>,
     source: &'a str,
-) -> Result<(BufReader<File>, String, &'a str), io::Error> {
+) -> Result<(String, String, &'a str), io::Error> {
     #[cfg(feature = "github")]
     {
         if is_github_import(source) {
@@ -276,12 +276,12 @@ fn cli() -> Result<(), String> {
 
             let hr_output_path = bin_output_path.to_path_buf().with_extension("code");
 
-            let file = File::open(path.clone()).unwrap();
-
-            let mut reader = BufReader::new(file);
+            let source = read_to_string(path).map_err(|_| {
+                format!("File {} not found", sub_matches.value_of("input").unwrap())
+            })?;
 
             let program_flattened: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(resolve))
+                compile(source, Some(location), Some(resolve))
                     .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
 
             // number of constraints the flattened program will translate to.
@@ -557,9 +557,6 @@ mod tests {
 
             println!("Testing {:?}", path);
 
-            let file = File::open(path.clone()).unwrap();
-
-            let mut reader = BufReader::new(file);
             let location = path
                 .parent()
                 .unwrap()
@@ -568,8 +565,9 @@ mod tests {
                 .into_string()
                 .unwrap();
 
-            let _: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(resolve)).unwrap();
+            let source = read_to_string(path).unwrap();
+
+            let _: ir::Prog<FieldPrime> = compile(source, Some(location), Some(resolve)).unwrap();
         }
     }
 
@@ -583,8 +581,6 @@ mod tests {
             };
             println!("Testing {:?}", path);
 
-            let file = File::open(path.clone()).unwrap();
-
             let location = path
                 .parent()
                 .unwrap()
@@ -593,10 +589,10 @@ mod tests {
                 .into_string()
                 .unwrap();
 
-            let mut reader = BufReader::new(file);
+            let source = read_to_string(path).unwrap();
 
             let program_flattened: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(resolve)).unwrap();
+                compile(source, Some(location), Some(resolve)).unwrap();
 
             let _ = program_flattened
                 .execute(&vec![FieldPrime::from(0)])
@@ -615,8 +611,6 @@ mod tests {
             };
             println!("Testing {:?}", path);
 
-            let file = File::open(path.clone()).unwrap();
-
             let location = path
                 .parent()
                 .unwrap()
@@ -625,10 +619,10 @@ mod tests {
                 .into_string()
                 .unwrap();
 
-            let mut reader = BufReader::new(file);
+            let source = read_to_string(path).unwrap();
 
             let program_flattened: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(resolve)).unwrap();
+                compile(source, Some(location), Some(resolve)).unwrap();
 
             let _ = program_flattened
                 .execute(&vec![FieldPrime::from(0)])

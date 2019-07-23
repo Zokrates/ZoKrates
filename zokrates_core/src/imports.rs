@@ -12,7 +12,7 @@ use crate::parser::Position;
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
-use std::io::BufRead;
+
 use typed_arena::Arena;
 use zokrates_field::field::Field;
 
@@ -116,11 +116,11 @@ impl Importer {
         Importer {}
     }
 
-    pub fn apply_imports<'ast, T: Field, S: BufRead, E: Into<Error>>(
+    pub fn apply_imports<'ast, T: Field, E: Into<Error>>(
         &self,
         destination: Module<'ast, T>,
         location: Option<String>,
-        resolve_option: Option<Resolve<S, E>>,
+        resolve_option: Option<Resolve<E>>,
         modules: &mut HashMap<ModuleId, Module<'ast, T>>,
         arena: &'ast Arena<String>,
     ) -> Result<Module<'ast, T>, CompileErrors> {
@@ -167,10 +167,7 @@ impl Importer {
                 // to resolve imports, we need a resolver
                 match resolve_option {
                     Some(resolve) => match resolve(location.clone(), &import.source) {
-                        Ok((mut reader, location, alias)) => {
-                            let mut source = String::new();
-                            reader.read_to_string(&mut source).unwrap();
-
+                        Ok((source, location, alias)) => {
                             let source = arena.alloc(source);
 
                             let compiled = compile_module(

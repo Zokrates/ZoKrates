@@ -6,8 +6,8 @@ fn {test_name}() {{
     use std::path::PathBuf;
     use zokrates_fs_resolver::resolve;
     use zokrates_core::compile::compile;
-    use std::fs::File;
-    use std::io::{{BufReader, Read}};
+    use std::fs::{{File, read_to_string}};
+    use std::io::{{Read, BufReader}};
 
     let t: utils::Tests = serde_json::from_reader(
         BufReader::new(
@@ -17,10 +17,10 @@ fn {test_name}() {{
         )
     ).unwrap();
 
-    let mut code_reader = BufReader::new(File::open(&t.entry_point).unwrap());
+    let code = read_to_string(&t.entry_point).unwrap();
 
     let bin = compile(
-        &mut code_reader,
+        code,
         Some(t.entry_point.parent().unwrap().to_str().unwrap().to_string()),
         Some(resolve)
     ).unwrap();

@@ -18,8 +18,8 @@
 //!
 
 use reqwest;
-use std::fs::File;
-use std::io::{self, copy, BufReader};
+use std::fs::read_to_string;
+use std::io::{self, copy};
 use std::path::{Path, PathBuf};
 use tempfile::NamedTempFile;
 
@@ -39,7 +39,7 @@ const GITHUB_URL_BASE: &str = "https://raw.githubusercontent.com";
 pub fn resolve<'a>(
     location: Option<String>,
     path: &'a str,
-) -> Result<(BufReader<File>, String, &'a str), io::Error> {
+) -> Result<(String, String, &'a str), io::Error> {
     if let Some(location) = location {
         let path = Path::new(path);
         let (root, repo, branch, file_path) = parse_input_path(&path)?;
@@ -50,12 +50,11 @@ pub fn resolve<'a>(
         let url = mockito::server_url();
 
         let pb = download_from_github(&url, &root, &repo, &branch, &file_path)?;
-        let file = File::open(&pb)?;
-        let br = BufReader::new(file);
+        let source = read_to_string(&pb).unwrap();
 
         let alias = path.file_stem().unwrap().to_str().unwrap();
 
-        Ok((br, location.to_owned(), &alias))
+        Ok((source, location.to_owned(), &alias))
     } else {
         Err(io::Error::new(io::ErrorKind::Other, "No location provided"))
     }
