@@ -119,7 +119,7 @@ impl Importer {
     pub fn apply_imports<'ast, T: Field, E: Into<Error>>(
         &self,
         destination: Module<'ast, T>,
-        location: Option<String>,
+        location: String,
         resolve_option: Option<Resolve<E>>,
         modules: &mut HashMap<ModuleId, Module<'ast, T>>,
         arena: &'ast Arena<String>,
@@ -170,14 +170,9 @@ impl Importer {
                         Ok((source, location, alias)) => {
                             let source = arena.alloc(source);
 
-                            let compiled = compile_module(
-                                source,
-                                Some(location),
-                                resolve_option,
-                                modules,
-                                &arena,
-                            )
-                            .map_err(|e| e.with_context(Some(import.source.to_string())))?;
+                            let compiled =
+                                compile_module(source, location, resolve_option, modules, &arena)
+                                    .map_err(|e| e.with_context(import.source.to_string()))?;
                             let alias = import.alias.clone().unwrap_or(alias);
 
                             modules.insert(import.source.to_string(), compiled);

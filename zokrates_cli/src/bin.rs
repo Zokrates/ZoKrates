@@ -27,10 +27,7 @@ fn main() {
     })
 }
 
-fn resolve<'a>(
-    location: Option<String>,
-    source: &'a str,
-) -> Result<(String, String, &'a str), io::Error> {
+fn resolve<'a>(location: String, source: &'a str) -> Result<(String, String, &'a str), io::Error> {
     #[cfg(feature = "github")]
     {
         if is_github_import(source) {
@@ -280,9 +277,8 @@ fn cli() -> Result<(), String> {
                 format!("File {} not found", sub_matches.value_of("input").unwrap())
             })?;
 
-            let program_flattened: ir::Prog<FieldPrime> =
-                compile(source, Some(location), Some(resolve))
-                    .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
+            let program_flattened: ir::Prog<FieldPrime> = compile(source, location, Some(resolve))
+                .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
 
             // number of constraints the flattened program will translate to.
             let num_constraints = program_flattened.constraint_count();
@@ -567,7 +563,7 @@ mod tests {
 
             let source = read_to_string(path).unwrap();
 
-            let _: ir::Prog<FieldPrime> = compile(source, Some(location), Some(resolve)).unwrap();
+            let _: ir::Prog<FieldPrime> = compile(source, location, Some(resolve)).unwrap();
         }
     }
 
@@ -592,7 +588,7 @@ mod tests {
             let source = read_to_string(path).unwrap();
 
             let program_flattened: ir::Prog<FieldPrime> =
-                compile(source, Some(location), Some(resolve)).unwrap();
+                compile(source, location, Some(resolve)).unwrap();
 
             let _ = program_flattened
                 .execute(&vec![FieldPrime::from(0)])
@@ -622,7 +618,7 @@ mod tests {
             let source = read_to_string(path).unwrap();
 
             let program_flattened: ir::Prog<FieldPrime> =
-                compile(source, Some(location), Some(resolve)).unwrap();
+                compile(source, location, Some(resolve)).unwrap();
 
             let _ = program_flattened
                 .execute(&vec![FieldPrime::from(0)])

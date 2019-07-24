@@ -6,33 +6,26 @@ use std::path::{Component, PathBuf};
 
 const ZOKRATES_HOME: &str = &"ZOKRATES_HOME";
 
-pub fn resolve<'a>(
-    location: Option<String>,
-    source: &'a str,
-) -> Result<(String, String, &'a str), io::Error> {
-    // the fs resolver has to be provided a location, as it supports relative paths
-    match location {
-        Some(location) => resolve_with_location(location, source),
-        None => Err(io::Error::new(io::ErrorKind::Other, "No location provided")),
-    }
-}
+type CurrentLocation = String;
+type ImportLocation<'a> = &'a str;
+type SourceCode = String;
 
-fn resolve_with_location<'a>(
-    location: String,
-    source: &'a str,
-) -> Result<(String, String, &'a str), io::Error> {
-    let source = Path::new(source);
+pub fn resolve<'a>(
+    current_location: CurrentLocation,
+    import_location: ImportLocation<'a>,
+) -> Result<(SourceCode, CurrentLocation, &'a str), io::Error> {
+    let source = Path::new(import_location);
 
     // paths starting with `./` or `../` are interpreted relative to the current file
     // other paths `abc/def.code` are interpreted relative to $ZOKRATES_HOME
     let base = match source.components().next() {
-        Some(Component::CurDir) | Some(Component::ParentDir) => PathBuf::from(location),
+        Some(Component::CurDir) | Some(Component::ParentDir) => PathBuf::from(current_location),
         _ => PathBuf::from(
             std::env::var(ZOKRATES_HOME).expect("$ZOKRATES_HOME is not set, please set it"),
         ),
     };
 
-    let path_owned = base.join(PathBuf::from(source));
+    let path_owned = base.join(PathBuf::from(import_location));
 
     if path_owned.is_dir() {
         return Err(io::Error::new(io::ErrorKind::Other, "Not a file"));

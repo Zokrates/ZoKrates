@@ -33,31 +33,31 @@ const GITHUB_IMPORT_PREFIX: &str = "github.com/";
 #[cfg(not(test))]
 const GITHUB_URL_BASE: &str = "https://raw.githubusercontent.com";
 
+type CurrentLocation = String;
+type ImportLocation<'a> = &'a str;
+type SourceCode = String;
+
 /// Resolves import from the Github.
 /// This importer needs to be provided with location since relative paths could be used inside the
 /// files that are imported from github.
 pub fn resolve<'a>(
-    location: Option<String>,
-    path: &'a str,
-) -> Result<(String, String, &'a str), io::Error> {
-    if let Some(location) = location {
-        let path = Path::new(path);
-        let (root, repo, branch, file_path) = parse_input_path(&path)?;
+    current_location: CurrentLocation,
+    import_location: ImportLocation<'a>,
+) -> Result<(SourceCode, CurrentLocation, &'a str), io::Error> {
+    let path = Path::new(import_location);
+    let (root, repo, branch, file_path) = parse_input_path(&path)?;
 
-        #[cfg(not(test))]
-        let url = GITHUB_URL_BASE;
-        #[cfg(test)]
-        let url = mockito::server_url();
+    #[cfg(not(test))]
+    let url = GITHUB_URL_BASE;
+    #[cfg(test)]
+    let url = mockito::server_url();
 
-        let pb = download_from_github(&url, &root, &repo, &branch, &file_path)?;
-        let source = read_to_string(&pb).unwrap();
+    let pb = download_from_github(&url, &root, &repo, &branch, &file_path)?;
+    let source = read_to_string(&pb).unwrap();
 
-        let alias = path.file_stem().unwrap().to_str().unwrap();
+    let alias = path.file_stem().unwrap().to_str().unwrap();
 
-        Ok((source, location.to_owned(), &alias))
-    } else {
-        Err(io::Error::new(io::ErrorKind::Other, "No location provided"))
-    }
+    Ok((source, current_location.to_owned(), &alias))
 }
 
 /// Checks that import source is using github import location.

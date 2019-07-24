@@ -50,7 +50,7 @@ pub enum CompileErrorInner {
 }
 
 impl CompileErrorInner {
-    pub fn with_context(self, context: &Option<String>) -> CompileError {
+    pub fn with_context(self, context: &String) -> CompileError {
         CompileError {
             value: self,
             context: context.clone(),
@@ -60,12 +60,12 @@ impl CompileErrorInner {
 
 #[derive(Debug)]
 pub struct CompileError {
-    context: Option<String>,
+    context: String,
     value: CompileErrorInner,
 }
 
 impl CompileErrors {
-    pub fn with_context(self, context: Option<String>) -> Self {
+    pub fn with_context(self, context: String) -> Self {
         CompileErrors(
             self.0
                 .into_iter()
@@ -80,11 +80,7 @@ impl CompileErrors {
 
 impl fmt::Display for CompileError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let context = match self.context {
-            Some(ref x) => x.clone(),
-            None => "???".to_string(),
-        };
-        write!(f, "{}:{}", context, self.value)
+        write!(f, "{}:{}", self.context, self.value)
     }
 }
 
@@ -124,11 +120,11 @@ impl fmt::Display for CompileErrorInner {
     }
 }
 
-pub type Resolve<E> = fn(Option<String>, &str) -> Result<(String, String, &str), E>;
+pub type Resolve<E> = fn(String, &str) -> Result<(String, String, &str), E>;
 
 pub fn compile<T: Field, E: Into<imports::Error>>(
     source: String,
-    location: Option<String>,
+    location: String,
     resolve_option: Option<Resolve<E>>,
 ) -> Result<ir::Prog<T>, CompileErrors> {
     let arena = Arena::new();
@@ -167,7 +163,7 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
 
 pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
     source: &'ast str,
-    location: Option<String>,
+    location: String,
     resolve_option: Option<Resolve<E>>,
     arena: &'ast Arena<String>,
 ) -> Result<Program<'ast, T>, CompileErrors> {
@@ -181,8 +177,6 @@ pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
         &arena,
     )?;
 
-    let location = location.unwrap_or("???".to_string());
-
     modules.insert(location.clone(), main);
 
     Ok(Program {
@@ -193,7 +187,7 @@ pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
 
 pub fn compile_module<'ast, T: Field, E: Into<imports::Error>>(
     source: &'ast str,
-    location: Option<String>,
+    location: String,
     resolve_option: Option<Resolve<E>>,
     modules: &mut HashMap<ModuleId, Module<'ast, T>>,
     arena: &'ast Arena<String>,
