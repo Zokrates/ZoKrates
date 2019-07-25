@@ -27,7 +27,7 @@ fn main() {
     })
 }
 
-fn resolve<'a>(location: String, source: &'a str) -> Result<(String, String, &'a str), io::Error> {
+fn resolve<'a>(location: String, source: &'a str) -> Result<(String, String), io::Error> {
     #[cfg(feature = "github")]
     {
         if is_github_import(source) {
