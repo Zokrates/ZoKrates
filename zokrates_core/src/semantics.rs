@@ -1103,6 +1103,7 @@ impl<'ast> Checker<'ast> {
                     },
                 }
             }
+            Expression::Member(..) => unimplemented!(),
             Expression::InlineArray(expressions) => {
                 // we should have at least one expression
                 let size = expressions.len();

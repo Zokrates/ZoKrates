@@ -36,7 +36,7 @@ impl<'ast> From<pest::ImportDirective<'ast>> for absy::ImportNode<'ast> {
 }
 
 impl<'ast> From<pest::StructDefinition<'ast>> for absy::TypeDeclarationNode<'ast> {
-    fn from(definition: pest::StructDefinition<'ast>) -> absy::TypeDeclarationNode {
+    fn from(_: pest::StructDefinition<'ast>) -> absy::TypeDeclarationNode {
         unimplemented!()
     }
 }
@@ -565,7 +565,7 @@ impl<'ast> From<pest::Type<'ast>> for Type {
                     })
                     .unwrap()
             }
-            pest::Type::Struct(s) => unimplemented!("struct declarations not supported yet"),
+            pest::Type::Struct(_) => unimplemented!("struct declarations not supported yet"),
         }
     }
 }
