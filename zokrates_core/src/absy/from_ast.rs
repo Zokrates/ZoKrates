@@ -511,7 +511,9 @@ impl<'ast, T: Field> From<pest::PostfixExpression<'ast>> for absy::ExpressionNod
                 absy::Expression::Select(box acc, box absy::RangeOrExpression::from(a.expression))
                     .span(a.span)
             }
-            pest::Access::Member(_) => unimplemented!("member access is not implemented yet"),
+            pest::Access::Member(m) => {
+                absy::Expression::Member(box acc, box m.id.span.as_str()).span(m.span)
+            }
         })
     }
 }
