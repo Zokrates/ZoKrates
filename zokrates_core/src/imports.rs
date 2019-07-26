@@ -197,8 +197,9 @@ impl Importer {
                 }
             } else {
                 // to resolve imports, we need a resolver
+                let source = format!("{}{}", &import.source, ".code".to_string());
                 match resolve_option {
-                    Some(resolve) => match resolve(&location, &import.source) {
+                    Some(resolve) => match resolve(&location, &source) {
                         Ok((mut reader, location, auto_alias)) => {
                             let compiled = compile_aux(&mut reader, Some(location), resolve_option)
                                 .map_err(|e| e.with_context(Some(import.source.clone())))?;

@@ -260,11 +260,9 @@ fn cli() -> Result<(), String> {
         ("compile", Some(sub_matches)) => {
             println!("Compiling {}\n", sub_matches.value_of("input").unwrap());
 
-            let mut path = PathBuf::from(sub_matches.value_of("input").unwrap());
-            path.set_extension("code");
+            let path = PathBuf::from(sub_matches.value_of("input").unwrap());
 
             let location = path
-                .as_path()
                 .parent()
                 .unwrap()
                 .to_path_buf()
@@ -278,7 +276,7 @@ fn cli() -> Result<(), String> {
 
             let hr_output_path = bin_output_path.to_path_buf().with_extension("code");
 
-            let file = File::open(path.clone().as_path()).unwrap();
+            let file = File::open(path.clone()).unwrap();
 
             let mut reader = BufReader::new(file);
 

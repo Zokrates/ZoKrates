@@ -20,13 +20,11 @@ fn resolve_with_location(
     location: &String,
     source: &String,
 ) -> Result<(BufReader<File>, String, String), io::Error> {
-    let mut source = PathBuf::from(source);
-
-    source.set_extension("code");
+    let source = PathBuf::from(source);
 
     // paths starting with `./` or `../` are interpreted relative to the current file
     // other paths `abc/def.code` are interpreted relative to $ZOKRATES_HOME
-    let base = match source.as_path().components().next() {
+    let base = match source.components().next() {
         Some(Component::CurDir) | Some(Component::ParentDir) => PathBuf::from(location),
         _ => PathBuf::from(
             std::env::var(ZOKRATES_HOME).expect("$ZOKRATES_HOME is not set, please set it"),
@@ -60,38 +58,10 @@ mod tests {
 
     #[test]
     fn valid_path_with_location() {
-        use std::io::Write;
-
-        // create a HOME folder with a code file
-        let zokrates_home_folder = tempfile::tempdir().unwrap();
-        let file_path = zokrates_home_folder.path().join("bar.code");
-        let mut file = File::create(file_path).unwrap();
-        writeln!(file, "<stdlib code>").unwrap();
-
-        // assign HOME folder to ZOKRATES_HOME
-        std::env::set_var(ZOKRATES_HOME, zokrates_home_folder.path());
-
-        let (_, next_location, alias) = resolve(
-            &Some(
-                zokrates_home_folder
-                    .path()
-                    .to_path_buf()
-                    .to_string_lossy()
-                    .to_string(),
-            ),
-            &String::from("bar"),
-        )
-        .unwrap();
-
-        assert_eq!(
-            next_location,
-            zokrates_home_folder
-                .path()
-                .to_path_buf()
-                .to_string_lossy()
-                .to_string()
-        );
-        assert_eq!(alias, String::from("bar"));
+        let (_, next_location, alias) =
+            resolve(&Some(String::from("./src")), &String::from("./lib.rs")).unwrap();
+        assert_eq!(next_location, String::from("./src"));
+        assert_eq!(alias, String::from("lib"));
     }
 
     #[test]
@@ -108,7 +78,10 @@ mod tests {
 
     #[test]
     fn invalid_location() {
-        let res = resolve(&Some(String::from(",8!-$2abc")), &String::from("./foo"));
+        let res = resolve(
+            &Some(String::from(",8!-$2abc")),
+            &String::from("./foo.code"),
+        );
         assert!(res.is_err());
     }
 
@@ -138,7 +111,7 @@ mod tests {
 
         // create a HOME folder with a code file
         let zokrates_home_folder = tempfile::tempdir().unwrap();
-        let file_path = zokrates_home_folder.path().join("bar");
+        let file_path = zokrates_home_folder.path().join("bar.code");
         let mut file = File::create(file_path).unwrap();
         writeln!(file, "<stdlib code>").unwrap();
 
@@ -177,7 +150,7 @@ mod tests {
                     .to_string_lossy()
                     .to_string(),
             ),
-            &"./bar".to_string(),
+            &"./bar.code".to_string(),
         );
         assert!(result.is_ok());
         let mut code = String::new();
@@ -214,7 +187,7 @@ mod tests {
                     .to_string_lossy()
                     .to_string(),
             ),
-            &"bar".to_string(),
+            &"bar.code".to_string(),
         );
         assert!(result.is_ok());
         let mut code = String::new();
@@ -243,7 +216,7 @@ mod tests {
                     .to_string_lossy()
                     .to_string(),
             ),
-            &"../bar".to_string(),
+            &"../bar.code".to_string(),
         );
         assert!(result.is_ok());
         let mut code = String::new();
@@ -267,7 +240,7 @@ mod tests {
 
         let result = resolve(
             &Some("/path/to/user/folder".to_string()),
-            &"./bar".to_string(),
+            &"./bar.code".to_string(),
         );
         assert!(result.is_err());
     }
@@ -275,7 +248,10 @@ mod tests {
     #[test]
     fn fail_if_not_found_in_std() {
         std::env::set_var(ZOKRATES_HOME, "");
-        let result = resolve(&Some("/path/to/source".to_string()), &"bar".to_string());
+        let result = resolve(
+            &Some("/path/to/source".to_string()),
+            &"bar.code".to_string(),
+        );
         assert!(result.is_err());
     }
 
@@ -283,6 +259,9 @@ mod tests {
     #[should_panic]
     fn panic_if_home_not_set() {
         std::env::remove_var(ZOKRATES_HOME);
-        let _ = resolve(&Some("/path/to/source".to_string()), &"bar".to_string());
+        let _ = resolve(
+            &Some("/path/to/source".to_string()),
+            &"bar.code".to_string(),
+        );
     }
 }
