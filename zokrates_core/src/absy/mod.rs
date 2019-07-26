@@ -13,7 +13,7 @@ pub mod variable;
 pub use crate::absy::node::{Node, NodeValue};
 pub use crate::absy::parameter::{Parameter, ParameterNode};
 pub use crate::absy::variable::{Variable, VariableNode};
-use crate::types::{FunctionIdentifier, Signature};
+use crate::types::{FunctionIdentifier, Signature, Type};
 use embed::FlatEmbed;
 
 use crate::imports::ImportNode;
@@ -34,6 +34,9 @@ pub type Modules<'ast, T> = HashMap<ModuleId, Module<'ast, T>>;
 /// A collection of `FunctionDeclaration`. Duplicates are allowed here as they are fine syntatically.
 pub type FunctionDeclarations<'ast, T> = Vec<FunctionDeclarationNode<'ast, T>>;
 
+/// A collection of `StructDeclaration`. Duplicates are allowed here as they are fine syntatically.
+pub type TypeDeclarations<'ast> = Vec<TypeDeclarationNode<'ast>>;
+
 /// A `Program` is a collection of `Module`s and an id of the main `Module`
 pub struct Program<'ast, T: Field> {
     pub modules: HashMap<ModuleId, Module<'ast, T>>,
@@ -46,6 +49,23 @@ pub struct FunctionDeclaration<'ast, T: Field> {
     pub id: Identifier<'ast>,
     pub symbol: FunctionSymbol<'ast, T>,
 }
+
+/// A declaration of a `FunctionSymbol`, be it from an import or a function definition
+#[derive(PartialEq, Debug, Clone)]
+pub struct TypeDeclaration<'ast> {
+    pub id: Identifier<'ast>,
+    pub symbol: TypeSymbol<'ast>,
+}
+
+impl<'ast> fmt::Display for TypeDeclaration<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.symbol {
+            TypeSymbol::Here(ref s) => write!(f, "struct {} {}", self.id, s),
+        }
+    }
+}
+
+type TypeDeclarationNode<'ast> = Node<TypeDeclaration<'ast>>;
 
 impl<'ast, T: Field> fmt::Display for FunctionDeclaration<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -67,6 +87,8 @@ type FunctionDeclarationNode<'ast, T> = Node<FunctionDeclaration<'ast, T>>;
 /// A module as a collection of `FunctionDeclaration`s
 #[derive(Clone, PartialEq)]
 pub struct Module<'ast, T: Field> {
+    /// Structs of the module
+    pub types: TypeDeclarations<'ast>,
     /// Functions of the module
     pub functions: FunctionDeclarations<'ast, T>,
     pub imports: Vec<ImportNode<'ast>>, // we still use `imports` as they are not directly converted into `FunctionDeclaration`s after the importer is done, `imports` is empty
@@ -79,6 +101,49 @@ pub enum FunctionSymbol<'ast, T: Field> {
     There(FunctionImportNode<'ast>),
     Flat(FlatEmbed),
 }
+
+/// A user defined type, a struct defined in this module for now // TODO allow importing types
+#[derive(Debug, Clone, PartialEq)]
+pub enum TypeSymbol<'ast> {
+    Here(StructTypeNode<'ast>),
+}
+
+/// A struct type definition
+#[derive(Debug, Clone, PartialEq)]
+pub struct StructType<'ast> {
+    fields: Vec<StructFieldNode<'ast>>,
+}
+
+impl<'ast> fmt::Display for StructType<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.fields
+                .iter()
+                .map(|fi| fi.to_string())
+                .collect::<Vec<_>>()
+                .join("\n")
+        )
+    }
+}
+
+type StructTypeNode<'ast> = Node<StructType<'ast>>;
+
+/// A struct type definition
+#[derive(Debug, Clone, PartialEq)]
+pub struct StructField<'ast> {
+    id: Identifier<'ast>,
+    ty: Type,
+}
+
+impl<'ast> fmt::Display for StructField<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}: {},", self.id, self.ty)
+    }
+}
+
+type StructFieldNode<'ast> = Node<StructField<'ast>>;
 
 /// A function import
 #[derive(Debug, Clone, PartialEq)]

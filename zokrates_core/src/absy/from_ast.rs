@@ -7,6 +7,11 @@ use zokrates_pest_ast as pest;
 impl<'ast, T: Field> From<pest::File<'ast>> for absy::Module<'ast, T> {
     fn from(prog: pest::File<'ast>) -> absy::Module<T> {
         absy::Module {
+            types: prog
+                .structs
+                .into_iter()
+                .map(|t| absy::TypeDeclarationNode::from(t))
+                .collect(),
             functions: prog
                 .functions
                 .into_iter()
@@ -27,6 +32,12 @@ impl<'ast> From<pest::ImportDirective<'ast>> for absy::ImportNode<'ast> {
         imports::Import::new(import.source.span.as_str())
             .alias(import.alias.map(|a| a.span.as_str()))
             .span(import.span)
+    }
+}
+
+impl<'ast> From<pest::StructDefinition<'ast>> for absy::TypeDeclarationNode<'ast> {
+    fn from(definition: pest::StructDefinition<'ast>) -> absy::TypeDeclarationNode {
+        unimplemented!()
     }
 }
 

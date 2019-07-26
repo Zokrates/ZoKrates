@@ -13,8 +13,8 @@ pub use ast::{
     ConstantExpression, DefinitionStatement, Expression, File, FromExpression, Function,
     IdentifierExpression, ImportDirective, ImportSource, InlineArrayExpression, IterationStatement,
     MultiAssignmentStatement, Parameter, PostfixExpression, Range, RangeOrExpression,
-    ReturnStatement, Span, Spread, SpreadOrExpression, Statement, TernaryExpression, ToExpression,
-    Type, UnaryExpression, UnaryOperator, Visibility,
+    ReturnStatement, Span, Spread, SpreadOrExpression, Statement, StructDefinition,
+    TernaryExpression, ToExpression, Type, UnaryExpression, UnaryOperator, Visibility,
 };
 
 mod ast {

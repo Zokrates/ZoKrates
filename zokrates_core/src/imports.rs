@@ -223,6 +223,7 @@ impl Importer {
         Ok(Module {
             imports: vec![],
             functions: functions,
+            ..destination
         })
     }
 }
