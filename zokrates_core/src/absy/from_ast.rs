@@ -36,8 +36,41 @@ impl<'ast> From<pest::ImportDirective<'ast>> for absy::ImportNode<'ast> {
 }
 
 impl<'ast> From<pest::StructDefinition<'ast>> for absy::TypeDeclarationNode<'ast> {
-    fn from(_: pest::StructDefinition<'ast>) -> absy::TypeDeclarationNode {
-        unimplemented!()
+    fn from(definition: pest::StructDefinition<'ast>) -> absy::TypeDeclarationNode {
+        use absy::NodeValue;
+
+        let span = definition.span;
+
+        let id = definition.id.span.as_str();
+
+        let ty = absy::StructType {
+            fields: definition
+                .fields
+                .into_iter()
+                .map(|f| absy::StructFieldNode::from(f))
+                .collect(),
+        }
+        .span(span.clone()); // TODO check
+
+        absy::TypeDeclaration {
+            id,
+            symbol: absy::TypeSymbol::Here(ty),
+        }
+        .span(span)
+    }
+}
+
+impl<'ast> From<pest::StructField<'ast>> for absy::StructFieldNode<'ast> {
+    fn from(field: pest::StructField<'ast>) -> absy::StructFieldNode {
+        use absy::NodeValue;
+
+        let span = field.span;
+
+        let id = field.id.span.as_str();
+
+        let ty = Type::from(field.ty);
+
+        absy::StructField { id, ty }.span(span)
     }
 }
 

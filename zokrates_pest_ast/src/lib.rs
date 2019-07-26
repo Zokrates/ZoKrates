@@ -13,7 +13,7 @@ pub use ast::{
     ConstantExpression, DefinitionStatement, Expression, File, FromExpression, Function,
     IdentifierExpression, ImportDirective, ImportSource, InlineArrayExpression, IterationStatement,
     MultiAssignmentStatement, Parameter, PostfixExpression, Range, RangeOrExpression,
-    ReturnStatement, Span, Spread, SpreadOrExpression, Statement, StructDefinition,
+    ReturnStatement, Span, Spread, SpreadOrExpression, Statement, StructDefinition, StructField,
     TernaryExpression, ToExpression, Type, UnaryExpression, UnaryOperator, Visibility,
 };
 
