@@ -117,8 +117,8 @@ mod tests {
         fn parse_single_def_to_multi() {
             parses_to! {
                 parser: ZoKratesParser,
-                input: "a = foo()
-            ",
+                input: r#"a = foo()
+            "#,
                 rule: Rule::statement,
                 tokens: [
                     statement(0, 10, [

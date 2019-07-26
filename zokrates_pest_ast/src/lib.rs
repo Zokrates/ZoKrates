@@ -212,16 +212,16 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty))]
     pub enum Type<'ast> {
-        Basic(BasicType<'ast>),
+        Basic(BasicType),
         Array(ArrayType<'ast>),
         Struct(StructType<'ast>),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_basic))]
-    pub enum BasicType<'ast> {
+    pub enum BasicType {
         Field(FieldType),
-        Boolean(BooleanType<'ast>),
+        Boolean(BooleanType),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
@@ -231,7 +231,7 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_array))]
     pub struct ArrayType<'ast> {
-        pub ty: BasicType<'ast>,
+        pub ty: BasicType,
         pub size: Vec<Expression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
@@ -239,14 +239,11 @@ mod ast {
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_bool))]
-    pub struct StructType<'ast> {
-        #[pest_ast(outer())]
-        pub span: Span<'ast>,
-    }
+    pub struct BooleanType {}
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_struct))]
-    pub struct BooleanType<'ast> {
+    pub struct StructType<'ast> {
         id: IdentifierExpression<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
@@ -476,6 +473,7 @@ mod ast {
     pub enum Access<'ast> {
         Call(CallAccess<'ast>),
         Select(ArrayAccess<'ast>),
+        Member(MemberAccess<'ast>),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
@@ -490,6 +488,14 @@ mod ast {
     #[pest_ast(rule(Rule::array_access))]
     pub struct ArrayAccess<'ast> {
         pub expression: RangeOrExpression<'ast>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::member_access))]
+    pub struct MemberAccess<'ast> {
+        pub id: IdentifierExpression<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -1002,13 +1008,19 @@ mod tests {
     #[test]
     fn playground() {
         let source = r#"import "heyman" as yo
+
+        struct Foo {
+            foo: field[2],
+            bar: Bar
+        }
+
         def main(private field[23] a) -> (bool[234 + 6]):
         field a = 1
         a[32 + x][55] = y
         for field i in 0..3 do
                a == 1 + 2 + 3+ 4+ 5+ 6+ 6+ 7+ 8 + 4+ 5+ 3+ 4+ 2+ 3 
         endfor
-        a == 1
+        a.member == 1
         return a
 "#;
         let res = generate_ast(&source);

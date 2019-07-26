@@ -467,6 +467,7 @@ impl<'ast, T: Field> From<pest::PostfixExpression<'ast>> for absy::ExpressionNod
                 absy::Expression::Select(box acc, box absy::RangeOrExpression::from(a.expression))
                     .span(a.span)
             }
+            pest::Access::Member(_) => unimplemented!("member access is not implemented yet"),
         })
     }
 }
@@ -553,6 +554,7 @@ impl<'ast> From<pest::Type<'ast>> for Type {
                     })
                     .unwrap()
             }
+            pest::Type::Struct(s) => unimplemented!("struct declarations not supported yet"),
         }
     }
 }

@@ -15,7 +15,6 @@ parameter = {vis? ~ ty ~ identifier}
 ty_field = {"field"}
 ty_bool = {"bool"}
 ty_basic = { ty_field | ty_bool }
-// (unidimensional for now) arrays of (basic for now) types 
 ty_array = { ty_basic ~ ("[" ~ expression ~ "]")+ }
 ty = { ty_array | ty_basic | ty_struct }
 type_list = _{(ty ~ ("," ~ ty)*)?}
@@ -63,9 +62,10 @@ to_expression = { expression }
 conditional_expression = { "if" ~ expression ~ "then" ~ expression ~ "else" ~ expression ~ "fi"}
 
 postfix_expression = { identifier ~ access+ } // we force there to be at least one access, otherwise this matches single identifiers. Not sure that's what we want.
-access = { array_access | call_access }
+access = { array_access | call_access | member_access }
 array_access = { "[" ~ range_or_expression ~ "]" }
 call_access = { "(" ~ expression_list ~ ")" }
+member_access = { "." ~ identifier }
 
 primary_expression = { identifier
                     | constant
