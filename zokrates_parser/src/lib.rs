@@ -114,6 +114,26 @@ mod tests {
         }
 
         #[test]
+        fn parse_single_def_to_multi() {
+            parses_to! {
+                parser: ZoKratesParser,
+                input: "a = foo()
+            ",
+                rule: Rule::statement,
+                tokens: [
+                    statement(0, 10, [
+                        multi_assignment_statement(0, 9, [
+                            optionally_typed_identifier(0, 1, [
+                                identifier(0, 1)
+                            ]),
+                            identifier(4, 7),
+                        ])
+                    ])
+                ]
+            };
+        }
+
+        #[test]
         fn parse_invalid_identifier() {
             fails_with! {
                 parser: ZoKratesParser,

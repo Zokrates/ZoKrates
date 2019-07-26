@@ -3,9 +3,6 @@
 * Author: Jacob Eberhardt, Thibaut Schaeffer
 */
 
-// intuition for current issue: since type annotations are optional for multidef and struct types have arbitrary names, there is an ambiguity
-// when parsing `a, b = foo()` as `a` could be the type or the identifier
-
 file = { SOI ~ NEWLINE* ~ import_directive* ~ NEWLINE* ~ ty_struct_definition* ~ NEWLINE* ~ function_definition* ~ EOI }
 import_directive = {"import" ~ "\"" ~ import_source ~ "\"" ~ ("as" ~ identifier)? ~ NEWLINE+}
 import_source = @{(!"\"" ~ ANY)*}
@@ -51,7 +48,7 @@ assignment_statement = {assignee ~ "=" ~ expression } // TODO: Is this optimal? 
 expression_statement = {expression}
 
 optionally_typed_identifier_list = _{ optionally_typed_identifier ~ ("," ~ optionally_typed_identifier)* }
-optionally_typed_identifier = { ty? ~ identifier }
+optionally_typed_identifier = { (identifier) | (ty ~ identifier) } // we don't use { ty? ~ identifier } as with a single token, it gets parsed as `ty` but we want `identifier`
 
 // Expressions
 expression_list = _{(expression ~ ("," ~ expression)*)?}
