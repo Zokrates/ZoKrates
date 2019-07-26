@@ -155,8 +155,27 @@ mod ast {
     #[pest_ast(rule(Rule::file))]
     pub struct File<'ast> {
         pub imports: Vec<ImportDirective<'ast>>,
+        pub structs: Vec<StructDefinition<'ast>>,
         pub functions: Vec<Function<'ast>>,
         pub eoi: EOI,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::ty_struct_definition))]
+    pub struct StructDefinition<'ast> {
+        pub id: IdentifierExpression<'ast>,
+        pub fields: Vec<StructField<'ast>>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::struct_field))]
+    pub struct StructField<'ast> {
+        pub id: IdentifierExpression<'ast>,
+        pub ty: Type<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -195,6 +214,7 @@ mod ast {
     pub enum Type<'ast> {
         Basic(BasicType<'ast>),
         Array(ArrayType<'ast>),
+        Struct(StructType<'ast>),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
@@ -219,7 +239,15 @@ mod ast {
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_bool))]
+    pub struct StructType<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::ty_struct))]
     pub struct BooleanType<'ast> {
+        id: IdentifierExpression<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -700,6 +728,7 @@ mod tests {
         assert_eq!(
             generate_ast(&source),
             Ok(File {
+                structs: vec![],
                 functions: vec![Function {
                     id: IdentifierExpression {
                         value: String::from("main"),
@@ -749,6 +778,7 @@ mod tests {
         assert_eq!(
             generate_ast(&source),
             Ok(File {
+                structs: vec![],
                 functions: vec![Function {
                     id: IdentifierExpression {
                         value: String::from("main"),
@@ -816,6 +846,7 @@ mod tests {
         assert_eq!(
             generate_ast(&source),
             Ok(File {
+                structs: vec![],
                 functions: vec![Function {
                     id: IdentifierExpression {
                         value: String::from("main"),
@@ -870,6 +901,7 @@ mod tests {
         assert_eq!(
             generate_ast(&source),
             Ok(File {
+                structs: vec![],
                 functions: vec![Function {
                     id: IdentifierExpression {
                         value: String::from("main"),
@@ -902,6 +934,7 @@ mod tests {
         assert_eq!(
             generate_ast(&source),
             Ok(File {
+                structs: vec![],
                 functions: vec![Function {
                     id: IdentifierExpression {
                         value: String::from("main"),
