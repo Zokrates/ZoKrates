@@ -233,12 +233,15 @@ const CONTRACT_TEMPLATE_V2: &str = r#"contract Verifier {
         <%vk_ic_pts%>
     }
     function verify(uint[] memory input, Proof memory proof) internal returns (uint) {
+        uint256 snark_scalar_field = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
         VerifyingKey memory vk = verifyingKey();
         require(input.length + 1 == vk.ic.length);
         // Compute the linear combination vk_x
         Pairing.G1Point memory vk_x = Pairing.G1Point(0, 0);
-        for (uint i = 0; i < input.length; i++)
+        for (uint i = 0; i < input.length; i++) {
+            require(input[i] < snark_scalar_field);
             vk_x = Pairing.addition(vk_x, Pairing.scalar_mul(vk.ic[i + 1], input[i]));
+        }
         vk_x = Pairing.addition(vk_x, vk.ic[0]);
         if (!Pairing.pairingProd2(proof.a, vk.a, Pairing.negate(proof.a_p), Pairing.P2())) return 1;
         if (!Pairing.pairingProd2(vk.b, proof.b, Pairing.negate(proof.b_p), Pairing.P2())) return 2;
