@@ -209,7 +209,6 @@ contract Verifier {
         <%vk_query_pts%>
     }
     function verify(uint[] memory input, Proof memory proof) internal returns (uint) {
-
         uint256 snark_scalar_field = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
         VerifyingKey memory vk = verifyingKey();
         require(input.length + 1 == vk.query.length);
