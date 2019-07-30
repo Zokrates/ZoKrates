@@ -7,9 +7,9 @@ def main() -> (field):
   3 == 2 ** 2 / 2 + 1
 
   3 == 2 ** 2 / 2 - 1 && true // combines arithmetic with boolean operators
-  3 == 3 && 4 < 5             // checks precedence of booleans
+  3 == 3 && 4 < 5             // checks precedence of boolean operators
   4 < 5 && 3 == 3
-  4 > 5 ^ 2 >= 1 || 1 == 1    // checks precedence of boolean operators   
+  4 > 5 ^ 2 >= 1 || 1 == 1
   2 >= 1 ^ 4 > 5 || 1 == 1 
   (4 > 5 ^ 2 >= 1 || 1 < 2) == false
   (4 > 5 ^ 2 >= 1 || 1 < 2) != 2 > 3
