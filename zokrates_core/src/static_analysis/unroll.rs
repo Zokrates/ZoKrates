@@ -140,6 +140,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                         ),
                     },
                     TypedExpression::Array(..) => unimplemented!(),
+                    TypedExpression::Struct(..) => unimplemented!(),
                 };
 
                 vec![TypedStatement::Definition(

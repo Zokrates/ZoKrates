@@ -21,7 +21,7 @@ type_list = _{(ty ~ ("," ~ ty)*)?}
 // structs
 ty_struct = { identifier }
 // type definitions
-ty_struct_definition = { "struct" ~ identifier ~ "{" ~ NEWLINE* ~ struct_field_list ~ NEWLINE* ~ "}" }
+ty_struct_definition = { "struct" ~ identifier ~ "{" ~ NEWLINE* ~ struct_field_list ~ NEWLINE* ~ "}" ~ NEWLINE* }
 struct_field_list = _{(struct_field ~ ("," ~ NEWLINE* ~ struct_field)*)? ~ ","? }
 struct_field = { identifier ~ ":" ~ ty }
 

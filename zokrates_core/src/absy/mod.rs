@@ -13,7 +13,7 @@ pub mod variable;
 pub use crate::absy::node::{Node, NodeValue};
 pub use crate::absy::parameter::{Parameter, ParameterNode};
 pub use crate::absy::variable::{Variable, VariableNode};
-use crate::types::{FunctionIdentifier, Signature, Type};
+use crate::types::{FunctionIdentifier, UnresolvedSignature, UnresolvedType};
 use embed::FlatEmbed;
 
 use crate::imports::ImportNode;
@@ -50,7 +50,7 @@ pub struct FunctionDeclaration<'ast, T: Field> {
     pub symbol: FunctionSymbol<'ast, T>,
 }
 
-/// A declaration of a `FunctionSymbol`, be it from an import or a function definition
+/// A declaration of a `TypeSymbol`, be it from an import or a function definition
 #[derive(PartialEq, Debug, Clone)]
 pub struct TypeDeclaration<'ast> {
     pub id: Identifier<'ast>,
@@ -111,7 +111,7 @@ pub enum TypeSymbol<'ast> {
 /// A struct type definition
 #[derive(Debug, Clone, PartialEq)]
 pub struct StructType<'ast> {
-    fields: Vec<StructFieldNode<'ast>>,
+    pub fields: Vec<StructFieldNode<'ast>>,
 }
 
 impl<'ast> fmt::Display for StructType<'ast> {
@@ -128,13 +128,13 @@ impl<'ast> fmt::Display for StructType<'ast> {
     }
 }
 
-type StructTypeNode<'ast> = Node<StructType<'ast>>;
+pub type StructTypeNode<'ast> = Node<StructType<'ast>>;
 
 /// A struct type definition
 #[derive(Debug, Clone, PartialEq)]
 pub struct StructField<'ast> {
-    id: Identifier<'ast>,
-    ty: Type,
+    pub id: Identifier<'ast>,
+    pub ty: UnresolvedType,
 }
 
 impl<'ast> fmt::Display for StructField<'ast> {
@@ -220,7 +220,7 @@ pub struct Function<'ast, T: Field> {
     /// Vector of statements that are executed when running the function
     pub statements: Vec<StatementNode<'ast, T>>,
     /// function signature
-    pub signature: Signature,
+    pub signature: UnresolvedSignature,
 }
 
 pub type FunctionNode<'ast, T> = Node<Function<'ast, T>>;

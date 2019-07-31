@@ -48,15 +48,15 @@ impl<'ast> fmt::Debug for Variable<'ast> {
     }
 }
 
-impl<'ast> From<absy::Variable<'ast>> for Variable<'ast> {
-    fn from(v: absy::Variable) -> Variable {
-        Variable::with_id_and_type(
-            Identifier {
-                id: v.id,
-                version: 0,
-                stack: vec![],
-            },
-            v._type,
-        )
-    }
-}
+// impl<'ast> From<absy::Variable<'ast>> for Variable<'ast> {
+//     fn from(v: absy::Variable) -> Variable {
+//         Variable::with_id_and_type(
+//             Identifier {
+//                 id: v.id,
+//                 version: 0,
+//                 stack: vec![],
+//             },
+//             v._type,
+//         )
+//     }
+// }

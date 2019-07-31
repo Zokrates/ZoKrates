@@ -4,17 +4,17 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2017
 
-use crate::absy::variable::Variable;
 use crate::absy::Identifier;
 use crate::absy::*;
 use crate::typed_absy::*;
+use crate::typed_absy::{Parameter, Variable};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use zokrates_field::field::Field;
 
 use crate::parser::Position;
 
-use crate::types::{FunctionKey, Type};
+use crate::types::{FunctionKey, Signature, Type, UnresolvedSignature, UnresolvedType, UserTypeId};
 
 use std::hash::{Hash, Hasher};
 
@@ -125,6 +125,7 @@ impl<'ast> Eq for ScopedVariable<'ast> {}
 pub struct Checker<'ast> {
     scope: HashSet<ScopedVariable<'ast>>,
     functions: HashSet<FunctionKey<'ast>>,
+    types: HashMap<ModuleId, HashMap<UserTypeId, Type>>,
     level: usize,
 }
 
@@ -133,6 +134,7 @@ impl<'ast> Checker<'ast> {
         Checker {
             scope: HashSet::new(),
             functions: HashSet::new(),
+            types: HashMap::new(),
             level: 0,
         }
     }
@@ -178,6 +180,44 @@ impl<'ast> Checker<'ast> {
         })
     }
 
+    fn check_type_symbol<T: Field>(
+        &mut self,
+        s: TypeSymbol<'ast>,
+        module_id: &ModuleId,
+        modules: &mut Modules<'ast, T>,
+        typed_modules: &mut TypedModules<'ast, T>,
+    ) -> Result<Type, Vec<Error>> {
+        match s {
+            TypeSymbol::Here(t) => {
+                self.check_struct_type_declaration(t, module_id, modules, typed_modules)
+            }
+        }
+    }
+
+    fn check_struct_type_declaration<T: Field>(
+        &mut self,
+        s: StructTypeNode<'ast>,
+        module_id: &ModuleId,
+        modules: &mut Modules<'ast, T>,
+        typed_modules: &mut TypedModules<'ast, T>,
+    ) -> Result<Type, Vec<Error>> {
+        let pos = s.pos();
+        let s = s.value;
+
+        let fields = s
+            .fields
+            .into_iter()
+            .map(|n| {
+                (
+                    n.value.id.to_string(),
+                    self.check_type(n.value.ty, module_id).unwrap(),
+                )
+            })
+            .collect();
+
+        Ok(Type::Struct(fields))
+    }
+
     fn check_module<T: Field>(
         &mut self,
         module_id: &ModuleId,
@@ -194,13 +234,32 @@ impl<'ast> Checker<'ast> {
             // if it was not, check it
             Some(module) => {
                 assert_eq!(module.imports.len(), 0);
+
+                for declaration in module.types {
+                    let pos = declaration.pos();
+                    let declaration = declaration.value;
+
+                    let ty = self
+                        .check_type_symbol(declaration.symbol, module_id, modules, typed_modules)
+                        .unwrap();
+                    self.types
+                        .entry(module_id.clone())
+                        .or_default()
+                        .insert(declaration.id.to_string(), ty);
+                }
+
                 for declaration in module.functions {
                     self.enter_scope();
 
                     let pos = declaration.pos();
                     let declaration = declaration.value;
 
-                    match self.check_function_symbol(declaration.symbol, modules, typed_modules) {
+                    match self.check_function_symbol(
+                        declaration.symbol,
+                        module_id,
+                        modules,
+                        typed_modules,
+                    ) {
                         Ok(checked_function_symbols) => {
                             for funct in checked_function_symbols {
                                 let query = FunctionQuery::new(
@@ -298,7 +357,7 @@ impl<'ast> Checker<'ast> {
 
     fn check_for_var(&self, var: &VariableNode) -> Result<(), Error> {
         match var.value.get_type() {
-            Type::FieldElement => Ok(()),
+            UnresolvedType::FieldElement => Ok(()),
             t => Err(Error {
                 pos: Some(var.pos()),
                 message: format!("Variable in for loop cannot have type {}", t),
@@ -309,6 +368,7 @@ impl<'ast> Checker<'ast> {
     fn check_function<T: Field>(
         &mut self,
         funct_node: FunctionNode<'ast, T>,
+        module_id: &ModuleId,
     ) -> Result<TypedFunction<'ast, T>, Vec<Error>> {
         let mut errors = vec![];
         let funct = funct_node.value;
@@ -316,13 +376,18 @@ impl<'ast> Checker<'ast> {
         assert_eq!(funct.arguments.len(), funct.signature.inputs.len());
 
         for arg in &funct.arguments {
-            self.insert_into_scope(arg.value.id.value.clone());
+            let v = self
+                .check_variable(arg.value.id.clone(), module_id)
+                .unwrap();
+            self.insert_into_scope(v);
         }
 
         let mut statements_checked = vec![];
 
+        let signature = self.check_signature(funct.signature, module_id)?;
+
         for stat in funct.statements.into_iter() {
-            match self.check_statement(stat, &funct.signature.outputs) {
+            match self.check_statement(stat, &signature.outputs, module_id) {
                 Ok(statement) => {
                     statements_checked.push(statement);
                 }
@@ -340,16 +405,57 @@ impl<'ast> Checker<'ast> {
             arguments: funct
                 .arguments
                 .into_iter()
-                .map(|a| a.value.into())
+                .map(|a| self.check_parameter(a, module_id))
                 .collect(),
             statements: statements_checked,
-            signature: funct.signature,
+            signature,
         })
+    }
+
+    fn check_parameter(&self, p: ParameterNode<'ast>, module_id: &ModuleId) -> Parameter<'ast> {
+        Parameter {
+            id: self.check_variable(p.value.id, module_id).unwrap(),
+            private: p.value.private,
+        }
+    }
+
+    fn check_signature(
+        &self,
+        signature: UnresolvedSignature,
+        module_id: &ModuleId,
+    ) -> Result<Signature, Vec<Error>> {
+        Ok(Signature {
+            inputs: signature
+                .inputs
+                .into_iter()
+                .map(|t| self.check_type(t, module_id).unwrap())
+                .collect(),
+            outputs: signature
+                .outputs
+                .into_iter()
+                .map(|t| self.check_type(t, module_id).unwrap())
+                .collect(),
+        })
+    }
+
+    fn check_type(&self, ty: UnresolvedType, module_id: &ModuleId) -> Result<Type, Vec<Error>> {
+        match ty {
+            UnresolvedType::FieldElement => Ok(Type::FieldElement),
+            UnresolvedType::Boolean => Ok(Type::Boolean),
+            UnresolvedType::Array(t, size) => Ok(Type::Array(
+                box self.check_type(*t, module_id).unwrap(),
+                size,
+            )),
+            UnresolvedType::User(id) => {
+                Ok(self.types.get(module_id).unwrap().get(&id).unwrap().clone())
+            }
+        }
     }
 
     fn check_function_symbol<T: Field>(
         &mut self,
         funct_symbol: FunctionSymbol<'ast, T>,
+        module_id: &ModuleId,
         modules: &mut Modules<'ast, T>,
         typed_modules: &mut TypedModules<'ast, T>,
     ) -> Result<Vec<TypedFunctionSymbol<'ast, T>>, Vec<Error>> {
@@ -358,7 +464,7 @@ impl<'ast> Checker<'ast> {
 
         match funct_symbol {
             FunctionSymbol::Here(funct_node) => self
-                .check_function(funct_node)
+                .check_function(funct_node, module_id)
                 .map(|f| vec![TypedFunctionSymbol::Here(f)]),
             FunctionSymbol::There(import_node) => {
                 let pos = import_node.pos();
@@ -410,10 +516,22 @@ impl<'ast> Checker<'ast> {
         }
     }
 
+    fn check_variable(
+        &self,
+        v: crate::absy::VariableNode<'ast>,
+        module_id: &ModuleId,
+    ) -> Result<Variable<'ast>, Vec<Error>> {
+        Ok(Variable::with_id_and_type(
+            v.value.id.into(),
+            self.check_type(v.value._type, module_id).unwrap(),
+        ))
+    }
+
     fn check_statement<T: Field>(
         &mut self,
         stat: StatementNode<'ast, T>,
         header_return_types: &Vec<Type>,
+        module_id: &ModuleId,
     ) -> Result<TypedStatement<'ast, T>, Error> {
         let pos = stat.pos();
 
@@ -425,7 +543,7 @@ impl<'ast> Checker<'ast> {
                     expression_list_checked.push(e_checked);
                 }
 
-                let return_statement_types: Vec<Type> = expression_list_checked
+                let return_statement_types: Vec<_> = expression_list_checked
                     .iter()
                     .map(|e| e.get_type())
                     .collect();
@@ -450,13 +568,16 @@ impl<'ast> Checker<'ast> {
                     }),
                 }
             }
-            Statement::Declaration(var) => match self.insert_into_scope(var.clone().value) {
-                true => Ok(TypedStatement::Declaration(var.value.into())),
-                false => Err(Error {
-                    pos: Some(pos),
-                    message: format!("Duplicate declaration for variable named {}", var.value.id),
-                }),
-            },
+            Statement::Declaration(var) => {
+                let var = self.check_variable(var, module_id).unwrap();
+                match self.insert_into_scope(var.clone()) {
+                    true => Ok(TypedStatement::Declaration(var)),
+                    false => Err(Error {
+                        pos: Some(pos),
+                        message: format!("Duplicate declaration for variable named {}", var.id),
+                    }),
+                }
+            }
             Statement::Definition(assignee, expr) => {
                 // we create multidef when rhs is a function call to benefit from inference
                 // check rhs is not a function call here
@@ -510,22 +631,20 @@ impl<'ast> Checker<'ast> {
 
                 self.check_for_var(&var)?;
 
-                self.insert_into_scope(var.clone().value);
+                let var = self.check_variable(var, module_id).unwrap();
+
+                self.insert_into_scope(var.clone());
 
                 let mut checked_statements = vec![];
 
                 for stat in statements {
-                    let checked_stat = self.check_statement(stat, header_return_types)?;
+                    let checked_stat =
+                        self.check_statement(stat, header_return_types, module_id)?;
                     checked_statements.push(checked_stat);
                 }
 
                 self.exit_scope();
-                Ok(TypedStatement::For(
-                    var.value.into(),
-                    from,
-                    to,
-                    checked_statements,
-                ))
+                Ok(TypedStatement::For(var, from, to, checked_statements))
             }
             Statement::MultipleDefinition(assignees, rhs) => {
                 match rhs.value {
@@ -568,8 +687,8 @@ impl<'ast> Checker<'ast> {
                     			let f = &candidates[0];
 
                                 // we can infer the left hand side to be typed as the return values
-                    			let lhs: Vec<_> = var_names.iter().zip(f.signature.outputs.iter()).map(|(name, ty)|
-                    				Variable::new(*name, ty.clone())
+                    			let lhs: Vec<Variable> = var_names.iter().zip(f.signature.outputs.iter()).map(|(name, ty)|
+                    				Variable::with_id_and_type(crate::typed_absy::Identifier::from(*name), ty.clone())
                     			).collect();
 
                                 let assignees: Vec<_> = lhs.iter().map(|v| v.clone().into()).collect();
@@ -605,12 +724,10 @@ impl<'ast> Checker<'ast> {
         // check that the assignee is declared
         match assignee.value {
             Assignee::Identifier(variable_name) => match self.get_scope(&variable_name) {
-                Some(var) => Ok(TypedAssignee::Identifier(
-                    crate::typed_absy::Variable::with_id_and_type(
-                        variable_name.into(),
-                        var.id.get_type(),
-                    ),
-                )),
+                Some(var) => Ok(TypedAssignee::Identifier(Variable::with_id_and_type(
+                    variable_name.into(),
+                    var.id._type.clone(),
+                ))),
                 None => Err(Error {
                     pos: Some(assignee.pos()),
                     message: format!("Undeclared variable: {:?}", variable_name),
@@ -703,6 +820,11 @@ impl<'ast> Checker<'ast> {
                             ty: *ty,
                             size,
                             inner: ArrayExpressionInner::Identifier(name.into()),
+                        }
+                        .into()),
+                        Type::Struct(members) => Ok(StructExpression {
+                            ty: members,
+                            inner: StructExpressionInner::Identifier(name.into()),
                         }
                         .into()),
                     },
@@ -888,6 +1010,17 @@ impl<'ast> Checker<'ast> {
                                     ty: *ty,
                                     size,
                                     inner: ArrayExpressionInner::FunctionCall(
+                                        FunctionKey {
+                                            id: f.id.clone(),
+                                            signature: f.signature.clone(),
+                                        },
+                                        arguments_checked,
+                                    ),
+                                }
+                                .into()),
+                                Type::Struct(members) => Ok(StructExpression {
+                                    ty: members.clone(),
+                                    inner: StructExpressionInner::FunctionCall(
                                         FunctionKey {
                                             id: f.id.clone(),
                                             signature: f.signature.clone(),
@@ -1090,6 +1223,11 @@ impl<'ast> Checker<'ast> {
                                     inner: ArrayExpressionInner::Select(box a, box i),
                                 }
                                 .into()),
+                                Type::Struct(members) => Ok(StructExpression {
+                                    ty: members.clone(),
+                                    inner: StructExpressionInner::Select(box a, box i),
+                                }
+                                .into()),
                             }
                         }
                         (a, e) => Err(Error {
@@ -1103,7 +1241,61 @@ impl<'ast> Checker<'ast> {
                     },
                 }
             }
-            Expression::Member(..) => unimplemented!(),
+            Expression::Member(box e, box id) => {
+                let e = self.check_expression(e)?;
+
+                match e {
+                    TypedExpression::Struct(s) => {
+                        // check that the struct has that field and return the type if it does
+                        let ty =
+                            s.ty.iter()
+                                .find(|(member_id, ty)| member_id == id)
+                                .map(|(member_id, ty)| ty);
+
+                        match ty {
+                            Some(ty) => match ty {
+                                Type::FieldElement => {
+                                    Ok(FieldElementExpression::Member(box s, id.to_string()).into())
+                                }
+                                Type::Boolean => {
+                                    Ok(BooleanExpression::Member(box s, id.to_string()).into())
+                                }
+                                Type::Array(box ty, size) => Ok(ArrayExpression {
+                                    ty: ty.clone(),
+                                    size: *size,
+                                    inner: ArrayExpressionInner::Member(box s, id.to_string()),
+                                }
+                                .into()),
+                                Type::Struct(members) => Ok(StructExpression {
+                                    ty: members.clone(),
+                                    inner: StructExpressionInner::Member(box s, id.to_string()),
+                                }
+                                .into()),
+                            },
+                            None => Err(Error {
+                                pos: Some(pos),
+                                message: format!(
+                                    "{} doesn't have member {}. Members are {}",
+                                    TypedExpression::Struct(s.clone()),
+                                    id,
+                                    s.ty.iter()
+                                        .map(|(member_id, _)| member_id.to_string())
+                                        .collect::<Vec<_>>()
+                                        .join(", ")
+                                ),
+                            }),
+                        }
+                    }
+                    e => Err(Error {
+                        pos: Some(pos),
+                        message: format!(
+                            "Cannot access member {} on expression of type {}",
+                            id,
+                            e.get_type()
+                        ),
+                    }),
+                }
+            }
             Expression::InlineArray(expressions) => {
                 // we should have at least one expression
                 let size = expressions.len();
@@ -1218,6 +1410,49 @@ impl<'ast> Checker<'ast> {
                         }
                         .into())
                     }
+                    ty @ Type::Struct(..) => {
+                        // we check all expressions have that same type
+                        let mut unwrapped_expressions = vec![];
+
+                        for e in expressions_checked {
+                            let unwrapped_e = match e {
+                                TypedExpression::Struct(e) => {
+                                    if e.get_type() == ty {
+                                        Ok(e)
+                                    } else {
+                                        Err(Error {
+                                            pos: Some(pos),
+
+                                            message: format!(
+                                                "Expected {} to have type {}, but type is {}",
+                                                e,
+                                                ty,
+                                                e.get_type()
+                                            ),
+                                        })
+                                    }
+                                }
+                                e => Err(Error {
+                                    pos: Some(pos),
+
+                                    message: format!(
+                                        "Expected {} to have type {}, but type is {}",
+                                        e,
+                                        ty,
+                                        e.get_type()
+                                    ),
+                                }),
+                            }?;
+                            unwrapped_expressions.push(unwrapped_e.into());
+                        }
+
+                        Ok(ArrayExpression {
+                            ty,
+                            size: unwrapped_expressions.len(),
+                            inner: ArrayExpressionInner::Value(unwrapped_expressions),
+                        }
+                        .into())
+                    }
                 }
             }
             Expression::And(box e1, box e2) => {
@@ -1266,9 +1501,12 @@ impl<'ast> Checker<'ast> {
         }
     }
 
-    fn get_scope(&self, variable_name: &Identifier<'ast>) -> Option<&ScopedVariable> {
+    fn get_scope(&self, variable_name: &'ast str) -> Option<&'ast ScopedVariable> {
         self.scope.get(&ScopedVariable {
-            id: Variable::new(*variable_name, Type::FieldElement),
+            id: Variable::with_id_and_type(
+                crate::typed_absy::Identifier::from(variable_name),
+                Type::FieldElement,
+            ),
             level: 0,
         })
     }

@@ -1,6 +1,68 @@
 use crate::types::Type;
 use std::fmt;
 
+pub use self::unresolved::UnresolvedSignature;
+
+mod unresolved {
+    use super::*;
+    use types::UnresolvedType;
+
+    #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub struct UnresolvedSignature {
+        pub inputs: Vec<UnresolvedType>,
+        pub outputs: Vec<UnresolvedType>,
+    }
+
+    impl fmt::Debug for UnresolvedSignature {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(
+                f,
+                "Signature(inputs: {:?}, outputs: {:?})",
+                self.inputs, self.outputs
+            )
+        }
+    }
+
+    impl fmt::Display for UnresolvedSignature {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            r#try!(write!(f, "("));
+            for (i, t) in self.inputs.iter().enumerate() {
+                r#try!(write!(f, "{}", t));
+                if i < self.inputs.len() - 1 {
+                    r#try!(write!(f, ", "));
+                }
+            }
+            r#try!(write!(f, ") -> ("));
+            for (i, t) in self.outputs.iter().enumerate() {
+                r#try!(write!(f, "{}", t));
+                if i < self.outputs.len() - 1 {
+                    r#try!(write!(f, ", "));
+                }
+            }
+            write!(f, ")")
+        }
+    }
+
+    impl UnresolvedSignature {
+        pub fn new() -> UnresolvedSignature {
+            UnresolvedSignature {
+                inputs: vec![],
+                outputs: vec![],
+            }
+        }
+
+        pub fn inputs(mut self, inputs: Vec<UnresolvedType>) -> Self {
+            self.inputs = inputs;
+            self
+        }
+
+        pub fn outputs(mut self, outputs: Vec<UnresolvedType>) -> Self {
+            self.outputs = outputs;
+            self
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Signature {
     pub inputs: Vec<Type>,

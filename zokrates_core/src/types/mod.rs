@@ -1,7 +1,12 @@
 pub use crate::types::signature::Signature;
+pub use crate::types::signature::UnresolvedSignature;
 use std::fmt;
 
 pub type Identifier<'ast> = &'ast str;
+
+pub type MemberId = String;
+
+pub type UserTypeId = String;
 
 mod signature;
 
@@ -10,6 +15,26 @@ pub enum Type {
     FieldElement,
     Boolean,
     Array(Box<Type>, usize),
+    Struct(Vec<(MemberId, Type)>),
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
+pub enum UnresolvedType {
+    FieldElement,
+    Boolean,
+    Array(Box<UnresolvedType>, usize),
+    User(UserTypeId),
+}
+
+impl fmt::Display for UnresolvedType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            UnresolvedType::FieldElement => write!(f, "field"),
+            UnresolvedType::Boolean => write!(f, "bool"),
+            UnresolvedType::Array(ref ty, ref size) => write!(f, "{}[{}]", ty, size),
+            UnresolvedType::User(i) => write!(f, "{}", i),
+        }
+    }
 }
 
 impl fmt::Display for Type {
@@ -18,6 +43,15 @@ impl fmt::Display for Type {
             Type::FieldElement => write!(f, "field"),
             Type::Boolean => write!(f, "bool"),
             Type::Array(ref ty, ref size) => write!(f, "{}[{}]", ty, size),
+            Type::Struct(ref members) => write!(
+                f,
+                "{{{}}}",
+                members
+                    .iter()
+                    .map(|(id, t)| format!("{}: {}", id, t))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
         }
     }
 }
@@ -28,6 +62,15 @@ impl fmt::Debug for Type {
             Type::FieldElement => write!(f, "field"),
             Type::Boolean => write!(f, "bool"),
             Type::Array(ref ty, ref size) => write!(f, "{}[{}]", ty, size),
+            Type::Struct(ref members) => write!(
+                f,
+                "{{{}}}",
+                members
+                    .iter()
+                    .map(|(id, t)| format!("{}: {}", id, t))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
         }
     }
 }
@@ -42,6 +85,7 @@ impl Type {
             Type::FieldElement => String::from("f"),
             Type::Boolean => String::from("b"),
             Type::Array(box ty, size) => format!("{}[{}]", ty.to_slug(), size),
+            Type::Struct(members) => unimplemented!(),
         }
     }
 
@@ -51,7 +95,14 @@ impl Type {
             Type::FieldElement => 1,
             Type::Boolean => 1,
             Type::Array(ty, size) => size * ty.get_primitive_count(),
+            Type::Struct(members) => members.iter().map(|(_, t)| t.get_primitive_count()).sum(),
         }
+    }
+}
+
+impl UnresolvedType {
+    pub fn array(ty: UnresolvedType, size: usize) -> Self {
+        UnresolvedType::Array(box ty, size)
     }
 }
 

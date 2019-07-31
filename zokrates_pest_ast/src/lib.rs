@@ -244,7 +244,7 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_struct))]
     pub struct StructType<'ast> {
-        id: IdentifierExpression<'ast>,
+        pub id: IdentifierExpression<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
