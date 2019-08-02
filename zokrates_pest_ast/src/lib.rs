@@ -174,8 +174,25 @@ mod ast {
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::import_directive))]
-    pub struct ImportDirective<'ast> {
+    pub enum ImportDirective<'ast> {
+        Main(MainImportDirective<'ast>),
+        From(FromImportDirective<'ast>),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::main_import_directive))]
+    pub struct MainImportDirective<'ast> {
         pub source: ImportSource<'ast>,
+        pub alias: Option<IdentifierExpression<'ast>>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::from_import_directive))]
+    pub struct FromImportDirective<'ast> {
+        pub source: ImportSource<'ast>,
+        pub symbol: IdentifierExpression<'ast>,
         pub alias: Option<IdentifierExpression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,

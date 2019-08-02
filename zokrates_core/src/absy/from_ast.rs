@@ -24,9 +24,20 @@ impl<'ast, T: Field> From<pest::File<'ast>> for absy::Module<'ast, T> {
 impl<'ast> From<pest::ImportDirective<'ast>> for absy::ImportNode<'ast> {
     fn from(import: pest::ImportDirective<'ast>) -> absy::ImportNode {
         use absy::NodeValue;
-        imports::Import::new(import.source.span.as_str())
+
+        match import {
+            pest::ImportDirective::Main(import) => {
+                imports::Import::new(None, import.source.span.as_str())
+                    .alias(import.alias.map(|a| a.span.as_str()))
+                    .span(import.span)
+            }
+            pest::ImportDirective::From(import) => imports::Import::new(
+                Some(import.symbol.span.as_str()),
+                import.source.span.as_str(),
+            )
             .alias(import.alias.map(|a| a.span.as_str()))
-            .span(import.span)
+            .span(import.span),
+        }
     }
 }
 

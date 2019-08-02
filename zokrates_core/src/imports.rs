@@ -57,15 +57,17 @@ impl From<io::Error> for Error {
 #[derive(PartialEq, Clone)]
 pub struct Import<'ast> {
     source: Identifier<'ast>,
+    symbol: Option<Identifier<'ast>>,
     alias: Option<Identifier<'ast>>,
 }
 
 pub type ImportNode<'ast> = Node<Import<'ast>>;
 
 impl<'ast> Import<'ast> {
-    pub fn new(source: Identifier<'ast>) -> Import<'ast> {
+    pub fn new(symbol: Option<Identifier<'ast>>, source: Identifier<'ast>) -> Import<'ast> {
         Import {
-            source: source,
+            symbol,
+            source,
             alias: None,
         }
     }
@@ -74,9 +76,14 @@ impl<'ast> Import<'ast> {
         &self.alias
     }
 
-    pub fn new_with_alias(source: Identifier<'ast>, alias: Identifier<'ast>) -> Import<'ast> {
+    pub fn new_with_alias(
+        symbol: Option<Identifier<'ast>>,
+        source: Identifier<'ast>,
+        alias: Identifier<'ast>,
+    ) -> Import<'ast> {
         Import {
-            source: source,
+            symbol,
+            source,
             alias: Some(alias),
         }
     }
@@ -190,7 +197,7 @@ impl Importer {
                                     id: &alias,
                                     symbol: FunctionSymbol::There(
                                         FunctionImport::with_id_in_module(
-                                            "main",
+                                            import.symbol.unwrap_or("main"),
                                             import.source.clone(),
                                         )
                                         .start_end(pos.0, pos.1),
@@ -235,8 +242,9 @@ mod tests {
     #[test]
     fn create_with_no_alias() {
         assert_eq!(
-            Import::new("./foo/bar/baz.code"),
+            Import::new(None, "./foo/bar/baz.code"),
             Import {
+                symbol: None,
                 source: "./foo/bar/baz.code",
                 alias: None,
             }
@@ -246,8 +254,9 @@ mod tests {
     #[test]
     fn create_with_alias() {
         assert_eq!(
-            Import::new_with_alias("./foo/bar/baz.code", &"myalias"),
+            Import::new_with_alias(None, "./foo/bar/baz.code", &"myalias"),
             Import {
+                symbol: None,
                 source: "./foo/bar/baz.code",
                 alias: Some("myalias"),
             }
