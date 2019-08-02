@@ -145,6 +145,11 @@ impl<'ast> FunctionKey<'ast> {
         self
     }
 
+    pub fn id<S: Into<Identifier<'ast>>>(mut self, id: S) -> Self {
+        self.id = id.into();
+        self
+    }
+
     pub fn to_slug(&self) -> String {
         format!("{}_{}", self.id, self.signature.to_slug())
     }

@@ -31,11 +31,8 @@ pub type ModuleId = String;
 /// A collection of `Module`s
 pub type Modules<'ast, T> = HashMap<ModuleId, Module<'ast, T>>;
 
-/// A collection of `FunctionDeclaration`. Duplicates are allowed here as they are fine syntatically.
-pub type FunctionDeclarations<'ast, T> = Vec<FunctionDeclarationNode<'ast, T>>;
-
-/// A collection of `StructDeclaration`. Duplicates are allowed here as they are fine syntatically.
-pub type TypeDeclarations<'ast> = Vec<TypeDeclarationNode<'ast>>;
+/// A collection of `SymbolDeclaration`. Duplicates are allowed here as they are fine syntatically.
+pub type Declarations<'ast, T> = Vec<SymbolDeclarationNode<'ast, T>>;
 
 /// A `Program` is a collection of `Module`s and an id of the main `Module`
 pub struct Program<'ast, T: Field> {
@@ -45,34 +42,26 @@ pub struct Program<'ast, T: Field> {
 
 /// A declaration of a `FunctionSymbol`, be it from an import or a function definition
 #[derive(PartialEq, Debug, Clone)]
-pub struct FunctionDeclaration<'ast, T: Field> {
+pub struct SymbolDeclaration<'ast, T: Field> {
     pub id: Identifier<'ast>,
-    pub symbol: FunctionSymbol<'ast, T>,
+    pub symbol: Symbol<'ast, T>,
 }
 
-/// A declaration of a `TypeSymbol`, be it from an import or a function definition
 #[derive(PartialEq, Debug, Clone)]
-pub struct TypeDeclaration<'ast> {
-    pub id: Identifier<'ast>,
-    pub symbol: TypeSymbol<'ast>,
+pub enum Symbol<'ast, T: Field> {
+    HereType(StructTypeNode<'ast>),
+    HereFunction(FunctionNode<'ast, T>),
+    There(SymbolImportNode<'ast>),
+    Flat(FlatEmbed),
 }
 
-impl<'ast> fmt::Display for TypeDeclaration<'ast> {
+impl<'ast, T: Field> fmt::Display for SymbolDeclaration<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.symbol {
-            TypeSymbol::Here(ref s) => write!(f, "struct {} {}", self.id, s),
-        }
-    }
-}
-
-type TypeDeclarationNode<'ast> = Node<TypeDeclaration<'ast>>;
-
-impl<'ast, T: Field> fmt::Display for FunctionDeclaration<'ast, T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.symbol {
-            FunctionSymbol::Here(ref fun) => write!(f, "def {}{}", self.id, fun),
-            FunctionSymbol::There(ref import) => write!(f, "import {} as {}", import, self.id),
-            FunctionSymbol::Flat(ref flat_fun) => write!(
+            Symbol::HereType(ref t) => write!(f, "struct {} {}", self.id, t),
+            Symbol::HereFunction(ref fun) => write!(f, "def {}{}", self.id, fun),
+            Symbol::There(ref import) => write!(f, "import {} as {}", import, self.id),
+            Symbol::Flat(ref flat_fun) => write!(
                 f,
                 "def {}{}:\n\t// hidden",
                 self.id,
@@ -82,31 +71,30 @@ impl<'ast, T: Field> fmt::Display for FunctionDeclaration<'ast, T> {
     }
 }
 
-type FunctionDeclarationNode<'ast, T> = Node<FunctionDeclaration<'ast, T>>;
+type SymbolDeclarationNode<'ast, T> = Node<SymbolDeclaration<'ast, T>>;
 
 /// A module as a collection of `FunctionDeclaration`s
 #[derive(Clone, PartialEq)]
 pub struct Module<'ast, T: Field> {
-    /// Structs of the module
-    pub types: TypeDeclarations<'ast>,
-    /// Functions of the module
-    pub functions: FunctionDeclarations<'ast, T>,
+    /// Symbols of the module
+    pub symbols: Declarations<'ast, T>,
     pub imports: Vec<ImportNode<'ast>>, // we still use `imports` as they are not directly converted into `FunctionDeclaration`s after the importer is done, `imports` is empty
 }
 
-/// A function, be it defined in this module, imported from another module or a flat embed
-#[derive(Debug, Clone, PartialEq)]
-pub enum FunctionSymbol<'ast, T: Field> {
-    Here(FunctionNode<'ast, T>),
-    There(FunctionImportNode<'ast>),
-    Flat(FlatEmbed),
-}
+// /// A function, be it defined in this module, imported from another module or a flat embed
+// #[derive(Debug, Clone, PartialEq)]
+// pub enum FunctionSymbol<'ast, T: Field> {
+//     Here(FunctionNode<'ast, T>),
+//     There(FunctionImportNode<'ast>),
+//     Flat(FlatEmbed),
+// }
 
-/// A user defined type, a struct defined in this module for now // TODO allow importing types
-#[derive(Debug, Clone, PartialEq)]
-pub enum TypeSymbol<'ast> {
-    Here(StructTypeNode<'ast>),
-}
+// /// A user defined type, a struct defined in this module for now // TODO allow importing types
+// #[derive(Debug, Clone, PartialEq)]
+// pub enum TypeSymbol<'ast> {
+//     Here(StructTypeNode<'ast>),
+//     There(TypeImportNode<'ast>),
+// }
 
 /// A struct type definition
 #[derive(Debug, Clone, PartialEq)]
@@ -145,32 +133,32 @@ impl<'ast> fmt::Display for StructField<'ast> {
 
 type StructFieldNode<'ast> = Node<StructField<'ast>>;
 
-/// A function import
+/// An import
 #[derive(Debug, Clone, PartialEq)]
-pub struct FunctionImport<'ast> {
-    /// the id of the function in the target module. Note: there may be many candidates as imports statements do not specify the signature
-    pub function_id: Identifier<'ast>,
+pub struct SymbolImport<'ast> {
+    /// the id of the symbol in the target module. Note: there may be many candidates as imports statements do not specify the signature. In that case they must all be functions however.
+    pub symbol_id: Identifier<'ast>,
     /// the id of the module to import from
     pub module_id: ModuleId,
 }
 
-type FunctionImportNode<'ast> = Node<FunctionImport<'ast>>;
+type SymbolImportNode<'ast> = Node<SymbolImport<'ast>>;
 
-impl<'ast> FunctionImport<'ast> {
+impl<'ast> SymbolImport<'ast> {
     pub fn with_id_in_module<S: Into<Identifier<'ast>>, U: Into<ModuleId>>(
-        function_id: S,
+        symbol_id: S,
         module_id: U,
     ) -> Self {
-        FunctionImport {
-            function_id: function_id.into(),
+        SymbolImport {
+            symbol_id: symbol_id.into(),
             module_id: module_id.into(),
         }
     }
 }
 
-impl<'ast> fmt::Display for FunctionImport<'ast> {
+impl<'ast> fmt::Display for SymbolImport<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} from {}", self.function_id, self.module_id)
+        write!(f, "{} from {}", self.symbol_id, self.module_id)
     }
 }
 
@@ -184,7 +172,7 @@ impl<'ast, T: Field> fmt::Display for Module<'ast, T> {
                 .collect::<Vec<_>>(),
         );
         res.extend(
-            self.functions
+            self.symbols
                 .iter()
                 .map(|x| format!("{}", x))
                 .collect::<Vec<_>>(),
@@ -197,13 +185,13 @@ impl<'ast, T: Field> fmt::Debug for Module<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "module(\n\timports:\n\t\t{}\n\tfunctions:\n\t\t{}\n)",
+            "module(\n\timports:\n\t\t{}\n\tsymbols:\n\t\t{}\n)",
             self.imports
                 .iter()
                 .map(|x| format!("{:?}", x))
                 .collect::<Vec<_>>()
                 .join("\n\t\t"),
-            self.functions
+            self.symbols
                 .iter()
                 .map(|x| format!("{:?}", x))
                 .collect::<Vec<_>>()

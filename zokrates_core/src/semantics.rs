@@ -159,15 +159,15 @@ impl<'ast> Checker<'ast> {
 
         let mut errors = vec![];
 
-        match Checker::check_single_main(modules.get(&program.main).unwrap()) {
-            Ok(_) => {}
-            Err(e) => errors.push(e),
-        };
-
         // recursively type-check modules starting with `main`
         match self.check_module(&program.main, &mut modules, &mut typed_modules) {
             Ok(()) => {}
             Err(e) => errors.extend(e),
+        };
+
+        match Checker::check_single_main(typed_modules.get(&program.main).unwrap()) {
+            Ok(_) => {}
+            Err(e) => errors.push(e),
         };
 
         if errors.len() > 0 {
@@ -180,19 +180,61 @@ impl<'ast> Checker<'ast> {
         })
     }
 
-    fn check_type_symbol<T: Field>(
-        &mut self,
-        s: TypeSymbol<'ast>,
-        module_id: &ModuleId,
-        modules: &mut Modules<'ast, T>,
-        typed_modules: &mut TypedModules<'ast, T>,
-    ) -> Result<Type, Vec<Error>> {
-        match s {
-            TypeSymbol::Here(t) => {
-                self.check_struct_type_declaration(t, module_id, modules, typed_modules)
-            }
-        }
-    }
+    // fn check_type_symbol<T: Field>(
+    //     &mut self,
+    //     s: StructTypeNode<'ast>,
+    //     module_id: &ModuleId,
+    //     modules: &mut Modules<'ast, T>,
+    //     typed_modules: &mut TypedModules<'ast, T>,
+    // ) -> Result<Type, Vec<Error>> {
+
+    //     let mut errors = vec![];
+
+    //     match s {
+    //         TypeSymbol::Here(t) => {
+    //             self.check_struct_type_declaration(t, module_id, modules, typed_modules)
+    //         }
+    //         TypeSymbol::There(import_node) => {
+    //             let pos = import_node.pos();
+    //             let import = import_node.value;
+
+    //             let res =
+    //                 match Checker::new().check_module(&import.module_id, modules, typed_modules) {
+    //                     Ok(()) => {
+    //                         match self
+    //                             .types
+    //                             .get(&import.module_id)
+    //                             .unwrap()
+    //                             .get(import.type_id)
+    //                         {
+    //                             Some(ty) => Some(ty),
+    //                             None => {
+    //                                 errors.push(Error {
+    //                                     pos: Some(pos),
+    //                                     message: format!(
+    //                                         "Type {} not found in module {}",
+    //                                         import.type_id, import.module_id
+    //                                     ),
+    //                                 });
+    //                                 None
+    //                             }
+    //                         }
+    //                     }
+    //                     Err(e) => {
+    //                         errors.extend(e);
+    //                         None
+    //                     }
+    //                 };
+
+    //             // return if any errors occured
+    //             if errors.len() > 0 {
+    //                 return Err(errors);
+    //             }
+
+    //             Ok(res.unwrap().clone())
+    //         }
+    //     }
+    // }
 
     fn check_struct_type_declaration<T: Field>(
         &mut self,
@@ -235,81 +277,268 @@ impl<'ast> Checker<'ast> {
             Some(module) => {
                 assert_eq!(module.imports.len(), 0);
 
-                for declaration in module.types {
+                let ids = HashSet::new();
+
+                for declaration in module.symbols {
                     let pos = declaration.pos();
                     let declaration = declaration.value;
 
-                    let ty = self
-                        .check_type_symbol(declaration.symbol, module_id, modules, typed_modules)
-                        .unwrap();
-                    self.types
-                        .entry(module_id.clone())
-                        .or_default()
-                        .insert(declaration.id.to_string(), ty);
-                }
+                    match declaration.symbol {
+                        Symbol::HereType(t) => {
+                            match ids.insert(declaration.id) {
+                                true => errors.push(Error {
+                                    pos: Some(pos),
+                                    message: format!(
+                                        "Another symbol with id {} is already defined",
+                                        declaration.id,
+                                    ),
+                                }),
+                                false => {}
+                            };
 
-                for declaration in module.functions {
-                    self.enter_scope();
+                            let ty = self
+                                .check_struct_type_declaration(t, module_id, modules, typed_modules)
+                                .unwrap();
 
-                    let pos = declaration.pos();
-                    let declaration = declaration.value;
+                            self.types
+                                .entry(module_id.clone())
+                                .or_default()
+                                .insert(declaration.id.to_string(), ty);
+                        }
+                        Symbol::HereFunction(f) => {
+                            self.enter_scope();
 
-                    match self.check_function_symbol(
-                        declaration.symbol,
-                        module_id,
-                        modules,
-                        typed_modules,
-                    ) {
-                        Ok(checked_function_symbols) => {
-                            for funct in checked_function_symbols {
-                                let query = FunctionQuery::new(
-                                    declaration.id.clone(),
-                                    &funct.signature(&typed_modules).inputs,
-                                    &funct
-                                        .signature(&typed_modules)
-                                        .outputs
-                                        .clone()
-                                        .into_iter()
-                                        .map(|o| Some(o))
-                                        .collect(),
-                                );
+                            match self.check_function(f, module_id) {
+                                Ok(funct) => {
+                                    let query = FunctionQuery::new(
+                                        declaration.id.clone(),
+                                        &funct.signature(&typed_modules).inputs,
+                                        &funct
+                                            .signature(&typed_modules)
+                                            .outputs
+                                            .clone()
+                                            .into_iter()
+                                            .map(|o| Some(o))
+                                            .collect(),
+                                    );
 
-                                let candidates = self.find_candidates(&query);
+                                    let candidates = self.find_candidates(&query);
 
-                                match candidates.len() {
-                                    1 => {
-                                        errors.push(Error {
+                                    match candidates.len() {
+                                        1 => {
+                                            errors.push(Error {
+                                                pos: Some(pos),
+                                                message: format!(
+                                                    "Duplicate definition for function {} with signature {}",
+                                                    declaration.id,
+                                                    funct.signature(&typed_modules)
+                                                ),
+                                            });
+                                        }
+                                        0 => {}
+                                        _ => panic!(
+                                            "duplicate function declaration should have been caught"
+                                        ),
+                                    }
+
+                                    ids.insert(declaration.id);
+
+                                    self.functions.insert(
+                                        FunctionKey::with_id(declaration.id.clone())
+                                            .signature(funct.signature(&typed_modules).clone()),
+                                    );
+                                    checked_functions.insert(
+                                        FunctionKey::with_id(declaration.id.clone())
+                                            .signature(funct.signature(&typed_modules).clone()),
+                                        funct,
+                                    );
+                                }
+                                Err(e) => {
+                                    errors.extend(e);
+                                }
+                            }
+
+                            self.exit_scope();
+                        }
+                        Symbol::There(import) => {
+                            let pos = import.pos();
+                            let import = import.value;
+
+                            match Checker::new().check_module(
+                                &import.module_id,
+                                modules,
+                                typed_modules,
+                            ) {
+                                Ok(()) => {
+                                    // find candidates in the checked module
+                                    let function_candidates: Vec<_> = typed_modules
+                                        .get(&import.module_id)
+                                        .unwrap()
+                                        .functions
+                                        .iter()
+                                        .filter(|(k, _)| k.id == import.symbol_id)
+                                        .map(|(_, v)| FunctionKey {
+                                            id: import.symbol_id.clone(),
+                                            signature: v.signature(&typed_modules).clone(),
+                                        })
+                                        .collect();
+
+                                    // find candidates in the types
+                                    let type_candidate = self
+                                        .types
+                                        .get(&import.module_id)
+                                        .map(|m| m.get(import.symbol_id));
+
+                                    match (function_candidates.len(), type_candidate) {
+                                        (0, Some(t)) => errors.push(Error {
                                             pos: Some(pos),
                                             message: format!(
-                                                "Duplicate definition for function {} with signature {}",
-                                                declaration.id,
-                                                funct.signature(&typed_modules)
+                                                "Duplicate symbol {} in module {}",
+                                                import.symbol_id, import.module_id
                                             ),
-                                        });
+                                        }),
+                                        (0, None) => unreachable!(),
+                                        _ => {
+                                            ids.insert(declaration.id);
+                                            for candidate in function_candidates {
+                                                self.functions
+                                                    .insert(candidate.clone().id(declaration.id));
+                                                checked_functions.insert(
+                                                    candidate.clone().id(declaration.id),
+                                                    TypedFunctionSymbol::There(
+                                                        candidate,
+                                                        import.module_id.clone(),
+                                                    ),
+                                                );
+                                            }
+                                        }
                                     }
-                                    0 => {}
-                                    _ => panic!(
-                                        "duplicate function declaration should have been caught"
-                                    ),
                                 }
-                                self.functions.insert(
-                                    FunctionKey::with_id(declaration.id.clone())
-                                        .signature(funct.signature(&typed_modules).clone()),
-                                );
-                                checked_functions.insert(
-                                    FunctionKey::with_id(declaration.id.clone())
-                                        .signature(funct.signature(&typed_modules).clone()),
-                                    funct,
-                                );
-                            }
+                                Err(e) => {
+                                    errors.extend(e);
+                                }
+                            };
                         }
-                        Err(e) => {
-                            errors.extend(e);
+                        Symbol::Flat(funct) => {
+                            let query = FunctionQuery::new(
+                                declaration.id.clone(),
+                                &funct.signature::<T>().inputs,
+                                &funct
+                                    .signature::<T>()
+                                    .outputs
+                                    .clone()
+                                    .into_iter()
+                                    .map(|o| Some(o))
+                                    .collect(),
+                            );
+
+                            let candidates = self.find_candidates(&query);
+
+                            match candidates.len() {
+                                1 => {
+                                    errors.push(Error {
+                                        pos: Some(pos),
+                                        message: format!(
+                                            "Duplicate definition for function {} with signature {}",
+                                            declaration.id,
+                                            funct.signature::<T>()
+                                        ),
+                                    });
+                                }
+                                0 => {}
+                                _ => {
+                                    panic!("duplicate function declaration should have been caught")
+                                }
+                            }
+                            ids.insert(declaration.id);
+                            self.functions.insert(
+                                FunctionKey::with_id(declaration.id.clone())
+                                    .signature(funct.signature::<T>().clone()),
+                            );
+                            checked_functions.insert(
+                                FunctionKey::with_id(declaration.id.clone())
+                                    .signature(funct.signature::<T>().clone()),
+                                TypedFunctionSymbol::Flat(funct),
+                            );
                         }
                     }
-
-                    self.exit_scope();
                 }
+
+                // for declaration in module.types {
+                //     let pos = declaration.pos();
+                //     let declaration = declaration.value;
+
+                //     let ty = self
+                //         .check_type_symbol(declaration.symbol, module_id, modules, typed_modules)
+                //         .unwrap();
+                //     self.types
+                //         .entry(module_id.clone())
+                //         .or_default()
+                //         .insert(declaration.id.to_string(), ty);
+                // }
+
+                // for declaration in module.functions {
+                //     self.enter_scope();
+
+                //     let pos = declaration.pos();
+                //     let declaration = declaration.value;
+
+                //     match self.check_function_symbol(
+                //         declaration.symbol,
+                //         module_id,
+                //         modules,
+                //         typed_modules,
+                //     ) {
+                //         Ok(checked_function_symbols) => {
+                //             for funct in checked_function_symbols {
+                //                 let query = FunctionQuery::new(
+                //                     declaration.id.clone(),
+                //                     &funct.signature(&typed_modules).inputs,
+                //                     &funct
+                //                         .signature(&typed_modules)
+                //                         .outputs
+                //                         .clone()
+                //                         .into_iter()
+                //                         .map(|o| Some(o))
+                //                         .collect(),
+                //                 );
+
+                //                 let candidates = self.find_candidates(&query);
+
+                //                 match candidates.len() {
+                //                     1 => {
+                //                         errors.push(Error {
+                //                             pos: Some(pos),
+                //                             message: format!(
+                //                                 "Duplicate definition for function {} with signature {}",
+                //                                 declaration.id,
+                //                                 funct.signature(&typed_modules)
+                //                             ),
+                //                         });
+                //                     }
+                //                     0 => {}
+                //                     _ => panic!(
+                //                         "duplicate function declaration should have been caught"
+                //                     ),
+                //                 }
+                //                 self.functions.insert(
+                //                     FunctionKey::with_id(declaration.id.clone())
+                //                         .signature(funct.signature(&typed_modules).clone()),
+                //                 );
+                //                 checked_functions.insert(
+                //                     FunctionKey::with_id(declaration.id.clone())
+                //                         .signature(funct.signature(&typed_modules).clone()),
+                //                     funct,
+                //                 );
+                //             }
+                //         }
+                //         Err(e) => {
+                //             errors.extend(e);
+                //         }
+                //     }
+
+                //     self.exit_scope();
+                // }
                 Some(TypedModule {
                     functions: checked_functions,
                 })
@@ -336,11 +565,11 @@ impl<'ast> Checker<'ast> {
         Ok(())
     }
 
-    fn check_single_main<T: Field>(module: &Module<T>) -> Result<(), Error> {
+    fn check_single_main<T: Field>(module: &TypedModule<T>) -> Result<(), Error> {
         match module
             .functions
             .iter()
-            .filter(|node| node.value.id == "main")
+            .filter(|(key, _)| key.id == "main")
             .count()
         {
             1 => Ok(()),
@@ -369,7 +598,7 @@ impl<'ast> Checker<'ast> {
         &mut self,
         funct_node: FunctionNode<'ast, T>,
         module_id: &ModuleId,
-    ) -> Result<TypedFunction<'ast, T>, Vec<Error>> {
+    ) -> Result<TypedFunctionSymbol<'ast, T>, Vec<Error>> {
         let mut errors = vec![];
         let funct = funct_node.value;
 
@@ -401,7 +630,7 @@ impl<'ast> Checker<'ast> {
             return Err(errors);
         }
 
-        Ok(TypedFunction {
+        Ok(TypedFunctionSymbol::Here(TypedFunction {
             arguments: funct
                 .arguments
                 .into_iter()
@@ -409,7 +638,7 @@ impl<'ast> Checker<'ast> {
                 .collect(),
             statements: statements_checked,
             signature,
-        })
+        }))
     }
 
     fn check_parameter(&self, p: ParameterNode<'ast>, module_id: &ModuleId) -> Parameter<'ast> {
@@ -452,69 +681,69 @@ impl<'ast> Checker<'ast> {
         }
     }
 
-    fn check_function_symbol<T: Field>(
-        &mut self,
-        funct_symbol: FunctionSymbol<'ast, T>,
-        module_id: &ModuleId,
-        modules: &mut Modules<'ast, T>,
-        typed_modules: &mut TypedModules<'ast, T>,
-    ) -> Result<Vec<TypedFunctionSymbol<'ast, T>>, Vec<Error>> {
-        let mut symbols = vec![];
-        let mut errors = vec![];
+    // fn check_function_symbol<T: Field>(
+    //     &mut self,
+    //     funct_symbol: FunctionSymbol<'ast, T>,
+    //     module_id: &ModuleId,
+    //     modules: &mut Modules<'ast, T>,
+    //     typed_modules: &mut TypedModules<'ast, T>,
+    // ) -> Result<Vec<TypedFunctionSymbol<'ast, T>>, Vec<Error>> {
+    //     let mut symbols = vec![];
+    //     let mut errors = vec![];
 
-        match funct_symbol {
-            FunctionSymbol::Here(funct_node) => self
-                .check_function(funct_node, module_id)
-                .map(|f| vec![TypedFunctionSymbol::Here(f)]),
-            FunctionSymbol::There(import_node) => {
-                let pos = import_node.pos();
-                let import = import_node.value;
+    //     match funct_symbol {
+    //         FunctionSymbol::Here(funct_node) => self
+    //             .check_function(funct_node, module_id)
+    //             .map(|f| vec![TypedFunctionSymbol::Here(f)]),
+    //         FunctionSymbol::There(import_node) => {
+    //             let pos = import_node.pos();
+    //             let import = import_node.value;
 
-                match Checker::new().check_module(&import.module_id, modules, typed_modules) {
-                    Ok(()) => {
-                        // find candidates in the checked module
-                        let candidates: Vec<_> = typed_modules
-                            .get(&import.module_id)
-                            .unwrap()
-                            .functions
-                            .iter()
-                            .filter(|(k, _)| k.id == import.function_id)
-                            .map(|(_, v)| FunctionKey {
-                                id: import.function_id.clone(),
-                                signature: v.signature(&typed_modules).clone(),
-                            })
-                            .collect();
+    //             match Checker::new().check_module(&import.module_id, modules, typed_modules) {
+    //                 Ok(()) => {
+    //                     // find candidates in the checked module
+    //                     let candidates: Vec<_> = typed_modules
+    //                         .get(&import.module_id)
+    //                         .unwrap()
+    //                         .functions
+    //                         .iter()
+    //                         .filter(|(k, _)| k.id == import.function_id)
+    //                         .map(|(_, v)| FunctionKey {
+    //                             id: import.function_id.clone(),
+    //                             signature: v.signature(&typed_modules).clone(),
+    //                         })
+    //                         .collect();
 
-                        match candidates.len() {
-                            0 => errors.push(Error {
-                                pos: Some(pos),
-                                message: format!(
-                                    "Function {} not found in module {}",
-                                    import.function_id, import.module_id
-                                ),
-                            }),
-                            _ => {
-                                symbols.extend(candidates.into_iter().map(|f| {
-                                    TypedFunctionSymbol::There(f, import.module_id.clone())
-                                }))
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        errors.extend(e);
-                    }
-                };
+    //                     match candidates.len() {
+    //                         0 => errors.push(Error {
+    //                             pos: Some(pos),
+    //                             message: format!(
+    //                                 "Function {} not found in module {}",
+    //                                 import.function_id, import.module_id
+    //                             ),
+    //                         }),
+    //                         _ => {
+    //                             symbols.extend(candidates.into_iter().map(|f| {
+    //                                 TypedFunctionSymbol::There(f, import.module_id.clone())
+    //                             }))
+    //                         }
+    //                     }
+    //                 }
+    //                 Err(e) => {
+    //                     errors.extend(e);
+    //                 }
+    //             };
 
-                // return if any errors occured
-                if errors.len() > 0 {
-                    return Err(errors);
-                }
+    //             // return if any errors occured
+    //             if errors.len() > 0 {
+    //                 return Err(errors);
+    //             }
 
-                Ok(symbols)
-            }
-            FunctionSymbol::Flat(flat_fun) => Ok(vec![TypedFunctionSymbol::Flat(flat_fun)]),
-        }
-    }
+    //             Ok(symbols)
+    //         }
+    //         FunctionSymbol::Flat(flat_fun) => Ok(vec![TypedFunctionSymbol::Flat(flat_fun)]),
+    //     }
+    // }
 
     fn check_variable(
         &self,

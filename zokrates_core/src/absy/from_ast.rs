@@ -7,15 +7,25 @@ use zokrates_pest_ast as pest;
 impl<'ast, T: Field> From<pest::File<'ast>> for absy::Module<'ast, T> {
     fn from(prog: pest::File<'ast>) -> absy::Module<T> {
         absy::Module {
-            types: prog
+            // types: prog
+            //     .structs
+            //     .into_iter()
+            //     .map(|t| absy::TypeDeclarationNode::from(t))
+            //     .collect(),
+            // functions: prog
+            //     .functions
+            //     .into_iter()
+            //     .map(|f| absy::FunctionDeclarationNode::from(f))
+            //     .collect(),
+            symbols: prog
                 .structs
                 .into_iter()
-                .map(|t| absy::TypeDeclarationNode::from(t))
-                .collect(),
-            functions: prog
-                .functions
-                .into_iter()
-                .map(|f| absy::FunctionDeclarationNode::from(f))
+                .map(|t| absy::SymbolDeclarationNode::from(t))
+                .chain(
+                    prog.functions
+                        .into_iter()
+                        .map(|f| absy::SymbolDeclarationNode::from(f)),
+                )
                 .collect(),
             imports: prog
                 .imports
@@ -35,8 +45,8 @@ impl<'ast> From<pest::ImportDirective<'ast>> for absy::ImportNode<'ast> {
     }
 }
 
-impl<'ast> From<pest::StructDefinition<'ast>> for absy::TypeDeclarationNode<'ast> {
-    fn from(definition: pest::StructDefinition<'ast>) -> absy::TypeDeclarationNode {
+impl<'ast, T: Field> From<pest::StructDefinition<'ast>> for absy::SymbolDeclarationNode<'ast, T> {
+    fn from(definition: pest::StructDefinition<'ast>) -> absy::SymbolDeclarationNode<'ast, T> {
         use absy::NodeValue;
 
         let span = definition.span;
@@ -52,9 +62,9 @@ impl<'ast> From<pest::StructDefinition<'ast>> for absy::TypeDeclarationNode<'ast
         }
         .span(span.clone()); // TODO check
 
-        absy::TypeDeclaration {
+        absy::SymbolDeclaration {
             id,
-            symbol: absy::TypeSymbol::Here(ty),
+            symbol: absy::Symbol::HereType(ty),
         }
         .span(span)
     }
@@ -74,8 +84,8 @@ impl<'ast> From<pest::StructField<'ast>> for absy::StructFieldNode<'ast> {
     }
 }
 
-impl<'ast, T: Field> From<pest::Function<'ast>> for absy::FunctionDeclarationNode<'ast, T> {
-    fn from(function: pest::Function<'ast>) -> absy::FunctionDeclarationNode<T> {
+impl<'ast, T: Field> From<pest::Function<'ast>> for absy::SymbolDeclarationNode<'ast, T> {
+    fn from(function: pest::Function<'ast>) -> absy::SymbolDeclarationNode<T> {
         use absy::NodeValue;
 
         let span = function.span;
@@ -115,9 +125,9 @@ impl<'ast, T: Field> From<pest::Function<'ast>> for absy::FunctionDeclarationNod
         }
         .span(span.clone()); // TODO check
 
-        absy::FunctionDeclaration {
+        absy::SymbolDeclaration {
             id,
-            symbol: absy::FunctionSymbol::Here(function),
+            symbol: absy::Symbol::HereFunction(function),
         }
         .span(span)
     }

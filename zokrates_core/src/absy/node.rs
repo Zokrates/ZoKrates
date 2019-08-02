@@ -74,13 +74,12 @@ impl<'ast, T: Field> NodeValue for Expression<'ast, T> {}
 impl<'ast, T: Field> NodeValue for ExpressionList<'ast, T> {}
 impl<'ast, T: Field> NodeValue for Assignee<'ast, T> {}
 impl<'ast, T: Field> NodeValue for Statement<'ast, T> {}
-impl<'ast, T: Field> NodeValue for FunctionDeclaration<'ast, T> {}
-impl<'ast> NodeValue for TypeDeclaration<'ast> {}
+impl<'ast, T: Field> NodeValue for SymbolDeclaration<'ast, T> {}
 impl<'ast> NodeValue for StructType<'ast> {}
 impl<'ast> NodeValue for StructField<'ast> {}
 impl<'ast, T: Field> NodeValue for Function<'ast, T> {}
 impl<'ast, T: Field> NodeValue for Module<'ast, T> {}
-impl<'ast> NodeValue for FunctionImport<'ast> {}
+impl<'ast> NodeValue for SymbolImport<'ast> {}
 impl<'ast> NodeValue for Variable<'ast> {}
 impl<'ast> NodeValue for Parameter<'ast> {}
 impl<'ast> NodeValue for Import<'ast> {}

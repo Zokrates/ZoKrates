@@ -1,0 +1,16 @@
+struct Foo {
+	a: field,
+	b: field[2],
+}
+
+struct Bar {
+	a: Foo,
+	b: field[2]
+}
+
+def f(Foo a) -> (Foo):
+	return a
+
+def main(Bar a) -> (Foo):
+	return f(a.a)
+
