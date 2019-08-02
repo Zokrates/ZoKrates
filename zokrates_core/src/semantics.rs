@@ -277,7 +277,7 @@ impl<'ast> Checker<'ast> {
             Some(module) => {
                 assert_eq!(module.imports.len(), 0);
 
-                let ids = HashSet::new();
+                let mut ids = HashSet::new();
 
                 for declaration in module.symbols {
                     let pos = declaration.pos();
