@@ -243,6 +243,11 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
             let e2 = f.fold_field_expression(e2);
             BooleanExpression::Eq(box e1, box e2)
         }
+        BooleanExpression::ArrayEq(box e1, box e2) => {
+            let e1 = f.fold_field_array_expression(e1);
+            let e2 = f.fold_field_array_expression(e2);
+            BooleanExpression::ArrayEq(box e1, box e2)
+        }
         BooleanExpression::Lt(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);

@@ -489,6 +489,10 @@ pub enum BooleanExpression<'ast, T: Field> {
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
+    ArrayEq(
+        Box<FieldElementArrayExpression<'ast, T>>,
+        Box<FieldElementArrayExpression<'ast, T>>,
+    ),
     Ge(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
@@ -532,6 +536,18 @@ impl<'ast, T: Field> FieldElementArrayExpression<'ast, T> {
             FieldElementArrayExpression::IfElse(_, ref consequence, _) => consequence.size(),
         }
     }
+
+    // pub fn values(&self) -> Vec<FieldElementExpression<'ast, T>> {
+    //     match &*self {
+    //         FieldElementArrayExpression::Value(size, values) => {
+    //             values
+    //                 .into_iter()
+    //                 .map(|v| v)
+    //                 .collect()
+    //         }
+    //         _ => panic!("cant get values from this specialization!"),
+    //     }
+    // }
 }
 
 impl<'ast, T: Field> fmt::Display for FieldElementExpression<'ast, T> {
@@ -573,6 +589,7 @@ impl<'ast, T: Field> fmt::Display for BooleanExpression<'ast, T> {
             BooleanExpression::Lt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
             BooleanExpression::Le(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
             BooleanExpression::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            BooleanExpression::ArrayEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
             BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
             BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
