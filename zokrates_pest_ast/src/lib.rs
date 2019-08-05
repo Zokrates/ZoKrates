@@ -193,8 +193,25 @@ mod ast {
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::import_directive))]
-    pub struct ImportDirective<'ast> {
+    pub enum ImportDirective<'ast> {
+        Main(MainImportDirective<'ast>),
+        From(FromImportDirective<'ast>),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::main_import_directive))]
+    pub struct MainImportDirective<'ast> {
         pub source: ImportSource<'ast>,
+        pub alias: Option<IdentifierExpression<'ast>>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::from_import_directive))]
+    pub struct FromImportDirective<'ast> {
+        pub source: ImportSource<'ast>,
+        pub symbol: IdentifierExpression<'ast>,
         pub alias: Option<IdentifierExpression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
@@ -212,26 +229,29 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty))]
     pub enum Type<'ast> {
-        Basic(BasicType),
+        Basic(BasicType<'ast>),
         Array(ArrayType<'ast>),
         Struct(StructType<'ast>),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_basic))]
-    pub enum BasicType {
-        Field(FieldType),
-        Boolean(BooleanType),
+    pub enum BasicType<'ast> {
+        Field(FieldType<'ast>),
+        Boolean(BooleanType<'ast>),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_field))]
-    pub struct FieldType {}
+    pub struct FieldType<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_array))]
     pub struct ArrayType<'ast> {
-        pub ty: BasicType,
+        pub ty: BasicType<'ast>,
         pub size: Vec<Expression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
@@ -239,7 +259,10 @@ mod ast {
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_bool))]
-    pub struct BooleanType {}
+    pub struct BooleanType<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_struct))]

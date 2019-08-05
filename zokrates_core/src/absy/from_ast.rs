@@ -1,6 +1,7 @@
 use absy;
+use absy::types::UnresolvedType;
+use absy::UnresolvedTypeNode;
 use imports;
-use types::UnresolvedType;
 use zokrates_field::field::Field;
 use zokrates_pest_ast as pest;
 
@@ -39,9 +40,20 @@ impl<'ast, T: Field> From<pest::File<'ast>> for absy::Module<'ast, T> {
 impl<'ast> From<pest::ImportDirective<'ast>> for absy::ImportNode<'ast> {
     fn from(import: pest::ImportDirective<'ast>) -> absy::ImportNode {
         use absy::NodeValue;
-        imports::Import::new(import.source.span.as_str())
+
+        match import {
+            pest::ImportDirective::Main(import) => {
+                imports::Import::new(None, import.source.span.as_str())
+                    .alias(import.alias.map(|a| a.span.as_str()))
+                    .span(import.span)
+            }
+            pest::ImportDirective::From(import) => imports::Import::new(
+                Some(import.symbol.span.as_str()),
+                import.source.span.as_str(),
+            )
             .alias(import.alias.map(|a| a.span.as_str()))
-            .span(import.span)
+            .span(import.span),
+        }
     }
 }
 
@@ -78,7 +90,7 @@ impl<'ast> From<pest::StructField<'ast>> for absy::StructFieldNode<'ast> {
 
         let id = field.id.span.as_str();
 
-        let ty = UnresolvedType::from(field.ty);
+        let ty = UnresolvedTypeNode::from(field.ty);
 
         absy::StructField { id, ty }.span(span)
     }
@@ -96,7 +108,7 @@ impl<'ast, T: Field> From<pest::Function<'ast>> for absy::SymbolDeclarationNode<
                     .parameters
                     .clone()
                     .into_iter()
-                    .map(|p| absy::ParameterNode::from(p).value.id.value.get_type())
+                    .map(|p| UnresolvedTypeNode::from(p.ty))
                     .collect(),
             )
             .outputs(
@@ -104,7 +116,7 @@ impl<'ast, T: Field> From<pest::Function<'ast>> for absy::SymbolDeclarationNode<
                     .returns
                     .clone()
                     .into_iter()
-                    .map(|r| UnresolvedType::from(r))
+                    .map(|r| UnresolvedTypeNode::from(r))
                     .collect(),
             );
 
@@ -145,8 +157,9 @@ impl<'ast> From<pest::Parameter<'ast>> for absy::ParameterNode<'ast> {
             })
             .unwrap_or(false);
 
-        let variable = absy::Variable::new(param.id.span.as_str(), UnresolvedType::from(param.ty))
-            .span(param.id.span);
+        let variable =
+            absy::Variable::new(param.id.span.as_str(), UnresolvedTypeNode::from(param.ty))
+                .span(param.id.span);
 
         absy::Parameter::new(variable, private).span(param.span)
     }
@@ -177,7 +190,7 @@ fn statements_from_multi_assignment<'ast, T: Field>(
         .filter(|i| i.ty.is_some())
         .map(|i| {
             absy::Statement::Declaration(
-                absy::Variable::new(i.id.span.as_str(), UnresolvedType::from(i.ty.unwrap()))
+                absy::Variable::new(i.id.span.as_str(), UnresolvedTypeNode::from(i.ty.unwrap()))
                     .span(i.id.span),
             )
             .span(i.span)
@@ -215,7 +228,7 @@ fn statements_from_definition<'ast, T: Field>(
         absy::Statement::Declaration(
             absy::Variable::new(
                 definition.id.span.as_str(),
-                UnresolvedType::from(definition.ty),
+                UnresolvedTypeNode::from(definition.ty),
             )
             .span(definition.id.span.clone()),
         )
@@ -276,7 +289,7 @@ impl<'ast, T: Field> From<pest::IterationStatement<'ast>> for absy::StatementNod
         let from = absy::ExpressionNode::from(statement.from);
         let to = absy::ExpressionNode::from(statement.to);
         let index = statement.index.span.as_str();
-        let ty = UnresolvedType::from(statement.ty);
+        let ty = UnresolvedTypeNode::from(statement.ty);
         let statements: Vec<absy::StatementNode<T>> = statement
             .statements
             .into_iter()
@@ -578,18 +591,22 @@ impl<'ast, T: Field> From<pest::Assignee<'ast>> for absy::AssigneeNode<'ast, T> 
     }
 }
 
-impl<'ast> From<pest::Type<'ast>> for UnresolvedType {
-    fn from(t: pest::Type<'ast>) -> UnresolvedType {
+impl<'ast> From<pest::Type<'ast>> for UnresolvedTypeNode {
+    fn from(t: pest::Type<'ast>) -> UnresolvedTypeNode {
+        use absy::NodeValue;
+
         match t {
             pest::Type::Basic(t) => match t {
-                pest::BasicType::Field(_) => UnresolvedType::FieldElement,
-                pest::BasicType::Boolean(_) => UnresolvedType::Boolean,
+                pest::BasicType::Field(t) => UnresolvedType::FieldElement.span(t.span),
+                pest::BasicType::Boolean(t) => UnresolvedType::Boolean.span(t.span),
             },
             pest::Type::Array(t) => {
                 let inner_type = match t.ty {
-                    pest::BasicType::Field(_) => UnresolvedType::FieldElement,
-                    pest::BasicType::Boolean(_) => UnresolvedType::Boolean,
+                    pest::BasicType::Field(t) => UnresolvedType::FieldElement.span(t.span),
+                    pest::BasicType::Boolean(t) => UnresolvedType::Boolean.span(t.span),
                 };
+
+                let span = t.span;
 
                 t.size
                     .into_iter()
@@ -610,11 +627,14 @@ impl<'ast> From<pest::Type<'ast>> for UnresolvedType {
                     })
                     .fold(None, |acc, s| match acc {
                         None => Some(UnresolvedType::array(inner_type.clone(), s)),
-                        Some(acc) => Some(UnresolvedType::array(acc, s)),
+                        Some(acc) => Some(UnresolvedType::array(acc.span(span.clone()), s)),
                     })
                     .unwrap()
+                    .span(span.clone())
             }
-            pest::Type::Struct(s) => UnresolvedType::User(s.id.span.as_str().to_string()),
+            pest::Type::Struct(s) => {
+                UnresolvedType::User(s.id.span.as_str().to_string()).span(s.span)
+            }
         }
     }
 }

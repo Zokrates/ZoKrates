@@ -5,8 +5,8 @@
 //! @date 2018
 
 use crate::typed_absy::folder::*;
+use crate::typed_absy::types::Type;
 use crate::typed_absy::*;
-use crate::types::Type;
 use std::collections::HashMap;
 use zokrates_field::field::Field;
 
@@ -216,7 +216,7 @@ mod tests {
     #[cfg(test)]
     mod statement {
         use super::*;
-        use crate::types::{FunctionKey, Signature};
+        use crate::typed_absy::types::{FunctionKey, Signature};
 
         #[test]
         fn for_loop() {
@@ -397,7 +397,7 @@ mod tests {
 
         #[test]
         fn incremental_multiple_definition() {
-            use crate::types::Type;
+            use crate::typed_absy::types::Type;
 
             // field a
             // a = 2

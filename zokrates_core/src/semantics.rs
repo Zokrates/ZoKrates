@@ -14,7 +14,8 @@ use zokrates_field::field::Field;
 
 use crate::parser::Position;
 
-use crate::types::{FunctionKey, Signature, Type, UnresolvedSignature, UnresolvedType, UserTypeId};
+use crate::absy::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
+use crate::typed_absy::types::{FunctionKey, Signature, Type};
 
 use std::hash::{Hash, Hasher};
 
@@ -22,6 +23,29 @@ use std::hash::{Hash, Hasher};
 pub struct Error {
     pos: Option<(Position, Position)>,
     message: String,
+}
+
+type TypeMap = HashMap<ModuleId, HashMap<UserTypeId, Type>>;
+
+/// The global state of the program during semantic checks
+#[derive(Debug)]
+struct State<'ast, T: Field> {
+    /// The modules yet to be checked
+    modules: Modules<'ast, T>,
+    /// The already checked modules
+    typed_modules: TypedModules<'ast, T>,
+    /// The user-defined types
+    types: TypeMap,
+}
+
+impl<'ast, T: Field> State<'ast, T> {
+    fn new(modules: Modules<'ast, T>) -> Self {
+        State {
+            modules,
+            typed_modules: HashMap::new(),
+            types: HashMap::new(),
+        }
+    }
 }
 
 impl fmt::Display for Error {
@@ -125,7 +149,6 @@ impl<'ast> Eq for ScopedVariable<'ast> {}
 pub struct Checker<'ast> {
     scope: HashSet<ScopedVariable<'ast>>,
     functions: HashSet<FunctionKey<'ast>>,
-    types: HashMap<ModuleId, HashMap<UserTypeId, Type>>,
     level: usize,
 }
 
@@ -134,7 +157,6 @@ impl<'ast> Checker<'ast> {
         Checker {
             scope: HashSet::new(),
             functions: HashSet::new(),
-            types: HashMap::new(),
             level: 0,
         }
     }
@@ -152,110 +174,59 @@ impl<'ast> Checker<'ast> {
         &mut self,
         program: Program<'ast, T>,
     ) -> Result<TypedProgram<'ast, T>, Vec<Error>> {
-        // start with full `modules`
-        let mut modules = program.modules;
-        // and empty `typed_modules`
-        let mut typed_modules = HashMap::new();
+        let mut state = State::new(program.modules);
 
         let mut errors = vec![];
 
         // recursively type-check modules starting with `main`
-        match self.check_module(&program.main, &mut modules, &mut typed_modules) {
+        match self.check_module(&program.main, &mut state) {
             Ok(()) => {}
             Err(e) => errors.extend(e),
-        };
-
-        match Checker::check_single_main(typed_modules.get(&program.main).unwrap()) {
-            Ok(_) => {}
-            Err(e) => errors.push(e),
         };
 
         if errors.len() > 0 {
             return Err(errors);
         }
 
+        Checker::check_single_main(state.typed_modules.get(&program.main).unwrap())
+            .map_err(|e| vec![e])?;
+
         Ok(TypedProgram {
             main: program.main,
-            modules: typed_modules,
+            modules: state.typed_modules,
         })
     }
-
-    // fn check_type_symbol<T: Field>(
-    //     &mut self,
-    //     s: StructTypeNode<'ast>,
-    //     module_id: &ModuleId,
-    //     modules: &mut Modules<'ast, T>,
-    //     typed_modules: &mut TypedModules<'ast, T>,
-    // ) -> Result<Type, Vec<Error>> {
-
-    //     let mut errors = vec![];
-
-    //     match s {
-    //         TypeSymbol::Here(t) => {
-    //             self.check_struct_type_declaration(t, module_id, modules, typed_modules)
-    //         }
-    //         TypeSymbol::There(import_node) => {
-    //             let pos = import_node.pos();
-    //             let import = import_node.value;
-
-    //             let res =
-    //                 match Checker::new().check_module(&import.module_id, modules, typed_modules) {
-    //                     Ok(()) => {
-    //                         match self
-    //                             .types
-    //                             .get(&import.module_id)
-    //                             .unwrap()
-    //                             .get(import.type_id)
-    //                         {
-    //                             Some(ty) => Some(ty),
-    //                             None => {
-    //                                 errors.push(Error {
-    //                                     pos: Some(pos),
-    //                                     message: format!(
-    //                                         "Type {} not found in module {}",
-    //                                         import.type_id, import.module_id
-    //                                     ),
-    //                                 });
-    //                                 None
-    //                             }
-    //                         }
-    //                     }
-    //                     Err(e) => {
-    //                         errors.extend(e);
-    //                         None
-    //                     }
-    //                 };
-
-    //             // return if any errors occured
-    //             if errors.len() > 0 {
-    //                 return Err(errors);
-    //             }
-
-    //             Ok(res.unwrap().clone())
-    //         }
-    //     }
-    // }
 
     fn check_struct_type_declaration<T: Field>(
         &mut self,
         s: StructTypeNode<'ast>,
         module_id: &ModuleId,
-        modules: &mut Modules<'ast, T>,
-        typed_modules: &mut TypedModules<'ast, T>,
+        state: &mut State<'ast, T>,
     ) -> Result<Type, Vec<Error>> {
         let pos = s.pos();
         let s = s.value;
 
-        let fields = s
-            .fields
-            .into_iter()
-            .map(|n| {
-                (
-                    n.value.id.to_string(),
-                    self.check_type(n.value.ty, module_id).unwrap(),
-                )
-            })
-            .collect();
+        let mut errors = vec![];
+        let mut fields: Vec<(_, _)> = vec![];
+
+        for field in s.fields {
+            let member_id = field.value.id.to_string();
+            match self
+                .check_type(field.value.ty, module_id, &state.types)
+                .map(|t| (member_id, t))
+            {
+                Ok(f) => {
+                    fields.push(f);
+                }
+                Err(e) => {
+                    errors.push(e);
+                }
+            }
+        }
+
+        if errors.len() > 0 {
+            return Err(errors);
+        }
 
         Ok(Type::Struct(fields))
     }
@@ -263,14 +234,13 @@ impl<'ast> Checker<'ast> {
     fn check_module<T: Field>(
         &mut self,
         module_id: &ModuleId,
-        modules: &mut Modules<'ast, T>,
-        typed_modules: &mut TypedModules<'ast, T>,
+        state: &mut State<'ast, T>,
     ) -> Result<(), Vec<Error>> {
         let mut errors = vec![];
         let mut checked_functions = HashMap::new();
 
         // check if the module was already removed from the untyped ones
-        let to_insert = match modules.remove(module_id) {
+        let to_insert = match state.modules.remove(module_id) {
             // if it was, do nothing
             None => None,
             // if it was not, check it
@@ -286,35 +256,37 @@ impl<'ast> Checker<'ast> {
                     match declaration.symbol {
                         Symbol::HereType(t) => {
                             match ids.insert(declaration.id) {
-                                true => errors.push(Error {
+                                false => errors.push(Error {
                                     pos: Some(pos),
                                     message: format!(
                                         "Another symbol with id {} is already defined",
                                         declaration.id,
                                     ),
                                 }),
-                                false => {}
+                                true => {}
                             };
 
-                            let ty = self
-                                .check_struct_type_declaration(t, module_id, modules, typed_modules)
-                                .unwrap();
-
-                            self.types
-                                .entry(module_id.clone())
-                                .or_default()
-                                .insert(declaration.id.to_string(), ty);
+                            match self.check_struct_type_declaration(t.clone(), module_id, state) {
+                                Ok(ty) => {
+                                    state
+                                        .types
+                                        .entry(module_id.clone())
+                                        .or_default()
+                                        .insert(declaration.id.to_string(), ty);
+                                }
+                                Err(e) => errors.extend(e),
+                            }
                         }
                         Symbol::HereFunction(f) => {
                             self.enter_scope();
 
-                            match self.check_function(f, module_id) {
+                            match self.check_function(f, module_id, &state.types) {
                                 Ok(funct) => {
                                     let query = FunctionQuery::new(
                                         declaration.id.clone(),
-                                        &funct.signature(&typed_modules).inputs,
+                                        &funct.signature(&state.typed_modules).inputs,
                                         &funct
-                                            .signature(&typed_modules)
+                                            .signature(&state.typed_modules)
                                             .outputs
                                             .clone()
                                             .into_iter()
@@ -331,7 +303,7 @@ impl<'ast> Checker<'ast> {
                                                 message: format!(
                                                     "Duplicate definition for function {} with signature {}",
                                                     declaration.id,
-                                                    funct.signature(&typed_modules)
+                                                    funct.signature(&state.typed_modules)
                                                 ),
                                             });
                                         }
@@ -344,12 +316,14 @@ impl<'ast> Checker<'ast> {
                                     ids.insert(declaration.id);
 
                                     self.functions.insert(
-                                        FunctionKey::with_id(declaration.id.clone())
-                                            .signature(funct.signature(&typed_modules).clone()),
+                                        FunctionKey::with_id(declaration.id.clone()).signature(
+                                            funct.signature(&state.typed_modules).clone(),
+                                        ),
                                     );
                                     checked_functions.insert(
-                                        FunctionKey::with_id(declaration.id.clone())
-                                            .signature(funct.signature(&typed_modules).clone()),
+                                        FunctionKey::with_id(declaration.id.clone()).signature(
+                                            funct.signature(&state.typed_modules).clone(),
+                                        ),
                                         funct,
                                     );
                                 }
@@ -364,14 +338,11 @@ impl<'ast> Checker<'ast> {
                             let pos = import.pos();
                             let import = import.value;
 
-                            match Checker::new().check_module(
-                                &import.module_id,
-                                modules,
-                                typed_modules,
-                            ) {
+                            match Checker::new().check_module(&import.module_id, state) {
                                 Ok(()) => {
                                     // find candidates in the checked module
-                                    let function_candidates: Vec<_> = typed_modules
+                                    let function_candidates: Vec<_> = state
+                                        .typed_modules
                                         .get(&import.module_id)
                                         .unwrap()
                                         .functions
@@ -379,24 +350,27 @@ impl<'ast> Checker<'ast> {
                                         .filter(|(k, _)| k.id == import.symbol_id)
                                         .map(|(_, v)| FunctionKey {
                                             id: import.symbol_id.clone(),
-                                            signature: v.signature(&typed_modules).clone(),
+                                            signature: v.signature(&state.typed_modules).clone(),
                                         })
                                         .collect();
 
                                     // find candidates in the types
-                                    let type_candidate = self
+                                    let type_candidate = state
                                         .types
                                         .get(&import.module_id)
-                                        .map(|m| m.get(import.symbol_id));
+                                        .unwrap()
+                                        .get(import.symbol_id)
+                                        .cloned();
 
                                     match (function_candidates.len(), type_candidate) {
-                                        (0, Some(t)) => errors.push(Error {
-                                            pos: Some(pos),
-                                            message: format!(
-                                                "Duplicate symbol {} in module {}",
-                                                import.symbol_id, import.module_id
-                                            ),
-                                        }),
+                                        (0, Some(t)) => {
+                                            ids.insert(declaration.id);
+                                            state
+                                                .types
+                                                .entry(module_id.clone())
+                                                .or_default()
+                                                .insert(import.symbol_id.to_string(), t.clone());
+                                        }
                                         (0, None) => unreachable!(),
                                         _ => {
                                             ids.insert(declaration.id);
@@ -464,81 +438,6 @@ impl<'ast> Checker<'ast> {
                     }
                 }
 
-                // for declaration in module.types {
-                //     let pos = declaration.pos();
-                //     let declaration = declaration.value;
-
-                //     let ty = self
-                //         .check_type_symbol(declaration.symbol, module_id, modules, typed_modules)
-                //         .unwrap();
-                //     self.types
-                //         .entry(module_id.clone())
-                //         .or_default()
-                //         .insert(declaration.id.to_string(), ty);
-                // }
-
-                // for declaration in module.functions {
-                //     self.enter_scope();
-
-                //     let pos = declaration.pos();
-                //     let declaration = declaration.value;
-
-                //     match self.check_function_symbol(
-                //         declaration.symbol,
-                //         module_id,
-                //         modules,
-                //         typed_modules,
-                //     ) {
-                //         Ok(checked_function_symbols) => {
-                //             for funct in checked_function_symbols {
-                //                 let query = FunctionQuery::new(
-                //                     declaration.id.clone(),
-                //                     &funct.signature(&typed_modules).inputs,
-                //                     &funct
-                //                         .signature(&typed_modules)
-                //                         .outputs
-                //                         .clone()
-                //                         .into_iter()
-                //                         .map(|o| Some(o))
-                //                         .collect(),
-                //                 );
-
-                //                 let candidates = self.find_candidates(&query);
-
-                //                 match candidates.len() {
-                //                     1 => {
-                //                         errors.push(Error {
-                //                             pos: Some(pos),
-                //                             message: format!(
-                //                                 "Duplicate definition for function {} with signature {}",
-                //                                 declaration.id,
-                //                                 funct.signature(&typed_modules)
-                //                             ),
-                //                         });
-                //                     }
-                //                     0 => {}
-                //                     _ => panic!(
-                //                         "duplicate function declaration should have been caught"
-                //                     ),
-                //                 }
-                //                 self.functions.insert(
-                //                     FunctionKey::with_id(declaration.id.clone())
-                //                         .signature(funct.signature(&typed_modules).clone()),
-                //                 );
-                //                 checked_functions.insert(
-                //                     FunctionKey::with_id(declaration.id.clone())
-                //                         .signature(funct.signature(&typed_modules).clone()),
-                //                     funct,
-                //                 );
-                //             }
-                //         }
-                //         Err(e) => {
-                //             errors.extend(e);
-                //         }
-                //     }
-
-                //     self.exit_scope();
-                // }
                 Some(TypedModule {
                     functions: checked_functions,
                 })
@@ -553,7 +452,7 @@ impl<'ast> Checker<'ast> {
         // insert into typed_modules if we checked anything
         match to_insert {
             Some(typed_module) => {
-                typed_modules.insert(module_id.clone(), typed_module);
+                state.typed_modules.insert(module_id.clone(), typed_module);
             }
             None => {}
         };
@@ -598,27 +497,96 @@ impl<'ast> Checker<'ast> {
         &mut self,
         funct_node: FunctionNode<'ast, T>,
         module_id: &ModuleId,
+        types: &TypeMap,
     ) -> Result<TypedFunctionSymbol<'ast, T>, Vec<Error>> {
         let mut errors = vec![];
         let funct = funct_node.value;
+        let mut arguments_checked = vec![];
+        let mut signature = None;
 
         assert_eq!(funct.arguments.len(), funct.signature.inputs.len());
 
-        for arg in &funct.arguments {
-            let v = self
-                .check_variable(arg.value.id.clone(), module_id)
-                .unwrap();
-            self.insert_into_scope(v);
+        for arg in funct.arguments {
+            match self.check_parameter(arg, module_id, types) {
+                Ok(a) => {
+                    self.insert_into_scope(a.id.clone());
+                    arguments_checked.push(a);
+                }
+                Err(e) => errors.extend(e),
+            }
         }
 
         let mut statements_checked = vec![];
 
-        let signature = self.check_signature(funct.signature, module_id)?;
+        match self.check_signature(funct.signature, module_id, types) {
+            Ok(s) => {
+                for stat in funct.statements.into_iter() {
+                    match self.check_statement(stat, &s.outputs, module_id, types) {
+                        Ok(statement) => {
+                            statements_checked.push(statement);
+                        }
+                        Err(e) => {
+                            errors.push(e);
+                        }
+                    }
+                }
+                signature = Some(s);
+            }
+            Err(e) => {
+                errors.extend(e);
+            }
+        };
 
-        for stat in funct.statements.into_iter() {
-            match self.check_statement(stat, &signature.outputs, module_id) {
-                Ok(statement) => {
-                    statements_checked.push(statement);
+        if errors.len() > 0 {
+            return Err(errors);
+        }
+
+        Ok(TypedFunctionSymbol::Here(TypedFunction {
+            arguments: arguments_checked,
+            statements: statements_checked,
+            signature: signature.unwrap(),
+        }))
+    }
+
+    fn check_parameter(
+        &self,
+        p: ParameterNode<'ast>,
+        module_id: &ModuleId,
+        types: &TypeMap,
+    ) -> Result<Parameter<'ast>, Vec<Error>> {
+        let var = self.check_variable(p.value.id, module_id, types)?;
+
+        Ok(Parameter {
+            id: var,
+            private: p.value.private,
+        })
+    }
+
+    fn check_signature(
+        &self,
+        signature: UnresolvedSignature,
+        module_id: &ModuleId,
+        types: &TypeMap,
+    ) -> Result<Signature, Vec<Error>> {
+        let mut errors = vec![];
+        let mut inputs = vec![];
+        let mut outputs = vec![];
+
+        for t in signature.inputs {
+            match self.check_type(t, module_id, types) {
+                Ok(t) => {
+                    inputs.push(t);
+                }
+                Err(e) => {
+                    errors.push(e);
+                }
+            }
+        }
+
+        for t in signature.outputs {
+            match self.check_type(t, module_id, types) {
+                Ok(t) => {
+                    outputs.push(t);
                 }
                 Err(e) => {
                     errors.push(e);
@@ -630,129 +598,49 @@ impl<'ast> Checker<'ast> {
             return Err(errors);
         }
 
-        Ok(TypedFunctionSymbol::Here(TypedFunction {
-            arguments: funct
-                .arguments
-                .into_iter()
-                .map(|a| self.check_parameter(a, module_id))
-                .collect(),
-            statements: statements_checked,
-            signature,
-        }))
+        Ok(Signature { inputs, outputs })
     }
 
-    fn check_parameter(&self, p: ParameterNode<'ast>, module_id: &ModuleId) -> Parameter<'ast> {
-        Parameter {
-            id: self.check_variable(p.value.id, module_id).unwrap(),
-            private: p.value.private,
-        }
-    }
-
-    fn check_signature(
+    fn check_type(
         &self,
-        signature: UnresolvedSignature,
+        ty: UnresolvedTypeNode,
         module_id: &ModuleId,
-    ) -> Result<Signature, Vec<Error>> {
-        Ok(Signature {
-            inputs: signature
-                .inputs
-                .into_iter()
-                .map(|t| self.check_type(t, module_id).unwrap())
-                .collect(),
-            outputs: signature
-                .outputs
-                .into_iter()
-                .map(|t| self.check_type(t, module_id).unwrap())
-                .collect(),
-        })
-    }
+        types: &TypeMap,
+    ) -> Result<Type, Error> {
+        let pos = ty.pos();
+        let ty = ty.value;
 
-    fn check_type(&self, ty: UnresolvedType, module_id: &ModuleId) -> Result<Type, Vec<Error>> {
         match ty {
             UnresolvedType::FieldElement => Ok(Type::FieldElement),
             UnresolvedType::Boolean => Ok(Type::Boolean),
             UnresolvedType::Array(t, size) => Ok(Type::Array(
-                box self.check_type(*t, module_id).unwrap(),
+                box self.check_type(*t, module_id, types)?,
                 size,
             )),
             UnresolvedType::User(id) => {
-                Ok(self.types.get(module_id).unwrap().get(&id).unwrap().clone())
+                types
+                    .get(module_id)
+                    .unwrap()
+                    .get(&id)
+                    .cloned()
+                    .ok_or_else(|| Error {
+                        pos: Some(pos),
+                        message: format!("Undefined type {}", id),
+                    })
             }
         }
     }
-
-    // fn check_function_symbol<T: Field>(
-    //     &mut self,
-    //     funct_symbol: FunctionSymbol<'ast, T>,
-    //     module_id: &ModuleId,
-    //     modules: &mut Modules<'ast, T>,
-    //     typed_modules: &mut TypedModules<'ast, T>,
-    // ) -> Result<Vec<TypedFunctionSymbol<'ast, T>>, Vec<Error>> {
-    //     let mut symbols = vec![];
-    //     let mut errors = vec![];
-
-    //     match funct_symbol {
-    //         FunctionSymbol::Here(funct_node) => self
-    //             .check_function(funct_node, module_id)
-    //             .map(|f| vec![TypedFunctionSymbol::Here(f)]),
-    //         FunctionSymbol::There(import_node) => {
-    //             let pos = import_node.pos();
-    //             let import = import_node.value;
-
-    //             match Checker::new().check_module(&import.module_id, modules, typed_modules) {
-    //                 Ok(()) => {
-    //                     // find candidates in the checked module
-    //                     let candidates: Vec<_> = typed_modules
-    //                         .get(&import.module_id)
-    //                         .unwrap()
-    //                         .functions
-    //                         .iter()
-    //                         .filter(|(k, _)| k.id == import.function_id)
-    //                         .map(|(_, v)| FunctionKey {
-    //                             id: import.function_id.clone(),
-    //                             signature: v.signature(&typed_modules).clone(),
-    //                         })
-    //                         .collect();
-
-    //                     match candidates.len() {
-    //                         0 => errors.push(Error {
-    //                             pos: Some(pos),
-    //                             message: format!(
-    //                                 "Function {} not found in module {}",
-    //                                 import.function_id, import.module_id
-    //                             ),
-    //                         }),
-    //                         _ => {
-    //                             symbols.extend(candidates.into_iter().map(|f| {
-    //                                 TypedFunctionSymbol::There(f, import.module_id.clone())
-    //                             }))
-    //                         }
-    //                     }
-    //                 }
-    //                 Err(e) => {
-    //                     errors.extend(e);
-    //                 }
-    //             };
-
-    //             // return if any errors occured
-    //             if errors.len() > 0 {
-    //                 return Err(errors);
-    //             }
-
-    //             Ok(symbols)
-    //         }
-    //         FunctionSymbol::Flat(flat_fun) => Ok(vec![TypedFunctionSymbol::Flat(flat_fun)]),
-    //     }
-    // }
 
     fn check_variable(
         &self,
         v: crate::absy::VariableNode<'ast>,
         module_id: &ModuleId,
+        types: &TypeMap,
     ) -> Result<Variable<'ast>, Vec<Error>> {
         Ok(Variable::with_id_and_type(
             v.value.id.into(),
-            self.check_type(v.value._type, module_id).unwrap(),
+            self.check_type(v.value._type, module_id, types)
+                .map_err(|e| vec![e])?,
         ))
     }
 
@@ -761,6 +649,7 @@ impl<'ast> Checker<'ast> {
         stat: StatementNode<'ast, T>,
         header_return_types: &Vec<Type>,
         module_id: &ModuleId,
+        types: &TypeMap,
     ) -> Result<TypedStatement<'ast, T>, Error> {
         let pos = stat.pos();
 
@@ -798,7 +687,7 @@ impl<'ast> Checker<'ast> {
                 }
             }
             Statement::Declaration(var) => {
-                let var = self.check_variable(var, module_id).unwrap();
+                let var = self.check_variable(var, module_id, types).unwrap();
                 match self.insert_into_scope(var.clone()) {
                     true => Ok(TypedStatement::Declaration(var)),
                     false => Err(Error {
@@ -860,7 +749,7 @@ impl<'ast> Checker<'ast> {
 
                 self.check_for_var(&var)?;
 
-                let var = self.check_variable(var, module_id).unwrap();
+                let var = self.check_variable(var, module_id, types).unwrap();
 
                 self.insert_into_scope(var.clone());
 
@@ -868,7 +757,7 @@ impl<'ast> Checker<'ast> {
 
                 for stat in statements {
                     let checked_stat =
-                        self.check_statement(stat, header_return_types, module_id)?;
+                        self.check_statement(stat, header_return_types, module_id, types)?;
                     checked_statements.push(checked_stat);
                 }
 

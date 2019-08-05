@@ -1,7 +1,4 @@
-struct Foo {
-	a: field,
-	b: field[2],
-}
+from "./u.code" import Foo
 
 struct Bar {
 	a: Foo,

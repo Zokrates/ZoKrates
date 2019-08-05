@@ -17,8 +17,8 @@
 //! where any call in `main` must be to `_SHA_256_ROUND` or `_UNPACK`
 
 use std::collections::HashMap;
+use typed_absy::types::{FunctionKey, MemberId, Type};
 use typed_absy::{folder::*, *};
-use types::{FunctionKey, MemberId, Type};
 use zokrates_field::field::Field;
 
 /// An inliner
@@ -289,7 +289,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use types::{FunctionKey, Signature, Type};
+    use typed_absy::types::{FunctionKey, Signature, Type};
     use zokrates_field::field::FieldPrime;
 
     #[test]

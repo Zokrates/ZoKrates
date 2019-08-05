@@ -75,6 +75,7 @@ impl<'ast, T: Field> NodeValue for ExpressionList<'ast, T> {}
 impl<'ast, T: Field> NodeValue for Assignee<'ast, T> {}
 impl<'ast, T: Field> NodeValue for Statement<'ast, T> {}
 impl<'ast, T: Field> NodeValue for SymbolDeclaration<'ast, T> {}
+impl NodeValue for UnresolvedType {}
 impl<'ast> NodeValue for StructType<'ast> {}
 impl<'ast> NodeValue for StructField<'ast> {}
 impl<'ast, T: Field> NodeValue for Function<'ast, T> {}

@@ -7,12 +7,10 @@
 
 use crate::flat_absy::*;
 use crate::helpers::{DirectiveStatement, Helper, RustHelper};
+use crate::typed_absy::types::{FunctionIdentifier, FunctionKey, MemberId, Signature, Type};
 use crate::typed_absy::*;
-use crate::types::Type;
-use crate::types::{FunctionKey, MemberId, Signature};
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use types::FunctionIdentifier;
 use zokrates_field::field::Field;
 
 /// Flattener, computes flattened program.
@@ -1761,8 +1759,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::Signature;
-    use crate::types::Type;
+    use crate::typed_absy::types::Signature;
+    use crate::typed_absy::types::Type;
     use zokrates_field::field::FieldPrime;
 
     mod boolean_checks {

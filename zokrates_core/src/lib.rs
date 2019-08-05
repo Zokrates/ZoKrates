@@ -35,7 +35,6 @@ mod parser;
 mod semantics;
 mod static_analysis;
 mod typed_absy;
-mod types;
 
 pub mod absy;
 pub mod compile;

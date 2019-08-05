@@ -8,7 +8,7 @@ use crate::typed_absy::folder::*;
 use crate::typed_absy::*;
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use types::Type;
+use typed_absy::types::Type;
 use zokrates_field::field::Field;
 
 pub struct Propagator<'ast, T: Field> {

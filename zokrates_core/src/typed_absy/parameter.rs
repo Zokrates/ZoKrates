@@ -1,4 +1,3 @@
-use crate::absy;
 use crate::typed_absy::Variable;
 use std::fmt;
 

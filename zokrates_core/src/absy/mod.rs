@@ -8,12 +8,13 @@
 mod from_ast;
 mod node;
 pub mod parameter;
+pub mod types;
 pub mod variable;
 
 pub use crate::absy::node::{Node, NodeValue};
 pub use crate::absy::parameter::{Parameter, ParameterNode};
+use crate::absy::types::{FunctionIdentifier, UnresolvedSignature, UnresolvedType};
 pub use crate::absy::variable::{Variable, VariableNode};
-use crate::types::{FunctionIdentifier, UnresolvedSignature, UnresolvedType};
 use embed::FlatEmbed;
 
 use crate::imports::ImportNode;
@@ -81,20 +82,7 @@ pub struct Module<'ast, T: Field> {
     pub imports: Vec<ImportNode<'ast>>, // we still use `imports` as they are not directly converted into `FunctionDeclaration`s after the importer is done, `imports` is empty
 }
 
-// /// A function, be it defined in this module, imported from another module or a flat embed
-// #[derive(Debug, Clone, PartialEq)]
-// pub enum FunctionSymbol<'ast, T: Field> {
-//     Here(FunctionNode<'ast, T>),
-//     There(FunctionImportNode<'ast>),
-//     Flat(FlatEmbed),
-// }
-
-// /// A user defined type, a struct defined in this module for now // TODO allow importing types
-// #[derive(Debug, Clone, PartialEq)]
-// pub enum TypeSymbol<'ast> {
-//     Here(StructTypeNode<'ast>),
-//     There(TypeImportNode<'ast>),
-// }
+pub type UnresolvedTypeNode = Node<UnresolvedType>;
 
 /// A struct type definition
 #[derive(Debug, Clone, PartialEq)]
@@ -122,7 +110,7 @@ pub type StructTypeNode<'ast> = Node<StructType<'ast>>;
 #[derive(Debug, Clone, PartialEq)]
 pub struct StructField<'ast> {
     pub id: Identifier<'ast>,
-    pub ty: UnresolvedType,
+    pub ty: UnresolvedTypeNode,
 }
 
 impl<'ast> fmt::Display for StructField<'ast> {
