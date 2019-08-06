@@ -224,89 +224,33 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 FlatExpression::Identifier(sub_bits[0])
             }
             BooleanExpression::Eq(box lhs, box rhs) => {
-                // We know from semantic checking that lhs and rhs have the same type
-                // What the expression will flatten to depends on that type
-
-                // Wanted: (Y = (X != 0) ? 1 : 0)
-                // X = a - b
-                // # Y = if X == 0 then 0 else 1 fi
-                // # M = if X == 0 then 1 else 1/X fi
-                // Y == X * M
-                // 0 == (1-Y) * X
                 let mut eq_check = self.build_eq_check(symbols, lhs, rhs);
                 statements_flattened.append(&mut eq_check.0);
                 eq_check.1
-
-                // let name_y = self.use_sym();
-                // let name_m = self.use_sym();
-
-                // // if flat_absy::FieldElementExpression == lhs && flat_absy::FieldElementExpression == rhs {
-                // let x = self.flatten_field_expression(
-                //     symbols,
-                //     statements_flattened,
-                //     FieldElementExpression::Sub(box lhs, box rhs),
-                // );
-                // // } else {
-
-                // // }
-                // statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
-                //     vec![name_y, name_m],
-                //     Helper::Rust(RustHelper::ConditionEq),
-                //     vec![x.clone()],
-                // )));
-                // statements_flattened.push(FlatStatement::Condition(
-                //     FlatExpression::Identifier(name_y),
-                //     FlatExpression::Mult(box x.clone(), box FlatExpression::Identifier(name_m)),
-                // ));
-
-                // let res = FlatExpression::Sub(
-                //     box FlatExpression::Number(T::one()),
-                //     box FlatExpression::Identifier(name_y),
-                // );
-
-                // statements_flattened.push(FlatStatement::Condition(
-                //     FlatExpression::Number(T::zero()),
-                //     FlatExpression::Mult(box res.clone(), box x),
-                // ));
-
-                // res
             }
             BooleanExpression::ArrayEq(box e1, box e2) => {
+                let last_rhs = e2.last();
+                let last_lhs = e1.last();
 
-                let mut e1_new = match e1 {
-                    FieldElementArrayExpression::Value(size, values) => {
-                        assert_eq!(size, values.len());
-                        values
-                    }
-                     _ => {
-                        println!("{}", e1);
-                        panic!()
-                    }
-                };
-                let mut e2_new = match e2 {
-                    FieldElementArrayExpression::Value(size, values) => {
-                        assert_eq!(size, values.len());
-                        values
-                    }
-                    _ => {
-                        println!("{}", e2);
-                        panic!("Error")
-                    }
-                };
-
-                let (lhs_last, rhs_last) = (
-                    e1_new.pop().unwrap(),
-                    e2_new.pop().unwrap()
+                let (lhs, rhs) = (
+                    self.flatten_field_array_expression(symbols, statements_flattened, e1),
+                    self.flatten_field_array_expression(symbols, statements_flattened, e2),
                 );
 
-                for (l, r) in e1_new.into_iter().zip(e2_new.into_iter()) {
-                    let mut eq_check = self.build_eq_check(symbols, l, r);
-                    statements_flattened.append(&mut eq_check.0);
-                    // statements_flattened.append(&mut eq_check.1.into());
+                assert_eq!(lhs.len(), rhs.len());
+
+                for (l, r) in lhs.into_iter().zip(rhs.into_iter()) {
+                    if l.is_linear() {
+                        statements_flattened.push(FlatStatement::Condition(l, r));
+                    } else if r.is_linear() {
+                        // swap so that left side is linear
+                        statements_flattened.push(FlatStatement::Condition(r, l));
+                    } else {
+                        unimplemented!()
+                    }
                 }
 
-                let mut eq_check = self.build_eq_check(symbols, lhs_last, rhs_last);
-
+                let mut eq_check = self.build_eq_check(symbols, last_lhs, last_rhs);
                 statements_flattened.append(&mut eq_check.0);
                 eq_check.1
             }
@@ -952,13 +896,23 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
-    /// Flattens a field array expression
+    /// Builds Eq boolean expression operations
+    ///We know from semantic checking that lhs and rhs have the same type
+    /// What the expression will flatten to depends on that type
+
+    /// Wanted: (Y = (X != 0) ? 1 : 0)
+    /// X = a - b
+    /// # Y = if X == 0 then 0 else 1 fi
+    /// # M = if X == 0 then 1 else 1/X fi
+    /// Y == X * M
+    /// 0 == (1-Y) * X
     ///
     /// # Arguments
     ///
     /// * `symbols` - Available functions in in this context
-    /// * `statements_flattened` - Vector where new flattened statements can be added.
-    /// * `expression` - `FieldElementArrayExpression` that will be flattened.
+    /// * `lhs` - `FieldElementArrayExpression` that will be flattened.
+    /// * `rhs` - `FieldElementArrayExpression` that will be flattened.
+    /// 
     fn build_eq_check(
         &mut self,
         symbols: &HashMap<FunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>,
@@ -968,6 +922,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         let name_y = self.use_sym();
         let name_m = self.use_sym();
+
         let mut statements_flattened: Vec<FlatStatement<T>> = Vec::new();
         let x = self.flatten_field_expression(
             symbols,
@@ -1197,7 +1152,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             self.flatten_field_array_expression(symbols, statements_flattened, e1),
                             self.flatten_field_array_expression(symbols, statements_flattened, e2),
                         );
-
+                        println!("~~~~~~~~ {:?} ~~~~~~~", symbols);
                         assert_eq!(lhs.len(), rhs.len());
 
                         for (l, r) in lhs.into_iter().zip(rhs.into_iter()) {

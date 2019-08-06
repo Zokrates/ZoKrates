@@ -489,7 +489,6 @@ impl<'ast> Checker<'ast> {
             Statement::Condition(lhs, rhs) => {
                 let checked_lhs = self.check_expression(lhs)?;
                 let checked_rhs = self.check_expression(rhs)?;
-
                 if checked_lhs.get_type() == checked_rhs.get_type() {
                     Ok(TypedStatement::Condition(checked_lhs, checked_rhs))
                 } else {

@@ -537,17 +537,21 @@ impl<'ast, T: Field> FieldElementArrayExpression<'ast, T> {
         }
     }
 
-    // pub fn values(&self) -> Vec<FieldElementExpression<'ast, T>> {
-    //     match &*self {
-    //         FieldElementArrayExpression::Value(size, values) => {
-    //             values
-    //                 .into_iter()
-    //                 .map(|v| v)
-    //                 .collect()
-    //         }
-    //         _ => panic!("cant get values from this specialization!"),
-    //     }
-    // }
+    pub fn last(&self) -> (FieldElementExpression<'ast, T>) {
+        match &*self {
+            // we could reduce the number of constraints by one, for even length of value array and when no Identifier is passed but the optimizer 
+            // removes the duplicate constraints for us
+            FieldElementArrayExpression::Value(_size, values) => {
+                values.clone().pop().unwrap()
+            }
+            FieldElementArrayExpression::Identifier(_size, x) => {
+                FieldElementExpression::Identifier(x.clone())
+            }
+            _ => {
+                panic!("cant get values from this specialization!")
+            }
+        }
+    }
 }
 
 impl<'ast, T: Field> fmt::Display for FieldElementExpression<'ast, T> {
