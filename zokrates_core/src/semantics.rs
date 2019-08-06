@@ -951,9 +951,10 @@ impl<'ast> Checker<'ast> {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(BooleanExpression::Eq(box e1, box e2).into())
                     }
-                    (TypedExpression::FieldElementArray(e1), TypedExpression::FieldElementArray(e2)) => {
-                        Ok(BooleanExpression::ArrayEq(box e1, box e2).into())
-                    }
+                    (
+                        TypedExpression::FieldElementArray(e1),
+                        TypedExpression::FieldElementArray(e2),
+                    ) => Ok(BooleanExpression::ArrayEq(box e1, box e2).into()),
                     (e1, e2) => Err(Error {
                         pos: Some(pos),
                         message: format!(

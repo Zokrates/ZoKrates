@@ -4,6 +4,7 @@
 //! @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
+//! 
 use crate::flat_absy::*;
 use crate::helpers::{DirectiveStatement, Helper, RustHelper};
 use crate::typed_absy::*;
@@ -912,14 +913,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// * `symbols` - Available functions in in this context
     /// * `lhs` - `FieldElementArrayExpression` that will be flattened.
     /// * `rhs` - `FieldElementArrayExpression` that will be flattened.
-    /// 
+    ///
     fn build_eq_check(
         &mut self,
         symbols: &HashMap<FunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>,
         lhs: FieldElementExpression<'ast, T>,
         rhs: FieldElementExpression<'ast, T>,
     ) -> (Vec<FlatStatement<T>>, FlatExpression<T>) {
-
         let name_y = self.use_sym();
         let name_m = self.use_sym();
 
@@ -1146,8 +1146,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         TypedExpression::FieldElementArray(e1),
                         TypedExpression::FieldElementArray(e2),
                     ) => {
-
-
                         let (lhs, rhs) = (
                             self.flatten_field_array_expression(symbols, statements_flattened, e1),
                             self.flatten_field_array_expression(symbols, statements_flattened, e2),
