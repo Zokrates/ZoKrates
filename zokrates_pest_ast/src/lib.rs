@@ -12,10 +12,10 @@ pub use ast::{
     AssignmentStatement, BasicOrStructType, BasicType, BinaryExpression, BinaryOperator,
     CallAccess, ConstantExpression, DefinitionStatement, Expression, File, FromExpression,
     Function, IdentifierExpression, ImportDirective, ImportSource, InlineArrayExpression,
-    IterationStatement, MultiAssignmentStatement, Parameter, PostfixExpression, Range,
-    RangeOrExpression, ReturnStatement, Span, Spread, SpreadOrExpression, Statement,
-    StructDefinition, StructField, TernaryExpression, ToExpression, Type, UnaryExpression,
-    UnaryOperator, Visibility,
+    InlineStructExpression, InlineStructMember, IterationStatement, MultiAssignmentStatement,
+    Parameter, PostfixExpression, Range, RangeOrExpression, ReturnStatement, Span, Spread,
+    SpreadOrExpression, Statement, StructDefinition, StructField, TernaryExpression, ToExpression,
+    Type, UnaryExpression, UnaryOperator, Visibility,
 };
 
 mod ast {
@@ -121,6 +121,9 @@ mod ast {
                     }
                     Rule::postfix_expression => Expression::Postfix(
                         PostfixExpression::from_pest(&mut pair.into_inner()).unwrap(),
+                    ),
+                    Rule::inline_struct_expression => Expression::InlineStruct(
+                        InlineStructExpression::from_pest(&mut pair.into_inner()).unwrap(),
                     ),
                     Rule::inline_array_expression => Expression::InlineArray(
                         InlineArrayExpression::from_pest(&mut pair.into_inner()).unwrap(),
@@ -412,6 +415,7 @@ mod ast {
         Identifier(IdentifierExpression<'ast>),
         Constant(ConstantExpression<'ast>),
         InlineArray(InlineArrayExpression<'ast>),
+        InlineStruct(InlineStructExpression<'ast>),
         ArrayInitializer(ArrayInitializerExpression<'ast>),
         Unary(UnaryExpression<'ast>),
     }
@@ -477,6 +481,24 @@ mod ast {
     #[pest_ast(rule(Rule::inline_array_expression))]
     pub struct InlineArrayExpression<'ast> {
         pub expressions: Vec<SpreadOrExpression<'ast>>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::inline_struct_expression))]
+    pub struct InlineStructExpression<'ast> {
+        pub ty: IdentifierExpression<'ast>,
+        pub members: Vec<InlineStructMember<'ast>>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::inline_struct_member))]
+    pub struct InlineStructMember<'ast> {
+        pub id: IdentifierExpression<'ast>,
+        pub expression: Expression<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -586,6 +608,7 @@ mod ast {
                 Expression::Ternary(t) => &t.span,
                 Expression::Postfix(p) => &p.span,
                 Expression::InlineArray(a) => &a.span,
+                Expression::InlineStruct(s) => &s.span,
                 Expression::ArrayInitializer(a) => &a.span,
                 Expression::Unary(u) => &u.span,
             }

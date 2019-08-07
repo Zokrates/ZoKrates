@@ -657,7 +657,7 @@ impl<'ast> Checker<'ast> {
             Statement::Return(list) => {
                 let mut expression_list_checked = vec![];
                 for e in list.value.expressions {
-                    let e_checked = self.check_expression(e)?;
+                    let e_checked = self.check_expression(e, module_id, &types)?;
                     expression_list_checked.push(e_checked);
                 }
 
@@ -705,11 +705,11 @@ impl<'ast> Checker<'ast> {
 				}
 
                 // check the expression to be assigned
-                let checked_expr = self.check_expression(expr)?;
+                let checked_expr = self.check_expression(expr, module_id, &types)?;
                 let expression_type = checked_expr.get_type();
 
                 // check that the assignee is declared and is well formed
-                let var = self.check_assignee(assignee)?;
+                let var = self.check_assignee(assignee, module_id, &types)?;
 
                 let var_type = var.get_type();
 
@@ -726,8 +726,8 @@ impl<'ast> Checker<'ast> {
                 }
             }
             Statement::Condition(lhs, rhs) => {
-                let checked_lhs = self.check_expression(lhs)?;
-                let checked_rhs = self.check_expression(rhs)?;
+                let checked_lhs = self.check_expression(lhs, module_id, &types)?;
+                let checked_rhs = self.check_expression(rhs, module_id, &types)?;
 
                 if checked_lhs.get_type() == checked_rhs.get_type() {
                     Ok(TypedStatement::Condition(checked_lhs, checked_rhs))
@@ -789,7 +789,7 @@ impl<'ast> Checker<'ast> {
                         // find arguments types
                         let mut arguments_checked = vec![];
                         for arg in arguments {
-                            let arg_checked = self.check_expression(arg)?;
+                            let arg_checked = self.check_expression(arg, module_id, &types)?;
                             arguments_checked.push(arg_checked);
                         }
 
@@ -837,6 +837,8 @@ impl<'ast> Checker<'ast> {
     fn check_assignee<T: Field>(
         &mut self,
         assignee: AssigneeNode<'ast, T>,
+        module_id: &ModuleId,
+        types: &TypeMap,
     ) -> Result<TypedAssignee<'ast, T>, Error> {
         let pos = assignee.pos();
         // check that the assignee is declared
@@ -852,9 +854,11 @@ impl<'ast> Checker<'ast> {
                 }),
             },
             Assignee::ArrayElement(box assignee, box index) => {
-                let checked_assignee = self.check_assignee(assignee)?;
+                let checked_assignee = self.check_assignee(assignee, module_id, &types)?;
                 let checked_index = match index {
-                    RangeOrExpression::Expression(e) => self.check_expression(e)?,
+                    RangeOrExpression::Expression(e) => {
+                        self.check_expression(e, module_id, &types)?
+                    }
                     r => unimplemented!(
                         "Using slices in assignments is not supported yet, found {}",
                         r
@@ -885,12 +889,15 @@ impl<'ast> Checker<'ast> {
     fn check_spread_or_expression<T: Field>(
         &mut self,
         spread_or_expression: SpreadOrExpression<'ast, T>,
+        module_id: &ModuleId,
+        types: &TypeMap,
     ) -> Result<Vec<TypedExpression<'ast, T>>, Error> {
         match spread_or_expression {
             SpreadOrExpression::Spread(s) => {
                 let pos = s.pos();
 
-                let checked_expression = self.check_expression(s.value.expression)?;
+                let checked_expression =
+                    self.check_expression(s.value.expression, module_id, &types)?;
                 match checked_expression {
                     TypedExpression::Array(e) => {
                         let size = e.size();
@@ -914,13 +921,17 @@ impl<'ast> Checker<'ast> {
                     }),
                 }
             }
-            SpreadOrExpression::Expression(e) => self.check_expression(e).map(|r| vec![r]),
+            SpreadOrExpression::Expression(e) => {
+                self.check_expression(e, module_id, &types).map(|r| vec![r])
+            }
         }
     }
 
     fn check_expression<T: Field>(
         &mut self,
         expr: ExpressionNode<'ast, T>,
+        module_id: &ModuleId,
+        types: &TypeMap,
     ) -> Result<TypedExpression<'ast, T>, Error> {
         let pos = expr.pos();
 
@@ -953,8 +964,8 @@ impl<'ast> Checker<'ast> {
                 }
             }
             Expression::Add(box e1, box e2) => {
-                let e1_checked = self.check_expression(e1)?;
-                let e2_checked = self.check_expression(e2)?;
+                let e1_checked = self.check_expression(e1, module_id, &types)?;
+                let e2_checked = self.check_expression(e2, module_id, &types)?;
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
@@ -972,8 +983,8 @@ impl<'ast> Checker<'ast> {
                 }
             }
             Expression::Sub(box e1, box e2) => {
-                let e1_checked = self.check_expression(e1)?;
-                let e2_checked = self.check_expression(e2)?;
+                let e1_checked = self.check_expression(e1, module_id, &types)?;
+                let e2_checked = self.check_expression(e2, module_id, &types)?;
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
@@ -991,8 +1002,8 @@ impl<'ast> Checker<'ast> {
                 }
             }
             Expression::Mult(box e1, box e2) => {
-                let e1_checked = self.check_expression(e1)?;
-                let e2_checked = self.check_expression(e2)?;
+                let e1_checked = self.check_expression(e1, module_id, &types)?;
+                let e2_checked = self.check_expression(e2, module_id, &types)?;
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
@@ -1010,8 +1021,8 @@ impl<'ast> Checker<'ast> {
                 }
             }
             Expression::Div(box e1, box e2) => {
-                let e1_checked = self.check_expression(e1)?;
-                let e2_checked = self.check_expression(e2)?;
+                let e1_checked = self.check_expression(e1, module_id, &types)?;
+                let e2_checked = self.check_expression(e2, module_id, &types)?;
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
@@ -1029,8 +1040,8 @@ impl<'ast> Checker<'ast> {
                 }
             }
             Expression::Pow(box e1, box e2) => {
-                let e1_checked = self.check_expression(e1)?;
-                let e2_checked = self.check_expression(e2)?;
+                let e1_checked = self.check_expression(e1, module_id, &types)?;
+                let e2_checked = self.check_expression(e2, module_id, &types)?;
 
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => Ok(
@@ -1048,9 +1059,9 @@ impl<'ast> Checker<'ast> {
                 }
             }
             Expression::IfElse(box condition, box consequence, box alternative) => {
-                let condition_checked = self.check_expression(condition)?;
-                let consequence_checked = self.check_expression(consequence)?;
-                let alternative_checked = self.check_expression(alternative)?;
+                let condition_checked = self.check_expression(condition, module_id, &types)?;
+                let consequence_checked = self.check_expression(consequence, module_id, &types)?;
+                let alternative_checked = self.check_expression(alternative, module_id, &types)?;
 
                 match condition_checked {
                     TypedExpression::Boolean(condition) => {
@@ -1104,7 +1115,7 @@ impl<'ast> Checker<'ast> {
                 // check the arguments
                 let mut arguments_checked = vec![];
                 for arg in arguments {
-                    let arg_checked = self.check_expression(arg)?;
+                    let arg_checked = self.check_expression(arg, module_id, &types)?;
                     arguments_checked.push(arg_checked);
                 }
 
@@ -1181,8 +1192,8 @@ impl<'ast> Checker<'ast> {
                 }
             }
             Expression::Lt(box e1, box e2) => {
-                let e1_checked = self.check_expression(e1)?;
-                let e2_checked = self.check_expression(e2)?;
+                let e1_checked = self.check_expression(e1, module_id, &types)?;
+                let e2_checked = self.check_expression(e2, module_id, &types)?;
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(BooleanExpression::Lt(box e1, box e2).into())
@@ -1200,8 +1211,8 @@ impl<'ast> Checker<'ast> {
                 }
             }
             Expression::Le(box e1, box e2) => {
-                let e1_checked = self.check_expression(e1)?;
-                let e2_checked = self.check_expression(e2)?;
+                let e1_checked = self.check_expression(e1, module_id, &types)?;
+                let e2_checked = self.check_expression(e2, module_id, &types)?;
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(BooleanExpression::Le(box e1, box e2).into())
@@ -1219,8 +1230,8 @@ impl<'ast> Checker<'ast> {
                 }
             }
             Expression::Eq(box e1, box e2) => {
-                let e1_checked = self.check_expression(e1)?;
-                let e2_checked = self.check_expression(e2)?;
+                let e1_checked = self.check_expression(e1, module_id, &types)?;
+                let e2_checked = self.check_expression(e2, module_id, &types)?;
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(BooleanExpression::Eq(box e1, box e2).into())
@@ -1238,8 +1249,8 @@ impl<'ast> Checker<'ast> {
                 }
             }
             Expression::Ge(box e1, box e2) => {
-                let e1_checked = self.check_expression(e1)?;
-                let e2_checked = self.check_expression(e2)?;
+                let e1_checked = self.check_expression(e1, module_id, &types)?;
+                let e2_checked = self.check_expression(e2, module_id, &types)?;
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(BooleanExpression::Ge(box e1, box e2).into())
@@ -1257,8 +1268,8 @@ impl<'ast> Checker<'ast> {
                 }
             }
             Expression::Gt(box e1, box e2) => {
-                let e1_checked = self.check_expression(e1)?;
-                let e2_checked = self.check_expression(e2)?;
+                let e1_checked = self.check_expression(e1, module_id, &types)?;
+                let e2_checked = self.check_expression(e2, module_id, &types)?;
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(BooleanExpression::Gt(box e1, box e2).into())
@@ -1276,7 +1287,7 @@ impl<'ast> Checker<'ast> {
                 }
             }
             Expression::Select(box array, box index) => {
-                let array = self.check_expression(array)?;
+                let array = self.check_expression(array, module_id, &types)?;
 
                 match index {
                     RangeOrExpression::Range(r) => match array {
@@ -1338,39 +1349,43 @@ impl<'ast> Checker<'ast> {
                         }
                         _ => panic!(""),
                     },
-                    RangeOrExpression::Expression(e) => match (array, self.check_expression(e)?) {
-                        (TypedExpression::Array(a), TypedExpression::FieldElement(i)) => {
-                            match a.inner_type() {
-                                Type::FieldElement => {
-                                    Ok(FieldElementExpression::Select(box a, box i).into())
+                    RangeOrExpression::Expression(e) => {
+                        match (array, self.check_expression(e, module_id, &types)?) {
+                            (TypedExpression::Array(a), TypedExpression::FieldElement(i)) => {
+                                match a.inner_type() {
+                                    Type::FieldElement => {
+                                        Ok(FieldElementExpression::Select(box a, box i).into())
+                                    }
+                                    Type::Boolean => {
+                                        Ok(BooleanExpression::Select(box a, box i).into())
+                                    }
+                                    Type::Array(box ty, size) => Ok(ArrayExpression {
+                                        size: *size,
+                                        ty: ty.clone(),
+                                        inner: ArrayExpressionInner::Select(box a, box i),
+                                    }
+                                    .into()),
+                                    Type::Struct(members) => Ok(StructExpression {
+                                        ty: members.clone(),
+                                        inner: StructExpressionInner::Select(box a, box i),
+                                    }
+                                    .into()),
                                 }
-                                Type::Boolean => Ok(BooleanExpression::Select(box a, box i).into()),
-                                Type::Array(box ty, size) => Ok(ArrayExpression {
-                                    size: *size,
-                                    ty: ty.clone(),
-                                    inner: ArrayExpressionInner::Select(box a, box i),
-                                }
-                                .into()),
-                                Type::Struct(members) => Ok(StructExpression {
-                                    ty: members.clone(),
-                                    inner: StructExpressionInner::Select(box a, box i),
-                                }
-                                .into()),
                             }
+                            (a, e) => Err(Error {
+                                pos: Some(pos),
+                                message: format!(
+                                    "Cannot access element {} on expression of type {}",
+                                    e,
+                                    a.get_type()
+                                ),
+                            }),
                         }
-                        (a, e) => Err(Error {
-                            pos: Some(pos),
-                            message: format!(
-                                "Cannot access element {} on expression of type {}",
-                                e,
-                                a.get_type()
-                            ),
-                        }),
-                    },
+                    }
                 }
             }
             Expression::Member(box e, box id) => {
-                let e = self.check_expression(e)?;
+                let e = self.check_expression(e, module_id, &types)?;
 
                 match e {
                     TypedExpression::Struct(s) => {
@@ -1431,7 +1446,7 @@ impl<'ast> Checker<'ast> {
                 // check each expression, getting its type
                 let mut expressions_checked = vec![];
                 for e in expressions {
-                    let e_checked = self.check_spread_or_expression(e)?;
+                    let e_checked = self.check_spread_or_expression(e, module_id, &types)?;
                     expressions_checked.extend(e_checked);
                 }
 
@@ -1583,9 +1598,87 @@ impl<'ast> Checker<'ast> {
                     }
                 }
             }
+            Expression::InlineStruct(id, inline_members) => {
+                let ty = self.check_type(
+                    UnresolvedType::User(id.clone()).at(42, 42, 42),
+                    module_id,
+                    &types,
+                )?;
+                let members = match ty {
+                    Type::Struct(members) => members,
+                    _ => unreachable!(),
+                };
+
+                // check that we provided the required number of values
+
+                if members.len() != inline_members.len() {
+                    return Err(Error {
+                        pos: Some(pos),
+                        message: format!(
+                            "Inline struct {} does not match {} : {}",
+                            Expression::InlineStruct(id.clone(), inline_members),
+                            id,
+                            Type::Struct(members)
+                        ),
+                    });
+                }
+
+                // check that the mapping of values matches the expected type
+                // put the value into a map, pick members from this map following declared members, and try to parse them
+
+                let mut inline_members_map = inline_members
+                    .clone()
+                    .into_iter()
+                    .map(|(id, v)| (id.to_string(), v))
+                    .collect::<HashMap<_, _>>();
+                let mut result: Vec<TypedExpression<'ast, T>> = vec![];
+
+                for (member_id, ty) in &members {
+                    match inline_members_map.remove(member_id) {
+                        Some(value) => {
+                            let expression_checked =
+                                self.check_expression(value, module_id, &types)?;
+                            let checked_type = expression_checked.get_type();
+                            if checked_type != *ty {
+                                return Err(Error {
+                                    pos: Some(pos),
+                                    message: format!(
+                                        "Member {} of struct {} has type {}, found {} of type {}",
+                                        member_id,
+                                        id.clone(),
+                                        ty,
+                                        expression_checked,
+                                        checked_type,
+                                    ),
+                                });
+                            } else {
+                                result.push(expression_checked.into());
+                            }
+                        }
+                        None => {
+                            return Err(Error {
+                                pos: Some(pos),
+                                message: format!(
+                                    "Member {} of struct {} : {} not found in value {}",
+                                    member_id,
+                                    id.clone(),
+                                    Type::Struct(members.clone()),
+                                    Expression::InlineStruct(id.clone(), inline_members),
+                                ),
+                            })
+                        }
+                    }
+                }
+
+                Ok(StructExpression {
+                    ty: members,
+                    inner: StructExpressionInner::Value(result),
+                }
+                .into())
+            }
             Expression::And(box e1, box e2) => {
-                let e1_checked = self.check_expression(e1)?;
-                let e2_checked = self.check_expression(e2)?;
+                let e1_checked = self.check_expression(e1, module_id, &types)?;
+                let e2_checked = self.check_expression(e2, module_id, &types)?;
                 match (e1_checked, e2_checked) {
                     (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
                         Ok(BooleanExpression::And(box e1, box e2).into())
@@ -1602,8 +1695,8 @@ impl<'ast> Checker<'ast> {
                 }
             }
             Expression::Or(box e1, box e2) => {
-                let e1_checked = self.check_expression(e1)?;
-                let e2_checked = self.check_expression(e2)?;
+                let e1_checked = self.check_expression(e1, module_id, &types)?;
+                let e2_checked = self.check_expression(e2, module_id, &types)?;
                 match (e1_checked, e2_checked) {
                     (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
                         Ok(BooleanExpression::Or(box e1, box e2).into())
@@ -1616,7 +1709,7 @@ impl<'ast> Checker<'ast> {
                 }
             }
             Expression::Not(box e) => {
-                let e_checked = self.check_expression(e)?;
+                let e_checked = self.check_expression(e, module_id, &types)?;
                 match e_checked {
                     TypedExpression::Boolean(e) => Ok(BooleanExpression::Not(box e).into()),
                     e => Err(Error {

@@ -323,6 +323,7 @@ impl<'ast, T: Field> From<pest::Expression<'ast>> for absy::ExpressionNode<'ast,
             pest::Expression::Identifier(e) => absy::ExpressionNode::from(e),
             pest::Expression::Postfix(e) => absy::ExpressionNode::from(e),
             pest::Expression::InlineArray(e) => absy::ExpressionNode::from(e),
+            pest::Expression::InlineStruct(e) => absy::ExpressionNode::from(e),
             pest::Expression::ArrayInitializer(e) => absy::ExpressionNode::from(e),
             pest::Expression::Unary(e) => absy::ExpressionNode::from(e),
         }
@@ -472,6 +473,25 @@ impl<'ast, T: Field> From<pest::InlineArrayExpression<'ast>> for absy::Expressio
                 .collect(),
         )
         .span(array.span)
+    }
+}
+
+impl<'ast, T: Field> From<pest::InlineStructExpression<'ast>> for absy::ExpressionNode<'ast, T> {
+    fn from(s: pest::InlineStructExpression<'ast>) -> absy::ExpressionNode<'ast, T> {
+        use absy::NodeValue;
+        absy::Expression::InlineStruct(
+            s.ty.span.as_str().to_string(),
+            s.members
+                .into_iter()
+                .map(|member| {
+                    (
+                        member.id.span.as_str(),
+                        absy::ExpressionNode::from(member.expression),
+                    )
+                })
+                .collect(),
+        )
+        .span(s.span)
     }
 }
 

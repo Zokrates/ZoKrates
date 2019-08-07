@@ -57,7 +57,7 @@ optionally_typed_identifier = { (identifier) | (ty ~ identifier) } // we don't u
 expression_list = _{(expression ~ ("," ~ expression)*)?}
 
 expression = { term ~ (op_binary ~ term)* }
-term = { ("(" ~ expression ~ ")") | conditional_expression | postfix_expression | primary_expression | inline_array_expression | array_initializer_expression | unary_expression }
+term = { ("(" ~ expression ~ ")") | inline_struct_expression | conditional_expression | postfix_expression | primary_expression | inline_array_expression | array_initializer_expression | unary_expression }
 spread = { "..." ~ expression }
 range = { from_expression? ~ ".." ~ to_expression? }
 from_expression = { expression }
@@ -74,6 +74,10 @@ member_access = { "." ~ identifier }
 primary_expression = { identifier
                     | constant
                     }
+
+inline_struct_expression = { identifier ~ "{" ~ NEWLINE* ~ inline_struct_member_list ~ NEWLINE* ~ "}" }
+inline_struct_member_list = _{(inline_struct_member ~ ("," ~ NEWLINE* ~ inline_struct_member)*)? ~ ","? }
+inline_struct_member = { identifier ~ ":" ~ expression }
 
 inline_array_expression = { "[" ~ inline_array_inner ~ "]" }
 inline_array_inner = _{(spread_or_expression ~ ("," ~ spread_or_expression)*)?}

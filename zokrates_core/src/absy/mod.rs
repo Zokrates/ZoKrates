@@ -13,7 +13,7 @@ pub mod variable;
 
 pub use crate::absy::node::{Node, NodeValue};
 pub use crate::absy::parameter::{Parameter, ParameterNode};
-use crate::absy::types::{FunctionIdentifier, UnresolvedSignature, UnresolvedType};
+use crate::absy::types::{FunctionIdentifier, UnresolvedSignature, UnresolvedType, UserTypeId};
 pub use crate::absy::variable::{Variable, VariableNode};
 use embed::FlatEmbed;
 
@@ -455,6 +455,7 @@ pub enum Expression<'ast, T: Field> {
     And(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
     Not(Box<ExpressionNode<'ast, T>>),
     InlineArray(Vec<SpreadOrExpression<'ast, T>>),
+    InlineStruct(UserTypeId, Vec<(Identifier<'ast>, ExpressionNode<'ast, T>)>),
     Select(
         Box<ExpressionNode<'ast, T>>,
         Box<RangeOrExpression<'ast, T>>,
@@ -508,6 +509,16 @@ impl<'ast, T: Field> fmt::Display for Expression<'ast, T> {
                 }
                 write!(f, "]")
             }
+            Expression::InlineStruct(ref id, ref members) => {
+                r#try!(write!(f, "{} {{", id));
+                for (i, (member_id, e)) in members.iter().enumerate() {
+                    r#try!(write!(f, "{}: {}", member_id, e));
+                    if i < members.len() - 1 {
+                        r#try!(write!(f, ", "));
+                    }
+                }
+                write!(f, "}}")
+            }
             Expression::Select(ref array, ref index) => write!(f, "{}[{}]", array, index),
             Expression::Member(ref struc, ref id) => write!(f, "{}.{}", struc, id),
             Expression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
@@ -546,6 +557,11 @@ impl<'ast, T: Field> fmt::Debug for Expression<'ast, T> {
             Expression::InlineArray(ref exprs) => {
                 r#try!(write!(f, "InlineArray(["));
                 r#try!(f.debug_list().entries(exprs.iter()).finish());
+                write!(f, "]")
+            }
+            Expression::InlineStruct(ref id, ref members) => {
+                r#try!(write!(f, "InlineStruct({:?}, [", id));
+                r#try!(f.debug_list().entries(members.iter()).finish());
                 write!(f, "]")
             }
             Expression::Select(ref array, ref index) => write!(f, "{}[{}]", array, index),
