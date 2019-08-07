@@ -340,73 +340,138 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             .1
             .get_primitive_count();
 
-        let res =
-            match s.inner {
-                StructExpressionInner::Value(values) => {
-                    // If the struct has an explicit value, we get the value at the given member
-                    assert_eq!(values.len(), members.len());
-                    values
-                        .into_iter()
-                        .zip(members.into_iter())
-                        .filter(|(_, (id, _))| *id == member_id)
-                        .flat_map(|(v, (_, t))| match t {
-                            Type::FieldElement => FieldElementExpression::try_from(v)
-                                .unwrap()
-                                .flatten(self, symbols, statements_flattened),
-                            Type::Boolean => BooleanExpression::try_from(v).unwrap().flatten(
-                                self,
-                                symbols,
-                                statements_flattened,
+        let res = match s.inner {
+            StructExpressionInner::Value(values) => {
+                // If the struct has an explicit value, we get the value at the given member
+                assert_eq!(values.len(), members.len());
+                values
+                    .into_iter()
+                    .zip(members.into_iter())
+                    .filter(|(_, (id, _))| *id == member_id)
+                    .flat_map(|(v, (_, t))| match t {
+                        Type::FieldElement => FieldElementExpression::try_from(v).unwrap().flatten(
+                            self,
+                            symbols,
+                            statements_flattened,
+                        ),
+                        Type::Boolean => BooleanExpression::try_from(v).unwrap().flatten(
+                            self,
+                            symbols,
+                            statements_flattened,
+                        ),
+                        Type::Array(..) => ArrayExpression::try_from(v).unwrap().flatten(
+                            self,
+                            symbols,
+                            statements_flattened,
+                        ),
+                        Type::Struct(..) => StructExpression::try_from(v).unwrap().flatten(
+                            self,
+                            symbols,
+                            statements_flattened,
+                        ),
+                    })
+                    .collect()
+            }
+            StructExpressionInner::Identifier(id) => {
+                // If the struct is an identifier, we allocated variables in the layout for that identifier. We need to access a subset of these values.
+                // the struct is encoded as a sequence, so we need to identify the offset at which this member starts
+                let offset = members
+                    .iter()
+                    .take_while(|(id, _)| *id != member_id)
+                    .map(|(_, ty)| ty.get_primitive_count())
+                    .sum();
+
+                // we also need the size of this member
+                let size = members
+                    .iter()
+                    .find(|(id, _)| *id == member_id)
+                    .unwrap()
+                    .1
+                    .get_primitive_count();
+                self.layout.get(&id).unwrap()[offset..(offset + size)]
+                    .into_iter()
+                    .map(|i| i.clone().into())
+                    .collect()
+            }
+            StructExpressionInner::Select(box array, box index) => {
+                // If the struct is an array element `array[index]`, we're accessing `array[index].member`
+                // We construct `array := array.map(|e| e.member)` and access `array[index]`
+                let ty = members
+                    .clone()
+                    .into_iter()
+                    .find(|(id, _)| *id == member_id)
+                    .unwrap()
+                    .1;
+
+                match ty {
+                    Type::FieldElement => {
+                        let array = ArrayExpression {
+                            size: array.size,
+                            ty: Type::FieldElement,
+                            inner: ArrayExpressionInner::Value(
+                                (0..array.size)
+                                    .map(|i| {
+                                        FieldElementExpression::Member(
+                                            box StructExpression {
+                                                ty: members.clone(),
+                                                inner: StructExpressionInner::Select(
+                                                    box array.clone(),
+                                                    box FieldElementExpression::Number(T::from(i)),
+                                                ),
+                                            },
+                                            member_id.clone(),
+                                        )
+                                        .into()
+                                    })
+                                    .collect(),
                             ),
-                            Type::Array(box ty, size) => ArrayExpression::try_from(v)
-                                .unwrap()
-                                .flatten(self, symbols, statements_flattened),
-                            Type::Struct(members) => StructExpression::try_from(v)
-                                .unwrap()
-                                .flatten(self, symbols, statements_flattened),
-                        })
-                        .collect()
-                }
-                StructExpressionInner::Identifier(id) => {
-                    // If the struct is an identifier, we allocated variables in the layout for that identifier. We need to access a subset of these values.
-                    // the struct is encoded as a sequence, so we need to identify the offset at which this member starts
-                    let offset = members
-                        .iter()
-                        .take_while(|(id, _)| *id != member_id)
-                        .map(|(_, ty)| ty.get_primitive_count())
-                        .sum();
-
-                    // we also need the size of this member
-                    let size = members
-                        .iter()
-                        .find(|(id, _)| *id == member_id)
-                        .unwrap()
-                        .1
-                        .get_primitive_count();
-                    self.layout.get(&id).unwrap()[offset..(offset + size)]
-                        .into_iter()
-                        .map(|i| i.clone().into())
-                        .collect()
-                }
-                StructExpressionInner::Select(box array, box index) => {
-                    // If the struct is an array element `array[index]`, we're accessing `array[index].member`
-                    // We construct `array := array.map(|e| e.member)` and access `array[index]`
-                    let ty = members
-                        .clone()
-                        .into_iter()
-                        .find(|(id, _)| *id == member_id)
-                        .unwrap()
-                        .1;
-
-                    match ty {
-                        Type::FieldElement => {
-                            let array = ArrayExpression {
-                                size: array.size,
-                                ty: Type::FieldElement,
-                                inner: ArrayExpressionInner::Value(
-                                    (0..array.size)
-                                        .map(|i| {
-                                            FieldElementExpression::Member(
+                        };
+                        self.flatten_select_expression::<FieldElementExpression<'ast, T>>(
+                            symbols,
+                            statements_flattened,
+                            array,
+                            index,
+                        )
+                    }
+                    Type::Boolean => {
+                        let array = ArrayExpression {
+                            size: array.size,
+                            ty: Type::Boolean,
+                            inner: ArrayExpressionInner::Value(
+                                (0..array.size)
+                                    .map(|i| {
+                                        BooleanExpression::Member(
+                                            box StructExpression {
+                                                ty: members.clone(),
+                                                inner: StructExpressionInner::Select(
+                                                    box array.clone(),
+                                                    box FieldElementExpression::Number(T::from(i)),
+                                                ),
+                                            },
+                                            member_id.clone(),
+                                        )
+                                        .into()
+                                    })
+                                    .collect(),
+                            ),
+                        };
+                        self.flatten_select_expression::<BooleanExpression<'ast, T>>(
+                            symbols,
+                            statements_flattened,
+                            array,
+                            index,
+                        )
+                    }
+                    Type::Struct(m) => {
+                        let array = ArrayExpression {
+                            size: array.size,
+                            ty: Type::Struct(m.clone()),
+                            inner: ArrayExpressionInner::Value(
+                                (0..array.size)
+                                    .map(|i| {
+                                        StructExpression {
+                                            ty: m.clone(),
+                                            inner: StructExpressionInner::Member(
                                                 box StructExpression {
                                                     ty: members.clone(),
                                                     inner: StructExpressionInner::Select(
@@ -417,27 +482,31 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                                     ),
                                                 },
                                                 member_id.clone(),
-                                            )
-                                            .into()
-                                        })
-                                        .collect(),
-                                ),
-                            };
-                            self.flatten_select_expression::<FieldElementExpression<'ast, T>>(
-                                symbols,
-                                statements_flattened,
-                                array,
-                                index,
-                            )
-                        }
-                        Type::Boolean => {
-                            let array = ArrayExpression {
-                                size: array.size,
-                                ty: Type::Boolean,
-                                inner: ArrayExpressionInner::Value(
-                                    (0..array.size)
-                                        .map(|i| {
-                                            BooleanExpression::Member(
+                                            ),
+                                        }
+                                        .into()
+                                    })
+                                    .collect(),
+                            ),
+                        };
+                        self.flatten_select_expression::<StructExpression<'ast, T>>(
+                            symbols,
+                            statements_flattened,
+                            array,
+                            index,
+                        )
+                    }
+                    Type::Array(box ty, size) => {
+                        let array = ArrayExpression {
+                            size: array.size,
+                            ty: Type::Array(box ty.clone(), size),
+                            inner: ArrayExpressionInner::Value(
+                                (0..array.size)
+                                    .map(|i| {
+                                        ArrayExpression {
+                                            size,
+                                            ty: ty.clone(),
+                                            inner: ArrayExpressionInner::Member(
                                                 box StructExpression {
                                                     ty: members.clone(),
                                                     inner: StructExpressionInner::Select(
@@ -448,152 +517,84 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                                     ),
                                                 },
                                                 member_id.clone(),
-                                            )
-                                            .into()
-                                        })
-                                        .collect(),
-                                ),
-                            };
-                            self.flatten_select_expression::<BooleanExpression<'ast, T>>(
-                                symbols,
-                                statements_flattened,
-                                array,
-                                index,
-                            )
-                        }
-                        Type::Struct(m) => {
-                            let array = ArrayExpression {
-                                size: array.size,
-                                ty: Type::Struct(m.clone()),
-                                inner: ArrayExpressionInner::Value(
-                                    (0..array.size)
-                                        .map(|i| {
-                                            StructExpression {
-                                                ty: m.clone(),
-                                                inner: StructExpressionInner::Member(
-                                                    box StructExpression {
-                                                        ty: members.clone(),
-                                                        inner: StructExpressionInner::Select(
-                                                            box array.clone(),
-                                                            box FieldElementExpression::Number(
-                                                                T::from(i),
-                                                            ),
-                                                        ),
-                                                    },
-                                                    member_id.clone(),
-                                                ),
-                                            }
-                                            .into()
-                                        })
-                                        .collect(),
-                                ),
-                            };
-                            self.flatten_select_expression::<StructExpression<'ast, T>>(
-                                symbols,
-                                statements_flattened,
-                                array,
-                                index,
-                            )
-                        }
-                        Type::Array(box ty, size) => {
-                            let array = ArrayExpression {
-                                size: array.size,
-                                ty: Type::Array(box ty.clone(), size),
-                                inner: ArrayExpressionInner::Value(
-                                    (0..array.size)
-                                        .map(|i| {
-                                            ArrayExpression {
-                                                size,
-                                                ty: ty.clone(),
-                                                inner: ArrayExpressionInner::Member(
-                                                    box StructExpression {
-                                                        ty: members.clone(),
-                                                        inner: StructExpressionInner::Select(
-                                                            box array.clone(),
-                                                            box FieldElementExpression::Number(
-                                                                T::from(i),
-                                                            ),
-                                                        ),
-                                                    },
-                                                    member_id.clone(),
-                                                ),
-                                            }
-                                            .into()
-                                        })
-                                        .collect(),
-                                ),
-                            };
-                            self.flatten_select_expression::<ArrayExpression<'ast, T>>(
-                                symbols,
-                                statements_flattened,
-                                array,
-                                index,
-                            )
-                        }
+                                            ),
+                                        }
+                                        .into()
+                                    })
+                                    .collect(),
+                            ),
+                        };
+                        self.flatten_select_expression::<ArrayExpression<'ast, T>>(
+                            symbols,
+                            statements_flattened,
+                            array,
+                            index,
+                        )
                     }
                 }
-                StructExpressionInner::FunctionCall(..) => unreachable!(),
-                StructExpressionInner::IfElse(box condition, box consequence, box alternative) => {
-                    // if the struct is `(if c then a else b)`, we want to access `(if c then a else b).member`
-                    // we reduce to `if c then a.member else b.member`
-                    let ty = members
-                        .clone()
-                        .into_iter()
-                        .find(|(id, _)| *id == member_id)
-                        .unwrap()
-                        .1;
+            }
+            StructExpressionInner::FunctionCall(..) => unreachable!(),
+            StructExpressionInner::IfElse(box condition, box consequence, box alternative) => {
+                // if the struct is `(if c then a else b)`, we want to access `(if c then a else b).member`
+                // we reduce to `if c then a.member else b.member`
+                let ty = members
+                    .clone()
+                    .into_iter()
+                    .find(|(id, _)| *id == member_id)
+                    .unwrap()
+                    .1;
 
-                    match ty {
-                        Type::FieldElement => self.flatten_if_else_expression(
-                            symbols,
-                            statements_flattened,
-                            condition.clone(),
-                            FieldElementExpression::member(consequence.clone(), member_id.clone()),
-                            FieldElementExpression::member(alternative.clone(), member_id),
-                        ),
-                        Type::Boolean => self.flatten_if_else_expression(
-                            symbols,
-                            statements_flattened,
-                            condition.clone(),
-                            BooleanExpression::member(consequence.clone(), member_id.clone()),
-                            BooleanExpression::member(alternative.clone(), member_id),
-                        ),
-                        Type::Struct(m) => self.flatten_if_else_expression(
-                            symbols,
-                            statements_flattened,
-                            condition.clone(),
-                            StructExpression::member(consequence.clone(), member_id.clone()),
-                            StructExpression::member(alternative.clone(), member_id),
-                        ),
-                        Type::Array(box ty, size) => self.flatten_if_else_expression(
-                            symbols,
-                            statements_flattened,
-                            condition.clone(),
-                            ArrayExpression::member(consequence.clone(), member_id.clone()),
-                            ArrayExpression::member(alternative.clone(), member_id),
-                        ),
-                    }
+                match ty {
+                    Type::FieldElement => self.flatten_if_else_expression(
+                        symbols,
+                        statements_flattened,
+                        condition.clone(),
+                        FieldElementExpression::member(consequence.clone(), member_id.clone()),
+                        FieldElementExpression::member(alternative.clone(), member_id),
+                    ),
+                    Type::Boolean => self.flatten_if_else_expression(
+                        symbols,
+                        statements_flattened,
+                        condition.clone(),
+                        BooleanExpression::member(consequence.clone(), member_id.clone()),
+                        BooleanExpression::member(alternative.clone(), member_id),
+                    ),
+                    Type::Struct(..) => self.flatten_if_else_expression(
+                        symbols,
+                        statements_flattened,
+                        condition.clone(),
+                        StructExpression::member(consequence.clone(), member_id.clone()),
+                        StructExpression::member(alternative.clone(), member_id),
+                    ),
+                    Type::Array(..) => self.flatten_if_else_expression(
+                        symbols,
+                        statements_flattened,
+                        condition.clone(),
+                        ArrayExpression::member(consequence.clone(), member_id.clone()),
+                        ArrayExpression::member(alternative.clone(), member_id),
+                    ),
                 }
-                StructExpressionInner::Member(box s0, m_id) => {
-                    let e = self.flatten_member_expression(symbols, statements_flattened, s0, m_id);
+            }
+            StructExpressionInner::Member(box s0, m_id) => {
+                let e = self.flatten_member_expression(symbols, statements_flattened, s0, m_id);
 
-                    let offset = members
-                        .iter()
-                        .take_while(|(id, _)| *id != member_id)
-                        .map(|(_, ty)| ty.get_primitive_count())
-                        .sum();
+                let offset = members
+                    .iter()
+                    .take_while(|(id, _)| *id != member_id)
+                    .map(|(_, ty)| ty.get_primitive_count())
+                    .sum();
 
-                    // we also need the size of this member
-                    let size = members
-                        .iter()
-                        .find(|(id, _)| *id == member_id)
-                        .unwrap()
-                        .1
-                        .get_primitive_count();
+                // we also need the size of this member
+                let size = members
+                    .iter()
+                    .find(|(id, _)| *id == member_id)
+                    .unwrap()
+                    .1
+                    .get_primitive_count();
 
-                    e[offset..(offset + size)].into()
-                }
-            };
+                e[offset..(offset + size)].into()
+            }
+        };
 
         assert_eq!(res.len(), expected_output_size);
         res

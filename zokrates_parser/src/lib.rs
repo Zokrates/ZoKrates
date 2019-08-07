@@ -121,7 +121,7 @@ mod tests {
             "#,
                 rule: Rule::statement,
                 tokens: [
-                    statement(0, 10, [
+                    statement(0, 22, [
                         multi_assignment_statement(0, 9, [
                             optionally_typed_identifier(0, 1, [
                                 identifier(0, 1)
@@ -153,7 +153,7 @@ mod tests {
                 ",
                 rule: Rule::ty_struct_definition,
                 tokens: [
-                    ty_struct_definition(0, 40, [
+                    ty_struct_definition(0, 41, [
                         identifier(7, 10),
                         struct_field(13, 23, [
                             identifier(13, 16),
@@ -167,8 +167,10 @@ mod tests {
                             identifier(25, 28),
                             ty(30, 39, [
                                 ty_array(30, 39, [
-                                    ty_basic(30, 35, [
-                                        ty_field(30, 35)
+                                    ty_basic_or_struct(30, 35, [
+                                        ty_basic(30, 35, [
+                                            ty_field(30, 35)
+                                        ])
                                     ]),
                                     expression(36, 37, [
                                         term(36, 37, [

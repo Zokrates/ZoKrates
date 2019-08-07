@@ -795,7 +795,9 @@ mod tests {
                         span: Span::new(&source, 33, 37).unwrap()
                     },
                     parameters: vec![],
-                    returns: vec![Type::Basic(BasicType::Field(FieldType {}))],
+                    returns: vec![Type::Basic(BasicType::Field(FieldType {
+                        span: Span::new(&source, 44, 49).unwrap()
+                    }))],
                     statements: vec![Statement::Return(ReturnStatement {
                         expressions: vec![Expression::add(
                             Expression::Constant(ConstantExpression::DecimalNumber(
@@ -816,14 +818,14 @@ mod tests {
                     })],
                     span: Span::new(&source, 29, source.len()).unwrap(),
                 }],
-                imports: vec![ImportDirective {
+                imports: vec![ImportDirective::Main(MainImportDirective {
                     source: ImportSource {
                         value: String::from("foo"),
                         span: Span::new(&source, 8, 11).unwrap()
                     },
                     alias: None,
                     span: Span::new(&source, 0, 29).unwrap()
-                }],
+                })],
                 eoi: EOI {},
                 span: Span::new(&source, 0, 65).unwrap()
             })
@@ -845,7 +847,9 @@ mod tests {
                         span: Span::new(&source, 33, 37).unwrap()
                     },
                     parameters: vec![],
-                    returns: vec![Type::Basic(BasicType::Field(FieldType {}))],
+                    returns: vec![Type::Basic(BasicType::Field(FieldType {
+                        span: Span::new(&source, 44, 49).unwrap()
+                    }))],
                     statements: vec![Statement::Return(ReturnStatement {
                         expressions: vec![Expression::add(
                             Expression::Constant(ConstantExpression::DecimalNumber(
@@ -884,14 +888,14 @@ mod tests {
                     })],
                     span: Span::new(&source, 29, 74).unwrap(),
                 }],
-                imports: vec![ImportDirective {
+                imports: vec![ImportDirective::Main(MainImportDirective {
                     source: ImportSource {
                         value: String::from("foo"),
                         span: Span::new(&source, 8, 11).unwrap()
                     },
                     alias: None,
                     span: Span::new(&source, 0, 29).unwrap()
-                }],
+                })],
                 eoi: EOI {},
                 span: Span::new(&source, 0, 74).unwrap()
             })
@@ -913,7 +917,9 @@ mod tests {
                         span: Span::new(&source, 33, 37).unwrap()
                     },
                     parameters: vec![],
-                    returns: vec![Type::Basic(BasicType::Field(FieldType {}))],
+                    returns: vec![Type::Basic(BasicType::Field(FieldType {
+                        span: Span::new(&source, 44, 49).unwrap()
+                    }))],
                     statements: vec![Statement::Return(ReturnStatement {
                         expressions: vec![Expression::if_else(
                             Expression::Constant(ConstantExpression::DecimalNumber(
@@ -940,14 +946,14 @@ mod tests {
                     })],
                     span: Span::new(&source, 29, 81).unwrap(),
                 }],
-                imports: vec![ImportDirective {
+                imports: vec![ImportDirective::Main(MainImportDirective {
                     source: ImportSource {
                         value: String::from("foo"),
                         span: Span::new(&source, 8, 11).unwrap()
                     },
                     alias: None,
                     span: Span::new(&source, 0, 29).unwrap()
-                }],
+                })],
                 eoi: EOI {},
                 span: Span::new(&source, 0, 81).unwrap()
             })
@@ -968,7 +974,9 @@ mod tests {
                         span: Span::new(&source, 4, 8).unwrap()
                     },
                     parameters: vec![],
-                    returns: vec![Type::Basic(BasicType::Field(FieldType {}))],
+                    returns: vec![Type::Basic(BasicType::Field(FieldType {
+                        span: Span::new(&source, 15, 20).unwrap()
+                    }))],
                     statements: vec![Statement::Return(ReturnStatement {
                         expressions: vec![Expression::Constant(ConstantExpression::DecimalNumber(
                             DecimalNumberExpression {
@@ -1001,7 +1009,9 @@ mod tests {
                         span: Span::new(&source, 4, 8).unwrap()
                     },
                     parameters: vec![],
-                    returns: vec![Type::Basic(BasicType::Field(FieldType {}))],
+                    returns: vec![Type::Basic(BasicType::Field(FieldType {
+                        span: Span::new(&source, 15, 20).unwrap()
+                    }))],
                     statements: vec![Statement::MultiAssignment(MultiAssignmentStatement {
                         function_id: IdentifierExpression {
                             value: String::from("foo"),
@@ -1009,7 +1019,9 @@ mod tests {
                         },
                         lhs: vec![
                             OptionallyTypedIdentifier {
-                                ty: Some(Type::Basic(BasicType::Field(FieldType {}))),
+                                ty: Some(Type::Basic(BasicType::Field(FieldType {
+                                    span: Span::new(&source, 23, 28).unwrap()
+                                }))),
                                 id: IdentifierExpression {
                                     value: String::from("a"),
                                     span: Span::new(&source, 29, 30).unwrap(),

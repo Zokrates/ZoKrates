@@ -208,6 +208,7 @@ impl<'ast> Checker<'ast> {
 
         let mut errors = vec![];
         let mut fields: Vec<(_, _)> = vec![];
+        let mut fields_set = HashSet::new();
 
         for field in s.fields {
             let member_id = field.value.id.to_string();
@@ -215,9 +216,13 @@ impl<'ast> Checker<'ast> {
                 .check_type(field.value.ty, module_id, &state.types)
                 .map(|t| (member_id, t))
             {
-                Ok(f) => {
-                    fields.push(f);
-                }
+                Ok(f) => match fields_set.insert(f.0.clone()) {
+                    true => fields.push(f),
+                    false => errors.push(Error {
+                        pos: Some(pos),
+                        message: format!("Duplicate key {} in struct definition", f.0,),
+                    }),
+                },
                 Err(e) => {
                     errors.push(e);
                 }
@@ -282,6 +287,8 @@ impl<'ast> Checker<'ast> {
 
                             match self.check_function(f, module_id, &state.types) {
                                 Ok(funct) => {
+                                    let funct = TypedFunctionSymbol::Here(funct);
+
                                     let query = FunctionQuery::new(
                                         declaration.id.clone(),
                                         &funct.signature(&state.typed_modules).inputs,
@@ -338,6 +345,8 @@ impl<'ast> Checker<'ast> {
                             let pos = import.pos();
                             let import = import.value;
 
+                            state.types.insert(module_id.to_string(), HashMap::new());
+
                             match Checker::new().check_module(&import.module_id, state) {
                                 Ok(()) => {
                                     // find candidates in the checked module
@@ -357,8 +366,8 @@ impl<'ast> Checker<'ast> {
                                     // find candidates in the types
                                     let type_candidate = state
                                         .types
-                                        .get(&import.module_id)
-                                        .unwrap()
+                                        .entry(import.module_id.clone())
+                                        .or_insert_with(|| HashMap::new())
                                         .get(import.symbol_id)
                                         .cloned();
 
@@ -371,7 +380,15 @@ impl<'ast> Checker<'ast> {
                                                 .or_default()
                                                 .insert(import.symbol_id.to_string(), t.clone());
                                         }
-                                        (0, None) => unreachable!(),
+                                        (0, None) => {
+                                            errors.push(Error {
+                                                pos: Some(pos),
+                                                message: format!(
+                                                    "Could not find symbol {} in module {}",
+                                                    import.symbol_id, import.module_id,
+                                                ),
+                                            });
+                                        }
                                         _ => {
                                             ids.insert(declaration.id);
                                             for candidate in function_candidates {
@@ -498,7 +515,7 @@ impl<'ast> Checker<'ast> {
         funct_node: FunctionNode<'ast, T>,
         module_id: &ModuleId,
         types: &TypeMap,
-    ) -> Result<TypedFunctionSymbol<'ast, T>, Vec<Error>> {
+    ) -> Result<TypedFunction<'ast, T>, Vec<Error>> {
         let mut errors = vec![];
         let funct = funct_node.value;
         let mut arguments_checked = vec![];
@@ -541,11 +558,11 @@ impl<'ast> Checker<'ast> {
             return Err(errors);
         }
 
-        Ok(TypedFunctionSymbol::Here(TypedFunction {
+        Ok(TypedFunction {
             arguments: arguments_checked,
             statements: statements_checked,
             signature: signature.unwrap(),
-        }))
+        })
     }
 
     fn check_parameter(
@@ -1758,8 +1775,8 @@ impl<'ast> Checker<'ast> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use absy;
     use typed_absy;
-    use types::Signature;
     use zokrates_field::field::FieldPrime;
 
     mod array {
@@ -1767,13 +1784,17 @@ mod tests {
 
         #[test]
         fn element_type_mismatch() {
+            let types = HashMap::new();
+            let module_id = String::from("");
             // [3, true]
             let a = Expression::InlineArray(vec![
                 Expression::FieldConstant(FieldPrime::from(3)).mock().into(),
                 Expression::BooleanConstant(true).mock().into(),
             ])
             .mock();
-            assert!(Checker::new().check_expression(a).is_err());
+            assert!(Checker::new()
+                .check_expression(a, &module_id, &types)
+                .is_err());
 
             // [[0], [0, 0]]
             let a = Expression::InlineArray(vec![
@@ -1790,7 +1811,9 @@ mod tests {
                 .into(),
             ])
             .mock();
-            assert!(Checker::new().check_expression(a).is_err());
+            assert!(Checker::new()
+                .check_expression(a, &module_id, &types)
+                .is_err());
 
             // [[0], true]
             let a = Expression::InlineArray(vec![
@@ -1804,13 +1827,14 @@ mod tests {
                     .into(),
             ])
             .mock();
-            assert!(Checker::new().check_expression(a).is_err());
+            assert!(Checker::new()
+                .check_expression(a, &module_id, &types)
+                .is_err());
         }
     }
 
     mod symbols {
         use super::*;
-        use crate::types::Signature;
 
         #[test]
         fn imported_symbol() {
@@ -1824,9 +1848,9 @@ mod tests {
             // after semantic check, `bar` should import a checked function
 
             let foo: Module<FieldPrime> = Module {
-                functions: vec![FunctionDeclaration {
+                symbols: vec![SymbolDeclaration {
                     id: "main",
-                    symbol: FunctionSymbol::Here(
+                    symbol: Symbol::HereFunction(
                         Function {
                             statements: vec![Statement::Return(
                                 ExpressionList {
@@ -1838,7 +1862,8 @@ mod tests {
                                 .mock(),
                             )
                             .mock()],
-                            signature: Signature::new().outputs(vec![Type::FieldElement]),
+                            signature: UnresolvedSignature::new()
+                                .outputs(vec![UnresolvedType::FieldElement.mock()]),
                             arguments: vec![],
                         }
                         .mock(),
@@ -1849,28 +1874,27 @@ mod tests {
             };
 
             let bar: Module<FieldPrime> = Module {
-                functions: vec![FunctionDeclaration {
+                symbols: vec![SymbolDeclaration {
                     id: "main",
-                    symbol: FunctionSymbol::There(
-                        FunctionImport::with_id_in_module("main", "foo").mock(),
-                    ),
+                    symbol: Symbol::There(SymbolImport::with_id_in_module("main", "foo").mock()),
                 }
                 .mock()],
                 imports: vec![],
             };
 
-            let mut modules = vec![(String::from("foo"), foo), (String::from("bar"), bar)]
-                .into_iter()
-                .collect();
-            let mut typed_modules = HashMap::new();
+            let mut state = State::new(
+                vec![(String::from("foo"), foo), (String::from("bar"), bar)]
+                    .into_iter()
+                    .collect(),
+            );
 
             let mut checker = Checker::new();
 
             checker
-                .check_module(&String::from("bar"), &mut modules, &mut typed_modules)
+                .check_module(&String::from("bar"), &mut state)
                 .unwrap();
             assert_eq!(
-                typed_modules.get(&String::from("bar")),
+                state.typed_modules.get(&String::from("bar")),
                 Some(&TypedModule {
                     functions: vec![(
                         FunctionKey::with_id("main")
@@ -1910,9 +1934,12 @@ mod tests {
         )
         .mock();
 
+        let types = HashMap::new();
+        let module_id = String::from("");
+
         let mut checker = Checker::new();
         assert_eq!(
-            checker.check_statement(statement, &vec![]),
+            checker.check_statement(statement, &vec![], &module_id, &types),
             Err(Error {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Identifier \"b\" is undefined".to_string()
@@ -1930,18 +1957,21 @@ mod tests {
         )
         .mock();
 
+        let types = HashMap::new();
+        let module_id = String::from("");
+
         let mut scope = HashSet::new();
         scope.insert(ScopedVariable {
-            id: Variable::field_element("a"),
+            id: Variable::field_element("a".into()),
             level: 0,
         });
         scope.insert(ScopedVariable {
-            id: Variable::field_element("b"),
+            id: Variable::field_element("b".into()),
             level: 0,
         });
         let mut checker = new_with_args(scope, 1, HashSet::new());
         assert_eq!(
-            checker.check_statement(statement, &vec![]),
+            checker.check_statement(statement, &vec![], &module_id, &types),
             Ok(TypedStatement::Definition(
                 TypedAssignee::Identifier(typed_absy::Variable::field_element("a".into())),
                 FieldElementExpression::Identifier("b".into()).into()
@@ -1958,7 +1988,10 @@ mod tests {
         // should fail
         let foo_args = vec![];
         let foo_statements = vec![
-            Statement::Declaration(Variable::field_element("a").mock()).mock(),
+            Statement::Declaration(
+                absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
+            )
+            .mock(),
             Statement::Definition(
                 Assignee::Identifier("a").mock(),
                 Expression::FieldConstant(FieldPrime::from(1)).mock(),
@@ -1968,9 +2001,9 @@ mod tests {
         let foo = Function {
             arguments: foo_args,
             statements: foo_statements,
-            signature: Signature {
+            signature: UnresolvedSignature {
                 inputs: vec![],
-                outputs: vec![Type::FieldElement],
+                outputs: vec![UnresolvedType::FieldElement.mock()],
             },
         }
         .mock();
@@ -1987,35 +2020,35 @@ mod tests {
         let bar = Function {
             arguments: bar_args,
             statements: bar_statements,
-            signature: Signature {
+            signature: UnresolvedSignature {
                 inputs: vec![],
-                outputs: vec![Type::FieldElement],
+                outputs: vec![UnresolvedType::FieldElement.mock()],
             },
         }
         .mock();
 
-        let funcs = vec![
-            FunctionDeclaration {
+        let symbols = vec![
+            SymbolDeclaration {
                 id: "foo",
-                symbol: FunctionSymbol::Here(foo),
+                symbol: Symbol::HereFunction(foo),
             }
             .mock(),
-            FunctionDeclaration {
+            SymbolDeclaration {
                 id: "bar",
-                symbol: FunctionSymbol::Here(bar),
+                symbol: Symbol::HereFunction(bar),
             }
             .mock(),
         ];
         let module = Module {
-            functions: funcs,
+            symbols,
             imports: vec![],
         };
 
-        let mut modules = vec![(String::from("main"), module)].into_iter().collect();
+        let mut state = State::new(vec![(String::from("main"), module)].into_iter().collect());
 
         let mut checker = Checker::new();
         assert_eq!(
-            checker.check_module(&String::from("main"), &mut modules, &mut HashMap::new()),
+            checker.check_module(&String::from("main"), &mut state),
             Err(vec![Error {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Identifier \"a\" is undefined".to_string()
@@ -2035,7 +2068,10 @@ mod tests {
         // should pass
         let foo_args = vec![];
         let foo_statements = vec![
-            Statement::Declaration(Variable::field_element("a").mock()).mock(),
+            Statement::Declaration(
+                absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
+            )
+            .mock(),
             Statement::Definition(
                 Assignee::Identifier("a").mock(),
                 Expression::FieldConstant(FieldPrime::from(1)).mock(),
@@ -2046,16 +2082,19 @@ mod tests {
         let foo = Function {
             arguments: foo_args,
             statements: foo_statements,
-            signature: Signature {
+            signature: UnresolvedSignature {
                 inputs: vec![],
-                outputs: vec![Type::FieldElement],
+                outputs: vec![UnresolvedType::FieldElement.mock()],
             },
         }
         .mock();
 
         let bar_args = vec![];
         let bar_statements = vec![
-            Statement::Declaration(Variable::field_element("a").mock()).mock(),
+            Statement::Declaration(
+                absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
+            )
+            .mock(),
             Statement::Definition(
                 Assignee::Identifier("a").mock(),
                 Expression::FieldConstant(FieldPrime::from(2)).mock(),
@@ -2072,9 +2111,9 @@ mod tests {
         let bar = Function {
             arguments: bar_args,
             statements: bar_statements,
-            signature: Signature {
+            signature: UnresolvedSignature {
                 inputs: vec![],
-                outputs: vec![Type::FieldElement],
+                outputs: vec![UnresolvedType::FieldElement.mock()],
             },
         }
         .mock();
@@ -2091,40 +2130,40 @@ mod tests {
         let main = Function {
             arguments: main_args,
             statements: main_statements,
-            signature: Signature {
+            signature: UnresolvedSignature {
                 inputs: vec![],
-                outputs: vec![Type::FieldElement],
+                outputs: vec![UnresolvedType::FieldElement.mock()],
             },
         }
         .mock();
 
-        let funcs = vec![
-            FunctionDeclaration {
+        let symbols = vec![
+            SymbolDeclaration {
                 id: "foo",
-                symbol: FunctionSymbol::Here(foo),
+                symbol: Symbol::HereFunction(foo),
             }
             .mock(),
-            FunctionDeclaration {
+            SymbolDeclaration {
                 id: "bar",
-                symbol: FunctionSymbol::Here(bar),
+                symbol: Symbol::HereFunction(bar),
             }
             .mock(),
-            FunctionDeclaration {
+            SymbolDeclaration {
                 id: "main",
-                symbol: FunctionSymbol::Here(main),
+                symbol: Symbol::HereFunction(main),
             }
             .mock(),
         ];
         let module = Module {
-            functions: funcs,
+            symbols,
             imports: vec![],
         };
 
-        let mut modules = vec![(String::from("main"), module)].into_iter().collect();
+        let mut state = State::new(vec![(String::from("main"), module)].into_iter().collect());
 
         let mut checker = Checker::new();
         assert!(checker
-            .check_module(&String::from("main"), &mut modules, &mut HashMap::new())
+            .check_module(&String::from("main"), &mut state)
             .is_ok());
     }
 
@@ -2137,7 +2176,7 @@ mod tests {
         // should fail
         let foo_statements = vec![
             Statement::For(
-                Variable::field_element("i").mock(),
+                absy::Variable::new("i", UnresolvedType::FieldElement.mock()).mock(),
                 FieldPrime::from(0),
                 FieldPrime::from(10),
                 vec![],
@@ -2154,16 +2193,19 @@ mod tests {
         let foo = Function {
             arguments: vec![],
             statements: foo_statements,
-            signature: Signature {
+            signature: UnresolvedSignature {
                 inputs: vec![],
-                outputs: vec![Type::FieldElement],
+                outputs: vec![UnresolvedType::FieldElement.mock()],
             },
         }
         .mock();
 
+        let types = HashMap::new();
+        let module_id = String::from("");
+
         let mut checker = Checker::new();
         assert_eq!(
-            checker.check_function(foo),
+            checker.check_function(foo, &module_id, &types),
             Err(vec![Error {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Identifier \"i\" is undefined".to_string()
@@ -2180,7 +2222,10 @@ mod tests {
         // should pass
 
         let for_statements = vec![
-            Statement::Declaration(Variable::field_element("a").mock()).mock(),
+            Statement::Declaration(
+                absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
+            )
+            .mock(),
             Statement::Definition(
                 Assignee::Identifier("a").mock(),
                 Expression::Identifier("i").mock(),
@@ -2189,7 +2234,7 @@ mod tests {
         ];
 
         let foo_statements = vec![Statement::For(
-            Variable::field_element("i").mock(),
+            absy::Variable::new("i", UnresolvedType::FieldElement.mock()).mock(),
             FieldPrime::from(0),
             FieldPrime::from(10),
             for_statements,
@@ -2214,9 +2259,9 @@ mod tests {
         let foo = Function {
             arguments: vec![],
             statements: foo_statements,
-            signature: Signature {
+            signature: UnresolvedSignature {
                 inputs: vec![],
-                outputs: vec![Type::FieldElement],
+                outputs: vec![UnresolvedType::FieldElement.mock()],
             },
         }
         .mock();
@@ -2230,8 +2275,14 @@ mod tests {
             },
         };
 
+        let types = HashMap::new();
+        let module_id = String::from("");
+
         let mut checker = Checker::new();
-        assert_eq!(checker.check_function(foo), Ok(foo_checked));
+        assert_eq!(
+            checker.check_function(foo, &module_id, &types),
+            Ok(foo_checked)
+        );
     }
 
     #[test]
@@ -2242,7 +2293,10 @@ mod tests {
         //   field a = foo()
         // should fail
         let bar_statements: Vec<StatementNode<FieldPrime>> = vec![
-            Statement::Declaration(Variable::field_element("a").mock()).mock(),
+            Statement::Declaration(
+                absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
+            )
+            .mock(),
             Statement::MultipleDefinition(
                 vec![Assignee::Identifier("a").mock()],
                 Expression::FunctionCall("foo", vec![]).mock(),
@@ -2263,16 +2317,19 @@ mod tests {
         let bar = Function {
             arguments: vec![],
             statements: bar_statements,
-            signature: Signature {
+            signature: UnresolvedSignature {
                 inputs: vec![],
-                outputs: vec![Type::FieldElement],
+                outputs: vec![UnresolvedType::FieldElement.mock()],
             },
         }
         .mock();
 
+        let types = HashMap::new();
+        let module_id = String::from("");
+
         let mut checker = new_with_args(HashSet::new(), 0, functions);
         assert_eq!(
-            checker.check_function(bar),
+            checker.check_function(bar, &module_id, &types),
             Err(vec![Error {
                 pos: Some((Position::mock(), Position::mock())),
                 message:
@@ -2308,16 +2365,19 @@ mod tests {
         let bar = Function {
             arguments: vec![],
             statements: bar_statements,
-            signature: Signature {
+            signature: UnresolvedSignature {
                 inputs: vec![],
-                outputs: vec![Type::FieldElement],
+                outputs: vec![UnresolvedType::FieldElement.mock()],
             },
         }
         .mock();
 
+        let types = HashMap::new();
+        let module_id = String::from("");
+
         let mut checker = new_with_args(HashSet::new(), 0, functions);
         assert_eq!(
-            checker.check_function(bar),
+            checker.check_function(bar, &module_id, &types),
             Err(vec![Error {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Function definition for function foo with signature () -> (_) not found."
@@ -2332,7 +2392,10 @@ mod tests {
         //   field a = foo()
         // should fail
         let bar_statements: Vec<StatementNode<FieldPrime>> = vec![
-            Statement::Declaration(Variable::field_element("a").mock()).mock(),
+            Statement::Declaration(
+                absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
+            )
+            .mock(),
             Statement::MultipleDefinition(
                 vec![Assignee::Identifier("a").mock()],
                 Expression::FunctionCall("foo", vec![]).mock(),
@@ -2343,16 +2406,19 @@ mod tests {
         let bar = Function {
             arguments: vec![],
             statements: bar_statements,
-            signature: Signature {
+            signature: UnresolvedSignature {
                 inputs: vec![],
-                outputs: vec![Type::FieldElement],
+                outputs: vec![UnresolvedType::FieldElement.mock()],
             },
         }
         .mock();
 
+        let types = HashMap::new();
+        let module_id = String::from("");
+
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
-            checker.check_function(bar),
+            checker.check_function(bar, &module_id, &types),
             Err(vec![Error {
                 pos: Some((Position::mock(), Position::mock())),
 
@@ -2385,21 +2451,30 @@ mod tests {
 
         let foo = Function {
             arguments: vec![crate::absy::Parameter {
-                id: Variable::field_element("x").mock(),
+                id: absy::Variable::new("x", UnresolvedType::FieldElement.mock()).mock(),
                 private: false,
             }
             .mock()],
             statements: foo_statements,
-            signature: Signature {
-                inputs: vec![Type::FieldElement],
-                outputs: vec![Type::FieldElement, Type::FieldElement],
+            signature: UnresolvedSignature {
+                inputs: vec![UnresolvedType::FieldElement.mock()],
+                outputs: vec![
+                    UnresolvedType::FieldElement.mock(),
+                    UnresolvedType::FieldElement.mock(),
+                ],
             },
         }
         .mock();
 
         let main_statements: Vec<StatementNode<FieldPrime>> = vec![
-            Statement::Declaration(Variable::field_element("a").mock()).mock(),
-            Statement::Declaration(Variable::field_element("b").mock()).mock(),
+            Statement::Declaration(
+                absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
+            )
+            .mock(),
+            Statement::Declaration(
+                absy::Variable::new("b", UnresolvedType::FieldElement.mock()).mock(),
+            )
+            .mock(),
             Statement::MultipleDefinition(
                 vec![
                     Assignee::Identifier("a").mock(),
@@ -2420,34 +2495,34 @@ mod tests {
         let main = Function {
             arguments: vec![],
             statements: main_statements,
-            signature: Signature {
+            signature: UnresolvedSignature {
                 inputs: vec![],
-                outputs: vec![Type::FieldElement],
+                outputs: vec![UnresolvedType::FieldElement.mock()],
             },
         }
         .mock();
 
         let module = Module {
-            functions: vec![
-                FunctionDeclaration {
+            symbols: vec![
+                SymbolDeclaration {
                     id: "foo",
-                    symbol: FunctionSymbol::Here(foo),
+                    symbol: Symbol::HereFunction(foo),
                 }
                 .mock(),
-                FunctionDeclaration {
+                SymbolDeclaration {
                     id: "main",
-                    symbol: FunctionSymbol::Here(main),
+                    symbol: Symbol::HereFunction(main),
                 }
                 .mock(),
             ],
             imports: vec![],
         };
 
-        let mut modules = vec![(String::from("main"), module)].into_iter().collect();
+        let mut state = State::new(vec![(String::from("main"), module)].into_iter().collect());
 
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
-            checker.check_module(&String::from("main"), &mut modules, &mut HashMap::new()),
+            checker.check_module(&String::from("main"), &mut state),
             Err(vec![Error {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Identifier \"x\" is undefined".to_string()
@@ -2469,16 +2544,19 @@ mod tests {
         let bar = Function {
             arguments: vec![],
             statements: bar_statements,
-            signature: Signature {
+            signature: UnresolvedSignature {
                 inputs: vec![],
-                outputs: vec![Type::FieldElement],
+                outputs: vec![UnresolvedType::FieldElement.mock()],
             },
         }
         .mock();
 
+        let types = HashMap::new();
+        let module_id = String::from("");
+
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
-            checker.check_function(bar),
+            checker.check_function(bar, &module_id, &types),
             Err(vec![Error {
                 pos: Some((Position::mock(), Position::mock())),
 
@@ -2507,16 +2585,22 @@ mod tests {
         let bar = Function {
             arguments: vec![],
             statements: bar_statements,
-            signature: Signature {
+            signature: UnresolvedSignature {
                 inputs: vec![],
-                outputs: vec![Type::FieldElement, Type::FieldElement],
+                outputs: vec![
+                    UnresolvedType::FieldElement.mock(),
+                    UnresolvedType::FieldElement.mock(),
+                ],
             },
         }
         .mock();
 
+        let types = HashMap::new();
+        let module_id = String::from("");
+
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
-            checker.check_function(bar),
+            checker.check_function(bar, &module_id, &types),
             Err(vec![Error {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Identifier \"a\" is undefined".to_string()
@@ -2534,8 +2618,14 @@ mod tests {
         //
         // should pass
         let bar_statements: Vec<StatementNode<FieldPrime>> = vec![
-            Statement::Declaration(Variable::field_element("a").mock()).mock(),
-            Statement::Declaration(Variable::field_element("b").mock()).mock(),
+            Statement::Declaration(
+                absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
+            )
+            .mock(),
+            Statement::Declaration(
+                absy::Variable::new("b", UnresolvedType::FieldElement.mock()).mock(),
+            )
+            .mock(),
             Statement::MultipleDefinition(
                 vec![
                     Assignee::Identifier("a").mock(),
@@ -2594,9 +2684,9 @@ mod tests {
         let bar = Function {
             arguments: vec![],
             statements: bar_statements,
-            signature: Signature {
+            signature: UnresolvedSignature {
                 inputs: vec![],
-                outputs: vec![Type::FieldElement],
+                outputs: vec![UnresolvedType::FieldElement.mock()],
             },
         }
         .mock();
@@ -2610,8 +2700,14 @@ mod tests {
             },
         };
 
+        let types = HashMap::new();
+        let module_id = String::from("");
+
         let mut checker = new_with_args(HashSet::new(), 0, functions);
-        assert_eq!(checker.check_function(bar), Ok(bar_checked));
+        assert_eq!(
+            checker.check_function(bar, &module_id, &types),
+            Ok(bar_checked)
+        );
     }
 
     #[test]
@@ -2633,12 +2729,12 @@ mod tests {
 
         let foo1_arguments = vec![
             crate::absy::Parameter {
-                id: Variable::field_element("a").mock(),
+                id: absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
                 private: true,
             }
             .mock(),
             crate::absy::Parameter {
-                id: Variable::field_element("b").mock(),
+                id: absy::Variable::new("b", UnresolvedType::FieldElement.mock()).mock(),
                 private: true,
             }
             .mock(),
@@ -2654,12 +2750,12 @@ mod tests {
 
         let foo2_arguments = vec![
             crate::absy::Parameter {
-                id: Variable::field_element("c").mock(),
+                id: absy::Variable::new("c", UnresolvedType::FieldElement.mock()).mock(),
                 private: true,
             }
             .mock(),
             crate::absy::Parameter {
-                id: Variable::field_element("d").mock(),
+                id: absy::Variable::new("d", UnresolvedType::FieldElement.mock()).mock(),
                 private: true,
             }
             .mock(),
@@ -2668,9 +2764,12 @@ mod tests {
         let foo1 = Function {
             arguments: foo1_arguments,
             statements: foo1_statements,
-            signature: Signature {
-                inputs: vec![Type::FieldElement, Type::FieldElement],
-                outputs: vec![Type::FieldElement],
+            signature: UnresolvedSignature {
+                inputs: vec![
+                    UnresolvedType::FieldElement.mock(),
+                    UnresolvedType::FieldElement.mock(),
+                ],
+                outputs: vec![UnresolvedType::FieldElement.mock()],
             },
         }
         .mock();
@@ -2678,34 +2777,37 @@ mod tests {
         let foo2 = Function {
             arguments: foo2_arguments,
             statements: foo2_statements,
-            signature: Signature {
-                inputs: vec![Type::FieldElement, Type::FieldElement],
-                outputs: vec![Type::FieldElement],
+            signature: UnresolvedSignature {
+                inputs: vec![
+                    UnresolvedType::FieldElement.mock(),
+                    UnresolvedType::FieldElement.mock(),
+                ],
+                outputs: vec![UnresolvedType::FieldElement.mock()],
             },
         }
         .mock();
 
         let module = Module {
-            functions: vec![
-                FunctionDeclaration {
+            symbols: vec![
+                SymbolDeclaration {
                     id: "foo",
-                    symbol: FunctionSymbol::Here(foo1),
+                    symbol: Symbol::HereFunction(foo1),
                 }
                 .mock(),
-                FunctionDeclaration {
+                SymbolDeclaration {
                     id: "foo",
-                    symbol: FunctionSymbol::Here(foo2),
+                    symbol: Symbol::HereFunction(foo2),
                 }
                 .mock(),
             ],
             imports: vec![],
         };
 
-        let mut modules = vec![(String::from("main"), module)].into_iter().collect();
+        let mut state = State::new(vec![(String::from("main"), module)].into_iter().collect());
 
         let mut checker = Checker::new();
         assert_eq!(
-            checker.check_module(&String::from("main"), &mut modules, &mut HashMap::new()),
+            checker.check_module(&String::from("main"), &mut state),
             Err(vec![Error {
                 pos: Some((Position::mock(), Position::mock())),
 
@@ -2733,7 +2835,7 @@ mod tests {
         .mock()];
 
         let main1_arguments = vec![crate::absy::Parameter {
-            id: Variable::field_element("a").mock(),
+            id: absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             private: false,
         }
         .mock()];
@@ -2751,9 +2853,9 @@ mod tests {
         let main1 = Function {
             arguments: main1_arguments,
             statements: main1_statements,
-            signature: Signature {
-                inputs: vec![Type::FieldElement],
-                outputs: vec![Type::FieldElement],
+            signature: UnresolvedSignature {
+                inputs: vec![UnresolvedType::FieldElement.mock()],
+                outputs: vec![UnresolvedType::FieldElement.mock()],
             },
         }
         .mock();
@@ -2761,28 +2863,28 @@ mod tests {
         let main2 = Function {
             arguments: main2_arguments,
             statements: main2_statements,
-            signature: Signature {
+            signature: UnresolvedSignature {
                 inputs: vec![],
-                outputs: vec![Type::FieldElement],
+                outputs: vec![UnresolvedType::FieldElement.mock()],
             },
         }
         .mock();
 
-        let functions = vec![
-            FunctionDeclaration {
+        let symbols = vec![
+            SymbolDeclaration {
                 id: "main",
-                symbol: FunctionSymbol::Here(main1),
+                symbol: Symbol::HereFunction(main1),
             }
             .mock(),
-            FunctionDeclaration {
+            SymbolDeclaration {
                 id: "main",
-                symbol: FunctionSymbol::Here(main2),
+                symbol: Symbol::HereFunction(main2),
             }
             .mock(),
         ];
 
         let main_module = Module {
-            functions: functions,
+            symbols,
             imports: vec![],
         };
 
@@ -2810,14 +2912,26 @@ mod tests {
         //
         // should fail
 
+        let types = HashMap::new();
+        let module_id = String::from("");
         let mut checker = Checker::new();
         let _: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(
-            Statement::Declaration(Variable::field_element("a").mock()).mock(),
+            Statement::Declaration(
+                absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
+            )
+            .mock(),
             &vec![],
+            &module_id,
+            &types,
         );
         let s2_checked: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(
-            Statement::Declaration(Variable::field_element("a").mock()).mock(),
+            Statement::Declaration(
+                absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
+            )
+            .mock(),
             &vec![],
+            &module_id,
+            &types,
         );
         assert_eq!(
             s2_checked,
@@ -2835,14 +2949,25 @@ mod tests {
         //
         // should fail
 
+        let types = HashMap::new();
+        let module_id = String::from("");
+
         let mut checker = Checker::new();
         let _: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(
-            Statement::Declaration(Variable::field_element("a").mock()).mock(),
+            Statement::Declaration(
+                absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
+            )
+            .mock(),
             &vec![],
+            &module_id,
+            &types,
         );
         let s2_checked: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(
-            Statement::Declaration(Variable::boolean("a").mock()).mock(),
+            Statement::Declaration(absy::Variable::new("a", UnresolvedType::Boolean.mock()).mock())
+                .mock(),
             &vec![],
+            &module_id,
+            &types,
         );
         assert_eq!(
             s2_checked,
@@ -2861,16 +2986,23 @@ mod tests {
             // a = 42
             let a = Assignee::Identifier::<FieldPrime>("a").mock();
 
+            let types = HashMap::new();
+            let module_id = String::from("");
             let mut checker: Checker = Checker::new();
             checker
                 .check_statement::<FieldPrime>(
-                    Statement::Declaration(Variable::field_element("a").mock()).mock(),
+                    Statement::Declaration(
+                        absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
+                    )
+                    .mock(),
                     &vec![],
+                    &module_id,
+                    &types,
                 )
                 .unwrap();
 
             assert_eq!(
-                checker.check_assignee(a),
+                checker.check_assignee(a, &module_id, &types),
                 Ok(TypedAssignee::Identifier(
                     typed_absy::Variable::field_element("a".into())
                 ))
@@ -2889,16 +3021,28 @@ mod tests {
             )
             .mock();
 
+            let types = HashMap::new();
+            let module_id = String::from("");
+
             let mut checker: Checker = Checker::new();
             checker
                 .check_statement::<FieldPrime>(
-                    Statement::Declaration(Variable::field_array("a", 33).mock()).mock(),
+                    Statement::Declaration(
+                        absy::Variable::new(
+                            "a",
+                            UnresolvedType::array(UnresolvedType::FieldElement.mock(), 33).mock(),
+                        )
+                        .mock(),
+                    )
+                    .mock(),
                     &vec![],
+                    &module_id,
+                    &types,
                 )
                 .unwrap();
 
             assert_eq!(
-                checker.check_assignee(a),
+                checker.check_assignee(a, &module_id, &types),
                 Ok(TypedAssignee::ArrayElement(
                     box TypedAssignee::Identifier(typed_absy::Variable::field_array(
                         "a".into(),
@@ -2927,19 +3071,32 @@ mod tests {
             )
             .mock();
 
+            let types = HashMap::new();
+            let module_id = String::from("");
             let mut checker: Checker = Checker::new();
             checker
                 .check_statement::<FieldPrime>(
                     Statement::Declaration(
-                        Variable::array("a", Type::array(Type::FieldElement, 33), 42).mock(),
+                        absy::Variable::new(
+                            "a",
+                            UnresolvedType::array(
+                                UnresolvedType::array(UnresolvedType::FieldElement.mock(), 33)
+                                    .mock(),
+                                42,
+                            )
+                            .mock(),
+                        )
+                        .mock(),
                     )
                     .mock(),
                     &vec![],
+                    &module_id,
+                    &types,
                 )
                 .unwrap();
 
             assert_eq!(
-                checker.check_assignee(a),
+                checker.check_assignee(a, &module_id, &types),
                 Ok(TypedAssignee::ArrayElement(
                     box TypedAssignee::ArrayElement(
                         box TypedAssignee::Identifier(typed_absy::Variable::array(

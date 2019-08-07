@@ -1,8 +1,8 @@
-from "./u.code" import Foo
+from "./u.code" import Fooo
 
 struct Bar {
 	a: field,
-	b: field,
+	a: field,
 	c: field,
 }
 

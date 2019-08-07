@@ -60,7 +60,14 @@ impl Type {
             Type::FieldElement => String::from("f"),
             Type::Boolean => String::from("b"),
             Type::Array(box ty, size) => format!("{}[{}]", ty.to_slug(), size),
-            Type::Struct(members) => unimplemented!(),
+            Type::Struct(members) => format!(
+                "{{{}}}",
+                members
+                    .iter()
+                    .map(|(id, ty)| format!("{}:{}", id, ty))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ),
         }
     }
 
@@ -72,24 +79,6 @@ impl Type {
             Type::Array(ty, size) => size * ty.get_primitive_count(),
             Type::Struct(members) => members.iter().map(|(_, t)| t.get_primitive_count()).sum(),
         }
-    }
-}
-
-#[derive(Clone, PartialEq, Hash, Eq)]
-pub struct Variable<'ast> {
-    pub id: Identifier<'ast>,
-    pub _type: Type,
-}
-
-impl<'ast> fmt::Display for Variable<'ast> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} {}", self._type, self.id,)
-    }
-}
-
-impl<'ast> fmt::Debug for Variable<'ast> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Variable(type: {:?}, id: {:?})", self._type, self.id,)
     }
 }
 
