@@ -1072,6 +1072,16 @@ impl<'ast> Checker<'ast> {
                                         unimplemented!("handle consequence alternative inner type mismatch")
                                     }
                                 },
+                                (TypedExpression::Struct(consequence), TypedExpression::Struct(alternative)) => {
+                                    if consequence.get_type() == alternative.get_type() {
+                                        Ok(StructExpression {
+                                            ty: consequence.ty.clone(),
+                                            inner: StructExpressionInner::IfElse(box condition, box consequence, box alternative)
+                                        }.into())
+                                    } else {
+                                        unimplemented!("handle consequence alternative inner type mismatch")
+                                    }
+                                },
                                 _ => unimplemented!()
                             }
                             false => Err(Error {
@@ -1367,8 +1377,8 @@ impl<'ast> Checker<'ast> {
                         // check that the struct has that field and return the type if it does
                         let ty =
                             s.ty.iter()
-                                .find(|(member_id, ty)| member_id == id)
-                                .map(|(member_id, ty)| ty);
+                                .find(|(member_id, _)| member_id == id)
+                                .map(|(_, ty)| ty);
 
                         match ty {
                             Some(ty) => match ty {

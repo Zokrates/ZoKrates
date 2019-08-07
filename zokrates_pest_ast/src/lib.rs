@@ -9,12 +9,13 @@ extern crate lazy_static;
 
 pub use ast::{
     Access, ArrayAccess, ArrayInitializerExpression, ArrayType, AssertionStatement, Assignee,
-    AssignmentStatement, BasicType, BinaryExpression, BinaryOperator, CallAccess,
-    ConstantExpression, DefinitionStatement, Expression, File, FromExpression, Function,
-    IdentifierExpression, ImportDirective, ImportSource, InlineArrayExpression, IterationStatement,
-    MultiAssignmentStatement, Parameter, PostfixExpression, Range, RangeOrExpression,
-    ReturnStatement, Span, Spread, SpreadOrExpression, Statement, StructDefinition, StructField,
-    TernaryExpression, ToExpression, Type, UnaryExpression, UnaryOperator, Visibility,
+    AssignmentStatement, BasicOrStructType, BasicType, BinaryExpression, BinaryOperator,
+    CallAccess, ConstantExpression, DefinitionStatement, Expression, File, FromExpression,
+    Function, IdentifierExpression, ImportDirective, ImportSource, InlineArrayExpression,
+    IterationStatement, MultiAssignmentStatement, Parameter, PostfixExpression, Range,
+    RangeOrExpression, ReturnStatement, Span, Spread, SpreadOrExpression, Statement,
+    StructDefinition, StructField, TernaryExpression, ToExpression, Type, UnaryExpression,
+    UnaryOperator, Visibility,
 };
 
 mod ast {
@@ -251,10 +252,17 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_array))]
     pub struct ArrayType<'ast> {
-        pub ty: BasicType<'ast>,
+        pub ty: BasicOrStructType<'ast>,
         pub size: Vec<Expression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::ty_basic_or_struct))]
+    pub enum BasicOrStructType<'ast> {
+        Struct(StructType<'ast>),
+        Basic(BasicType<'ast>),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]

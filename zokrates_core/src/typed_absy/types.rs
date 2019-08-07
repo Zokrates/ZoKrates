@@ -1,11 +1,8 @@
-use absy::UnresolvedTypeNode;
 use std::fmt;
 
 pub type Identifier<'ast> = &'ast str;
 
 pub type MemberId = String;
-
-pub type UserTypeId = String;
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Type {

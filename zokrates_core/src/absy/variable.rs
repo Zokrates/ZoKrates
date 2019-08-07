@@ -1,5 +1,5 @@
 use crate::absy::types::UnresolvedType;
-use crate::absy::{Node, NodeValue, UnresolvedTypeNode};
+use crate::absy::{Node, UnresolvedTypeNode};
 use std::fmt;
 
 use crate::absy::Identifier;

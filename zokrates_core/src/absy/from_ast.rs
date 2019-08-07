@@ -8,16 +8,6 @@ use zokrates_pest_ast as pest;
 impl<'ast, T: Field> From<pest::File<'ast>> for absy::Module<'ast, T> {
     fn from(prog: pest::File<'ast>) -> absy::Module<T> {
         absy::Module {
-            // types: prog
-            //     .structs
-            //     .into_iter()
-            //     .map(|t| absy::TypeDeclarationNode::from(t))
-            //     .collect(),
-            // functions: prog
-            //     .functions
-            //     .into_iter()
-            //     .map(|f| absy::FunctionDeclarationNode::from(f))
-            //     .collect(),
             symbols: prog
                 .structs
                 .into_iter()
@@ -602,8 +592,13 @@ impl<'ast> From<pest::Type<'ast>> for UnresolvedTypeNode {
             },
             pest::Type::Array(t) => {
                 let inner_type = match t.ty {
-                    pest::BasicType::Field(t) => UnresolvedType::FieldElement.span(t.span),
-                    pest::BasicType::Boolean(t) => UnresolvedType::Boolean.span(t.span),
+                    pest::BasicOrStructType::Basic(t) => match t {
+                        pest::BasicType::Field(t) => UnresolvedType::FieldElement.span(t.span),
+                        pest::BasicType::Boolean(t) => UnresolvedType::Boolean.span(t.span),
+                    },
+                    pest::BasicOrStructType::Struct(t) => {
+                        UnresolvedType::User(t.span.as_str().to_string()).span(t.span)
+                    }
                 };
 
                 let span = t.span;

@@ -1,13 +1,15 @@
 from "./u.code" import Foo
 
 struct Bar {
-	a: Foo,
-	b: field[2]
+	a: field,
+	b: field,
+	c: field,
 }
 
-def f(Foo a) -> (Foo):
-	return a
+struct Baz {
+	a: Bar
+}
 
-def main(Bar a) -> (Foo):
-	return f(a.a)
+def main(Baz a, Baz b, bool c) -> (Baz):
+	return if c then a else b fi.a
 

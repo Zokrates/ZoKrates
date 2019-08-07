@@ -39,7 +39,6 @@ pub use self::signature::UnresolvedSignature;
 mod signature {
     use std::fmt;
 
-    use super::*;
     use absy::UnresolvedTypeNode;
 
     #[derive(Clone, PartialEq, Serialize, Deserialize)]

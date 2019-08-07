@@ -1,4 +1,3 @@
-use crate::absy;
 use crate::typed_absy::types::Type;
 use crate::typed_absy::Identifier;
 use std::fmt;
