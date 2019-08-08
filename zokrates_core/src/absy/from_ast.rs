@@ -745,7 +745,7 @@ mod tests {
                             absy::Parameter::private(
                                 absy::Variable::new(
                                     &source[23..24],
-                                    UnresolvedType::FieldElement.mock(),
+                                    absy::UnresolvedType::FieldElement.mock(),
                                 )
                                 .into(),
                             )
@@ -753,7 +753,7 @@ mod tests {
                             absy::Parameter::public(
                                 absy::Variable::new(
                                     &source[31..32],
-                                    UnresolvedType::Boolean.mock(),
+                                    absy::UnresolvedType::Boolean.mock(),
                                 )
                                 .into(),
                             )
