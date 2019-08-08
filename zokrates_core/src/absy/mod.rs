@@ -72,7 +72,7 @@ impl<'ast, T: Field> fmt::Display for SymbolDeclaration<'ast, T> {
     }
 }
 
-type SymbolDeclarationNode<'ast, T> = Node<SymbolDeclaration<'ast, T>>;
+pub type SymbolDeclarationNode<'ast, T> = Node<SymbolDeclaration<'ast, T>>;
 
 /// A module as a collection of `FunctionDeclaration`s
 #[derive(Clone, PartialEq)]

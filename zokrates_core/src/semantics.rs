@@ -30,11 +30,11 @@ type TypeMap = HashMap<ModuleId, HashMap<UserTypeId, Type>>;
 /// The global state of the program during semantic checks
 #[derive(Debug)]
 struct State<'ast, T: Field> {
-    /// The modules yet to be checked
+    /// The modules yet to be checked, which we consume as we explore the dependency tree
     modules: Modules<'ast, T>,
-    /// The already checked modules
+    /// The already checked modules, which we're returning at the end
     typed_modules: TypedModules<'ast, T>,
-    /// The user-defined types
+    /// The user-defined types, which we keep track at this phase only. In later phases, we rely only on basic types and combinations thereof
     types: TypeMap,
 }
 
@@ -197,11 +197,11 @@ impl<'ast> Checker<'ast> {
         })
     }
 
-    fn check_struct_type_declaration<T: Field>(
+    fn check_struct_type_declaration(
         &mut self,
         s: StructTypeNode<'ast>,
         module_id: &ModuleId,
-        state: &mut State<'ast, T>,
+        types: &TypeMap,
     ) -> Result<Type, Vec<Error>> {
         let pos = s.pos();
         let s = s.value;
@@ -213,7 +213,7 @@ impl<'ast> Checker<'ast> {
         for field in s.fields {
             let member_id = field.value.id.to_string();
             match self
-                .check_type(field.value.ty, module_id, &state.types)
+                .check_type(field.value.ty, module_id, &types)
                 .map(|t| (member_id, t))
             {
                 Ok(f) => match fields_set.insert(f.0.clone()) {
@@ -236,6 +236,207 @@ impl<'ast> Checker<'ast> {
         Ok(Type::Struct(fields))
     }
 
+    fn check_symbol_declaration<T: Field>(
+        &mut self,
+        declaration: SymbolDeclarationNode<'ast, T>,
+        module_id: &ModuleId,
+        state: &mut State<'ast, T>,
+        functions: &mut HashMap<FunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>,
+        symbol_id_set: &mut HashSet<Identifier<'ast>>,
+    ) -> Result<(), Vec<Error>> {
+        let mut errors = vec![];
+
+        let pos = declaration.pos();
+        let declaration = declaration.value;
+
+        match declaration.symbol {
+            Symbol::HereType(t) => {
+                match self.check_struct_type_declaration(t.clone(), module_id, &state.types) {
+                    Ok(ty) => {
+                        match symbol_id_set.insert(declaration.id) {
+                            false => errors.push(Error {
+                                pos: Some(pos),
+                                message: format!(
+                                    "Another symbol with id {} is already defined",
+                                    declaration.id,
+                                ),
+                            }),
+                            true => {}
+                        };
+                        state
+                            .types
+                            .entry(module_id.clone())
+                            .or_default()
+                            .insert(declaration.id.to_string(), ty);
+                    }
+                    Err(e) => errors.extend(e),
+                }
+            }
+            Symbol::HereFunction(f) => match self.check_function(f, module_id, &state.types) {
+                Ok(funct) => {
+                    let funct = TypedFunctionSymbol::Here(funct);
+
+                    let query = FunctionQuery::new(
+                        declaration.id.clone(),
+                        &funct.signature(&state.typed_modules).inputs,
+                        &funct
+                            .signature(&state.typed_modules)
+                            .outputs
+                            .clone()
+                            .into_iter()
+                            .map(|o| Some(o))
+                            .collect(),
+                    );
+
+                    let candidates = self.find_candidates(&query);
+
+                    match candidates.len() {
+                        1 => {
+                            errors.push(Error {
+                                pos: Some(pos),
+                                message: format!(
+                                    "Duplicate definition for function {} with signature {}",
+                                    declaration.id,
+                                    funct.signature(&state.typed_modules)
+                                ),
+                            });
+                        }
+                        0 => {}
+                        _ => panic!("duplicate function declaration should have been caught"),
+                    }
+
+                    symbol_id_set.insert(declaration.id);
+
+                    self.functions.insert(
+                        FunctionKey::with_id(declaration.id.clone())
+                            .signature(funct.signature(&state.typed_modules).clone()),
+                    );
+                    functions.insert(
+                        FunctionKey::with_id(declaration.id.clone())
+                            .signature(funct.signature(&state.typed_modules).clone()),
+                        funct,
+                    );
+                }
+                Err(e) => {
+                    errors.extend(e);
+                }
+            },
+            Symbol::There(import) => {
+                let pos = import.pos();
+                let import = import.value;
+
+                match Checker::new().check_module(&import.module_id, state) {
+                    Ok(()) => {
+                        // find candidates in the checked module
+                        let function_candidates: Vec<_> = state
+                            .typed_modules
+                            .get(&import.module_id)
+                            .unwrap()
+                            .functions
+                            .iter()
+                            .filter(|(k, _)| k.id == import.symbol_id)
+                            .map(|(_, v)| FunctionKey {
+                                id: import.symbol_id.clone(),
+                                signature: v.signature(&state.typed_modules).clone(),
+                            })
+                            .collect();
+
+                        // find candidates in the types
+                        let type_candidate = state
+                            .types
+                            .entry(import.module_id.clone())
+                            .or_default()
+                            .get(import.symbol_id)
+                            .cloned();
+
+                        match (function_candidates.len(), type_candidate) {
+                            (0, Some(t)) => {
+                                symbol_id_set.insert(declaration.id);
+                                state
+                                    .types
+                                    .entry(module_id.clone())
+                                    .or_default()
+                                    .insert(import.symbol_id.to_string(), t.clone());
+                            }
+                            (0, None) => {
+                                errors.push(Error {
+                                    pos: Some(pos),
+                                    message: format!(
+                                        "Could not find symbol {} in module {}",
+                                        import.symbol_id, import.module_id,
+                                    ),
+                                });
+                            }
+                            _ => {
+                                symbol_id_set.insert(declaration.id);
+                                for candidate in function_candidates {
+                                    self.functions.insert(candidate.clone().id(declaration.id));
+                                    functions.insert(
+                                        candidate.clone().id(declaration.id),
+                                        TypedFunctionSymbol::There(
+                                            candidate,
+                                            import.module_id.clone(),
+                                        ),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        errors.extend(e);
+                    }
+                };
+            }
+            Symbol::Flat(funct) => {
+                let query = FunctionQuery::new(
+                    declaration.id.clone(),
+                    &funct.signature::<T>().inputs,
+                    &funct
+                        .signature::<T>()
+                        .outputs
+                        .clone()
+                        .into_iter()
+                        .map(|o| Some(o))
+                        .collect(),
+                );
+
+                let candidates = self.find_candidates(&query);
+
+                match candidates.len() {
+                    1 => {
+                        errors.push(Error {
+                            pos: Some(pos),
+                            message: format!(
+                                "Duplicate definition for function {} with signature {}",
+                                declaration.id,
+                                funct.signature::<T>()
+                            ),
+                        });
+                    }
+                    0 => {}
+                    _ => panic!("duplicate function declaration should have been caught"),
+                }
+                symbol_id_set.insert(declaration.id);
+                self.functions.insert(
+                    FunctionKey::with_id(declaration.id.clone())
+                        .signature(funct.signature::<T>().clone()),
+                );
+                functions.insert(
+                    FunctionKey::with_id(declaration.id.clone())
+                        .signature(funct.signature::<T>().clone()),
+                    TypedFunctionSymbol::Flat(funct),
+                );
+            }
+        };
+
+        // return if any errors occured
+        if errors.len() > 0 {
+            return Err(errors);
+        }
+
+        Ok(())
+    }
+
     fn check_module<T: Field>(
         &mut self,
         module_id: &ModuleId,
@@ -252,205 +453,24 @@ impl<'ast> Checker<'ast> {
             Some(module) => {
                 assert_eq!(module.imports.len(), 0);
 
-                let mut ids = HashSet::new();
+                // we need to create an entry in the types map to store types for this module
+                state.types.entry(module_id.clone()).or_default();
 
+                // we keep track of the introduced symbols to avoid colisions between types and functions
+                let mut symbol_id_set = HashSet::new();
+
+                // we go through symbol declarations and check them
                 for declaration in module.symbols {
-                    let pos = declaration.pos();
-                    let declaration = declaration.value;
-
-                    match declaration.symbol {
-                        Symbol::HereType(t) => {
-                            match ids.insert(declaration.id) {
-                                false => errors.push(Error {
-                                    pos: Some(pos),
-                                    message: format!(
-                                        "Another symbol with id {} is already defined",
-                                        declaration.id,
-                                    ),
-                                }),
-                                true => {}
-                            };
-
-                            match self.check_struct_type_declaration(t.clone(), module_id, state) {
-                                Ok(ty) => {
-                                    state
-                                        .types
-                                        .entry(module_id.clone())
-                                        .or_default()
-                                        .insert(declaration.id.to_string(), ty);
-                                }
-                                Err(e) => errors.extend(e),
-                            }
-                        }
-                        Symbol::HereFunction(f) => {
-                            self.enter_scope();
-
-                            match self.check_function(f, module_id, &state.types) {
-                                Ok(funct) => {
-                                    let funct = TypedFunctionSymbol::Here(funct);
-
-                                    let query = FunctionQuery::new(
-                                        declaration.id.clone(),
-                                        &funct.signature(&state.typed_modules).inputs,
-                                        &funct
-                                            .signature(&state.typed_modules)
-                                            .outputs
-                                            .clone()
-                                            .into_iter()
-                                            .map(|o| Some(o))
-                                            .collect(),
-                                    );
-
-                                    let candidates = self.find_candidates(&query);
-
-                                    match candidates.len() {
-                                        1 => {
-                                            errors.push(Error {
-                                                pos: Some(pos),
-                                                message: format!(
-                                                    "Duplicate definition for function {} with signature {}",
-                                                    declaration.id,
-                                                    funct.signature(&state.typed_modules)
-                                                ),
-                                            });
-                                        }
-                                        0 => {}
-                                        _ => panic!(
-                                            "duplicate function declaration should have been caught"
-                                        ),
-                                    }
-
-                                    ids.insert(declaration.id);
-
-                                    self.functions.insert(
-                                        FunctionKey::with_id(declaration.id.clone()).signature(
-                                            funct.signature(&state.typed_modules).clone(),
-                                        ),
-                                    );
-                                    checked_functions.insert(
-                                        FunctionKey::with_id(declaration.id.clone()).signature(
-                                            funct.signature(&state.typed_modules).clone(),
-                                        ),
-                                        funct,
-                                    );
-                                }
-                                Err(e) => {
-                                    errors.extend(e);
-                                }
-                            }
-
-                            self.exit_scope();
-                        }
-                        Symbol::There(import) => {
-                            let pos = import.pos();
-                            let import = import.value;
-
-                            state.types.insert(module_id.to_string(), HashMap::new());
-
-                            match Checker::new().check_module(&import.module_id, state) {
-                                Ok(()) => {
-                                    // find candidates in the checked module
-                                    let function_candidates: Vec<_> = state
-                                        .typed_modules
-                                        .get(&import.module_id)
-                                        .unwrap()
-                                        .functions
-                                        .iter()
-                                        .filter(|(k, _)| k.id == import.symbol_id)
-                                        .map(|(_, v)| FunctionKey {
-                                            id: import.symbol_id.clone(),
-                                            signature: v.signature(&state.typed_modules).clone(),
-                                        })
-                                        .collect();
-
-                                    // find candidates in the types
-                                    let type_candidate = state
-                                        .types
-                                        .entry(import.module_id.clone())
-                                        .or_insert_with(|| HashMap::new())
-                                        .get(import.symbol_id)
-                                        .cloned();
-
-                                    match (function_candidates.len(), type_candidate) {
-                                        (0, Some(t)) => {
-                                            ids.insert(declaration.id);
-                                            state
-                                                .types
-                                                .entry(module_id.clone())
-                                                .or_default()
-                                                .insert(import.symbol_id.to_string(), t.clone());
-                                        }
-                                        (0, None) => {
-                                            errors.push(Error {
-                                                pos: Some(pos),
-                                                message: format!(
-                                                    "Could not find symbol {} in module {}",
-                                                    import.symbol_id, import.module_id,
-                                                ),
-                                            });
-                                        }
-                                        _ => {
-                                            ids.insert(declaration.id);
-                                            for candidate in function_candidates {
-                                                self.functions
-                                                    .insert(candidate.clone().id(declaration.id));
-                                                checked_functions.insert(
-                                                    candidate.clone().id(declaration.id),
-                                                    TypedFunctionSymbol::There(
-                                                        candidate,
-                                                        import.module_id.clone(),
-                                                    ),
-                                                );
-                                            }
-                                        }
-                                    }
-                                }
-                                Err(e) => {
-                                    errors.extend(e);
-                                }
-                            };
-                        }
-                        Symbol::Flat(funct) => {
-                            let query = FunctionQuery::new(
-                                declaration.id.clone(),
-                                &funct.signature::<T>().inputs,
-                                &funct
-                                    .signature::<T>()
-                                    .outputs
-                                    .clone()
-                                    .into_iter()
-                                    .map(|o| Some(o))
-                                    .collect(),
-                            );
-
-                            let candidates = self.find_candidates(&query);
-
-                            match candidates.len() {
-                                1 => {
-                                    errors.push(Error {
-                                        pos: Some(pos),
-                                        message: format!(
-                                            "Duplicate definition for function {} with signature {}",
-                                            declaration.id,
-                                            funct.signature::<T>()
-                                        ),
-                                    });
-                                }
-                                0 => {}
-                                _ => {
-                                    panic!("duplicate function declaration should have been caught")
-                                }
-                            }
-                            ids.insert(declaration.id);
-                            self.functions.insert(
-                                FunctionKey::with_id(declaration.id.clone())
-                                    .signature(funct.signature::<T>().clone()),
-                            );
-                            checked_functions.insert(
-                                FunctionKey::with_id(declaration.id.clone())
-                                    .signature(funct.signature::<T>().clone()),
-                                TypedFunctionSymbol::Flat(funct),
-                            );
+                    match self.check_symbol_declaration(
+                        declaration,
+                        module_id,
+                        state,
+                        &mut checked_functions,
+                        &mut symbol_id_set,
+                    ) {
+                        Ok(()) => {}
+                        Err(e) => {
+                            errors.extend(e);
                         }
                     }
                 }
@@ -469,14 +489,14 @@ impl<'ast> Checker<'ast> {
         // insert into typed_modules if we checked anything
         match to_insert {
             Some(typed_module) => {
-                state.typed_modules.insert(module_id.clone(), typed_module);
+                // there should be no checked module at that key just yet, if there is we have a colision or we checked something twice
+                assert!(state
+                    .typed_modules
+                    .insert(module_id.clone(), typed_module)
+                    .is_none());
             }
             None => {}
         };
-
-        if errors.len() > 0 {
-            return Err(errors);
-        }
 
         Ok(())
     }
@@ -516,6 +536,8 @@ impl<'ast> Checker<'ast> {
         module_id: &ModuleId,
         types: &TypeMap,
     ) -> Result<TypedFunction<'ast, T>, Vec<Error>> {
+        self.enter_scope();
+
         let mut errors = vec![];
         let funct = funct_node.value;
         let mut arguments_checked = vec![];
@@ -557,6 +579,8 @@ impl<'ast> Checker<'ast> {
         if errors.len() > 0 {
             return Err(errors);
         }
+
+        self.exit_scope();
 
         Ok(TypedFunction {
             arguments: arguments_checked,
@@ -2976,6 +3000,310 @@ mod tests {
                 message: "Duplicate declaration for variable named a".to_string()
             })
         );
+    }
+
+    mod structs {
+        use super::*;
+
+        mod declaration {
+            use super::*;
+
+            #[test]
+            fn empty_def() {
+                // an empty struct should be allowed to be defined
+                let module_id = "".to_string();
+                let types = HashMap::new();
+                let declaration = StructType { fields: vec![] }.mock();
+
+                let expected_type = Type::Struct(vec![]);
+
+                assert_eq!(
+                    Checker::new().check_struct_type_declaration(declaration, &module_id, &types),
+                    Ok(expected_type)
+                );
+            }
+
+            #[test]
+            fn valid_def() {
+                // a valid struct should be allowed to be defined
+                let module_id = "".to_string();
+                let types = HashMap::new();
+                let declaration = StructType {
+                    fields: vec![
+                        StructField {
+                            id: "foo",
+                            ty: UnresolvedType::FieldElement.mock(),
+                        }
+                        .mock(),
+                        StructField {
+                            id: "bar",
+                            ty: UnresolvedType::Boolean.mock(),
+                        }
+                        .mock(),
+                    ],
+                }
+                .mock();
+
+                let expected_type = Type::Struct(vec![
+                    ("foo".to_string(), Type::FieldElement),
+                    ("bar".to_string(), Type::Boolean),
+                ]);
+
+                assert_eq!(
+                    Checker::new().check_struct_type_declaration(declaration, &module_id, &types),
+                    Ok(expected_type)
+                );
+            }
+
+            #[test]
+            fn preserve_order() {
+                // two structs with inverted members are not equal
+                let module_id = "".to_string();
+                let types = HashMap::new();
+
+                let declaration0 = StructType {
+                    fields: vec![
+                        StructField {
+                            id: "foo",
+                            ty: UnresolvedType::FieldElement.mock(),
+                        }
+                        .mock(),
+                        StructField {
+                            id: "bar",
+                            ty: UnresolvedType::Boolean.mock(),
+                        }
+                        .mock(),
+                    ],
+                }
+                .mock();
+
+                let declaration1 = StructType {
+                    fields: vec![
+                        StructField {
+                            id: "bar",
+                            ty: UnresolvedType::Boolean.mock(),
+                        }
+                        .mock(),
+                        StructField {
+                            id: "foo",
+                            ty: UnresolvedType::FieldElement.mock(),
+                        }
+                        .mock(),
+                    ],
+                }
+                .mock();
+
+                assert!(
+                    Checker::new().check_struct_type_declaration(declaration0, &module_id, &types)
+                        != Checker::new().check_struct_type_declaration(
+                            declaration1,
+                            &module_id,
+                            &types
+                        )
+                );
+            }
+
+            #[test]
+            fn duplicate_member_def() {
+                // definition of a struct with a duplicate member should be rejected
+                let module_id = "".to_string();
+                let types = HashMap::new();
+
+                let declaration = StructType {
+                    fields: vec![
+                        StructField {
+                            id: "foo",
+                            ty: UnresolvedType::FieldElement.mock(),
+                        }
+                        .mock(),
+                        StructField {
+                            id: "foo",
+                            ty: UnresolvedType::Boolean.mock(),
+                        }
+                        .mock(),
+                    ],
+                }
+                .mock();
+
+                assert_eq!(
+                    Checker::new()
+                        .check_struct_type_declaration(declaration, &module_id, &types)
+                        .unwrap_err()[0]
+                        .message,
+                    "Duplicate key foo in struct definition"
+                );
+            }
+
+            #[test]
+            fn recursive() {
+                // a struct wrapping another struct should be allowed to be defined
+
+                // struct Foo = { foo: field }
+                // struct Bar = { foo: Foo }
+
+                let module_id = "".to_string();
+
+                let module: Module<FieldPrime> = Module {
+                    imports: vec![],
+                    symbols: vec![
+                        SymbolDeclaration {
+                            id: "Foo",
+                            symbol: Symbol::HereType(
+                                StructType {
+                                    fields: vec![StructField {
+                                        id: "foo",
+                                        ty: UnresolvedType::FieldElement.mock(),
+                                    }
+                                    .mock()],
+                                }
+                                .mock(),
+                            ),
+                        }
+                        .mock(),
+                        SymbolDeclaration {
+                            id: "Bar",
+                            symbol: Symbol::HereType(
+                                StructType {
+                                    fields: vec![StructField {
+                                        id: "foo",
+                                        ty: UnresolvedType::User("Foo".to_string()).mock(),
+                                    }
+                                    .mock()],
+                                }
+                                .mock(),
+                            ),
+                        }
+                        .mock(),
+                    ],
+                };
+
+                let mut state = State::new(vec![(module_id.clone(), module)].into_iter().collect());
+
+                assert!(Checker::new().check_module(&module_id, &mut state).is_ok());
+                assert_eq!(
+                    state
+                        .types
+                        .get(&"".to_string())
+                        .unwrap()
+                        .get(&"Bar".to_string())
+                        .unwrap(),
+                    &Type::Struct(vec![(
+                        "foo".to_string(),
+                        Type::Struct(vec![("foo".to_string(), Type::FieldElement)])
+                    )])
+                );
+            }
+
+            #[test]
+            fn recursive_undefined() {
+                // a struct wrapping an undefined struct should be rejected
+
+                // struct Bar = { foo: Foo }
+
+                let module_id = "".to_string();
+
+                let module: Module<FieldPrime> = Module {
+                    imports: vec![],
+                    symbols: vec![SymbolDeclaration {
+                        id: "Bar",
+                        symbol: Symbol::HereType(
+                            StructType {
+                                fields: vec![StructField {
+                                    id: "foo",
+                                    ty: UnresolvedType::User("Foo".to_string()).mock(),
+                                }
+                                .mock()],
+                            }
+                            .mock(),
+                        ),
+                    }
+                    .mock()],
+                };
+
+                let mut state = State::new(vec![(module_id.clone(), module)].into_iter().collect());
+
+                assert!(Checker::new().check_module(&module_id, &mut state).is_err());
+            }
+
+            #[test]
+            fn self_referential() {
+                // a struct wrapping itself should be rejected
+
+                // struct Foo = { foo: Foo }
+
+                let module_id = "".to_string();
+
+                let module: Module<FieldPrime> = Module {
+                    imports: vec![],
+                    symbols: vec![SymbolDeclaration {
+                        id: "Foo",
+                        symbol: Symbol::HereType(
+                            StructType {
+                                fields: vec![StructField {
+                                    id: "foo",
+                                    ty: UnresolvedType::User("Foo".to_string()).mock(),
+                                }
+                                .mock()],
+                            }
+                            .mock(),
+                        ),
+                    }
+                    .mock()],
+                };
+
+                let mut state = State::new(vec![(module_id.clone(), module)].into_iter().collect());
+
+                assert!(Checker::new().check_module(&module_id, &mut state).is_err());
+            }
+
+            #[test]
+            fn cyclic() {
+                // A wrapping B wrapping A should be rejected
+
+                // struct Foo = { bar: Bar }
+                // struct Bar = { foo: Foo }
+
+                let module_id = "".to_string();
+
+                let module: Module<FieldPrime> = Module {
+                    imports: vec![],
+                    symbols: vec![
+                        SymbolDeclaration {
+                            id: "Foo",
+                            symbol: Symbol::HereType(
+                                StructType {
+                                    fields: vec![StructField {
+                                        id: "bar",
+                                        ty: UnresolvedType::User("Bar".to_string()).mock(),
+                                    }
+                                    .mock()],
+                                }
+                                .mock(),
+                            ),
+                        }
+                        .mock(),
+                        SymbolDeclaration {
+                            id: "Bar",
+                            symbol: Symbol::HereType(
+                                StructType {
+                                    fields: vec![StructField {
+                                        id: "foo",
+                                        ty: UnresolvedType::User("Foo".to_string()).mock(),
+                                    }
+                                    .mock()],
+                                }
+                                .mock(),
+                            ),
+                        }
+                        .mock(),
+                    ],
+                };
+
+                let mut state = State::new(vec![(module_id.clone(), module)].into_iter().collect());
+
+                assert!(Checker::new().check_module(&module_id, &mut state).is_err());
+            }
+        }
     }
 
     mod assignee {
