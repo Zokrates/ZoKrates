@@ -276,7 +276,6 @@ pub mod signature {
             assert_eq!(s.to_slug(), String::from("if[42]f[21]o"));
         }
     }
-
 }
 
 #[cfg(test)]
