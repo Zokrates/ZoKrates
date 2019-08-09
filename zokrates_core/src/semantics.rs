@@ -560,8 +560,36 @@ impl<'ast> Checker<'ast> {
         match self.check_signature(funct.signature, module_id, types) {
             Ok(s) => {
                 for stat in funct.statements.into_iter() {
-                    match self.check_statement(stat, &s.outputs, module_id, types) {
+                    let pos = stat.pos();
+
+                    match self.check_statement(stat, module_id, types) {
                         Ok(statement) => {
+                            match &statement {
+                                TypedStatement::Return(e) => {
+                                    match e.iter().map(|e| e.get_type()).collect::<Vec<_>>()
+                                        == s.outputs
+                                    {
+                                        true => {}
+                                        false => errors.push(Error {
+                                            pos: Some(pos),
+                                            message: format!(
+                                                "Expected ({}) in return statement, found ({})",
+                                                s.outputs
+                                                    .iter()
+                                                    .map(|t| t.to_string())
+                                                    .collect::<Vec<_>>()
+                                                    .join(", "),
+                                                e.iter()
+                                                    .map(|e| e.get_type())
+                                                    .map(|t| t.to_string())
+                                                    .collect::<Vec<_>>()
+                                                    .join(", ")
+                                            ),
+                                        }),
+                                    }
+                                }
+                                _ => {}
+                            };
                             statements_checked.push(statement);
                         }
                         Err(e) => {
@@ -688,7 +716,6 @@ impl<'ast> Checker<'ast> {
     fn check_statement<T: Field>(
         &mut self,
         stat: StatementNode<'ast, T>,
-        header_return_types: &Vec<Type>,
         module_id: &ModuleId,
         types: &TypeMap,
     ) -> Result<TypedStatement<'ast, T>, Error> {
@@ -702,30 +729,7 @@ impl<'ast> Checker<'ast> {
                     expression_list_checked.push(e_checked);
                 }
 
-                let return_statement_types: Vec<_> = expression_list_checked
-                    .iter()
-                    .map(|e| e.get_type())
-                    .collect();
-
-                match return_statement_types == *header_return_types {
-                    true => Ok(TypedStatement::Return(expression_list_checked)),
-                    false => Err(Error {
-                        pos: Some(pos),
-                        message: format!(
-                            "Expected ({}) in return statement, found ({})",
-                            header_return_types
-                                .iter()
-                                .map(|t| t.to_string())
-                                .collect::<Vec<_>>()
-                                .join(", "),
-                            return_statement_types
-                                .iter()
-                                .map(|t| t.to_string())
-                                .collect::<Vec<_>>()
-                                .join(", ")
-                        ),
-                    }),
-                }
+                Ok(TypedStatement::Return(expression_list_checked))
             }
             Statement::Declaration(var) => {
                 let var = self.check_variable(var, module_id, types).unwrap();
@@ -797,8 +801,7 @@ impl<'ast> Checker<'ast> {
                 let mut checked_statements = vec![];
 
                 for stat in statements {
-                    let checked_stat =
-                        self.check_statement(stat, header_return_types, module_id, types)?;
+                    let checked_stat = self.check_statement(stat, module_id, types)?;
                     checked_statements.push(checked_stat);
                 }
 
@@ -1458,15 +1461,7 @@ impl<'ast> Checker<'ast> {
                             },
                             None => Err(Error {
                                 pos: Some(pos),
-                                message: format!(
-                                    "{} doesn't have member {}. Members are {}",
-                                    TypedExpression::Struct(s.clone()),
-                                    id,
-                                    s.ty.iter()
-                                        .map(|(member_id, _)| member_id.to_string())
-                                        .collect::<Vec<_>>()
-                                        .join(", ")
-                                ),
+                                message: format!("{} doesn't have member {}", s.get_type(), id,),
                             }),
                         }
                     }
@@ -1963,7 +1958,7 @@ mod tests {
 
         let mut checker = Checker::new();
         assert_eq!(
-            checker.check_statement(statement, &vec![], &module_id, &types),
+            checker.check_statement(statement, &module_id, &types),
             Err(Error {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Identifier \"b\" is undefined".to_string()
@@ -1995,7 +1990,7 @@ mod tests {
         });
         let mut checker = new_with_args(scope, 1, HashSet::new());
         assert_eq!(
-            checker.check_statement(statement, &vec![], &module_id, &types),
+            checker.check_statement(statement, &module_id, &types),
             Ok(TypedStatement::Definition(
                 TypedAssignee::Identifier(typed_absy::Variable::field_element("a".into())),
                 FieldElementExpression::Identifier("b".into()).into()
@@ -2944,7 +2939,6 @@ mod tests {
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
             .mock(),
-            &vec![],
             &module_id,
             &types,
         );
@@ -2953,7 +2947,6 @@ mod tests {
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
             .mock(),
-            &vec![],
             &module_id,
             &types,
         );
@@ -2982,14 +2975,12 @@ mod tests {
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
             .mock(),
-            &vec![],
             &module_id,
             &types,
         );
         let s2_checked: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(
             Statement::Declaration(absy::Variable::new("a", UnresolvedType::Boolean.mock()).mock())
                 .mock(),
-            &vec![],
             &module_id,
             &types,
         );
@@ -3005,6 +2996,33 @@ mod tests {
     mod structs {
         use super::*;
 
+        const MODULE_ID: &str = "";
+
+        /// helper function to create a module at location "" with a single symbol `Foo { foo: field }`
+        fn create_module_with_foo(
+            s: StructType<'static>,
+        ) -> (Checker<'static>, State<'static, FieldPrime>) {
+            let module_id = "".to_string();
+
+            let module: Module<FieldPrime> = Module {
+                imports: vec![],
+                symbols: vec![SymbolDeclaration {
+                    id: "Foo",
+                    symbol: Symbol::HereType(s.mock()),
+                }
+                .mock()],
+            };
+
+            let mut state = State::new(vec![(module_id.clone(), module)].into_iter().collect());
+
+            let mut checker = Checker::new();
+
+            checker.check_module(&module_id, &mut state).unwrap();
+
+            (checker, state)
+        }
+
+        /// tests about declaring a type
         mod declaration {
             use super::*;
 
@@ -3304,6 +3322,505 @@ mod tests {
                 assert!(Checker::new().check_module(&module_id, &mut state).is_err());
             }
         }
+
+        /// tests about using the defined type identifier
+        mod usage {
+            use super::*;
+
+            #[test]
+            fn ty() {
+                // a defined type can be checked
+                // Foo { foo: field }
+                // Foo
+
+                // an undefined type cannot be checked
+                // Bar
+
+                let (checker, state) = create_module_with_foo(StructType {
+                    fields: vec![StructField {
+                        id: "foo",
+                        ty: UnresolvedType::FieldElement.mock(),
+                    }
+                    .mock()],
+                });
+
+                assert_eq!(
+                    checker.check_type(
+                        UnresolvedType::User("Foo".to_string()).mock(),
+                        &MODULE_ID.to_string(),
+                        &state.types
+                    ),
+                    Ok(Type::Struct(vec![("foo".to_string(), Type::FieldElement)]))
+                );
+
+                assert_eq!(
+                    checker
+                        .check_type(
+                            UnresolvedType::User("Bar".to_string()).mock(),
+                            &MODULE_ID.to_string(),
+                            &state.types
+                        )
+                        .unwrap_err()
+                        .message,
+                    "Undefined type Bar"
+                );
+            }
+
+            #[test]
+            fn parameter() {
+                // a defined type can be used as parameter
+
+                // an undefined type cannot be used as parameter
+
+                let (checker, state) = create_module_with_foo(StructType {
+                    fields: vec![StructField {
+                        id: "foo",
+                        ty: UnresolvedType::FieldElement.mock(),
+                    }
+                    .mock()],
+                });
+
+                assert_eq!(
+                    checker.check_parameter(
+                        absy::Parameter {
+                            id: absy::Variable::new(
+                                "a",
+                                UnresolvedType::User("Foo".to_string()).mock(),
+                            )
+                            .mock(),
+                            private: true,
+                        }
+                        .mock(),
+                        &MODULE_ID.to_string(),
+                        &state.types,
+                    ),
+                    Ok(Parameter {
+                        id: Variable::with_id_and_type(
+                            "a".into(),
+                            Type::Struct(vec![("foo".to_string(), Type::FieldElement)])
+                        ),
+                        private: true
+                    })
+                );
+
+                assert_eq!(
+                    checker
+                        .check_parameter(
+                            absy::Parameter {
+                                id: absy::Variable::new(
+                                    "a",
+                                    UnresolvedType::User("Bar".to_string()).mock(),
+                                )
+                                .mock(),
+                                private: true,
+                            }
+                            .mock(),
+                            &MODULE_ID.to_string(),
+                            &state.types,
+                        )
+                        .unwrap_err()[0]
+                        .message,
+                    "Undefined type Bar"
+                );
+            }
+
+            #[test]
+            fn variable_declaration() {
+                // a defined type can be used in a variable declaration
+
+                // an undefined type cannot be used in a variable declaration
+
+                let (mut checker, state) = create_module_with_foo(StructType {
+                    fields: vec![StructField {
+                        id: "foo",
+                        ty: UnresolvedType::FieldElement.mock(),
+                    }
+                    .mock()],
+                });
+
+                assert_eq!(
+                    checker.check_statement::<FieldPrime>(
+                        Statement::Declaration(
+                            absy::Variable::new(
+                                "a",
+                                UnresolvedType::User("Foo".to_string()).mock(),
+                            )
+                            .mock()
+                        )
+                        .mock(),
+                        &MODULE_ID.to_string(),
+                        &state.types,
+                    ),
+                    Ok(TypedStatement::Declaration(Variable::with_id_and_type(
+                        "a".into(),
+                        Type::Struct(vec![("foo".to_string(), Type::FieldElement)])
+                    )))
+                );
+
+                assert_eq!(
+                    checker
+                        .check_parameter(
+                            absy::Parameter {
+                                id: absy::Variable::new(
+                                    "a",
+                                    UnresolvedType::User("Bar".to_string()).mock(),
+                                )
+                                .mock(),
+                                private: true,
+                            }
+                            .mock(),
+                            &MODULE_ID.to_string(),
+                            &state.types,
+                        )
+                        .unwrap_err()[0]
+                        .message,
+                    "Undefined type Bar"
+                );
+            }
+        }
+
+        /// tests about accessing members
+        mod member {
+            use super::*;
+
+            #[test]
+            fn valid() {
+                // accessing a member on a struct should succeed and return the right type
+
+                // struct Foo = { foo: field }
+                // Foo { foo: 42 }.foo
+
+                let (mut checker, state) = create_module_with_foo(StructType {
+                    fields: vec![StructField {
+                        id: "foo",
+                        ty: UnresolvedType::FieldElement.mock(),
+                    }
+                    .mock()],
+                });
+
+                assert_eq!(
+                    checker.check_expression(
+                        Expression::Member(
+                            box Expression::InlineStruct(
+                                "Foo".to_string(),
+                                vec![(
+                                    "foo",
+                                    Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                )]
+                            )
+                            .mock(),
+                            "foo".into()
+                        )
+                        .mock(),
+                        &MODULE_ID.to_string(),
+                        &state.types
+                    ),
+                    Ok(FieldElementExpression::Member(
+                        box StructExpression {
+                            ty: vec![("foo".to_string(), Type::FieldElement)],
+                            inner: StructExpressionInner::Value(vec![
+                                FieldElementExpression::Number(FieldPrime::from(42)).into()
+                            ])
+                        },
+                        "foo".to_string()
+                    )
+                    .into())
+                );
+            }
+
+            #[test]
+            fn invalid() {
+                // accessing an undefined member on a struct should fail
+
+                // struct Foo = { foo: field }
+                // Foo { foo: 42 }.bar
+
+                let (mut checker, state) = create_module_with_foo(StructType {
+                    fields: vec![StructField {
+                        id: "foo",
+                        ty: UnresolvedType::FieldElement.mock(),
+                    }
+                    .mock()],
+                });
+
+                assert_eq!(
+                    checker
+                        .check_expression(
+                            Expression::Member(
+                                box Expression::InlineStruct(
+                                    "Foo".to_string(),
+                                    vec![(
+                                        "foo",
+                                        Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                    )]
+                                )
+                                .mock(),
+                                "bar".into()
+                            )
+                            .mock(),
+                            &MODULE_ID.to_string(),
+                            &state.types
+                        )
+                        .unwrap_err()
+                        .message,
+                    "{foo: field} doesn\'t have member bar"
+                );
+            }
+        }
+
+        /// tests about defining struct instance inline
+        mod value {
+            use super::*;
+
+            #[test]
+            fn wrong_name() {
+                // a A value cannot be defined with B as id, even if A and B have the same members
+
+                let (mut checker, state) = create_module_with_foo(StructType {
+                    fields: vec![StructField {
+                        id: "foo",
+                        ty: UnresolvedType::FieldElement.mock(),
+                    }
+                    .mock()],
+                });
+
+                assert_eq!(
+                    checker
+                        .check_expression(
+                            Expression::InlineStruct(
+                                "Bar".to_string(),
+                                vec![(
+                                    "foo",
+                                    Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                )]
+                            )
+                            .mock(),
+                            &MODULE_ID.to_string(),
+                            &state.types
+                        )
+                        .unwrap_err()
+                        .message,
+                    "Undefined type Bar"
+                );
+            }
+
+            #[test]
+            fn valid() {
+                // a A value can be defined with members ordered as in the declaration of A
+
+                // struct Foo = { foo: field, bar: bool }
+                // Foo foo = Foo { foo: 42, bar: true }
+
+                let (mut checker, state) = create_module_with_foo(StructType {
+                    fields: vec![
+                        StructField {
+                            id: "foo",
+                            ty: UnresolvedType::FieldElement.mock(),
+                        }
+                        .mock(),
+                        StructField {
+                            id: "bar",
+                            ty: UnresolvedType::Boolean.mock(),
+                        }
+                        .mock(),
+                    ],
+                });
+
+                assert_eq!(
+                    checker.check_expression(
+                        Expression::InlineStruct(
+                            "Foo".to_string(),
+                            vec![
+                                (
+                                    "foo",
+                                    Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                ),
+                                ("bar", Expression::BooleanConstant(true).mock())
+                            ]
+                        )
+                        .mock(),
+                        &MODULE_ID.to_string(),
+                        &state.types
+                    ),
+                    Ok(StructExpression {
+                        ty: vec![
+                            ("foo".to_string(), Type::FieldElement),
+                            ("bar".to_string(), Type::Boolean)
+                        ],
+                        inner: StructExpressionInner::Value(vec![
+                            FieldElementExpression::Number(FieldPrime::from(42)).into(),
+                            BooleanExpression::Value(true).into()
+                        ])
+                    }
+                    .into())
+                );
+            }
+
+            #[test]
+            fn shuffled() {
+                // a A value can be defined with shuffled members compared to the declaration of A
+
+                // struct Foo = { foo: field, bar: bool }
+                // Foo foo = Foo { bar: true, foo: 42 }
+
+                let (mut checker, state) = create_module_with_foo(StructType {
+                    fields: vec![
+                        StructField {
+                            id: "foo",
+                            ty: UnresolvedType::FieldElement.mock(),
+                        }
+                        .mock(),
+                        StructField {
+                            id: "bar",
+                            ty: UnresolvedType::Boolean.mock(),
+                        }
+                        .mock(),
+                    ],
+                });
+
+                assert_eq!(
+                    checker.check_expression(
+                        Expression::InlineStruct(
+                            "Foo".to_string(),
+                            vec![
+                                ("bar", Expression::BooleanConstant(true).mock()),
+                                (
+                                    "foo",
+                                    Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                )
+                            ]
+                        )
+                        .mock(),
+                        &MODULE_ID.to_string(),
+                        &state.types
+                    ),
+                    Ok(StructExpression {
+                        ty: vec![
+                            ("foo".to_string(), Type::FieldElement),
+                            ("bar".to_string(), Type::Boolean)
+                        ],
+                        inner: StructExpressionInner::Value(vec![
+                            FieldElementExpression::Number(FieldPrime::from(42)).into(),
+                            BooleanExpression::Value(true).into()
+                        ])
+                    }
+                    .into())
+                );
+            }
+
+            #[test]
+            fn subset() {
+                // a A value cannot be defined with A as id but members being a subset of the declaration
+
+                // struct Foo = { foo: field, bar: bool }
+                // Foo foo = Foo { foo: 42 }
+
+                let (mut checker, state) = create_module_with_foo(StructType {
+                    fields: vec![
+                        StructField {
+                            id: "foo",
+                            ty: UnresolvedType::FieldElement.mock(),
+                        }
+                        .mock(),
+                        StructField {
+                            id: "bar",
+                            ty: UnresolvedType::Boolean.mock(),
+                        }
+                        .mock(),
+                    ],
+                });
+
+                assert_eq!(
+                    checker
+                        .check_expression(
+                            Expression::InlineStruct(
+                                "Foo".to_string(),
+                                vec![(
+                                    "foo",
+                                    Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                )]
+                            )
+                            .mock(),
+                            &MODULE_ID.to_string(),
+                            &state.types
+                        )
+                        .unwrap_err()
+                        .message,
+                    "Inline struct Foo {foo: 42} does not match Foo : {foo: field, bar: bool}"
+                );
+            }
+
+            #[test]
+            fn invalid() {
+                // a A value cannot be defined with A as id but members being different ids than the declaration
+                // a A value cannot be defined with A as id but members being different types than the declaration
+
+                // struct Foo = { foo: field, bar: bool }
+                // Foo { foo: 42, baz: bool } // error
+                // Foo { foo: 42, baz: 42 } // error
+
+                let (mut checker, state) = create_module_with_foo(StructType {
+                    fields: vec![
+                        StructField {
+                            id: "foo",
+                            ty: UnresolvedType::FieldElement.mock(),
+                        }
+                        .mock(),
+                        StructField {
+                            id: "bar",
+                            ty: UnresolvedType::Boolean.mock(),
+                        }
+                        .mock(),
+                    ],
+                });
+
+                assert_eq!(
+                    checker
+                        .check_expression(
+                            Expression::InlineStruct(
+                                "Foo".to_string(),
+                                vec![(
+                                    "baz",
+                                    Expression::BooleanConstant(true).mock()
+                                ),(
+                                    "foo",
+                                    Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                )]
+                            )
+                            .mock(),
+                            &MODULE_ID.to_string(),
+                            &state.types
+                        ).unwrap_err()
+                        .message,
+                    "Member bar of struct Foo : {foo: field, bar: bool} not found in value Foo {baz: true, foo: 42}"
+                );
+
+                assert_eq!(
+                    checker
+                        .check_expression(
+                            Expression::InlineStruct(
+                                "Foo".to_string(),
+                                vec![
+                                    (
+                                        "bar",
+                                        Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                    ),
+                                    (
+                                        "foo",
+                                        Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                    )
+                                ]
+                            )
+                            .mock(),
+                            &MODULE_ID.to_string(),
+                            &state.types
+                        )
+                        .unwrap_err()
+                        .message,
+                    "Member bar of struct Foo has type bool, found 42 of type field"
+                );
+            }
+        }
     }
 
     mod assignee {
@@ -3323,7 +3840,6 @@ mod tests {
                         absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
                     )
                     .mock(),
-                    &vec![],
                     &module_id,
                     &types,
                 )
@@ -3363,7 +3879,6 @@ mod tests {
                         .mock(),
                     )
                     .mock(),
-                    &vec![],
                     &module_id,
                     &types,
                 )
@@ -3417,7 +3932,6 @@ mod tests {
                         .mock(),
                     )
                     .mock(),
-                    &vec![],
                     &module_id,
                     &types,
                 )
