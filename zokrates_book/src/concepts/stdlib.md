@@ -9,7 +9,7 @@ The following section highlights a subset of available imports:
 #### sha256
 
 ```zokrates
-import "hashes/sha256/512Padded.code"
+import "hashes/sha256/512bitPadded.code"
 ```
 
 A function that takes 2 `field[256]` arrays as inputs and returns their sha256 compression function as an array of 256 field elements.
