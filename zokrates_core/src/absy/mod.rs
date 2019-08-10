@@ -82,6 +82,20 @@ pub struct Module<'ast, T: Field> {
     pub imports: Vec<ImportNode<'ast>>, // we still use `imports` as they are not directly converted into `FunctionDeclaration`s after the importer is done, `imports` is empty
 }
 
+impl<'ast, T: Field> Module<'ast, T> {
+    pub fn with_symbols<I: IntoIterator<Item = SymbolDeclarationNode<'ast, T>>>(i: I) -> Self {
+        Module {
+            symbols: i.into_iter().collect(),
+            imports: vec![],
+        }
+    }
+
+    pub fn imports<I: IntoIterator<Item = ImportNode<'ast>>>(mut self, i: I) -> Self {
+        self.imports = i.into_iter().collect();
+        self
+    }
+}
+
 pub type UnresolvedTypeNode = Node<UnresolvedType>;
 
 /// A struct type definition

@@ -8,7 +8,7 @@ use crate::absy::Identifier;
 use crate::absy::*;
 use crate::typed_absy::*;
 use crate::typed_absy::{Parameter, Variable};
-use std::collections::{HashMap, HashSet};
+use std::collections::{hash_map::Entry, BTreeSet, HashMap, HashSet};
 use std::fmt;
 use zokrates_field::field::Field;
 
@@ -36,6 +36,54 @@ struct State<'ast, T: Field> {
     typed_modules: TypedModules<'ast, T>,
     /// The user-defined types, which we keep track at this phase only. In later phases, we rely only on basic types and combinations thereof
     types: TypeMap,
+}
+
+/// A symbol for a given name: either a type, or a group of functions. Not both!
+#[derive(PartialEq, Hash, Eq, Debug)]
+enum SymbolType {
+    Type,
+    Functions(BTreeSet<Signature>),
+}
+
+/// A data structure to keep track of all symbols in a module
+#[derive(Default)]
+struct SymbolUnifier {
+    symbols: HashMap<String, SymbolType>,
+}
+
+impl SymbolUnifier {
+    fn insert_type<S: Into<String>>(&mut self, id: S) -> bool {
+        let s_type = self.symbols.entry(id.into());
+        match s_type {
+            // if anything is already called `id`, we cannot introduce this type
+            Entry::Occupied(..) => false,
+            // otherwise, we can!
+            Entry::Vacant(v) => {
+                v.insert(SymbolType::Type);
+                true
+            }
+        }
+    }
+
+    fn insert_function<S: Into<String>>(&mut self, id: S, signature: Signature) -> bool {
+        let s_type = self.symbols.entry(id.into());
+        match s_type {
+            // if anything is already called `id`, it depends what it is
+            Entry::Occupied(mut o) => {
+                match o.get_mut() {
+                    // if it's a Type, then we can't introduce a function
+                    SymbolType::Type => false,
+                    // if it's a Function, we can introduce a new function only if it has a different signature
+                    SymbolType::Functions(signatures) => signatures.insert(signature),
+                }
+            }
+            // otherwise, we can!
+            Entry::Vacant(v) => {
+                v.insert(SymbolType::Functions(vec![signature].into_iter().collect()));
+                true
+            }
+        }
+    }
 }
 
 impl<'ast, T: Field> State<'ast, T> {
@@ -242,7 +290,7 @@ impl<'ast> Checker<'ast> {
         module_id: &ModuleId,
         state: &mut State<'ast, T>,
         functions: &mut HashMap<FunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>,
-        symbol_id_set: &mut HashSet<Identifier<'ast>>,
+        symbol_unifier: &mut SymbolUnifier,
     ) -> Result<(), Vec<Error>> {
         let mut errors = vec![];
 
@@ -253,11 +301,11 @@ impl<'ast> Checker<'ast> {
             Symbol::HereType(t) => {
                 match self.check_struct_type_declaration(t.clone(), module_id, &state.types) {
                     Ok(ty) => {
-                        match symbol_id_set.insert(declaration.id) {
+                        match symbol_unifier.insert_type(declaration.id) {
                             false => errors.push(Error {
                                 pos: Some(pos),
                                 message: format!(
-                                    "Another symbol with id {} is already defined",
+                                    "{} conflicts with another symbol",
                                     declaration.id,
                                 ),
                             }),
@@ -274,47 +322,22 @@ impl<'ast> Checker<'ast> {
             }
             Symbol::HereFunction(f) => match self.check_function(f, module_id, &state.types) {
                 Ok(funct) => {
-                    let funct = TypedFunctionSymbol::Here(funct);
-
-                    let query = FunctionQuery::new(
-                        declaration.id.clone(),
-                        &funct.signature(&state.typed_modules).inputs,
-                        &funct
-                            .signature(&state.typed_modules)
-                            .outputs
-                            .clone()
-                            .into_iter()
-                            .map(|o| Some(o))
-                            .collect(),
-                    );
-
-                    let candidates = self.find_candidates(&query);
-
-                    match candidates.len() {
-                        1 => {
-                            errors.push(Error {
-                                pos: Some(pos),
-                                message: format!(
-                                    "Duplicate definition for function {} with signature {}",
-                                    declaration.id,
-                                    funct.signature(&state.typed_modules)
-                                ),
-                            });
-                        }
-                        0 => {}
-                        _ => panic!("duplicate function declaration should have been caught"),
-                    }
-
-                    symbol_id_set.insert(declaration.id);
+                    match symbol_unifier.insert_function(declaration.id, funct.signature.clone()) {
+                        false => errors.push(Error {
+                            pos: Some(pos),
+                            message: format!("{} conflicts with another symbol", declaration.id,),
+                        }),
+                        true => {}
+                    };
 
                     self.functions.insert(
                         FunctionKey::with_id(declaration.id.clone())
-                            .signature(funct.signature(&state.typed_modules).clone()),
+                            .signature(funct.signature.clone()),
                     );
                     functions.insert(
                         FunctionKey::with_id(declaration.id.clone())
-                            .signature(funct.signature(&state.typed_modules).clone()),
-                        funct,
+                            .signature(funct.signature.clone()),
+                        TypedFunctionSymbol::Here(funct),
                     );
                 }
                 Err(e) => {
@@ -351,7 +374,19 @@ impl<'ast> Checker<'ast> {
 
                         match (function_candidates.len(), type_candidate) {
                             (0, Some(t)) => {
-                                symbol_id_set.insert(declaration.id);
+                                // we imported a type, so the symbol it gets bound to should not already exist
+                                match symbol_unifier.insert_type(declaration.id) {
+                                    false => {
+                                        errors.push(Error {
+                                            pos: Some(pos),
+                                            message: format!(
+                                                "{} conflicts with another symbol",
+                                                declaration.id,
+                                            ),
+                                        });
+                                    }
+                                    true => {}
+                                };
                                 state
                                     .types
                                     .entry(module_id.clone())
@@ -367,9 +402,23 @@ impl<'ast> Checker<'ast> {
                                     ),
                                 });
                             }
+                            (_, Some(_)) => unreachable!("collision in module we're importing from should have been caught when checking it"),
                             _ => {
-                                symbol_id_set.insert(declaration.id);
                                 for candidate in function_candidates {
+
+                                    match symbol_unifier.insert_function(declaration.id, candidate.signature.clone()) {
+                                        false => {
+                                            errors.push(Error {
+                                                pos: Some(pos),
+                                                message: format!(
+                                                    "{} conflicts with another symbol",
+                                                    declaration.id,
+                                                ),
+                                            });
+                                        },
+                                        true => {}
+                                    };
+
                                     self.functions.insert(candidate.clone().id(declaration.id));
                                     functions.insert(
                                         candidate.clone().id(declaration.id),
@@ -380,7 +429,7 @@ impl<'ast> Checker<'ast> {
                                     );
                                 }
                             }
-                        }
+                        };
                     }
                     Err(e) => {
                         errors.extend(e);
@@ -388,35 +437,16 @@ impl<'ast> Checker<'ast> {
                 };
             }
             Symbol::Flat(funct) => {
-                let query = FunctionQuery::new(
-                    declaration.id.clone(),
-                    &funct.signature::<T>().inputs,
-                    &funct
-                        .signature::<T>()
-                        .outputs
-                        .clone()
-                        .into_iter()
-                        .map(|o| Some(o))
-                        .collect(),
-                );
-
-                let candidates = self.find_candidates(&query);
-
-                match candidates.len() {
-                    1 => {
+                match symbol_unifier.insert_function(declaration.id, funct.signature::<T>()) {
+                    false => {
                         errors.push(Error {
                             pos: Some(pos),
-                            message: format!(
-                                "Duplicate definition for function {} with signature {}",
-                                declaration.id,
-                                funct.signature::<T>()
-                            ),
+                            message: format!("{} conflicts with another symbol", declaration.id,),
                         });
                     }
-                    0 => {}
-                    _ => panic!("duplicate function declaration should have been caught"),
-                }
-                symbol_id_set.insert(declaration.id);
+                    true => {}
+                };
+
                 self.functions.insert(
                     FunctionKey::with_id(declaration.id.clone())
                         .signature(funct.signature::<T>().clone()),
@@ -457,7 +487,7 @@ impl<'ast> Checker<'ast> {
                 state.types.entry(module_id.clone()).or_default();
 
                 // we keep track of the introduced symbols to avoid colisions between types and functions
-                let mut symbol_id_set = HashSet::new();
+                let mut symbol_unifier = SymbolUnifier::default();
 
                 // we go through symbol declarations and check them
                 for declaration in module.symbols {
@@ -466,7 +496,7 @@ impl<'ast> Checker<'ast> {
                         module_id,
                         state,
                         &mut checked_functions,
-                        &mut symbol_id_set,
+                        &mut symbol_unifier,
                     ) {
                         Ok(()) => {}
                         Err(e) => {
@@ -1798,6 +1828,8 @@ mod tests {
     use typed_absy;
     use zokrates_field::field::FieldPrime;
 
+    const MODULE_ID: &str = "";
+
     mod array {
         use super::*;
 
@@ -1855,11 +1887,75 @@ mod tests {
     mod symbols {
         use super::*;
 
+        /// Helper function to create (() -> (): return)
+        fn function0() -> FunctionNode<'static, FieldPrime> {
+            let statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+                ExpressionList {
+                    expressions: vec![],
+                }
+                .mock(),
+            )
+            .mock()];
+
+            let arguments = vec![];
+
+            let signature = UnresolvedSignature::new();
+
+            Function {
+                arguments,
+                statements,
+                signature,
+            }
+            .mock()
+        }
+
+        /// Helper function to create ((private field a) -> (): return)
+        fn function1() -> FunctionNode<'static, FieldPrime> {
+            let statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+                ExpressionList {
+                    expressions: vec![],
+                }
+                .mock(),
+            )
+            .mock()];
+
+            let arguments = vec![absy::Parameter {
+                id: absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
+                private: true,
+            }
+            .mock()];
+
+            let signature =
+                UnresolvedSignature::new().inputs(vec![UnresolvedType::FieldElement.mock()]);
+
+            Function {
+                arguments,
+                statements,
+                signature,
+            }
+            .mock()
+        }
+
+        fn struct0() -> StructTypeNode<'static> {
+            StructType { fields: vec![] }.mock()
+        }
+
+        fn struct1() -> StructTypeNode<'static> {
+            StructType {
+                fields: vec![StructField {
+                    id: "foo".into(),
+                    ty: UnresolvedType::FieldElement.mock(),
+                }
+                .mock()],
+            }
+            .mock()
+        }
+
         #[test]
-        fn imported_symbol() {
+        fn imported_function() {
             // foo.code
-            // def main() -> (field):
-            // 		return 1
+            // def main() -> ():
+            // 		return
 
             // bar.code
             // from "./foo.code" import main
@@ -1869,24 +1965,7 @@ mod tests {
             let foo: Module<FieldPrime> = Module {
                 symbols: vec![SymbolDeclaration {
                     id: "main",
-                    symbol: Symbol::HereFunction(
-                        Function {
-                            statements: vec![Statement::Return(
-                                ExpressionList {
-                                    expressions: vec![Expression::FieldConstant(FieldPrime::from(
-                                        1,
-                                    ))
-                                    .mock()],
-                                }
-                                .mock(),
-                            )
-                            .mock()],
-                            signature: UnresolvedSignature::new()
-                                .outputs(vec![UnresolvedType::FieldElement.mock()]),
-                            arguments: vec![],
-                        }
-                        .mock(),
-                    ),
+                    symbol: Symbol::HereFunction(function0()),
                 }
                 .mock()],
                 imports: vec![],
@@ -1909,24 +1988,283 @@ mod tests {
 
             let mut checker = Checker::new();
 
-            checker
-                .check_module(&String::from("bar"), &mut state)
-                .unwrap();
+            assert_eq!(
+                checker.check_module(&String::from("bar"), &mut state),
+                Ok(())
+            );
             assert_eq!(
                 state.typed_modules.get(&String::from("bar")),
                 Some(&TypedModule {
                     functions: vec![(
-                        FunctionKey::with_id("main")
-                            .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                        FunctionKey::with_id("main").signature(Signature::new()),
                         TypedFunctionSymbol::There(
-                            FunctionKey::with_id("main")
-                                .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                            FunctionKey::with_id("main").signature(Signature::new()),
                             "foo".to_string()
                         )
                     )]
                     .into_iter()
                     .collect(),
                 })
+            );
+        }
+
+        #[test]
+        fn duplicate_function_declaration() {
+            // def foo():
+            //   return
+            // def foo():
+            //   return
+            //
+            // should fail
+
+            let module = Module {
+                symbols: vec![
+                    SymbolDeclaration {
+                        id: "foo",
+                        symbol: Symbol::HereFunction(function0()),
+                    }
+                    .mock(),
+                    SymbolDeclaration {
+                        id: "foo",
+                        symbol: Symbol::HereFunction(function0()),
+                    }
+                    .mock(),
+                ],
+                imports: vec![],
+            };
+
+            let mut state = State::new(vec![(MODULE_ID.to_string(), module)].into_iter().collect());
+
+            let mut checker = Checker::new();
+            assert_eq!(
+                checker
+                    .check_module(&MODULE_ID.to_string(), &mut state)
+                    .unwrap_err()[0]
+                    .message,
+                "foo conflicts with another symbol"
+            );
+        }
+
+        #[test]
+        fn overloaded_function_declaration() {
+            // def foo():
+            //   return
+            // def foo(a):
+            //   return
+            //
+            // should succeed as overloading is allowed
+
+            let module = Module {
+                symbols: vec![
+                    SymbolDeclaration {
+                        id: "foo",
+                        symbol: Symbol::HereFunction(function0()),
+                    }
+                    .mock(),
+                    SymbolDeclaration {
+                        id: "foo",
+                        symbol: Symbol::HereFunction(function1()),
+                    }
+                    .mock(),
+                ],
+                imports: vec![],
+            };
+
+            let mut state = State::new(vec![(MODULE_ID.to_string(), module)].into_iter().collect());
+
+            let mut checker = Checker::new();
+            assert_eq!(
+                checker.check_module(&MODULE_ID.to_string(), &mut state),
+                Ok(())
+            );
+            assert!(state
+                .typed_modules
+                .get(&MODULE_ID.to_string())
+                .unwrap()
+                .functions
+                .contains_key(&FunctionKey::with_id("foo").signature(Signature::new())));
+            assert!(state
+                .typed_modules
+                .get(&MODULE_ID.to_string())
+                .unwrap()
+                .functions
+                .contains_key(
+                    &FunctionKey::with_id("foo")
+                        .signature(Signature::new().inputs(vec![Type::FieldElement]))
+                ))
+        }
+
+        #[test]
+        fn duplicate_type_declaration() {
+            // struct Foo {}
+            // struct Foo { foo: field }
+            //
+            // should fail
+
+            let module: Module<FieldPrime> = Module {
+                symbols: vec![
+                    SymbolDeclaration {
+                        id: "foo",
+                        symbol: Symbol::HereType(struct0()),
+                    }
+                    .mock(),
+                    SymbolDeclaration {
+                        id: "foo",
+                        symbol: Symbol::HereType(struct1()),
+                    }
+                    .mock(),
+                ],
+                imports: vec![],
+            };
+
+            let mut state = State::new(vec![(String::from("main"), module)].into_iter().collect());
+
+            let mut checker = Checker::new();
+            assert_eq!(
+                checker
+                    .check_module(&String::from("main"), &mut state)
+                    .unwrap_err()[0]
+                    .message,
+                "foo conflicts with another symbol"
+            );
+        }
+
+        #[test]
+        fn type_function_conflict() {
+            // struct foo {}
+            // def foo():
+            //   return
+            //
+            // should fail
+
+            let module = Module {
+                symbols: vec![
+                    SymbolDeclaration {
+                        id: "foo",
+                        symbol: Symbol::HereFunction(function0()),
+                    }
+                    .mock(),
+                    SymbolDeclaration {
+                        id: "foo",
+                        symbol: Symbol::HereType(StructType { fields: vec![] }.mock()),
+                    }
+                    .mock(),
+                ],
+                imports: vec![],
+            };
+
+            let mut state = State::new(vec![(String::from("main"), module)].into_iter().collect());
+
+            let mut checker = Checker::new();
+            assert_eq!(
+                checker
+                    .check_module(&String::from("main"), &mut state)
+                    .unwrap_err()[0]
+                    .message,
+                "foo conflicts with another symbol"
+            );
+        }
+
+        #[test]
+        fn type_imported_function_conflict() {
+            // import first
+
+            // // bar.code
+            // def main() -> (): return
+            //
+            // // main.code
+            // import main from "bar" as foo
+            // struct foo {}
+            //
+            // should fail
+
+            let bar = Module::with_symbols(vec![SymbolDeclaration {
+                id: "main",
+                symbol: Symbol::HereFunction(function0()),
+            }
+            .mock()]);
+
+            let main = Module {
+                symbols: vec![
+                    SymbolDeclaration {
+                        id: "foo",
+                        symbol: Symbol::There(
+                            SymbolImport::with_id_in_module("main", "bar".to_string()).mock(),
+                        ),
+                    }
+                    .mock(),
+                    SymbolDeclaration {
+                        id: "foo",
+                        symbol: Symbol::HereType(struct0()),
+                    }
+                    .mock(),
+                ],
+                imports: vec![],
+            };
+
+            let mut state = State::new(
+                vec![(MODULE_ID.to_string(), main), ("bar".to_string(), bar)]
+                    .into_iter()
+                    .collect(),
+            );
+
+            let mut checker = Checker::new();
+            assert_eq!(
+                checker
+                    .check_module(&MODULE_ID.to_string(), &mut state)
+                    .unwrap_err()[0]
+                    .message,
+                "foo conflicts with another symbol"
+            );
+
+            // type declaration first
+
+            // // bar.code
+            // def main() -> (): return
+            //
+            // // main.code
+            // struct foo {}
+            // import main from "bar" as foo
+            //
+            // should fail
+
+            let bar = Module::with_symbols(vec![SymbolDeclaration {
+                id: "main",
+                symbol: Symbol::HereFunction(function0()),
+            }
+            .mock()]);
+
+            let main = Module {
+                symbols: vec![
+                    SymbolDeclaration {
+                        id: "foo",
+                        symbol: Symbol::HereType(struct0()),
+                    }
+                    .mock(),
+                    SymbolDeclaration {
+                        id: "foo",
+                        symbol: Symbol::There(
+                            SymbolImport::with_id_in_module("main", "bar".to_string()).mock(),
+                        ),
+                    }
+                    .mock(),
+                ],
+                imports: vec![],
+            };
+
+            let mut state = State::new(
+                vec![(MODULE_ID.to_string(), main), ("bar".to_string(), bar)]
+                    .into_iter()
+                    .collect(),
+            );
+
+            let mut checker = Checker::new();
+            assert_eq!(
+                checker
+                    .check_module(&MODULE_ID.to_string(), &mut state)
+                    .unwrap_err()[0]
+                    .message,
+                "foo conflicts with another symbol"
             );
         }
     }
@@ -2730,114 +3068,6 @@ mod tests {
     }
 
     #[test]
-    fn duplicate_function_declaration() {
-        // def foo(a, b):
-        //   return 1
-        // def foo(c, d):
-        //   return 2
-        //
-        // should fail
-
-        let foo1_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
-            ExpressionList {
-                expressions: vec![Expression::FieldConstant(FieldPrime::from(1)).mock()],
-            }
-            .mock(),
-        )
-        .mock()];
-
-        let foo1_arguments = vec![
-            crate::absy::Parameter {
-                id: absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
-                private: true,
-            }
-            .mock(),
-            crate::absy::Parameter {
-                id: absy::Variable::new("b", UnresolvedType::FieldElement.mock()).mock(),
-                private: true,
-            }
-            .mock(),
-        ];
-
-        let foo2_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
-            ExpressionList {
-                expressions: vec![Expression::FieldConstant(FieldPrime::from(1)).mock()],
-            }
-            .mock(),
-        )
-        .mock()];
-
-        let foo2_arguments = vec![
-            crate::absy::Parameter {
-                id: absy::Variable::new("c", UnresolvedType::FieldElement.mock()).mock(),
-                private: true,
-            }
-            .mock(),
-            crate::absy::Parameter {
-                id: absy::Variable::new("d", UnresolvedType::FieldElement.mock()).mock(),
-                private: true,
-            }
-            .mock(),
-        ];
-
-        let foo1 = Function {
-            arguments: foo1_arguments,
-            statements: foo1_statements,
-            signature: UnresolvedSignature {
-                inputs: vec![
-                    UnresolvedType::FieldElement.mock(),
-                    UnresolvedType::FieldElement.mock(),
-                ],
-                outputs: vec![UnresolvedType::FieldElement.mock()],
-            },
-        }
-        .mock();
-
-        let foo2 = Function {
-            arguments: foo2_arguments,
-            statements: foo2_statements,
-            signature: UnresolvedSignature {
-                inputs: vec![
-                    UnresolvedType::FieldElement.mock(),
-                    UnresolvedType::FieldElement.mock(),
-                ],
-                outputs: vec![UnresolvedType::FieldElement.mock()],
-            },
-        }
-        .mock();
-
-        let module = Module {
-            symbols: vec![
-                SymbolDeclaration {
-                    id: "foo",
-                    symbol: Symbol::HereFunction(foo1),
-                }
-                .mock(),
-                SymbolDeclaration {
-                    id: "foo",
-                    symbol: Symbol::HereFunction(foo2),
-                }
-                .mock(),
-            ],
-            imports: vec![],
-        };
-
-        let mut state = State::new(vec![(String::from("main"), module)].into_iter().collect());
-
-        let mut checker = Checker::new();
-        assert_eq!(
-            checker.check_module(&String::from("main"), &mut state),
-            Err(vec![Error {
-                pos: Some((Position::mock(), Position::mock())),
-
-                message:
-                    "Duplicate definition for function foo with signature (field, field) -> (field)"
-                        .to_string()
-            }])
-        );
-    }
-
-    #[test]
     fn duplicate_main_function() {
         // def main(a):
         //   return 1
@@ -2995,8 +3225,6 @@ mod tests {
 
     mod structs {
         use super::*;
-
-        const MODULE_ID: &str = "";
 
         /// helper function to create a module at location "" with a single symbol `Foo { foo: field }`
         fn create_module_with_foo(

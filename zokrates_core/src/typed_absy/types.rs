@@ -4,7 +4,7 @@ pub type Identifier<'ast> = &'ast str;
 
 pub type MemberId = String;
 
-#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 pub enum Type {
     FieldElement,
     Boolean,
@@ -119,7 +119,7 @@ pub mod signature {
     use super::*;
     use std::fmt;
 
-    #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Ord, PartialOrd)]
     pub struct Signature {
         pub inputs: Vec<Type>,
         pub outputs: Vec<Type>,
