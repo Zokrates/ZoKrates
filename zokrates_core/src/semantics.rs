@@ -1952,6 +1952,23 @@ mod tests {
         }
 
         #[test]
+        fn unifier() {
+            // the unifier should only accept either a single type or many functions of different signatures for each symbol
+
+            let mut unifier = SymbolUnifier::default();
+
+            assert!(unifier.insert_type("foo"));
+            assert!(!unifier.insert_type("foo"));
+            assert!(!unifier.insert_function("foo", Signature::new()));
+            assert!(unifier.insert_function("bar", Signature::new()));
+            assert!(!unifier.insert_function("bar", Signature::new()));
+            assert!(
+                unifier.insert_function("bar", Signature::new().inputs(vec![Type::FieldElement]))
+            );
+            assert!(!unifier.insert_type("bar"));
+        }
+
+        #[test]
         fn imported_function() {
             // foo.code
             // def main() -> ():
