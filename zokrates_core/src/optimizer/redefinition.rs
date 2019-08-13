@@ -9,64 +9,132 @@
 // ```
 
 use crate::flat_absy::flat_variable::FlatVariable;
-use crate::ir::folder::{fold_function, Folder};
-use crate::ir::LinComb;
+use crate::ir::folder::Folder;
 use crate::ir::*;
-use num::Zero;
-use std::collections::HashMap;
+use crate::ir::{LinComb, QuadComb};
+use std::hash::Hash;
+
+use std::collections::hash_map::{DefaultHasher, Entry, HashMap};
 use zokrates_field::field::Field;
+
+type HashValue = u64;
+
+fn hash<T: Hash>(t: &T) -> HashValue {
+    use std::hash::Hasher;
+    let mut hasher = DefaultHasher::new();
+    t.hash(&mut hasher);
+    hasher.finish()
+}
+
+#[derive(Debug, PartialEq, Eq, Default)]
+struct Map<T: Field> {
+    key_to_hash: HashMap<FlatVariable, HashValue>,
+    hash_to_value: HashMap<HashValue, LinComb<T>>,
+}
+
+impl<T: Field> Map<T> {
+    fn new() -> Self {
+        Map {
+            key_to_hash: HashMap::new(),
+            hash_to_value: HashMap::new(),
+        }
+    }
+
+    fn drain(&mut self) {
+        self.key_to_hash.drain();
+        self.hash_to_value.drain();
+    }
+
+    fn get(&self, key: &FlatVariable) -> Option<&LinComb<T>> {
+        self.key_to_hash
+            .get(key)
+            .map(|h| self.hash_to_value.get(h).unwrap())
+    }
+
+    fn insert(&mut self, key: FlatVariable, value: LinComb<T>) -> Option<LinComb<T>> {
+        self.key_to_hash.entry(key).or_insert_with(|| hash(&value));
+        self.hash_to_value.insert(hash(&value), value)
+    }
+
+    fn entries(
+        &mut self,
+        k: FlatVariable,
+        h: HashValue,
+    ) -> (Entry<FlatVariable, HashValue>, Entry<HashValue, LinComb<T>>) {
+        (self.key_to_hash.entry(k), self.hash_to_value.entry(h))
+    }
+}
+
+impl<T: Field> Extend<(FlatVariable, LinComb<T>)> for Map<T> {
+    #[inline]
+    fn extend<U: IntoIterator<Item = (FlatVariable, LinComb<T>)>>(&mut self, iter: U) {
+        for (k, v) in iter {
+            self.insert(k, v);
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct RedefinitionOptimizer<T: Field> {
     /// Map of renamings for reassigned variables while processing the program.
-    substitution: HashMap<FlatVariable, LinComb<T>>,
+    substitution: Map<T>,
+    hits: usize,
 }
 
 impl<T: Field> RedefinitionOptimizer<T> {
-    fn new() -> RedefinitionOptimizer<T> {
+    pub fn new() -> RedefinitionOptimizer<T> {
         RedefinitionOptimizer {
-            substitution: HashMap::new(),
+            substitution: Map::new(),
+            hits: 0,
         }
     }
 
     pub fn optimize(p: Prog<T>) -> Prog<T> {
         RedefinitionOptimizer::new().fold_module(p)
     }
-}
 
-impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
-    fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
+    fn fold_statement_opt(&mut self, s: Statement<T>) -> Option<Statement<T>> {
         match s {
             // Detect constraints of the form `lincomb * ~ONE == x` where x is not in the map yet
             Statement::Constraint(quad, lin) => {
                 let quad = self.fold_quadratic_combination(quad);
                 let lin = self.fold_linear_combination(lin);
 
-                let to_insert = match quad.try_linear() {
+                match quad.try_linear() {
                     // left side must be linear
-                    Some(l) => match lin.try_summand() {
+                    Ok(l) => match lin.try_summand() {
                         // right side must be a single variable
-                        Some((variable, coefficient)) => {
+                        Ok((variable, coefficient)) => {
                             match variable == FlatVariable::one() {
                                 // variable must not be ~ONE
-                                false => match self.substitution.get(&variable) {
-                                    Some(_) => None,
-                                    None => Some((variable, l / &coefficient)),
-                                },
-                                true => None,
+                                false => {
+                                    let l = l / &coefficient;
+                                    let hash = hash(&l);
+                                    match self.substitution.entries(variable, hash) {
+                                        (Entry::Occupied(_), _) => Some(Statement::Constraint(
+                                            QuadComb::from_linear_combinations(LinComb::one(), l),
+                                            variable.into(),
+                                        )),
+                                        (Entry::Vacant(v), e) => {
+                                            self.hits += 1;
+                                            e.or_insert(l);
+                                            v.insert(hash);
+                                            None
+                                        }
+                                    }
+                                }
+                                true => Some(Statement::Constraint(
+                                    QuadComb::from_linear_combinations(LinComb::one(), l),
+                                    LinComb::summand(coefficient, variable),
+                                )),
                             }
                         }
-                        None => None,
+                        Err(lin) => Some(Statement::Constraint(
+                            QuadComb::from_linear_combinations(LinComb::one(), l),
+                            lin,
+                        )),
                     },
-                    None => None,
-                };
-
-                match to_insert {
-                    Some((k, v)) => {
-                        self.substitution.insert(k, v);
-                        vec![]
-                    }
-                    None => vec![Statement::Constraint(quad, lin)],
+                    Err(quad) => Some(Statement::Constraint(quad, lin)),
                 }
             }
             Statement::Directive(d) => {
@@ -75,21 +143,28 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                 for o in d.outputs.iter() {
                     self.substitution.insert(o.clone(), o.clone().into());
                 }
-                vec![Statement::Directive(d)]
+                Some(Statement::Directive(d))
             }
         }
     }
+}
 
+impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
     fn fold_linear_combination(&mut self, lc: LinComb<T>) -> LinComb<T> {
         // for each summand, check if it is equal to a linear term in our substitution, otherwise keep it as is
-        lc.0.into_iter()
-            .map(
-                |(variable, coefficient)| match self.substitution.get(&variable) {
-                    Some(l) => l.clone() * &coefficient, // we only clone in the case that we found a value in the map
-                    None => LinComb::summand(coefficient, variable),
-                },
-            )
-            .fold(LinComb::zero(), |acc, x| acc + x)
+
+        let mut result = vec![];
+
+        for (variable, coefficient) in lc.0.into_iter() {
+            match self.substitution.get(&variable) {
+                Some(l) => {
+                    result.extend(l.0.clone().into_iter().map(|(v, c)| (v, c * &coefficient)))
+                } // we only clone in the case that we found a value in the map
+                None => result.push((variable, coefficient)),
+            }
+        }
+
+        LinComb(result)
     }
 
     fn fold_argument(&mut self, a: FlatVariable) -> FlatVariable {
@@ -105,7 +180,24 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
         self.substitution
             .extend(fun.returns.iter().map(|x| (x.clone(), x.clone().into())));
 
-        fold_function(self, fun)
+        Function {
+            arguments: fun
+                .arguments
+                .into_iter()
+                .map(|a| self.fold_argument(a))
+                .collect(),
+            statements: fun
+                .statements
+                .into_iter()
+                .filter_map(|s| self.fold_statement_opt(s))
+                .collect(),
+            returns: fun
+                .returns
+                .into_iter()
+                .map(|v| self.fold_variable(v))
+                .collect(),
+            ..fun
+        }
     }
 }
 

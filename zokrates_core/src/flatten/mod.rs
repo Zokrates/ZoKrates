@@ -718,11 +718,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         }
                         FieldElementArrayExpression::Value(size, expressions) => {
                             assert!(n < T::from(size));
-                            self.flatten_field_expression(
+                            self.flatten_expression(
                                 symbols,
                                 statements_flattened,
-                                expressions[n.to_dec_string().parse::<usize>().unwrap()].clone(),
-                            )
+                                expressions.get(n.to_dec_string().parse::<usize>().unwrap()),
+                            )[0]
+                            .clone()
                         }
                         FieldElementArrayExpression::FunctionCall(..) => {
                             unimplemented!("please use intermediate variables for now")
@@ -749,6 +750,15 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                 ),
                             )
                         }
+                        FieldElementArrayExpression::Slice(box array, from, _) => self
+                            .flatten_field_expression(
+                                symbols,
+                                statements_flattened,
+                                FieldElementExpression::Select(
+                                    box array,
+                                    box FieldElementExpression::Number(T::from(from) + n),
+                                ),
+                            ),
                     },
                     e => {
                         let size = array.size();
@@ -800,7 +810,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                         }
                                         FieldElementArrayExpression::Value(size, expressions) => {
                                             assert_eq!(size, expressions.len());
-                                            expressions[i].clone()
+                                            match expressions.get(i) {
+                                                TypedExpression::FieldElement(e) => e,
+                                                _ => unreachable!(),
+                                            }
                                         }
                                         FieldElementArrayExpression::FunctionCall(..) => {
                                             unimplemented!(
@@ -822,6 +835,14 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                                 box FieldElementExpression::Number(T::from(i)),
                                             ),
                                         ),
+                                        FieldElementArrayExpression::Slice(box array, from, _) => {
+                                            FieldElementExpression::Select(
+                                                box array,
+                                                box FieldElementExpression::Number(T::from(
+                                                    from + i,
+                                                )),
+                                            )
+                                        }
                                     },
                                     box FieldElementExpression::Number(T::from(0)),
                                 )
@@ -835,6 +856,33 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 }
             }
         }
+    }
+
+    /// Flattens a TypedArrayValue, used in inline arrays
+    ///
+    /// # Arguments
+    ///
+    /// * `symbols` - Available functions in in this context
+    /// * `statements_flattened` - Vector where new flattened statements can be added.
+    /// * `value` - `TypedSpreadOrExpression` that will be flattened.
+    fn flatten_array_value(
+        &mut self,
+        symbols: &HashMap<FunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>,
+        statements_flattened: &mut Vec<FlatStatement<T>>,
+        value: TypedArrayValue<'ast, T>,
+    ) -> Vec<FlatExpression<T>> {
+        value
+            .0
+            .into_iter()
+            .flat_map(|v| match v {
+                TypedSpreadOrExpression::Expression(e) => {
+                    self.flatten_expression(symbols, statements_flattened, e)
+                }
+                TypedSpreadOrExpression::Spread(a) => {
+                    self.flatten_field_array_expression(symbols, statements_flattened, a)
+                }
+            })
+            .collect()
     }
 
     /// Flattens a field array expression
@@ -858,12 +906,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 .iter()
                 .map(|v| FlatExpression::Identifier(v.clone()))
                 .collect(),
-            FieldElementArrayExpression::Value(size, values) => {
-                assert_eq!(size, values.len());
-                values
-                    .into_iter()
-                    .map(|v| self.flatten_field_expression(symbols, statements_flattened, v))
-                    .collect()
+            FieldElementArrayExpression::Value(size, val) => {
+                assert_eq!(size, val.len());
+                self.flatten_array_value(symbols, statements_flattened, val)
             }
             FieldElementArrayExpression::FunctionCall(size, key, param_expressions) => {
                 let exprs_flattened = self.flatten_function_call(
@@ -876,6 +921,18 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 assert!(exprs_flattened.expressions.len() == size); // outside of MultipleDefinition, FunctionCalls must return a single value
                 exprs_flattened.expressions
             }
+            FieldElementArrayExpression::Slice(box array, from, to) => (from..to)
+                .map(|i| {
+                    self.flatten_field_expression(
+                        symbols,
+                        statements_flattened,
+                        FieldElementExpression::Select(
+                            box array.clone(),
+                            box FieldElementExpression::Number(T::from(i)),
+                        ),
+                    )
+                })
+                .collect(),
             FieldElementArrayExpression::IfElse(
                 ref condition,
                 ref consequence,
@@ -1788,11 +1845,17 @@ mod tests {
             TypedAssignee::Identifier(Variable::field_array("foo".into(), 3)),
             FieldElementArrayExpression::Value(
                 3,
-                vec![
-                    FieldElementExpression::Number(FieldPrime::from(1)),
-                    FieldElementExpression::Number(FieldPrime::from(2)),
-                    FieldElementExpression::Number(FieldPrime::from(3)),
-                ],
+                TypedArrayValue(vec![
+                    TypedSpreadOrExpression::Expression(
+                        FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                    ),
+                    TypedSpreadOrExpression::Expression(
+                        FieldElementExpression::Number(FieldPrime::from(2)).into(),
+                    ),
+                    TypedSpreadOrExpression::Expression(
+                        FieldElementExpression::Number(FieldPrime::from(3)).into(),
+                    ),
+                ]),
             )
             .into(),
         );
@@ -1825,11 +1888,17 @@ mod tests {
             TypedAssignee::Identifier(Variable::field_array("foo".into(), 3)),
             FieldElementArrayExpression::Value(
                 3,
-                vec![
-                    FieldElementExpression::Number(FieldPrime::from(1)),
-                    FieldElementExpression::Number(FieldPrime::from(2)),
-                    FieldElementExpression::Number(FieldPrime::from(3)),
-                ],
+                TypedArrayValue(vec![
+                    TypedSpreadOrExpression::Expression(
+                        FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                    ),
+                    TypedSpreadOrExpression::Expression(
+                        FieldElementExpression::Number(FieldPrime::from(2)).into(),
+                    ),
+                    TypedSpreadOrExpression::Expression(
+                        FieldElementExpression::Number(FieldPrime::from(3)).into(),
+                    ),
+                ]),
             )
             .into(),
         );
@@ -1866,11 +1935,17 @@ mod tests {
             TypedAssignee::Identifier(Variable::field_array("foo".into(), 3)),
             FieldElementArrayExpression::Value(
                 3,
-                vec![
-                    FieldElementExpression::Number(FieldPrime::from(1)),
-                    FieldElementExpression::Number(FieldPrime::from(2)),
-                    FieldElementExpression::Number(FieldPrime::from(3)),
-                ],
+                TypedArrayValue(vec![
+                    TypedSpreadOrExpression::Expression(
+                        FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                    ),
+                    TypedSpreadOrExpression::Expression(
+                        FieldElementExpression::Number(FieldPrime::from(2)).into(),
+                    ),
+                    TypedSpreadOrExpression::Expression(
+                        FieldElementExpression::Number(FieldPrime::from(3)).into(),
+                    ),
+                ]),
             )
             .into(),
         );
@@ -1907,11 +1982,17 @@ mod tests {
             TypedAssignee::Identifier(Variable::field_array("foo".into(), 3)),
             FieldElementArrayExpression::Value(
                 3,
-                vec![
-                    FieldElementExpression::Number(FieldPrime::from(1)),
-                    FieldElementExpression::Number(FieldPrime::from(2)),
-                    FieldElementExpression::Number(FieldPrime::from(3)),
-                ],
+                TypedArrayValue(vec![
+                    TypedSpreadOrExpression::Expression(
+                        FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                    ),
+                    TypedSpreadOrExpression::Expression(
+                        FieldElementExpression::Number(FieldPrime::from(2)).into(),
+                    ),
+                    TypedSpreadOrExpression::Expression(
+                        FieldElementExpression::Number(FieldPrime::from(3)).into(),
+                    ),
+                ]),
             )
             .into(),
         );
@@ -1970,11 +2051,15 @@ mod tests {
                 ),
                 box FieldElementArrayExpression::Value(
                     1,
-                    vec![FieldElementExpression::Number(FieldPrime::from(1))],
+                    TypedArrayValue(vec![TypedSpreadOrExpression::Expression(
+                        FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                    )]),
                 ),
                 box FieldElementArrayExpression::Value(
                     1,
-                    vec![FieldElementExpression::Number(FieldPrime::from(3))],
+                    TypedArrayValue(vec![TypedSpreadOrExpression::Expression(
+                        FieldElementExpression::Number(FieldPrime::from(3)).into(),
+                    )]),
                 ),
             );
 

@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::fmt;
 
+pub const ONE: FlatVariable = FlatVariable { id: 0 };
+
 // A variable in a constraint system
 // id > 0 for intermediate variables
 // id == 0 for ~one

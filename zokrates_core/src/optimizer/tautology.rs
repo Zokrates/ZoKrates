@@ -26,13 +26,13 @@ impl<T: Field> Folder<T> for TautologyOptimizer {
     fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
         match s {
             Statement::Constraint(quad, lin) => {
-                match quad.try_linear() {
-                    Some(l) => {
+                match quad.clone().try_linear() {
+                    Ok(l) => {
                         if l == lin {
                             return vec![];
                         }
                     }
-                    None => {}
+                    Err(_) => {}
                 }
                 vec![Statement::Constraint(quad, lin)]
             }

@@ -8,3 +8,6 @@ members = [
     "zokrates_stdlib",
     "zokrates_embed",
 ]
+
+[profile.release]
+lto = true

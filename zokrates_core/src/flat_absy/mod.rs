@@ -9,7 +9,7 @@ pub mod flat_parameter;
 pub mod flat_variable;
 
 pub use self::flat_parameter::FlatParameter;
-pub use self::flat_variable::FlatVariable;
+pub use self::flat_variable::{FlatVariable, ONE};
 
 use crate::helpers::DirectiveStatement;
 use crate::types::Signature;

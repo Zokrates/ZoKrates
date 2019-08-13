@@ -150,20 +150,30 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
         )
     })?;
 
+    println!("checked {}", typed_ast);
+
     // analyse (unroll and constant propagation)
     let typed_ast = typed_ast.analyse();
 
     // flatten input program
     let program_flattened = Flattener::flatten(typed_ast);
 
+    println!("flattened");
+
     // analyse (constant propagation after call resolution)
     let program_flattened = program_flattened.analyse();
+
+    println!("flat_analysed");
 
     // convert to ir
     let ir_prog = ir::Prog::from(program_flattened);
 
+    println!("converted");
+
     // optimize
     let optimized_ir_prog = ir_prog.optimize();
+
+    println!("optimized");
 
     Ok(optimized_ir_prog)
 }

@@ -7,7 +7,7 @@
 mod redefinition;
 mod tautology;
 
-use self::redefinition::RedefinitionOptimizer;
+pub use self::redefinition::RedefinitionOptimizer;
 use self::tautology::TautologyOptimizer;
 
 use crate::ir::Prog;
@@ -20,7 +20,9 @@ pub trait Optimize {
 impl<T: Field> Optimize for Prog<T> {
     fn optimize(self) -> Self {
         // remove redefinitions
+        println!("redef");
         let r = RedefinitionOptimizer::optimize(self);
+        println!("tautology");
         // remove constraints that are always satisfied
         let r = TautologyOptimizer::optimize(r);
         r

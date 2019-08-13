@@ -31,6 +31,21 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
         fold_function(self, f)
     }
 
+    fn fold_array_value(&mut self, v: TypedArrayValue<'ast, T>) -> TypedArrayValue<'ast, T> {
+        TypedArrayValue(
+            v.0.into_iter()
+                .map(|v| self.fold_spread_or_expression(v))
+                .flat_map(|v| match v {
+                    v @ TypedSpreadOrExpression::Expression(..) => vec![v],
+                    TypedSpreadOrExpression::Spread(a) => match a {
+                        FieldElementArrayExpression::Value(_, v) => v.0,
+                        _ => vec![TypedSpreadOrExpression::Spread(a)],
+                    },
+                })
+                .collect(),
+        )
+    }
+
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
         let res = match s {
 			TypedStatement::Declaration(v) => Some(TypedStatement::Declaration(v)),
@@ -43,8 +58,11 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 						None
 					},
 					TypedExpression::FieldElementArray(FieldElementArrayExpression::Value(size, array)) => {
-						match array.iter().all(|e| match e {
-							FieldElementExpression::Number(..) => true,
+
+                        let array = self.fold_array_value(array);
+
+						match array.0.iter().all(|v| match v {
+							TypedSpreadOrExpression::Expression(TypedExpression::FieldElement(FieldElementExpression::Number(..))) => true,
 							_ => false
 						}) {
 							true => {
@@ -79,7 +97,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 								TypedExpression::FieldElementArray(FieldElementArrayExpression::Value(size, ref mut v)) => {
 									let n_as_usize = n.to_dec_string().parse::<usize>().unwrap();
 									if n_as_usize < size {
-										v[n_as_usize] = expr;
+										v.0[n_as_usize] = TypedSpreadOrExpression::Expression(expr.into());
 									} else {
 										panic!(format!("out of bounds index ({} >= {}) found during static analysis", n_as_usize, size));
 									}
@@ -211,7 +229,10 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     ) => {
                         let n_as_usize = n.to_dec_string().parse::<usize>().unwrap();
                         if n_as_usize < size {
-                            v[n_as_usize].clone()
+                            match v.get(n_as_usize) {
+                                TypedExpression::FieldElement(e) => e,
+                                _ => unreachable!(),
+                            }
                         } else {
                             panic!(format!(
                                 "out of bounds index ({} >= {}) found during static analysis",
@@ -259,6 +280,15 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                         _ => panic!("constant stored for an array should be an array"),
                     },
                     None => FieldElementArrayExpression::Identifier(size, id),
+                }
+            }
+            FieldElementArrayExpression::Slice(box array, from, to) => {
+                let slice = self.fold_field_array_expression(array);
+                match slice {
+                    FieldElementArrayExpression::Value(size, v) => {
+                        FieldElementArrayExpression::Value(to - from, v.slice(from, to))
+                    }
+                    slice => FieldElementArrayExpression::Slice(box slice, from, to),
                 }
             }
             e => fold_field_array_expression(self, e),
@@ -496,11 +526,17 @@ mod tests {
                 let e = FieldElementExpression::Select(
                     box FieldElementArrayExpression::Value(
                         3,
-                        vec![
-                            FieldElementExpression::Number(FieldPrime::from(1)),
-                            FieldElementExpression::Number(FieldPrime::from(2)),
-                            FieldElementExpression::Number(FieldPrime::from(3)),
-                        ],
+                        TypedArrayValue(vec![
+                            TypedSpreadOrExpression::Expression(
+                                FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                            ),
+                            TypedSpreadOrExpression::Expression(
+                                FieldElementExpression::Number(FieldPrime::from(2)).into(),
+                            ),
+                            TypedSpreadOrExpression::Expression(
+                                FieldElementExpression::Number(FieldPrime::from(3)).into(),
+                            ),
+                        ]),
                     ),
                     box FieldElementExpression::Add(
                         box FieldElementExpression::Number(FieldPrime::from(1)),
@@ -791,10 +827,14 @@ mod tests {
                     TypedAssignee::Identifier(Variable::field_array("a".into(), 2)),
                     FieldElementArrayExpression::Value(
                         2,
-                        vec![
-                            FieldElementExpression::Number(FieldPrime::from(21)),
-                            FieldElementExpression::Number(FieldPrime::from(22)),
-                        ],
+                        TypedArrayValue(vec![
+                            TypedSpreadOrExpression::Expression(
+                                FieldElementExpression::Number(FieldPrime::from(21)).into(),
+                            ),
+                            TypedSpreadOrExpression::Expression(
+                                FieldElementExpression::Number(FieldPrime::from(22)).into(),
+                            ),
+                        ]),
                     )
                     .into(),
                 );
@@ -813,10 +853,14 @@ mod tests {
                 let expected_value: TypedExpression<FieldPrime> =
                     FieldElementArrayExpression::Value(
                         2,
-                        vec![
-                            FieldElementExpression::Number(FieldPrime::from(21)),
-                            FieldElementExpression::Number(FieldPrime::from(22)),
-                        ],
+                        TypedArrayValue(vec![
+                            TypedSpreadOrExpression::Expression(
+                                FieldElementExpression::Number(FieldPrime::from(21)).into(),
+                            ),
+                            TypedSpreadOrExpression::Expression(
+                                FieldElementExpression::Number(FieldPrime::from(22)).into(),
+                            ),
+                        ]),
                     )
                     .into();
 
@@ -834,10 +878,14 @@ mod tests {
                 let expected_value: TypedExpression<FieldPrime> =
                     FieldElementArrayExpression::Value(
                         2,
-                        vec![
-                            FieldElementExpression::Number(FieldPrime::from(21)),
-                            FieldElementExpression::Number(FieldPrime::from(42)),
-                        ],
+                        TypedArrayValue(vec![
+                            TypedSpreadOrExpression::Expression(
+                                FieldElementExpression::Number(FieldPrime::from(21)).into(),
+                            ),
+                            TypedSpreadOrExpression::Expression(
+                                FieldElementExpression::Number(FieldPrime::from(42)).into(),
+                            ),
+                        ]),
                     )
                     .into();
 

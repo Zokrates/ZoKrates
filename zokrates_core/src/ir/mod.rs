@@ -1,5 +1,5 @@
 use crate::flat_absy::flat_parameter::FlatParameter;
-use crate::flat_absy::FlatVariable;
+pub use crate::flat_absy::FlatVariable;
 use crate::helpers::Helper;
 use std::fmt;
 use zokrates_field::field::Field;
@@ -10,8 +10,7 @@ mod from_flat;
 mod interpreter;
 mod witness;
 
-use self::expression::QuadComb;
-pub use self::expression::{CanonicalLinComb, LinComb};
+pub use self::expression::{CanonicalLinComb, LinComb, QuadComb};
 
 pub use self::interpreter::{Error, ExecutionResult};
 pub use self::witness::Witness;

@@ -99,6 +99,17 @@ pub trait Folder<'ast, T: Field>: Sized {
     ) -> FieldElementArrayExpression<'ast, T> {
         fold_field_array_expression(self, e)
     }
+
+    fn fold_array_value(&mut self, v: TypedArrayValue<'ast, T>) -> TypedArrayValue<'ast, T> {
+        fold_array_value(self, v)
+    }
+
+    fn fold_spread_or_expression(
+        &mut self,
+        e: TypedSpreadOrExpression<'ast, T>,
+    ) -> TypedSpreadOrExpression<'ast, T> {
+        fold_spread_or_expression(self, e)
+    }
 }
 
 pub fn fold_module<'ast, T: Field, F: Folder<'ast, T>>(
@@ -150,6 +161,17 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
     vec![res]
 }
 
+pub fn fold_array_value<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    v: TypedArrayValue<'ast, T>,
+) -> TypedArrayValue<'ast, T> {
+    TypedArrayValue(
+        v.0.into_iter()
+            .map(|v| f.fold_spread_or_expression(v))
+            .collect(),
+    )
+}
+
 pub fn fold_field_array_expression<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     e: FieldElementArrayExpression<'ast, T>,
@@ -158,13 +180,9 @@ pub fn fold_field_array_expression<'ast, T: Field, F: Folder<'ast, T>>(
         FieldElementArrayExpression::Identifier(size, id) => {
             FieldElementArrayExpression::Identifier(size, f.fold_name(id))
         }
-        FieldElementArrayExpression::Value(size, exprs) => FieldElementArrayExpression::Value(
-            size,
-            exprs
-                .into_iter()
-                .map(|e| f.fold_field_expression(e))
-                .collect(),
-        ),
+        FieldElementArrayExpression::Value(size, val) => {
+            FieldElementArrayExpression::Value(size, f.fold_array_value(val))
+        }
         FieldElementArrayExpression::FunctionCall(size, id, exps) => {
             let exps = exps.into_iter().map(|e| f.fold_expression(e)).collect();
             FieldElementArrayExpression::FunctionCall(size, id, exps)
@@ -175,6 +193,9 @@ pub fn fold_field_array_expression<'ast, T: Field, F: Folder<'ast, T>>(
                 box f.fold_field_array_expression(consequence),
                 box f.fold_field_array_expression(alternative),
             )
+        }
+        FieldElementArrayExpression::Slice(box array, from, to) => {
+            FieldElementArrayExpression::Slice(box f.fold_field_array_expression(array), from, to)
         }
     }
 }
@@ -306,6 +327,20 @@ pub fn fold_function_symbol<'ast, T: Field, F: Folder<'ast, T>>(
     match s {
         TypedFunctionSymbol::Here(fun) => TypedFunctionSymbol::Here(f.fold_function(fun)),
         there => there, // by default, do not fold modules recursively
+    }
+}
+
+pub fn fold_spread_or_expression<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    e: TypedSpreadOrExpression<'ast, T>,
+) -> TypedSpreadOrExpression<'ast, T> {
+    match e {
+        TypedSpreadOrExpression::Spread(a) => {
+            TypedSpreadOrExpression::Spread(f.fold_field_array_expression(a))
+        }
+        TypedSpreadOrExpression::Expression(e) => {
+            TypedSpreadOrExpression::Expression(f.fold_expression(e))
+        }
     }
 }
 

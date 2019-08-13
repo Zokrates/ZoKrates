@@ -40,6 +40,11 @@ csv = "1"
 [dev-dependencies]
 glob = "0.2.11"
 assert_cli = "0.5"
+criterion = "0.2"
+
+[[bench]]
+name = "optimizer"
+harness = false
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"], optional = true }
