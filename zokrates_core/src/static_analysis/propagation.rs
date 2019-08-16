@@ -11,12 +11,14 @@ use zokrates_field::field::Field;
 
 pub struct Propagator<'ast, T: Field> {
     constants: HashMap<TypedAssignee<'ast, T>, TypedExpression<'ast, T>>,
+    variables: HashMap<Identifier<'ast>, Identifier<'ast>>,
 }
 
 impl<'ast, T: Field> Propagator<'ast, T> {
     fn new() -> Self {
         Propagator {
             constants: HashMap::new(),
+            variables: HashMap::new(),
         }
     }
 
@@ -47,7 +49,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
     }
 
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
-        let res = match s {
+        let res = match s.clone() {
 			TypedStatement::Declaration(v) => Some(TypedStatement::Declaration(v)),
 			TypedStatement::Return(expressions) => Some(TypedStatement::Return(expressions.into_iter().map(|e| self.fold_expression(e)).collect())),
 			// propagation to the defined variable if rhs is a constant
@@ -57,6 +59,10 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 						self.constants.insert(TypedAssignee::Identifier(var), e);
 						None
 					},
+                    TypedExpression::Boolean(BooleanExpression::Identifier(v)) | TypedExpression::FieldElement(FieldElementExpression::Identifier(v)) | TypedExpression::FieldElementArray(FieldElementArrayExpression::Identifier(_, v)) => {
+                        self.variables.insert(var.id, v);
+                        None
+                    },
 					TypedExpression::FieldElementArray(FieldElementArrayExpression::Value(size, array)) => {
 
                         let array = self.fold_array_value(array);
@@ -140,6 +146,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
     ) -> FieldElementExpression<'ast, T> {
         match e {
             FieldElementExpression::Identifier(id) => {
+                let id = self.fold_name(id);
                 match self
                     .constants
                     .get(&TypedAssignee::Identifier(Variable::field_element(
@@ -269,6 +276,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
     ) -> FieldElementArrayExpression<'ast, T> {
         match e {
             FieldElementArrayExpression::Identifier(size, id) => {
+                let id = self.fold_name(id);
                 match self
                     .constants
                     .get(&TypedAssignee::Identifier(Variable::field_array(
@@ -300,16 +308,19 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
         e: BooleanExpression<'ast, T>,
     ) -> BooleanExpression<'ast, T> {
         match e {
-            BooleanExpression::Identifier(id) => match self
-                .constants
-                .get(&TypedAssignee::Identifier(Variable::boolean(id.clone())))
-            {
-                Some(e) => match e {
-                    TypedExpression::Boolean(e) => e.clone(),
-                    _ => panic!("constant stored for a boolean should be a boolean"),
-                },
-                None => BooleanExpression::Identifier(id),
-            },
+            BooleanExpression::Identifier(id) => {
+                let id = self.fold_name(id);
+                match self
+                    .constants
+                    .get(&TypedAssignee::Identifier(Variable::boolean(id.clone())))
+                {
+                    Some(e) => match e {
+                        TypedExpression::Boolean(e) => e.clone(),
+                        _ => panic!("constant stored for a boolean should be a boolean"),
+                    },
+                    None => BooleanExpression::Identifier(id),
+                }
+            }
             BooleanExpression::Eq(box e1, box e2) => {
                 let e1 = self.fold_field_expression(e1);
                 let e2 = self.fold_field_expression(e2);
@@ -412,6 +423,11 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
             }
             e => fold_boolean_expression(self, e),
         }
+    }
+
+    fn fold_name(&mut self, i: Identifier<'ast>) -> Identifier<'ast> {
+        let res = self.variables.get(&i).cloned().unwrap_or(i.clone());
+        res
     }
 }
 

@@ -12,47 +12,47 @@ use zokrates_core::optimizer::RedefinitionOptimizer;
 use zokrates_field::field::FieldPrime;
 
 fn bench_foo(c: &mut Criterion) {
-    c.bench_function("reduce100", |b| {
-        b.iter(|| {
-            let f = ir::Function::<FieldPrime> {
-                arguments: vec![],
-                id: "main".to_string(),
-                returns: vec![],
-                statements: (0..100)
-                    .map(|i| {
-                        ir::Statement::definition(
-                            ir::FlatVariable::new(i + 1),
-                            ir::FlatVariable::new(i),
-                        )
-                    })
-                    .collect(),
-            };
+    // c.bench_function("reduce100", |b| {
+    //     b.iter(|| {
+    //         let f = ir::Function::<FieldPrime> {
+    //             arguments: vec![],
+    //             id: "main".to_string(),
+    //             returns: vec![],
+    //             statements: (0..100)
+    //                 .map(|i| {
+    //                     ir::Statement::definition(
+    //                         ir::FlatVariable::new(i + 1),
+    //                         ir::FlatVariable::new(i),
+    //                     )
+    //                 })
+    //                 .collect(),
+    //         };
 
-            let mut optimizer = RedefinitionOptimizer::new();
-            optimizer.fold_function(f);
-        })
-    });
+    //         let mut optimizer = RedefinitionOptimizer::new();
+    //         optimizer.fold_function(f);
+    //     })
+    // });
 
-    c.bench_function("reduce1000", |b| {
-        b.iter(|| {
-            let f = ir::Function::<FieldPrime> {
-                arguments: vec![],
-                id: "main".to_string(),
-                returns: vec![],
-                statements: (0..1000)
-                    .map(|i| {
-                        ir::Statement::definition(
-                            ir::FlatVariable::new(i + 1),
-                            ir::FlatVariable::new(i),
-                        )
-                    })
-                    .collect(),
-            };
+    // c.bench_function("reduce1000", |b| {
+    //     b.iter(|| {
+    //         let f = ir::Function::<FieldPrime> {
+    //             arguments: vec![],
+    //             id: "main".to_string(),
+    //             returns: vec![],
+    //             statements: (0..1000)
+    //                 .map(|i| {
+    //                     ir::Statement::definition(
+    //                         ir::FlatVariable::new(i + 1),
+    //                         ir::FlatVariable::new(i),
+    //                     )
+    //                 })
+    //                 .collect(),
+    //         };
 
-            let mut optimizer = RedefinitionOptimizer::new();
-            optimizer.fold_function(f);
-        })
-    });
+    //         let mut optimizer = RedefinitionOptimizer::new();
+    //         optimizer.fold_function(f);
+    //     })
+    // });
 
     c.bench_function("reduce10000", |b| {
         b.iter(|| {
@@ -60,7 +60,7 @@ fn bench_foo(c: &mut Criterion) {
                 arguments: vec![],
                 id: "main".to_string(),
                 returns: vec![],
-                statements: (0..10000)
+                statements: (0..1000000)
                     .map(|i| {
                         ir::Statement::definition(
                             ir::FlatVariable::new(i + 1),
@@ -76,5 +76,10 @@ fn bench_foo(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_foo);
+criterion_group! {
+    name = benches;
+    config = Criterion::default().sample_size(10);
+    targets = bench_foo
+}
+
 criterion_main!(benches);

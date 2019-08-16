@@ -170,6 +170,8 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
 
     println!("converted");
 
+    println!("COUNT {}", ir_prog.constraint_count());
+
     // optimize
     let optimized_ir_prog = ir_prog.optimize();
 

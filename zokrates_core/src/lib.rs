@@ -1,5 +1,6 @@
 #![feature(box_patterns, box_syntax)]
 
+extern crate fnv;
 extern crate num;
 extern crate num_bigint;
 extern crate reduce; // better reduce function than Iter.fold

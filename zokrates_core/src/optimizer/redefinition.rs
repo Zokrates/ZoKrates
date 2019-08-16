@@ -12,6 +12,7 @@ use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::folder::Folder;
 use crate::ir::*;
 use crate::ir::{LinComb, QuadComb};
+use fnv::FnvHashMap;
 use std::hash::Hash;
 
 use std::collections::hash_map::{DefaultHasher, Entry, HashMap};
@@ -28,14 +29,25 @@ fn hash<T: Hash>(t: &T) -> HashValue {
 
 #[derive(Debug, PartialEq, Eq, Default)]
 struct Map<T: Field> {
-    key_to_hash: HashMap<FlatVariable, HashValue>,
-    hash_to_value: HashMap<HashValue, LinComb<T>>,
+    pub key_to_hash: FnvHashMap<FlatVariable, HashValue>,
+    pub hash_to_value: HashMap<HashValue, LinComb<T>>,
+}
+
+impl<T: Field> std::fmt::Display for Map<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "variables: {}     values: {}",
+            self.key_to_hash.len(),
+            self.hash_to_value.len()
+        )
+    }
 }
 
 impl<T: Field> Map<T> {
     fn new() -> Self {
         Map {
-            key_to_hash: HashMap::new(),
+            key_to_hash: FnvHashMap::default(),
             hash_to_value: HashMap::new(),
         }
     }
@@ -97,6 +109,7 @@ impl<T: Field> RedefinitionOptimizer<T> {
         match s {
             // Detect constraints of the form `lincomb * ~ONE == x` where x is not in the map yet
             Statement::Constraint(quad, lin) => {
+                println!("{}", self.substitution);
                 let quad = self.fold_quadratic_combination(quad);
                 let lin = self.fold_linear_combination(lin);
 
@@ -117,7 +130,7 @@ impl<T: Field> RedefinitionOptimizer<T> {
                                         )),
                                         (Entry::Vacant(v), e) => {
                                             self.hits += 1;
-                                            e.or_insert(l);
+                                            e.or_insert_with(|| l);
                                             v.insert(hash);
                                             None
                                         }
