@@ -10,12 +10,12 @@ You can see an overview of the available subcommands by running
 ## `compile`
 
 ```sh
-./zokrates compile -i /path/to/add.code
+./zokrates compile -i /path/to/add.code [-o /path/to/output] [--light]
 ```
 
 Compiles a `.code` file into ZoKrates internal representation of arithmetic circuits. 
 
-Creates a compiled `.code` file at `./out.code`.
+Creates a compiled `.code` file at `./out.code` or the specified output file.
 
 ## `compute-witness`
 
