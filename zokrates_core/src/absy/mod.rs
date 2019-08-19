@@ -239,17 +239,17 @@ impl<'ast, T: Field> fmt::Display for Statement<'ast, T> {
             Statement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             Statement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             Statement::For(ref var, ref start, ref stop, ref list) => {
-                r#try!(write!(f, "for {} in {}..{} do\n", var, start, stop));
+                write!(f, "for {} in {}..{} do\n", var, start, stop)?;
                 for l in list {
-                    r#try!(write!(f, "\t\t{}\n", l));
+                    write!(f, "\t\t{}\n", l)?;
                 }
                 write!(f, "\tendfor")
             }
             Statement::MultipleDefinition(ref ids, ref rhs) => {
                 for (i, id) in ids.iter().enumerate() {
-                    r#try!(write!(f, "{}", id));
+                    write!(f, "{}", id)?;
                     if i < ids.len() - 1 {
-                        r#try!(write!(f, ", "));
+                        write!(f, ", ")?;
                     }
                 }
                 write!(f, " = {}", rhs)
@@ -268,9 +268,9 @@ impl<'ast, T: Field> fmt::Debug for Statement<'ast, T> {
             }
             Statement::Condition(ref lhs, ref rhs) => write!(f, "Condition({:?}, {:?})", lhs, rhs),
             Statement::For(ref var, ref start, ref stop, ref list) => {
-                r#try!(write!(f, "for {:?} in {:?}..{:?} do\n", var, start, stop));
+                write!(f, "for {:?} in {:?}..{:?} do\n", var, start, stop)?;
                 for l in list {
-                    r#try!(write!(f, "\t\t{:?}\n", l));
+                    write!(f, "\t\t{:?}\n", l)?;
                 }
                 write!(f, "\tendfor")
             }
@@ -434,11 +434,11 @@ impl<'ast, T: Field> fmt::Display for Expression<'ast, T> {
                 condition, consequent, alternative
             ),
             Expression::FunctionCall(ref i, ref p) => {
-                r#try!(write!(f, "{}(", i,));
+                write!(f, "{}(", i,)?;
                 for (i, param) in p.iter().enumerate() {
-                    r#try!(write!(f, "{}", param));
+                    write!(f, "{}", param)?;
                     if i < p.len() - 1 {
-                        r#try!(write!(f, ", "));
+                        write!(f, ", ")?;
                     }
                 }
                 write!(f, ")")
@@ -451,11 +451,11 @@ impl<'ast, T: Field> fmt::Display for Expression<'ast, T> {
             Expression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             Expression::Not(ref exp) => write!(f, "!{}", exp),
             Expression::InlineArray(ref exprs) => {
-                r#try!(write!(f, "["));
+                write!(f, "[")?;
                 for (i, e) in exprs.iter().enumerate() {
-                    r#try!(write!(f, "{}", e));
+                    write!(f, "{}", e)?;
                     if i < exprs.len() - 1 {
-                        r#try!(write!(f, ", "));
+                        write!(f, ", ")?;
                     }
                 }
                 write!(f, "]")
@@ -483,8 +483,8 @@ impl<'ast, T: Field> fmt::Debug for Expression<'ast, T> {
                 condition, consequent, alternative
             ),
             Expression::FunctionCall(ref i, ref p) => {
-                r#try!(write!(f, "FunctionCall({:?}, (", i));
-                r#try!(f.debug_list().entries(p.iter()).finish());
+                write!(f, "FunctionCall({:?}, (", i)?;
+                f.debug_list().entries(p.iter()).finish()?;
                 write!(f, ")")
             }
             Expression::Lt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
@@ -495,8 +495,8 @@ impl<'ast, T: Field> fmt::Debug for Expression<'ast, T> {
             Expression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             Expression::Not(ref exp) => write!(f, "!{}", exp),
             Expression::InlineArray(ref exprs) => {
-                r#try!(write!(f, "InlineArray(["));
-                r#try!(f.debug_list().entries(exprs.iter()).finish());
+                write!(f, "InlineArray([")?;
+                f.debug_list().entries(exprs.iter()).finish()?;
                 write!(f, "]")
             }
             Expression::Select(ref array, ref index) => write!(f, "{}[{}]", array, index),
@@ -524,9 +524,9 @@ impl<'ast, T: Field> ExpressionList<'ast, T> {
 impl<'ast, T: Field> fmt::Display for ExpressionList<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (i, param) in self.expressions.iter().enumerate() {
-            r#try!(write!(f, "{}", param));
+            write!(f, "{}", param)?;
             if i < self.expressions.len() - 1 {
-                r#try!(write!(f, ", "));
+                write!(f, ", ")?;
             }
         }
         write!(f, "")
