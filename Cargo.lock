@@ -2310,7 +2310,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_cli"
-version = "0.4.9"
+version = "0.4.10"
 dependencies = [
  "assert_cli 0.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "bincode 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2320,7 +2320,7 @@ dependencies = [
  "regex 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.40 (registry+https://github.com/rust-lang/crates.io-index)",
  "tempdir 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
- "zokrates_core 0.3.12",
+ "zokrates_core 0.3.13",
  "zokrates_field 0.3.3",
  "zokrates_fs_resolver 0.4.1",
  "zokrates_github_resolver 0.1.0",
@@ -2328,7 +2328,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_core"
-version = "0.3.12"
+version = "0.3.13"
 dependencies = [
  "assert_cli 0.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "bellman_ce 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2356,7 +2356,7 @@ dependencies = [
  "wasmi 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "zokrates_embed 0.1.0",
  "zokrates_field 0.3.3",
- "zokrates_pest_ast 0.1.1",
+ "zokrates_pest_ast 0.1.2",
 ]
 
 [[package]]
@@ -2402,7 +2402,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_parser"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "glob 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "pest 2.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2411,7 +2411,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_pest_ast"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "from-pest 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "glob 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2419,7 +2419,7 @@ dependencies = [
  "pest 2.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "pest-ast 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "zokrates_field 0.3.3",
- "zokrates_parser 0.1.1",
+ "zokrates_parser 0.1.2",
 ]
 
 [[package]]
@@ -2431,7 +2431,7 @@ dependencies = [
  "serde 1.0.94 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.94 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.40 (registry+https://github.com/rust-lang/crates.io-index)",
- "zokrates_core 0.3.12",
+ "zokrates_core 0.3.13",
  "zokrates_field 0.3.3",
  "zokrates_fs_resolver 0.4.1",
 ]
