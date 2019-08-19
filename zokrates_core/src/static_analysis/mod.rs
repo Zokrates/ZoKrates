@@ -23,16 +23,10 @@ pub trait Analyse {
 impl<'ast, T: Field> Analyse for TypedProgram<'ast, T> {
     fn analyse(self) -> Self {
         // unroll
-        println!("unroll");
         let r = Unroller::unroll(self);
-        // propagate
-        println!("propagate");
-        let r = Propagator::propagate(r);
         // inline
-        println!("inline");
         let r = Inliner::inline(r);
         // propagate
-        println!("propagate");
         let r = Propagator::propagate(r);
         r
     }

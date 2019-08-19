@@ -194,8 +194,12 @@ pub fn fold_field_array_expression<'ast, T: Field, F: Folder<'ast, T>>(
                 box f.fold_field_array_expression(alternative),
             )
         }
-        FieldElementArrayExpression::Slice(box array, from, to) => {
-            FieldElementArrayExpression::Slice(box f.fold_field_array_expression(array), from, to)
+        FieldElementArrayExpression::Slice(size, box array, start) => {
+            FieldElementArrayExpression::Slice(
+                size,
+                box f.fold_field_array_expression(array),
+                start,
+            )
         }
     }
 }

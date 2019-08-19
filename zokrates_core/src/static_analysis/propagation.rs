@@ -282,13 +282,13 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     None => FieldElementArrayExpression::Identifier(size, id),
                 }
             }
-            FieldElementArrayExpression::Slice(box array, from, to) => {
+            FieldElementArrayExpression::Slice(size, box array, start) => {
                 let slice = self.fold_field_array_expression(array);
                 match slice {
-                    FieldElementArrayExpression::Value(size, v) => {
-                        FieldElementArrayExpression::Value(to - from, v.slice(from, to))
+                    FieldElementArrayExpression::Value(_, v) => {
+                        FieldElementArrayExpression::Value(size, v.slice(start, start + size))
                     }
-                    slice => FieldElementArrayExpression::Slice(box slice, from, to),
+                    slice => FieldElementArrayExpression::Slice(size, box slice, start),
                 }
             }
             e => fold_field_array_expression(self, e),

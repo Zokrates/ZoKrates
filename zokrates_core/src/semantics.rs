@@ -1051,7 +1051,8 @@ impl<'ast> Checker<'ast> {
                                     ),
                                 }),
                                 (f, t, _) => {
-                                    Ok(FieldElementArrayExpression::Slice(box array, f, t).into())
+                                    Ok(FieldElementArrayExpression::Slice(t - f, box array, f)
+                                        .into())
                                 }
                             }
                         }

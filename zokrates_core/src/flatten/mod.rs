@@ -750,13 +750,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                 ),
                             )
                         }
-                        FieldElementArrayExpression::Slice(box array, from, _) => self
+                        FieldElementArrayExpression::Slice(_, box array, start) => self
                             .flatten_field_expression(
                                 symbols,
                                 statements_flattened,
                                 FieldElementExpression::Select(
                                     box array,
-                                    box FieldElementExpression::Number(T::from(from) + n),
+                                    box FieldElementExpression::Number(T::from(start) + n),
                                 ),
                             ),
                     },
@@ -835,11 +835,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                                 box FieldElementExpression::Number(T::from(i)),
                                             ),
                                         ),
-                                        FieldElementArrayExpression::Slice(box array, from, _) => {
+                                        FieldElementArrayExpression::Slice(_, box array, start) => {
                                             FieldElementExpression::Select(
                                                 box array,
                                                 box FieldElementExpression::Number(T::from(
-                                                    from + i,
+                                                    start + i,
                                                 )),
                                             )
                                         }
@@ -921,7 +921,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 assert!(exprs_flattened.expressions.len() == size); // outside of MultipleDefinition, FunctionCalls must return a single value
                 exprs_flattened.expressions
             }
-            FieldElementArrayExpression::Slice(box array, from, to) => (from..to)
+            FieldElementArrayExpression::Slice(size, box array, start) => (start..start + size)
                 .map(|i| {
                     self.flatten_field_expression(
                         symbols,

@@ -414,7 +414,7 @@ impl<'ast, T: Field> Typed for FieldElementArrayExpression<'ast, T> {
             FieldElementArrayExpression::Value(n, _) => Type::FieldElementArray(n),
             FieldElementArrayExpression::FunctionCall(n, _, _) => Type::FieldElementArray(n),
             FieldElementArrayExpression::IfElse(_, ref consequence, _) => consequence.get_type(),
-            FieldElementArrayExpression::Slice(_, from, to) => Type::FieldElementArray(to - from),
+            FieldElementArrayExpression::Slice(n, _, _) => Type::FieldElementArray(n),
         }
     }
 }
@@ -522,7 +522,7 @@ pub enum FieldElementArrayExpression<'ast, T: Field> {
         Box<FieldElementArrayExpression<'ast, T>>,
         Box<FieldElementArrayExpression<'ast, T>>,
     ),
-    Slice(Box<FieldElementArrayExpression<'ast, T>>, usize, usize),
+    Slice(usize, Box<FieldElementArrayExpression<'ast, T>>, usize),
 }
 
 #[derive(Clone, PartialEq, Hash, Eq)]
@@ -546,7 +546,7 @@ impl<'ast, T: Field> fmt::Debug for TypedArrayValue<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{:?}",
+            "TypedArrayValue({:?})",
             self.0
                 .iter()
                 .map(|e| e.to_string())
@@ -580,7 +580,7 @@ impl<'ast, T: Field> TypedArrayValue<'ast, T> {
                 }
                 TypedSpreadOrExpression::Spread(v) => {
                     let size = v.size();
-                    if i + size <= index {
+                    if index < i + size {
                         return FieldElementExpression::Select(
                             box v.clone(),
                             box FieldElementExpression::Number(T::from(index - i)),
@@ -615,7 +615,7 @@ impl<'ast, T: Field> TypedArrayValue<'ast, T> {
 
                     if from < to {
                         res.push(TypedSpreadOrExpression::Spread(
-                            FieldElementArrayExpression::Slice(box v, from, to),
+                            FieldElementArrayExpression::Slice(to - from, box v, from - i),
                         ));
                     }
 
@@ -626,7 +626,6 @@ impl<'ast, T: Field> TypedArrayValue<'ast, T> {
 
         let res = TypedArrayValue(res);
         assert_eq!(res.len(), to - from);
-        println!("SLICE OUTPUT {}", res);
         res
     }
 }
@@ -669,9 +668,9 @@ impl<'ast, T: Field> FieldElementArrayExpression<'ast, T> {
         match *self {
             FieldElementArrayExpression::Identifier(s, _)
             | FieldElementArrayExpression::Value(s, _)
-            | FieldElementArrayExpression::FunctionCall(s, ..) => s,
+            | FieldElementArrayExpression::FunctionCall(s, ..)
+            | FieldElementArrayExpression::Slice(s, ..) => s,
             FieldElementArrayExpression::IfElse(_, ref consequence, _) => consequence.size(),
-            FieldElementArrayExpression::Slice(_, f, t) => t - f,
         }
     }
 }
@@ -756,8 +755,8 @@ impl<'ast, T: Field> fmt::Display for FieldElementArrayExpression<'ast, T> {
                     condition, consequent, alternative
                 )
             }
-            FieldElementArrayExpression::Slice(ref a, ref from, ref to) => {
-                write!(f, "{}[{}..{}]", a, from, to)
+            FieldElementArrayExpression::Slice(ref size, ref a, ref start) => {
+                write!(f, "{}[{}..{}]", a, start, start + size)
             }
         }
     }
@@ -817,9 +816,13 @@ impl<'ast, T: Field> fmt::Debug for FieldElementArrayExpression<'ast, T> {
                     condition, consequent, alternative
                 )
             }
-            FieldElementArrayExpression::Slice(ref a, ref from, ref to) => {
-                write!(f, "Slice({:?}, {:?}, {:?})", a, from, to)
-            }
+            FieldElementArrayExpression::Slice(ref size, ref a, ref start) => write!(
+                f,
+                "Slice({:?}, from: {:?}, to: {:?})",
+                a,
+                start,
+                start + size
+            ),
         }
     }
 }
@@ -849,6 +852,133 @@ impl<'ast, T: Field> fmt::Debug for TypedExpressionList<'ast, T> {
                 r#try!(f.debug_list().entries(p.iter()).finish());
                 write!(f, ")")
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use zokrates_field::field::FieldPrime;
+
+    mod slice {
+        use super::*;
+
+        #[test]
+        fn slice_creator() {
+            // empty slice of an empty value
+            let value: TypedArrayValue<FieldPrime> = TypedArrayValue(vec![]);
+            let slice = TypedArrayValue::slice(value, 0, 0);
+            assert_eq!(slice, TypedArrayValue(vec![]));
+
+            // a = [0, 1, 2, 3], a[1..3] should be [1, 2]
+            let value: TypedArrayValue<FieldPrime> = TypedArrayValue(
+                vec![0, 1, 2, 3]
+                    .into_iter()
+                    .map(|i| {
+                        TypedSpreadOrExpression::Expression(
+                            FieldElementExpression::Number(FieldPrime::from(i)).into(),
+                        )
+                    })
+                    .collect(),
+            );
+            let slice = value.slice(1, 3);
+            assert_eq!(
+                slice,
+                TypedArrayValue(
+                    vec![1, 2]
+                        .into_iter()
+                        .map(|i| TypedSpreadOrExpression::Expression(
+                            FieldElementExpression::Number(FieldPrime::from(i)).into()
+                        ))
+                        .collect()
+                )
+            );
+
+            // a = [...[0, 1], ...[2, 3]], a[1..3] should be [...[0, 1][1..2], ...[2, 3][0..1]]
+            let value: TypedArrayValue<FieldPrime> = TypedArrayValue(
+                vec![vec![0, 1], vec![2, 3]]
+                    .into_iter()
+                    .map(|i| {
+                        TypedSpreadOrExpression::Spread(
+                            FieldElementArrayExpression::Value(
+                                2,
+                                TypedArrayValue(
+                                    i.into_iter()
+                                        .map(|j| {
+                                            TypedSpreadOrExpression::Expression(
+                                                FieldElementExpression::Number(FieldPrime::from(j))
+                                                    .into(),
+                                            )
+                                        })
+                                        .collect(),
+                                ),
+                            )
+                            .into(),
+                        )
+                    })
+                    .collect(),
+            );
+            let slice = value.slice(1, 3);
+            assert_eq!(
+                slice,
+                TypedArrayValue(vec![
+                    TypedSpreadOrExpression::Spread(FieldElementArrayExpression::Slice(
+                        1,
+                        box FieldElementArrayExpression::Value(
+                            2,
+                            TypedArrayValue(
+                                vec![0, 1]
+                                    .into_iter()
+                                    .map(|j| TypedSpreadOrExpression::Expression(
+                                        FieldElementExpression::Number(FieldPrime::from(j)).into()
+                                    ))
+                                    .collect()
+                            )
+                        ),
+                        1
+                    )),
+                    TypedSpreadOrExpression::Spread(FieldElementArrayExpression::Slice(
+                        1,
+                        box FieldElementArrayExpression::Value(
+                            2,
+                            TypedArrayValue(
+                                vec![2, 3]
+                                    .into_iter()
+                                    .map(|j| TypedSpreadOrExpression::Expression(
+                                        FieldElementExpression::Number(FieldPrime::from(j)).into()
+                                    ))
+                                    .collect()
+                            )
+                        ),
+                        0
+                    ))
+                ])
+            );
+        }
+
+        #[test]
+        fn array_value_get() {
+            // a = [...b, ...c], a.get(0) should be b[0] (with b and c of size 42)
+            let array: TypedArrayValue<FieldPrime> = TypedArrayValue(
+                vec!["b", "c"]
+                    .into_iter()
+                    .map(|i| {
+                        TypedSpreadOrExpression::Spread(
+                            FieldElementArrayExpression::Identifier(42, i.into()).into(),
+                        )
+                    })
+                    .collect(),
+            );
+            let item = array.get(0);
+            assert_eq!(
+                item,
+                FieldElementExpression::Select(
+                    box FieldElementArrayExpression::Identifier(42, "b".into()),
+                    box FieldElementExpression::Number(FieldPrime::from(0))
+                )
+                .into()
+            );
         }
     }
 }
