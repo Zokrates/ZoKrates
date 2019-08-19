@@ -89,24 +89,27 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
 
                 let new_array = FieldElementArrayExpression::Value(
                     array_size,
-                    (0..array_size)
-                        .map(|i| {
-                            FieldElementExpression::IfElse(
-                                box BooleanExpression::Eq(
-                                    box index.clone(),
-                                    box FieldElementExpression::Number(T::from(i)),
-                                ),
-                                box expr.clone(),
-                                box FieldElementExpression::Select(
-                                    box FieldElementArrayExpression::Identifier(
-                                        array_size,
-                                        current_ssa_variable.id.clone(),
+                    TypedArrayValue(
+                        (0..array_size)
+                            .map(|i| {
+                                FieldElementExpression::IfElse(
+                                    box BooleanExpression::Eq(
+                                        box index.clone(),
+                                        box FieldElementExpression::Number(T::from(i)),
                                     ),
-                                    box FieldElementExpression::Number(T::from(i)),
-                                ),
-                            )
-                        })
-                        .collect(),
+                                    box expr.clone(),
+                                    box FieldElementExpression::Select(
+                                        box FieldElementArrayExpression::Identifier(
+                                            array_size,
+                                            current_ssa_variable.id.clone(),
+                                        ),
+                                        box FieldElementExpression::Number(T::from(i)),
+                                    ),
+                                )
+                            })
+                            .map(|e| TypedSpreadOrExpression::Expression(e.into()))
+                            .collect(),
+                    ),
                 );
 
                 vec![TypedStatement::Definition(
@@ -444,10 +447,14 @@ mod tests {
                 TypedAssignee::Identifier(Variable::field_array("a".into(), 2)),
                 FieldElementArrayExpression::Value(
                     2,
-                    vec![
-                        FieldElementExpression::Number(FieldPrime::from(1)),
-                        FieldElementExpression::Number(FieldPrime::from(1)),
-                    ],
+                    TypedArrayValue(vec![
+                        TypedSpreadOrExpression::Expression(
+                            FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                        ),
+                        TypedSpreadOrExpression::Expression(
+                            FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                        ),
+                    ]),
                 )
                 .into(),
             );
@@ -461,10 +468,14 @@ mod tests {
                     )),
                     FieldElementArrayExpression::Value(
                         2,
-                        vec![
-                            FieldElementExpression::Number(FieldPrime::from(1)),
-                            FieldElementExpression::Number(FieldPrime::from(1))
-                        ]
+                        TypedArrayValue(vec![
+                            TypedSpreadOrExpression::Expression(
+                                FieldElementExpression::Number(FieldPrime::from(1)).into()
+                            ),
+                            TypedSpreadOrExpression::Expression(
+                                FieldElementExpression::Number(FieldPrime::from(1)).into()
+                            )
+                        ])
                     )
                     .into()
                 )]
@@ -487,36 +498,42 @@ mod tests {
                     )),
                     FieldElementArrayExpression::Value(
                         2,
-                        vec![
-                            FieldElementExpression::IfElse(
-                                box BooleanExpression::Eq(
-                                    box FieldElementExpression::Number(FieldPrime::from(1)),
-                                    box FieldElementExpression::Number(FieldPrime::from(0))
-                                ),
-                                box FieldElementExpression::Number(FieldPrime::from(2)),
-                                box FieldElementExpression::Select(
-                                    box FieldElementArrayExpression::Identifier(
-                                        2,
-                                        Identifier::from("a").version(0)
+                        TypedArrayValue(vec![
+                            TypedSpreadOrExpression::Expression(
+                                FieldElementExpression::IfElse(
+                                    box BooleanExpression::Eq(
+                                        box FieldElementExpression::Number(FieldPrime::from(1)),
+                                        box FieldElementExpression::Number(FieldPrime::from(0))
                                     ),
-                                    box FieldElementExpression::Number(FieldPrime::from(0))
-                                ),
-                            ),
-                            FieldElementExpression::IfElse(
-                                box BooleanExpression::Eq(
-                                    box FieldElementExpression::Number(FieldPrime::from(1)),
-                                    box FieldElementExpression::Number(FieldPrime::from(1))
-                                ),
-                                box FieldElementExpression::Number(FieldPrime::from(2)),
-                                box FieldElementExpression::Select(
-                                    box FieldElementArrayExpression::Identifier(
-                                        2,
-                                        Identifier::from("a").version(0)
+                                    box FieldElementExpression::Number(FieldPrime::from(2)),
+                                    box FieldElementExpression::Select(
+                                        box FieldElementArrayExpression::Identifier(
+                                            2,
+                                            Identifier::from("a").version(0)
+                                        ),
+                                        box FieldElementExpression::Number(FieldPrime::from(0))
                                     ),
-                                    box FieldElementExpression::Number(FieldPrime::from(1))
-                                ),
+                                )
+                                .into()
                             ),
-                        ]
+                            TypedSpreadOrExpression::Expression(
+                                FieldElementExpression::IfElse(
+                                    box BooleanExpression::Eq(
+                                        box FieldElementExpression::Number(FieldPrime::from(1)),
+                                        box FieldElementExpression::Number(FieldPrime::from(1))
+                                    ),
+                                    box FieldElementExpression::Number(FieldPrime::from(2)),
+                                    box FieldElementExpression::Select(
+                                        box FieldElementArrayExpression::Identifier(
+                                            2,
+                                            Identifier::from("a").version(0)
+                                        ),
+                                        box FieldElementExpression::Number(FieldPrime::from(1))
+                                    ),
+                                )
+                                .into()
+                            ),
+                        ])
                     )
                     .into()
                 )]

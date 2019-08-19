@@ -414,6 +414,7 @@ impl<'ast, T: Field> Typed for FieldElementArrayExpression<'ast, T> {
             FieldElementArrayExpression::Value(n, _) => Type::FieldElementArray(n),
             FieldElementArrayExpression::FunctionCall(n, _, _) => Type::FieldElementArray(n),
             FieldElementArrayExpression::IfElse(_, ref consequence, _) => consequence.get_type(),
+            FieldElementArrayExpression::Slice(_, from, to) => Type::FieldElementArray(to - from),
         }
     }
 }
@@ -514,13 +515,153 @@ pub enum BooleanExpression<'ast, T: Field> {
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum FieldElementArrayExpression<'ast, T: Field> {
     Identifier(usize, Identifier<'ast>),
-    Value(usize, Vec<FieldElementExpression<'ast, T>>),
+    Value(usize, TypedArrayValue<'ast, T>),
     FunctionCall(usize, FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
     IfElse(
         Box<BooleanExpression<'ast, T>>,
         Box<FieldElementArrayExpression<'ast, T>>,
         Box<FieldElementArrayExpression<'ast, T>>,
     ),
+    Slice(Box<FieldElementArrayExpression<'ast, T>>, usize, usize),
+}
+
+#[derive(Clone, PartialEq, Hash, Eq)]
+pub struct TypedArrayValue<'ast, T: Field>(pub Vec<TypedSpreadOrExpression<'ast, T>>);
+
+impl<'ast, T: Field> fmt::Display for TypedArrayValue<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.0
+                .iter()
+                .map(|e| e.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
+}
+
+impl<'ast, T: Field> fmt::Debug for TypedArrayValue<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{:?}",
+            self.0
+                .iter()
+                .map(|e| e.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
+}
+
+impl<'ast, T: Field> TypedArrayValue<'ast, T> {
+    pub fn len(&self) -> usize {
+        self.0
+            .iter()
+            .map(|v| match v {
+                TypedSpreadOrExpression::Expression(_) => 1,
+                TypedSpreadOrExpression::Spread(v) => v.size(),
+            })
+            .sum()
+    }
+
+    pub fn get(&self, index: usize) -> TypedExpression<'ast, T> {
+        let mut i = 0;
+        for v in &self.0 {
+            match v {
+                TypedSpreadOrExpression::Expression(e) => {
+                    if index == i {
+                        return e.clone();
+                    } else {
+                        i = i + 1;
+                    }
+                }
+                TypedSpreadOrExpression::Spread(v) => {
+                    let size = v.size();
+                    if i + size <= index {
+                        return FieldElementExpression::Select(
+                            box v.clone(),
+                            box FieldElementExpression::Number(T::from(index - i)),
+                        )
+                        .into();
+                    } else {
+                        i = i + size
+                    }
+                }
+            };
+        }
+        unreachable!()
+    }
+
+    pub fn slice(self, from: usize, to: usize) -> Self {
+        let mut i = 0;
+        let mut res = vec![];
+        for v in self.0 {
+            match v {
+                TypedSpreadOrExpression::Expression(e) => {
+                    if i >= from && i < to {
+                        res.push(TypedSpreadOrExpression::Expression(e))
+                    };
+                    i = i + 1;
+                }
+                TypedSpreadOrExpression::Spread(v) => {
+                    // we're looking for the overlap between this spread and [from, to[
+                    let size = v.size();
+                    let (spread_from, spread_to) = (i, i + size);
+                    let from = std::cmp::max(spread_from, from);
+                    let to = std::cmp::min(spread_to, to);
+
+                    if from < to {
+                        res.push(TypedSpreadOrExpression::Spread(
+                            FieldElementArrayExpression::Slice(box v, from, to),
+                        ));
+                    }
+
+                    i = i + size;
+                }
+            };
+        }
+
+        let res = TypedArrayValue(res);
+        assert_eq!(res.len(), to - from);
+        println!("SLICE OUTPUT {}", res);
+        res
+    }
+}
+
+#[derive(Clone, PartialEq, Hash, Eq)]
+pub enum TypedSpreadOrExpression<'ast, T: Field> {
+    Spread(FieldElementArrayExpression<'ast, T>),
+    Expression(TypedExpression<'ast, T>),
+}
+
+impl<'ast, T: Field> fmt::Display for TypedSpreadOrExpression<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            TypedSpreadOrExpression::Spread(ref a) => write!(f, "...{}", a),
+            TypedSpreadOrExpression::Expression(ref e) => write!(f, "{}", e),
+        }
+    }
+}
+
+impl<'ast, T: Field> fmt::Debug for TypedSpreadOrExpression<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            TypedSpreadOrExpression::Spread(ref a) => write!(f, "{:?}", a),
+            TypedSpreadOrExpression::Expression(ref e) => write!(f, "{:?}", e),
+        }
+    }
+}
+
+impl<'ast, T: Field> Typed for TypedSpreadOrExpression<'ast, T> {
+    fn get_type(&self) -> Type {
+        match *self {
+            TypedSpreadOrExpression::Expression(ref e) => e.get_type(),
+            TypedSpreadOrExpression::Spread(_) => Type::FieldElement,
+        }
+    }
 }
 
 impl<'ast, T: Field> FieldElementArrayExpression<'ast, T> {
@@ -530,6 +671,7 @@ impl<'ast, T: Field> FieldElementArrayExpression<'ast, T> {
             | FieldElementArrayExpression::Value(s, _)
             | FieldElementArrayExpression::FunctionCall(s, ..) => s,
             FieldElementArrayExpression::IfElse(_, ref consequence, _) => consequence.size(),
+            FieldElementArrayExpression::Slice(_, f, t) => t - f,
         }
     }
 }
@@ -591,6 +733,7 @@ impl<'ast, T: Field> fmt::Display for FieldElementArrayExpression<'ast, T> {
                 f,
                 "[{}]",
                 values
+                    .0
                     .iter()
                     .map(|o| o.to_string())
                     .collect::<Vec<String>>()
@@ -612,6 +755,9 @@ impl<'ast, T: Field> fmt::Display for FieldElementArrayExpression<'ast, T> {
                     "if {} then {} else {} fi",
                     condition, consequent, alternative
                 )
+            }
+            FieldElementArrayExpression::Slice(ref a, ref from, ref to) => {
+                write!(f, "{}[{}..{}]", a, from, to)
             }
         }
     }
@@ -670,6 +816,9 @@ impl<'ast, T: Field> fmt::Debug for FieldElementArrayExpression<'ast, T> {
                     "IfElse({:?}, {:?}, {:?})",
                     condition, consequent, alternative
                 )
+            }
+            FieldElementArrayExpression::Slice(ref a, ref from, ref to) => {
+                write!(f, "Slice({:?}, {:?}, {:?})", a, from, to)
             }
         }
     }

@@ -650,25 +650,14 @@ impl<'ast> Checker<'ast> {
     fn check_spread_or_expression<T: Field>(
         &mut self,
         spread_or_expression: SpreadOrExpression<'ast, T>,
-    ) -> Result<Vec<TypedExpression<'ast, T>>, Error> {
+    ) -> Result<TypedSpreadOrExpression<'ast, T>, Error> {
         match spread_or_expression {
             SpreadOrExpression::Spread(s) => {
                 let pos = s.pos();
 
                 let checked_expression = self.check_expression(s.value.expression)?;
                 match checked_expression {
-                    TypedExpression::FieldElementArray(e) => {
-                        let size = e.size();
-                        Ok((0..size)
-                            .map(|i| {
-                                FieldElementExpression::Select(
-                                    box e.clone(),
-                                    box FieldElementExpression::Number(T::from(i)),
-                                )
-                                .into()
-                            })
-                            .collect())
-                    }
+                    TypedExpression::FieldElementArray(a) => Ok(TypedSpreadOrExpression::Spread(a)),
                     e => Err(Error {
                         pos: Some(pos),
 
@@ -679,7 +668,24 @@ impl<'ast> Checker<'ast> {
                     }),
                 }
             }
-            SpreadOrExpression::Expression(e) => self.check_expression(e).map(|r| vec![r]),
+            SpreadOrExpression::Expression(e) => {
+                let pos = e.pos();
+
+                let e = self.check_expression(e)?;
+
+                match e {
+                    TypedExpression::FieldElement(_) => Ok(TypedSpreadOrExpression::Expression(e)),
+                    e => Err(Error {
+                        pos: Some(pos),
+
+                        message: format!(
+                            "Expected array value to have type {}, found {}",
+                            Type::FieldElement,
+                            e.get_type()
+                        ),
+                    }),
+                }
+            }
         }
     }
 
@@ -1044,18 +1050,9 @@ impl<'ast> Checker<'ast> {
                                         f, t,
                                     ),
                                 }),
-                                (f, t, _) => Ok(FieldElementArrayExpression::Value(
-                                    t - f,
-                                    (f..t)
-                                        .map(|i| {
-                                            FieldElementExpression::Select(
-                                                box array.clone(),
-                                                box FieldElementExpression::Number(T::from(i)),
-                                            )
-                                        })
-                                        .collect(),
-                                )
-                                .into()),
+                                (f, t, _) => {
+                                    Ok(FieldElementArrayExpression::Slice(box array, f, t).into())
+                                }
                             }
                         }
                         _ => panic!(""),
@@ -1077,14 +1074,11 @@ impl<'ast> Checker<'ast> {
                 }
             }
             Expression::InlineArray(expressions) => {
-                // we should have at least one expression
-                let size = expressions.len();
-                assert!(size > 0);
                 // check each expression, getting its type
                 let mut expressions_checked = vec![];
                 for e in expressions {
                     let e_checked = self.check_spread_or_expression(e)?;
-                    expressions_checked.extend(e_checked);
+                    expressions_checked.push(e_checked);
                 }
 
                 // we infer the type to be the type of the first element
@@ -1093,11 +1087,14 @@ impl<'ast> Checker<'ast> {
                 match inferred_type {
                     Type::FieldElement => {
                         // we check all expressions have that same type
-                        let mut unwrapped_expressions = vec![];
+                        let mut unwrapped_spreads_or_expressions = vec![];
 
                         for e in expressions_checked {
                             let unwrapped_e = match e {
-                                TypedExpression::FieldElement(e) => Ok(e),
+                                TypedSpreadOrExpression::Spread(_) => Ok(e),
+                                TypedSpreadOrExpression::Expression(
+                                    TypedExpression::FieldElement(_),
+                                ) => Ok(e),
                                 e => Err(Error {
                                     pos: Some(pos),
 
@@ -1109,14 +1106,12 @@ impl<'ast> Checker<'ast> {
                                     ),
                                 }),
                             }?;
-                            unwrapped_expressions.push(unwrapped_e);
+                            unwrapped_spreads_or_expressions.push(unwrapped_e);
                         }
 
-                        Ok(FieldElementArrayExpression::Value(
-                            unwrapped_expressions.len(),
-                            unwrapped_expressions,
-                        )
-                        .into())
+                        let res = TypedArrayValue(unwrapped_spreads_or_expressions);
+
+                        Ok(FieldElementArrayExpression::Value(res.len(), res).into())
                     }
                     _ => Err(Error {
                         pos: Some(pos),
