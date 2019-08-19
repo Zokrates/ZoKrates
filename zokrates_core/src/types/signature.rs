@@ -19,18 +19,18 @@ impl fmt::Debug for Signature {
 
 impl fmt::Display for Signature {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        r#try!(write!(f, "("));
+        write!(f, "(")?;
         for (i, t) in self.inputs.iter().enumerate() {
-            r#try!(write!(f, "{}", t));
+            write!(f, "{}", t)?;
             if i < self.inputs.len() - 1 {
-                r#try!(write!(f, ", "));
+                write!(f, ", ")?;
             }
         }
-        r#try!(write!(f, ") -> ("));
+        write!(f, ") -> (")?;
         for (i, t) in self.outputs.iter().enumerate() {
-            r#try!(write!(f, "{}", t));
+            write!(f, "{}", t)?;
             if i < self.outputs.len() - 1 {
-                r#try!(write!(f, ", "));
+                write!(f, ", ")?;
             }
         }
         write!(f, ")")

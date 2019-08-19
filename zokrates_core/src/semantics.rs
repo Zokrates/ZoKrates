@@ -45,21 +45,21 @@ pub struct FunctionQuery<'ast> {
 
 impl<'ast> fmt::Display for FunctionQuery<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        r#try!(write!(f, "("));
+        write!(f, "(")?;
         for (i, t) in self.inputs.iter().enumerate() {
-            r#try!(write!(f, "{}", t));
+            write!(f, "{}", t)?;
             if i < self.inputs.len() - 1 {
-                r#try!(write!(f, ", "));
+                write!(f, ", ")?;
             }
         }
-        r#try!(write!(f, ") -> ("));
+        write!(f, ") -> (")?;
         for (i, t) in self.outputs.iter().enumerate() {
             match t {
-                Some(t) => r#try!(write!(f, "{}", t)),
-                None => r#try!(write!(f, "_")),
+                Some(t) => write!(f, "{}", t)?,
+                None => write!(f, "_")?,
             }
             if i < self.outputs.len() - 1 {
-                r#try!(write!(f, ", "));
+                write!(f, ", ")?;
             }
         }
         write!(f, ")")
