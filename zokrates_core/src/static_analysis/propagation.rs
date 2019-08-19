@@ -36,10 +36,10 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
             v.0.into_iter()
                 .map(|v| self.fold_spread_or_expression(v))
                 .flat_map(|v| match v {
-                    v @ TypedSpreadOrExpression::Expression(..) => vec![v],
-                    TypedSpreadOrExpression::Spread(a) => match a {
+                    v @ TypedArrayValueElement::Expression(..) => vec![v],
+                    TypedArrayValueElement::Spread(a) => match a {
                         FieldElementArrayExpression::Value(_, v) => v.0,
-                        _ => vec![TypedSpreadOrExpression::Spread(a)],
+                        _ => vec![TypedArrayValueElement::Spread(a)],
                     },
                 })
                 .collect(),
@@ -62,7 +62,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                         let array = self.fold_array_value(array);
 
 						match array.0.iter().all(|v| match v {
-							TypedSpreadOrExpression::Expression(TypedExpression::FieldElement(FieldElementExpression::Number(..))) => true,
+							TypedArrayValueElement::Expression(TypedExpression::FieldElement(FieldElementExpression::Number(..))) => true,
 							_ => false
 						}) {
 							true => {
@@ -97,7 +97,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 								TypedExpression::FieldElementArray(FieldElementArrayExpression::Value(size, ref mut v)) => {
 									let n_as_usize = n.to_dec_string().parse::<usize>().unwrap();
 									if n_as_usize < size {
-										v.0[n_as_usize] = TypedSpreadOrExpression::Expression(expr.into());
+										v.0[n_as_usize] = TypedArrayValueElement::Expression(expr.into());
 									} else {
 										panic!(format!("out of bounds index ({} >= {}) found during static analysis", n_as_usize, size));
 									}
@@ -527,13 +527,13 @@ mod tests {
                     box FieldElementArrayExpression::Value(
                         3,
                         TypedArrayValue(vec![
-                            TypedSpreadOrExpression::Expression(
+                            TypedArrayValueElement::Expression(
                                 FieldElementExpression::Number(FieldPrime::from(1)).into(),
                             ),
-                            TypedSpreadOrExpression::Expression(
+                            TypedArrayValueElement::Expression(
                                 FieldElementExpression::Number(FieldPrime::from(2)).into(),
                             ),
-                            TypedSpreadOrExpression::Expression(
+                            TypedArrayValueElement::Expression(
                                 FieldElementExpression::Number(FieldPrime::from(3)).into(),
                             ),
                         ]),
@@ -828,10 +828,10 @@ mod tests {
                     FieldElementArrayExpression::Value(
                         2,
                         TypedArrayValue(vec![
-                            TypedSpreadOrExpression::Expression(
+                            TypedArrayValueElement::Expression(
                                 FieldElementExpression::Number(FieldPrime::from(21)).into(),
                             ),
-                            TypedSpreadOrExpression::Expression(
+                            TypedArrayValueElement::Expression(
                                 FieldElementExpression::Number(FieldPrime::from(22)).into(),
                             ),
                         ]),
@@ -854,10 +854,10 @@ mod tests {
                     FieldElementArrayExpression::Value(
                         2,
                         TypedArrayValue(vec![
-                            TypedSpreadOrExpression::Expression(
+                            TypedArrayValueElement::Expression(
                                 FieldElementExpression::Number(FieldPrime::from(21)).into(),
                             ),
-                            TypedSpreadOrExpression::Expression(
+                            TypedArrayValueElement::Expression(
                                 FieldElementExpression::Number(FieldPrime::from(22)).into(),
                             ),
                         ]),
@@ -879,10 +879,10 @@ mod tests {
                     FieldElementArrayExpression::Value(
                         2,
                         TypedArrayValue(vec![
-                            TypedSpreadOrExpression::Expression(
+                            TypedArrayValueElement::Expression(
                                 FieldElementExpression::Number(FieldPrime::from(21)).into(),
                             ),
-                            TypedSpreadOrExpression::Expression(
+                            TypedArrayValueElement::Expression(
                                 FieldElementExpression::Number(FieldPrime::from(42)).into(),
                             ),
                         ]),

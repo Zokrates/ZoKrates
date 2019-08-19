@@ -650,14 +650,14 @@ impl<'ast> Checker<'ast> {
     fn check_spread_or_expression<T: Field>(
         &mut self,
         spread_or_expression: SpreadOrExpression<'ast, T>,
-    ) -> Result<TypedSpreadOrExpression<'ast, T>, Error> {
+    ) -> Result<TypedArrayValueElement<'ast, T>, Error> {
         match spread_or_expression {
             SpreadOrExpression::Spread(s) => {
                 let pos = s.pos();
 
                 let checked_expression = self.check_expression(s.value.expression)?;
                 match checked_expression {
-                    TypedExpression::FieldElementArray(a) => Ok(TypedSpreadOrExpression::Spread(a)),
+                    TypedExpression::FieldElementArray(a) => Ok(TypedArrayValueElement::Spread(a)),
                     e => Err(Error {
                         pos: Some(pos),
 
@@ -674,7 +674,7 @@ impl<'ast> Checker<'ast> {
                 let e = self.check_expression(e)?;
 
                 match e {
-                    TypedExpression::FieldElement(_) => Ok(TypedSpreadOrExpression::Expression(e)),
+                    TypedExpression::FieldElement(_) => Ok(TypedArrayValueElement::Expression(e)),
                     e => Err(Error {
                         pos: Some(pos),
 
@@ -1092,8 +1092,8 @@ impl<'ast> Checker<'ast> {
 
                         for e in expressions_checked {
                             let unwrapped_e = match e {
-                                TypedSpreadOrExpression::Spread(_) => Ok(e),
-                                TypedSpreadOrExpression::Expression(
+                                TypedArrayValueElement::Spread(_) => Ok(e),
+                                TypedArrayValueElement::Expression(
                                     TypedExpression::FieldElement(_),
                                 ) => Ok(e),
                                 e => Err(Error {

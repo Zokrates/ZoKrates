@@ -106,8 +106,8 @@ pub trait Folder<'ast, T: Field>: Sized {
 
     fn fold_spread_or_expression(
         &mut self,
-        e: TypedSpreadOrExpression<'ast, T>,
-    ) -> TypedSpreadOrExpression<'ast, T> {
+        e: TypedArrayValueElement<'ast, T>,
+    ) -> TypedArrayValueElement<'ast, T> {
         fold_spread_or_expression(self, e)
     }
 }
@@ -336,14 +336,14 @@ pub fn fold_function_symbol<'ast, T: Field, F: Folder<'ast, T>>(
 
 pub fn fold_spread_or_expression<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
-    e: TypedSpreadOrExpression<'ast, T>,
-) -> TypedSpreadOrExpression<'ast, T> {
+    e: TypedArrayValueElement<'ast, T>,
+) -> TypedArrayValueElement<'ast, T> {
     match e {
-        TypedSpreadOrExpression::Spread(a) => {
-            TypedSpreadOrExpression::Spread(f.fold_field_array_expression(a))
+        TypedArrayValueElement::Spread(a) => {
+            TypedArrayValueElement::Spread(f.fold_field_array_expression(a))
         }
-        TypedSpreadOrExpression::Expression(e) => {
-            TypedSpreadOrExpression::Expression(f.fold_expression(e))
+        TypedArrayValueElement::Expression(e) => {
+            TypedArrayValueElement::Expression(f.fold_expression(e))
         }
     }
 }

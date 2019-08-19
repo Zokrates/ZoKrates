@@ -526,7 +526,7 @@ pub enum FieldElementArrayExpression<'ast, T: Field> {
 }
 
 #[derive(Clone, PartialEq, Hash, Eq)]
-pub struct TypedArrayValue<'ast, T: Field>(pub Vec<TypedSpreadOrExpression<'ast, T>>);
+pub struct TypedArrayValue<'ast, T: Field>(pub Vec<TypedArrayValueElement<'ast, T>>);
 
 impl<'ast, T: Field> fmt::Display for TypedArrayValue<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -561,8 +561,8 @@ impl<'ast, T: Field> TypedArrayValue<'ast, T> {
         self.0
             .iter()
             .map(|v| match v {
-                TypedSpreadOrExpression::Expression(_) => 1,
-                TypedSpreadOrExpression::Spread(v) => v.size(),
+                TypedArrayValueElement::Expression(_) => 1,
+                TypedArrayValueElement::Spread(v) => v.size(),
             })
             .sum()
     }
@@ -571,14 +571,14 @@ impl<'ast, T: Field> TypedArrayValue<'ast, T> {
         let mut i = 0;
         for v in &self.0 {
             match v {
-                TypedSpreadOrExpression::Expression(e) => {
+                TypedArrayValueElement::Expression(e) => {
                     if index == i {
                         return e.clone();
                     } else {
                         i = i + 1;
                     }
                 }
-                TypedSpreadOrExpression::Spread(v) => {
+                TypedArrayValueElement::Spread(v) => {
                     let size = v.size();
                     if index < i + size {
                         return FieldElementExpression::Select(
@@ -600,13 +600,13 @@ impl<'ast, T: Field> TypedArrayValue<'ast, T> {
         let mut res = vec![];
         for v in self.0 {
             match v {
-                TypedSpreadOrExpression::Expression(e) => {
+                TypedArrayValueElement::Expression(e) => {
                     if i >= from && i < to {
-                        res.push(TypedSpreadOrExpression::Expression(e))
+                        res.push(TypedArrayValueElement::Expression(e))
                     };
                     i = i + 1;
                 }
-                TypedSpreadOrExpression::Spread(v) => {
+                TypedArrayValueElement::Spread(v) => {
                     // we're looking for the overlap between this spread and [from, to[
                     let size = v.size();
                     let (spread_from, spread_to) = (i, i + size);
@@ -614,7 +614,7 @@ impl<'ast, T: Field> TypedArrayValue<'ast, T> {
                     let to = std::cmp::min(spread_to, to);
 
                     if from < to {
-                        res.push(TypedSpreadOrExpression::Spread(
+                        res.push(TypedArrayValueElement::Spread(
                             FieldElementArrayExpression::Slice(to - from, box v, from - i),
                         ));
                     }
@@ -631,34 +631,34 @@ impl<'ast, T: Field> TypedArrayValue<'ast, T> {
 }
 
 #[derive(Clone, PartialEq, Hash, Eq)]
-pub enum TypedSpreadOrExpression<'ast, T: Field> {
+pub enum TypedArrayValueElement<'ast, T: Field> {
     Spread(FieldElementArrayExpression<'ast, T>),
     Expression(TypedExpression<'ast, T>),
 }
 
-impl<'ast, T: Field> fmt::Display for TypedSpreadOrExpression<'ast, T> {
+impl<'ast, T: Field> fmt::Display for TypedArrayValueElement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            TypedSpreadOrExpression::Spread(ref a) => write!(f, "...{}", a),
-            TypedSpreadOrExpression::Expression(ref e) => write!(f, "{}", e),
+            TypedArrayValueElement::Spread(ref a) => write!(f, "...{}", a),
+            TypedArrayValueElement::Expression(ref e) => write!(f, "{}", e),
         }
     }
 }
 
-impl<'ast, T: Field> fmt::Debug for TypedSpreadOrExpression<'ast, T> {
+impl<'ast, T: Field> fmt::Debug for TypedArrayValueElement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            TypedSpreadOrExpression::Spread(ref a) => write!(f, "{:?}", a),
-            TypedSpreadOrExpression::Expression(ref e) => write!(f, "{:?}", e),
+            TypedArrayValueElement::Spread(ref a) => write!(f, "{:?}", a),
+            TypedArrayValueElement::Expression(ref e) => write!(f, "{:?}", e),
         }
     }
 }
 
-impl<'ast, T: Field> Typed for TypedSpreadOrExpression<'ast, T> {
+impl<'ast, T: Field> Typed for TypedArrayValueElement<'ast, T> {
     fn get_type(&self) -> Type {
         match *self {
-            TypedSpreadOrExpression::Expression(ref e) => e.get_type(),
-            TypedSpreadOrExpression::Spread(_) => Type::FieldElement,
+            TypedArrayValueElement::Expression(ref e) => e.get_type(),
+            TypedArrayValueElement::Spread(_) => Type::FieldElement,
         }
     }
 }
@@ -876,7 +876,7 @@ mod tests {
                 vec![0, 1, 2, 3]
                     .into_iter()
                     .map(|i| {
-                        TypedSpreadOrExpression::Expression(
+                        TypedArrayValueElement::Expression(
                             FieldElementExpression::Number(FieldPrime::from(i)).into(),
                         )
                     })
@@ -888,7 +888,7 @@ mod tests {
                 TypedArrayValue(
                     vec![1, 2]
                         .into_iter()
-                        .map(|i| TypedSpreadOrExpression::Expression(
+                        .map(|i| TypedArrayValueElement::Expression(
                             FieldElementExpression::Number(FieldPrime::from(i)).into()
                         ))
                         .collect()
@@ -900,13 +900,13 @@ mod tests {
                 vec![vec![0, 1], vec![2, 3]]
                     .into_iter()
                     .map(|i| {
-                        TypedSpreadOrExpression::Spread(
+                        TypedArrayValueElement::Spread(
                             FieldElementArrayExpression::Value(
                                 2,
                                 TypedArrayValue(
                                     i.into_iter()
                                         .map(|j| {
-                                            TypedSpreadOrExpression::Expression(
+                                            TypedArrayValueElement::Expression(
                                                 FieldElementExpression::Number(FieldPrime::from(j))
                                                     .into(),
                                             )
@@ -923,14 +923,14 @@ mod tests {
             assert_eq!(
                 slice,
                 TypedArrayValue(vec![
-                    TypedSpreadOrExpression::Spread(FieldElementArrayExpression::Slice(
+                    TypedArrayValueElement::Spread(FieldElementArrayExpression::Slice(
                         1,
                         box FieldElementArrayExpression::Value(
                             2,
                             TypedArrayValue(
                                 vec![0, 1]
                                     .into_iter()
-                                    .map(|j| TypedSpreadOrExpression::Expression(
+                                    .map(|j| TypedArrayValueElement::Expression(
                                         FieldElementExpression::Number(FieldPrime::from(j)).into()
                                     ))
                                     .collect()
@@ -938,14 +938,14 @@ mod tests {
                         ),
                         1
                     )),
-                    TypedSpreadOrExpression::Spread(FieldElementArrayExpression::Slice(
+                    TypedArrayValueElement::Spread(FieldElementArrayExpression::Slice(
                         1,
                         box FieldElementArrayExpression::Value(
                             2,
                             TypedArrayValue(
                                 vec![2, 3]
                                     .into_iter()
-                                    .map(|j| TypedSpreadOrExpression::Expression(
+                                    .map(|j| TypedArrayValueElement::Expression(
                                         FieldElementExpression::Number(FieldPrime::from(j)).into()
                                     ))
                                     .collect()
@@ -964,7 +964,7 @@ mod tests {
                 vec!["b", "c"]
                     .into_iter()
                     .map(|i| {
-                        TypedSpreadOrExpression::Spread(
+                        TypedArrayValueElement::Spread(
                             FieldElementArrayExpression::Identifier(42, i.into()).into(),
                         )
                     })

@@ -107,7 +107,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                                     ),
                                 )
                             })
-                            .map(|e| TypedSpreadOrExpression::Expression(e.into()))
+                            .map(|e| TypedArrayValueElement::Expression(e.into()))
                             .collect(),
                     ),
                 );
@@ -448,10 +448,10 @@ mod tests {
                 FieldElementArrayExpression::Value(
                     2,
                     TypedArrayValue(vec![
-                        TypedSpreadOrExpression::Expression(
+                        TypedArrayValueElement::Expression(
                             FieldElementExpression::Number(FieldPrime::from(1)).into(),
                         ),
-                        TypedSpreadOrExpression::Expression(
+                        TypedArrayValueElement::Expression(
                             FieldElementExpression::Number(FieldPrime::from(1)).into(),
                         ),
                     ]),
@@ -469,10 +469,10 @@ mod tests {
                     FieldElementArrayExpression::Value(
                         2,
                         TypedArrayValue(vec![
-                            TypedSpreadOrExpression::Expression(
+                            TypedArrayValueElement::Expression(
                                 FieldElementExpression::Number(FieldPrime::from(1)).into()
                             ),
-                            TypedSpreadOrExpression::Expression(
+                            TypedArrayValueElement::Expression(
                                 FieldElementExpression::Number(FieldPrime::from(1)).into()
                             )
                         ])
@@ -499,7 +499,7 @@ mod tests {
                     FieldElementArrayExpression::Value(
                         2,
                         TypedArrayValue(vec![
-                            TypedSpreadOrExpression::Expression(
+                            TypedArrayValueElement::Expression(
                                 FieldElementExpression::IfElse(
                                     box BooleanExpression::Eq(
                                         box FieldElementExpression::Number(FieldPrime::from(1)),
@@ -516,7 +516,7 @@ mod tests {
                                 )
                                 .into()
                             ),
-                            TypedSpreadOrExpression::Expression(
+                            TypedArrayValueElement::Expression(
                                 FieldElementExpression::IfElse(
                                     box BooleanExpression::Eq(
                                         box FieldElementExpression::Number(FieldPrime::from(1)),
