@@ -22,7 +22,7 @@ use zokrates_field::field::Field;
 
 use std::collections::HashMap;
 
-/// An identifier in a function or a variable
+/// An identifier of a function or a variable
 pub type Identifier<'ast> = &'ast str;
 
 /// The identifier of a `Module`, typically a path or uri

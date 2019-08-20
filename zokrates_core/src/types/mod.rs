@@ -37,7 +37,7 @@ impl Type {
         match *self {
             Type::FieldElement => String::from("f"),
             Type::Boolean => String::from("b"),
-            Type::FieldElementArray(size) => format!("{}[{}]", Type::FieldElement.to_slug(), size), // TODO differentiate types?
+            Type::FieldElementArray(size) => format!("{}[{}]", Type::FieldElement.to_slug(), size),
         }
     }
 

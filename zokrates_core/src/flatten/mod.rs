@@ -29,7 +29,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         Flattener::new().flatten_program(p)
     }
 
-    /// Returns a `Flattener` with fresh a fresh [substitution] and [variables].
+    /// Returns a `Flattener` with fresh [substitution] and [variables].
     ///
     /// # Arguments
     ///
