@@ -142,7 +142,7 @@ impl<'ast> Flattener<'ast> {
                 let lhs_id = self.use_sym();
                 statements_flattened.push(FlatStatement::Definition(lhs_id, lhs_flattened));
 
-                // check that lhs and rhs are within the right range, ie, their last two bits are zero
+                // check that lhs and rhs are within the right range, ie, their higher two bits are zero. We use big-endian so they are at positions 0 and 1
 
                 // lhs
                 {
