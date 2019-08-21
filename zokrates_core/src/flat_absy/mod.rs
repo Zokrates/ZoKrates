@@ -339,9 +339,9 @@ pub struct FlatExpressionList<T: Field> {
 impl<T: Field> fmt::Display for FlatExpressionList<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (i, param) in self.expressions.iter().enumerate() {
-            r#try!(write!(f, "{}", param));
+            write!(f, "{}", param)?;
             if i < self.expressions.len() - 1 {
-                r#try!(write!(f, ", "));
+                write!(f, ", ")?;
             }
         }
         write!(f, "")
