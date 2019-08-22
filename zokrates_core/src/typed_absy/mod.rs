@@ -11,28 +11,86 @@ mod variable;
 
 pub use crate::typed_absy::parameter::Parameter;
 pub use crate::typed_absy::variable::Variable;
-use crate::types::Signature;
-
-use crate::flat_absy::*;
-use crate::imports::Import;
-use crate::types::Type;
+use crate::types::{FunctionKey, Signature, Type};
+use embed::FlatEmbed;
+use std::collections::HashMap;
 use std::fmt;
 use zokrates_field::field::Field;
 
 pub use self::folder::Folder;
 
+/// A identifier for a variable
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
 pub struct Identifier<'ast> {
+    /// the id of the variable
     pub id: &'ast str,
+    /// the version of the variable, used after SSA transformation
     pub version: usize,
-    pub stack: Vec<(&'ast str, Signature, usize)>,
+    /// the call stack of the variable, used when inlining
+    pub stack: Vec<(TypedModuleId, FunctionKey<'ast>, usize)>,
 }
 
-pub type FunctionIdentifier<'ast> = &'ast str;
+/// An identifier for a `TypedModule`. Typically a path or uri.
+pub type TypedModuleId = String;
+
+/// A collection of `TypedModule`s
+pub type TypedModules<'ast, T> = HashMap<TypedModuleId, TypedModule<'ast, T>>;
+
+/// A collection of `TypedFunctionSymbol`s
+/// # Remarks
+/// * It is the role of the semantic checker to make sure there are no duplicates for a given `FunctionKey`
+///   in a given `TypedModule`, hence the use of a HashMap
+pub type TypedFunctionSymbols<'ast, T> = HashMap<FunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>;
+
+/// A typed program as a collection of modules, one of them being the main
+#[derive(PartialEq, Debug)]
+pub struct TypedProgram<'ast, T: Field> {
+    pub modules: TypedModules<'ast, T>,
+    pub main: TypedModuleId,
+}
+
+impl<'ast, T: Field> fmt::Display for TypedProgram<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for (module_id, module) in &self.modules {
+            writeln!(
+                f,
+                "| {}: |{}",
+                module_id,
+                if *module_id == self.main {
+                    "<---- main"
+                } else {
+                    ""
+                }
+            )?;
+            writeln!(f, "{}", "-".repeat(100))?;
+            writeln!(f, "{}", module)?;
+            writeln!(f, "{}", "-".repeat(100))?;
+            writeln!(f, "")?;
+        }
+        write!(f, "")
+    }
+}
+
+/// A
+#[derive(PartialEq, Clone)]
+pub struct TypedModule<'ast, T: Field> {
+    /// Functions of the program
+    pub functions: TypedFunctionSymbols<'ast, T>,
+}
 
 impl<'ast> fmt::Display for Identifier<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.id,)
+        write!(
+            f,
+            "{}_{}_{}",
+            self.stack
+                .iter()
+                .map(|(name, sig, count)| format!("{}_{}_{}", name, sig.to_slug(), count))
+                .collect::<Vec<_>>()
+                .join("_"),
+            self.id,
+            self.version
+        )
     }
 }
 
@@ -52,56 +110,62 @@ impl<'ast> Identifier<'ast> {
         self.version = version;
         self
     }
+
+    pub fn stack(mut self, stack: Vec<(TypedModuleId, FunctionKey<'ast>, usize)>) -> Self {
+        self.stack = stack;
+        self
+    }
 }
 
-#[derive(Clone, PartialEq)]
-pub struct TypedProg<'ast, T: Field> {
-    /// Functions of the program
-    pub functions: Vec<TypedFunction<'ast, T>>,
-    pub imports: Vec<Import>,
-    pub imported_functions: Vec<FlatFunction<T>>,
+#[derive(Debug, Clone, PartialEq)]
+pub enum TypedFunctionSymbol<'ast, T: Field> {
+    Here(TypedFunction<'ast, T>),
+    There(FunctionKey<'ast>, TypedModuleId),
+    Flat(FlatEmbed),
 }
 
-impl<'ast, T: Field> fmt::Display for TypedProg<'ast, T> {
+impl<'ast, T: Field> TypedFunctionSymbol<'ast, T> {
+    pub fn signature<'a>(&'a self, modules: &'a TypedModules<T>) -> Signature {
+        match self {
+            TypedFunctionSymbol::Here(f) => f.signature.clone(),
+            TypedFunctionSymbol::There(key, module_id) => modules
+                .get(module_id)
+                .unwrap()
+                .functions
+                .get(key)
+                .unwrap()
+                .signature(&modules)
+                .clone(),
+            TypedFunctionSymbol::Flat(flat_fun) => flat_fun.signature::<T>(),
+        }
+    }
+}
+
+impl<'ast, T: Field> fmt::Display for TypedModule<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut res = vec![];
-        res.extend(
-            self.imports
-                .iter()
-                .map(|x| format!("{}", x))
-                .collect::<Vec<_>>(),
-        );
-        res.extend(
-            self.imported_functions
-                .iter()
-                .map(|x| format!("{}", x))
-                .collect::<Vec<_>>(),
-        );
-        res.extend(
-            self.functions
-                .iter()
-                .map(|x| format!("{}", x))
-                .collect::<Vec<_>>(),
-        );
+        let res = self
+            .functions
+            .iter()
+            .map(|(key, symbol)| match symbol {
+                TypedFunctionSymbol::Here(ref function) => format!("def {}{}", key.id, function),
+                TypedFunctionSymbol::There(ref fun_key, ref module_id) => format!(
+                    "import {} from \"{}\" as {} // with signature {}",
+                    fun_key.id, module_id, key.id, key.signature
+                ),
+                TypedFunctionSymbol::Flat(ref flat_fun) => {
+                    format!("def {}{}:\n\t// hidden", key.id, flat_fun.signature::<T>())
+                }
+            })
+            .collect::<Vec<_>>();
         write!(f, "{}", res.join("\n"))
     }
 }
 
-impl<'ast, T: Field> fmt::Debug for TypedProg<'ast, T> {
+impl<'ast, T: Field> fmt::Debug for TypedModule<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "program(\n\timports:\n\t\t{}\n\tfunctions:\n\t\t{}{}\n)",
-            self.imports
-                .iter()
-                .map(|x| format!("{:?}", x))
-                .collect::<Vec<_>>()
-                .join("\n\t\t"),
-            self.imported_functions
-                .iter()
-                .map(|x| format!("{}", x))
-                .collect::<Vec<_>>()
-                .join("\n\t\t"),
+            "module(\n\tfunctions:\n\t\t{}\n)",
             self.functions
                 .iter()
                 .map(|x| format!("{:?}", x))
@@ -111,10 +175,9 @@ impl<'ast, T: Field> fmt::Debug for TypedProg<'ast, T> {
     }
 }
 
+/// A typed function
 #[derive(Clone, PartialEq)]
 pub struct TypedFunction<'ast, T: Field> {
-    /// Name of the program
-    pub id: FunctionIdentifier<'ast>,
     /// Arguments of the function
     pub arguments: Vec<Parameter<'ast>>,
     /// Vector of statements that are executed when running the function
@@ -127,8 +190,7 @@ impl<'ast, T: Field> fmt::Display for TypedFunction<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "def {}({}) -> ({}):\n{}",
-            self.id,
+            "({}) -> ({}):\n{}",
             self.arguments
                 .iter()
                 .map(|x| format!("{}", x))
@@ -153,8 +215,7 @@ impl<'ast, T: Field> fmt::Debug for TypedFunction<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "TypedFunction(id: {:?}, arguments: {:?}, ...):\n{}",
-            self.id,
+            "TypedFunction(arguments: {:?}, ...):\n{}",
             self.arguments,
             self.statements
                 .iter()
@@ -165,6 +226,7 @@ impl<'ast, T: Field> fmt::Debug for TypedFunction<'ast, T> {
     }
 }
 
+/// Something we can assign to.
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum TypedAssignee<'ast, T: Field> {
     Identifier(Variable<'ast>),
@@ -204,6 +266,7 @@ impl<'ast, T: Field> fmt::Display for TypedAssignee<'ast, T> {
     }
 }
 
+/// A statement in a `TypedFunction`
 #[derive(Clone, PartialEq)]
 pub enum TypedStatement<'ast, T: Field> {
     Return(Vec<TypedExpression<'ast, T>>),
@@ -288,6 +351,7 @@ pub trait Typed {
     fn get_type(&self) -> Type;
 }
 
+/// A typed expression
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum TypedExpression<'ast, T: Field> {
     Boolean(BooleanExpression<'ast, T>),
@@ -360,7 +424,7 @@ pub trait MultiTyped {
 
 #[derive(Clone, PartialEq)]
 pub enum TypedExpressionList<'ast, T: Field> {
-    FunctionCall(String, Vec<TypedExpression<'ast, T>>, Vec<Type>),
+    FunctionCall(FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>, Vec<Type>),
 }
 
 impl<'ast, T: Field> MultiTyped for TypedExpressionList<'ast, T> {
@@ -371,6 +435,7 @@ impl<'ast, T: Field> MultiTyped for TypedExpressionList<'ast, T> {
     }
 }
 
+/// An expression of type `field`
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum FieldElementExpression<'ast, T: Field> {
     Number(T),
@@ -400,13 +465,14 @@ pub enum FieldElementExpression<'ast, T: Field> {
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
-    FunctionCall(String, Vec<TypedExpression<'ast, T>>),
+    FunctionCall(FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
     Select(
         Box<FieldElementArrayExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
 }
 
+/// An expression of type `bool`
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum BooleanExpression<'ast, T: Field> {
     Identifier(Identifier<'ast>),
@@ -442,12 +508,14 @@ pub enum BooleanExpression<'ast, T: Field> {
     Not(Box<BooleanExpression<'ast, T>>),
 }
 
-// for now we store the array size in the variants
+/// An expression of type `field[n]
+/// # Remarks
+/// * for now we store the array size in the variants
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum FieldElementArrayExpression<'ast, T: Field> {
     Identifier(usize, Identifier<'ast>),
     Value(usize, Vec<FieldElementExpression<'ast, T>>),
-    FunctionCall(usize, String, Vec<TypedExpression<'ast, T>>),
+    FunctionCall(usize, FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
     IfElse(
         Box<BooleanExpression<'ast, T>>,
         Box<FieldElementArrayExpression<'ast, T>>,
@@ -483,8 +551,8 @@ impl<'ast, T: Field> fmt::Display for FieldElementExpression<'ast, T> {
                     condition, consequent, alternative
                 )
             }
-            FieldElementExpression::FunctionCall(ref i, ref p) => {
-                write!(f, "{}(", i,)?;
+            FieldElementExpression::FunctionCall(ref k, ref p) => {
+                write!(f, "{}(", k.id,)?;
                 for (i, param) in p.iter().enumerate() {
                     write!(f, "{}", param)?;
                     if i < p.len() - 1 {
@@ -528,8 +596,8 @@ impl<'ast, T: Field> fmt::Display for FieldElementArrayExpression<'ast, T> {
                     .collect::<Vec<String>>()
                     .join(", ")
             ),
-            FieldElementArrayExpression::FunctionCall(_, ref i, ref p) => {
-                write!(f, "{}(", i,)?;
+            FieldElementArrayExpression::FunctionCall(_, ref key, ref p) => {
+                write!(f, "{}(", key.id,)?;
                 for (i, param) in p.iter().enumerate() {
                     write!(f, "{}", param)?;
                     if i < p.len() - 1 {
@@ -610,8 +678,8 @@ impl<'ast, T: Field> fmt::Debug for FieldElementArrayExpression<'ast, T> {
 impl<'ast, T: Field> fmt::Display for TypedExpressionList<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            TypedExpressionList::FunctionCall(ref i, ref p, _) => {
-                write!(f, "{}(", i,)?;
+            TypedExpressionList::FunctionCall(ref key, ref p, _) => {
+                write!(f, "{}(", key.id,)?;
                 for (i, param) in p.iter().enumerate() {
                     write!(f, "{}", param)?;
                     if i < p.len() - 1 {
@@ -633,11 +701,5 @@ impl<'ast, T: Field> fmt::Debug for TypedExpressionList<'ast, T> {
                 write!(f, ")")
             }
         }
-    }
-}
-
-impl<'ast, T: Field> TypedFunction<'ast, T> {
-    pub fn to_slug(&self) -> String {
-        format!("{}_{}", self.id, self.signature.to_slug())
     }
 }

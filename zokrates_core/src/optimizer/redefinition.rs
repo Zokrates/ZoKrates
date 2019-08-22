@@ -30,7 +30,7 @@ impl<T: Field> RedefinitionOptimizer<T> {
     }
 
     pub fn optimize(p: Prog<T>) -> Prog<T> {
-        RedefinitionOptimizer::new().fold_program(p)
+        RedefinitionOptimizer::new().fold_module(p)
     }
 }
 

@@ -5,8 +5,8 @@ use crate::ir::*;
 use zokrates_field::field::Field;
 
 pub trait Folder<T: Field>: Sized {
-    fn fold_program(&mut self, p: Prog<T>) -> Prog<T> {
-        fold_program(self, p)
+    fn fold_module(&mut self, p: Prog<T>) -> Prog<T> {
+        fold_module(self, p)
     }
 
     fn fold_function(&mut self, f: Function<T>) -> Function<T> {
@@ -38,7 +38,7 @@ pub trait Folder<T: Field>: Sized {
     }
 }
 
-pub fn fold_program<T: Field, F: Folder<T>>(f: &mut F, p: Prog<T>) -> Prog<T> {
+pub fn fold_module<T: Field, F: Folder<T>>(f: &mut F, p: Prog<T>) -> Prog<T> {
     Prog {
         main: f.fold_function(p.main),
         private: p.private,
