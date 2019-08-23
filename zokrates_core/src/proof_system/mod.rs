@@ -9,8 +9,8 @@ pub use self::bn128::GM17;
 #[cfg(feature = "libsnark")]
 pub use self::bn128::PGHR13;
 
-use crate::ir;
 use std::io::BufReader;
+use zokrates_ir as ir;
 
 pub trait ProofSystem {
     fn setup(&self, program: ir::Prog<FieldPrime>, pk_path: &str, vk_path: &str);

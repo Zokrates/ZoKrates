@@ -1,4 +1,4 @@
-use crate::flat_absy::FlatVariable;
+use crate::variable::Variable;
 use num::Zero;
 use std::collections::btree_map::{BTreeMap, Entry};
 use std::fmt;
@@ -20,13 +20,13 @@ impl<T: Field> QuadComb<T> {
         // identify (k * ~ONE) * (lincomb) and return (k * lincomb)
 
         match self.left.try_summand() {
-            Some((ref variable, ref coefficient)) if *variable == FlatVariable::one() => {
+            Some((ref variable, ref coefficient)) if *variable == Variable::one() => {
                 return Some(self.right.clone() * &coefficient);
             }
             _ => {}
         }
         match self.right.try_summand() {
-            Some((ref variable, ref coefficient)) if *variable == FlatVariable::one() => {
+            Some((ref variable, ref coefficient)) if *variable == Variable::one() => {
                 return Some(self.left.clone() * &coefficient);
             }
             _ => {}
@@ -59,7 +59,7 @@ impl<T: Field> fmt::Display for QuadComb<T> {
 }
 
 #[derive(Eq, PartialOrd, Clone, Ord, Hash, Debug, Serialize, Deserialize)]
-pub struct LinComb<T: Field>(pub Vec<(FlatVariable, T)>);
+pub struct LinComb<T: Field>(pub Vec<(Variable, T)>);
 
 impl<T: Field> PartialEq for LinComb<T> {
     fn eq(&self, other: &Self) -> bool {
@@ -68,20 +68,20 @@ impl<T: Field> PartialEq for LinComb<T> {
 }
 
 #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Debug, Serialize, Deserialize)]
-pub struct CanonicalLinComb<T: Field>(pub BTreeMap<FlatVariable, T>);
+pub struct CanonicalLinComb<T: Field>(pub BTreeMap<Variable, T>);
 
 impl<T: Field> LinComb<T> {
-    pub fn summand<U: Into<T>>(mult: U, var: FlatVariable) -> LinComb<T> {
+    pub fn summand<U: Into<T>>(mult: U, var: Variable) -> LinComb<T> {
         let res = vec![(var, mult.into())];
 
         LinComb(res)
     }
 
     pub fn one() -> LinComb<T> {
-        Self::summand(1, FlatVariable::one())
+        Self::summand(1, Variable::one())
     }
 
-    pub fn try_summand(&self) -> Option<(FlatVariable, T)> {
+    pub fn try_summand(&self) -> Option<(Variable, T)> {
         match self.0.len() {
             // if the lincomb is empty, it is not reduceable to a summand
             0 => None,
@@ -157,8 +157,8 @@ impl<T: Field> fmt::Display for LinComb<T> {
     }
 }
 
-impl<T: Field> From<FlatVariable> for LinComb<T> {
-    fn from(v: FlatVariable) -> LinComb<T> {
+impl<T: Field> From<Variable> for LinComb<T> {
+    fn from(v: Variable) -> LinComb<T> {
         let r = vec![(v, T::one())];
         LinComb(r)
     }
@@ -226,32 +226,32 @@ mod tests {
         #[test]
         fn add_zero() {
             let a: LinComb<FieldPrime> = LinComb::zero();
-            let b: LinComb<FieldPrime> = FlatVariable::new(42).into();
+            let b: LinComb<FieldPrime> = Variable::new(42).into();
             let c = a + b.clone();
             assert_eq!(c, b);
         }
         #[test]
         fn add() {
-            let a: LinComb<FieldPrime> = FlatVariable::new(42).into();
-            let b: LinComb<FieldPrime> = FlatVariable::new(42).into();
+            let a: LinComb<FieldPrime> = Variable::new(42).into();
+            let b: LinComb<FieldPrime> = Variable::new(42).into();
             let c = a + b.clone();
 
             let expected_vec = vec![
-                (FlatVariable::new(42), FieldPrime::from(1)),
-                (FlatVariable::new(42), FieldPrime::from(1)),
+                (Variable::new(42), FieldPrime::from(1)),
+                (Variable::new(42), FieldPrime::from(1)),
             ];
 
             assert_eq!(c, LinComb(expected_vec));
         }
         #[test]
         fn sub() {
-            let a: LinComb<FieldPrime> = FlatVariable::new(42).into();
-            let b: LinComb<FieldPrime> = FlatVariable::new(42).into();
+            let a: LinComb<FieldPrime> = Variable::new(42).into();
+            let b: LinComb<FieldPrime> = Variable::new(42).into();
             let c = a - b.clone();
 
             let expected_vec = vec![
-                (FlatVariable::new(42), FieldPrime::from(1)),
-                (FlatVariable::new(42), FieldPrime::from(-1)),
+                (Variable::new(42), FieldPrime::from(1)),
+                (Variable::new(42), FieldPrime::from(-1)),
             ];
 
             assert_eq!(c, LinComb(expected_vec));
@@ -260,7 +260,7 @@ mod tests {
         #[test]
         fn display() {
             let a: LinComb<FieldPrime> =
-                LinComb::from(FlatVariable::new(42)) + LinComb::summand(3, FlatVariable::new(21));
+                LinComb::from(Variable::new(42)) + LinComb::summand(3, Variable::new(21));
             assert_eq!(&a.to_string(), "3 * _21 + 1 * _42");
             let zero: LinComb<FieldPrime> = LinComb::zero();
             assert_eq!(&zero.to_string(), "0");
@@ -271,8 +271,8 @@ mod tests {
         use super::*;
         #[test]
         fn from_linear() {
-            let a: LinComb<FieldPrime> = LinComb::summand(3, FlatVariable::new(42))
-                + LinComb::summand(4, FlatVariable::new(33));
+            let a: LinComb<FieldPrime> =
+                LinComb::summand(3, Variable::new(42)) + LinComb::summand(4, Variable::new(33));
             let expected = QuadComb {
                 left: LinComb::one(),
                 right: a.clone(),
@@ -293,38 +293,38 @@ mod tests {
         #[test]
         fn display() {
             let a: QuadComb<FieldPrime> = QuadComb {
-                left: LinComb::summand(3, FlatVariable::new(42))
-                    + LinComb::summand(4, FlatVariable::new(33)),
-                right: LinComb::summand(1, FlatVariable::new(21)),
+                left: LinComb::summand(3, Variable::new(42))
+                    + LinComb::summand(4, Variable::new(33)),
+                right: LinComb::summand(1, Variable::new(21)),
             };
             assert_eq!(&a.to_string(), "(4 * _33 + 3 * _42) * (1 * _21)");
             let a: QuadComb<FieldPrime> = QuadComb {
                 left: LinComb::zero(),
-                right: LinComb::summand(1, FlatVariable::new(21)),
+                right: LinComb::summand(1, Variable::new(21)),
             };
             assert_eq!(&a.to_string(), "(0) * (1 * _21)");
         }
     }
 
-    mod try {
+    mod try_summand {
         use super::*;
 
         #[test]
         fn try_summand() {
             let summand = LinComb(vec![
-                (FlatVariable::new(42), FieldPrime::from(1)),
-                (FlatVariable::new(42), FieldPrime::from(2)),
-                (FlatVariable::new(42), FieldPrime::from(3)),
+                (Variable::new(42), FieldPrime::from(1)),
+                (Variable::new(42), FieldPrime::from(2)),
+                (Variable::new(42), FieldPrime::from(3)),
             ]);
             assert_eq!(
                 summand.try_summand(),
-                Some((FlatVariable::new(42), FieldPrime::from(6)))
+                Some((Variable::new(42), FieldPrime::from(6)))
             );
 
             let not_summand = LinComb(vec![
-                (FlatVariable::new(41), FieldPrime::from(1)),
-                (FlatVariable::new(42), FieldPrime::from(2)),
-                (FlatVariable::new(42), FieldPrime::from(3)),
+                (Variable::new(41), FieldPrime::from(1)),
+                (Variable::new(42), FieldPrime::from(2)),
+                (Variable::new(42), FieldPrime::from(3)),
             ]);
             assert_eq!(not_summand.try_summand(), None);
 

@@ -1,7 +1,7 @@
 // Generic walk through an IR AST. Not mutating in place
 
-use crate::flat_absy::flat_variable::FlatVariable;
-use crate::ir::*;
+use crate::*;
+use variable::Variable;
 use zokrates_field::field::Field;
 
 pub trait Folder<T: Field>: Sized {
@@ -13,11 +13,11 @@ pub trait Folder<T: Field>: Sized {
         fold_function(self, f)
     }
 
-    fn fold_argument(&mut self, p: FlatVariable) -> FlatVariable {
+    fn fold_argument(&mut self, p: Variable) -> Variable {
         fold_argument(self, p)
     }
 
-    fn fold_variable(&mut self, v: FlatVariable) -> FlatVariable {
+    fn fold_variable(&mut self, v: Variable) -> Variable {
         fold_variable(self, v)
     }
 
@@ -106,10 +106,10 @@ pub fn fold_function<T: Field, F: Folder<T>>(f: &mut F, fun: Function<T>) -> Fun
     }
 }
 
-pub fn fold_argument<T: Field, F: Folder<T>>(f: &mut F, a: FlatVariable) -> FlatVariable {
+pub fn fold_argument<T: Field, F: Folder<T>>(f: &mut F, a: Variable) -> Variable {
     f.fold_variable(a)
 }
 
-pub fn fold_variable<T: Field, F: Folder<T>>(_f: &mut F, v: FlatVariable) -> FlatVariable {
+pub fn fold_variable<T: Field, F: Folder<T>>(_f: &mut F, v: Variable) -> Variable {
     v
 }

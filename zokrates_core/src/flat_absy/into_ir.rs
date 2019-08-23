@@ -1,12 +1,13 @@
-use crate::flat_absy::{FlatExpression, FlatFunction, FlatProg, FlatStatement, FlatVariable};
-use crate::helpers;
-use crate::ir::{Directive, Function, LinComb, Prog, QuadComb, Statement};
+use crate::flat_absy::{
+    DirectiveStatement, FlatExpression, FlatFunction, FlatProg, FlatStatement, FlatVariable,
+};
 use num::Zero;
 use zokrates_field::field::Field;
+use zokrates_ir::{Directive, Function, LinComb, Prog, QuadComb, Statement};
 
-impl<T: Field> From<FlatFunction<T>> for Function<T> {
-    fn from(flat_function: FlatFunction<T>) -> Function<T> {
-        let return_expressions: Vec<FlatExpression<T>> = flat_function
+impl<T: Field> FlatFunction<T> {
+    fn into_ir(self) -> Function<T> {
+        let return_expressions: Vec<FlatExpression<T>> = self
             .statements
             .iter()
             .filter_map(|s| match s {
@@ -17,18 +18,18 @@ impl<T: Field> From<FlatFunction<T>> for Function<T> {
             .unwrap();
         Function {
             id: String::from("main"),
-            arguments: flat_function.arguments.into_iter().map(|p| p.id).collect(),
+            arguments: self.arguments.into_iter().map(|p| p.id).collect(),
             returns: return_expressions
                 .iter()
                 .enumerate()
                 .map(|(index, _)| FlatVariable::public(index))
                 .collect(),
-            statements: flat_function
+            statements: self
                 .statements
                 .into_iter()
                 .filter_map(|s| match s {
                     FlatStatement::Return(..) => None,
-                    s => Some(s.into()),
+                    s => Some(s.into_ir()),
                 })
                 .chain(
                     return_expressions
@@ -36,7 +37,7 @@ impl<T: Field> From<FlatFunction<T>> for Function<T> {
                         .enumerate()
                         .map(|(index, expression)| {
                             Statement::Constraint(
-                                QuadComb::from_flat_expression(expression),
+                                expression.into_ir_quad(),
                                 FlatVariable::public(index).into(),
                             )
                         }),
@@ -46,43 +47,28 @@ impl<T: Field> From<FlatFunction<T>> for Function<T> {
     }
 }
 
-impl<T: Field> QuadComb<T> {
-    fn from_flat_expression<U: Into<FlatExpression<T>>>(flat_expression: U) -> QuadComb<T> {
-        let flat_expression = flat_expression.into();
-        match flat_expression.is_linear() {
-            true => LinComb::from(flat_expression).into(),
-            false => match flat_expression {
-                FlatExpression::Mult(box e1, box e2) => {
-                    QuadComb::from_linear_combinations(e1.into(), e2.into())
-                }
-                e => unimplemented!("{}", e),
-            },
-        }
-    }
-}
-
-impl<T: Field> From<FlatProg<T>> for Prog<T> {
-    fn from(flat_prog: FlatProg<T>) -> Prog<T> {
+impl<T: Field> FlatProg<T> {
+    pub fn into_ir(self) -> Prog<T> {
         // get the main function
-        let main = flat_prog.main;
+        let main = self.main;
 
         // get the interface of the program, ie which inputs are private and public
         let private = main.arguments.iter().map(|p| p.private).collect();
 
-        let main = main.into();
+        let main = main.into_ir();
 
         Prog { private, main }
     }
 }
 
-impl<T: Field> From<FlatExpression<T>> for LinComb<T> {
-    fn from(flat_expression: FlatExpression<T>) -> LinComb<T> {
-        match flat_expression {
+impl<T: Field> FlatExpression<T> {
+    fn into_ir_lin(self) -> LinComb<T> {
+        match self {
             FlatExpression::Number(ref n) if *n == T::from(0) => LinComb::zero(),
             FlatExpression::Number(n) => LinComb::summand(n, FlatVariable::one()),
             FlatExpression::Identifier(id) => LinComb::from(id),
-            FlatExpression::Add(box e1, box e2) => LinComb::from(e1) + LinComb::from(e2),
-            FlatExpression::Sub(box e1, box e2) => LinComb::from(e1) - LinComb::from(e2),
+            FlatExpression::Add(box e1, box e2) => e1.into_ir_lin() + e2.into_ir_lin(),
+            FlatExpression::Sub(box e1, box e2) => e1.into_ir_lin() - e2.into_ir_lin(),
             FlatExpression::Mult(
                 box FlatExpression::Number(n1),
                 box FlatExpression::Identifier(v1),
@@ -94,37 +80,49 @@ impl<T: Field> From<FlatExpression<T>> for LinComb<T> {
             e => unimplemented!("{}", e),
         }
     }
+
+    fn into_ir_quad(self) -> QuadComb<T> {
+        match self.is_linear() {
+            true => self.into_ir_lin().into(),
+            false => match self {
+                FlatExpression::Mult(box e1, box e2) => {
+                    QuadComb::from_linear_combinations(e1.into_ir_lin(), e2.into_ir_lin())
+                }
+                e => unimplemented!("{}", e),
+            },
+        }
+    }
 }
 
-impl<T: Field> From<FlatStatement<T>> for Statement<T> {
-    fn from(flat_statement: FlatStatement<T>) -> Statement<T> {
-        match flat_statement {
+impl<T: Field> FlatStatement<T> {
+    fn into_ir(self) -> Statement<T> {
+        match self {
             FlatStatement::Condition(linear, quadratic) => match quadratic {
                 FlatExpression::Mult(box lhs, box rhs) => Statement::Constraint(
-                    QuadComb::from_linear_combinations(lhs.into(), rhs.into()),
-                    linear.into(),
+                    QuadComb::from_linear_combinations(lhs.into_ir_lin(), rhs.into_ir_lin()),
+                    linear.into_ir_lin(),
                 ),
-                e => Statement::Constraint(LinComb::from(e).into(), linear.into()),
+                e => Statement::Constraint(e.into_ir_lin().into(), linear.into_ir_lin()),
             },
             FlatStatement::Definition(var, quadratic) => match quadratic {
                 FlatExpression::Mult(box lhs, box rhs) => Statement::Constraint(
-                    QuadComb::from_linear_combinations(lhs.into(), rhs.into()),
+                    QuadComb::from_linear_combinations(lhs.into_ir_lin(), rhs.into_ir_lin()),
                     var.into(),
                 ),
-                e => Statement::Constraint(LinComb::from(e).into(), var.into()),
+                e => Statement::Constraint(e.into_ir_lin().into(), var.into()),
             },
-            FlatStatement::Directive(ds) => Statement::Directive(ds.into()),
+            FlatStatement::Directive(ds) => Statement::Directive(ds.into_ir()),
             _ => panic!("return should be handled at the function level"),
         }
     }
 }
 
-impl<T: Field> From<helpers::DirectiveStatement<T>> for Directive<T> {
-    fn from(ds: helpers::DirectiveStatement<T>) -> Directive<T> {
+impl<T: Field> DirectiveStatement<T> {
+    fn into_ir(self) -> Directive<T> {
         Directive {
-            inputs: ds.inputs.into_iter().map(|i| i.into()).collect(),
-            helper: ds.helper,
-            outputs: ds.outputs,
+            inputs: self.inputs.into_iter().map(|i| i.into_ir_lin()).collect(),
+            helper: self.helper,
+            outputs: self.outputs,
         }
     }
 }

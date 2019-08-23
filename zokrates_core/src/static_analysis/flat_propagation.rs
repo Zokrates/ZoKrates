@@ -5,20 +5,20 @@
 //! @date 2018
 
 use crate::flat_absy::*;
-use crate::helpers::DirectiveStatement;
 use std::collections::HashMap;
 use zokrates_field::field::Field;
+use zokrates_ir::Variable;
 
 pub trait Propagate<T: Field> {
     fn propagate(self) -> Self;
 }
 
 pub trait PropagateWithContext<T: Field> {
-    fn propagate(self, constants: &mut HashMap<FlatVariable, T>) -> Self;
+    fn propagate(self, constants: &mut HashMap<Variable, T>) -> Self;
 }
 
 impl<T: Field> PropagateWithContext<T> for FlatExpression<T> {
-    fn propagate(self, constants: &mut HashMap<FlatVariable, T>) -> FlatExpression<T> {
+    fn propagate(self, constants: &mut HashMap<Variable, T>) -> FlatExpression<T> {
         match self {
             FlatExpression::Number(n) => FlatExpression::Number(n),
             FlatExpression::Identifier(id) => match constants.get(&id) {
@@ -54,7 +54,7 @@ impl<T: Field> PropagateWithContext<T> for FlatExpression<T> {
 }
 
 impl<T: Field> FlatStatement<T> {
-    fn propagate(self, constants: &mut HashMap<FlatVariable, T>) -> Option<FlatStatement<T>> {
+    fn propagate(self, constants: &mut HashMap<Variable, T>) -> Option<FlatStatement<T>> {
         match self {
             FlatStatement::Return(list) => Some(FlatStatement::Return(FlatExpressionList {
                 expressions: list

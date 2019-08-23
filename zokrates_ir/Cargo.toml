@@ -1,0 +1,15 @@
+[package]
+name = "zokrates_ir"
+version = "0.1.0"
+authors = ["schaeff <thibaut@schaeff.fr>"]
+edition = "2018"
+
+[dependencies]
+zokrates_field = { version = "0.3", path = "../zokrates_field" }
+zokrates_embed = { version = "0.1", path = "../zokrates_embed" }
+serde = "1.0"
+serde_derive = "1.0"
+csv = "1"
+num = {version = "0.1.36", default-features = false}
+
+[lib]

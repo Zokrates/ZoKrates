@@ -1,6 +1,6 @@
-use crate::flat_absy::flat_variable::FlatVariable;
 use crate::helpers::Executable;
-use crate::ir::{LinComb, Prog, QuadComb, Statement, Witness};
+use crate::variable::Variable;
+use crate::{LinComb, Prog, QuadComb, Statement, Witness};
 use std::collections::BTreeMap;
 use std::fmt;
 use zokrates_field::field::Field;
@@ -12,7 +12,7 @@ impl<T: Field> Prog<T> {
         let main = &self.main;
         self.check_inputs(&inputs)?;
         let mut witness = BTreeMap::new();
-        witness.insert(FlatVariable::one(), T::one());
+        witness.insert(Variable::one(), T::one());
         for (arg, value) in main.arguments.iter().zip(inputs.iter()) {
             witness.insert(arg.clone(), value.clone().into());
         }
@@ -70,7 +70,7 @@ impl<T: Field> Prog<T> {
 }
 
 impl<T: Field> LinComb<T> {
-    fn evaluate(&self, witness: &BTreeMap<FlatVariable, T>) -> Result<T, ()> {
+    fn evaluate(&self, witness: &BTreeMap<Variable, T>) -> Result<T, ()> {
         self.0
             .iter()
             .map(|(var, mult)| witness.get(var).map(|v| v.clone() * mult).ok_or(())) // get each term
@@ -78,7 +78,7 @@ impl<T: Field> LinComb<T> {
             .map(|v| v.iter().fold(T::from(0), |acc, t| acc + t)) // return the sum
     }
 
-    fn is_assignee<U>(&self, witness: &BTreeMap<FlatVariable, U>) -> bool {
+    fn is_assignee<U>(&self, witness: &BTreeMap<Variable, U>) -> bool {
         self.0.iter().count() == 1
             && self.0.iter().next().unwrap().1 == T::from(1)
             && !witness.contains_key(&self.0.iter().next().unwrap().0)
@@ -86,7 +86,7 @@ impl<T: Field> LinComb<T> {
 }
 
 impl<T: Field> QuadComb<T> {
-    pub fn evaluate(&self, witness: &BTreeMap<FlatVariable, T>) -> Result<T, ()> {
+    pub fn evaluate(&self, witness: &BTreeMap<Variable, T>) -> Result<T, ()> {
         let left = self.left.evaluate(&witness)?;
         let right = self.right.evaluate(&witness)?;
         Ok(left * right)

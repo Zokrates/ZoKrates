@@ -1,7 +1,6 @@
 extern crate libc;
 
 use self::libc::{c_char, c_int};
-use ir;
 use proof_system::bn128::utils::libsnark::{prepare_generate_proof, prepare_setup};
 use proof_system::bn128::utils::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
@@ -10,6 +9,7 @@ use proof_system::ProofSystem;
 use regex::Regex;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use zokrates_ir as ir;
 
 use zokrates_field::field::FieldPrime;
 

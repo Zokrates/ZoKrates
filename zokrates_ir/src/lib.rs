@@ -1,20 +1,27 @@
-use crate::flat_absy::flat_parameter::FlatParameter;
-use crate::flat_absy::FlatVariable;
-use crate::helpers::Helper;
+#[macro_use]
+extern crate serde_derive;
+
 use std::fmt;
 use zokrates_field::field::Field;
 
 mod expression;
 pub mod folder;
-mod from_flat;
+pub mod helpers;
 mod interpreter;
+mod parameter;
+mod variable;
 mod witness;
 
-use self::expression::QuadComb;
+pub use self::expression::QuadComb;
 pub use self::expression::{CanonicalLinComb, LinComb};
 
 pub use self::interpreter::{Error, ExecutionResult};
 pub use self::witness::Witness;
+
+pub use self::parameter::Parameter;
+pub use self::variable::Variable;
+
+pub use self::helpers::Helper;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum Statement<T: Field> {
@@ -23,7 +30,7 @@ pub enum Statement<T: Field> {
 }
 
 impl<T: Field> Statement<T> {
-    pub fn definition<U: Into<QuadComb<T>>>(v: FlatVariable, e: U) -> Self {
+    pub fn definition<U: Into<QuadComb<T>>>(v: Variable, e: U) -> Self {
         Statement::Constraint(e.into(), v.into())
     }
 
@@ -35,7 +42,7 @@ impl<T: Field> Statement<T> {
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Directive<T: Field> {
     pub inputs: Vec<LinComb<T>>,
-    pub outputs: Vec<FlatVariable>,
+    pub outputs: Vec<Variable>,
     pub helper: Helper,
 }
 
@@ -72,8 +79,8 @@ impl<T: Field> fmt::Display for Statement<T> {
 pub struct Function<T: Field> {
     pub id: String,
     pub statements: Vec<Statement<T>>,
-    pub arguments: Vec<FlatVariable>,
-    pub returns: Vec<FlatVariable>,
+    pub arguments: Vec<Variable>,
+    pub returns: Vec<Variable>,
 }
 
 impl<T: Field> fmt::Display for Function<T> {
@@ -128,12 +135,12 @@ impl<T: Field> Prog<T> {
         self.private.iter().filter(|b| **b).count()
     }
 
-    pub fn parameters(&self) -> Vec<FlatParameter> {
+    pub fn parameters(&self) -> Vec<Parameter> {
         self.main
             .arguments
             .iter()
             .zip(self.private.iter())
-            .map(|(id, private)| FlatParameter {
+            .map(|(id, private)| Parameter {
                 private: *private,
                 id: *id,
             })
@@ -159,10 +166,10 @@ mod tests {
         fn print_constraint() {
             let c: Statement<FieldPrime> = Statement::Constraint(
                 QuadComb::from_linear_combinations(
-                    FlatVariable::new(42).into(),
-                    FlatVariable::new(42).into(),
+                    Variable::new(42).into(),
+                    Variable::new(42).into(),
                 ),
-                FlatVariable::new(42).into(),
+                Variable::new(42).into(),
             );
             assert_eq!(format!("{}", c), "(1 * _42) * (1 * _42) == 1 * _42")
         }

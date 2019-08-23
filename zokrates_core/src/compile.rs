@@ -6,7 +6,6 @@
 use absy::{Module, ModuleId, Program};
 use flatten::Flattener;
 use imports::{self, Importer};
-use ir;
 use optimizer::Optimize;
 use semantics::{self, Checker};
 use static_analysis::Analyse;
@@ -16,6 +15,7 @@ use std::io;
 use std::io::BufRead;
 use typed_arena::Arena;
 use zokrates_field::field::Field;
+use zokrates_ir as ir;
 use zokrates_pest_ast as pest;
 
 #[derive(Debug)]
@@ -160,7 +160,7 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     let program_flattened = program_flattened.analyse();
 
     // convert to ir
-    let ir_prog = ir::Prog::from(program_flattened);
+    let ir_prog = program_flattened.into_ir();
 
     // optimize
     let optimized_ir_prog = ir_prog.optimize();

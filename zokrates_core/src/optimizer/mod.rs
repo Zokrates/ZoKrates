@@ -10,8 +10,8 @@ mod tautology;
 use self::redefinition::RedefinitionOptimizer;
 use self::tautology::TautologyOptimizer;
 
-use crate::ir::Prog;
 use zokrates_field::field::Field;
+use zokrates_ir::Prog;
 
 pub trait Optimize {
     fn optimize(self) -> Self;

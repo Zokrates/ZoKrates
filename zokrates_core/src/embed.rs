@@ -1,13 +1,14 @@
-use crate::helpers::{DirectiveStatement, Helper, RustHelper};
 use bellman::pairing::ff::ScalarEngine;
 use flat_absy::{
-    FlatExpression, FlatExpressionList, FlatFunction, FlatParameter, FlatStatement, FlatVariable,
+    DirectiveStatement, FlatExpression, FlatExpressionList, FlatFunction, FlatStatement,
 };
 use reduce::Reduce;
 use std::collections::HashMap;
 use types::{FunctionKey, Signature, Type};
 use zokrates_embed::{generate_sha256_round_constraints, BellmanConstraint};
 use zokrates_field::field::Field;
+use zokrates_ir::helpers::{Helper, RustHelper};
+use zokrates_ir::{Parameter as FlatParameter, Variable as FlatVariable};
 
 /// A low level function that contains non-deterministic introduction of variables. It is carried as is until
 /// the flattening step when it can be inlined.
@@ -412,8 +413,8 @@ mod tests {
                 )
             );
 
-            let f = crate::ir::Function::from(compiled);
-            let prog = crate::ir::Prog {
+            let f = zokrates_ir::Function::from(compiled);
+            let prog = zokrates_ir::Prog {
                 main: f,
                 private: vec![true; 768],
             };

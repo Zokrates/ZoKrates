@@ -2,7 +2,6 @@
 
 extern crate rand;
 
-use crate::ir::{CanonicalLinComb, Prog, Statement, Witness};
 use bellman::groth16::Proof;
 use bellman::groth16::{
     create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof,
@@ -12,9 +11,10 @@ use bellman::{Circuit, ConstraintSystem, LinearCombination, SynthesisError, Vari
 use pairing::bn256::{Bn256, Fr};
 use std::collections::BTreeMap;
 use zokrates_field::field::{Field, FieldPrime};
+use zokrates_ir::Variable as FlatVariable;
+use zokrates_ir::{CanonicalLinComb, Prog, Statement, Witness};
 
 use self::rand::*;
-use crate::flat_absy::FlatVariable;
 
 pub use self::parse::*;
 
@@ -83,81 +83,78 @@ fn bellman_combination<CS: ConstraintSystem<Bn256>>(
         .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
-impl Prog<FieldPrime> {
-    pub fn synthesize<CS: ConstraintSystem<Bn256>>(
-        self,
-        cs: &mut CS,
-        witness: Option<Witness<FieldPrime>>,
-    ) -> Result<(), SynthesisError> {
-        // mapping from IR variables
-        let mut symbols = BTreeMap::new();
+pub fn synthesize<CS: ConstraintSystem<Bn256>>(
+    prog: Prog<FieldPrime>,
+    cs: &mut CS,
+    witness: Option<Witness<FieldPrime>>,
+) -> Result<(), SynthesisError> {
+    // mapping from IR variables
+    let mut symbols = BTreeMap::new();
 
-        let mut witness = witness.unwrap_or(Witness::empty());
+    let mut witness = witness.unwrap_or(Witness::empty());
 
-        assert!(symbols.insert(FlatVariable::one(), CS::one()).is_none());
+    assert!(symbols.insert(FlatVariable::one(), CS::one()).is_none());
 
-        symbols.extend(
-            self.main
-                .arguments
-                .iter()
-                .zip(self.private)
-                .enumerate()
-                .map(|(index, (var, private))| {
-                    let wire = match private {
-                        true => cs.alloc(
-                            || format!("PRIVATE_INPUT_{}", index),
-                            || {
-                                Ok(witness
-                                    .0
-                                    .remove(&var)
-                                    .ok_or(SynthesisError::AssignmentMissing)?
-                                    .into_bellman())
-                            },
-                        ),
-                        false => cs.alloc_input(
-                            || format!("PUBLIC_INPUT_{}", index),
-                            || {
-                                Ok(witness
-                                    .0
-                                    .remove(&var)
-                                    .ok_or(SynthesisError::AssignmentMissing)?
-                                    .into_bellman())
-                            },
-                        ),
-                    }
-                    .unwrap();
-                    (var.clone(), wire)
-                }),
-        );
-
-        let main = self.main;
-
-        for statement in main.statements {
-            match statement {
-                Statement::Constraint(quad, lin) => {
-                    let a = &bellman_combination(
-                        quad.left.clone().as_canonical(),
-                        cs,
-                        &mut symbols,
-                        &mut witness,
-                    );
-                    let b = &bellman_combination(
-                        quad.right.clone().as_canonical(),
-                        cs,
-                        &mut symbols,
-                        &mut witness,
-                    );
-                    let c =
-                        &bellman_combination(lin.as_canonical(), cs, &mut symbols, &mut witness);
-
-                    cs.enforce(|| "Constraint", |lc| lc + a, |lc| lc + b, |lc| lc + c);
+    symbols.extend(
+        prog.main
+            .arguments
+            .iter()
+            .zip(prog.private)
+            .enumerate()
+            .map(|(index, (var, private))| {
+                let wire = match private {
+                    true => cs.alloc(
+                        || format!("PRIVATE_INPUT_{}", index),
+                        || {
+                            Ok(witness
+                                .0
+                                .remove(&var)
+                                .ok_or(SynthesisError::AssignmentMissing)?
+                                .into_bellman())
+                        },
+                    ),
+                    false => cs.alloc_input(
+                        || format!("PUBLIC_INPUT_{}", index),
+                        || {
+                            Ok(witness
+                                .0
+                                .remove(&var)
+                                .ok_or(SynthesisError::AssignmentMissing)?
+                                .into_bellman())
+                        },
+                    ),
                 }
-                _ => {}
-            }
-        }
+                .unwrap();
+                (var.clone(), wire)
+            }),
+    );
 
-        Ok(())
+    let main = prog.main;
+
+    for statement in main.statements {
+        match statement {
+            Statement::Constraint(quad, lin) => {
+                let a = &bellman_combination(
+                    quad.left.clone().as_canonical(),
+                    cs,
+                    &mut symbols,
+                    &mut witness,
+                );
+                let b = &bellman_combination(
+                    quad.right.clone().as_canonical(),
+                    cs,
+                    &mut symbols,
+                    &mut witness,
+                );
+                let c = &bellman_combination(lin.as_canonical(), cs, &mut symbols, &mut witness);
+
+                cs.enforce(|| "Constraint", |lc| lc + a, |lc| lc + b, |lc| lc + c);
+            }
+            _ => {}
+        }
     }
+
+    Ok(())
 }
 
 impl Computation<FieldPrime> {
@@ -199,7 +196,7 @@ impl Computation<FieldPrime> {
 
 impl Circuit<Bn256> for Computation<FieldPrime> {
     fn synthesize<CS: ConstraintSystem<Bn256>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
-        self.program.synthesize(cs, self.witness)
+        synthesize(self.program, cs, self.witness)
     }
 }
 
@@ -295,8 +292,8 @@ mod parse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ir::{Function, LinComb};
     use zokrates_field::field::FieldPrime;
+    use zokrates_ir::{Function, LinComb};
 
     mod prove {
         use super::*;

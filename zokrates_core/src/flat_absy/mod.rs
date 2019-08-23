@@ -5,13 +5,12 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
-pub mod flat_parameter;
-pub mod flat_variable;
+pub mod into_ir;
 
-pub use self::flat_parameter::FlatParameter;
-pub use self::flat_variable::FlatVariable;
+use zokrates_ir::Helper;
+use zokrates_ir::Parameter as FlatParameter;
+use zokrates_ir::Variable as FlatVariable;
 
-use crate::helpers::DirectiveStatement;
 use crate::types::Signature;
 use std::collections::HashMap;
 use std::fmt;
@@ -285,5 +284,46 @@ pub struct Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.message)
+    }
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct DirectiveStatement<T: Field> {
+    pub inputs: Vec<FlatExpression<T>>,
+    pub outputs: Vec<FlatVariable>,
+    pub helper: Helper,
+}
+
+impl<T: Field> DirectiveStatement<T> {
+    pub fn new<E: Into<FlatExpression<T>>>(
+        outputs: Vec<FlatVariable>,
+        helper: Helper,
+        inputs: Vec<E>,
+    ) -> Self {
+        DirectiveStatement {
+            helper,
+            inputs: inputs.into_iter().map(|i| i.into()).collect(),
+            outputs,
+        }
+    }
+}
+
+impl<T: Field> fmt::Display for DirectiveStatement<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "# {} = {}({})",
+            self.outputs
+                .iter()
+                .map(|o| o.to_string())
+                .collect::<Vec<String>>()
+                .join(", "),
+            self.helper,
+            self.inputs
+                .iter()
+                .map(|i| i.to_string())
+                .collect::<Vec<String>>()
+                .join(", ")
+        )
     }
 }

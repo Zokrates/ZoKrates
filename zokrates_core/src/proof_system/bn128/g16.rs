@@ -1,4 +1,3 @@
-use crate::ir;
 use crate::proof_system::bn128::utils::bellman::Computation;
 use crate::proof_system::bn128::utils::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
@@ -10,6 +9,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use zokrates_field::field::FieldPrime;
+use zokrates_ir as ir;
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/reference/proving_schemes.html#g16-malleability for implications.";
 
@@ -336,8 +336,8 @@ mod tests {
         mod proof {
             use super::*;
             use crate::flat_absy::FlatVariable;
-            use crate::ir::*;
             use crate::proof_system::bn128::g16::serialize::serialize_proof;
+            use zokrates_ir::*;
 
             #[allow(dead_code)]
             #[derive(Deserialize)]

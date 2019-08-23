@@ -5,10 +5,10 @@
 //
 // This makes the assumption that ~one has value 1, as should be guaranteed by the verifier
 
-use crate::ir::folder::fold_statement;
-use crate::ir::folder::Folder;
-use crate::ir::*;
 use zokrates_field::field::Field;
+use zokrates_ir::folder::fold_statement;
+use zokrates_ir::folder::Folder;
+use zokrates_ir::*;
 
 pub struct TautologyOptimizer {}
 

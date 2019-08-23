@@ -24,11 +24,11 @@ extern crate serde_bytes;
 extern crate wasmi;
 extern crate zokrates_embed;
 extern crate zokrates_field;
+extern crate zokrates_ir;
 extern crate zokrates_pest_ast;
 
 mod embed;
 mod flatten;
-mod helpers;
 mod imports;
 mod optimizer;
 mod parser;
@@ -40,5 +40,4 @@ mod types;
 pub mod absy;
 pub mod compile;
 pub mod flat_absy;
-pub mod ir;
 pub mod proof_system;

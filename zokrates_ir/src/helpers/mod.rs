@@ -5,53 +5,8 @@ mod wasm;
 pub use self::rust::RustHelper;
 #[cfg(feature = "wasm")]
 pub use self::wasm::WasmHelper;
-use crate::flat_absy::{FlatExpression, FlatVariable};
 use std::fmt;
 use zokrates_field::field::Field;
-
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub struct DirectiveStatement<T: Field> {
-    pub inputs: Vec<FlatExpression<T>>,
-    pub outputs: Vec<FlatVariable>,
-    pub helper: Helper,
-}
-
-impl<T: Field> DirectiveStatement<T> {
-    pub fn new<E: Into<FlatExpression<T>>>(
-        outputs: Vec<FlatVariable>,
-        helper: Helper,
-        inputs: Vec<E>,
-    ) -> Self {
-        let (in_len, out_len) = helper.get_signature();
-        assert_eq!(in_len, inputs.len());
-        assert_eq!(out_len, outputs.len());
-        DirectiveStatement {
-            helper,
-            inputs: inputs.into_iter().map(|i| i.into()).collect(),
-            outputs,
-        }
-    }
-}
-
-impl<T: Field> fmt::Display for DirectiveStatement<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "# {} = {}({})",
-            self.outputs
-                .iter()
-                .map(|o| o.to_string())
-                .collect::<Vec<String>>()
-                .join(", "),
-            self.helper,
-            self.inputs
-                .iter()
-                .map(|i| i.to_string())
-                .collect::<Vec<String>>()
-                .join(", ")
-        )
-    }
-}
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum Helper {

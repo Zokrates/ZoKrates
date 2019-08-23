@@ -2362,6 +2362,7 @@ dependencies = [
  "wasmi 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "zokrates_embed 0.1.0",
  "zokrates_field 0.3.3",
+ "zokrates_ir 0.1.0",
  "zokrates_pest_ast 0.1.2",
 ]
 
@@ -2404,6 +2405,18 @@ dependencies = [
  "mockito 0.17.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "reqwest 0.9.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "tempfile 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "zokrates_ir"
+version = "0.1.0"
+dependencies = [
+ "csv 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "num 0.1.42 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.94 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_derive 1.0.94 (registry+https://github.com/rust-lang/crates.io-index)",
+ "zokrates_embed 0.1.0",
+ "zokrates_field 0.3.3",
 ]
 
 [[package]]

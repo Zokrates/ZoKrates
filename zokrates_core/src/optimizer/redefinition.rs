@@ -8,18 +8,17 @@
 // c := a
 // ```
 
-use crate::flat_absy::flat_variable::FlatVariable;
-use crate::ir::folder::{fold_function, Folder};
-use crate::ir::LinComb;
-use crate::ir::*;
 use num::Zero;
 use std::collections::HashMap;
 use zokrates_field::field::Field;
+use zokrates_ir::folder::{fold_function, Folder};
+use zokrates_ir::LinComb;
+use zokrates_ir::*;
 
 #[derive(Debug)]
 pub struct RedefinitionOptimizer<T: Field> {
     /// Map of renamings for reassigned variables while processing the program.
-    substitution: HashMap<FlatVariable, LinComb<T>>,
+    substitution: HashMap<Variable, LinComb<T>>,
 }
 
 impl<T: Field> RedefinitionOptimizer<T> {
@@ -47,7 +46,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                     Some(l) => match lin.try_summand() {
                         // right side must be a single variable
                         Some((variable, coefficient)) => {
-                            match variable == FlatVariable::one() {
+                            match variable == Variable::one() {
                                 // variable must not be ~ONE
                                 false => match self.substitution.get(&variable) {
                                     Some(_) => None,
@@ -92,7 +91,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
             .fold(LinComb::zero(), |acc, x| acc + x)
     }
 
-    fn fold_argument(&mut self, a: FlatVariable) -> FlatVariable {
+    fn fold_argument(&mut self, a: Variable) -> Variable {
         // to prevent the optimiser from replacing user input, add it to the substitution
         self.substitution.insert(a.clone(), a.clone().into());
         a
@@ -121,9 +120,9 @@ mod tests {
         //    z = y
         //    return z
 
-        let x = FlatVariable::new(0);
-        let y = FlatVariable::new(1);
-        let z = FlatVariable::new(2);
+        let x = Variable::new(0);
+        let y = Variable::new(1);
+        let z = Variable::new(2);
 
         let f: Function<FieldPrime> = Function {
             id: "foo".to_string(),
@@ -157,9 +156,9 @@ mod tests {
         //    x == x // will be eliminated as a tautology
         //    return x
 
-        let x = FlatVariable::new(0);
-        let y = FlatVariable::new(1);
-        let z = FlatVariable::new(2);
+        let x = Variable::new(0);
+        let y = Variable::new(1);
+        let z = Variable::new(2);
 
         let f: Function<FieldPrime> = Function {
             id: "foo".to_string(),
@@ -197,11 +196,11 @@ mod tests {
         // def main(x):
         //  return x, 1
 
-        let x = FlatVariable::new(0);
-        let y = FlatVariable::new(1);
-        let z = FlatVariable::new(2);
-        let t = FlatVariable::new(3);
-        let w = FlatVariable::new(4);
+        let x = Variable::new(0);
+        let y = Variable::new(1);
+        let z = Variable::new(2);
+        let t = Variable::new(3);
+        let w = Variable::new(4);
 
         let f: Function<FieldPrime> = Function {
             id: "foo".to_string(),
@@ -246,12 +245,12 @@ mod tests {
         //    6*x + 6*y == 6*x + 6*y // will be eliminated as a tautology
         //    return 6*x + 6*y
 
-        let x = FlatVariable::new(0);
-        let y = FlatVariable::new(1);
-        let a = FlatVariable::new(2);
-        let b = FlatVariable::new(3);
-        let c = FlatVariable::new(4);
-        let r = FlatVariable::new(5);
+        let x = Variable::new(0);
+        let y = Variable::new(1);
+        let a = Variable::new(2);
+        let b = Variable::new(3);
+        let c = Variable::new(4);
+        let r = Variable::new(5);
 
         let f: Function<FieldPrime> = Function {
             id: "foo".to_string(),
@@ -297,7 +296,7 @@ mod tests {
 
         // unchanged
 
-        let x = FlatVariable::new(0);
+        let x = Variable::new(0);
 
         let f: Function<FieldPrime> = Function {
             id: "foo".to_string(),

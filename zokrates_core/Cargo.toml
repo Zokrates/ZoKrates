@@ -31,6 +31,7 @@ ff_ce = "0.7"
 zokrates_field = { version = "0.3.0", path = "../zokrates_field" }
 zokrates_pest_ast = { version = "0.1.0", path = "../zokrates_pest_ast" }
 zokrates_embed = { path = "../zokrates_embed" }
+zokrates_ir = { version = "0.1.0", path = "../zokrates_ir" }
 rand = "0.4"
 wasmi = { version = "=0.4.5", optional = true }
 parity-wasm = { version = "0.35.3", optional = true }

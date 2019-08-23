@@ -6,13 +6,15 @@
 //! @date 2017
 
 use crate::flat_absy::*;
-use crate::helpers::{DirectiveStatement, Helper, RustHelper};
 use crate::typed_absy::*;
 use crate::types::Type;
 use crate::types::{FunctionKey, Signature};
 use std::collections::HashMap;
 use types::FunctionIdentifier;
 use zokrates_field::field::Field;
+use zokrates_ir::helpers::{Helper, RustHelper};
+use zokrates_ir::Parameter as FlatParameter;
+use zokrates_ir::Variable as FlatVariable;
 
 /// Flattener, computes flattened program.
 #[derive(Debug)]

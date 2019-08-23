@@ -1,4 +1,4 @@
-use crate::flat_absy::FlatVariable;
+use crate::variable::Variable;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::io;
@@ -6,7 +6,7 @@ use std::io::{Read, Write};
 use zokrates_field::field::Field;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Witness<T: Field>(pub BTreeMap<FlatVariable, T>);
+pub struct Witness<T: Field>(pub BTreeMap<Variable, T>);
 
 impl<T: Field> Witness<T> {
     pub fn return_values(&self) -> Vec<T> {
@@ -17,7 +17,7 @@ impl<T: Field> Witness<T> {
             .collect::<HashMap<_, _>>();
 
         (0..out.len())
-            .map(|i| *out.get(&FlatVariable::public(i)).unwrap())
+            .map(|i| *out.get(&Variable::public(i)).unwrap())
             .cloned()
             .collect()
     }
@@ -63,13 +63,12 @@ impl<T: Field> Witness<T> {
             .deserialize::<(String, String)>()
             .map(|r| {
                 r.map(|(variable, value)| {
-                    let variable =
-                        FlatVariable::try_from_human_readable(&variable).map_err(|why| {
-                            io::Error::new(
-                                io::ErrorKind::Other,
-                                format!("Invalid variable in witness: {}", why),
-                            )
-                        })?;
+                    let variable = Variable::try_from_human_readable(&variable).map_err(|why| {
+                        io::Error::new(
+                            io::ErrorKind::Other,
+                            format!("Invalid variable in witness: {}", why),
+                        )
+                    })?;
                     let value = T::try_from_dec_str(&value).map_err(|_| {
                         io::Error::new(
                             io::ErrorKind::Other,
@@ -83,7 +82,7 @@ impl<T: Field> Witness<T> {
                     e => io::Error::new(io::ErrorKind::Other, format!("{:?}", e)),
                 })?
             })
-            .collect::<io::Result<BTreeMap<FlatVariable, T>>>()?;
+            .collect::<io::Result<BTreeMap<Variable, T>>>()?;
 
         Ok(Witness(map))
     }
@@ -116,9 +115,9 @@ mod tests {
         fn serialize_deserialize() {
             let w = Witness(
                 vec![
-                    (FlatVariable::new(42), FieldPrime::from(42)),
-                    (FlatVariable::public(8), FieldPrime::from(8)),
-                    (FlatVariable::one(), FieldPrime::from(1)),
+                    (Variable::new(42), FieldPrime::from(42)),
+                    (Variable::public(8), FieldPrime::from(8)),
+                    (Variable::one(), FieldPrime::from(1)),
                 ]
                 .into_iter()
                 .collect(),
