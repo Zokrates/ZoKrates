@@ -657,18 +657,24 @@ impl<'ast> Checker<'ast> {
 
                 let checked_expression = self.check_expression(s.value.expression)?;
                 match checked_expression {
-                    TypedExpression::FieldElementArray(e) => {
-                        let size = e.size();
-                        Ok((0..size)
-                            .map(|i| {
-                                FieldElementExpression::Select(
-                                    box e.clone(),
-                                    box FieldElementExpression::Number(T::from(i)),
-                                )
-                                .into()
-                            })
-                            .collect())
-                    }
+                    TypedExpression::FieldElementArray(e) => match e {
+                        // if we're doing a spread over an inline array, we return the inside of the array: ...[x, y, z] == x, y, z
+                        FieldElementArrayExpression::Value(_, v) => {
+                            Ok(v.into_iter().map(|e| e.into()).collect())
+                        }
+                        e => {
+                            let size = e.size();
+                            Ok((0..size)
+                                .map(|i| {
+                                    FieldElementExpression::Select(
+                                        box e.clone(),
+                                        box FieldElementExpression::Number(T::from(i)),
+                                    )
+                                    .into()
+                                })
+                                .collect())
+                        }
+                    },
                     e => Err(Error {
                         pos: Some(pos),
 
