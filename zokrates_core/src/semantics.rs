@@ -44,21 +44,21 @@ struct FunctionQuery<'ast> {
 
 impl<'ast> fmt::Display for FunctionQuery<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        r#try!(write!(f, "("));
+        write!(f, "(")?;
         for (i, t) in self.inputs.iter().enumerate() {
-            r#try!(write!(f, "{}", t));
+            write!(f, "{}", t)?;
             if i < self.inputs.len() - 1 {
-                r#try!(write!(f, ", "));
+                write!(f, ", ")?;
             }
         }
-        r#try!(write!(f, ") -> ("));
+        write!(f, ") -> (")?;
         for (i, t) in self.outputs.iter().enumerate() {
             match t {
-                Some(t) => r#try!(write!(f, "{}", t)),
-                None => r#try!(write!(f, "_")),
+                Some(t) => write!(f, "{}", t)?,
+                None => write!(f, "_")?,
             }
             if i < self.outputs.len() - 1 {
-                r#try!(write!(f, ", "));
+                write!(f, ", ")?;
             }
         }
         write!(f, ")")
@@ -658,16 +658,26 @@ impl<'ast> Checker<'ast> {
                 let checked_expression = self.check_expression(s.value.expression)?;
                 match checked_expression {
                     TypedExpression::Array(e) => {
+                        let ty = e.inner_type().clone();
                         let size = e.size();
-                        Ok((0..size)
-                            .map(|i| {
-                                FieldElementExpression::Select(
-                                    box e.clone(),
-                                    box FieldElementExpression::Number(T::from(i)),
-                                )
-                                .into()
-                            })
-                            .collect())
+                        match e.inner {
+                            // if we're doing a spread over an inline array, we return the inside of the array: ...[x, y, z] == x, y, z
+                            ArrayExpressionInner::Value(v) => Ok(v),
+                            e => Ok((0..size)
+                                .map(|i| match ty {
+                                    Type::FieldElement => FieldElementExpression::Select(
+                                        box ArrayExpression {
+                                            ty: Type::FieldElement,
+                                            size: size,
+                                            inner: e.clone(),
+                                        },
+                                        box FieldElementExpression::Number(T::from(i)),
+                                    )
+                                    .into(),
+                                    _ => unimplemented!(),
+                                })
+                                .collect()),
+                        }
                     }
                     e => Err(Error {
                         pos: Some(pos),

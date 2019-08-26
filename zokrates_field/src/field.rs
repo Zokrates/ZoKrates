@@ -800,5 +800,4 @@ mod tests {
             assert_eq!(FieldPrime::from_bellman(a), cc);
         }
     }
-
 }
