@@ -664,17 +664,39 @@ impl<'ast> Checker<'ast> {
                             // if we're doing a spread over an inline array, we return the inside of the array: ...[x, y, z] == x, y, z
                             ArrayExpressionInner::Value(v) => Ok(v),
                             e => Ok((0..size)
-                                .map(|i| match ty {
+                                .map(|i| match &ty {
                                     Type::FieldElement => FieldElementExpression::Select(
                                         box ArrayExpression {
                                             ty: Type::FieldElement,
-                                            size: size,
+                                            size,
                                             inner: e.clone(),
                                         },
                                         box FieldElementExpression::Number(T::from(i)),
                                     )
                                     .into(),
-                                    _ => unimplemented!(),
+                                    Type::Boolean => BooleanExpression::Select(
+                                        box ArrayExpression {
+                                            ty: Type::Boolean,
+                                            size,
+                                            inner: e.clone(),
+                                        },
+                                        box FieldElementExpression::Number(T::from(i)),
+                                    )
+                                    .into(),
+                                    Type::Array(box ty, s) => ArrayExpression {
+                                        ty: ty.clone(),
+                                        size: *s,
+                                        inner: ArrayExpressionInner::Select(
+                                            box ArrayExpression {
+                                                ty: Type::Array(box ty.clone(), *s),
+                                                size,
+                                                inner: e.clone(),
+                                            },
+                                            box FieldElementExpression::Number(T::from(i)),
+                                        )
+                                        .into(),
+                                    }
+                                    .into(),
                                 })
                                 .collect()),
                         }
@@ -1114,9 +1136,6 @@ impl<'ast> Checker<'ast> {
                 }
             }
             Expression::InlineArray(expressions) => {
-                // we should have at least one expression
-                let size = expressions.len();
-                assert!(size > 0);
                 // check each expression, getting its type
                 let mut expressions_checked = vec![];
                 for e in expressions {
