@@ -809,11 +809,11 @@ impl<'ast, T: Field> fmt::Display for StructExpressionInner<'ast, T> {
                     .join(", ")
             ),
             StructExpressionInner::FunctionCall(ref key, ref p) => {
-                r#try!(write!(f, "{}(", key.id,));
+                write!(f, "{}(", key.id,)?;
                 for (i, param) in p.iter().enumerate() {
-                    r#try!(write!(f, "{}", param));
+                    write!(f, "{}", param)?;
                     if i < p.len() - 1 {
-                        r#try!(write!(f, ", "));
+                        write!(f, ", ")?;
                     }
                 }
                 write!(f, ")")
@@ -902,8 +902,8 @@ impl<'ast, T: Field> fmt::Debug for StructExpressionInner<'ast, T> {
             StructExpressionInner::Identifier(ref var) => write!(f, "{:?}", var),
             StructExpressionInner::Value(ref values) => write!(f, "{:?}", values),
             StructExpressionInner::FunctionCall(ref i, ref p) => {
-                r#try!(write!(f, "FunctionCall({:?}, (", i));
-                r#try!(f.debug_list().entries(p.iter()).finish());
+                write!(f, "FunctionCall({:?}, (", i)?;
+                f.debug_list().entries(p.iter()).finish()?;
                 write!(f, ")")
             }
             StructExpressionInner::IfElse(ref condition, ref consequent, ref alternative) => {

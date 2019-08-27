@@ -524,11 +524,11 @@ impl<'ast, T: Field> fmt::Display for Expression<'ast, T> {
                 write!(f, "]")
             }
             Expression::InlineStruct(ref id, ref members) => {
-                r#try!(write!(f, "{} {{", id));
+                write!(f, "{} {{", id)?;
                 for (i, (member_id, e)) in members.iter().enumerate() {
-                    r#try!(write!(f, "{}: {}", member_id, e));
+                    write!(f, "{}: {}", member_id, e)?;
                     if i < members.len() - 1 {
-                        r#try!(write!(f, ", "));
+                        write!(f, ", ")?;
                     }
                 }
                 write!(f, "}}")
@@ -574,8 +574,8 @@ impl<'ast, T: Field> fmt::Debug for Expression<'ast, T> {
                 write!(f, "]")
             }
             Expression::InlineStruct(ref id, ref members) => {
-                r#try!(write!(f, "InlineStruct({:?}, [", id));
-                r#try!(f.debug_list().entries(members.iter()).finish());
+                write!(f, "InlineStruct({:?}, [", id)?;
+                f.debug_list().entries(members.iter()).finish()?;
                 write!(f, "]")
             }
             Expression::Select(ref array, ref index) => write!(f, "{}[{}]", array, index),
