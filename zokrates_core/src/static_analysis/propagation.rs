@@ -45,7 +45,10 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 						None
 					},
 					TypedExpression::Array(e) => {
-                        match e.inner {
+                        let ty = e.inner_type().clone();
+                        let size = e.size();
+
+                        match e.into_inner() {
                             ArrayExpressionInner::Value(array) => {
                                 let array: Vec<_> = array.into_iter().map(|e| self.fold_expression(e)).collect();
 
@@ -56,19 +59,20 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                 }) {
                                     true => {
                                         // all elements of the array are constants
-                                        self.constants.insert(TypedAssignee::Identifier(var), ArrayExpression {
-                                            inner: ArrayExpressionInner::Value(array),
-                                            ..e}.into());
+                                        self.constants.insert(TypedAssignee::Identifier(var), ArrayExpressionInner::Value(array).annotate(
+                                            ty,
+                                            size).into());
                                         None
                                     },
                                     false => {
-                                        Some(TypedStatement::Definition(TypedAssignee::Identifier(var), ArrayExpression {
-                                            inner: ArrayExpressionInner::Value(array),
-                                            ..e}.into()))
+                                        Some(TypedStatement::Definition(TypedAssignee::Identifier(var),
+                                            ArrayExpressionInner::Value(array).annotate(
+                                            ty,
+                                            size).into()))
                                     }
                                 }
                             },
-                            _ => Some(TypedStatement::Definition(TypedAssignee::Identifier(var), TypedExpression::Array(e)))
+                            e => Some(TypedStatement::Definition(TypedAssignee::Identifier(var), TypedExpression::Array(e.annotate(ty, size))))
                         }
 					},
 					e => {
@@ -92,7 +96,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 							match e {
 								TypedExpression::Array(e) => {
                                     let size = e.size();
-                                    match e.inner {
+                                    match e.as_inner_mut() {
                                         ArrayExpressionInner::Value(ref mut v) => {
         									let n_as_usize = n.to_dec_string().parse::<usize>().unwrap();
         									if n_as_usize < size {
@@ -227,7 +231,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                 let inner_type = array.inner_type().clone();
                 let size = array.size();
 
-                match (array.inner, index) {
+                match (array.into_inner(), index) {
                     (ArrayExpressionInner::Value(v), FieldElementExpression::Number(n)) => {
                         let n_as_usize = n.to_dec_string().parse::<usize>().unwrap();
                         if n_as_usize < size {
@@ -253,23 +257,14 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                 _ => panic!(""),
                             },
                             None => FieldElementExpression::Select(
-                                box ArrayExpression {
-                                    ty: inner_type,
-                                    size,
-                                    inner: ArrayExpressionInner::Identifier(id),
-                                },
+                                box ArrayExpressionInner::Identifier(id).annotate(inner_type, size),
                                 box FieldElementExpression::Number(n),
                             ),
                         }
                     }
-                    (a, i) => FieldElementExpression::Select(
-                        box ArrayExpression {
-                            ty: inner_type,
-                            size,
-                            inner: a,
-                        },
-                        box i,
-                    ),
+                    (a, i) => {
+                        FieldElementExpression::Select(box a.annotate(inner_type, size), box i)
+                    }
                 }
             }
             e => fold_field_expression(self, e),
@@ -292,7 +287,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                         size,
                     ))) {
                     Some(e) => match e {
-                        TypedExpression::Array(e) => e.inner.clone(),
+                        TypedExpression::Array(e) => e.as_inner().clone(),
                         _ => panic!("constant stored for an array should be an array"),
                     },
                     None => ArrayExpressionInner::Identifier(id),
@@ -540,15 +535,12 @@ mod tests {
             #[test]
             fn select() {
                 let e = FieldElementExpression::Select(
-                    box ArrayExpression {
-                        ty: Type::FieldElement,
-                        size: 3,
-                        inner: ArrayExpressionInner::Value(vec![
-                            FieldElementExpression::Number(FieldPrime::from(1)).into(),
-                            FieldElementExpression::Number(FieldPrime::from(2)).into(),
-                            FieldElementExpression::Number(FieldPrime::from(3)).into(),
-                        ]),
-                    },
+                    box ArrayExpressionInner::Value(vec![
+                        FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                        FieldElementExpression::Number(FieldPrime::from(2)).into(),
+                        FieldElementExpression::Number(FieldPrime::from(3)).into(),
+                    ])
+                    .annotate(Type::FieldElement, 3),
                     box FieldElementExpression::Add(
                         box FieldElementExpression::Number(FieldPrime::from(1)),
                         box FieldElementExpression::Number(FieldPrime::from(1)),
@@ -836,14 +828,11 @@ mod tests {
                 let declaration = TypedStatement::Declaration(Variable::field_array("a".into(), 2));
                 let definition = TypedStatement::Definition(
                     TypedAssignee::Identifier(Variable::field_array("a".into(), 2)),
-                    ArrayExpression {
-                        ty: Type::FieldElement,
-                        size: 2,
-                        inner: ArrayExpressionInner::Value(vec![
-                            FieldElementExpression::Number(FieldPrime::from(21)).into(),
-                            FieldElementExpression::Number(FieldPrime::from(22)).into(),
-                        ]),
-                    }
+                    ArrayExpressionInner::Value(vec![
+                        FieldElementExpression::Number(FieldPrime::from(21)).into(),
+                        FieldElementExpression::Number(FieldPrime::from(22)).into(),
+                    ])
+                    .annotate(Type::FieldElement, 2)
                     .into(),
                 );
                 let overwrite = TypedStatement::Definition(
@@ -858,15 +847,13 @@ mod tests {
 
                 p.fold_statement(declaration);
                 p.fold_statement(definition);
-                let expected_value: TypedExpression<FieldPrime> = ArrayExpression {
-                    ty: Type::FieldElement,
-                    size: 2,
-                    inner: ArrayExpressionInner::Value(vec![
+                let expected_value: TypedExpression<FieldPrime> =
+                    ArrayExpressionInner::Value(vec![
                         FieldElementExpression::Number(FieldPrime::from(21)).into(),
                         FieldElementExpression::Number(FieldPrime::from(22)).into(),
-                    ]),
-                }
-                .into();
+                    ])
+                    .annotate(Type::FieldElement, 2)
+                    .into();
 
                 assert_eq!(
                     p.constants
@@ -879,15 +866,13 @@ mod tests {
                 );
 
                 p.fold_statement(overwrite);
-                let expected_value: TypedExpression<FieldPrime> = ArrayExpression {
-                    ty: Type::FieldElement,
-                    size: 2,
-                    inner: ArrayExpressionInner::Value(vec![
+                let expected_value: TypedExpression<FieldPrime> =
+                    ArrayExpressionInner::Value(vec![
                         FieldElementExpression::Number(FieldPrime::from(21)).into(),
                         FieldElementExpression::Number(FieldPrime::from(42)).into(),
-                    ]),
-                }
-                .into();
+                    ])
+                    .annotate(Type::FieldElement, 2)
+                    .into();
 
                 assert_eq!(
                     p.constants

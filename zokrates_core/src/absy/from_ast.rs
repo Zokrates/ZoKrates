@@ -117,7 +117,7 @@ impl<'ast, T: Field> From<pest::Function<'ast>> for absy::SymbolDeclarationNode<
                 .collect(),
             signature,
         }
-        .span(span.clone()); // TODO check
+        .span(span.clone());
 
         absy::SymbolDeclaration {
             id,
@@ -661,8 +661,7 @@ mod tests {
 
     #[test]
     fn return_forty_two() {
-        let source = "def main() -> (field): return 42
-        ";
+        let source = "def main() -> (field): return 42";
         let ast = pest::generate_ast(&source).unwrap();
         let expected: absy::Module<FieldPrime> = absy::Module {
             symbols: vec![absy::SymbolDeclaration {
@@ -695,8 +694,7 @@ mod tests {
 
     #[test]
     fn return_true() {
-        let source = "def main() -> (bool): return true
-        ";
+        let source = "def main() -> (bool): return true";
         let ast = pest::generate_ast(&source).unwrap();
         let expected: absy::Module<FieldPrime> = absy::Module {
             symbols: vec![absy::SymbolDeclaration {
@@ -726,8 +724,7 @@ mod tests {
 
     #[test]
     fn arguments() {
-        let source = "def main(private field a, bool b) -> (field): return 42
-        ";
+        let source = "def main(private field a, bool b) -> (field): return 42";
         let ast = pest::generate_ast(&source).unwrap();
 
         let expected: absy::Module<FieldPrime> = absy::Module {

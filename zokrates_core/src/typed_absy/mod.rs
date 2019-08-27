@@ -288,11 +288,11 @@ impl<'ast, T: Field> fmt::Debug for TypedStatement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             TypedStatement::Return(ref exprs) => {
-                r#try!(write!(f, "Return("));
+                write!(f, "Return(")?;
                 for (i, expr) in exprs.iter().enumerate() {
-                    r#try!(write!(f, "{}", expr));
+                    write!(f, "{}", expr)?;
                     if i < exprs.len() - 1 {
-                        r#try!(write!(f, ", "));
+                        write!(f, ", ")?;
                     }
                 }
                 write!(f, ")")
@@ -305,9 +305,9 @@ impl<'ast, T: Field> fmt::Debug for TypedStatement<'ast, T> {
                 write!(f, "Condition({:?}, {:?})", lhs, rhs)
             }
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {
-                r#try!(write!(f, "for {:?} in {:?}..{:?} do\n", var, start, stop));
+                write!(f, "for {:?} in {:?}..{:?} do\n", var, start, stop)?;
                 for l in list {
-                    r#try!(write!(f, "\t\t{:?}\n", l));
+                    write!(f, "\t\t{:?}\n", l)?;
                 }
                 write!(f, "\tendfor")
             }
@@ -322,11 +322,11 @@ impl<'ast, T: Field> fmt::Display for TypedStatement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             TypedStatement::Return(ref exprs) => {
-                r#try!(write!(f, "return "));
+                write!(f, "return ")?;
                 for (i, expr) in exprs.iter().enumerate() {
-                    r#try!(write!(f, "{}", expr));
+                    write!(f, "{}", expr)?;
                     if i < exprs.len() - 1 {
-                        r#try!(write!(f, ", "));
+                        write!(f, ", ")?;
                     }
                 }
                 write!(f, "")
@@ -335,17 +335,17 @@ impl<'ast, T: Field> fmt::Display for TypedStatement<'ast, T> {
             TypedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             TypedStatement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {
-                r#try!(write!(f, "for {} in {}..{} do\n", var, start, stop));
+                write!(f, "for {} in {}..{} do\n", var, start, stop)?;
                 for l in list {
-                    r#try!(write!(f, "\t\t{}\n", l));
+                    write!(f, "\t\t{}\n", l)?;
                 }
                 write!(f, "\tendfor")
             }
             TypedStatement::MultipleDefinition(ref ids, ref rhs) => {
                 for (i, id) in ids.iter().enumerate() {
-                    r#try!(write!(f, "{}", id));
+                    write!(f, "{}", id)?;
                     if i < ids.len() - 1 {
-                        r#try!(write!(f, ", "));
+                        write!(f, ", ")?;
                     }
                 }
                 write!(f, " = {}", rhs)
@@ -563,9 +563,9 @@ pub enum BooleanExpression<'ast, T: Field> {
 
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub struct ArrayExpression<'ast, T: Field> {
-    pub size: usize,
-    pub ty: Type,
-    pub inner: ArrayExpressionInner<'ast, T>,
+    size: usize,
+    ty: Type,
+    inner: ArrayExpressionInner<'ast, T>,
 }
 
 #[derive(Clone, PartialEq, Hash, Eq)]
@@ -585,6 +585,16 @@ pub enum ArrayExpressionInner<'ast, T: Field> {
     ),
 }
 
+impl<'ast, T: Field> ArrayExpressionInner<'ast, T> {
+    pub fn annotate(self, ty: Type, size: usize) -> ArrayExpression<'ast, T> {
+        ArrayExpression {
+            size,
+            ty,
+            inner: self,
+        }
+    }
+}
+
 impl<'ast, T: Field> ArrayExpression<'ast, T> {
     pub fn inner_type(&self) -> &Type {
         &self.ty
@@ -593,12 +603,34 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
     pub fn size(&self) -> usize {
         self.size
     }
+
+    pub fn as_inner(&self) -> &ArrayExpressionInner<'ast, T> {
+        &self.inner
+    }
+
+    pub fn into_inner(self) -> ArrayExpressionInner<'ast, T> {
+        self.inner
+    }
+
+    pub fn as_inner_mut(&mut self) -> &mut ArrayExpressionInner<'ast, T> {
+        &mut self.inner
+    }
 }
 
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub struct StructExpression<'ast, T: Field> {
-    pub ty: Vec<(MemberId, Type)>,
-    pub inner: StructExpressionInner<'ast, T>,
+    ty: Vec<(MemberId, Type)>,
+    inner: StructExpressionInner<'ast, T>,
+}
+
+impl<'ast, T: Field> StructExpression<'ast, T> {
+    pub fn ty(&self) -> &Vec<(MemberId, Type)> {
+        &self.ty
+    }
+
+    pub fn into_inner(self) -> StructExpressionInner<'ast, T> {
+        self.inner
+    }
 }
 
 #[derive(Clone, PartialEq, Hash, Eq)]
@@ -616,6 +648,12 @@ pub enum StructExpressionInner<'ast, T: Field> {
         Box<ArrayExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
+}
+
+impl<'ast, T: Field> StructExpressionInner<'ast, T> {
+    pub fn annotate(self, ty: Vec<(MemberId, Type)>) -> StructExpression<'ast, T> {
+        StructExpression { ty, inner: self }
+    }
 }
 
 // Downcasts
@@ -684,11 +722,11 @@ impl<'ast, T: Field> fmt::Display for FieldElementExpression<'ast, T> {
                 )
             }
             FieldElementExpression::FunctionCall(ref k, ref p) => {
-                r#try!(write!(f, "{}(", k.id,));
+                write!(f, "{}(", k.id,)?;
                 for (i, param) in p.iter().enumerate() {
-                    r#try!(write!(f, "{}", param));
+                    write!(f, "{}", param)?;
                     if i < p.len() - 1 {
-                        r#try!(write!(f, ", "));
+                        write!(f, ", ")?;
                     }
                 }
                 write!(f, ")")
@@ -737,11 +775,11 @@ impl<'ast, T: Field> fmt::Display for ArrayExpressionInner<'ast, T> {
                     .join(", ")
             ),
             ArrayExpressionInner::FunctionCall(ref key, ref p) => {
-                r#try!(write!(f, "{}(", key.id,));
+                write!(f, "{}(", key.id,)?;
                 for (i, param) in p.iter().enumerate() {
-                    r#try!(write!(f, "{}", param));
+                    write!(f, "{}", param)?;
                     if i < p.len() - 1 {
-                        r#try!(write!(f, ", "));
+                        write!(f, ", ")?;
                     }
                 }
                 write!(f, ")")
@@ -819,8 +857,8 @@ impl<'ast, T: Field> fmt::Debug for FieldElementExpression<'ast, T> {
                 )
             }
             FieldElementExpression::FunctionCall(ref i, ref p) => {
-                r#try!(write!(f, "FunctionCall({:?}, (", i));
-                r#try!(f.debug_list().entries(p.iter()).finish());
+                write!(f, "FunctionCall({:?}, (", i)?;
+                f.debug_list().entries(p.iter()).finish()?;
                 write!(f, ")")
             }
             FieldElementExpression::Member(ref struc, ref id) => {
@@ -839,8 +877,8 @@ impl<'ast, T: Field> fmt::Debug for ArrayExpressionInner<'ast, T> {
             ArrayExpressionInner::Identifier(ref var) => write!(f, "{:?}", var),
             ArrayExpressionInner::Value(ref values) => write!(f, "{:?}", values),
             ArrayExpressionInner::FunctionCall(ref i, ref p) => {
-                r#try!(write!(f, "FunctionCall({:?}, (", i));
-                r#try!(f.debug_list().entries(p.iter()).finish());
+                write!(f, "FunctionCall({:?}, (", i)?;
+                f.debug_list().entries(p.iter()).finish()?;
                 write!(f, ")")
             }
             ArrayExpressionInner::IfElse(ref condition, ref consequent, ref alternative) => write!(
@@ -889,11 +927,11 @@ impl<'ast, T: Field> fmt::Display for TypedExpressionList<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             TypedExpressionList::FunctionCall(ref key, ref p, _) => {
-                r#try!(write!(f, "{}(", key.id,));
+                write!(f, "{}(", key.id,)?;
                 for (i, param) in p.iter().enumerate() {
-                    r#try!(write!(f, "{}", param));
+                    write!(f, "{}", param)?;
                     if i < p.len() - 1 {
-                        r#try!(write!(f, ", "));
+                        write!(f, ", ")?;
                     }
                 }
                 write!(f, ")")
@@ -906,8 +944,8 @@ impl<'ast, T: Field> fmt::Debug for TypedExpressionList<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             TypedExpressionList::FunctionCall(ref i, ref p, _) => {
-                r#try!(write!(f, "FunctionCall({:?}, (", i));
-                r#try!(f.debug_list().entries(p.iter()).finish());
+                write!(f, "FunctionCall({:?}, (", i)?;
+                f.debug_list().entries(p.iter()).finish()?;
                 write!(f, ")")
             }
         }

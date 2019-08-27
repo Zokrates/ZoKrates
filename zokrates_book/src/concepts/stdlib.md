@@ -71,11 +71,19 @@ import "utils/pack/unpack128"
 
 Unpacks a field element to 128 field elements.
 
-#### unpack256
+#### pack256
 
 ```zokrates
-import "utils/pack/unpack256"
+import "utils/pack/pack256"
 ```
 
-Unpacks a field element to 256 field elements.
+Packs 256 field elements as one. Overflows can occur.
+
+#### nonStrictUnpack256
+
+```zokrates
+import "utils/pack/nonStrictUnpack256"
+```
+
+Unpacks a field element to 256 field elements. Uniqueness of the output is not guaranteed.
 
