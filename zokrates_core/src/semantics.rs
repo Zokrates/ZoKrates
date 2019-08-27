@@ -660,42 +660,28 @@ impl<'ast> Checker<'ast> {
                     TypedExpression::Array(e) => {
                         let ty = e.inner_type().clone();
                         let size = e.size();
-                        match e.inner {
+                        match e.into_inner() {
                             // if we're doing a spread over an inline array, we return the inside of the array: ...[x, y, z] == x, y, z
                             ArrayExpressionInner::Value(v) => Ok(v),
                             e => Ok((0..size)
                                 .map(|i| match &ty {
                                     Type::FieldElement => FieldElementExpression::Select(
-                                        box ArrayExpression {
-                                            ty: Type::FieldElement,
-                                            size,
-                                            inner: e.clone(),
-                                        },
+                                        box e.clone().annotate(Type::FieldElement, size),
                                         box FieldElementExpression::Number(T::from(i)),
                                     )
                                     .into(),
                                     Type::Boolean => BooleanExpression::Select(
-                                        box ArrayExpression {
-                                            ty: Type::Boolean,
-                                            size,
-                                            inner: e.clone(),
-                                        },
+                                        box e.clone().annotate(Type::Boolean, size),
                                         box FieldElementExpression::Number(T::from(i)),
                                     )
                                     .into(),
-                                    Type::Array(box ty, s) => ArrayExpression {
-                                        ty: ty.clone(),
-                                        size: *s,
-                                        inner: ArrayExpressionInner::Select(
-                                            box ArrayExpression {
-                                                ty: Type::Array(box ty.clone(), *s),
-                                                size,
-                                                inner: e.clone(),
-                                            },
-                                            box FieldElementExpression::Number(T::from(i)),
-                                        )
-                                        .into(),
-                                    }
+                                    Type::Array(box ty, s) => ArrayExpressionInner::Select(
+                                        box e
+                                            .clone()
+                                            .annotate(Type::Array(box ty.clone(), *s), size),
+                                        box FieldElementExpression::Number(T::from(i)),
+                                    )
+                                    .annotate(ty.clone(), *s)
                                     .into(),
                                 })
                                 .collect()),
@@ -731,12 +717,9 @@ impl<'ast> Checker<'ast> {
                         Type::FieldElement => {
                             Ok(FieldElementExpression::Identifier(name.into()).into())
                         }
-                        Type::Array(ty, size) => Ok(ArrayExpression {
-                            ty: *ty,
-                            size,
-                            inner: ArrayExpressionInner::Identifier(name.into()),
-                        }
-                        .into()),
+                        Type::Array(ty, size) => Ok(ArrayExpressionInner::Identifier(name.into())
+                            .annotate(*ty, size)
+                            .into()),
                     },
                     None => Err(Error {
                         pos: Some(pos),
@@ -855,11 +838,9 @@ impl<'ast> Checker<'ast> {
                                 },
                                 (TypedExpression::Array(consequence), TypedExpression::Array(alternative)) => {
                                     if consequence.get_type() == alternative.get_type() && consequence.size() == alternative.size() {
-                                        Ok(ArrayExpression {
-                                            ty: consequence.inner_type().clone(),
-                                            size: consequence.size(),
-                                            inner: ArrayExpressionInner::IfElse(box condition, box consequence, box alternative)
-                                        }.into())
+                                        let inner_type = consequence.inner_type().clone();
+                                        let size = consequence.size();
+                                        Ok(ArrayExpressionInner::IfElse(box condition, box consequence, box alternative).annotate(inner_type ,size).into())
                                     } else {
                                         unimplemented!("handle consequence alternative inner type mismatch")
                                     }
@@ -916,17 +897,14 @@ impl<'ast> Checker<'ast> {
                                     arguments_checked,
                                 )
                                 .into()),
-                                Type::Array(ty, size) => Ok(ArrayExpression {
-                                    ty: *ty,
-                                    size,
-                                    inner: ArrayExpressionInner::FunctionCall(
-                                        FunctionKey {
-                                            id: f.id.clone(),
-                                            signature: f.signature.clone(),
-                                        },
-                                        arguments_checked,
-                                    ),
-                                }
+                                Type::Array(ty, size) => Ok(ArrayExpressionInner::FunctionCall(
+                                    FunctionKey {
+                                        id: f.id.clone(),
+                                        signature: f.signature.clone(),
+                                    },
+                                    arguments_checked,
+                                )
+                                .annotate(*ty, size)
                                 .into()),
                                 _ => unimplemented!(),
                             },
@@ -1089,21 +1067,18 @@ impl<'ast> Checker<'ast> {
                                         f, t,
                                     ),
                                 }),
-                                (f, t, _) => Ok(ArrayExpression {
-                                    ty: inner_type,
-                                    size: t - f,
-                                    inner: ArrayExpressionInner::Value(
-                                        (f..t)
-                                            .map(|i| {
-                                                FieldElementExpression::Select(
-                                                    box array.clone(),
-                                                    box FieldElementExpression::Number(T::from(i)),
-                                                )
-                                                .into()
-                                            })
-                                            .collect(),
-                                    ),
-                                }
+                                (f, t, _) => Ok(ArrayExpressionInner::Value(
+                                    (f..t)
+                                        .map(|i| {
+                                            FieldElementExpression::Select(
+                                                box array.clone(),
+                                                box FieldElementExpression::Number(T::from(i)),
+                                            )
+                                            .into()
+                                        })
+                                        .collect(),
+                                )
+                                .annotate(inner_type, t - f)
                                 .into()),
                             }
                         }
@@ -1111,17 +1086,16 @@ impl<'ast> Checker<'ast> {
                     },
                     RangeOrExpression::Expression(e) => match (array, self.check_expression(e)?) {
                         (TypedExpression::Array(a), TypedExpression::FieldElement(i)) => {
-                            match a.inner_type() {
+                            match a.inner_type().clone() {
                                 Type::FieldElement => {
                                     Ok(FieldElementExpression::Select(box a, box i).into())
                                 }
                                 Type::Boolean => Ok(BooleanExpression::Select(box a, box i).into()),
-                                Type::Array(box ty, size) => Ok(ArrayExpression {
-                                    size: *size,
-                                    ty: ty.clone(),
-                                    inner: ArrayExpressionInner::Select(box a, box i),
+                                Type::Array(box ty, size) => {
+                                    Ok(ArrayExpressionInner::Select(box a, box i)
+                                        .annotate(ty.clone(), size.clone())
+                                        .into())
                                 }
-                                .into()),
                             }
                         }
                         (a, e) => Err(Error {
@@ -1168,12 +1142,11 @@ impl<'ast> Checker<'ast> {
                             unwrapped_expressions.push(unwrapped_e.into());
                         }
 
-                        Ok(ArrayExpression {
-                            ty: Type::FieldElement,
-                            size: unwrapped_expressions.len(),
-                            inner: ArrayExpressionInner::Value(unwrapped_expressions),
-                        }
-                        .into())
+                        let size = unwrapped_expressions.len();
+
+                        Ok(ArrayExpressionInner::Value(unwrapped_expressions)
+                            .annotate(Type::FieldElement, size)
+                            .into())
                     }
                     Type::Boolean => {
                         // we check all expressions have that same type
@@ -1196,12 +1169,11 @@ impl<'ast> Checker<'ast> {
                             unwrapped_expressions.push(unwrapped_e.into());
                         }
 
-                        Ok(ArrayExpression {
-                            ty: Type::Boolean,
-                            size: unwrapped_expressions.len(),
-                            inner: ArrayExpressionInner::Value(unwrapped_expressions),
-                        }
-                        .into())
+                        let size = unwrapped_expressions.len();
+
+                        Ok(ArrayExpressionInner::Value(unwrapped_expressions)
+                            .annotate(Type::Boolean, size)
+                            .into())
                     }
                     ty @ Type::Array(..) => {
                         // we check all expressions have that same type
@@ -1239,12 +1211,11 @@ impl<'ast> Checker<'ast> {
                             unwrapped_expressions.push(unwrapped_e.into());
                         }
 
-                        Ok(ArrayExpression {
-                            ty,
-                            size: unwrapped_expressions.len(),
-                            inner: ArrayExpressionInner::Value(unwrapped_expressions),
-                        }
-                        .into())
+                        let size = unwrapped_expressions.len();
+
+                        Ok(ArrayExpressionInner::Value(unwrapped_expressions)
+                            .annotate(ty, size)
+                            .into())
                     }
                 }
             }

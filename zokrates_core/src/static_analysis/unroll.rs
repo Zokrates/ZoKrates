@@ -83,62 +83,50 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                 let new_variable = self.issue_next_ssa_variable(original_variable);
 
                 let new_array = match expr {
-                    TypedExpression::FieldElement(e) => ArrayExpression {
-                        ty: Type::FieldElement,
-                        size: array_size,
-                        inner: ArrayExpressionInner::Value(
-                            (0..array_size)
-                                .map(|i| {
-                                    FieldElementExpression::IfElse(
-                                        box BooleanExpression::Eq(
-                                            box index.clone(),
-                                            box FieldElementExpression::Number(T::from(i)),
-                                        ),
-                                        box e.clone(),
-                                        box FieldElementExpression::Select(
-                                            box ArrayExpression {
-                                                ty: Type::FieldElement,
-                                                size: array_size,
-                                                inner: ArrayExpressionInner::Identifier(
-                                                    current_ssa_variable.id.clone(),
-                                                ),
-                                            },
-                                            box FieldElementExpression::Number(T::from(i)),
-                                        ),
-                                    )
-                                    .into()
-                                })
-                                .collect(),
-                        ),
-                    },
-                    TypedExpression::Boolean(e) => ArrayExpression {
-                        ty: Type::Boolean,
-                        size: array_size,
-                        inner: ArrayExpressionInner::Value(
-                            (0..array_size)
-                                .map(|i| {
-                                    BooleanExpression::IfElse(
-                                        box BooleanExpression::Eq(
-                                            box index.clone(),
-                                            box FieldElementExpression::Number(T::from(i)),
-                                        ),
-                                        box e.clone(),
-                                        box BooleanExpression::Select(
-                                            box ArrayExpression {
-                                                ty: Type::Boolean,
-                                                size: array_size,
-                                                inner: ArrayExpressionInner::Identifier(
-                                                    current_ssa_variable.id.clone(),
-                                                ),
-                                            },
-                                            box FieldElementExpression::Number(T::from(i)),
-                                        ),
-                                    )
-                                    .into()
-                                })
-                                .collect(),
-                        ),
-                    },
+                    TypedExpression::FieldElement(e) => ArrayExpressionInner::Value(
+                        (0..array_size)
+                            .map(|i| {
+                                FieldElementExpression::IfElse(
+                                    box BooleanExpression::Eq(
+                                        box index.clone(),
+                                        box FieldElementExpression::Number(T::from(i)),
+                                    ),
+                                    box e.clone(),
+                                    box FieldElementExpression::Select(
+                                        box ArrayExpressionInner::Identifier(
+                                            current_ssa_variable.id.clone(),
+                                        )
+                                        .annotate(Type::FieldElement, array_size),
+                                        box FieldElementExpression::Number(T::from(i)),
+                                    ),
+                                )
+                                .into()
+                            })
+                            .collect(),
+                    )
+                    .annotate(Type::FieldElement, array_size),
+                    TypedExpression::Boolean(e) => ArrayExpressionInner::Value(
+                        (0..array_size)
+                            .map(|i| {
+                                BooleanExpression::IfElse(
+                                    box BooleanExpression::Eq(
+                                        box index.clone(),
+                                        box FieldElementExpression::Number(T::from(i)),
+                                    ),
+                                    box e.clone(),
+                                    box BooleanExpression::Select(
+                                        box ArrayExpressionInner::Identifier(
+                                            current_ssa_variable.id.clone(),
+                                        )
+                                        .annotate(Type::Boolean, array_size),
+                                        box FieldElementExpression::Number(T::from(i)),
+                                    ),
+                                )
+                                .into()
+                            })
+                            .collect(),
+                    )
+                    .annotate(Type::Boolean, array_size),
                     TypedExpression::Array(..) => unimplemented!(),
                 };
 
@@ -475,14 +463,11 @@ mod tests {
 
             let s = TypedStatement::Definition(
                 TypedAssignee::Identifier(Variable::field_array("a".into(), 2)),
-                ArrayExpression {
-                    ty: Type::FieldElement,
-                    size: 2,
-                    inner: ArrayExpressionInner::Value(vec![
-                        FieldElementExpression::Number(FieldPrime::from(1)).into(),
-                        FieldElementExpression::Number(FieldPrime::from(1)).into(),
-                    ]),
-                }
+                ArrayExpressionInner::Value(vec![
+                    FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                    FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                ])
+                .annotate(Type::FieldElement, 2)
                 .into(),
             );
 
@@ -493,14 +478,11 @@ mod tests {
                         Identifier::from("a").version(0),
                         2
                     )),
-                    ArrayExpression {
-                        ty: Type::FieldElement,
-                        size: 2,
-                        inner: ArrayExpressionInner::Value(vec![
-                            FieldElementExpression::Number(FieldPrime::from(1)).into(),
-                            FieldElementExpression::Number(FieldPrime::from(1)).into()
-                        ])
-                    }
+                    ArrayExpressionInner::Value(vec![
+                        FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                        FieldElementExpression::Number(FieldPrime::from(1)).into()
+                    ])
+                    .annotate(Type::FieldElement, 2)
                     .into()
                 )]
             );
@@ -520,48 +502,39 @@ mod tests {
                         Identifier::from("a").version(1),
                         2
                     )),
-                    ArrayExpression {
-                        ty: Type::FieldElement,
-                        size: 2,
-                        inner: ArrayExpressionInner::Value(vec![
-                            FieldElementExpression::IfElse(
-                                box BooleanExpression::Eq(
-                                    box FieldElementExpression::Number(FieldPrime::from(1)),
-                                    box FieldElementExpression::Number(FieldPrime::from(0))
-                                ),
-                                box FieldElementExpression::Number(FieldPrime::from(2)),
-                                box FieldElementExpression::Select(
-                                    box ArrayExpression {
-                                        ty: Type::FieldElement,
-                                        size: 2,
-                                        inner: ArrayExpressionInner::Identifier(
-                                            Identifier::from("a").version(0)
-                                        )
-                                    },
-                                    box FieldElementExpression::Number(FieldPrime::from(0))
-                                ),
-                            )
-                            .into(),
-                            FieldElementExpression::IfElse(
-                                box BooleanExpression::Eq(
-                                    box FieldElementExpression::Number(FieldPrime::from(1)),
-                                    box FieldElementExpression::Number(FieldPrime::from(1))
-                                ),
-                                box FieldElementExpression::Number(FieldPrime::from(2)),
-                                box FieldElementExpression::Select(
-                                    box ArrayExpression {
-                                        ty: Type::FieldElement,
-                                        size: 2,
-                                        inner: ArrayExpressionInner::Identifier(
-                                            Identifier::from("a").version(0)
-                                        )
-                                    },
-                                    box FieldElementExpression::Number(FieldPrime::from(1))
-                                ),
-                            )
-                            .into(),
-                        ])
-                    }
+                    ArrayExpressionInner::Value(vec![
+                        FieldElementExpression::IfElse(
+                            box BooleanExpression::Eq(
+                                box FieldElementExpression::Number(FieldPrime::from(1)),
+                                box FieldElementExpression::Number(FieldPrime::from(0))
+                            ),
+                            box FieldElementExpression::Number(FieldPrime::from(2)),
+                            box FieldElementExpression::Select(
+                                box ArrayExpressionInner::Identifier(
+                                    Identifier::from("a").version(0)
+                                )
+                                .annotate(Type::FieldElement, 2),
+                                box FieldElementExpression::Number(FieldPrime::from(0))
+                            ),
+                        )
+                        .into(),
+                        FieldElementExpression::IfElse(
+                            box BooleanExpression::Eq(
+                                box FieldElementExpression::Number(FieldPrime::from(1)),
+                                box FieldElementExpression::Number(FieldPrime::from(1))
+                            ),
+                            box FieldElementExpression::Number(FieldPrime::from(2)),
+                            box FieldElementExpression::Select(
+                                box ArrayExpressionInner::Identifier(
+                                    Identifier::from("a").version(0)
+                                )
+                                .annotate(Type::FieldElement, 2),
+                                box FieldElementExpression::Number(FieldPrime::from(1))
+                            ),
+                        )
+                        .into(),
+                    ])
+                    .annotate(Type::FieldElement, 2)
                     .into()
                 )]
             );

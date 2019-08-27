@@ -528,9 +528,9 @@ pub enum BooleanExpression<'ast, T: Field> {
 
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub struct ArrayExpression<'ast, T: Field> {
-    pub size: usize,
-    pub ty: Type,
-    pub inner: ArrayExpressionInner<'ast, T>,
+    size: usize,
+    ty: Type,
+    inner: ArrayExpressionInner<'ast, T>,
 }
 
 #[derive(Clone, PartialEq, Hash, Eq)]
@@ -549,6 +549,16 @@ pub enum ArrayExpressionInner<'ast, T: Field> {
     ),
 }
 
+impl<'ast, T: Field> ArrayExpressionInner<'ast, T> {
+    pub fn annotate(self, ty: Type, size: usize) -> ArrayExpression<'ast, T> {
+        ArrayExpression {
+            size,
+            ty,
+            inner: self,
+        }
+    }
+}
+
 impl<'ast, T: Field> ArrayExpression<'ast, T> {
     pub fn inner_type(&self) -> &Type {
         &self.ty
@@ -556,6 +566,18 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
 
     pub fn size(&self) -> usize {
         self.size
+    }
+
+    pub fn as_inner(&self) -> &ArrayExpressionInner<'ast, T> {
+        &self.inner
+    }
+
+    pub fn into_inner(self) -> ArrayExpressionInner<'ast, T> {
+        self.inner
+    }
+
+    pub fn as_inner_mut(&mut self) -> &mut ArrayExpressionInner<'ast, T> {
+        &mut self.inner
     }
 }
 

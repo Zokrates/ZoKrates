@@ -26,6 +26,8 @@ pub struct Flattener<'ast, T: Field> {
     flat_cache: HashMap<FunctionKey<'ast>, FlatFunction<T>>,
 }
 
+// We introduce a trait in order to make it possible to make flattening `e` generic over the type of `e`
+
 #[rustfmt::skip]
 trait Flatten<'ast, T: Field>: TryFrom<TypedExpression<'ast, T>, Error: std::fmt::Debug> {
     fn flatten(
@@ -119,24 +121,19 @@ impl<'ast, T: Field> Flatten<'ast, T> for ArrayExpression<'ast, T> {
         consequence: Self,
         alternative: Self,
     ) -> Self {
-        ArrayExpression {
-            ty: consequence.inner_type().clone(),
-            size: consequence.size(),
-            inner: ArrayExpressionInner::IfElse(box condition, box consequence, box alternative),
-        }
+        let ty = consequence.inner_type().clone();
+        let size = consequence.size();
+        ArrayExpressionInner::IfElse(box condition, box consequence, box alternative)
+            .annotate(ty, size)
     }
 
     fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
         let (ty, size) = match array.inner_type() {
-            Type::Array(inner, size) => (inner, size),
+            Type::Array(inner, size) => (inner.clone(), size.clone()),
             _ => unreachable!(),
         };
 
-        ArrayExpression {
-            ty: *ty.clone(),
-            size: *size,
-            inner: ArrayExpressionInner::Select(box array, box index),
-        }
+        ArrayExpressionInner::Select(box array, box index).annotate(*ty, size)
     }
 }
 
@@ -145,11 +142,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         Flattener::new().flatten_program(p)
     }
 
-    /// Returns a `Flattener` with fresh [substitution] and [variables].
-    ///
-    /// # Arguments
-    ///
-    /// * `bits` - Number of bits needed to represent the maximum value.
+    /// Returns a `Flattener` with fresh `layout`.
 
     fn new() -> Flattener<'ast, T> {
         Flattener {
@@ -159,6 +152,17 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
+    /// Flatten an if/else expression
+    ///
+    /// # Arguments
+    ///
+    /// * `symbols` - Available functions in in this context
+    /// * `statements_flattened` - Vector where new flattened statements can be added.
+    /// * `condition` - the condition as a `BooleanExpression`.
+    /// * `consequence` - the consequence of type U.
+    /// * `alternative` - the alternative of type U.
+    /// # Remarks
+    /// * U is the type of the expression
     fn flatten_if_else_expression<U: Flatten<'ast, T>>(
         &mut self,
         symbols: &TypedFunctionSymbols<'ast, T>,
@@ -238,6 +242,15 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         res.into_iter().map(|r| r.into()).collect()
     }
 
+    /// Flatten a array selection expression
+    ///
+    /// # Arguments
+    ///
+    /// * `symbols` - Available functions in in this context
+    /// * `statements_flattened` - Vector where new flattened statements can be added.
+    /// * `expression` - `TypedExpression` that will be flattened.
+    /// # Remarks
+    /// * U is the type of the expression
     fn flatten_select_expression<U: Flatten<'ast, T>>(
         &mut self,
         symbols: &TypedFunctionSymbols<'ast, T>,
@@ -247,12 +260,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ) -> Vec<FlatExpression<T>> {
         let size = array.size();
         let ty = array.inner_type().clone();
-        //assert_eq!(ty, &U::get_type());
 
         let element_size = ty.get_primitive_count();
 
         match index {
-            FieldElementExpression::Number(n) => match array.inner {
+            FieldElementExpression::Number(n) => match array.into_inner() {
                 ArrayExpressionInner::Identifier(id) => {
                     assert!(n < T::from(size));
                     let n = n.to_dec_string().parse::<usize>().unwrap();
@@ -325,14 +337,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 // now we flatten to sum(if e == i then array[i] else false)
                 (0..size)
                     .map(|i| {
-                        let term = match array.clone().inner {
+                        let term = match array.clone().into_inner() {
                             // a[i] = a[i]
                             ArrayExpressionInner::Identifier(id) => U::select(
-                                ArrayExpression {
-                                    ty: ty.clone(),
-                                    size,
-                                    inner: ArrayExpressionInner::Identifier(id),
-                                },
+                                ArrayExpressionInner::Identifier(id).annotate(ty.clone(), size),
                                 FieldElementExpression::Number(T::from(i)),
                             ),
                             // [a_0, ..., a_n][i] = a_i
@@ -356,11 +364,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                 )
                             }
                             ArrayExpressionInner::Select(box array, box index) => U::select(
-                                ArrayExpression {
-                                    ty: ty.clone(),
-                                    size,
-                                    inner: ArrayExpressionInner::Select(box array, box index),
-                                },
+                                ArrayExpressionInner::Select(box array, box index)
+                                    .annotate(ty.clone(), size),
                                 FieldElementExpression::Number(T::from(i)),
                             ),
                         };
@@ -683,6 +688,15 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
+    /// Flattens a function call
+    ///
+    /// # Arguments
+    ///
+    /// * `symbols` - Available functions in this context
+    /// * `statements_flattened` - Vector where new flattened statements can be added.
+    /// * `id` - `Identifier of the function.
+    /// * `return_types` - Types of the return values of the function
+    /// * `param_expressions` - Arguments of this call
     fn flatten_function_call(
         &mut self,
         symbols: &TypedFunctionSymbols<'ast, T>,
@@ -787,7 +801,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// * `symbols` - Available functions in in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
-    /// * `expression` - `TypedExpression` that will be flattened.
+    /// * `expr` - `TypedExpression` that will be flattened.
     fn flatten_expression(
         &mut self,
         symbols: &TypedFunctionSymbols<'ast, T>,
@@ -828,7 +842,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// * `symbols` - Available functions in in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
-    /// * `expression` - `FieldElementExpression` that will be flattened.
+    /// * `expr` - `FieldElementExpression` that will be flattened.
     fn flatten_field_expression(
         &mut self,
         symbols: &TypedFunctionSymbols<'ast, T>,
@@ -1062,8 +1076,15 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
+    /// Flattens an array expression
+    ///
+    /// # Arguments
+    ///
+    /// * `symbols` - Available functions in in this context
+    /// * `statements_flattened` - Vector where new flattened statements can be added.
+    /// * `expression` - `ArrayExpression` that will be flattened.
     /// # Remarks
-    /// * U is the inner type
+    /// * U is the inner type of the array
     fn flatten_array_expression<U: Flatten<'ast, T>>(
         &mut self,
         symbols: &HashMap<FunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>,
@@ -1071,10 +1092,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         expr: ArrayExpression<'ast, T>,
     ) -> Vec<FlatExpression<T>> {
         let ty = expr.get_type();
-        //assert_eq!(U::get_type(), inner_type);
+
         let size = expr.size();
 
-        match expr.inner {
+        match expr.into_inner() {
             ArrayExpressionInner::Identifier(x) => self
                 .layout
                 .get(&x)
@@ -2035,22 +2056,16 @@ mod tests {
         let mut statements_flattened = vec![];
         let statement = TypedStatement::Definition(
             TypedAssignee::Identifier(Variable::field_array("foo".into(), 3)),
-            ArrayExpression {
-                ty: Type::FieldElement,
-                size: 3,
-                inner: ArrayExpressionInner::Value(vec![
-                    FieldElementExpression::Number(FieldPrime::from(1)).into(),
-                    FieldElementExpression::Number(FieldPrime::from(2)).into(),
-                    FieldElementExpression::Number(FieldPrime::from(3)).into(),
-                ]),
-            }
+            ArrayExpressionInner::Value(vec![
+                FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                FieldElementExpression::Number(FieldPrime::from(2)).into(),
+                FieldElementExpression::Number(FieldPrime::from(3)).into(),
+            ])
+            .annotate(Type::FieldElement, 3)
             .into(),
         );
-        let expression = ArrayExpression {
-            ty: Type::FieldElement,
-            size: 3,
-            inner: ArrayExpressionInner::Identifier("foo".into()),
-        };
+        let expression =
+            ArrayExpressionInner::Identifier("foo".into()).annotate(Type::FieldElement, 3);
 
         flattener.flatten_statement(&HashMap::new(), &mut statements_flattened, statement);
 
@@ -2077,15 +2092,12 @@ mod tests {
         let mut statements_flattened = vec![];
         let statement = TypedStatement::Definition(
             TypedAssignee::Identifier(Variable::field_array("foo".into(), 3)),
-            ArrayExpression {
-                ty: Type::FieldElement,
-                size: 3,
-                inner: ArrayExpressionInner::Value(vec![
-                    FieldElementExpression::Number(FieldPrime::from(1)).into(),
-                    FieldElementExpression::Number(FieldPrime::from(2)).into(),
-                    FieldElementExpression::Number(FieldPrime::from(3)).into(),
-                ]),
-            }
+            ArrayExpressionInner::Value(vec![
+                FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                FieldElementExpression::Number(FieldPrime::from(2)).into(),
+                FieldElementExpression::Number(FieldPrime::from(3)).into(),
+            ])
+            .annotate(Type::FieldElement, 3)
             .into(),
         );
 
@@ -2119,24 +2131,17 @@ mod tests {
         let mut statements_flattened = vec![];
         let statement = TypedStatement::Definition(
             TypedAssignee::Identifier(Variable::field_array("foo".into(), 3)),
-            ArrayExpression {
-                ty: Type::FieldElement,
-                size: 3,
-                inner: ArrayExpressionInner::Value(vec![
-                    FieldElementExpression::Number(FieldPrime::from(1)).into(),
-                    FieldElementExpression::Number(FieldPrime::from(2)).into(),
-                    FieldElementExpression::Number(FieldPrime::from(3)).into(),
-                ]),
-            }
+            ArrayExpressionInner::Value(vec![
+                FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                FieldElementExpression::Number(FieldPrime::from(2)).into(),
+                FieldElementExpression::Number(FieldPrime::from(3)).into(),
+            ])
+            .annotate(Type::FieldElement, 3)
             .into(),
         );
 
         let expression = FieldElementExpression::Select(
-            box ArrayExpression {
-                ty: Type::FieldElement,
-                size: 3,
-                inner: ArrayExpressionInner::Identifier("foo".into()),
-            },
+            box ArrayExpressionInner::Identifier("foo".into()).annotate(Type::FieldElement, 3),
             box FieldElementExpression::Number(FieldPrime::from(1)),
         );
 
@@ -2165,15 +2170,12 @@ mod tests {
         let mut statements_flattened = vec![];
         let def = TypedStatement::Definition(
             TypedAssignee::Identifier(Variable::field_array("foo".into(), 3)),
-            ArrayExpression {
-                ty: Type::FieldElement,
-                size: 3,
-                inner: ArrayExpressionInner::Value(vec![
-                    FieldElementExpression::Number(FieldPrime::from(1)).into(),
-                    FieldElementExpression::Number(FieldPrime::from(2)).into(),
-                    FieldElementExpression::Number(FieldPrime::from(3)).into(),
-                ]),
-            }
+            ArrayExpressionInner::Value(vec![
+                FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                FieldElementExpression::Number(FieldPrime::from(2)).into(),
+                FieldElementExpression::Number(FieldPrime::from(3)).into(),
+            ])
+            .annotate(Type::FieldElement, 3)
             .into(),
         );
 
@@ -2182,28 +2184,19 @@ mod tests {
             FieldElementExpression::Add(
                 box FieldElementExpression::Add(
                     box FieldElementExpression::Select(
-                        box ArrayExpression {
-                            ty: Type::FieldElement,
-                            size: 3,
-                            inner: ArrayExpressionInner::Identifier("foo".into()),
-                        },
+                        box ArrayExpressionInner::Identifier("foo".into())
+                            .annotate(Type::FieldElement, 3),
                         box FieldElementExpression::Number(FieldPrime::from(0)),
                     ),
                     box FieldElementExpression::Select(
-                        box ArrayExpression {
-                            ty: Type::FieldElement,
-                            size: 3,
-                            inner: ArrayExpressionInner::Identifier("foo".into()),
-                        },
+                        box ArrayExpressionInner::Identifier("foo".into())
+                            .annotate(Type::FieldElement, 3),
                         box FieldElementExpression::Number(FieldPrime::from(1)),
                     ),
                 ),
                 box FieldElementExpression::Select(
-                    box ArrayExpression {
-                        ty: Type::FieldElement,
-                        size: 3,
-                        inner: ArrayExpressionInner::Identifier("foo".into()),
-                    },
+                    box ArrayExpressionInner::Identifier("foo".into())
+                        .annotate(Type::FieldElement, 3),
                     box FieldElementExpression::Number(FieldPrime::from(2)),
                 ),
             )
@@ -2240,30 +2233,21 @@ mod tests {
         let mut statements_flattened = vec![];
         let def = TypedStatement::Definition(
             TypedAssignee::Identifier(Variable::field_array("foo".into(), 4)),
-            ArrayExpression {
-                ty: Type::array(Type::FieldElement, 2),
-                size: 2,
-                inner: ArrayExpressionInner::Value(vec![
-                    ArrayExpression {
-                        size: 2,
-                        ty: Type::FieldElement,
-                        inner: ArrayExpressionInner::Value(vec![
-                            FieldElementExpression::Number(FieldPrime::from(1)).into(),
-                            FieldElementExpression::Number(FieldPrime::from(2)).into(),
-                        ]),
-                    }
-                    .into(),
-                    ArrayExpression {
-                        size: 2,
-                        ty: Type::FieldElement,
-                        inner: ArrayExpressionInner::Value(vec![
-                            FieldElementExpression::Number(FieldPrime::from(3)).into(),
-                            FieldElementExpression::Number(FieldPrime::from(4)).into(),
-                        ]),
-                    }
-                    .into(),
-                ]),
-            }
+            ArrayExpressionInner::Value(vec![
+                ArrayExpressionInner::Value(vec![
+                    FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                    FieldElementExpression::Number(FieldPrime::from(2)).into(),
+                ])
+                .annotate(Type::FieldElement, 2)
+                .into(),
+                ArrayExpressionInner::Value(vec![
+                    FieldElementExpression::Number(FieldPrime::from(3)).into(),
+                    FieldElementExpression::Number(FieldPrime::from(4)).into(),
+                ])
+                .annotate(Type::FieldElement, 2)
+                .into(),
+            ])
+            .annotate(Type::array(Type::FieldElement, 2), 2)
             .into(),
         );
 
@@ -2273,65 +2257,41 @@ mod tests {
                 box FieldElementExpression::Add(
                     box FieldElementExpression::Add(
                         box FieldElementExpression::Select(
-                            box ArrayExpression {
-                                ty: Type::FieldElement,
-                                size: 2,
-                                inner: ArrayExpressionInner::Select(
-                                    box ArrayExpression {
-                                        ty: Type::array(Type::FieldElement, 2),
-                                        size: 2,
-                                        inner: ArrayExpressionInner::Identifier("foo".into()),
-                                    },
-                                    box FieldElementExpression::Number(FieldPrime::from(0)),
-                                ),
-                            },
+                            box ArrayExpressionInner::Select(
+                                box ArrayExpressionInner::Identifier("foo".into())
+                                    .annotate(Type::array(Type::FieldElement, 2), 2),
+                                box FieldElementExpression::Number(FieldPrime::from(0)),
+                            )
+                            .annotate(Type::FieldElement, 2),
                             box FieldElementExpression::Number(FieldPrime::from(0)),
                         ),
                         box FieldElementExpression::Select(
-                            box ArrayExpression {
-                                ty: Type::FieldElement,
-                                size: 2,
-                                inner: ArrayExpressionInner::Select(
-                                    box ArrayExpression {
-                                        ty: Type::array(Type::FieldElement, 2),
-                                        size: 2,
-                                        inner: ArrayExpressionInner::Identifier("foo".into()),
-                                    },
-                                    box FieldElementExpression::Number(FieldPrime::from(0)),
-                                ),
-                            },
+                            box ArrayExpressionInner::Select(
+                                box ArrayExpressionInner::Identifier("foo".into())
+                                    .annotate(Type::array(Type::FieldElement, 2), 2),
+                                box FieldElementExpression::Number(FieldPrime::from(0)),
+                            )
+                            .annotate(Type::FieldElement, 2),
                             box FieldElementExpression::Number(FieldPrime::from(1)),
                         ),
                     ),
                     box FieldElementExpression::Select(
-                        box ArrayExpression {
-                            ty: Type::FieldElement,
-                            size: 2,
-                            inner: ArrayExpressionInner::Select(
-                                box ArrayExpression {
-                                    ty: Type::array(Type::FieldElement, 2),
-                                    size: 2,
-                                    inner: ArrayExpressionInner::Identifier("foo".into()),
-                                },
-                                box FieldElementExpression::Number(FieldPrime::from(1)),
-                            ),
-                        },
+                        box ArrayExpressionInner::Select(
+                            box ArrayExpressionInner::Identifier("foo".into())
+                                .annotate(Type::array(Type::FieldElement, 2), 2),
+                            box FieldElementExpression::Number(FieldPrime::from(1)),
+                        )
+                        .annotate(Type::FieldElement, 2),
                         box FieldElementExpression::Number(FieldPrime::from(0)),
                     ),
                 ),
                 box FieldElementExpression::Select(
-                    box ArrayExpression {
-                        ty: Type::FieldElement,
-                        size: 2,
-                        inner: ArrayExpressionInner::Select(
-                            box ArrayExpression {
-                                ty: Type::array(Type::FieldElement, 2),
-                                size: 2,
-                                inner: ArrayExpressionInner::Identifier("foo".into()),
-                            },
-                            box FieldElementExpression::Number(FieldPrime::from(1)),
-                        ),
-                    },
+                    box ArrayExpressionInner::Select(
+                        box ArrayExpressionInner::Identifier("foo".into())
+                            .annotate(Type::array(Type::FieldElement, 2), 2),
+                        box FieldElementExpression::Number(FieldPrime::from(1)),
+                    )
+                    .annotate(Type::FieldElement, 2),
                     box FieldElementExpression::Number(FieldPrime::from(1)),
                 ),
             )
@@ -2367,31 +2327,23 @@ mod tests {
             let mut flattener = Flattener::new();
             let mut statements_flattened = vec![];
 
-            let e =
-                ArrayExpression {
-                    ty: Type::FieldElement,
-                    size: 1,
-                    inner: ArrayExpressionInner::IfElse(
-                        box BooleanExpression::Eq(
-                            box FieldElementExpression::Number(FieldPrime::from(1)),
-                            box FieldElementExpression::Number(FieldPrime::from(1)),
-                        ),
-                        box ArrayExpression {
-                            ty: Type::FieldElement,
-                            size: 1,
-                            inner: ArrayExpressionInner::Value(vec![
-                                FieldElementExpression::Number(FieldPrime::from(1)).into(),
-                            ]),
-                        },
-                        box ArrayExpression {
-                            ty: Type::FieldElement,
-                            size: 1,
-                            inner: ArrayExpressionInner::Value(vec![
-                                FieldElementExpression::Number(FieldPrime::from(3)).into(),
-                            ]),
-                        },
-                    ),
-                };
+            let e = ArrayExpressionInner::IfElse(
+                box BooleanExpression::Eq(
+                    box FieldElementExpression::Number(FieldPrime::from(1)),
+                    box FieldElementExpression::Number(FieldPrime::from(1)),
+                ),
+                box ArrayExpressionInner::Value(vec![FieldElementExpression::Number(
+                    FieldPrime::from(1),
+                )
+                .into()])
+                .annotate(Type::FieldElement, 1),
+                box ArrayExpressionInner::Value(vec![FieldElementExpression::Number(
+                    FieldPrime::from(3),
+                )
+                .into()])
+                .annotate(Type::FieldElement, 2),
+            )
+            .annotate(Type::FieldElement, 1);
 
             (
                 flattener.flatten_array_expression::<FieldElementExpression<_>>(

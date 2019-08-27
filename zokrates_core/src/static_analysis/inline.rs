@@ -250,7 +250,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
 
                 match self.try_inline_call(&key, exps) {
                     Ok(mut ret) => match ret.pop().unwrap() {
-                        TypedExpression::Array(e) => e.inner,
+                        TypedExpression::Array(e) => e.into_inner(),
                         _ => unreachable!(),
                     },
                     Err((key, expressions)) => ArrayExpressionInner::FunctionCall(key, expressions),
