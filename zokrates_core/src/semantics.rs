@@ -691,7 +691,7 @@ impl<'ast> Checker<'ast> {
                         pos: Some(pos),
 
                         message: format!(
-                            "Expected spread operator to apply on field element array, found {}",
+                            "Expected spread operator to apply on array, found {}",
                             e.get_type()
                         ),
                     }),

@@ -505,7 +505,9 @@ impl<'ast, T: Field> fmt::Debug for Expression<'ast, T> {
                 f.debug_list().entries(exprs.iter()).finish()?;
                 write!(f, "]")
             }
-            Expression::Select(ref array, ref index) => write!(f, "{}[{}]", array, index),
+            Expression::Select(ref array, ref index) => {
+                write!(f, "Select({:?}, {:?})", array, index)
+            }
             Expression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
         }
     }
