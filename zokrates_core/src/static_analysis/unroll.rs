@@ -127,7 +127,37 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                             .collect(),
                     )
                     .annotate(Type::Boolean, array_size),
-                    TypedExpression::Array(..) => unimplemented!(),
+                    TypedExpression::Array(e) => {
+                        let array_inner_type = Type::array(e.inner_type().clone(), e.size());
+                        let array_size = array_size;
+                        let element_inner_type = e.inner_type().clone();
+                        let element_size = e.size();
+
+                        ArrayExpressionInner::Value(
+                            (0..array_size)
+                                .map(|i| {
+                                    ArrayExpressionInner::IfElse(
+                                        box BooleanExpression::Eq(
+                                            box index.clone(),
+                                            box FieldElementExpression::Number(T::from(i)),
+                                        ),
+                                        box e.clone(),
+                                        box ArrayExpressionInner::Select(
+                                            box ArrayExpressionInner::Identifier(
+                                                current_ssa_variable.id.clone(),
+                                            )
+                                            .annotate(array_inner_type.clone(), array_size),
+                                            box FieldElementExpression::Number(T::from(i)),
+                                        )
+                                        .annotate(e.inner_type().clone(), e.size()),
+                                    )
+                                    .annotate(element_inner_type.clone(), element_size)
+                                    .into()
+                                })
+                                .collect(),
+                        )
+                        .annotate(array_inner_type.clone(), array_size)
+                    }
                 };
 
                 vec![TypedStatement::Definition(

@@ -836,16 +836,15 @@ impl<'ast> Checker<'ast> {
                                 (TypedExpression::FieldElement(consequence), TypedExpression::FieldElement(alternative)) => {
                                     Ok(FieldElementExpression::IfElse(box condition, box consequence, box alternative).into())
                                 },
-                                (TypedExpression::Array(consequence), TypedExpression::Array(alternative)) => {
-                                    if consequence.get_type() == alternative.get_type() && consequence.size() == alternative.size() {
-                                        let inner_type = consequence.inner_type().clone();
-                                        let size = consequence.size();
-                                        Ok(ArrayExpressionInner::IfElse(box condition, box consequence, box alternative).annotate(inner_type ,size).into())
-                                    } else {
-                                        unimplemented!("handle consequence alternative inner type mismatch")
-                                    }
+                                (TypedExpression::Boolean(consequence), TypedExpression::Boolean(alternative)) => {
+                                    Ok(BooleanExpression::IfElse(box condition, box consequence, box alternative).into())
                                 },
-                                _ => unimplemented!()
+                                (TypedExpression::Array(consequence), TypedExpression::Array(alternative)) => {
+                                    let inner_type = consequence.inner_type().clone();
+                                    let size = consequence.size();
+                                    Ok(ArrayExpressionInner::IfElse(box condition, box consequence, box alternative).annotate(inner_type, size).into())
+                                },
+                                _ => unreachable!("types should match here as we checked them explicitly")
                             }
                             false => Err(Error {
                                 pos: Some(pos),
@@ -926,7 +925,9 @@ impl<'ast> Checker<'ast> {
                             fun_id, query
                         ),
                     }),
-                    _ => panic!("duplicate definition should have been caught before the call"),
+                    _ => {
+                        unreachable!("duplicate definition should have been caught before the call")
+                    }
                 }
             }
             Expression::Lt(box e1, box e2) => {
@@ -1082,7 +1083,7 @@ impl<'ast> Checker<'ast> {
                                 .into()),
                             }
                         }
-                        _ => panic!(""),
+                        _ => unreachable!(""),
                     },
                     RangeOrExpression::Expression(e) => match (array, self.check_expression(e)?) {
                         (TypedExpression::Array(a), TypedExpression::FieldElement(i)) => {
