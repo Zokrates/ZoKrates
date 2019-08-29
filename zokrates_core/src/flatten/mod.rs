@@ -1139,212 +1139,41 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 // define n variables with n the number of primitive types for v_type
                 // assign them to the n primitive types for expr
 
-                let rhs = self.flatten_expression(symbols, statements_flattened, expr.clone());
+                let rhs = self.flatten_expression(symbols, statements_flattened, expr);
 
-                match expr.get_type() {
-                    Type::FieldElement | Type::Boolean => {
-                        match assignee {
-                            TypedAssignee::Identifier(ref v) => {
-                                let var = self.use_variable(&v)[0];
-                                // handle return of function call
-                                statements_flattened
-                                    .push(FlatStatement::Definition(var, rhs[0].clone()));
-                            }
-                            TypedAssignee::ArrayElement(box array, box index) => {
-                                let expr = match expr {
-                                    TypedExpression::FieldElement(e) => e,
-                                    _ => panic!("not a field element as rhs of array element update, should have been caught at semantic")
-                                };
-                                match index {
-                                    FieldElementExpression::Number(n) => match array {
-                                        TypedAssignee::Identifier(id) => {
-                                            let var = self.issue_new_variables(1);
-                                            let variables = self.layout.get_mut(&id.id).unwrap();
-                                            variables
-                                                [n.to_dec_string().parse::<usize>().unwrap()] =
-                                                var[0];
-                                            statements_flattened.push(FlatStatement::Definition(
-                                                var[0],
-                                                rhs[0].clone(),
-                                            ));
-                                        }
-                                        _ => panic!("no multidimension array for now"),
-                                    },
-                                    e => {
-                                        // we have array[e] with e an arbitrary expression
-                                        // first we check that e is in 0..array.len(), so we check that sum(if e == i then 1 else 0) == 1
-                                        // here depending on the size, we could use a proper range check based on bits
-                                        let size = match array.get_type() {
-                                            Type::Array(_, n) => n,
-                                            _ => panic!("checker should generate array element based on non array")
-                                        };
-                                        let range_check = (0..size)
-                                            .map(|i| {
-                                                FieldElementExpression::IfElse(
-                                                    box BooleanExpression::Eq(
-                                                        box e.clone(),
-                                                        box FieldElementExpression::Number(
-                                                            T::from(i),
-                                                        ),
-                                                    ),
-                                                    box FieldElementExpression::Number(T::from(1)),
-                                                    box FieldElementExpression::Number(T::from(0)),
-                                                )
-                                            })
-                                            .fold(
-                                                FieldElementExpression::Number(T::from(0)),
-                                                |acc, e| {
-                                                    FieldElementExpression::Add(box acc, box e)
-                                                },
-                                            );
-
-                                        let range_check_statement = TypedStatement::Condition(
-                                            FieldElementExpression::Number(T::from(1)).into(),
-                                            range_check.into(),
-                                        );
-
-                                        self.flatten_statement(
-                                            symbols,
-                                            statements_flattened,
-                                            range_check_statement,
-                                        );
-
-                                        // now we redefine the whole array, updating only the piece that changed
-                                        // stat(array[i] = if e == i then `expr` else `array[i]`)
-                                        let vars = match array {
-                                            TypedAssignee::Identifier(v) => self.use_variable(&v),
-                                            _ => unimplemented!(),
-                                        };
-
-                                        let statements = vars
-                                            .into_iter()
-                                            .enumerate()
-                                            .map(|(i, v)| {
-                                                let rhs = FieldElementExpression::IfElse(
-                                                    box BooleanExpression::Eq(
-                                                        box e.clone(),
-                                                        box FieldElementExpression::Number(
-                                                            T::from(i),
-                                                        ),
-                                                    ),
-                                                    box expr.clone(),
-                                                    box e.clone(),
-                                                );
-
-                                                let rhs_flattened = self.flatten_field_expression(
-                                                    symbols,
-                                                    statements_flattened,
-                                                    rhs,
-                                                );
-
-                                                FlatStatement::Definition(v, rhs_flattened)
-                                            })
-                                            .collect::<Vec<_>>();
-
-                                        statements_flattened.extend(statements);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    Type::Array(..) => {
-                        let vars = match assignee {
-                            TypedAssignee::Identifier(v) => self.use_variable(&v),
-                            _ => unimplemented!(),
-                        };
+                match assignee {
+                    TypedAssignee::Identifier(ref v) => {
+                        let vars = self.use_variable(&v);
+                        // handle return of function call
                         statements_flattened.extend(
                             vars.into_iter()
-                                .zip(rhs.into_iter())
-                                .map(|(v, r)| FlatStatement::Definition(v, r)),
+                                .zip(rhs)
+                                .map(|(v, e)| FlatStatement::Definition(v, e)),
                         );
                     }
+                    TypedAssignee::ArrayElement(..) => unreachable!(
+                        "array element redefs should have been replaced by array redefs in unroll"
+                    ),
                 }
             }
-            TypedStatement::Condition(expr1, expr2) => {
+            TypedStatement::Condition(lhs, rhs) => {
                 // flatten expr1 and expr2 to n flattened expressions with n the number of primitive types for expr1
                 // add n conditions to check equality of the n expressions
 
-                match (expr1, expr2) {
-                    (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        let (lhs, rhs) = (
-                            self.flatten_field_expression(symbols, statements_flattened, e1),
-                            self.flatten_field_expression(symbols, statements_flattened, e2),
-                        );
+                let lhs = self.flatten_expression(symbols, statements_flattened, lhs);
+                let rhs = self.flatten_expression(symbols, statements_flattened, rhs);
 
-                        if lhs.is_linear() {
-                            statements_flattened.push(FlatStatement::Condition(lhs, rhs));
-                        } else if rhs.is_linear() {
-                            // swap so that left side is linear
-                            statements_flattened.push(FlatStatement::Condition(rhs, lhs));
-                        } else {
-                            unimplemented!()
-                        }
+                assert_eq!(lhs.len(), rhs.len());
+
+                for (l, r) in lhs.into_iter().zip(rhs.into_iter()) {
+                    if l.is_linear() {
+                        statements_flattened.push(FlatStatement::Condition(l, r));
+                    } else if r.is_linear() {
+                        // swap so that left side is linear
+                        statements_flattened.push(FlatStatement::Condition(r, l));
+                    } else {
+                        unimplemented!()
                     }
-                    (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
-                        let (lhs, rhs) = (
-                            self.flatten_boolean_expression(symbols, statements_flattened, e1),
-                            self.flatten_boolean_expression(symbols, statements_flattened, e2),
-                        );
-
-                        if lhs.is_linear() {
-                            statements_flattened.push(FlatStatement::Condition(lhs, rhs));
-                        } else if rhs.is_linear() {
-                            // swap so that left side is linear
-                            statements_flattened.push(FlatStatement::Condition(rhs, lhs));
-                        } else {
-                            unimplemented!()
-                        }
-                    }
-                    (TypedExpression::Array(e1), TypedExpression::Array(e2)) => {
-                        let (lhs, rhs) = (
-                            match e1.inner_type() {
-                                Type::FieldElement => self
-                                    .flatten_array_expression::<FieldElementExpression<'ast, T>>(
-                                        symbols,
-                                        statements_flattened,
-                                        e1,
-                                    ),
-                                Type::Boolean => self
-                                    .flatten_array_expression::<BooleanExpression<'ast, T>>(
-                                        symbols,
-                                        statements_flattened,
-                                        e1,
-                                    ),
-                                _ => unreachable!(),
-                            },
-                            match e2.inner_type() {
-                                Type::FieldElement => self
-                                    .flatten_array_expression::<FieldElementExpression<'ast, T>>(
-                                        symbols,
-                                        statements_flattened,
-                                        e2,
-                                    ),
-                                Type::Boolean => self
-                                    .flatten_array_expression::<BooleanExpression<'ast, T>>(
-                                        symbols,
-                                        statements_flattened,
-                                        e2,
-                                    ),
-                                _ => unreachable!(),
-                            },
-                        );
-
-                        assert_eq!(lhs.len(), rhs.len());
-
-                        for (l, r) in lhs.into_iter().zip(rhs.into_iter()) {
-                            if l.is_linear() {
-                                statements_flattened.push(FlatStatement::Condition(l, r));
-                            } else if r.is_linear() {
-                                // swap so that left side is linear
-                                statements_flattened.push(FlatStatement::Condition(r, l));
-                            } else {
-                                unimplemented!()
-                            }
-                        }
-                    }
-                    _ => panic!(
-                        "non matching types in condition should have been caught at semantic stage"
-                    ),
                 }
             }
             TypedStatement::For(..) => unreachable!("static analyser should have unrolled"),

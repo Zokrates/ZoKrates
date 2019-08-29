@@ -512,7 +512,11 @@ impl<'ast, T: Field> From<pest::Assignee<'ast>> for absy::AssigneeNode<'ast, T> 
                 box absy::RangeOrExpression::from(assignee.indices[0].clone()),
             )
             .span(assignee.span),
-            n => unimplemented!("Array should have one dimension, found {} in {}", n, a),
+            n => unimplemented!(
+                "Assignment to array of {} dimensions not supported yet (found in {})",
+                n,
+                a
+            ),
         }
     }
 }

@@ -165,6 +165,10 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                     new_array.into(),
                 )]
             }
+            TypedStatement::Definition(
+                TypedAssignee::ArrayElement(box TypedAssignee::ArrayElement(..), _),
+                _,
+            ) => unreachable!("multi array with redefs breaks ssa now"),
             TypedStatement::MultipleDefinition(variables, exprs) => {
                 let exprs = self.fold_expression_list(exprs);
                 let variables = variables
