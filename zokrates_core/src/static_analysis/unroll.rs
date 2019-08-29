@@ -569,5 +569,147 @@ mod tests {
                 )]
             );
         }
+
+        #[test]
+        fn incremental_array_of_arrays_definition() {
+            // field[2][2] a = [[0, 1], [2, 3]]
+            // a[1] = [4, 5]
+
+            // should be turned into
+            // a_0 = [[0, 1], [2, 3]]
+            // a_1 = [if 0 == 1 then [4, 5] else a_0[0], if 1 == 1 then [4, 5] else a_0[1]]
+
+            let mut u = Unroller::new();
+
+            let array_of_array_ty = Type::array(Type::array(Type::FieldElement, 2), 2);
+
+            let s: TypedStatement<FieldPrime> = TypedStatement::Declaration(
+                Variable::with_id_and_type("a".into(), array_of_array_ty.clone()),
+            );
+            assert_eq!(u.fold_statement(s), vec![]);
+
+            let s = TypedStatement::Definition(
+                TypedAssignee::Identifier(Variable::with_id_and_type(
+                    "a".into(),
+                    array_of_array_ty.clone(),
+                )),
+                ArrayExpressionInner::Value(vec![
+                    ArrayExpressionInner::Value(vec![
+                        FieldElementExpression::Number(FieldPrime::from(0)).into(),
+                        FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                    ])
+                    .annotate(Type::FieldElement, 2)
+                    .into(),
+                    ArrayExpressionInner::Value(vec![
+                        FieldElementExpression::Number(FieldPrime::from(2)).into(),
+                        FieldElementExpression::Number(FieldPrime::from(3)).into(),
+                    ])
+                    .annotate(Type::FieldElement, 2)
+                    .into(),
+                ])
+                .annotate(Type::array(Type::FieldElement, 2), 2)
+                .into(),
+            );
+
+            assert_eq!(
+                u.fold_statement(s),
+                vec![TypedStatement::Definition(
+                    TypedAssignee::Identifier(Variable::with_id_and_type(
+                        Identifier::from("a").version(0),
+                        array_of_array_ty.clone(),
+                    )),
+                    ArrayExpressionInner::Value(vec![
+                        ArrayExpressionInner::Value(vec![
+                            FieldElementExpression::Number(FieldPrime::from(0)).into(),
+                            FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                        ])
+                        .annotate(Type::FieldElement, 2)
+                        .into(),
+                        ArrayExpressionInner::Value(vec![
+                            FieldElementExpression::Number(FieldPrime::from(2)).into(),
+                            FieldElementExpression::Number(FieldPrime::from(3)).into(),
+                        ])
+                        .annotate(Type::FieldElement, 2)
+                        .into(),
+                    ])
+                    .annotate(Type::array(Type::FieldElement, 2), 2)
+                    .into(),
+                )]
+            );
+
+            let s: TypedStatement<FieldPrime> = TypedStatement::Definition(
+                TypedAssignee::ArrayElement(
+                    box TypedAssignee::Identifier(Variable::with_id_and_type(
+                        "a".into(),
+                        array_of_array_ty.clone(),
+                    )),
+                    box FieldElementExpression::Number(FieldPrime::from(1)),
+                ),
+                ArrayExpressionInner::Value(vec![
+                    FieldElementExpression::Number(FieldPrime::from(4)).into(),
+                    FieldElementExpression::Number(FieldPrime::from(5)).into(),
+                ])
+                .annotate(Type::FieldElement, 2)
+                .into(),
+            );
+
+            assert_eq!(
+                u.fold_statement(s),
+                vec![TypedStatement::Definition(
+                    TypedAssignee::Identifier(Variable::with_id_and_type(
+                        Identifier::from("a").version(1),
+                        array_of_array_ty.clone()
+                    )),
+                    ArrayExpressionInner::Value(vec![
+                        ArrayExpressionInner::IfElse(
+                            box BooleanExpression::Eq(
+                                box FieldElementExpression::Number(FieldPrime::from(1)),
+                                box FieldElementExpression::Number(FieldPrime::from(0))
+                            ),
+                            box ArrayExpressionInner::Value(vec![
+                                FieldElementExpression::Number(FieldPrime::from(4)).into(),
+                                FieldElementExpression::Number(FieldPrime::from(5)).into(),
+                            ])
+                            .annotate(Type::FieldElement, 2)
+                            .into(),
+                            box ArrayExpressionInner::Select(
+                                box ArrayExpressionInner::Identifier(
+                                    Identifier::from("a").version(0)
+                                )
+                                .annotate(Type::array(Type::FieldElement, 2), 2),
+                                box FieldElementExpression::Number(FieldPrime::from(0))
+                            )
+                            .annotate(Type::FieldElement, 2),
+                        )
+                        .annotate(Type::FieldElement, 2)
+                        .into(),
+                        ArrayExpressionInner::IfElse(
+                            box BooleanExpression::Eq(
+                                box FieldElementExpression::Number(FieldPrime::from(1)),
+                                box FieldElementExpression::Number(FieldPrime::from(1))
+                            ),
+                            box ArrayExpressionInner::Value(vec![
+                                FieldElementExpression::Number(FieldPrime::from(4)).into(),
+                                FieldElementExpression::Number(FieldPrime::from(5)).into(),
+                            ])
+                            .annotate(Type::FieldElement, 2)
+                            .into(),
+                            box ArrayExpressionInner::Select(
+                                box ArrayExpressionInner::Identifier(
+                                    Identifier::from("a").version(0)
+                                )
+                                .annotate(Type::array(Type::FieldElement, 2), 2),
+                                box FieldElementExpression::Number(FieldPrime::from(1))
+                            )
+                            .annotate(Type::FieldElement, 2),
+                        )
+                        .annotate(Type::FieldElement, 2)
+                        .into(),
+                    ])
+                    .annotate(Type::array(Type::FieldElement, 2), 2)
+                    .into()
+                )]
+            );
+        }
     }
 }

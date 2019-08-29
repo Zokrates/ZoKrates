@@ -29,18 +29,16 @@ pub struct Flattener<'ast, T: Field> {
 // We introduce a trait in order to make it possible to make flattening `e` generic over the type of `e`
 
 #[rustfmt::skip]
-trait Flatten<'ast, T: Field>: TryFrom<TypedExpression<'ast, T>, Error: std::fmt::Debug> {
+trait Flatten<'ast, T: Field>
+    : TryFrom<TypedExpression<'ast, T>, Error: std::fmt::Debug> 
+    + IfElse<'ast, T> 
+    + Select<'ast, T> {
     fn flatten(
         self,
         flattener: &mut Flattener<'ast, T>,
         symbols: &TypedFunctionSymbols<'ast, T>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
     ) -> Vec<FlatExpression<T>>;
-
-    fn if_else(condition: BooleanExpression<'ast, T>, consequence: Self, alternative: Self)
-        -> Self;
-
-    fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self;
 }
 
 impl<'ast, T: Field> Flatten<'ast, T> for FieldElementExpression<'ast, T> {
@@ -52,18 +50,6 @@ impl<'ast, T: Field> Flatten<'ast, T> for FieldElementExpression<'ast, T> {
     ) -> Vec<FlatExpression<T>> {
         vec![flattener.flatten_field_expression(symbols, statements_flattened, self)]
     }
-
-    fn if_else(
-        condition: BooleanExpression<'ast, T>,
-        consequence: Self,
-        alternative: Self,
-    ) -> Self {
-        FieldElementExpression::IfElse(box condition, box consequence, box alternative)
-    }
-
-    fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
-        FieldElementExpression::Select(box array, box index)
-    }
 }
 
 impl<'ast, T: Field> Flatten<'ast, T> for BooleanExpression<'ast, T> {
@@ -74,18 +60,6 @@ impl<'ast, T: Field> Flatten<'ast, T> for BooleanExpression<'ast, T> {
         statements_flattened: &mut Vec<FlatStatement<T>>,
     ) -> Vec<FlatExpression<T>> {
         vec![flattener.flatten_boolean_expression(symbols, statements_flattened, self)]
-    }
-
-    fn if_else(
-        condition: BooleanExpression<'ast, T>,
-        consequence: Self,
-        alternative: Self,
-    ) -> Self {
-        BooleanExpression::IfElse(box condition, box consequence, box alternative)
-    }
-
-    fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
-        BooleanExpression::Select(box array, box index)
     }
 }
 
@@ -114,26 +88,6 @@ impl<'ast, T: Field> Flatten<'ast, T> for ArrayExpression<'ast, T> {
                 self,
             ),
         }
-    }
-
-    fn if_else(
-        condition: BooleanExpression<'ast, T>,
-        consequence: Self,
-        alternative: Self,
-    ) -> Self {
-        let ty = consequence.inner_type().clone();
-        let size = consequence.size();
-        ArrayExpressionInner::IfElse(box condition, box consequence, box alternative)
-            .annotate(ty, size)
-    }
-
-    fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
-        let (ty, size) = match array.inner_type() {
-            Type::Array(inner, size) => (inner.clone(), size.clone()),
-            _ => unreachable!(),
-        };
-
-        ArrayExpressionInner::Select(box array, box index).annotate(*ty, size)
     }
 }
 

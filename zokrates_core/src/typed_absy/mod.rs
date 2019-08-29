@@ -11,7 +11,6 @@ mod variable;
 
 pub use crate::typed_absy::parameter::Parameter;
 pub use crate::typed_absy::variable::Variable;
-
 use crate::types::{FunctionKey, Signature, Type};
 use embed::FlatEmbed;
 use std::collections::HashMap;
@@ -246,7 +245,7 @@ impl<'ast, T: Field> Typed for TypedAssignee<'ast, T> {
                 let a_type = a.get_type();
                 match a_type {
                     Type::Array(box t, _) => t,
-                    _ => panic!("array element has to take array"),
+                    _ => unreachable!("an array element should only be defined over arrays, this will be handled gracefully in the future"),
                 }
             }
         }
@@ -791,5 +790,72 @@ impl<'ast, T: Field> fmt::Debug for TypedExpressionList<'ast, T> {
                 write!(f, ")")
             }
         }
+    }
+}
+
+// Common behaviour accross expressions
+
+pub trait IfElse<'ast, T: Field> {
+    fn if_else(condition: BooleanExpression<'ast, T>, consequence: Self, alternative: Self)
+        -> Self;
+}
+
+impl<'ast, T: Field> IfElse<'ast, T> for FieldElementExpression<'ast, T> {
+    fn if_else(
+        condition: BooleanExpression<'ast, T>,
+        consequence: Self,
+        alternative: Self,
+    ) -> Self {
+        FieldElementExpression::IfElse(box condition, box consequence, box alternative)
+    }
+}
+
+impl<'ast, T: Field> IfElse<'ast, T> for BooleanExpression<'ast, T> {
+    fn if_else(
+        condition: BooleanExpression<'ast, T>,
+        consequence: Self,
+        alternative: Self,
+    ) -> Self {
+        BooleanExpression::IfElse(box condition, box consequence, box alternative)
+    }
+}
+
+impl<'ast, T: Field> IfElse<'ast, T> for ArrayExpression<'ast, T> {
+    fn if_else(
+        condition: BooleanExpression<'ast, T>,
+        consequence: Self,
+        alternative: Self,
+    ) -> Self {
+        let ty = consequence.inner_type().clone();
+        let size = consequence.size();
+        ArrayExpressionInner::IfElse(box condition, box consequence, box alternative)
+            .annotate(ty, size)
+    }
+}
+
+pub trait Select<'ast, T: Field> {
+    fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self;
+}
+
+impl<'ast, T: Field> Select<'ast, T> for FieldElementExpression<'ast, T> {
+    fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
+        FieldElementExpression::Select(box array, box index)
+    }
+}
+
+impl<'ast, T: Field> Select<'ast, T> for BooleanExpression<'ast, T> {
+    fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
+        BooleanExpression::Select(box array, box index)
+    }
+}
+
+impl<'ast, T: Field> Select<'ast, T> for ArrayExpression<'ast, T> {
+    fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
+        let (ty, size) = match array.inner_type() {
+            Type::Array(inner, size) => (inner.clone(), size.clone()),
+            _ => unreachable!(),
+        };
+
+        ArrayExpressionInner::Select(box array, box index).annotate(*ty, size)
     }
 }
