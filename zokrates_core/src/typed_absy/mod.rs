@@ -81,17 +81,21 @@ pub struct TypedModule<'ast, T: Field> {
 
 impl<'ast> fmt::Display for Identifier<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}_{}_{}",
-            self.stack
-                .iter()
-                .map(|(name, sig, count)| format!("{}_{}_{}", name, sig.to_slug(), count))
-                .collect::<Vec<_>>()
-                .join("_"),
-            self.id,
-            self.version
-        )
+        if self.stack.len() == 0 && self.version == 0 {
+            write!(f, "{}", self.id)
+        } else {
+            write!(
+                f,
+                "{}_{}_{}",
+                self.stack
+                    .iter()
+                    .map(|(name, sig, count)| format!("{}_{}_{}", name, sig.to_slug(), count))
+                    .collect::<Vec<_>>()
+                    .join("_"),
+                self.id,
+                self.version
+            )
+        }
     }
 }
 

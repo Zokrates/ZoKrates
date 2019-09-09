@@ -601,8 +601,6 @@ impl<'ast> Checker<'ast> {
         &mut self,
         assignee: AssigneeNode<'ast, T>,
     ) -> Result<TypedAssignee<'ast, T>, Error> {
-        println!("{:?}", assignee.value);
-
         let pos = assignee.pos();
         // check that the assignee is declared
         match assignee.value {
@@ -889,7 +887,7 @@ impl<'ast> Checker<'ast> {
                         let f = &candidates[0];
                         // the return count has to be 1
                         match f.signature.outputs.len() {
-                            1 => match f.signature.outputs[0].clone() {
+                            1 => match &f.signature.outputs[0] {
                                 Type::FieldElement => Ok(FieldElementExpression::FunctionCall(
                                     FunctionKey {
                                         id: f.id.clone(),
@@ -898,15 +896,17 @@ impl<'ast> Checker<'ast> {
                                     arguments_checked,
                                 )
                                 .into()),
-                                Type::Array(ty, size) => Ok(ArrayExpressionInner::FunctionCall(
-                                    FunctionKey {
-                                        id: f.id.clone(),
-                                        signature: f.signature.clone(),
-                                    },
-                                    arguments_checked,
-                                )
-                                .annotate(*ty, size)
-                                .into()),
+                                Type::Array(box ty, size) => {
+                                    Ok(ArrayExpressionInner::FunctionCall(
+                                        FunctionKey {
+                                            id: f.id.clone(),
+                                            signature: f.signature.clone(),
+                                        },
+                                        arguments_checked,
+                                    )
+                                    .annotate(ty.clone(), size.clone())
+                                    .into())
+                                }
                                 _ => unimplemented!(),
                             },
                             n => Err(Error {
@@ -1085,7 +1085,14 @@ impl<'ast> Checker<'ast> {
                                 .into()),
                             }
                         }
-                        _ => unreachable!(""),
+                        e => Err(Error {
+                            pos: Some(pos),
+                            message: format!(
+                                "Cannot access slice of expression {} of type {}",
+                                e,
+                                e.get_type(),
+                            ),
+                        }),
                     },
                     RangeOrExpression::Expression(e) => match (array, self.check_expression(e)?) {
                         (TypedExpression::Array(a), TypedExpression::FieldElement(i)) => {
