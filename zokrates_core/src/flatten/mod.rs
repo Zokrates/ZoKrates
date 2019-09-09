@@ -250,12 +250,30 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     assert!(n < T::from(size));
                     let n = n.to_dec_string().parse::<usize>().unwrap();
 
-                    let e = self.flatten_select_expression::<U>(
-                        symbols,
-                        statements_flattened,
-                        array,
-                        index,
-                    );
+                    let e = match array.inner_type() {
+                        Type::FieldElement => self
+                            .flatten_select_expression::<FieldElementExpression<'ast, T>>(
+                                symbols,
+                                statements_flattened,
+                                array,
+                                index,
+                            ),
+                        Type::Boolean => self
+                            .flatten_select_expression::<BooleanExpression<'ast, T>>(
+                                symbols,
+                                statements_flattened,
+                                array,
+                                index,
+                            ),
+                        Type::Array(..) => self
+                            .flatten_select_expression::<ArrayExpression<'ast, T>>(
+                                symbols,
+                                statements_flattened,
+                                array,
+                                index,
+                            ),
+                    };
+
                     e[n * element_size..(n + 1) * element_size]
                         .into_iter()
                         .map(|i| i.clone().into())
@@ -1151,7 +1169,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                 .map(|(v, e)| FlatStatement::Definition(v, e)),
                         );
                     }
-                    TypedAssignee::ArrayElement(..) => unreachable!(
+                    TypedAssignee::Select(..) => unreachable!(
                         "array element redefs should have been replaced by array redefs in unroll"
                     ),
                 }

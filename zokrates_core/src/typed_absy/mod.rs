@@ -231,7 +231,7 @@ impl<'ast, T: Field> fmt::Debug for TypedFunction<'ast, T> {
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum TypedAssignee<'ast, T: Field> {
     Identifier(Variable<'ast>),
-    ArrayElement(
+    Select(
         Box<TypedAssignee<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
@@ -241,11 +241,11 @@ impl<'ast, T: Field> Typed for TypedAssignee<'ast, T> {
     fn get_type(&self) -> Type {
         match *self {
             TypedAssignee::Identifier(ref v) => v.get_type(),
-            TypedAssignee::ArrayElement(ref a, _) => {
+            TypedAssignee::Select(ref a, _) => {
                 let a_type = a.get_type();
                 match a_type {
                     Type::Array(box t, _) => t,
-                    _ => unreachable!("an array element should only be defined over arrays, this will be handled gracefully in the future"),
+                    _ => unreachable!("an array element should only be defined over arrays"),
                 }
             }
         }
@@ -256,7 +256,7 @@ impl<'ast, T: Field> fmt::Debug for TypedAssignee<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             TypedAssignee::Identifier(ref s) => write!(f, "{}", s.id),
-            TypedAssignee::ArrayElement(ref a, ref e) => write!(f, "{}[{}]", a, e),
+            TypedAssignee::Select(ref a, ref e) => write!(f, "{}[{}]", a, e),
         }
     }
 }
@@ -268,7 +268,7 @@ impl<'ast, T: Field> fmt::Display for TypedAssignee<'ast, T> {
 }
 
 /// A statement in a `TypedFunction`
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Hash, Eq)]
 pub enum TypedStatement<'ast, T: Field> {
     Return(Vec<TypedExpression<'ast, T>>),
     Definition(TypedAssignee<'ast, T>, TypedExpression<'ast, T>),
@@ -413,8 +413,8 @@ impl<'ast, T: Field> fmt::Debug for ArrayExpression<'ast, T> {
 impl<'ast, T: Field> Typed for TypedExpression<'ast, T> {
     fn get_type(&self) -> Type {
         match *self {
-            TypedExpression::Boolean(_) => Type::Boolean,
-            TypedExpression::FieldElement(_) => Type::FieldElement,
+            TypedExpression::Boolean(ref e) => e.get_type(),
+            TypedExpression::FieldElement(ref e) => e.get_type(),
             TypedExpression::Array(ref e) => e.get_type(),
         }
     }
@@ -426,11 +426,23 @@ impl<'ast, T: Field> Typed for ArrayExpression<'ast, T> {
     }
 }
 
+impl<'ast, T: Field> Typed for FieldElementExpression<'ast, T> {
+    fn get_type(&self) -> Type {
+        Type::FieldElement
+    }
+}
+
+impl<'ast, T: Field> Typed for BooleanExpression<'ast, T> {
+    fn get_type(&self) -> Type {
+        Type::Boolean
+    }
+}
+
 pub trait MultiTyped {
     fn get_types(&self) -> &Vec<Type>;
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Hash, Eq)]
 pub enum TypedExpressionList<'ast, T: Field> {
     FunctionCall(FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>, Vec<Type>),
 }
@@ -573,10 +585,6 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
 
     pub fn into_inner(self) -> ArrayExpressionInner<'ast, T> {
         self.inner
-    }
-
-    pub fn as_inner_mut(&mut self) -> &mut ArrayExpressionInner<'ast, T> {
-        &mut self.inner
     }
 }
 
@@ -745,8 +753,8 @@ impl<'ast, T: Field> fmt::Debug for FieldElementExpression<'ast, T> {
 impl<'ast, T: Field> fmt::Debug for ArrayExpressionInner<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            ArrayExpressionInner::Identifier(ref var) => write!(f, "{:?}", var),
-            ArrayExpressionInner::Value(ref values) => write!(f, "{:?}", values),
+            ArrayExpressionInner::Identifier(ref var) => write!(f, "Identifier({:?})", var),
+            ArrayExpressionInner::Value(ref values) => write!(f, "Value({:?})", values),
             ArrayExpressionInner::FunctionCall(ref i, ref p) => {
                 write!(f, "FunctionCall({:?}, (", i)?;
                 f.debug_list().entries(p.iter()).finish()?;

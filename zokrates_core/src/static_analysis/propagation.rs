@@ -35,105 +35,90 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
         let res = match s {
-			TypedStatement::Declaration(v) => Some(TypedStatement::Declaration(v)),
-			TypedStatement::Return(expressions) => Some(TypedStatement::Return(expressions.into_iter().map(|e| self.fold_expression(e)).collect())),
-			// propagation to the defined variable if rhs is a constant
-			TypedStatement::Definition(TypedAssignee::Identifier(var), expr) => {
-				match self.fold_expression(expr) {
-					e @ TypedExpression::Boolean(BooleanExpression::Value(..)) | e @ TypedExpression::FieldElement(FieldElementExpression::Number(..)) => {
-						self.constants.insert(TypedAssignee::Identifier(var), e);
-						None
-					},
-					TypedExpression::Array(e) => {
+            TypedStatement::Declaration(v) => Some(TypedStatement::Declaration(v)),
+            TypedStatement::Return(expressions) => Some(TypedStatement::Return(
+                expressions
+                    .into_iter()
+                    .map(|e| self.fold_expression(e))
+                    .collect(),
+            )),
+            // propagation to the defined variable if rhs is a constant
+            TypedStatement::Definition(TypedAssignee::Identifier(var), expr) => {
+                match self.fold_expression(expr) {
+                    e @ TypedExpression::Boolean(BooleanExpression::Value(..))
+                    | e @ TypedExpression::FieldElement(FieldElementExpression::Number(..)) => {
+                        self.constants.insert(TypedAssignee::Identifier(var), e);
+                        None
+                    }
+                    TypedExpression::Array(e) => {
                         let ty = e.inner_type().clone();
                         let size = e.size();
 
                         match e.into_inner() {
                             ArrayExpressionInner::Value(array) => {
-                                let array: Vec<_> = array.into_iter().map(|e| self.fold_expression(e)).collect();
+                                let array: Vec<_> =
+                                    array.into_iter().map(|e| self.fold_expression(e)).collect();
 
                                 match array.iter().all(|e| match e {
-                                    TypedExpression::FieldElement(FieldElementExpression::Number(..)) => true,
+                                    TypedExpression::FieldElement(
+                                        FieldElementExpression::Number(..),
+                                    ) => true,
                                     TypedExpression::Boolean(BooleanExpression::Value(..)) => true,
-                                    _ => false
+                                    _ => false,
                                 }) {
                                     true => {
                                         // all elements of the array are constants
-                                        self.constants.insert(TypedAssignee::Identifier(var), ArrayExpressionInner::Value(array).annotate(
-                                            ty,
-                                            size).into());
+                                        self.constants.insert(
+                                            TypedAssignee::Identifier(var),
+                                            ArrayExpressionInner::Value(array)
+                                                .annotate(ty, size)
+                                                .into(),
+                                        );
                                         None
-                                    },
-                                    false => {
-                                        Some(TypedStatement::Definition(TypedAssignee::Identifier(var),
-                                            ArrayExpressionInner::Value(array).annotate(
-                                            ty,
-                                            size).into()))
                                     }
+                                    false => Some(TypedStatement::Definition(
+                                        TypedAssignee::Identifier(var),
+                                        ArrayExpressionInner::Value(array)
+                                            .annotate(ty, size)
+                                            .into(),
+                                    )),
                                 }
-                            },
-                            e => Some(TypedStatement::Definition(TypedAssignee::Identifier(var), TypedExpression::Array(e.annotate(ty, size))))
+                            }
+                            e => Some(TypedStatement::Definition(
+                                TypedAssignee::Identifier(var),
+                                TypedExpression::Array(e.annotate(ty, size)),
+                            )),
                         }
-					},
-					e => {
-						Some(TypedStatement::Definition(TypedAssignee::Identifier(var), e))
-					}
-				}
-			},
-			// a[b] = c
-			TypedStatement::Definition(TypedAssignee::ArrayElement(box TypedAssignee::Identifier(var), box index), expr) => {
-				let index = self.fold_field_expression(index);
-				let expr = self.fold_expression(expr);
-
-				match (index, expr) {
-					(
-						FieldElementExpression::Number(n),
-						TypedExpression::FieldElement(expr @ FieldElementExpression::Number(..))
-					) => {
-						// a[42] = 33
-						// -> store (a[42] -> 33) in the constants, possibly overwriting the previous entry
-						self.constants.entry(TypedAssignee::Identifier(var)).and_modify(|e| {
-							match e {
-								TypedExpression::Array(e) => {
-                                    let size = e.size();
-                                    match e.as_inner_mut() {
-                                        ArrayExpressionInner::Value(ref mut v) => {
-        									let n_as_usize = n.to_dec_string().parse::<usize>().unwrap();
-        									if n_as_usize < size {
-        										v[n_as_usize] = expr.into();
-        									} else {
-        										panic!(format!("out of bounds index ({} >= {}) found during static analysis", n_as_usize, size));
-        									}
-        								},
-        								_ => panic!("constants should only store constants")
-                                    }
-                                },
-                                _ => unreachable!()
-							}
-						});
-						None
-					},
-					(index, expr) => {
-						// a[42] = e
-						// -> remove a from the constants as one of its elements is not constant
-						self.constants.remove(&TypedAssignee::Identifier(var.clone()));
-						Some(TypedStatement::Definition(TypedAssignee::ArrayElement(box TypedAssignee::Identifier(var), box index), expr))
-					}
-				}
-			},
-			TypedStatement::Definition(..) => panic!("multi dimensinal arrays are not supported, this should have been caught during semantic checking"),
-			// propagate lhs and rhs for conditions
-			TypedStatement::Condition(e1, e2) => {
-				// could stop execution here if condition is known to fail
-				Some(TypedStatement::Condition(self.fold_expression(e1), self.fold_expression(e2)))
-			},
-			// we unrolled for loops in the previous step
-			TypedStatement::For(..) => panic!("for loop is unexpected, it should have been unrolled"),
-			TypedStatement::MultipleDefinition(variables, expression_list) => {
-				let expression_list = self.fold_expression_list(expression_list);
-				Some(TypedStatement::MultipleDefinition(variables, expression_list))
-			}
-		};
+                    }
+                    e => Some(TypedStatement::Definition(
+                        TypedAssignee::Identifier(var),
+                        e,
+                    )),
+                }
+            }
+            TypedStatement::Definition(TypedAssignee::Select(..), _) => {
+                unreachable!("array updates should have been replaced with full array redef")
+            }
+            // propagate lhs and rhs for conditions
+            TypedStatement::Condition(e1, e2) => {
+                // could stop execution here if condition is known to fail
+                Some(TypedStatement::Condition(
+                    self.fold_expression(e1),
+                    self.fold_expression(e2),
+                ))
+            }
+            // we unrolled for loops in the previous step
+            TypedStatement::For(..) => {
+                panic!("for loop is unexpected, it should have been unrolled")
+            }
+            TypedStatement::MultipleDefinition(variables, expression_list) => {
+                let expression_list = self.fold_expression_list(expression_list);
+                Some(TypedStatement::MultipleDefinition(
+                    variables,
+                    expression_list,
+                ))
+            }
+        };
         match res {
             Some(v) => vec![v],
             None => vec![],
@@ -244,7 +229,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                         }
                     }
                     (ArrayExpressionInner::Identifier(id), FieldElementExpression::Number(n)) => {
-                        match self.constants.get(&TypedAssignee::ArrayElement(
+                        match self.constants.get(&TypedAssignee::Select(
                             box TypedAssignee::Identifier(Variable::array(
                                 id.clone(),
                                 inner_type.clone(),
@@ -291,6 +276,15 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                         _ => panic!("constant stored for an array should be an array"),
                     },
                     None => ArrayExpressionInner::Identifier(id),
+                }
+            }
+            ArrayExpressionInner::IfElse(box condition, box consequence, box alternative) => {
+                let consequence = self.fold_array_expression(consequence);
+                let alternative = self.fold_array_expression(alternative);
+                match self.fold_boolean_expression(condition) {
+                    BooleanExpression::Value(true) => consequence.into_inner(),
+                    BooleanExpression::Value(false) => alternative.into_inner(),
+                    c => ArrayExpressionInner::IfElse(box c, box consequence, box alternative),
                 }
             }
             e => fold_array_expression_inner(self, ty, size, e),
@@ -805,118 +799,6 @@ mod tests {
                         box BooleanExpression::Value(false),
                     )),
                     BooleanExpression::Value(false)
-                );
-            }
-        }
-    }
-
-    #[cfg(test)]
-    mod statement {
-        use super::*;
-
-        #[cfg(test)]
-        mod definition {
-            use super::*;
-
-            #[test]
-            fn update_constant_array() {
-                // field[2] a = [21, 22]
-                // // constants should store [21, 22]
-                // a[1] = 42
-                // // constants should store [21, 42]
-
-                let declaration = TypedStatement::Declaration(Variable::field_array("a".into(), 2));
-                let definition = TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_array("a".into(), 2)),
-                    ArrayExpressionInner::Value(vec![
-                        FieldElementExpression::Number(FieldPrime::from(21)).into(),
-                        FieldElementExpression::Number(FieldPrime::from(22)).into(),
-                    ])
-                    .annotate(Type::FieldElement, 2)
-                    .into(),
-                );
-                let overwrite = TypedStatement::Definition(
-                    TypedAssignee::ArrayElement(
-                        box TypedAssignee::Identifier(Variable::field_array("a".into(), 2)),
-                        box FieldElementExpression::Number(FieldPrime::from(1)),
-                    ),
-                    FieldElementExpression::Number(FieldPrime::from(42)).into(),
-                );
-
-                let mut p = Propagator::new();
-
-                p.fold_statement(declaration);
-                p.fold_statement(definition);
-                let expected_value: TypedExpression<FieldPrime> =
-                    ArrayExpressionInner::Value(vec![
-                        FieldElementExpression::Number(FieldPrime::from(21)).into(),
-                        FieldElementExpression::Number(FieldPrime::from(22)).into(),
-                    ])
-                    .annotate(Type::FieldElement, 2)
-                    .into();
-
-                assert_eq!(
-                    p.constants
-                        .get(&TypedAssignee::Identifier(Variable::field_array(
-                            "a".into(),
-                            2
-                        )))
-                        .unwrap(),
-                    &expected_value
-                );
-
-                p.fold_statement(overwrite);
-                let expected_value: TypedExpression<FieldPrime> =
-                    ArrayExpressionInner::Value(vec![
-                        FieldElementExpression::Number(FieldPrime::from(21)).into(),
-                        FieldElementExpression::Number(FieldPrime::from(42)).into(),
-                    ])
-                    .annotate(Type::FieldElement, 2)
-                    .into();
-
-                assert_eq!(
-                    p.constants
-                        .get(&TypedAssignee::Identifier(Variable::field_array(
-                            "a".into(),
-                            2
-                        )))
-                        .unwrap(),
-                    &expected_value
-                );
-            }
-
-            #[test]
-            fn update_variable_array() {
-                // propagation does NOT support "partially constant" arrays. That means that in order for updates to use propagation,
-                // the array needs to have been defined as `field[3] = [value1, value2, value3]` with all values propagateable to constants
-
-                // a passed as input
-                // // constants should store nothing
-                // a[1] = 42
-                // // constants should store nothing
-
-                let declaration = TypedStatement::Declaration(Variable::field_array("a".into(), 2));
-
-                let overwrite = TypedStatement::Definition(
-                    TypedAssignee::ArrayElement(
-                        box TypedAssignee::Identifier(Variable::field_array("a".into(), 2)),
-                        box FieldElementExpression::Number(FieldPrime::from(1)),
-                    ),
-                    FieldElementExpression::Number(FieldPrime::from(42)).into(),
-                );
-
-                let mut p = Propagator::new();
-
-                p.fold_statement(declaration);
-                p.fold_statement(overwrite);
-
-                assert_eq!(
-                    p.constants
-                        .get(&TypedAssignee::Identifier(Variable::field_array(
-                            "a".into(),
-                            2
-                        ))),
-                    None
                 );
             }
         }

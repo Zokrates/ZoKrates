@@ -505,19 +505,15 @@ impl<'ast, T: Field> From<pest::Assignee<'ast>> for absy::AssigneeNode<'ast, T> 
         use absy::NodeValue;
 
         let a = absy::AssigneeNode::from(assignee.id);
-        match assignee.indices.len() {
-            0 => a,
-            1 => absy::Assignee::ArrayElement(
-                box a,
-                box absy::RangeOrExpression::from(assignee.indices[0].clone()),
-            )
-            .span(assignee.span),
-            n => unimplemented!(
-                "Assignment to array of {} dimensions not supported yet (found in {})",
-                n,
-                a
-            ),
-        }
+        let span = assignee.span;
+
+        assignee
+            .indices
+            .into_iter()
+            .map(|i| absy::RangeOrExpression::from(i))
+            .fold(a, |acc, s| {
+                absy::Assignee::Select(box acc, box s).span(span.clone())
+            })
     }
 }
 

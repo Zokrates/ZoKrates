@@ -198,7 +198,7 @@ impl<'ast, T: Field> fmt::Debug for Function<'ast, T> {
 #[derive(Clone, PartialEq)]
 pub enum Assignee<'ast, T: Field> {
     Identifier(Identifier<'ast>),
-    ArrayElement(Box<AssigneeNode<'ast, T>>, Box<RangeOrExpression<'ast, T>>),
+    Select(Box<AssigneeNode<'ast, T>>, Box<RangeOrExpression<'ast, T>>),
 }
 
 pub type AssigneeNode<'ast, T> = Node<Assignee<'ast, T>>;
@@ -206,8 +206,8 @@ pub type AssigneeNode<'ast, T> = Node<Assignee<'ast, T>>;
 impl<'ast, T: Field> fmt::Debug for Assignee<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Assignee::Identifier(ref s) => write!(f, "{}", s),
-            Assignee::ArrayElement(ref a, ref e) => write!(f, "{}[{}]", a, e),
+            Assignee::Identifier(ref s) => write!(f, "Identifier({:?})", s),
+            Assignee::Select(ref a, ref e) => write!(f, "Select({:?}[{:?}])", a, e),
         }
     }
 }

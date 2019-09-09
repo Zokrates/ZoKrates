@@ -601,6 +601,8 @@ impl<'ast> Checker<'ast> {
         &mut self,
         assignee: AssigneeNode<'ast, T>,
     ) -> Result<TypedAssignee<'ast, T>, Error> {
+        println!("{:?}", assignee.value);
+
         let pos = assignee.pos();
         // check that the assignee is declared
         match assignee.value {
@@ -616,7 +618,7 @@ impl<'ast> Checker<'ast> {
                     message: format!("Undeclared variable: {:?}", variable_name),
                 }),
             },
-            Assignee::ArrayElement(box assignee, box index) => {
+            Assignee::Select(box assignee, box index) => {
                 let checked_assignee = self.check_assignee(assignee)?;
                 let checked_index = match index {
                     RangeOrExpression::Expression(e) => self.check_expression(e)?,
@@ -639,7 +641,7 @@ impl<'ast> Checker<'ast> {
                     }),
                 }?;
 
-                Ok(TypedAssignee::ArrayElement(
+                Ok(TypedAssignee::Select(
                     box checked_assignee,
                     box checked_typed_index,
                 ))
@@ -2422,7 +2424,7 @@ mod tests {
         fn array_element() {
             // field[33] a
             // a[2] = 42
-            let a = Assignee::ArrayElement(
+            let a = Assignee::Select(
                 box Assignee::Identifier("a").mock(),
                 box RangeOrExpression::Expression(
                     Expression::FieldConstant(FieldPrime::from(2)).mock(),
@@ -2440,7 +2442,7 @@ mod tests {
 
             assert_eq!(
                 checker.check_assignee(a),
-                Ok(TypedAssignee::ArrayElement(
+                Ok(TypedAssignee::Select(
                     box TypedAssignee::Identifier(typed_absy::Variable::field_array(
                         "a".into(),
                         33
@@ -2454,8 +2456,8 @@ mod tests {
         fn array_of_array_element() {
             // field[33][42] a
             // a[1][2]
-            let a = Assignee::ArrayElement(
-                box Assignee::ArrayElement(
+            let a = Assignee::Select(
+                box Assignee::Select(
                     box Assignee::Identifier("a").mock(),
                     box RangeOrExpression::Expression(
                         Expression::FieldConstant(FieldPrime::from(1)).mock(),
@@ -2481,8 +2483,8 @@ mod tests {
 
             assert_eq!(
                 checker.check_assignee(a),
-                Ok(TypedAssignee::ArrayElement(
-                    box TypedAssignee::ArrayElement(
+                Ok(TypedAssignee::Select(
+                    box TypedAssignee::Select(
                         box TypedAssignee::Identifier(typed_absy::Variable::array(
                             "a".into(),
                             Type::array(Type::FieldElement, 33),

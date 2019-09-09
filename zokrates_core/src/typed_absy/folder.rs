@@ -44,7 +44,7 @@ pub trait Folder<'ast, T: Field>: Sized {
     fn fold_assignee(&mut self, a: TypedAssignee<'ast, T>) -> TypedAssignee<'ast, T> {
         match a {
             TypedAssignee::Identifier(v) => TypedAssignee::Identifier(self.fold_variable(v)),
-            TypedAssignee::ArrayElement(box a, box index) => TypedAssignee::ArrayElement(
+            TypedAssignee::Select(box a, box index) => TypedAssignee::Select(
                 box self.fold_assignee(a),
                 box self.fold_field_expression(index),
             ),
