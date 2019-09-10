@@ -27,19 +27,17 @@ pub struct Flattener<'ast, T: Field> {
 // We introduce a trait in order to make it possible to make flattening `e` generic over the type of `e`
 
 #[rustfmt::skip]
-trait Flatten<'ast, T: Field>: TryFrom<TypedExpression<'ast, T>, Error: std::fmt::Debug> {
+trait Flatten<'ast, T: Field>
+    : TryFrom<TypedExpression<'ast, T>, Error: std::fmt::Debug> 
+    + IfElse<'ast, T> 
+    + Select<'ast, T>
+    + Member<'ast, T> {
     fn flatten(
         self,
         flattener: &mut Flattener<'ast, T>,
         symbols: &TypedFunctionSymbols<'ast, T>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
     ) -> Vec<FlatExpression<T>>;
-
-    fn if_else(condition: BooleanExpression<'ast, T>, consequence: Self, alternative: Self)
-        -> Self;
-
-    fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self;
-    fn member(s: StructExpression<'ast, T>, id: MemberId) -> Self;
 }
 
 impl<'ast, T: Field> Flatten<'ast, T> for FieldElementExpression<'ast, T> {
@@ -50,22 +48,6 @@ impl<'ast, T: Field> Flatten<'ast, T> for FieldElementExpression<'ast, T> {
         statements_flattened: &mut Vec<FlatStatement<T>>,
     ) -> Vec<FlatExpression<T>> {
         vec![flattener.flatten_field_expression(symbols, statements_flattened, self)]
-    }
-
-    fn if_else(
-        condition: BooleanExpression<'ast, T>,
-        consequence: Self,
-        alternative: Self,
-    ) -> Self {
-        FieldElementExpression::IfElse(box condition, box consequence, box alternative)
-    }
-
-    fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
-        FieldElementExpression::Select(box array, box index)
-    }
-
-    fn member(s: StructExpression<'ast, T>, id: MemberId) -> Self {
-        FieldElementExpression::Member(box s, id)
     }
 }
 
@@ -78,22 +60,6 @@ impl<'ast, T: Field> Flatten<'ast, T> for BooleanExpression<'ast, T> {
     ) -> Vec<FlatExpression<T>> {
         vec![flattener.flatten_boolean_expression(symbols, statements_flattened, self)]
     }
-
-    fn if_else(
-        condition: BooleanExpression<'ast, T>,
-        consequence: Self,
-        alternative: Self,
-    ) -> Self {
-        BooleanExpression::IfElse(box condition, box consequence, box alternative)
-    }
-
-    fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
-        BooleanExpression::Select(box array, box index)
-    }
-
-    fn member(s: StructExpression<'ast, T>, id: MemberId) -> Self {
-        BooleanExpression::Member(box s, id)
-    }
 }
 
 impl<'ast, T: Field> Flatten<'ast, T> for StructExpression<'ast, T> {
@@ -104,41 +70,6 @@ impl<'ast, T: Field> Flatten<'ast, T> for StructExpression<'ast, T> {
         statements_flattened: &mut Vec<FlatStatement<T>>,
     ) -> Vec<FlatExpression<T>> {
         flattener.flatten_struct_expression(symbols, statements_flattened, self)
-    }
-
-    fn if_else(
-        condition: BooleanExpression<'ast, T>,
-        consequence: Self,
-        alternative: Self,
-    ) -> Self {
-        let ty = consequence.ty().clone();
-        StructExpressionInner::IfElse(box condition, box consequence, box alternative).annotate(ty)
-    }
-
-    fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
-        let members = match array.inner_type().clone() {
-            Type::Struct(members) => members,
-            _ => unreachable!(),
-        };
-
-        StructExpressionInner::Select(box array, box index).annotate(members)
-    }
-
-    fn member(s: StructExpression<'ast, T>, member_id: MemberId) -> Self {
-        let members = s.ty().clone();
-
-        let ty = members
-            .into_iter()
-            .find(|(id, _)| *id == member_id)
-            .unwrap()
-            .1;
-
-        let members = match ty {
-            Type::Struct(members) => members,
-            _ => unreachable!(),
-        };
-
-        StructExpressionInner::Member(box s, member_id).annotate(members)
     }
 }
 
@@ -172,43 +103,6 @@ impl<'ast, T: Field> Flatten<'ast, T> for ArrayExpression<'ast, T> {
                 self,
             ),
         }
-    }
-
-    fn if_else(
-        condition: BooleanExpression<'ast, T>,
-        consequence: Self,
-        alternative: Self,
-    ) -> Self {
-        let ty = consequence.inner_type().clone();
-        let size = consequence.size();
-        ArrayExpressionInner::IfElse(box condition, box consequence, box alternative)
-            .annotate(ty, size)
-    }
-
-    fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
-        let (ty, size) = match array.inner_type() {
-            Type::Array(inner, size) => (inner.clone(), size.clone()),
-            _ => unreachable!(),
-        };
-
-        ArrayExpressionInner::Select(box array, box index).annotate(*ty, size)
-    }
-
-    fn member(s: StructExpression<'ast, T>, member_id: MemberId) -> Self {
-        let members = s.ty().clone();
-
-        let ty = members
-            .into_iter()
-            .find(|(id, _)| *id == member_id)
-            .unwrap()
-            .1;
-
-        let (ty, size) = match ty {
-            Type::Array(box ty, size) => (ty, size),
-            _ => unreachable!(),
-        };
-
-        ArrayExpressionInner::Member(box s, member_id).annotate(ty, size)
     }
 }
 
@@ -623,12 +517,37 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     assert!(n < T::from(size));
                     let n = n.to_dec_string().parse::<usize>().unwrap();
 
-                    let e = self.flatten_select_expression::<U>(
-                        symbols,
-                        statements_flattened,
-                        array,
-                        index,
-                    );
+                    let e = match array.inner_type() {
+                        Type::FieldElement => self
+                            .flatten_select_expression::<FieldElementExpression<'ast, T>>(
+                                symbols,
+                                statements_flattened,
+                                array,
+                                index,
+                            ),
+                        Type::Boolean => self
+                            .flatten_select_expression::<BooleanExpression<'ast, T>>(
+                                symbols,
+                                statements_flattened,
+                                array,
+                                index,
+                            ),
+                        Type::Array(..) => self
+                            .flatten_select_expression::<ArrayExpression<'ast, T>>(
+                                symbols,
+                                statements_flattened,
+                                array,
+                                index,
+                            ),
+                        Type::Struct(..) => self
+                            .flatten_select_expression::<StructExpression<'ast, T>>(
+                                symbols,
+                                statements_flattened,
+                                array,
+                                index,
+                            ),
+                    };
+
                     e[n * element_size..(n + 1) * element_size]
                         .into_iter()
                         .map(|i| i.clone().into())
@@ -1616,223 +1535,41 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 // define n variables with n the number of primitive types for v_type
                 // assign them to the n primitive types for expr
 
-                let rhs = self.flatten_expression(symbols, statements_flattened, expr.clone());
+                let rhs = self.flatten_expression(symbols, statements_flattened, expr);
 
-                match expr.get_type() {
-                    Type::FieldElement | Type::Boolean => {
-                        match assignee {
-                            TypedAssignee::Identifier(ref v) => {
-                                let var = self.use_variable(&v)[0];
-                                // handle return of function call
-                                statements_flattened
-                                    .push(FlatStatement::Definition(var, rhs[0].clone()));
-                            }
-                            TypedAssignee::ArrayElement(box array, box index) => {
-                                let expr = match expr {
-                                    TypedExpression::FieldElement(e) => e,
-                                    _ => panic!("not a field element as rhs of array element update, should have been caught at semantic")
-                                };
-                                match index {
-                                    FieldElementExpression::Number(n) => match array {
-                                        TypedAssignee::Identifier(id) => {
-                                            let var = self.issue_new_variables(1);
-                                            let variables = self.layout.get_mut(&id.id).unwrap();
-                                            variables
-                                                [n.to_dec_string().parse::<usize>().unwrap()] =
-                                                var[0];
-                                            statements_flattened.push(FlatStatement::Definition(
-                                                var[0],
-                                                rhs[0].clone(),
-                                            ));
-                                        }
-                                        _ => panic!("no multidimension array for now"),
-                                    },
-                                    e => {
-                                        // we have array[e] with e an arbitrary expression
-                                        // first we check that e is in 0..array.len(), so we check that sum(if e == i then 1 else 0) == 1
-                                        // here depending on the size, we could use a proper range check based on bits
-                                        let size = match array.get_type() {
-                                            Type::Array(_, n) => n,
-                                            _ => panic!("checker should generate array element based on non array")
-                                        };
-                                        let range_check = (0..size)
-                                            .map(|i| {
-                                                FieldElementExpression::IfElse(
-                                                    box BooleanExpression::Eq(
-                                                        box e.clone(),
-                                                        box FieldElementExpression::Number(
-                                                            T::from(i),
-                                                        ),
-                                                    ),
-                                                    box FieldElementExpression::Number(T::from(1)),
-                                                    box FieldElementExpression::Number(T::from(0)),
-                                                )
-                                            })
-                                            .fold(
-                                                FieldElementExpression::Number(T::from(0)),
-                                                |acc, e| {
-                                                    FieldElementExpression::Add(box acc, box e)
-                                                },
-                                            );
-
-                                        let range_check_statement = TypedStatement::Condition(
-                                            FieldElementExpression::Number(T::from(1)).into(),
-                                            range_check.into(),
-                                        );
-
-                                        self.flatten_statement(
-                                            symbols,
-                                            statements_flattened,
-                                            range_check_statement,
-                                        );
-
-                                        // now we redefine the whole array, updating only the piece that changed
-                                        // stat(array[i] = if e == i then `expr` else `array[i]`)
-                                        let vars = match array {
-                                            TypedAssignee::Identifier(v) => self.use_variable(&v),
-                                            _ => unimplemented!(),
-                                        };
-
-                                        let statements = vars
-                                            .into_iter()
-                                            .enumerate()
-                                            .map(|(i, v)| {
-                                                let rhs = FieldElementExpression::IfElse(
-                                                    box BooleanExpression::Eq(
-                                                        box e.clone(),
-                                                        box FieldElementExpression::Number(
-                                                            T::from(i),
-                                                        ),
-                                                    ),
-                                                    box expr.clone(),
-                                                    box e.clone(),
-                                                );
-
-                                                let rhs_flattened = self.flatten_field_expression(
-                                                    symbols,
-                                                    statements_flattened,
-                                                    rhs,
-                                                );
-
-                                                FlatStatement::Definition(v, rhs_flattened)
-                                            })
-                                            .collect::<Vec<_>>();
-
-                                        statements_flattened.extend(statements);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    Type::Array(..) => {
-                        let vars = match assignee {
-                            TypedAssignee::Identifier(v) => self.use_variable(&v),
-                            _ => unimplemented!(),
-                        };
+                match assignee {
+                    TypedAssignee::Identifier(ref v) => {
+                        let vars = self.use_variable(&v);
+                        // handle return of function call
                         statements_flattened.extend(
                             vars.into_iter()
-                                .zip(rhs.into_iter())
-                                .map(|(v, r)| FlatStatement::Definition(v, r)),
+                                .zip(rhs)
+                                .map(|(v, e)| FlatStatement::Definition(v, e)),
                         );
                     }
-                    Type::Struct(..) => {
-                        let vars = match assignee {
-                            TypedAssignee::Identifier(v) => self.use_variable(&v),
-                            _ => unimplemented!(),
-                        };
-                        statements_flattened.extend(
-                            vars.into_iter()
-                                .zip(rhs.into_iter())
-                                .map(|(v, r)| FlatStatement::Definition(v, r)),
-                        );
-                    }
+                    TypedAssignee::Select(..) => unreachable!(
+                        "array element redefs should have been replaced by array redefs in unroll"
+                    ),
                 }
             }
-            TypedStatement::Condition(expr1, expr2) => {
+            TypedStatement::Condition(lhs, rhs) => {
                 // flatten expr1 and expr2 to n flattened expressions with n the number of primitive types for expr1
                 // add n conditions to check equality of the n expressions
 
-                match (expr1, expr2) {
-                    (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        let (lhs, rhs) = (
-                            self.flatten_field_expression(symbols, statements_flattened, e1),
-                            self.flatten_field_expression(symbols, statements_flattened, e2),
-                        );
+                let lhs = self.flatten_expression(symbols, statements_flattened, lhs);
+                let rhs = self.flatten_expression(symbols, statements_flattened, rhs);
 
-                        if lhs.is_linear() {
-                            statements_flattened.push(FlatStatement::Condition(lhs, rhs));
-                        } else if rhs.is_linear() {
-                            // swap so that left side is linear
-                            statements_flattened.push(FlatStatement::Condition(rhs, lhs));
-                        } else {
-                            unimplemented!()
-                        }
+                assert_eq!(lhs.len(), rhs.len());
+
+                for (l, r) in lhs.into_iter().zip(rhs.into_iter()) {
+                    if l.is_linear() {
+                        statements_flattened.push(FlatStatement::Condition(l, r));
+                    } else if r.is_linear() {
+                        // swap so that left side is linear
+                        statements_flattened.push(FlatStatement::Condition(r, l));
+                    } else {
+                        unimplemented!()
                     }
-                    (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
-                        let (lhs, rhs) = (
-                            self.flatten_boolean_expression(symbols, statements_flattened, e1),
-                            self.flatten_boolean_expression(symbols, statements_flattened, e2),
-                        );
-
-                        if lhs.is_linear() {
-                            statements_flattened.push(FlatStatement::Condition(lhs, rhs));
-                        } else if rhs.is_linear() {
-                            // swap so that left side is linear
-                            statements_flattened.push(FlatStatement::Condition(rhs, lhs));
-                        } else {
-                            unimplemented!()
-                        }
-                    }
-                    (TypedExpression::Array(e1), TypedExpression::Array(e2)) => {
-                        let (lhs, rhs) = (
-                            match e1.inner_type() {
-                                Type::FieldElement => self
-                                    .flatten_array_expression::<FieldElementExpression<'ast, T>>(
-                                        symbols,
-                                        statements_flattened,
-                                        e1,
-                                    ),
-                                Type::Boolean => self
-                                    .flatten_array_expression::<BooleanExpression<'ast, T>>(
-                                        symbols,
-                                        statements_flattened,
-                                        e1,
-                                    ),
-                                _ => unreachable!(),
-                            },
-                            match e2.inner_type() {
-                                Type::FieldElement => self
-                                    .flatten_array_expression::<FieldElementExpression<'ast, T>>(
-                                        symbols,
-                                        statements_flattened,
-                                        e2,
-                                    ),
-                                Type::Boolean => self
-                                    .flatten_array_expression::<BooleanExpression<'ast, T>>(
-                                        symbols,
-                                        statements_flattened,
-                                        e2,
-                                    ),
-                                _ => unreachable!(),
-                            },
-                        );
-
-                        assert_eq!(lhs.len(), rhs.len());
-
-                        for (l, r) in lhs.into_iter().zip(rhs.into_iter()) {
-                            if l.is_linear() {
-                                statements_flattened.push(FlatStatement::Condition(l, r));
-                            } else if r.is_linear() {
-                                // swap so that left side is linear
-                                statements_flattened.push(FlatStatement::Condition(r, l));
-                            } else {
-                                unimplemented!()
-                            }
-                        }
-                    }
-                    _ => panic!(
-                        "non matching types in condition should have been caught at semantic stage"
-                    ),
                 }
             }
             TypedStatement::For(..) => unreachable!("static analyser should have unrolled"),

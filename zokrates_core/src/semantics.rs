@@ -927,8 +927,9 @@ impl<'ast> Checker<'ast> {
                     message: format!("Undeclared variable: {:?}", variable_name),
                 }),
             },
-            Assignee::ArrayElement(box assignee, box index) => {
+            Assignee::Select(box assignee, box index) => {
                 let checked_assignee = self.check_assignee(assignee, module_id, &types)?;
+
                 let checked_index = match index {
                     RangeOrExpression::Expression(e) => {
                         self.check_expression(e, module_id, &types)?
@@ -952,7 +953,7 @@ impl<'ast> Checker<'ast> {
                     }),
                 }?;
 
-                Ok(TypedAssignee::ArrayElement(
+                Ok(TypedAssignee::Select(
                     box checked_assignee,
                     box checked_typed_index,
                 ))
@@ -1013,7 +1014,7 @@ impl<'ast> Checker<'ast> {
                         pos: Some(pos),
 
                         message: format!(
-                            "Expected spread operator to apply on field element array, found {}",
+                            "Expected spread operator to apply on array, found {}",
                             e.get_type()
                         ),
                     }),
@@ -1165,14 +1166,13 @@ impl<'ast> Checker<'ast> {
                                 (TypedExpression::FieldElement(consequence), TypedExpression::FieldElement(alternative)) => {
                                     Ok(FieldElementExpression::IfElse(box condition, box consequence, box alternative).into())
                                 },
+                                (TypedExpression::Boolean(consequence), TypedExpression::Boolean(alternative)) => {
+                                    Ok(BooleanExpression::IfElse(box condition, box consequence, box alternative).into())
+                                },
                                 (TypedExpression::Array(consequence), TypedExpression::Array(alternative)) => {
-                                    if consequence.get_type() == alternative.get_type() && consequence.size() == alternative.size() {
-                                        let inner_type = consequence.inner_type().clone();
-                                        let size = consequence.size();
-                                        Ok(ArrayExpressionInner::IfElse(box condition, box consequence, box alternative).annotate(inner_type ,size).into())
-                                    } else {
-                                        unimplemented!("handle consequence alternative inner type mismatch")
-                                    }
+                                    let inner_type = consequence.inner_type().clone();
+                                    let size = consequence.size();
+                                    Ok(ArrayExpressionInner::IfElse(box condition, box consequence, box alternative).annotate(inner_type, size).into())
                                 },
                                 (TypedExpression::Struct(consequence), TypedExpression::Struct(alternative)) => {
                                     if consequence.get_type() == alternative.get_type() {
@@ -1182,7 +1182,7 @@ impl<'ast> Checker<'ast> {
                                         unimplemented!("handle consequence alternative inner type mismatch")
                                     }
                                 },
-                                _ => unimplemented!()
+                                _ => unreachable!("types should match here as we checked them explicitly")
                             }
                             false => Err(Error {
                                 pos: Some(pos),
@@ -1225,7 +1225,7 @@ impl<'ast> Checker<'ast> {
                         let f = &candidates[0];
                         // the return count has to be 1
                         match f.signature.outputs.len() {
-                            1 => match f.signature.outputs[0].clone() {
+                            1 => match &f.signature.outputs[0] {
                                 Type::FieldElement => Ok(FieldElementExpression::FunctionCall(
                                     FunctionKey {
                                         id: f.id.clone(),
@@ -1233,15 +1233,6 @@ impl<'ast> Checker<'ast> {
                                     },
                                     arguments_checked,
                                 )
-                                .into()),
-                                Type::Array(ty, size) => Ok(ArrayExpressionInner::FunctionCall(
-                                    FunctionKey {
-                                        id: f.id.clone(),
-                                        signature: f.signature.clone(),
-                                    },
-                                    arguments_checked,
-                                )
-                                .annotate(*ty, size)
                                 .into()),
                                 Type::Struct(members) => Ok(StructExpressionInner::FunctionCall(
                                     FunctionKey {
@@ -1252,6 +1243,17 @@ impl<'ast> Checker<'ast> {
                                 )
                                 .annotate(members.clone())
                                 .into()),
+                                Type::Array(box ty, size) => {
+                                    Ok(ArrayExpressionInner::FunctionCall(
+                                        FunctionKey {
+                                            id: f.id.clone(),
+                                            signature: f.signature.clone(),
+                                        },
+                                        arguments_checked,
+                                    )
+                                    .annotate(ty.clone(), size.clone())
+                                    .into())
+                                }
                                 _ => unimplemented!(),
                             },
                             n => Err(Error {
@@ -1272,7 +1274,9 @@ impl<'ast> Checker<'ast> {
                             fun_id, query
                         ),
                     }),
-                    _ => panic!("duplicate definition should have been caught before the call"),
+                    _ => {
+                        unreachable!("duplicate definition should have been caught before the call")
+                    }
                 }
             }
             Expression::Lt(box e1, box e2) => {
@@ -1428,7 +1432,14 @@ impl<'ast> Checker<'ast> {
                                 .into()),
                             }
                         }
-                        _ => panic!(""),
+                        e => Err(Error {
+                            pos: Some(pos),
+                            message: format!(
+                                "Cannot access slice of expression {} of type {}",
+                                e,
+                                e.get_type(),
+                            ),
+                        }),
                     },
                     RangeOrExpression::Expression(e) => {
                         match (array, self.check_expression(e, module_id, &types)?) {
@@ -4094,7 +4105,7 @@ mod tests {
         fn array_element() {
             // field[33] a
             // a[2] = 42
-            let a = Assignee::ArrayElement(
+            let a = Assignee::Select(
                 box Assignee::Identifier("a").mock(),
                 box RangeOrExpression::Expression(
                     Expression::FieldConstant(FieldPrime::from(2)).mock(),
@@ -4123,7 +4134,7 @@ mod tests {
 
             assert_eq!(
                 checker.check_assignee(a, &module_id, &types),
-                Ok(TypedAssignee::ArrayElement(
+                Ok(TypedAssignee::Select(
                     box TypedAssignee::Identifier(typed_absy::Variable::field_array(
                         "a".into(),
                         33
@@ -4137,8 +4148,8 @@ mod tests {
         fn array_of_array_element() {
             // field[33][42] a
             // a[1][2]
-            let a = Assignee::ArrayElement(
-                box Assignee::ArrayElement(
+            let a = Assignee::Select(
+                box Assignee::Select(
                     box Assignee::Identifier("a").mock(),
                     box RangeOrExpression::Expression(
                         Expression::FieldConstant(FieldPrime::from(1)).mock(),
@@ -4176,8 +4187,8 @@ mod tests {
 
             assert_eq!(
                 checker.check_assignee(a, &module_id, &types),
-                Ok(TypedAssignee::ArrayElement(
-                    box TypedAssignee::ArrayElement(
+                Ok(TypedAssignee::Select(
+                    box TypedAssignee::Select(
                         box TypedAssignee::Identifier(typed_absy::Variable::array(
                             "a".into(),
                             Type::array(Type::FieldElement, 33),

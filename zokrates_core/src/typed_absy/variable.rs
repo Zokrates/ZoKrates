@@ -1,4 +1,4 @@
-use crate::typed_absy::types::Type;
+use crate::typed_absy::types::{MemberId, Type};
 use crate::typed_absy::Identifier;
 use std::fmt;
 
@@ -24,6 +24,10 @@ impl<'ast> Variable<'ast> {
 
     pub fn array(id: Identifier<'ast>, ty: Type, size: usize) -> Variable<'ast> {
         Self::with_id_and_type(id, Type::array(ty, size))
+    }
+
+    pub fn struc(id: Identifier<'ast>, ty: Vec<(MemberId, Type)>) -> Variable<'ast> {
+        Self::with_id_and_type(id, Type::Struct(ty))
     }
 
     pub fn with_id_and_type(id: Identifier<'ast>, _type: Type) -> Variable<'ast> {

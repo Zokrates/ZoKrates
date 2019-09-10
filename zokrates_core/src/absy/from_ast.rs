@@ -586,15 +586,15 @@ impl<'ast, T: Field> From<pest::Assignee<'ast>> for absy::AssigneeNode<'ast, T> 
         use absy::NodeValue;
 
         let a = absy::AssigneeNode::from(assignee.id);
-        match assignee.indices.len() {
-            0 => a,
-            1 => absy::Assignee::ArrayElement(
-                box a,
-                box absy::RangeOrExpression::from(assignee.indices[0].clone()),
-            )
-            .span(assignee.span),
-            n => unimplemented!("Array should have one dimension, found {} in {}", n, a),
-        }
+        let span = assignee.span;
+
+        assignee
+            .indices
+            .into_iter()
+            .map(|i| absy::RangeOrExpression::from(i))
+            .fold(a, |acc, s| {
+                absy::Assignee::Select(box acc, box s).span(span.clone())
+            })
     }
 }
 
@@ -622,7 +622,7 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode {
 
                 let span = t.span;
 
-                t.size
+                t.dimensions
                     .into_iter()
                     .map(|s| match s {
                         pest::Expression::Constant(c) => match c {
@@ -775,5 +775,201 @@ mod tests {
         };
 
         assert_eq!(absy::Module::<FieldPrime>::from(ast), expected);
+    }
+
+    mod types {
+        use super::*;
+
+        /// Helper method to generate the ast for `def main(private {ty} a) -> (): return` which we use to check ty
+        fn wrap(ty: absy::UnresolvedType) -> absy::Module<'static, FieldPrime> {
+            absy::Module {
+                symbols: vec![absy::SymbolDeclaration {
+                    id: "main",
+                    symbol: absy::Symbol::HereFunction(
+                        absy::Function {
+                            arguments: vec![absy::Parameter::private(
+                                absy::Variable::new("a", ty.clone().mock()).into(),
+                            )
+                            .into()],
+                            statements: vec![absy::Statement::Return(
+                                absy::ExpressionList {
+                                    expressions: vec![],
+                                }
+                                .into(),
+                            )
+                            .into()],
+                            signature: absy::UnresolvedSignature::new().inputs(vec![ty.mock()]),
+                        }
+                        .into(),
+                    ),
+                }
+                .into()],
+                imports: vec![],
+            }
+        }
+
+        #[test]
+        fn array() {
+            let vectors = vec![
+                ("field", absy::UnresolvedType::FieldElement),
+                ("bool", absy::UnresolvedType::Boolean),
+                (
+                    "field[2]",
+                    absy::UnresolvedType::Array(box absy::UnresolvedType::FieldElement.mock(), 2),
+                ),
+                (
+                    "field[2][3]",
+                    absy::UnresolvedType::Array(
+                        box absy::UnresolvedType::Array(
+                            box absy::UnresolvedType::FieldElement.mock(),
+                            2,
+                        )
+                        .mock(),
+                        3,
+                    ),
+                ),
+                (
+                    "bool[2][3]",
+                    absy::UnresolvedType::Array(
+                        box absy::UnresolvedType::Array(
+                            box absy::UnresolvedType::Boolean.mock(),
+                            2,
+                        )
+                        .mock(),
+                        3,
+                    ),
+                ),
+            ];
+
+            for (ty, expected) in vectors {
+                let source = format!("def main(private {} a) -> (): return", ty);
+                let expected = wrap(expected);
+                let ast = pest::generate_ast(&source).unwrap();
+                assert_eq!(absy::Module::<FieldPrime>::from(ast), expected);
+            }
+        }
+    }
+
+    mod postfix {
+        use super::*;
+        fn wrap(expression: absy::Expression<'static, FieldPrime>) -> absy::Module<FieldPrime> {
+            absy::Module {
+                symbols: vec![absy::SymbolDeclaration {
+                    id: "main",
+                    symbol: absy::Symbol::HereFunction(
+                        absy::Function {
+                            arguments: vec![],
+                            statements: vec![absy::Statement::Return(
+                                absy::ExpressionList {
+                                    expressions: vec![expression.into()],
+                                }
+                                .into(),
+                            )
+                            .into()],
+                            signature: absy::UnresolvedSignature::new(),
+                        }
+                        .into(),
+                    ),
+                }
+                .into()],
+                imports: vec![],
+            }
+        }
+
+        #[test]
+        fn success() {
+            // we basically accept `()?[]*` : an optional call at first, then only array accesses
+
+            let vectors = vec![
+                ("a", absy::Expression::Identifier("a").into()),
+                (
+                    "a[3]",
+                    absy::Expression::Select(
+                        box absy::Expression::Identifier("a").into(),
+                        box absy::RangeOrExpression::Expression(
+                            absy::Expression::FieldConstant(FieldPrime::from(3)).into(),
+                        )
+                        .into(),
+                    ),
+                ),
+                (
+                    "a[3][4]",
+                    absy::Expression::Select(
+                        box absy::Expression::Select(
+                            box absy::Expression::Identifier("a").into(),
+                            box absy::RangeOrExpression::Expression(
+                                absy::Expression::FieldConstant(FieldPrime::from(3)).into(),
+                            )
+                            .into(),
+                        )
+                        .into(),
+                        box absy::RangeOrExpression::Expression(
+                            absy::Expression::FieldConstant(FieldPrime::from(4)).into(),
+                        )
+                        .into(),
+                    ),
+                ),
+                (
+                    "a(3)[4]",
+                    absy::Expression::Select(
+                        box absy::Expression::FunctionCall(
+                            "a",
+                            vec![absy::Expression::FieldConstant(FieldPrime::from(3)).into()],
+                        )
+                        .into(),
+                        box absy::RangeOrExpression::Expression(
+                            absy::Expression::FieldConstant(FieldPrime::from(4)).into(),
+                        )
+                        .into(),
+                    ),
+                ),
+                (
+                    "a(3)[4][5]",
+                    absy::Expression::Select(
+                        box absy::Expression::Select(
+                            box absy::Expression::FunctionCall(
+                                "a",
+                                vec![absy::Expression::FieldConstant(FieldPrime::from(3)).into()],
+                            )
+                            .into(),
+                            box absy::RangeOrExpression::Expression(
+                                absy::Expression::FieldConstant(FieldPrime::from(4)).into(),
+                            )
+                            .into(),
+                        )
+                        .into(),
+                        box absy::RangeOrExpression::Expression(
+                            absy::Expression::FieldConstant(FieldPrime::from(5)).into(),
+                        )
+                        .into(),
+                    ),
+                ),
+            ];
+
+            for (source, expected) in vectors {
+                let source = format!("def main() -> (): return {}", source);
+                let expected = wrap(expected);
+                let ast = pest::generate_ast(&source).unwrap();
+                assert_eq!(absy::Module::<FieldPrime>::from(ast), expected);
+            }
+        }
+
+        #[test]
+        #[should_panic]
+        fn call_array_element() {
+            // a call after an array access should be rejected
+            let source = "def main() -> (): return a[2](3)";
+            let ast = pest::generate_ast(&source).unwrap();
+            absy::Module::<FieldPrime>::from(ast);
+        }
+
+        #[test]
+        #[should_panic]
+        fn call_call_result() {
+            // a call after a call should be rejected
+            let source = "def main() -> (): return a(2)(3)";
+            let ast = pest::generate_ast(&source).unwrap();
+            absy::Module::<FieldPrime>::from(ast);
+        }
     }
 }

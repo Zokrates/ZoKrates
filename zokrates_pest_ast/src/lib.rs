@@ -256,7 +256,7 @@ mod ast {
     #[pest_ast(rule(Rule::ty_array))]
     pub struct ArrayType<'ast> {
         pub ty: BasicOrStructType<'ast>,
-        pub size: Vec<Expression<'ast>>,
+        pub dimensions: Vec<Expression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
