@@ -269,20 +269,25 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             }
             BooleanExpression::ArrayEq(box e1, box e2) => {
                 assert_eq!(e1.size(), e2.size());
-                let mut eq_expressions: Vec<BooleanExpression::<T>> = Vec::new();
+                let mut eq_expressions: Vec<BooleanExpression<T>> = Vec::new();
                 for i in 0..e1.size() {
-                    eq_expressions.push(
-                        BooleanExpression::Eq(
-                            box FieldElementExpression::Select(box e1.clone(), box FieldElementExpression::Number(T::from(i))),
-                            box FieldElementExpression::Select(box e2.clone(), box FieldElementExpression::Number(T::from(i)))
-                        )
-                    )
+                    eq_expressions.push(BooleanExpression::Eq(
+                        box FieldElementExpression::Select(
+                            box e1.clone(),
+                            box FieldElementExpression::Number(T::from(i)),
+                        ),
+                        box FieldElementExpression::Select(
+                            box e2.clone(),
+                            box FieldElementExpression::Number(T::from(i)),
+                        ),
+                     ))
                 }
 
                 let mut accumulator = eq_expressions[0].clone();
                 if eq_expressions.len() > 1 {
                     for i in 1..eq_expressions.len() {
-                        accumulator = BooleanExpression::And(box accumulator, box eq_expressions[i].clone());
+                        accumulator =
+                            BooleanExpression::And(box accumulator, box eq_expressions[i].clone());
                     }
                 }
 
