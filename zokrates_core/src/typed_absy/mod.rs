@@ -241,6 +241,7 @@ pub enum TypedAssignee<'ast, T: Field> {
         Box<TypedAssignee<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
+    Member(Box<TypedAssignee<'ast, T>>, MemberId),
 }
 
 impl<'ast, T: Field> Typed for TypedAssignee<'ast, T> {
@@ -254,6 +255,15 @@ impl<'ast, T: Field> Typed for TypedAssignee<'ast, T> {
                     _ => unreachable!("an array element should only be defined over arrays"),
                 }
             }
+            TypedAssignee::Member(ref s, ref m) => {
+                let s_type = s.get_type();
+                match s_type {
+                    Type::Struct(members) => {
+                        members.iter().find(|(id, _)| id == m).unwrap().1.clone()
+                    }
+                    _ => unreachable!("a struct access should only be defined over structs"),
+                }
+            }
         }
     }
 }
@@ -263,6 +273,7 @@ impl<'ast, T: Field> fmt::Debug for TypedAssignee<'ast, T> {
         match *self {
             TypedAssignee::Identifier(ref s) => write!(f, "{}", s.id),
             TypedAssignee::Select(ref a, ref e) => write!(f, "{}[{}]", a, e),
+            TypedAssignee::Member(ref s, ref m) => write!(f, "{}.{}", s, m),
         }
     }
 }

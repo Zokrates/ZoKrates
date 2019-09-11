@@ -9,13 +9,13 @@ extern crate lazy_static;
 
 pub use ast::{
     Access, ArrayAccess, ArrayInitializerExpression, ArrayType, AssertionStatement, Assignee,
-    AssignmentStatement, BasicOrStructType, BasicType, BinaryExpression, BinaryOperator,
-    CallAccess, ConstantExpression, DefinitionStatement, Expression, File, FromExpression,
-    Function, IdentifierExpression, ImportDirective, ImportSource, InlineArrayExpression,
-    InlineStructExpression, InlineStructMember, IterationStatement, MultiAssignmentStatement,
-    Parameter, PostfixExpression, Range, RangeOrExpression, ReturnStatement, Span, Spread,
-    SpreadOrExpression, Statement, StructDefinition, StructField, TernaryExpression, ToExpression,
-    Type, UnaryExpression, UnaryOperator, Visibility,
+    AssigneeAccess, AssignmentStatement, BasicOrStructType, BasicType, BinaryExpression,
+    BinaryOperator, CallAccess, ConstantExpression, DefinitionStatement, Expression, File,
+    FromExpression, Function, IdentifierExpression, ImportDirective, ImportSource,
+    InlineArrayExpression, InlineStructExpression, InlineStructMember, IterationStatement,
+    MultiAssignmentStatement, Parameter, PostfixExpression, Range, RangeOrExpression,
+    ReturnStatement, Span, Spread, SpreadOrExpression, Statement, StructDefinition, StructField,
+    TernaryExpression, ToExpression, Type, UnaryExpression, UnaryOperator, Visibility,
 };
 
 mod ast {
@@ -530,6 +530,13 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::assignee_access))]
+    pub enum AssigneeAccess<'ast> {
+        Select(ArrayAccess<'ast>),
+        Member(MemberAccess<'ast>),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::call_access))]
     pub struct CallAccess<'ast> {
         pub expressions: Vec<Expression<'ast>>,
@@ -684,8 +691,8 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::assignee))]
     pub struct Assignee<'ast> {
-        pub id: IdentifierExpression<'ast>,        // a
-        pub indices: Vec<RangeOrExpression<'ast>>, // [42 + x][31][7]
+        pub id: IdentifierExpression<'ast>,      // a
+        pub accesses: Vec<AssigneeAccess<'ast>>, // [42 + x].foo[7]
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }

@@ -623,7 +623,7 @@ impl<'ast> Checker<'ast> {
                             statements_checked.push(statement);
                         }
                         Err(e) => {
-                            errors.push(e);
+                            errors.extend(e);
                         }
                     }
                 }
@@ -748,21 +748,23 @@ impl<'ast> Checker<'ast> {
         stat: StatementNode<'ast, T>,
         module_id: &ModuleId,
         types: &TypeMap,
-    ) -> Result<TypedStatement<'ast, T>, Error> {
+    ) -> Result<TypedStatement<'ast, T>, Vec<Error>> {
         let pos = stat.pos();
 
         match stat.value {
             Statement::Return(list) => {
                 let mut expression_list_checked = vec![];
                 for e in list.value.expressions {
-                    let e_checked = self.check_expression(e, module_id, &types)?;
+                    let e_checked = self
+                        .check_expression(e, module_id, &types)
+                        .map_err(|e| vec![e])?;
                     expression_list_checked.push(e_checked);
                 }
 
                 Ok(TypedStatement::Return(expression_list_checked))
             }
             Statement::Declaration(var) => {
-                let var = self.check_variable(var, module_id, types).unwrap();
+                let var = self.check_variable(var, module_id, types)?;
                 match self.insert_into_scope(var.clone()) {
                     true => Ok(TypedStatement::Declaration(var)),
                     false => Err(Error {
@@ -770,6 +772,7 @@ impl<'ast> Checker<'ast> {
                         message: format!("Duplicate declaration for variable named {}", var.id),
                     }),
                 }
+                .map_err(|e| vec![e])
             }
             Statement::Definition(assignee, expr) => {
                 // we create multidef when rhs is a function call to benefit from inference
@@ -780,11 +783,15 @@ impl<'ast> Checker<'ast> {
 				}
 
                 // check the expression to be assigned
-                let checked_expr = self.check_expression(expr, module_id, &types)?;
+                let checked_expr = self
+                    .check_expression(expr, module_id, &types)
+                    .map_err(|e| vec![e])?;
                 let expression_type = checked_expr.get_type();
 
                 // check that the assignee is declared and is well formed
-                let var = self.check_assignee(assignee, module_id, &types)?;
+                let var = self
+                    .check_assignee(assignee, module_id, &types)
+                    .map_err(|e| vec![e])?;
 
                 let var_type = var.get_type();
 
@@ -799,10 +806,15 @@ impl<'ast> Checker<'ast> {
                         ),
                     }),
                 }
+                .map_err(|e| vec![e])
             }
             Statement::Condition(lhs, rhs) => {
-                let checked_lhs = self.check_expression(lhs, module_id, &types)?;
-                let checked_rhs = self.check_expression(rhs, module_id, &types)?;
+                let checked_lhs = self
+                    .check_expression(lhs, module_id, &types)
+                    .map_err(|e| vec![e])?;
+                let checked_rhs = self
+                    .check_expression(rhs, module_id, &types)
+                    .map_err(|e| vec![e])?;
 
                 if checked_lhs.get_type() == checked_rhs.get_type() {
                     Ok(TypedStatement::Condition(checked_lhs, checked_rhs))
@@ -818,11 +830,12 @@ impl<'ast> Checker<'ast> {
                         ),
                     })
                 }
+                .map_err(|e| vec![e])
             }
             Statement::For(var, from, to, statements) => {
                 self.enter_scope();
 
-                self.check_for_var(&var)?;
+                self.check_for_var(&var).map_err(|e| vec![e])?;
 
                 let var = self.check_variable(var, module_id, types).unwrap();
 
@@ -856,14 +869,14 @@ impl<'ast> Checker<'ast> {
                     			ref a => Err(Error {
                                     pos: Some(pos),
  message: format!("Left hand side of function return assignment must be a list of identifiers, found {}", a)})
-                    		}?;
+                    		}.map_err(|e| vec![e])?;
                             vars_types.push(t);
                             var_names.push(name);
                         }
                         // find arguments types
                         let mut arguments_checked = vec![];
                         for arg in arguments {
-                            let arg_checked = self.check_expression(arg, module_id, &types)?;
+                            let arg_checked = self.check_expression(arg, module_id, &types).map_err(|e| vec![e])?;
                             arguments_checked.push(arg_checked);
                         }
 
@@ -903,7 +916,7 @@ impl<'ast> Checker<'ast> {
                         pos: Some(pos),
                         message: format!("{} should be a FunctionCall", rhs),
                     }),
-                }
+                }.map_err(|e| vec![e])
             }
         }
     }
@@ -930,33 +943,68 @@ impl<'ast> Checker<'ast> {
             Assignee::Select(box assignee, box index) => {
                 let checked_assignee = self.check_assignee(assignee, module_id, &types)?;
 
-                let checked_index = match index {
-                    RangeOrExpression::Expression(e) => {
-                        self.check_expression(e, module_id, &types)?
-                    }
-                    r => unimplemented!(
-                        "Using slices in assignments is not supported yet, found {}",
-                        r
-                    ),
-                };
+                let ty = checked_assignee.get_type();
+                match ty {
+                    Type::Array(..) => {
+                        let checked_index = match index {
+                            RangeOrExpression::Expression(e) => {
+                                self.check_expression(e, module_id, &types)?
+                            }
+                            r => unimplemented!(
+                                "Using slices in assignments is not supported yet, found {}",
+                                r
+                            ),
+                        };
 
-                let checked_typed_index = match checked_index {
-                    TypedExpression::FieldElement(e) => Ok(e),
-                    e => Err(Error {
+                        let checked_typed_index = match checked_index {
+                            TypedExpression::FieldElement(e) => Ok(e),
+                            e => Err(Error {
+                                pos: Some(pos),
+
+                                message: format!(
+                                    "Expected array {} index to have type field, found {}",
+                                    checked_assignee,
+                                    e.get_type()
+                                ),
+                            }),
+                        }?;
+
+                        Ok(TypedAssignee::Select(
+                            box checked_assignee,
+                            box checked_typed_index,
+                        ))
+                    }
+                    ty => Err(Error {
                         pos: Some(pos),
 
                         message: format!(
-                            "Expected array {} index to have type field, found {}",
-                            checked_assignee,
-                            e.get_type()
+                            "Cannot access element at index {} on {} of type {}",
+                            index, checked_assignee, ty,
                         ),
                     }),
-                }?;
+                }
+            }
+            Assignee::Member(box assignee, box member) => {
+                let checked_assignee = self.check_assignee(assignee, module_id, &types)?;
 
-                Ok(TypedAssignee::Select(
-                    box checked_assignee,
-                    box checked_typed_index,
-                ))
+                let ty = checked_assignee.get_type();
+                match &ty {
+                    Type::Struct(members) => match members.iter().find(|(id, _)| id == member) {
+                        Some(_) => Ok(TypedAssignee::Member(box checked_assignee, member.into())),
+                        None => Err(Error {
+                            pos: Some(pos),
+                            message: format!("{} doesn't have member {}", ty, member),
+                        }),
+                    },
+                    ty => Err(Error {
+                        pos: Some(pos),
+
+                        message: format!(
+                            "Cannot access field {} on {} as of type {}",
+                            member, checked_assignee, ty,
+                        ),
+                    }),
+                }
             }
         }
     }
@@ -2322,10 +2370,10 @@ mod tests {
         let mut checker = Checker::new();
         assert_eq!(
             checker.check_statement(statement, &module_id, &types),
-            Err(Error {
+            Err(vec![Error {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Identifier \"b\" is undefined".to_string()
-            })
+            }])
         );
     }
 
@@ -3189,7 +3237,7 @@ mod tests {
         let types = HashMap::new();
         let module_id = String::from("");
         let mut checker = Checker::new();
-        let _: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(
+        let _: Result<TypedStatement<FieldPrime>, Vec<Error>> = checker.check_statement(
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
@@ -3197,7 +3245,7 @@ mod tests {
             &module_id,
             &types,
         );
-        let s2_checked: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(
+        let s2_checked: Result<TypedStatement<FieldPrime>, Vec<Error>> = checker.check_statement(
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
@@ -3207,10 +3255,10 @@ mod tests {
         );
         assert_eq!(
             s2_checked,
-            Err(Error {
+            Err(vec![Error {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Duplicate declaration for variable named a".to_string()
-            })
+            }])
         );
     }
 
@@ -3225,7 +3273,7 @@ mod tests {
         let module_id = String::from("");
 
         let mut checker = Checker::new();
-        let _: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(
+        let _: Result<TypedStatement<FieldPrime>, Vec<Error>> = checker.check_statement(
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
@@ -3233,7 +3281,7 @@ mod tests {
             &module_id,
             &types,
         );
-        let s2_checked: Result<TypedStatement<FieldPrime>, Error> = checker.check_statement(
+        let s2_checked: Result<TypedStatement<FieldPrime>, Vec<Error>> = checker.check_statement(
             Statement::Declaration(absy::Variable::new("a", UnresolvedType::Boolean.mock()).mock())
                 .mock(),
             &module_id,
@@ -3241,10 +3289,10 @@ mod tests {
         );
         assert_eq!(
             s2_checked,
-            Err(Error {
+            Err(vec![Error {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Duplicate declaration for variable named a".to_string()
-            })
+            }])
         );
     }
 

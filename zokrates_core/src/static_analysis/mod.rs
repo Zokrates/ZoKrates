@@ -24,6 +24,7 @@ impl<'ast, T: Field> Analyse for TypedProgram<'ast, T> {
     fn analyse(self) -> Self {
         // unroll
         let r = Unroller::unroll(self);
+        println!("{}", r);
         // inline
         let r = Inliner::inline(r);
         // propagate

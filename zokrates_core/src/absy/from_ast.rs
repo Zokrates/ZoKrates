@@ -588,13 +588,17 @@ impl<'ast, T: Field> From<pest::Assignee<'ast>> for absy::AssigneeNode<'ast, T> 
         let a = absy::AssigneeNode::from(assignee.id);
         let span = assignee.span;
 
-        assignee
-            .indices
-            .into_iter()
-            .map(|i| absy::RangeOrExpression::from(i))
-            .fold(a, |acc, s| {
-                absy::Assignee::Select(box acc, box s).span(span.clone())
-            })
+        assignee.accesses.into_iter().fold(a, |acc, s| {
+            match s {
+                pest::AssigneeAccess::Select(s) => {
+                    absy::Assignee::Select(box acc, box absy::RangeOrExpression::from(s.expression))
+                }
+                pest::AssigneeAccess::Member(m) => {
+                    absy::Assignee::Member(box acc, box m.id.span.as_str())
+                }
+            }
+            .span(span.clone())
+        })
     }
 }
 

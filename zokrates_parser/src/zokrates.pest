@@ -89,7 +89,8 @@ unary_expression = { op_unary ~ term }
 
 // End Expressions
 
-assignee = { identifier ~ ("[" ~ range_or_expression ~ "]")* }
+assignee = { identifier ~ assignee_access* }
+assignee_access = { array_access | member_access }
 identifier = @{ ((!keyword ~ ASCII_ALPHA) | (keyword ~ (ASCII_ALPHANUMERIC | "_"))) ~ (ASCII_ALPHANUMERIC | "_")* }
 constant = { decimal_number | boolean_literal }
 decimal_number = @{ "0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }

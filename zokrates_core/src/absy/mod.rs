@@ -254,6 +254,7 @@ impl<'ast, T: Field> fmt::Debug for Function<'ast, T> {
 pub enum Assignee<'ast, T: Field> {
     Identifier(Identifier<'ast>),
     Select(Box<AssigneeNode<'ast, T>>, Box<RangeOrExpression<'ast, T>>),
+    Member(Box<AssigneeNode<'ast, T>>, Box<Identifier<'ast>>),
 }
 
 pub type AssigneeNode<'ast, T> = Node<Assignee<'ast, T>>;
@@ -263,6 +264,7 @@ impl<'ast, T: Field> fmt::Debug for Assignee<'ast, T> {
         match *self {
             Assignee::Identifier(ref s) => write!(f, "Identifier({:?})", s),
             Assignee::Select(ref a, ref e) => write!(f, "Select({:?}[{:?}])", a, e),
+            Assignee::Member(ref s, ref m) => write!(f, "Member({:?}.{:?})", s, m),
         }
     }
 }

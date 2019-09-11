@@ -48,6 +48,7 @@ pub trait Folder<'ast, T: Field>: Sized {
                 box self.fold_assignee(a),
                 box self.fold_field_expression(index),
             ),
+            TypedAssignee::Member(box s, m) => TypedAssignee::Member(box self.fold_assignee(s), m),
         }
     }
 

@@ -152,12 +152,8 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
         )
     })?;
 
-    println!("{}", typed_ast);
-
     // analyse (unroll and constant propagation)
     let typed_ast = typed_ast.analyse();
-
-    println!("{}", typed_ast);
 
     // flatten input program
     let program_flattened = Flattener::flatten(typed_ast);

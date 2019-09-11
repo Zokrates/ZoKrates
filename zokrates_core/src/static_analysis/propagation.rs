@@ -35,6 +35,10 @@ fn is_constant<'ast, T: Field>(e: &TypedExpression<'ast, T>) -> bool {
             ArrayExpressionInner::Value(v) => v.iter().all(|e| is_constant(e)),
             _ => false,
         },
+        TypedExpression::Struct(a) => match a.as_inner() {
+            StructExpressionInner::Value(v) => v.iter().all(|e| is_constant(e)),
+            _ => false,
+        },
         _ => false,
     }
 }
@@ -70,6 +74,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
             }
             TypedStatement::Definition(TypedAssignee::Select(..), _) => {
                 unreachable!("array updates should have been replaced with full array redef")
+            }
+            TypedStatement::Definition(TypedAssignee::Member(..), _) => {
+                unreachable!("struct update should have been replaced with full struct redef")
             }
             // propagate lhs and rhs for conditions
             TypedStatement::Condition(e1, e2) => {
@@ -224,6 +231,24 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     }
                 }
             }
+            FieldElementExpression::Member(box s, m) => {
+                let s = self.fold_struct_expression(s);
+
+                let members = match s.get_type() {
+                    Type::Struct(members) => members,
+                    _ => unreachable!(),
+                };
+
+                match s.into_inner() {
+                    StructExpressionInner::Value(v) => {
+                        match members.iter().zip(v).find(|(id, _)| id.0 == m).unwrap().1 {
+                            TypedExpression::FieldElement(s) => s,
+                            _ => unreachable!(),
+                        }
+                    }
+                    inner => FieldElementExpression::Member(box inner.annotate(members), m),
+                }
+            }
             e => fold_field_expression(self, e),
         }
     }
@@ -302,6 +327,24 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     c => ArrayExpressionInner::IfElse(box c, box consequence, box alternative),
                 }
             }
+            ArrayExpressionInner::Member(box s, m) => {
+                let s = self.fold_struct_expression(s);
+
+                let members = match s.get_type() {
+                    Type::Struct(members) => members,
+                    _ => unreachable!(),
+                };
+
+                match s.into_inner() {
+                    StructExpressionInner::Value(v) => {
+                        match members.iter().zip(v).find(|(id, _)| id.0 == m).unwrap().1 {
+                            TypedExpression::Array(a) => a.into_inner(),
+                            _ => unreachable!(),
+                        }
+                    }
+                    inner => ArrayExpressionInner::Member(box inner.annotate(members), m),
+                }
+            }
             e => fold_array_expression_inner(self, ty, size, e),
         }
     }
@@ -378,6 +421,24 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     BooleanExpression::Value(true) => consequence.into_inner(),
                     BooleanExpression::Value(false) => alternative.into_inner(),
                     c => StructExpressionInner::IfElse(box c, box consequence, box alternative),
+                }
+            }
+            StructExpressionInner::Member(box s, m) => {
+                let s = self.fold_struct_expression(s);
+
+                let members = match s.get_type() {
+                    Type::Struct(members) => members,
+                    _ => unreachable!(),
+                };
+
+                match s.into_inner() {
+                    StructExpressionInner::Value(v) => {
+                        match members.iter().zip(v).find(|(id, _)| id.0 == m).unwrap().1 {
+                            TypedExpression::Struct(s) => s.into_inner(),
+                            _ => unreachable!(),
+                        }
+                    }
+                    inner => StructExpressionInner::Member(box inner.annotate(members), m),
                 }
             }
             e => fold_struct_expression_inner(self, ty, e),
@@ -506,6 +567,24 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     BooleanExpression::Value(true) => consequence,
                     BooleanExpression::Value(false) => alternative,
                     c => BooleanExpression::IfElse(box c, box consequence, box alternative),
+                }
+            }
+            BooleanExpression::Member(box s, m) => {
+                let s = self.fold_struct_expression(s);
+
+                let members = match s.get_type() {
+                    Type::Struct(members) => members,
+                    _ => unreachable!(),
+                };
+
+                match s.into_inner() {
+                    StructExpressionInner::Value(v) => {
+                        match members.iter().zip(v).find(|(id, _)| id.0 == m).unwrap().1 {
+                            TypedExpression::Boolean(s) => s,
+                            _ => unreachable!(),
+                        }
+                    }
+                    inner => BooleanExpression::Member(box inner.annotate(members), m),
                 }
             }
             e => fold_boolean_expression(self, e),

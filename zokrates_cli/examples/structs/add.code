@@ -1,0 +1,13 @@
+struct Point {
+	x: field,
+	y: field
+}
+
+def main(Point p, Point q) -> (Point):
+
+    field a = 42
+    field d = 21
+
+    field dpxpyqxqy = d * p.x * p.y * q.x * q.y
+
+	return Point { x: (p.x * q.y + q.x * p.y) / (1 + dpxpyqxqy) , y: (q.x * q.y - a * p.x * p.y) / (1 - dpxpyqxqy) }
