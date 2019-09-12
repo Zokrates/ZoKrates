@@ -2329,6 +2329,7 @@ dependencies = [
  "zokrates_field 0.3.3",
  "zokrates_fs_resolver 0.4.1",
  "zokrates_github_resolver 0.1.0",
+ "zokrates_ir 0.1.0",
 ]
 
 [[package]]

@@ -13,12 +13,12 @@ use std::path::{Path, PathBuf};
 use std::string::String;
 use std::{env, io};
 use zokrates_core::compile::compile;
-use zokrates_core::ir;
 use zokrates_core::proof_system::*;
 use zokrates_field::field::{Field, FieldPrime};
 use zokrates_fs_resolver::resolve as fs_resolve;
 #[cfg(feature = "github")]
 use zokrates_github_resolver::{is_github_import, resolve as github_resolve};
+use zokrates_ir as ir;
 
 fn main() {
     cli().unwrap_or_else(|e| {
