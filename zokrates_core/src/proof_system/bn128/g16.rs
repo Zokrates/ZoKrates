@@ -57,6 +57,26 @@ impl ProofSystem for G16 {
         true
     }
 
+    fn generate_proof_wasm(
+        &self,
+        program: ir::Prog<FieldPrime>,
+        witness: ir::Witness<FieldPrime>,
+        proving_key: &[u8],
+    ) -> String {
+        std::env::set_var("BELLMAN_VERBOSE", "0");
+
+        println!("{}", G16_WARNING);
+
+        let computation = Computation::with_witness(program, witness);
+        //let parameters_file = File::open(PathBuf::from(pk_path)).unwrap();
+
+        let params = Parameters::read(proving_key, true).unwrap();
+
+        let proof = computation.clone().prove(&params);
+
+        serialize::serialize_proof(&proof, &computation.public_inputs_values())
+    }
+
     fn export_solidity_verifier(&self, reader: BufReader<File>, is_abiv2: bool) -> String {
         let mut lines = reader.lines();
 

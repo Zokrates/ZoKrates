@@ -23,5 +23,12 @@ pub trait ProofSystem {
         proof_path: &str,
     ) -> bool;
 
+    fn generate_proof_wasm(
+        &self,
+        program: ir::Prog<FieldPrime>,
+        witness: ir::Witness<FieldPrime>,
+        proving_key: &[u8],
+    ) -> String;
+
     fn export_solidity_verifier(&self, reader: BufReader<File>, is_abiv2: bool) -> String;
 }
