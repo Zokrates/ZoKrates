@@ -8,11 +8,11 @@ extern crate serde_json;
 extern crate typed_arena;
 #[macro_use]
 extern crate serde_derive;
-extern crate bellman;
+extern crate bellman_ce as bellman;
 extern crate bincode;
-extern crate ff;
+extern crate ff_ce as ff;
 extern crate lazy_static;
-extern crate pairing;
+extern crate pairing_ce as pairing;
 #[cfg(feature = "wasm")]
 extern crate parity_wasm;
 extern crate regex;

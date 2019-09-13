@@ -1,3 +1,6 @@
+extern crate bellman_ce as bellman;
+extern crate sapling_crypto_ce as sapling_crypto;
+
 use bellman::{
     pairing::{ff::Field, Engine},
     ConstraintSystem, Index, LinearCombination, SynthesisError, Variable,

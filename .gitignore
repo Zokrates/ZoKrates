@@ -8,7 +8,6 @@ out.code
 out.wit
 proof.json
 proving.key
-variables.inf
 verification.key
 verifier.sol
 proof.json
