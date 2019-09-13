@@ -19,18 +19,18 @@ impl fmt::Debug for Signature {
 
 impl fmt::Display for Signature {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        r#try!(write!(f, "("));
+        write!(f, "(")?;
         for (i, t) in self.inputs.iter().enumerate() {
-            r#try!(write!(f, "{}", t));
+            write!(f, "{}", t)?;
             if i < self.inputs.len() - 1 {
-                r#try!(write!(f, ", "));
+                write!(f, ", ")?;
             }
         }
-        r#try!(write!(f, ") -> ("));
+        write!(f, ") -> (")?;
         for (i, t) in self.outputs.iter().enumerate() {
-            r#try!(write!(f, "{}", t));
+            write!(f, "{}", t)?;
             if i < self.outputs.len() - 1 {
-                r#try!(write!(f, ", "));
+                write!(f, ", ")?;
             }
         }
         write!(f, ")")
@@ -110,51 +110,5 @@ mod tests {
             .outputs(vec![Type::Boolean]);
 
         assert_eq!(s.to_string(), String::from("(field, bool) -> (bool)"));
-    }
-
-    #[test]
-    fn slug_0() {
-        let s = Signature::new().inputs(vec![]).outputs(vec![]);
-
-        assert_eq!(s.to_slug(), String::from("io"));
-    }
-
-    #[test]
-    fn slug_1() {
-        let s = Signature::new()
-            .inputs(vec![Type::FieldElement, Type::Boolean])
-            .outputs(vec![
-                Type::FieldElement,
-                Type::FieldElement,
-                Type::Boolean,
-                Type::FieldElement,
-            ]);
-
-        assert_eq!(s.to_slug(), String::from("ifbo2fbf"));
-    }
-
-    #[test]
-    fn slug_2() {
-        let s = Signature::new()
-            .inputs(vec![
-                Type::FieldElement,
-                Type::FieldElement,
-                Type::FieldElement,
-            ])
-            .outputs(vec![Type::FieldElement, Type::Boolean, Type::FieldElement]);
-
-        assert_eq!(s.to_slug(), String::from("i3fofbf"));
-    }
-
-    #[test]
-    fn array_slug() {
-        let s = Signature::new()
-            .inputs(vec![
-                Type::FieldElementArray(42),
-                Type::FieldElementArray(21),
-            ])
-            .outputs(vec![]);
-
-        assert_eq!(s.to_slug(), String::from("if[42]f[21]o"));
     }
 }

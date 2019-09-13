@@ -1,5 +1,3 @@
-#![allow(deprecated)] // TODO remove when lazy_static is warning-free
-
 //
 // @file field.rs
 // @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
@@ -800,5 +798,4 @@ mod tests {
             assert_eq!(FieldPrime::from_bellman(a), cc);
         }
     }
-
 }

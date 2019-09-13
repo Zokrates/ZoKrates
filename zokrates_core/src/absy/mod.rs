@@ -13,34 +13,107 @@ pub mod variable;
 pub use crate::absy::node::{Node, NodeValue};
 pub use crate::absy::parameter::{Parameter, ParameterNode};
 pub use crate::absy::variable::{Variable, VariableNode};
-use crate::types::Signature;
+use crate::types::{FunctionIdentifier, Signature};
+use embed::FlatEmbed;
 
-use crate::flat_absy::*;
 use crate::imports::ImportNode;
 use std::fmt;
 use zokrates_field::field::Field;
 
+use std::collections::HashMap;
+
+/// An identifier of a function or a variable
 pub type Identifier<'ast> = &'ast str;
 
-#[derive(Clone, PartialEq)]
-pub struct Prog<'ast, T: Field> {
-    /// Functions of the program
-    pub functions: Vec<FunctionNode<'ast, T>>,
-    pub imports: Vec<ImportNode>,
-    pub imported_functions: Vec<FlatFunction<T>>,
+/// The identifier of a `Module`, typically a path or uri
+pub type ModuleId = String;
+
+/// A collection of `Module`s
+pub type Modules<'ast, T> = HashMap<ModuleId, Module<'ast, T>>;
+
+/// A collection of `FunctionDeclaration`. Duplicates are allowed here as they are fine syntatically.
+pub type FunctionDeclarations<'ast, T> = Vec<FunctionDeclarationNode<'ast, T>>;
+
+/// A `Program` is a collection of `Module`s and an id of the main `Module`
+pub struct Program<'ast, T: Field> {
+    pub modules: HashMap<ModuleId, Module<'ast, T>>,
+    pub main: ModuleId,
 }
 
-impl<'ast, T: Field> fmt::Display for Prog<'ast, T> {
+/// A declaration of a `FunctionSymbol`, be it from an import or a function definition
+#[derive(PartialEq, Debug, Clone)]
+pub struct FunctionDeclaration<'ast, T: Field> {
+    pub id: Identifier<'ast>,
+    pub symbol: FunctionSymbol<'ast, T>,
+}
+
+impl<'ast, T: Field> fmt::Display for FunctionDeclaration<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.symbol {
+            FunctionSymbol::Here(ref fun) => write!(f, "def {}{}", self.id, fun),
+            FunctionSymbol::There(ref import) => write!(f, "import {} as {}", import, self.id),
+            FunctionSymbol::Flat(ref flat_fun) => write!(
+                f,
+                "def {}{}:\n\t// hidden",
+                self.id,
+                flat_fun.signature::<T>()
+            ),
+        }
+    }
+}
+
+type FunctionDeclarationNode<'ast, T> = Node<FunctionDeclaration<'ast, T>>;
+
+/// A module as a collection of `FunctionDeclaration`s
+#[derive(Clone, PartialEq)]
+pub struct Module<'ast, T: Field> {
+    /// Functions of the module
+    pub functions: FunctionDeclarations<'ast, T>,
+    pub imports: Vec<ImportNode<'ast>>, // we still use `imports` as they are not directly converted into `FunctionDeclaration`s after the importer is done, `imports` is empty
+}
+
+/// A function, be it defined in this module, imported from another module or a flat embed
+#[derive(Debug, Clone, PartialEq)]
+pub enum FunctionSymbol<'ast, T: Field> {
+    Here(FunctionNode<'ast, T>),
+    There(FunctionImportNode<'ast>),
+    Flat(FlatEmbed),
+}
+
+/// A function import
+#[derive(Debug, Clone, PartialEq)]
+pub struct FunctionImport<'ast> {
+    /// the id of the function in the target module. Note: there may be many candidates as imports statements do not specify the signature
+    pub function_id: Identifier<'ast>,
+    /// the id of the module to import from
+    pub module_id: ModuleId,
+}
+
+type FunctionImportNode<'ast> = Node<FunctionImport<'ast>>;
+
+impl<'ast> FunctionImport<'ast> {
+    pub fn with_id_in_module<S: Into<Identifier<'ast>>, U: Into<ModuleId>>(
+        function_id: S,
+        module_id: U,
+    ) -> Self {
+        FunctionImport {
+            function_id: function_id.into(),
+            module_id: module_id.into(),
+        }
+    }
+}
+
+impl<'ast> fmt::Display for FunctionImport<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} from {}", self.function_id, self.module_id)
+    }
+}
+
+impl<'ast, T: Field> fmt::Display for Module<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut res = vec![];
         res.extend(
             self.imports
-                .iter()
-                .map(|x| format!("{}", x))
-                .collect::<Vec<_>>(),
-        );
-        res.extend(
-            self.imported_functions
                 .iter()
                 .map(|x| format!("{}", x))
                 .collect::<Vec<_>>(),
@@ -55,19 +128,14 @@ impl<'ast, T: Field> fmt::Display for Prog<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> fmt::Debug for Prog<'ast, T> {
+impl<'ast, T: Field> fmt::Debug for Module<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "program(\n\timports:\n\t\t{}\n\tfunctions:\n\t\t{}{}\n)",
+            "module(\n\timports:\n\t\t{}\n\tfunctions:\n\t\t{}\n)",
             self.imports
                 .iter()
                 .map(|x| format!("{:?}", x))
-                .collect::<Vec<_>>()
-                .join("\n\t\t"),
-            self.imported_functions
-                .iter()
-                .map(|x| format!("{}", x))
                 .collect::<Vec<_>>()
                 .join("\n\t\t"),
             self.functions
@@ -79,10 +147,9 @@ impl<'ast, T: Field> fmt::Debug for Prog<'ast, T> {
     }
 }
 
+/// A function defined locally
 #[derive(Clone, PartialEq)]
 pub struct Function<'ast, T: Field> {
-    /// Name of the program
-    pub id: Identifier<'ast>,
     /// Arguments of the function
     pub arguments: Vec<ParameterNode<'ast>>,
     /// Vector of statements that are executed when running the function
@@ -97,8 +164,7 @@ impl<'ast, T: Field> fmt::Display for Function<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "def {}({}):\n{}",
-            self.id,
+            "({}):\n{}",
             self.arguments
                 .iter()
                 .map(|x| format!("{}", x))
@@ -117,8 +183,7 @@ impl<'ast, T: Field> fmt::Debug for Function<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "Function(id: {:?}, arguments: {:?}, ...):\n{}",
-            self.id,
+            "Function(arguments: {:?}, ...):\n{}",
             self.arguments,
             self.statements
                 .iter()
@@ -129,6 +194,7 @@ impl<'ast, T: Field> fmt::Debug for Function<'ast, T> {
     }
 }
 
+/// Something that we can assign to
 #[derive(Clone, PartialEq)]
 pub enum Assignee<'ast, T: Field> {
     Identifier(Identifier<'ast>),
@@ -152,6 +218,7 @@ impl<'ast, T: Field> fmt::Display for Assignee<'ast, T> {
     }
 }
 
+/// A statement in a `Function`
 #[derive(Clone, PartialEq)]
 pub enum Statement<'ast, T: Field> {
     Return(ExpressionListNode<'ast, T>),
@@ -172,17 +239,17 @@ impl<'ast, T: Field> fmt::Display for Statement<'ast, T> {
             Statement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             Statement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             Statement::For(ref var, ref start, ref stop, ref list) => {
-                r#try!(write!(f, "for {} in {}..{} do\n", var, start, stop));
+                write!(f, "for {} in {}..{} do\n", var, start, stop)?;
                 for l in list {
-                    r#try!(write!(f, "\t\t{}\n", l));
+                    write!(f, "\t\t{}\n", l)?;
                 }
                 write!(f, "\tendfor")
             }
             Statement::MultipleDefinition(ref ids, ref rhs) => {
                 for (i, id) in ids.iter().enumerate() {
-                    r#try!(write!(f, "{}", id));
+                    write!(f, "{}", id)?;
                     if i < ids.len() - 1 {
-                        r#try!(write!(f, ", "));
+                        write!(f, ", ")?;
                     }
                 }
                 write!(f, " = {}", rhs)
@@ -201,9 +268,9 @@ impl<'ast, T: Field> fmt::Debug for Statement<'ast, T> {
             }
             Statement::Condition(ref lhs, ref rhs) => write!(f, "Condition({:?}, {:?})", lhs, rhs),
             Statement::For(ref var, ref start, ref stop, ref list) => {
-                r#try!(write!(f, "for {:?} in {:?}..{:?} do\n", var, start, stop));
+                write!(f, "for {:?} in {:?}..{:?} do\n", var, start, stop)?;
                 for l in list {
-                    r#try!(write!(f, "\t\t{:?}\n", l));
+                    write!(f, "\t\t{:?}\n", l)?;
                 }
                 write!(f, "\tendfor")
             }
@@ -214,6 +281,7 @@ impl<'ast, T: Field> fmt::Debug for Statement<'ast, T> {
     }
 }
 
+/// An element of an inline array, can be a spread `...a` or an expression `a`
 #[derive(Clone, PartialEq)]
 pub enum SpreadOrExpression<'ast, T: Field> {
     Spread(SpreadNode<'ast, T>),
@@ -238,6 +306,7 @@ impl<'ast, T: Field> fmt::Debug for SpreadOrExpression<'ast, T> {
     }
 }
 
+/// The index in an array selector. Can be a range or an expression.
 #[derive(Clone, PartialEq)]
 pub enum RangeOrExpression<'ast, T: Field> {
     Range(RangeNode<T>),
@@ -276,11 +345,13 @@ impl<'ast, T: Field> fmt::Debug for Spread<'ast, T> {
     }
 }
 
+/// A spread
 #[derive(Clone, PartialEq)]
 pub struct Spread<'ast, T: Field> {
     pub expression: ExpressionNode<'ast, T>,
 }
 
+/// A range
 #[derive(Clone, PartialEq)]
 pub struct Range<T: Field> {
     pub from: Option<T>,
@@ -312,6 +383,7 @@ impl<'ast, T: Field> fmt::Debug for Range<T> {
     }
 }
 
+/// An expression
 #[derive(Clone, PartialEq)]
 pub enum Expression<'ast, T: Field> {
     FieldConstant(T),
@@ -327,7 +399,7 @@ pub enum Expression<'ast, T: Field> {
         Box<ExpressionNode<'ast, T>>,
         Box<ExpressionNode<'ast, T>>,
     ),
-    FunctionCall(String, Vec<ExpressionNode<'ast, T>>),
+    FunctionCall(FunctionIdentifier<'ast>, Vec<ExpressionNode<'ast, T>>),
     Lt(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
     Le(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
     Eq(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
@@ -362,11 +434,11 @@ impl<'ast, T: Field> fmt::Display for Expression<'ast, T> {
                 condition, consequent, alternative
             ),
             Expression::FunctionCall(ref i, ref p) => {
-                r#try!(write!(f, "{}(", i,));
+                write!(f, "{}(", i,)?;
                 for (i, param) in p.iter().enumerate() {
-                    r#try!(write!(f, "{}", param));
+                    write!(f, "{}", param)?;
                     if i < p.len() - 1 {
-                        r#try!(write!(f, ", "));
+                        write!(f, ", ")?;
                     }
                 }
                 write!(f, ")")
@@ -379,11 +451,11 @@ impl<'ast, T: Field> fmt::Display for Expression<'ast, T> {
             Expression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             Expression::Not(ref exp) => write!(f, "!{}", exp),
             Expression::InlineArray(ref exprs) => {
-                r#try!(write!(f, "["));
+                write!(f, "[")?;
                 for (i, e) in exprs.iter().enumerate() {
-                    r#try!(write!(f, "{}", e));
+                    write!(f, "{}", e)?;
                     if i < exprs.len() - 1 {
-                        r#try!(write!(f, ", "));
+                        write!(f, ", ")?;
                     }
                 }
                 write!(f, "]")
@@ -411,8 +483,8 @@ impl<'ast, T: Field> fmt::Debug for Expression<'ast, T> {
                 condition, consequent, alternative
             ),
             Expression::FunctionCall(ref i, ref p) => {
-                r#try!(write!(f, "FunctionCall({:?}, (", i));
-                r#try!(f.debug_list().entries(p.iter()).finish());
+                write!(f, "FunctionCall({:?}, (", i)?;
+                f.debug_list().entries(p.iter()).finish()?;
                 write!(f, ")")
             }
             Expression::Lt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
@@ -423,8 +495,8 @@ impl<'ast, T: Field> fmt::Debug for Expression<'ast, T> {
             Expression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             Expression::Not(ref exp) => write!(f, "!{}", exp),
             Expression::InlineArray(ref exprs) => {
-                r#try!(write!(f, "InlineArray(["));
-                r#try!(f.debug_list().entries(exprs.iter()).finish());
+                write!(f, "InlineArray([")?;
+                f.debug_list().entries(exprs.iter()).finish()?;
                 write!(f, "]")
             }
             Expression::Select(ref array, ref index) => write!(f, "{}[{}]", array, index),
@@ -433,6 +505,7 @@ impl<'ast, T: Field> fmt::Debug for Expression<'ast, T> {
     }
 }
 
+/// A list of expressions, used in return statements
 #[derive(Clone, PartialEq)]
 pub struct ExpressionList<'ast, T: Field> {
     pub expressions: Vec<ExpressionNode<'ast, T>>,
@@ -451,9 +524,9 @@ impl<'ast, T: Field> ExpressionList<'ast, T> {
 impl<'ast, T: Field> fmt::Display for ExpressionList<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (i, param) in self.expressions.iter().enumerate() {
-            r#try!(write!(f, "{}", param));
+            write!(f, "{}", param)?;
             if i < self.expressions.len() - 1 {
-                r#try!(write!(f, ", "));
+                write!(f, ", ")?;
             }
         }
         write!(f, "")
