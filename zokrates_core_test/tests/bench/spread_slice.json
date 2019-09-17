@@ -1,4 +1,5 @@
 {
+	"entry_point": "./tests/bench/spread_slice.code",
 	"tests": [
 		{
 			"input": {

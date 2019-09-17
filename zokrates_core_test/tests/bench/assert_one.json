@@ -1,4 +1,5 @@
 {
+	"entry_point": "./tests/bench/assert_one.code",
 	"tests": [
 		{
 			"input": {

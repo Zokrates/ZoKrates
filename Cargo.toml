@@ -8,4 +8,5 @@ members = [
     "zokrates_stdlib",
     "zokrates_embed",
     "zokrates_test",
+    "zokrates_core_test",
 ]

@@ -1,4 +1,5 @@
 {
+	"entry_point": "./tests/bench/split.code",
 	"tests": [
 		{
 			"input": {

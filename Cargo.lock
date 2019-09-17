@@ -2311,6 +2311,13 @@ dependencies = [
  "zokrates_embed 0.1.0",
  "zokrates_field 0.3.3",
  "zokrates_pest_ast 0.1.2",
+]
+
+[[package]]
+name = "zokrates_core_test"
+version = "0.1.0"
+dependencies = [
+ "fs_extra 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "zokrates_test 0.1.0",
 ]
 

@@ -1,4 +1,5 @@
 {
+	"entry_point": "./tests/bench/fact_up_to_4.code",
 	"tests": [
 		{
 			"input": {
