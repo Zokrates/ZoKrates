@@ -1,9 +1,7 @@
 use fs_extra::copy_items;
 use fs_extra::dir::CopyOptions;
 use std::env;
-use std::fs::File;
-use std::io::{BufWriter, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use zokrates_test::write_tests;
 
 fn main() {
