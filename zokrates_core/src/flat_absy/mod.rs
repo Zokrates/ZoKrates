@@ -11,59 +11,32 @@ pub mod flat_variable;
 pub use self::flat_parameter::FlatParameter;
 pub use self::flat_variable::FlatVariable;
 
-use crate::helpers::{DirectiveStatement, Executable};
+use crate::helpers::DirectiveStatement;
 use crate::types::Signature;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::fmt;
 use zokrates_field::field::Field;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct FlatProg<T: Field> {
     /// FlatFunctions of the program
-    pub functions: Vec<FlatFunction<T>>,
-}
-
-impl<T: Field> FlatProg<T> {
-    // only main flattened function is relevant here, as all other functions are unrolled into it
-    #[allow(dead_code)] // I don't want to remove this
-    pub fn get_witness(&self, inputs: Vec<T>) -> Result<BTreeMap<FlatVariable, T>, Error> {
-        let main = self.functions.iter().find(|x| x.id == "main").unwrap();
-        main.get_witness(inputs)
-    }
+    pub main: FlatFunction<T>,
 }
 
 impl<T: Field> fmt::Display for FlatProg<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.functions
-                .iter()
-                .map(|x| format!("{}", x))
-                .collect::<Vec<_>>()
-                .join("\n")
-        )
+        write!(f, "{}", self.main)
     }
 }
 
 impl<T: Field> fmt::Debug for FlatProg<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "flat_program(functions: {}\t)",
-            self.functions
-                .iter()
-                .map(|x| format!("\t{:?}", x))
-                .collect::<Vec<_>>()
-                .join("\n")
-        )
+        write!(f, "flat_program(main: {}\t)", self.main)
     }
 }
 
 #[derive(Clone, PartialEq)]
 pub struct FlatFunction<T: Field> {
-    /// Name of the program
-    pub id: String,
     /// Arguments of the function
     pub arguments: Vec<FlatParameter>,
     /// Vector of statements that are executed when running the function
@@ -72,62 +45,11 @@ pub struct FlatFunction<T: Field> {
     pub signature: Signature,
 }
 
-impl<T: Field> FlatFunction<T> {
-    pub fn get_witness(&self, inputs: Vec<T>) -> Result<BTreeMap<FlatVariable, T>, Error> {
-        assert!(self.arguments.len() == inputs.len());
-        assert!(self.id == "main");
-        let mut witness = BTreeMap::new();
-        witness.insert(FlatVariable::one(), T::one());
-        for (i, arg) in self.arguments.iter().enumerate() {
-            witness.insert(arg.id, inputs[i].clone());
-        }
-        for statement in &self.statements {
-            match *statement {
-                FlatStatement::Return(ref list) => {
-                    for (i, val) in list.expressions.iter().enumerate() {
-                        let s = val.solve(&mut witness);
-                        witness.insert(FlatVariable::public(i), s);
-                    }
-                }
-                FlatStatement::Definition(ref id, ref expr) => {
-                    let s = expr.solve(&mut witness);
-                    witness.insert(id.clone(), s);
-                }
-                FlatStatement::Condition(ref lhs, ref rhs) => {
-                    if lhs.solve(&mut witness) != rhs.solve(&mut witness) {
-                        return Err(Error {
-                            message: format!(
-                                "Condition not satisfied: {} should equal {}",
-                                lhs, rhs
-                            ),
-                        });
-                    }
-                }
-                FlatStatement::Directive(ref d) => {
-                    let input_values: Vec<T> =
-                        d.inputs.iter().map(|i| i.solve(&mut witness)).collect();
-                    match d.helper.execute(&input_values) {
-                        Ok(res) => {
-                            for (i, o) in d.outputs.iter().enumerate() {
-                                witness.insert(o.clone(), res[i].clone());
-                            }
-                            continue;
-                        }
-                        Err(message) => return Err(Error { message: message }),
-                    };
-                }
-            }
-        }
-        Ok(witness)
-    }
-}
-
 impl<T: Field> fmt::Display for FlatFunction<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "def {}({}):\n{}",
-            self.id,
+            "def main({}):\n{}",
             self.arguments
                 .iter()
                 .map(|x| format!("{}", x))
@@ -146,8 +68,7 @@ impl<T: Field> fmt::Debug for FlatFunction<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "FlatFunction(id: {:?}, arguments: {:?}, signature: {:?}):\n{}",
-            self.id,
+            "FlatFunction(arguments: {:?}, signature: {:?}):\n{}",
             self.arguments,
             self.signature,
             self.statements
@@ -269,19 +190,6 @@ impl<T: Field> FlatExpression<T> {
                 box e1.apply_substitution(substitution),
                 box e2.apply_substitution(substitution),
             ),
-        }
-    }
-
-    fn solve(&self, inputs: &mut BTreeMap<FlatVariable, T>) -> T {
-        match *self {
-            FlatExpression::Number(ref x) => x.clone(),
-            FlatExpression::Identifier(ref var) => match inputs.get(var) {
-                Some(v) => v.clone(),
-                None => panic!("Variable {:?} is undeclared in witness: {:?}", var, inputs),
-            },
-            FlatExpression::Add(ref x, ref y) => x.solve(inputs) + y.solve(inputs),
-            FlatExpression::Sub(ref x, ref y) => x.solve(inputs) - y.solve(inputs),
-            FlatExpression::Mult(ref x, ref y) => x.solve(inputs) * y.solve(inputs),
         }
     }
 

@@ -1,176 +1,216 @@
-use crate::typed_absy::folder::*;
-use crate::typed_absy::Folder;
-use crate::typed_absy::*;
-use crate::types::{Signature, Type};
+//! Module containing inlining for the typed AST
+//!
+//! @file inline.rs
+//! @author Thibaut Schaeffer <thibaut@schaeff.fr>
+//! @date 2019
+
+//! Start from the `main` function in the `main` module and inline all calls except those to flat embeds
+//! The resulting program has a single module, where we define a function for each flat embed, and replace function calls to the embeds found
+//! during inlining by calls to these functions, to be resolved during flattening.
+
+//! The resulting program has a single module of the form
+
+//! def main() -> ():
+//! def _SHA_256_ROUND() -> ():
+//! def _UNPACK() -> ():
+
+//! where any call in `main` must be to `_SHA_256_ROUND` or `_UNPACK`
+
 use std::collections::HashMap;
+use typed_absy::{folder::*, *};
+use types::FunctionKey;
 use zokrates_field::field::Field;
 
+/// An inliner
+#[derive(Debug)]
 pub struct Inliner<'ast, T: Field> {
-    functions: Vec<TypedFunction<'ast, T>>,
-    statements_buffer: Vec<TypedStatement<'ast, T>>,
-    context: Vec<(&'ast str, Signature, usize)>,
-    call_count: HashMap<String, usize>,
+    modules: TypedModules<'ast, T>, // the modules to look for functions in when inlining
+    module_id: TypedModuleId,       // the current module we're visiting
+    statement_buffer: Vec<TypedStatement<'ast, T>>, // a buffer of statements to be added to the inlined statements
+    stack: Vec<(String, FunctionKey<'ast>, usize)>, // the current call stack
+    call_count: HashMap<(String, FunctionKey<'ast>), usize>, // the call count for each function
 }
 
 impl<'ast, T: Field> Inliner<'ast, T> {
-    pub fn new() -> Self {
+    fn with_modules_and_module_id<S: Into<TypedModuleId>>(
+        modules: TypedModules<'ast, T>,
+        module_id: S,
+    ) -> Self {
         Inliner {
-            functions: vec![],
-            statements_buffer: vec![],
-            context: vec![],
+            modules,
+            module_id: module_id.into(),
+            statement_buffer: vec![],
+            stack: vec![],
             call_count: HashMap::new(),
         }
     }
 
-    fn should_inline(
-        &self,
-        function: &Option<TypedFunction<T>>,
-        arguments: &Vec<TypedExpression<T>>,
-    ) -> bool {
-        // we should define a heuristic here
-        // currently it doesn't seem like there's a tradeoff as everything gets inlined in flattening anyway (apart from compiling performance, as inlining
-        // in flattening should be faster and less memory intensive)
-        // however, using backends such as bellman, we could avoid flattening and "stream" the computation
-        // at proving time, the tradeoff becomes code size (not inlining keeps only one copy of each function) vs optimisation
-        // (inlining enables constant propagation through function calls, which cannot be achieved by our final optimiser in some cases)
-        // for now, we inline functions whose non-array parameters are constant, as this covers our main use case for inlining: propagation of
-        // constant array indices
-        match function {
-            Some(..) => {
-                // check whether non-array arguments are constant
-                arguments.iter().all(|e| match e {
-                    TypedExpression::FieldElementArray(..) => true,
-                    TypedExpression::FieldElement(FieldElementExpression::Number(..)) => true,
-                    TypedExpression::Boolean(BooleanExpression::Value(..)) => true,
-                    _ => false,
-                })
-            }
-            None => false,
-        }
-    }
+    pub fn inline(p: TypedProgram<T>) -> TypedProgram<T> {
+        let main_module_id = p.main;
 
-    // inline a call to `function` taking `expressions` as inputs
-    // this function mutates `self.call` by incrementing the counter for `function`, and mutates `self.context`
-    fn inline_call(
-        &mut self,
-        function: TypedFunction<'ast, T>,
-        expressions: Vec<TypedExpression<'ast, T>>,
-    ) -> Vec<TypedExpression<'ast, T>> {
-        self.call_count
-            .entry(function.to_slug())
-            .and_modify(|i| *i += 1)
-            .or_insert(1);
-        self.context.push((
-            function.id.clone(),
-            function.signature.clone(),
-            *self.call_count.get(&function.to_slug()).unwrap(),
-        ));
+        // get the main module
+        let main_module = p.modules.get(&main_module_id).unwrap().clone();
 
-        // add definitions for the inputs
-        let mut inputs_bindings = function
-            .arguments
-            .iter()
-            .zip(expressions)
-            .map(|(a, e)| {
-                TypedStatement::Definition(
-                    TypedAssignee::Identifier(self.fold_variable(a.id.clone())),
-                    e,
-                )
-            })
-            .collect();
-        self.statements_buffer.append(&mut inputs_bindings);
-
-        // filter out the return statement and keep it aside
-        let (mut statements, ret): (Vec<_>, Vec<_>) = function
-            .statements
-            .clone()
+        // get the main function in the main module
+        let (main_key, main) = main_module
+            .functions
             .into_iter()
-            .flat_map(|s| self.fold_statement(s))
-            .partition(|s| match s {
-                TypedStatement::Return(..) => false,
-                _ => true,
-            });
+            .find(|(k, _)| k.id == "main")
+            .unwrap();
 
-        // add all statements to the buffer
-        self.statements_buffer.append(&mut statements);
+        // initialize an inliner over all modules, starting from the main module
+        let mut inliner = Inliner::with_modules_and_module_id(p.modules, main_module_id);
 
-        // remove this call from the context
-        self.context.pop();
+        // inline all calls in the main function, recursively
+        let main = inliner.fold_function_symbol(main);
 
-        match ret[0].clone() {
-            TypedStatement::Return(exprs) => exprs,
-            _ => panic!(""),
+        // define a function in the main module for the `unpack` embed
+        let unpack = crate::embed::FlatEmbed::Unpack;
+        let unpack_key = unpack.key::<T>();
+
+        // define a function in the main module for the `sha256_round` embed
+        let sha256_round = crate::embed::FlatEmbed::Sha256Round;
+        let sha256_round_key = sha256_round.key::<T>();
+
+        // return a program with a single module containing `main`, `_UNPACK`, and `_SHA256_ROUND
+        TypedProgram {
+            main: String::from("main"),
+            modules: vec![(
+                String::from("main"),
+                TypedModule {
+                    functions: vec![
+                        (unpack_key, TypedFunctionSymbol::Flat(unpack)),
+                        (sha256_round_key, TypedFunctionSymbol::Flat(sha256_round)),
+                        (main_key, main),
+                    ]
+                    .into_iter()
+                    .collect(),
+                },
+            )]
+            .into_iter()
+            .collect(),
         }
     }
 
-    pub fn inline(prog: TypedProg<T>) -> TypedProg<T> {
-        Inliner::new().fold_program(prog)
+    /// try to inline a call to function with key `key` in the stack of `self`
+    /// if inlining succeeds, return the expressions returned by the function call
+    /// if inlining fails (as in the case of flat function symbols), return the arguments to the function call for further processing
+    fn try_inline_call(
+        &mut self,
+        key: &FunctionKey<'ast>,
+        expressions: Vec<TypedExpression<'ast, T>>,
+    ) -> Result<Vec<TypedExpression<'ast, T>>, (FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>)>
+    {
+        // here we clone a function symbol, which is cheap except when it contains the function body, in which case we'd clone anyways
+        match self.module().functions.get(&key).unwrap().clone() {
+            // if the function called is in the same module, we can go ahead and inline in this module
+            TypedFunctionSymbol::Here(function) => {
+                // increase the number of calls for this function by one
+                let count = self
+                    .call_count
+                    .entry((self.module_id.clone(), key.clone()))
+                    .and_modify(|i| *i += 1)
+                    .or_insert(1);
+                // push this call to the stack
+                self.stack
+                    .push((self.module_id.clone(), key.clone(), *count));
+                // add definitions for the inputs
+                let inputs_bindings: Vec<_> = function
+                    .arguments
+                    .iter()
+                    .zip(expressions)
+                    .map(|(a, e)| {
+                        TypedStatement::Definition(
+                            self.fold_assignee(TypedAssignee::Identifier(a.id.clone())),
+                            e,
+                        )
+                    })
+                    .collect();
+
+                self.statement_buffer.extend(inputs_bindings);
+
+                // filter out the return statement and keep it aside
+                let (statements, mut ret): (Vec<_>, Vec<_>) = function
+                    .statements
+                    .into_iter()
+                    .flat_map(|s| self.fold_statement(s))
+                    .partition(|s| match s {
+                        TypedStatement::Return(..) => false,
+                        _ => true,
+                    });
+
+                // add all statements to the buffer
+                self.statement_buffer.extend(statements);
+
+                // pop this call from the stack
+                self.stack.pop();
+
+                match ret.pop().unwrap() {
+                    TypedStatement::Return(exprs) => Ok(exprs),
+                    _ => unreachable!(""),
+                }
+            }
+            // if the function called is in some other module, we switch focus to that module and call the function locally there
+            TypedFunctionSymbol::There(function_key, module_id) => {
+                // switch focus to `module_id`
+                let current_module = self.change_module(module_id);
+                // inline the call there
+                let res = self.try_inline_call(&function_key, expressions)?;
+                // switch back focus
+                self.change_module(current_module);
+                Ok(res)
+            }
+            // if the function is a flat symbol, replace the call with a call to the local function we provide so it can be inlined in flattening
+            TypedFunctionSymbol::Flat(embed) => Err((embed.key::<T>(), expressions)),
+        }
+    }
+
+    // Focus the Inliner on another module with id `module_id` and return the current `module_id`
+    fn change_module(&mut self, module_id: TypedModuleId) -> TypedModuleId {
+        std::mem::replace(&mut self.module_id, module_id)
+    }
+
+    fn module(&self) -> &TypedModule<'ast, T> {
+        self.modules.get(&self.module_id).unwrap()
     }
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
-    // store the list of functions
-    fn fold_program(&mut self, p: TypedProg<'ast, T>) -> TypedProg<'ast, T> {
-        self.functions = p.functions.clone();
-        fold_program(self, p)
-    }
-
     // add extra statements before the modified statement
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
-        let mut statements = match s {
-            TypedStatement::MultipleDefinition(variables, elist) => {
-                match elist {
-                    TypedExpressionList::FunctionCall(id, exps, types) => {
-                        let variables: Vec<_> = variables
+        let folded = match s {
+            TypedStatement::MultipleDefinition(variables, elist) => match elist {
+                TypedExpressionList::FunctionCall(key, exps, types) => {
+                    let variables: Vec<_> = variables
+                        .into_iter()
+                        .map(|a| self.fold_variable(a))
+                        .collect();
+                    let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
+
+                    match self.try_inline_call(&key, exps) {
+                        Ok(ret) => variables
                             .into_iter()
-                            .map(|a| self.fold_variable(a))
-                            .collect();
-                        let exps: Vec<_> =
-                            exps.into_iter().map(|e| self.fold_expression(e)).collect();
-
-                        let passed_signature = Signature::new()
-                            .inputs(exps.iter().map(|e| e.get_type()).collect())
-                            .outputs(types.clone());
-
-                        // find the function
-                        let function = self
-                            .functions
-                            .iter()
-                            .find(|f| f.id == id && f.signature == passed_signature)
-                            .cloned();
-
-                        match self.should_inline(&function, &exps) {
-                            true => {
-                                let ret = self.inline_call(function.unwrap(), exps);
-                                variables
-                                    .into_iter()
-                                    .zip(ret.into_iter())
-                                    .map(|(v, e)| {
-                                        TypedStatement::Definition(TypedAssignee::Identifier(v), e)
-                                    })
-                                    .collect()
-                            }
-                            false => vec![TypedStatement::MultipleDefinition(
-                                variables,
-                                TypedExpressionList::FunctionCall(id, exps, types),
-                            )],
-                        }
+                            .zip(ret.into_iter())
+                            .map(|(v, e)| {
+                                TypedStatement::Definition(TypedAssignee::Identifier(v), e)
+                            })
+                            .collect(),
+                        Err((key, expressions)) => vec![TypedStatement::MultipleDefinition(
+                            variables,
+                            TypedExpressionList::FunctionCall(key, expressions, types),
+                        )],
                     }
                 }
-            }
+            },
             s => fold_statement(self, s),
         };
-
-        // add the result of folding to the buffer
-        self.statements_buffer.append(&mut statements);
-        // return the whole buffer
-        self.statements_buffer.drain(..).collect()
+        self.statement_buffer.drain(..).chain(folded).collect()
     }
 
-    // prefix all names with the context
+    // prefix all names with the stack
     fn fold_name(&mut self, n: Identifier<'ast>) -> Identifier<'ast> {
         Identifier {
-            stack: self.context.clone(),
+            stack: self.stack.clone(),
             ..n
         }
     }
@@ -181,70 +221,51 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
         e: FieldElementExpression<'ast, T>,
     ) -> FieldElementExpression<'ast, T> {
         match e {
-            FieldElementExpression::FunctionCall(id, exps) => {
+            FieldElementExpression::FunctionCall(key, exps) => {
                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
 
-                let passed_signature = Signature::new()
-                    .inputs(exps.iter().map(|e| e.get_type()).collect())
-                    .outputs(vec![Type::FieldElement]);
-
-                // find the function
-                let function = self
-                    .functions
-                    .iter()
-                    .find(|f| f.id == id && f.signature == passed_signature)
-                    .cloned();
-
-                match self.should_inline(&function, &exps) {
-                    true => {
-                        let ret = self.inline_call(function.unwrap(), exps);
-                        // unwrap the result to return a field element
-                        match ret[0].clone() {
-                            TypedExpression::FieldElement(e) => e,
-                            _ => panic!(""),
-                        }
+                match self.try_inline_call(&key, exps) {
+                    Ok(mut ret) => match ret.pop().unwrap() {
+                        TypedExpression::FieldElement(e) => e,
+                        _ => unreachable!(),
+                    },
+                    Err((key, expressions)) => {
+                        FieldElementExpression::FunctionCall(key, expressions)
                     }
-                    false => FieldElementExpression::FunctionCall(id, exps),
                 }
             }
-            // default
             e => fold_field_expression(self, e),
         }
     }
 
-    // inline calls which return a field element array
     fn fold_field_array_expression(
         &mut self,
         e: FieldElementArrayExpression<'ast, T>,
     ) -> FieldElementArrayExpression<'ast, T> {
         match e {
-            FieldElementArrayExpression::FunctionCall(size, id, exps) => {
-                let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
+            FieldElementArrayExpression::Identifier(size, id) => {
+                FieldElementArrayExpression::Identifier(
+                    size,
+                    self.fold_variable(Variable::field_array(id, size)).id,
+                )
+            }
+            FieldElementArrayExpression::FunctionCall(size, key, expressions) => {
+                //inline the arguments
+                let expressions: Vec<_> = expressions
+                    .into_iter()
+                    .map(|e| self.fold_expression(e))
+                    .collect();
 
-                let passed_signature = Signature::new()
-                    .inputs(exps.iter().map(|e| e.get_type()).collect())
-                    .outputs(vec![Type::FieldElementArray(size)]);
-
-                // find the function
-                let function = self
-                    .functions
-                    .iter()
-                    .find(|f| f.id == id && f.signature == passed_signature)
-                    .cloned();
-
-                match self.should_inline(&function, &exps) {
-                    true => {
-                        let ret = self.inline_call(function.unwrap(), exps);
-                        // unwrap the result to return a field element
-                        match ret[0].clone() {
-                            TypedExpression::FieldElementArray(e) => e,
-                            _ => panic!(""),
-                        }
+                match self.try_inline_call(&key, expressions) {
+                    Ok(mut ret) => match ret.pop().unwrap() {
+                        TypedExpression::FieldElementArray(e) => e,
+                        _ => unreachable!(),
+                    },
+                    Err((key, expressions)) => {
+                        FieldElementArrayExpression::FunctionCall(size, key, expressions)
                     }
-                    false => FieldElementArrayExpression::FunctionCall(size, id, exps),
                 }
             }
-            // default
             e => fold_field_array_expression(self, e),
         }
     }
@@ -253,70 +274,628 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use types::{FunctionKey, Signature, Type};
     use zokrates_field::field::FieldPrime;
 
-    #[cfg(test)]
-    mod heuristics {
-        use super::*;
+    #[test]
+    fn call_other_module_without_variables() {
+        // // main
+        // from "foo" import foo
+        // def main() -> (field):
+        //    return foo()
+        //
+        // // foo
+        // def foo() -> (field):
+        //    return 42
+        //
+        //
+        // // inlined
+        // def main() -> (field):
+        //    return 42
 
-        #[test]
-        fn inline_constant_field() {
-            let f: TypedFunction<FieldPrime> = TypedFunction {
-                id: "foo",
-                arguments: vec![
-                    Parameter::private(Variable::field_element("a".into())),
-                    Parameter::private(Variable::field_array("b".into(), 3)),
-                ],
+        let main = TypedModule {
+            functions: vec![
+                (
+                    FunctionKey::with_id("main")
+                        .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                    TypedFunctionSymbol::Here(TypedFunction {
+                        arguments: vec![],
+                        statements: vec![TypedStatement::Return(vec![
+                            FieldElementExpression::FunctionCall(
+                                FunctionKey::with_id("foo")
+                                    .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                                vec![],
+                            )
+                            .into(),
+                        ])],
+                        signature: Signature::new().outputs(vec![Type::FieldElement]),
+                    }),
+                ),
+                (
+                    FunctionKey::with_id("foo")
+                        .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                    TypedFunctionSymbol::There(
+                        FunctionKey::with_id("foo")
+                            .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                        String::from("foo"),
+                    ),
+                ),
+            ]
+            .into_iter()
+            .collect(),
+        };
+
+        let foo = TypedModule {
+            functions: vec![(
+                FunctionKey::with_id("foo")
+                    .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                TypedFunctionSymbol::Here(TypedFunction {
+                    arguments: vec![],
+                    statements: vec![TypedStatement::Return(vec![
+                        FieldElementExpression::Number(FieldPrime::from(42)).into(),
+                    ])],
+                    signature: Signature::new().outputs(vec![Type::FieldElement]),
+                }),
+            )]
+            .into_iter()
+            .collect(),
+        };
+
+        let modules: HashMap<_, _> = vec![(String::from("main"), main), (String::from("foo"), foo)]
+            .into_iter()
+            .collect();
+
+        let program = TypedProgram {
+            main: String::from("main"),
+            modules,
+        };
+
+        let program = Inliner::inline(program);
+
+        assert_eq!(program.modules.len(), 1);
+        assert_eq!(
+            program
+                .modules
+                .get(&String::from("main"))
+                .unwrap()
+                .functions
+                .get(
+                    &FunctionKey::with_id("main")
+                        .signature(Signature::new().outputs(vec![Type::FieldElement]))
+                )
+                .unwrap(),
+            &TypedFunctionSymbol::Here(TypedFunction {
+                arguments: vec![],
                 statements: vec![TypedStatement::Return(vec![
-                    FieldElementExpression::Select(
-                        box FieldElementArrayExpression::Identifier(3, Identifier::from("b")),
-                        box FieldElementExpression::Identifier(Identifier::from("a")),
-                    )
-                    .into(),
+                    FieldElementExpression::Number(FieldPrime::from(42)).into(),
                 ])],
-                signature: Signature::new()
-                    .inputs(vec![Type::FieldElement, Type::FieldElementArray(3)])
+                signature: Signature::new().outputs(vec![Type::FieldElement]),
+            })
+        );
+    }
+
+    #[test]
+    fn call_other_module_with_variables() {
+        // // main
+        // from "foo" import foo
+        // def main(field a) -> (field):
+        //    return a * foo(a)
+        //
+        // // foo
+        // def foo(field a) -> (field):
+        //    return a * a
+        //
+        //
+        // // inlined
+        // def main(a) -> (field):
+        //    field a_0 = a
+        //    return a * a_0 * a_0
+
+        let main = TypedModule {
+            functions: vec![
+                (
+                    FunctionKey::with_id("main").signature(
+                        Signature::new()
+                            .inputs(vec![Type::FieldElement])
+                            .outputs(vec![Type::FieldElement]),
+                    ),
+                    TypedFunctionSymbol::Here(TypedFunction {
+                        arguments: vec![Parameter::private(Variable::field_element("a".into()))],
+                        statements: vec![TypedStatement::Return(vec![
+                            FieldElementExpression::Mult(
+                                box FieldElementExpression::Identifier("a".into()),
+                                box FieldElementExpression::FunctionCall(
+                                    FunctionKey::with_id("foo").signature(
+                                        Signature::new()
+                                            .inputs(vec![Type::FieldElement])
+                                            .outputs(vec![Type::FieldElement]),
+                                    ),
+                                    vec![FieldElementExpression::Identifier("a".into()).into()],
+                                ),
+                            )
+                            .into(),
+                        ])],
+                        signature: Signature::new()
+                            .inputs(vec![Type::FieldElement])
+                            .outputs(vec![Type::FieldElement]),
+                    }),
+                ),
+                (
+                    FunctionKey::with_id("foo").signature(
+                        Signature::new()
+                            .inputs(vec![Type::FieldElement])
+                            .outputs(vec![Type::FieldElement]),
+                    ),
+                    TypedFunctionSymbol::There(
+                        FunctionKey::with_id("foo").signature(
+                            Signature::new()
+                                .inputs(vec![Type::FieldElement])
+                                .outputs(vec![Type::FieldElement]),
+                        ),
+                        String::from("foo"),
+                    ),
+                ),
+            ]
+            .into_iter()
+            .collect(),
+        };
+
+        let foo = TypedModule {
+            functions: vec![(
+                FunctionKey::with_id("foo").signature(
+                    Signature::new()
+                        .inputs(vec![Type::FieldElement])
+                        .outputs(vec![Type::FieldElement]),
+                ),
+                TypedFunctionSymbol::Here(TypedFunction {
+                    arguments: vec![Parameter::private(Variable::field_element("a".into()))],
+                    statements: vec![TypedStatement::Return(vec![FieldElementExpression::Mult(
+                        box FieldElementExpression::Identifier("a".into()),
+                        box FieldElementExpression::Identifier("a".into()),
+                    )
+                    .into()])],
+                    signature: Signature::new()
+                        .inputs(vec![Type::FieldElement])
+                        .outputs(vec![Type::FieldElement]),
+                }),
+            )]
+            .into_iter()
+            .collect(),
+        };
+
+        let modules: HashMap<_, _> = vec![(String::from("main"), main), (String::from("foo"), foo)]
+            .into_iter()
+            .collect();
+
+        let program: TypedProgram<FieldPrime> = TypedProgram {
+            main: String::from("main"),
+            modules,
+        };
+
+        let program = Inliner::inline(program);
+
+        assert_eq!(program.modules.len(), 1);
+
+        let stack = vec![(
+            String::from("foo"),
+            FunctionKey::with_id("foo").signature(
+                Signature::new()
+                    .inputs(vec![Type::FieldElement])
                     .outputs(vec![Type::FieldElement]),
-            };
+            ),
+            1,
+        )];
 
-            let arguments = vec![
-                FieldElementExpression::Number(FieldPrime::from(0)).into(),
-                FieldElementArrayExpression::Identifier(3, Identifier::from("random")).into(),
-            ];
-
-            let i = Inliner::new();
-
-            assert!(i.should_inline(&Some(f), &arguments));
-        }
-
-        #[test]
-        fn no_inline_non_constant_field() {
-            let f: TypedFunction<FieldPrime> = TypedFunction {
-                id: "foo",
-                arguments: vec![
-                    Parameter::private(Variable::field_element("a".into())),
-                    Parameter::private(Variable::field_array("b".into(), 3)),
+        assert_eq!(
+            program
+                .modules
+                .get(&String::from("main"))
+                .unwrap()
+                .functions
+                .get(
+                    &FunctionKey::with_id("main").signature(
+                        Signature::new()
+                            .inputs(vec![Type::FieldElement])
+                            .outputs(vec![Type::FieldElement])
+                    )
+                )
+                .unwrap(),
+            &TypedFunctionSymbol::Here(TypedFunction {
+                arguments: vec![Parameter::private(Variable::field_element("a".into()))],
+                statements: vec![
+                    TypedStatement::Definition(
+                        TypedAssignee::Identifier(Variable::field_element(
+                            Identifier::from("a").stack(stack.clone())
+                        )),
+                        FieldElementExpression::Identifier("a".into()).into()
+                    ),
+                    TypedStatement::Return(vec![FieldElementExpression::Mult(
+                        box FieldElementExpression::Identifier("a".into()),
+                        box FieldElementExpression::Mult(
+                            box FieldElementExpression::Identifier(
+                                Identifier::from("a").stack(stack.clone())
+                            ),
+                            box FieldElementExpression::Identifier(
+                                Identifier::from("a").stack(stack.clone())
+                            )
+                        )
+                    )
+                    .into(),])
                 ],
-                statements: vec![TypedStatement::Return(vec![
-                    FieldElementExpression::Select(
-                        box FieldElementArrayExpression::Identifier(3, Identifier::from("b")),
-                        box FieldElementExpression::Identifier(Identifier::from("a")),
-                    )
-                    .into(),
-                ])],
                 signature: Signature::new()
-                    .inputs(vec![Type::FieldElement, Type::FieldElementArray(3)])
+                    .inputs(vec![Type::FieldElement])
                     .outputs(vec![Type::FieldElement]),
-            };
+            })
+        );
+    }
 
-            let arguments = vec![
-                FieldElementExpression::Identifier(Identifier::from("notconstant")).into(),
-                FieldElementArrayExpression::Identifier(3, Identifier::from("random")).into(),
-            ];
+    #[test]
+    fn multi_def_from_other_module() {
+        // // foo
+        // def foo() -> (field):
+        //     return 42
 
-            let i = Inliner::new();
+        // // main
+        // def main() -> (field):
+        //     field b = foo()
+        //     return b
 
-            assert!(!i.should_inline(&Some(f), &arguments));
-        }
+        // inlined
+        // def main() -> (field)
+        //     field _0 = 42
+        //     return _0
+
+        let main = TypedModule {
+            functions: vec![
+                (
+                    FunctionKey::with_id("main")
+                        .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                    TypedFunctionSymbol::Here(TypedFunction {
+                        arguments: vec![],
+                        statements: vec![
+                            TypedStatement::MultipleDefinition(
+                                vec![Variable::field_element("a".into())],
+                                TypedExpressionList::FunctionCall(
+                                    FunctionKey::with_id("foo").signature(
+                                        Signature::new().outputs(vec![Type::FieldElement]),
+                                    ),
+                                    vec![],
+                                    vec![Type::FieldElement],
+                                ),
+                            ),
+                            TypedStatement::Return(vec![FieldElementExpression::Identifier(
+                                "a".into(),
+                            )
+                            .into()]),
+                        ],
+                        signature: Signature::new().outputs(vec![Type::FieldElement]),
+                    }),
+                ),
+                (
+                    FunctionKey::with_id("foo")
+                        .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                    TypedFunctionSymbol::There(
+                        FunctionKey::with_id("foo")
+                            .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                        String::from("foo"),
+                    ),
+                ),
+            ]
+            .into_iter()
+            .collect(),
+        };
+
+        let foo = TypedModule {
+            functions: vec![(
+                FunctionKey::with_id("foo")
+                    .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                TypedFunctionSymbol::Here(TypedFunction {
+                    arguments: vec![],
+                    statements: vec![TypedStatement::Return(vec![
+                        FieldElementExpression::Number(FieldPrime::from(42)).into(),
+                    ])],
+                    signature: Signature::new().outputs(vec![Type::FieldElement]),
+                }),
+            )]
+            .into_iter()
+            .collect(),
+        };
+
+        let modules: HashMap<_, _> = vec![(String::from("main"), main), (String::from("foo"), foo)]
+            .into_iter()
+            .collect();
+
+        let program = TypedProgram {
+            main: String::from("main"),
+            modules,
+        };
+
+        let program = Inliner::inline(program);
+
+        assert_eq!(program.modules.len(), 1);
+        assert_eq!(
+            program
+                .modules
+                .get(&String::from("main"))
+                .unwrap()
+                .functions
+                .get(
+                    &FunctionKey::with_id("main")
+                        .signature(Signature::new().outputs(vec![Type::FieldElement]))
+                )
+                .unwrap(),
+            &TypedFunctionSymbol::Here(TypedFunction {
+                arguments: vec![],
+                statements: vec![
+                    TypedStatement::Definition(
+                        TypedAssignee::Identifier(Variable::field_element("a".into())),
+                        FieldElementExpression::Number(FieldPrime::from(42)).into()
+                    ),
+                    TypedStatement::Return(vec![
+                        FieldElementExpression::Identifier("a".into()).into(),
+                    ])
+                ],
+                signature: Signature::new().outputs(vec![Type::FieldElement]),
+            })
+        );
+    }
+
+    #[test]
+    fn multi_def_from_same_module() {
+        // // main
+        // def foo() -> (field):
+        //     return 42
+        // def main() -> (field):
+        //     field a = foo()
+        //     return a
+
+        // inlined
+        // def main() -> (field)
+        //     field _0 = 42
+        //     return _0
+
+        let main = TypedModule {
+            functions: vec![
+                (
+                    FunctionKey::with_id("main")
+                        .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                    TypedFunctionSymbol::Here(TypedFunction {
+                        arguments: vec![],
+                        statements: vec![
+                            TypedStatement::MultipleDefinition(
+                                vec![Variable::field_element("a".into())],
+                                TypedExpressionList::FunctionCall(
+                                    FunctionKey::with_id("foo").signature(
+                                        Signature::new().outputs(vec![Type::FieldElement]),
+                                    ),
+                                    vec![],
+                                    vec![Type::FieldElement],
+                                ),
+                            ),
+                            TypedStatement::Return(vec![FieldElementExpression::Identifier(
+                                "a".into(),
+                            )
+                            .into()]),
+                        ],
+                        signature: Signature::new().outputs(vec![Type::FieldElement]),
+                    }),
+                ),
+                (
+                    FunctionKey::with_id("foo")
+                        .signature(Signature::new().outputs(vec![Type::FieldElement])),
+                    TypedFunctionSymbol::Here(TypedFunction {
+                        arguments: vec![],
+                        statements: vec![TypedStatement::Return(vec![
+                            FieldElementExpression::Number(FieldPrime::from(42)).into(),
+                        ])],
+                        signature: Signature::new().outputs(vec![Type::FieldElement]),
+                    }),
+                ),
+            ]
+            .into_iter()
+            .collect(),
+        };
+
+        let modules: HashMap<_, _> = vec![(String::from("main"), main)].into_iter().collect();
+
+        let program = TypedProgram {
+            main: String::from("main"),
+            modules,
+        };
+
+        let program = Inliner::inline(program);
+
+        assert_eq!(program.modules.len(), 1);
+        assert_eq!(
+            program
+                .modules
+                .get(&String::from("main"))
+                .unwrap()
+                .functions
+                .get(
+                    &FunctionKey::with_id("main")
+                        .signature(Signature::new().outputs(vec![Type::FieldElement]))
+                )
+                .unwrap(),
+            &TypedFunctionSymbol::Here(TypedFunction {
+                arguments: vec![],
+                statements: vec![
+                    TypedStatement::Definition(
+                        TypedAssignee::Identifier(Variable::field_element("a".into())),
+                        FieldElementExpression::Number(FieldPrime::from(42)).into()
+                    ),
+                    TypedStatement::Return(vec![
+                        FieldElementExpression::Identifier("a".into()).into(),
+                    ])
+                ],
+                signature: Signature::new().outputs(vec![Type::FieldElement]),
+            })
+        );
+    }
+
+    #[test]
+    fn recursive_call_in_other_module() {
+        // // main
+        // def main(field a) -> (field):
+        //     return id(id(a))
+
+        // // id
+        // def main(field a) -> (field)
+        //     return a
+
+        // inlined
+        // def main(field a) -> (field)
+        //     id_main_0_a = a
+        //     id_main_1_a = id_main_0_a
+        //     return id_main_1_a
+
+        let main = TypedModule {
+            functions: vec![
+                (
+                    FunctionKey::with_id("main").signature(
+                        Signature::new()
+                            .inputs(vec![Type::FieldElement])
+                            .outputs(vec![Type::FieldElement]),
+                    ),
+                    TypedFunctionSymbol::Here(TypedFunction {
+                        arguments: vec![Parameter::private(Variable::field_element("a".into()))],
+                        statements: vec![TypedStatement::Return(vec![
+                            FieldElementExpression::FunctionCall(
+                                FunctionKey::with_id("id").signature(
+                                    Signature::new()
+                                        .inputs(vec![Type::FieldElement])
+                                        .outputs(vec![Type::FieldElement]),
+                                ),
+                                vec![FieldElementExpression::FunctionCall(
+                                    FunctionKey::with_id("id").signature(
+                                        Signature::new()
+                                            .inputs(vec![Type::FieldElement])
+                                            .outputs(vec![Type::FieldElement]),
+                                    ),
+                                    vec![FieldElementExpression::Identifier("a".into()).into()],
+                                )
+                                .into()],
+                            )
+                            .into(),
+                        ])],
+                        signature: Signature::new()
+                            .inputs(vec![Type::FieldElement])
+                            .outputs(vec![Type::FieldElement]),
+                    }),
+                ),
+                (
+                    FunctionKey::with_id("id").signature(
+                        Signature::new()
+                            .inputs(vec![Type::FieldElement])
+                            .outputs(vec![Type::FieldElement]),
+                    ),
+                    TypedFunctionSymbol::There(
+                        FunctionKey::with_id("main").signature(
+                            Signature::new()
+                                .inputs(vec![Type::FieldElement])
+                                .outputs(vec![Type::FieldElement]),
+                        ),
+                        String::from("id"),
+                    ),
+                ),
+            ]
+            .into_iter()
+            .collect(),
+        };
+
+        let id = TypedModule {
+            functions: vec![(
+                FunctionKey::with_id("main").signature(
+                    Signature::new()
+                        .inputs(vec![Type::FieldElement])
+                        .outputs(vec![Type::FieldElement]),
+                ),
+                TypedFunctionSymbol::Here(TypedFunction {
+                    arguments: vec![Parameter::private(Variable::field_element("a".into()))],
+                    statements: vec![TypedStatement::Return(vec![
+                        FieldElementExpression::Identifier("a".into()).into(),
+                    ])],
+                    signature: Signature::new()
+                        .inputs(vec![Type::FieldElement])
+                        .outputs(vec![Type::FieldElement]),
+                }),
+            )]
+            .into_iter()
+            .collect(),
+        };
+
+        let modules = vec![(String::from("main"), main), (String::from("id"), id)]
+            .into_iter()
+            .collect();
+
+        let program: TypedProgram<FieldPrime> = TypedProgram {
+            main: String::from("main"),
+            modules,
+        };
+
+        let program = Inliner::inline(program);
+
+        let stack0 = vec![(
+            String::from("id"),
+            FunctionKey::with_id("main").signature(
+                Signature::new()
+                    .inputs(vec![Type::FieldElement])
+                    .outputs(vec![Type::FieldElement]),
+            ),
+            1,
+        )];
+        let stack1 = vec![(
+            String::from("id"),
+            FunctionKey::with_id("main").signature(
+                Signature::new()
+                    .inputs(vec![Type::FieldElement])
+                    .outputs(vec![Type::FieldElement]),
+            ),
+            2,
+        )];
+
+        assert_eq!(program.modules.len(), 1);
+        assert_eq!(
+            program
+                .modules
+                .get(&String::from("main"))
+                .unwrap()
+                .functions
+                .get(
+                    &FunctionKey::with_id("main").signature(
+                        Signature::new()
+                            .inputs(vec![Type::FieldElement])
+                            .outputs(vec![Type::FieldElement])
+                    )
+                )
+                .unwrap(),
+            &TypedFunctionSymbol::Here(TypedFunction {
+                arguments: vec![Parameter::private(Variable::field_element("a".into()))],
+                statements: vec![
+                    TypedStatement::Definition(
+                        TypedAssignee::Identifier(Variable::field_element(
+                            Identifier::from("a").stack(stack0.clone())
+                        )),
+                        FieldElementExpression::Identifier("a".into()).into()
+                    ),
+                    TypedStatement::Definition(
+                        TypedAssignee::Identifier(Variable::field_element(
+                            Identifier::from("a").stack(stack1.clone())
+                        )),
+                        FieldElementExpression::Identifier(
+                            Identifier::from("a").stack(stack0.clone())
+                        )
+                        .into()
+                    ),
+                    TypedStatement::Return(vec![FieldElementExpression::Identifier(
+                        Identifier::from("a").stack(stack1.clone())
+                    )
+                    .into(),])
+                ],
+                signature: Signature::new()
+                    .inputs(vec![Type::FieldElement])
+                    .outputs(vec![Type::FieldElement]),
+            })
+        );
     }
 }

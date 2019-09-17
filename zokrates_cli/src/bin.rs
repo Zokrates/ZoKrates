@@ -27,10 +27,10 @@ fn main() {
     })
 }
 
-fn resolve(
-    location: &Option<String>,
-    source: &String,
-) -> Result<(BufReader<File>, String, String), io::Error> {
+fn resolve<'a>(
+    location: Option<String>,
+    source: &'a str,
+) -> Result<(BufReader<File>, String, &'a str), io::Error> {
     #[cfg(feature = "github")]
     {
         if is_github_import(source) {

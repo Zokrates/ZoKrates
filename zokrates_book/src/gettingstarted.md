@@ -58,4 +58,4 @@ Then run the different phases of the protocol:
 ./zokrates export-verifier
 ```
 
-The CLI commands are explained in more detail in the [CLI reference](reference/cli.html).
+The CLI commands are explained in more detail in the [CLI reference](reference/cli.md).

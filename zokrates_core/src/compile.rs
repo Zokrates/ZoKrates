@@ -3,17 +3,18 @@
 //! @file compile.rs
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
-use absy::Prog;
-use flat_absy::FlatProg;
+use absy::{Module, ModuleId, Program};
 use flatten::Flattener;
 use imports::{self, Importer};
 use ir;
 use optimizer::Optimize;
 use semantics::{self, Checker};
 use static_analysis::Analyse;
+use std::collections::HashMap;
 use std::fmt;
 use std::io;
 use std::io::BufRead;
+use typed_arena::Arena;
 use zokrates_field::field::Field;
 use zokrates_pest_ast as pest;
 
@@ -123,34 +124,24 @@ impl fmt::Display for CompileErrorInner {
     }
 }
 
+pub type Resolve<S, E> = fn(Option<String>, &str) -> Result<(S, String, &str), E>;
+
 pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     reader: &mut R,
     location: Option<String>,
-    resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
+    resolve_option: Option<Resolve<S, E>>,
 ) -> Result<ir::Prog<T>, CompileErrors> {
-    let compiled = compile_aux(reader, location, resolve_option)?;
-    Ok(ir::Prog::from(compiled).optimize())
-}
+    let arena = Arena::new();
 
-pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
-    reader: &mut R,
-    location: Option<String>,
-    resolve_option: Option<fn(&Option<String>, &String) -> Result<(S, String, String), E>>,
-) -> Result<FlatProg<T>, CompileErrors> {
     let mut source = String::new();
     reader.read_to_string(&mut source).unwrap();
-    let ast = pest::generate_ast(&source)
-        .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).with_context(&location)))?;
-    let program_ast_without_imports: Prog<T> = Prog::from(ast);
 
-    let program_ast = Importer::new().apply_imports(
-        program_ast_without_imports,
-        location.clone(),
-        resolve_option,
-    )?;
+    let source = arena.alloc(source);
+
+    let compiled = compile_program(source, location.clone(), resolve_option, &arena)?;
 
     // check semantics
-    let typed_ast = Checker::check(program_ast).map_err(|errors| {
+    let typed_ast = Checker::check(compiled).map_err(|errors| {
         CompileErrors(
             errors
                 .into_iter()
@@ -168,7 +159,59 @@ pub fn compile_aux<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     // analyse (constant propagation after call resolution)
     let program_flattened = program_flattened.analyse();
 
-    Ok(program_flattened)
+    // convert to ir
+    let ir_prog = ir::Prog::from(program_flattened);
+
+    // optimize
+    let optimized_ir_prog = ir_prog.optimize();
+
+    Ok(optimized_ir_prog)
+}
+
+pub fn compile_program<'ast, T: Field, S: BufRead, E: Into<imports::Error>>(
+    source: &'ast str,
+    location: Option<String>,
+    resolve_option: Option<Resolve<S, E>>,
+    arena: &'ast Arena<String>,
+) -> Result<Program<'ast, T>, CompileErrors> {
+    let mut modules = HashMap::new();
+
+    let main = compile_module(
+        &source,
+        location.clone(),
+        resolve_option,
+        &mut modules,
+        &arena,
+    )?;
+
+    let location = location.unwrap_or("???".to_string());
+
+    modules.insert(location.clone(), main);
+
+    Ok(Program {
+        main: location,
+        modules,
+    })
+}
+
+pub fn compile_module<'ast, T: Field, S: BufRead, E: Into<imports::Error>>(
+    source: &'ast str,
+    location: Option<String>,
+    resolve_option: Option<Resolve<S, E>>,
+    modules: &mut HashMap<ModuleId, Module<'ast, T>>,
+    arena: &'ast Arena<String>,
+) -> Result<Module<'ast, T>, CompileErrors> {
+    let ast = pest::generate_ast(&source)
+        .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).with_context(&location)))?;
+    let module_without_imports: Module<T> = Module::from(ast);
+
+    Importer::new().apply_imports(
+        module_without_imports,
+        location.clone(),
+        resolve_option,
+        modules,
+        &arena,
+    )
 }
 
 #[cfg(test)]
@@ -190,12 +233,7 @@ mod test {
         let res: Result<ir::Prog<FieldPrime>, CompileErrors> = compile(
             &mut r,
             Some(String::from("./path/to/file")),
-            None::<
-                fn(
-                    &Option<String>,
-                    &String,
-                ) -> Result<(BufReader<Empty>, String, String), io::Error>,
-            >,
+            None::<Resolve<BufReader<Empty>, io::Error>>,
         );
 
         assert!(res
@@ -216,12 +254,7 @@ mod test {
         let res: Result<ir::Prog<FieldPrime>, CompileErrors> = compile(
             &mut r,
             Some(String::from("./path/to/file")),
-            None::<
-                fn(
-                    &Option<String>,
-                    &String,
-                ) -> Result<(BufReader<Empty>, String, String), io::Error>,
-            >,
+            None::<Resolve<BufReader<Empty>, io::Error>>,
         );
         assert!(res.is_ok());
     }
