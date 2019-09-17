@@ -26,6 +26,7 @@ extern crate zokrates_embed;
 extern crate zokrates_field;
 extern crate zokrates_pest_ast;
 
+mod abi;
 mod embed;
 mod flatten;
 mod helpers;
