@@ -126,9 +126,10 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 
-pub fn write_tests(base: &Path) {
+pub fn write_tests(base: &str) {
     use glob::glob;
 
+    let base = Path::new(&base);
     let out_dir = env::var("OUT_DIR").unwrap();
     let destination = Path::new(&out_dir).join("tests.rs");
     let test_file = File::create(&destination).unwrap();

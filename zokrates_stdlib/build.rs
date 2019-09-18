@@ -9,7 +9,7 @@ fn main() {
     export_stdlib();
 
     // generate tests
-    write_tests(Path::new("./tests/bench/"));
+    write_tests("./tests/tests/");
 }
 
 fn export_stdlib() {

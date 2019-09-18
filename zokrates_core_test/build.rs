@@ -3,5 +3,5 @@ use zokrates_test::write_tests;
 
 fn main() {
     // generate tests
-    write_tests(Path::new("./tests/bench/"));
+    write_tests("./tests/tests/");
 }
