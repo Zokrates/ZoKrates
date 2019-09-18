@@ -1,7 +1,6 @@
 use fs_extra::copy_items;
 use fs_extra::dir::CopyOptions;
 use std::env;
-use std::path::Path;
 use zokrates_test::write_tests;
 
 fn main() {
