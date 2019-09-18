@@ -551,6 +551,7 @@ impl<'ast> From<pest::Type<'ast>> for Type {
                             e.span().as_str()
                         ),
                     })
+                    .rev()
                     .fold(None, |acc, s| match acc {
                         None => Some(Type::array(inner_type.clone(), s)),
                         Some(acc) => Some(Type::array(acc, s)),
@@ -715,11 +716,11 @@ mod tests {
                 ),
                 (
                     "field[2][3]",
-                    types::Type::Array(box Type::Array(box types::Type::FieldElement, 2), 3),
+                    types::Type::Array(box Type::Array(box types::Type::FieldElement, 3), 2),
                 ),
                 (
                     "bool[2][3]",
-                    types::Type::Array(box Type::Array(box types::Type::Boolean, 2), 3),
+                    types::Type::Array(box Type::Array(box types::Type::Boolean, 3), 2),
                 ),
             ];
 
