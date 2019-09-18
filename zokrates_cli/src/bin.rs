@@ -340,6 +340,8 @@ fn cli() -> Result<(), String> {
             let expected_cli_args_count =
                 program_ast.public_arguments_count() + program_ast.private_arguments_count();
 
+            let signature = program_ast.signature.clone();
+
             // get arguments
             let arguments: Vec<_> = match sub_matches.values_of("arguments") {
                 // take inline arguments
@@ -353,13 +355,11 @@ fn cli() -> Result<(), String> {
                         let mut input = String::new();
                         match stdin.read_to_string(&mut input) {
                             Ok(_) => {
-                                input.retain(|x| x != '\n');
-                                input
-                                    .split(" ")
-                                    .map(|x| {
-                                        FieldPrime::try_from_dec_str(x).map_err(|_| x.to_string())
-                                    })
-                                    .collect()
+                                use zokrates_core::abi::{parse_strict, Encode};
+
+                                let parsed = parse_strict(&input, signature.inputs)
+                                    .map_err(|why| why.to_string())?;
+                                Ok(parsed.encode())
                             }
                             Err(_) => Err(String::from("???")),
                         }
@@ -382,7 +382,15 @@ fn cli() -> Result<(), String> {
                 .execute(&arguments)
                 .map_err(|e| format!("Execution failed: {}", e))?;
 
-            println!("\nWitness: \n\n{}", witness.format_outputs());
+            use zokrates_core::abi::Decode;
+
+            let results_json_value: serde_json::Value = zokrates_core::abi::CheckedValues::decode(
+                witness.return_values(),
+                signature.outputs,
+            )
+            .into();
+
+            println!("\nWitness: \n\n{}", results_json_value.to_string());
 
             // write witness to file
             let output_path = Path::new(sub_matches.value_of("output").unwrap());

@@ -26,7 +26,6 @@ extern crate zokrates_embed;
 extern crate zokrates_field;
 extern crate zokrates_pest_ast;
 
-mod abi;
 mod embed;
 mod flatten;
 mod helpers;
@@ -37,6 +36,7 @@ mod semantics;
 mod static_analysis;
 mod typed_absy;
 
+pub mod abi;
 pub mod absy;
 pub mod compile;
 pub mod flat_absy;

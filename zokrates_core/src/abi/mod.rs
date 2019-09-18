@@ -8,10 +8,20 @@ use zokrates_field::field::Field;
 type Map<K, V> = BTreeMap<K, V>;
 
 #[derive(Debug, PartialEq)]
-enum Error {
+pub enum Error {
     Json(String),
     Conversion(String),
     Type(String),
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Error::Json(e) => write!(f, "Invalid JSON: {}", e),
+            Error::Conversion(e) => write!(f, "Invalid ZoKrates values: {}", e),
+            Error::Type(e) => write!(f, "Type error: {}", e),
+        }
+    }
 }
 
 #[derive(PartialEq, Debug)]
@@ -21,6 +31,17 @@ enum Value<T> {
     Array(Vec<Value<T>>),
     Struct(Map<String, Value<T>>),
 }
+
+#[derive(PartialEq, Debug)]
+enum CheckedValue<T> {
+    Field(T),
+    Boolean(bool),
+    Array(Vec<CheckedValue<T>>),
+    Struct(Vec<(String, CheckedValue<T>)>),
+}
+
+#[derive(PartialEq, Debug)]
+pub struct CheckedValues<T>(Vec<CheckedValue<T>>);
 
 impl<T: Field> fmt::Display for Value<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -48,47 +69,131 @@ impl<T: Field> fmt::Display for Value<T> {
 }
 
 impl<T: Field> Value<T> {
-    fn check(&self, ty: &Type) -> Result<(), String> {
-        match (&self, ty) {
-            (Value::Field(_), Type::FieldElement) => Ok(()),
-            (Value::Boolean(_), Type::Boolean) => Ok(()),
-            (Value::Array(v), Type::Array(inner_ty, size)) => {
-                if v.len() != *size {
+    fn check(self, ty: Type) -> Result<CheckedValue<T>, String> {
+        match (self, ty) {
+            (Value::Field(f), Type::FieldElement) => Ok(CheckedValue::Field(f)),
+            (Value::Boolean(b), Type::Boolean) => Ok(CheckedValue::Boolean(b)),
+            (Value::Array(a), Type::Array(box inner_ty, size)) => {
+                if a.len() != size {
                     Err(format!(
                         "Expected array of size {}, found array of size {}",
                         size,
-                        v.len()
+                        a.len()
                     ))
                 } else {
-                    v.iter()
-                        .map(|val| val.check(inner_ty))
+                    let a = a
+                        .into_iter()
+                        .map(|val| val.check(inner_ty.clone()))
                         .collect::<Result<Vec<_>, _>>()?;
-                    Ok(())
+                    Ok(CheckedValue::Array(a))
                 }
             }
-            (Value::Struct(v), Type::Struct(members)) => {
-                if v.len() != members.len() {
+            (Value::Struct(mut s), Type::Struct(members)) => {
+                if s.len() != members.len() {
                     Err(format!(
                         "Expected {} member(s), found {}",
                         members.len(),
-                        v.len()
+                        s.len()
                     ))
                 } else {
-                    members
-                        .iter()
+                    let s = members
+                        .into_iter()
                         .map(|(id, ty)| {
-                            v.get(id)
+                            s.remove(&id)
                                 .ok_or_else(|| format!("Member with id `{}` not found", id))
-                                .map(|v| v.check(&ty))
+                                .map(|v| v.check(ty).map(|v| (id, v)))
                         })
                         .collect::<Result<Vec<_>, _>>()?
                         .into_iter()
                         .collect::<Result<_, _>>()?;
-                    Ok(())
+                    Ok(CheckedValue::Struct(s))
                 }
             }
-            (v, t) => Err(format!("Value `{}` doesn't match expected type `{}", v, t)),
+            (v, t) => Err(format!("Value `{}` doesn't match expected type `{}`", v, t)),
         }
+    }
+}
+
+pub trait Encode<T> {
+    fn encode(self) -> Vec<T>;
+}
+
+pub trait Decode<T> {
+    type Expected;
+
+    fn decode(raw: Vec<T>, expected: Self::Expected) -> Self;
+}
+
+impl<T: From<usize>> Encode<T> for CheckedValue<T> {
+    fn encode(self) -> Vec<T> {
+        match self {
+            CheckedValue::Field(t) => vec![t],
+            CheckedValue::Boolean(b) => vec![if b { 1.into() } else { 0.into() }],
+            CheckedValue::Array(a) => a.into_iter().flat_map(|v| v.encode()).collect(),
+            CheckedValue::Struct(s) => s.into_iter().flat_map(|(_, v)| v.encode()).collect(),
+        }
+    }
+}
+
+impl<T: Clone + From<usize> + PartialEq> Decode<T> for CheckedValues<T> {
+    type Expected = Vec<Type>;
+
+    fn decode(raw: Vec<T>, expected: Self::Expected) -> Self {
+        CheckedValues(
+            expected
+                .into_iter()
+                .scan(0, |state, e| {
+                    let new_state = *state + e.get_primitive_count();
+                    let res = CheckedValue::decode(raw[*state..new_state].to_vec(), e);
+                    *state = new_state;
+                    Some(res)
+                })
+                .collect(),
+        )
+    }
+}
+
+impl<T: From<usize> + PartialEq + Clone> Decode<T> for CheckedValue<T> {
+    type Expected = Type;
+
+    fn decode(raw: Vec<T>, expected: Self::Expected) -> Self {
+        let mut raw = raw;
+
+        match expected {
+            Type::FieldElement => CheckedValue::Field(raw.pop().unwrap()),
+            Type::Boolean => {
+                let v = raw.pop().unwrap();
+                CheckedValue::Boolean(if v == 0.into() {
+                    false
+                } else if v == 1.into() {
+                    true
+                } else {
+                    unreachable!()
+                })
+            }
+            Type::Array(box inner_ty, size) => CheckedValue::Array(
+                raw.chunks(inner_ty.get_primitive_count())
+                    .map(|c| CheckedValue::decode(c.to_vec(), inner_ty.clone()))
+                    .collect(),
+            ),
+            Type::Struct(members) => CheckedValue::Struct(
+                members
+                    .into_iter()
+                    .scan(0, |state, (id, ty)| {
+                        let new_state = *state + ty.get_primitive_count();
+                        let res = CheckedValue::decode(raw[*state..new_state].to_vec(), ty);
+                        *state = new_state;
+                        Some((id, res))
+                    })
+                    .collect(),
+            ),
+        }
+    }
+}
+
+impl<T: From<usize>> Encode<T> for CheckedValues<T> {
+    fn encode(self) -> Vec<T> {
+        self.0.into_iter().flat_map(|v| v.encode()).collect()
     }
 }
 
@@ -137,22 +242,50 @@ impl<T: Field> TryFrom<serde_json::Value> for Value<T> {
     }
 }
 
+impl<T: Field> Into<serde_json::Value> for CheckedValue<T> {
+    fn into(self) -> serde_json::Value {
+        match self {
+            CheckedValue::Field(f) => serde_json::Value::String(f.to_dec_string()),
+            CheckedValue::Boolean(b) => serde_json::Value::Bool(b),
+            CheckedValue::Array(a) => {
+                serde_json::Value::Array(a.into_iter().map(|e| e.into()).collect())
+            }
+            CheckedValue::Struct(s) => {
+                serde_json::Value::Object(s.into_iter().map(|(k, v)| (k, v.into())).collect())
+            }
+        }
+    }
+}
+
+impl<T: Field> Into<serde_json::Value> for CheckedValues<T> {
+    fn into(self) -> serde_json::Value {
+        serde_json::Value::Array(self.0.into_iter().map(|e| e.into()).collect())
+    }
+}
+
 fn parse<T: Field>(s: &str) -> Result<Values<T>, Error> {
     let json_values: serde_json::Value =
         serde_json::from_str(s).map_err(|e| Error::Json(e.to_string()))?;
     Values::try_from(json_values).map_err(|e| Error::Conversion(e))
 }
 
-fn parse_strict<T: Field>(s: &str, types: &Vec<Type>) -> Result<Values<T>, Error> {
+pub fn parse_strict<T: Field>(s: &str, types: Vec<Type>) -> Result<CheckedValues<T>, Error> {
     let parsed = parse(s)?;
-    parsed
+    if parsed.0.len() != types.len() {
+        return Err(Error::Type(format!(
+            "Expected {} inputs, found {}",
+            types.len(),
+            parsed.0.len()
+        )));
+    }
+    let checked = parsed
         .0
-        .iter()
-        .zip(types.iter())
+        .into_iter()
+        .zip(types.into_iter())
         .map(|(v, ty)| v.check(ty))
-        .collect::<Result<_, _>>()
+        .collect::<Result<Vec<_>, _>>()
         .map_err(|e| Error::Type(e))?;
-    Ok(parsed)
+    Ok(CheckedValues(checked))
 }
 
 #[cfg(test)]
@@ -221,9 +354,12 @@ mod tests {
         fn fields() {
             let s = r#"["1", "2"]"#;
             assert_eq!(
-                parse_strict::<FieldPrime>(s, &vec![Type::FieldElement, Type::FieldElement])
+                parse_strict::<FieldPrime>(s, vec![Type::FieldElement, Type::FieldElement])
                     .unwrap(),
-                Values(vec![Value::Field(1.into()), Value::Field(2.into())])
+                CheckedValues(vec![
+                    CheckedValue::Field(1.into()),
+                    CheckedValue::Field(2.into())
+                ])
             );
         }
 
@@ -231,8 +367,11 @@ mod tests {
         fn bools() {
             let s = "[true, false]";
             assert_eq!(
-                parse_strict::<FieldPrime>(s, &vec![Type::Boolean, Type::Boolean]).unwrap(),
-                Values(vec![Value::Boolean(true), Value::Boolean(false)])
+                parse_strict::<FieldPrime>(s, vec![Type::Boolean, Type::Boolean]).unwrap(),
+                CheckedValues(vec![
+                    CheckedValue::Boolean(true),
+                    CheckedValue::Boolean(false)
+                ])
             );
         }
 
@@ -240,10 +379,10 @@ mod tests {
         fn array() {
             let s = "[[true, false]]";
             assert_eq!(
-                parse_strict::<FieldPrime>(s, &vec![Type::array(Type::Boolean, 2)]).unwrap(),
-                Values(vec![Value::Array(vec![
-                    Value::Boolean(true),
-                    Value::Boolean(false)
+                parse_strict::<FieldPrime>(s, vec![Type::array(Type::Boolean, 2)]).unwrap(),
+                CheckedValues(vec![CheckedValue::Array(vec![
+                    CheckedValue::Boolean(true),
+                    CheckedValue::Boolean(false)
                 ])])
             );
         }
@@ -254,11 +393,11 @@ mod tests {
             assert_eq!(
                 parse_strict::<FieldPrime>(
                     s,
-                    &vec![Type::Struct(vec![("a".into(), Type::FieldElement)])]
+                    vec![Type::Struct(vec![("a".into(), Type::FieldElement)])]
                 )
                 .unwrap(),
-                Values(vec![Value::Struct(
-                    vec![("a".to_string(), Value::Field(42.into()))]
+                CheckedValues(vec![CheckedValue::Struct(
+                    vec![("a".to_string(), CheckedValue::Field(42.into()))]
                         .into_iter()
                         .collect()
                 )])
@@ -268,7 +407,7 @@ mod tests {
             assert_eq!(
                 parse_strict::<FieldPrime>(
                     s,
-                    &vec![Type::Struct(vec![("a".into(), Type::FieldElement)])]
+                    vec![Type::Struct(vec![("a".into(), Type::FieldElement)])]
                 )
                 .unwrap_err(),
                 Error::Type("Member with id `a` not found".into())
@@ -278,7 +417,7 @@ mod tests {
             assert_eq!(
                 parse_strict::<FieldPrime>(
                     s,
-                    &vec![Type::Struct(vec![("a".into(), Type::FieldElement)])]
+                    vec![Type::Struct(vec![("a".into(), Type::FieldElement)])]
                 )
                 .unwrap_err(),
                 Error::Type("Expected 1 member(s), found 0".into())
@@ -288,11 +427,49 @@ mod tests {
             assert_eq!(
                 parse_strict::<FieldPrime>(
                     s,
-                    &vec![Type::Struct(vec![("a".into(), Type::FieldElement)])]
+                    vec![Type::Struct(vec![("a".into(), Type::FieldElement)])]
                 )
                 .unwrap_err(),
                 Error::Type("Value `false` doesn't match expected type `field`".into())
             );
+        }
+    }
+
+    mod encode {
+        use super::*;
+
+        #[test]
+        fn fields() {
+            let v = CheckedValues(vec![CheckedValue::Field(1), CheckedValue::Field(2)]);
+            assert_eq!(v.encode(), vec![1, 2]);
+        }
+
+        #[test]
+        fn bools() {
+            let v: CheckedValues<usize> = CheckedValues(vec![
+                CheckedValue::Boolean(true),
+                CheckedValue::Boolean(false),
+            ]);
+            assert_eq!(v.encode(), vec![1, 0]);
+        }
+
+        #[test]
+        fn array() {
+            let v: CheckedValues<usize> = CheckedValues(vec![CheckedValue::Array(vec![
+                CheckedValue::Boolean(true),
+                CheckedValue::Boolean(false),
+            ])]);
+            assert_eq!(v.encode(), vec![1, 0]);
+        }
+
+        #[test]
+        fn struc() {
+            let v: CheckedValues<usize> = CheckedValues(vec![CheckedValue::Struct(
+                vec![("a".to_string(), CheckedValue::Field(42))]
+                    .into_iter()
+                    .collect(),
+            )]);
+            assert_eq!(v.encode(), vec![42]);
         }
     }
 }
