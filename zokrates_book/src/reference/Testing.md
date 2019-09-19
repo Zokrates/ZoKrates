@@ -6,7 +6,7 @@ It has to point to `zokrates_stdlib/stdlib/`
 ## Unit tests
 In ZoKrates, unit tests comprise
 - internal tests for all zokrates crates
-- compilation tests for all examples in the `$ZOKRATES_HOME/` zokrates_cli example folder. These tests only ensure that the examples compile correctly.
+- compilation tests for all examples in `zokrates_cli/examples`. These tests only ensure that the examples compile.
 - compilation + witness-computation tests. These tests compile the test cases, compute a witness and compare the result with a pre-defined expected result.
 Such test cases exist for
     - The zokrates_core crate in `zokrates_core_test/tests`
