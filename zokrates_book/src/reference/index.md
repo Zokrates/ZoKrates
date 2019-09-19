@@ -7,3 +7,4 @@ The reference covers the details of various areas of ZoKrates.
     - [Proving schemes](proving_schemes.md)
     - [Verification](verification.md)
     - [ZIR](ir.md)
+    - [Testing](testing.md)
