@@ -1,4 +1,0 @@
-struct Foo {
-	a: field,
-	b: field[2],
-}

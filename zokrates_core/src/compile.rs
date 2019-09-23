@@ -138,8 +138,6 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
 
     let source = arena.alloc(source);
 
-    println!("{:?}", source);
-
     let compiled = compile_program(source, location.clone(), resolve_option, &arena)?;
 
     // check semantics

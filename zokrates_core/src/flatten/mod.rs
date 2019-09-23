@@ -1548,7 +1548,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let arguments_flattened = funct
             .arguments
             .into_iter()
-            .flat_map(|p| self.use_parameter(&p, &mut statements_flattened))
+            .flat_map(|p| self.use_parameter(&p))
             .collect();
 
         // flatten statements in functions and apply substitution
@@ -1602,19 +1602,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         vars
     }
 
-    fn use_parameter(
-        &mut self,
-        parameter: &Parameter<'ast>,
-        statements: &mut Vec<FlatStatement<T>>,
-    ) -> Vec<FlatParameter> {
+    fn use_parameter(&mut self, parameter: &Parameter<'ast>) -> Vec<FlatParameter> {
         let variables = self.use_variable(&parameter.id);
-        match parameter.id.get_type() {
-            Type::Boolean => statements.extend(Self::boolean_constraint(&variables)),
-            Type::Array(box Type::Boolean, _) => {
-                statements.extend(Self::boolean_constraint(&variables))
-            }
-            _ => {}
-        };
 
         variables
             .into_iter()
@@ -1633,21 +1622,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
     fn issue_new_variables(&mut self, count: usize) -> Vec<FlatVariable> {
         (0..count).map(|_| self.issue_new_variable()).collect()
-    }
-
-    fn boolean_constraint(variables: &Vec<FlatVariable>) -> Vec<FlatStatement<T>> {
-        variables
-            .iter()
-            .map(|v| {
-                FlatStatement::Condition(
-                    FlatExpression::Identifier(*v),
-                    FlatExpression::Mult(
-                        box FlatExpression::Identifier(*v),
-                        box FlatExpression::Identifier(*v),
-                    ),
-                )
-            })
-            .collect()
     }
 
     // create an internal variable. We do not register it in the layout
