@@ -53,7 +53,7 @@ impl ProofSystem for ZkInterface {
         generate_proof(program, witness, &mut out_file)
     }
 
-    fn export_solidity_verifier(&self, _reader: BufReader<File>) -> String {
+    fn export_solidity_verifier(&self, _reader: BufReader<File>, _is_abiv2: bool) -> String {
         "export_solidity_verifier is not implemented".to_string()
     }
 }
