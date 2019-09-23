@@ -28,11 +28,9 @@ pub struct Flattener<'ast, T: Field> {
 
 // We introduce a trait in order to make it possible to make flattening `e` generic over the type of `e`
 
-#[rustfmt::skip]
-trait Flatten<'ast, T: Field>
-    : TryFrom<TypedExpression<'ast, T>, Error: std::fmt::Debug> 
-    + IfElse<'ast, T> 
-    + Select<'ast, T> {
+trait Flatten<'ast, T: Field>:
+    TryFrom<TypedExpression<'ast, T>, Error = ()> + IfElse<'ast, T> + Select<'ast, T>
+{
     fn flatten(
         self,
         flattener: &mut Flattener<'ast, T>,
@@ -196,11 +194,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         res.into_iter().map(|r| r.into()).collect()
     }
 
-    /// Flatten a array selection expression
+    /// Flatten an array selection expression
     ///
     /// # Arguments
     ///
-    /// * `symbols` - Available functions in in this context
+    /// * `symbols` - Available functions in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
     /// * `expression` - `TypedExpression` that will be flattened.
     /// # Remarks
@@ -1054,7 +1052,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// * `symbols` - Available functions in in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
-    /// * `expression` - `ArrayExpression` that will be flattened.
+    /// * `expr` - `ArrayExpression` that will be flattened.
     /// # Remarks
     /// * U is the inner type of the array
     fn flatten_array_expression<U: Flatten<'ast, T>>(
