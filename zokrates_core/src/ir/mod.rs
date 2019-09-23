@@ -10,13 +10,13 @@ mod from_flat;
 mod interpreter;
 mod witness;
 
-use self::expression::QuadComb;
+pub use self::expression::QuadComb;
 pub use self::expression::{CanonicalLinComb, LinComb};
 
 pub use self::interpreter::{Error, ExecutionResult};
 pub use self::witness::Witness;
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Hash, Eq)]
 pub enum Statement<T: Field> {
     Constraint(QuadComb<T>, LinComb<T>),
     Directive(Directive<T>),
@@ -32,7 +32,7 @@ impl<T: Field> Statement<T> {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
 pub struct Directive<T: Field> {
     pub inputs: Vec<LinComb<T>>,
     pub outputs: Vec<FlatVariable>,
@@ -102,7 +102,7 @@ impl<T: Field> fmt::Display for Function<T> {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Prog<T: Field> {
     pub main: Function<T>,
     pub private: Vec<bool>,

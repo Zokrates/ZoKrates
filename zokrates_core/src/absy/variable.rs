@@ -1,6 +1,6 @@
 use crate::absy::Node;
-use crate::types::Type;
 use std::fmt;
+use types::Type;
 
 use crate::absy::Identifier;
 
@@ -37,7 +37,14 @@ impl<'ast> Variable<'ast> {
     pub fn field_array<S: Into<&'ast str>>(id: S, size: usize) -> Variable<'ast> {
         Variable {
             id: id.into(),
-            _type: Type::FieldElementArray(size),
+            _type: Type::array(Type::FieldElement, size),
+        }
+    }
+
+    pub fn array<S: Into<&'ast str>>(id: S, inner_ty: Type, size: usize) -> Variable<'ast> {
+        Variable {
+            id: id.into(),
+            _type: Type::array(inner_ty, size),
         }
     }
 

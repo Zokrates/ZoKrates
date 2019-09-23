@@ -1,0 +1,4 @@
+def main(field[10][10][10] a, field i, field j, field k) -> (field[3]):
+	a[i][j][k] = 42
+	field[3][3] b = [[1, 2, 3], [1, 2, 3], [1, 2, 3]]
+	return b[0]

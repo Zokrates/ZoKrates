@@ -5,7 +5,7 @@ use std::fmt;
 use std::ops::{Add, Div, Mul, Sub};
 use zokrates_field::field::Field;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Hash, Eq)]
 pub struct QuadComb<T: Field> {
     pub left: LinComb<T>,
     pub right: LinComb<T>,
@@ -31,6 +31,11 @@ impl<T: Field> QuadComb<T> {
             }
             _ => {}
         }
+
+        if self.left.is_zero() || self.right.is_zero() {
+            return Some(LinComb::zero());
+        }
+
         None
     }
 }
