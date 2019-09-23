@@ -616,6 +616,11 @@ pub enum BooleanExpression<'ast, T: Field> {
     ),
 }
 
+/// An expression of type `array`
+/// # Remarks
+/// * Contrary to basic types which represented as enums, we wrap an enum `ArrayExpressionInner` in a struct in order to keep track of the type (content and size)
+/// of the array. Only using an enum would require generics, which would propagate up to TypedExpression which we want to keep simple, hence this "runtime"
+/// type checking
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub struct ArrayExpression<'ast, T: Field> {
     size: usize,
@@ -712,7 +717,9 @@ impl<'ast, T: Field> StructExpressionInner<'ast, T> {
 }
 
 // Downcasts
-
+// Due to the fact that we keep TypedExpression simple, we end up with ArrayExpressionInner::Value whose elements are any TypedExpression, but we enforce by
+// construction that these elements are of the type declared in the corresponding ArrayExpression. As we know this by construction, we can downcast the TypedExpression to the correct type
+// ArrayExpression { type: Type::FieldElement, size: 42, inner: [TypedExpression::FieldElement(FieldElementExpression), ...]} <- the fact that inner only contains field elements is not enforced by the rust type system
 impl<'ast, T: Field> TryFrom<TypedExpression<'ast, T>> for FieldElementExpression<'ast, T> {
     type Error = ();
 

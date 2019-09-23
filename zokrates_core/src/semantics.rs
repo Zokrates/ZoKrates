@@ -1027,7 +1027,9 @@ impl<'ast> Checker<'ast> {
                         let size = e.size();
                         match e.into_inner() {
                             // if we're doing a spread over an inline array, we return the inside of the array: ...[x, y, z] == x, y, z
+                            // this is not strictly needed, but it makes spreads memory linear rather than quadratic
                             ArrayExpressionInner::Value(v) => Ok(v),
+                            // otherwise we return a[0], ..., a[a.size() -1 ]
                             e => Ok((0..size)
                                 .map(|i| match &ty {
                                     Type::FieldElement => FieldElementExpression::Select(
