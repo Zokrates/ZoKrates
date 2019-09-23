@@ -1652,58 +1652,6 @@ mod tests {
     use crate::typed_absy::types::Type;
     use zokrates_field::field::FieldPrime;
 
-    mod boolean_checks {
-        use super::*;
-
-        #[test]
-        fn boolean_arg() {
-            // def main(bool a):
-            //    return a
-            //
-            // -> should flatten to
-            //
-            // def main(_0) -> (1):
-            //    _0 * _0 == _0
-            //    return _0
-
-            let function: TypedFunction<FieldPrime> = TypedFunction {
-                arguments: vec![Parameter::private(Variable::boolean("a".into()))],
-                statements: vec![TypedStatement::Return(vec![BooleanExpression::Identifier(
-                    "a".into(),
-                )
-                .into()])],
-                signature: Signature::new()
-                    .inputs(vec![Type::Boolean])
-                    .outputs(vec![Type::Boolean]),
-            };
-
-            let expected = FlatFunction {
-                arguments: vec![FlatParameter::private(FlatVariable::new(0))],
-                statements: vec![
-                    FlatStatement::Condition(
-                        FlatExpression::Identifier(FlatVariable::new(0)),
-                        FlatExpression::Mult(
-                            box FlatExpression::Identifier(FlatVariable::new(0)),
-                            box FlatExpression::Identifier(FlatVariable::new(0)),
-                        ),
-                    ),
-                    FlatStatement::Return(FlatExpressionList {
-                        expressions: vec![FlatExpression::Identifier(FlatVariable::new(0))],
-                    }),
-                ],
-                signature: Signature::new()
-                    .inputs(vec![Type::Boolean])
-                    .outputs(vec![Type::Boolean]),
-            };
-
-            let mut flattener = Flattener::new();
-
-            let flat_function = flattener.flatten_function(&mut HashMap::new(), function);
-
-            assert_eq!(flat_function, expected);
-        }
-    }
-
     #[test]
     fn powers_zero() {
         // def main():

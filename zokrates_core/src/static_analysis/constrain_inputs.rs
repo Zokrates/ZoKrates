@@ -1,6 +1,6 @@
 //! Add runtime boolean checks on user inputs
 //! Example:
-//! ```
+//! ```zokrates
 //! struct Foo {
 //!    bar: bool
 //! }
