@@ -18,7 +18,7 @@
 
 use std::collections::HashMap;
 use typed_absy::{folder::*, *};
-use types::FunctionKey;
+use types::{FunctionKey, Type};
 use zokrates_field::field::Field;
 
 /// An inliner
@@ -238,35 +238,26 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
         }
     }
 
-    fn fold_field_array_expression(
+    fn fold_array_expression_inner(
         &mut self,
-        e: FieldElementArrayExpression<'ast, T>,
-    ) -> FieldElementArrayExpression<'ast, T> {
+        ty: &Type,
+        size: usize,
+        e: ArrayExpressionInner<'ast, T>,
+    ) -> ArrayExpressionInner<'ast, T> {
         match e {
-            FieldElementArrayExpression::Identifier(size, id) => {
-                FieldElementArrayExpression::Identifier(
-                    size,
-                    self.fold_variable(Variable::field_array(id, size)).id,
-                )
-            }
-            FieldElementArrayExpression::FunctionCall(size, key, expressions) => {
-                //inline the arguments
-                let expressions: Vec<_> = expressions
-                    .into_iter()
-                    .map(|e| self.fold_expression(e))
-                    .collect();
+            ArrayExpressionInner::FunctionCall(key, exps) => {
+                let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
 
-                match self.try_inline_call(&key, expressions) {
+                match self.try_inline_call(&key, exps) {
                     Ok(mut ret) => match ret.pop().unwrap() {
-                        TypedExpression::FieldElementArray(e) => e,
+                        TypedExpression::Array(e) => e.into_inner(),
                         _ => unreachable!(),
                     },
-                    Err((key, expressions)) => {
-                        FieldElementArrayExpression::FunctionCall(size, key, expressions)
-                    }
+                    Err((key, expressions)) => ArrayExpressionInner::FunctionCall(key, expressions),
                 }
             }
-            e => fold_field_array_expression(self, e),
+            // default
+            e => fold_array_expression_inner(self, ty, size, e),
         }
     }
 }
