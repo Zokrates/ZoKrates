@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/tests/utils/pack/pack128.code",
+	"entry_point": "./tests/tests/utils/pack/pack128.zok",
 	"tests": [
 		{
 			"input": {

@@ -641,9 +641,8 @@ mod tests {
         use glob::glob;
         use std::fs;
         use std::io::Read;
-        // Traverse all .code files in examples dir
-        for entry in
-            glob("../zokrates_cli/examples/**/*.code").expect("Failed to read glob pattern")
+        // Traverse all .zok files in examples dir
+        for entry in glob("../zokrates_cli/examples/**/*.zok").expect("Failed to read glob pattern")
         {
             match entry {
                 Ok(path) => {

@@ -4,17 +4,17 @@
 //!
 //! To import file from github, use following syntax:
 //! ```zokrates
-//! import "github:user/repo/branch/path/to/file.code"
+//! import "github:user/repo/branch/path/to/file.zok"
 //! ```
 //!
 //! For example:
 //! ```zokrates
-//! import "github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/merkleTree/sha256PathProof3.code" as merkleTreeProof
+//! import "github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/merkleTree/sha256PathProof3.zok" as merkleTreeProof
 //! ```
 //!
-//! Example above imports file `zokrates_cli/examples/merkleTree/sha256PathProof3.code` located at ZoKrates
+//! Example above imports file `zokrates_cli/examples/merkleTree/sha256PathProof3.zok` located at ZoKrates
 //! repository's `master` branch by downloading from URL:
-//! https://raw.githubusercontent.com/Zokrates/ZoKrates/master/zokrates_cli/examples/merkleTree/sha256PathProof3.code
+//! https://raw.githubusercontent.com/Zokrates/ZoKrates/master/zokrates_cli/examples/merkleTree/sha256PathProof3.zok
 //!
 
 use reqwest;
@@ -112,12 +112,13 @@ fn download_from_github(
     path: &str,
 ) -> Result<PathBuf, io::Error> {
     let url = format!(
-        "{github}/{root}/{repo}/{branch}/{path}",
+        "{github}/{root}/{repo}/{branch}/{path}{extension}",
         github = github,
         root = root,
         repo = repo,
         branch = branch,
-        path = path
+        path = path,
+        extension = ".zok"
     );
 
     download_url(&url)
@@ -153,15 +154,15 @@ mod tests {
     fn init_github_mock() -> (Mock, Mock) {
         let m1 = mockito::mock(
             "GET",
-            "/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/foo.code",
+            "/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/foo.zok",
         )
         .with_status(200)
-        .with_body_from_file("./static/foo.code")
+        .with_body_from_file("./static/foo.zok")
         .create();
 
         let m2 = mockito::mock(
             "GET",
-            "/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/notfound.code",
+            "/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/notfound.zok",
         )
         .with_status(404)
         .create();
@@ -172,7 +173,7 @@ mod tests {
     #[test]
     pub fn import_simple() {
         let res = parse_input_path(Path::new(
-            "github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/import.code",
+            "github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/import",
         ))
         .unwrap();
         let (root, repo, branch, path) = res;
@@ -180,15 +181,15 @@ mod tests {
         assert_eq!(root, "Zokrates");
         assert_eq!(repo, "ZoKrates");
         assert_eq!(branch, "master");
-        assert_eq!(path, "zokrates_cli/examples/imports/import.code");
+        assert_eq!(path, "zokrates_cli/examples/imports/import");
     }
 
     #[test]
     #[should_panic]
     pub fn import_no_branch() {
-        // Correct syntax should be: github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/import.code
+        // Correct syntax should be: github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/import.zok
         // but branch name is not specified
-        parse_input_path(Path::new("github.com/Zokrates/ZoKrates/test.code")).unwrap();
+        parse_input_path(Path::new("github.com/Zokrates/ZoKrates/test")).unwrap();
     }
 
     #[test]
@@ -196,7 +197,7 @@ mod tests {
     pub fn import_relative_paths() {
         // Relative paths should not be allowed
         parse_input_path(Path::new(
-            "github.com/Zokrates/ZoKrates/master/examples/../imports.code",
+            "github.com/Zokrates/ZoKrates/master/examples/../imports",
         ))
         .unwrap();
     }
@@ -206,7 +207,7 @@ mod tests {
         let (_m0, _m1) = init_github_mock();
         let res = resolve(
             Some("".to_string()),
-            &"github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/foo.code",
+            &"github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/foo",
         );
         assert!(res.is_ok());
     }
@@ -216,7 +217,7 @@ mod tests {
         let (_m0, _m1) = init_github_mock();
         assert!(resolve(
             Some("".to_string()),
-            &"github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/notfound.code"
+            &"github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/notfound"
         )
         .is_err());
     }

@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/tests/add.code",
+	"entry_point": "./tests/tests/add.zok",
 	"tests": [
 		{
 			"input": {

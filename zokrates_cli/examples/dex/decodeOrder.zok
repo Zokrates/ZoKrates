@@ -1,0 +1,42 @@
+import "./popLeastSignificantBit"
+
+def main(field order) -> (field, field, field, field):
+  // MSB
+  // Limit price (120 bits - i.e. pow(10,36) in base 2)
+  // Target token (8 bits - i.e. we support 256 = 2^8 tokens)
+  // Source token (8 bits)
+  // Amount (120 bits)
+  // LSB
+  field amount = 0
+  field exponent = 1
+  for field i in 0..120 do
+    bit, order = popLeastSignificantBit(order)
+    amount = amount + (bit * exponent)
+    exponent = exponent * 2
+  endfor
+
+  field sourceToken = 0
+  exponent = 1
+  for field i in 0..5 do
+    bit, order = popLeastSignificantBit(order)
+    sourceToken = sourceToken + (bit * exponent)
+    exponent = exponent * 2
+  endfor
+
+  field targetToken = 0
+  exponent = 1
+  for field i in 0..5 do
+    bit, order = popLeastSignificantBit(order)
+    targetToken = targetToken + (bit * exponent)
+    exponent = exponent * 2
+  endfor
+
+  field limit = 0
+  exponent = 1
+  for field i in 0..120 do
+    bit, order = popLeastSignificantBit(order)
+    limit = limit + (bit * exponent)
+    exponent = exponent * 2
+  endfor
+
+  return amount, sourceToken, targetToken, limit
