@@ -4,8 +4,7 @@
 
 # ZoKrates default files
 out
-out.zok
-out.wit
+out.ztf
 proof.json
 proving.key
 verification.key
