@@ -9,7 +9,7 @@
 //!
 //! For example:
 //! ```zokrates
-//! import "github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/merkleTree/sha256PathProof3.zok" as merkleTreeProof
+//! import "github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/merkleTree/sha256PathProof3" as merkleTreeProof
 //! ```
 //!
 //! Example above imports file `zokrates_cli/examples/merkleTree/sha256PathProof3.zok` located at ZoKrates
@@ -187,7 +187,7 @@ mod tests {
     #[test]
     #[should_panic]
     pub fn import_no_branch() {
-        // Correct syntax should be: github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/import.zok
+        // Correct syntax should be: github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/import
         // but branch name is not specified
         parse_input_path(Path::new("github.com/Zokrates/ZoKrates/test")).unwrap();
     }
