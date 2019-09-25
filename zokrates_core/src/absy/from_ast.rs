@@ -448,22 +448,30 @@ impl<'ast, T: Field> From<pest::PostfixExpression<'ast>> for absy::ExpressionNod
     fn from(expression: pest::PostfixExpression<'ast>) -> absy::ExpressionNode<'ast, T> {
         use absy::NodeValue;
 
-        assert!(expression.access.len() == 1); // we only allow a single access: function call or array access
+        let id_str = expression.id.span.as_str();
+        let id = absy::ExpressionNode::from(expression.id);
 
-        match expression.access[0].clone() {
-            pest::Access::Call(a) => absy::Expression::FunctionCall(
-                &expression.id.span.as_str(),
-                a.expressions
-                    .into_iter()
-                    .map(|e| absy::ExpressionNode::from(e))
-                    .collect(),
-            ),
-            pest::Access::Select(a) => absy::Expression::Select(
-                box absy::ExpressionNode::from(expression.id),
-                box absy::RangeOrExpression::from(a.expression),
-            ),
-        }
-        .span(expression.span)
+        // pest::PostFixExpression contains an array of "accesses": `a(34)[42]` is represented as `[a, [Call(34), Select(42)]]`, but absy::ExpressionNode
+        // is recursive, so it is `Select(Call(a, 34), 42)`. We apply this transformation here
+
+        // we start with the id, and we fold the array of accesses by wrapping the current value
+        expression.accesses.into_iter().fold(id, |acc, a| match a {
+            pest::Access::Call(a) => match acc.value {
+                absy::Expression::Identifier(_) => absy::Expression::FunctionCall(
+                    &id_str,
+                    a.expressions
+                        .into_iter()
+                        .map(|e| absy::ExpressionNode::from(e))
+                        .collect(),
+                ),
+                e => unimplemented!("only identifiers are callable, found \"{}\"", e),
+            }
+            .span(a.span),
+            pest::Access::Select(a) => {
+                absy::Expression::Select(box acc, box absy::RangeOrExpression::from(a.expression))
+                    .span(a.span)
+            }
+        })
     }
 }
 
@@ -501,15 +509,15 @@ impl<'ast, T: Field> From<pest::Assignee<'ast>> for absy::AssigneeNode<'ast, T> 
         use absy::NodeValue;
 
         let a = absy::AssigneeNode::from(assignee.id);
-        match assignee.indices.len() {
-            0 => a,
-            1 => absy::Assignee::ArrayElement(
-                box a,
-                box absy::RangeOrExpression::from(assignee.indices[0].clone()),
-            )
-            .span(assignee.span),
-            n => unimplemented!("Array should have one dimension, found {} in {}", n, a),
-        }
+        let span = assignee.span;
+
+        assignee
+            .indices
+            .into_iter()
+            .map(|i| absy::RangeOrExpression::from(i))
+            .fold(a, |acc, s| {
+                absy::Assignee::Select(box acc, box s).span(span.clone())
+            })
     }
 }
 
@@ -521,27 +529,34 @@ impl<'ast> From<pest::Type<'ast>> for Type {
                 pest::BasicType::Boolean(_) => Type::Boolean,
             },
             pest::Type::Array(t) => {
-                let size = match t.size {
-                    pest::Expression::Constant(c) => match c {
-                        pest::ConstantExpression::DecimalNumber(n) => {
-                            str::parse::<usize>(&n.value).unwrap()
-                        }
-                        _ => unimplemented!(
-                            "Array size should be a decimal number, found {}",
-                            c.span().as_str()
-                        ),
-                    },
-                    e => {
-                        unimplemented!("Array size should be constant, found {}", e.span().as_str())
-                    }
+                let inner_type = match t.ty {
+                    pest::BasicType::Field(_) => Type::FieldElement,
+                    pest::BasicType::Boolean(_) => Type::Boolean,
                 };
-                match t.ty {
-                    pest::BasicType::Field(_) => Type::FieldElementArray(size),
-                    _ => unimplemented!(
-                        "Array elements should be field elements, found {}",
-                        t.span.as_str()
-                    ),
-                }
+
+                t.dimensions
+                    .into_iter()
+                    .map(|s| match s {
+                        pest::Expression::Constant(c) => match c {
+                            pest::ConstantExpression::DecimalNumber(n) => {
+                                str::parse::<usize>(&n.value).unwrap()
+                            }
+                            _ => unimplemented!(
+                                "Array size should be a decimal number, found {}",
+                                c.span().as_str()
+                            ),
+                        },
+                        e => unimplemented!(
+                            "Array size should be constant, found {}",
+                            e.span().as_str()
+                        ),
+                    })
+                    .rev()
+                    .fold(None, |acc, s| match acc {
+                        None => Some(Type::array(inner_type.clone(), s)),
+                        Some(acc) => Some(Type::array(acc, s)),
+                    })
+                    .unwrap()
             }
         }
     }
@@ -657,5 +672,187 @@ mod tests {
         };
 
         assert_eq!(absy::Module::<FieldPrime>::from(ast), expected);
+    }
+
+    mod types {
+        use super::*;
+
+        /// Helper method to generate the ast for `def main(private {ty} a) -> (): return` which we use to check ty
+        fn wrap(ty: types::Type) -> absy::Module<'static, FieldPrime> {
+            absy::Module {
+                functions: vec![absy::FunctionDeclaration {
+                    id: "main",
+                    symbol: absy::FunctionSymbol::Here(
+                        absy::Function {
+                            arguments: vec![absy::Parameter::private(
+                                absy::Variable::new("a", ty.clone()).into(),
+                            )
+                            .into()],
+                            statements: vec![absy::Statement::Return(
+                                absy::ExpressionList {
+                                    expressions: vec![],
+                                }
+                                .into(),
+                            )
+                            .into()],
+                            signature: absy::Signature::new().inputs(vec![ty]),
+                        }
+                        .into(),
+                    ),
+                }
+                .into()],
+                imports: vec![],
+            }
+        }
+
+        #[test]
+        fn array() {
+            let vectors = vec![
+                ("field", types::Type::FieldElement),
+                ("bool", types::Type::Boolean),
+                (
+                    "field[2]",
+                    types::Type::Array(box types::Type::FieldElement, 2),
+                ),
+                (
+                    "field[2][3]",
+                    types::Type::Array(box Type::Array(box types::Type::FieldElement, 3), 2),
+                ),
+                (
+                    "bool[2][3]",
+                    types::Type::Array(box Type::Array(box types::Type::Boolean, 3), 2),
+                ),
+            ];
+
+            for (ty, expected) in vectors {
+                let source = format!("def main(private {} a) -> (): return", ty);
+                let expected = wrap(expected);
+                let ast = pest::generate_ast(&source).unwrap();
+                assert_eq!(absy::Module::<FieldPrime>::from(ast), expected);
+            }
+        }
+    }
+
+    mod postfix {
+        use super::*;
+        fn wrap(expression: absy::Expression<'static, FieldPrime>) -> absy::Module<FieldPrime> {
+            absy::Module {
+                functions: vec![absy::FunctionDeclaration {
+                    id: "main",
+                    symbol: absy::FunctionSymbol::Here(
+                        absy::Function {
+                            arguments: vec![],
+                            statements: vec![absy::Statement::Return(
+                                absy::ExpressionList {
+                                    expressions: vec![expression.into()],
+                                }
+                                .into(),
+                            )
+                            .into()],
+                            signature: absy::Signature::new(),
+                        }
+                        .into(),
+                    ),
+                }
+                .into()],
+                imports: vec![],
+            }
+        }
+
+        #[test]
+        fn success() {
+            // we basically accept `()?[]*` : an optional call at first, then only array accesses
+
+            let vectors = vec![
+                ("a", absy::Expression::Identifier("a").into()),
+                (
+                    "a[3]",
+                    absy::Expression::Select(
+                        box absy::Expression::Identifier("a").into(),
+                        box absy::RangeOrExpression::Expression(
+                            absy::Expression::FieldConstant(FieldPrime::from(3)).into(),
+                        )
+                        .into(),
+                    ),
+                ),
+                (
+                    "a[3][4]",
+                    absy::Expression::Select(
+                        box absy::Expression::Select(
+                            box absy::Expression::Identifier("a").into(),
+                            box absy::RangeOrExpression::Expression(
+                                absy::Expression::FieldConstant(FieldPrime::from(3)).into(),
+                            )
+                            .into(),
+                        )
+                        .into(),
+                        box absy::RangeOrExpression::Expression(
+                            absy::Expression::FieldConstant(FieldPrime::from(4)).into(),
+                        )
+                        .into(),
+                    ),
+                ),
+                (
+                    "a(3)[4]",
+                    absy::Expression::Select(
+                        box absy::Expression::FunctionCall(
+                            "a",
+                            vec![absy::Expression::FieldConstant(FieldPrime::from(3)).into()],
+                        )
+                        .into(),
+                        box absy::RangeOrExpression::Expression(
+                            absy::Expression::FieldConstant(FieldPrime::from(4)).into(),
+                        )
+                        .into(),
+                    ),
+                ),
+                (
+                    "a(3)[4][5]",
+                    absy::Expression::Select(
+                        box absy::Expression::Select(
+                            box absy::Expression::FunctionCall(
+                                "a",
+                                vec![absy::Expression::FieldConstant(FieldPrime::from(3)).into()],
+                            )
+                            .into(),
+                            box absy::RangeOrExpression::Expression(
+                                absy::Expression::FieldConstant(FieldPrime::from(4)).into(),
+                            )
+                            .into(),
+                        )
+                        .into(),
+                        box absy::RangeOrExpression::Expression(
+                            absy::Expression::FieldConstant(FieldPrime::from(5)).into(),
+                        )
+                        .into(),
+                    ),
+                ),
+            ];
+
+            for (source, expected) in vectors {
+                let source = format!("def main() -> (): return {}", source);
+                let expected = wrap(expected);
+                let ast = pest::generate_ast(&source).unwrap();
+                assert_eq!(absy::Module::<FieldPrime>::from(ast), expected);
+            }
+        }
+
+        #[test]
+        #[should_panic]
+        fn call_array_element() {
+            // a call after an array access should be rejected
+            let source = "def main() -> (): return a[2](3)";
+            let ast = pest::generate_ast(&source).unwrap();
+            absy::Module::<FieldPrime>::from(ast);
+        }
+
+        #[test]
+        #[should_panic]
+        fn call_call_result() {
+            // a call after a call should be rejected
+            let source = "def main() -> (): return a(2)(3)";
+            let ast = pest::generate_ast(&source).unwrap();
+            absy::Module::<FieldPrime>::from(ast);
+        }
     }
 }

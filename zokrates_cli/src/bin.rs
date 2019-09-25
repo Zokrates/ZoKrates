@@ -28,14 +28,13 @@ fn main() {
 }
 
 fn resolve<'a>(location: String, source: String) -> Result<(String, String), io::Error> {
-    // #[cfg(feature = "github")]
-    // {
-    //     if is_github_import(source) {
-    //         return github_resolve(location, source);
-    //     };
-    // }
-    // fs_resolve(location, source)
-    unimplemented!()
+    #[cfg(feature = "github")]
+    {
+        if is_github_import(&source) {
+            return github_resolve(location, source);
+        };
+    }
+    fs_resolve(location, source)
 }
 
 fn cli() -> Result<(), String> {

@@ -7,7 +7,7 @@ use crate::proof_system::ProofSystem;
 use bellman::groth16::Parameters;
 use regex::Regex;
 use std::fs::File;
-use std::io::{ BufReader, Write, Read, Cursor };
+use std::io::{BufReader, Cursor, Read, Write};
 use std::path::PathBuf;
 use zokrates_field::field::FieldPrime;
 
@@ -15,7 +15,6 @@ const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subjec
 
 pub struct G16 {}
 impl ProofSystem for G16 {
-
     fn setup(&self, program: ir::Prog<FieldPrime>, pk_path: &str, vk_path: &str) {
         std::env::set_var("BELLMAN_VERBOSE", "0");
 
@@ -45,9 +44,11 @@ impl ProofSystem for G16 {
         let vk: String = serialize::serialize_vk(parameters.vk);
 
         let mut pk: Vec<u8> = Vec::new();
-        cursor.read_to_end(&mut pk).expect("Could not read cursor buffer");
+        cursor
+            .read_to_end(&mut pk)
+            .expect("Could not read cursor buffer");
 
-        (vk,  pk)
+        (vk, pk)
     }
 
     fn generate_proof(
@@ -96,7 +97,9 @@ impl ProofSystem for G16 {
 
     fn export_solidity_verifier(&self, mut reader: BufReader<File>, is_abiv2: bool) -> String {
         let mut buffer = String::new();
-        reader.read_to_string(&mut buffer).expect("Unable to read from file");
+        reader
+            .read_to_string(&mut buffer)
+            .expect("Unable to read from file");
 
         self.export_solidity_verifier_c(buffer, is_abiv2)
     }

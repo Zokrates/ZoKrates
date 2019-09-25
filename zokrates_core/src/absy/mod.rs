@@ -198,7 +198,7 @@ impl<'ast, T: Field> fmt::Debug for Function<'ast, T> {
 #[derive(Clone, PartialEq)]
 pub enum Assignee<'ast, T: Field> {
     Identifier(Identifier<'ast>),
-    ArrayElement(Box<AssigneeNode<'ast, T>>, Box<RangeOrExpression<'ast, T>>),
+    Select(Box<AssigneeNode<'ast, T>>, Box<RangeOrExpression<'ast, T>>),
 }
 
 pub type AssigneeNode<'ast, T> = Node<Assignee<'ast, T>>;
@@ -206,8 +206,8 @@ pub type AssigneeNode<'ast, T> = Node<Assignee<'ast, T>>;
 impl<'ast, T: Field> fmt::Debug for Assignee<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Assignee::Identifier(ref s) => write!(f, "{}", s),
-            Assignee::ArrayElement(ref a, ref e) => write!(f, "{}[{}]", a, e),
+            Assignee::Identifier(ref s) => write!(f, "Identifier({:?})", s),
+            Assignee::Select(ref a, ref e) => write!(f, "Select({:?}[{:?}])", a, e),
         }
     }
 }
@@ -286,6 +286,12 @@ impl<'ast, T: Field> fmt::Debug for Statement<'ast, T> {
 pub enum SpreadOrExpression<'ast, T: Field> {
     Spread(SpreadNode<'ast, T>),
     Expression(ExpressionNode<'ast, T>),
+}
+
+impl<'ast, T: Field> From<ExpressionNode<'ast, T>> for SpreadOrExpression<'ast, T> {
+    fn from(e: ExpressionNode<'ast, T>) -> SpreadOrExpression<'ast, T> {
+        SpreadOrExpression::Expression(e)
+    }
 }
 
 impl<'ast, T: Field> fmt::Display for SpreadOrExpression<'ast, T> {
@@ -499,7 +505,9 @@ impl<'ast, T: Field> fmt::Debug for Expression<'ast, T> {
                 f.debug_list().entries(exprs.iter()).finish()?;
                 write!(f, "]")
             }
-            Expression::Select(ref array, ref index) => write!(f, "{}[{}]", array, index),
+            Expression::Select(ref array, ref index) => {
+                write!(f, "Select({:?}, {:?})", array, index)
+            }
             Expression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
         }
     }

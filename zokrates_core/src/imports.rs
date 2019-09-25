@@ -169,11 +169,17 @@ impl Importer {
                     Some(resolve) => match resolve(location.clone(), import.source.to_string()) {
                         Ok((source, location)) => {
                             let source = arena.alloc(source);
+                            let alias = import.alias.unwrap_or_else(|| {
+                                std::path::Path::new(import.source)
+                                    .file_stem()
+                                    .unwrap()
+                                    .to_str()
+                                    .unwrap()
+                            });
 
                             let compiled =
                                 compile_module(source, location, resolve_option, modules, &arena)
                                     .map_err(|e| e.with_context(import.source.to_string()))?;
-                            let alias = import.alias.clone().unwrap();
 
                             modules.insert(import.source.to_string(), compiled);
 

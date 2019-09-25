@@ -7,4 +7,6 @@ members = [
     "zokrates_github_resolver",
     "zokrates_stdlib",
     "zokrates_embed",
+    "zokrates_test",
+    "zokrates_core_test",
 ]

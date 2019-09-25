@@ -3,7 +3,7 @@ use std::fmt;
 use zokrates_embed::generate_sha256_round_witness;
 use zokrates_field::field::Field;
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
 pub enum RustHelper {
     Identity,
     ConditionEq,

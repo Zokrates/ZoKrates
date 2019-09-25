@@ -34,7 +34,7 @@ const GITHUB_IMPORT_PREFIX: &str = "github.com/";
 const GITHUB_URL_BASE: &str = "https://raw.githubusercontent.com";
 
 type CurrentLocation = String;
-type ImportLocation<'a> = &'a str;
+type ImportLocation = String;
 type SourceCode = String;
 
 /// Resolves import from the Github.
@@ -42,9 +42,9 @@ type SourceCode = String;
 /// files that are imported from github.
 pub fn resolve<'a>(
     current_location: CurrentLocation,
-    import_location: ImportLocation<'a>,
-) -> Result<(SourceCode, CurrentLocation, &'a str), io::Error> {
-    let path = Path::new(import_location);
+    import_location: ImportLocation,
+) -> Result<(SourceCode, CurrentLocation), io::Error> {
+    let path = Path::new(&import_location);
     let (root, repo, branch, file_path) = parse_input_path(&path)?;
 
     #[cfg(not(test))]
@@ -55,9 +55,7 @@ pub fn resolve<'a>(
     let pb = download_from_github(&url, &root, &repo, &branch, &file_path)?;
     let source = read_to_string(&pb).unwrap();
 
-    let alias = path.file_stem().unwrap().to_str().unwrap();
-
-    Ok((source, current_location.to_owned(), &alias))
+    Ok((source, current_location.to_owned()))
 }
 
 /// Checks that import source is using github import location.
@@ -204,8 +202,8 @@ mod tests {
     pub fn resolve_ok() {
         let (_m0, _m1) = init_github_mock();
         let res = resolve(
-            Some("".to_string()),
-            &"github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/foo.code",
+            "".to_string(),
+            "github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/foo.code".into(),
         );
         assert!(res.is_ok());
     }
@@ -214,8 +212,9 @@ mod tests {
     pub fn resolve_err() {
         let (_m0, _m1) = init_github_mock();
         assert!(resolve(
-            Some("".to_string()),
-            &"github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/notfound.code"
+            "".to_string(),
+            "github.com/Zokrates/ZoKrates/master/zokrates_cli/examples/imports/notfound.code"
+                .into()
         )
         .is_err());
     }

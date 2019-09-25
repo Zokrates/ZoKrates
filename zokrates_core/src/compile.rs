@@ -220,7 +220,7 @@ mod test {
         .to_string();
         let res: Result<ir::Prog<FieldPrime>, CompileErrors> = compile(
             source,
-            Some(String::from("./path/to/file")),
+            String::from("./path/to/file"),
             None::<Resolve<io::Error>>,
         );
 
@@ -239,7 +239,7 @@ mod test {
         .to_string();
         let res: Result<ir::Prog<FieldPrime>, CompileErrors> = compile(
             source,
-            Some(String::from("./path/to/file")),
+            String::from("./path/to/file"),
             None::<Resolve<io::Error>>,
         );
         assert!(res.is_ok());
