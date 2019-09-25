@@ -4,7 +4,7 @@
 //!
 //! To import file from github, use following syntax:
 //! ```zokrates
-//! import "github:user/repo/branch/path/to/file.zok"
+//! import "github:user/repo/branch/path/to/file"
 //! ```
 //!
 //! For example:
