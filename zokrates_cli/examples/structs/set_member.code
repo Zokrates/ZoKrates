@@ -1,11 +1,11 @@
 struct Bar {
-	c: field[2],
-	d: bool
+	field[2] c
+	bool d
 }
 
 struct Foo {
-	a: Bar,
-	b: bool
+	Bar a
+	bool b
 }
 
 def main() -> (Foo):
