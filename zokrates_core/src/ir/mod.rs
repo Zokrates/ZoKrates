@@ -122,12 +122,8 @@ impl<T: Field> Prog<T> {
             .count()
     }
 
-    pub fn public_arguments_count(&self) -> usize {
-        self.private.iter().filter(|b| !**b).count()
-    }
-
-    pub fn private_arguments_count(&self) -> usize {
-        self.private.iter().filter(|b| **b).count()
+    pub fn arguments_count(&self) -> usize {
+        self.private.len()
     }
 
     pub fn parameters(&self) -> Vec<FlatParameter> {

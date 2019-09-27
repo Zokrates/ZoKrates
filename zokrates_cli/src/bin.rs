@@ -12,6 +12,7 @@ use std::io::{stdin, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::string::String;
 use std::{env, io};
+use zokrates_abi::Encode;
 use zokrates_core::compile::compile;
 use zokrates_core::ir;
 use zokrates_core::proof_system::*;
@@ -176,9 +177,18 @@ fn cli() -> Result<(), String> {
         ).arg(Arg::with_name("arguments")
             .short("a")
             .long("arguments")
-            .help("Arguments for the program's main method as a space separated list")
+            .help("Arguments for the program's main function")
             .takes_value(true)
             .multiple(true) // allows multiple values
+            .required(false)
+        ).arg(Arg::with_name("abi")
+            .long("abi")
+            .help("Use the ABI")
+            .required(false)
+        ).arg(Arg::with_name("stdin")
+            .long("stdin")
+            .help("Read arguments from stdin")
+            .conflicts_with("arguments")
             .required(false)
         ).arg(Arg::with_name("light")
             .long("light")
@@ -337,58 +347,79 @@ fn cli() -> Result<(), String> {
                 println!("{}", program_ast);
             }
 
-            let expected_cli_args_count =
-                program_ast.public_arguments_count() + program_ast.private_arguments_count();
-
             let signature = program_ast.signature.clone();
 
-            // get arguments
-            let arguments: Vec<_> = match sub_matches.values_of("arguments") {
-                // take inline arguments
-                Some(p) => p
-                    .map(|x| FieldPrime::try_from_dec_str(x).map_err(|_| x.to_string()))
-                    .collect(),
-                // take stdin arguments
-                None => {
-                    if expected_cli_args_count > 0 {
-                        let mut stdin = stdin();
-                        let mut input = String::new();
-                        match stdin.read_to_string(&mut input) {
-                            Ok(_) => {
-                                use zokrates_core::abi::{parse_strict, Encode};
+            let is_stdin = sub_matches.is_present("stdin");
+            let is_abi = sub_matches.is_present("abi");
 
-                                let parsed = parse_strict(&input, signature.inputs)
-                                    .map_err(|why| why.to_string())?;
-                                Ok(parsed.encode())
+            if !is_stdin && is_abi {
+                return Err(
+                    "ABI input as inline argument is not supported. Please use `--stdin`.".into(),
+                );
+            }
+
+            use zokrates_abi::Inputs;
+
+            // get arguments
+            let arguments = match is_stdin {
+                // take inline arguments
+                false => {
+                    let arguments = sub_matches.values_of("arguments");
+                    arguments
+                        .map(|a| {
+                            a.map(|x| FieldPrime::try_from_dec_str(x).map_err(|_| x.to_string()))
+                                .collect::<Result<Vec<_>, _>>()
+                        })
+                        .unwrap_or(Ok(vec![]))
+                        .map(|v| Inputs::Raw(v))
+                }
+                // take stdin arguments
+                true => {
+                    let mut stdin = stdin();
+                    let mut input = String::new();
+
+                    match is_abi {
+                        true => match stdin.read_to_string(&mut input) {
+                            Ok(_) => {
+                                use zokrates_abi::parse_strict;
+
+                                parse_strict(&input, signature.inputs)
+                                    .map(|parsed| Inputs::Abi(parsed))
+                                    .map_err(|why| why.to_string())
                             }
                             Err(_) => Err(String::from("???")),
-                        }
-                    } else {
-                        Ok(vec![])
+                        },
+                        false => match program_ast.arguments_count() {
+                            0 => Ok(Inputs::Raw(vec![])),
+                            _ => match stdin.read_to_string(&mut input) {
+                                Ok(_) => {
+                                    input.retain(|x| x != '\n');
+                                    input
+                                        .split(" ")
+                                        .map(|x| {
+                                            FieldPrime::try_from_dec_str(x)
+                                                .map_err(|_| x.to_string())
+                                        })
+                                        .collect::<Result<Vec<_>, _>>()
+                                        .map(|v| Inputs::Raw(v))
+                                }
+                                Err(_) => Err(String::from("???")),
+                            },
+                        },
                     }
                 }
             }
             .map_err(|e| format!("Could not parse argument: {}", e))?;
 
-            if arguments.len() != expected_cli_args_count {
-                Err(format!(
-                    "Wrong number of arguments. Given: {}, Required: {}.",
-                    arguments.len(),
-                    expected_cli_args_count
-                ))?
-            }
-
             let witness = program_ast
-                .execute(&arguments)
+                .execute(arguments.encode())
                 .map_err(|e| format!("Execution failed: {}", e))?;
 
-            use zokrates_core::abi::Decode;
+            use zokrates_abi::Decode;
 
-            let results_json_value: serde_json::Value = zokrates_core::abi::CheckedValues::decode(
-                witness.return_values(),
-                signature.outputs,
-            )
-            .into();
+            let results_json_value: serde_json::Value =
+                zokrates_abi::CheckedValues::decode(witness.return_values(), signature.outputs)
+                    .into();
 
             println!("\nWitness: \n\n{}", results_json_value.to_string());
 

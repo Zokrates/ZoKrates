@@ -1,7 +1,24 @@
+#![feature(box_patterns, box_syntax)]
+
+pub enum Inputs<T> {
+    Raw(Vec<T>),
+    Abi(CheckedValues<T>),
+}
+
+impl<T: From<usize>> Encode<T> for Inputs<T> {
+    fn encode(self) -> Vec<T> {
+        match self {
+            Inputs::Raw(v) => v,
+            Inputs::Abi(v) => v.encode(),
+        }
+    }
+}
+
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use std::fmt;
-use typed_absy::types::Type;
+use zokrates_core::ir::Prog;
+use zokrates_core::typed_absy::Type;
 
 use zokrates_field::field::Field;
 
@@ -171,7 +188,7 @@ impl<T: From<usize> + PartialEq + Clone> Decode<T> for CheckedValue<T> {
                     unreachable!()
                 })
             }
-            Type::Array(box inner_ty, size) => CheckedValue::Array(
+            Type::Array(box inner_ty, _) => CheckedValue::Array(
                 raw.chunks(inner_ty.get_primitive_count())
                     .map(|c| CheckedValue::decode(c.to_vec(), inner_ty.clone()))
                     .collect(),
