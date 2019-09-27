@@ -1,4 +1,4 @@
-def main() -> (field):
+def main(field g) -> ():
   9 == 1 + 2 * 2 ** 2                                              // Checks precedence of arithmetic operators (expecting transitiv behaviour)
   9 == 2 ** 2 * 2 + 1
   7 == 2 ** 2 * 2 - 1
@@ -13,4 +13,4 @@ def main() -> (field):
 
   //check if all statements have evalutated to true
   a * b * c * d * e * f == 1
-  return 1
+  return
