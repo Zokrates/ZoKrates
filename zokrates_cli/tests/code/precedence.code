@@ -13,4 +13,4 @@ def main(field g) -> ():
 
   //check if all statements have evalutated to true
   a * b * c * d * e * f == 1
-  return
+  return g
