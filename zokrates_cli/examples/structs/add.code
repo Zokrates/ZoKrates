@@ -1,6 +1,6 @@
 struct Point {
-	x: field,
-	y: field
+	field x
+	field y
 }
 
 def main(Point p, Point q) -> (Point):

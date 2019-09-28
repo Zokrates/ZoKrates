@@ -1,6 +1,6 @@
 struct Bar {
 	field[2] c
-	bool b
+	bool d
 }
 
 struct Foo {

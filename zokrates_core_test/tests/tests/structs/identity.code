@@ -1,6 +1,6 @@
 struct A {
-	a: field,
-	b: bool
+	field a
+	bool b
 }
 
 def main(A a) -> (A):
