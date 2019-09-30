@@ -57,7 +57,7 @@ fn cli() -> Result<(), String> {
     .author("Jacob Eberhardt, Thibaut Schaeffer, Stefan Deml")
     .about("Supports generation of zkSNARKs from high level language code including Smart Contracts for proof verification on the Ethereum Blockchain.\n'I know that I show nothing!'")
     .subcommand(SubCommand::with_name("compile")
-        .about("Compiles into flattened conditions. Produces two files: human-readable '.zok' file for debugging and binary file")
+        .about("Compiles into flattened conditions. Produces two files: human-readable '.ztf' file for debugging and binary file")
         .arg(Arg::with_name("input")
             .short("i")
             .long("input")
