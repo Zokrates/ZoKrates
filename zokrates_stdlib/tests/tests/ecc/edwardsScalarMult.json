@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/tests/ecc/edwardsScalarMult.code",
+	"entry_point": "./tests/tests/ecc/edwardsScalarMult.zok",
 	"tests": [
 		{
 			"input": {

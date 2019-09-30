@@ -1,0 +1,10 @@
+// FULLADD
+
+import "./halfadd" as HALFADD
+import "utils/binary/or" as OR
+
+def main(field a, field b, field car) -> (field, field):
+	out1, car1 = HALFADD(a, b)
+	out2, car2 = HALFADD(out1, car)
+	car3 = OR(car1, car2)
+	return out2, car3

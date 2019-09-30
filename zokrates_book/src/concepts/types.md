@@ -13,7 +13,7 @@ The prime `p` is set to `2188824287183927522224640574525727508854836440041603434
 While `field` values mostly behave like unsigned integers, one should keep in mind that they overflow at `p` and not some power of 2, so that we have:
 
 ```zokrates
-{{#include ../../../zokrates_cli/examples/book/field_overflow.code}}
+{{#include ../../../zokrates_cli/examples/book/field_overflow.zok}}
 ```
 
 #### `bool`
@@ -34,7 +34,7 @@ Arrays can contain elements of any type and have arbitrary dimensions.
 The following examples code shows examples of how to use arrays:
 
 ```zokrates
-{{#include ../../../zokrates_cli/examples/book/array.code}}
+{{#include ../../../zokrates_cli/examples/book/array.zok}}
 ```
 
 ##### Declaration and Initialization
@@ -64,7 +64,7 @@ In summary, this leads to the following scheme for array declarations:
 Consider the following example:
 
 ```zokrates
-{{#include ../../../zokrates_cli/examples/book/multidim_array.code}}
+{{#include ../../../zokrates_cli/examples/book/multidim_array.zok}}
 ```
 
 ##### Spreads and Slices

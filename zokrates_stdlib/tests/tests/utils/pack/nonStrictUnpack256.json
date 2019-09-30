@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/tests/utils/pack/nonStrictUnpack256.code",
+	"entry_point": "./tests/tests/utils/pack/nonStrictUnpack256.zok",
 	"tests": [
 		{
 			"input": {

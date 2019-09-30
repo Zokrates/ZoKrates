@@ -17,7 +17,7 @@ pub fn resolve<'a>(
     let source = Path::new(&import_location);
 
     // paths starting with `./` or `../` are interpreted relative to the current file
-    // other paths `abc/def.code` are interpreted relative to $ZOKRATES_HOME
+    // other paths `abc/def` are interpreted relative to $ZOKRATES_HOME
     let base = match source.components().next() {
         Some(Component::CurDir) | Some(Component::ParentDir) => PathBuf::from(current_location),
         _ => PathBuf::from(
@@ -25,7 +25,9 @@ pub fn resolve<'a>(
         ),
     };
 
-    let path_owned = base.join(PathBuf::from(import_location));
+    let path_owned = base
+        .join(PathBuf::from(import_location))
+        .with_extension("zok");
 
     if path_owned.is_dir() {
         return Err(io::Error::new(io::ErrorKind::Other, "Not a file"));
@@ -50,20 +52,28 @@ mod tests {
     use std::fs::File;
 
     #[test]
-    fn valid_path_with_location() {
-        let (_, next_location) = resolve(String::from("./src"), "./lib.rs".into()).unwrap();
-        assert_eq!(next_location, String::from("./src"));
+    fn valid_path() {
+        use std::io::Write;
+
+        // create a source folder with a zok file
+        let folder = tempfile::tempdir().unwrap();
+        let file_path = folder.path().join("bar.zok");
+        let mut file = File::create(file_path).unwrap();
+        writeln!(file, "some code").unwrap();
+        let (_, next_location) =
+            resolve(folder.path().to_str().unwrap().to_string(), "./bar".into()).unwrap();
+        assert_eq!(next_location, folder.path().to_str().unwrap().to_string());
     }
 
     #[test]
     fn non_existing_file() {
-        let res = resolve(String::from("./src"), "./rubbish.rs".into());
+        let res = resolve(String::from("./src"), "./rubbish".into());
         assert!(res.is_err());
     }
 
     #[test]
     fn invalid_location() {
-        let res = resolve(String::from(",8!-$2abc"), "./foo.code".into());
+        let res = resolve(String::from(",8!-$2abc"), "./foo".into());
         assert!(res.is_err());
     }
 
@@ -80,43 +90,18 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
-    fn no_file_name_without_stdlib() {
-        // an empty string is interpreted relative to the HOME folder. If there's none, panic
-        std::env::remove_var(ZOKRATES_HOME);
-        let _res = resolve(String::from("."), "".into());
-    }
-
-    #[test]
-    fn no_file_name_with_stdlib() {
-        use std::io::Write;
-
-        // create a HOME folder with a code file
-        let zokrates_home_folder = tempfile::tempdir().unwrap();
-        let file_path = zokrates_home_folder.path().join("bar.code");
-        let mut file = File::create(file_path).unwrap();
-        writeln!(file, "<stdlib code>").unwrap();
-
-        // assign HOME folder to ZOKRATES_HOME
-        std::env::set_var(ZOKRATES_HOME, zokrates_home_folder.path());
-
-        let res = resolve(String::from("."), "".into());
-        assert!(res.is_err());
-    }
-
-    #[test]
     fn treat_relative_as_local() {
         use std::io::Write;
 
         // create a HOME folder with a code file
         let zokrates_home_folder = tempfile::tempdir().unwrap();
-        let file_path = zokrates_home_folder.path().join("bar.code");
+        let file_path = zokrates_home_folder.path().join("bar.zok");
         let mut file = File::create(file_path).unwrap();
         writeln!(file, "<stdlib code>").unwrap();
 
         // create a user folder with a code file
         let source_folder = tempfile::tempdir().unwrap();
-        let file_path = source_folder.path().join("bar.code");
+        let file_path = source_folder.path().join("bar.zok");
         let mut file = File::create(file_path).unwrap();
         writeln!(file, "<user code>").unwrap();
 
@@ -129,7 +114,7 @@ mod tests {
                 .to_path_buf()
                 .to_string_lossy()
                 .to_string(),
-            "./bar.code".into(),
+            "./bar.zok".into(),
         );
         assert!(result.is_ok());
         // the imported file should be the user's
@@ -142,13 +127,13 @@ mod tests {
 
         // create a HOME folder with a code file
         let zokrates_home_folder = tempfile::tempdir().unwrap();
-        let file_path = zokrates_home_folder.path().join("bar.code");
+        let file_path = zokrates_home_folder.path().join("bar.zok");
         let mut file = File::create(file_path).unwrap();
         writeln!(file, "<stdlib code>").unwrap();
 
         // create a user folder with a code file
         let source_folder = tempfile::tempdir().unwrap();
-        let file_path = source_folder.path().join("bar.code");
+        let file_path = source_folder.path().join("bar.zok");
         let mut file = File::create(file_path).unwrap();
         writeln!(file, "<user code>").unwrap();
 
@@ -161,7 +146,7 @@ mod tests {
                 .to_path_buf()
                 .to_string_lossy()
                 .to_string(),
-            "bar.code".into(),
+            "bar.zok".into(),
         );
         assert!(result.is_ok());
         // the imported file should be the user's
@@ -175,7 +160,7 @@ mod tests {
         // create a user folder with a code file
         let source_folder = tempfile::tempdir().unwrap();
         let source_subfolder = tempfile::tempdir_in(&source_folder).unwrap();
-        let file_path = source_folder.path().join("bar.code");
+        let file_path = source_folder.path().join("bar.zok");
         let mut file = File::create(file_path).unwrap();
         writeln!(file, "<user code>").unwrap();
 
@@ -185,7 +170,7 @@ mod tests {
                 .to_path_buf()
                 .to_string_lossy()
                 .to_string(),
-            "../bar.code".into(),
+            "../bar.zok".into(),
         );
         assert!(result.is_ok());
         // the imported file should be the user's
@@ -198,21 +183,21 @@ mod tests {
 
         // create a HOME folder
         let zokrates_home_folder = tempfile::tempdir().unwrap();
-        let file_path = zokrates_home_folder.path().join("bar.code");
+        let file_path = zokrates_home_folder.path().join("bar.zok");
         let mut file = File::create(file_path).unwrap();
         writeln!(file, "<stdlib code>").unwrap();
 
         // assign HOME folder to ZOKRATES_HOME
         std::env::set_var(ZOKRATES_HOME, zokrates_home_folder.path());
 
-        let result = resolve("/path/to/user/folder".to_string(), "./bar.code".into());
+        let result = resolve("/path/to/user/folder".to_string(), "./bar.zok".into());
         assert!(result.is_err());
     }
 
     #[test]
     fn fail_if_not_found_in_std() {
         std::env::set_var(ZOKRATES_HOME, "");
-        let result = resolve("/path/to/source".to_string(), "bar.code".into());
+        let result = resolve("/path/to/source".to_string(), "bar.zok".into());
         assert!(result.is_err());
     }
 
@@ -220,6 +205,6 @@ mod tests {
     #[should_panic]
     fn panic_if_home_not_set() {
         std::env::remove_var(ZOKRATES_HOME);
-        let _ = resolve("/path/to/source".to_string(), "bar.code".into());
+        let _ = resolve("/path/to/source".to_string(), "bar.zok".into());
     }
 }

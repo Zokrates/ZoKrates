@@ -233,9 +233,9 @@ mod tests {
     #[test]
     fn create_with_no_alias() {
         assert_eq!(
-            Import::new("./foo/bar/baz.code"),
+            Import::new("./foo/bar/baz.zok"),
             Import {
-                source: "./foo/bar/baz.code",
+                source: "./foo/bar/baz.zok",
                 alias: None,
             }
         );
@@ -244,9 +244,9 @@ mod tests {
     #[test]
     fn create_with_alias() {
         assert_eq!(
-            Import::new_with_alias("./foo/bar/baz.code", &"myalias"),
+            Import::new_with_alias("./foo/bar/baz.zok", &"myalias"),
             Import {
-                source: "./foo/bar/baz.code",
+                source: "./foo/bar/baz.zok",
                 alias: Some("myalias"),
             }
         );
