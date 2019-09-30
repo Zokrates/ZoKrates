@@ -17,7 +17,6 @@ impl<T: From<usize>> Encode<T> for Inputs<T> {
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use std::fmt;
-use zokrates_core::ir::Prog;
 use zokrates_core::typed_absy::Type;
 
 use zokrates_field::field::Field;
