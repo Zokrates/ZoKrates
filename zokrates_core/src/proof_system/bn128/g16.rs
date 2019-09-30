@@ -373,7 +373,10 @@ mod tests {
                         .outputs(vec![Type::FieldElement]),
                 };
 
-                let witness = program.clone().execute(vec![FieldPrime::from(42)]).unwrap();
+                let witness = program
+                    .clone()
+                    .execute(&vec![FieldPrime::from(42)])
+                    .unwrap();
                 let computation = Computation::with_witness(program, witness);
 
                 let public_inputs_values = computation.public_inputs_values();

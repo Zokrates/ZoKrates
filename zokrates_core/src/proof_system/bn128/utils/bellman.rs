@@ -313,7 +313,7 @@ mod tests {
                 signature: Signature::new(),
             };
 
-            let witness = program.clone().execute(vec![]).unwrap();
+            let witness = program.clone().execute(&vec![]).unwrap();
             let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
@@ -338,7 +338,7 @@ mod tests {
                     .outputs(vec![Type::FieldElement]),
             };
 
-            let witness = program.clone().execute(vec![FieldPrime::from(0)]).unwrap();
+            let witness = program.clone().execute(&vec![FieldPrime::from(0)]).unwrap();
             let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
@@ -363,7 +363,7 @@ mod tests {
                     .outputs(vec![Type::FieldElement]),
             };
 
-            let witness = program.clone().execute(vec![FieldPrime::from(0)]).unwrap();
+            let witness = program.clone().execute(&vec![FieldPrime::from(0)]).unwrap();
             let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
@@ -386,7 +386,7 @@ mod tests {
                 signature: Signature::new().outputs(vec![Type::FieldElement]),
             };
 
-            let witness = program.clone().execute(vec![]).unwrap();
+            let witness = program.clone().execute(&vec![]).unwrap();
             let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
@@ -425,7 +425,7 @@ mod tests {
 
             let witness = program
                 .clone()
-                .execute(vec![FieldPrime::from(3), FieldPrime::from(4)])
+                .execute(&vec![FieldPrime::from(3), FieldPrime::from(4)])
                 .unwrap();
             let computation = Computation::with_witness(program, witness);
 
@@ -451,7 +451,7 @@ mod tests {
                     .outputs(vec![Type::FieldElement]),
             };
 
-            let witness = program.clone().execute(vec![FieldPrime::from(3)]).unwrap();
+            let witness = program.clone().execute(&vec![FieldPrime::from(3)]).unwrap();
             let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
@@ -480,7 +480,7 @@ mod tests {
 
             let witness = program
                 .clone()
-                .execute(vec![FieldPrime::from(3), FieldPrime::from(4)])
+                .execute(&vec![FieldPrime::from(3), FieldPrime::from(4)])
                 .unwrap();
             let computation = Computation::with_witness(program, witness);
 

@@ -412,7 +412,7 @@ fn cli() -> Result<(), String> {
             .map_err(|e| format!("Could not parse argument: {}", e))?;
 
             let witness = program_ast
-                .execute(arguments.encode())
+                .execute(&arguments.encode())
                 .map_err(|e| format!("Execution failed: {}", e))?;
 
             use zokrates_abi::Decode;

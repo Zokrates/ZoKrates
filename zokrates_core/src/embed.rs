@@ -429,7 +429,7 @@ mod tests {
                 .chain((0..256).map(|_| FieldPrime::from(1)))
                 .collect();
 
-            prog.execute(input).unwrap();
+            prog.execute(&input).unwrap();
         }
     }
 }

@@ -8,7 +8,7 @@ use zokrates_field::field::Field;
 pub type ExecutionResult<T> = Result<Witness<T>, Error>;
 
 impl<T: Field> Prog<T> {
-    pub fn execute(&self, inputs: Vec<T>) -> ExecutionResult<T> {
+    pub fn execute(&self, inputs: &Vec<T>) -> ExecutionResult<T> {
         let main = &self.main;
         self.check_inputs(&inputs)?;
         let mut witness = BTreeMap::new();
