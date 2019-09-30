@@ -133,6 +133,7 @@ mod integration {
             flattened_path.to_str().unwrap(),
             "-o",
             witness_path.to_str().unwrap(),
+            "--stdin",
         ];
 
         assert_cli::Assert::command(&compute)
