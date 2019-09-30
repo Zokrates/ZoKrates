@@ -419,11 +419,17 @@ mod tests {
             let prog = crate::ir::Prog {
                 main: f,
                 private: vec![true; 768],
+                signature: Signature::new()
+                    .inputs(vec![Type::FieldElement; 768])
+                    .outputs(vec![Type::FieldElement; 256]),
             };
 
-            let input = (0..512).map(|_| 0).chain((0..256).map(|_| 1)).collect();
+            let input = (0..512)
+                .map(|_| FieldPrime::from(0))
+                .chain((0..256).map(|_| FieldPrime::from(1)))
+                .collect();
 
-            prog.execute(&input).unwrap();
+            prog.execute(input).unwrap();
         }
     }
 }

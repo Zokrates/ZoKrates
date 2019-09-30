@@ -338,6 +338,7 @@ mod tests {
             use crate::flat_absy::FlatVariable;
             use crate::ir::*;
             use crate::proof_system::bn128::g16::serialize::serialize_proof;
+            use typed_absy::types::{Signature, Type};
 
             #[allow(dead_code)]
             #[derive(Deserialize)]
@@ -367,12 +368,12 @@ mod tests {
                         )],
                     },
                     private: vec![false],
+                    signature: Signature::new()
+                        .inputs(vec![Type::FieldElement])
+                        .outputs(vec![Type::FieldElement]),
                 };
 
-                let witness = program
-                    .clone()
-                    .execute::<FieldPrime>(&vec![FieldPrime::from(42)])
-                    .unwrap();
+                let witness = program.clone().execute(vec![FieldPrime::from(42)]).unwrap();
                 let computation = Computation::with_witness(program, witness);
 
                 let public_inputs_values = computation.public_inputs_values();
