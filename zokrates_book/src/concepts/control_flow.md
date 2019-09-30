@@ -9,7 +9,7 @@ Function calls can help make programs clearer and more modular. However, using f
 Arguments are passed by value.
 
 ```zokrates
-{{#include ../../../zokrates_cli/examples/book/side_effects.code}}
+{{#include ../../../zokrates_cli/examples/book/side_effects.zok}}
 ```
 
 ### If expressions
@@ -17,7 +17,7 @@ Arguments are passed by value.
 An if expression allows you to branch your code depending on a condition.
 
 ```zokrates
-{{#include ../../../zokrates_cli/examples/book/if_else.code}}
+{{#include ../../../zokrates_cli/examples/book/if_else.zok}}
 ```
 
 The condition supports `<`, `<=`, `>`, `>=`, `==`, which can be combined with the boolean operators `&&`, `||` and `!`.
@@ -29,7 +29,7 @@ The condition supports `<`, `<=`, `>`, `>=`, `==`, which can be combined with th
 For loops are available with the following syntax:
 
 ```zokrates
-{{#include ../../../zokrates_cli/examples/book/for.code}}
+{{#include ../../../zokrates_cli/examples/book/for.zok}}
 ```
 
 The bounds have to be known at compile time, so only constants are allowed.

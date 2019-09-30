@@ -1,0 +1,28 @@
+import "ecc/edwardsAdd" as add
+import "ecc/edwardsScalarMult" as multiply
+import "utils/pack/nonStrictUnpack256" as unpack256
+
+/// Verifies match of a given public/private keypair.
+///
+///    Checks if the following equation holds for the provided keypair:
+///    pk = sk*G
+///    where G is the chosen base point of the subgroup
+///    and * denotes scalar multiplication in the subgroup
+///
+/// Arguments:
+///    pk: Curve point. Public key.
+///    sk: Field element. Private key.
+///    context: Curve parameters (including generator G) used to create keypair.
+///
+/// Returns:
+///     Return 1 for pk/sk being a valid keypair, 0 otherwise.
+def main(field[2] pk, field sk, field[10] context) -> (field):
+
+    field[2] G = [context[4], context[5]]
+
+    field[256] skBits = unpack256(sk)
+    field[2] ptExp = multiply(skBits, G, context)
+
+    field out =	if ptExp[0] == pk[0] && ptExp[1] == pk[1] then 1 else 0 fi
+
+    return out

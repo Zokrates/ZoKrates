@@ -1,5 +1,0 @@
-import "./foo.code"
-import "./bar.code"
-
-def main() -> (field):
-	return foo() + bar()

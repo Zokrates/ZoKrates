@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/tests/fact_up_to_4.code",
+	"entry_point": "./tests/tests/fact_up_to_4.zok",
 	"tests": [
 		{
 			"input": {

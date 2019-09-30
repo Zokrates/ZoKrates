@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/tests/spread_slice.code",
+	"entry_point": "./tests/tests/spread_slice.zok",
 	"tests": [
 		{
 			"input": {
