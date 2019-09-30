@@ -1,14 +1,29 @@
 struct Bar {
-	c: field[2],
-	d: bool
+	field[2] c
+	bool d
 }
 
 struct Foo {
-	a: Bar,
-	b: bool
+	Bar a
+	bool b
 }
 
 def main() -> (Foo):
-	Foo[2] f = [Foo { a: Bar { c: [0, 0], d: false }, b: true}, Foo { a: Bar {c: [0, 0], d: false}, b: true}]
+	Foo[2] f = [
+		Foo {
+			a: Bar {
+				c: [0, 0],
+				d: false
+			},
+			b: true
+		},
+		Foo {
+			a: Bar {
+				c: [0, 0],
+				d: false
+			},
+			b: true
+		}
+	]
 	f[0].a.c = [42, 43]
 	return f[0]

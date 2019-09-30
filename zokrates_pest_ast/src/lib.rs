@@ -178,8 +178,8 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::struct_field))]
     pub struct StructField<'ast> {
-        pub id: IdentifierExpression<'ast>,
         pub ty: Type<'ast>,
+        pub id: IdentifierExpression<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -739,9 +739,8 @@ mod tests {
         use glob::glob;
         use std::fs;
         use std::io::Read;
-        // Traverse all .code files in examples dir
-        for entry in
-            glob("../zokrates_cli/examples/**/*.code").expect("Failed to read glob pattern")
+        // Traverse all .zok files in examples dir
+        for entry in glob("../zokrates_cli/examples/**/*.zok").expect("Failed to read glob pattern")
         {
             match entry {
                 Ok(path) => {
@@ -1083,8 +1082,8 @@ mod tests {
         let source = r#"import "heyman" as yo
 
         struct Foo {
-            foo: field[2],
-            bar: Bar
+            field[2] foo
+            Bar bar
         }
 
         def main(private field[23] a) -> (bool[234 + 6]):

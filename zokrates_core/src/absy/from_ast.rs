@@ -529,6 +529,10 @@ impl<'ast, T: Field> From<pest::PostfixExpression<'ast>> for absy::ExpressionNod
         let id_str = expression.id.span.as_str();
         let id = absy::ExpressionNode::from(expression.id);
 
+        // pest::PostFixExpression contains an array of "accesses": `a(34)[42]` is represented as `[a, [Call(34), Select(42)]]`, but absy::ExpressionNode
+        // is recursive, so it is `Select(Call(a, 34), 42)`. We apply this transformation here
+
+        // we start with the id, and we fold the array of accesses by wrapping the current value
         expression.accesses.into_iter().fold(id, |acc, a| match a {
             pest::Access::Call(a) => match acc.value {
                 absy::Expression::Identifier(_) => absy::Expression::FunctionCall(
@@ -643,6 +647,7 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode {
                             e.span().as_str()
                         ),
                     })
+                    .rev()
                     .fold(None, |acc, s| match acc {
                         None => Some(absy::UnresolvedType::array(inner_type.clone(), s)),
                         Some(acc) => Some(absy::UnresolvedType::array(acc.span(span.clone()), s)),
@@ -826,10 +831,10 @@ mod tests {
                     absy::UnresolvedType::Array(
                         box absy::UnresolvedType::Array(
                             box absy::UnresolvedType::FieldElement.mock(),
-                            2,
+                            3,
                         )
                         .mock(),
-                        3,
+                        2,
                     ),
                 ),
                 (
@@ -837,10 +842,10 @@ mod tests {
                     absy::UnresolvedType::Array(
                         box absy::UnresolvedType::Array(
                             box absy::UnresolvedType::Boolean.mock(),
-                            2,
+                            3,
                         )
                         .mock(),
-                        3,
+                        2,
                     ),
                 ),
             ];

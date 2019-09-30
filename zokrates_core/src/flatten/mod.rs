@@ -26,12 +26,9 @@ pub struct Flattener<'ast, T: Field> {
 
 // We introduce a trait in order to make it possible to make flattening `e` generic over the type of `e`
 
-#[rustfmt::skip]
-trait Flatten<'ast, T: Field>
-    : TryFrom<TypedExpression<'ast, T>, Error: std::fmt::Debug> 
-    + IfElse<'ast, T> 
-    + Select<'ast, T>
-    + Member<'ast, T> {
+trait Flatten<'ast, T: Field>:
+    TryFrom<TypedExpression<'ast, T>, Error = ()> + IfElse<'ast, T> + Select<'ast, T> + Member<'ast, T>
+{
     fn flatten(
         self,
         flattener: &mut Flattener<'ast, T>,
@@ -368,11 +365,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         res
     }
 
-    /// Flatten a array selection expression
+    /// Flatten an array selection expression
     ///
     /// # Arguments
     ///
-    /// * `symbols` - Available functions in in this context
+    /// * `symbols` - Available functions in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
     /// * `expression` - `TypedExpression` that will be flattened.
     /// # Remarks
@@ -1341,7 +1338,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// * `symbols` - Available functions in in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
-    /// * `expression` - `ArrayExpression` that will be flattened.
+    /// * `expr` - `ArrayExpression` that will be flattened.
     /// # Remarks
     /// * U is the inner type of the array
     fn flatten_array_expression<U: Flatten<'ast, T>>(
@@ -1551,7 +1548,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let arguments_flattened = funct
             .arguments
             .into_iter()
-            .flat_map(|p| self.use_parameter(&p, &mut statements_flattened))
+            .flat_map(|p| self.use_parameter(&p))
             .collect();
 
         // flatten statements in functions and apply substitution
@@ -1605,19 +1602,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         vars
     }
 
-    fn use_parameter(
-        &mut self,
-        parameter: &Parameter<'ast>,
-        statements: &mut Vec<FlatStatement<T>>,
-    ) -> Vec<FlatParameter> {
+    fn use_parameter(&mut self, parameter: &Parameter<'ast>) -> Vec<FlatParameter> {
         let variables = self.use_variable(&parameter.id);
-        match parameter.id.get_type() {
-            Type::Boolean => statements.extend(Self::boolean_constraint(&variables)),
-            Type::Array(box Type::Boolean, _) => {
-                statements.extend(Self::boolean_constraint(&variables))
-            }
-            _ => {}
-        };
 
         variables
             .into_iter()
@@ -1636,21 +1622,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
     fn issue_new_variables(&mut self, count: usize) -> Vec<FlatVariable> {
         (0..count).map(|_| self.issue_new_variable()).collect()
-    }
-
-    fn boolean_constraint(variables: &Vec<FlatVariable>) -> Vec<FlatStatement<T>> {
-        variables
-            .iter()
-            .map(|v| {
-                FlatStatement::Condition(
-                    FlatExpression::Identifier(*v),
-                    FlatExpression::Mult(
-                        box FlatExpression::Identifier(*v),
-                        box FlatExpression::Identifier(*v),
-                    ),
-                )
-            })
-            .collect()
     }
 
     // create an internal variable. We do not register it in the layout
@@ -1680,58 +1651,6 @@ mod tests {
     use crate::typed_absy::types::Signature;
     use crate::typed_absy::types::Type;
     use zokrates_field::field::FieldPrime;
-
-    mod boolean_checks {
-        use super::*;
-
-        #[test]
-        fn boolean_arg() {
-            // def main(bool a):
-            //    return a
-            //
-            // -> should flatten to
-            //
-            // def main(_0) -> (1):
-            //    _0 * _0 == _0
-            //    return _0
-
-            let function: TypedFunction<FieldPrime> = TypedFunction {
-                arguments: vec![Parameter::private(Variable::boolean("a".into()))],
-                statements: vec![TypedStatement::Return(vec![BooleanExpression::Identifier(
-                    "a".into(),
-                )
-                .into()])],
-                signature: Signature::new()
-                    .inputs(vec![Type::Boolean])
-                    .outputs(vec![Type::Boolean]),
-            };
-
-            let expected = FlatFunction {
-                arguments: vec![FlatParameter::private(FlatVariable::new(0))],
-                statements: vec![
-                    FlatStatement::Condition(
-                        FlatExpression::Identifier(FlatVariable::new(0)),
-                        FlatExpression::Mult(
-                            box FlatExpression::Identifier(FlatVariable::new(0)),
-                            box FlatExpression::Identifier(FlatVariable::new(0)),
-                        ),
-                    ),
-                    FlatStatement::Return(FlatExpressionList {
-                        expressions: vec![FlatExpression::Identifier(FlatVariable::new(0))],
-                    }),
-                ],
-                signature: Signature::new()
-                    .inputs(vec![Type::Boolean])
-                    .outputs(vec![Type::Boolean]),
-            };
-
-            let mut flattener = Flattener::new();
-
-            let flat_function = flattener.flatten_function(&mut HashMap::new(), function);
-
-            assert_eq!(flat_function, expected);
-        }
-    }
 
     #[test]
     fn powers_zero() {

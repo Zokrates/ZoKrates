@@ -1,0 +1,15 @@
+{
+	"entry_point": "./tests/tests/spread_slice.zok",
+	"tests": [
+		{
+			"input": {
+				"values": ["1", "2", "3", "4", "5", "6", "7"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["1", "2", "5", "6", "1", "2", "3", "5", "7"]
+				}
+			}
+		}
+	]
+}

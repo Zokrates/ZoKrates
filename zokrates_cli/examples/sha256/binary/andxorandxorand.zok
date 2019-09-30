@@ -1,0 +1,7 @@
+// ANDXORANDXORAND
+
+import "utils/binary/xor" as XOR
+import "utils/binary/and" as AND
+
+def main(field a, field b, field c) -> (field):
+	return XOR(XOR(AND(a, b), AND(a, c)), AND(b, c))

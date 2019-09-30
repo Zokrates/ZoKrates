@@ -27,9 +27,9 @@ mod tests {
             use glob::glob;
             use std::fs;
             use std::io::Read;
-            // Traverse all .code files in examples dir
+            // Traverse all .zok files in examples dir
             for entry in
-                glob("../zokrates_cli/examples/**/*.code").expect("Failed to read glob pattern")
+                glob("../zokrates_cli/examples/**/*.zok").expect("Failed to read glob pattern")
             {
                 match entry {
                     Ok(path) => {
@@ -149,40 +149,40 @@ mod tests {
         fn parse_struct_def() {
             parses_to! {
                 parser: ZoKratesParser,
-                input: "struct Foo { foo: field, bar: field[2] }
+                input: "struct Foo { field foo\n field[2] bar }
                 ",
                 rule: Rule::ty_struct_definition,
                 tokens: [
-                    ty_struct_definition(0, 41, [
+                    ty_struct_definition(0, 39, [
                         identifier(7, 10),
-                        struct_field(13, 23, [
-                            identifier(13, 16),
-                            ty(18, 23, [
-                                ty_basic(18, 23, [
-                                    ty_field(18, 23)
+                        struct_field(13, 22, [
+                            ty(13, 18, [
+                                ty_basic(13, 18, [
+                                    ty_field(13, 18)
                                 ])
-                            ])
+                            ]),
+                            identifier(19, 22)
                         ]),
-                        struct_field(25, 39, [
-                            identifier(25, 28),
-                            ty(30, 39, [
-                                ty_array(30, 39, [
-                                    ty_basic_or_struct(30, 35, [
-                                        ty_basic(30, 35, [
-                                            ty_field(30, 35)
+                        struct_field(24, 36, [
+                            ty(24, 33, [
+                                ty_array(24, 33, [
+                                    ty_basic_or_struct(24, 29, [
+                                        ty_basic(24, 29, [
+                                            ty_field(24, 29)
                                         ])
                                     ]),
-                                    expression(36, 37, [
-                                        term(36, 37, [
-                                            primary_expression(36, 37, [
-                                                constant(36, 37, [
-                                                    decimal_number(36, 37)
+                                    expression(30, 31, [
+                                        term(30, 31, [
+                                            primary_expression(30, 31, [
+                                                constant(30, 31, [
+                                                    decimal_number(30, 31)
                                                 ])
                                             ])
                                         ])
                                     ])
                                 ])
-                            ])
+                            ]),
+                            identifier(33, 36)
                         ])
                     ])
                 ]

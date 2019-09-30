@@ -1,0 +1,6 @@
+def main() -> (4):
+	(1 * ~one) * (42 * ~one) == 1 * ~out_0
+	(1 * ~one) * (43 * ~one) == 1 * ~out_1
+	(1 * ~one) * (0) == 1 * ~out_2
+	(1 * ~one) * (1 * ~one) == 1 * ~out_3
+	 return ~out_0, ~out_1, ~out_2, ~out_3
