@@ -1,0 +1,13 @@
+// ADD
+
+import "../../binary/fulladd" as FULLADD
+
+def main(field[32] b, field[32] c) -> (field[32]):
+	field[33] car = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+	field[32] d = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+	for field i in 0..32 do
+		d0, car0 = FULLADD(b[i], c[i], car[i])
+		d[i] = d0
+		car[i + 1] = car0
+	endfor
+	return d

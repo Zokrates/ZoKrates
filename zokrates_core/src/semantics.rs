@@ -2028,12 +2028,12 @@ mod tests {
 
         #[test]
         fn imported_function() {
-            // foo.code
+            // foo.zok
             // def main() -> ():
             // 		return
 
-            // bar.code
-            // from "./foo.code" import main
+            // bar.zok
+            // from "./foo.zok" import main
 
             // after semantic check, `bar` should import a checked function
 

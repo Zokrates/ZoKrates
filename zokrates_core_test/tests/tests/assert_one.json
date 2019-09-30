@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/tests/assert_one.code",
+	"entry_point": "./tests/tests/assert_one.zok",
 	"tests": [
 		{
 			"input": {

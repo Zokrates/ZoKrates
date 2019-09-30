@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/tests/hashes/sha256/512bitPadded.code",
+	"entry_point": "./tests/tests/hashes/sha256/512bitPadded.zok",
 	"tests": [
 		{
 			"input": {

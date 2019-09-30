@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/tests/split.code",
+	"entry_point": "./tests/tests/split.zok",
 	"tests": [
 		{
 			"input": {

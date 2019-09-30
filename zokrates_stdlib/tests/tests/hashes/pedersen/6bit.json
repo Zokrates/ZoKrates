@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/tests/hashes/pedersen/6bit.code",
+	"entry_point": "./tests/tests/hashes/pedersen/6bit.zok",
 	"tests": [
 		{
 			"input": {

@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/tests/utils/multiplexer/lookup1bit.code",
+	"entry_point": "./tests/tests/utils/multiplexer/lookup1bit.zok",
 	"tests": [
 		{
 			"input": {

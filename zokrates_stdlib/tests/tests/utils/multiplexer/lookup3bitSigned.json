@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/tests/utils/multiplexer/lookup3bitSigned.code",
+	"entry_point": "./tests/tests/utils/multiplexer/lookup3bitSigned.zok",
 	"tests": [
 		{
 			"input": {
