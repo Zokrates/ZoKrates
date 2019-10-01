@@ -208,6 +208,12 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                     }
                 };
 
+                let base = self.fold_expression(base);
+                let indices = indices
+                    .into_iter()
+                    .map(|i| self.fold_field_expression(i))
+                    .collect();
+
                 let mut range_checks = HashSet::new();
                 let e = Self::choose_many(base, indices, expr, &mut range_checks);
 
