@@ -32,6 +32,7 @@ impl<'ast, T: Field> Analyse for TypedProgram<'ast, T> {
         let r = Propagator::propagate(r);
         // lower than replacement
         let r = LowerThan::reduce(r);
+        println!("{}", r);
         r
     }
 }

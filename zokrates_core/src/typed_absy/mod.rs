@@ -29,6 +29,8 @@ pub struct Identifier<'ast> {
     pub version: usize,
     /// the call stack of the variable, used when inlining
     pub stack: Vec<(TypedModuleId, FunctionKey<'ast>, usize)>,
+    /// whether this variable is an internally created one
+    pub internal: bool,
 }
 
 /// An identifier for a `TypedModule`. Typically a path or uri.
@@ -105,6 +107,7 @@ impl<'ast> From<&'ast str> for Identifier<'ast> {
             id,
             version: 0,
             stack: vec![],
+            internal: false,
         }
     }
 }
@@ -119,6 +122,17 @@ impl<'ast> Identifier<'ast> {
     pub fn stack(mut self, stack: Vec<(TypedModuleId, FunctionKey<'ast>, usize)>) -> Self {
         self.stack = stack;
         self
+    }
+}
+
+impl<'ast> Identifier<'ast> {
+    pub fn internal(id: &'ast str, version: usize) -> Self {
+        Identifier {
+            id,
+            version,
+            stack: vec![],
+            internal: true,
+        }
     }
 }
 

@@ -29,6 +29,7 @@ impl<'ast> Unroller<'ast> {
                     id: v.id.id,
                     version: i + 1,
                     stack: vec![],
+                    internal: false,
                 },
                 ..v
             },
