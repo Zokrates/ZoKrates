@@ -6,10 +6,12 @@
 
 mod flat_propagation;
 mod inline;
+mod lower_than;
 mod propagation;
 mod unroll;
 
 use self::inline::Inliner;
+use self::lower_than::LowerThan;
 use self::propagation::Propagator;
 use self::unroll::Unroller;
 use crate::flat_absy::FlatProg;
@@ -28,6 +30,8 @@ impl<'ast, T: Field> Analyse for TypedProgram<'ast, T> {
         let r = Inliner::inline(r);
         // propagate
         let r = Propagator::propagate(r);
+        // lower than replacement
+        let r = LowerThan::reduce(r);
         r
     }
 }
