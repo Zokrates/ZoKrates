@@ -28,10 +28,7 @@ impl FlatEmbed {
                 .outputs(vec![Type::array(Type::FieldElement, 256)]),
             FlatEmbed::Unpack => Signature::new()
                 .inputs(vec![Type::FieldElement])
-                .outputs(vec![Type::array(
-                    Type::FieldElement,
-                    T::get_required_bits(),
-                )]),
+                .outputs(vec![Type::array(Type::Boolean, T::get_required_bits())]),
         }
     }
 
@@ -237,7 +234,7 @@ pub fn unpack<T: Field>() -> FlatFunction<T> {
 
     let signature = Signature {
         inputs: vec![Type::FieldElement],
-        outputs: vec![Type::array(Type::FieldElement, nbits)],
+        outputs: vec![Type::array(Type::Boolean, nbits)],
     };
 
     let outputs = directive_outputs

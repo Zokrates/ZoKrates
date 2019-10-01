@@ -1,9 +1,14 @@
 import "EMBED/unpack" as unpack
 
 def main(field i) -> (field[128]):
+    bool[254] b = unpack(i)
 
-    field[254] b = unpack(i)
+    field[254] ret = [0; 254]
 
-    b[0..126] == [0; 126]
+    for field i in 0..254 do
+    	ret[i] = if b[i] then 1 else 0 fi
+    endfor
 
-    return b[126..254]
+    ret[0..126] == [0; 126]
+
+    return ret[126..254]
