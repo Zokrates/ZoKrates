@@ -418,7 +418,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                 let e = self.fold_boolean_expression(e);
                 match e {
                     BooleanExpression::Value(v) => BooleanExpression::Value(!v),
-                    e => e,
+                    e => BooleanExpression::Not(box e),
                 }
             }
             BooleanExpression::IfElse(box condition, box consequence, box alternative) => {
