@@ -341,7 +341,10 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                 let base = self.fold_expression(base);
                 let indices = indices
                     .into_iter()
-                    .map(|i| self.fold_field_expression(i))
+                    .map(|a| match a {
+                        Access::Select(i) => Access::Select(self.fold_field_expression(i)),
+                        a => a,
+                    })
                     .collect();
 
                 let mut range_checks = HashSet::new();
