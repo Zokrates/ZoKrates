@@ -557,7 +557,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                 let e = self.fold_boolean_expression(e);
                 match e {
                     BooleanExpression::Value(v) => BooleanExpression::Value(!v),
-                    e => e,
+                    e => BooleanExpression::Not(box e),
                 }
             }
             BooleanExpression::IfElse(box condition, box consequence, box alternative) => {
@@ -723,6 +723,31 @@ mod tests {
         #[cfg(test)]
         mod boolean {
             use super::*;
+
+            #[test]
+            fn not() {
+                let e_true: BooleanExpression<FieldPrime> =
+                    BooleanExpression::Not(box BooleanExpression::Value(false));
+
+                let e_false: BooleanExpression<FieldPrime> =
+                    BooleanExpression::Not(box BooleanExpression::Value(true));
+
+                let e_default: BooleanExpression<FieldPrime> =
+                    BooleanExpression::Not(box BooleanExpression::Identifier("a".into()));
+
+                assert_eq!(
+                    Propagator::new().fold_boolean_expression(e_true),
+                    BooleanExpression::Value(true)
+                );
+                assert_eq!(
+                    Propagator::new().fold_boolean_expression(e_false),
+                    BooleanExpression::Value(false)
+                );
+                assert_eq!(
+                    Propagator::new().fold_boolean_expression(e_default.clone()),
+                    e_default
+                );
+            }
 
             #[test]
             fn eq() {
