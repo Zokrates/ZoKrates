@@ -1,8 +1,11 @@
-//! Module containing constant propagation for the typed AST
+//! Module containing lower equal comparison of field elements
 //!
-//! @file propagation.rs
+//! @file lower_than.rs
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
-//! @date 2018
+//! @author Stefan Deml <stefandeml@gmail.com>
+//! @date 2019
+
+
 
 use crate::typed_absy::folder::*;
 use crate::typed_absy::*;
@@ -170,7 +173,7 @@ impl<'ast, T: Field> LowerThan<'ast, T> {
                 ));
 
                 // don't need to update size_unknown in the last round
-                if i != len {
+                if i < len - 1 {
                     self.statements.push(TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::boolean(size_unknown[i + 1].clone())),
                         BooleanExpression::And(
@@ -185,7 +188,24 @@ impl<'ast, T: Field> LowerThan<'ast, T> {
                     ));
                 }
             } else {
-                self.statements.extend(vec![TypedStatement::Condition(
+                // don't need to update size_unknown in the last round
+                if i < len - 1 {
+                    self.statements.push(
+                        // sizeUnknown is not changing in this case
+                        // We sill have to assign the old value to the variable of the current run
+                        // This trivial definition will later be removed by the optimiser
+                        TypedStatement::Definition(
+                            TypedAssignee::Identifier(Variable::boolean(
+                                size_unknown[i + 1].clone(),
+                            )),
+                            BooleanExpression::Identifier(
+                                Variable::boolean(size_unknown[i].clone()).id,
+                            )
+                            .into(),
+                        ),
+                    );
+                }
+                self.statements.push(TypedStatement::Condition(
                     TypedExpression::Boolean(BooleanExpression::Value(true)),
                     BooleanExpression::Or(
                         box BooleanExpression::Not(box BooleanExpression::Identifier(
@@ -197,7 +217,7 @@ impl<'ast, T: Field> LowerThan<'ast, T> {
                         )),
                     )
                     .into(),
-                )])
+                ));
             }
         }
     }
