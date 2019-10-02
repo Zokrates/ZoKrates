@@ -18,6 +18,13 @@ use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::ops::{Add, Div, Mul, Sub};
 
+pub fn bytes_to_bits(bytes: &[u8]) -> Vec<bool> {
+    bytes
+        .iter()
+        .flat_map(|&v| (0..8).rev().map(move |i| (v >> i) & 1 == 1))
+        .collect()
+}
+
 lazy_static! {
     static ref P: BigInt = BigInt::parse_bytes(
         b"21888242871839275222246405745257275088548364400416034343698204186575808495617",
@@ -91,6 +98,15 @@ pub trait Field:
     /// Returns a decimal string representing a the member of the equivalence class of this `Field` in Z/pZ
     /// which lies in [-(p-1)/2, (p-1)/2]
     fn to_compact_dec_string(&self) -> String;
+
+    /// Returns this `Field`'s largest value as a big-endian bit vector
+    fn max_value_bit_vector_be() -> Vec<bool> {
+        let field_bytes_le = Self::into_byte_vector(&Self::max_value());
+        // reverse for for big-endianess
+        let field_bytes_be = field_bytes_le.into_iter().rev().collect::<Vec<u8>>();
+        let field_bits_be = bytes_to_bits(&field_bytes_be);
+        field_bits_be
+    }
 }
 
 #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Serialize, Deserialize)]
@@ -385,6 +401,15 @@ mod tests {
     mod field_prime {
         use super::*;
         use bincode::{deserialize, serialize, Infinite};
+
+        #[test]
+        fn max_value_bits() {
+            let bits = FieldPrime::max_value_bit_vector_be();
+            assert_eq!(
+                bits[0..10].to_vec(),
+                vec![false, false, true, true, false, false, false, false, false, true]
+            );
+        }
 
         #[test]
         fn positive_number() {

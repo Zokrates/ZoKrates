@@ -6,8 +6,6 @@
 
 use crate::typed_absy::folder::*;
 use crate::typed_absy::*;
-use std::collections::HashMap;
-use std::convert::TryFrom;
 use types::{FunctionKey, Signature, Type};
 use zokrates_field::field::Field;
 
@@ -27,85 +25,182 @@ impl<'ast, T: Field> LowerThan<'ast, T> {
     pub fn reduce(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
         LowerThan::new().fold_program(p)
     }
-}
 
+    // compute 2a - 2b
+    fn compute_2diff(
+        &mut self,
+        left: FieldElementExpression<'ast, T>,
+        right: FieldElementExpression<'ast, T>,
+    ) -> ArrayExpression<'ast, T> {
+        let left_bits = Identifier::internal("left_bits", self.counter);
+        let right_bits = Identifier::internal("right_bits", self.counter);
+        let diff_bits = Identifier::internal("diff_bits", self.counter);
 
-impl<'ast, T: Field> LowerThan<'ast, T> {
+        self.statements.extend(vec![
+            TypedStatement::MultipleDefinition(
+                vec![Variable::array(
+                    left_bits.clone(),
+                    Type::Boolean,
+                    T::get_required_bits(),
+                )],
+                TypedExpressionList::FunctionCall(
+                    FunctionKey::with_id("_UNPACK").signature(
+                        Signature::new()
+                            .inputs(vec![Type::FieldElement])
+                            .outputs(vec![Type::array(Type::Boolean, T::get_required_bits())]),
+                    ),
+                    vec![left.clone().into()],
+                    vec![Type::array(Type::Boolean, T::get_required_bits())],
+                ),
+            ),
+            TypedStatement::Condition(
+                BooleanExpression::Select(
+                    box ArrayExpressionInner::Identifier(left_bits.clone())
+                        .annotate(Type::Boolean, T::get_required_bits()),
+                    box FieldElementExpression::Number(T::from(0)),
+                )
+                .into(),
+                BooleanExpression::Value(false).into(),
+            ),
+            TypedStatement::Condition(
+                BooleanExpression::Select(
+                    box ArrayExpressionInner::Identifier(left_bits.clone())
+                        .annotate(Type::Boolean, T::get_required_bits()),
+                    box FieldElementExpression::Number(T::from(1)),
+                )
+                .into(),
+                BooleanExpression::Value(false).into(),
+            ),
+            TypedStatement::MultipleDefinition(
+                vec![Variable::array(
+                    right_bits.clone(),
+                    Type::Boolean,
+                    T::get_required_bits(),
+                )],
+                TypedExpressionList::FunctionCall(
+                    FunctionKey::with_id("_UNPACK").signature(
+                        Signature::new()
+                            .inputs(vec![Type::FieldElement])
+                            .outputs(vec![Type::array(Type::Boolean, T::get_required_bits())]),
+                    ),
+                    vec![right.clone().into()],
+                    vec![Type::array(Type::Boolean, T::get_required_bits())],
+                ),
+            ),
+            TypedStatement::Condition(
+                BooleanExpression::Select(
+                    box ArrayExpressionInner::Identifier(right_bits.clone())
+                        .annotate(Type::Boolean, T::get_required_bits()),
+                    box FieldElementExpression::Number(T::from(0)),
+                )
+                .into(),
+                BooleanExpression::Value(false).into(),
+            ),
+            TypedStatement::Condition(
+                BooleanExpression::Select(
+                    box ArrayExpressionInner::Identifier(right_bits.clone())
+                        .annotate(Type::Boolean, T::get_required_bits()),
+                    box FieldElementExpression::Number(T::from(1)),
+                )
+                .into(),
+                BooleanExpression::Value(false).into(),
+            ),
+            TypedStatement::MultipleDefinition(
+                vec![Variable::array(
+                    diff_bits.clone(),
+                    Type::Boolean,
+                    T::get_required_bits(),
+                )],
+                TypedExpressionList::FunctionCall(
+                    FunctionKey::with_id("_UNPACK").signature(
+                        Signature::new()
+                            .inputs(vec![Type::FieldElement])
+                            .outputs(vec![Type::array(Type::Boolean, T::get_required_bits())]),
+                    ),
+                    vec![FieldElementExpression::Sub(
+                        box FieldElementExpression::Mult(
+                            box left,
+                            box FieldElementExpression::Number(T::from(2)),
+                        ),
+                        box FieldElementExpression::Mult(
+                            box right,
+                            box FieldElementExpression::Number(T::from(2)),
+                        ),
+                    )
+                    .into()],
+                    vec![Type::array(Type::Boolean, T::get_required_bits())],
+                ),
+            ),
+        ]);
+        ArrayExpressionInner::Identifier(diff_bits.clone())
+            .annotate(Type::Boolean, T::get_required_bits())
+    }
 
-// strict check for a <= b
-// where b is a constant known at compile time
-    fn strict_le_check(b: Vec<bool>, a: Identifier<'ast>) -> Vec<TypedStatement<'ast, T>> {
-    // check that b is a bool array
-    // check that len a  == len b
-    let len = b.len();
+    // strict check for a <= b
+    // where b is a constant known at compile time
+    fn strict_le_check(&mut self, b: &[bool], a: ArrayExpression<'ast, T>) {
+        let len = b.len();
+        assert_eq!(a.get_type(), Type::array(Type::Boolean, len));
 
-    let mut statements = vec![];
+        let mut is_not_smaller_run = vec![];
+        let mut size_unknown = vec![];
+        for _i in 0..len {
+            is_not_smaller_run.push(Identifier::internal("isNotSmallerRun", self.counter));
+            size_unknown.push(Identifier::internal("sizeUnknown", self.counter));
+            self.counter += 1;
+        }
 
-    // as long as this value is true we don't
-    // know if the value is smaller
-    // hence we init with true 
-    statements.push(TypedStatement::Definition(
-        TypedAssignee::Identifier(Variable::boolean("sizeUnknown0".into())),
-        TypedExpression::Boolean(BooleanExpression::Value(true)),
-    ));
+        // as long as size_unknown is true we don't
+        // know if a is smaller
+        // hence we init with true
+        self.statements.push(TypedStatement::Definition(
+            TypedAssignee::Identifier(Variable::boolean(size_unknown[0].clone())),
+            TypedExpression::Boolean(BooleanExpression::Value(true)),
+        ));
 
-    for (i, b) in b.iter().enumerate() {
-        if *b {
-            statements.extend(vec![
-                TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::boolean(
-                        format!("isNotSmallerRun{}", i).as_str().into(),
-                    )),
+        for (i, b) in b.iter().enumerate() {
+            if *b {
+                self.statements.push(TypedStatement::Definition(
+                    TypedAssignee::Identifier(Variable::boolean(is_not_smaller_run[i].clone())),
                     BooleanExpression::Select(
-                        box ArrayExpressionInner::Identifier(a)
-                            .annotate(Type::Boolean, len),
+                        box a.clone(),
                         box FieldElementExpression::Number(T::from(i)),
                     )
                     .into(),
-                ),
-                TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::boolean(
-                        format!("sizeUnknown{}", i + 1).as_str().into(),
-                    )),
-                    BooleanExpression::And(
-                        box BooleanExpression::Identifier(
-                            Variable::boolean(format!("sizeUnknown{}", i).as_str().into()).id,
-                        ),
-                        box BooleanExpression::Identifier(
-                            Variable::boolean(
-                        format!("isNotSmallerRun{}", i).as_str().into()
-                            ).id
+                ));
+
+                // don't need to update size_unknown in the last round
+                if i != len {
+                    self.statements.push(TypedStatement::Definition(
+                        TypedAssignee::Identifier(Variable::boolean(size_unknown[i + 1].clone())),
+                        BooleanExpression::And(
+                            box BooleanExpression::Identifier(
+                                Variable::boolean(size_unknown[i].clone()).id,
+                            ),
+                            box BooleanExpression::Identifier(
+                                Variable::boolean(is_not_smaller_run[i].clone()).id,
+                            ),
                         )
-                    )
-                    .into(),
-                ),
-            ]);
-        } else {
-            statements.extend(vec![
-                // if sizeUnknown == true => a must be false
-                // if sizeUnknown == false => a can be true or false
-                // => 1 constraint each
-                //  true == (!sizeUnknown || !a[3])
-                TypedStatement::Condition(
+                        .into(),
+                    ));
+                }
+            } else {
+                self.statements.extend(vec![TypedStatement::Condition(
                     TypedExpression::Boolean(BooleanExpression::Value(true)),
                     BooleanExpression::Or(
                         box BooleanExpression::Not(box BooleanExpression::Identifier(
-                            Variable::boolean(format!("sizeUnknown{}", i).as_str().into()).id,
+                            Variable::boolean(size_unknown[i].clone()).id,
                         )),
                         box BooleanExpression::Not(box BooleanExpression::Select(
-                            box ArrayExpressionInner::Identifier(a)
-                                .annotate(Type::Boolean, len),
+                            box a.clone(),
                             box FieldElementExpression::Number(T::from(i)),
                         )),
                     )
                     .into(),
-                ),
-            ])
+                )])
+            }
         }
     }
-    statements
-}
-
 }
 impl<'ast, T: Field> Folder<'ast, T> for LowerThan<'ast, T> {
     fn fold_boolean_expression(
@@ -128,187 +223,30 @@ impl<'ast, T: Field> Folder<'ast, T> for LowerThan<'ast, T> {
                 ))
             }
             BooleanExpression::Lt(box left, box right) => {
-                let left_bits = Identifier::internal("left_bits", self.counter);
-                let right_bits = Identifier::internal("right_bits", self.counter);
-                let diff_bits = Identifier::internal("diff_bits", self.counter);
+                let diff_bits = self.compute_2diff(left, right);
 
-                self.statements.extend(vec![
-                    TypedStatement::MultipleDefinition(
-                        vec![Variable::array(
-                            left_bits.clone(),
-                            Type::Boolean,
-                            T::get_required_bits(),
-                        )],
-                        TypedExpressionList::FunctionCall(
-                            FunctionKey::with_id("_UNPACK").signature(
-                                Signature::new()
-                                    .inputs(vec![Type::FieldElement])
-                                    .outputs(vec![Type::array(
-                                        Type::Boolean,
-                                        T::get_required_bits(),
-                                    )]),
-                            ),
-                            vec![left.clone().into()],
-                            vec![Type::array(Type::Boolean, T::get_required_bits())],
-                        ),
-                    ),
-                    TypedStatement::Condition(
-                        BooleanExpression::Select(
-                            box ArrayExpressionInner::Identifier(left_bits.clone())
-                                .annotate(Type::Boolean, T::get_required_bits()),
-                            box FieldElementExpression::Number(T::from(0)),
-                        )
-                        .into(),
+                self.statements.push(TypedStatement::Definition(
+                    TypedAssignee::Identifier(Variable::array("a".into(), Type::Boolean, 4)),
+                    ArrayExpressionInner::Value(vec![
+                        BooleanExpression::Value(true).into(),
+                        BooleanExpression::Value(true).into(),
                         BooleanExpression::Value(false).into(),
-                    ),
-                    TypedStatement::Condition(
-                        BooleanExpression::Select(
-                            box ArrayExpressionInner::Identifier(left_bits.clone())
-                                .annotate(Type::Boolean, T::get_required_bits()),
-                            box FieldElementExpression::Number(T::from(1)),
-                        )
-                        .into(),
-                        BooleanExpression::Value(false).into(),
-                    ),
-                    TypedStatement::MultipleDefinition(
-                        vec![Variable::array(
-                            right_bits.clone(),
-                            Type::Boolean,
-                            T::get_required_bits(),
-                        )],
-                        TypedExpressionList::FunctionCall(
-                            FunctionKey::with_id("_UNPACK").signature(
-                                Signature::new()
-                                    .inputs(vec![Type::FieldElement])
-                                    .outputs(vec![Type::array(
-                                        Type::Boolean,
-                                        T::get_required_bits(),
-                                    )]),
-                            ),
-                            vec![right.clone().into()],
-                            vec![Type::array(Type::Boolean, T::get_required_bits())],
-                        ),
-                    ),
-                    TypedStatement::Condition(
-                        BooleanExpression::Select(
-                            box ArrayExpressionInner::Identifier(right_bits.clone())
-                                .annotate(Type::Boolean, T::get_required_bits()),
-                            box FieldElementExpression::Number(T::from(0)),
-                        )
-                        .into(),
-                        BooleanExpression::Value(false).into(),
-                    ),
-                    TypedStatement::Condition(
-                        BooleanExpression::Select(
-                            box ArrayExpressionInner::Identifier(right_bits.clone())
-                                .annotate(Type::Boolean, T::get_required_bits()),
-                            box FieldElementExpression::Number(T::from(1)),
-                        )
-                        .into(),
-                        BooleanExpression::Value(false).into(),
-                    ),
-                    TypedStatement::MultipleDefinition(
-                        vec![Variable::array(
-                            diff_bits.clone(),
-                            Type::Boolean,
-                            T::get_required_bits(),
-                        )],
-                        TypedExpressionList::FunctionCall(
-                            FunctionKey::with_id("_UNPACK").signature(
-                                Signature::new()
-                                    .inputs(vec![Type::FieldElement])
-                                    .outputs(vec![Type::array(
-                                        Type::Boolean,
-                                        T::get_required_bits(),
-                                    )]),
-                            ),
-                            vec![FieldElementExpression::Sub(
-                                box FieldElementExpression::Mult(
-                                    box left,
-                                    box FieldElementExpression::Number(T::from(2)),
-                                ),
-                                box FieldElementExpression::Mult(
-                                    box right,
-                                    box FieldElementExpression::Number(T::from(2)),
-                                ),
-                            )
-                            .into()],
-                            vec![Type::array(Type::Boolean, T::get_required_bits())],
-                        ),
-                    ), //TODOs:
-                       // * not using internal identifiers atm
-                       //  assume a = 1 1 0 1
-                    TypedStatement::Definition(
-                        TypedAssignee::Identifier(Variable::array("a".into(), Type::Boolean, 4)),
-                        ArrayExpressionInner::Value(vec![
-                            BooleanExpression::Value(true).into(),
-                            BooleanExpression::Value(true).into(),
-                            BooleanExpression::Value(false).into(),
-                            BooleanExpression::Value(true).into(),
-                        ])
-                        .annotate(Type::Boolean, 4)
-                        .into(),
-                    ),
-                    // TypedStatement::Definition(
-                    //     TypedAssignee::Identifier(Variable::field_element(
-                    //         "isNotSmallerRun0".into(),
-                    //     )),
-                    //     BooleanExpression::Select(
-                    //         box ArrayExpressionInner::Identifier("a".into())
-                    //             .annotate(Type::Boolean, 4),
-                    //         box FieldElementExpression::Number(T::from(0)),
-                    //     )
-                    //     .into(),
-                    // ),
-                    // TypedStatement::Definition(
-                    //     TypedAssignee::Identifier(Variable::boolean("sizeUnknown1".into())),
-                    //     BooleanExpression::And(
-                    //         box BooleanExpression::Identifier(
-                    //             Variable::boolean("sizeUnknown".into()).id,
-                    //         ),
-                    //         box BooleanExpression::Eq(
-                    //             // there should be a way to get around this equality constraint
-                    //             box FieldElementExpression::Identifier(
-                    //                 Variable::field_element("isNotSmallerRun0".into()).id,
-                    //             ),
-                    //             box FieldElementExpression::Number(T::from(1).into()),
-                    //         ),
-                    //     )
-                    //     .into(),
-                    // ),
-                    // // b[3] = 0
-                    // // if sizeUnknown == true => a must be false
-                    // // if sizeUnknown == false => a can be true or false
-                    // // => 1 constraint each
-                    // //  true == (!sizeUnknown || !a[3])
-                    // TypedStatement::Condition(
-                    //     TypedExpression::Boolean(BooleanExpression::Value(true)),
-                    //     BooleanExpression::Or(
-                    //         box BooleanExpression::Not(box BooleanExpression::Identifier(
-                    //             Variable::boolean("sizeUnknown1".into()).id,
-                    //         )),
-                    //         box BooleanExpression::Not(box BooleanExpression::Select(
-                    //             box ArrayExpressionInner::Identifier("a".into())
-                    //                 .annotate(Type::Boolean, 4),
-                    //             box FieldElementExpression::Number(T::from(3)),
-                    //         )),
-                    //     )
-                    //     .into(),
-                    // ),
-                    // add new statements above here!
-                ]);
+                        BooleanExpression::Value(true).into(),
+                    ])
+                    .annotate(Type::Boolean, 4)
+                    .into(),
+                ));
 
-                // self.statements.extend(strict_le_check(
-                //     vec![true, true, true, true],
-                //     // pass a identifier here
-                //     &Variable::array("a".into(), Type::Boolean, 4).id
-                // ).into_iter());
+                // get max value of the field as big-endian bit vector
+                let field_bits_be = T::max_value_bit_vector_be();
+                // drop the two most significant bits
+                let field_bits_be = &field_bits_be[2..];
+                self.strict_le_check(field_bits_be, diff_bits.clone());
 
                 self.counter += 1;
 
                 BooleanExpression::Select(
-                    box ArrayExpressionInner::Identifier(diff_bits)
-                        .annotate(Type::Boolean, T::get_required_bits()),
+                    box diff_bits,
                     box FieldElementExpression::Number(T::from(T::get_required_bits() - 1)),
                 )
             }
@@ -326,4 +264,23 @@ impl<'ast, T: Field> Folder<'ast, T> for LowerThan<'ast, T> {
 mod tests {
     use super::*;
     use zokrates_field::field::FieldPrime;
+
+    // define boolean array:
+    // self.statements.push(TypedStatement::Definition(
+    //                 TypedAssignee::Identifier(Variable::array("a".into(), Type::Boolean, 4)),
+    //                 ArrayExpressionInner::Value(vec![
+    //                     BooleanExpression::Value(true).into(),
+    //                     BooleanExpression::Value(true).into(),
+    //                     BooleanExpression::Value(false).into(),
+    //                     BooleanExpression::Value(true).into(),
+    //                 ])
+    //                 .annotate(Type::Boolean, 4)
+    //                 .into(),
+    //             ));
+
+    // then different cases
+    //    self.strict_le_check(
+    //         vec![true, true, true, false],
+    //         Variable::array("a".into(), Type::Boolean, 4).id.clone(),
+    //     );
 }
