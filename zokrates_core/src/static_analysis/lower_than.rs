@@ -29,6 +29,84 @@ impl<'ast, T: Field> LowerThan<'ast, T> {
     }
 }
 
+
+impl<'ast, T: Field> LowerThan<'ast, T> {
+
+// strict check for a <= b
+// where b is a constant known at compile time
+    fn strict_le_check(b: Vec<bool>, a: Identifier<'ast>) -> Vec<TypedStatement<'ast, T>> {
+    // check that b is a bool array
+    // check that len a  == len b
+    let len = b.len();
+
+    let mut statements = vec![];
+
+    // as long as this value is true we don't
+    // know if the value is smaller
+    // hence we init with true 
+    statements.push(TypedStatement::Definition(
+        TypedAssignee::Identifier(Variable::boolean("sizeUnknown0".into())),
+        TypedExpression::Boolean(BooleanExpression::Value(true)),
+    ));
+
+    for (i, b) in b.iter().enumerate() {
+        if *b {
+            statements.extend(vec![
+                TypedStatement::Definition(
+                    TypedAssignee::Identifier(Variable::boolean(
+                        format!("isNotSmallerRun{}", i).as_str().into(),
+                    )),
+                    BooleanExpression::Select(
+                        box ArrayExpressionInner::Identifier(a)
+                            .annotate(Type::Boolean, len),
+                        box FieldElementExpression::Number(T::from(i)),
+                    )
+                    .into(),
+                ),
+                TypedStatement::Definition(
+                    TypedAssignee::Identifier(Variable::boolean(
+                        format!("sizeUnknown{}", i + 1).as_str().into(),
+                    )),
+                    BooleanExpression::And(
+                        box BooleanExpression::Identifier(
+                            Variable::boolean(format!("sizeUnknown{}", i).as_str().into()).id,
+                        ),
+                        box BooleanExpression::Identifier(
+                            Variable::boolean(
+                        format!("isNotSmallerRun{}", i).as_str().into()
+                            ).id
+                        )
+                    )
+                    .into(),
+                ),
+            ]);
+        } else {
+            statements.extend(vec![
+                // if sizeUnknown == true => a must be false
+                // if sizeUnknown == false => a can be true or false
+                // => 1 constraint each
+                //  true == (!sizeUnknown || !a[3])
+                TypedStatement::Condition(
+                    TypedExpression::Boolean(BooleanExpression::Value(true)),
+                    BooleanExpression::Or(
+                        box BooleanExpression::Not(box BooleanExpression::Identifier(
+                            Variable::boolean(format!("sizeUnknown{}", i).as_str().into()).id,
+                        )),
+                        box BooleanExpression::Not(box BooleanExpression::Select(
+                            box ArrayExpressionInner::Identifier(a)
+                                .annotate(Type::Boolean, len),
+                            box FieldElementExpression::Number(T::from(i)),
+                        )),
+                    )
+                    .into(),
+                ),
+            ])
+        }
+    }
+    statements
+}
+
+}
 impl<'ast, T: Field> Folder<'ast, T> for LowerThan<'ast, T> {
     fn fold_boolean_expression(
         &mut self,
@@ -157,8 +235,74 @@ impl<'ast, T: Field> Folder<'ast, T> for LowerThan<'ast, T> {
                             .into()],
                             vec![Type::array(Type::Boolean, T::get_required_bits())],
                         ),
+                    ), //TODOs:
+                       // * not using internal identifiers atm
+                       //  assume a = 1 1 0 1
+                    TypedStatement::Definition(
+                        TypedAssignee::Identifier(Variable::array("a".into(), Type::Boolean, 4)),
+                        ArrayExpressionInner::Value(vec![
+                            BooleanExpression::Value(true).into(),
+                            BooleanExpression::Value(true).into(),
+                            BooleanExpression::Value(false).into(),
+                            BooleanExpression::Value(true).into(),
+                        ])
+                        .annotate(Type::Boolean, 4)
+                        .into(),
                     ),
+                    // TypedStatement::Definition(
+                    //     TypedAssignee::Identifier(Variable::field_element(
+                    //         "isNotSmallerRun0".into(),
+                    //     )),
+                    //     BooleanExpression::Select(
+                    //         box ArrayExpressionInner::Identifier("a".into())
+                    //             .annotate(Type::Boolean, 4),
+                    //         box FieldElementExpression::Number(T::from(0)),
+                    //     )
+                    //     .into(),
+                    // ),
+                    // TypedStatement::Definition(
+                    //     TypedAssignee::Identifier(Variable::boolean("sizeUnknown1".into())),
+                    //     BooleanExpression::And(
+                    //         box BooleanExpression::Identifier(
+                    //             Variable::boolean("sizeUnknown".into()).id,
+                    //         ),
+                    //         box BooleanExpression::Eq(
+                    //             // there should be a way to get around this equality constraint
+                    //             box FieldElementExpression::Identifier(
+                    //                 Variable::field_element("isNotSmallerRun0".into()).id,
+                    //             ),
+                    //             box FieldElementExpression::Number(T::from(1).into()),
+                    //         ),
+                    //     )
+                    //     .into(),
+                    // ),
+                    // // b[3] = 0
+                    // // if sizeUnknown == true => a must be false
+                    // // if sizeUnknown == false => a can be true or false
+                    // // => 1 constraint each
+                    // //  true == (!sizeUnknown || !a[3])
+                    // TypedStatement::Condition(
+                    //     TypedExpression::Boolean(BooleanExpression::Value(true)),
+                    //     BooleanExpression::Or(
+                    //         box BooleanExpression::Not(box BooleanExpression::Identifier(
+                    //             Variable::boolean("sizeUnknown1".into()).id,
+                    //         )),
+                    //         box BooleanExpression::Not(box BooleanExpression::Select(
+                    //             box ArrayExpressionInner::Identifier("a".into())
+                    //                 .annotate(Type::Boolean, 4),
+                    //             box FieldElementExpression::Number(T::from(3)),
+                    //         )),
+                    //     )
+                    //     .into(),
+                    // ),
+                    // add new statements above here!
                 ]);
+
+                // self.statements.extend(strict_le_check(
+                //     vec![true, true, true, true],
+                //     // pass a identifier here
+                //     &Variable::array("a".into(), Type::Boolean, 4).id
+                // ).into_iter());
 
                 self.counter += 1;
 
