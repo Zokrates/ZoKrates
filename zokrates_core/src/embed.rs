@@ -22,13 +22,16 @@ impl FlatEmbed {
         match self {
             FlatEmbed::Sha256Round => Signature::new()
                 .inputs(vec![
-                    Type::FieldElementArray(512),
-                    Type::FieldElementArray(256),
+                    Type::array(Type::FieldElement, 512),
+                    Type::array(Type::FieldElement, 256),
                 ])
-                .outputs(vec![Type::FieldElementArray(256)]),
+                .outputs(vec![Type::array(Type::FieldElement, 256)]),
             FlatEmbed::Unpack => Signature::new()
                 .inputs(vec![Type::FieldElement])
-                .outputs(vec![Type::FieldElementArray(T::get_required_bits())]),
+                .outputs(vec![Type::array(
+                    Type::FieldElement,
+                    T::get_required_bits(),
+                )]),
         }
     }
 
@@ -123,10 +126,10 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
     // define the signature of the resulting function
     let signature = Signature {
         inputs: vec![
-            Type::FieldElementArray(input_indices.len()),
-            Type::FieldElementArray(current_hash_indices.len()),
+            Type::array(Type::FieldElement, input_indices.len()),
+            Type::array(Type::FieldElement, current_hash_indices.len()),
         ],
-        outputs: vec![Type::FieldElementArray(output_indices.len())],
+        outputs: vec![Type::array(Type::FieldElement, output_indices.len())],
     };
 
     // define parameters to the function based on the variables
@@ -234,7 +237,7 @@ pub fn unpack<T: Field>() -> FlatFunction<T> {
 
     let signature = Signature {
         inputs: vec![Type::FieldElement],
-        outputs: vec![Type::FieldElementArray(nbits)],
+        outputs: vec![Type::array(Type::FieldElement, nbits)],
     };
 
     let outputs = directive_outputs
@@ -351,10 +354,10 @@ mod tests {
                 compiled.signature,
                 Signature::new()
                     .inputs(vec![
-                        Type::FieldElementArray(512),
-                        Type::FieldElementArray(256)
+                        Type::array(Type::FieldElement, 512),
+                        Type::array(Type::FieldElement, 256)
                     ])
-                    .outputs(vec![Type::FieldElementArray(256)])
+                    .outputs(vec![Type::array(Type::FieldElement, 256)])
             );
 
             // function should have 768 inputs

@@ -616,7 +616,7 @@ impl<'ast> Checker<'ast> {
                     message: format!("Undeclared variable: {:?}", variable_name),
                 }),
             },
-            Assignee::ArrayElement(box assignee, box index) => {
+            Assignee::Select(box assignee, box index) => {
                 let checked_assignee = self.check_assignee(assignee)?;
                 let checked_index = match index {
                     RangeOrExpression::Expression(e) => self.check_expression(e)?,
@@ -639,7 +639,7 @@ impl<'ast> Checker<'ast> {
                     }),
                 }?;
 
-                Ok(TypedAssignee::ArrayElement(
+                Ok(TypedAssignee::Select(
                     box checked_assignee,
                     box checked_typed_index,
                 ))
@@ -657,29 +657,43 @@ impl<'ast> Checker<'ast> {
 
                 let checked_expression = self.check_expression(s.value.expression)?;
                 match checked_expression {
-                    TypedExpression::FieldElementArray(e) => match e {
-                        // if we're doing a spread over an inline array, we return the inside of the array: ...[x, y, z] == x, y, z
-                        FieldElementArrayExpression::Value(_, v) => {
-                            Ok(v.into_iter().map(|e| e.into()).collect())
-                        }
-                        e => {
-                            let size = e.size();
-                            Ok((0..size)
-                                .map(|i| {
-                                    FieldElementExpression::Select(
-                                        box e.clone(),
+                    TypedExpression::Array(e) => {
+                        let ty = e.inner_type().clone();
+                        let size = e.size();
+                        match e.into_inner() {
+                            // if we're doing a spread over an inline array, we return the inside of the array: ...[x, y, z] == x, y, z
+                            // this is not strictly needed, but it makes spreads memory linear rather than quadratic
+                            ArrayExpressionInner::Value(v) => Ok(v),
+                            // otherwise we return a[0], ..., a[a.size() -1 ]
+                            e => Ok((0..size)
+                                .map(|i| match &ty {
+                                    Type::FieldElement => FieldElementExpression::Select(
+                                        box e.clone().annotate(Type::FieldElement, size),
                                         box FieldElementExpression::Number(T::from(i)),
                                     )
-                                    .into()
+                                    .into(),
+                                    Type::Boolean => BooleanExpression::Select(
+                                        box e.clone().annotate(Type::Boolean, size),
+                                        box FieldElementExpression::Number(T::from(i)),
+                                    )
+                                    .into(),
+                                    Type::Array(box ty, s) => ArrayExpressionInner::Select(
+                                        box e
+                                            .clone()
+                                            .annotate(Type::Array(box ty.clone(), *s), size),
+                                        box FieldElementExpression::Number(T::from(i)),
+                                    )
+                                    .annotate(ty.clone(), *s)
+                                    .into(),
                                 })
-                                .collect())
+                                .collect()),
                         }
-                    },
+                    }
                     e => Err(Error {
                         pos: Some(pos),
 
                         message: format!(
-                            "Expected spread operator to apply on field element array, found {}",
+                            "Expected spread operator to apply on array, found {}",
                             e.get_type()
                         ),
                     }),
@@ -705,9 +719,9 @@ impl<'ast> Checker<'ast> {
                         Type::FieldElement => {
                             Ok(FieldElementExpression::Identifier(name.into()).into())
                         }
-                        Type::FieldElementArray(n) => {
-                            Ok(FieldElementArrayExpression::Identifier(n, name.into()).into())
-                        }
+                        Type::Array(ty, size) => Ok(ArrayExpressionInner::Identifier(name.into())
+                            .annotate(*ty, size)
+                            .into()),
                     },
                     None => Err(Error {
                         pos: Some(pos),
@@ -824,10 +838,15 @@ impl<'ast> Checker<'ast> {
                                 (TypedExpression::FieldElement(consequence), TypedExpression::FieldElement(alternative)) => {
                                     Ok(FieldElementExpression::IfElse(box condition, box consequence, box alternative).into())
                                 },
-                                (TypedExpression::FieldElementArray(consequence), TypedExpression::FieldElementArray(alternative)) => {
-                                    Ok(FieldElementArrayExpression::IfElse(box condition, box consequence, box alternative).into())
+                                (TypedExpression::Boolean(consequence), TypedExpression::Boolean(alternative)) => {
+                                    Ok(BooleanExpression::IfElse(box condition, box consequence, box alternative).into())
                                 },
-                                _ => unimplemented!()
+                                (TypedExpression::Array(consequence), TypedExpression::Array(alternative)) => {
+                                    let inner_type = consequence.inner_type().clone();
+                                    let size = consequence.size();
+                                    Ok(ArrayExpressionInner::IfElse(box condition, box consequence, box alternative).annotate(inner_type, size).into())
+                                },
+                                _ => unreachable!("types should match here as we checked them explicitly")
                             }
                             false => Err(Error {
                                 pos: Some(pos),
@@ -870,7 +889,7 @@ impl<'ast> Checker<'ast> {
                         let f = &candidates[0];
                         // the return count has to be 1
                         match f.signature.outputs.len() {
-                            1 => match f.signature.outputs[0] {
+                            1 => match &f.signature.outputs[0] {
                                 Type::FieldElement => Ok(FieldElementExpression::FunctionCall(
                                     FunctionKey {
                                         id: f.id.clone(),
@@ -879,15 +898,15 @@ impl<'ast> Checker<'ast> {
                                     arguments_checked,
                                 )
                                 .into()),
-                                Type::FieldElementArray(size) => {
-                                    Ok(FieldElementArrayExpression::FunctionCall(
-                                        size,
+                                Type::Array(box ty, size) => {
+                                    Ok(ArrayExpressionInner::FunctionCall(
                                         FunctionKey {
                                             id: f.id.clone(),
                                             signature: f.signature.clone(),
                                         },
                                         arguments_checked,
                                     )
+                                    .annotate(ty.clone(), size.clone())
                                     .into())
                                 }
                                 _ => unimplemented!(),
@@ -910,7 +929,9 @@ impl<'ast> Checker<'ast> {
                             fun_id, query
                         ),
                     }),
-                    _ => panic!("duplicate definition should have been caught before the call"),
+                    _ => {
+                        unreachable!("duplicate definition should have been caught before the call")
+                    }
                 }
             }
             Expression::Lt(box e1, box e2) => {
@@ -1013,8 +1034,9 @@ impl<'ast> Checker<'ast> {
 
                 match index {
                     RangeOrExpression::Range(r) => match array {
-                        TypedExpression::FieldElementArray(array) => {
+                        TypedExpression::Array(array) => {
                             let array_size = array.size();
+                            let inner_type = array.inner_type().clone();
 
                             let from = r
                                 .value
@@ -1050,27 +1072,44 @@ impl<'ast> Checker<'ast> {
                                         f, t,
                                     ),
                                 }),
-                                (f, t, _) => Ok(FieldElementArrayExpression::Value(
-                                    t - f,
+                                (f, t, _) => Ok(ArrayExpressionInner::Value(
                                     (f..t)
                                         .map(|i| {
                                             FieldElementExpression::Select(
                                                 box array.clone(),
                                                 box FieldElementExpression::Number(T::from(i)),
                                             )
+                                            .into()
                                         })
                                         .collect(),
                                 )
+                                .annotate(inner_type, t - f)
                                 .into()),
                             }
                         }
-                        _ => panic!(""),
+                        e => Err(Error {
+                            pos: Some(pos),
+                            message: format!(
+                                "Cannot access slice of expression {} of type {}",
+                                e,
+                                e.get_type(),
+                            ),
+                        }),
                     },
                     RangeOrExpression::Expression(e) => match (array, self.check_expression(e)?) {
-                        (
-                            TypedExpression::FieldElementArray(a),
-                            TypedExpression::FieldElement(i),
-                        ) => Ok(FieldElementExpression::Select(box a, box i).into()),
+                        (TypedExpression::Array(a), TypedExpression::FieldElement(i)) => {
+                            match a.inner_type().clone() {
+                                Type::FieldElement => {
+                                    Ok(FieldElementExpression::Select(box a, box i).into())
+                                }
+                                Type::Boolean => Ok(BooleanExpression::Select(box a, box i).into()),
+                                Type::Array(box ty, size) => {
+                                    Ok(ArrayExpressionInner::Select(box a, box i)
+                                        .annotate(ty.clone(), size.clone())
+                                        .into())
+                                }
+                            }
+                        }
                         (a, e) => Err(Error {
                             pos: Some(pos),
                             message: format!(
@@ -1083,9 +1122,6 @@ impl<'ast> Checker<'ast> {
                 }
             }
             Expression::InlineArray(expressions) => {
-                // we should have at least one expression
-                let size = expressions.len();
-                assert!(size > 0);
                 // check each expression, getting its type
                 let mut expressions_checked = vec![];
                 for e in expressions {
@@ -1094,7 +1130,7 @@ impl<'ast> Checker<'ast> {
                 }
 
                 // we infer the type to be the type of the first element
-                let inferred_type = expressions_checked.get(0).unwrap().get_type();
+                let inferred_type = expressions_checked.get(0).unwrap().get_type().clone();
 
                 match inferred_type {
                     Type::FieldElement => {
@@ -1115,24 +1151,84 @@ impl<'ast> Checker<'ast> {
                                     ),
                                 }),
                             }?;
-                            unwrapped_expressions.push(unwrapped_e);
+                            unwrapped_expressions.push(unwrapped_e.into());
                         }
 
-                        Ok(FieldElementArrayExpression::Value(
-                            unwrapped_expressions.len(),
-                            unwrapped_expressions,
-                        )
-                        .into())
-                    }
-                    _ => Err(Error {
-                        pos: Some(pos),
+                        let size = unwrapped_expressions.len();
 
-                        message: format!(
-                            "Only arrays of {} are supported, found {}",
-                            Type::FieldElement,
-                            inferred_type
-                        ),
-                    }),
+                        Ok(ArrayExpressionInner::Value(unwrapped_expressions)
+                            .annotate(Type::FieldElement, size)
+                            .into())
+                    }
+                    Type::Boolean => {
+                        // we check all expressions have that same type
+                        let mut unwrapped_expressions = vec![];
+
+                        for e in expressions_checked {
+                            let unwrapped_e = match e {
+                                TypedExpression::Boolean(e) => Ok(e),
+                                e => Err(Error {
+                                    pos: Some(pos),
+
+                                    message: format!(
+                                        "Expected {} to have type {}, but type is {}",
+                                        e,
+                                        inferred_type,
+                                        e.get_type()
+                                    ),
+                                }),
+                            }?;
+                            unwrapped_expressions.push(unwrapped_e.into());
+                        }
+
+                        let size = unwrapped_expressions.len();
+
+                        Ok(ArrayExpressionInner::Value(unwrapped_expressions)
+                            .annotate(Type::Boolean, size)
+                            .into())
+                    }
+                    ty @ Type::Array(..) => {
+                        // we check all expressions have that same type
+                        let mut unwrapped_expressions = vec![];
+
+                        for e in expressions_checked {
+                            let unwrapped_e = match e {
+                                TypedExpression::Array(e) => {
+                                    if e.get_type() == ty {
+                                        Ok(e)
+                                    } else {
+                                        Err(Error {
+                                            pos: Some(pos),
+
+                                            message: format!(
+                                                "Expected {} to have type {}, but type is {}",
+                                                e,
+                                                ty,
+                                                e.get_type()
+                                            ),
+                                        })
+                                    }
+                                }
+                                e => Err(Error {
+                                    pos: Some(pos),
+
+                                    message: format!(
+                                        "Expected {} to have type {}, but type is {}",
+                                        e,
+                                        ty,
+                                        e.get_type()
+                                    ),
+                                }),
+                            }?;
+                            unwrapped_expressions.push(unwrapped_e.into());
+                        }
+
+                        let size = unwrapped_expressions.len();
+
+                        Ok(ArrayExpressionInner::Value(unwrapped_expressions)
+                            .annotate(ty, size)
+                            .into())
+                    }
                 }
             }
             Expression::And(box e1, box e2) => {
@@ -1218,18 +1314,64 @@ mod tests {
     use types::Signature;
     use zokrates_field::field::FieldPrime;
 
+    mod array {
+        use super::*;
+
+        #[test]
+        fn element_type_mismatch() {
+            // [3, true]
+            let a = Expression::InlineArray(vec![
+                Expression::FieldConstant(FieldPrime::from(3)).mock().into(),
+                Expression::BooleanConstant(true).mock().into(),
+            ])
+            .mock();
+            assert!(Checker::new().check_expression(a).is_err());
+
+            // [[0], [0, 0]]
+            let a = Expression::InlineArray(vec![
+                Expression::InlineArray(vec![Expression::FieldConstant(FieldPrime::from(0))
+                    .mock()
+                    .into()])
+                .mock()
+                .into(),
+                Expression::InlineArray(vec![
+                    Expression::FieldConstant(FieldPrime::from(0)).mock().into(),
+                    Expression::FieldConstant(FieldPrime::from(0)).mock().into(),
+                ])
+                .mock()
+                .into(),
+            ])
+            .mock();
+            assert!(Checker::new().check_expression(a).is_err());
+
+            // [[0], true]
+            let a = Expression::InlineArray(vec![
+                Expression::InlineArray(vec![Expression::FieldConstant(FieldPrime::from(0))
+                    .mock()
+                    .into()])
+                .mock()
+                .into(),
+                Expression::InlineArray(vec![Expression::BooleanConstant(true).mock().into()])
+                    .mock()
+                    .into(),
+            ])
+            .mock();
+            assert!(Checker::new().check_expression(a).is_err());
+        }
+    }
+
     mod symbols {
         use super::*;
         use crate::types::Signature;
 
         #[test]
         fn imported_symbol() {
-            // foo.code
+            // foo.zok
             // def main() -> (field):
             // 		return 1
 
-            // bar.code
-            // from "./foo.code" import main
+            // bar.zok
+            // from "./foo.zok" import main
 
             // after semantic check, `bar` should import a checked function
 
@@ -2291,7 +2433,7 @@ mod tests {
         fn array_element() {
             // field[33] a
             // a[2] = 42
-            let a = Assignee::ArrayElement(
+            let a = Assignee::Select(
                 box Assignee::Identifier("a").mock(),
                 box RangeOrExpression::Expression(
                     Expression::FieldConstant(FieldPrime::from(2)).mock(),
@@ -2309,11 +2451,56 @@ mod tests {
 
             assert_eq!(
                 checker.check_assignee(a),
-                Ok(TypedAssignee::ArrayElement(
+                Ok(TypedAssignee::Select(
                     box TypedAssignee::Identifier(typed_absy::Variable::field_array(
                         "a".into(),
                         33
                     )),
+                    box FieldElementExpression::Number(FieldPrime::from(2)).into()
+                ))
+            );
+        }
+
+        #[test]
+        fn array_of_array_element() {
+            // field[33][42] a
+            // a[1][2]
+            let a = Assignee::Select(
+                box Assignee::Select(
+                    box Assignee::Identifier("a").mock(),
+                    box RangeOrExpression::Expression(
+                        Expression::FieldConstant(FieldPrime::from(1)).mock(),
+                    ),
+                )
+                .mock(),
+                box RangeOrExpression::Expression(
+                    Expression::FieldConstant(FieldPrime::from(2)).mock(),
+                ),
+            )
+            .mock();
+
+            let mut checker: Checker = Checker::new();
+            checker
+                .check_statement::<FieldPrime>(
+                    Statement::Declaration(
+                        Variable::array("a", Type::array(Type::FieldElement, 33), 42).mock(),
+                    )
+                    .mock(),
+                    &vec![],
+                )
+                .unwrap();
+
+            assert_eq!(
+                checker.check_assignee(a),
+                Ok(TypedAssignee::Select(
+                    box TypedAssignee::Select(
+                        box TypedAssignee::Identifier(typed_absy::Variable::array(
+                            "a".into(),
+                            Type::array(Type::FieldElement, 33),
+                            42
+                        )),
+                        box FieldElementExpression::Number(FieldPrime::from(1)).into()
+                    ),
                     box FieldElementExpression::Number(FieldPrime::from(2)).into()
                 ))
             );

@@ -9,8 +9,8 @@ extern crate lazy_static;
 
 pub use ast::{
     Access, ArrayAccess, ArrayInitializerExpression, ArrayType, AssertionStatement, Assignee,
-    AssignmentStatement, BasicType, BinaryExpression, BinaryOperator, CallAccess,
-    ConstantExpression, DefinitionStatement, Expression, File, FromExpression, Function,
+    AssignmentStatement, BasicType, BinaryExpression, BinaryOperator, BooleanType, CallAccess,
+    ConstantExpression, DefinitionStatement, Expression, FieldType, File, FromExpression, Function,
     IdentifierExpression, ImportDirective, ImportSource, InlineArrayExpression, IterationStatement,
     MultiAssignmentStatement, Parameter, PostfixExpression, Range, RangeOrExpression,
     ReturnStatement, Span, Spread, SpreadOrExpression, Statement, TernaryExpression, ToExpression,
@@ -193,36 +193,33 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty))]
     pub enum Type<'ast> {
-        Basic(BasicType<'ast>),
+        Basic(BasicType),
         Array(ArrayType<'ast>),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_basic))]
-    pub enum BasicType<'ast> {
+    pub enum BasicType {
         Field(FieldType),
-        Boolean(BooleanType<'ast>),
+        Boolean(BooleanType),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_field))]
-    pub struct FieldType {}
+    pub struct FieldType;
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_array))]
     pub struct ArrayType<'ast> {
-        pub ty: BasicType<'ast>,
-        pub size: Expression<'ast>,
+        pub ty: BasicType,
+        pub dimensions: Vec<Expression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_bool))]
-    pub struct BooleanType<'ast> {
-        #[pest_ast(outer())]
-        pub span: Span<'ast>,
-    }
+    pub struct BooleanType;
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::parameter))]
@@ -403,7 +400,7 @@ mod ast {
     #[pest_ast(rule(Rule::postfix_expression))]
     pub struct PostfixExpression<'ast> {
         pub id: IdentifierExpression<'ast>,
-        pub access: Vec<Access<'ast>>,
+        pub accesses: Vec<Access<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -644,9 +641,8 @@ mod tests {
         use glob::glob;
         use std::fs;
         use std::io::Read;
-        // Traverse all .code files in examples dir
-        for entry in
-            glob("../zokrates_cli/examples/**/*.code").expect("Failed to read glob pattern")
+        // Traverse all .zok files in examples dir
+        for entry in glob("../zokrates_cli/examples/**/*.zok").expect("Failed to read glob pattern")
         {
             match entry {
                 Ok(path) => {

@@ -1,4 +1,0 @@
-import "./foo.code" as d
-
-def main() -> (field):
-	return d()

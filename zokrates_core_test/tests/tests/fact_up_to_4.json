@@ -1,0 +1,55 @@
+{
+	"entry_point": "./tests/tests/fact_up_to_4.zok",
+	"tests": [
+		{
+			"input": {
+				"values": ["0"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["1"]
+				}
+			}
+		},
+		{
+			"input": {
+				"values": ["1"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["1"]
+				}
+			}
+		},
+		{
+			"input": {
+				"values": ["2"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["2"]
+				}
+			}
+		},
+		{
+			"input": {
+				"values": ["3"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["6"]
+				}
+			}
+		},
+		{
+			"input": {
+				"values": ["4"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["24"]
+				}
+			}
+		}
+	]
+}

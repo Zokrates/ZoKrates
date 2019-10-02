@@ -5,13 +5,9 @@ authors = ["Stefan Deml <stefandeml@gmail.com>", "schaeff <thibaut@schaeff.fr>"]
 edition = "2018"
 
 [dev-dependencies]
-zokrates_field = { version = "0.3", path = "../zokrates_field" }
-zokrates_core = { version = "0.3", path = "../zokrates_core" }
-zokrates_fs_resolver = { version = "0.4", path = "../zokrates_fs_resolver" }
-serde = "1.0"
-serde_derive = "1.0"
-serde_json = "1.0"
+zokrates_test = { version = "0.1", path = "../zokrates_test" }
 
 [build-dependencies]
-glob = "0.3.0"
 fs_extra = "1.1.0"
+zokrates_test = { version = "0.1", path = "../zokrates_test" }
+
