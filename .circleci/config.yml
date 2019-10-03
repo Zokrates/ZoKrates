@@ -54,9 +54,9 @@ jobs:
       - run:
           name: Run tests
           command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./test.sh
-      - run:
-          name: Generate code coverage report
-          command: ./scripts/cov.sh
+      # - run:
+      #     name: Generate code coverage report
+      #     command: ./scripts/cov.sh
   wasm_test:
     docker:
       - image: rustlang/rust:nightly-slim
