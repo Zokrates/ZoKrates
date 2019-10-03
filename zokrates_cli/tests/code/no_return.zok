@@ -1,3 +1,0 @@
-def main(field a, field b) -> ():
-	a==b
-	return

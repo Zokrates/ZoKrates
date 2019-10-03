@@ -1,7 +1,0 @@
-def main() -> (field):
-	field a = 2
-	// field a = 3 <- not allowed
-	for field i in 0..5 do
-		// field a = 7 <- not allowed
-	endfor
-	return a

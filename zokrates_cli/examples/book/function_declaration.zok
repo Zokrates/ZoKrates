@@ -1,5 +1,0 @@
-def foo() -> (field):
-    return 1
-
-def main() -> (field):
-    return foo()

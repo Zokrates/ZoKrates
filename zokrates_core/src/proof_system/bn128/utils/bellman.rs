@@ -1,5 +1,4 @@
 extern crate rand;
-extern crate wasm_bindgen;
 
 use crate::ir::{CanonicalLinComb, Prog, Statement, Witness};
 use bellman::groth16::Proof;

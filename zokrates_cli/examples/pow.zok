@@ -1,2 +1,0 @@
-def main(field x) -> (field):
-  return x ** 876876876876876888

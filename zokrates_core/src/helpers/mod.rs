@@ -1,9 +1,9 @@
 mod rust;
-#[cfg(feature = "wasm")]
+#[cfg(feature = "wasm_solvers")]
 mod wasm;
 
 pub use self::rust::RustHelper;
-#[cfg(feature = "wasm")]
+#[cfg(feature = "wasm_solvers")]
 pub use self::wasm::WasmHelper;
 use crate::flat_absy::{FlatExpression, FlatVariable};
 use std::fmt;
@@ -56,11 +56,11 @@ impl<T: Field> fmt::Display for DirectiveStatement<T> {
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
 pub enum Helper {
     Rust(RustHelper),
-    #[cfg(feature = "wasm")]
+    #[cfg(feature = "wasm_solvers")]
     Wasm(WasmHelper),
 }
 
-#[cfg(feature = "wasm")]
+#[cfg(feature = "wasm_solvers")]
 impl Helper {
     pub fn identity() -> Self {
         Helper::Wasm(WasmHelper::from_hex(WasmHelper::IDENTITY_WASM))
@@ -71,7 +71,7 @@ impl Helper {
     }
 }
 
-#[cfg(not(feature = "wasm"))]
+#[cfg(not(feature = "wasm_solvers"))]
 impl Helper {
     pub fn identity() -> Self {
         Helper::Rust(RustHelper::Identity)
@@ -86,7 +86,7 @@ impl fmt::Display for Helper {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Helper::Rust(ref h) => write!(f, "Rust::{}", h),
-            #[cfg(feature = "wasm")]
+            #[cfg(feature = "wasm_solvers")]
             Helper::Wasm(ref h) => write!(f, "Wasm::{}", h),
         }
     }
@@ -107,7 +107,7 @@ impl<T: Field> Executable<T> for Helper {
 
         let result = match self {
             Helper::Rust(helper) => helper.execute(inputs),
-            #[cfg(feature = "wasm")]
+            #[cfg(feature = "wasm_solvers")]
             Helper::Wasm(helper) => helper.execute(inputs),
         };
 
@@ -127,7 +127,7 @@ impl Signed for Helper {
     fn get_signature(&self) -> (usize, usize) {
         match self {
             Helper::Rust(helper) => helper.get_signature(),
-            #[cfg(feature = "wasm")]
+            #[cfg(feature = "wasm_solvers")]
             Helper::Wasm(helper) => helper.get_signature(),
         }
     }

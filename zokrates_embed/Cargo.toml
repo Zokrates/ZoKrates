@@ -4,6 +4,14 @@ version = "0.1.0"
 authors = ["schaeff <thibaut@schaeff.fr>"]
 edition = "2018"
 
+[features]
+default = []
+wasm = ["bellman_ce/wasm"]
+multicore = ["bellman_ce/multicore"]
+
 [dependencies]
-bellman_ce = { version = "0.3.0", default-features = false, features = ["wasm"] }
+bellman_ce = { version = "0.3.1", default-features = false }
 sapling-crypto_ce = { git = "https://github.com/dark64/sapling-crypto", branch = "master", default-features = false }
+
+
+

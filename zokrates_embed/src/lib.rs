@@ -1,5 +1,5 @@
-extern crate bellman_ce as bellman;
 extern crate sapling_crypto_ce as sapling_crypto;
+use sapling_crypto::bellman;
 
 use bellman::{
     pairing::{ff::Field, Engine},

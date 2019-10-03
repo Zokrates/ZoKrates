@@ -13,14 +13,14 @@ extern crate bincode;
 extern crate ff_ce as ff;
 extern crate lazy_static;
 extern crate pairing_ce as pairing;
-#[cfg(feature = "wasm")]
+#[cfg(feature = "wasm_solver")]
 extern crate parity_wasm;
 extern crate regex;
-#[cfg(feature = "wasm")]
+#[cfg(feature = "wasm_solver")]
 extern crate rustc_hex;
-#[cfg(feature = "wasm")]
+#[cfg(feature = "wasm_solver")]
 extern crate serde_bytes;
-#[cfg(feature = "wasm")]
+#[cfg(feature = "wasm_solver")]
 extern crate wasmi;
 extern crate zokrates_embed;
 extern crate zokrates_field;

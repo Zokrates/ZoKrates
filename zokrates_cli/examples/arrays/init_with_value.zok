@@ -1,2 +1,0 @@
-def main(field value) -> (field[3]):
-  return [value, value, value]

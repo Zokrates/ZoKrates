@@ -1,6 +1,0 @@
-def foo() -> (field):
-	return 1
-
-def main() -> (field):
-	foo() + (1 + 44*3) == 1
-	return 1

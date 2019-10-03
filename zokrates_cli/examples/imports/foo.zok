@@ -1,4 +1,0 @@
-import "./baz"
-
-def main() -> (field):
-	return baz()

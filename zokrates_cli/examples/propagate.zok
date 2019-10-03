@@ -1,9 +1,0 @@
-def main() -> (field):
-	field a = 1 + 2 + 3
-	field b = if 1 < a then 3 else a + 3 fi
-	field c = if b + a == 2 then 1 else b fi
-	for field e in 0..2 do
-		field g = 4
-		c = c + g
-	endfor
-	return c * a

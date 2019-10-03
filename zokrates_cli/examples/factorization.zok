@@ -1,5 +1,0 @@
-// a and b are factorization of c
-def main(field c, private field a, private field b) -> (field):
-  field d = a * b
-  c == d
-  return 1

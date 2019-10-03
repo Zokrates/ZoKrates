@@ -79,7 +79,7 @@ jobs:
           command: ./scripts/install_libsnark_prerequisites.sh
       - run:
           name: Run tests with WASM enabled
-          command: cd zokrates_core && cargo test --release --features wasm -- --test-threads=1
+          command: cd zokrates_core && cargo test --release --features wasm_solvers -- --test-threads=1
   integration_test:
     docker:
       - image: rustlang/rust:nightly-slim
