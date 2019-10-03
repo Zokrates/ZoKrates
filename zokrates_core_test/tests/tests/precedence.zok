@@ -9,7 +9,7 @@ def main(field g) -> (field):
   field c = if 4 < 5 && 3 == 3 then 1 else 0 fi
   field d = if 4 > 5 && 2 >= 1 || 1 == 1 then 1 else 0 fi
   field e = if 2 >= 1 && 4 > 5 || 1 == 1 then 1 else 0 fi
-  field f = if 1 < 2 && false || 4 < 5 && 2 >= 1then 1 else 0 fi
+  field f = if 1 < 2 && false || 4 < 5 && 2 >= 1 then 1 else 0 fi
 
   //check if all statements have evalutated to true
   a * b * c * d * e * f == 1
