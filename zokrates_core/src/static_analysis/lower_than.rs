@@ -191,8 +191,28 @@ impl<'ast, T: Field> LowerThan<'ast, T> {
             .annotate(Type::Boolean, T::get_required_bits())
     }
 
-    // strict check for a <= b
-    // where b is a constant known at compile time
+    // Let's assume b = [1, 1, 1, 0]
+    // 
+    // 1. Init `sizeUnknown = true`
+    //    As long as `sizeUnknown` is `true` we don't yet know if a is <= than b. 
+    // 2. Loop over `b`:
+    //     * b[0] = 1 
+    //       when `b` is 1 we check wether `a` is 0 in that particular run and update
+    //       `sizeUnknown` accordingly:
+    //       `sizeUnknown = sizeUnknown && a[0]`
+    //     * b[1] = 1 
+    //       `sizrUnknown = sizeUnknown && a[1]`
+    //     * b[2] = 1 
+    //       `sizeUnknown = sizeUnknown && a[2]`
+    //     * b[3] = 0 
+    //       we need to enforce that `a` is 0 in case `sizeUnknown`is still `true`,
+    //       otherwise `a` can be {0,1}:
+    //      `true == (!sizeUnknown || !a[3])`
+    //      ```
+    //                     **true => a -> 0     
+    //         sizeUnkown *                     
+    //                     **false => a -> {0,1}
+    //      ```
     fn strict_le_check(&mut self, b: &[bool], a: ArrayExpression<'ast, T>) {
         let len = b.len();
         assert_eq!(a.get_type(), Type::array(Type::Boolean, len));
@@ -205,9 +225,7 @@ impl<'ast, T: Field> LowerThan<'ast, T> {
             self.counter += 1;
         }
 
-        // as long as size_unknown is true we don't
-        // know if a is smaller
-        // hence we init with true
+        // init size_unknown = true
         self.statements.push(TypedStatement::Definition(
             TypedAssignee::Identifier(Variable::boolean(size_unknown[0].clone())),
             TypedExpression::Boolean(BooleanExpression::Value(true)),
