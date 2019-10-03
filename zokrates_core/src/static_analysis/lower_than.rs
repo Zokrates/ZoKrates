@@ -315,24 +315,11 @@ impl<'ast, T: Field> Folder<'ast, T> for LowerThan<'ast, T> {
             BooleanExpression::Lt(box left, box right) => {
                 let diff_bits = self.compute_2diff(left, right);
 
-                self.statements.push(TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::array("a".into(), Type::Boolean, 4)),
-                    ArrayExpressionInner::Value(vec![
-                        BooleanExpression::Value(true).into(),
-                        BooleanExpression::Value(true).into(),
-                        BooleanExpression::Value(false).into(),
-                        BooleanExpression::Value(true).into(),
-                    ])
-                    .annotate(Type::Boolean, 4)
-                    .into(),
-                ));
-
-
                 // we need to check that the binary representation of `diff_bits` is
                 // "in the field", hence we check if diff_ bits < p
                 // We check diff_bits <= p - 1 
                 // get max value of the field, p,  as big-endian bit vector
-                let field_bits_be = T::max_value_bit_vector_be();
+                let field_bits_be = (T::max_value() - T::from(1)).to_bit_vector_be();
                 // drop the two most significant bits (bitwidth of p is just 254 bits)
                 let field_bits_be = &field_bits_be[2..];
                 //TODO: !!! We need to subtract 1 here !!!

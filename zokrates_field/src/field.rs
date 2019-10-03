@@ -100,8 +100,8 @@ pub trait Field:
     fn to_compact_dec_string(&self) -> String;
 
     /// Returns this `Field`'s largest value as a big-endian bit vector
-    fn max_value_bit_vector_be() -> Vec<bool> {
-        let field_bytes_le = Self::into_byte_vector(&Self::max_value());
+    fn to_bit_vector_be(&self) -> Vec<bool> {
+        let field_bytes_le = Self::into_byte_vector(&self);
         // reverse for for big-endianess
         let field_bytes_be = field_bytes_le.into_iter().rev().collect::<Vec<u8>>();
         let field_bits_be = bytes_to_bits(&field_bytes_be);
@@ -404,7 +404,7 @@ mod tests {
 
         #[test]
         fn max_value_bits() {
-            let bits = FieldPrime::max_value_bit_vector_be();
+            let bits = FieldPrime::to_bit_vector_be(&FieldPrime::max_value());
             assert_eq!(
                 bits[0..10].to_vec(),
                 vec![false, false, true, true, false, false, false, false, false, true]
