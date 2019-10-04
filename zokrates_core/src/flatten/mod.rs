@@ -538,10 +538,16 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 FlatExpression::Identifier(sub_bits_be[bitwidth - 1])
             }
-            BooleanExpression::EqBool(box lhs, box rhs) => self.flatten_boolean_expression(
+            BooleanExpression::BoolEq(box lhs, box rhs) => self.flatten_boolean_expression(
                 symbols,
                 statements_flattened,
-                BooleanExpression::And(box lhs.clone(), box rhs.clone()),
+                BooleanExpression::Or(
+                    box BooleanExpression::And(box lhs.clone(), box rhs.clone()), 
+                    box BooleanExpression::And(
+                        box BooleanExpression::Not(box lhs), 
+                        box BooleanExpression::Not(box rhs)
+                    ),
+                )
             ),
             BooleanExpression::Eq(box lhs, box rhs) => {
                 // We know from semantic checking that lhs and rhs have the same type

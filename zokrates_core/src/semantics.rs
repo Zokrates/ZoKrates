@@ -980,7 +980,7 @@ impl<'ast> Checker<'ast> {
                         Ok(BooleanExpression::Eq(box e1, box e2).into())
                     }
                     (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
-                        Ok(BooleanExpression::EqBool(box e1, box e2).into())
+                        Ok(BooleanExpression::BoolEq(box e1, box e2).into())
                     }
                     (e1, e2) => Err(Error {
                         pos: Some(pos),
