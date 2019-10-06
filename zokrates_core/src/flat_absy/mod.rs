@@ -12,7 +12,7 @@ pub use self::flat_parameter::FlatParameter;
 pub use self::flat_variable::FlatVariable;
 
 use crate::helpers::DirectiveStatement;
-use crate::types::Signature;
+use crate::typed_absy::types::Signature;
 use std::collections::HashMap;
 use std::fmt;
 use zokrates_field::field::Field;

@@ -8,12 +8,13 @@
 mod from_ast;
 mod node;
 pub mod parameter;
+pub mod types;
 pub mod variable;
 
 pub use crate::absy::node::{Node, NodeValue};
 pub use crate::absy::parameter::{Parameter, ParameterNode};
+use crate::absy::types::{FunctionIdentifier, UnresolvedSignature, UnresolvedType, UserTypeId};
 pub use crate::absy::variable::{Variable, VariableNode};
-use crate::types::{FunctionIdentifier, Signature};
 use embed::FlatEmbed;
 
 use crate::imports::ImportNode;
@@ -31,8 +32,8 @@ pub type ModuleId = String;
 /// A collection of `Module`s
 pub type Modules<'ast, T> = HashMap<ModuleId, Module<'ast, T>>;
 
-/// A collection of `FunctionDeclaration`. Duplicates are allowed here as they are fine syntatically.
-pub type FunctionDeclarations<'ast, T> = Vec<FunctionDeclarationNode<'ast, T>>;
+/// A collection of `SymbolDeclaration`. Duplicates are allowed here as they are fine syntatically.
+pub type Declarations<'ast, T> = Vec<SymbolDeclarationNode<'ast, T>>;
 
 /// A `Program` is a collection of `Module`s and an id of the main `Module`
 pub struct Program<'ast, T: Field> {
@@ -42,17 +43,26 @@ pub struct Program<'ast, T: Field> {
 
 /// A declaration of a `FunctionSymbol`, be it from an import or a function definition
 #[derive(PartialEq, Debug, Clone)]
-pub struct FunctionDeclaration<'ast, T: Field> {
+pub struct SymbolDeclaration<'ast, T: Field> {
     pub id: Identifier<'ast>,
-    pub symbol: FunctionSymbol<'ast, T>,
+    pub symbol: Symbol<'ast, T>,
 }
 
-impl<'ast, T: Field> fmt::Display for FunctionDeclaration<'ast, T> {
+#[derive(PartialEq, Debug, Clone)]
+pub enum Symbol<'ast, T: Field> {
+    HereType(StructTypeNode<'ast>),
+    HereFunction(FunctionNode<'ast, T>),
+    There(SymbolImportNode<'ast>),
+    Flat(FlatEmbed),
+}
+
+impl<'ast, T: Field> fmt::Display for SymbolDeclaration<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.symbol {
-            FunctionSymbol::Here(ref fun) => write!(f, "def {}{}", self.id, fun),
-            FunctionSymbol::There(ref import) => write!(f, "import {} as {}", import, self.id),
-            FunctionSymbol::Flat(ref flat_fun) => write!(
+            Symbol::HereType(ref t) => write!(f, "struct {} {}", self.id, t),
+            Symbol::HereFunction(ref fun) => write!(f, "def {}{}", self.id, fun),
+            Symbol::There(ref import) => write!(f, "import {} as {}", import, self.id),
+            Symbol::Flat(ref flat_fun) => write!(
                 f,
                 "def {}{}:\n\t// hidden",
                 self.id,
@@ -62,50 +72,95 @@ impl<'ast, T: Field> fmt::Display for FunctionDeclaration<'ast, T> {
     }
 }
 
-type FunctionDeclarationNode<'ast, T> = Node<FunctionDeclaration<'ast, T>>;
+pub type SymbolDeclarationNode<'ast, T> = Node<SymbolDeclaration<'ast, T>>;
 
 /// A module as a collection of `FunctionDeclaration`s
 #[derive(Clone, PartialEq)]
 pub struct Module<'ast, T: Field> {
-    /// Functions of the module
-    pub functions: FunctionDeclarations<'ast, T>,
+    /// Symbols of the module
+    pub symbols: Declarations<'ast, T>,
     pub imports: Vec<ImportNode<'ast>>, // we still use `imports` as they are not directly converted into `FunctionDeclaration`s after the importer is done, `imports` is empty
 }
 
-/// A function, be it defined in this module, imported from another module or a flat embed
-#[derive(Debug, Clone, PartialEq)]
-pub enum FunctionSymbol<'ast, T: Field> {
-    Here(FunctionNode<'ast, T>),
-    There(FunctionImportNode<'ast>),
-    Flat(FlatEmbed),
+impl<'ast, T: Field> Module<'ast, T> {
+    pub fn with_symbols<I: IntoIterator<Item = SymbolDeclarationNode<'ast, T>>>(i: I) -> Self {
+        Module {
+            symbols: i.into_iter().collect(),
+            imports: vec![],
+        }
+    }
+
+    pub fn imports<I: IntoIterator<Item = ImportNode<'ast>>>(mut self, i: I) -> Self {
+        self.imports = i.into_iter().collect();
+        self
+    }
 }
 
-/// A function import
+pub type UnresolvedTypeNode = Node<UnresolvedType>;
+
+/// A struct type definition
 #[derive(Debug, Clone, PartialEq)]
-pub struct FunctionImport<'ast> {
-    /// the id of the function in the target module. Note: there may be many candidates as imports statements do not specify the signature
-    pub function_id: Identifier<'ast>,
+pub struct StructType<'ast> {
+    pub fields: Vec<StructFieldNode<'ast>>,
+}
+
+impl<'ast> fmt::Display for StructType<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.fields
+                .iter()
+                .map(|fi| fi.to_string())
+                .collect::<Vec<_>>()
+                .join("\n")
+        )
+    }
+}
+
+pub type StructTypeNode<'ast> = Node<StructType<'ast>>;
+
+/// A struct type definition
+#[derive(Debug, Clone, PartialEq)]
+pub struct StructField<'ast> {
+    pub id: Identifier<'ast>,
+    pub ty: UnresolvedTypeNode,
+}
+
+impl<'ast> fmt::Display for StructField<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}: {},", self.id, self.ty)
+    }
+}
+
+type StructFieldNode<'ast> = Node<StructField<'ast>>;
+
+/// An import
+#[derive(Debug, Clone, PartialEq)]
+pub struct SymbolImport<'ast> {
+    /// the id of the symbol in the target module. Note: there may be many candidates as imports statements do not specify the signature. In that case they must all be functions however.
+    pub symbol_id: Identifier<'ast>,
     /// the id of the module to import from
     pub module_id: ModuleId,
 }
 
-type FunctionImportNode<'ast> = Node<FunctionImport<'ast>>;
+type SymbolImportNode<'ast> = Node<SymbolImport<'ast>>;
 
-impl<'ast> FunctionImport<'ast> {
+impl<'ast> SymbolImport<'ast> {
     pub fn with_id_in_module<S: Into<Identifier<'ast>>, U: Into<ModuleId>>(
-        function_id: S,
+        symbol_id: S,
         module_id: U,
     ) -> Self {
-        FunctionImport {
-            function_id: function_id.into(),
+        SymbolImport {
+            symbol_id: symbol_id.into(),
             module_id: module_id.into(),
         }
     }
 }
 
-impl<'ast> fmt::Display for FunctionImport<'ast> {
+impl<'ast> fmt::Display for SymbolImport<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} from {}", self.function_id, self.module_id)
+        write!(f, "{} from {}", self.symbol_id, self.module_id)
     }
 }
 
@@ -119,7 +174,7 @@ impl<'ast, T: Field> fmt::Display for Module<'ast, T> {
                 .collect::<Vec<_>>(),
         );
         res.extend(
-            self.functions
+            self.symbols
                 .iter()
                 .map(|x| format!("{}", x))
                 .collect::<Vec<_>>(),
@@ -132,13 +187,13 @@ impl<'ast, T: Field> fmt::Debug for Module<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "module(\n\timports:\n\t\t{}\n\tfunctions:\n\t\t{}\n)",
+            "module(\n\timports:\n\t\t{}\n\tsymbols:\n\t\t{}\n)",
             self.imports
                 .iter()
                 .map(|x| format!("{:?}", x))
                 .collect::<Vec<_>>()
                 .join("\n\t\t"),
-            self.functions
+            self.symbols
                 .iter()
                 .map(|x| format!("{:?}", x))
                 .collect::<Vec<_>>()
@@ -155,7 +210,7 @@ pub struct Function<'ast, T: Field> {
     /// Vector of statements that are executed when running the function
     pub statements: Vec<StatementNode<'ast, T>>,
     /// function signature
-    pub signature: Signature,
+    pub signature: UnresolvedSignature,
 }
 
 pub type FunctionNode<'ast, T> = Node<Function<'ast, T>>;
@@ -199,6 +254,7 @@ impl<'ast, T: Field> fmt::Debug for Function<'ast, T> {
 pub enum Assignee<'ast, T: Field> {
     Identifier(Identifier<'ast>),
     Select(Box<AssigneeNode<'ast, T>>, Box<RangeOrExpression<'ast, T>>),
+    Member(Box<AssigneeNode<'ast, T>>, Box<Identifier<'ast>>),
 }
 
 pub type AssigneeNode<'ast, T> = Node<Assignee<'ast, T>>;
@@ -208,6 +264,7 @@ impl<'ast, T: Field> fmt::Debug for Assignee<'ast, T> {
         match *self {
             Assignee::Identifier(ref s) => write!(f, "Identifier({:?})", s),
             Assignee::Select(ref a, ref e) => write!(f, "Select({:?}[{:?}])", a, e),
+            Assignee::Member(ref s, ref m) => write!(f, "Member({:?}.{:?})", s, m),
         }
     }
 }
@@ -414,10 +471,12 @@ pub enum Expression<'ast, T: Field> {
     And(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
     Not(Box<ExpressionNode<'ast, T>>),
     InlineArray(Vec<SpreadOrExpression<'ast, T>>),
+    InlineStruct(UserTypeId, Vec<(Identifier<'ast>, ExpressionNode<'ast, T>)>),
     Select(
         Box<ExpressionNode<'ast, T>>,
         Box<RangeOrExpression<'ast, T>>,
     ),
+    Member(Box<ExpressionNode<'ast, T>>, Box<Identifier<'ast>>),
     Or(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
 }
 
@@ -466,7 +525,18 @@ impl<'ast, T: Field> fmt::Display for Expression<'ast, T> {
                 }
                 write!(f, "]")
             }
+            Expression::InlineStruct(ref id, ref members) => {
+                write!(f, "{} {{", id)?;
+                for (i, (member_id, e)) in members.iter().enumerate() {
+                    write!(f, "{}: {}", member_id, e)?;
+                    if i < members.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, "}}")
+            }
             Expression::Select(ref array, ref index) => write!(f, "{}[{}]", array, index),
+            Expression::Member(ref struc, ref id) => write!(f, "{}.{}", struc, id),
             Expression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
         }
     }
@@ -505,9 +575,15 @@ impl<'ast, T: Field> fmt::Debug for Expression<'ast, T> {
                 f.debug_list().entries(exprs.iter()).finish()?;
                 write!(f, "]")
             }
+            Expression::InlineStruct(ref id, ref members) => {
+                write!(f, "InlineStruct({:?}, [", id)?;
+                f.debug_list().entries(members.iter()).finish()?;
+                write!(f, "]")
+            }
             Expression::Select(ref array, ref index) => {
                 write!(f, "Select({:?}, {:?})", array, index)
             }
+            Expression::Member(ref struc, ref id) => write!(f, "{}.{}", struc, id),
             Expression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
         }
     }

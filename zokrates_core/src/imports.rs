@@ -57,15 +57,17 @@ impl From<io::Error> for Error {
 #[derive(PartialEq, Clone)]
 pub struct Import<'ast> {
     source: Identifier<'ast>,
+    symbol: Option<Identifier<'ast>>,
     alias: Option<Identifier<'ast>>,
 }
 
 pub type ImportNode<'ast> = Node<Import<'ast>>;
 
 impl<'ast> Import<'ast> {
-    pub fn new(source: Identifier<'ast>) -> Import<'ast> {
+    pub fn new(symbol: Option<Identifier<'ast>>, source: Identifier<'ast>) -> Import<'ast> {
         Import {
-            source: source,
+            symbol,
+            source,
             alias: None,
         }
     }
@@ -74,9 +76,14 @@ impl<'ast> Import<'ast> {
         &self.alias
     }
 
-    pub fn new_with_alias(source: Identifier<'ast>, alias: Identifier<'ast>) -> Import<'ast> {
+    pub fn new_with_alias(
+        symbol: Option<Identifier<'ast>>,
+        source: Identifier<'ast>,
+        alias: Identifier<'ast>,
+    ) -> Import<'ast> {
         Import {
-            source: source,
+            symbol,
+            source,
             alias: Some(alias),
         }
     }
@@ -124,7 +131,7 @@ impl Importer {
         modules: &mut HashMap<ModuleId, Module<'ast, T>>,
         arena: &'ast Arena<String>,
     ) -> Result<Module<'ast, T>, CompileErrors> {
-        let mut functions: Vec<_> = vec![];
+        let mut symbols: Vec<_> = vec![];
 
         for import in destination.imports {
             let pos = import.pos();
@@ -136,10 +143,10 @@ impl Importer {
                     "EMBED/sha256round" => {
                         let alias = alias.unwrap_or("sha256round");
 
-                        functions.push(
-                            FunctionDeclaration {
+                        symbols.push(
+                            SymbolDeclaration {
                                 id: &alias,
-                                symbol: FunctionSymbol::Flat(FlatEmbed::Sha256Round),
+                                symbol: Symbol::Flat(FlatEmbed::Sha256Round),
                             }
                             .start_end(pos.0, pos.1),
                         );
@@ -147,10 +154,10 @@ impl Importer {
                     "EMBED/unpack" => {
                         let alias = alias.unwrap_or("unpack");
 
-                        functions.push(
-                            FunctionDeclaration {
+                        symbols.push(
+                            SymbolDeclaration {
                                 id: &alias,
-                                symbol: FunctionSymbol::Flat(FlatEmbed::Unpack),
+                                symbol: Symbol::Flat(FlatEmbed::Unpack),
                             }
                             .start_end(pos.0, pos.1),
                         );
@@ -183,12 +190,12 @@ impl Importer {
 
                             modules.insert(import.source.to_string(), compiled);
 
-                            functions.push(
-                                FunctionDeclaration {
+                            symbols.push(
+                                SymbolDeclaration {
                                     id: &alias,
-                                    symbol: FunctionSymbol::There(
-                                        FunctionImport::with_id_in_module(
-                                            "main",
+                                    symbol: Symbol::There(
+                                        SymbolImport::with_id_in_module(
+                                            import.symbol.unwrap_or("main"),
                                             import.source.clone(),
                                         )
                                         .start_end(pos.0, pos.1),
@@ -216,11 +223,12 @@ impl Importer {
             }
         }
 
-        functions.extend(destination.functions);
+        symbols.extend(destination.symbols);
 
         Ok(Module {
             imports: vec![],
-            functions: functions,
+            symbols,
+            ..destination
         })
     }
 }
@@ -233,8 +241,9 @@ mod tests {
     #[test]
     fn create_with_no_alias() {
         assert_eq!(
-            Import::new("./foo/bar/baz.zok"),
+            Import::new(None, "./foo/bar/baz.zok"),
             Import {
+                symbol: None,
                 source: "./foo/bar/baz.zok",
                 alias: None,
             }
@@ -244,8 +253,9 @@ mod tests {
     #[test]
     fn create_with_alias() {
         assert_eq!(
-            Import::new_with_alias("./foo/bar/baz.zok", &"myalias"),
+            Import::new_with_alias(None, "./foo/bar/baz.zok", &"myalias"),
             Import {
+                symbol: None,
                 source: "./foo/bar/baz.zok",
                 alias: Some("myalias"),
             }
