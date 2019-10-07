@@ -32,7 +32,7 @@ pub type ModuleId = String;
 /// A collection of `Module`s
 pub type Modules<'ast, T> = HashMap<ModuleId, Module<'ast, T>>;
 
-/// A collection of `SymbolDeclaration`. Duplicates are allowed here as they are fine syntatically.
+/// A collection of `SymbolDeclaration`. Duplicates are allowed here as they are fine syntactically.
 pub type Declarations<'ast, T> = Vec<SymbolDeclarationNode<'ast, T>>;
 
 /// A `Program` is a collection of `Module`s and an id of the main `Module`
