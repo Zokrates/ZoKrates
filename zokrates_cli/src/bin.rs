@@ -339,15 +339,15 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(file);
 
-            let program_ast: ir::Prog<FieldPrime> =
+            let ir_prog: ir::Prog<FieldPrime> =
                 deserialize_from(&mut reader, Infinite).map_err(|why| why.to_string())?;
 
             // print deserialized flattened program
             if !sub_matches.is_present("light") {
-                println!("{}", program_ast);
+                println!("{}", ir_prog);
             }
 
-            let signature = program_ast.signature.clone();
+            let signature = ir_prog.signature.clone();
 
             let is_stdin = sub_matches.is_present("stdin");
             let is_abi = sub_matches.is_present("abi");
@@ -389,7 +389,7 @@ fn cli() -> Result<(), String> {
                             }
                             Err(_) => Err(String::from("???")),
                         },
-                        false => match program_ast.arguments_count() {
+                        false => match ir_prog.arguments_count() {
                             0 => Ok(Inputs::Raw(vec![])),
                             _ => match stdin.read_to_string(&mut input) {
                                 Ok(_) => {
@@ -411,7 +411,7 @@ fn cli() -> Result<(), String> {
             }
             .map_err(|e| format!("Could not parse argument: {}", e))?;
 
-            let witness = program_ast
+            let witness = ir_prog
                 .execute(&arguments.encode())
                 .map_err(|e| format!("Execution failed: {}", e))?;
 
