@@ -42,9 +42,9 @@ jobs:
       - restore_cache:
           keys:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
-      - run:
-          name: Check format
-          command: rustup component add rustfmt; cargo fmt --all -- --check
+      # - run:
+      #     name: Check format
+      #     command: rustup component add rustfmt; cargo fmt --all -- --check
       - run:
           name: Install libsnark prerequisites
           command: ./scripts/install_libsnark_prerequisites.sh
@@ -54,9 +54,9 @@ jobs:
       - run:
           name: Run tests
           command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./test.sh
-      - run:
-          name: Generate code coverage report
-          command: ./scripts/cov.sh
+      # - run:
+      #     name: Generate code coverage report
+      #     command: ./scripts/cov.sh
   wasm_test:
     docker:
       - image: rustlang/rust:nightly-slim

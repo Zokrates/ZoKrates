@@ -75,7 +75,7 @@ impl<'ast, T: Field> fmt::Display for TypedProgram<'ast, T> {
     }
 }
 
-/// A
+/// A typed program as a collection of functions. Types have been resolved during semantic checking.
 #[derive(PartialEq, Clone)]
 pub struct TypedModule<'ast, T: Field> {
     /// Functions of the program
