@@ -1,4 +1,5 @@
 //! Add runtime boolean checks on user inputs
+//!
 //! Example:
 //! ```zokrates
 //! struct Foo {
@@ -9,9 +10,22 @@
 //!    f.bar == f.bar && f.bar
 //!    return
 //! ```
-//! @file unroll.rs
+//!
+//! Becomes
+//!
+//! ```zokrates
+//! struct Foo {
+//!    bar: bool
+//! }
+//!
+//! def main(Foo f) -> ():
+//!    f.bar == f.bar && f.bar
+//!    return
+//! ```
+//!
+//! @file constrain_inputs.rs
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
-//! @date 2018
+//! @date 2019
 
 use crate::typed_absy::folder::Folder;
 use crate::typed_absy::types::Type;
