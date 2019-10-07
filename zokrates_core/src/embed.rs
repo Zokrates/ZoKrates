@@ -5,7 +5,7 @@ use flat_absy::{
 };
 use reduce::Reduce;
 use std::collections::HashMap;
-use types::{FunctionKey, Signature, Type};
+use typed_absy::types::{FunctionKey, Signature, Type};
 use zokrates_embed::{generate_sha256_round_constraints, BellmanConstraint};
 use zokrates_field::field::Field;
 

@@ -1,0 +1,2 @@
+def main(bool[3] a) -> (bool[3]):
+	return a

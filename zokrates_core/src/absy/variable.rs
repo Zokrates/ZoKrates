@@ -1,55 +1,27 @@
-use crate::absy::Node;
+use crate::absy::types::UnresolvedType;
+use crate::absy::{Node, UnresolvedTypeNode};
 use std::fmt;
-use types::Type;
 
 use crate::absy::Identifier;
 
-#[derive(Clone, PartialEq, Hash, Eq)]
+#[derive(Clone, PartialEq)]
 pub struct Variable<'ast> {
     pub id: Identifier<'ast>,
-    pub _type: Type,
+    pub _type: UnresolvedTypeNode,
 }
 
 pub type VariableNode<'ast> = Node<Variable<'ast>>;
 
 impl<'ast> Variable<'ast> {
-    pub fn new<S: Into<&'ast str>>(id: S, t: Type) -> Variable<'ast> {
+    pub fn new<S: Into<&'ast str>>(id: S, t: UnresolvedTypeNode) -> Variable<'ast> {
         Variable {
             id: id.into(),
             _type: t,
         }
     }
 
-    pub fn field_element<S: Into<&'ast str>>(id: S) -> Variable<'ast> {
-        Variable {
-            id: id.into(),
-            _type: Type::FieldElement,
-        }
-    }
-
-    pub fn boolean<S: Into<&'ast str>>(id: S) -> Variable<'ast> {
-        Variable {
-            id: id.into(),
-            _type: Type::Boolean,
-        }
-    }
-
-    pub fn field_array<S: Into<&'ast str>>(id: S, size: usize) -> Variable<'ast> {
-        Variable {
-            id: id.into(),
-            _type: Type::array(Type::FieldElement, size),
-        }
-    }
-
-    pub fn array<S: Into<&'ast str>>(id: S, inner_ty: Type, size: usize) -> Variable<'ast> {
-        Variable {
-            id: id.into(),
-            _type: Type::array(inner_ty, size),
-        }
-    }
-
-    pub fn get_type(&self) -> Type {
-        self._type.clone()
+    pub fn get_type(&self) -> UnresolvedType {
+        self._type.value.clone()
     }
 }
 

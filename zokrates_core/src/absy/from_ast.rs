@@ -1,48 +1,96 @@
 use absy;
 use imports;
-use types::Type;
 use zokrates_field::field::Field;
 use zokrates_pest_ast as pest;
 
 impl<'ast, T: Field> From<pest::File<'ast>> for absy::Module<'ast, T> {
     fn from(prog: pest::File<'ast>) -> absy::Module<T> {
-        absy::Module {
-            functions: prog
-                .functions
+        absy::Module::with_symbols(
+            prog.structs
                 .into_iter()
-                .map(|f| absy::FunctionDeclarationNode::from(f))
-                .collect(),
-            imports: prog
-                .imports
-                .into_iter()
-                .map(|i| absy::ImportNode::from(i))
-                .collect(),
-        }
+                .map(|t| absy::SymbolDeclarationNode::from(t))
+                .chain(
+                    prog.functions
+                        .into_iter()
+                        .map(|f| absy::SymbolDeclarationNode::from(f)),
+                ),
+        )
+        .imports(prog.imports.into_iter().map(|i| absy::ImportNode::from(i)))
     }
 }
 
 impl<'ast> From<pest::ImportDirective<'ast>> for absy::ImportNode<'ast> {
     fn from(import: pest::ImportDirective<'ast>) -> absy::ImportNode {
         use absy::NodeValue;
-        imports::Import::new(import.source.span.as_str())
+
+        match import {
+            pest::ImportDirective::Main(import) => {
+                imports::Import::new(None, import.source.span.as_str())
+                    .alias(import.alias.map(|a| a.span.as_str()))
+                    .span(import.span)
+            }
+            pest::ImportDirective::From(import) => imports::Import::new(
+                Some(import.symbol.span.as_str()),
+                import.source.span.as_str(),
+            )
             .alias(import.alias.map(|a| a.span.as_str()))
-            .span(import.span)
+            .span(import.span),
+        }
     }
 }
 
-impl<'ast, T: Field> From<pest::Function<'ast>> for absy::FunctionDeclarationNode<'ast, T> {
-    fn from(function: pest::Function<'ast>) -> absy::FunctionDeclarationNode<T> {
+impl<'ast, T: Field> From<pest::StructDefinition<'ast>> for absy::SymbolDeclarationNode<'ast, T> {
+    fn from(definition: pest::StructDefinition<'ast>) -> absy::SymbolDeclarationNode<'ast, T> {
+        use absy::NodeValue;
+
+        let span = definition.span;
+
+        let id = definition.id.span.as_str();
+
+        let ty = absy::StructType {
+            fields: definition
+                .fields
+                .into_iter()
+                .map(|f| absy::StructFieldNode::from(f))
+                .collect(),
+        }
+        .span(span.clone());
+
+        absy::SymbolDeclaration {
+            id,
+            symbol: absy::Symbol::HereType(ty),
+        }
+        .span(span)
+    }
+}
+
+impl<'ast> From<pest::StructField<'ast>> for absy::StructFieldNode<'ast> {
+    fn from(field: pest::StructField<'ast>) -> absy::StructFieldNode {
+        use absy::NodeValue;
+
+        let span = field.span;
+
+        let id = field.id.span.as_str();
+
+        let ty = absy::UnresolvedTypeNode::from(field.ty);
+
+        absy::StructField { id, ty }.span(span)
+    }
+}
+
+impl<'ast, T: Field> From<pest::Function<'ast>> for absy::SymbolDeclarationNode<'ast, T> {
+    fn from(function: pest::Function<'ast>) -> absy::SymbolDeclarationNode<T> {
         use absy::NodeValue;
 
         let span = function.span;
 
-        let signature = absy::Signature::new()
+        let signature = absy::UnresolvedSignature::new()
             .inputs(
                 function
                     .parameters
                     .clone()
                     .into_iter()
-                    .map(|p| absy::ParameterNode::from(p).value.id.value.get_type())
+                    .map(|p| absy::UnresolvedTypeNode::from(p.ty))
                     .collect(),
             )
             .outputs(
@@ -50,7 +98,7 @@ impl<'ast, T: Field> From<pest::Function<'ast>> for absy::FunctionDeclarationNod
                     .returns
                     .clone()
                     .into_iter()
-                    .map(|r| Type::from(r))
+                    .map(|r| absy::UnresolvedTypeNode::from(r))
                     .collect(),
             );
 
@@ -71,9 +119,9 @@ impl<'ast, T: Field> From<pest::Function<'ast>> for absy::FunctionDeclarationNod
         }
         .span(span.clone());
 
-        absy::FunctionDeclaration {
+        absy::SymbolDeclaration {
             id,
-            symbol: absy::FunctionSymbol::Here(function),
+            symbol: absy::Symbol::HereFunction(function),
         }
         .span(span)
     }
@@ -91,8 +139,11 @@ impl<'ast> From<pest::Parameter<'ast>> for absy::ParameterNode<'ast> {
             })
             .unwrap_or(false);
 
-        let variable =
-            absy::Variable::new(param.id.span.as_str(), Type::from(param.ty)).span(param.id.span);
+        let variable = absy::Variable::new(
+            param.id.span.as_str(),
+            absy::UnresolvedTypeNode::from(param.ty),
+        )
+        .span(param.id.span);
 
         absy::Parameter::new(variable, private).span(param.span)
     }
@@ -123,7 +174,11 @@ fn statements_from_multi_assignment<'ast, T: Field>(
         .filter(|i| i.ty.is_some())
         .map(|i| {
             absy::Statement::Declaration(
-                absy::Variable::new(i.id.span.as_str(), Type::from(i.ty.unwrap())).span(i.id.span),
+                absy::Variable::new(
+                    i.id.span.as_str(),
+                    absy::UnresolvedTypeNode::from(i.ty.unwrap()),
+                )
+                .span(i.id.span),
             )
             .span(i.span)
         });
@@ -158,8 +213,11 @@ fn statements_from_definition<'ast, T: Field>(
 
     vec![
         absy::Statement::Declaration(
-            absy::Variable::new(definition.id.span.as_str(), Type::from(definition.ty))
-                .span(definition.id.span.clone()),
+            absy::Variable::new(
+                definition.id.span.as_str(),
+                absy::UnresolvedTypeNode::from(definition.ty),
+            )
+            .span(definition.id.span.clone()),
         )
         .span(definition.span.clone()),
         absy::Statement::Definition(
@@ -218,7 +276,7 @@ impl<'ast, T: Field> From<pest::IterationStatement<'ast>> for absy::StatementNod
         let from = absy::ExpressionNode::from(statement.from);
         let to = absy::ExpressionNode::from(statement.to);
         let index = statement.index.span.as_str();
-        let ty = Type::from(statement.ty);
+        let ty = absy::UnresolvedTypeNode::from(statement.ty);
         let statements: Vec<absy::StatementNode<T>> = statement
             .statements
             .into_iter()
@@ -262,6 +320,7 @@ impl<'ast, T: Field> From<pest::Expression<'ast>> for absy::ExpressionNode<'ast,
             pest::Expression::Identifier(e) => absy::ExpressionNode::from(e),
             pest::Expression::Postfix(e) => absy::ExpressionNode::from(e),
             pest::Expression::InlineArray(e) => absy::ExpressionNode::from(e),
+            pest::Expression::InlineStruct(e) => absy::ExpressionNode::from(e),
             pest::Expression::ArrayInitializer(e) => absy::ExpressionNode::from(e),
             pest::Expression::Unary(e) => absy::ExpressionNode::from(e),
         }
@@ -414,6 +473,25 @@ impl<'ast, T: Field> From<pest::InlineArrayExpression<'ast>> for absy::Expressio
     }
 }
 
+impl<'ast, T: Field> From<pest::InlineStructExpression<'ast>> for absy::ExpressionNode<'ast, T> {
+    fn from(s: pest::InlineStructExpression<'ast>) -> absy::ExpressionNode<'ast, T> {
+        use absy::NodeValue;
+        absy::Expression::InlineStruct(
+            s.ty.span.as_str().to_string(),
+            s.members
+                .into_iter()
+                .map(|member| {
+                    (
+                        member.id.span.as_str(),
+                        absy::ExpressionNode::from(member.expression),
+                    )
+                })
+                .collect(),
+        )
+        .span(s.span)
+    }
+}
+
 impl<'ast, T: Field> From<pest::ArrayInitializerExpression<'ast>>
     for absy::ExpressionNode<'ast, T>
 {
@@ -471,6 +549,9 @@ impl<'ast, T: Field> From<pest::PostfixExpression<'ast>> for absy::ExpressionNod
                 absy::Expression::Select(box acc, box absy::RangeOrExpression::from(a.expression))
                     .span(a.span)
             }
+            pest::Access::Member(m) => {
+                absy::Expression::Member(box acc, box m.id.span.as_str()).span(m.span)
+            }
         })
     }
 }
@@ -511,28 +592,43 @@ impl<'ast, T: Field> From<pest::Assignee<'ast>> for absy::AssigneeNode<'ast, T> 
         let a = absy::AssigneeNode::from(assignee.id);
         let span = assignee.span;
 
-        assignee
-            .indices
-            .into_iter()
-            .map(|i| absy::RangeOrExpression::from(i))
-            .fold(a, |acc, s| {
-                absy::Assignee::Select(box acc, box s).span(span.clone())
-            })
+        assignee.accesses.into_iter().fold(a, |acc, s| {
+            match s {
+                pest::AssigneeAccess::Select(s) => {
+                    absy::Assignee::Select(box acc, box absy::RangeOrExpression::from(s.expression))
+                }
+                pest::AssigneeAccess::Member(m) => {
+                    absy::Assignee::Member(box acc, box m.id.span.as_str())
+                }
+            }
+            .span(span.clone())
+        })
     }
 }
 
-impl<'ast> From<pest::Type<'ast>> for Type {
-    fn from(t: pest::Type<'ast>) -> Type {
+impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode {
+    fn from(t: pest::Type<'ast>) -> absy::UnresolvedTypeNode {
+        use absy::NodeValue;
+
         match t {
             pest::Type::Basic(t) => match t {
-                pest::BasicType::Field(_) => Type::FieldElement,
-                pest::BasicType::Boolean(_) => Type::Boolean,
+                pest::BasicType::Field(t) => absy::UnresolvedType::FieldElement.span(t.span),
+                pest::BasicType::Boolean(t) => absy::UnresolvedType::Boolean.span(t.span),
             },
             pest::Type::Array(t) => {
                 let inner_type = match t.ty {
-                    pest::BasicType::Field(_) => Type::FieldElement,
-                    pest::BasicType::Boolean(_) => Type::Boolean,
+                    pest::BasicOrStructType::Basic(t) => match t {
+                        pest::BasicType::Field(t) => {
+                            absy::UnresolvedType::FieldElement.span(t.span)
+                        }
+                        pest::BasicType::Boolean(t) => absy::UnresolvedType::Boolean.span(t.span),
+                    },
+                    pest::BasicOrStructType::Struct(t) => {
+                        absy::UnresolvedType::User(t.span.as_str().to_string()).span(t.span)
+                    }
                 };
+
+                let span = t.span;
 
                 t.dimensions
                     .into_iter()
@@ -553,10 +649,14 @@ impl<'ast> From<pest::Type<'ast>> for Type {
                     })
                     .rev()
                     .fold(None, |acc, s| match acc {
-                        None => Some(Type::array(inner_type.clone(), s)),
-                        Some(acc) => Some(Type::array(acc, s)),
+                        None => Some(absy::UnresolvedType::array(inner_type.clone(), s)),
+                        Some(acc) => Some(absy::UnresolvedType::array(acc.span(span.clone()), s)),
                     })
                     .unwrap()
+                    .span(span.clone())
+            }
+            pest::Type::Struct(s) => {
+                absy::UnresolvedType::User(s.id.span.as_str().to_string()).span(s.span)
             }
         }
     }
@@ -565,6 +665,7 @@ impl<'ast> From<pest::Type<'ast>> for Type {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use absy::NodeValue;
     use zokrates_field::field::FieldPrime;
 
     #[test]
@@ -572,9 +673,9 @@ mod tests {
         let source = "def main() -> (field): return 42";
         let ast = pest::generate_ast(&source).unwrap();
         let expected: absy::Module<FieldPrime> = absy::Module {
-            functions: vec![absy::FunctionDeclaration {
+            symbols: vec![absy::SymbolDeclaration {
                 id: &source[4..8],
-                symbol: absy::FunctionSymbol::Here(
+                symbol: absy::Symbol::HereFunction(
                     absy::Function {
                         arguments: vec![],
                         statements: vec![absy::Statement::Return(
@@ -587,9 +688,9 @@ mod tests {
                             .into(),
                         )
                         .into()],
-                        signature: absy::Signature::new()
+                        signature: absy::UnresolvedSignature::new()
                             .inputs(vec![])
-                            .outputs(vec![Type::FieldElement]),
+                            .outputs(vec![absy::UnresolvedType::FieldElement.mock()]),
                     }
                     .into(),
                 ),
@@ -605,9 +706,9 @@ mod tests {
         let source = "def main() -> (bool): return true";
         let ast = pest::generate_ast(&source).unwrap();
         let expected: absy::Module<FieldPrime> = absy::Module {
-            functions: vec![absy::FunctionDeclaration {
+            symbols: vec![absy::SymbolDeclaration {
                 id: &source[4..8],
-                symbol: absy::FunctionSymbol::Here(
+                symbol: absy::Symbol::HereFunction(
                     absy::Function {
                         arguments: vec![],
                         statements: vec![absy::Statement::Return(
@@ -617,9 +718,9 @@ mod tests {
                             .into(),
                         )
                         .into()],
-                        signature: absy::Signature::new()
+                        signature: absy::UnresolvedSignature::new()
                             .inputs(vec![])
-                            .outputs(vec![Type::Boolean]),
+                            .outputs(vec![absy::UnresolvedType::Boolean.mock()]),
                     }
                     .into(),
                 ),
@@ -636,17 +737,25 @@ mod tests {
         let ast = pest::generate_ast(&source).unwrap();
 
         let expected: absy::Module<FieldPrime> = absy::Module {
-            functions: vec![absy::FunctionDeclaration {
+            symbols: vec![absy::SymbolDeclaration {
                 id: &source[4..8],
-                symbol: absy::FunctionSymbol::Here(
+                symbol: absy::Symbol::HereFunction(
                     absy::Function {
                         arguments: vec![
                             absy::Parameter::private(
-                                absy::Variable::field_element(&source[23..24]).into(),
+                                absy::Variable::new(
+                                    &source[23..24],
+                                    absy::UnresolvedType::FieldElement.mock(),
+                                )
+                                .into(),
                             )
                             .into(),
                             absy::Parameter::public(
-                                absy::Variable::boolean(&source[31..32]).into(),
+                                absy::Variable::new(
+                                    &source[31..32],
+                                    absy::UnresolvedType::Boolean.mock(),
+                                )
+                                .into(),
                             )
                             .into(),
                         ],
@@ -660,9 +769,12 @@ mod tests {
                             .into(),
                         )
                         .into()],
-                        signature: absy::Signature::new()
-                            .inputs(vec![Type::FieldElement, Type::Boolean])
-                            .outputs(vec![Type::FieldElement]),
+                        signature: absy::UnresolvedSignature::new()
+                            .inputs(vec![
+                                absy::UnresolvedType::FieldElement.mock(),
+                                absy::UnresolvedType::Boolean.mock(),
+                            ])
+                            .outputs(vec![absy::UnresolvedType::FieldElement.mock()]),
                     }
                     .into(),
                 ),
@@ -678,14 +790,14 @@ mod tests {
         use super::*;
 
         /// Helper method to generate the ast for `def main(private {ty} a) -> (): return` which we use to check ty
-        fn wrap(ty: types::Type) -> absy::Module<'static, FieldPrime> {
+        fn wrap(ty: absy::UnresolvedType) -> absy::Module<'static, FieldPrime> {
             absy::Module {
-                functions: vec![absy::FunctionDeclaration {
+                symbols: vec![absy::SymbolDeclaration {
                     id: "main",
-                    symbol: absy::FunctionSymbol::Here(
+                    symbol: absy::Symbol::HereFunction(
                         absy::Function {
                             arguments: vec![absy::Parameter::private(
-                                absy::Variable::new("a", ty.clone()).into(),
+                                absy::Variable::new("a", ty.clone().mock()).into(),
                             )
                             .into()],
                             statements: vec![absy::Statement::Return(
@@ -695,7 +807,7 @@ mod tests {
                                 .into(),
                             )
                             .into()],
-                            signature: absy::Signature::new().inputs(vec![ty]),
+                            signature: absy::UnresolvedSignature::new().inputs(vec![ty.mock()]),
                         }
                         .into(),
                     ),
@@ -708,19 +820,33 @@ mod tests {
         #[test]
         fn array() {
             let vectors = vec![
-                ("field", types::Type::FieldElement),
-                ("bool", types::Type::Boolean),
+                ("field", absy::UnresolvedType::FieldElement),
+                ("bool", absy::UnresolvedType::Boolean),
                 (
                     "field[2]",
-                    types::Type::Array(box types::Type::FieldElement, 2),
+                    absy::UnresolvedType::Array(box absy::UnresolvedType::FieldElement.mock(), 2),
                 ),
                 (
                     "field[2][3]",
-                    types::Type::Array(box Type::Array(box types::Type::FieldElement, 3), 2),
+                    absy::UnresolvedType::Array(
+                        box absy::UnresolvedType::Array(
+                            box absy::UnresolvedType::FieldElement.mock(),
+                            3,
+                        )
+                        .mock(),
+                        2,
+                    ),
                 ),
                 (
                     "bool[2][3]",
-                    types::Type::Array(box Type::Array(box types::Type::Boolean, 3), 2),
+                    absy::UnresolvedType::Array(
+                        box absy::UnresolvedType::Array(
+                            box absy::UnresolvedType::Boolean.mock(),
+                            3,
+                        )
+                        .mock(),
+                        2,
+                    ),
                 ),
             ];
 
@@ -737,9 +863,9 @@ mod tests {
         use super::*;
         fn wrap(expression: absy::Expression<'static, FieldPrime>) -> absy::Module<FieldPrime> {
             absy::Module {
-                functions: vec![absy::FunctionDeclaration {
+                symbols: vec![absy::SymbolDeclaration {
                     id: "main",
-                    symbol: absy::FunctionSymbol::Here(
+                    symbol: absy::Symbol::HereFunction(
                         absy::Function {
                             arguments: vec![],
                             statements: vec![absy::Statement::Return(
@@ -749,7 +875,7 @@ mod tests {
                                 .into(),
                             )
                             .into()],
-                            signature: absy::Signature::new(),
+                            signature: absy::UnresolvedSignature::new(),
                         }
                         .into(),
                     ),

@@ -17,8 +17,8 @@
 //! where any call in `main` must be to `_SHA_256_ROUND` or `_UNPACK`
 
 use std::collections::HashMap;
+use typed_absy::types::{FunctionKey, MemberId, Type};
 use typed_absy::{folder::*, *};
-use types::{FunctionKey, Type};
 use zokrates_field::field::Field;
 
 /// An inliner
@@ -260,12 +260,36 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
             e => fold_array_expression_inner(self, ty, size, e),
         }
     }
+
+    fn fold_struct_expression_inner(
+        &mut self,
+        ty: &Vec<(MemberId, Type)>,
+        e: StructExpressionInner<'ast, T>,
+    ) -> StructExpressionInner<'ast, T> {
+        match e {
+            StructExpressionInner::FunctionCall(key, exps) => {
+                let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
+
+                match self.try_inline_call(&key, exps) {
+                    Ok(mut ret) => match ret.pop().unwrap() {
+                        TypedExpression::Struct(e) => e.into_inner(),
+                        _ => unreachable!(),
+                    },
+                    Err((key, expressions)) => {
+                        StructExpressionInner::FunctionCall(key, expressions)
+                    }
+                }
+            }
+            // default
+            e => fold_struct_expression_inner(self, ty, e),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use types::{FunctionKey, Signature, Type};
+    use typed_absy::types::{FunctionKey, Signature, Type};
     use zokrates_field::field::FieldPrime;
 
     #[test]
