@@ -41,7 +41,7 @@ pub trait Folder<T: Field>: Sized {
 pub fn fold_module<T: Field, F: Folder<T>>(f: &mut F, p: Prog<T>) -> Prog<T> {
     Prog {
         main: f.fold_function(p.main),
-        private: p.private,
+        ..p
     }
 }
 

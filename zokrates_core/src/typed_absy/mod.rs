@@ -11,9 +11,10 @@ pub mod types;
 mod variable;
 
 pub use crate::typed_absy::parameter::Parameter;
+pub use crate::typed_absy::types::Type;
 pub use crate::typed_absy::variable::Variable;
 
-use crate::typed_absy::types::{FunctionKey, MemberId, Signature, Type};
+use crate::typed_absy::types::{FunctionKey, MemberId, Signature};
 use embed::FlatEmbed;
 use std::collections::HashMap;
 use std::convert::TryFrom;
