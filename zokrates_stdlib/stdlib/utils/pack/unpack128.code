@@ -1,9 +1,0 @@
-import "PACKING/split" as split
-
-def main(field i) -> (field[128]):
-
-    field[254] b = split(i)
-
-    b[0..126] == [0; 126]
-
-    return b[126..254]

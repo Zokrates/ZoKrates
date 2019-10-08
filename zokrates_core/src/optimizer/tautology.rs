@@ -18,7 +18,7 @@ impl TautologyOptimizer {
     }
 
     pub fn optimize<T: Field>(p: Prog<T>) -> Prog<T> {
-        TautologyOptimizer::new().fold_program(p)
+        TautologyOptimizer::new().fold_module(p)
     }
 }
 

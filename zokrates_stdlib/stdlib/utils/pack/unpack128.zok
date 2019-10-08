@@ -1,0 +1,9 @@
+import "EMBED/unpack" as unpack
+
+def main(field i) -> (field[128]):
+
+    field[254] b = unpack(i)
+
+    b[0..126] == [0; 126]
+
+    return b[126..254]

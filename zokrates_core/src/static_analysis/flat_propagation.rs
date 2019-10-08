@@ -103,14 +103,9 @@ impl<T: Field> Propagate<T> for FlatFunction<T> {
 
 impl<T: Field> FlatProg<T> {
     pub fn propagate(self) -> FlatProg<T> {
-        let mut functions = vec![];
+        let main = self.main.propagate();
 
-        for f in self.functions {
-            let fun = f.propagate();
-            functions.push(fun);
-        }
-
-        FlatProg { functions, ..self }
+        FlatProg { main }
     }
 }
 

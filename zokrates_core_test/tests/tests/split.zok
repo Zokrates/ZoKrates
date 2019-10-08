@@ -1,0 +1,7 @@
+import "EMBED/unpack"
+
+def main(field a) -> (field[254]):
+	
+	field[254] b = unpack(a)
+
+	return b

@@ -14,6 +14,11 @@ impl Position {
             col: (self.col as isize + delta) as usize,
         }
     }
+
+    #[cfg(test)]
+    pub fn mock() -> Self {
+        Position { line: 42, col: 42 }
+    }
 }
 impl fmt::Display for Position {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

@@ -1,0 +1,15 @@
+{
+	"entry_point": "./tests/tests/utils/multiplexer/lookup2bit.zok",
+	"tests": [
+		{
+			"input": {
+				"values": []
+			},
+			"output": {
+				"Ok": {
+					"values": ["1"]
+				}
+			}
+		}
+	]
+}

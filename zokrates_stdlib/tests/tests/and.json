@@ -1,0 +1,15 @@
+{
+	"entry_point": "./stdlib/utils/binary/and.zok",
+	"tests": [
+		{
+			"input": {
+				"values": ["0", "0"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["0"]
+				}
+			}
+		}
+	]
+}

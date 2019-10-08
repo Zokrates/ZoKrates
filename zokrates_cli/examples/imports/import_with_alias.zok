@@ -1,0 +1,4 @@
+import "./foo" as d
+
+def main() -> (field):
+	return d()

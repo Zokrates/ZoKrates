@@ -1,0 +1,42 @@
+// COMPRESSION ROUND
+
+import "./ar6xar11xar25" as AR6XAR11XAR25
+import "./ar2xar13xar22" as AR2XAR13XAR22
+import "../../bitwise/32/andxornotand" as ANDXORNOTAND
+import "../../bitwise/32/andxorandxorand" as ANDXORANDXORAND
+import "./add" as ADD2
+
+def ADD5(field[32] a, field[32] b, field[32] c, field[32] d, field[32] e) -> (field[32]):
+	ab = ADD2(a, b)
+	cd = ADD2(c, d)
+	abcd = ADD2(ab, cd)
+	abcde = ADD2(abcd, e)
+	return abcde
+
+def main(field[32] k, field[32] w, field[32] a, field[32] b, field[32] c, field[32] d, field[32] e, field[32] f, field[32] g, field[32] h) -> (field[32], field[32], field[32], field[32], field[32], field[32], field[32], field[32]):
+	
+	// S1 := (e rightrotate 6) xor (e rightrotate 11) xor (e rightrotate 25)
+	SOne = AR6XAR11XAR25(e)
+	
+	// ch := (e and f) xor ((not e) and g)
+	ch = ANDXORNOTAND(e, f, g)
+	
+	// temp1 := h + S1 + ch + k[i] + w[i]
+	tempOne = ADD5(h, SOne, ch, k, w)
+	
+	// S0 := (a rightrotate 2) xor (a rightrotate 13) xor (a rightrotate 22)
+	SZero = AR2XAR13XAR22(a)
+	
+	// maj := (a and b) xor (a and c) xor (b and c)
+	maj = ANDXORANDXORAND(a, b, c)
+	
+	// temp2 := S0 + maj
+	tempTwo = ADD2(SZero, maj)
+	
+	// en := d + temp1
+	en = ADD2(d, tempOne)
+	
+	// an := temp1 + temp2
+	an = ADD2(tempOne, tempTwo)
+	
+	return an, a, b, c, en, e, f, g

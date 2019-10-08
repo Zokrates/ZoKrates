@@ -1,0 +1,20 @@
+// EXTEND
+
+import "./ar7xar18xars3" as AR7XAR18XAR3
+import "./ar17xar19xars10" as AR17XAR19XAR10
+import "./add" as ADD
+
+def ADD(field[32] a, field[32] b, field[32] c, field[32] d) -> (field[32]):
+	ab = ADD(a, b)
+	cd = ADD(c, d)
+	abcd = ADD(ab, cd)
+	return abcd
+
+def main(field[32] wm15, field[32] wm2, field[32] wm16, field[32] wm7) -> (field[32]):
+	// s0 := (w[i-15] rightrotate 7) xor (w[i-15] rightrotate 18) xor (w[i-15] rightshift 3)
+	szero = AR7XAR18XAR3(wm15)
+	// s1 := (w[i-2] rightrotate 17) xor (w[i-2] rightrotate 19) xor (w[i-2] rightshift 10)
+	sone = AR17XAR19XAR10(wm2)
+	// w[i] := w[i-16] + s0 + w[i-7] + s1
+	wfb = ADD(wm16, szero, wm7, sone)
+	return wfb

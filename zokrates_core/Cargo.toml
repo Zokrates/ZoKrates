@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_core"
-version = "0.3.14"
+version = "0.4.0"
 authors = ["Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>", "Dennis Kuhnert <mail@kyroy.com>"]
 repository = "https://github.com/JacobEberhardt/ZoKrates"
 readme = "README.md"
@@ -15,7 +15,8 @@ wasm = ["wasmi", "parity-wasm", "rustc-hex"]
 libc = "0.2.0"
 num = {version = "0.1.36", default-features = false}
 num-bigint = {version = "0.1.36", default-features = false}
-lazy_static = "0.1.*"
+lazy_static = "1.4"
+typed-arena = "1.4.1"
 reduce = "0.1.1"
 # serialization and deserialization
 serde = "1.0"

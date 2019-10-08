@@ -9,12 +9,13 @@ extern crate lazy_static;
 
 pub use ast::{
     Access, ArrayAccess, ArrayInitializerExpression, ArrayType, AssertionStatement, Assignee,
-    AssignmentStatement, BasicType, BinaryExpression, BinaryOperator, CallAccess,
-    ConstantExpression, DefinitionStatement, Expression, File, FromExpression, Function,
-    IdentifierExpression, ImportDirective, ImportSource, InlineArrayExpression, IterationStatement,
+    AssigneeAccess, AssignmentStatement, BasicOrStructType, BasicType, BinaryExpression,
+    BinaryOperator, CallAccess, ConstantExpression, DefinitionStatement, Expression, File,
+    FromExpression, Function, IdentifierExpression, ImportDirective, ImportSource,
+    InlineArrayExpression, InlineStructExpression, InlineStructMember, IterationStatement,
     MultiAssignmentStatement, Parameter, PostfixExpression, Range, RangeOrExpression,
-    ReturnStatement, Span, Spread, SpreadOrExpression, Statement, TernaryExpression, ToExpression,
-    Type, UnaryExpression, UnaryOperator, Visibility,
+    ReturnStatement, Span, Spread, SpreadOrExpression, Statement, StructDefinition, StructField,
+    TernaryExpression, ToExpression, Type, UnaryExpression, UnaryOperator, Visibility,
 };
 
 mod ast {
@@ -121,6 +122,9 @@ mod ast {
                     Rule::postfix_expression => Expression::Postfix(
                         PostfixExpression::from_pest(&mut pair.into_inner()).unwrap(),
                     ),
+                    Rule::inline_struct_expression => Expression::InlineStruct(
+                        InlineStructExpression::from_pest(&mut pair.into_inner()).unwrap(),
+                    ),
                     Rule::inline_array_expression => Expression::InlineArray(
                         InlineArrayExpression::from_pest(&mut pair.into_inner()).unwrap(),
                     ),
@@ -155,8 +159,27 @@ mod ast {
     #[pest_ast(rule(Rule::file))]
     pub struct File<'ast> {
         pub imports: Vec<ImportDirective<'ast>>,
+        pub structs: Vec<StructDefinition<'ast>>,
         pub functions: Vec<Function<'ast>>,
         pub eoi: EOI,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::ty_struct_definition))]
+    pub struct StructDefinition<'ast> {
+        pub id: IdentifierExpression<'ast>,
+        pub fields: Vec<StructField<'ast>>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::struct_field))]
+    pub struct StructField<'ast> {
+        pub ty: Type<'ast>,
+        pub id: IdentifierExpression<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -174,8 +197,25 @@ mod ast {
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::import_directive))]
-    pub struct ImportDirective<'ast> {
+    pub enum ImportDirective<'ast> {
+        Main(MainImportDirective<'ast>),
+        From(FromImportDirective<'ast>),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::main_import_directive))]
+    pub struct MainImportDirective<'ast> {
         pub source: ImportSource<'ast>,
+        pub alias: Option<IdentifierExpression<'ast>>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::from_import_directive))]
+    pub struct FromImportDirective<'ast> {
+        pub source: ImportSource<'ast>,
+        pub symbol: IdentifierExpression<'ast>,
         pub alias: Option<IdentifierExpression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
@@ -195,31 +235,50 @@ mod ast {
     pub enum Type<'ast> {
         Basic(BasicType<'ast>),
         Array(ArrayType<'ast>),
+        Struct(StructType<'ast>),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_basic))]
     pub enum BasicType<'ast> {
-        Field(FieldType),
+        Field(FieldType<'ast>),
         Boolean(BooleanType<'ast>),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_field))]
-    pub struct FieldType {}
-
-    #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::ty_array))]
-    pub struct ArrayType<'ast> {
-        pub ty: BasicType<'ast>,
-        pub size: Expression<'ast>,
+    pub struct FieldType<'ast> {
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::ty_array))]
+    pub struct ArrayType<'ast> {
+        pub ty: BasicOrStructType<'ast>,
+        pub dimensions: Vec<Expression<'ast>>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::ty_basic_or_struct))]
+    pub enum BasicOrStructType<'ast> {
+        Struct(StructType<'ast>),
+        Basic(BasicType<'ast>),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_bool))]
     pub struct BooleanType<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::ty_struct))]
+    pub struct StructType<'ast> {
+        pub id: IdentifierExpression<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -356,6 +415,7 @@ mod ast {
         Identifier(IdentifierExpression<'ast>),
         Constant(ConstantExpression<'ast>),
         InlineArray(InlineArrayExpression<'ast>),
+        InlineStruct(InlineStructExpression<'ast>),
         ArrayInitializer(ArrayInitializerExpression<'ast>),
         Unary(UnaryExpression<'ast>),
     }
@@ -403,7 +463,7 @@ mod ast {
     #[pest_ast(rule(Rule::postfix_expression))]
     pub struct PostfixExpression<'ast> {
         pub id: IdentifierExpression<'ast>,
-        pub access: Vec<Access<'ast>>,
+        pub accesses: Vec<Access<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -421,6 +481,24 @@ mod ast {
     #[pest_ast(rule(Rule::inline_array_expression))]
     pub struct InlineArrayExpression<'ast> {
         pub expressions: Vec<SpreadOrExpression<'ast>>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::inline_struct_expression))]
+    pub struct InlineStructExpression<'ast> {
+        pub ty: IdentifierExpression<'ast>,
+        pub members: Vec<InlineStructMember<'ast>>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::inline_struct_member))]
+    pub struct InlineStructMember<'ast> {
+        pub id: IdentifierExpression<'ast>,
+        pub expression: Expression<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -448,6 +526,14 @@ mod ast {
     pub enum Access<'ast> {
         Call(CallAccess<'ast>),
         Select(ArrayAccess<'ast>),
+        Member(MemberAccess<'ast>),
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::assignee_access))]
+    pub enum AssigneeAccess<'ast> {
+        Select(ArrayAccess<'ast>),
+        Member(MemberAccess<'ast>),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
@@ -462,6 +548,14 @@ mod ast {
     #[pest_ast(rule(Rule::array_access))]
     pub struct ArrayAccess<'ast> {
         pub expression: RangeOrExpression<'ast>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::member_access))]
+    pub struct MemberAccess<'ast> {
+        pub id: IdentifierExpression<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -521,6 +615,7 @@ mod ast {
                 Expression::Ternary(t) => &t.span,
                 Expression::Postfix(p) => &p.span,
                 Expression::InlineArray(a) => &a.span,
+                Expression::InlineStruct(s) => &s.span,
                 Expression::ArrayInitializer(a) => &a.span,
                 Expression::Unary(u) => &u.span,
             }
@@ -596,8 +691,8 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::assignee))]
     pub struct Assignee<'ast> {
-        pub id: IdentifierExpression<'ast>,        // a
-        pub indices: Vec<RangeOrExpression<'ast>>, // [42 + x][31][7]
+        pub id: IdentifierExpression<'ast>,      // a
+        pub accesses: Vec<AssigneeAccess<'ast>>, // [42 + x].foo[7]
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -644,9 +739,8 @@ mod tests {
         use glob::glob;
         use std::fs;
         use std::io::Read;
-        // Traverse all .code files in examples dir
-        for entry in
-            glob("../zokrates_cli/examples/**/*.code").expect("Failed to read glob pattern")
+        // Traverse all .zok files in examples dir
+        for entry in glob("../zokrates_cli/examples/**/*.zok").expect("Failed to read glob pattern")
         {
             match entry {
                 Ok(path) => {
@@ -700,13 +794,16 @@ mod tests {
         assert_eq!(
             generate_ast(&source),
             Ok(File {
+                structs: vec![],
                 functions: vec![Function {
                     id: IdentifierExpression {
                         value: String::from("main"),
                         span: Span::new(&source, 33, 37).unwrap()
                     },
                     parameters: vec![],
-                    returns: vec![Type::Basic(BasicType::Field(FieldType {}))],
+                    returns: vec![Type::Basic(BasicType::Field(FieldType {
+                        span: Span::new(&source, 44, 49).unwrap()
+                    }))],
                     statements: vec![Statement::Return(ReturnStatement {
                         expressions: vec![Expression::add(
                             Expression::Constant(ConstantExpression::DecimalNumber(
@@ -727,14 +824,14 @@ mod tests {
                     })],
                     span: Span::new(&source, 29, source.len()).unwrap(),
                 }],
-                imports: vec![ImportDirective {
+                imports: vec![ImportDirective::Main(MainImportDirective {
                     source: ImportSource {
                         value: String::from("foo"),
                         span: Span::new(&source, 8, 11).unwrap()
                     },
                     alias: None,
                     span: Span::new(&source, 0, 29).unwrap()
-                }],
+                })],
                 eoi: EOI {},
                 span: Span::new(&source, 0, 65).unwrap()
             })
@@ -749,13 +846,16 @@ mod tests {
         assert_eq!(
             generate_ast(&source),
             Ok(File {
+                structs: vec![],
                 functions: vec![Function {
                     id: IdentifierExpression {
                         value: String::from("main"),
                         span: Span::new(&source, 33, 37).unwrap()
                     },
                     parameters: vec![],
-                    returns: vec![Type::Basic(BasicType::Field(FieldType {}))],
+                    returns: vec![Type::Basic(BasicType::Field(FieldType {
+                        span: Span::new(&source, 44, 49).unwrap()
+                    }))],
                     statements: vec![Statement::Return(ReturnStatement {
                         expressions: vec![Expression::add(
                             Expression::Constant(ConstantExpression::DecimalNumber(
@@ -794,14 +894,14 @@ mod tests {
                     })],
                     span: Span::new(&source, 29, 74).unwrap(),
                 }],
-                imports: vec![ImportDirective {
+                imports: vec![ImportDirective::Main(MainImportDirective {
                     source: ImportSource {
                         value: String::from("foo"),
                         span: Span::new(&source, 8, 11).unwrap()
                     },
                     alias: None,
                     span: Span::new(&source, 0, 29).unwrap()
-                }],
+                })],
                 eoi: EOI {},
                 span: Span::new(&source, 0, 74).unwrap()
             })
@@ -816,13 +916,16 @@ mod tests {
         assert_eq!(
             generate_ast(&source),
             Ok(File {
+                structs: vec![],
                 functions: vec![Function {
                     id: IdentifierExpression {
                         value: String::from("main"),
                         span: Span::new(&source, 33, 37).unwrap()
                     },
                     parameters: vec![],
-                    returns: vec![Type::Basic(BasicType::Field(FieldType {}))],
+                    returns: vec![Type::Basic(BasicType::Field(FieldType {
+                        span: Span::new(&source, 44, 49).unwrap()
+                    }))],
                     statements: vec![Statement::Return(ReturnStatement {
                         expressions: vec![Expression::if_else(
                             Expression::Constant(ConstantExpression::DecimalNumber(
@@ -849,14 +952,14 @@ mod tests {
                     })],
                     span: Span::new(&source, 29, 81).unwrap(),
                 }],
-                imports: vec![ImportDirective {
+                imports: vec![ImportDirective::Main(MainImportDirective {
                     source: ImportSource {
                         value: String::from("foo"),
                         span: Span::new(&source, 8, 11).unwrap()
                     },
                     alias: None,
                     span: Span::new(&source, 0, 29).unwrap()
-                }],
+                })],
                 eoi: EOI {},
                 span: Span::new(&source, 0, 81).unwrap()
             })
@@ -870,13 +973,16 @@ mod tests {
         assert_eq!(
             generate_ast(&source),
             Ok(File {
+                structs: vec![],
                 functions: vec![Function {
                     id: IdentifierExpression {
                         value: String::from("main"),
                         span: Span::new(&source, 4, 8).unwrap()
                     },
                     parameters: vec![],
-                    returns: vec![Type::Basic(BasicType::Field(FieldType {}))],
+                    returns: vec![Type::Basic(BasicType::Field(FieldType {
+                        span: Span::new(&source, 15, 20).unwrap()
+                    }))],
                     statements: vec![Statement::Return(ReturnStatement {
                         expressions: vec![Expression::Constant(ConstantExpression::DecimalNumber(
                             DecimalNumberExpression {
@@ -902,13 +1008,16 @@ mod tests {
         assert_eq!(
             generate_ast(&source),
             Ok(File {
+                structs: vec![],
                 functions: vec![Function {
                     id: IdentifierExpression {
                         value: String::from("main"),
                         span: Span::new(&source, 4, 8).unwrap()
                     },
                     parameters: vec![],
-                    returns: vec![Type::Basic(BasicType::Field(FieldType {}))],
+                    returns: vec![Type::Basic(BasicType::Field(FieldType {
+                        span: Span::new(&source, 15, 20).unwrap()
+                    }))],
                     statements: vec![Statement::MultiAssignment(MultiAssignmentStatement {
                         function_id: IdentifierExpression {
                             value: String::from("foo"),
@@ -916,7 +1025,9 @@ mod tests {
                         },
                         lhs: vec![
                             OptionallyTypedIdentifier {
-                                ty: Some(Type::Basic(BasicType::Field(FieldType {}))),
+                                ty: Some(Type::Basic(BasicType::Field(FieldType {
+                                    span: Span::new(&source, 23, 28).unwrap()
+                                }))),
                                 id: IdentifierExpression {
                                     value: String::from("a"),
                                     span: Span::new(&source, 29, 30).unwrap(),
@@ -969,13 +1080,19 @@ mod tests {
     #[test]
     fn playground() {
         let source = r#"import "heyman" as yo
+
+        struct Foo {
+            field[2] foo
+            Bar bar
+        }
+
         def main(private field[23] a) -> (bool[234 + 6]):
         field a = 1
         a[32 + x][55] = y
         for field i in 0..3 do
                a == 1 + 2 + 3+ 4+ 5+ 6+ 6+ 7+ 8 + 4+ 5+ 3+ 4+ 2+ 3 
         endfor
-        a == 1
+        a.member == 1
         return a
 "#;
         let res = generate_ast(&source);

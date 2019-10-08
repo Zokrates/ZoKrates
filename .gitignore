@@ -4,11 +4,9 @@
 
 # ZoKrates default files
 out
-out.code
-out.wit
+out.ztf
 proof.json
 proving.key
-variables.inf
 verification.key
 verifier.sol
 proof.json

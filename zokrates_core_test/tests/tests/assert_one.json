@@ -1,0 +1,18 @@
+{
+	"entry_point": "./tests/tests/assert_one.zok",
+	"tests": [
+		{
+			"input": {
+				"values": ["0"]
+			},
+			"output": {
+				"Err": {
+					"UnsatisfiedConstraint": {
+						"left": "1",
+						"right": "0"
+					}
+				}
+			}
+		}
+	]
+}
