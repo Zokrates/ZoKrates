@@ -36,13 +36,13 @@ impl fmt::Debug for Type {
         match self {
             Type::FieldElement => write!(f, "field"),
             Type::Boolean => write!(f, "bool"),
-            Type::Array(ref ty, ref size) => write!(f, "{}[{}]", ty, size),
+            Type::Array(ref ty, ref size) => write!(f, "{:?}[{:?}]", ty, size),
             Type::Struct(ref members) => write!(
                 f,
                 "{{{}}}",
                 members
                     .iter()
-                    .map(|(id, t)| format!("{}: {}", id, t))
+                    .map(|(id, t)| format!("{:?}: {:?}", id, t))
                     .collect::<Vec<_>>()
                     .join(", ")
             ),

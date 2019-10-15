@@ -80,12 +80,12 @@ impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Expression<'a
 impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for ExpressionList<'ast, T> {}
 impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Assignee<'ast, T> {}
 impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Statement<'ast, T> {}
-impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for SymbolDeclaration<'ast, T> {}
+impl<'ast, T: Field> NodeValue for SymbolDeclaration<'ast, T> {}
 impl NodeValue for UnresolvedType {}
 impl<'ast> NodeValue for StructType<'ast> {}
 impl<'ast> NodeValue for StructField<'ast> {}
 impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Function<'ast, T> {}
-impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Module<'ast, T> {}
+impl<'ast, T: Field> NodeValue for Module<'ast, T> {}
 impl<'ast> NodeValue for SymbolImport<'ast> {}
 impl<'ast> NodeValue for Variable<'ast> {}
 impl<'ast> NodeValue for Parameter<'ast> {}
