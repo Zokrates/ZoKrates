@@ -93,7 +93,7 @@ impl<'ast> NodeValue for Import<'ast> {}
 impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Spread<'ast, T> {}
 impl<T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Range<T> {}
 
-impl<T: NodeValue> std::cmp::PartialEq for Node<T> {
+impl<T: PartialEq> PartialEq for Node<T> {
     fn eq(&self, other: &Node<T>) -> bool {
         self.value.eq(&other.value)
     }

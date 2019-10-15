@@ -42,13 +42,19 @@ pub struct Program<'ast, T> {
 }
 
 /// A declaration of a `FunctionSymbol`, be it from an import or a function definition
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Clone)]
 pub struct SymbolDeclaration<'ast, T> {
     pub id: Identifier<'ast>,
     pub symbol: Symbol<'ast, T>,
 }
 
-#[derive(PartialEq, Debug, Clone)]
+impl<'ast, T: fmt::Display + fmt::Debug> fmt::Debug for SymbolDeclaration<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "SymbolDeclaration({:?}, {:?})", self.id, self.symbol)
+    }
+}
+
+#[derive(PartialEq, Clone)]
 pub enum Symbol<'ast, T> {
     HereType(StructTypeNode<'ast>),
     HereFunction(FunctionNode<'ast, T>),
@@ -56,7 +62,19 @@ pub enum Symbol<'ast, T> {
     Flat(FlatEmbed),
 }
 
-impl<'ast, T: fmt::Display> fmt::Display for SymbolDeclaration<'ast, T> {
+impl<'ast, T: fmt::Display + fmt::Debug> fmt::Debug for Symbol<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Symbol::HereType(t) => write!(f, "HereType({:?})", t),
+            Symbol::HereFunction(fun) => write!(f, "HereFunction({:?})", fun),
+            Symbol::There(t) => write!(f, "There({:?})", t),
+            Symbol::Flat(flat) => write!(f, "Flat({:?})", flat)
+        }
+    }
+}
+
+// Note: deriving should work here, but it seems like the bounds are not infered correctly
+impl<'ast, T: fmt::Display + fmt::Debug> fmt::Display for SymbolDeclaration<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.symbol {
             Symbol::HereType(ref t) => write!(f, "struct {} {}", self.id, t),
@@ -66,7 +84,7 @@ impl<'ast, T: fmt::Display> fmt::Display for SymbolDeclaration<'ast, T> {
                 f,
                 "def {}{}:\n\t// hidden",
                 self.id,
-                flat_fun.signature::<T>()
+                "TODO"
             ),
         }
     }
@@ -164,7 +182,7 @@ impl<'ast> fmt::Display for SymbolImport<'ast> {
     }
 }
 
-impl<'ast, T: fmt::Display> fmt::Display for Module<'ast, T> {
+impl<'ast, T: fmt::Display + fmt::Debug> fmt::Display for Module<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut res = vec![];
         res.extend(
@@ -183,7 +201,7 @@ impl<'ast, T: fmt::Display> fmt::Display for Module<'ast, T> {
     }
 }
 
-impl<'ast, T: fmt::Debug> fmt::Debug for Module<'ast, T> {
+impl<'ast, T: fmt::Display + fmt::Debug> fmt::Debug for Module<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -215,7 +233,7 @@ pub struct Function<'ast, T> {
 
 pub type FunctionNode<'ast, T> = Node<Function<'ast, T>>;
 
-impl<'ast, T: fmt::Display> fmt::Display for Function<'ast, T> {
+impl<'ast, T: fmt::Display + fmt::Debug> fmt::Display for Function<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -234,7 +252,7 @@ impl<'ast, T: fmt::Display> fmt::Display for Function<'ast, T> {
     }
 }
 
-impl<'ast, T: fmt::Debug> fmt::Debug for Function<'ast, T> {
+impl<'ast, T: fmt::Display + fmt::Debug> fmt::Debug for Function<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -259,7 +277,7 @@ pub enum Assignee<'ast, T> {
 
 pub type AssigneeNode<'ast, T> = Node<Assignee<'ast, T>>;
 
-impl<'ast, T: fmt::Debug> fmt::Debug for Assignee<'ast, T> {
+impl<'ast, T: fmt::Display + fmt::Debug> fmt::Debug for Assignee<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Assignee::Identifier(ref s) => write!(f, "Identifier({:?})", s),
@@ -269,7 +287,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for Assignee<'ast, T> {
     }
 }
 
-impl<'ast, T: fmt::Display> fmt::Display for Assignee<'ast, T> {
+impl<'ast, T: fmt::Display + fmt::Debug> fmt::Display for Assignee<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
     }
@@ -288,7 +306,7 @@ pub enum Statement<'ast, T> {
 
 pub type StatementNode<'ast, T> = Node<Statement<'ast, T>>;
 
-impl<'ast, T: fmt::Display> fmt::Display for Statement<'ast, T> {
+impl<'ast, T: fmt::Display + fmt::Debug> fmt::Display for Statement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Statement::Return(ref expr) => write!(f, "return {}", expr),
@@ -315,7 +333,7 @@ impl<'ast, T: fmt::Display> fmt::Display for Statement<'ast, T> {
     }
 }
 
-impl<'ast, T: fmt::Debug> fmt::Debug for Statement<'ast, T> {
+impl<'ast, T: fmt::Display + fmt::Debug> fmt::Debug for Statement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Statement::Return(ref expr) => write!(f, "Return({:?})", expr),
@@ -351,7 +369,7 @@ impl<'ast, T: Field> From<ExpressionNode<'ast, T>> for SpreadOrExpression<'ast, 
     }
 }
 
-impl<'ast, T: fmt::Display> fmt::Display for SpreadOrExpression<'ast, T> {
+impl<'ast, T: fmt::Display + fmt::Debug> fmt::Display for SpreadOrExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             SpreadOrExpression::Spread(ref s) => write!(f, "{}", s),
@@ -360,7 +378,7 @@ impl<'ast, T: fmt::Display> fmt::Display for SpreadOrExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: fmt::Debug> fmt::Debug for SpreadOrExpression<'ast, T> {
+impl<'ast, T: fmt::Display + fmt::Debug> fmt::Debug for SpreadOrExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             SpreadOrExpression::Spread(ref s) => write!(f, "{:?}", s),
@@ -376,7 +394,7 @@ pub enum RangeOrExpression<'ast, T> {
     Expression(ExpressionNode<'ast, T>),
 }
 
-impl<'ast, T: fmt::Display> fmt::Display for RangeOrExpression<'ast, T> {
+impl<'ast, T: fmt::Display + fmt::Debug> fmt::Display for RangeOrExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             RangeOrExpression::Range(ref s) => write!(f, "{}", s),
@@ -385,7 +403,7 @@ impl<'ast, T: fmt::Display> fmt::Display for RangeOrExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: fmt::Debug> fmt::Debug for RangeOrExpression<'ast, T> {
+impl<'ast, T: fmt::Display + fmt::Debug> fmt::Debug for RangeOrExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             RangeOrExpression::Range(ref s) => write!(f, "{:?}", s),
@@ -396,13 +414,13 @@ impl<'ast, T: fmt::Debug> fmt::Debug for RangeOrExpression<'ast, T> {
 
 pub type SpreadNode<'ast, T> = Node<Spread<'ast, T>>;
 
-impl<'ast, T: fmt::Display> fmt::Display for Spread<'ast, T> {
+impl<'ast, T: fmt::Display + fmt::Debug> fmt::Display for Spread<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "...{}", self.expression)
     }
 }
 
-impl<'ast, T: fmt::Debug> fmt::Debug for Spread<'ast, T> {
+impl<'ast, T: fmt::Display + fmt::Debug> fmt::Debug for Spread<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Spread({:?})", self.expression)
     }
@@ -423,7 +441,7 @@ pub struct Range<T> {
 
 pub type RangeNode<T> = Node<Range<T>>;
 
-impl<'ast, T: fmt::Display> fmt::Display for Range<T> {
+impl<'ast, T: fmt::Display + fmt::Debug> fmt::Display for Range<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -440,7 +458,7 @@ impl<'ast, T: fmt::Display> fmt::Display for Range<T> {
     }
 }
 
-impl<'ast, T: fmt::Debug> fmt::Debug for Range<T> {
+impl<'ast, T: fmt::Display + fmt::Debug> fmt::Debug for Range<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Range({:?}, {:?})", self.from, self.to)
     }
@@ -482,7 +500,7 @@ pub enum Expression<'ast, T> {
 
 pub type ExpressionNode<'ast, T> = Node<Expression<'ast, T>>;
 
-impl<'ast, T: fmt::Display> fmt::Display for Expression<'ast, T> {
+impl<'ast, T: fmt::Display + fmt::Debug> fmt::Display for Expression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Expression::FieldConstant(ref i) => write!(f, "{}", i),
@@ -542,7 +560,7 @@ impl<'ast, T: fmt::Display> fmt::Display for Expression<'ast, T> {
     }
 }
 
-impl<'ast, T: fmt::Debug> fmt::Debug for Expression<'ast, T> {
+impl<'ast, T: fmt::Display + fmt::Debug> fmt::Debug for Expression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Expression::FieldConstant(ref i) => write!(f, "Num({})", i),
@@ -605,7 +623,7 @@ impl<'ast, T> ExpressionList<'ast, T> {
     }
 }
 
-impl<'ast, T: fmt::Display> fmt::Display for ExpressionList<'ast, T> {
+impl<'ast, T: fmt::Display + fmt::Debug> fmt::Display for ExpressionList<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (i, param) in self.expressions.iter().enumerate() {
             write!(f, "{}", param)?;
@@ -617,7 +635,7 @@ impl<'ast, T: fmt::Display> fmt::Display for ExpressionList<'ast, T> {
     }
 }
 
-impl<'ast, T: fmt::Debug> fmt::Debug for ExpressionList<'ast, T> {
+impl<'ast, T: fmt::Display + fmt::Debug> fmt::Debug for ExpressionList<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "ExpressionList({:?})", self.expressions)
     }
