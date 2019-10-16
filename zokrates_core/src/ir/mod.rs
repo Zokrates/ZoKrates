@@ -2,6 +2,7 @@ use crate::flat_absy::flat_parameter::FlatParameter;
 use crate::flat_absy::FlatVariable;
 use crate::helpers::Helper;
 use std::fmt;
+use typed_absy::types::signature::Signature;
 use zokrates_field::field::Field;
 
 mod expression;
@@ -104,6 +105,7 @@ impl<T: Field> fmt::Display for Function<T> {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Prog<T: Field> {
+    pub signature: Signature,
     pub main: Function<T>,
     pub private: Vec<bool>,
 }
@@ -120,12 +122,8 @@ impl<T: Field> Prog<T> {
             .count()
     }
 
-    pub fn public_arguments_count(&self) -> usize {
-        self.private.iter().filter(|b| !**b).count()
-    }
-
-    pub fn private_arguments_count(&self) -> usize {
-        self.private.iter().filter(|b| **b).count()
+    pub fn arguments_count(&self) -> usize {
+        self.private.len()
     }
 
     pub fn parameters(&self) -> Vec<FlatParameter> {

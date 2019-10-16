@@ -114,6 +114,26 @@ mod tests {
         }
 
         #[test]
+        fn parse_single_def_to_multi() {
+            parses_to! {
+                parser: ZoKratesParser,
+                input: r#"a = foo()
+            "#,
+                rule: Rule::statement,
+                tokens: [
+                    statement(0, 22, [
+                        multi_assignment_statement(0, 9, [
+                            optionally_typed_identifier(0, 1, [
+                                identifier(0, 1)
+                            ]),
+                            identifier(4, 7),
+                        ])
+                    ])
+                ]
+            };
+        }
+
+        #[test]
         fn parse_invalid_identifier() {
             fails_with! {
                 parser: ZoKratesParser,
@@ -122,6 +142,50 @@ mod tests {
                 positives: vec![Rule::identifier],
                 negatives: vec![],
                 pos: 0
+            };
+        }
+
+        #[test]
+        fn parse_struct_def() {
+            parses_to! {
+                parser: ZoKratesParser,
+                input: "struct Foo { field foo\n field[2] bar }
+                ",
+                rule: Rule::ty_struct_definition,
+                tokens: [
+                    ty_struct_definition(0, 39, [
+                        identifier(7, 10),
+                        struct_field(13, 22, [
+                            ty(13, 18, [
+                                ty_basic(13, 18, [
+                                    ty_field(13, 18)
+                                ])
+                            ]),
+                            identifier(19, 22)
+                        ]),
+                        struct_field(24, 36, [
+                            ty(24, 33, [
+                                ty_array(24, 33, [
+                                    ty_basic_or_struct(24, 29, [
+                                        ty_basic(24, 29, [
+                                            ty_field(24, 29)
+                                        ])
+                                    ]),
+                                    expression(30, 31, [
+                                        term(30, 31, [
+                                            primary_expression(30, 31, [
+                                                constant(30, 31, [
+                                                    decimal_number(30, 31)
+                                                ])
+                                            ])
+                                        ])
+                                    ])
+                                ])
+                            ]),
+                            identifier(33, 36)
+                        ])
+                    ])
+                ]
             };
         }
 

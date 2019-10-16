@@ -5,7 +5,7 @@ use flat_absy::{
 };
 use reduce::Reduce;
 use std::collections::HashMap;
-use types::{FunctionKey, Signature, Type};
+use typed_absy::types::{FunctionKey, Signature, Type};
 use zokrates_embed::{generate_sha256_round_constraints, BellmanConstraint};
 use zokrates_field::field::Field;
 
@@ -419,9 +419,15 @@ mod tests {
             let prog = crate::ir::Prog {
                 main: f,
                 private: vec![true; 768],
+                signature: Signature::new()
+                    .inputs(vec![Type::FieldElement; 768])
+                    .outputs(vec![Type::FieldElement; 256]),
             };
 
-            let input = (0..512).map(|_| 0).chain((0..256).map(|_| 1)).collect();
+            let input = (0..512)
+                .map(|_| FieldPrime::from(0))
+                .chain((0..256).map(|_| FieldPrime::from(1)))
+                .collect();
 
             prog.execute(&input).unwrap();
         }
