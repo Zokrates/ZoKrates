@@ -740,14 +740,17 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 statements_flattened.push(FlatStatement::Definition(
                     name_x_mult_x,
-                    FlatExpression::Mult(box FlatExpression::Identifier(name_x_sub_y), box FlatExpression::Identifier(name_x_sub_y))
+                    FlatExpression::Mult(
+                        box FlatExpression::Identifier(name_x_sub_y),
+                        box FlatExpression::Identifier(name_x_sub_y),
+                    ),
                 ));
 
                 FlatExpression::Sub(
                     box FlatExpression::Number(T::one()),
-                    box FlatExpression::Identifier(name_x_mult_x)
+                    box FlatExpression::Identifier(name_x_mult_x),
                 )
-            },
+            }
             BooleanExpression::Eq(box lhs, box rhs) => {
                 // We know from semantic checking that lhs and rhs have the same type
                 // What the expression will flatten to depends on that type
