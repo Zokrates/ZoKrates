@@ -538,17 +538,30 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 FlatExpression::Identifier(sub_bits_be[bitwidth - 1])
             }
-            BooleanExpression::BoolEq(box lhs, box rhs) => self.flatten_boolean_expression(
-                symbols,
-                statements_flattened,
-                BooleanExpression::Or(
-                    box BooleanExpression::And(box lhs.clone(), box rhs.clone()), 
-                    box BooleanExpression::And(
-                        box BooleanExpression::Not(box lhs), 
-                        box BooleanExpression::Not(box rhs)
-                    ),
+            BooleanExpression::BoolEq(box lhs, box rhs) => {
+                // Wanted: Not((x-y)^2) / (1 - (x-y)^2)
+                let x = self.flatten_boolean_expression(symbols, statements_flattened, lhs);
+                let y = self.flatten_boolean_expression(symbols, statements_flattened, rhs);
+
+                let name_x_sub_y = self.use_sym();
+                let name_x_mult_x = self.use_sym();
+
+                assert!(x.is_linear() && y.is_linear());
+                statements_flattened.push(FlatStatement::Definition(
+                    name_x_sub_y,
+                    FlatExpression::Sub(box x, box y),
+                ));
+
+                statements_flattened.push(FlatStatement::Definition(
+                    name_x_mult_x,
+                    FlatExpression::Mult(box FlatExpression::Identifier(name_x_sub_y), box FlatExpression::Identifier(name_x_sub_y))
+                ));
+
+                FlatExpression::Sub(
+                    box FlatExpression::Number(T::one()),
+                    box FlatExpression::Identifier(name_x_mult_x)
                 )
-            ),
+            },
             BooleanExpression::Eq(box lhs, box rhs) => {
                 // We know from semantic checking that lhs and rhs have the same type
                 // What the expression will flatten to depends on that type
