@@ -725,7 +725,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 FlatExpression::Identifier(sub_bits_be[bitwidth - 1])
             }
             BooleanExpression::BoolEq(box lhs, box rhs) => {
-                // Wanted: Not((x-y)^2) / (1 - (x-y)^2)
+                // Wanted: Not((x-y)^2)
                 let x = self.flatten_boolean_expression(symbols, statements_flattened, lhs);
                 let y = self.flatten_boolean_expression(symbols, statements_flattened, rhs);
 
