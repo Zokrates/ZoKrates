@@ -725,24 +725,32 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 FlatExpression::Identifier(sub_bits_be[bitwidth - 1])
             }
             BooleanExpression::BoolEq(box lhs, box rhs) => {
-                // Wanted: Not((x-y)^2)
+                // lhs and rhs are booleans, they flatten to 0 or 1
                 let x = self.flatten_boolean_expression(symbols, statements_flattened, lhs);
                 let y = self.flatten_boolean_expression(symbols, statements_flattened, rhs);
+                // Wanted: Not(X - Y)**2 which is an XNOR 
+                // We know that X and Y are [0, 1]
+                // (X - Y) can become a negative values, which is why squaring the result is needed
+                // Negating this returns correct result
+                
+                // Non-binary Truth table for logic of operation
+                // +---+---+-------+---------------+
+                // | X | Y | X - Y | Not(X - Y)**2 |
+                // +---+---+-------+---------------+
+                // | 1 | 1 |     0 |             1 |
+                // | 1 | 0 |     1 |             0 |
+                // | 0 | 1 |    -1 |             0 |
+                // | 0 | 0 |     0 |             1 |
+                // +---+---+-------+---------------+
 
-                let name_x_sub_y = self.use_sym();
+                let x_sub_y =  FlatExpression::Sub(box x, box y);
                 let name_x_mult_x = self.use_sym();
-
-                assert!(x.is_linear() && y.is_linear());
-                statements_flattened.push(FlatStatement::Definition(
-                    name_x_sub_y,
-                    FlatExpression::Sub(box x, box y),
-                ));
 
                 statements_flattened.push(FlatStatement::Definition(
                     name_x_mult_x,
                     FlatExpression::Mult(
-                        box FlatExpression::Identifier(name_x_sub_y),
-                        box FlatExpression::Identifier(name_x_sub_y),
+                        box x_sub_y.clone(),
+                        box x_sub_y,
                     ),
                 ));
 
