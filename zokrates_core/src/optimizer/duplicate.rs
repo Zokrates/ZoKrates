@@ -3,7 +3,7 @@
 use crate::ir::folder::Folder;
 use crate::ir::*;
 use std::collections::{hash_map::DefaultHasher, HashSet};
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 type Hash = u64;
 
@@ -50,13 +50,13 @@ mod tests {
     use super::*;
     use flat_absy::FlatVariable;
     use typed_absy::types::Signature;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[test]
     fn identity() {
         use num::Zero;
 
-        let p: Prog<FieldPrime> = Prog {
+        let p: Prog<Bn128Field> = Prog {
             private: vec![],
             main: Function {
                 id: "main".to_string(),
@@ -99,7 +99,7 @@ mod tests {
             LinComb::one(),
         );
 
-        let p: Prog<FieldPrime> = Prog {
+        let p: Prog<Bn128Field> = Prog {
             private: vec![],
             main: Function {
                 id: "main".to_string(),

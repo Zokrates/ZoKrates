@@ -6,7 +6,7 @@ use serde::{Deserialize, Deserializer};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 use wasmi::{ImportsBuilder, ModuleInstance, ModuleRef, NopExternals};
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct WasmHelper(
@@ -217,7 +217,7 @@ mod tests {
     use parity_wasm::builder::*;
     use parity_wasm::elements::{Instruction, Instructions, ValueType};
     use std::panic;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     fn remove_export(code: &str, symbol: &str) -> Vec<u8> {
         let code = FromHex::from_hex(code).unwrap();
@@ -352,7 +352,7 @@ mod tests {
     fn validate_exports() {
         /* Test identity without the `solve` export */
         let id = WasmHelper::from(remove_export(WasmHelper::IDENTITY_WASM, "solve"));
-        let input = vec![FieldPrime::from(1)];
+        let input = vec![Bn128Field::from(1)];
         let outputs = id.execute(&input);
         assert_eq!(
             outputs,
@@ -363,7 +363,7 @@ mod tests {
 
         /* Test identity, without the `get_inputs_off` export */
         let id = WasmHelper::from(remove_export(WasmHelper::IDENTITY_WASM, "get_inputs_off"));
-        let input = vec![FieldPrime::from(1)];
+        let input = vec![Bn128Field::from(1)];
         let outputs = id.execute(&input);
         assert_eq!(
             outputs,
@@ -374,7 +374,7 @@ mod tests {
 
         /* Test identity, without the `min_inputs` export */
         let id = WasmHelper::from(remove_export(WasmHelper::IDENTITY_WASM, "min_inputs"));
-        let input = vec![FieldPrime::from(1)];
+        let input = vec![Bn128Field::from(1)];
         let outputs = id.execute(&input);
         assert_eq!(
             outputs,
@@ -385,7 +385,7 @@ mod tests {
 
         /* Test identity, without the `min_outputs` export */
         let id = WasmHelper::from(remove_export(WasmHelper::IDENTITY_WASM, "min_outputs"));
-        let input = vec![FieldPrime::from(1)];
+        let input = vec![Bn128Field::from(1)];
         let outputs = id.execute(&input);
         assert_eq!(
             outputs,
@@ -396,7 +396,7 @@ mod tests {
 
         /* Test identity, without the `field_size` export */
         let id = WasmHelper::from(remove_export(WasmHelper::IDENTITY_WASM, "field_size"));
-        let input = vec![FieldPrime::from(1)];
+        let input = vec![Bn128Field::from(1)];
         let outputs = id.execute(&input);
         assert_eq!(
             outputs,
@@ -407,7 +407,7 @@ mod tests {
 
         /* Test identity, without the `memory` export */
         let id = WasmHelper::from(remove_export(WasmHelper::IDENTITY_WASM, "memory"));
-        let input = vec![FieldPrime::from(1)];
+        let input = vec![Bn128Field::from(1)];
         let outputs = id.execute(&input);
         assert_eq!(
             outputs,
@@ -425,7 +425,7 @@ mod tests {
             Some(ValueType::I64),
             vec![Instruction::I64Const(0), Instruction::End],
         ));
-        let input = vec![FieldPrime::from(1)];
+        let input = vec![Bn128Field::from(1)];
         let outputs = id.execute(&input);
         assert_eq!(
             outputs,
@@ -440,7 +440,7 @@ mod tests {
             None,
             vec![Instruction::Nop, Instruction::End],
         ));
-        let input = vec![FieldPrime::from(1)];
+        let input = vec![Bn128Field::from(1)];
         let outputs = id.execute(&input);
         assert_eq!(
             outputs,
@@ -455,7 +455,7 @@ mod tests {
             Some(ValueType::I32),
             vec![Instruction::I32Const(0), Instruction::End],
         ));
-        let input = vec![FieldPrime::from(1)];
+        let input = vec![Bn128Field::from(1)];
         let outputs = id.execute(&input);
         assert_eq!(
             outputs,
@@ -469,7 +469,7 @@ mod tests {
     fn check_invalid_field_size() {
         /* Test identity, with 1-byte filed size */
         let id = WasmHelper::from(replace_global(WasmHelper::IDENTITY_WASM, "field_size", 1));
-        let input = vec![FieldPrime::from(65536)];
+        let input = vec![Bn128Field::from(65536)];
         let outputs = id.execute(&input);
         assert_eq!(
             outputs,
@@ -480,7 +480,7 @@ mod tests {
 
         /* Test identity, tweaked so that field_size is a f32 */
         let id = WasmHelper::from(replace_global_type(WasmHelper::IDENTITY_WASM, "field_size"));
-        let input = vec![FieldPrime::from(65536)];
+        let input = vec![Bn128Field::from(65536)];
         let outputs = id.execute(&input);
         assert_eq!(
             outputs,
@@ -491,12 +491,12 @@ mod tests {
     #[test]
     fn check_identity() {
         let id = WasmHelper::from_hex(WasmHelper::IDENTITY_WASM);
-        let input = vec![FieldPrime::from(1)];
+        let input = vec![Bn128Field::from(1)];
         let outputs = id.execute(&input).expect("Identity call failed");
         assert_eq!(outputs, input);
 
         let id = WasmHelper::from_hex(WasmHelper::IDENTITY_WASM);
-        let input = vec![FieldPrime::from(0)];
+        let input = vec![Bn128Field::from(0)];
         let outputs = id.execute(&input).expect("Identity call failed");
         assert_eq!(outputs, input);
     }
@@ -504,7 +504,7 @@ mod tests {
     #[test]
     fn check_identity_3_bytes() {
         let id = WasmHelper::from_hex(WasmHelper::IDENTITY_WASM);
-        let input = vec![FieldPrime::from(16777216)];
+        let input = vec![Bn128Field::from(16777216)];
         let outputs = id.execute(&input).expect("Identity call failed");
         assert_eq!(outputs, input);
     }
@@ -512,7 +512,7 @@ mod tests {
     #[test]
     fn check_identity_multiple_calls() {
         let id = WasmHelper::from_hex(WasmHelper::IDENTITY_WASM);
-        let input = vec![FieldPrime::from(16777216)];
+        let input = vec![Bn128Field::from(16777216)];
         for _i in 0..10 {
             let outputs = id.execute(&input).expect("Identity call failed");
             assert_eq!(outputs, input);
@@ -522,7 +522,7 @@ mod tests {
     #[test]
     fn check_invalid_arg_number() {
         let id = WasmHelper::from_hex(WasmHelper::IDENTITY_WASM);
-        let input = vec![FieldPrime::from(1)];
+        let input = vec![Bn128Field::from(1)];
         let outputs = id.execute(&input).expect("Identity call failed");
         assert_eq!(outputs, input);
     }
@@ -538,7 +538,7 @@ mod tests {
             Some(ValueType::I32),
             vec![Instruction::I32Const(65536), Instruction::End],
         ));
-        let input = vec![FieldPrime::from(65536)];
+        let input = vec![Bn128Field::from(65536)];
         let outputs = id.execute(&input);
         assert_eq!(
             outputs,
@@ -555,7 +555,7 @@ mod tests {
             Some(ValueType::I32),
             vec![Instruction::I32Const(65536), Instruction::End],
         ));
-        let input = vec![FieldPrime::from(65536)];
+        let input = vec![Bn128Field::from(65536)];
         let outputs = id.execute(&input);
         assert_eq!(
             outputs,
@@ -575,7 +575,7 @@ mod tests {
             Some(ValueType::I32),
             vec![Instruction::I32Const(-1), Instruction::End],
         ));
-        let input = vec![FieldPrime::from(1)];
+        let input = vec![Bn128Field::from(1)];
         let outputs = id.execute(&input);
         assert_eq!(outputs, Err(String::from("`solve` returned error code -1")));
     }
@@ -583,25 +583,25 @@ mod tests {
     #[test]
     fn check_bits() {
         let bits = WasmHelper::from(WasmHelper::BITS_WASM);
-        let input = vec![FieldPrime::from(0xdeadbeef as u32)];
+        let input = vec![Bn128Field::from(0xdeadbeef as u32)];
         let outputs = bits.execute(&input).unwrap();
 
         assert_eq!(254, outputs.len());
 
         for i in 0..32 {
             let bitval = (0xdeadbeef as i64 >> i) & 1;
-            assert_eq!(outputs[(253 - i) as usize], FieldPrime::from(bitval as i32));
+            assert_eq!(outputs[(253 - i) as usize], Bn128Field::from(bitval as i32));
         }
 
         for i in 32..254 {
-            assert_eq!(outputs[(253 - i) as usize], FieldPrime::from(0));
+            assert_eq!(outputs[(253 - i) as usize], Bn128Field::from(0));
         }
     }
 
     #[test]
     fn check_bits_multiple_times() {
         let bits = WasmHelper::from(WasmHelper::BITS_WASM);
-        let input = vec![FieldPrime::from(0xdeadbeef as u32)];
+        let input = vec![Bn128Field::from(0xdeadbeef as u32)];
 
         for _ in 0..10 {
             let outputs = bits.execute(&input).unwrap();
@@ -610,11 +610,11 @@ mod tests {
 
             for i in 0..32 {
                 let bitval = (0xdeadbeef as i64 >> i) & 1;
-                assert_eq!(outputs[(253 - i) as usize], FieldPrime::from(bitval as i32));
+                assert_eq!(outputs[(253 - i) as usize], Bn128Field::from(bitval as i32));
             }
 
             for i in 32..254 {
-                assert_eq!(outputs[(253 - i) as usize], FieldPrime::from(0));
+                assert_eq!(outputs[(253 - i) as usize], Bn128Field::from(0));
             }
         }
     }

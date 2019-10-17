@@ -10,7 +10,7 @@ use crate::typed_absy::*;
 use crate::typed_absy::{Parameter, Variable};
 use std::collections::{hash_map::Entry, BTreeSet, HashMap, HashSet};
 use std::fmt;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 use crate::parser::Position;
 
@@ -1884,7 +1884,7 @@ mod tests {
     use super::*;
     use absy;
     use typed_absy;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     const MODULE_ID: &str = "";
 
@@ -1897,7 +1897,7 @@ mod tests {
             let module_id = String::from("");
             // [3, true]
             let a = Expression::InlineArray(vec![
-                Expression::FieldConstant(FieldPrime::from(3)).mock().into(),
+                Expression::FieldConstant(Bn128Field::from(3)).mock().into(),
                 Expression::BooleanConstant(true).mock().into(),
             ])
             .mock();
@@ -1907,14 +1907,14 @@ mod tests {
 
             // [[0], [0, 0]]
             let a = Expression::InlineArray(vec![
-                Expression::InlineArray(vec![Expression::FieldConstant(FieldPrime::from(0))
+                Expression::InlineArray(vec![Expression::FieldConstant(Bn128Field::from(0))
                     .mock()
                     .into()])
                 .mock()
                 .into(),
                 Expression::InlineArray(vec![
-                    Expression::FieldConstant(FieldPrime::from(0)).mock().into(),
-                    Expression::FieldConstant(FieldPrime::from(0)).mock().into(),
+                    Expression::FieldConstant(Bn128Field::from(0)).mock().into(),
+                    Expression::FieldConstant(Bn128Field::from(0)).mock().into(),
                 ])
                 .mock()
                 .into(),
@@ -1926,7 +1926,7 @@ mod tests {
 
             // [[0], true]
             let a = Expression::InlineArray(vec![
-                Expression::InlineArray(vec![Expression::FieldConstant(FieldPrime::from(0))
+                Expression::InlineArray(vec![Expression::FieldConstant(Bn128Field::from(0))
                     .mock()
                     .into()])
                 .mock()
@@ -1946,8 +1946,8 @@ mod tests {
         use super::*;
 
         /// Helper function to create (() -> (): return)
-        fn function0() -> FunctionNode<'static, FieldPrime> {
-            let statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+        fn function0() -> FunctionNode<'static, Bn128Field> {
+            let statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
                 ExpressionList {
                     expressions: vec![],
                 }
@@ -1968,8 +1968,8 @@ mod tests {
         }
 
         /// Helper function to create ((private field a) -> (): return)
-        fn function1() -> FunctionNode<'static, FieldPrime> {
-            let statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+        fn function1() -> FunctionNode<'static, Bn128Field> {
+            let statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
                 ExpressionList {
                     expressions: vec![],
                 }
@@ -2037,7 +2037,7 @@ mod tests {
 
             // after semantic check, `bar` should import a checked function
 
-            let foo: Module<FieldPrime> = Module {
+            let foo: Module<Bn128Field> = Module {
                 symbols: vec![SymbolDeclaration {
                     id: "main",
                     symbol: Symbol::HereFunction(function0()),
@@ -2046,7 +2046,7 @@ mod tests {
                 imports: vec![],
             };
 
-            let bar: Module<FieldPrime> = Module {
+            let bar: Module<Bn128Field> = Module {
                 symbols: vec![SymbolDeclaration {
                     id: "main",
                     symbol: Symbol::There(SymbolImport::with_id_in_module("main", "foo").mock()),
@@ -2176,7 +2176,7 @@ mod tests {
             //
             // should fail
 
-            let module: Module<FieldPrime> = Module {
+            let module: Module<Bn128Field> = Module {
                 symbols: vec![
                     SymbolDeclaration {
                         id: "foo",
@@ -2360,7 +2360,7 @@ mod tests {
     fn undefined_variable_in_statement() {
         // a = b
         // b undefined
-        let statement: StatementNode<FieldPrime> = Statement::Definition(
+        let statement: StatementNode<Bn128Field> = Statement::Definition(
             Assignee::Identifier("a").mock(),
             Expression::Identifier("b").mock(),
         )
@@ -2383,7 +2383,7 @@ mod tests {
     fn defined_variable_in_statement() {
         // a = b
         // b defined
-        let statement: StatementNode<FieldPrime> = Statement::Definition(
+        let statement: StatementNode<Bn128Field> = Statement::Definition(
             Assignee::Identifier("a").mock(),
             Expression::Identifier("b").mock(),
         )
@@ -2426,7 +2426,7 @@ mod tests {
             .mock(),
             Statement::Definition(
                 Assignee::Identifier("a").mock(),
-                Expression::FieldConstant(FieldPrime::from(1)).mock(),
+                Expression::FieldConstant(Bn128Field::from(1)).mock(),
             )
             .mock(),
         ];
@@ -2506,7 +2506,7 @@ mod tests {
             .mock(),
             Statement::Definition(
                 Assignee::Identifier("a").mock(),
-                Expression::FieldConstant(FieldPrime::from(1)).mock(),
+                Expression::FieldConstant(Bn128Field::from(1)).mock(),
             )
             .mock(),
         ];
@@ -2529,7 +2529,7 @@ mod tests {
             .mock(),
             Statement::Definition(
                 Assignee::Identifier("a").mock(),
-                Expression::FieldConstant(FieldPrime::from(2)).mock(),
+                Expression::FieldConstant(Bn128Field::from(2)).mock(),
             )
             .mock(),
             Statement::Return(
@@ -2553,7 +2553,7 @@ mod tests {
         let main_args = vec![];
         let main_statements = vec![Statement::Return(
             ExpressionList {
-                expressions: vec![Expression::FieldConstant(FieldPrime::from(1)).mock()],
+                expressions: vec![Expression::FieldConstant(Bn128Field::from(1)).mock()],
             }
             .mock(),
         )
@@ -2609,8 +2609,8 @@ mod tests {
         let foo_statements = vec![
             Statement::For(
                 absy::Variable::new("i", UnresolvedType::FieldElement.mock()).mock(),
-                FieldPrime::from(0),
-                FieldPrime::from(10),
+                Bn128Field::from(0),
+                Bn128Field::from(10),
                 vec![],
             )
             .mock(),
@@ -2667,8 +2667,8 @@ mod tests {
 
         let foo_statements = vec![Statement::For(
             absy::Variable::new("i", UnresolvedType::FieldElement.mock()).mock(),
-            FieldPrime::from(0),
-            FieldPrime::from(10),
+            Bn128Field::from(0),
+            Bn128Field::from(10),
             for_statements,
         )
         .mock()];
@@ -2683,8 +2683,8 @@ mod tests {
 
         let foo_statements_checked = vec![TypedStatement::For(
             typed_absy::Variable::field_element("i".into()),
-            FieldPrime::from(0),
-            FieldPrime::from(10),
+            Bn128Field::from(0),
+            Bn128Field::from(10),
             for_statements_checked,
         )];
 
@@ -2724,7 +2724,7 @@ mod tests {
         // def bar():
         //   field a = foo()
         // should fail
-        let bar_statements: Vec<StatementNode<FieldPrime>> = vec![
+        let bar_statements: Vec<StatementNode<Bn128Field>> = vec![
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
@@ -2778,8 +2778,8 @@ mod tests {
         // def bar():
         //   2 == foo()
         // should fail
-        let bar_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Condition(
-            Expression::FieldConstant(FieldPrime::from(2)).mock(),
+        let bar_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Condition(
+            Expression::FieldConstant(Bn128Field::from(2)).mock(),
             Expression::FunctionCall("foo", vec![]).mock(),
         )
         .mock()];
@@ -2823,7 +2823,7 @@ mod tests {
         // def bar():
         //   field a = foo()
         // should fail
-        let bar_statements: Vec<StatementNode<FieldPrime>> = vec![
+        let bar_statements: Vec<StatementNode<Bn128Field>> = vec![
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
@@ -2870,11 +2870,11 @@ mod tests {
         // 	return 1
         // should fail
 
-        let foo_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+        let foo_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
             ExpressionList {
                 expressions: vec![
-                    Expression::FieldConstant(FieldPrime::from(1)).mock(),
-                    Expression::FieldConstant(FieldPrime::from(2)).mock(),
+                    Expression::FieldConstant(Bn128Field::from(1)).mock(),
+                    Expression::FieldConstant(Bn128Field::from(2)).mock(),
                 ],
             }
             .mock(),
@@ -2898,7 +2898,7 @@ mod tests {
         }
         .mock();
 
-        let main_statements: Vec<StatementNode<FieldPrime>> = vec![
+        let main_statements: Vec<StatementNode<Bn128Field>> = vec![
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
@@ -2917,7 +2917,7 @@ mod tests {
             .mock(),
             Statement::Return(
                 ExpressionList {
-                    expressions: vec![Expression::FieldConstant(FieldPrime::from(1)).mock()],
+                    expressions: vec![Expression::FieldConstant(Bn128Field::from(1)).mock()],
                 }
                 .mock(),
             )
@@ -2967,8 +2967,8 @@ mod tests {
         // def bar():
         //   1 == foo()
         // should fail
-        let bar_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Condition(
-            Expression::FieldConstant(FieldPrime::from(1)).mock(),
+        let bar_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Condition(
+            Expression::FieldConstant(Bn128Field::from(1)).mock(),
             Expression::FunctionCall("foo", vec![]).mock(),
         )
         .mock()];
@@ -3003,7 +3003,7 @@ mod tests {
         // def bar():
         //   return a, b
         // should fail
-        let bar_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+        let bar_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
             ExpressionList {
                 expressions: vec![
                     Expression::Identifier("a").mock(),
@@ -3049,7 +3049,7 @@ mod tests {
         //   return a + b
         //
         // should pass
-        let bar_statements: Vec<StatementNode<FieldPrime>> = vec![
+        let bar_statements: Vec<StatementNode<Bn128Field>> = vec![
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
@@ -3079,7 +3079,7 @@ mod tests {
             .mock(),
         ];
 
-        let bar_statements_checked: Vec<TypedStatement<FieldPrime>> = vec![
+        let bar_statements_checked: Vec<TypedStatement<Bn128Field>> = vec![
             TypedStatement::Declaration(typed_absy::Variable::field_element("a".into())),
             TypedStatement::Declaration(typed_absy::Variable::field_element("b".into())),
             TypedStatement::MultipleDefinition(
@@ -3150,9 +3150,9 @@ mod tests {
         //   return 1
         //
         // should fail
-        let main1_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+        let main1_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
             ExpressionList {
-                expressions: vec![Expression::FieldConstant(FieldPrime::from(1)).mock()],
+                expressions: vec![Expression::FieldConstant(Bn128Field::from(1)).mock()],
             }
             .mock(),
         )
@@ -3164,9 +3164,9 @@ mod tests {
         }
         .mock()];
 
-        let main2_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+        let main2_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
             ExpressionList {
-                expressions: vec![Expression::FieldConstant(FieldPrime::from(1)).mock()],
+                expressions: vec![Expression::FieldConstant(Bn128Field::from(1)).mock()],
             }
             .mock(),
         )
@@ -3239,7 +3239,7 @@ mod tests {
         let types = HashMap::new();
         let module_id = String::from("");
         let mut checker = Checker::new();
-        let _: Result<TypedStatement<FieldPrime>, Vec<Error>> = checker.check_statement(
+        let _: Result<TypedStatement<Bn128Field>, Vec<Error>> = checker.check_statement(
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
@@ -3247,7 +3247,7 @@ mod tests {
             &module_id,
             &types,
         );
-        let s2_checked: Result<TypedStatement<FieldPrime>, Vec<Error>> = checker.check_statement(
+        let s2_checked: Result<TypedStatement<Bn128Field>, Vec<Error>> = checker.check_statement(
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
@@ -3275,7 +3275,7 @@ mod tests {
         let module_id = String::from("");
 
         let mut checker = Checker::new();
-        let _: Result<TypedStatement<FieldPrime>, Vec<Error>> = checker.check_statement(
+        let _: Result<TypedStatement<Bn128Field>, Vec<Error>> = checker.check_statement(
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
@@ -3283,7 +3283,7 @@ mod tests {
             &module_id,
             &types,
         );
-        let s2_checked: Result<TypedStatement<FieldPrime>, Vec<Error>> = checker.check_statement(
+        let s2_checked: Result<TypedStatement<Bn128Field>, Vec<Error>> = checker.check_statement(
             Statement::Declaration(absy::Variable::new("a", UnresolvedType::Boolean.mock()).mock())
                 .mock(),
             &module_id,
@@ -3304,10 +3304,10 @@ mod tests {
         /// helper function to create a module at location "" with a single symbol `Foo { foo: field }`
         fn create_module_with_foo(
             s: StructType<'static>,
-        ) -> (Checker<'static>, State<'static, FieldPrime>) {
+        ) -> (Checker<'static>, State<'static, Bn128Field>) {
             let module_id = "".to_string();
 
-            let module: Module<FieldPrime> = Module {
+            let module: Module<Bn128Field> = Module {
                 imports: vec![],
                 symbols: vec![SymbolDeclaration {
                     id: "Foo",
@@ -3464,7 +3464,7 @@ mod tests {
 
                 let module_id = "".to_string();
 
-                let module: Module<FieldPrime> = Module {
+                let module: Module<Bn128Field> = Module {
                     imports: vec![],
                     symbols: vec![
                         SymbolDeclaration {
@@ -3523,7 +3523,7 @@ mod tests {
 
                 let module_id = "".to_string();
 
-                let module: Module<FieldPrime> = Module {
+                let module: Module<Bn128Field> = Module {
                     imports: vec![],
                     symbols: vec![SymbolDeclaration {
                         id: "Bar",
@@ -3554,7 +3554,7 @@ mod tests {
 
                 let module_id = "".to_string();
 
-                let module: Module<FieldPrime> = Module {
+                let module: Module<Bn128Field> = Module {
                     imports: vec![],
                     symbols: vec![SymbolDeclaration {
                         id: "Foo",
@@ -3586,7 +3586,7 @@ mod tests {
 
                 let module_id = "".to_string();
 
-                let module: Module<FieldPrime> = Module {
+                let module: Module<Bn128Field> = Module {
                     imports: vec![],
                     symbols: vec![
                         SymbolDeclaration {
@@ -3742,7 +3742,7 @@ mod tests {
                 });
 
                 assert_eq!(
-                    checker.check_statement::<FieldPrime>(
+                    checker.check_statement::<Bn128Field>(
                         Statement::Declaration(
                             absy::Variable::new(
                                 "a",
@@ -3808,7 +3808,7 @@ mod tests {
                                 "Foo".to_string(),
                                 vec![(
                                     "foo",
-                                    Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                    Expression::FieldConstant(Bn128Field::from(42)).mock()
                                 )]
                             )
                             .mock(),
@@ -3820,7 +3820,7 @@ mod tests {
                     ),
                     Ok(FieldElementExpression::Member(
                         box StructExpressionInner::Value(vec![FieldElementExpression::Number(
-                            FieldPrime::from(42)
+                            Bn128Field::from(42)
                         )
                         .into()])
                         .annotate(vec![("foo".to_string(), Type::FieldElement)]),
@@ -3853,7 +3853,7 @@ mod tests {
                                     "Foo".to_string(),
                                     vec![(
                                         "foo",
-                                        Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                        Expression::FieldConstant(Bn128Field::from(42)).mock()
                                     )]
                                 )
                                 .mock(),
@@ -3893,7 +3893,7 @@ mod tests {
                                 "Bar".to_string(),
                                 vec![(
                                     "foo",
-                                    Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                    Expression::FieldConstant(Bn128Field::from(42)).mock()
                                 )]
                             )
                             .mock(),
@@ -3935,7 +3935,7 @@ mod tests {
                             vec![
                                 (
                                     "foo",
-                                    Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                    Expression::FieldConstant(Bn128Field::from(42)).mock()
                                 ),
                                 ("bar", Expression::BooleanConstant(true).mock())
                             ]
@@ -3945,7 +3945,7 @@ mod tests {
                         &state.types
                     ),
                     Ok(StructExpressionInner::Value(vec![
-                        FieldElementExpression::Number(FieldPrime::from(42)).into(),
+                        FieldElementExpression::Number(Bn128Field::from(42)).into(),
                         BooleanExpression::Value(true).into()
                     ])
                     .annotate(vec![
@@ -3986,7 +3986,7 @@ mod tests {
                                 ("bar", Expression::BooleanConstant(true).mock()),
                                 (
                                     "foo",
-                                    Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                    Expression::FieldConstant(Bn128Field::from(42)).mock()
                                 )
                             ]
                         )
@@ -3995,7 +3995,7 @@ mod tests {
                         &state.types
                     ),
                     Ok(StructExpressionInner::Value(vec![
-                        FieldElementExpression::Number(FieldPrime::from(42)).into(),
+                        FieldElementExpression::Number(Bn128Field::from(42)).into(),
                         BooleanExpression::Value(true).into()
                     ])
                     .annotate(vec![
@@ -4035,7 +4035,7 @@ mod tests {
                                 "Foo".to_string(),
                                 vec![(
                                     "foo",
-                                    Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                    Expression::FieldConstant(Bn128Field::from(42)).mock()
                                 )]
                             )
                             .mock(),
@@ -4082,7 +4082,7 @@ mod tests {
                                     Expression::BooleanConstant(true).mock()
                                 ),(
                                     "foo",
-                                    Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                    Expression::FieldConstant(Bn128Field::from(42)).mock()
                                 )]
                             )
                             .mock(),
@@ -4101,11 +4101,11 @@ mod tests {
                                 vec![
                                     (
                                         "bar",
-                                        Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                        Expression::FieldConstant(Bn128Field::from(42)).mock()
                                     ),
                                     (
                                         "foo",
-                                        Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                        Expression::FieldConstant(Bn128Field::from(42)).mock()
                                     )
                                 ]
                             )
@@ -4127,13 +4127,13 @@ mod tests {
         #[test]
         fn identifier() {
             // a = 42
-            let a = Assignee::Identifier::<FieldPrime>("a").mock();
+            let a = Assignee::Identifier::<Bn128Field>("a").mock();
 
             let types = HashMap::new();
             let module_id = String::from("");
             let mut checker: Checker = Checker::new();
             checker
-                .check_statement::<FieldPrime>(
+                .check_statement::<Bn128Field>(
                     Statement::Declaration(
                         absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
                     )
@@ -4158,7 +4158,7 @@ mod tests {
             let a = Assignee::Select(
                 box Assignee::Identifier("a").mock(),
                 box RangeOrExpression::Expression(
-                    Expression::FieldConstant(FieldPrime::from(2)).mock(),
+                    Expression::FieldConstant(Bn128Field::from(2)).mock(),
                 ),
             )
             .mock();
@@ -4168,7 +4168,7 @@ mod tests {
 
             let mut checker: Checker = Checker::new();
             checker
-                .check_statement::<FieldPrime>(
+                .check_statement::<Bn128Field>(
                     Statement::Declaration(
                         absy::Variable::new(
                             "a",
@@ -4189,7 +4189,7 @@ mod tests {
                         "a".into(),
                         33
                     )),
-                    box FieldElementExpression::Number(FieldPrime::from(2)).into()
+                    box FieldElementExpression::Number(Bn128Field::from(2)).into()
                 ))
             );
         }
@@ -4202,12 +4202,12 @@ mod tests {
                 box Assignee::Select(
                     box Assignee::Identifier("a").mock(),
                     box RangeOrExpression::Expression(
-                        Expression::FieldConstant(FieldPrime::from(1)).mock(),
+                        Expression::FieldConstant(Bn128Field::from(1)).mock(),
                     ),
                 )
                 .mock(),
                 box RangeOrExpression::Expression(
-                    Expression::FieldConstant(FieldPrime::from(2)).mock(),
+                    Expression::FieldConstant(Bn128Field::from(2)).mock(),
                 ),
             )
             .mock();
@@ -4216,7 +4216,7 @@ mod tests {
             let module_id = String::from("");
             let mut checker: Checker = Checker::new();
             checker
-                .check_statement::<FieldPrime>(
+                .check_statement::<Bn128Field>(
                     Statement::Declaration(
                         absy::Variable::new(
                             "a",
@@ -4244,9 +4244,9 @@ mod tests {
                             Type::array(Type::FieldElement, 33),
                             42
                         )),
-                        box FieldElementExpression::Number(FieldPrime::from(1)).into()
+                        box FieldElementExpression::Number(Bn128Field::from(1)).into()
                     ),
-                    box FieldElementExpression::Number(FieldPrime::from(2)).into()
+                    box FieldElementExpression::Number(Bn128Field::from(2)).into()
                 ))
             );
         }

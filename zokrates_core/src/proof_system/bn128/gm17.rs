@@ -11,7 +11,7 @@ use regex::Regex;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
-use zokrates_field::field::FieldPrime;
+use zokrates_field::Bn128Field;
 
 pub struct GM17 {}
 
@@ -47,7 +47,7 @@ extern "C" {
 }
 
 impl ProofSystem for GM17 {
-    fn setup(&self, program: ir::Prog<FieldPrime>, pk_path: &str, vk_path: &str) {
+    fn setup(&self, program: ir::Prog<Bn128Field>, pk_path: &str, vk_path: &str) {
         let (
             a_arr,
             b_arr,
@@ -81,8 +81,8 @@ impl ProofSystem for GM17 {
 
     fn generate_proof(
         &self,
-        program: ir::Prog<FieldPrime>,
-        witness: ir::Witness<FieldPrime>,
+        program: ir::Prog<Bn128Field>,
+        witness: ir::Witness<Bn128Field>,
         pk_path: &str,
         proof_path: &str,
     ) -> bool {

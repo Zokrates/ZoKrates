@@ -15,7 +15,7 @@ use crate::helpers::DirectiveStatement;
 use crate::typed_absy::types::Signature;
 use std::collections::HashMap;
 use std::fmt;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 #[derive(Clone, PartialEq)]
 pub struct FlatProg<T: Field> {
@@ -159,8 +159,8 @@ impl<T: Field> FlatStatement<T> {
     }
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub enum FlatExpression<T: Field> {
+#[derive(Clone, PartialEq,  )]
+pub enum FlatExpression<T> {
     Number(T),
     Identifier(FlatVariable),
     Add(Box<FlatExpression<T>>, Box<FlatExpression<T>>),
@@ -239,8 +239,8 @@ impl<T: Field> From<FlatVariable> for FlatExpression<T> {
     }
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub struct FlatExpressionList<T: Field> {
+#[derive(Clone, PartialEq,  )]
+pub struct FlatExpressionList<T> {
     pub expressions: Vec<FlatExpression<T>>,
 }
 

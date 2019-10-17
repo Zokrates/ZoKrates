@@ -1,6 +1,6 @@
 use absy;
 use imports;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 use zokrates_pest_ast as pest;
 
 impl<'ast, T: Field> From<pest::File<'ast>> for absy::Module<'ast, T> {
@@ -666,13 +666,13 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode {
 mod tests {
     use super::*;
     use absy::NodeValue;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[test]
     fn return_forty_two() {
         let source = "def main() -> (field): return 42";
         let ast = pest::generate_ast(&source).unwrap();
-        let expected: absy::Module<FieldPrime> = absy::Module {
+        let expected: absy::Module<Bn128Field> = absy::Module {
             symbols: vec![absy::SymbolDeclaration {
                 id: &source[4..8],
                 symbol: absy::Symbol::HereFunction(
@@ -681,7 +681,7 @@ mod tests {
                         statements: vec![absy::Statement::Return(
                             absy::ExpressionList {
                                 expressions: vec![absy::Expression::FieldConstant(
-                                    FieldPrime::from(42),
+                                    Bn128Field::from(42),
                                 )
                                 .into()],
                             }
@@ -698,14 +698,14 @@ mod tests {
             .into()],
             imports: vec![],
         };
-        assert_eq!(absy::Module::<FieldPrime>::from(ast), expected);
+        assert_eq!(absy::Module::<Bn128Field>::from(ast), expected);
     }
 
     #[test]
     fn return_true() {
         let source = "def main() -> (bool): return true";
         let ast = pest::generate_ast(&source).unwrap();
-        let expected: absy::Module<FieldPrime> = absy::Module {
+        let expected: absy::Module<Bn128Field> = absy::Module {
             symbols: vec![absy::SymbolDeclaration {
                 id: &source[4..8],
                 symbol: absy::Symbol::HereFunction(
@@ -728,7 +728,7 @@ mod tests {
             .into()],
             imports: vec![],
         };
-        assert_eq!(absy::Module::<FieldPrime>::from(ast), expected);
+        assert_eq!(absy::Module::<Bn128Field>::from(ast), expected);
     }
 
     #[test]
@@ -736,7 +736,7 @@ mod tests {
         let source = "def main(private field a, bool b) -> (field): return 42";
         let ast = pest::generate_ast(&source).unwrap();
 
-        let expected: absy::Module<FieldPrime> = absy::Module {
+        let expected: absy::Module<Bn128Field> = absy::Module {
             symbols: vec![absy::SymbolDeclaration {
                 id: &source[4..8],
                 symbol: absy::Symbol::HereFunction(
@@ -762,7 +762,7 @@ mod tests {
                         statements: vec![absy::Statement::Return(
                             absy::ExpressionList {
                                 expressions: vec![absy::Expression::FieldConstant(
-                                    FieldPrime::from(42),
+                                    Bn128Field::from(42),
                                 )
                                 .into()],
                             }
@@ -783,14 +783,14 @@ mod tests {
             imports: vec![],
         };
 
-        assert_eq!(absy::Module::<FieldPrime>::from(ast), expected);
+        assert_eq!(absy::Module::<Bn128Field>::from(ast), expected);
     }
 
     mod types {
         use super::*;
 
         /// Helper method to generate the ast for `def main(private {ty} a) -> (): return` which we use to check ty
-        fn wrap(ty: absy::UnresolvedType) -> absy::Module<'static, FieldPrime> {
+        fn wrap(ty: absy::UnresolvedType) -> absy::Module<'static, Bn128Field> {
             absy::Module {
                 symbols: vec![absy::SymbolDeclaration {
                     id: "main",
@@ -854,14 +854,14 @@ mod tests {
                 let source = format!("def main(private {} a) -> (): return", ty);
                 let expected = wrap(expected);
                 let ast = pest::generate_ast(&source).unwrap();
-                assert_eq!(absy::Module::<FieldPrime>::from(ast), expected);
+                assert_eq!(absy::Module::<Bn128Field>::from(ast), expected);
             }
         }
     }
 
     mod postfix {
         use super::*;
-        fn wrap(expression: absy::Expression<'static, FieldPrime>) -> absy::Module<FieldPrime> {
+        fn wrap(expression: absy::Expression<'static, Bn128Field>) -> absy::Module<Bn128Field> {
             absy::Module {
                 symbols: vec![absy::SymbolDeclaration {
                     id: "main",
@@ -896,7 +896,7 @@ mod tests {
                     absy::Expression::Select(
                         box absy::Expression::Identifier("a").into(),
                         box absy::RangeOrExpression::Expression(
-                            absy::Expression::FieldConstant(FieldPrime::from(3)).into(),
+                            absy::Expression::FieldConstant(Bn128Field::from(3)).into(),
                         )
                         .into(),
                     ),
@@ -907,13 +907,13 @@ mod tests {
                         box absy::Expression::Select(
                             box absy::Expression::Identifier("a").into(),
                             box absy::RangeOrExpression::Expression(
-                                absy::Expression::FieldConstant(FieldPrime::from(3)).into(),
+                                absy::Expression::FieldConstant(Bn128Field::from(3)).into(),
                             )
                             .into(),
                         )
                         .into(),
                         box absy::RangeOrExpression::Expression(
-                            absy::Expression::FieldConstant(FieldPrime::from(4)).into(),
+                            absy::Expression::FieldConstant(Bn128Field::from(4)).into(),
                         )
                         .into(),
                     ),
@@ -923,11 +923,11 @@ mod tests {
                     absy::Expression::Select(
                         box absy::Expression::FunctionCall(
                             "a",
-                            vec![absy::Expression::FieldConstant(FieldPrime::from(3)).into()],
+                            vec![absy::Expression::FieldConstant(Bn128Field::from(3)).into()],
                         )
                         .into(),
                         box absy::RangeOrExpression::Expression(
-                            absy::Expression::FieldConstant(FieldPrime::from(4)).into(),
+                            absy::Expression::FieldConstant(Bn128Field::from(4)).into(),
                         )
                         .into(),
                     ),
@@ -938,17 +938,17 @@ mod tests {
                         box absy::Expression::Select(
                             box absy::Expression::FunctionCall(
                                 "a",
-                                vec![absy::Expression::FieldConstant(FieldPrime::from(3)).into()],
+                                vec![absy::Expression::FieldConstant(Bn128Field::from(3)).into()],
                             )
                             .into(),
                             box absy::RangeOrExpression::Expression(
-                                absy::Expression::FieldConstant(FieldPrime::from(4)).into(),
+                                absy::Expression::FieldConstant(Bn128Field::from(4)).into(),
                             )
                             .into(),
                         )
                         .into(),
                         box absy::RangeOrExpression::Expression(
-                            absy::Expression::FieldConstant(FieldPrime::from(5)).into(),
+                            absy::Expression::FieldConstant(Bn128Field::from(5)).into(),
                         )
                         .into(),
                     ),
@@ -959,7 +959,7 @@ mod tests {
                 let source = format!("def main() -> (): return {}", source);
                 let expected = wrap(expected);
                 let ast = pest::generate_ast(&source).unwrap();
-                assert_eq!(absy::Module::<FieldPrime>::from(ast), expected);
+                assert_eq!(absy::Module::<Bn128Field>::from(ast), expected);
             }
         }
 
@@ -969,7 +969,7 @@ mod tests {
             // a call after an array access should be rejected
             let source = "def main() -> (): return a[2](3)";
             let ast = pest::generate_ast(&source).unwrap();
-            absy::Module::<FieldPrime>::from(ast);
+            absy::Module::<Bn128Field>::from(ast);
         }
 
         #[test]
@@ -978,7 +978,7 @@ mod tests {
             // a call after a call should be rejected
             let source = "def main() -> (): return a(2)(3)";
             let ast = pest::generate_ast(&source).unwrap();
-            absy::Module::<FieldPrime>::from(ast);
+            absy::Module::<Bn128Field>::from(ast);
         }
     }
 }

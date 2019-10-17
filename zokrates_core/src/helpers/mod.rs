@@ -7,9 +7,9 @@ pub use self::rust::RustHelper;
 pub use self::wasm::WasmHelper;
 use crate::flat_absy::{FlatExpression, FlatVariable};
 use std::fmt;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct DirectiveStatement<T: Field> {
     pub inputs: Vec<FlatExpression<T>>,
     pub outputs: Vec<FlatVariable>,
@@ -136,7 +136,7 @@ impl Signed for Helper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     mod eq_condition {
 
@@ -151,9 +151,9 @@ mod tests {
             let cond_eq = RustHelper::ConditionEq;
             let inputs = vec![0];
             let r = cond_eq
-                .execute(&inputs.iter().map(|&i| FieldPrime::from(i)).collect())
+                .execute(&inputs.iter().map(|&i| Bn128Field::from(i)).collect())
                 .unwrap();
-            let res: Vec<FieldPrime> = vec![0, 1].iter().map(|&i| FieldPrime::from(i)).collect();
+            let res: Vec<Bn128Field> = vec![0, 1].iter().map(|&i| Bn128Field::from(i)).collect();
             assert_eq!(r, &res[..]);
         }
 
@@ -162,9 +162,9 @@ mod tests {
             let cond_eq = RustHelper::ConditionEq;
             let inputs = vec![1];
             let r = cond_eq
-                .execute(&inputs.iter().map(|&i| FieldPrime::from(i)).collect())
+                .execute(&inputs.iter().map(|&i| Bn128Field::from(i)).collect())
                 .unwrap();
-            let res: Vec<FieldPrime> = vec![1, 1].iter().map(|&i| FieldPrime::from(i)).collect();
+            let res: Vec<Bn128Field> = vec![1, 1].iter().map(|&i| Bn128Field::from(i)).collect();
             assert_eq!(r, &res[..]);
         }
     }

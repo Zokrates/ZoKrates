@@ -9,7 +9,7 @@ use bellman::groth16::{
 use bellman::{Circuit, ConstraintSystem, LinearCombination, SynthesisError, Variable};
 use pairing::bn256::{Bn256, Fr};
 use std::collections::BTreeMap;
-use zokrates_field::field::{Field, FieldPrime};
+use zokrates_field::{Field, Bn128Field};
 
 use self::rand::*;
 use crate::flat_absy::FlatVariable;
@@ -39,10 +39,10 @@ impl<T: Field> Computation<T> {
 }
 
 fn bellman_combination<CS: ConstraintSystem<Bn256>>(
-    l: CanonicalLinComb<FieldPrime>,
+    l: CanonicalLinComb<Bn128Field>,
     cs: &mut CS,
     symbols: &mut BTreeMap<FlatVariable, Variable>,
-    witness: &mut Witness<FieldPrime>,
+    witness: &mut Witness<Bn128Field>,
 ) -> LinearCombination<Bn256> {
     l.0.into_iter()
         .map(|(k, v)| {
@@ -81,11 +81,11 @@ fn bellman_combination<CS: ConstraintSystem<Bn256>>(
         .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
-impl Prog<FieldPrime> {
+impl Prog<Bn128Field> {
     pub fn synthesize<CS: ConstraintSystem<Bn256>>(
         self,
         cs: &mut CS,
-        witness: Option<Witness<FieldPrime>>,
+        witness: Option<Witness<Bn128Field>>,
     ) -> Result<(), SynthesisError> {
         // mapping from IR variables
         let mut symbols = BTreeMap::new();
@@ -158,7 +158,7 @@ impl Prog<FieldPrime> {
     }
 }
 
-impl Computation<FieldPrime> {
+impl Computation<Bn128Field> {
     pub fn prove(self, params: &Parameters<Bn256>) -> Proof<Bn256> {
         let rng = &mut thread_rng();
         let proof = create_random_proof(self.clone(), params, rng).unwrap();
@@ -195,7 +195,7 @@ impl Computation<FieldPrime> {
     }
 }
 
-impl Circuit<Bn256> for Computation<FieldPrime> {
+impl Circuit<Bn256> for Computation<Bn128Field> {
     fn synthesize<CS: ConstraintSystem<Bn256>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
         self.program.synthesize(cs, self.witness)
     }
@@ -295,14 +295,14 @@ mod tests {
     use super::*;
     use crate::ir::{Function, LinComb};
     use typed_absy::types::{Signature, Type};
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     mod prove {
         use super::*;
 
         #[test]
         fn empty() {
-            let program: Prog<FieldPrime> = Prog {
+            let program: Prog<Bn128Field> = Prog {
                 main: Function {
                     id: String::from("main"),
                     arguments: vec![],
@@ -322,7 +322,7 @@ mod tests {
 
         #[test]
         fn identity() {
-            let program: Prog<FieldPrime> = Prog {
+            let program: Prog<Bn128Field> = Prog {
                 main: Function {
                     id: String::from("main"),
                     arguments: vec![FlatVariable::new(0)],
@@ -338,7 +338,7 @@ mod tests {
                     .outputs(vec![Type::FieldElement]),
             };
 
-            let witness = program.clone().execute(&vec![FieldPrime::from(0)]).unwrap();
+            let witness = program.clone().execute(&vec![Bn128Field::from(0)]).unwrap();
             let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
@@ -347,7 +347,7 @@ mod tests {
 
         #[test]
         fn public_identity() {
-            let program: Prog<FieldPrime> = Prog {
+            let program: Prog<Bn128Field> = Prog {
                 main: Function {
                     id: String::from("main"),
                     arguments: vec![FlatVariable::new(0)],
@@ -363,7 +363,7 @@ mod tests {
                     .outputs(vec![Type::FieldElement]),
             };
 
-            let witness = program.clone().execute(&vec![FieldPrime::from(0)]).unwrap();
+            let witness = program.clone().execute(&vec![Bn128Field::from(0)]).unwrap();
             let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
@@ -372,7 +372,7 @@ mod tests {
 
         #[test]
         fn no_arguments() {
-            let program: Prog<FieldPrime> = Prog {
+            let program: Prog<Bn128Field> = Prog {
                 main: Function {
                     id: String::from("main"),
                     arguments: vec![],
@@ -397,7 +397,7 @@ mod tests {
         fn unordered_variables() {
             // public variables must be ordered from 0
             // private variables can be unordered
-            let program: Prog<FieldPrime> = Prog {
+            let program: Prog<Bn128Field> = Prog {
                 main: Function {
                     id: String::from("main"),
                     arguments: vec![FlatVariable::new(42), FlatVariable::new(51)],
@@ -425,7 +425,7 @@ mod tests {
 
             let witness = program
                 .clone()
-                .execute(&vec![FieldPrime::from(3), FieldPrime::from(4)])
+                .execute(&vec![Bn128Field::from(3), Bn128Field::from(4)])
                 .unwrap();
             let computation = Computation::with_witness(program, witness);
 
@@ -435,7 +435,7 @@ mod tests {
 
         #[test]
         fn one() {
-            let program: Prog<FieldPrime> = Prog {
+            let program: Prog<Bn128Field> = Prog {
                 main: Function {
                     id: String::from("main"),
                     arguments: vec![FlatVariable::new(42)],
@@ -451,7 +451,7 @@ mod tests {
                     .outputs(vec![Type::FieldElement]),
             };
 
-            let witness = program.clone().execute(&vec![FieldPrime::from(3)]).unwrap();
+            let witness = program.clone().execute(&vec![Bn128Field::from(3)]).unwrap();
             let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
@@ -460,7 +460,7 @@ mod tests {
 
         #[test]
         fn with_directives() {
-            let program: Prog<FieldPrime> = Prog {
+            let program: Prog<Bn128Field> = Prog {
                 main: Function {
                     id: String::from("main"),
                     arguments: vec![FlatVariable::new(42), FlatVariable::new(51)],
@@ -480,7 +480,7 @@ mod tests {
 
             let witness = program
                 .clone()
-                .execute(&vec![FieldPrime::from(3), FieldPrime::from(4)])
+                .execute(&vec![Bn128Field::from(3), Bn128Field::from(4)])
                 .unwrap();
             let computation = Computation::with_witness(program, witness);
 

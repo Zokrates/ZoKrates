@@ -1,7 +1,7 @@
 mod bn128;
 
 use std::fs::File;
-use zokrates_field::field::FieldPrime;
+use zokrates_field::Bn128Field;
 
 pub use self::bn128::G16;
 #[cfg(feature = "libsnark")]
@@ -13,12 +13,12 @@ use crate::ir;
 use std::io::BufReader;
 
 pub trait ProofSystem {
-    fn setup(&self, program: ir::Prog<FieldPrime>, pk_path: &str, vk_path: &str);
+    fn setup(&self, program: ir::Prog<Bn128Field>, pk_path: &str, vk_path: &str);
 
     fn generate_proof(
         &self,
-        program: ir::Prog<FieldPrime>,
-        witness: ir::Witness<FieldPrime>,
+        program: ir::Prog<Bn128Field>,
+        witness: ir::Witness<Bn128Field>,
         pk_path: &str,
         proof_path: &str,
     ) -> bool;

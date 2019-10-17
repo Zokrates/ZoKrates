@@ -9,13 +9,13 @@ use regex::Regex;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
-use zokrates_field::field::FieldPrime;
+use zokrates_field::Bn128Field;
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/reference/proving_schemes.html#g16-malleability for implications.";
 
 pub struct G16 {}
 impl ProofSystem for G16 {
-    fn setup(&self, program: ir::Prog<FieldPrime>, pk_path: &str, vk_path: &str) {
+    fn setup(&self, program: ir::Prog<Bn128Field>, pk_path: &str, vk_path: &str) {
         std::env::set_var("BELLMAN_VERBOSE", "0");
 
         println!("{}", G16_WARNING);
@@ -31,8 +31,8 @@ impl ProofSystem for G16 {
 
     fn generate_proof(
         &self,
-        program: ir::Prog<FieldPrime>,
-        witness: ir::Witness<FieldPrime>,
+        program: ir::Prog<Bn128Field>,
+        witness: ir::Witness<Bn128Field>,
         pk_path: &str,
         proof_path: &str,
     ) -> bool {
@@ -357,7 +357,7 @@ mod tests {
 
             #[test]
             fn serialize() {
-                let program: Prog<FieldPrime> = Prog {
+                let program: Prog<Bn128Field> = Prog {
                     main: Function {
                         id: String::from("main"),
                         arguments: vec![FlatVariable::new(0)],
@@ -375,7 +375,7 @@ mod tests {
 
                 let witness = program
                     .clone()
-                    .execute(&vec![FieldPrime::from(42)])
+                    .execute(&vec![Bn128Field::from(42)])
                     .unwrap();
                 let computation = Computation::with_witness(program, witness);
 

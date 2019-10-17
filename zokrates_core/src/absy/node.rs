@@ -74,7 +74,7 @@ impl<V: NodeValue> From<V> for Node<V> {
 
 use crate::absy::*;
 use crate::imports::*;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Expression<'ast, T> {}
 impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for ExpressionList<'ast, T> {}

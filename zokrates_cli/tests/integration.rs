@@ -13,7 +13,7 @@ mod integration {
     use tempdir::TempDir;
     use zokrates_abi::{parse_strict, Encode};
     use zokrates_core::ir;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::field::Bn128Field;
 
     #[test]
     #[ignore]
@@ -103,7 +103,7 @@ mod integration {
 
         let mut reader = BufReader::new(file);
 
-        let ir_prog: ir::Prog<FieldPrime> = deserialize_from(&mut reader, Infinite)
+        let ir_prog: ir::Prog<Bn128Field> = deserialize_from(&mut reader, Infinite)
             .map_err(|why| why.to_string())
             .unwrap();
 
@@ -129,7 +129,7 @@ mod integration {
             .unwrap();
 
         // run witness-computation for raw-encoded inputs (converted) with `-a <arguments>`
-        let inputs_abi: zokrates_abi::Inputs<zokrates_field::field::FieldPrime> =
+        let inputs_abi: zokrates_abi::Inputs<zokrates_field::field::Bn128Field> =
             parse_strict(&json_input_str, signature.inputs)
                 .map(|parsed| zokrates_abi::Inputs::Abi(parsed))
                 .map_err(|why| why.to_string())

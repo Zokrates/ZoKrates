@@ -30,7 +30,7 @@
 use crate::typed_absy::folder::Folder;
 use crate::typed_absy::types::Type;
 use crate::typed_absy::*;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub struct InputConstrainer<'ast, T: Field> {
     constraints: Vec<TypedStatement<'ast, T>>,

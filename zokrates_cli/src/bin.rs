@@ -16,7 +16,7 @@ use zokrates_abi::Encode;
 use zokrates_core::compile::compile;
 use zokrates_core::ir;
 use zokrates_core::proof_system::*;
-use zokrates_field::field::{Field, FieldPrime};
+use zokrates_field::{Field, Bn128Field};
 use zokrates_fs_resolver::resolve as fs_resolve;
 #[cfg(feature = "github")]
 use zokrates_github_resolver::{is_github_import, resolve as github_resolve};
@@ -286,7 +286,7 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(file);
 
-            let program_flattened: ir::Prog<FieldPrime> =
+            let program_flattened: ir::Prog<Bn128Field> =
                 compile(&mut reader, Some(location), Some(resolve))
                     .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
 
@@ -339,7 +339,7 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(file);
 
-            let ir_prog: ir::Prog<FieldPrime> =
+            let ir_prog: ir::Prog<Bn128Field> =
                 deserialize_from(&mut reader, Infinite).map_err(|why| why.to_string())?;
 
             // print deserialized flattened program
@@ -367,7 +367,7 @@ fn cli() -> Result<(), String> {
                     let arguments = sub_matches.values_of("arguments");
                     arguments
                         .map(|a| {
-                            a.map(|x| FieldPrime::try_from_dec_str(x).map_err(|_| x.to_string()))
+                            a.map(|x| Bn128Field::try_from_dec_str(x).map_err(|_| x.to_string()))
                                 .collect::<Result<Vec<_>, _>>()
                         })
                         .unwrap_or(Ok(vec![]))
@@ -397,7 +397,7 @@ fn cli() -> Result<(), String> {
                                     input
                                         .split(" ")
                                         .map(|x| {
-                                            FieldPrime::try_from_dec_str(x)
+                                            Bn128Field::try_from_dec_str(x)
                                                 .map_err(|_| x.to_string())
                                         })
                                         .collect::<Result<Vec<_>, _>>()
@@ -445,7 +445,7 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(file);
 
-            let program: ir::Prog<FieldPrime> =
+            let program: ir::Prog<Bn128Field> =
                 deserialize_from(&mut reader, Infinite).map_err(|why| format!("{:?}", why))?;
 
             // print deserialized flattened program
@@ -511,7 +511,7 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(program_file);
 
-            let program: ir::Prog<FieldPrime> =
+            let program: ir::Prog<Bn128Field> =
                 deserialize_from(&mut reader, Infinite).map_err(|why| format!("{:?}", why))?;
 
             println!(
@@ -603,7 +603,7 @@ mod tests {
                 .into_string()
                 .unwrap();
 
-            let _: ir::Prog<FieldPrime> =
+            let _: ir::Prog<Bn128Field> =
                 compile(&mut reader, Some(location), Some(resolve)).unwrap();
         }
     }
@@ -630,11 +630,11 @@ mod tests {
 
             let mut reader = BufReader::new(file);
 
-            let program_flattened: ir::Prog<FieldPrime> =
+            let program_flattened: ir::Prog<Bn128Field> =
                 compile(&mut reader, Some(location), Some(resolve)).unwrap();
 
             let _ = program_flattened
-                .execute(&vec![FieldPrime::from(0)])
+                .execute(&vec![Bn128Field::from(0)])
                 .unwrap();
         }
     }
@@ -662,11 +662,11 @@ mod tests {
 
             let mut reader = BufReader::new(file);
 
-            let program_flattened: ir::Prog<FieldPrime> =
+            let program_flattened: ir::Prog<Bn128Field> =
                 compile(&mut reader, Some(location), Some(resolve)).unwrap();
 
             let _ = program_flattened
-                .execute(&vec![FieldPrime::from(0)])
+                .execute(&vec![Bn128Field::from(0)])
                 .unwrap();
         }
     }
