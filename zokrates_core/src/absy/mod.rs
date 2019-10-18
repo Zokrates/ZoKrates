@@ -62,7 +62,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for Symbol<'ast, T> {
             Symbol::HereType(t) => write!(f, "HereType({:?})", t),
             Symbol::HereFunction(fun) => write!(f, "HereFunction({:?})", fun),
             Symbol::There(t) => write!(f, "There({:?})", t),
-            Symbol::Flat(flat) => write!(f, "Flat({:?})", flat)
+            Symbol::Flat(flat) => write!(f, "Flat({:?})", flat),
         }
     }
 }

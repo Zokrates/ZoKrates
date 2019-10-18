@@ -214,7 +214,7 @@ impl<T: Field> Div<&T> for LinComb<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::Bn128Field as Bn128Field;
+    use zokrates_field::Bn128Field;
 
     mod linear {
 

@@ -159,7 +159,7 @@ impl<T: Field> FlatStatement<T> {
     }
 }
 
-#[derive(Clone, PartialEq,  )]
+#[derive(Clone, PartialEq)]
 pub enum FlatExpression<T> {
     Number(T),
     Identifier(FlatVariable),
@@ -239,7 +239,7 @@ impl<T: Field> From<FlatVariable> for FlatExpression<T> {
     }
 }
 
-#[derive(Clone, PartialEq,  )]
+#[derive(Clone, PartialEq)]
 pub struct FlatExpressionList<T> {
     pub expressions: Vec<FlatExpression<T>>,
 }

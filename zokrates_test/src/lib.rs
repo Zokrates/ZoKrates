@@ -3,7 +3,7 @@ extern crate serde_derive;
 
 use std::path::PathBuf;
 use zokrates_core::ir;
-use zokrates_field::{Field, Bn128Field};
+use zokrates_field::{Bn128Field, Field};
 
 #[derive(Serialize, Deserialize)]
 struct Tests {

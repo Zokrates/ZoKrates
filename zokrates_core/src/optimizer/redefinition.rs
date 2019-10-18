@@ -12,7 +12,6 @@ use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::folder::{fold_function, Folder};
 use crate::ir::LinComb;
 use crate::ir::*;
-use num::Zero;
 use std::collections::HashMap;
 use zokrates_field::Field;
 

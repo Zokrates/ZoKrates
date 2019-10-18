@@ -28,7 +28,10 @@ impl FlatEmbed {
                 .outputs(vec![Type::array(Type::FieldElement, 256)]),
             FlatEmbed::Unpack => Signature::new()
                 .inputs(vec![Type::FieldElement])
-                .outputs(vec![Type::array(Type::FieldElement, T::get_required_bits())]),
+                .outputs(vec![Type::array(
+                    Type::FieldElement,
+                    T::get_required_bits(),
+                )]),
         }
     }
 

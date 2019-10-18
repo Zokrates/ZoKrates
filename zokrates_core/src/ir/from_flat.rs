@@ -1,7 +1,6 @@
 use crate::flat_absy::{FlatExpression, FlatFunction, FlatProg, FlatStatement, FlatVariable};
 use crate::helpers;
 use crate::ir::{Directive, Function, LinComb, Prog, QuadComb, Statement};
-use num::Zero;
 use zokrates_field::Field;
 
 impl<T: Field> From<FlatFunction<T>> for Function<T> {

@@ -1,6 +1,6 @@
-use num_traits::{One, Zero};
-use bellman_ce::pairing::ff::{ScalarEngine};
+use bellman_ce::pairing::ff::ScalarEngine;
 use bellman_ce::pairing::Engine;
+use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
 use std::convert::From;
 use std::fmt::{Debug, Display};
@@ -82,7 +82,7 @@ pub trait Field:
 #[macro_use]
 mod prime_field {
     macro_rules! prime_field {
-        ($modulus:expr, $bellman_type:ty, $magic:expr) => {
+        ($modulus:expr, $bellman_type:ty) => {
             use crate::{Field, Pow};
             use lazy_static::lazy_static;
             use num_bigint::{BigInt, BigUint, Sign, ToBigInt};

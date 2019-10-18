@@ -875,7 +875,7 @@ impl<'ast, T: fmt::Display> fmt::Display for ArrayExpressionInner<'ast, T> {
 
 impl<'ast, T: fmt::Debug> fmt::Debug for BooleanExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-match *self {
+        match *self {
             BooleanExpression::Identifier(ref var) => write!(f, "Ide({})", var),
             BooleanExpression::Value(b) => write!(f, "Value({})", b),
             BooleanExpression::IfElse(ref condition, ref consequent, ref alternative) => write!(
@@ -893,9 +893,12 @@ match *self {
             BooleanExpression::Select(ref array, ref index) => {
                 write!(f, "Select({:?}, {:?})", array, index)
             }
-            BooleanExpression::Member(ref struc, ref id) => write!(f, "Access({:?}, {:?})", struc, id),
+            BooleanExpression::Member(ref struc, ref id) => {
+                write!(f, "Access({:?}, {:?})", struc, id)
+            }
             BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "Or({:?}, {:?})", lhs, rhs),
-        }    }
+        }
+    }
 }
 
 impl<'ast, T: fmt::Debug> fmt::Debug for FieldElementExpression<'ast, T> {
