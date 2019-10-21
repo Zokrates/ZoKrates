@@ -46,8 +46,8 @@ extern "C" {
     ) -> bool;
 }
 
-impl ProofSystem for GM17 {
-    fn setup(&self, program: ir::Prog<Bn128Field>, pk_path: &str, vk_path: &str) {
+impl ProofSystem<Bn128Field> for GM17 {
+    fn setup(program: ir::Prog<Bn128Field>, pk_path: &str, vk_path: &str) {
         let (
             a_arr,
             b_arr,
@@ -80,7 +80,6 @@ impl ProofSystem for GM17 {
     }
 
     fn generate_proof(
-        &self,
         program: ir::Prog<Bn128Field>,
         witness: ir::Witness<Bn128Field>,
         pk_path: &str,
@@ -107,7 +106,7 @@ impl ProofSystem for GM17 {
         }
     }
 
-    fn export_solidity_verifier(&self, reader: BufReader<File>, is_abiv2: bool) -> String {
+    fn export_solidity_verifier(reader: BufReader<File>, is_abiv2: bool) -> String {
         let mut lines = reader.lines();
 
         let (mut template_text, solidity_pairing_lib) = if is_abiv2 {
