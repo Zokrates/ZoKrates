@@ -342,6 +342,7 @@ mod tests {
             use crate::ir::*;
             use crate::proof_system::bn128::g16::serialize::serialize_proof;
             use typed_absy::types::{Signature, Type};
+            use zokrates_field::Bn128Field;
 
             #[allow(dead_code)]
             #[derive(Deserialize)]
@@ -387,7 +388,7 @@ mod tests {
                 let params = computation.clone().setup();
                 let proof = computation.prove(&params);
 
-                let serialized_proof = serialize_proof(&proof, &public_inputs_values);
+                let serialized_proof = serialize_proof::<Bn128Field>(&proof, &public_inputs_values);
                 serde_json::from_str::<G16Proof>(&serialized_proof).unwrap();
             }
         }

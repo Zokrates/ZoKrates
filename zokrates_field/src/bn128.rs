@@ -373,10 +373,10 @@ mod tests {
     mod bellman {
         use super::*;
 
-        use ff::Field as FField;
+        use bellman_ce::pairing::ff::Field as FField;
 
         extern crate rand;
-        use pairing::bn256::Fr;
+        use bellman_ce::pairing::bn256::Fr;
         use rand::{thread_rng, Rng};
         use Field;
 

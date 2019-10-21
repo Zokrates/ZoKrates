@@ -4,7 +4,6 @@
 // @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
 // @date 2017
 
-use bincode::{deserialize_from, serialize_into, Infinite};
 use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
 use serde_json::Value;
 use std::fs::File;
@@ -13,64 +12,18 @@ use std::path::{Path, PathBuf};
 use std::string::String;
 use std::{env, io};
 use zokrates_core::compile::compile;
-use zokrates_core::ir;
+use zokrates_core::ir::{self, ProgEnum};
 use zokrates_core::proof_system::*;
 use zokrates_field::{Bls12Field, Bn128Field, Field};
 use zokrates_fs_resolver::resolve as fs_resolve;
 #[cfg(feature = "github")]
 use zokrates_github_resolver::{is_github_import, resolve as github_resolve};
 
-const ZOKRATES_MAGIC: &[u8; 4] = &[0x5a, 0x4f, 0x4b, 0];
-const ZOKRATES_VERSION_1: &[u8; 4] = &[0, 0, 0, 1];
-
 fn main() {
     cli().unwrap_or_else(|e| {
         println!("{}", e);
         std::process::exit(1);
     })
-}
-
-enum ProgEnum {
-    Bls12Program(ir::Prog<Bls12Field>),
-    Bn128Program(ir::Prog<Bn128Field>),
-}
-
-fn deserialize_prog<R: Read>(mut r: R) -> ProgEnum {
-    // Check the magic number, `ZOK`
-    let mut magic = [0; 4];
-    r.read_exact(&mut magic).unwrap();
-
-    assert_eq!(&magic, ZOKRATES_MAGIC);
-
-    // Check the version, 1
-    let mut version = [0; 4];
-    r.read_exact(&mut version).unwrap();
-
-    assert_eq!(&version, ZOKRATES_VERSION_1);
-
-    // Check the curve identifier, deserializing accordingly
-    let mut curve = [0; 4];
-    r.read_exact(&mut curve).unwrap();
-
-    match curve {
-        m if m == Bls12Field::id() => {
-            ProgEnum::Bls12Program(deserialize_from(&mut r, Infinite).unwrap())
-        }
-        m if m == Bn128Field::id() => {
-            ProgEnum::Bn128Program(deserialize_from(&mut r, Infinite).unwrap())
-        }
-        _ => unreachable!(),
-    }
-}
-
-fn serialize_prog<T: Field, W: Write>(prog: &ir::Prog<T>, mut w: W) {
-    w.write(ZOKRATES_MAGIC).unwrap();
-    w.write(ZOKRATES_VERSION_1).unwrap();
-    w.write(&T::id()).unwrap();
-
-    serialize_into(&mut w, prog, Infinite)
-        .map_err(|_| "Unable to write data to file.".to_string())
-        .unwrap();
 }
 
 fn resolve<'a>(
@@ -290,7 +243,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let mut writer = BufWriter::new(bin_output_file);
 
-    serialize_prog(&program_flattened, &mut writer);
+    program_flattened.serialize(&mut writer);
 
     if !light {
         // write human-readable output file
@@ -588,7 +541,7 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(file);
 
-            match deserialize_prog(&mut reader) {
+            match ProgEnum::deserialize(&mut reader).map_err(|_| "wrong file".to_string())? {
                 ProgEnum::Bn128Program(p) => cli_compute(p, sub_matches)?,
                 ProgEnum::Bls12Program(p) => cli_compute(p, sub_matches)?,
             }
@@ -603,7 +556,10 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(file);
 
-            match (deserialize_prog(&mut reader), proof_system) {
+            match (
+                ProgEnum::deserialize(&mut reader).map_err(|_| "wrong file".to_string())?,
+                proof_system,
+            ) {
                 (ProgEnum::Bn128Program(p), "g16") => cli_setup::<_, G16>(p, sub_matches)?,
                 (ProgEnum::Bls12Program(p), "g16") => cli_setup::<_, G16>(p, sub_matches)?,
                 _ => unimplemented!(),
@@ -628,7 +584,10 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(file);
 
-            match (deserialize_prog(&mut reader), proof_system) {
+            match (
+                ProgEnum::deserialize(&mut reader).map_err(|_| "wrong file".to_string())?,
+                proof_system,
+            ) {
                 (ProgEnum::Bn128Program(p), "g16") => cli_generate_proof::<_, G16>(p, sub_matches)?,
                 (ProgEnum::Bls12Program(p), "g16") => cli_generate_proof::<_, G16>(p, sub_matches)?,
                 _ => unimplemented!(),
@@ -684,7 +643,7 @@ mod tests {
 
     #[test]
     fn examples() {
-        for p in glob("./examples/**/*.code").expect("Failed to read glob pattern") {
+        for p in glob("./examples/**/*.zok").expect("Failed to read glob pattern") {
             let path = match p {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
@@ -715,7 +674,7 @@ mod tests {
     #[test]
     fn examples_with_input_success() {
         //these examples should compile and run
-        for p in glob("./examples/test*.code").expect("Failed to read glob pattern") {
+        for p in glob("./examples/test*.zok").expect("Failed to read glob pattern") {
             let path = match p {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
@@ -746,12 +705,11 @@ mod tests {
     #[test]
     #[should_panic]
     fn examples_with_input_failure() {
+        println!("something");
         //these examples should compile but not run
-        for p in glob("./examples/runtime_errors/*.code").expect("Failed to read glob pattern") {
-            let path = match p {
-                Ok(x) => x,
-                Err(why) => panic!("Error: {:?}", why),
-            };
+        for p in glob("./examples/runtime_errors/*.zok").expect("Failed to read glob pattern") {
+            let path = p.unwrap();
+
             println!("Testing {:?}", path);
 
             let file = File::open(path.clone()).unwrap();

@@ -9,10 +9,12 @@ mod expression;
 pub mod folder;
 mod from_flat;
 mod interpreter;
+mod serialize;
 mod witness;
 
 pub use self::expression::QuadComb;
 pub use self::expression::{CanonicalLinComb, LinComb};
+pub use self::serialize::ProgEnum;
 
 pub use self::interpreter::{Error, ExecutionResult};
 pub use self::witness::Witness;

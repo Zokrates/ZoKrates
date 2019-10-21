@@ -419,9 +419,19 @@ mod tests {
             let prog = crate::ir::Prog {
                 main: f,
                 private: vec![true; 768],
+                signature: Signature::new()
+                    .inputs(vec![
+                        Type::array(Type::FieldElement, 512),
+                        Type::array(Type::FieldElement, 256),
+                    ])
+                    .outputs(vec![Type::array(Type::FieldElement, 256)]),
             };
 
-            let input = (0..512).map(|_| 0).chain((0..256).map(|_| 1)).collect();
+            let input = (0..512)
+                .map(|_| 0)
+                .chain((0..256).map(|_| 1))
+                .map(|i| Bn128Field::from(i))
+                .collect();
 
             prog.execute(&input).unwrap();
         }

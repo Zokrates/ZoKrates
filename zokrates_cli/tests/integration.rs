@@ -4,7 +4,6 @@ extern crate serde_json;
 #[cfg(test)]
 mod integration {
     use assert_cli;
-    use bincode::{deserialize_from, Infinite};
     use std::fs;
     use std::fs::File;
     use std::io::{BufReader, Read};
@@ -13,7 +12,7 @@ mod integration {
     use tempdir::TempDir;
     use zokrates_abi::{parse_strict, Encode};
     use zokrates_core::ir;
-    use zokrates_field::field::Bn128Field;
+    use zokrates_field::Bn128Field;
 
     #[test]
     #[ignore]
@@ -77,6 +76,8 @@ mod integration {
             .join("verifier")
             .with_extension("sol");
 
+        println!("abc");
+
         // create a tmp folder to store artifacts
         fs::create_dir(test_case_path).unwrap();
 
@@ -91,6 +92,8 @@ mod integration {
             "--light",
         ];
 
+        println!("{:?}", compile);
+
         // compile
         assert_cli::Assert::command(&compile).succeeds().unwrap();
 
@@ -103,9 +106,10 @@ mod integration {
 
         let mut reader = BufReader::new(file);
 
-        let ir_prog: ir::Prog<Bn128Field> = deserialize_from(&mut reader, Infinite)
-            .map_err(|why| why.to_string())
-            .unwrap();
+        let ir_prog: ir::Prog<Bn128Field> = match ir::ProgEnum::deserialize(&mut reader).unwrap() {
+            ir::ProgEnum::Bn128Program(p) => p,
+            _ => unreachable!(),
+        };
 
         let signature = ir_prog.signature.clone();
 
@@ -129,7 +133,7 @@ mod integration {
             .unwrap();
 
         // run witness-computation for raw-encoded inputs (converted) with `-a <arguments>`
-        let inputs_abi: zokrates_abi::Inputs<zokrates_field::field::Bn128Field> =
+        let inputs_abi: zokrates_abi::Inputs<zokrates_field::Bn128Field> =
             parse_strict(&json_input_str, signature.inputs)
                 .map(|parsed| zokrates_abi::Inputs::Abi(parsed))
                 .map_err(|why| why.to_string())
