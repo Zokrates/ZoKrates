@@ -268,7 +268,7 @@ mod tests {
             returns: vec![r],
         };
 
-        let optimized: Function<Bn128Field> = Function {
+        let expected: Function<Bn128Field> = Function {
             id: "foo".to_string(),
             arguments: vec![x, y],
             statements: vec![
@@ -282,7 +282,10 @@ mod tests {
         };
 
         let mut optimizer = RedefinitionOptimizer::new();
-        assert_eq!(optimizer.fold_function(f), optimized);
+
+        let optimized = optimizer.fold_function(f);
+
+        assert_eq!(optimized, expected);
     }
 
     #[test]

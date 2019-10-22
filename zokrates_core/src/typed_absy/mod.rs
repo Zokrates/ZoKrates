@@ -599,9 +599,13 @@ pub enum BooleanExpression<'ast, T> {
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
-    Eq(
+    FieldEq(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
+    ),
+    BoolEq(
+        Box<BooleanExpression<'ast, T>>,
+        Box<BooleanExpression<'ast, T>>,
     ),
     Ge(
         Box<FieldElementExpression<'ast, T>>,
@@ -821,7 +825,8 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
             BooleanExpression::Identifier(ref var) => write!(f, "{}", var),
             BooleanExpression::Lt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
             BooleanExpression::Le(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
-            BooleanExpression::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            BooleanExpression::FieldEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            BooleanExpression::BoolEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
             BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
             BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
@@ -885,7 +890,12 @@ impl<'ast, T: fmt::Debug> fmt::Debug for BooleanExpression<'ast, T> {
             ),
             BooleanExpression::Lt(ref lhs, ref rhs) => write!(f, "Lt({:?}, {:?})", lhs, rhs),
             BooleanExpression::Le(ref lhs, ref rhs) => write!(f, "Le({:?}, {:?})", lhs, rhs),
-            BooleanExpression::Eq(ref lhs, ref rhs) => write!(f, "Eq({:?}, {:?})", lhs, rhs),
+            BooleanExpression::FieldEq(ref lhs, ref rhs) => {
+                write!(f, "FieldEq({:?}, {:?})", lhs, rhs)
+            }
+            BooleanExpression::BoolEq(ref lhs, ref rhs) => {
+                write!(f, "BoolEq({:?}, {:?})", lhs, rhs)
+            }
             BooleanExpression::Ge(ref lhs, ref rhs) => write!(f, "Ge({:?}, {:?})", lhs, rhs),
             BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "Gt({:?}, {:?})", lhs, rhs),
             BooleanExpression::And(ref lhs, ref rhs) => write!(f, "And({:?}, {:?})", lhs, rhs),

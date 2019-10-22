@@ -4,11 +4,19 @@ use std::fmt;
 use std::ops::{Add, Div, Mul, Sub};
 use zokrates_field::Field;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, Hash)]
 pub struct QuadComb<T> {
     pub left: LinComb<T>,
     pub right: LinComb<T>,
 }
+
+impl<T: Field> PartialEq for QuadComb<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.left.eq(&other.left) && self.right.eq(&other.right)
+    }
+}
+
+impl<T: Field> Eq for QuadComb<T> {}
 
 impl<T: Field> QuadComb<T> {
     pub fn from_linear_combinations(left: LinComb<T>, right: LinComb<T>) -> Self {
@@ -57,8 +65,16 @@ impl<T: Field> fmt::Display for QuadComb<T> {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Hash, Debug, Serialize, Deserialize)]
+#[derive(Clone, Hash, Debug, Serialize, Deserialize)]
 pub struct LinComb<T>(pub Vec<(FlatVariable, T)>);
+
+impl<T: Field> PartialEq for LinComb<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_canonical() == other.as_canonical()
+    }
+}
+
+impl<T: Field> Eq for LinComb<T> {}
 
 #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Debug, Serialize, Deserialize)]
 pub struct CanonicalLinComb<T>(pub BTreeMap<FlatVariable, T>);

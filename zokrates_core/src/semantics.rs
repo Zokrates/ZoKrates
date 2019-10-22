@@ -1372,7 +1372,10 @@ impl<'ast> Checker<'ast> {
                 let e2_checked = self.check_expression(e2, module_id, &types)?;
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
-                        Ok(BooleanExpression::Eq(box e1, box e2).into())
+                        Ok(BooleanExpression::FieldEq(box e1, box e2).into())
+                    }
+                    (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
+                        Ok(BooleanExpression::BoolEq(box e1, box e2).into())
                     }
                     (e1, e2) => Err(Error {
                         pos: Some(pos),
