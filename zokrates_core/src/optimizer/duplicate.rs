@@ -87,8 +87,6 @@ mod tests {
 
     #[test]
     fn remove_duplicates() {
-        use num::Zero;
-
         let constraint = Statement::Constraint(
             QuadComb::from_linear_combinations(
                 LinComb::summand(3, FlatVariable::new(3)),
