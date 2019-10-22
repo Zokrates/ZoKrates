@@ -460,7 +460,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                 },
                 None => BooleanExpression::Identifier(id),
             },
-            BooleanExpression::Eq(box e1, box e2) => {
+            BooleanExpression::FieldEq(box e1, box e2) => {
                 let e1 = self.fold_field_expression(e1);
                 let e2 = self.fold_field_expression(e2);
 
@@ -468,7 +468,18 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
                         BooleanExpression::Value(n1 == n2)
                     }
-                    (e1, e2) => BooleanExpression::Eq(box e1, box e2),
+                    (e1, e2) => BooleanExpression::FieldEq(box e1, box e2),
+                }
+            }
+            BooleanExpression::BoolEq(box e1, box e2) => {
+                let e1 = self.fold_boolean_expression(e1);
+                let e2 = self.fold_boolean_expression(e2);
+
+                match (e1, e2) {
+                    (BooleanExpression::Value(n1), BooleanExpression::Value(n2)) => {
+                        BooleanExpression::Value(n1 == n2)
+                    }
+                    (e1, e2) => BooleanExpression::BoolEq(box e1, box e2),
                 }
             }
             BooleanExpression::Lt(box e1, box e2) => {
@@ -750,13 +761,13 @@ mod tests {
             }
 
             #[test]
-            fn eq() {
-                let e_true = BooleanExpression::Eq(
+            fn field_eq() {
+                let e_true = BooleanExpression::FieldEq(
                     box FieldElementExpression::Number(FieldPrime::from(2)),
                     box FieldElementExpression::Number(FieldPrime::from(2)),
                 );
 
-                let e_false = BooleanExpression::Eq(
+                let e_false = BooleanExpression::FieldEq(
                     box FieldElementExpression::Number(FieldPrime::from(4)),
                     box FieldElementExpression::Number(FieldPrime::from(2)),
                 );
@@ -767,6 +778,49 @@ mod tests {
                 );
                 assert_eq!(
                     Propagator::new().fold_boolean_expression(e_false),
+                    BooleanExpression::Value(false)
+                );
+            }
+
+            #[test]
+            fn bool_eq() {
+                assert_eq!(
+                    Propagator::<FieldPrime>::new().fold_boolean_expression(
+                        BooleanExpression::BoolEq(
+                            box BooleanExpression::Value(false),
+                            box BooleanExpression::Value(false)
+                        )
+                    ),
+                    BooleanExpression::Value(true)
+                );
+
+                assert_eq!(
+                    Propagator::<FieldPrime>::new().fold_boolean_expression(
+                        BooleanExpression::BoolEq(
+                            box BooleanExpression::Value(true),
+                            box BooleanExpression::Value(true)
+                        )
+                    ),
+                    BooleanExpression::Value(true)
+                );
+
+                assert_eq!(
+                    Propagator::<FieldPrime>::new().fold_boolean_expression(
+                        BooleanExpression::BoolEq(
+                            box BooleanExpression::Value(true),
+                            box BooleanExpression::Value(false)
+                        )
+                    ),
+                    BooleanExpression::Value(false)
+                );
+
+                assert_eq!(
+                    Propagator::<FieldPrime>::new().fold_boolean_expression(
+                        BooleanExpression::BoolEq(
+                            box BooleanExpression::Value(false),
+                            box BooleanExpression::Value(true)
+                        )
+                    ),
                     BooleanExpression::Value(false)
                 );
             }
