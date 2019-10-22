@@ -54,8 +54,6 @@ mod tests {
 
     #[test]
     fn identity() {
-        use num::Zero;
-
         let p: Prog<Bn128Field> = Prog {
             private: vec![],
             main: Function {
