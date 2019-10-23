@@ -20,7 +20,7 @@ While `field` values mostly behave like unsigned integers, one should keep in mi
 
 ZoKrates has limited support for booleans, to the extent that they can only be used as the condition in `if ... else ... endif` expressions.
 
-You can use them for equality checks, inequality checks and inequality checks between `field` values.
+You can use them for equality checks and inequality checks between `field` values.
 
 Note that while equality checks are cheap, inequality checks should be use wisely as they are orders of magnitude more expensive.
 
