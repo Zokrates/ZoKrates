@@ -19,6 +19,12 @@ use zokrates_fs_resolver::resolve as fs_resolve;
 #[cfg(feature = "github")]
 use zokrates_github_resolver::{is_github_import, resolve as github_resolve};
 
+const CURVES: &[&str] = &["bn128", "bls12_381"];
+#[cfg(feature = "libsnark")]
+const SCHEMES: &[&str] = &["g16", "pghr13", "gm17"];
+#[cfg(not(feature = "libsnark"))]
+const SCHEMES: &[&str] = &["g16"];
+
 fn main() {
     cli().unwrap_or_else(|e| {
         println!("{}", e);
@@ -310,9 +316,10 @@ fn cli() -> Result<(), String> {
         ).arg(Arg::with_name("curve")
             .short("c")
             .long("curve")
-            .help("Curve to be used in the compilation. Available options are bn128 (default) and bls12_381")
+            .help("Curve to be used in the compilation")
             .takes_value(true)
             .required(false)
+            .possible_values(CURVES)
             .default_value(&default_curve)
         ).arg(Arg::with_name("light")
             .long("light")
@@ -346,20 +353,14 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(VERIFICATION_KEY_DEFAULT_PATH)
-        ).arg(Arg::with_name("curve")
-            .short("c")
-            .long("curve")
-            .help("Curve to be used in the setup. Available options are bn128 (default) and bls12_381. SHOULD NOT BE REQUIRED")
-            .takes_value(true)
-            .required(false)
-            .default_value(&default_curve)
         ).arg(Arg::with_name("proving-scheme")
             .short("s")
             .long("proving-scheme")
-            .help("Proving scheme to use in the setup. Available options are G16 (default), PGHR13 and GM17")
+            .help("Proving scheme to use in the setup")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
+            .possible_values(SCHEMES)
             .default_value(&default_scheme)
         ).arg(Arg::with_name("light")
             .long("light")
@@ -388,22 +389,24 @@ fn cli() -> Result<(), String> {
         ).arg(Arg::with_name("curve")
             .short("c")
             .long("curve")
-            .help("Curve to be used to export the verifier. Available options are bn128 (default) and bls12_381")
+            .help("Curve to be used to export the verifier")
             .takes_value(true)
             .required(false)
+            .possible_values(CURVES)
             .default_value(&default_curve)
         ).arg(Arg::with_name("proving-scheme")
             .short("s")
             .long("proving-scheme")
-            .help("Proving scheme to use to export the verifier. Available options are G16 (default), PGHR13 and GM17")
+            .help("Proving scheme to use to export the verifier")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
+            .possible_values(SCHEMES)
             .default_value(&default_scheme)
         ).arg(Arg::with_name("abi")
             .short("a")
             .long("abi")
-            .help("Flag for setting the version of the ABI Encoder used in the contract. Default is v1.")
+            .help("Flag for setting the version of the ABI Encoder used in the contract")
             .takes_value(true)
             .possible_values(&["v1", "v2"])
             .default_value(&default_solidity_abi)
@@ -451,7 +454,7 @@ fn cli() -> Result<(), String> {
         )
     )
     .subcommand(SubCommand::with_name("generate-proof")
-        .about("Calculates a proof for a given constraint system and witness.")
+        .about("Calculates a proof for a given constraint system and witness")
         .arg(Arg::with_name("witness")
             .short("w")
             .long("witness")
@@ -484,25 +487,19 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(FLATTENED_CODE_DEFAULT_PATH)
-        ).arg(Arg::with_name("curve")
-            .short("c")
-            .long("curve")
-            .help("Curve to be used in the proof generation. Available options are bn128 (default) and bls12_381. SHOULD NOT BE REQUIRED")
-            .takes_value(true)
-            .required(false)
-            .default_value(&default_curve)
         ).arg(Arg::with_name("proving-scheme")
             .short("s")
             .long("proving-scheme")
-            .help("Proving scheme to use to generate the proof. Available options are G16 (default), PGHR13 and GM17")
+            .help("Proving scheme to use to generate the proof")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
+            .possible_values(SCHEMES)
             .default_value(&default_scheme)
         )
     )
      .subcommand(SubCommand::with_name("print-proof")
-        .about("Prints proof in chosen format [remix, json]")
+        .about("Prints proof in the chosen format")
         .arg(Arg::with_name("proofpath")
             .short("j")
             .long("proofpath")
@@ -515,7 +512,7 @@ fn cli() -> Result<(), String> {
             .short("f")
             .long("format")
             .value_name("FORMAT")
-            .help("Format in which the proof should be printed. [remix, json]")
+            .help("Format in which the proof should be printed")
             .takes_value(true)
             .possible_values(&["remix", "json"])
             .required(true)
@@ -530,7 +527,7 @@ fn cli() -> Result<(), String> {
             match curve {
                 "bn128" => cli_compile::<Bn128Field>(sub_matches)?,
                 "bls12_381" => cli_compile::<Bls12Field>(sub_matches)?,
-                _ => unimplemented!(),
+                _ => unreachable!(),
             }
         }
         ("compute-witness", Some(sub_matches)) => {
@@ -569,9 +566,23 @@ fn cli() -> Result<(), String> {
             let curve = sub_matches.value_of("curve").unwrap();
             let proof_system = sub_matches.value_of("proving-scheme").unwrap();
 
-            match (curve, proof_system) {
-                ("bn128", "g16") => cli_export_verifier::<Bn128Field, G16>(sub_matches)?,
-                _ => unimplemented!(),
+            match proof_system {
+                "g16" => match curve {
+                    "bn128" => cli_export_verifier::<Bn128Field, G16>(sub_matches)?,
+                    "bls12_381" => cli_export_verifier::<Bls12Field, G16>(sub_matches)?,
+                    _ => unimplemented!(),
+                },
+                "pghr13" => match curve {
+                    #[cfg(feature = "libsnark")]
+                    "bn128" => cli_export_verifier::<Bn128Field, PGHR13>(sub_matches)?,
+                    _ => unimplemented!(),
+                },
+                "gm17" => match curve {
+                    #[cfg(feature = "libsnark")]
+                    "bn128" => cli_export_verifier::<Bn128Field, GM17>(sub_matches)?,
+                    _ => unimplemented!(),
+                },
+                _ => unreachable!(),
             }
         }
         ("generate-proof", Some(sub_matches)) => {
@@ -584,13 +595,24 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(file);
 
-            match (
-                ProgEnum::deserialize(&mut reader).map_err(|_| "wrong file".to_string())?,
-                proof_system,
-            ) {
-                (ProgEnum::Bn128Program(p), "g16") => cli_generate_proof::<_, G16>(p, sub_matches)?,
-                (ProgEnum::Bls12Program(p), "g16") => cli_generate_proof::<_, G16>(p, sub_matches)?,
-                _ => unimplemented!(),
+            let prog = ProgEnum::deserialize(&mut reader).map_err(|_| "wrong file".to_string())?;
+
+            match proof_system {
+                "g16" => match prog {
+                    ProgEnum::Bn128Program(p) => cli_generate_proof::<_, G16>(p, sub_matches)?,
+                    ProgEnum::Bls12Program(p) => cli_generate_proof::<_, G16>(p, sub_matches)?,
+                },
+                "pghr13" => match prog {
+                    #[cfg(feature = "libsnark")]
+                    ProgEnum::Bn128Program(p) => cli_generate_proof::<_, PGHR13>(p, sub_matches)?,
+                    _ => unimplemented!(),
+                },
+                "gm17" => match prog {
+                    #[cfg(feature = "libsnark")]
+                    ProgEnum::Bn128Program(p) => cli_generate_proof::<_, GM17>(p, sub_matches)?,
+                    _ => unimplemented!(),
+                },
+                _ => unreachable!(),
             }
         }
         ("print-proof", Some(sub_matches)) => {
