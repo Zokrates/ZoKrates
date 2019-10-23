@@ -553,13 +553,24 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(file);
 
-            match (
-                ProgEnum::deserialize(&mut reader).map_err(|_| "wrong file".to_string())?,
-                proof_system,
-            ) {
-                (ProgEnum::Bn128Program(p), "g16") => cli_setup::<_, G16>(p, sub_matches)?,
-                (ProgEnum::Bls12Program(p), "g16") => cli_setup::<_, G16>(p, sub_matches)?,
-                _ => unimplemented!(),
+            let prog = ProgEnum::deserialize(&mut reader).map_err(|_| "wrong file".to_string())?;
+
+            match proof_system {
+                "g16" => match prog {
+                    ProgEnum::Bn128Program(p) => cli_setup::<_, G16>(p, sub_matches)?,
+                    ProgEnum::Bls12Program(p) => cli_setup::<_, G16>(p, sub_matches)?,
+                },
+                "pghr13" => match prog {
+                    #[cfg(feature = "libsnark")]
+                    ProgEnum::Bn128Program(p) => cli_setup::<_, PGHR13>(p, sub_matches)?,
+                    _ => unimplemented!(),
+                },
+                "gm17" => match prog {
+                    #[cfg(feature = "libsnark")]
+                    ProgEnum::Bn128Program(p) => cli_setup::<_, GM17>(p, sub_matches)?,
+                    _ => unimplemented!(),
+                },
+                _ => unreachable!(),
             }
         }
         ("export-verifier", Some(sub_matches)) => {
