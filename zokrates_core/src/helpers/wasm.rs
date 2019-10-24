@@ -18,24 +18,6 @@ impl WasmHelper {
     // Hand-coded assembly for identity.
     // Source available at https://gist.github.com/gballet/f14d11053d8f846bfbb3687581b0eecb#file-identity-wast
     pub const IDENTITY_WASM: &'static str = "0061736d010000000105016000017f030302000005030100010615047f0041010b7f0041010b7f0041200b7f0141000b074b06066d656d6f727902000e6765745f696e707574735f6f6666000105736f6c766500000a6d696e5f696e7075747303000b6d696e5f6f75747075747303010a6669656c645f73697a6503020a300229000340412023036a410023036a280200360200230341016a240323032302470d000b4100240341200b040041000b0b4b020041000b20ffffffff000000000000000000000000ffffffff0000000000000000000000000041200b20deadbeef000000000000000000000000deadbeef000000000000000000000000";
-    // Generated from C code, normalized and cleaned up by hand.
-    // Source available at https://gist.github.com/gballet/f14d11053d8f846bfbb3687581b0eecb#file-bits_v2-c
-    pub const BITS_WASM: &'static [u8] = &[
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 8, 2, 96, 0, 0, 96, 0, 1, 127, 3, 5, 4, 0, 1, 1, 1, 4, 5,
-        1, 112, 1, 1, 1, 5, 3, 1, 0, 2, 6, 38, 6, 127, 1, 65, 240, 199, 4, 11, 127, 0, 65, 240,
-        199, 4, 11, 127, 0, 65, 240, 199, 0, 11, 127, 0, 65, 32, 11, 127, 0, 65, 1, 11, 127, 0, 65,
-        254, 1, 11, 7, 109, 9, 6, 109, 101, 109, 111, 114, 121, 2, 0, 11, 95, 95, 104, 101, 97,
-        112, 95, 98, 97, 115, 101, 3, 1, 10, 95, 95, 100, 97, 116, 97, 95, 101, 110, 100, 3, 2, 14,
-        103, 101, 116, 95, 105, 110, 112, 117, 116, 115, 95, 111, 102, 102, 0, 1, 5, 115, 111, 108,
-        118, 101, 0, 2, 4, 109, 97, 105, 110, 0, 3, 10, 102, 105, 101, 108, 100, 95, 115, 105, 122,
-        101, 3, 3, 10, 109, 105, 110, 95, 105, 110, 112, 117, 116, 115, 3, 4, 11, 109, 105, 110,
-        95, 111, 117, 116, 112, 117, 116, 115, 3, 5, 9, 1, 0, 10, 85, 4, 3, 0, 1, 11, 5, 0, 65,
-        144, 8, 11, 68, 1, 2, 127, 65, 253, 1, 33, 0, 65, 176, 8, 33, 1, 3, 64, 32, 1, 65, 1, 32,
-        0, 65, 7, 113, 116, 32, 0, 65, 3, 118, 65, 144, 8, 106, 45, 0, 0, 113, 65, 0, 71, 58, 0, 0,
-        32, 1, 65, 32, 106, 33, 1, 32, 0, 65, 127, 106, 34, 0, 65, 127, 71, 13, 0, 11, 65, 176, 8,
-        11, 4, 0, 65, 0, 11, 11, 19, 1, 0, 65, 128, 8, 11, 12, 32, 0, 0, 0, 1, 0, 0, 0, 254, 0, 0,
-        0,
-    ];
 
     pub fn from_hex<U: Into<String>>(u: U) -> Self {
         let code_hex = u.into();
@@ -578,44 +560,5 @@ mod tests {
         let input = vec![Bn128Field::from(1)];
         let outputs = id.execute(&input);
         assert_eq!(outputs, Err(String::from("`solve` returned error code -1")));
-    }
-
-    #[test]
-    fn check_bits() {
-        let bits = WasmHelper::from(WasmHelper::BITS_WASM);
-        let input = vec![Bn128Field::from(0xdeadbeef as u32)];
-        let outputs = bits.execute(&input).unwrap();
-
-        assert_eq!(254, outputs.len());
-
-        for i in 0..32 {
-            let bitval = (0xdeadbeef as i64 >> i) & 1;
-            assert_eq!(outputs[(253 - i) as usize], Bn128Field::from(bitval as i32));
-        }
-
-        for i in 32..254 {
-            assert_eq!(outputs[(253 - i) as usize], Bn128Field::from(0));
-        }
-    }
-
-    #[test]
-    fn check_bits_multiple_times() {
-        let bits = WasmHelper::from(WasmHelper::BITS_WASM);
-        let input = vec![Bn128Field::from(0xdeadbeef as u32)];
-
-        for _ in 0..10 {
-            let outputs = bits.execute(&input).unwrap();
-
-            assert_eq!(254, outputs.len());
-
-            for i in 0..32 {
-                let bitval = (0xdeadbeef as i64 >> i) & 1;
-                assert_eq!(outputs[(253 - i) as usize], Bn128Field::from(bitval as i32));
-            }
-
-            for i in 32..254 {
-                assert_eq!(outputs[(253 - i) as usize], Bn128Field::from(0));
-            }
-        }
     }
 }

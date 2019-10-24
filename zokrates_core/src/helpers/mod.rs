@@ -67,7 +67,7 @@ impl Helper {
     }
 
     pub fn bits() -> Self {
-        Helper::Wasm(WasmHelper::from(WasmHelper::BITS_WASM))
+        Helper::Rust(RustHelper::Bits)
     }
 }
 
