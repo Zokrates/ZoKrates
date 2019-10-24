@@ -1,6 +1,7 @@
 {
     "entry_point": "./tests/tests/bool_compare.zok",
-    "tests": [
+    "curve": "Bn128",
+	"tests": [
         {
             "input": {
                 "values": [

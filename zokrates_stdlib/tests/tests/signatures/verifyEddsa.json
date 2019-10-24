@@ -1,5 +1,6 @@
 {
 	"entry_point": "./tests/tests/signatures/verifyEddsa.zok",
+	"curve": "Bn128",
 	"tests": [
 		{
 			"input": {

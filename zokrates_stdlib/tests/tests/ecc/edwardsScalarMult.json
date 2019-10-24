@@ -1,5 +1,6 @@
 {
 	"entry_point": "./tests/tests/ecc/edwardsScalarMult.zok",
+	"curve": "Bn128",
 	"tests": [
 		{
 			"input": {

@@ -1,5 +1,6 @@
 {
 	"entry_point": "./tests/tests/structs/identity.code",
+	"curve": "Bn128",
 	"tests": [
 		{
 			"input": {

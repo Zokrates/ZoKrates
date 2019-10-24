@@ -1,5 +1,6 @@
 {
 	"entry_point": "./stdlib/utils/binary/and.zok",
+	"curve": "Bn128",
 	"tests": [
 		{
 			"input": {

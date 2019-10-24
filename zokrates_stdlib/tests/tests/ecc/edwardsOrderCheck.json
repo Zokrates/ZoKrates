@@ -1,5 +1,6 @@
 {
 	"entry_point": "./tests/tests/ecc/edwardsOrderCheck.zok",
+	"curve": "Bn128",
 	"tests": [
 		{
 			"input": {

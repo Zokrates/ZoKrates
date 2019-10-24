@@ -3,11 +3,18 @@ extern crate serde_derive;
 
 use std::path::PathBuf;
 use zokrates_core::ir;
-use zokrates_field::{Bn128Field, Field};
+use zokrates_field::{Bls12Field, Bn128Field, Field};
+
+#[derive(Serialize, Deserialize)]
+enum Curve {
+    Bn128,
+    Bls12,
+}
 
 #[derive(Serialize, Deserialize)]
 struct Tests {
     pub entry_point: PathBuf,
+    pub curve: Curve,
     pub tests: Vec<Test>,
 }
 
@@ -25,7 +32,7 @@ struct Test {
 type TestResult = Result<Output, ir::Error>;
 
 #[derive(PartialEq, Debug)]
-struct ComparableResult(Result<Vec<Bn128Field>, ir::Error>);
+struct ComparableResult<T>(Result<Vec<T>, ir::Error>);
 
 #[derive(Serialize, Deserialize)]
 struct Output {
@@ -34,24 +41,24 @@ struct Output {
 
 type Val = String;
 
-impl From<ir::ExecutionResult<Bn128Field>> for ComparableResult {
-    fn from(r: ir::ExecutionResult<Bn128Field>) -> ComparableResult {
+impl<T: Field> From<ir::ExecutionResult<T>> for ComparableResult<T> {
+    fn from(r: ir::ExecutionResult<T>) -> ComparableResult<T> {
         ComparableResult(r.map(|v| v.return_values()))
     }
 }
 
-impl From<TestResult> for ComparableResult {
-    fn from(r: TestResult) -> ComparableResult {
+impl<T: Field> From<TestResult> for ComparableResult<T> {
+    fn from(r: TestResult) -> ComparableResult<T> {
         ComparableResult(r.map(|v| {
             v.values
                 .iter()
-                .map(|v| Bn128Field::try_from_dec_str(v).unwrap())
+                .map(|v| T::try_from_dec_str(v).unwrap())
                 .collect()
         }))
     }
 }
 
-fn compare(result: ir::ExecutionResult<Bn128Field>, expected: TestResult) -> Result<(), String> {
+fn compare<T: Field>(result: ir::ExecutionResult<T>, expected: TestResult) -> Result<(), String> {
     // extract outputs from result
     let result = ComparableResult::from(result);
     // deserialize expected result
@@ -75,9 +82,16 @@ pub fn test_inner(test_path: &str) {
     let t: Tests =
         serde_json::from_reader(BufReader::new(File::open(Path::new(test_path)).unwrap())).unwrap();
 
+    match t.curve {
+        Curve::Bn128 => compile_and_run::<Bn128Field>(t),
+        Curve::Bls12 => compile_and_run::<Bls12Field>(t),
+    }
+}
+
+fn compile_and_run<T: Field>(t: Tests) {
     let mut code_reader = BufReader::new(File::open(&t.entry_point).unwrap());
 
-    let bin = compile(
+    let bin = compile::<T, _, _, _>(
         &mut code_reader,
         Some(
             t.entry_point
@@ -96,7 +110,7 @@ pub fn test_inner(test_path: &str) {
         let output = bin.execute(
             &input
                 .iter()
-                .map(|v| Bn128Field::try_from_dec_str(&v.clone()).unwrap())
+                .map(|v| T::try_from_dec_str(&v.clone()).unwrap())
                 .collect(),
         );
 
