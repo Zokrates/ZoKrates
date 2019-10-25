@@ -728,7 +728,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 // lhs and rhs are booleans, they flatten to 0 or 1
                 let x = self.flatten_boolean_expression(symbols, statements_flattened, lhs);
                 let y = self.flatten_boolean_expression(symbols, statements_flattened, rhs);
-                // Wanted: Not(X - Y)**2 which is an XNOR 
+                // Wanted: Not(X - Y)**2 which is an XNOR
                 // We know that X and Y are [0, 1]
                 // (X - Y) can become a negative values, which is why squaring the result is needed
                 // Negating this returns correct result
@@ -743,15 +743,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 // | 0 | 0 |     0 |             1 |
                 // +---+---+-------+---------------+
 
-                let x_sub_y =  FlatExpression::Sub(box x, box y);
+                let x_sub_y = FlatExpression::Sub(box x, box y);
                 let name_x_mult_x = self.use_sym();
 
                 statements_flattened.push(FlatStatement::Definition(
                     name_x_mult_x,
-                    FlatExpression::Mult(
-                        box x_sub_y.clone(),
-                        box x_sub_y,
-                    ),
+                    FlatExpression::Mult(box x_sub_y.clone(), box x_sub_y),
                 ));
 
                 FlatExpression::Sub(

@@ -6,31 +6,16 @@ use crate::proof_system::bn128::utils::solidity::{
 use crate::proof_system::ProofSystem;
 use bellman::groth16::Parameters;
 use regex::Regex;
-use std::fs::File;
-use std::io::{BufReader, Cursor, Read, Write};
-use std::path::PathBuf;
+
+use std::io::{Cursor, Read};
+
 use zokrates_field::field::FieldPrime;
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/reference/proving_schemes.html#g16-malleability for implications.";
 
 pub struct G16 {}
 impl ProofSystem for G16 {
-    fn setup(&self, program: ir::Prog<FieldPrime>, pk_path: &str, vk_path: &str) {
-        std::env::set_var("BELLMAN_VERBOSE", "0");
-
-        println!("{}", G16_WARNING);
-
-        let parameters = Computation::without_witness(program).setup();
-        let parameters_file = File::create(PathBuf::from(pk_path)).unwrap();
-
-        parameters.write(parameters_file).unwrap();
-        let mut vk_file = File::create(PathBuf::from(vk_path)).unwrap();
-        vk_file
-            .write(serialize::serialize_vk(parameters.vk).as_ref())
-            .unwrap();
-    }
-
-    fn setup_c(&self, program: ir::Prog<FieldPrime>) -> (String, Vec<u8>) {
+    fn setup(&self, program: ir::Prog<FieldPrime>) -> (String, Vec<u8>) {
         std::env::set_var("BELLMAN_VERBOSE", "0");
 
         println!("{}", G16_WARNING);
@@ -55,33 +40,6 @@ impl ProofSystem for G16 {
         &self,
         program: ir::Prog<FieldPrime>,
         witness: ir::Witness<FieldPrime>,
-        pk_path: &str,
-        proof_path: &str,
-    ) -> bool {
-        std::env::set_var("BELLMAN_VERBOSE", "0");
-
-        println!("{}", G16_WARNING);
-
-        let computation = Computation::with_witness(program, witness);
-        let parameters_file = File::open(PathBuf::from(pk_path)).unwrap();
-
-        let params = Parameters::read(parameters_file, true).unwrap();
-
-        let proof = computation.clone().prove(&params);
-        let mut proof_file = File::create(PathBuf::from(proof_path)).unwrap();
-        write!(
-            proof_file,
-            "{}",
-            serialize::serialize_proof(&proof, &computation.public_inputs_values())
-        )
-        .unwrap();
-        true
-    }
-
-    fn generate_proof_c(
-        &self,
-        program: ir::Prog<FieldPrime>,
-        witness: ir::Witness<FieldPrime>,
         proving_key: &[u8],
     ) -> String {
         std::env::set_var("BELLMAN_VERBOSE", "0");
@@ -95,16 +53,7 @@ impl ProofSystem for G16 {
         serialize::serialize_proof(&proof, &computation.public_inputs_values())
     }
 
-    fn export_solidity_verifier(&self, mut reader: BufReader<File>, is_abiv2: bool) -> String {
-        let mut buffer = String::new();
-        reader
-            .read_to_string(&mut buffer)
-            .expect("Unable to read from file");
-
-        self.export_solidity_verifier_c(buffer, is_abiv2)
-    }
-
-    fn export_solidity_verifier_c(&self, vk: String, is_abiv2: bool) -> String {
+    fn export_solidity_verifier(&self, vk: String, is_abiv2: bool) -> String {
         let mut lines = vk.lines();
 
         let (mut template_text, solidity_pairing_lib) = if is_abiv2 {
