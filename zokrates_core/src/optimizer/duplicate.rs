@@ -49,6 +49,7 @@ impl<T: Field> Folder<T> for DuplicateOptimizer {
 mod tests {
     use super::*;
     use flat_absy::FlatVariable;
+    use typed_absy::types::Signature;
     use zokrates_field::field::FieldPrime;
 
     #[test]
@@ -78,6 +79,7 @@ mod tests {
                 returns: vec![],
                 arguments: vec![],
             },
+            signature: Signature::new(),
         };
 
         let expected = p.clone();
@@ -117,6 +119,7 @@ mod tests {
                 returns: vec![],
                 arguments: vec![],
             },
+            signature: Signature::new(),
         };
 
         let expected = Prog {
@@ -136,6 +139,7 @@ mod tests {
                 returns: vec![],
                 arguments: vec![],
             },
+            signature: Signature::new(),
         };
 
         assert_eq!(DuplicateOptimizer::optimize(p), expected);

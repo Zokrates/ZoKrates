@@ -27,7 +27,7 @@ matrix:
       os: osx
 
     # *BSD
-    - env: TARGET=x86_64-unknown-freebsd
+    # - env: TARGET=x86_64-unknown-freebsd
 
     # Windows
     - env: TARGET=x86_64-pc-windows-gnu

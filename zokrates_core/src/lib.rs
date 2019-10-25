@@ -34,10 +34,10 @@ mod optimizer;
 mod parser;
 mod semantics;
 mod static_analysis;
-mod typed_absy;
 
 pub mod absy;
 pub mod compile;
 pub mod flat_absy;
 pub mod ir;
 pub mod proof_system;
+pub mod typed_absy;

@@ -11,9 +11,10 @@ pub mod types;
 mod variable;
 
 pub use crate::typed_absy::parameter::Parameter;
+pub use crate::typed_absy::types::Type;
 pub use crate::typed_absy::variable::Variable;
 
-use crate::typed_absy::types::{FunctionKey, MemberId, Signature, Type};
+use crate::typed_absy::types::{FunctionKey, MemberId, Signature};
 use embed::FlatEmbed;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -74,7 +75,7 @@ impl<'ast, T: Field> fmt::Display for TypedProgram<'ast, T> {
     }
 }
 
-/// A
+/// A typed program as a collection of functions. Types have been resolved during semantic checking.
 #[derive(PartialEq, Clone)]
 pub struct TypedModule<'ast, T: Field> {
     /// Functions of the program
@@ -583,9 +584,13 @@ pub enum BooleanExpression<'ast, T: Field> {
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
-    Eq(
+    FieldEq(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
+    ),
+    BoolEq(
+        Box<BooleanExpression<'ast, T>>,
+        Box<BooleanExpression<'ast, T>>,
     ),
     Ge(
         Box<FieldElementExpression<'ast, T>>,
@@ -805,7 +810,8 @@ impl<'ast, T: Field> fmt::Display for BooleanExpression<'ast, T> {
             BooleanExpression::Identifier(ref var) => write!(f, "{}", var),
             BooleanExpression::Lt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
             BooleanExpression::Le(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
-            BooleanExpression::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            BooleanExpression::FieldEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            BooleanExpression::BoolEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
             BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
             BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),

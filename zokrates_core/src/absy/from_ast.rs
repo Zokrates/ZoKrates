@@ -54,7 +54,7 @@ impl<'ast, T: Field> From<pest::StructDefinition<'ast>> for absy::SymbolDeclarat
                 .map(|f| absy::StructFieldNode::from(f))
                 .collect(),
         }
-        .span(span.clone()); // TODO check
+        .span(span.clone());
 
         absy::SymbolDeclaration {
             id,

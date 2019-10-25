@@ -470,7 +470,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 let range_check = (0..size)
                     .map(|i| {
                         FieldElementExpression::IfElse(
-                            box BooleanExpression::Eq(
+                            box BooleanExpression::FieldEq(
                                 box e.clone(),
                                 box FieldElementExpression::Number(T::from(i)),
                             ),
@@ -531,7 +531,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     .fold(None, |acc, (term, index)| match acc {
                         None => Some(term),
                         Some(acc) => Some(U::if_else(
-                            BooleanExpression::Eq(box e.clone(), box index),
+                            BooleanExpression::FieldEq(box e.clone(), box index),
                             term,
                             acc,
                         )),
@@ -724,7 +724,42 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 FlatExpression::Identifier(sub_bits_be[bitwidth - 1])
             }
-            BooleanExpression::Eq(box lhs, box rhs) => {
+            BooleanExpression::BoolEq(box lhs, box rhs) => {
+                // lhs and rhs are booleans, they flatten to 0 or 1
+                let x = self.flatten_boolean_expression(symbols, statements_flattened, lhs);
+                let y = self.flatten_boolean_expression(symbols, statements_flattened, rhs);
+                // Wanted: Not(X - Y)**2 which is an XNOR 
+                // We know that X and Y are [0, 1]
+                // (X - Y) can become a negative values, which is why squaring the result is needed
+                // Negating this returns correct result
+
+                // Non-binary Truth table for logic of operation
+                // +---+---+-------+---------------+
+                // | X | Y | X - Y | Not(X - Y)**2 |
+                // +---+---+-------+---------------+
+                // | 1 | 1 |     0 |             1 |
+                // | 1 | 0 |     1 |             0 |
+                // | 0 | 1 |    -1 |             0 |
+                // | 0 | 0 |     0 |             1 |
+                // +---+---+-------+---------------+
+
+                let x_sub_y =  FlatExpression::Sub(box x, box y);
+                let name_x_mult_x = self.use_sym();
+
+                statements_flattened.push(FlatStatement::Definition(
+                    name_x_mult_x,
+                    FlatExpression::Mult(
+                        box x_sub_y.clone(),
+                        box x_sub_y,
+                    ),
+                ));
+
+                FlatExpression::Sub(
+                    box FlatExpression::Number(T::one()),
+                    box FlatExpression::Identifier(name_x_mult_x),
+                )
+            }
+            BooleanExpression::FieldEq(box lhs, box rhs) => {
                 // We know from semantic checking that lhs and rhs have the same type
                 // What the expression will flatten to depends on that type
 
@@ -775,7 +810,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 let eq = self.flatten_boolean_expression(
                     symbols,
                     statements_flattened,
-                    BooleanExpression::Eq(box lhs.clone(), box rhs.clone()),
+                    BooleanExpression::FieldEq(box lhs.clone(), box rhs.clone()),
                 );
                 FlatExpression::Add(box eq, box lt)
             }
@@ -1901,7 +1936,7 @@ mod tests {
     #[test]
     fn if_else() {
         let expression = FieldElementExpression::IfElse(
-            box BooleanExpression::Eq(
+            box BooleanExpression::FieldEq(
                 box FieldElementExpression::Number(FieldPrime::from(32)),
                 box FieldElementExpression::Number(FieldPrime::from(4)),
             ),
@@ -1937,7 +1972,7 @@ mod tests {
 
         let expression = FieldElementExpression::IfElse(
             box BooleanExpression::And(
-                box BooleanExpression::Eq(
+                box BooleanExpression::FieldEq(
                     box FieldElementExpression::Number(FieldPrime::from(4)),
                     box FieldElementExpression::Number(FieldPrime::from(4)),
                 ),
@@ -2337,7 +2372,7 @@ mod tests {
             let mut statements_flattened = vec![];
 
             let e = ArrayExpressionInner::IfElse(
-                box BooleanExpression::Eq(
+                box BooleanExpression::FieldEq(
                     box FieldElementExpression::Number(FieldPrime::from(1)),
                     box FieldElementExpression::Number(FieldPrime::from(1)),
                 ),
@@ -2370,7 +2405,7 @@ mod tests {
             let mut flattener = Flattener::new();
             // if 1 == 1 then 1 else 3 fi
             let e = FieldElementExpression::IfElse(
-                box BooleanExpression::Eq(
+                box BooleanExpression::FieldEq(
                     box FieldElementExpression::Number(FieldPrime::from(1)),
                     box FieldElementExpression::Number(FieldPrime::from(1)),
                 ),
