@@ -87,8 +87,6 @@ impl Prog<FieldPrime> {
         cs: &mut CS,
         witness: Option<Witness<FieldPrime>>,
     ) -> Result<(), SynthesisError> {
-        println!("{:#?}", self);
-
         // mapping from IR variables
         let mut symbols = BTreeMap::new();
 
