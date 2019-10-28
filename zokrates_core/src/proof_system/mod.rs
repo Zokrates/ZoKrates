@@ -1,12 +1,10 @@
 mod bn128;
 
-use std::fs::File;
 use zokrates_field::field::FieldPrime;
 
 pub use self::bn128::G16;
 
 use crate::ir;
-use std::io::BufReader;
 
 pub trait ProofSystem {
     fn setup(&self, program: ir::Prog<FieldPrime>) -> (String, Vec<u8>);
