@@ -589,7 +589,7 @@ mod tests {
                 .unwrap();
 
             let _: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(resolve)).unwrap();
+                compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
         }
     }
 
@@ -616,7 +616,7 @@ mod tests {
             let mut reader = BufReader::new(file);
 
             let program_flattened: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(resolve)).unwrap();
+                compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
             let _ = program_flattened
                 .execute(&vec![FieldPrime::from(0)])
@@ -648,7 +648,7 @@ mod tests {
             let mut reader = BufReader::new(file);
 
             let program_flattened: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(resolve)).unwrap();
+                compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
             let _ = program_flattened
                 .execute(&vec![FieldPrime::from(0)])
