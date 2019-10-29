@@ -176,13 +176,21 @@ impl Importer {
                     Some(resolve) => match resolve(location.clone(), import.source.to_string()) {
                         Ok((source, location)) => {
                             let source = arena.alloc(source);
-                            let alias = import.alias.unwrap_or_else(|| {
+
+                            // generate an alias from the imported path if none was given explicitely
+                            let alias = import.alias.unwrap_or(
                                 std::path::Path::new(import.source)
                                     .file_stem()
-                                    .unwrap()
+                                    .ok_or(CompileErrors::from(
+                                        CompileErrorInner::ImportError(Error::new(format!(
+                                            "Could not determine alias for import {}",
+                                            import.source
+                                        )))
+                                        .with_context(&location),
+                                    ))?
                                     .to_str()
-                                    .unwrap()
-                            });
+                                    .unwrap(),
+                            );
 
                             let compiled =
                                 compile_module(source, location, resolve_option, modules, &arena)
