@@ -3,6 +3,8 @@ mod bn128;
 use zokrates_field::field::FieldPrime;
 
 pub use self::bn128::G16;
+#[cfg(feature = "libsnark")]
+pub use self::bn128::GM17;
 
 use crate::ir;
 
