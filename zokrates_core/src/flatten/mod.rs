@@ -48,6 +48,17 @@ impl<'ast, T: Field> Flatten<'ast, T> for FieldElementExpression<'ast, T> {
     }
 }
 
+impl<'ast, T: Field> Flatten<'ast, T> for U8Expression<'ast> {
+    fn flatten(
+        self,
+        flattener: &mut Flattener<'ast, T>,
+        symbols: &TypedFunctionSymbols<'ast, T>,
+        statements_flattened: &mut Vec<FlatStatement<T>>,
+    ) -> Vec<FlatExpression<T>> {
+        vec![flattener.flatten_u8_expression(symbols, statements_flattened, self)]
+    }
+}
+
 impl<'ast, T: Field> Flatten<'ast, T> for BooleanExpression<'ast, T> {
     fn flatten(
         self,
@@ -85,6 +96,11 @@ impl<'ast, T: Field> Flatten<'ast, T> for ArrayExpression<'ast, T> {
                     self,
                 ),
             Type::Boolean => flattener.flatten_array_expression::<BooleanExpression<'ast, T>>(
+                symbols,
+                statements_flattened,
+                self,
+            ),
+            Type::U8 => flattener.flatten_array_expression::<U8Expression<'ast>>(
                 symbols,
                 statements_flattened,
                 self,
@@ -236,6 +252,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             Type::FieldElement => FieldElementExpression::try_from(v)
                                 .unwrap()
                                 .flatten(self, symbols, statements_flattened),
+                            Type::U8 => U8Expression::try_from(v)
+                                .unwrap()
+                                .flatten(self, symbols, statements_flattened),
                             Type::Boolean => BooleanExpression::try_from(v).unwrap().flatten(
                                 self,
                                 symbols,
@@ -323,6 +342,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             condition.clone(),
                             BooleanExpression::member(consequence.clone(), member_id.clone()),
                             BooleanExpression::member(alternative.clone(), member_id),
+                        ),
+                        Type::U8 => self.flatten_if_else_expression(
+                            symbols,
+                            statements_flattened,
+                            condition.clone(),
+                            U8Expression::member(consequence.clone(), member_id.clone()),
+                            U8Expression::member(alternative.clone(), member_id),
                         ),
                         Type::Struct(..) => self.flatten_if_else_expression(
                             symbols,
@@ -436,6 +462,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             ),
                         Type::Boolean => self
                             .flatten_select_expression::<BooleanExpression<'ast, T>>(
+                                symbols,
+                                statements_flattened,
+                                array,
+                                index,
+                            ),
+                        Type::U8 => self
+                            .flatten_select_expression::<U8Expression<'ast>>(
                                 symbols,
                                 statements_flattened,
                                 array,
@@ -1009,6 +1042,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             TypedExpression::Boolean(e) => {
                 vec![self.flatten_boolean_expression(symbols, statements_flattened, e)]
             }
+            TypedExpression::U8(e) => {
+                vec![self.flatten_u8_expression(symbols, statements_flattened, e)]
+            }
             TypedExpression::Array(e) => match e.inner_type().clone() {
                 Type::FieldElement => self
                     .flatten_array_expression::<FieldElementExpression<'ast, T>>(
@@ -1017,6 +1053,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         e,
                     ),
                 Type::Boolean => self.flatten_array_expression::<BooleanExpression<'ast, T>>(
+                    symbols,
+                    statements_flattened,
+                    e,
+                ),
+                Type::U8 => self.flatten_array_expression::<U8Expression<'ast>>(
                     symbols,
                     statements_flattened,
                     e,
@@ -1034,6 +1075,27 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             },
             TypedExpression::Struct(e) => {
                 self.flatten_struct_expression(symbols, statements_flattened, e)
+            }
+        }
+    }
+
+    /// Flattens a u8 expression
+    ///
+    /// # Arguments
+    ///
+    /// * `symbols` - Available functions in in this context
+    /// * `statements_flattened` - Vector where new flattened statements can be added.
+    /// * `expr` - `U8ElementExpression` that will be flattened.
+    fn flatten_u8_expression(
+        &mut self,
+        symbols: &TypedFunctionSymbols<'ast, T>,
+        statements_flattened: &mut Vec<FlatStatement<T>>,
+        expr: U8Expression<'ast>,
+    ) -> FlatExpression<T> {
+        match expr {
+            U8Expression::Value(x) => FlatExpression::Number(T::from(x as usize)), // force to be a field element
+            U8Expression::Identifier(x) => {
+                FlatExpression::Identifier(self.layout.get(&x).unwrap().clone()[0])
             }
         }
     }
@@ -1328,6 +1390,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             condition.clone(),
                             FieldElementExpression::member(consequence.clone(), id.clone()),
                             FieldElementExpression::member(alternative.clone(), id.clone()),
+                        )
+                        .flatten(self, symbols, statements_flattened),
+                        Type::U8 => U8Expression::if_else(
+                            condition.clone(),
+                            U8Expression::member(consequence.clone(), id.clone()),
+                            U8Expression::member(alternative.clone(), id.clone()),
                         )
                         .flatten(self, symbols, statements_flattened),
                         Type::Boolean => BooleanExpression::if_else(

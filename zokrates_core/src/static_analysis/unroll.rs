@@ -185,6 +185,33 @@ impl<'ast> Unroller<'ast> {
                                             ),
                                         )
                                         .into(),
+                                        Type::U8 => U8Expression::if_else(
+                                            BooleanExpression::FieldEq(
+                                                box FieldElementExpression::Number(T::from(i)),
+                                                box head.clone(),
+                                            ),
+                                            match Self::choose_many(
+                                                U8Expression::select(
+                                                    base.clone(),
+                                                    FieldElementExpression::Number(T::from(i)),
+                                                )
+                                                .into(),
+                                                tail.clone(),
+                                                new_expression.clone(),
+                                                statements,
+                                            ) {
+                                                TypedExpression::U8(e) => e,
+                                                e => unreachable!(
+                                            "the interior was expected to be a u8, was {}",
+                                            e.get_type()
+                                        ),
+                                            },
+                                            U8Expression::select(
+                                                base.clone(),
+                                                FieldElementExpression::Number(T::from(i)),
+                                            ),
+                                        )
+                                        .into(),
                                     })
                                     .collect(),
                             )
@@ -223,6 +250,23 @@ impl<'ast> Unroller<'ast> {
                                             )
                                         } else {
                                             FieldElementExpression::member(base.clone(), id.clone())
+                                                .into()
+                                        }
+                                    }
+                                    Type::U8 => {
+                                        if id == head {
+                                            Self::choose_many(
+                                                U8Expression::member(
+                                                    base.clone(),
+                                                    head.clone(),
+                                                )
+                                                .into(),
+                                                tail.clone(),
+                                                new_expression.clone(),
+                                                statements,
+                                            )
+                                        } else {
+                                            U8Expression::member(base.clone(), id.clone())
                                                 .into()
                                         }
                                     }
@@ -325,6 +369,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                     }
                     Type::Boolean => {
                         BooleanExpression::Identifier(variable.id.clone().into()).into()
+                    }
+                    Type::U8 => {
+                        U8Expression::Identifier(variable.id.clone().into()).into()
                     }
                     Type::Array(box ty, size) => {
                         ArrayExpressionInner::Identifier(variable.id.clone().into())

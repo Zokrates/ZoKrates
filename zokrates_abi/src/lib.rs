@@ -42,6 +42,7 @@ impl fmt::Display for Error {
 
 #[derive(PartialEq, Debug)]
 enum Value<T> {
+    U8(u8),
     Field(T),
     Boolean(bool),
     Array(Vec<Value<T>>),
@@ -50,6 +51,7 @@ enum Value<T> {
 
 #[derive(PartialEq, Debug)]
 enum CheckedValue<T> {
+    U8(u8),
     Field(T),
     Boolean(bool),
     Array(Vec<CheckedValue<T>>),
@@ -63,6 +65,7 @@ impl<T: Field> fmt::Display for Value<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Value::Field(v) => write!(f, "{}", v),
+            Value::U8(v) => write!(f, "{:#x}", v),
             Value::Boolean(v) => write!(f, "{}", v),
             Value::Array(v) => write!(
                 f,
@@ -144,6 +147,7 @@ impl<T: From<usize>> Encode<T> for CheckedValue<T> {
     fn encode(self) -> Vec<T> {
         match self {
             CheckedValue::Field(t) => vec![t],
+            CheckedValue::U8(t) => vec![T::from(t as usize)],
             CheckedValue::Boolean(b) => vec![if b { 1.into() } else { 0.into() }],
             CheckedValue::Array(a) => a.into_iter().flat_map(|v| v.encode()).collect(),
             CheckedValue::Struct(s) => s.into_iter().flat_map(|(_, v)| v.encode()).collect(),
@@ -151,7 +155,7 @@ impl<T: From<usize>> Encode<T> for CheckedValue<T> {
     }
 }
 
-impl<T: Clone + From<usize> + PartialEq> Decode<T> for CheckedValues<T> {
+impl<T: Field> Decode<T> for CheckedValues<T> {
     type Expected = Vec<Type>;
 
     fn decode(raw: Vec<T>, expected: Self::Expected) -> Self {
@@ -169,7 +173,7 @@ impl<T: Clone + From<usize> + PartialEq> Decode<T> for CheckedValues<T> {
     }
 }
 
-impl<T: From<usize> + PartialEq + Clone> Decode<T> for CheckedValue<T> {
+impl<T: Field> Decode<T> for CheckedValue<T> {
     type Expected = Type;
 
     fn decode(raw: Vec<T>, expected: Self::Expected) -> Self {
@@ -177,6 +181,7 @@ impl<T: From<usize> + PartialEq + Clone> Decode<T> for CheckedValue<T> {
 
         match expected {
             Type::FieldElement => CheckedValue::Field(raw.pop().unwrap()),
+            Type::U8 => CheckedValue::U8(u8::from_str_radix(&raw.pop().unwrap().to_dec_string(), 16).unwrap()),
             Type::Boolean => {
                 let v = raw.pop().unwrap();
                 CheckedValue::Boolean(if v == 0.into() {
@@ -237,7 +242,8 @@ impl<T: Field> TryFrom<serde_json::Value> for Value<T> {
         match v {
             serde_json::Value::String(s) => T::try_from_dec_str(&s)
                 .map(|v| Value::Field(v))
-                .map_err(|_| format!("Could not parse `{}` as field element", s)),
+                .or_else(|_| u8::from_str_radix(&s, 16).map(|v| Value::U8(v)))
+                .map_err(|_| format!("Could not parse `{}` as field element or u8", s)),
             serde_json::Value::Bool(b) => Ok(Value::Boolean(b)),
             serde_json::Value::Number(n) => Err(format!(
                 "Value `{}` isn't allowed, did you mean `\"{}\"`?",
@@ -262,6 +268,7 @@ impl<T: Field> Into<serde_json::Value> for CheckedValue<T> {
     fn into(self) -> serde_json::Value {
         match self {
             CheckedValue::Field(f) => serde_json::Value::String(f.to_dec_string()),
+            CheckedValue::U8(u) => serde_json::Value::String(format!("{:#x}", u)),
             CheckedValue::Boolean(b) => serde_json::Value::Bool(b),
             CheckedValue::Array(a) => {
                 serde_json::Value::Array(a.into_iter().map(|e| e.into()).collect())
@@ -457,6 +464,12 @@ mod tests {
         #[test]
         fn fields() {
             let v = CheckedValues(vec![CheckedValue::Field(1), CheckedValue::Field(2)]);
+            assert_eq!(v.encode(), vec![1, 2]);
+        }
+
+        #[test]
+        fn u8s() {
+            let v = CheckedValues::<usize>(vec![CheckedValue::U8(1), CheckedValue::U8(2)]);
             assert_eq!(v.encode(), vec![1, 2]);
         }
 

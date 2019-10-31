@@ -243,6 +243,7 @@ mod ast {
     pub enum BasicType<'ast> {
         Field(FieldType<'ast>),
         Boolean(BooleanType<'ast>),
+        U8(U8Type<'ast>),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
@@ -271,6 +272,13 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_bool))]
     pub struct BooleanType<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::ty_u8))]
+    pub struct U8Type<'ast> {
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }

@@ -54,10 +54,17 @@ impl<'ast, T: Field> InputConstrainer<'ast, T> {
                 b.clone().into(),
                 BooleanExpression::And(box b.clone(), box b).into(),
             )),
+            TypedExpression::U8(_) => {
+            }
             TypedExpression::Array(a) => {
                 for i in 0..a.size() {
                     let e = match a.inner_type() {
                         Type::FieldElement => FieldElementExpression::select(
+                            a.clone(),
+                            FieldElementExpression::Number(T::from(i)),
+                        )
+                        .into(),
+                        Type::U8 => U8Expression::select(
                             a.clone(),
                             FieldElementExpression::Number(T::from(i)),
                         )
@@ -89,6 +96,7 @@ impl<'ast, T: Field> InputConstrainer<'ast, T> {
                             FieldElementExpression::member(s.clone(), id.clone()).into()
                         }
                         Type::Boolean => BooleanExpression::member(s.clone(), id.clone()).into(),
+                        Type::U8 => U8Expression::member(s.clone(), id.clone()).into(),
                         Type::Array(..) => ArrayExpression::member(s.clone(), id.clone()).into(),
                         Type::Struct(..) => StructExpression::member(s.clone(), id.clone()).into(),
                     };
@@ -107,6 +115,7 @@ impl<'ast, T: Field> Folder<'ast, T> for InputConstrainer<'ast, T> {
         let e = match v.get_type() {
             Type::FieldElement => FieldElementExpression::Identifier(v.id).into(),
             Type::Boolean => BooleanExpression::Identifier(v.id).into(),
+            Type::U8 => U8Expression::Identifier(v.id).into(),
             Type::Struct(members) => StructExpressionInner::Identifier(v.id)
                 .annotate(members)
                 .into(),

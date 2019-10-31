@@ -11,6 +11,7 @@ pub type UserTypeId = String;
 pub enum UnresolvedType {
     FieldElement,
     Boolean,
+    U8,
     Array(Box<UnresolvedTypeNode>, usize),
     User(UserTypeId),
 }
@@ -20,6 +21,7 @@ impl fmt::Display for UnresolvedType {
         match self {
             UnresolvedType::FieldElement => write!(f, "field"),
             UnresolvedType::Boolean => write!(f, "bool"),
+            UnresolvedType::U8 => write!(f, "u8"),
             UnresolvedType::Array(ref ty, ref size) => write!(f, "{}[{}]", ty, size),
             UnresolvedType::User(i) => write!(f, "{}", i),
         }

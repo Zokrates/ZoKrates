@@ -712,6 +712,7 @@ impl<'ast> Checker<'ast> {
         match ty {
             UnresolvedType::FieldElement => Ok(Type::FieldElement),
             UnresolvedType::Boolean => Ok(Type::Boolean),
+            UnresolvedType::U8 => Ok(Type::U8),
             UnresolvedType::Array(t, size) => Ok(Type::Array(
                 box self.check_type(*t, module_id, types)?,
                 size,
@@ -1032,29 +1033,32 @@ impl<'ast> Checker<'ast> {
                             // otherwise we return a[0], ..., a[a.size() -1 ]
                             e => Ok((0..size)
                                 .map(|i| match &ty {
-                                    Type::FieldElement => FieldElementExpression::Select(
-                                        box e.clone().annotate(Type::FieldElement, size),
-                                        box FieldElementExpression::Number(T::from(i)),
+                                    Type::FieldElement => FieldElementExpression::select(
+                                        e.clone().annotate(Type::FieldElement, size),
+                                        FieldElementExpression::Number(T::from(i)),
                                     )
                                     .into(),
-                                    Type::Boolean => BooleanExpression::Select(
-                                        box e.clone().annotate(Type::Boolean, size),
-                                        box FieldElementExpression::Number(T::from(i)),
+                                    Type::U8 => U8Expression::select(
+                                        e.clone().annotate(Type::U8, size),
+                                        FieldElementExpression::Number(T::from(i)),
                                     )
                                     .into(),
-                                    Type::Array(box ty, s) => ArrayExpressionInner::Select(
-                                        box e
+                                    Type::Boolean => BooleanExpression::select(
+                                        e.clone().annotate(Type::Boolean, size),
+                                        FieldElementExpression::Number(T::from(i)),
+                                    )
+                                    .into(),
+                                    Type::Array(box ty, s) => ArrayExpression::select(
+                                        e
                                             .clone()
-                                            .annotate(Type::Array(box ty.clone(), *s), size),
-                                        box FieldElementExpression::Number(T::from(i)),
+                                            .annotate(Type::array(ty.clone(), *s), size),
+                                        FieldElementExpression::Number(T::from(i)),
                                     )
-                                    .annotate(ty.clone(), *s)
                                     .into(),
-                                    Type::Struct(fields) => StructExpressionInner::Select(
-                                        box e.clone().annotate(Type::Struct(fields.clone()), size),
-                                        box FieldElementExpression::Number(T::from(i)),
+                                    Type::Struct(fields) => StructExpression::select(
+                                        e.clone().annotate(Type::Struct(fields.clone()), size),
+                                        FieldElementExpression::Number(T::from(i)),
                                     )
-                                    .annotate(fields.clone())
                                     .into(),
                                 })
                                 .collect()),
@@ -1091,6 +1095,7 @@ impl<'ast> Checker<'ast> {
                 match self.get_scope(&name) {
                     Some(v) => match v.id.get_type() {
                         Type::Boolean => Ok(BooleanExpression::Identifier(name.into()).into()),
+                        Type::U8 => Ok(U8Expression::Identifier(name.into()).into()),
                         Type::FieldElement => {
                             Ok(FieldElementExpression::Identifier(name.into()).into())
                         }
@@ -1498,22 +1503,23 @@ impl<'ast> Checker<'ast> {
                         match (array, self.check_expression(e, module_id, &types)?) {
                             (TypedExpression::Array(a), TypedExpression::FieldElement(i)) => {
                                 match a.inner_type().clone() {
-                                    Type::FieldElement => {
-                                        Ok(FieldElementExpression::Select(box a, box i).into())
-                                    }
-                                    Type::Boolean => {
-                                        Ok(BooleanExpression::Select(box a, box i).into())
-                                    }
-                                    Type::Array(box ty, size) => {
-                                        Ok(ArrayExpressionInner::Select(box a, box i)
-                                            .annotate(ty.clone(), size.clone())
-                                            .into())
-                                    }
-                                    Type::Struct(members) => {
-                                        Ok(StructExpressionInner::Select(box a, box i)
-                                            .annotate(members.clone())
-                                            .into())
-                                    }
+                                    Type::FieldElement => 
+                                        Ok(FieldElementExpression::select(a, i).into()),
+                                    
+                                    Type::U8 => 
+                                        Ok(U8Expression::select(a, i).into()),
+                                    
+                                    Type::Boolean => 
+                                        Ok(BooleanExpression::select(a, i).into()),
+                                    
+                                    Type::Array(..) => 
+                                        Ok(ArrayExpression::select(a, i)
+                                            .into()),
+                                    
+                                    Type::Struct(..) => 
+                                        Ok(StructExpression::select(a, i)
+                                            .into()),
+                                    
                                 }
                             }
                             (a, e) => Err(Error {
@@ -1542,22 +1548,21 @@ impl<'ast> Checker<'ast> {
 
                         match ty {
                             Some(ty) => match ty {
-                                Type::FieldElement => {
-                                    Ok(FieldElementExpression::Member(box s, id.to_string()).into())
-                                }
-                                Type::Boolean => {
-                                    Ok(BooleanExpression::Member(box s, id.to_string()).into())
-                                }
-                                Type::Array(box ty, size) => {
-                                    Ok(ArrayExpressionInner::Member(box s.clone(), id.to_string())
-                                        .annotate(ty.clone(), *size)
+                                Type::FieldElement => 
+                                    Ok(FieldElementExpression::member(s, id.to_string()).into()),
+
+                                Type::Boolean => 
+                                    Ok(BooleanExpression::member(s, id.to_string()).into()),
+
+                                Type::U8 => 
+                                    Ok(U8Expression::member(s, id.to_string()).into()),
+                                
+                                Type::Array(..) => 
+                                    Ok(ArrayExpression::member(s.clone(), id.to_string()).into()),
+                                Type::Struct(..) => 
+                                    Ok(StructExpression::member(s.clone(), id.to_string())
                                         .into())
-                                }
-                                Type::Struct(members) => {
-                                    Ok(StructExpressionInner::Member(box s.clone(), id.to_string())
-                                        .annotate(members.clone())
-                                        .into())
-                                }
+
                             },
                             None => Err(Error {
                                 pos: Some(pos),
@@ -1639,6 +1644,33 @@ impl<'ast> Checker<'ast> {
 
                         Ok(ArrayExpressionInner::Value(unwrapped_expressions)
                             .annotate(Type::Boolean, size)
+                            .into())
+                    }
+                    Type::U8 => {
+                        // we check all expressions have that same type
+                        let mut unwrapped_expressions = vec![];
+
+                        for e in expressions_checked {
+                            let unwrapped_e = match e {
+                                TypedExpression::U8(e) => Ok(e),
+                                e => Err(Error {
+                                    pos: Some(pos),
+
+                                    message: format!(
+                                        "Expected {} to have type {}, but type is {}",
+                                        e,
+                                        inferred_type,
+                                        e.get_type()
+                                    ),
+                                }),
+                            }?;
+                            unwrapped_expressions.push(unwrapped_e.into());
+                        }
+
+                        let size = unwrapped_expressions.len();
+
+                        Ok(ArrayExpressionInner::Value(unwrapped_expressions)
+                            .annotate(Type::U8, size)
                             .into())
                     }
                     ty @ Type::Array(..) => {

@@ -614,6 +614,7 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode {
             pest::Type::Basic(t) => match t {
                 pest::BasicType::Field(t) => absy::UnresolvedType::FieldElement.span(t.span),
                 pest::BasicType::Boolean(t) => absy::UnresolvedType::Boolean.span(t.span),
+                pest::BasicType::U8(t) =>absy::UnresolvedType::U8.span(t.span),
             },
             pest::Type::Array(t) => {
                 let inner_type = match t.ty {
@@ -622,6 +623,7 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode {
                             absy::UnresolvedType::FieldElement.span(t.span)
                         }
                         pest::BasicType::Boolean(t) => absy::UnresolvedType::Boolean.span(t.span),
+                        pest::BasicType::U8(t) =>absy::UnresolvedType::U8.span(t.span),
                     },
                     pest::BasicOrStructType::Struct(t) => {
                         absy::UnresolvedType::User(t.span.as_str().to_string()).span(t.span)

@@ -375,6 +375,7 @@ pub trait Typed {
 pub enum TypedExpression<'ast, T: Field> {
     Boolean(BooleanExpression<'ast, T>),
     FieldElement(FieldElementExpression<'ast, T>),
+    U8(U8Expression<'ast>),
     Array(ArrayExpression<'ast, T>),
     Struct(StructExpression<'ast, T>),
 }
@@ -388,6 +389,12 @@ impl<'ast, T: Field> From<BooleanExpression<'ast, T>> for TypedExpression<'ast, 
 impl<'ast, T: Field> From<FieldElementExpression<'ast, T>> for TypedExpression<'ast, T> {
     fn from(e: FieldElementExpression<'ast, T>) -> TypedExpression<T> {
         TypedExpression::FieldElement(e)
+    }
+}
+
+impl<'ast, T: Field> From<U8Expression<'ast>> for TypedExpression<'ast, T> {
+    fn from(e: U8Expression<'ast>) -> TypedExpression<T> {
+        TypedExpression::U8(e)
     }
 }
 
@@ -408,6 +415,7 @@ impl<'ast, T: Field> fmt::Display for TypedExpression<'ast, T> {
         match *self {
             TypedExpression::Boolean(ref e) => write!(f, "{}", e),
             TypedExpression::FieldElement(ref e) => write!(f, "{}", e),
+            TypedExpression::U8(ref e) => write!(f, "{}", e),
             TypedExpression::Array(ref e) => write!(f, "{}", e),
             TypedExpression::Struct(ref s) => write!(f, "{}", s),
         }
@@ -419,6 +427,7 @@ impl<'ast, T: Field> fmt::Debug for TypedExpression<'ast, T> {
         match *self {
             TypedExpression::Boolean(ref e) => write!(f, "{:?}", e),
             TypedExpression::FieldElement(ref e) => write!(f, "{:?}", e),
+            TypedExpression::U8(ref e) => write!(f, "{:?}", e),
             TypedExpression::Array(ref e) => write!(f, "{:?}", e),
             TypedExpression::Struct(ref s) => write!(f, "{}", s),
         }
@@ -487,6 +496,7 @@ impl<'ast, T: Field> Typed for TypedExpression<'ast, T> {
             TypedExpression::Boolean(ref e) => e.get_type(),
             TypedExpression::FieldElement(ref e) => e.get_type(),
             TypedExpression::Array(ref e) => e.get_type(),
+            TypedExpression::U8(ref e) => e.get_type(),
             TypedExpression::Struct(ref s) => s.get_type(),
         }
     }
@@ -507,6 +517,12 @@ impl<'ast, T: Field> Typed for StructExpression<'ast, T> {
 impl<'ast, T: Field> Typed for FieldElementExpression<'ast, T> {
     fn get_type(&self) -> Type {
         Type::FieldElement
+    }
+}
+
+impl<'ast> Typed for U8Expression<'ast> {
+    fn get_type(&self) -> Type {
+        Type::U8
     }
 }
 
@@ -569,6 +585,13 @@ pub enum FieldElementExpression<'ast, T: Field> {
         Box<ArrayExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
+}
+
+/// An expression of type `u8`
+#[derive(Clone, PartialEq, Hash, Eq)]
+pub enum U8Expression<'ast> {
+    Value(u8),
+    Identifier(Identifier<'ast>),
 }
 
 /// An expression of type `bool`
@@ -749,6 +772,17 @@ impl<'ast, T: Field> TryFrom<TypedExpression<'ast, T>> for BooleanExpression<'as
     }
 }
 
+impl<'ast, T: Field> TryFrom<TypedExpression<'ast, T>> for U8Expression<'ast> {
+    type Error = ();
+
+    fn try_from(te: TypedExpression<'ast, T>) -> Result<U8Expression<'ast>, Self::Error> {
+        match te {
+            TypedExpression::U8(e) => Ok(e),
+            _ => Err(()),
+        }
+    }
+}
+
 impl<'ast, T: Field> TryFrom<TypedExpression<'ast, T>> for ArrayExpression<'ast, T> {
     type Error = ();
 
@@ -801,6 +835,12 @@ impl<'ast, T: Field> fmt::Display for FieldElementExpression<'ast, T> {
             FieldElementExpression::Member(ref struc, ref id) => write!(f, "{}.{}", struc, id),
             FieldElementExpression::Select(ref id, ref index) => write!(f, "{}[{}]", id, index),
         }
+    }
+}
+
+impl<'ast> fmt::Display for U8Expression<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        unimplemented!()
     }
 }
 
@@ -864,6 +904,12 @@ impl<'ast, T: Field> fmt::Display for ArrayExpressionInner<'ast, T> {
 }
 
 impl<'ast, T: Field> fmt::Debug for BooleanExpression<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl<'ast> fmt::Debug for U8Expression<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self)
     }
@@ -1011,6 +1057,17 @@ impl<'ast, T: Field> IfElse<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
+impl<'ast, T: Field> IfElse<'ast, T> for U8Expression<'ast> {
+    fn if_else(
+        condition: BooleanExpression<'ast, T>,
+        consequence: Self,
+        alternative: Self,
+    ) -> Self {
+        unimplemented!()
+        // U8Expression::IfElse(box condition, box consequence, box alternative)
+    }
+}
+
 impl<'ast, T: Field> IfElse<'ast, T> for ArrayExpression<'ast, T> {
     fn if_else(
         condition: BooleanExpression<'ast, T>,
@@ -1051,6 +1108,13 @@ impl<'ast, T: Field> Select<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
+impl<'ast, T: Field> Select<'ast, T> for U8Expression<'ast> {
+    fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
+        unimplemented!()
+        // U8Expression::Select(box array, box index)
+    }
+}
+
 impl<'ast, T: Field> Select<'ast, T> for ArrayExpression<'ast, T> {
     fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
         let (ty, size) = match array.inner_type() {
@@ -1086,6 +1150,13 @@ impl<'ast, T: Field> Member<'ast, T> for FieldElementExpression<'ast, T> {
 impl<'ast, T: Field> Member<'ast, T> for BooleanExpression<'ast, T> {
     fn member(s: StructExpression<'ast, T>, member_id: MemberId) -> Self {
         BooleanExpression::Member(box s, member_id)
+    }
+}
+
+impl<'ast, T: Field> Member<'ast, T> for U8Expression<'ast> {
+    fn member(s: StructExpression<'ast, T>, member_id: MemberId) -> Self {
+        unimplemented!()
+        // U8Expression::Member(box s, member_id)
     }
 }
 

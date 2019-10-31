@@ -17,7 +17,8 @@ parameter = {vis? ~ ty ~ identifier}
 // basic types
 ty_field = {"field"}
 ty_bool = {"bool"}
-ty_basic = { ty_field | ty_bool }
+ty_u8 = {"u8"}
+ty_basic = { ty_field | ty_bool | ty_u8 }
 ty_basic_or_struct = { ty_basic | ty_struct }
 ty_array = { ty_basic_or_struct ~ ("[" ~ expression ~ "]")+ }
 ty = { ty_array | ty_basic | ty_struct }

@@ -60,6 +60,7 @@ pub trait Folder<'ast, T: Field>: Sized {
         match e {
             TypedExpression::FieldElement(e) => self.fold_field_expression(e).into(),
             TypedExpression::Boolean(e) => self.fold_boolean_expression(e).into(),
+            TypedExpression::U8(e) => self.fold_u8_expression(e).into(),
             TypedExpression::Array(e) => self.fold_array_expression(e).into(),
             TypedExpression::Struct(e) => self.fold_struct_expression(e).into(),
         }
@@ -105,6 +106,12 @@ pub trait Folder<'ast, T: Field>: Sized {
         e: BooleanExpression<'ast, T>,
     ) -> BooleanExpression<'ast, T> {
         fold_boolean_expression(self, e)
+    }
+    fn fold_u8_expression(
+        &mut self,
+        e: U8Expression<'ast>,
+    ) -> U8Expression<'ast> {
+        fold_u8_expression(self, e)
     }
     fn fold_array_expression_inner(
         &mut self,
@@ -361,6 +368,16 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
             let index = f.fold_field_expression(index);
             BooleanExpression::Select(box array, box index)
         }
+    }
+}
+
+pub fn fold_u8_expression<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    e: U8Expression<'ast>,
+) -> U8Expression<'ast> {
+    match e {
+        U8Expression::Value(v) => U8Expression::Value(v),
+        U8Expression::Identifier(id) => U8Expression::Identifier(f.fold_name(id)),
     }
 }
 
