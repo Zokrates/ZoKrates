@@ -1537,7 +1537,6 @@ dependencies = [
  "git2 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "glob 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "libc 0.2.65 (registry+https://github.com/rust-lang/crates.io-index)",
  "num 0.1.42 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-bigint 0.1.44 (registry+https://github.com/rust-lang/crates.io-index)",
  "pairing_ce 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",

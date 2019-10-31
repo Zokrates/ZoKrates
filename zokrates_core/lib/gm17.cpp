@@ -23,7 +23,7 @@ using namespace libsnark;
 namespace gm17 
 {
   //takes input and puts it into constraint system
-  r1cs_se_ppzksnark_constraint_system<libff::alt_bn128_pp> createConstraintSystem(const uint8_t* A, const uint8_t* B, const uint8_t* C, int A_len, int B_len, int C_len, int constraints, int variables, int inputs)
+  r1cs_se_ppzksnark_constraint_system<libff::alt_bn128_pp> createConstraintSystem(const uint8_t* A, const uint8_t* B, const uint8_t* C, int32_t A_len, int32_t B_len, int32_t C_len, int32_t constraints, int32_t variables, int32_t inputs)
   {
     r1cs_se_ppzksnark_constraint_system<libff::alt_bn128_pp> cs;
     cs.primary_input_size = inputs;
@@ -101,7 +101,7 @@ namespace gm17
     return ss.str();
   }
 
-  std::string exportProof(r1cs_se_ppzksnark_proof<libff::alt_bn128_pp> proof, const uint8_t* public_inputs, int public_inputs_length)
+  std::string exportProof(r1cs_se_ppzksnark_proof<libff::alt_bn128_pp> proof, const uint8_t* public_inputs, int32_t public_inputs_length)
   {
     std::stringstream ss;
     ss << "{" << "\n";
@@ -127,7 +127,7 @@ namespace gm17
   }
 }
 
-void _gm17_setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int A_len, int B_len, int C_len, int constraints, int variables, int inputs, uint8_t* vk_buf, uint8_t* pk_buf)
+void _gm17_setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int32_t A_len, int32_t B_len, int32_t C_len, int32_t constraints, int32_t variables, int32_t inputs, uint8_t* vk_buf, uint8_t* pk_buf)
 {
   libff::inhibit_profiling_info = true;
   libff::inhibit_profiling_counters = true;
@@ -153,7 +153,7 @@ void _gm17_setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int A_len
   memcpy(vk_buf, vk.c_str(), vk.size());
 }
 
-void _gm17_generate_proof(const uint8_t* pk_buf, int pk_buf_length, const uint8_t* public_inputs, int public_inputs_length, const uint8_t* private_inputs, int private_inputs_length, uint8_t* proof_buf)
+void _gm17_generate_proof(const uint8_t* pk_buf, int32_t pk_buf_length, const uint8_t* public_inputs, int32_t public_inputs_length, const uint8_t* private_inputs, int32_t private_inputs_length, uint8_t* proof_buf)
 {
   libff::inhibit_profiling_info = true;
   libff::inhibit_profiling_counters = true;

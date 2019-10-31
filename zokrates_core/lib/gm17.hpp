@@ -17,23 +17,23 @@ extern "C" {
 void _gm17_setup(const uint8_t* A,
           const uint8_t* B,
           const uint8_t* C,
-          int A_len,
-          int B_len,
-          int C_len,
-          int constraints,
-          int variables,
-          int inputs,
+          int32_t A_len,
+          int32_t B_len,
+          int32_t C_len,
+          int32_t constraints,
+          int32_t variables,
+          int32_t inputs,
           uint8_t* vk_buf,
           uint8_t* pk_buf 
         );
 
 void _gm17_generate_proof(
           const uint8_t* pk_buf,
-          int pk_buf_length,
+          int32_t pk_buf_length,
           const uint8_t* public_inputs,
-          int public_inputs_length,
+          int32_t public_inputs_length,
           const uint8_t* private_inputs,
-          int private_inputs_length,
+          int32_t private_inputs_length,
           uint8_t* proof_buf
 );
 

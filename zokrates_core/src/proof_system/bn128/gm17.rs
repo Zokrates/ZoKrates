@@ -1,6 +1,3 @@
-extern crate libc;
-
-use self::libc::{c_int};
 use ir;
 use proof_system::bn128::utils::libsnark::{prepare_generate_proof, prepare_setup};
 use proof_system::bn128::utils::solidity::{
@@ -26,23 +23,23 @@ extern "C" {
         A: *const u8,
         B: *const u8,
         C: *const u8,
-        A_len: c_int,
-        B_len: c_int,
-        C_len: c_int,
-        constraints: c_int,
-        variables: c_int,
-        inputs: c_int,
+        A_len: i32,
+        B_len: i32,
+        C_len: i32,
+        constraints: i32,
+        variables: i32,
+        inputs: i32,
         vk_buf: *mut u8,
         pk_buf: *mut u8,
     );
 
     fn _gm17_generate_proof(
         pk_buf: *const u8,
-        pk_buf_length: c_int,
+        pk_buf_length: i32,
         publquery_inputs: *const u8,
-        publquery_inputs_length: c_int,
+        publquery_inputs_length: i32,
         private_inputs: *const u8,
-        private_inputs_length: c_int,
+        private_inputs_length: i32,
         proof_buf: *mut u8
     );
 }
@@ -103,11 +100,11 @@ impl ProofSystem for GM17 {
         unsafe {
             _gm17_generate_proof(
                 proving_key.as_ptr(),
-                pk_length as c_int,
+                pk_length as i32,
                 public_inputs_arr[0].as_ptr(),
-                public_inputs_length as c_int,
+                public_inputs_length as i32,
                 private_inputs_arr[0].as_ptr(),
-                private_inputs_length as c_int,
+                private_inputs_length as i32,
                 proof_buffer.as_mut_ptr()
             );
             String::from_utf8_unchecked(proof_buffer)
