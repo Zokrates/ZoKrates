@@ -40,14 +40,14 @@ impl ProofSystem for G16 {
         &self,
         program: ir::Prog<FieldPrime>,
         witness: ir::Witness<FieldPrime>,
-        proving_key: &[u8],
+        proving_key: Vec<u8>,
     ) -> String {
         std::env::set_var("BELLMAN_VERBOSE", "0");
 
         println!("{}", G16_WARNING);
 
         let computation = Computation::with_witness(program, witness);
-        let params = Parameters::read(proving_key, true).unwrap();
+        let params = Parameters::read(proving_key.as_slice(), true).unwrap();
 
         let proof = computation.clone().prove(&params);
         serialize::serialize_proof(&proof, &computation.public_inputs_values())

@@ -2,7 +2,6 @@ use flat_absy::FlatVariable;
 use ir::{self, Statement};
 use std::cmp::max;
 use std::collections::HashMap;
-use std::ffi::CString;
 use zokrates_field::field::Field;
 
 // utility function. Converts a Fields vector-based byte representation to fixed size array.

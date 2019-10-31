@@ -14,11 +14,6 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 
-struct buffer_t {
-  uint8_t* data;
-  size_t size;
-};
-
 void _gm17_setup(const uint8_t* A,
           const uint8_t* B,
           const uint8_t* C,
@@ -28,16 +23,18 @@ void _gm17_setup(const uint8_t* A,
           int constraints,
           int variables,
           int inputs,
-          buffer_t* pk_buf, 
-          buffer_t* vk_buf
+          uint8_t* vk_buf,
+          uint8_t* pk_buf 
         );
 
-void _gm17_generate_proof(const buffer_t* pk_buf,
+void _gm17_generate_proof(
+          const uint8_t* pk_buf,
+          int pk_buf_length,
           const uint8_t* public_inputs,
           int public_inputs_length,
           const uint8_t* private_inputs,
           int private_inputs_length,
-          buffer_t* proof_buf
+          uint8_t* proof_buf
 );
 
 #ifdef __cplusplus

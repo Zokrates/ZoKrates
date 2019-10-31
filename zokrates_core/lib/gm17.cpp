@@ -127,7 +127,7 @@ namespace gm17
   }
 }
 
-void _gm17_setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int A_len, int B_len, int C_len, int constraints, int variables, int inputs, buffer_t* pk_buf, buffer_t* vk_buf)
+void _gm17_setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int A_len, int B_len, int C_len, int constraints, int variables, int inputs, uint8_t* vk_buf, uint8_t* pk_buf)
 {
   libff::inhibit_profiling_info = true;
   libff::inhibit_profiling_counters = true;
@@ -143,14 +143,17 @@ void _gm17_setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int A_len
 
   // create keypair
   auto keypair = r1cs_se_ppzksnark_generator<libff::alt_bn128_pp>(cs);
-
-  memcpy(pk_buf->data, &keypair.pk, sizeof(r1cs_se_ppzksnark_proving_key<libff::alt_bn128_pp>));
-
   auto vk = gm17::serializeVerificationKey(&keypair.vk);
-  vk.copy((char*)vk_buf->data, vk_buf->size);
+  
+  std::stringstream ss;
+  ss << keypair.pk;
+
+  std::string pk = ss.str();
+  memcpy(pk_buf, pk.c_str(), pk.size());
+  memcpy(vk_buf, vk.c_str(), vk.size());
 }
 
-void _gm17_generate_proof(const buffer_t* pk_buf, const uint8_t* public_inputs, int public_inputs_length, const uint8_t* private_inputs, int private_inputs_length, buffer_t* proof_buf)
+void _gm17_generate_proof(const uint8_t* pk_buf, int pk_buf_length, const uint8_t* public_inputs, int public_inputs_length, const uint8_t* private_inputs, int private_inputs_length, uint8_t* proof_buf)
 {
   libff::inhibit_profiling_info = true;
   libff::inhibit_profiling_counters = true;
@@ -159,9 +162,10 @@ void _gm17_generate_proof(const buffer_t* pk_buf, const uint8_t* public_inputs, 
   libff::alt_bn128_pp::init_public_params();
   r1cs_se_ppzksnark_proving_key<libff::alt_bn128_pp> pk;
 
-  memcpy(&pk, pk_buf->data, sizeof(pk));
-
-  // auto pk = reinterpret_cast<const r1cs_se_ppzksnark_proving_key<libff::alt_bn128_pp>&>(pk_buf->data);
+  std::stringstream ss;
+  ss.write(reinterpret_cast<const char*>(pk_buf), pk_buf_length);
+  ss.rdbuf()->pubseekpos(0, std::ios_base::in);
+  ss >> pk;
 
   // assign variables based on witness values, excludes ~one
   r1cs_variable_assignment<libff::Fr<libff::alt_bn128_pp> > full_variable_assignment;
@@ -185,6 +189,5 @@ void _gm17_generate_proof(const buffer_t* pk_buf, const uint8_t* public_inputs, 
   // Proof Generation
   auto proof = r1cs_se_ppzksnark_prover<libff::alt_bn128_pp>(pk, primary_input, auxiliary_input);
   auto result = gm17::exportProof(proof, public_inputs, public_inputs_length);
-
-  result.copy((char*)proof_buf->data, proof_buf->size);
+  memcpy(proof_buf, result.c_str(), result.size());
 }

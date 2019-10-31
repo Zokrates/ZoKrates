@@ -1,7 +1,6 @@
 extern crate libc;
 
-use self::libc::{c_char, c_int, size_t};
-use std::{mem};
+use self::libc::{c_int};
 use ir;
 use proof_system::bn128::utils::libsnark::{prepare_generate_proof, prepare_setup};
 use proof_system::bn128::utils::solidity::{
@@ -11,51 +10,14 @@ use proof_system::ProofSystem;
 use regex::Regex;
 use zokrates_field::field::FieldPrime;
 
+pub const BS_4096: usize = 4096;
+pub const BS_8192: usize = 8192;
+
 pub struct GM17 {}
 
 impl GM17 {
     pub fn new() -> GM17 {
         GM17 {}
-    }
-}
-
-#[repr(C)]
-struct Buffer {
-    data: *mut u8,
-    size: size_t
-}
-
-impl Buffer {
-    fn alloc(size: usize) -> Buffer {
-        unsafe {
-            let mut buf: Vec<u8> = Vec::with_capacity(size);
-            let ptr = buf.as_mut_ptr();
-            mem::forget(buf);
-            Buffer { 
-                data: ptr,
-                size: size as size_t
-            }
-        }
-    }
-
-    fn from_vec(v: &Vec<u8>) -> Buffer {
-        Buffer {
-            data: v.as_ptr() as *mut u8,
-            size: v.len(),
-        }
-    }
-
-    fn from_raw_vec(v: &[u8]) -> Buffer {
-        Buffer {
-            data: v.as_ptr() as *mut u8,
-            size: v.len(),
-        }
-    }
-
-    fn into_vec(self) -> Vec<u8> {
-        unsafe { 
-            Vec::from_raw_parts(self.data, self.size, self.size)
-        }
     }
 }
 
@@ -70,17 +32,18 @@ extern "C" {
         constraints: c_int,
         variables: c_int,
         inputs: c_int,
-        pk_buf: *mut Buffer,
-        vk_buf: *mut Buffer,
+        vk_buf: *mut u8,
+        pk_buf: *mut u8,
     );
 
     fn _gm17_generate_proof(
-        pk_buf: *const Buffer,
+        pk_buf: *const u8,
+        pk_buf_length: c_int,
         publquery_inputs: *const u8,
         publquery_inputs_length: c_int,
         private_inputs: *const u8,
         private_inputs_length: c_int,
-        proof_buf: *mut Buffer
+        proof_buf: *mut u8
     );
 }
 
@@ -98,8 +61,8 @@ impl ProofSystem for GM17 {
             num_inputs
         ) = prepare_setup(program);
 
-        let mut pk_buffer = Buffer::alloc(2048);
-        let mut vk_buffer = Buffer::alloc(2048);
+        let mut vk_buffer = vec![0u8; BS_4096];
+        let mut pk_buffer = vec![0u8; BS_4096];
 
         unsafe {
             _gm17_setup(
@@ -112,46 +75,43 @@ impl ProofSystem for GM17 {
                 num_constraints as i32,
                 num_variables as i32,
                 num_inputs as i32,
-                &mut pk_buffer as *mut _,
-                &mut vk_buffer as *mut _
+                vk_buffer.as_mut_ptr(),
+                pk_buffer.as_mut_ptr()
             )
         };
 
-        let vk = unsafe { String::from_raw_parts(vk_buffer.data, vk_buffer.size, vk_buffer.size) };
-        let pk = pk_buffer.into_vec();
-
-        (vk, pk)
+        let vk_str: String = unsafe { String::from_utf8_unchecked(vk_buffer) };
+        (vk_str, pk_buffer)
     }
 
     fn generate_proof(
         &self,
         program: ir::Prog<FieldPrime>,
         witness: ir::Witness<FieldPrime>,
-        proving_key: &[u8],
+        proving_key: Vec<u8>,
     ) -> String {
-        String::new()
-        // let (
-        //     public_inputs_arr,
-        //     public_inputs_length,
-        //     private_inputs_arr,
-        //     private_inputs_length,
-        // ) = prepare_generate_proof(program, witness);
+        let (
+            public_inputs_arr,
+            public_inputs_length,
+            private_inputs_arr,
+            private_inputs_length,
+        ) = prepare_generate_proof(program, witness);
 
-        // let pk_vec: Vec<u8> = Vec::from(proving_key);
-        // let pk_buf = Buffer::from_vec(&pk_vec);
+        let mut proof_buffer = vec![0u8; BS_8192];
+        let pk_length = proving_key.len();
 
-        // let mut proof_buf = Buffer::alloc(4096);
-        // unsafe {
-        //     _gm17_generate_proof(
-        //         &pk_buf as *const _,
-        //         public_inputs_arr[0].as_ptr(),
-        //         public_inputs_length as c_int,
-        //         private_inputs_arr[0].as_ptr(),
-        //         private_inputs_length as c_int,
-        //         &mut proof_buf as *mut _
-        //     );
-        //     String::from_raw_parts(proof_buf.data, proof_buf.size, proof_buf.size)
-        // }
+        unsafe {
+            _gm17_generate_proof(
+                proving_key.as_ptr(),
+                pk_length as c_int,
+                public_inputs_arr[0].as_ptr(),
+                public_inputs_length as c_int,
+                private_inputs_arr[0].as_ptr(),
+                private_inputs_length as c_int,
+                proof_buffer.as_mut_ptr()
+            );
+            String::from_utf8_unchecked(proof_buffer)
+        }
     }
 
     fn export_solidity_verifier(&self, vk: String, is_abiv2: bool) -> String {

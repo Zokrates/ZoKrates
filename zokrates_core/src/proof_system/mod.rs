@@ -15,7 +15,7 @@ pub trait ProofSystem {
         &self,
         program: ir::Prog<FieldPrime>,
         witness: ir::Witness<FieldPrime>,
-        proving_key: &[u8],
+        proving_key: Vec<u8>,
     ) -> String;
 
     fn export_solidity_verifier(&self, vk: String, is_abiv2: bool) -> String;
