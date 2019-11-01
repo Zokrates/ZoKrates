@@ -7,14 +7,38 @@ use proof_system::ProofSystem;
 use regex::Regex;
 use zokrates_field::field::FieldPrime;
 
-pub const BS_4096: usize = 4096;
-pub const BS_8192: usize = 8192;
-
 pub struct GM17 {}
 
 impl GM17 {
     pub fn new() -> GM17 {
         GM17 {}
+    }
+}
+
+#[repr(C)]
+struct Buffer {
+    data: *mut u8,
+    length: i32
+}
+
+#[repr(C)]
+struct gm17_setup_export_t {
+    vk: Buffer,
+    pk: Buffer
+}
+
+#[repr(C)]
+struct gm17_generate_proof_t {
+    proof: Buffer
+}
+
+impl Buffer {
+    fn from_vec(v: &mut Vec<u8>) -> Buffer {
+        let length = v.len() as i32;
+        Buffer {
+            data: v.as_mut_ptr(),
+            length
+        }
     }
 }
 
@@ -28,20 +52,16 @@ extern "C" {
         C_len: i32,
         constraints: i32,
         variables: i32,
-        inputs: i32,
-        vk_buf: *mut u8,
-        pk_buf: *mut u8,
-    );
+        inputs: i32
+    ) -> gm17_setup_export_t;
 
     fn _gm17_generate_proof(
-        pk_buf: *const u8,
-        pk_buf_length: i32,
+        pk_buf: *mut Buffer,
         publquery_inputs: *const u8,
         publquery_inputs_length: i32,
         private_inputs: *const u8,
-        private_inputs_length: i32,
-        proof_buf: *mut u8
-    );
+        private_inputs_length: i32
+    ) -> gm17_generate_proof_t;
 }
 
 impl ProofSystem for GM17 {
@@ -58,11 +78,8 @@ impl ProofSystem for GM17 {
             num_inputs
         ) = prepare_setup(program);
 
-        let mut vk_buffer = vec![0u8; BS_4096];
-        let mut pk_buffer = vec![0u8; BS_4096];
-
         unsafe {
-            _gm17_setup(
+            let result: gm17_setup_export_t = _gm17_setup(
                 a_arr.as_ptr(),
                 b_arr.as_ptr(),
                 c_arr.as_ptr(),
@@ -71,14 +88,17 @@ impl ProofSystem for GM17 {
                 c_vec.len() as i32,
                 num_constraints as i32,
                 num_variables as i32,
-                num_inputs as i32,
-                vk_buffer.as_mut_ptr(),
-                pk_buffer.as_mut_ptr()
-            )
-        };
+                num_inputs as i32
+            );
 
-        let vk_str: String = unsafe { String::from_utf8_unchecked(vk_buffer) };
-        (vk_str, pk_buffer)
+            let vk_length = result.vk.length as usize;
+            let vk: String = String::from_raw_parts(result.vk.data, vk_length, vk_length);
+
+            let pk_length = result.pk.length as usize;
+            let pk: Vec<u8> = Vec::from_raw_parts(result.pk.data, pk_length, pk_length);
+
+            (vk, pk)
+        }
     }
 
     fn generate_proof(
@@ -94,20 +114,20 @@ impl ProofSystem for GM17 {
             private_inputs_length,
         ) = prepare_generate_proof(program, witness);
 
-        let mut proof_buffer = vec![0u8; BS_8192];
-        let pk_length = proving_key.len();
+        let mut pk = proving_key.clone();
+        let mut pk_buf = Buffer::from_vec(pk.as_mut());
 
         unsafe {
-            _gm17_generate_proof(
-                proving_key.as_ptr(),
-                pk_length as i32,
+            let result: gm17_generate_proof_t = _gm17_generate_proof(
+                &mut pk_buf as *mut _,
                 public_inputs_arr[0].as_ptr(),
                 public_inputs_length as i32,
                 private_inputs_arr[0].as_ptr(),
-                private_inputs_length as i32,
-                proof_buffer.as_mut_ptr()
+                private_inputs_length as i32
             );
-            String::from_utf8_unchecked(proof_buffer)
+
+            let proof_length = result.proof.length as usize;
+            String::from_raw_parts(result.proof.data, proof_length, proof_length)
         }
     }
 

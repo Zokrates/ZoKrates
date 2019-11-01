@@ -127,7 +127,7 @@ namespace gm17
   }
 }
 
-void _gm17_setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int32_t A_len, int32_t B_len, int32_t C_len, int32_t constraints, int32_t variables, int32_t inputs, uint8_t* vk_buf, uint8_t* pk_buf)
+gm17_setup_export_t _gm17_setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int32_t A_len, int32_t B_len, int32_t C_len, int32_t constraints, int32_t variables, int32_t inputs)
 {
   libff::inhibit_profiling_info = true;
   libff::inhibit_profiling_counters = true;
@@ -149,11 +149,19 @@ void _gm17_setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int32_t A
   ss << keypair.pk;
 
   std::string pk = ss.str();
-  memcpy(pk_buf, pk.c_str(), pk.size());
-  memcpy(vk_buf, vk.c_str(), vk.size());
+
+  buffer_t vk_buf, pk_buf;
+  vk_buf.alloc(vk.size());
+  pk_buf.alloc(pk.size());
+
+  vk.copy(reinterpret_cast<char*>(vk_buf.data), vk_buf.length);
+  pk.copy(reinterpret_cast<char*>(pk_buf.data), pk_buf.length);
+
+  gm17_setup_export_t exp(vk_buf, pk_buf);
+  return exp;
 }
 
-void _gm17_generate_proof(const uint8_t* pk_buf, int32_t pk_buf_length, const uint8_t* public_inputs, int32_t public_inputs_length, const uint8_t* private_inputs, int32_t private_inputs_length, uint8_t* proof_buf)
+gm17_generate_proof_t _gm17_generate_proof(buffer_t* pk_buf, const uint8_t* public_inputs, int32_t public_inputs_length, const uint8_t* private_inputs, int32_t private_inputs_length)
 {
   libff::inhibit_profiling_info = true;
   libff::inhibit_profiling_counters = true;
@@ -163,7 +171,7 @@ void _gm17_generate_proof(const uint8_t* pk_buf, int32_t pk_buf_length, const ui
   r1cs_se_ppzksnark_proving_key<libff::alt_bn128_pp> pk;
 
   std::stringstream ss;
-  ss.write(reinterpret_cast<const char*>(pk_buf), pk_buf_length);
+  ss.write(reinterpret_cast<const char*>(pk_buf->data), pk_buf->length);
   ss.rdbuf()->pubseekpos(0, std::ios_base::in);
   ss >> pk;
 
@@ -189,5 +197,11 @@ void _gm17_generate_proof(const uint8_t* pk_buf, int32_t pk_buf_length, const ui
   // Proof Generation
   auto proof = r1cs_se_ppzksnark_prover<libff::alt_bn128_pp>(pk, primary_input, auxiliary_input);
   auto result = gm17::exportProof(proof, public_inputs, public_inputs_length);
-  memcpy(proof_buf, result.c_str(), result.size());
+
+  buffer_t proof_buf;
+  proof_buf.alloc(result.size());
+  result.copy(reinterpret_cast<char*>(proof_buf.data), proof_buf.length);
+
+  gm17_generate_proof_t gp_exp(proof_buf);
+  return gp_exp;
 }
