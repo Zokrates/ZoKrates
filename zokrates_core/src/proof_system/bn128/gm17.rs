@@ -62,6 +62,8 @@ extern "C" {
         private_inputs: *const u8,
         private_inputs_length: i32
     ) -> gm17_generate_proof_t;
+
+    fn __free_buf(ptr: *mut u8);
 }
 
 impl ProofSystem for GM17 {
@@ -91,12 +93,13 @@ impl ProofSystem for GM17 {
                 num_inputs as i32
             );
 
-            let vk_length = result.vk.length as usize;
-            let vk: String = String::from_raw_parts(result.vk.data, vk_length, vk_length);
+            let vk_buf: Vec<u8> = std::slice::from_raw_parts(result.vk.data, result.vk.length as usize).to_vec();
+            let vk: String = String::from_utf8(vk_buf).unwrap();
+            __free_buf(result.vk.data);
 
-            let pk_length = result.pk.length as usize;
-            let pk: Vec<u8> = Vec::from_raw_parts(result.pk.data, pk_length, pk_length);
-
+            let pk: Vec<u8> = std::slice::from_raw_parts(result.pk.data, result.pk.length as usize).to_vec();
+            __free_buf(result.pk.data);
+            
             (vk, pk)
         }
     }
@@ -126,8 +129,10 @@ impl ProofSystem for GM17 {
                 private_inputs_length as i32
             );
 
-            let proof_length = result.proof.length as usize;
-            String::from_raw_parts(result.proof.data, proof_length, proof_length)
+            let proof_vec: Vec<u8> = std::slice::from_raw_parts(result.proof.data, result.proof.length as usize).to_vec();
+            __free_buf(result.proof.data);
+
+            String::from_utf8(proof_vec).unwrap()
         }
     }
 

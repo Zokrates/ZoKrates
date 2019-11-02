@@ -56,6 +56,10 @@ gm17_generate_proof_t _gm17_generate_proof(
           int32_t private_inputs_length
 );
 
+void __free_buf(uint8_t* ptr) {
+  free(ptr);
+}
+
 #ifdef __cplusplus
 } // extern "C"
 #endif
