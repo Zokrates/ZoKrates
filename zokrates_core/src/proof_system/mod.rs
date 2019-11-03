@@ -5,6 +5,8 @@ use zokrates_field::field::FieldPrime;
 pub use self::bn128::G16;
 #[cfg(feature = "libsnark")]
 pub use self::bn128::GM17;
+#[cfg(feature = "libsnark")]
+pub use self::bn128::PGHR13;
 
 use crate::ir;
 
