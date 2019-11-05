@@ -4,9 +4,14 @@ version = "0.1.0"
 authors = ["Thibaut Schaeffer <thibaut@schaeff.fr>"]
 edition = "2018"
 
+[features]
+default = ["multicore"]
+multicore = ["zokrates_core/multicore"]
+wasm = ["zokrates_core/wasm"]
+
 [dependencies]
 zokrates_field = { version = "0.3", path = "../zokrates_field" }
-zokrates_core = { version = "0.4", path = "../zokrates_core" }
+zokrates_core = { version = "0.4", path = "../zokrates_core", default-features = false }
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
