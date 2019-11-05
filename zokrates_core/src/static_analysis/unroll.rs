@@ -185,13 +185,13 @@ impl<'ast> Unroller<'ast> {
                                             ),
                                         )
                                         .into(),
-                                        Type::U8 => U8Expression::if_else(
+                                        Type::Uint(..) => UExpression::if_else(
                                             BooleanExpression::FieldEq(
                                                 box FieldElementExpression::Number(T::from(i)),
                                                 box head.clone(),
                                             ),
                                             match Self::choose_many(
-                                                U8Expression::select(
+                                                UExpression::select(
                                                     base.clone(),
                                                     FieldElementExpression::Number(T::from(i)),
                                                 )
@@ -200,13 +200,13 @@ impl<'ast> Unroller<'ast> {
                                                 new_expression.clone(),
                                                 statements,
                                             ) {
-                                                TypedExpression::U8(e) => e,
+                                                TypedExpression::Uint(e) => e,
                                                 e => unreachable!(
-                                            "the interior was expected to be a u8, was {}",
+                                            "the interior was expected to be a uint, was {}",
                                             e.get_type()
                                         ),
                                             },
-                                            U8Expression::select(
+                                            UExpression::select(
                                                 base.clone(),
                                                 FieldElementExpression::Number(T::from(i)),
                                             ),
@@ -253,21 +253,17 @@ impl<'ast> Unroller<'ast> {
                                                 .into()
                                         }
                                     }
-                                    Type::U8 => {
+                                    Type::Uint(..) => {
                                         if id == head {
                                             Self::choose_many(
-                                                U8Expression::member(
-                                                    base.clone(),
-                                                    head.clone(),
-                                                )
-                                                .into(),
+                                                UExpression::member(base.clone(), head.clone())
+                                                    .into(),
                                                 tail.clone(),
                                                 new_expression.clone(),
                                                 statements,
                                             )
                                         } else {
-                                            U8Expression::member(base.clone(), id.clone())
-                                                .into()
+                                            UExpression::member(base.clone(), id.clone()).into()
                                         }
                                     }
                                     Type::Boolean => {
@@ -370,8 +366,10 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                     Type::Boolean => {
                         BooleanExpression::Identifier(variable.id.clone().into()).into()
                     }
-                    Type::U8 => {
-                        U8Expression::Identifier(variable.id.clone().into()).into()
+                    Type::Uint(bitwidth) => {
+                        UExpressionInner::Identifier(variable.id.clone().into())
+                            .annotate(bitwidth)
+                            .into()
                     }
                     Type::Array(box ty, size) => {
                         ArrayExpressionInner::Identifier(variable.id.clone().into())

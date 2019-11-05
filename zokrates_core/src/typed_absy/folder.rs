@@ -60,7 +60,7 @@ pub trait Folder<'ast, T: Field>: Sized {
         match e {
             TypedExpression::FieldElement(e) => self.fold_field_expression(e).into(),
             TypedExpression::Boolean(e) => self.fold_boolean_expression(e).into(),
-            TypedExpression::U8(e) => self.fold_u8_expression(e).into(),
+            TypedExpression::Uint(e) => self.fold_uint_expression(e).into(),
             TypedExpression::Array(e) => self.fold_array_expression(e).into(),
             TypedExpression::Struct(e) => self.fold_struct_expression(e).into(),
         }
@@ -107,12 +107,18 @@ pub trait Folder<'ast, T: Field>: Sized {
     ) -> BooleanExpression<'ast, T> {
         fold_boolean_expression(self, e)
     }
-    fn fold_u8_expression(
-        &mut self,
-        e: U8Expression<'ast>,
-    ) -> U8Expression<'ast> {
-        fold_u8_expression(self, e)
+    fn fold_uint_expression(&mut self, e: UExpression<'ast>) -> UExpression<'ast> {
+        fold_uint_expression(self, e)
     }
+
+    fn fold_uint_expression_inner(
+        &mut self,
+        bitwidth: usize,
+        e: UExpressionInner<'ast>,
+    ) -> UExpressionInner<'ast> {
+        fold_uint_expression_inner(self, bitwidth, e)
+    }
+
     fn fold_array_expression_inner(
         &mut self,
         ty: &Type,
@@ -371,13 +377,42 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_u8_expression<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_uint_expression<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
-    e: U8Expression<'ast>,
-) -> U8Expression<'ast> {
+    e: UExpression<'ast>,
+) -> UExpression<'ast> {
+    UExpression {
+        inner: f.fold_uint_expression_inner(e.bitwidth, e.inner),
+        ..e
+    }
+}
+
+pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    bitwidth: usize,
+    e: UExpressionInner<'ast>,
+) -> UExpressionInner<'ast> {
     match e {
-        U8Expression::Value(v) => U8Expression::Value(v),
-        U8Expression::Identifier(id) => U8Expression::Identifier(f.fold_name(id)),
+        UExpressionInner::Value(v) => UExpressionInner::Value(v),
+        UExpressionInner::Identifier(id) => UExpressionInner::Identifier(f.fold_name(id)),
+        UExpressionInner::Add(box left, box right) => {
+            let left = fold_uint_expression(f, left);
+            let right = fold_uint_expression(f, right);
+
+            UExpressionInner::Add(box left, box right)
+        }
+        UExpressionInner::Mult(box left, box right) => {
+            let left = fold_uint_expression(f, left);
+            let right = fold_uint_expression(f, right);
+
+            UExpressionInner::Mult(box left, box right)
+        }
+        UExpressionInner::Xor(box left, box right) => {
+            let left = fold_uint_expression(f, left);
+            let right = fold_uint_expression(f, right);
+
+            UExpressionInner::Xor(box left, box right)
+        }
     }
 }
 

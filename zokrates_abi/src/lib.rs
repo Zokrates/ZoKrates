@@ -52,6 +52,7 @@ enum Value<T> {
 #[derive(PartialEq, Debug)]
 enum CheckedValue<T> {
     U8(u8),
+    U32(u32),
     Field(T),
     Boolean(bool),
     Array(Vec<CheckedValue<T>>),
@@ -148,6 +149,7 @@ impl<T: From<usize>> Encode<T> for CheckedValue<T> {
         match self {
             CheckedValue::Field(t) => vec![t],
             CheckedValue::U8(t) => vec![T::from(t as usize)],
+            CheckedValue::U32(t) => vec![T::from(t as usize)],
             CheckedValue::Boolean(b) => vec![if b { 1.into() } else { 0.into() }],
             CheckedValue::Array(a) => a.into_iter().flat_map(|v| v.encode()).collect(),
             CheckedValue::Struct(s) => s.into_iter().flat_map(|(_, v)| v.encode()).collect(),
@@ -181,7 +183,12 @@ impl<T: Field> Decode<T> for CheckedValue<T> {
 
         match expected {
             Type::FieldElement => CheckedValue::Field(raw.pop().unwrap()),
-            Type::U8 => CheckedValue::U8(u8::from_str_radix(&raw.pop().unwrap().to_dec_string(), 16).unwrap()),
+            Type::Uint(8) => CheckedValue::U8(
+                u8::from_str_radix(&raw.pop().unwrap().to_dec_string(), 10).unwrap(),
+            ),
+            Type::Uint(32) => CheckedValue::U32(
+                u32::from_str_radix(&raw.pop().unwrap().to_dec_string(), 10).unwrap(),
+            ),
             Type::Boolean => {
                 let v = raw.pop().unwrap();
                 CheckedValue::Boolean(if v == 0.into() {
@@ -208,6 +215,7 @@ impl<T: Field> Decode<T> for CheckedValue<T> {
                     })
                     .collect(),
             ),
+            _ => unreachable!(),
         }
     }
 }
@@ -269,6 +277,7 @@ impl<T: Field> Into<serde_json::Value> for CheckedValue<T> {
         match self {
             CheckedValue::Field(f) => serde_json::Value::String(f.to_dec_string()),
             CheckedValue::U8(u) => serde_json::Value::String(format!("{:#x}", u)),
+            CheckedValue::U32(u) => serde_json::Value::String(format!("{:#x}", u)),
             CheckedValue::Boolean(b) => serde_json::Value::Bool(b),
             CheckedValue::Array(a) => {
                 serde_json::Value::Array(a.into_iter().map(|e| e.into()).collect())

@@ -7,7 +7,7 @@ use zokrates_field::field::Field;
 pub enum RustHelper {
     Identity,
     ConditionEq,
-    Bits,
+    Bits(usize),
     Div,
     Sha256Round,
 }
@@ -23,7 +23,7 @@ impl Signed for RustHelper {
         match self {
             RustHelper::Identity => (1, 1),
             RustHelper::ConditionEq => (1, 2),
-            RustHelper::Bits => (1, 254),
+            RustHelper::Bits(bitwidth) => (1, *bitwidth),
             RustHelper::Div => (2, 1),
             RustHelper::Sha256Round => (768, 26935),
         }
@@ -38,11 +38,11 @@ impl<T: Field> Executable<T> for RustHelper {
                 true => Ok(vec![T::zero(), T::one()]),
                 false => Ok(vec![T::one(), T::one() / inputs[0].clone()]),
             },
-            RustHelper::Bits => {
+            RustHelper::Bits(bitwidth) => {
                 let mut num = inputs[0].clone();
                 let mut res = vec![];
-                let bits = 254;
-                for i in (0..bits).rev() {
+
+                for i in (0..*bitwidth).rev() {
                     if T::from(2).pow(i) <= num {
                         num = num - T::from(2).pow(i);
                         res.push(T::one());
@@ -77,7 +77,9 @@ mod tests {
     #[test]
     fn bits_of_one() {
         let inputs = vec![FieldPrime::from(1)];
-        let res = RustHelper::Bits.execute(&inputs).unwrap();
+        let res = RustHelper::Bits(FieldPrime::get_required_bits())
+            .execute(&inputs)
+            .unwrap();
         assert_eq!(res[253], FieldPrime::from(1));
         for i in 0..252 {
             assert_eq!(res[i], FieldPrime::from(0));
@@ -87,7 +89,9 @@ mod tests {
     #[test]
     fn bits_of_42() {
         let inputs = vec![FieldPrime::from(42)];
-        let res = RustHelper::Bits.execute(&inputs).unwrap();
+        let res = RustHelper::Bits(FieldPrime::get_required_bits())
+            .execute(&inputs)
+            .unwrap();
         assert_eq!(res[253], FieldPrime::from(0));
         assert_eq!(res[252], FieldPrime::from(1));
         assert_eq!(res[251], FieldPrime::from(0));

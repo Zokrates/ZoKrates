@@ -35,6 +35,7 @@ pub trait Field:
     From<i32>
     + From<u32>
     + From<usize>
+    + From<u128>
     + Zero
     + One
     + Clone
@@ -198,6 +199,15 @@ impl From<u32> for FieldPrime {
 
 impl From<usize> for FieldPrime {
     fn from(num: usize) -> Self {
+        let x = ToBigInt::to_bigint(&num).unwrap();
+        FieldPrime {
+            value: &x - x.div_floor(&*P) * &*P,
+        }
+    }
+}
+
+impl From<u128> for FieldPrime {
+    fn from(num: u128) -> Self {
         let x = ToBigInt::to_bigint(&num).unwrap();
         FieldPrime {
             value: &x - x.div_floor(&*P) * &*P,

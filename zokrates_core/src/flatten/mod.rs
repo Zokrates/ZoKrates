@@ -48,14 +48,14 @@ impl<'ast, T: Field> Flatten<'ast, T> for FieldElementExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> Flatten<'ast, T> for U8Expression<'ast> {
+impl<'ast, T: Field> Flatten<'ast, T> for UExpression<'ast> {
     fn flatten(
         self,
         flattener: &mut Flattener<'ast, T>,
         symbols: &TypedFunctionSymbols<'ast, T>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
     ) -> Vec<FlatExpression<T>> {
-        vec![flattener.flatten_u8_expression(symbols, statements_flattened, self)]
+        vec![flattener.flatten_uint_expression(symbols, statements_flattened, self)]
     }
 }
 
@@ -100,7 +100,7 @@ impl<'ast, T: Field> Flatten<'ast, T> for ArrayExpression<'ast, T> {
                 statements_flattened,
                 self,
             ),
-            Type::U8 => flattener.flatten_array_expression::<U8Expression<'ast>>(
+            Type::Uint(..) => flattener.flatten_array_expression::<UExpression<'ast>>(
                 symbols,
                 statements_flattened,
                 self,
@@ -252,9 +252,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             Type::FieldElement => FieldElementExpression::try_from(v)
                                 .unwrap()
                                 .flatten(self, symbols, statements_flattened),
-                            Type::U8 => U8Expression::try_from(v)
-                                .unwrap()
-                                .flatten(self, symbols, statements_flattened),
+                            Type::Uint(..) => UExpression::try_from(v).unwrap().flatten(
+                                self,
+                                symbols,
+                                statements_flattened,
+                            ),
                             Type::Boolean => BooleanExpression::try_from(v).unwrap().flatten(
                                 self,
                                 symbols,
@@ -343,12 +345,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             BooleanExpression::member(consequence.clone(), member_id.clone()),
                             BooleanExpression::member(alternative.clone(), member_id),
                         ),
-                        Type::U8 => self.flatten_if_else_expression(
+                        Type::Uint(..) => self.flatten_if_else_expression(
                             symbols,
                             statements_flattened,
                             condition.clone(),
-                            U8Expression::member(consequence.clone(), member_id.clone()),
-                            U8Expression::member(alternative.clone(), member_id),
+                            UExpression::member(consequence.clone(), member_id.clone()),
+                            UExpression::member(alternative.clone(), member_id),
                         ),
                         Type::Struct(..) => self.flatten_if_else_expression(
                             symbols,
@@ -467,13 +469,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                 array,
                                 index,
                             ),
-                        Type::U8 => self
-                            .flatten_select_expression::<U8Expression<'ast>>(
-                                symbols,
-                                statements_flattened,
-                                array,
-                                index,
-                            ),
+                        Type::Uint(..) => self.flatten_select_expression::<UExpression<'ast>>(
+                            symbols,
+                            statements_flattened,
+                            array,
+                            index,
+                        ),
                         Type::Array(..) => self
                             .flatten_select_expression::<ArrayExpression<'ast, T>>(
                                 symbols,
@@ -625,7 +626,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     // add a directive to get the bits
                     statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
                         lhs_bits_be.clone(),
-                        Helper::bits(),
+                        Helper::bits(T::get_required_bits()),
                         vec![lhs_id],
                     )));
 
@@ -672,7 +673,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     // add a directive to get the bits
                     statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
                         rhs_bits_be.clone(),
-                        Helper::bits(),
+                        Helper::bits(T::get_required_bits()),
                         vec![rhs_id],
                     )));
 
@@ -725,7 +726,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 // add a directive to get the bits
                 statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
                     sub_bits_be.clone(),
-                    Helper::bits(),
+                    Helper::bits(T::get_required_bits()),
                     vec![subtraction_result.clone()],
                 )));
 
@@ -761,7 +762,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 // lhs and rhs are booleans, they flatten to 0 or 1
                 let x = self.flatten_boolean_expression(symbols, statements_flattened, lhs);
                 let y = self.flatten_boolean_expression(symbols, statements_flattened, rhs);
-                // Wanted: Not(X - Y)**2 which is an XNOR 
+                // Wanted: Not(X - Y)**2 which is an XNOR
                 // We know that X and Y are [0, 1]
                 // (X - Y) can become a negative values, which is why squaring the result is needed
                 // Negating this returns correct result
@@ -776,15 +777,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 // | 0 | 0 |     0 |             1 |
                 // +---+---+-------+---------------+
 
-                let x_sub_y =  FlatExpression::Sub(box x, box y);
+                let x_sub_y = FlatExpression::Sub(box x, box y);
                 let name_x_mult_x = self.use_sym();
 
                 statements_flattened.push(FlatStatement::Definition(
                     name_x_mult_x,
-                    FlatExpression::Mult(
-                        box x_sub_y.clone(),
-                        box x_sub_y,
-                    ),
+                    FlatExpression::Mult(box x_sub_y.clone(), box x_sub_y),
                 ));
 
                 FlatExpression::Sub(
@@ -1042,8 +1040,17 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             TypedExpression::Boolean(e) => {
                 vec![self.flatten_boolean_expression(symbols, statements_flattened, e)]
             }
-            TypedExpression::U8(e) => {
-                vec![self.flatten_u8_expression(symbols, statements_flattened, e)]
+            TypedExpression::Uint(e) => {
+                let e = UExpression {
+                    metadata: Some(UMetadata {
+                        should_reduce: Some(true),
+                        bitwidth: None,
+                    }),
+                    ..e
+                };
+                let e = e.reduce::<T>();
+
+                vec![self.flatten_uint_expression(symbols, statements_flattened, e)]
             }
             TypedExpression::Array(e) => match e.inner_type().clone() {
                 Type::FieldElement => self
@@ -1057,7 +1064,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     statements_flattened,
                     e,
                 ),
-                Type::U8 => self.flatten_array_expression::<U8Expression<'ast>>(
+                Type::Uint(..) => self.flatten_array_expression::<UExpression<'ast>>(
                     symbols,
                     statements_flattened,
                     e,
@@ -1079,24 +1086,131 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
-    /// Flattens a u8 expression
+    /// Flattens a uint expression
     ///
     /// # Arguments
     ///
     /// * `symbols` - Available functions in in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
-    /// * `expr` - `U8ElementExpression` that will be flattened.
-    fn flatten_u8_expression(
+    /// * `expr` - `UExpression` that will be flattened.
+    fn flatten_uint_expression(
         &mut self,
         symbols: &TypedFunctionSymbols<'ast, T>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
-        expr: U8Expression<'ast>,
+        expr: UExpression<'ast>,
     ) -> FlatExpression<T> {
-        match expr {
-            U8Expression::Value(x) => FlatExpression::Number(T::from(x as usize)), // force to be a field element
-            U8Expression::Identifier(x) => {
+        let target_bitwidth = expr.bitwidth;
+
+        let metadata = expr.metadata.clone().unwrap().clone();
+        let actual_bitwidth = metadata.bitwidth.unwrap();
+        let should_reduce = metadata.should_reduce.unwrap();
+
+        let res = match expr.into_inner() {
+            UExpressionInner::Value(x) => FlatExpression::Number(T::from(x as u128)), // force to be a field element
+            UExpressionInner::Identifier(x) => {
                 FlatExpression::Identifier(self.layout.get(&x).unwrap().clone()[0])
             }
+            UExpressionInner::Add(box left, box right) => {
+                let left_flattened =
+                    self.flatten_uint_expression(symbols, statements_flattened, left);
+                let right_flattened =
+                    self.flatten_uint_expression(symbols, statements_flattened, right);
+                let new_left = if left_flattened.is_linear() {
+                    left_flattened
+                } else {
+                    let id = self.use_sym();
+                    statements_flattened.push(FlatStatement::Definition(id, left_flattened));
+                    FlatExpression::Identifier(id)
+                };
+                let new_right = if right_flattened.is_linear() {
+                    right_flattened
+                } else {
+                    let id = self.use_sym();
+                    statements_flattened.push(FlatStatement::Definition(id, right_flattened));
+                    FlatExpression::Identifier(id)
+                };
+                FlatExpression::Add(box new_left, box new_right)
+            }
+            UExpressionInner::Mult(box left, box right) => {
+                if metadata.should_reduce.unwrap() {
+                    unimplemented!()
+                } else {
+                    let left_flattened =
+                        self.flatten_uint_expression(symbols, statements_flattened, left);
+                    let right_flattened =
+                        self.flatten_uint_expression(symbols, statements_flattened, right);
+                    let new_left = if left_flattened.is_linear() {
+                        left_flattened
+                    } else {
+                        let id = self.use_sym();
+                        statements_flattened.push(FlatStatement::Definition(id, left_flattened));
+                        FlatExpression::Identifier(id)
+                    };
+                    let new_right = if right_flattened.is_linear() {
+                        right_flattened
+                    } else {
+                        let id = self.use_sym();
+                        statements_flattened.push(FlatStatement::Definition(id, right_flattened));
+                        FlatExpression::Identifier(id)
+                    };
+                    FlatExpression::Mult(box new_left, box new_right)
+                }
+            }
+            UExpressionInner::Xor(box left, box right) => unimplemented!(),
+        };
+
+        match should_reduce {
+            true => {
+                let bits = (0..actual_bitwidth)
+                    .map(|_| self.use_sym())
+                    .collect::<Vec<_>>();
+                statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
+                    bits.clone(),
+                    Helper::Rust(RustHelper::Bits(actual_bitwidth)),
+                    vec![res.clone()],
+                )));
+
+                use std::convert::TryInto;
+
+                // decompose to the actual bitwidth
+
+                // bit checks
+                statements_flattened.extend((0..actual_bitwidth).map(|i| {
+                    FlatStatement::Condition(
+                        bits[i].clone().into(),
+                        FlatExpression::Mult(
+                            box bits[i].clone().into(),
+                            box bits[i].clone().into(),
+                        ),
+                    )
+                }));
+
+                // sum check
+                statements_flattened.push(FlatStatement::Condition(
+                    res.clone(),
+                    (0..actual_bitwidth).fold(FlatExpression::Number(T::from(0)), |acc, i| {
+                        FlatExpression::Add(
+                            box acc,
+                            box FlatExpression::Mult(
+                                box FlatExpression::Number(T::from(2).pow(actual_bitwidth - i - 1)),
+                                box bits[i].into(),
+                            ),
+                        )
+                    }),
+                ));
+
+                // truncate to the target bitwidth
+                (0..target_bitwidth).fold(FlatExpression::Number(T::from(0)), |acc, i| {
+                    FlatExpression::Add(
+                        box acc,
+                        box FlatExpression::Mult(
+                            box FlatExpression::Number(T::from(2).pow(target_bitwidth - i - 1)),
+                            box bits[i + actual_bitwidth - target_bitwidth].into(),
+                        ),
+                    )
+                })
+            }
+            false => res,
         }
     }
 
@@ -1392,10 +1506,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             FieldElementExpression::member(alternative.clone(), id.clone()),
                         )
                         .flatten(self, symbols, statements_flattened),
-                        Type::U8 => U8Expression::if_else(
+                        Type::Uint(..) => UExpression::if_else(
                             condition.clone(),
-                            U8Expression::member(consequence.clone(), id.clone()),
-                            U8Expression::member(alternative.clone(), id.clone()),
+                            UExpression::member(consequence.clone(), id.clone()),
+                            UExpression::member(alternative.clone(), id.clone()),
                         )
                         .flatten(self, symbols, statements_flattened),
                         Type::Boolean => BooleanExpression::if_else(

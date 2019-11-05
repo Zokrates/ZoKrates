@@ -1,0 +1,57 @@
+use std::fmt;
+use typed_absy::types::FunctionKey;
+use typed_absy::TypedModuleId;
+
+/// A identifier for a variable
+#[derive(Debug, PartialEq, Clone, Hash, Eq)]
+pub struct Identifier<'ast> {
+    /// the id of the variable
+    pub id: &'ast str,
+    /// the version of the variable, used after SSA transformation
+    pub version: usize,
+    /// the call stack of the variable, used when inlining
+    pub stack: Vec<(TypedModuleId, FunctionKey<'ast>, usize)>,
+}
+
+impl<'ast> fmt::Display for Identifier<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.stack.len() == 0 && self.version == 0 {
+            write!(f, "{}", self.id)
+        } else {
+            write!(
+                f,
+                "{}_{}_{}",
+                self.stack
+                    .iter()
+                    .map(|(name, sig, count)| format!("{}_{}_{}", name, sig.to_slug(), count))
+                    .collect::<Vec<_>>()
+                    .join("_"),
+                self.id,
+                self.version
+            )
+        }
+    }
+}
+
+impl<'ast> From<&'ast str> for Identifier<'ast> {
+    fn from(id: &'ast str) -> Identifier<'ast> {
+        Identifier {
+            id,
+            version: 0,
+            stack: vec![],
+        }
+    }
+}
+
+#[cfg(test)]
+impl<'ast> Identifier<'ast> {
+    pub fn version(mut self, version: usize) -> Self {
+        self.version = version;
+        self
+    }
+
+    pub fn stack(mut self, stack: Vec<(TypedModuleId, FunctionKey<'ast>, usize)>) -> Self {
+        self.stack = stack;
+        self
+    }
+}

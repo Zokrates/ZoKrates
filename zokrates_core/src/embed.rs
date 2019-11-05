@@ -233,7 +233,7 @@ pub fn unpack<T: Field>() -> FlatFunction<T> {
         .map(|index| use_variable(&mut layout, format!("o{}", index), &mut counter))
         .collect();
 
-    let helper = Helper::bits();
+    let helper = Helper::bits(T::get_required_bits());
 
     let signature = Signature {
         inputs: vec![Type::FieldElement],
@@ -326,7 +326,7 @@ mod tests {
                     (0..FieldPrime::get_required_bits())
                         .map(|i| FlatVariable::new(i + 1))
                         .collect(),
-                    Helper::bits(),
+                    Helper::bits(FieldPrime::get_required_bits()),
                     vec![FlatVariable::new(0)]
                 ))
             );

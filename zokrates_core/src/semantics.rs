@@ -712,7 +712,7 @@ impl<'ast> Checker<'ast> {
         match ty {
             UnresolvedType::FieldElement => Ok(Type::FieldElement),
             UnresolvedType::Boolean => Ok(Type::Boolean),
-            UnresolvedType::U8 => Ok(Type::U8),
+            UnresolvedType::Uint(bitwidth) => Ok(Type::Uint(bitwidth)),
             UnresolvedType::Array(t, size) => Ok(Type::Array(
                 box self.check_type(*t, module_id, types)?,
                 size,
@@ -1038,8 +1038,8 @@ impl<'ast> Checker<'ast> {
                                         FieldElementExpression::Number(T::from(i)),
                                     )
                                     .into(),
-                                    Type::U8 => U8Expression::select(
-                                        e.clone().annotate(Type::U8, size),
+                                    Type::Uint(bitwidth) => UExpression::select(
+                                        e.clone().annotate(Type::Uint(*bitwidth), size),
                                         FieldElementExpression::Number(T::from(i)),
                                     )
                                     .into(),
@@ -1049,9 +1049,7 @@ impl<'ast> Checker<'ast> {
                                     )
                                     .into(),
                                     Type::Array(box ty, s) => ArrayExpression::select(
-                                        e
-                                            .clone()
-                                            .annotate(Type::array(ty.clone(), *s), size),
+                                        e.clone().annotate(Type::array(ty.clone(), *s), size),
                                         FieldElementExpression::Number(T::from(i)),
                                     )
                                     .into(),
@@ -1095,7 +1093,9 @@ impl<'ast> Checker<'ast> {
                 match self.get_scope(&name) {
                     Some(v) => match v.id.get_type() {
                         Type::Boolean => Ok(BooleanExpression::Identifier(name.into()).into()),
-                        Type::U8 => Ok(U8Expression::Identifier(name.into()).into()),
+                        Type::Uint(bitwidth) => Ok(UExpressionInner::Identifier(name.into())
+                            .annotate(bitwidth)
+                            .into()),
                         Type::FieldElement => {
                             Ok(FieldElementExpression::Identifier(name.into()).into())
                         }
@@ -1120,11 +1120,26 @@ impl<'ast> Checker<'ast> {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(FieldElementExpression::Add(box e1, box e2).into())
                     }
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
+                        if e1.get_type() == e2.get_type() {
+                            Ok(UExpression::add(e1, e2).into())
+                        } else {
+                            Err(Error {
+                                pos: Some(pos),
+
+                                message: format!(
+                                    "Cannot apply `+` to {:?}, {:?}",
+                                    e1.get_type(),
+                                    e2.get_type()
+                                ),
+                            })
+                        }
+                    }
                     (t1, t2) => Err(Error {
                         pos: Some(pos),
 
                         message: format!(
-                            "Expected only field elements, found {:?}, {:?}",
+                            "Cannot apply `+` to {:?}, {:?}",
                             t1.get_type(),
                             t2.get_type()
                         ),
@@ -1158,11 +1173,26 @@ impl<'ast> Checker<'ast> {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(FieldElementExpression::Mult(box e1, box e2).into())
                     }
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
+                        if e1.get_type() == e2.get_type() {
+                            Ok(UExpression::mult(e1, e2).into())
+                        } else {
+                            Err(Error {
+                                pos: Some(pos),
+
+                                message: format!(
+                                    "Cannot apply `*` to {:?}, {:?}",
+                                    e1.get_type(),
+                                    e2.get_type()
+                                ),
+                            })
+                        }
+                    }
                     (t1, t2) => Err(Error {
                         pos: Some(pos),
 
                         message: format!(
-                            "Expected only field elements, found {:?}, {:?}",
+                            "Cannot apply `*` to {:?}, {:?}",
                             t1.get_type(),
                             t2.get_type()
                         ),
@@ -1503,23 +1533,13 @@ impl<'ast> Checker<'ast> {
                         match (array, self.check_expression(e, module_id, &types)?) {
                             (TypedExpression::Array(a), TypedExpression::FieldElement(i)) => {
                                 match a.inner_type().clone() {
-                                    Type::FieldElement => 
-                                        Ok(FieldElementExpression::select(a, i).into()),
-                                    
-                                    Type::U8 => 
-                                        Ok(U8Expression::select(a, i).into()),
-                                    
-                                    Type::Boolean => 
-                                        Ok(BooleanExpression::select(a, i).into()),
-                                    
-                                    Type::Array(..) => 
-                                        Ok(ArrayExpression::select(a, i)
-                                            .into()),
-                                    
-                                    Type::Struct(..) => 
-                                        Ok(StructExpression::select(a, i)
-                                            .into()),
-                                    
+                                    Type::FieldElement => {
+                                        Ok(FieldElementExpression::select(a, i).into())
+                                    }
+                                    Type::Uint(..) => Ok(UExpression::select(a, i).into()),
+                                    Type::Boolean => Ok(BooleanExpression::select(a, i).into()),
+                                    Type::Array(..) => Ok(ArrayExpression::select(a, i).into()),
+                                    Type::Struct(..) => Ok(StructExpression::select(a, i).into()),
                                 }
                             }
                             (a, e) => Err(Error {
@@ -1548,21 +1568,22 @@ impl<'ast> Checker<'ast> {
 
                         match ty {
                             Some(ty) => match ty {
-                                Type::FieldElement => 
-                                    Ok(FieldElementExpression::member(s, id.to_string()).into()),
+                                Type::FieldElement => {
+                                    Ok(FieldElementExpression::member(s, id.to_string()).into())
+                                }
 
-                                Type::Boolean => 
-                                    Ok(BooleanExpression::member(s, id.to_string()).into()),
+                                Type::Boolean => {
+                                    Ok(BooleanExpression::member(s, id.to_string()).into())
+                                }
 
-                                Type::U8 => 
-                                    Ok(U8Expression::member(s, id.to_string()).into()),
-                                
-                                Type::Array(..) => 
-                                    Ok(ArrayExpression::member(s.clone(), id.to_string()).into()),
-                                Type::Struct(..) => 
-                                    Ok(StructExpression::member(s.clone(), id.to_string())
-                                        .into())
+                                Type::Uint(..) => Ok(UExpression::member(s, id.to_string()).into()),
 
+                                Type::Array(..) => {
+                                    Ok(ArrayExpression::member(s.clone(), id.to_string()).into())
+                                }
+                                Type::Struct(..) => {
+                                    Ok(StructExpression::member(s.clone(), id.to_string()).into())
+                                }
                             },
                             None => Err(Error {
                                 pos: Some(pos),
@@ -1646,20 +1667,35 @@ impl<'ast> Checker<'ast> {
                             .annotate(Type::Boolean, size)
                             .into())
                     }
-                    Type::U8 => {
+                    ty @ Type::Uint(..) => {
                         // we check all expressions have that same type
                         let mut unwrapped_expressions = vec![];
 
                         for e in expressions_checked {
                             let unwrapped_e = match e {
-                                TypedExpression::U8(e) => Ok(e),
+                                TypedExpression::Uint(e) => {
+                                    if e.get_type() == ty {
+                                        Ok(e)
+                                    } else {
+                                        Err(Error {
+                                            pos: Some(pos),
+
+                                            message: format!(
+                                                "Expected {} to have type {}, but type is {}",
+                                                e,
+                                                ty,
+                                                e.get_type()
+                                            ),
+                                        })
+                                    }
+                                }
                                 e => Err(Error {
                                     pos: Some(pos),
 
                                     message: format!(
                                         "Expected {} to have type {}, but type is {}",
                                         e,
-                                        inferred_type,
+                                        ty,
                                         e.get_type()
                                     ),
                                 }),
@@ -1670,7 +1706,7 @@ impl<'ast> Checker<'ast> {
                         let size = unwrapped_expressions.len();
 
                         Ok(ArrayExpressionInner::Value(unwrapped_expressions)
-                            .annotate(Type::U8, size)
+                            .annotate(ty, size)
                             .into())
                     }
                     ty @ Type::Array(..) => {

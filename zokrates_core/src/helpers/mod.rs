@@ -77,8 +77,8 @@ impl Helper {
         Helper::Rust(RustHelper::Identity)
     }
 
-    pub fn bits() -> Self {
-        Helper::Rust(RustHelper::Bits)
+    pub fn bits(bitwidth: usize) -> Self {
+        Helper::Rust(RustHelper::Bits(bitwidth))
     }
 }
 

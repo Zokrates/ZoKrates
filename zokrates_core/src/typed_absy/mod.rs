@@ -6,13 +6,16 @@
 //! @date 2017
 
 pub mod folder;
+mod identifier;
 mod parameter;
 pub mod types;
+mod uint;
 mod variable;
 
-pub use crate::typed_absy::parameter::Parameter;
-pub use crate::typed_absy::types::Type;
-pub use crate::typed_absy::variable::Variable;
+pub use self::parameter::Parameter;
+pub use self::types::Type;
+pub use self::variable::Variable;
+pub use typed_absy::uint::{UExpression, UExpressionInner, UMetadata};
 
 use crate::typed_absy::types::{FunctionKey, MemberId, Signature};
 use embed::FlatEmbed;
@@ -23,16 +26,7 @@ use zokrates_field::field::Field;
 
 pub use self::folder::Folder;
 
-/// A identifier for a variable
-#[derive(Debug, PartialEq, Clone, Hash, Eq)]
-pub struct Identifier<'ast> {
-    /// the id of the variable
-    pub id: &'ast str,
-    /// the version of the variable, used after SSA transformation
-    pub version: usize,
-    /// the call stack of the variable, used when inlining
-    pub stack: Vec<(TypedModuleId, FunctionKey<'ast>, usize)>,
-}
+pub use self::identifier::Identifier;
 
 /// An identifier for a `TypedModule`. Typically a path or uri.
 pub type TypedModuleId = String;
@@ -80,49 +74,6 @@ impl<'ast, T: Field> fmt::Display for TypedProgram<'ast, T> {
 pub struct TypedModule<'ast, T: Field> {
     /// Functions of the program
     pub functions: TypedFunctionSymbols<'ast, T>,
-}
-
-impl<'ast> fmt::Display for Identifier<'ast> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.stack.len() == 0 && self.version == 0 {
-            write!(f, "{}", self.id)
-        } else {
-            write!(
-                f,
-                "{}_{}_{}",
-                self.stack
-                    .iter()
-                    .map(|(name, sig, count)| format!("{}_{}_{}", name, sig.to_slug(), count))
-                    .collect::<Vec<_>>()
-                    .join("_"),
-                self.id,
-                self.version
-            )
-        }
-    }
-}
-
-impl<'ast> From<&'ast str> for Identifier<'ast> {
-    fn from(id: &'ast str) -> Identifier<'ast> {
-        Identifier {
-            id,
-            version: 0,
-            stack: vec![],
-        }
-    }
-}
-
-#[cfg(test)]
-impl<'ast> Identifier<'ast> {
-    pub fn version(mut self, version: usize) -> Self {
-        self.version = version;
-        self
-    }
-
-    pub fn stack(mut self, stack: Vec<(TypedModuleId, FunctionKey<'ast>, usize)>) -> Self {
-        self.stack = stack;
-        self
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -375,7 +326,7 @@ pub trait Typed {
 pub enum TypedExpression<'ast, T: Field> {
     Boolean(BooleanExpression<'ast, T>),
     FieldElement(FieldElementExpression<'ast, T>),
-    U8(U8Expression<'ast>),
+    Uint(UExpression<'ast>),
     Array(ArrayExpression<'ast, T>),
     Struct(StructExpression<'ast, T>),
 }
@@ -392,9 +343,9 @@ impl<'ast, T: Field> From<FieldElementExpression<'ast, T>> for TypedExpression<'
     }
 }
 
-impl<'ast, T: Field> From<U8Expression<'ast>> for TypedExpression<'ast, T> {
-    fn from(e: U8Expression<'ast>) -> TypedExpression<T> {
-        TypedExpression::U8(e)
+impl<'ast, T: Field> From<UExpression<'ast>> for TypedExpression<'ast, T> {
+    fn from(e: UExpression<'ast>) -> TypedExpression<T> {
+        TypedExpression::Uint(e)
     }
 }
 
@@ -415,7 +366,7 @@ impl<'ast, T: Field> fmt::Display for TypedExpression<'ast, T> {
         match *self {
             TypedExpression::Boolean(ref e) => write!(f, "{}", e),
             TypedExpression::FieldElement(ref e) => write!(f, "{}", e),
-            TypedExpression::U8(ref e) => write!(f, "{}", e),
+            TypedExpression::Uint(ref e) => write!(f, "{}", e),
             TypedExpression::Array(ref e) => write!(f, "{}", e),
             TypedExpression::Struct(ref s) => write!(f, "{}", s),
         }
@@ -427,7 +378,7 @@ impl<'ast, T: Field> fmt::Debug for TypedExpression<'ast, T> {
         match *self {
             TypedExpression::Boolean(ref e) => write!(f, "{:?}", e),
             TypedExpression::FieldElement(ref e) => write!(f, "{:?}", e),
-            TypedExpression::U8(ref e) => write!(f, "{:?}", e),
+            TypedExpression::Uint(ref e) => write!(f, "{:?}", e),
             TypedExpression::Array(ref e) => write!(f, "{:?}", e),
             TypedExpression::Struct(ref s) => write!(f, "{}", s),
         }
@@ -496,7 +447,7 @@ impl<'ast, T: Field> Typed for TypedExpression<'ast, T> {
             TypedExpression::Boolean(ref e) => e.get_type(),
             TypedExpression::FieldElement(ref e) => e.get_type(),
             TypedExpression::Array(ref e) => e.get_type(),
-            TypedExpression::U8(ref e) => e.get_type(),
+            TypedExpression::Uint(ref e) => e.get_type(),
             TypedExpression::Struct(ref s) => s.get_type(),
         }
     }
@@ -520,9 +471,9 @@ impl<'ast, T: Field> Typed for FieldElementExpression<'ast, T> {
     }
 }
 
-impl<'ast> Typed for U8Expression<'ast> {
+impl<'ast> Typed for UExpression<'ast> {
     fn get_type(&self) -> Type {
-        Type::U8
+        Type::Uint(self.bitwidth)
     }
 }
 
@@ -585,13 +536,6 @@ pub enum FieldElementExpression<'ast, T: Field> {
         Box<ArrayExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
-}
-
-/// An expression of type `u8`
-#[derive(Clone, PartialEq, Hash, Eq)]
-pub enum U8Expression<'ast> {
-    Value(u8),
-    Identifier(Identifier<'ast>),
 }
 
 /// An expression of type `bool`
@@ -772,12 +716,12 @@ impl<'ast, T: Field> TryFrom<TypedExpression<'ast, T>> for BooleanExpression<'as
     }
 }
 
-impl<'ast, T: Field> TryFrom<TypedExpression<'ast, T>> for U8Expression<'ast> {
+impl<'ast, T: Field> TryFrom<TypedExpression<'ast, T>> for UExpression<'ast> {
     type Error = ();
 
-    fn try_from(te: TypedExpression<'ast, T>) -> Result<U8Expression<'ast>, Self::Error> {
+    fn try_from(te: TypedExpression<'ast, T>) -> Result<UExpression<'ast>, Self::Error> {
         match te {
-            TypedExpression::U8(e) => Ok(e),
+            TypedExpression::Uint(e) => Ok(e),
             _ => Err(()),
         }
     }
@@ -838,7 +782,7 @@ impl<'ast, T: Field> fmt::Display for FieldElementExpression<'ast, T> {
     }
 }
 
-impl<'ast> fmt::Display for U8Expression<'ast> {
+impl<'ast> fmt::Display for UExpression<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         unimplemented!()
     }
@@ -904,12 +848,6 @@ impl<'ast, T: Field> fmt::Display for ArrayExpressionInner<'ast, T> {
 }
 
 impl<'ast, T: Field> fmt::Debug for BooleanExpression<'ast, T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self)
-    }
-}
-
-impl<'ast> fmt::Debug for U8Expression<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self)
     }
@@ -1057,14 +995,14 @@ impl<'ast, T: Field> IfElse<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> IfElse<'ast, T> for U8Expression<'ast> {
+impl<'ast, T: Field> IfElse<'ast, T> for UExpression<'ast> {
     fn if_else(
         condition: BooleanExpression<'ast, T>,
         consequence: Self,
         alternative: Self,
     ) -> Self {
         unimplemented!()
-        // U8Expression::IfElse(box condition, box consequence, box alternative)
+        // UExpression::IfElse(box condition, box consequence, box alternative)
     }
 }
 
@@ -1108,10 +1046,10 @@ impl<'ast, T: Field> Select<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> Select<'ast, T> for U8Expression<'ast> {
+impl<'ast, T: Field> Select<'ast, T> for UExpression<'ast> {
     fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
         unimplemented!()
-        // U8Expression::Select(box array, box index)
+        // UExpression::Select(box array, box index)
     }
 }
 
@@ -1153,10 +1091,10 @@ impl<'ast, T: Field> Member<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> Member<'ast, T> for U8Expression<'ast> {
+impl<'ast, T: Field> Member<'ast, T> for UExpression<'ast> {
     fn member(s: StructExpression<'ast, T>, member_id: MemberId) -> Self {
         unimplemented!()
-        // U8Expression::Member(box s, member_id)
+        // UExpression::Member(box s, member_id)
     }
 }
 

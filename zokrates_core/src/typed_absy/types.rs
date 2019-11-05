@@ -8,7 +8,7 @@ pub type MemberId = String;
 pub enum Type {
     FieldElement,
     Boolean,
-    U8,
+    Uint(usize),
     Array(Box<Type>, usize),
     Struct(Vec<(MemberId, Type)>),
 }
@@ -18,7 +18,7 @@ impl fmt::Display for Type {
         match self {
             Type::FieldElement => write!(f, "field"),
             Type::Boolean => write!(f, "bool"),
-            Type::U8 => write!(f, "u8"),
+            Type::Uint(ref bitwidth) => write!(f, "u{}", bitwidth),
             Type::Array(ref ty, ref size) => write!(f, "{}[{}]", ty, size),
             Type::Struct(ref members) => write!(
                 f,
@@ -38,7 +38,7 @@ impl fmt::Debug for Type {
         match self {
             Type::FieldElement => write!(f, "field"),
             Type::Boolean => write!(f, "bool"),
-            Type::U8 => write!(f, "u8"),
+            Type::Uint(ref bitwidth) => write!(f, "u{}", bitwidth),
             Type::Array(ref ty, ref size) => write!(f, "{}[{}]", ty, size),
             Type::Struct(ref members) => write!(
                 f,
@@ -62,7 +62,7 @@ impl Type {
         match self {
             Type::FieldElement => String::from("f"),
             Type::Boolean => String::from("b"),
-            Type::U8 => String::from("u8"),
+            Type::Uint(bitwidth) => format!("u{}", bitwidth),
             Type::Array(box ty, size) => format!("{}[{}]", ty.to_slug(), size),
             Type::Struct(members) => format!(
                 "{{{}}}",
@@ -80,7 +80,7 @@ impl Type {
         match self {
             Type::FieldElement => 1,
             Type::Boolean => 1,
-            Type::U8 => 1,
+            Type::Uint(_) => 1,
             Type::Array(ty, size) => size * ty.get_primitive_count(),
             Type::Struct(members) => members.iter().map(|(_, t)| t.get_primitive_count()).sum(),
         }

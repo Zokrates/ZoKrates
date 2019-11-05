@@ -1,2 +1,2 @@
-def main(u8 a) -> (u8):
-	return a
+def main(u32 a, u32 b) -> (u32):
+	return a + b 
