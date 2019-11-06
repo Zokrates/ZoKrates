@@ -43,6 +43,8 @@ impl fmt::Display for Error {
 #[derive(PartialEq, Debug)]
 enum Value<T> {
     U8(u8),
+    U16(u16),
+    U32(u32),
     Field(T),
     Boolean(bool),
     Array(Vec<Value<T>>),
@@ -52,6 +54,7 @@ enum Value<T> {
 #[derive(PartialEq, Debug)]
 enum CheckedValue<T> {
     U8(u8),
+    U16(u16),
     U32(u32),
     Field(T),
     Boolean(bool),
@@ -66,7 +69,9 @@ impl<T: Field> fmt::Display for Value<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Value::Field(v) => write!(f, "{}", v),
-            Value::U8(v) => write!(f, "{:#x}", v),
+            Value::U8(v) => write!(f, "{:#04x}", v),
+            Value::U16(v) => write!(f, "{:#06x}", v),
+            Value::U32(v) => write!(f, "{:#010x}", v),
             Value::Boolean(v) => write!(f, "{}", v),
             Value::Array(v) => write!(
                 f,
@@ -92,6 +97,9 @@ impl<T: Field> Value<T> {
     fn check(self, ty: Type) -> Result<CheckedValue<T>, String> {
         match (self, ty) {
             (Value::Field(f), Type::FieldElement) => Ok(CheckedValue::Field(f)),
+            (Value::U8(f), Type::Uint(8)) => Ok(CheckedValue::U8(f)),
+            (Value::U16(f), Type::Uint(16)) => Ok(CheckedValue::U16(f)),
+            (Value::U32(f), Type::Uint(32)) => Ok(CheckedValue::U32(f)),
             (Value::Boolean(b), Type::Boolean) => Ok(CheckedValue::Boolean(b)),
             (Value::Array(a), Type::Array(box inner_ty, size)) => {
                 if a.len() != size {
@@ -149,6 +157,7 @@ impl<T: From<usize>> Encode<T> for CheckedValue<T> {
         match self {
             CheckedValue::Field(t) => vec![t],
             CheckedValue::U8(t) => vec![T::from(t as usize)],
+            CheckedValue::U16(t) => vec![T::from(t as usize)],
             CheckedValue::U32(t) => vec![T::from(t as usize)],
             CheckedValue::Boolean(b) => vec![if b { 1.into() } else { 0.into() }],
             CheckedValue::Array(a) => a.into_iter().flat_map(|v| v.encode()).collect(),
@@ -185,6 +194,9 @@ impl<T: Field> Decode<T> for CheckedValue<T> {
             Type::FieldElement => CheckedValue::Field(raw.pop().unwrap()),
             Type::Uint(8) => CheckedValue::U8(
                 u8::from_str_radix(&raw.pop().unwrap().to_dec_string(), 10).unwrap(),
+            ),
+            Type::Uint(16) => CheckedValue::U16(
+                u16::from_str_radix(&raw.pop().unwrap().to_dec_string(), 10).unwrap(),
             ),
             Type::Uint(32) => CheckedValue::U32(
                 u32::from_str_radix(&raw.pop().unwrap().to_dec_string(), 10).unwrap(),
@@ -250,8 +262,18 @@ impl<T: Field> TryFrom<serde_json::Value> for Value<T> {
         match v {
             serde_json::Value::String(s) => T::try_from_dec_str(&s)
                 .map(|v| Value::Field(v))
-                .or_else(|_| u8::from_str_radix(&s, 16).map(|v| Value::U8(v)))
-                .map_err(|_| format!("Could not parse `{}` as field element or u8", s)),
+                .or_else(|_| match s.len() {
+                    4 => u8::from_str_radix(&s[2..], 16)
+                        .map(|v| Value::U8(v))
+                        .map_err(|_| format!("Expected u8 value, found {}", s)),
+                    6 => u16::from_str_radix(&s[2..], 16)
+                        .map(|v| Value::U16(v))
+                        .map_err(|_| format!("Expected u16 value, found {}", s)),
+                    10 => u32::from_str_radix(&s[2..], 16)
+                        .map(|v| Value::U32(v))
+                        .map_err(|e| format!("Expected u32 value, found {} {}", s, e)),
+                    _ => Err(format!("Cannot parse {} to any type", s)),
+                }),
             serde_json::Value::Bool(b) => Ok(Value::Boolean(b)),
             serde_json::Value::Number(n) => Err(format!(
                 "Value `{}` isn't allowed, did you mean `\"{}\"`?",
@@ -276,8 +298,9 @@ impl<T: Field> Into<serde_json::Value> for CheckedValue<T> {
     fn into(self) -> serde_json::Value {
         match self {
             CheckedValue::Field(f) => serde_json::Value::String(f.to_dec_string()),
-            CheckedValue::U8(u) => serde_json::Value::String(format!("{:#x}", u)),
-            CheckedValue::U32(u) => serde_json::Value::String(format!("{:#x}", u)),
+            CheckedValue::U8(u) => serde_json::Value::String(format!("{:#04x}", u)),
+            CheckedValue::U16(u) => serde_json::Value::String(format!("{:#06x}", u)),
+            CheckedValue::U32(u) => serde_json::Value::String(format!("{:#010x}", u)),
             CheckedValue::Boolean(b) => serde_json::Value::Bool(b),
             CheckedValue::Array(a) => {
                 serde_json::Value::Array(a.into_iter().map(|e| e.into()).collect())

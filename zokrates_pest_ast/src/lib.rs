@@ -244,6 +244,7 @@ mod ast {
         Field(FieldType<'ast>),
         Boolean(BooleanType<'ast>),
         U8(U8Type<'ast>),
+        U16(U16Type<'ast>),
         U32(U32Type<'ast>),
     }
 
@@ -280,6 +281,13 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_u8))]
     pub struct U8Type<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::ty_u16))]
+    pub struct U16Type<'ast> {
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }

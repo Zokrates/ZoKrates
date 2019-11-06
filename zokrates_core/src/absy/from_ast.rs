@@ -615,6 +615,7 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode {
                 pest::BasicType::Field(t) => absy::UnresolvedType::FieldElement.span(t.span),
                 pest::BasicType::Boolean(t) => absy::UnresolvedType::Boolean.span(t.span),
                 pest::BasicType::U8(t) => absy::UnresolvedType::Uint(8).span(t.span),
+                pest::BasicType::U16(t) => absy::UnresolvedType::Uint(16).span(t.span),
                 pest::BasicType::U32(t) => absy::UnresolvedType::Uint(32).span(t.span),
             },
             pest::Type::Array(t) => {
@@ -625,6 +626,7 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode {
                         }
                         pest::BasicType::Boolean(t) => absy::UnresolvedType::Boolean.span(t.span),
                         pest::BasicType::U8(t) => absy::UnresolvedType::Uint(8).span(t.span),
+                        pest::BasicType::U16(t) => absy::UnresolvedType::Uint(16).span(t.span),
                         pest::BasicType::U32(t) => absy::UnresolvedType::Uint(32).span(t.span),
                     },
                     pest::BasicOrStructType::Struct(t) => {
