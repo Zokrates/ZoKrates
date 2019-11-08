@@ -120,5 +120,5 @@ COMMENT = _{ ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!NEWLINE ~ ANY)*) }
 
 // TODO: Order by alphabet
 keyword = @{"as"|"bool"|"byte"|"def"|"do"|"else"|"endfor"|"export"|"false"|"field"|"for"|"if"|"import"|
-            "in"|"private"|"public"|"return"|"return"|"struct"|"true"|"uint"
+            "in"|"private"|"public"|"return"|"struct"|"true"|"uint"
             }
