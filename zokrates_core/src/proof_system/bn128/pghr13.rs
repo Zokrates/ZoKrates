@@ -4,7 +4,7 @@ use proof_system::bn128::utils::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
 use proof_system::bn128::utils::ffi::{Buffer, SetupResult, ProofResult};
-use proof_system::ProofSystem;
+use proof_system::{SetupKeypair, ProofSystem};
 use regex::Regex;
 use zokrates_field::field::FieldPrime;
 
@@ -39,7 +39,7 @@ extern "C" {
 }
 
 impl ProofSystem for PGHR13 {
-    fn setup(&self, program: ir::Prog<FieldPrime>) -> (String, Vec<u8>) {
+    fn setup(&self, program: ir::Prog<FieldPrime>) -> SetupKeypair {
         let (
             a_arr,
             b_arr,
@@ -52,8 +52,8 @@ impl ProofSystem for PGHR13 {
             num_inputs
         ) = prepare_setup(program);
 
-        unsafe {
-            let result = pghr13_setup(
+        let keypair = unsafe {
+            let result: SetupResult = pghr13_setup(
                 a_arr.as_ptr(),
                 b_arr.as_ptr(),
                 c_arr.as_ptr(),
@@ -65,15 +65,21 @@ impl ProofSystem for PGHR13 {
                 num_inputs as i32
             );
 
-            let vk_buf: Vec<u8> = std::slice::from_raw_parts(result.vk.data, result.vk.length as usize).to_vec();
-            let vk: String = String::from_utf8(vk_buf).unwrap();
-            result.vk.free();
-
+            let vk: Vec<u8> = std::slice::from_raw_parts(result.vk.data, result.vk.length as usize).to_vec();
             let pk: Vec<u8> = std::slice::from_raw_parts(result.pk.data, result.pk.length as usize).to_vec();
+
+            // Memory is allocated in C and raw pointers are returned to Rust. The caller has to manually
+            // free the memory.
+            result.vk.free();
             result.pk.free();
             
             (vk, pk)
-        }
+        };
+
+        SetupKeypair::from(
+            String::from_utf8(keypair.0).unwrap(), 
+            keypair.1
+        )
     }
 
     fn generate_proof(
@@ -92,7 +98,7 @@ impl ProofSystem for PGHR13 {
         let mut pk = proving_key.clone();
         let mut pk_buf = Buffer::from_vec(pk.as_mut());
 
-        unsafe {
+        let proof_vec = unsafe {
             let result = pghr13_generate_proof(
                 &mut pk_buf as *mut _,
                 public_inputs_arr[0].as_ptr(),
@@ -102,10 +108,15 @@ impl ProofSystem for PGHR13 {
             );
 
             let proof_vec: Vec<u8> = std::slice::from_raw_parts(result.proof.data, result.proof.length as usize).to_vec();
+            
+            // Memory is allocated in C and raw pointers are returned to Rust. The caller has to manually
+            // free the memory.
             result.proof.free();
 
-            String::from_utf8(proof_vec).unwrap()
-        }
+            proof_vec 
+        };
+
+        String::from_utf8(proof_vec).unwrap()
     }
 
     fn export_solidity_verifier(&self, vk: String, is_abiv2: bool) -> String {

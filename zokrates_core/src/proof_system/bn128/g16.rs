@@ -3,21 +3,26 @@ use crate::proof_system::bn128::utils::bellman::Computation;
 use crate::proof_system::bn128::utils::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
-use crate::proof_system::ProofSystem;
+use crate::proof_system::{SetupKeypair, ProofSystem};
 use bellman::groth16::Parameters;
 use regex::Regex;
 
 use std::io::{Cursor, Read};
-
 use zokrates_field::field::FieldPrime;
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/reference/proving_schemes.html#g16-malleability for implications.";
 
 pub struct G16 {}
-impl ProofSystem for G16 {
-    fn setup(&self, program: ir::Prog<FieldPrime>) -> (String, Vec<u8>) {
-        std::env::set_var("BELLMAN_VERBOSE", "0");
 
+impl G16 {
+    pub fn new() -> G16 {
+        G16 {}
+    }
+}
+
+impl ProofSystem for G16 {
+    fn setup(&self, program: ir::Prog<FieldPrime>) -> SetupKeypair {
+        std::env::set_var("BELLMAN_VERBOSE", "0");
         println!("{}", G16_WARNING);
 
         let parameters = Computation::without_witness(program).setup();
@@ -27,13 +32,12 @@ impl ProofSystem for G16 {
         cursor.set_position(0);
 
         let vk: String = serialize::serialize_vk(parameters.vk);
-
         let mut pk: Vec<u8> = Vec::new();
         cursor
             .read_to_end(&mut pk)
             .expect("Could not read cursor buffer");
 
-        (vk, pk)
+        SetupKeypair::from(vk, pk)
     }
 
     fn generate_proof(

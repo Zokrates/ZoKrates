@@ -10,8 +10,19 @@ pub use self::bn128::PGHR13;
 
 use crate::ir;
 
+pub struct SetupKeypair {
+    pub vk: String,
+    pub pk: Vec<u8>
+}
+
+impl SetupKeypair {
+    pub fn from(vk: String, pk: Vec<u8>) -> SetupKeypair {
+        SetupKeypair { vk, pk }
+    }
+}
+
 pub trait ProofSystem {
-    fn setup(&self, program: ir::Prog<FieldPrime>) -> (String, Vec<u8>);
+    fn setup(&self, program: ir::Prog<FieldPrime>) -> SetupKeypair;
 
     fn generate_proof(
         &self,

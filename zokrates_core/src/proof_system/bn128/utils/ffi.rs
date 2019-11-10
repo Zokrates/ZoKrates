@@ -28,6 +28,8 @@ impl Buffer {
         }
     }
 
+    /// The purpose of this function is to free memory previously allocated by "malloc" 
+    /// from C standard library. Do not use otherwise.
     pub fn free(self) {
         unsafe { __free(self.data) };
     }
