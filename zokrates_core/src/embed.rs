@@ -15,6 +15,9 @@ use zokrates_field::field::Field;
 pub enum FlatEmbed {
     Sha256Round,
     Unpack,
+    CheckU8,
+    CheckU16,
+    CheckU32,
 }
 
 impl FlatEmbed {
@@ -32,6 +35,15 @@ impl FlatEmbed {
                     Type::FieldElement,
                     T::get_required_bits(),
                 )]),
+            FlatEmbed::CheckU8 => Signature::new()
+                .inputs(vec![Type::Uint(8)])
+                .outputs(vec![Type::array(Type::FieldElement, 8)]),
+            FlatEmbed::CheckU16 => Signature::new()
+                .inputs(vec![Type::Uint(16)])
+                .outputs(vec![Type::array(Type::FieldElement, 16)]),
+            FlatEmbed::CheckU32 => Signature::new()
+                .inputs(vec![Type::Uint(32)])
+                .outputs(vec![Type::array(Type::FieldElement, 32)]),
         }
     }
 
@@ -43,6 +55,9 @@ impl FlatEmbed {
         match self {
             FlatEmbed::Sha256Round => "_SHA256_ROUND",
             FlatEmbed::Unpack => "_UNPACK",
+            FlatEmbed::CheckU8 => "_CHECK_U8",
+            FlatEmbed::CheckU16 => "_CHECK_U16",
+            FlatEmbed::CheckU32 => "_CHECK_U32",
         }
     }
 
@@ -50,7 +65,10 @@ impl FlatEmbed {
     pub fn synthetize<T: Field>(&self) -> FlatFunction<T> {
         match self {
             FlatEmbed::Sha256Round => sha256_round(),
-            FlatEmbed::Unpack => unpack(),
+            FlatEmbed::Unpack => unpack_to_host_bitwidth(),
+            FlatEmbed::CheckU8 => unpack_to_bitwidth(8),
+            FlatEmbed::CheckU16 => unpack_to_bitwidth(16),
+            FlatEmbed::CheckU32 => unpack_to_bitwidth(32),
         }
     }
 }
@@ -210,8 +228,15 @@ fn use_variable(
 /// # Remarks
 /// * the return value of the `FlatFunction` is not deterministic: as we decompose over log_2(p) + 1 bits, some
 ///   elements can have multiple representations: For example, `unpack(0)` is `[0, ..., 0]` but also `unpack(p)`
-pub fn unpack<T: Field>() -> FlatFunction<T> {
+pub fn unpack_to_host_bitwidth<T: Field>() -> FlatFunction<T> {
+    unpack_to_bitwidth(T::get_required_bits())
+}
+
+/// A `FlatFunction` which checks a u8
+pub fn unpack_to_bitwidth<T: Field>(width: usize) -> FlatFunction<T> {
     let nbits = T::get_required_bits();
+
+    assert!(width <= nbits);
 
     let mut counter = 0;
 
@@ -229,28 +254,27 @@ pub fn unpack<T: Field>() -> FlatFunction<T> {
         format!("i0"),
         &mut counter,
     ))];
-    let directive_outputs: Vec<FlatVariable> = (0..T::get_required_bits())
+    let directive_outputs: Vec<FlatVariable> = (0..width)
         .map(|index| use_variable(&mut layout, format!("o{}", index), &mut counter))
         .collect();
 
-    let helper = Helper::bits(T::get_required_bits());
+    let helper = Helper::bits(width);
 
     let signature = Signature {
-        inputs: vec![Type::FieldElement],
-        outputs: vec![Type::array(Type::FieldElement, nbits)],
+        inputs: vec![Type::Uint(width)],
+        outputs: vec![Type::array(Type::FieldElement, width)],
     };
 
     let outputs = directive_outputs
         .iter()
         .enumerate()
-        .filter(|(index, _)| *index >= T::get_required_bits() - nbits)
         .map(|(_, o)| FlatExpression::Identifier(o.clone()))
-        .collect();
+        .collect::<Vec<_>>();
 
-    // o253, o252, ... o{253 - (nbits - 1)} are bits
-    let mut statements: Vec<FlatStatement<T>> = (0..nbits)
+    // o253, o252, ... o{253 - (width - 1)} are bits
+    let mut statements: Vec<FlatStatement<T>> = (0..width)
         .map(|index| {
-            let bit = FlatExpression::Identifier(FlatVariable::new(T::get_required_bits() - index));
+            let bit = FlatExpression::Identifier(FlatVariable::new(width - index));
             FlatStatement::Condition(
                 bit.clone(),
                 FlatExpression::Mult(box bit.clone(), box bit.clone()),
@@ -258,14 +282,14 @@ pub fn unpack<T: Field>() -> FlatFunction<T> {
         })
         .collect();
 
-    // sum check: o253 + o252 * 2 + ... + o{253 - (nbits - 1)} * 2**(nbits - 1)
+    // sum check: o253 + o252 * 2 + ... + o{253 - (width - 1)} * 2**(width - 1)
     let mut lhs_sum = FlatExpression::Number(T::from(0));
 
-    for i in 0..nbits {
+    for i in 0..width {
         lhs_sum = FlatExpression::Add(
             box lhs_sum,
             box FlatExpression::Mult(
-                box FlatExpression::Identifier(FlatVariable::new(T::get_required_bits() - i)),
+                box FlatExpression::Identifier(FlatVariable::new(width - i)),
                 box FlatExpression::Number(T::from(2).pow(i)),
             ),
         );

@@ -2,11 +2,26 @@ use std::fmt;
 use typed_absy::types::FunctionKey;
 use typed_absy::TypedModuleId;
 
+#[derive(Debug, PartialEq, Clone, Hash, Eq)]
+pub enum CoreIdentifier<'ast> {
+    Source(&'ast str),
+    Internal(&'static str, usize),
+}
+
+impl<'ast> fmt::Display for CoreIdentifier<'ast> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            CoreIdentifier::Source(s) => write!(f, "{}", s),
+            CoreIdentifier::Internal(s, i) => write!(f, "#INTERNAL#_{}_{}", s, i),
+        }
+    }
+}
+
 /// A identifier for a variable
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
 pub struct Identifier<'ast> {
     /// the id of the variable
-    pub id: &'ast str,
+    pub id: CoreIdentifier<'ast>,
     /// the version of the variable, used after SSA transformation
     pub version: usize,
     /// the call stack of the variable, used when inlining
@@ -35,6 +50,12 @@ impl<'ast> fmt::Display for Identifier<'ast> {
 
 impl<'ast> From<&'ast str> for Identifier<'ast> {
     fn from(id: &'ast str) -> Identifier<'ast> {
+        Identifier::from(CoreIdentifier::Source(id))
+    }
+}
+
+impl<'ast> From<CoreIdentifier<'ast>> for Identifier<'ast> {
+    fn from(id: CoreIdentifier<'ast>) -> Identifier<'ast> {
         Identifier {
             id,
             version: 0,

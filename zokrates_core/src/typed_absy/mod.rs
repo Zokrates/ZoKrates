@@ -12,10 +12,11 @@ pub mod types;
 mod uint;
 mod variable;
 
+pub use self::identifier::CoreIdentifier;
 pub use self::parameter::Parameter;
 pub use self::types::Type;
 pub use self::variable::Variable;
-pub use typed_absy::uint::{UExpression, UExpressionInner, UMetadata};
+pub use typed_absy::uint::{UExpression, UExpressionInner, UMetadata, bitwidth};
 
 use crate::typed_absy::types::{FunctionKey, MemberId, Signature};
 use embed::FlatEmbed;
@@ -571,6 +572,10 @@ pub enum BooleanExpression<'ast, T: Field> {
         Box<BooleanExpression<'ast, T>>,
         Box<BooleanExpression<'ast, T>>,
     ),
+    Xor(
+        Box<BooleanExpression<'ast, T>>,
+        Box<BooleanExpression<'ast, T>>,
+    ),
     And(
         Box<BooleanExpression<'ast, T>>,
         Box<BooleanExpression<'ast, T>>,
@@ -784,7 +789,13 @@ impl<'ast, T: Field> fmt::Display for FieldElementExpression<'ast, T> {
 
 impl<'ast> fmt::Display for UExpression<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        unimplemented!()
+        match self.inner {
+            UExpressionInner::Value(ref v) => write!(f, "{}", v),
+            UExpressionInner::Identifier(ref var) => write!(f, "{}", var),
+            UExpressionInner::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
+            UExpressionInner::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
+            UExpressionInner::Xor(ref lhs, ref rhs) => write!(f, "({} ^ {})", lhs, rhs),
+        }
     }
 }
 
@@ -799,6 +810,7 @@ impl<'ast, T: Field> fmt::Display for BooleanExpression<'ast, T> {
             BooleanExpression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
             BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
             BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
+            BooleanExpression::Xor(ref lhs, ref rhs) => write!(f, "{} ^ {}", lhs, rhs),
             BooleanExpression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             BooleanExpression::Not(ref exp) => write!(f, "!{}", exp),
             BooleanExpression::Value(b) => write!(f, "{}", b),

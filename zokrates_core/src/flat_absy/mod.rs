@@ -159,7 +159,7 @@ impl<T: Field> FlatStatement<T> {
     }
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, Eq, Hash)]
 pub enum FlatExpression<T: Field> {
     Number(T),
     Identifier(FlatVariable),

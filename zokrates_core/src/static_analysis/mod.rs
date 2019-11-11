@@ -9,11 +9,13 @@ mod flat_propagation;
 mod inline;
 mod propagation;
 mod unroll;
+mod uint_optimizer;
 
 use self::constrain_inputs::InputConstrainer;
 use self::inline::Inliner;
 use self::propagation::Propagator;
 use self::unroll::Unroller;
+use self::uint_optimizer::UintOptimizer;
 use crate::flat_absy::FlatProg;
 use crate::typed_absy::TypedProgram;
 use zokrates_field::field::Field;
@@ -32,6 +34,8 @@ impl<'ast, T: Field> Analyse for TypedProgram<'ast, T> {
         let r = Propagator::propagate(r);
         // constrain inputs
         let r = InputConstrainer::constrain(r);
+        // optimize uint expressions
+        let r = UintOptimizer::optimize(r);
         r
     }
 }

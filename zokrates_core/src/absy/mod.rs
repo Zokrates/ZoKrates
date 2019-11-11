@@ -478,6 +478,7 @@ pub enum Expression<'ast, T: Field> {
     ),
     Member(Box<ExpressionNode<'ast, T>>, Box<Identifier<'ast>>),
     Or(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
+    Xor(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
 }
 
 pub type ExpressionNode<'ast, T> = Node<Expression<'ast, T>>;
@@ -538,6 +539,7 @@ impl<'ast, T: Field> fmt::Display for Expression<'ast, T> {
             Expression::Select(ref array, ref index) => write!(f, "{}[{}]", array, index),
             Expression::Member(ref struc, ref id) => write!(f, "{}.{}", struc, id),
             Expression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
+            Expression::Xor(ref lhs, ref rhs) => write!(f, "{} ^ {}", lhs, rhs),
         }
     }
 }
@@ -585,6 +587,7 @@ impl<'ast, T: Field> fmt::Debug for Expression<'ast, T> {
             }
             Expression::Member(ref struc, ref id) => write!(f, "{}.{}", struc, id),
             Expression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
+            Expression::Xor(ref lhs, ref rhs) => write!(f, "{} ^ {}", lhs, rhs),
         }
     }
 }

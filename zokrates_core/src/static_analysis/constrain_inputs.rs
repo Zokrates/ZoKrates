@@ -33,18 +33,42 @@ use crate::typed_absy::*;
 use zokrates_field::field::Field;
 
 pub struct InputConstrainer<'ast, T: Field> {
+    next_var_id: usize,
     constraints: Vec<TypedStatement<'ast, T>>,
 }
 
 impl<'ast, T: Field> InputConstrainer<'ast, T> {
     fn new() -> Self {
         InputConstrainer {
+            next_var_id: 0,
             constraints: vec![],
         }
     }
 
     pub fn constrain(p: TypedProgram<T>) -> TypedProgram<T> {
         InputConstrainer::new().fold_program(p)
+    }
+
+    fn constrain_bits(&mut self, u: UExpression<'ast>) {
+        let bitwidth = u.bitwidth;
+        let bit_input = Variable::with_id_and_type(
+            CoreIdentifier::Internal("bit_input_array", self.next_var_id),
+            Type::array(Type::FieldElement, bitwidth),
+        );
+        self.next_var_id += 1;
+        self.constraints.push(TypedStatement::MultipleDefinition(
+            vec![bit_input],
+            TypedExpressionList::FunctionCall(
+                match bitwidth {
+                    8 => crate::embed::FlatEmbed::CheckU8.key::<T>(),
+                    16 => crate::embed::FlatEmbed::CheckU16.key::<T>(),
+                    32 => crate::embed::FlatEmbed::CheckU32.key::<T>(),
+                    _ => unreachable!()
+                },
+                vec![u.into()],
+                vec![Type::array(Type::FieldElement, bitwidth)],
+            ),
+        ));
     }
 
     fn constrain_expression(&mut self, e: TypedExpression<'ast, T>) {
@@ -54,8 +78,8 @@ impl<'ast, T: Field> InputConstrainer<'ast, T> {
                 b.clone().into(),
                 BooleanExpression::And(box b.clone(), box b).into(),
             )),
-            TypedExpression::Uint(bitwidth) => {
-                // TODO constrain by checking that it decomposes correctly
+            TypedExpression::Uint(u) => {
+                self.constrain_bits(u);
             }
             TypedExpression::Array(a) => {
                 for i in 0..a.size() {

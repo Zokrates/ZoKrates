@@ -350,6 +350,11 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
             let e2 = f.fold_boolean_expression(e2);
             BooleanExpression::Or(box e1, box e2)
         }
+        BooleanExpression::Xor(box e1, box e2) => {
+            let e1 = f.fold_boolean_expression(e1);
+            let e2 = f.fold_boolean_expression(e2);
+            BooleanExpression::Xor(box e1, box e2)
+        }
         BooleanExpression::And(box e1, box e2) => {
             let e1 = f.fold_boolean_expression(e1);
             let e2 = f.fold_boolean_expression(e2);

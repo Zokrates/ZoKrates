@@ -26,7 +26,7 @@ impl<'ast> Unroller<'ast> {
         let res = match self.substitution.get(&v.id) {
             Some(i) => Variable {
                 id: Identifier {
-                    id: v.id.id,
+                    id: v.id.clone().id,
                     version: i + 1,
                     stack: vec![],
                 },

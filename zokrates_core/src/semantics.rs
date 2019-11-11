@@ -738,7 +738,7 @@ impl<'ast> Checker<'ast> {
         types: &TypeMap,
     ) -> Result<Variable<'ast>, Vec<Error>> {
         Ok(Variable::with_id_and_type(
-            v.value.id.into(),
+            v.value.id,
             self.check_type(v.value._type, module_id, types)
                 .map_err(|e| vec![e])?,
         ))
@@ -933,7 +933,7 @@ impl<'ast> Checker<'ast> {
         match assignee.value {
             Assignee::Identifier(variable_name) => match self.get_scope(&variable_name) {
                 Some(var) => Ok(TypedAssignee::Identifier(Variable::with_id_and_type(
-                    variable_name.into(),
+                    variable_name,
                     var.id._type.clone(),
                 ))),
                 None => Err(Error {
@@ -1900,6 +1900,39 @@ impl<'ast> Checker<'ast> {
                         pos: Some(pos),
 
                         message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()),
+                    }),
+                }
+            }
+            Expression::Xor(box e1, box e2) => {
+                let e1_checked = self.check_expression(e1, module_id, &types)?;
+                let e2_checked = self.check_expression(e2, module_id, &types)?;
+                match (e1_checked, e2_checked) {
+                    (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
+                        Ok(BooleanExpression::Xor(box e1, box e2).into())
+                    }
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
+                        if e1.get_type() == e2.get_type() {
+                            Ok(UExpression::xor(e1, e2).into())
+                        } else {
+                            Err(Error {
+                                pos: Some(pos),
+
+                                message: format!(
+                                    "Cannot apply `^` to {}, {}",
+                                    e1.get_type(),
+                                    e2.get_type()
+                                ),
+                            })
+                        }
+                    }
+                    (e1, e2) => Err(Error {
+                        pos: Some(pos),
+
+                        message: format!(
+                            "Cannot apply `^` to {}, {}",
+                            e1.get_type(),
+                            e2.get_type()
+                        ),
                     }),
                 }
             }

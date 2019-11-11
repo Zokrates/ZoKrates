@@ -72,6 +72,18 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         let sha256_round = crate::embed::FlatEmbed::Sha256Round;
         let sha256_round_key = sha256_round.key::<T>();
 
+        // define a function in the main module for the `check_u8` embed
+        let check_u8 = crate::embed::FlatEmbed::CheckU8;
+        let check_u8_key = check_u8.key::<T>();
+
+        // define a function in the main module for the `check_u8` embed
+        let check_u16 = crate::embed::FlatEmbed::CheckU16;
+        let check_u16_key = check_u16.key::<T>();
+
+        // define a function in the main module for the `check_u8` embed
+        let check_u32 = crate::embed::FlatEmbed::CheckU32;
+        let check_u32_key = check_u32.key::<T>();
+
         // return a program with a single module containing `main`, `_UNPACK`, and `_SHA256_ROUND
         TypedProgram {
             main: String::from("main"),
@@ -81,6 +93,9 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                     functions: vec![
                         (unpack_key, TypedFunctionSymbol::Flat(unpack)),
                         (sha256_round_key, TypedFunctionSymbol::Flat(sha256_round)),
+                        (check_u8_key, TypedFunctionSymbol::Flat(check_u8)),
+                        (check_u16_key, TypedFunctionSymbol::Flat(check_u16)),
+                        (check_u32_key, TypedFunctionSymbol::Flat(check_u32)),
                         (main_key, main),
                     ]
                     .into_iter()

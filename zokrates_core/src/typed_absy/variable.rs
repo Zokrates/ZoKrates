@@ -9,7 +9,7 @@ pub struct Variable<'ast> {
 }
 
 impl<'ast> Variable<'ast> {
-    pub fn field_element(id: Identifier<'ast>) -> Variable<'ast> {
+    pub fn field_element<I: Into<Identifier<'ast>>>(id: I) -> Variable<'ast> {
         Self::with_id_and_type(id, Type::FieldElement)
     }
 
@@ -18,20 +18,23 @@ impl<'ast> Variable<'ast> {
     }
 
     #[cfg(test)]
-    pub fn field_array(id: Identifier<'ast>, size: usize) -> Variable<'ast> {
+    pub fn field_array<I: Into<Identifier<'ast>>>(id: I, size: usize) -> Variable<'ast> {
         Self::array(id, Type::FieldElement, size)
     }
 
-    pub fn array(id: Identifier<'ast>, ty: Type, size: usize) -> Variable<'ast> {
+    pub fn array<I: Into<Identifier<'ast>>>(id: I, ty: Type, size: usize) -> Variable<'ast> {
         Self::with_id_and_type(id, Type::array(ty, size))
     }
 
-    pub fn struc(id: Identifier<'ast>, ty: Vec<(MemberId, Type)>) -> Variable<'ast> {
+    pub fn struc<I: Into<Identifier<'ast>>>(id: I, ty: Vec<(MemberId, Type)>) -> Variable<'ast> {
         Self::with_id_and_type(id, Type::Struct(ty))
     }
 
-    pub fn with_id_and_type(id: Identifier<'ast>, _type: Type) -> Variable<'ast> {
-        Variable { id, _type }
+    pub fn with_id_and_type<I: Into<Identifier<'ast>>>(id: I, _type: Type) -> Variable<'ast> {
+        Variable {
+            id: id.into(),
+            _type,
+        }
     }
 
     pub fn get_type(&self) -> Type {
