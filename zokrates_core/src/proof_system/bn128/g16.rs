@@ -336,7 +336,7 @@ mod tests {
     mod serialize {
         use super::*;
 
-        mod proof {
+        mod bn {
             use super::*;
             use crate::flat_absy::FlatVariable;
             use crate::ir::*;

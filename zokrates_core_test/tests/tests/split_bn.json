@@ -1,6 +1,6 @@
 {
-	"entry_point": "./tests/tests/split.zok",
-	"curve": "Bn128",
+	"entry_point": "./tests/tests/split_bn.zok",
+	"curves": ["Bn128"],
 	"tests": [
 		{
 			"input": {

@@ -19,11 +19,11 @@ impl fmt::Display for RustHelper {
 }
 
 impl Signed for RustHelper {
-    fn get_signature(&self) -> (usize, usize) {
+    fn get_signature<T: Field>(&self) -> (usize, usize) {
         match self {
             RustHelper::Identity => (1, 1),
             RustHelper::ConditionEq => (1, 2),
-            RustHelper::Bits => (1, 254),
+            RustHelper::Bits => (1, T::get_required_bits()),
             RustHelper::Div => (2, 1),
             RustHelper::Sha256Round => (768, 26935),
         }
@@ -41,7 +41,7 @@ impl<T: Field> Executable<T> for RustHelper {
             RustHelper::Bits => {
                 let mut num = inputs[0].clone();
                 let mut res = vec![];
-                let bits = 254;
+                let bits = T::get_required_bits();
                 for i in (0..bits).rev() {
                     if T::from(2).pow(i) <= num {
                         num = num - T::from(2).pow(i);

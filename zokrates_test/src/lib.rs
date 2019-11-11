@@ -5,25 +5,25 @@ use std::path::PathBuf;
 use zokrates_core::ir;
 use zokrates_field::{Bls12Field, Bn128Field, Field};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 enum Curve {
     Bn128,
     Bls12,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 struct Tests {
     pub entry_point: PathBuf,
-    pub curve: Curve,
+    pub curves: Vec<Curve>,
     pub tests: Vec<Test>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 struct Input {
     pub values: Vec<Val>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 struct Test {
     pub input: Input,
     pub output: TestResult,
@@ -34,7 +34,7 @@ type TestResult = Result<Output, ir::Error>;
 #[derive(PartialEq, Debug)]
 struct ComparableResult<T>(Result<Vec<T>, ir::Error>);
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 struct Output {
     values: Vec<Val>,
 }
@@ -82,9 +82,11 @@ pub fn test_inner(test_path: &str) {
     let t: Tests =
         serde_json::from_reader(BufReader::new(File::open(Path::new(test_path)).unwrap())).unwrap();
 
-    match t.curve {
-        Curve::Bn128 => compile_and_run::<Bn128Field>(t),
-        Curve::Bls12 => compile_and_run::<Bls12Field>(t),
+    for c in &t.curves {
+        match c {
+            Curve::Bn128 => compile_and_run::<Bn128Field>(t.clone()),
+            Curve::Bls12 => compile_and_run::<Bls12Field>(t.clone()),
+        }
     }
 }
 

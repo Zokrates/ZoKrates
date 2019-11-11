@@ -93,7 +93,7 @@ impl<T: Field> QuadComb<T> {
     }
 }
 
-#[derive(PartialEq, Serialize, Deserialize)]
+#[derive(PartialEq, Serialize, Deserialize, Clone)]
 pub enum Error {
     UnsatisfiedConstraint { left: String, right: String },
     Solver,

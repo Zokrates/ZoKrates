@@ -1,3 +1,9 @@
+//
+// @file field.rs
+// @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
+// @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
+// @date 2017
+
 use bellman_ce::pairing::ff::ScalarEngine;
 use bellman_ce::pairing::Engine;
 use num_traits::{One, Zero};

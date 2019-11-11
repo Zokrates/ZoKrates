@@ -236,9 +236,8 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let mut reader = BufReader::new(file);
 
-    let program_flattened: ir::Prog<Bn128Field> =
-        compile(&mut reader, Some(location), Some(resolve))
-            .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
+    let program_flattened: ir::Prog<T> = compile(&mut reader, Some(location), Some(resolve))
+        .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
 
     // number of constraints the flattened program will translate to.
     let num_constraints = program_flattened.constraint_count();

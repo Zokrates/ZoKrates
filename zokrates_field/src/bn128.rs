@@ -1,9 +1,3 @@
-//
-// @file field.rs
-// @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
-// @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
-// @date 2017
-
 use bellman_ce::pairing::bn256::Bn256;
 
 prime_field!(

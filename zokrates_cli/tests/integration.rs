@@ -76,8 +76,6 @@ mod integration {
             .join("verifier")
             .with_extension("sol");
 
-        println!("abc");
-
         // create a tmp folder to store artifacts
         fs::create_dir(test_case_path).unwrap();
 
@@ -91,8 +89,6 @@ mod integration {
             flattened_path.to_str().unwrap(),
             "--light",
         ];
-
-        println!("{:?}", compile);
 
         // compile
         assert_cli::Assert::command(&compile).succeeds().unwrap();

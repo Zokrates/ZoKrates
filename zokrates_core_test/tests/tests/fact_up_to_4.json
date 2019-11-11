@@ -1,6 +1,6 @@
 {
 	"entry_point": "./tests/tests/fact_up_to_4.zok",
-	"curve": "Bn128",
+	"curves": ["Bn128", "Bls12"],
 	"tests": [
 		{
 			"input": {

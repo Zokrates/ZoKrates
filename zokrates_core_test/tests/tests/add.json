@@ -1,6 +1,6 @@
 {
 	"entry_point": "./tests/tests/add.zok",
-	"curve": "Bn128",
+	"curves": ["Bn128", "Bls12"],
 	"tests": [
 		{
 			"input": {

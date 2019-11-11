@@ -4,13 +4,18 @@ ZoKrates provides a command line interface.
 You can see an overview of the available subcommands by running
 
 ```sh
-./zokrates
+zokrates
+```
+
+You can get help about a particular subcommand with `--help`, for example:
+```sh
+zokrates compile --help
 ```
 
 ## `compile`
 
 ```sh
-./zokrates compile -i /path/to/add.zok
+zokrates compile -i /path/to/add.zok
 ```
 
 Compiles a `.zok` source code file into ZoKrates internal representation of arithmetic circuits. 
@@ -21,7 +26,7 @@ Unless the `--light` flag is set, a human readable `.ztf` file is generated, whi
 ## `compute-witness`
 
 ```sh
-./zokrates compute-witness -a 1 2 3
+zokrates compute-witness -a 1 2 3
 ```
 
 Computes a witness for the compiled program found at `./out` and arguments to the program.
@@ -33,7 +38,7 @@ Creates a witness file at `./witness`
 ## `setup`
 
 ```sh
-./zokrates setup
+zokrates setup
 ```
 
 Generates a trusted setup for the compiled program found at `./out`.
@@ -41,10 +46,12 @@ Generates a trusted setup for the compiled program found at `./out`.
 Creates a proving key and a verifying key at `./proving.key` and `./verifying.key`.
 These keys are derived from a source of randomness, commonly referred to as “toxic waste”. Anyone having access to the source of randomness can produce fake proofs that will be accepted by a verifier following the protocol.
 
+The [proving scheme](proving_schemes.md) and curve can be chosen with the `proving-scheme` and `curve` flags.
+
 ## `export-verifier`
 
 ```sh
-./zokrates export-verifier
+zokrates export-verifier
 ```
 
 Using the verifying key at `./verifying.key`, generates a Solidity contract which contains the generated verification key and a public function to verify a solution to the compiled program at `./out`.
@@ -54,7 +61,7 @@ Creates a verifier contract at `./verifier.sol`.
 ## `generate-proof`
 
 ```sh
-./zokrates generate-proof
+zokrates generate-proof
 ```
 
 Using the proving key at `./proving.key`, generates a proof for a computation of the compiled program `./out` resulting in `./witness`.
