@@ -23,14 +23,8 @@ struct proof_result_t {
     proof_result_t(buffer_t& proof_buf) : proof(proof_buf) { }
 };
 
-void __alloc(buffer_t* buffer, size_t length) {
-    buffer->data = (uint8_t*)malloc(length);
-    buffer->length = length;
-}
-
-void __free(uint8_t* ptr) {
-  free(ptr);
-}
+void __alloc(buffer_t* buffer, size_t length);
+void __free(uint8_t* ptr);
 
 #ifdef __cplusplus
 } // extern "C"
