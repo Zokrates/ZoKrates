@@ -11,13 +11,12 @@ use std::io::{stdin, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::string::String;
 use std::{env, io};
+use zokrates_abi::Encode;
 use zokrates_core::compile::compile;
 use zokrates_core::ir::{self, ProgEnum};
 use zokrates_core::proof_system::*;
 use zokrates_field::{Bls12Field, Bn128Field, Field};
 use zokrates_fs_resolver::resolve as fs_resolve;
-#[cfg(feature = "github")]
-use zokrates_github_resolver::{is_github_import, resolve as github_resolve};
 
 const CURVES: &[&str] = &["bn128", "bls12_381"];
 #[cfg(feature = "libsnark")]
@@ -121,8 +120,6 @@ fn cli_setup<T: Field, P: ProofSystem<T>>(
 }
 
 fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Result<(), String> {
-    use zokrates_abi::Encode;
-
     println!("Computing witness...");
 
     // print deserialized flattened program
