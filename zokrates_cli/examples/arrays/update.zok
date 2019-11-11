@@ -1,0 +1,9 @@
+def foo(field[3] a) -> (field):
+	a[1] = 2
+	return a[1]
+
+def main() -> (field, field):
+	field[3] a = [0, 0, 0]
+	res = foo(a)
+	a[1] == 0
+	return res, a[1]

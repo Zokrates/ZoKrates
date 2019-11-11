@@ -1,0 +1,7 @@
+// example using if-then-else-fi with &&
+
+def main(field a, field b) -> (field):
+    field y = if a + 2 == 3 && a * 2 == 2 then 1 else 0 fi
+    field z = if y == 1 && 1-y == 0 then y else 1 fi
+    b == 1
+    return a

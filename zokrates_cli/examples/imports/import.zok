@@ -1,0 +1,5 @@
+import "./foo"
+import "./bar"
+
+def main() -> (field):
+	return foo() + bar()
