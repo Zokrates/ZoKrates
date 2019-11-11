@@ -1,6 +1,6 @@
 {
 	"entry_point": "./tests/tests/hashes/pedersen/6bit.zok",
-	"curve": "Bn128",
+	"curves": ["Bn128"],
 	"tests": [
 		{
 			"input": {

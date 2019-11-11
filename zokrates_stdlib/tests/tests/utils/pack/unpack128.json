@@ -1,6 +1,6 @@
 {
 	"entry_point": "./tests/tests/utils/pack/unpack128.zok",
-	"curve": "Bn128",
+	"curves": ["Bn128"],
 	"tests": [
 		{
 			"input": {

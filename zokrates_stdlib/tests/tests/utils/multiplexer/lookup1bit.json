@@ -1,6 +1,6 @@
 {
 	"entry_point": "./tests/tests/utils/multiplexer/lookup1bit.zok",
-	"curve": "Bn128",
+	"curves": ["Bn128"],
 	"tests": [
 		{
 			"input": {
