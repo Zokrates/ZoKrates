@@ -368,16 +368,15 @@ library BN256G2 {
         uint256 pt1yx, uint256 pt1yy,
         uint256 pt1zx, uint256 pt1zy
     ) internal pure returns (uint256[6] memory pt2) {
-        while (d != 0) {
-            if ((d & 1) != 0) {
-                pt2 = _ECTwistAddJacobian(
+        while (d > 0) {
+            pt2 = _ECTwistAddJacobian(
                     pt2[PTXX], pt2[PTXY],
                     pt2[PTYX], pt2[PTYY],
                     pt2[PTZX], pt2[PTZY],
                     pt1xx, pt1xy,
                     pt1yx, pt1yy,
                     pt1zx, pt1zy);
-            }
+            
             (
                 pt1xx, pt1xy,
                 pt1yx, pt1yy,
