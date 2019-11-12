@@ -26,7 +26,7 @@
 
 // - input variables are inserted in the substitution as `(v, [(1, v)])`
 // - the `~one` variable is inserted as `(~one, [(1, ~one)])`
-// - For each directive, for each variable `v` introduced, insert `(v, [(1, v)])` 
+// - For each directive, for each variable `v` introduced, insert `(v, [(1, v)])`
 // - For each constraint `c`, we replace all variables by their value in `s` if any, otherwise leave them unchanged. Let's call `c_0` the resulting constraint. We either return `c_0` or nothing based on the form of `c_0`:
 //     - `~one * lin == k * v if v isn't defined`: insert `(v, lin / k)` and return nothing
 //     - `q == k * v if v isn't defined`: insert `(v, [(1, v)])` and return `c_0`
