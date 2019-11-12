@@ -7,7 +7,7 @@ readme = "README.md"
 build = "build.rs"
 
 [features]
-default = ["multicore"]
+default = []
 libsnark = ["cc", "cmake", "git2"]
 wasm_solvers = ["wasmi", "parity-wasm", "rustc-hex"]
 wasm = ["bellman_ce/wasm", "zokrates_embed/wasm"]
