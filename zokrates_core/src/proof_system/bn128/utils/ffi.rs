@@ -1,18 +1,18 @@
 #[repr(C)]
 pub struct Buffer {
     pub data: *mut u8,
-    pub length: i32
+    pub length: i32,
 }
 
 #[repr(C)]
 pub struct SetupResult {
     pub vk: Buffer,
-    pub pk: Buffer
+    pub pk: Buffer,
 }
 
 #[repr(C)]
 pub struct ProofResult {
-    pub proof: Buffer
+    pub proof: Buffer,
 }
 
 extern "C" {
@@ -24,11 +24,11 @@ impl Buffer {
         let length = v.len() as i32;
         Buffer {
             data: v.as_mut_ptr(),
-            length
+            length,
         }
     }
 
-    /// The purpose of this function is to free memory previously allocated by "malloc" 
+    /// The purpose of this function is to free memory previously allocated by "malloc"
     /// from C standard library. Do not use otherwise.
     pub fn free(self) {
         unsafe { __free(self.data) };

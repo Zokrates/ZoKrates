@@ -271,7 +271,8 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(file);
             let mut source = String::new();
-            reader.read_to_string(&mut source)
+            reader
+                .read_to_string(&mut source)
                 .map_err(|why| format!("couldn't open input file {}: {}", path.display(), why))?;
 
             let program_flattened: ir::Prog<FieldPrime> =
@@ -451,13 +452,15 @@ fn cli() -> Result<(), String> {
             // write verification key
             let mut vk_file = File::create(vk_path)
                 .map_err(|why| format!("couldn't create {}: {}", vk_path.display(), why))?;
-            vk_file.write(keypair.vk.as_ref())
+            vk_file
+                .write(keypair.vk.as_ref())
                 .map_err(|why| format!("couldn't write to {}: {}", vk_path.display(), why))?;
 
             // write proving key
             let mut pk_file = File::create(pk_path)
                 .map_err(|why| format!("couldn't create {}: {}", pk_path.display(), why))?;
-            pk_file.write(keypair.pk.as_ref())
+            pk_file
+                .write(keypair.pk.as_ref())
                 .map_err(|why| format!("couldn't write to {}: {}", pk_path.display(), why))?;
 
             println!("Setup completed.");
@@ -475,7 +478,8 @@ fn cli() -> Result<(), String> {
                 let mut reader = BufReader::new(input_file);
 
                 let mut vk = String::new();
-                reader.read_to_string(&mut vk)
+                reader
+                    .read_to_string(&mut vk)
                     .map_err(|why| format!("couldn't read {}: {}", input_path.display(), why))?;
 
                 let verifier = scheme.export_solidity_verifier(vk, is_abiv2);
@@ -525,15 +529,17 @@ fn cli() -> Result<(), String> {
 
             let mut pk: Vec<u8> = Vec::new();
             let mut pk_reader = BufReader::new(pk_file);
-            pk_reader.read_to_end(&mut pk)
+            pk_reader
+                .read_to_end(&mut pk)
                 .map_err(|why| format!("couldn't read {}: {}", pk_path.display(), why))?;
 
             let proof = scheme.generate_proof(program, witness, pk);
             let mut proof_file = File::create(proof_path).unwrap();
 
-            proof_file.write(proof.as_ref())
+            proof_file
+                .write(proof.as_ref())
                 .map_err(|why| format!("couldn't write to {}: {}", proof_path.display(), why))?;
-                
+
             println!("generate-proof successful: {}", format!("{}", proof));
         }
         ("print-proof", Some(sub_matches)) => {
@@ -623,8 +629,7 @@ mod tests {
             let mut source = String::new();
             reader.read_to_string(&mut source).unwrap();
 
-            let _: ir::Prog<FieldPrime> =
-                compile(source, location, Some(fs_resolve)).unwrap();
+            let _: ir::Prog<FieldPrime> = compile(source, location, Some(fs_resolve)).unwrap();
         }
     }
 

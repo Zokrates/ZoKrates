@@ -3,7 +3,7 @@ use crate::proof_system::bn128::utils::bellman::Computation;
 use crate::proof_system::bn128::utils::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
-use crate::proof_system::{SetupKeypair, ProofSystem};
+use crate::proof_system::{ProofSystem, SetupKeypair};
 use bellman::groth16::Parameters;
 use regex::Regex;
 

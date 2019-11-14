@@ -16,7 +16,7 @@ fn vec_as_u8_32_array(vec: &Vec<u8>) -> [u8; 32] {
 
 // proof-system-independent preparation for the setup phase
 pub fn prepare_setup<T: Field>(
-    program: ir::Prog<T>
+    program: ir::Prog<T>,
 ) -> (
     Vec<u8>,
     Vec<u8>,
@@ -26,7 +26,7 @@ pub fn prepare_setup<T: Field>(
     Vec<(i32, i32, [u8; 32])>,
     usize,
     usize,
-    usize
+    usize,
 ) {
     // transform to R1CS
     let (variables, public_variables_count, a, b, c) = r1cs_program(program);
@@ -133,7 +133,7 @@ pub fn prepare_setup<T: Field>(
         c_vec,
         num_constraints,
         num_variables,
-        num_inputs
+        num_inputs,
     )
 }
 
@@ -170,7 +170,7 @@ pub fn prepare_generate_proof<T: Field>(
         public_inputs_arr,
         public_inputs_length,
         private_inputs_arr,
-        private_inputs_length
+        private_inputs_length,
     )
 }
 

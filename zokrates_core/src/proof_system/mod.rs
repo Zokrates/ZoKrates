@@ -12,7 +12,7 @@ use crate::ir;
 
 pub struct SetupKeypair {
     pub vk: String,
-    pub pk: Vec<u8>
+    pub pk: Vec<u8>,
 }
 
 impl SetupKeypair {

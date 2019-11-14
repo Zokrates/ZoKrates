@@ -20,7 +20,8 @@ fn main() {
         let out_path = env::var("OUT_DIR").unwrap();
         let libsnark_source_path = &PathBuf::from(out_path.clone()).join("libsnark");
         let libsnark_wrapper_a = String::from("libsnark_wrapper.a");
-        let libsnark_wrapper_path = &PathBuf::from(out_path.clone()).join(PathBuf::from(libsnark_wrapper_a.clone()));
+        let libsnark_wrapper_path =
+            &PathBuf::from(out_path.clone()).join(PathBuf::from(libsnark_wrapper_a.clone()));
 
         let repo = Repository::open(libsnark_source_path).unwrap_or_else(|_| {
             remove_dir(libsnark_source_path).ok();
@@ -61,8 +62,14 @@ fn main() {
             .file("lib/pghr13.cpp")
             .compile(libsnark_wrapper_a.as_str());
 
-        println!("cargo:rustc-link-search={}", libsnark_wrapper_path.display());
-        println!("cargo:rustc-link-search=native={}", libsnark.join("lib").display());
+        println!(
+            "cargo:rustc-link-search={}",
+            libsnark_wrapper_path.display()
+        );
+        println!(
+            "cargo:rustc-link-search=native={}",
+            libsnark.join("lib").display()
+        );
 
         println!("cargo:rustc-link-lib=gmp");
         println!("cargo:rustc-link-lib=gmpxx");

@@ -1,10 +1,10 @@
 use ir;
+use proof_system::bn128::utils::ffi::{Buffer, ProofResult, SetupResult};
 use proof_system::bn128::utils::libsnark::{prepare_generate_proof, prepare_setup};
 use proof_system::bn128::utils::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
-use proof_system::bn128::utils::ffi::{Buffer, SetupResult, ProofResult};
-use proof_system::{SetupKeypair, ProofSystem};
+use proof_system::{ProofSystem, SetupKeypair};
 use regex::Regex;
 use zokrates_field::field::FieldPrime;
 
@@ -26,7 +26,7 @@ extern "C" {
         C_len: i32,
         constraints: i32,
         variables: i32,
-        inputs: i32
+        inputs: i32,
     ) -> SetupResult;
 
     fn pghr13_generate_proof(
@@ -34,23 +34,14 @@ extern "C" {
         publquery_inputs: *const u8,
         publquery_inputs_length: i32,
         private_inputs: *const u8,
-        private_inputs_length: i32
+        private_inputs_length: i32,
     ) -> ProofResult;
 }
 
 impl ProofSystem for PGHR13 {
     fn setup(&self, program: ir::Prog<FieldPrime>) -> SetupKeypair {
-        let (
-            a_arr,
-            b_arr,
-            c_arr,
-            a_vec,
-            b_vec,
-            c_vec,
-            num_constraints,
-            num_variables,
-            num_inputs
-        ) = prepare_setup(program);
+        let (a_arr, b_arr, c_arr, a_vec, b_vec, c_vec, num_constraints, num_variables, num_inputs) =
+            prepare_setup(program);
 
         let keypair = unsafe {
             let result: SetupResult = pghr13_setup(
@@ -62,24 +53,23 @@ impl ProofSystem for PGHR13 {
                 c_vec.len() as i32,
                 num_constraints as i32,
                 num_variables as i32,
-                num_inputs as i32
+                num_inputs as i32,
             );
 
-            let vk: Vec<u8> = std::slice::from_raw_parts(result.vk.data, result.vk.length as usize).to_vec();
-            let pk: Vec<u8> = std::slice::from_raw_parts(result.pk.data, result.pk.length as usize).to_vec();
+            let vk: Vec<u8> =
+                std::slice::from_raw_parts(result.vk.data, result.vk.length as usize).to_vec();
+            let pk: Vec<u8> =
+                std::slice::from_raw_parts(result.pk.data, result.pk.length as usize).to_vec();
 
             // Memory is allocated in C and raw pointers are returned to Rust. The caller has to manually
             // free the memory.
             result.vk.free();
             result.pk.free();
-            
+
             (vk, pk)
         };
 
-        SetupKeypair::from(
-            String::from_utf8(keypair.0).unwrap(), 
-            keypair.1
-        )
+        SetupKeypair::from(String::from_utf8(keypair.0).unwrap(), keypair.1)
     }
 
     fn generate_proof(
@@ -88,12 +78,8 @@ impl ProofSystem for PGHR13 {
         witness: ir::Witness<FieldPrime>,
         proving_key: Vec<u8>,
     ) -> String {
-        let (
-            public_inputs_arr,
-            public_inputs_length,
-            private_inputs_arr,
-            private_inputs_length,
-        ) = prepare_generate_proof(program, witness);
+        let (public_inputs_arr, public_inputs_length, private_inputs_arr, private_inputs_length) =
+            prepare_generate_proof(program, witness);
 
         let mut pk = proving_key.clone();
         let mut pk_buf = Buffer::from_vec(pk.as_mut());
@@ -104,16 +90,18 @@ impl ProofSystem for PGHR13 {
                 public_inputs_arr[0].as_ptr(),
                 public_inputs_length as i32,
                 private_inputs_arr[0].as_ptr(),
-                private_inputs_length as i32
+                private_inputs_length as i32,
             );
 
-            let proof_vec: Vec<u8> = std::slice::from_raw_parts(result.proof.data, result.proof.length as usize).to_vec();
-            
+            let proof_vec: Vec<u8> =
+                std::slice::from_raw_parts(result.proof.data, result.proof.length as usize)
+                    .to_vec();
+
             // Memory is allocated in C and raw pointers are returned to Rust. The caller has to manually
             // free the memory.
             result.proof.free();
 
-            proof_vec 
+            proof_vec
         };
 
         String::from_utf8(proof_vec).unwrap()
