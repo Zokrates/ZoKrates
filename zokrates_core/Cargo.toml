@@ -7,14 +7,14 @@ readme = "README.md"
 build = "build.rs"
 
 [features]
-default = ["multicore"]
+default = []
 libsnark = ["cc", "cmake", "git2"]
 wasm_solvers = ["wasmi", "parity-wasm", "rustc-hex"]
 wasm = ["bellman_ce/wasm", "zokrates_embed/wasm"]
 multicore = ["bellman_ce/multicore"]
 
 [dependencies]
-libc = "0.2.0"
+# libc = "0.2.0"
 num = {version = "0.1.36", default-features = false}
 num-bigint = {version = "0.1.36", default-features = false}
 lazy_static = "1.4"

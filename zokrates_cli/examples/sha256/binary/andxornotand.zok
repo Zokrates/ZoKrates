@@ -1,0 +1,8 @@
+// ANDXORNOTAND
+
+import "utils/binary/and" as AND
+import "utils/binary/xor" as XOR
+import "utils/binary/not" as NOT
+
+def main(field a, field b, field c) -> (field):
+	return XOR(AND(a, b), AND(NOT(a), c))

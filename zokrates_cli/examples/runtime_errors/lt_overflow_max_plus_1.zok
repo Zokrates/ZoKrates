@@ -1,0 +1,10 @@
+// we can compare numbers up to 2^(pbits - 2) - 1, ie any number which fits in (pbits - 2) bits
+// lt should not work for the maxvalue = 2^(pbits - 2) - 1 augmented by one
+// /!\ should be called with a = 0
+
+def main(field a) -> (field):
+  field pbits = 254
+  // maxvalue = 2**252 - 1
+  field maxvalue = a + 7237005577332262213973186563042994240829374041602535252466099000494570602496 - 1
+  // we added a = 0 to prevent the condition to be evaluated at compile time
+  return if 0 < (maxvalue + 1) then 1 else 0 fi

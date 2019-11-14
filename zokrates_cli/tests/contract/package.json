@@ -1,0 +1,15 @@
+{
+  "name": "zokrates-solidity-tester",
+  "version": "1.0.0",
+  "description": "",
+  "main": "test.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Paul Etscheit",
+  "license": "LGPL-3.0-only",
+  "dependencies": {
+    "solc": "^0.5.9",
+    "web3": "^1.0.0"
+  }
+}

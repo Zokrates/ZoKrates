@@ -14,11 +14,13 @@ fn main() {
         use std::path::PathBuf;
 
         // fetch libsnark source
-
         const LIBSNARK_URL: &'static str = "https://github.com/scipr-lab/libsnark.git";
         const LIBSNARK_COMMIT: &'static str = "f7c87b88744ecfd008126d415494d9b34c4c1b20";
 
-        let libsnark_source_path = &PathBuf::from(env::var("OUT_DIR").unwrap()).join("LIBSNARK");
+        let out_path = env::var("OUT_DIR").unwrap();
+        let libsnark_source_path = &PathBuf::from(out_path.clone()).join("libsnark");
+        let libsnark_wrapper_a = String::from("libsnark_wrapper.a");
+        let libsnark_wrapper_path = &PathBuf::from(out_path.clone()).join(PathBuf::from(libsnark_wrapper_a.clone()));
 
         let repo = Repository::open(libsnark_source_path).unwrap_or_else(|_| {
             remove_dir(libsnark_source_path).ok();
@@ -36,7 +38,6 @@ fn main() {
         }
 
         // build libsnark
-
         let libsnark = cmake::Config::new(libsnark_source_path)
             .define("WITH_PROCPS", "OFF")
             .define("CURVE", "ALT_BN128")
@@ -46,7 +47,6 @@ fn main() {
             .build();
 
         // build backends
-
         cc::Build::new()
             .cpp(true)
             .debug(cfg!(debug_assertions))
@@ -55,15 +55,14 @@ fn main() {
             .include(libsnark_source_path.join("depends/libff"))
             .include(libsnark_source_path.join("depends/libfqfft"))
             .define("CURVE_ALT_BN128", None)
+            .file("lib/ffi.cpp")
             .file("lib/util.cpp")
             .file("lib/gm17.cpp")
             .file("lib/pghr13.cpp")
-            .compile("libwraplibsnark.a");
+            .compile(libsnark_wrapper_a.as_str());
 
-        println!(
-            "cargo:rustc-link-search=native={}",
-            libsnark.join("lib").display()
-        );
+        println!("cargo:rustc-link-search={}", libsnark_wrapper_path.display());
+        println!("cargo:rustc-link-search=native={}", libsnark.join("lib").display());
 
         println!("cargo:rustc-link-lib=gmp");
         println!("cargo:rustc-link-lib=gmpxx");

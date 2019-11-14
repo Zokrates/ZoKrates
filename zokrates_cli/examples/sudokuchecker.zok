@@ -1,0 +1,75 @@
+// Sudoku of format
+
+// | a11 | a12 || b11 | b12 |
+// --------------------------
+// | a21 | a22 || b21 | b22 |
+// ==========================
+// | c11 | c12 || d11 | d12 |
+// --------------------------
+// | c21 | c22 || d21 | d22 |
+
+def checkEquality(field e11,field e12,field e21,field e22) -> (field):
+field counter = if e11 == e12 then 1 else 0 fi
+counter = counter + if e11 == e21 then 1 else 0 fi
+counter = counter + if e11 == e22 then 1 else 0 fi
+counter = counter + if e12 == e21 then 1 else 0 fi
+counter = counter + if e12 == e21 then 1 else 0 fi
+counter = counter + if e21 == e22 then 1 else 0 fi
+return counter
+
+// returns 0 for x in (1..4)
+def validateInput(field x) -> (field):
+return (x-1)*(x-2)*(x-3)*(x-4)
+
+// variables naming: box'row''column'
+def main(field a21, field b11, field b22, field c11, field c22, field d21, private field a11, private field a12, private field a22, private field b12, private field b21, private field c12, private field c21, private field d11, private field d12, private field d22) -> (field):
+
+// validate inputs
+0 == validateInput(a11)
+0 == validateInput(a12)
+0 == validateInput(a21)
+0 == validateInput(a22)
+
+0 == validateInput(b11)
+0 == validateInput(b12)
+0 == validateInput(b21)
+0 == validateInput(b22)
+
+0 == validateInput(c11)
+0 == validateInput(c12)
+0 == validateInput(c21)
+0 == validateInput(c22)
+
+0 == validateInput(d11)
+0 == validateInput(d12)
+0 == validateInput(d21)
+0 == validateInput(d22)
+
+field counter = 0 // globally counts duplicate entries in boxes, rows and columns
+
+// check box correctness
+
+  // no duplicates
+  counter = counter + checkEquality(a11,a12,a21,a22)
+  counter = counter + checkEquality(b11,b12,b21,b22)
+  counter = counter + checkEquality(c11,c12,c21,c22)
+  counter = counter + checkEquality(d11,d12,d21,d22)
+
+// check row correctness
+
+  counter = counter + checkEquality(a11,a12,b11,b12)
+  counter = counter + checkEquality(a21,a22,b21,b22)
+  counter = counter + checkEquality(c11,c12,d11,d12)
+  counter = counter + checkEquality(c21,c22,d21,d22)
+
+// check column correctness
+
+  counter = counter + checkEquality(a11,a21,c11,c21)
+  counter = counter + checkEquality(a12,a22,c12,c22)
+  counter = counter + checkEquality(b11,b21,d11,d21)
+  counter = counter + checkEquality(b12,b22,d12,d22)
+
+// assert counter is 0
+counter == 0
+
+return 1
