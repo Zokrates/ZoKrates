@@ -83,7 +83,7 @@ fn get_export<T: wasmi::FromRuntimeValue>(varname: &str, modref: &ModuleRef) -> 
 }
 
 impl Signed for WasmHelper {
-    fn get_signature(&self) -> (usize, usize) {
+    fn get_signature<T: Field>(&self) -> (usize, usize) {
         // Check that the module has the following exports:
         //  * min_inputs = the (minimum) number of inputs
         //  * min_outputs = the (minimum) number of outputs
@@ -313,7 +313,7 @@ mod tests {
     #[test]
     fn check_signatures() {
         let h1 = WasmHelper::from_hex(WasmHelper::IDENTITY_WASM);
-        assert_eq!(h1.get_signature(), (1, 1));
+        assert_eq!(h1.get_signature::<Bn128Field>(), (1, 1));
     }
 
     #[test]
