@@ -47,3 +47,6 @@ cd zokrates.github.io
 ../ghp-import/ghp_import.py -n -p -f -m "Documentation upload. Version:  $TAG" -b "master" -r https://zokratesbot:"$GH_TOKEN"@github.com/Zokrates/zokrates.github.io.git ../book
 echo "Published book"
 
+cd ../zokrates-js
+npm run build
+npm publish
