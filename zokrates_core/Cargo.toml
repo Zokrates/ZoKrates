@@ -36,7 +36,7 @@ wasmi = { version = "=0.4.5", optional = true }
 parity-wasm = { version = "0.35.3", optional = true }
 rustc-hex = { version = "1.0", optional = true }
 csv = "1"
-bellman_ce = { version = "0.3.1", default-features = false }
+bellman_ce = { git = "https://github.com/schaeff/bellman", branch = "fix-zero-sized-chunk", default-features = false }
 
 [dev-dependencies]
 glob = "0.2.11"
