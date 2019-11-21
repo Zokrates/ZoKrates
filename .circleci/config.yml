@@ -72,11 +72,11 @@ jobs:
           keys:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
+          name: Install firefox and curl
+          command: sudo apt-get install firefox curl
+      - run:
           name: Install wasm-pack
           command: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-      - run:
-          name: Install firefox
-          command: sudo apt-get install firefox
       - run:
           name: Test on firefox
           command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ cd zokrates_core && wasm-pack test --firefox --headless -- --features wasm 
