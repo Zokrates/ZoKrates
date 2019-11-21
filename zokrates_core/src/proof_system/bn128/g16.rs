@@ -21,8 +21,8 @@ impl G16 {
 }
 
 impl ProofSystem for G16 {
-    fn setup(&self, program: ir::Prog<FieldPrime>) -> SetupKeypair {
-        std::env::set_var("BELLMAN_VERBOSE", "0");
+    fn setup(program: ir::Prog<FieldPrime>) -> SetupKeypair {
+        //std::env::set_var("BELLMAN_VERBOSE", "0");
         println!("{}", G16_WARNING);
 
         let parameters = Computation::without_witness(program).setup();
@@ -41,12 +41,11 @@ impl ProofSystem for G16 {
     }
 
     fn generate_proof(
-        &self,
         program: ir::Prog<FieldPrime>,
         witness: ir::Witness<FieldPrime>,
         proving_key: Vec<u8>,
     ) -> String {
-        std::env::set_var("BELLMAN_VERBOSE", "0");
+        //std::env::set_var("BELLMAN_VERBOSE", "0");
 
         println!("{}", G16_WARNING);
 
@@ -57,7 +56,7 @@ impl ProofSystem for G16 {
         serialize::serialize_proof(&proof, &computation.public_inputs_values())
     }
 
-    fn export_solidity_verifier(&self, vk: String, is_abiv2: bool) -> String {
+    fn export_solidity_verifier(vk: String, is_abiv2: bool) -> String {
         let mut lines = vk.lines();
 
         let (mut template_text, solidity_pairing_lib) = if is_abiv2 {
