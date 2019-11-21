@@ -1,0 +1,20 @@
+[package]
+name = "zokrates_js"
+version = "1.0.0"
+authors = ["Darko Macesic"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+serde = "^1.0.59"
+serde_derive = "^1.0.59"
+bincode = "1.1.4"
+wasm-bindgen = { version = "0.2.46", features = ["serde-serialize"] }
+zokrates_core = { path = "../zokrates_core", features = ["wasm"] }
+zokrates_field = { path = "../zokrates_field" }
+zokrates_abi = { path = "../zokrates_abi" }
+
+[target."cfg(debug_assertions)".dependencies]
+console_error_panic_hook = "0.1.5"

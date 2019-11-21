@@ -1,6 +1,7 @@
 mod bn128;
 
 use zokrates_field::field::FieldPrime;
+use serde::ser::{Serialize, SerializeStruct, Serializer};
 
 pub use self::bn128::G16;
 #[cfg(feature = "libsnark")]
@@ -18,6 +19,18 @@ pub struct SetupKeypair {
 impl SetupKeypair {
     pub fn from(vk: String, pk: Vec<u8>) -> SetupKeypair {
         SetupKeypair { vk, pk }
+    }
+}
+
+impl Serialize for SetupKeypair {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut s = serializer.serialize_struct("SetupKeypair", 2)?;
+        s.serialize_field("vk", &self.vk)?;
+        s.serialize_field("pk", &self.pk)?;
+        s.end()
     }
 }
 

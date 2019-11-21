@@ -1,0 +1,37 @@
+{
+  "name": "zokrates-js",
+  "main": "js/index.js",
+  "author": "Darko Macesic <darem966@gmail.com>, Edi Sinovcic <edi@blockchain-it.hr>",
+  "version": "1.0.17",
+  "keywords": [
+    "zokrates",
+    "wasm-bindgen",
+    "zksnarks"
+  ],
+  "license": "GPLv3",
+  "files": [
+    "js",
+    "pkg",
+    "stdlib.json"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/blockchain-it-hr/zokrates-js"
+  },
+  "types": "js/index.d.ts",
+  "scripts": {
+    "cargo:build": "cargo build --target=wasm32-unknown-unknown",
+    "wasm-pack:build": "wasm-pack build --out-name index --release --target bundler",
+    "prebuild": "npm install && rimraf pkg && gulp stdlib",
+    "build": "npm run wasm-pack:build"
+  },
+  "devDependencies": {
+    "dree": "^2.1.10",
+    "gulp": "^4.0.2",
+    "gulp-cli": "^2.2.0",
+    "rimraf": "^3.0.0",
+    "serve": "^11.2.0",
+    "text-encoding": "^0.7.0"
+  },
+  "dependencies": {}
+}
