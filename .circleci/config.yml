@@ -57,7 +57,7 @@ jobs:
       # - run:
       #     name: Generate code coverage report
       #     command: ./scripts/cov.sh
-wasm_test:
+  wasm_test:
     docker:
       - image: rustlang/rust:nightly-slim
     steps:
@@ -145,6 +145,7 @@ workflows:
     jobs:
       - build
       - test
+      - wasm_solvers_test
       - wasm_test
       - integration_test
       - deploy:
@@ -155,6 +156,8 @@ workflows:
           requires:
             - build
             - test
+            - wasm_solvers_test
+            - wasm_test
             - integration_test
 
 
