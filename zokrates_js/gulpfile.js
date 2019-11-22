@@ -12,6 +12,9 @@ const options = {
     extensions: ['zok']
 };
 
+/**
+ * Serializes standard library directory tree to a json file.
+ */
 gulp.task('stdlib', function (done) {
     var stdlib = {};
     dree.scan(stdlibRoot, options, function (file) {

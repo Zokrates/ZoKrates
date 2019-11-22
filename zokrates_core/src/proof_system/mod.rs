@@ -11,6 +11,7 @@ pub use self::bn128::PGHR13;
 
 use crate::ir;
 
+#[derive(Serialize)]
 pub struct SetupKeypair {
     pub vk: String,
     pub pk: Vec<u8>,
@@ -19,18 +20,6 @@ pub struct SetupKeypair {
 impl SetupKeypair {
     pub fn from(vk: String, pk: Vec<u8>) -> SetupKeypair {
         SetupKeypair { vk, pk }
-    }
-}
-
-impl Serialize for SetupKeypair {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut s = serializer.serialize_struct("SetupKeypair", 2)?;
-        s.serialize_field("vk", &self.vk)?;
-        s.serialize_field("pk", &self.pk)?;
-        s.end()
     }
 }
 
