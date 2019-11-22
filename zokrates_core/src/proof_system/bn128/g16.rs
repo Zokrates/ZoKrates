@@ -22,6 +22,7 @@ impl G16 {
 
 impl ProofSystem for G16 {
     fn setup(&self, program: ir::Prog<FieldPrime>) -> SetupKeypair {
+        #[cfg(not(target_arch = "wasm32"))]
         std::env::set_var("BELLMAN_VERBOSE", "0");
         println!("{}", G16_WARNING);
 
@@ -46,6 +47,7 @@ impl ProofSystem for G16 {
         witness: ir::Witness<FieldPrime>,
         proving_key: Vec<u8>,
     ) -> String {
+        #[cfg(not(target_arch = "wasm32"))]
         std::env::set_var("BELLMAN_VERBOSE", "0");
 
         println!("{}", G16_WARNING);
