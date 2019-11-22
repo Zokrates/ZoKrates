@@ -10,5 +10,5 @@ wasm = ["bellman_ce/wasm", "sapling-crypto_ce/wasm"]
 multicore = ["bellman_ce/multicore", "sapling-crypto_ce/multicore"]
 
 [dependencies]
-bellman_ce = { version = "0.3.1", default-features = false }
+bellman_ce = { git = "https://github.com/schaeff/bellman", branch = "fix-zero-sized-chunk", default-features = false}
 sapling-crypto_ce = { version = "0.1.1", default-features = false }

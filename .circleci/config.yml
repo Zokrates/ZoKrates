@@ -72,6 +72,26 @@ jobs:
           keys:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
+          name: Install wasm testing env
+          command: ./scripts/install_wasm_testing.sh
+      - run:
+          name: Test on firefox
+          command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ cd zokrates_core && wasm-pack test --firefox --headless -- --features wasm 
+  wasm_solvers_test:
+    docker:
+      - image: rustlang/rust:nightly-slim
+    steps:
+      - checkout
+      - run:
+          name: Version information
+          command: rustc --version; cargo --version; rustup --version
+      - run:
+          name: Calculate dependencies
+          command: cargo generate-lockfile
+      - restore_cache:
+          keys:
+            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - run:
           name: Download wasm32 target
           command: rustup target add wasm32-unknown-unknown
       - run:
@@ -122,6 +142,7 @@ workflows:
     jobs:
       - build
       - test
+      - wasm_solvers_test
       - wasm_test
       - integration_test
       - deploy:
@@ -132,6 +153,8 @@ workflows:
           requires:
             - build
             - test
+            - wasm_solvers_test
+            - wasm_test
             - integration_test
 
 
