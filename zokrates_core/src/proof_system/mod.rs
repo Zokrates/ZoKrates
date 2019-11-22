@@ -1,6 +1,5 @@
 mod bn128;
 
-use serde::ser::{Serialize, SerializeStruct, Serializer};
 use zokrates_field::field::FieldPrime;
 
 pub use self::bn128::G16;
