@@ -21,4 +21,4 @@
 	- [Testing](reference/testing.md)
 
 - [Tutorial: Proof of preimage](./sha256example.md)
-- [ZoKrates JS](./zokrates_js.md)
+- [zokrates.js](./zokrates_js.md)
