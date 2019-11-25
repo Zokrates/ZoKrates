@@ -1,6 +1,6 @@
 use crate::flat_absy::{FlatExpression, FlatExpressionList, FlatFunction, FlatStatement};
 use crate::flat_absy::{FlatParameter, FlatVariable};
-use crate::helpers::{DirectiveStatement, Helper, RustHelper};
+use crate::solvers::{FlatDirective, solver, Rustsolver};
 use crate::types::{Signature, Type};
 use bellman::pairing::ff::ScalarEngine;
 use reduce::Reduce;
@@ -118,13 +118,13 @@ pub fn sha_round<T: Field>() -> FlatFunction<T> {
         .collect();
 
     // insert a directive to set the witness based on the bellman gadget and  inputs
-    let directive_statement = FlatStatement::Directive(DirectiveStatement {
+    let directive_statement = FlatStatement::Directive(FlatDirective {
         outputs: cs_indices.map(|i| FlatVariable::new(i)).collect(),
         inputs: input_argument_indices
             .chain(current_hash_argument_indices)
             .map(|i| FlatVariable::new(i).into())
             .collect(),
-        helper: Helper::Rust(RustHelper::Sha256Round),
+        solver: Solver::Sha256Round,
     });
 
     // insert a statement to return the subset of the witness

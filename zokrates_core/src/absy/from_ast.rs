@@ -789,7 +789,7 @@ mod tests {
     mod types {
         use super::*;
 
-        /// Helper method to generate the ast for `def main(private {ty} a) -> (): return` which we use to check ty
+        /// solver method to generate the ast for `def main(private {ty} a) -> (): return` which we use to check ty
         fn wrap(ty: absy::UnresolvedType) -> absy::Module<'static, FieldPrime> {
             absy::Module {
                 symbols: vec![absy::SymbolDeclaration {
