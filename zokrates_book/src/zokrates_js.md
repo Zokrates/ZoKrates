@@ -1,4 +1,4 @@
-# zokrates-js
+# zokrates.js
 
 You can get JavaScript bindings for ZoKrates by running
 
