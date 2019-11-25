@@ -10,7 +10,7 @@ pub use self::bn128::PGHR13;
 
 use crate::ir;
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct SetupKeypair {
     pub vk: String,
     pub pk: Vec<u8>,
