@@ -4,7 +4,6 @@ use zokrates_field::field::Field;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
 pub enum Solver {
-    Identity,
     ConditionEq,
     Bits,
     Div,
@@ -20,7 +19,6 @@ impl fmt::Display for Solver {
 impl Signed for Solver {
     fn get_signature(&self) -> (usize, usize) {
         match self {
-            Solver::Identity => (1, 1),
             Solver::ConditionEq => (1, 2),
             Solver::Bits => (1, 254),
             Solver::Div => (2, 1),
@@ -34,11 +32,10 @@ impl<T: Field> Executable<T> for Solver {
         let (expected_input_count, expected_output_count) = self.get_signature();
         assert!(inputs.len() == expected_input_count);
 
-        match self {
-            Solver::Identity => Ok(inputs.clone()),
+        let res = match self {
             Solver::ConditionEq => match inputs[0].is_zero() {
-                true => Ok(vec![T::zero(), T::one()]),
-                false => Ok(vec![T::one(), T::one() / inputs[0].clone()]),
+                true => vec![T::zero(), T::one()],
+                false => vec![T::one(), T::one() / inputs[0].clone()],
             },
             Solver::Bits => {
                 let mut num = inputs[0].clone();
@@ -53,29 +50,29 @@ impl<T: Field> Executable<T> for Solver {
                     }
                 }
                 assert_eq!(num, T::zero());
-                Ok(res)
+                res
             }
-            Solver::Div => Ok(vec![inputs[0].clone() / inputs[1].clone()]),
+            Solver::Div => vec![inputs[0].clone() / inputs[1].clone()],
             Solver::Sha256Round => {
                 let i = &inputs[0..512];
                 let h = &inputs[512..];
                 let i: Vec<_> = i.iter().map(|x| x.clone().into_bellman()).collect();
                 let h: Vec<_> = h.iter().map(|x| x.clone().into_bellman()).collect();
                 assert!(h.len() == 256);
-                Ok(generate_sha256_round_witness::<T::BellmanEngine>(&i, &h)
+                generate_sha256_round_witness::<T::BellmanEngine>(&i, &h)
                     .into_iter()
                     .map(|x| T::from_bellman(x))
-                    .collect())
+                    .collect()
             }
-        }
+        };
+
+        assert_eq!(res.len(), expected_output_count);
+
+        Ok(res)
     }
 }
 
 impl Solver {
-    pub fn identity() -> Self {
-        Solver::Identity
-    }
-
     pub fn bits() -> Self {
         Solver::Bits
     }
