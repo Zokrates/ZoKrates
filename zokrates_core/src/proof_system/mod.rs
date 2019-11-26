@@ -10,7 +10,9 @@ pub use self::bn128::PGHR13;
 
 use crate::ir;
 
-#[derive(Serialize, Deserialize)]
+// We only need to serialize this struct, there is no need for deserialization as keys are
+// used separetely in other use cases
+#[derive(Serialize)]
 pub struct SetupKeypair {
     pub vk: String,
     pub pk: Vec<u8>,
