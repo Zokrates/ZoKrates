@@ -2,7 +2,7 @@
   "name": "zokrates-js",
   "main": "js/index.js",
   "author": "Darko Macesic <darem966@gmail.com>, Edi Sinovcic <edi@blockchain-it.hr>",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "keywords": [
     "zokrates",
     "wasm-bindgen",
