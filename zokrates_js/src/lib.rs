@@ -91,8 +91,8 @@ pub fn compute_witness(program: JsValue, args: JsValue) -> Result<JsValue, JsVal
 #[wasm_bindgen]
 pub fn setup(program: JsValue) -> JsValue {
     let program_flattened = deserialize_program(&program);
-    let proof = proof_system::G16 {}.setup(program_flattened);
-    JsValue::from_serde(&proof).unwrap()
+    let keypair = proof_system::G16 {}.setup(program_flattened);
+    JsValue::from_serde(&keypair).unwrap()
 }
 
 #[wasm_bindgen]
