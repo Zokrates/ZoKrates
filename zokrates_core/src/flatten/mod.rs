@@ -1446,7 +1446,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         let ebytes_be = e.to_be_bytes();
                         // convert the bytes to bits, remove leading zeroes (we only need powers up to the highest non-zero bit)
                         let ebits_be: Vec<_> = ebytes_be
-                            .into_iter()
+                            .iter()
                             .flat_map(|byte| (0..8).rev().map(move |i| byte & (1 << i) != 0)) // byte to bit, big endian
                             .skip_while(|b| !b) // skip trailing false bits
                             .collect();
