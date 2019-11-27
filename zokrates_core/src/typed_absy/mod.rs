@@ -53,6 +53,45 @@ pub struct TypedProgram<'ast, T: Field> {
     pub main: TypedModuleId,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Abi {
+    inputs: Vec<(bool, String, Type)>,
+    outputs: Vec<Type>,
+}
+
+impl Abi {
+    pub fn signature(&self) -> Signature {
+        Signature {
+            inputs: self.inputs.iter().map(|i| i.2.clone()).collect(),
+            outputs: self.outputs.clone(),
+        }
+    }
+}
+
+impl<'ast, T: Field> TypedProgram<'ast, T> {
+    pub fn abi(&self) -> Abi {
+        let main = self.modules[&self.main]
+            .functions
+            .iter()
+            .find(|(id, _)| id.id == "main")
+            .unwrap()
+            .1;
+        let main = match main {
+            TypedFunctionSymbol::Here(main) => main,
+            _ => unreachable!(),
+        };
+
+        Abi {
+            inputs: main
+                .arguments
+                .iter()
+                .map(|p| (p.private, p.id.id.to_string(), p.id._type.clone()))
+                .collect(),
+            outputs: main.signature.outputs.clone(),
+        }
+    }
+}
+
 impl<'ast, T: Field> fmt::Display for TypedProgram<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (module_id, module) in &self.modules {

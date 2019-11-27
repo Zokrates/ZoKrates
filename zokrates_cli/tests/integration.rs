@@ -12,7 +12,7 @@ mod integration {
     use std::path::Path;
     use tempdir::TempDir;
     use zokrates_abi::{parse_strict, Encode};
-    use zokrates_core::ir;
+    use zokrates_core::compile::ProgAndAbi;
     use zokrates_field::field::FieldPrime;
 
     #[test]
@@ -103,11 +103,11 @@ mod integration {
 
         let mut reader = BufReader::new(file);
 
-        let ir_prog: ir::Prog<FieldPrime> = deserialize_from(&mut reader, Infinite)
+        let ir_prog: ProgAndAbi<FieldPrime> = deserialize_from(&mut reader, Infinite)
             .map_err(|why| why.to_string())
             .unwrap();
 
-        let signature = ir_prog.signature.clone();
+        let signature = ir_prog.abi.signature();
 
         // run witness-computation for ABI-encoded inputs through stdin
         let json_input_str = fs::read_to_string(inputs_path).unwrap();

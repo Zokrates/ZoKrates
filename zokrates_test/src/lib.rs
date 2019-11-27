@@ -93,7 +93,7 @@ pub fn test_inner(test_path: &str) {
 
     for test in t.tests.into_iter() {
         let input = &test.input.values;
-        let output = bin.execute(
+        let output = bin.prog.execute(
             &input
                 .iter()
                 .map(|v| FieldPrime::try_from_dec_str(&v.clone()).unwrap())

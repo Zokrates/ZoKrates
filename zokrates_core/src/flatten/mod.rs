@@ -1591,7 +1591,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         FlatFunction {
             arguments: arguments_flattened,
             statements: statements_flattened,
-            signature: funct.signature,
         }
     }
 
@@ -1735,7 +1734,6 @@ mod tests {
                     expressions: vec![FlatExpression::Identifier(FlatVariable::new(1))],
                 }),
             ],
-            signature: Signature::new().outputs(vec![Type::FieldElement]),
         };
 
         let flattened = flattener.flatten_function(&mut HashMap::new(), function);
@@ -1802,7 +1800,6 @@ mod tests {
                     expressions: vec![FlatExpression::Identifier(FlatVariable::new(2))],
                 }),
             ],
-            signature: Signature::new().outputs(vec![Type::FieldElement]),
         };
 
         let flattened = flattener.flatten_function(&mut HashMap::new(), function);
@@ -1922,7 +1919,6 @@ mod tests {
                     expressions: vec![FlatExpression::Identifier(FlatVariable::new(7))],
                 }),
             ],
-            signature: Signature::new().outputs(vec![Type::FieldElement]),
         };
 
         let flattened = flattener.flatten_function(&mut HashMap::new(), function);

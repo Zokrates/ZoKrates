@@ -14,6 +14,7 @@ use std::path::{Path, PathBuf};
 use std::string::String;
 use zokrates_abi::Encode;
 use zokrates_core::compile::compile;
+use zokrates_core::compile::ProgAndAbi;
 use zokrates_core::ir;
 use zokrates_core::proof_system::*;
 use zokrates_field::field::{Field, FieldPrime};
@@ -271,12 +272,12 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(file);
 
-            let program_flattened: ir::Prog<FieldPrime> =
+            let program_flattened: ProgAndAbi<FieldPrime> =
                 compile(&mut reader, Some(location), Some(fs_resolve))
                     .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
 
             // number of constraints the flattened program will translate to.
-            let num_constraints = program_flattened.constraint_count();
+            let num_constraints = program_flattened.prog.constraint_count();
 
             // serialize flattened program and write to binary file
             let bin_output_file = File::create(&bin_output_path)
@@ -294,7 +295,7 @@ fn cli() -> Result<(), String> {
                 })?;
 
                 let mut hrofb = BufWriter::new(hr_output_file);
-                write!(&mut hrofb, "{}\n", program_flattened)
+                write!(&mut hrofb, "{}\n", program_flattened.prog)
                     .map_err(|_| "Unable to write data to file.".to_string())?;
                 hrofb
                     .flush()
@@ -303,7 +304,7 @@ fn cli() -> Result<(), String> {
 
             if !light {
                 // debugging output
-                println!("Compiled program:\n{}", program_flattened);
+                println!("Compiled program:\n{}", program_flattened.prog);
             }
 
             println!("Compiled code written to '{}'", bin_output_path.display());
@@ -324,15 +325,15 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(file);
 
-            let ir_prog: ir::Prog<FieldPrime> =
+            let ir_prog: ProgAndAbi<FieldPrime> =
                 deserialize_from(&mut reader, Infinite).map_err(|why| why.to_string())?;
 
             // print deserialized flattened program
             if !sub_matches.is_present("light") {
-                println!("{}", ir_prog);
+                println!("{}", ir_prog.prog);
             }
 
-            let signature = ir_prog.signature.clone();
+            let signature = ir_prog.abi.signature().clone();
 
             let is_stdin = sub_matches.is_present("stdin");
             let is_abi = sub_matches.is_present("abi");
@@ -374,7 +375,7 @@ fn cli() -> Result<(), String> {
                             }
                             Err(_) => Err(String::from("???")),
                         },
-                        false => match ir_prog.arguments_count() {
+                        false => match ir_prog.prog.arguments_count() {
                             0 => Ok(Inputs::Raw(vec![])),
                             _ => match stdin.read_to_string(&mut input) {
                                 Ok(_) => {
@@ -397,6 +398,7 @@ fn cli() -> Result<(), String> {
             .map_err(|e| format!("Could not parse argument: {}", e))?;
 
             let witness = ir_prog
+                .prog
                 .execute(&arguments.encode())
                 .map_err(|e| format!("Execution failed: {}", e))?;
 
@@ -588,7 +590,7 @@ mod tests {
                 .into_string()
                 .unwrap();
 
-            let _: ir::Prog<FieldPrime> =
+            let _: ProgAndAbi<FieldPrime> =
                 compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
         }
     }
@@ -615,10 +617,11 @@ mod tests {
 
             let mut reader = BufReader::new(file);
 
-            let program_flattened: ir::Prog<FieldPrime> =
+            let program_flattened: ProgAndAbi<FieldPrime> =
                 compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
             let _ = program_flattened
+                .prog
                 .execute(&vec![FieldPrime::from(0)])
                 .unwrap();
         }
@@ -647,10 +650,11 @@ mod tests {
 
             let mut reader = BufReader::new(file);
 
-            let program_flattened: ir::Prog<FieldPrime> =
+            let program_flattened: ProgAndAbi<FieldPrime> =
                 compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
             let _ = program_flattened
+                .prog
                 .execute(&vec![FieldPrime::from(0)])
                 .unwrap();
         }

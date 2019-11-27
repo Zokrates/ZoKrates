@@ -14,6 +14,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::io;
 use std::io::BufRead;
+use typed_absy::Abi;
 use typed_arena::Arena;
 use zokrates_field::field::Field;
 use zokrates_pest_ast as pest;
@@ -126,11 +127,17 @@ impl fmt::Display for CompileErrorInner {
 
 pub type Resolve<S, E> = fn(Option<String>, &str) -> Result<(S, String, &str), E>;
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ProgAndAbi<T: Field> {
+    pub prog: ir::Prog<T>,
+    pub abi: Abi,
+}
+
 pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     reader: &mut R,
     location: Option<String>,
     resolve_option: Option<Resolve<S, E>>,
-) -> Result<ir::Prog<T>, CompileErrors> {
+) -> Result<ProgAndAbi<T>, CompileErrors> {
     let arena = Arena::new();
 
     let mut source = String::new();
@@ -150,6 +157,8 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
         )
     })?;
 
+    let abi = typed_ast.abi();
+
     // analyse (unroll and constant propagation)
     let typed_ast = typed_ast.analyse();
 
@@ -165,7 +174,10 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     // optimize
     let optimized_ir_prog = ir_prog.optimize();
 
-    Ok(optimized_ir_prog)
+    Ok(ProgAndAbi {
+        prog: optimized_ir_prog,
+        abi: abi,
+    })
 }
 
 pub fn compile_program<'ast, T: Field, S: BufRead, E: Into<imports::Error>>(
@@ -230,7 +242,7 @@ mod test {
 		"#
             .as_bytes(),
         );
-        let res: Result<ir::Prog<FieldPrime>, CompileErrors> = compile(
+        let res: Result<ProgAndAbi<FieldPrime>, CompileErrors> = compile(
             &mut r,
             Some(String::from("./path/to/file")),
             None::<Resolve<BufReader<Empty>, io::Error>>,
@@ -251,7 +263,7 @@ mod test {
 		"#
             .as_bytes(),
         );
-        let res: Result<ir::Prog<FieldPrime>, CompileErrors> = compile(
+        let res: Result<ProgAndAbi<FieldPrime>, CompileErrors> = compile(
             &mut r,
             Some(String::from("./path/to/file")),
             None::<Resolve<BufReader<Empty>, io::Error>>,

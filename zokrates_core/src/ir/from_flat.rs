@@ -66,19 +66,12 @@ impl<T: Field> From<FlatProg<T>> for Prog<T> {
         // get the main function
         let main = flat_prog.main;
 
-        // get the signature to keep high level information in the low level representation
-        let signature = main.signature.clone();
-
         // get the interface of the program, ie which inputs are private and public
         let private = main.arguments.iter().map(|p| p.private).collect();
 
         let main = main.into();
 
-        Prog {
-            private,
-            main,
-            signature,
-        }
+        Prog { private, main }
     }
 }
 
