@@ -6,7 +6,7 @@
 
 use bincode::{deserialize_from, serialize_into, Infinite};
 use clap::{App, AppSettings, Arg, SubCommand};
-use serde_json::Value;
+use serde_json::{from_reader, to_writer_pretty, Value};
 use std::env;
 use std::fs::File;
 use std::io::{stdin, BufReader, BufWriter, Read, Write};
@@ -14,9 +14,9 @@ use std::path::{Path, PathBuf};
 use std::string::String;
 use zokrates_abi::Encode;
 use zokrates_core::compile::compile;
-use zokrates_core::compile::ProgAndAbi;
 use zokrates_core::ir;
 use zokrates_core::proof_system::*;
+use zokrates_core::typed_absy::Abi;
 use zokrates_field::field::{Field, FieldPrime};
 use zokrates_fs_resolver::resolve as fs_resolve;
 
@@ -29,6 +29,7 @@ fn main() {
 
 fn cli() -> Result<(), String> {
     const FLATTENED_CODE_DEFAULT_PATH: &str = "out";
+    const ABI_SPEC_DEFAULT_PATH: &str = "abi.json";
     const VERIFICATION_KEY_DEFAULT_PATH: &str = "verification.key";
     const PROVING_KEY_DEFAULT_PATH: &str = "proving.key";
     const VERIFICATION_CONTRACT_DEFAULT_PATH: &str = "verifier.sol";
@@ -52,6 +53,14 @@ fn cli() -> Result<(), String> {
             .value_name("FILE")
             .takes_value(true)
             .required(true)
+        ).arg(Arg::with_name("abi_spec")
+            .short("s")
+            .long("abi_spec")
+            .help("Path of the ABI specification")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(ABI_SPEC_DEFAULT_PATH)
         ).arg(Arg::with_name("output")
             .short("o")
             .long("output")
@@ -152,6 +161,14 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(FLATTENED_CODE_DEFAULT_PATH)
+        ).arg(Arg::with_name("abi_spec")
+            .short("s")
+            .long("abi_spec")
+            .help("Path to the ABI specification")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(ABI_SPEC_DEFAULT_PATH)
         ).arg(Arg::with_name("output")
             .short("o")
             .long("output")
@@ -266,18 +283,20 @@ fn cli() -> Result<(), String> {
 
             let bin_output_path = Path::new(sub_matches.value_of("output").unwrap());
 
+            let abi_spec_path = Path::new(sub_matches.value_of("abi_spec").unwrap());
+
             let hr_output_path = bin_output_path.to_path_buf().with_extension("ztf");
 
             let file = File::open(path.clone()).unwrap();
 
             let mut reader = BufReader::new(file);
 
-            let program_flattened: ProgAndAbi<FieldPrime> =
+            let (program_flattened, abi): (ir::Prog<FieldPrime>, Abi) =
                 compile(&mut reader, Some(location), Some(fs_resolve))
                     .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
 
             // number of constraints the flattened program will translate to.
-            let num_constraints = program_flattened.prog.constraint_count();
+            let num_constraints = program_flattened.constraint_count();
 
             // serialize flattened program and write to binary file
             let bin_output_file = File::create(&bin_output_path)
@@ -288,6 +307,15 @@ fn cli() -> Result<(), String> {
             serialize_into(&mut writer, &program_flattened, Infinite)
                 .map_err(|_| "Unable to write data to file.".to_string())?;
 
+            // serialize ABI spec and write to JSON file
+            let abi_spec_file = File::create(&abi_spec_path)
+                .map_err(|why| format!("couldn't create {}: {}", abi_spec_path.display(), why))?;
+
+            let mut writer = BufWriter::new(abi_spec_file);
+
+            to_writer_pretty(&mut writer, &abi)
+                .map_err(|_| "Unable to write data to file.".to_string())?;
+
             if !light {
                 // write human-readable output file
                 let hr_output_file = File::create(&hr_output_path).map_err(|why| {
@@ -295,7 +323,7 @@ fn cli() -> Result<(), String> {
                 })?;
 
                 let mut hrofb = BufWriter::new(hr_output_file);
-                write!(&mut hrofb, "{}\n", program_flattened.prog)
+                write!(&mut hrofb, "{}\n", program_flattened)
                     .map_err(|_| "Unable to write data to file.".to_string())?;
                 hrofb
                     .flush()
@@ -304,7 +332,7 @@ fn cli() -> Result<(), String> {
 
             if !light {
                 // debugging output
-                println!("Compiled program:\n{}", program_flattened.prog);
+                println!("Compiled program:\n{}", program_flattened);
             }
 
             println!("Compiled code written to '{}'", bin_output_path.display());
@@ -325,15 +353,13 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(file);
 
-            let ir_prog: ProgAndAbi<FieldPrime> =
+            let ir_prog: ir::Prog<FieldPrime> =
                 deserialize_from(&mut reader, Infinite).map_err(|why| why.to_string())?;
 
             // print deserialized flattened program
             if !sub_matches.is_present("light") {
-                println!("{}", ir_prog.prog);
+                println!("{}", ir_prog);
             }
-
-            let signature = ir_prog.abi.signature().clone();
 
             let is_stdin = sub_matches.is_present("stdin");
             let is_abi = sub_matches.is_present("abi");
@@ -343,6 +369,20 @@ fn cli() -> Result<(), String> {
                     "ABI input as inline argument is not supported. Please use `--stdin`.".into(),
                 );
             }
+
+            let signature = match is_abi {
+                true => {
+                    let path = Path::new(sub_matches.value_of("abi_spec").unwrap());
+                    let file = File::open(&path)
+                        .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
+                    let mut reader = BufReader::new(file);
+
+                    let abi: Abi = from_reader(&mut reader).map_err(|why| why.to_string())?;
+
+                    abi.signature()
+                }
+                false => unimplemented!("create dummy signature from low level program"),
+            };
 
             use zokrates_abi::Inputs;
 
@@ -375,7 +415,7 @@ fn cli() -> Result<(), String> {
                             }
                             Err(_) => Err(String::from("???")),
                         },
-                        false => match ir_prog.prog.arguments_count() {
+                        false => match ir_prog.arguments_count() {
                             0 => Ok(Inputs::Raw(vec![])),
                             _ => match stdin.read_to_string(&mut input) {
                                 Ok(_) => {
@@ -398,7 +438,6 @@ fn cli() -> Result<(), String> {
             .map_err(|e| format!("Could not parse argument: {}", e))?;
 
             let witness = ir_prog
-                .prog
                 .execute(&arguments.encode())
                 .map_err(|e| format!("Execution failed: {}", e))?;
 
@@ -408,7 +447,7 @@ fn cli() -> Result<(), String> {
                 zokrates_abi::CheckedValues::decode(witness.return_values(), signature.outputs)
                     .into();
 
-            println!("\nWitness: \n\n{}", results_json_value.to_string());
+            println!("\nWitness: \n\n{}", results_json_value);
 
             // write witness to file
             let output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -590,7 +629,7 @@ mod tests {
                 .into_string()
                 .unwrap();
 
-            let _: ProgAndAbi<FieldPrime> =
+            let _: (ir::Prog<FieldPrime>, _) =
                 compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
         }
     }
@@ -617,11 +656,10 @@ mod tests {
 
             let mut reader = BufReader::new(file);
 
-            let program_flattened: ProgAndAbi<FieldPrime> =
+            let (program_flattened, _): (ir::Prog<FieldPrime>, _) =
                 compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
             let _ = program_flattened
-                .prog
                 .execute(&vec![FieldPrime::from(0)])
                 .unwrap();
         }
@@ -650,11 +688,10 @@ mod tests {
 
             let mut reader = BufReader::new(file);
 
-            let program_flattened: ProgAndAbi<FieldPrime> =
+            let (program_flattened, _): (ir::Prog<FieldPrime>, _) =
                 compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
             let _ = program_flattened
-                .prog
                 .execute(&vec![FieldPrime::from(0)])
                 .unwrap();
         }

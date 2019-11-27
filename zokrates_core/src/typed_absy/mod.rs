@@ -54,15 +54,24 @@ pub struct TypedProgram<'ast, T: Field> {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct AbiInput {
+    pub id: String,
+    pub public: bool,
+    pub ty: Type,
+}
+
+pub type AbiOutput = Type;
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Abi {
-    inputs: Vec<(bool, String, Type)>,
-    outputs: Vec<Type>,
+    inputs: Vec<AbiInput>,
+    outputs: Vec<AbiOutput>,
 }
 
 impl Abi {
     pub fn signature(&self) -> Signature {
         Signature {
-            inputs: self.inputs.iter().map(|i| i.2.clone()).collect(),
+            inputs: self.inputs.iter().map(|i| i.ty.clone()).collect(),
             outputs: self.outputs.clone(),
         }
     }
@@ -85,7 +94,11 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
             inputs: main
                 .arguments
                 .iter()
-                .map(|p| (p.private, p.id.id.to_string(), p.id._type.clone()))
+                .map(|p| AbiInput {
+                    public: !p.private,
+                    id: p.id.id.to_string(),
+                    ty: p.id._type.clone(),
+                })
                 .collect(),
             outputs: main.signature.outputs.clone(),
         }

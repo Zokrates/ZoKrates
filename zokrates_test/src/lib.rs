@@ -77,7 +77,7 @@ pub fn test_inner(test_path: &str) {
 
     let mut code_reader = BufReader::new(File::open(&t.entry_point).unwrap());
 
-    let bin = compile(
+    let (bin, _) = compile(
         &mut code_reader,
         Some(
             t.entry_point
@@ -93,7 +93,7 @@ pub fn test_inner(test_path: &str) {
 
     for test in t.tests.into_iter() {
         let input = &test.input.values;
-        let output = bin.prog.execute(
+        let output = bin.execute(
             &input
                 .iter()
                 .map(|v| FieldPrime::try_from_dec_str(&v.clone()).unwrap())

@@ -127,17 +127,11 @@ impl fmt::Display for CompileErrorInner {
 
 pub type Resolve<S, E> = fn(Option<String>, &str) -> Result<(S, String, &str), E>;
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ProgAndAbi<T: Field> {
-    pub prog: ir::Prog<T>,
-    pub abi: Abi,
-}
-
 pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     reader: &mut R,
     location: Option<String>,
     resolve_option: Option<Resolve<S, E>>,
-) -> Result<ProgAndAbi<T>, CompileErrors> {
+) -> Result<(ir::Prog<T>, Abi), CompileErrors> {
     let arena = Arena::new();
 
     let mut source = String::new();
@@ -174,10 +168,7 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     // optimize
     let optimized_ir_prog = ir_prog.optimize();
 
-    Ok(ProgAndAbi {
-        prog: optimized_ir_prog,
-        abi: abi,
-    })
+    Ok((optimized_ir_prog, abi))
 }
 
 pub fn compile_program<'ast, T: Field, S: BufRead, E: Into<imports::Error>>(
@@ -242,7 +233,7 @@ mod test {
 		"#
             .as_bytes(),
         );
-        let res: Result<ProgAndAbi<FieldPrime>, CompileErrors> = compile(
+        let res: Result<(ir::Prog<FieldPrime>, Abi), CompileErrors> = compile(
             &mut r,
             Some(String::from("./path/to/file")),
             None::<Resolve<BufReader<Empty>, io::Error>>,
@@ -263,7 +254,7 @@ mod test {
 		"#
             .as_bytes(),
         );
-        let res: Result<ProgAndAbi<FieldPrime>, CompileErrors> = compile(
+        let res: Result<(ir::Prog<FieldPrime>, Abi), CompileErrors> = compile(
             &mut r,
             Some(String::from("./path/to/file")),
             None::<Resolve<BufReader<Empty>, io::Error>>,
