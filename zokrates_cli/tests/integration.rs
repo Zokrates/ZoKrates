@@ -86,6 +86,8 @@ mod integration {
             "compile",
             "-i",
             program_path.to_str().unwrap(),
+            "-s",
+            abi_spec_path.to_str().unwrap(),
             "-o",
             flattened_path.to_str().unwrap(),
             "--light",
