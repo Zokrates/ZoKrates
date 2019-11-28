@@ -1054,7 +1054,7 @@ impl<'ast> Checker<'ast> {
                                             .annotate(Type::Array(array_type.clone()), size),
                                         box FieldElementExpression::Number(T::from(i)),
                                     )
-                                    .annotate(ty.clone(), array_type.size)
+                                    .annotate(*array_type.ty.clone(), array_type.size)
                                     .into(),
                                     Type::Struct(members) => StructExpressionInner::Select(
                                         box e.clone().annotate(Type::Struct(members.clone()), size),
