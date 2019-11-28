@@ -218,9 +218,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let members = s.ty().clone();
         let expected_output_size = members
             .iter()
-            .find(|(id, _)| *id == member_id)
+            .find(|member| *member.id == member_id)
             .unwrap()
-            .1
+            .ty
             .get_primitive_count();
 
         let res =
@@ -231,8 +231,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     values
                         .into_iter()
                         .zip(members.into_iter())
-                        .filter(|(_, (id, _))| *id == member_id)
-                        .flat_map(|(v, (_, t))| match t {
+                        .filter(|(_, member)| *member.id == member_id)
+                        .flat_map(|(v, member)| match *member.ty {
                             Type::FieldElement => FieldElementExpression::try_from(v)
                                 .unwrap()
                                 .flatten(self, symbols, statements_flattened),
@@ -259,16 +259,16 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     // the struct is encoded as a sequence, so we need to identify the offset at which this member starts
                     let offset = members
                         .iter()
-                        .take_while(|(id, _)| *id != member_id)
-                        .map(|(_, ty)| ty.get_primitive_count())
+                        .take_while(|member| *member.id != member_id)
+                        .map(|member| member.ty.get_primitive_count())
                         .sum();
 
                     // we also need the size of this member
                     let size = members
                         .iter()
-                        .find(|(id, _)| *id == member_id)
+                        .find(|member| *member.id == member_id)
                         .unwrap()
-                        .1
+                        .ty
                         .get_primitive_count();
                     self.layout.get(&id).unwrap()[offset..(offset + size)]
                         .into_iter()
@@ -278,16 +278,16 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 StructExpressionInner::Select(box array, box index) => {
                     let offset = members
                         .iter()
-                        .take_while(|(id, _)| *id != member_id)
-                        .map(|(_, ty)| ty.get_primitive_count())
+                        .take_while(|member| *member.id != member_id)
+                        .map(|member| member.ty.get_primitive_count())
                         .sum();
 
                     // we also need the size of this member
                     let size = members
                         .iter()
-                        .find(|(id, _)| *id == member_id)
+                        .find(|member| *member.id == member_id)
                         .unwrap()
-                        .1
+                        .ty
                         .get_primitive_count();
 
                     self.flatten_select_expression::<StructExpression<'ast, T>>(
@@ -302,12 +302,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 StructExpressionInner::IfElse(box condition, box consequence, box alternative) => {
                     // if the struct is `(if c then a else b)`, we want to access `(if c then a else b).member`
                     // we reduce to `if c then a.member else b.member`
-                    let ty = members
+                    let ty = *members
                         .clone()
                         .into_iter()
-                        .find(|(id, _)| *id == member_id)
+                        .find(|member| *member.id == member_id)
                         .unwrap()
-                        .1;
+                        .ty;
 
                     match ty {
                         Type::FieldElement => self.flatten_if_else_expression(
@@ -345,16 +345,16 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                     let offset = members
                         .iter()
-                        .take_while(|(id, _)| *id != member_id)
-                        .map(|(_, ty)| ty.get_primitive_count())
+                        .take_while(|member| *member.id != member_id)
+                        .map(|member| member.ty.get_primitive_count())
                         .sum();
 
                     // we also need the size of this member
                     let size = members
                         .iter()
-                        .find(|(id, _)| *id == member_id)
+                        .find(|member| *member.id == member_id)
                         .unwrap()
-                        .1
+                        .ty
                         .get_primitive_count();
 
                     e[offset..(offset + size)].into()
@@ -1320,29 +1320,29 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             StructExpressionInner::IfElse(box condition, box consequence, box alternative) => {
                 members
                     .into_iter()
-                    .flat_map(|(id, ty)| match ty {
+                    .flat_map(|member| match ty {
                         Type::FieldElement => FieldElementExpression::if_else(
                             condition.clone(),
-                            FieldElementExpression::member(consequence.clone(), id.clone()),
-                            FieldElementExpression::member(alternative.clone(), id.clone()),
+                            FieldElementExpression::member(consequence.clone(), member.id.clone()),
+                            FieldElementExpression::member(alternative.clone(), member.id.clone()),
                         )
                         .flatten(self, symbols, statements_flattened),
                         Type::Boolean => BooleanExpression::if_else(
                             condition.clone(),
-                            BooleanExpression::member(consequence.clone(), id.clone()),
-                            BooleanExpression::member(alternative.clone(), id.clone()),
+                            BooleanExpression::member(consequence.clone(), member.id.clone()),
+                            BooleanExpression::member(alternative.clone(), member.id.clone()),
                         )
                         .flatten(self, symbols, statements_flattened),
                         Type::Struct(..) => StructExpression::if_else(
                             condition.clone(),
-                            StructExpression::member(consequence.clone(), id.clone()),
-                            StructExpression::member(alternative.clone(), id.clone()),
+                            StructExpression::member(consequence.clone(), member.id.clone()),
+                            StructExpression::member(alternative.clone(), member.id.clone()),
                         )
                         .flatten(self, symbols, statements_flattened),
                         Type::Array(..) => ArrayExpression::if_else(
                             condition.clone(),
-                            ArrayExpression::member(consequence.clone(), id.clone()),
-                            ArrayExpression::member(alternative.clone(), id.clone()),
+                            ArrayExpression::member(consequence.clone(), member.id.clone()),
+                            ArrayExpression::member(alternative.clone(), member.id.clone()),
                         )
                         .flatten(self, symbols, statements_flattened),
                     })

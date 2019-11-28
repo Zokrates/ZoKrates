@@ -1,6 +1,7 @@
 // Generic walk through a typed AST. Not mutating in place
 
 use crate::typed_absy::*;
+use typed_absy::types::StructMember;
 use zokrates_field::field::Field;
 
 pub trait Folder<'ast, T: Field>: Sized {
@@ -116,7 +117,7 @@ pub trait Folder<'ast, T: Field>: Sized {
     }
     fn fold_struct_expression_inner(
         &mut self,
-        ty: &Vec<(MemberId, Type)>,
+        ty: &Vec<StructMember>,
         e: StructExpressionInner<'ast, T>,
     ) -> StructExpressionInner<'ast, T> {
         fold_struct_expression_inner(self, ty, e)
@@ -208,7 +209,7 @@ pub fn fold_array_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
 
 pub fn fold_struct_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
-    _: &Vec<(MemberId, Type)>,
+    _: &Vec<StructMember>,
     e: StructExpressionInner<'ast, T>,
 ) -> StructExpressionInner<'ast, T> {
     match e {
