@@ -16,7 +16,7 @@ use zokrates_abi::Encode;
 use zokrates_core::compile::compile;
 use zokrates_core::ir;
 use zokrates_core::proof_system::*;
-use zokrates_core::typed_absy::Abi;
+use zokrates_core::typed_absy::{types::Signature, Abi, Type};
 use zokrates_field::field::{Field, FieldPrime};
 use zokrates_fs_resolver::resolve as fs_resolve;
 
@@ -381,7 +381,9 @@ fn cli() -> Result<(), String> {
 
                     abi.signature()
                 }
-                false => unimplemented!("create dummy signature from low level program"),
+                false => Signature::new()
+                    .inputs(vec![Type::FieldElement; ir_prog.main.arguments.len()])
+                    .outputs(vec![Type::FieldElement; ir_prog.main.returns.len()]),
             };
 
             use zokrates_abi::Inputs;
