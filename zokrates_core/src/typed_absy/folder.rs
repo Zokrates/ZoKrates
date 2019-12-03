@@ -107,15 +107,15 @@ pub trait Folder<'ast, T: Field>: Sized {
     ) -> BooleanExpression<'ast, T> {
         fold_boolean_expression(self, e)
     }
-    fn fold_uint_expression(&mut self, e: UExpression<'ast>) -> UExpression<'ast> {
+    fn fold_uint_expression(&mut self, e: UExpression<'ast, T>) -> UExpression<'ast, T> {
         fold_uint_expression(self, e)
     }
 
     fn fold_uint_expression_inner(
         &mut self,
         bitwidth: usize,
-        e: UExpressionInner<'ast>,
-    ) -> UExpressionInner<'ast> {
+        e: UExpressionInner<'ast, T>,
+    ) -> UExpressionInner<'ast, T> {
         fold_uint_expression_inner(self, bitwidth, e)
     }
 
@@ -384,8 +384,8 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
 
 pub fn fold_uint_expression<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
-    e: UExpression<'ast>,
-) -> UExpression<'ast> {
+    e: UExpression<'ast, T>,
+) -> UExpression<'ast, T> {
     UExpression {
         inner: f.fold_uint_expression_inner(e.bitwidth, e.inner),
         ..e
@@ -395,28 +395,39 @@ pub fn fold_uint_expression<'ast, T: Field, F: Folder<'ast, T>>(
 pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     bitwidth: usize,
-    e: UExpressionInner<'ast>,
-) -> UExpressionInner<'ast> {
+    e: UExpressionInner<'ast, T>,
+) -> UExpressionInner<'ast, T> {
     match e {
         UExpressionInner::Value(v) => UExpressionInner::Value(v),
         UExpressionInner::Identifier(id) => UExpressionInner::Identifier(f.fold_name(id)),
         UExpressionInner::Add(box left, box right) => {
-            let left = fold_uint_expression(f, left);
-            let right = fold_uint_expression(f, right);
+            let left = f.fold_uint_expression(left);
+            let right = f.fold_uint_expression(right);
 
             UExpressionInner::Add(box left, box right)
         }
         UExpressionInner::Mult(box left, box right) => {
-            let left = fold_uint_expression(f, left);
-            let right = fold_uint_expression(f, right);
+            let left = f.fold_uint_expression(left);
+            let right = f.fold_uint_expression(right);
 
             UExpressionInner::Mult(box left, box right)
         }
         UExpressionInner::Xor(box left, box right) => {
-            let left = fold_uint_expression(f, left);
-            let right = fold_uint_expression(f, right);
+            let left = f.fold_uint_expression(left);
+            let right = f.fold_uint_expression(right);
 
             UExpressionInner::Xor(box left, box right)
+        }
+        UExpressionInner::Select(box array, box index) => {
+            let array = f.fold_array_expression(array);
+            let index = f.fold_field_expression(index);
+            UExpressionInner::Select(box array, box index)
+        }
+        UExpressionInner::IfElse(box cond, box cons, box alt) => {
+            let cond = f.fold_boolean_expression(cond);
+            let cons = f.fold_uint_expression(cons);
+            let alt = f.fold_uint_expression(alt);
+            UExpressionInner::IfElse(box cond, box cons, box alt)
         }
     }
 }

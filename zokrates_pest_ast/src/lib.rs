@@ -674,6 +674,9 @@ mod ast {
     pub enum ConstantExpression<'ast> {
         DecimalNumber(DecimalNumberExpression<'ast>),
         BooleanLiteral(BooleanLiteralExpression<'ast>),
+        U8(U8NumberExpression<'ast>),
+        U16(U16NumberExpression<'ast>),
+        U32(U32NumberExpression<'ast>),
     }
 
     impl<'ast> ConstantExpression<'ast> {
@@ -681,6 +684,9 @@ mod ast {
             match self {
                 ConstantExpression::DecimalNumber(n) => &n.span,
                 ConstantExpression::BooleanLiteral(c) => &c.span,
+                ConstantExpression::U8(c) => &c.span,
+                ConstantExpression::U16(c) => &c.span,
+                ConstantExpression::U32(c) => &c.span,
             }
         }
     }
@@ -697,6 +703,33 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::boolean_literal))]
     pub struct BooleanLiteralExpression<'ast> {
+        #[pest_ast(outer(with(span_into_str)))]
+        pub value: String,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::hex_number_8))]
+    pub struct U8NumberExpression<'ast> {
+        #[pest_ast(outer(with(span_into_str)))]
+        pub value: String,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::hex_number_16))]
+    pub struct U16NumberExpression<'ast> {
+        #[pest_ast(outer(with(span_into_str)))]
+        pub value: String,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::hex_number_32))]
+    pub struct U32NumberExpression<'ast> {
         #[pest_ast(outer(with(span_into_str)))]
         pub value: String,
         #[pest_ast(outer())]

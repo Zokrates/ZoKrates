@@ -51,7 +51,7 @@ impl<'ast, T: Field> Flatten<'ast, T> for FieldElementExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> Flatten<'ast, T> for UExpression<'ast> {
+impl<'ast, T: Field> Flatten<'ast, T> for UExpression<'ast, T> {
     fn flatten(
         self,
         flattener: &mut Flattener<'ast, T>,
@@ -103,7 +103,7 @@ impl<'ast, T: Field> Flatten<'ast, T> for ArrayExpression<'ast, T> {
                 statements_flattened,
                 self,
             ),
-            Type::Uint(..) => flattener.flatten_array_expression::<UExpression<'ast>>(
+            Type::Uint(..) => flattener.flatten_array_expression::<UExpression<'ast, T>>(
                 symbols,
                 statements_flattened,
                 self,
@@ -124,7 +124,6 @@ impl<'ast, T: Field> Flatten<'ast, T> for ArrayExpression<'ast, T> {
 
 impl<'ast, T: Field> Flattener<'ast, T> {
     pub fn flatten(p: TypedProgram<'ast, T>) -> FlatProg<T> {
-        println!("{}", p);
         Flattener::new().flatten_program(p)
     }
 
@@ -474,7 +473,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                 array,
                                 index,
                             ),
-                        Type::Uint(..) => self.flatten_select_expression::<UExpression<'ast>>(
+                        Type::Uint(..) => self.flatten_select_expression::<UExpression<'ast, T>>(
                             symbols,
                             statements_flattened,
                             array,
@@ -1077,7 +1076,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     statements_flattened,
                     e,
                 ),
-                Type::Uint(..) => self.flatten_array_expression::<UExpression<'ast>>(
+                Type::Uint(..) => self.flatten_array_expression::<UExpression<'ast, T>>(
                     symbols,
                     statements_flattened,
                     e,
@@ -1110,13 +1109,16 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         &mut self,
         symbols: &TypedFunctionSymbols<'ast, T>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
-        expr: UExpression<'ast>,
+        expr: UExpression<'ast, T>,
     ) -> FlatExpression<T> {
+
         let target_bitwidth = expr.bitwidth;
 
         let metadata = expr.metadata.clone().unwrap().clone();
         let actual_bitwidth = metadata.bitwidth.unwrap();
         let should_reduce = metadata.should_reduce.unwrap();
+
+        let should_reduce = should_reduce && actual_bitwidth > target_bitwidth;
 
         let res = match expr.into_inner() {
             UExpressionInner::Value(x) => FlatExpression::Number(T::from(x as u128)), // force to be a field element
@@ -1222,6 +1224,23 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     },
                 )
             }
+            UExpressionInner::Select(box array, box index) => self
+                .flatten_select_expression::<UExpression<'ast, T>>(
+                    symbols,
+                    statements_flattened,
+                    array,
+                    index,
+                )[0]
+            .clone(),
+            UExpressionInner::IfElse(box condition, box consequence, box alternative) => self
+                .flatten_if_else_expression::<UExpression<'ast, T>>(
+                    symbols,
+                    statements_flattened,
+                    condition,
+                    consequence,
+                    alternative
+                )[0]
+            .clone(),
         };
 
         match should_reduce {
@@ -1249,11 +1268,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         bitwidth: usize,
         statements_flattened: &mut Vec<FlatStatement<T>>,
     ) -> Vec<FlatExpression<T>> {
-
-        println!("{:?}", self.bits_cache);
-
         match self.bits_cache.entry(e.clone()) {
-            Entry::Occupied(entry) => entry.get().clone().into_iter().map(|e| e.into()).collect(),
+            Entry::Occupied(entry) => {
+                entry.get().clone().into_iter().map(|e| e.into()).collect()
+            }
             Entry::Vacant(_) => {
                 let bits = (0..bitwidth).map(|_| self.use_sym()).collect::<Vec<_>>();
                 statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
@@ -1847,7 +1865,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let arguments_flattened = funct
             .arguments
             .into_iter()
-            .flat_map(|p| self.use_parameter(&p))
+            .flat_map(|p| self.use_parameter(&p, &mut statements_flattened))
             .collect();
 
         // flatten statements in functions and apply substitution
@@ -1901,8 +1919,18 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         vars
     }
 
-    fn use_parameter(&mut self, parameter: &Parameter<'ast>) -> Vec<FlatParameter> {
+    fn use_parameter(&mut self, parameter: &Parameter<'ast>, statements_flattened: &mut Vec<FlatStatement<T>>) -> Vec<FlatParameter> {
         let variables = self.use_variable(&parameter.id);
+
+        match parameter.id.get_type() {
+            Type::Uint(bitwidth) => {
+                assert_eq!(variables.len(), 1);
+                self.get_bits(variables[0].into(), bitwidth, statements_flattened);
+            },
+            _ => {
+
+            }
+        }
 
         variables
             .into_iter()
@@ -1966,11 +1994,11 @@ mod tests {
             arguments: vec![],
             statements: vec![
                 TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("a".into())),
+                    TypedAssignee::Identifier(Variable::field_element("a")),
                     FieldElementExpression::Number(FieldPrime::from(7)).into(),
                 ),
                 TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("b".into())),
+                    TypedAssignee::Identifier(Variable::field_element("b")),
                     FieldElementExpression::Pow(
                         box FieldElementExpression::Identifier("a".into()),
                         box FieldElementExpression::Number(FieldPrime::from(0)),
@@ -2026,11 +2054,11 @@ mod tests {
             arguments: vec![],
             statements: vec![
                 TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("a".into())),
+                    TypedAssignee::Identifier(Variable::field_element("a")),
                     FieldElementExpression::Number(FieldPrime::from(7)).into(),
                 ),
                 TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("b".into())),
+                    TypedAssignee::Identifier(Variable::field_element("b")),
                     FieldElementExpression::Pow(
                         box FieldElementExpression::Identifier("a".into()),
                         box FieldElementExpression::Number(FieldPrime::from(1)),
@@ -2111,11 +2139,11 @@ mod tests {
             arguments: vec![],
             statements: vec![
                 TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("a".into())),
+                    TypedAssignee::Identifier(Variable::field_element("a")),
                     FieldElementExpression::Number(FieldPrime::from(7)).into(),
                 ),
                 TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("b".into())),
+                    TypedAssignee::Identifier(Variable::field_element("b")),
                     FieldElementExpression::Pow(
                         box FieldElementExpression::Identifier("a".into()),
                         box FieldElementExpression::Number(FieldPrime::from(13)),
@@ -2260,12 +2288,12 @@ mod tests {
         let mut statements_flattened = vec![];
 
         let definition = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_element("b".into())),
+            TypedAssignee::Identifier(Variable::field_element("b")),
             FieldElementExpression::Number(FieldPrime::from(42)).into(),
         );
 
         let statement = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_element("a".into())),
+            TypedAssignee::Identifier(Variable::field_element("a")),
             FieldElementExpression::Div(
                 box FieldElementExpression::Div(
                     box FieldElementExpression::Number(FieldPrime::from(5)),
@@ -2363,7 +2391,7 @@ mod tests {
         let mut flattener = Flattener::new();
         let mut statements_flattened = vec![];
         let statement = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_array("foo".into(), 3)),
+            TypedAssignee::Identifier(Variable::field_array("foo", 3)),
             ArrayExpressionInner::Value(vec![
                 FieldElementExpression::Number(FieldPrime::from(1)).into(),
                 FieldElementExpression::Number(FieldPrime::from(2)).into(),
@@ -2399,7 +2427,7 @@ mod tests {
         let mut flattener = Flattener::new();
         let mut statements_flattened = vec![];
         let statement = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_array("foo".into(), 3)),
+            TypedAssignee::Identifier(Variable::field_array("foo", 3)),
             ArrayExpressionInner::Value(vec![
                 FieldElementExpression::Number(FieldPrime::from(1)).into(),
                 FieldElementExpression::Number(FieldPrime::from(2)).into(),
@@ -2438,7 +2466,7 @@ mod tests {
         let mut flattener = Flattener::new();
         let mut statements_flattened = vec![];
         let statement = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_array("foo".into(), 3)),
+            TypedAssignee::Identifier(Variable::field_array("foo", 3)),
             ArrayExpressionInner::Value(vec![
                 FieldElementExpression::Number(FieldPrime::from(1)).into(),
                 FieldElementExpression::Number(FieldPrime::from(2)).into(),
@@ -2477,7 +2505,7 @@ mod tests {
 
         let mut statements_flattened = vec![];
         let def = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_array("foo".into(), 3)),
+            TypedAssignee::Identifier(Variable::field_array("foo", 3)),
             ArrayExpressionInner::Value(vec![
                 FieldElementExpression::Number(FieldPrime::from(1)).into(),
                 FieldElementExpression::Number(FieldPrime::from(2)).into(),
@@ -2488,7 +2516,7 @@ mod tests {
         );
 
         let sum = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_element("bar".into())),
+            TypedAssignee::Identifier(Variable::field_element("bar")),
             FieldElementExpression::Add(
                 box FieldElementExpression::Add(
                     box FieldElementExpression::Select(
@@ -2540,7 +2568,7 @@ mod tests {
 
         let mut statements_flattened = vec![];
         let def = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_array("foo".into(), 4)),
+            TypedAssignee::Identifier(Variable::field_array("foo", 4)),
             ArrayExpressionInner::Value(vec![
                 ArrayExpressionInner::Value(vec![
                     FieldElementExpression::Number(FieldPrime::from(1)).into(),
@@ -2560,7 +2588,7 @@ mod tests {
         );
 
         let sum = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_element("bar".into())),
+            TypedAssignee::Identifier(Variable::field_element("bar")),
             FieldElementExpression::Add(
                 box FieldElementExpression::Add(
                     box FieldElementExpression::Add(
@@ -2691,7 +2719,7 @@ mod tests {
         let mut flattener: Flattener<FieldPrime> = Flattener::new();
         assert_eq!(
             vec![FlatVariable::new(0)],
-            flattener.use_variable(&Variable::field_element("a".into()))
+            flattener.use_variable(&Variable::field_element("a"))
         );
         assert_eq!(
             flattener.layout.get(&"a".into()),
@@ -2699,7 +2727,7 @@ mod tests {
         );
         assert_eq!(
             vec![FlatVariable::new(1)],
-            flattener.use_variable(&Variable::field_element("a".into()))
+            flattener.use_variable(&Variable::field_element("a"))
         );
         assert_eq!(
             flattener.layout.get(&"a".into()),
@@ -2707,7 +2735,7 @@ mod tests {
         );
         assert_eq!(
             vec![FlatVariable::new(2)],
-            flattener.use_variable(&Variable::field_element("a".into()))
+            flattener.use_variable(&Variable::field_element("a"))
         );
         assert_eq!(
             flattener.layout.get(&"a".into()),

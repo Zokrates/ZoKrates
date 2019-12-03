@@ -9,13 +9,13 @@
 // c := b
 // ```
 
-use helpers::Helper;
 use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::folder::*;
 use crate::ir::LinComb;
 use crate::ir::*;
+use helpers::Helper;
 use num::Zero;
-use std::collections::hash_map::{HashMap, Entry};
+use std::collections::hash_map::{Entry, HashMap};
 use zokrates_field::field::Field;
 
 #[derive(Debug)]
@@ -40,7 +40,6 @@ impl<T: Field> DirectiveOptimizer<T> {
 
 impl<T: Field> Folder<T> for DirectiveOptimizer<T> {
     fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
-        println!("{:?}", s);
         match s {
             Statement::Directive(d) => {
                 let d = self.fold_directive(d);
@@ -49,14 +48,15 @@ impl<T: Field> Folder<T> for DirectiveOptimizer<T> {
                     Entry::Vacant(e) => {
                         e.insert(d.outputs.clone());
                         vec![Statement::Directive(d)]
-                    },
+                    }
                     Entry::Occupied(e) => {
-                        self.substitution.extend(d.outputs.into_iter().zip(e.get().into_iter().cloned()));
+                        self.substitution
+                            .extend(d.outputs.into_iter().zip(e.get().into_iter().cloned()));
                         vec![]
                     }
-                }            
-            },
-            s => fold_statement(self, s)
+                }
+            }
+            s => fold_statement(self, s),
         }
     }
 
@@ -66,6 +66,4 @@ impl<T: Field> Folder<T> for DirectiveOptimizer<T> {
 }
 
 #[cfg(test)]
-mod tests {
-
-}
+mod tests {}

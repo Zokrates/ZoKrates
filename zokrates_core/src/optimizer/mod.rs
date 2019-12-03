@@ -27,7 +27,7 @@ impl<T: Field> Optimize for Prog<T> {
         let r = RedefinitionOptimizer::optimize(self);
         // remove constraints that are always satisfied
         let r = TautologyOptimizer::optimize(r);
-        // deduplicate directives which take the same input
+        // // deduplicate directives which take the same input
         let r = DirectiveOptimizer::optimize(r);
         // remove duplicate constraints
         let r = DuplicateOptimizer::optimize(r);

@@ -430,7 +430,7 @@ mod tests {
                             .outputs(vec![Type::FieldElement]),
                     ),
                     TypedFunctionSymbol::Here(TypedFunction {
-                        arguments: vec![Parameter::private(Variable::field_element("a".into()))],
+                        arguments: vec![Parameter::private(Variable::field_element("a"))],
                         statements: vec![TypedStatement::Return(vec![
                             FieldElementExpression::Mult(
                                 box FieldElementExpression::Identifier("a".into()),
@@ -478,7 +478,7 @@ mod tests {
                         .outputs(vec![Type::FieldElement]),
                 ),
                 TypedFunctionSymbol::Here(TypedFunction {
-                    arguments: vec![Parameter::private(Variable::field_element("a".into()))],
+                    arguments: vec![Parameter::private(Variable::field_element("a"))],
                     statements: vec![TypedStatement::Return(vec![FieldElementExpression::Mult(
                         box FieldElementExpression::Identifier("a".into()),
                         box FieldElementExpression::Identifier("a".into()),
@@ -531,7 +531,7 @@ mod tests {
                 )
                 .unwrap(),
             &TypedFunctionSymbol::Here(TypedFunction {
-                arguments: vec![Parameter::private(Variable::field_element("a".into()))],
+                arguments: vec![Parameter::private(Variable::field_element("a"))],
                 statements: vec![
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::field_element(
@@ -584,7 +584,7 @@ mod tests {
                         arguments: vec![],
                         statements: vec![
                             TypedStatement::MultipleDefinition(
-                                vec![Variable::field_element("a".into())],
+                                vec![Variable::field_element("a")],
                                 TypedExpressionList::FunctionCall(
                                     FunctionKey::with_id("foo").signature(
                                         Signature::new().outputs(vec![Type::FieldElement]),
@@ -658,7 +658,7 @@ mod tests {
                 arguments: vec![],
                 statements: vec![
                     TypedStatement::Definition(
-                        TypedAssignee::Identifier(Variable::field_element("a".into())),
+                        TypedAssignee::Identifier(Variable::field_element("a")),
                         FieldElementExpression::Number(FieldPrime::from(42)).into()
                     ),
                     TypedStatement::Return(vec![
@@ -693,7 +693,7 @@ mod tests {
                         arguments: vec![],
                         statements: vec![
                             TypedStatement::MultipleDefinition(
-                                vec![Variable::field_element("a".into())],
+                                vec![Variable::field_element("a")],
                                 TypedExpressionList::FunctionCall(
                                     FunctionKey::with_id("foo").signature(
                                         Signature::new().outputs(vec![Type::FieldElement]),
@@ -751,7 +751,7 @@ mod tests {
                 arguments: vec![],
                 statements: vec![
                     TypedStatement::Definition(
-                        TypedAssignee::Identifier(Variable::field_element("a".into())),
+                        TypedAssignee::Identifier(Variable::field_element("a")),
                         FieldElementExpression::Number(FieldPrime::from(42)).into()
                     ),
                     TypedStatement::Return(vec![
@@ -788,7 +788,7 @@ mod tests {
                             .outputs(vec![Type::FieldElement]),
                     ),
                     TypedFunctionSymbol::Here(TypedFunction {
-                        arguments: vec![Parameter::private(Variable::field_element("a".into()))],
+                        arguments: vec![Parameter::private(Variable::field_element("a"))],
                         statements: vec![TypedStatement::Return(vec![
                             FieldElementExpression::FunctionCall(
                                 FunctionKey::with_id("id").signature(
@@ -841,7 +841,7 @@ mod tests {
                         .outputs(vec![Type::FieldElement]),
                 ),
                 TypedFunctionSymbol::Here(TypedFunction {
-                    arguments: vec![Parameter::private(Variable::field_element("a".into()))],
+                    arguments: vec![Parameter::private(Variable::field_element("a"))],
                     statements: vec![TypedStatement::Return(vec![
                         FieldElementExpression::Identifier("a".into()).into(),
                     ])],
@@ -900,7 +900,7 @@ mod tests {
                 )
                 .unwrap(),
             &TypedFunctionSymbol::Here(TypedFunction {
-                arguments: vec![Parameter::private(Variable::field_element("a".into()))],
+                arguments: vec![Parameter::private(Variable::field_element("a"))],
                 statements: vec![
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::field_element(

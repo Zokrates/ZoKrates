@@ -8,14 +8,14 @@ mod constrain_inputs;
 mod flat_propagation;
 mod inline;
 mod propagation;
-mod unroll;
 mod uint_optimizer;
+mod unroll;
 
 use self::constrain_inputs::InputConstrainer;
 use self::inline::Inliner;
 use self::propagation::Propagator;
-use self::unroll::Unroller;
 use self::uint_optimizer::UintOptimizer;
+use self::unroll::Unroller;
 use crate::flat_absy::FlatProg;
 use crate::typed_absy::TypedProgram;
 use zokrates_field::field::Field;

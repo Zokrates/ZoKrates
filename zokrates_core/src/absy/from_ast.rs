@@ -570,6 +570,15 @@ impl<'ast, T: Field> From<pest::ConstantExpression<'ast>> for absy::ExpressionNo
             pest::ConstantExpression::DecimalNumber(n) => {
                 absy::Expression::FieldConstant(T::try_from_dec_str(&n.value).unwrap()).span(n.span)
             }
+            pest::ConstantExpression::U8(n) => {
+                absy::Expression::U8Constant(u8::from_str_radix(&n.value.trim_start_matches("0x"), 16).unwrap()).span(n.span)
+            }
+            pest::ConstantExpression::U16(n) => {
+                absy::Expression::U16Constant(u16::from_str_radix(&n.value.trim_start_matches("0x"), 16).unwrap()).span(n.span)
+            }
+            pest::ConstantExpression::U32(n) => {
+                absy::Expression::U32Constant(u32::from_str_radix(&n.value.trim_start_matches("0x"), 16).unwrap()).span(n.span)
+            }
         }
     }
 }

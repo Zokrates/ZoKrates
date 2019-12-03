@@ -451,6 +451,9 @@ impl<'ast, T: Field> fmt::Debug for Range<T> {
 pub enum Expression<'ast, T: Field> {
     FieldConstant(T),
     BooleanConstant(bool),
+    U8Constant(u8),
+    U16Constant(u16),
+    U32Constant(u32),
     Identifier(Identifier<'ast>),
     Add(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
     Sub(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
@@ -487,6 +490,9 @@ impl<'ast, T: Field> fmt::Display for Expression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Expression::FieldConstant(ref i) => write!(f, "{}", i),
+            Expression::U8Constant(ref i) => write!(f, "{}", i),
+            Expression::U16Constant(ref i) => write!(f, "{}", i),
+            Expression::U32Constant(ref i) => write!(f, "{}", i),
             Expression::Identifier(ref var) => write!(f, "{}", var),
             Expression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
             Expression::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
@@ -548,6 +554,9 @@ impl<'ast, T: Field> fmt::Debug for Expression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Expression::FieldConstant(ref i) => write!(f, "Num({})", i),
+            Expression::U8Constant(ref i) => write!(f, "{:x}", i),
+            Expression::U16Constant(ref i) => write!(f, "{:x}", i),
+            Expression::U32Constant(ref i) => write!(f, "{:x}", i),
             Expression::Identifier(ref var) => write!(f, "Ide({})", var),
             Expression::Add(ref lhs, ref rhs) => write!(f, "Add({:?}, {:?})", lhs, rhs),
             Expression::Sub(ref lhs, ref rhs) => write!(f, "Sub({:?}, {:?})", lhs, rhs),

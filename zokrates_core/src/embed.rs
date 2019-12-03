@@ -334,7 +334,7 @@ mod tests {
 
         #[test]
         fn split254() {
-            let unpack: FlatFunction<FieldPrime> = unpack();
+            let unpack: FlatFunction<FieldPrime> = unpack_to_host_bitwidth();
 
             assert_eq!(
                 unpack.arguments,

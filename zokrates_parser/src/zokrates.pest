@@ -95,9 +95,13 @@ unary_expression = { op_unary ~ term }
 assignee = { identifier ~ assignee_access* }
 assignee_access = { array_access | member_access }
 identifier = @{ ((!keyword ~ ASCII_ALPHA) | (keyword ~ (ASCII_ALPHANUMERIC | "_"))) ~ (ASCII_ALPHANUMERIC | "_")* }
-constant = { decimal_number | boolean_literal }
+constant = { hex_number | decimal_number | boolean_literal }
 decimal_number = @{ "0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
 boolean_literal = { "true" | "false" }
+hex_number = _{ hex_number_32 | hex_number_16 | hex_number_8 }
+hex_number_8 = @{ "0x" ~ ASCII_HEX_DIGIT{2} }
+hex_number_16 = @{ "0x" ~ ASCII_HEX_DIGIT{4} }
+hex_number_32 = @{ "0x" ~ ASCII_HEX_DIGIT{8} }
 
 op_inclusive_or = {"||"}
 op_exclusive_or = {"^"}

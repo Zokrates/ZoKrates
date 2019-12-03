@@ -17,6 +17,10 @@ impl<'ast> Variable<'ast> {
         Self::with_id_and_type(id, Type::Boolean)
     }
 
+    pub fn uint(id: Identifier<'ast>, bitwidth: usize) -> Variable<'ast> {
+        Self::with_id_and_type(id, Type::Uint(bitwidth))
+    }
+
     #[cfg(test)]
     pub fn field_array<I: Into<Identifier<'ast>>>(id: I, size: usize) -> Variable<'ast> {
         Self::array(id, Type::FieldElement, size)

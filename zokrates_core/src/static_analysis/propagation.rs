@@ -39,6 +39,10 @@ fn is_constant<'ast, T: Field>(e: &TypedExpression<'ast, T>) -> bool {
             StructExpressionInner::Value(v) => v.iter().all(|e| is_constant(e)),
             _ => false,
         },
+        TypedExpression::Uint(a) => match a.as_inner() {
+            UExpressionInner::Value(..) => true,
+            _ => false,
+        },
         _ => false,
     }
 }
@@ -101,6 +105,59 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
         match res {
             Some(v) => vec![v],
             None => vec![],
+        }
+    }
+
+    fn fold_uint_expression_inner(
+        &mut self,
+        bitwidth: usize,
+        e: UExpressionInner<'ast, T>,
+    ) -> UExpressionInner<'ast, T> {
+        match e {
+            UExpressionInner::Identifier(id) => {
+                match self
+                    .constants
+                    .get(&TypedAssignee::Identifier(Variable::uint(
+                        id.clone(),
+                        bitwidth
+                    ))) {
+                    Some(e) => match e {
+                        TypedExpression::Uint(e) => e.as_inner().clone(),
+                        _ => unreachable!(
+                            "constant stored for a field element should be a field element"
+                        ),
+                    },
+                    None => UExpressionInner::Identifier(id),
+                }
+            },
+            UExpressionInner::Add(box e1, box e2) => match (
+                self.fold_uint_expression(e1).into_inner(),
+                self.fold_uint_expression(e2).into_inner(),
+            ) {
+                (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
+                    use std::convert::TryInto;    
+                    UExpressionInner::Value(v1 + v2 % 2_u128.pow(bitwidth.try_into().unwrap()))
+                },
+                (e1, e2) => UExpressionInner::Add(box e1.annotate(bitwidth), box e2.annotate(bitwidth))
+            },
+            UExpressionInner::Xor(box e1, box e2) => match (
+                self.fold_uint_expression(e1).into_inner(),
+                self.fold_uint_expression(e2).into_inner(),
+            ) {
+                (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
+                    UExpressionInner::Value(v1 ^ v2)
+                },
+                (UExpressionInner::Value(0), e2) => e2,
+                (e1, UExpressionInner::Value(0)) => e1,
+                (e1, e2) => {
+                    if e1 == e2 {
+                        UExpressionInner::Value(0)
+                    } else {
+                        UExpressionInner::Xor(box e1.annotate(bitwidth), box e2.annotate(bitwidth))
+                    }
+                }
+            },
+            e => e
         }
     }
 

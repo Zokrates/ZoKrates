@@ -727,13 +727,13 @@ mod tests {
             // foo_2 = i_2
 
             let s = TypedStatement::For(
-                Variable::field_element("i".into()),
+                Variable::field_element("i"),
                 FieldPrime::from(2),
                 FieldPrime::from(5),
                 vec![
-                    TypedStatement::Declaration(Variable::field_element("foo".into())),
+                    TypedStatement::Declaration(Variable::field_element("foo")),
                     TypedStatement::Definition(
-                        TypedAssignee::Identifier(Variable::field_element("foo".into())),
+                        TypedAssignee::Identifier(Variable::field_element("foo")),
                         FieldElementExpression::Identifier("i".into()).into(),
                     ),
                 ],
@@ -798,11 +798,11 @@ mod tests {
             let mut u = Unroller::new();
 
             let s: TypedStatement<FieldPrime> =
-                TypedStatement::Declaration(Variable::field_element("a".into()));
+                TypedStatement::Declaration(Variable::field_element("a"));
             assert_eq!(u.fold_statement(s), vec![]);
 
             let s = TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element("a".into())),
+                TypedAssignee::Identifier(Variable::field_element("a")),
                 FieldElementExpression::Number(FieldPrime::from(5)).into(),
             );
             assert_eq!(
@@ -816,7 +816,7 @@ mod tests {
             );
 
             let s = TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element("a".into())),
+                TypedAssignee::Identifier(Variable::field_element("a")),
                 FieldElementExpression::Number(FieldPrime::from(6)).into(),
             );
             assert_eq!(
@@ -850,11 +850,11 @@ mod tests {
             let mut u = Unroller::new();
 
             let s: TypedStatement<FieldPrime> =
-                TypedStatement::Declaration(Variable::field_element("a".into()));
+                TypedStatement::Declaration(Variable::field_element("a"));
             assert_eq!(u.fold_statement(s), vec![]);
 
             let s = TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element("a".into())),
+                TypedAssignee::Identifier(Variable::field_element("a")),
                 FieldElementExpression::Number(FieldPrime::from(5)).into(),
             );
             assert_eq!(
@@ -868,7 +868,7 @@ mod tests {
             );
 
             let s = TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element("a".into())),
+                TypedAssignee::Identifier(Variable::field_element("a")),
                 FieldElementExpression::Add(
                     box FieldElementExpression::Identifier("a".into()),
                     box FieldElementExpression::Number(FieldPrime::from(1)),
@@ -905,11 +905,11 @@ mod tests {
             let mut u = Unroller::new();
 
             let s: TypedStatement<FieldPrime> =
-                TypedStatement::Declaration(Variable::field_element("a".into()));
+                TypedStatement::Declaration(Variable::field_element("a"));
             assert_eq!(u.fold_statement(s), vec![]);
 
             let s = TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element("a".into())),
+                TypedAssignee::Identifier(Variable::field_element("a")),
                 FieldElementExpression::Number(FieldPrime::from(2)).into(),
             );
             assert_eq!(
@@ -923,7 +923,7 @@ mod tests {
             );
 
             let s: TypedStatement<FieldPrime> = TypedStatement::MultipleDefinition(
-                vec![Variable::field_element("a".into())],
+                vec![Variable::field_element("a")],
                 TypedExpressionList::FunctionCall(
                     FunctionKey::with_id("foo").signature(
                         Signature::new()
@@ -966,11 +966,11 @@ mod tests {
             let mut u = Unroller::new();
 
             let s: TypedStatement<FieldPrime> =
-                TypedStatement::Declaration(Variable::field_array("a".into(), 2));
+                TypedStatement::Declaration(Variable::field_array("a", 2));
             assert_eq!(u.fold_statement(s), vec![]);
 
             let s = TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_array("a".into(), 2)),
+                TypedAssignee::Identifier(Variable::field_array("a", 2)),
                 ArrayExpressionInner::Value(vec![
                     FieldElementExpression::Number(FieldPrime::from(1)).into(),
                     FieldElementExpression::Number(FieldPrime::from(1)).into(),
@@ -997,7 +997,7 @@ mod tests {
 
             let s: TypedStatement<FieldPrime> = TypedStatement::Definition(
                 TypedAssignee::Select(
-                    box TypedAssignee::Identifier(Variable::field_array("a".into(), 2)),
+                    box TypedAssignee::Identifier(Variable::field_array("a", 2)),
                     box FieldElementExpression::Number(FieldPrime::from(1)),
                 ),
                 FieldElementExpression::Number(FieldPrime::from(2)).into(),
@@ -1072,13 +1072,13 @@ mod tests {
             let array_of_array_ty = Type::array(Type::array(Type::FieldElement, 2), 2);
 
             let s: TypedStatement<FieldPrime> = TypedStatement::Declaration(
-                Variable::with_id_and_type("a".into(), array_of_array_ty.clone()),
+                Variable::with_id_and_type("a", array_of_array_ty.clone()),
             );
             assert_eq!(u.fold_statement(s), vec![]);
 
             let s = TypedStatement::Definition(
                 TypedAssignee::Identifier(Variable::with_id_and_type(
-                    "a".into(),
+                    "a",
                     array_of_array_ty.clone(),
                 )),
                 ArrayExpressionInner::Value(vec![
@@ -1128,7 +1128,7 @@ mod tests {
             let s: TypedStatement<FieldPrime> = TypedStatement::Definition(
                 TypedAssignee::Select(
                     box TypedAssignee::Identifier(Variable::with_id_and_type(
-                        "a".into(),
+                        "a",
                         array_of_array_ty.clone(),
                     )),
                     box FieldElementExpression::Number(FieldPrime::from(1)),

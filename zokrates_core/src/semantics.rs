@@ -1285,6 +1285,9 @@ impl<'ast> Checker<'ast> {
                 }
             }
             Expression::FieldConstant(n) => Ok(FieldElementExpression::Number(n).into()),
+            Expression::U8Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(8).into()),
+            Expression::U16Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(16).into()),
+            Expression::U32Constant(n) => Ok(UExpressionInner::Value(n.into()).annotate(32).into()),
             Expression::FunctionCall(fun_id, arguments) => {
                 // check the arguments
                 let mut arguments_checked = vec![];
@@ -2498,18 +2501,18 @@ mod tests {
 
         let mut scope = HashSet::new();
         scope.insert(ScopedVariable {
-            id: Variable::field_element("a".into()),
+            id: Variable::field_element("a"),
             level: 0,
         });
         scope.insert(ScopedVariable {
-            id: Variable::field_element("b".into()),
+            id: Variable::field_element("b"),
             level: 0,
         });
         let mut checker = new_with_args(scope, 1, HashSet::new());
         assert_eq!(
             checker.check_statement(statement, &module_id, &types),
             Ok(TypedStatement::Definition(
-                TypedAssignee::Identifier(typed_absy::Variable::field_element("a".into())),
+                TypedAssignee::Identifier(typed_absy::Variable::field_element("a")),
                 FieldElementExpression::Identifier("b".into()).into()
             ))
         );
@@ -2778,15 +2781,15 @@ mod tests {
         .mock()];
 
         let for_statements_checked = vec![
-            TypedStatement::Declaration(typed_absy::Variable::field_element("a".into())),
+            TypedStatement::Declaration(typed_absy::Variable::field_element("a")),
             TypedStatement::Definition(
-                TypedAssignee::Identifier(typed_absy::Variable::field_element("a".into())),
+                TypedAssignee::Identifier(typed_absy::Variable::field_element("a")),
                 FieldElementExpression::Identifier("i".into()).into(),
             ),
         ];
 
         let foo_statements_checked = vec![TypedStatement::For(
-            typed_absy::Variable::field_element("i".into()),
+            typed_absy::Variable::field_element("i"),
             FieldPrime::from(0),
             FieldPrime::from(10),
             for_statements_checked,
@@ -3184,12 +3187,12 @@ mod tests {
         ];
 
         let bar_statements_checked: Vec<TypedStatement<FieldPrime>> = vec![
-            TypedStatement::Declaration(typed_absy::Variable::field_element("a".into())),
-            TypedStatement::Declaration(typed_absy::Variable::field_element("b".into())),
+            TypedStatement::Declaration(typed_absy::Variable::field_element("a")),
+            TypedStatement::Declaration(typed_absy::Variable::field_element("b")),
             TypedStatement::MultipleDefinition(
                 vec![
-                    typed_absy::Variable::field_element("a".into()),
-                    typed_absy::Variable::field_element("b".into()),
+                    typed_absy::Variable::field_element("a"),
+                    typed_absy::Variable::field_element("b"),
                 ],
                 TypedExpressionList::FunctionCall(
                     FunctionKey::with_id("foo").signature(
@@ -3803,7 +3806,7 @@ mod tests {
                     ),
                     Ok(Parameter {
                         id: Variable::with_id_and_type(
-                            "a".into(),
+                            "a",
                             Type::Struct(vec![("foo".to_string(), Type::FieldElement)])
                         ),
                         private: true
@@ -3859,7 +3862,7 @@ mod tests {
                         &state.types,
                     ),
                     Ok(TypedStatement::Declaration(Variable::with_id_and_type(
-                        "a".into(),
+                        "a",
                         Type::Struct(vec![("foo".to_string(), Type::FieldElement)])
                     )))
                 );
@@ -4250,7 +4253,7 @@ mod tests {
             assert_eq!(
                 checker.check_assignee(a, &module_id, &types),
                 Ok(TypedAssignee::Identifier(
-                    typed_absy::Variable::field_element("a".into())
+                    typed_absy::Variable::field_element("a")
                 ))
             );
         }
@@ -4290,7 +4293,7 @@ mod tests {
                 checker.check_assignee(a, &module_id, &types),
                 Ok(TypedAssignee::Select(
                     box TypedAssignee::Identifier(typed_absy::Variable::field_array(
-                        "a".into(),
+                        "a",
                         33
                     )),
                     box FieldElementExpression::Number(FieldPrime::from(2)).into()
@@ -4344,7 +4347,7 @@ mod tests {
                 Ok(TypedAssignee::Select(
                     box TypedAssignee::Select(
                         box TypedAssignee::Identifier(typed_absy::Variable::array(
-                            "a".into(),
+                            "a",
                             Type::array(Type::FieldElement, 33),
                             42
                         )),
