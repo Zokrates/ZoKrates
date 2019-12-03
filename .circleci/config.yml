@@ -127,7 +127,7 @@ jobs:
           command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./full_test.sh
   deploy:
     docker:
-      - image: circleci/python
+      - image: rustlang/rust:nightly-slim
     steps:
       - checkout
       - setup_remote_docker:
@@ -135,6 +135,23 @@ jobs:
       - run:
           name: Release
           command: ./scripts/release.sh
+  zokrates_js:
+    docker:
+      - image: blockchainit/rust-wasm-env:latest
+    steps:
+      - checkout
+      - run:
+          name: Version information
+          command: rustc --version; cargo --version; rustup --version
+      - run:
+          name: Calculate dependencies
+          command: cargo generate-lockfile
+      - restore_cache:
+          keys:
+            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - run:
+          name: Build and publish zokrates_js
+          command: ./zokrates_js/publish.sh
 
 workflows:
   version: 2
@@ -156,5 +173,13 @@ workflows:
             - wasm_solvers_test
             - wasm_test
             - integration_test
+      - zokrates_js:
+          filters:
+            branches:
+              only:
+                - master
+          requires:
+            - deploy
+
 
 

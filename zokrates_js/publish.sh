@@ -16,12 +16,12 @@ CARGO_VERSION=$(cat Cargo.toml \
 
 if [ $NPM_VERSION = $PACKAGE_VERSION ]; then
     echo "Latest npm version is equal to current package version. Up the version to publish to npm."
-    exit 1
+    exit 0
 fi
 
 if [ $PACKAGE_VERSION != $CARGO_VERSION ]; then
     echo "Cargo crate version must be equal to npm package version ($CARGO_VERSION -> $PACKAGE_VERSION)"
-    exit 1
+    exit 0
 fi
 
 # npm
