@@ -800,7 +800,7 @@ impl<'ast, T: Field> fmt::Display for UExpression<'ast, T> {
                 f,
                 "if {} then {} else {} fi",
                 condition, consequent, alternative
-            )
+            ),
         }
     }
 }
@@ -1067,7 +1067,6 @@ impl<'ast, T: Field> Select<'ast, T> for BooleanExpression<'ast, T> {
 
 impl<'ast, T: Field> Select<'ast, T> for UExpression<'ast, T> {
     fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
-
         let bitwidth = match array.inner_type().clone() {
             Type::Uint(bitwidth) => bitwidth,
             _ => unreachable!(),

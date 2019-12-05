@@ -1,8 +1,8 @@
-use typed_absy::BooleanExpression;
-use zokrates_field::field::Field;
-use typed_absy::ArrayExpression;
-use typed_absy::FieldElementExpression;
 use typed_absy::identifier::Identifier;
+use typed_absy::ArrayExpression;
+use typed_absy::BooleanExpression;
+use typed_absy::FieldElementExpression;
+use zokrates_field::field::Field;
 
 type Bitwidth = usize;
 
@@ -62,7 +62,11 @@ pub enum UExpressionInner<'ast, T: Field> {
         Box<ArrayExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
-    IfElse(Box<BooleanExpression<'ast, T>>, Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>)
+    IfElse(
+        Box<BooleanExpression<'ast, T>>,
+        Box<UExpression<'ast, T>>,
+        Box<UExpression<'ast, T>>,
+    ),
 }
 
 impl<'ast, T: Field> UExpressionInner<'ast, T> {

@@ -4292,10 +4292,7 @@ mod tests {
             assert_eq!(
                 checker.check_assignee(a, &module_id, &types),
                 Ok(TypedAssignee::Select(
-                    box TypedAssignee::Identifier(typed_absy::Variable::field_array(
-                        "a",
-                        33
-                    )),
+                    box TypedAssignee::Identifier(typed_absy::Variable::field_array("a", 33)),
                     box FieldElementExpression::Number(FieldPrime::from(2)).into()
                 ))
             );

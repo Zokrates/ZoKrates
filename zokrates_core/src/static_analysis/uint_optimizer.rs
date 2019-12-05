@@ -19,6 +19,56 @@ impl<'ast, T: Field> UintOptimizer<'ast, T> {
     pub fn optimize(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
         UintOptimizer::new().fold_program(p)
     }
+
+    fn register(&mut self, a: TypedAssignee<'ast, T>, e: TypedExpression<'ast, T>) {
+        match (a, e) {
+            (a, TypedExpression::Uint(e)) => {
+                println!("{} := {}", a, e);
+                self.ids.insert(a, e.metadata.unwrap_or(UMetadata {bitwidth: Some(42), should_reduce: Some(true)}));
+            }
+            (a, TypedExpression::Array(e)) => {
+                let (inner_type, size) = match e.get_type() {
+                    Type::Array(box inner_type, size) => (inner_type, size),
+                    _ => unreachable!(),
+                };
+
+                for i in 0..size {
+                    match inner_type {
+                        Type::Array(..) => {
+                            self.register(
+                                TypedAssignee::Select(
+                                    box a.clone(),
+                                    box FieldElementExpression::Number(T::from(i)),
+                                ),
+                                ArrayExpression::select(
+                                    e.clone(),
+                                    FieldElementExpression::Number(T::from(i)),
+                                )
+                                .into(),
+                            );
+                        }
+                        Type::Uint(..) => {
+                            self.register(
+                                TypedAssignee::Select(
+                                    box a.clone(),
+                                    box FieldElementExpression::Number(T::from(i)),
+                                ),
+                                UExpression::select(
+                                    e.clone(),
+                                    FieldElementExpression::Number(T::from(i)),
+                                )
+                                .into(),
+                            );
+                        }
+                        Type::Struct(..) => unimplemented!(),
+                        _ => {}
+                    }
+                }
+            }
+            (a, TypedExpression::Struct(e)) => unimplemented!(),
+            _ => {}
+        }
+    }
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
@@ -32,7 +82,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
         println!("{:?}", e);
 
         if e.metadata.is_some() {
-            return e
+            return e;
         }
 
         let metadata = e.metadata;
@@ -50,7 +100,10 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 ),
             }),
             Identifier(id) => Identifier(id.clone()).annotate(range).metadata(
-                self.ids.get(&TypedAssignee::Identifier(Variable::uint(id, range))).cloned().unwrap()
+                self.ids
+                    .get(&TypedAssignee::Identifier(Variable::uint(id, range)))
+                    .cloned()
+                    .unwrap(),
             ),
             Add(box left, box right) => {
                 // reduce the two terms
@@ -252,24 +305,24 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 UExpression::if_else(condition, consequence, alternative).metadata(UMetadata {
                     bitwidth: Some(output_width),
                     should_reduce: Some(
-                            metadata
-                                .map(|m| m.should_reduce.unwrap_or(false))
-                                .unwrap_or(false),
-                        )
+                        metadata
+                            .map(|m| m.should_reduce.unwrap_or(false))
+                            .unwrap_or(false),
+                    ),
                 })
-            },
+            }
             Select(box array, box index) => {
-
                 let array = self.fold_array_expression(array);
                 let index = self.fold_field_expression(index);
 
                 let (inner_type, size) = match array.get_type() {
                     Type::Array(box inner_type, size) => (inner_type, size),
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 };
 
-                Select(box array.clone(), box index.clone()).annotate(range).metadata(
-                    match (array.into_inner(), index) {
+                Select(box array.clone(), box index.clone())
+                    .annotate(range)
+                    .metadata(match (array.into_inner(), index) {
                         (ArrayExpressionInner::Value(v), FieldElementExpression::Number(n)) => {
                             let n_as_usize = n.to_dec_string().parse::<usize>().unwrap();
                             if n_as_usize < size {
@@ -281,34 +334,34 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                                 );
                             }
                         }
-                        (ArrayExpressionInner::Identifier(id), FieldElementExpression::Number(n)) => {
-                            self.ids.get(&TypedAssignee::Select(
+                        (
+                            ArrayExpressionInner::Identifier(id),
+                            FieldElementExpression::Number(n),
+                        ) => self
+                            .ids
+                            .get(&TypedAssignee::Select(
                                 box TypedAssignee::Identifier(Variable::array(
                                     id.clone(),
                                     inner_type.clone(),
                                     size,
                                 )),
                                 box FieldElementExpression::Number(n.clone()).into(),
-                            )).unwrap().clone()
-                        }
-                        (a, i) => {
-                            unreachable!("{} {}", a, i)
-                        }
-                    }
-                )
+                            ))
+                            .unwrap()
+                            .clone(),
+                        (a, i) => unreachable!("{} {}", a, i),
+                    })
             }
         }
     }
 
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
+        println!("{}", s);
         match s {
-            TypedStatement::Definition(TypedAssignee::Identifier(id), TypedExpression::Uint(e)) => {
-                let e = self.fold_uint_expression(e);
-                self.ids.insert(TypedAssignee::Identifier(id.clone()), e.metadata.clone().unwrap());
-                vec![TypedStatement::Definition(
-                    TypedAssignee::Identifier(id),
-                    TypedExpression::Uint(e),
-                )]
+            TypedStatement::Definition(a, e) => {
+                let e = self.fold_expression(e);
+                self.register(a.clone(), e.clone());
+                vec![TypedStatement::Definition(a, e)]
             }
             // we need to put back in range to return
             TypedStatement::Return(expressions) => vec![TypedStatement::Return(
@@ -344,10 +397,12 @@ mod tests {
 
     #[test]
     fn existing_metadata() {
-        let e = UExpressionInner::Identifier("foo".into()).annotate(32).metadata(UMetadata {
-            bitwidth: Some(33),
-            should_reduce: Some(false)
-        });
+        let e = UExpressionInner::Identifier("foo".into())
+            .annotate(32)
+            .metadata(UMetadata {
+                bitwidth: Some(33),
+                should_reduce: Some(false),
+            });
 
         let mut optimizer: UintOptimizer<FieldPrime> = UintOptimizer::new();
 

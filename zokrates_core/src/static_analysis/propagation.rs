@@ -119,7 +119,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     .constants
                     .get(&TypedAssignee::Identifier(Variable::uint(
                         id.clone(),
-                        bitwidth
+                        bitwidth,
                     ))) {
                     Some(e) => match e {
                         TypedExpression::Uint(e) => e.as_inner().clone(),
@@ -129,16 +129,18 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     },
                     None => UExpressionInner::Identifier(id),
                 }
-            },
+            }
             UExpressionInner::Add(box e1, box e2) => match (
                 self.fold_uint_expression(e1).into_inner(),
                 self.fold_uint_expression(e2).into_inner(),
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
-                    use std::convert::TryInto;    
+                    use std::convert::TryInto;
                     UExpressionInner::Value(v1 + v2 % 2_u128.pow(bitwidth.try_into().unwrap()))
-                },
-                (e1, e2) => UExpressionInner::Add(box e1.annotate(bitwidth), box e2.annotate(bitwidth))
+                }
+                (e1, e2) => {
+                    UExpressionInner::Add(box e1.annotate(bitwidth), box e2.annotate(bitwidth))
+                }
             },
             UExpressionInner::Xor(box e1, box e2) => match (
                 self.fold_uint_expression(e1).into_inner(),
@@ -146,7 +148,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
                     UExpressionInner::Value(v1 ^ v2)
-                },
+                }
                 (UExpressionInner::Value(0), e2) => e2,
                 (e1, UExpressionInner::Value(0)) => e1,
                 (e1, e2) => {
@@ -157,7 +159,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     }
                 }
             },
-            e => e
+            e => e,
         }
     }
 

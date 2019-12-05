@@ -1111,7 +1111,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened: &mut Vec<FlatStatement<T>>,
         expr: UExpression<'ast, T>,
     ) -> FlatExpression<T> {
-
         let target_bitwidth = expr.bitwidth;
 
         let metadata = expr.metadata.clone().unwrap().clone();
@@ -1232,15 +1231,16 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     index,
                 )[0]
             .clone(),
-            UExpressionInner::IfElse(box condition, box consequence, box alternative) => self
-                .flatten_if_else_expression::<UExpression<'ast, T>>(
+            UExpressionInner::IfElse(box condition, box consequence, box alternative) => {
+                self.flatten_if_else_expression::<UExpression<'ast, T>>(
                     symbols,
                     statements_flattened,
                     condition,
                     consequence,
-                    alternative
+                    alternative,
                 )[0]
-            .clone(),
+                .clone()
+            }
         };
 
         match should_reduce {
@@ -1269,9 +1269,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened: &mut Vec<FlatStatement<T>>,
     ) -> Vec<FlatExpression<T>> {
         match self.bits_cache.entry(e.clone()) {
-            Entry::Occupied(entry) => {
-                entry.get().clone().into_iter().map(|e| e.into()).collect()
-            }
+            Entry::Occupied(entry) => entry.get().clone().into_iter().map(|e| e.into()).collect(),
             Entry::Vacant(_) => {
                 let bits = (0..bitwidth).map(|_| self.use_sym()).collect::<Vec<_>>();
                 statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
@@ -1919,17 +1917,19 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         vars
     }
 
-    fn use_parameter(&mut self, parameter: &Parameter<'ast>, statements_flattened: &mut Vec<FlatStatement<T>>) -> Vec<FlatParameter> {
+    fn use_parameter(
+        &mut self,
+        parameter: &Parameter<'ast>,
+        statements_flattened: &mut Vec<FlatStatement<T>>,
+    ) -> Vec<FlatParameter> {
         let variables = self.use_variable(&parameter.id);
 
         match parameter.id.get_type() {
             Type::Uint(bitwidth) => {
                 assert_eq!(variables.len(), 1);
                 self.get_bits(variables[0].into(), bitwidth, statements_flattened);
-            },
-            _ => {
-
             }
+            _ => {}
         }
 
         variables

@@ -155,7 +155,7 @@ impl<'ast, T: Field> Folder<'ast, T> for InputConstrainer<'ast, T> {
             Type::Uint(bitwidth) => {
                 self.uints.insert(v.id.clone());
                 UExpressionInner::Identifier(v.id).annotate(bitwidth).into()
-            },
+            }
             Type::Struct(members) => StructExpressionInner::Identifier(v.id)
                 .annotate(members)
                 .into(),
@@ -171,11 +171,15 @@ impl<'ast, T: Field> Folder<'ast, T> for InputConstrainer<'ast, T> {
 
     fn fold_function(&mut self, f: TypedFunction<'ast, T>) -> TypedFunction<'ast, T> {
         let arguments: Vec<_> = f
-                .arguments
-                .into_iter()
-                .map(|a| self.fold_parameter(a))
-                .collect();
-        let statements: Vec<_> = f.statements.into_iter().flat_map(|s| self.fold_statement(s)).collect();
+            .arguments
+            .into_iter()
+            .map(|a| self.fold_parameter(a))
+            .collect();
+        let statements: Vec<_> = f
+            .statements
+            .into_iter()
+            .flat_map(|s| self.fold_statement(s))
+            .collect();
 
         TypedFunction {
             arguments,
@@ -195,8 +199,7 @@ impl<'ast, T: Field> Folder<'ast, T> for InputConstrainer<'ast, T> {
                         }),
                         ..e
                     }
-                } else 
-                {
+                } else {
                     e
                 }
             }
