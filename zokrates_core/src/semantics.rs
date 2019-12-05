@@ -1948,7 +1948,7 @@ mod tests {
     mod symbols {
         use super::*;
 
-        /// Helper function to create (() -> (): return)
+        /// solver function to create (() -> (): return)
         fn function0() -> FunctionNode<'static, FieldPrime> {
             let statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
                 ExpressionList {
@@ -1970,7 +1970,7 @@ mod tests {
             .mock()
         }
 
-        /// Helper function to create ((private field a) -> (): return)
+        /// solver function to create ((private field a) -> (): return)
         fn function1() -> FunctionNode<'static, FieldPrime> {
             let statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
                 ExpressionList {
@@ -3304,7 +3304,7 @@ mod tests {
     mod structs {
         use super::*;
 
-        /// helper function to create a module at location "" with a single symbol `Foo { foo: field }`
+        /// solver function to create a module at location "" with a single symbol `Foo { foo: field }`
         fn create_module_with_foo(
             s: StructType<'static>,
         ) -> (Checker<'static>, State<'static, FieldPrime>) {

@@ -1,6 +1,6 @@
 use crate::flat_absy::flat_variable::FlatVariable;
-use crate::helpers::Executable;
 use crate::ir::{LinComb, Prog, QuadComb, Statement, Witness};
+use crate::solvers::Executable;
 use std::collections::BTreeMap;
 use std::fmt;
 use zokrates_field::field::Field;
@@ -41,7 +41,7 @@ impl<T: Field> Prog<T> {
                         .iter()
                         .map(|i| i.evaluate(&witness).unwrap())
                         .collect();
-                    match d.helper.execute(&input_values) {
+                    match d.solver.execute(&input_values) {
                         Ok(res) => {
                             for (i, o) in d.outputs.iter().enumerate() {
                                 witness.insert(o.clone(), res[i].clone());

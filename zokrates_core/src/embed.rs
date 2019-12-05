@@ -1,7 +1,8 @@
-use crate::helpers::{DirectiveStatement, Helper, RustHelper};
+use crate::solvers::Solver;
 use bellman::pairing::ff::ScalarEngine;
 use flat_absy::{
-    FlatExpression, FlatExpressionList, FlatFunction, FlatParameter, FlatStatement, FlatVariable,
+    FlatDirective, FlatExpression, FlatExpressionList, FlatFunction, FlatParameter, FlatStatement,
+    FlatVariable,
 };
 use reduce::Reduce;
 use std::collections::HashMap;
@@ -166,13 +167,13 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
         .collect();
 
     // insert a directive to set the witness based on the bellman gadget and  inputs
-    let directive_statement = FlatStatement::Directive(DirectiveStatement {
+    let directive_statement = FlatStatement::Directive(FlatDirective {
         outputs: cs_indices.map(|i| FlatVariable::new(i)).collect(),
         inputs: input_argument_indices
             .chain(current_hash_argument_indices)
             .map(|i| FlatVariable::new(i).into())
             .collect(),
-        helper: Helper::Rust(RustHelper::Sha256Round),
+        solver: Solver::Sha256Round,
     });
 
     // insert a statement to return the subset of the witness
@@ -233,7 +234,7 @@ pub fn unpack<T: Field>() -> FlatFunction<T> {
         .map(|index| use_variable(&mut layout, format!("o{}", index), &mut counter))
         .collect();
 
-    let helper = Helper::bits();
+    let solver = Solver::bits();
 
     let signature = Signature {
         inputs: vec![Type::FieldElement],
@@ -281,10 +282,10 @@ pub fn unpack<T: Field>() -> FlatFunction<T> {
 
     statements.insert(
         0,
-        FlatStatement::Directive(DirectiveStatement {
+        FlatStatement::Directive(FlatDirective {
             inputs: directive_inputs,
             outputs: directive_outputs,
-            helper: helper,
+            solver: solver,
         }),
     );
 
@@ -322,11 +323,11 @@ mod tests {
             ); // 128 bit checks, 1 directive, 1 sum check, 1 return
             assert_eq!(
                 unpack.statements[0],
-                FlatStatement::Directive(DirectiveStatement::new(
+                FlatStatement::Directive(FlatDirective::new(
                     (0..FieldPrime::get_required_bits())
                         .map(|i| FlatVariable::new(i + 1))
                         .collect(),
-                    Helper::bits(),
+                    Solver::bits(),
                     vec![FlatVariable::new(0)]
                 ))
             );
