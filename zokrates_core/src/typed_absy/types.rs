@@ -40,7 +40,10 @@ impl ArrayType {
 
 impl StructMember {
     pub fn new(id: String, ty: Type) -> Self {
-        StructMember { id, ty: Box::new(ty) }
+        StructMember {
+            id,
+            ty: Box::new(ty),
+        }
     }
 }
 
