@@ -39,8 +39,8 @@ impl ArrayType {
 }
 
 impl StructMember {
-    pub fn new(id: String, ty: Box<Type>) -> Self {
-        StructMember { id, ty }
+    pub fn new(id: String, ty: Type) -> Self {
+        StructMember { id, ty: Box::new(ty) }
     }
 }
 

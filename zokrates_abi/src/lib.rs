@@ -99,7 +99,7 @@ impl<T: Field> Value<T> {
                 } else {
                     let a = a
                         .into_iter()
-                        .map(|val| val.check((*array_type.ty).clone()))
+                        .map(|val| val.check(*array_type.ty.clone()))
                         .collect::<Result<Vec<_>, _>>()?;
                     Ok(CheckedValue::Array(a))
                 }
@@ -189,7 +189,7 @@ impl<T: From<usize> + PartialEq + Clone> Decode<T> for CheckedValue<T> {
             }
             Type::Array(array_type) => CheckedValue::Array(
                 raw.chunks(array_type.ty.get_primitive_count())
-                    .map(|c| CheckedValue::decode(c.to_vec(), (*array_type.ty).clone()))
+                    .map(|c| CheckedValue::decode(c.to_vec(), *array_type.ty.clone()))
                     .collect(),
             ),
             Type::Struct(members) => CheckedValue::Struct(
@@ -412,7 +412,7 @@ mod tests {
                     s,
                     vec![Type::Struct(vec![StructMember::new(
                         "a".into(),
-                        box Type::FieldElement
+                        Type::FieldElement
                     )])]
                 )
                 .unwrap(),
@@ -429,7 +429,7 @@ mod tests {
                     s,
                     vec![Type::Struct(vec![StructMember::new(
                         "a".into(),
-                        box Type::FieldElement
+                        Type::FieldElement
                     )])]
                 )
                 .unwrap_err(),
@@ -442,7 +442,7 @@ mod tests {
                     s,
                     vec![Type::Struct(vec![StructMember::new(
                         "a".into(),
-                        box Type::FieldElement
+                        Type::FieldElement
                     )])]
                 )
                 .unwrap_err(),
@@ -455,7 +455,7 @@ mod tests {
                     s,
                     vec![Type::Struct(vec![StructMember::new(
                         "a".into(),
-                        box Type::FieldElement
+                        Type::FieldElement
                     )])]
                 )
                 .unwrap_err(),

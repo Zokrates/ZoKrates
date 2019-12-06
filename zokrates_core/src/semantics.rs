@@ -285,7 +285,7 @@ impl<'ast> Checker<'ast> {
         Ok(Type::Struct(
             fields
                 .iter()
-                .map(|f| StructMember::new(f.0.clone(), box f.1.clone()))
+                .map(|f| StructMember::new(f.0.clone(), f.1.clone()))
                 .collect(),
         ))
     }
@@ -1308,7 +1308,7 @@ impl<'ast> Checker<'ast> {
                                     },
                                     arguments_checked,
                                 )
-                                .annotate((*array_type.ty).clone(), array_type.size.clone())
+                                .annotate(*array_type.ty.clone(), array_type.size.clone())
                                 .into()),
                                 _ => unimplemented!(),
                             },
@@ -1513,7 +1513,7 @@ impl<'ast> Checker<'ast> {
                                     Type::Array(array_type) => {
                                         Ok(ArrayExpressionInner::Select(box a, box i)
                                             .annotate(
-                                                (*array_type.ty).clone(),
+                                                *array_type.ty.clone(),
                                                 array_type.size.clone(),
                                             )
                                             .into())
@@ -1543,7 +1543,7 @@ impl<'ast> Checker<'ast> {
                 match e {
                     TypedExpression::Struct(s) => {
                         // check that the struct has that field and return the type if it does
-                        let ty = s.ty().iter().find(|m| m.id == id).map(|m| (*m.ty).clone());
+                        let ty = s.ty().iter().find(|m| m.id == id).map(|m| *m.ty.clone());
 
                         match ty {
                             Some(ty) => match ty {
@@ -1555,7 +1555,7 @@ impl<'ast> Checker<'ast> {
                                 }
                                 Type::Array(array_type) => {
                                     Ok(ArrayExpressionInner::Member(box s.clone(), id.to_string())
-                                        .annotate((*array_type.ty).clone(), array_type.size)
+                                        .annotate(*array_type.ty.clone(), array_type.size)
                                         .into())
                                 }
                                 Type::Struct(members) => {
@@ -3374,8 +3374,8 @@ mod tests {
                 .mock();
 
                 let expected_type = Type::Struct(vec![
-                    StructMember::new("foo".to_string(), box Type::FieldElement),
-                    StructMember::new("bar".to_string(), box Type::Boolean),
+                    StructMember::new("foo".to_string(), Type::FieldElement),
+                    StructMember::new("bar".to_string(), Type::Boolean),
                 ]);
 
                 assert_eq!(
@@ -3514,9 +3514,9 @@ mod tests {
                         .unwrap(),
                     &Type::Struct(vec![StructMember::new(
                         "foo".to_string(),
-                        box Type::Struct(vec![StructMember::new(
+                        Type::Struct(vec![StructMember::new(
                             "foo".to_string(),
-                            box Type::FieldElement
+                            Type::FieldElement
                         )])
                     )])
                 );
@@ -3662,7 +3662,7 @@ mod tests {
                     ),
                     Ok(Type::Struct(vec![StructMember::new(
                         "foo".to_string(),
-                        box Type::FieldElement
+                        Type::FieldElement
                     )]))
                 );
 
@@ -3712,7 +3712,7 @@ mod tests {
                             "a".into(),
                             Type::Struct(vec![StructMember::new(
                                 "foo".to_string(),
-                                box Type::FieldElement
+                                Type::FieldElement
                             )])
                         ),
                         private: true
@@ -3771,7 +3771,7 @@ mod tests {
                         "a".into(),
                         Type::Struct(vec![StructMember::new(
                             "foo".to_string(),
-                            box Type::FieldElement
+                            Type::FieldElement
                         )])
                     )))
                 );
@@ -3841,7 +3841,7 @@ mod tests {
                         .into()])
                         .annotate(vec![StructMember::new(
                             "foo".to_string(),
-                            box Type::FieldElement
+                            Type::FieldElement
                         )]),
                         "foo".to_string()
                     )
@@ -3968,8 +3968,8 @@ mod tests {
                         BooleanExpression::Value(true).into()
                     ])
                     .annotate(vec![
-                        StructMember::new("foo".to_string(), box Type::FieldElement),
-                        StructMember::new("bar".to_string(), box Type::Boolean)
+                        StructMember::new("foo".to_string(), Type::FieldElement),
+                        StructMember::new("bar".to_string(), Type::Boolean)
                     ])
                     .into())
                 );
@@ -4018,8 +4018,8 @@ mod tests {
                         BooleanExpression::Value(true).into()
                     ])
                     .annotate(vec![
-                        StructMember::new("foo".to_string(), box Type::FieldElement),
-                        StructMember::new("bar".to_string(), box Type::Boolean)
+                        StructMember::new("foo".to_string(), Type::FieldElement),
+                        StructMember::new("bar".to_string(), Type::Boolean)
                     ])
                     .into())
                 );
