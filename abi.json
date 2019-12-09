@@ -1,0 +1,49 @@
+{
+  "inputs": [
+    {
+      "name": "p",
+      "public": true,
+      "type": "struct",
+      "components": [
+        {
+          "name": "x",
+          "type": "field"
+        },
+        {
+          "name": "y",
+          "type": "field"
+        }
+      ]
+    },
+    {
+      "name": "q",
+      "public": true,
+      "type": "struct",
+      "components": [
+        {
+          "name": "x",
+          "type": "field"
+        },
+        {
+          "name": "y",
+          "type": "field"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "type": "struct",
+      "components": [
+        {
+          "name": "x",
+          "type": "field"
+        },
+        {
+          "name": "y",
+          "type": "field"
+        }
+      ]
+    }
+  ]
+}

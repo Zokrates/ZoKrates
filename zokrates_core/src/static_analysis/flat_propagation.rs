@@ -5,7 +5,6 @@
 //! @date 2018
 
 use crate::flat_absy::*;
-use crate::helpers::DirectiveStatement;
 use std::collections::HashMap;
 use zokrates_field::field::Field;
 
@@ -74,7 +73,7 @@ impl<T: Field> FlatStatement<T> {
                 e1.propagate(constants),
                 e2.propagate(constants),
             )),
-            FlatStatement::Directive(d) => Some(FlatStatement::Directive(DirectiveStatement {
+            FlatStatement::Directive(d) => Some(FlatStatement::Directive(FlatDirective {
                 inputs: d
                     .inputs
                     .into_iter()

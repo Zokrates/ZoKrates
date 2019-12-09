@@ -57,6 +57,7 @@ jobs:
       # - run:
       #     name: Generate code coverage report
       #     command: ./scripts/cov.sh
+<<<<<<< HEAD
   wasm_test:
     docker:
       - image: rustlang/rust:nightly-slim
@@ -100,6 +101,8 @@ jobs:
       - run:
           name: Run tests with WASM enabled
           command: cd zokrates_core && cargo test --release --features wasm_solvers -- --test-threads=1
+=======
+>>>>>>> cfd8964ca3a43272262c00c23ed346ead9d63b2e
   integration_test:
     docker:
       - image: rustlang/rust:nightly-slim
@@ -142,8 +145,11 @@ workflows:
     jobs:
       - build
       - test
+<<<<<<< HEAD
       - wasm_solvers_test
       - wasm_test
+=======
+>>>>>>> cfd8964ca3a43272262c00c23ed346ead9d63b2e
       - integration_test
       - deploy:
           filters:
