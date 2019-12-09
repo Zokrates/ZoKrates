@@ -148,6 +148,9 @@ mod tests {
         };
 
         let json = serde_json::to_string(&abi).unwrap();
-        assert_eq!(&json, r#"{"inputs":[{"name":"a","public":false,"type":"field"},{"name":"b","public":true,"type":"struct","components":[{"name":"c","type":"field"},{"name":"d","type":"bool"}]}],"outputs":[{"type":"array","components":{"size":2,"type":"field"}}]}"#)
+        assert_eq!(
+            &json,
+            r#"{"inputs":[{"name":"a","public":false,"type":"field"},{"name":"b","public":true,"type":"struct","components":[{"name":"c","type":"field"},{"name":"d","type":"bool"}]}],"outputs":[{"type":"array","components":{"size":2,"type":"field"}}]}"#
+        )
     }
 }
