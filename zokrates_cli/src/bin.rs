@@ -16,7 +16,8 @@ use zokrates_abi::Encode;
 use zokrates_core::compile::compile;
 use zokrates_core::ir;
 use zokrates_core::proof_system::*;
-use zokrates_core::typed_absy::{types::Signature, Abi, Type};
+use zokrates_core::typed_absy::abi::Abi;
+use zokrates_core::typed_absy::{types::Signature, Type};
 use zokrates_field::field::{Field, FieldPrime};
 use zokrates_fs_resolver::resolve as fs_resolve;
 

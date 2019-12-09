@@ -17,7 +17,7 @@
 //! where any call in `main` must be to `_SHA_256_ROUND` or `_UNPACK`
 
 use std::collections::HashMap;
-use typed_absy::types::{FunctionKey, MemberId, Type};
+use typed_absy::types::{FunctionKey, StructMember, Type};
 use typed_absy::{folder::*, *};
 use zokrates_field::field::Field;
 
@@ -263,7 +263,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
 
     fn fold_struct_expression_inner(
         &mut self,
-        ty: &Vec<(MemberId, Type)>,
+        ty: &Vec<StructMember>,
         e: StructExpressionInner<'ast, T>,
     ) -> StructExpressionInner<'ast, T> {
         match e {

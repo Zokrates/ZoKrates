@@ -12,7 +12,7 @@ mod integration {
     use std::path::Path;
     use tempdir::TempDir;
     use zokrates_abi::{parse_strict, Encode};
-    use zokrates_core::typed_absy::Abi;
+    use zokrates_core::typed_absy::abi::Abi;
 
     #[test]
     #[ignore]
