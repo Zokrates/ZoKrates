@@ -1,6 +1,5 @@
 use typed_absy::types::Signature;
-use typed_absy::{Type, TypedFunctionSymbol, TypedProgram};
-use zokrates_field::field::Field;
+use typed_absy::Type;
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct AbiInput {
@@ -18,38 +17,6 @@ pub struct Abi {
     pub outputs: Vec<AbiOutput>,
 }
 
-pub trait Generator {
-    fn abi(&self) -> Abi;
-}
-
-impl<'ast, T: Field> Generator for TypedProgram<'ast, T> {
-    fn abi(&self) -> Abi {
-        let main = self.modules[&self.main]
-            .functions
-            .iter()
-            .find(|(id, _)| id.id == "main")
-            .unwrap()
-            .1;
-        let main = match main {
-            TypedFunctionSymbol::Here(main) => main,
-            _ => unreachable!(),
-        };
-
-        Abi {
-            inputs: main
-                .arguments
-                .iter()
-                .map(|p| AbiInput {
-                    public: !p.private,
-                    name: p.id.id.to_string(),
-                    ty: p.id._type.clone(),
-                })
-                .collect(),
-            outputs: main.signature.outputs.clone(),
-        }
-    }
-}
-
 impl Abi {
     pub fn signature(&self) -> Signature {
         Signature {
@@ -64,7 +31,10 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
     use typed_absy::types::{ArrayType, FunctionKey, StructMember};
-    use typed_absy::{Identifier, Parameter, Type, TypedFunction, TypedModule, Variable};
+    use typed_absy::{
+        Identifier, Parameter, Type, TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram,
+        Variable,
+    };
     use zokrates_field::field::FieldPrime;
 
     #[test]
@@ -127,30 +97,255 @@ mod tests {
     }
 
     #[test]
-    fn serialize_abi_to_proper_json() {
+    fn serialize_empty() {
+        let abi: Abi = Abi {
+            inputs: vec![],
+            outputs: vec![],
+        };
+
+        let json = serde_json::to_string(&abi).unwrap();
+        assert_eq!(&json, r#"{"inputs":[],"outputs":[]}"#)
+    }
+
+    #[test]
+    fn serialize_field() {
         let abi: Abi = Abi {
             inputs: vec![
                 AbiInput {
                     name: String::from("a"),
-                    public: false,
+                    public: true,
                     ty: Type::FieldElement,
                 },
                 AbiInput {
                     name: String::from("b"),
                     public: true,
-                    ty: Type::Struct(vec![
-                        StructMember::new(String::from("c"), Type::FieldElement),
-                        StructMember::new(String::from("d"), Type::Boolean),
-                    ]),
+                    ty: Type::FieldElement,
                 },
             ],
-            outputs: vec![Type::Array(ArrayType::new(Type::FieldElement, 2))],
+            outputs: vec![Type::FieldElement],
         };
 
-        let json = serde_json::to_string(&abi).unwrap();
+        let json = serde_json::to_string_pretty(&abi).unwrap();
         assert_eq!(
             &json,
-            r#"{"inputs":[{"name":"a","public":false,"type":"field"},{"name":"b","public":true,"type":"struct","components":[{"name":"c","type":"field"},{"name":"d","type":"bool"}]}],"outputs":[{"type":"array","components":{"size":2,"type":"field"}}]}"#
+            r#"{
+  "inputs": [
+    {
+      "name": "a",
+      "public": true,
+      "type": "field"
+    },
+    {
+      "name": "b",
+      "public": true,
+      "type": "field"
+    }
+  ],
+  "outputs": [
+    {
+      "type": "field"
+    }
+  ]
+}"#
+        )
+    }
+
+    #[test]
+    fn serialize_struct() {
+        let abi: Abi = Abi {
+            inputs: vec![AbiInput {
+                name: String::from("foo"),
+                public: true,
+                ty: Type::Struct(vec![
+                    StructMember::new(String::from("a"), Type::FieldElement),
+                    StructMember::new(String::from("b"), Type::Boolean),
+                ]),
+            }],
+            outputs: vec![Type::Struct(vec![
+                StructMember::new(String::from("a"), Type::FieldElement),
+                StructMember::new(String::from("b"), Type::Boolean),
+            ])],
+        };
+
+        let json = serde_json::to_string_pretty(&abi).unwrap();
+        assert_eq!(
+            &json,
+            r#"{
+  "inputs": [
+    {
+      "name": "foo",
+      "public": true,
+      "type": "struct",
+      "components": [
+        {
+          "name": "a",
+          "type": "field"
+        },
+        {
+          "name": "b",
+          "type": "bool"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "type": "struct",
+      "components": [
+        {
+          "name": "a",
+          "type": "field"
+        },
+        {
+          "name": "b",
+          "type": "bool"
+        }
+      ]
+    }
+  ]
+}"#
+        )
+    }
+
+    #[test]
+    fn serialize_nested_struct() {
+        let abi: Abi = Abi {
+            inputs: vec![AbiInput {
+                name: String::from("foo"),
+                public: true,
+                ty: Type::Struct(vec![StructMember::new(
+                    String::from("bar"),
+                    Type::Struct(vec![
+                        StructMember::new(String::from("a"), Type::FieldElement),
+                        StructMember::new(String::from("b"), Type::FieldElement),
+                    ]),
+                )]),
+            }],
+            outputs: vec![],
+        };
+
+        let json = serde_json::to_string_pretty(&abi).unwrap();
+        assert_eq!(
+            &json,
+            r#"{
+  "inputs": [
+    {
+      "name": "foo",
+      "public": true,
+      "type": "struct",
+      "components": [
+        {
+          "name": "bar",
+          "type": "struct",
+          "components": [
+            {
+              "name": "a",
+              "type": "field"
+            },
+            {
+              "name": "b",
+              "type": "field"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "outputs": []
+}"#
+        )
+    }
+
+    #[test]
+    fn serialize_struct_array() {
+        let abi: Abi = Abi {
+            inputs: vec![AbiInput {
+                name: String::from("a"),
+                public: false,
+                ty: Type::Array(ArrayType::new(
+                    Type::Struct(vec![
+                        StructMember::new(String::from("b"), Type::FieldElement),
+                        StructMember::new(String::from("c"), Type::Boolean),
+                    ]),
+                    2,
+                )),
+            }],
+            outputs: vec![Type::Boolean],
+        };
+
+        let json = serde_json::to_string_pretty(&abi).unwrap();
+        assert_eq!(
+            &json,
+            r#"{
+  "inputs": [
+    {
+      "name": "a",
+      "public": false,
+      "type": "array",
+      "components": {
+        "size": 2,
+        "type": "struct",
+        "components": [
+          {
+            "name": "b",
+            "type": "field"
+          },
+          {
+            "name": "c",
+            "type": "bool"
+          }
+        ]
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "type": "bool"
+    }
+  ]
+}"#
+        )
+    }
+
+    #[test]
+    fn serialize_multi_dimensional_array() {
+        let abi: Abi = Abi {
+            inputs: vec![AbiInput {
+                name: String::from("a"),
+                public: false,
+                ty: Type::Array(ArrayType::new(
+                    Type::Array(ArrayType::new(Type::FieldElement, 2)),
+                    2,
+                )),
+            }],
+            outputs: vec![Type::FieldElement],
+        };
+
+        let json = serde_json::to_string_pretty(&abi).unwrap();
+        assert_eq!(
+            &json,
+            r#"{
+  "inputs": [
+    {
+      "name": "a",
+      "public": false,
+      "type": "array",
+      "components": {
+        "size": 2,
+        "type": "array",
+        "components": {
+          "size": 2,
+          "type": "field"
+        }
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "type": "field"
+    }
+  ]
+}"#
         )
     }
 }

@@ -23,6 +23,7 @@ use std::fmt;
 use zokrates_field::field::Field;
 
 pub use self::folder::Folder;
+use typed_absy::abi::{Abi, AbiInput};
 use typed_absy::types::StructMember;
 
 /// A identifier for a variable
@@ -53,6 +54,34 @@ pub type TypedFunctionSymbols<'ast, T> = HashMap<FunctionKey<'ast>, TypedFunctio
 pub struct TypedProgram<'ast, T: Field> {
     pub modules: TypedModules<'ast, T>,
     pub main: TypedModuleId,
+}
+
+impl<'ast, T: Field> TypedProgram<'ast, T> {
+    pub fn abi(&self) -> Abi {
+        let main = self.modules[&self.main]
+            .functions
+            .iter()
+            .find(|(id, _)| id.id == "main")
+            .unwrap()
+            .1;
+        let main = match main {
+            TypedFunctionSymbol::Here(main) => main,
+            _ => unreachable!(),
+        };
+
+        Abi {
+            inputs: main
+                .arguments
+                .iter()
+                .map(|p| AbiInput {
+                    public: !p.private,
+                    name: p.id.id.to_string(),
+                    ty: p.id._type.clone(),
+                })
+                .collect(),
+            outputs: main.signature.outputs.clone(),
+        }
+    }
 }
 
 impl<'ast, T: Field> fmt::Display for TypedProgram<'ast, T> {
