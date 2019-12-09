@@ -11,7 +11,6 @@ pub mod flat_variable;
 pub use self::flat_parameter::FlatParameter;
 pub use self::flat_variable::FlatVariable;
 
-use crate::typed_absy::types::Signature;
 use solvers::{Signed, Solver};
 use std::collections::HashMap;
 use std::fmt;
