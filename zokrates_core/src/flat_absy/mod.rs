@@ -11,7 +11,8 @@ pub mod flat_variable;
 pub use self::flat_parameter::FlatParameter;
 pub use self::flat_variable::FlatVariable;
 
-use crate::helpers::DirectiveStatement;
+use crate::typed_absy::types::Signature;
+use solvers::{Signed, Solver};
 use std::collections::HashMap;
 use std::fmt;
 use zokrates_field::field::Field;
@@ -91,7 +92,7 @@ pub enum FlatStatement<T: Field> {
     Return(FlatExpressionList<T>),
     Condition(FlatExpression<T>, FlatExpression<T>),
     Definition(FlatVariable, FlatExpression<T>),
-    Directive(DirectiveStatement<T>),
+    Directive(FlatDirective<T>),
 }
 
 impl<T: Field> fmt::Display for FlatStatement<T> {
@@ -145,13 +146,57 @@ impl<T: Field> FlatStatement<T> {
                     .map(|i| i.apply_substitution(substitution))
                     .collect();
 
-                FlatStatement::Directive(DirectiveStatement {
+                FlatStatement::Directive(FlatDirective {
                     outputs,
                     inputs,
                     ..d
                 })
             }
         }
+    }
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct FlatDirective<T: Field> {
+    pub inputs: Vec<FlatExpression<T>>,
+    pub outputs: Vec<FlatVariable>,
+    pub solver: Solver,
+}
+
+impl<T: Field> FlatDirective<T> {
+    pub fn new<E: Into<FlatExpression<T>>>(
+        outputs: Vec<FlatVariable>,
+        solver: Solver,
+        inputs: Vec<E>,
+    ) -> Self {
+        let (in_len, out_len) = solver.get_signature();
+        assert_eq!(in_len, inputs.len());
+        assert_eq!(out_len, outputs.len());
+        FlatDirective {
+            solver,
+            inputs: inputs.into_iter().map(|i| i.into()).collect(),
+            outputs,
+        }
+    }
+}
+
+impl<T: Field> fmt::Display for FlatDirective<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "# {} = {}({})",
+            self.outputs
+                .iter()
+                .map(|o| o.to_string())
+                .collect::<Vec<String>>()
+                .join(", "),
+            self.solver,
+            self.inputs
+                .iter()
+                .map(|i| i.to_string())
+                .collect::<Vec<String>>()
+                .join(", ")
+        )
     }
 }
 
