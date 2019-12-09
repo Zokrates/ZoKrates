@@ -17,11 +17,10 @@ fn main() {
         const LIBSNARK_URL: &'static str = "https://github.com/scipr-lab/libsnark.git";
         const LIBSNARK_COMMIT: &'static str = "f7c87b88744ecfd008126d415494d9b34c4c1b20";
 
-        let out_path = env::var("OUT_DIR").unwrap();
-        let libsnark_source_path = &PathBuf::from(out_path.clone()).join("libsnark");
-        let libsnark_wrapper_a = String::from("libsnark_wrapper.a");
-        let libsnark_wrapper_path =
-            &PathBuf::from(out_path.clone()).join(PathBuf::from(libsnark_wrapper_a.clone()));
+        let out_path = Path::from(env::var("OUT_DIR").unwrap());
+
+        let libsnark_source_path = out_path.join("libsnark");
+        let libsnark_wrapper_path = out_path.join("libsnark_wrapper.a");
 
         let repo = Repository::open(libsnark_source_path).unwrap_or_else(|_| {
             remove_dir(libsnark_source_path).ok();
