@@ -33,8 +33,11 @@ pub enum Type {
 }
 
 impl ArrayType {
-    pub fn new(ty: Box<Type>, size: usize) -> Self {
-        ArrayType { ty, size }
+    pub fn new(ty: Type, size: usize) -> Self {
+        ArrayType {
+            ty: Box::new(ty),
+            size,
+        }
     }
 }
 
@@ -87,7 +90,7 @@ impl fmt::Debug for Type {
 
 impl Type {
     pub fn array(ty: Type, size: usize) -> Self {
-        Type::Array(ArrayType::new(box ty, size))
+        Type::Array(ArrayType::new(ty, size))
     }
 
     fn to_slug(&self) -> String {
@@ -322,7 +325,7 @@ mod tests {
 
     #[test]
     fn array() {
-        let t = Type::Array(ArrayType::new(box Type::FieldElement, 42));
+        let t = Type::Array(ArrayType::new(Type::FieldElement, 42));
         assert_eq!(t.get_primitive_count(), 42);
     }
 }

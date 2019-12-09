@@ -719,7 +719,7 @@ impl<'ast> Checker<'ast> {
             UnresolvedType::FieldElement => Ok(Type::FieldElement),
             UnresolvedType::Boolean => Ok(Type::Boolean),
             UnresolvedType::Array(t, size) => Ok(Type::Array(ArrayType::new(
-                box self.check_type(*t, module_id, types)?,
+                self.check_type(*t, module_id, types)?,
                 size,
             ))),
             UnresolvedType::User(id) => {

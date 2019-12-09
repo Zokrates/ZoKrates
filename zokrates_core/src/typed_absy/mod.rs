@@ -5,6 +5,7 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
+pub mod abi;
 pub mod folder;
 mod parameter;
 pub mod types;
@@ -52,59 +53,6 @@ pub type TypedFunctionSymbols<'ast, T> = HashMap<FunctionKey<'ast>, TypedFunctio
 pub struct TypedProgram<'ast, T: Field> {
     pub modules: TypedModules<'ast, T>,
     pub main: TypedModuleId,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AbiInput {
-    pub name: String,
-    pub public: bool,
-    #[serde(flatten)]
-    pub ty: Type,
-}
-
-pub type AbiOutput = Type;
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Abi {
-    inputs: Vec<AbiInput>,
-    outputs: Vec<AbiOutput>,
-}
-
-impl Abi {
-    pub fn signature(&self) -> Signature {
-        Signature {
-            inputs: self.inputs.iter().map(|i| i.ty.clone()).collect(),
-            outputs: self.outputs.clone(),
-        }
-    }
-}
-
-impl<'ast, T: Field> TypedProgram<'ast, T> {
-    pub fn abi(&self) -> Abi {
-        let main = self.modules[&self.main]
-            .functions
-            .iter()
-            .find(|(id, _)| id.id == "main")
-            .unwrap()
-            .1;
-        let main = match main {
-            TypedFunctionSymbol::Here(main) => main,
-            _ => unreachable!(),
-        };
-
-        Abi {
-            inputs: main
-                .arguments
-                .iter()
-                .map(|p| AbiInput {
-                    public: !p.private,
-                    name: p.id.id.to_string(),
-                    ty: p.id._type.clone(),
-                })
-                .collect(),
-            outputs: main.signature.outputs.clone(),
-        }
-    }
 }
 
 impl<'ast, T: Field> fmt::Display for TypedProgram<'ast, T> {

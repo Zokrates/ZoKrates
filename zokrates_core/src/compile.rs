@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::io;
 use std::io::BufRead;
-use typed_absy::Abi;
+use typed_absy::abi::{Abi, Generator};
 use typed_arena::Arena;
 use zokrates_field::field::Field;
 use zokrates_pest_ast as pest;
