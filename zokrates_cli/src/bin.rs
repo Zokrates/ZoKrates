@@ -13,7 +13,7 @@ use std::io::{stdin, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::string::String;
 use zokrates_abi::Encode;
-use zokrates_core::compile::compile;
+use zokrates_core::compile::{compile, CompilationArtifacts};
 use zokrates_core::ir;
 use zokrates_core::proof_system::*;
 use zokrates_core::typed_absy::abi::Abi;
@@ -292,9 +292,11 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(file);
 
-            let (program_flattened, abi): (ir::Prog<FieldPrime>, Abi) =
+            let artifacts: CompilationArtifacts<FieldPrime> =
                 compile(&mut reader, Some(location), Some(fs_resolve))
                     .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
+
+            let program_flattened = artifacts.prog();
 
             // number of constraints the flattened program will translate to.
             let num_constraints = program_flattened.constraint_count();
@@ -311,6 +313,8 @@ fn cli() -> Result<(), String> {
             // serialize ABI spec and write to JSON file
             let abi_spec_file = File::create(&abi_spec_path)
                 .map_err(|why| format!("couldn't create {}: {}", abi_spec_path.display(), why))?;
+
+            let abi = artifacts.abi();
 
             let mut writer = BufWriter::new(abi_spec_file);
 
@@ -632,7 +636,7 @@ mod tests {
                 .into_string()
                 .unwrap();
 
-            let _: (ir::Prog<FieldPrime>, _) =
+            let _: CompilationArtifacts<FieldPrime> =
                 compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
         }
     }
@@ -659,10 +663,11 @@ mod tests {
 
             let mut reader = BufReader::new(file);
 
-            let (program_flattened, _): (ir::Prog<FieldPrime>, _) =
+            let artifacts: CompilationArtifacts<FieldPrime> =
                 compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
-            let _ = program_flattened
+            let _ = artifacts
+                .prog()
                 .execute(&vec![FieldPrime::from(0)])
                 .unwrap();
         }
@@ -691,10 +696,11 @@ mod tests {
 
             let mut reader = BufReader::new(file);
 
-            let (program_flattened, _): (ir::Prog<FieldPrime>, _) =
+            let artifacts: CompilationArtifacts<FieldPrime> =
                 compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
-            let _ = program_flattened
+            let _ = artifacts
+                .prog()
                 .execute(&vec![FieldPrime::from(0)])
                 .unwrap();
         }

@@ -20,6 +20,22 @@ use zokrates_field::field::Field;
 use zokrates_pest_ast as pest;
 
 #[derive(Debug)]
+pub struct CompilationArtifacts<T: Field> {
+    prog: ir::Prog<T>,
+    abi: Abi,
+}
+
+impl<T: Field> CompilationArtifacts<T> {
+    pub fn prog(&self) -> &ir::Prog<T> {
+        &self.prog
+    }
+
+    pub fn abi(&self) -> &Abi {
+        &self.abi
+    }
+}
+
+#[derive(Debug)]
 pub struct CompileErrors(Vec<CompileError>);
 
 impl From<CompileError> for CompileErrors {
@@ -131,7 +147,7 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     reader: &mut R,
     location: Option<String>,
     resolve_option: Option<Resolve<S, E>>,
-) -> Result<(ir::Prog<T>, Abi), CompileErrors> {
+) -> Result<CompilationArtifacts<T>, CompileErrors> {
     let arena = Arena::new();
 
     let mut source = String::new();
@@ -168,7 +184,10 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     // optimize
     let optimized_ir_prog = ir_prog.optimize();
 
-    Ok((optimized_ir_prog, abi))
+    Ok(CompilationArtifacts {
+        prog: optimized_ir_prog,
+        abi: abi,
+    })
 }
 
 pub fn compile_program<'ast, T: Field, S: BufRead, E: Into<imports::Error>>(
@@ -233,7 +252,7 @@ mod test {
 		"#
             .as_bytes(),
         );
-        let res: Result<(ir::Prog<FieldPrime>, Abi), CompileErrors> = compile(
+        let res: Result<CompilationArtifacts<FieldPrime>, CompileErrors> = compile(
             &mut r,
             Some(String::from("./path/to/file")),
             None::<Resolve<BufReader<Empty>, io::Error>>,
@@ -254,7 +273,7 @@ mod test {
 		"#
             .as_bytes(),
         );
-        let res: Result<(ir::Prog<FieldPrime>, Abi), CompileErrors> = compile(
+        let res: Result<CompilationArtifacts<FieldPrime>, CompileErrors> = compile(
             &mut r,
             Some(String::from("./path/to/file")),
             None::<Resolve<BufReader<Empty>, io::Error>>,

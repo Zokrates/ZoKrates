@@ -77,7 +77,7 @@ pub fn test_inner(test_path: &str) {
 
     let mut code_reader = BufReader::new(File::open(&t.entry_point).unwrap());
 
-    let (bin, _) = compile(
+    let artifacts = compile(
         &mut code_reader,
         Some(
             t.entry_point
@@ -90,6 +90,8 @@ pub fn test_inner(test_path: &str) {
         Some(resolve),
     )
     .unwrap();
+
+    let bin = artifacts.prog();
 
     for test in t.tests.into_iter() {
         let input = &test.input.values;
