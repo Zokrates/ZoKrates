@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_fs_resolver"
-version = "0.4.1"
+version = "0.4.2"
 authors = ["Thibaut Schaeffer <thibaut@schaeff.fr>"]
 repository = "https://github.com/JacobEberhardt/ZoKrates.git"
 

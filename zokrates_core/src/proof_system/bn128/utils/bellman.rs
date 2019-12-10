@@ -1,5 +1,3 @@
-#![allow(deprecated)] // TODO remove when lazy_static is warning-free
-
 extern crate rand;
 
 use crate::ir::{CanonicalLinComb, Prog, Statement, Witness};
@@ -296,6 +294,7 @@ mod parse {
 mod tests {
     use super::*;
     use crate::ir::{Function, LinComb};
+    use typed_absy::types::{Signature, Type};
     use zokrates_field::field::FieldPrime;
 
     mod prove {
@@ -311,9 +310,10 @@ mod tests {
                     statements: vec![],
                 },
                 private: vec![],
+                signature: Signature::new(),
             };
 
-            let witness = program.clone().execute::<FieldPrime>(&vec![]).unwrap();
+            let witness = program.clone().execute(&vec![]).unwrap();
             let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
@@ -333,12 +333,12 @@ mod tests {
                     )],
                 },
                 private: vec![true],
+                signature: Signature::new()
+                    .inputs(vec![Type::FieldElement])
+                    .outputs(vec![Type::FieldElement]),
             };
 
-            let witness = program
-                .clone()
-                .execute::<FieldPrime>(&vec![FieldPrime::from(0)])
-                .unwrap();
+            let witness = program.clone().execute(&vec![FieldPrime::from(0)]).unwrap();
             let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
@@ -358,12 +358,12 @@ mod tests {
                     )],
                 },
                 private: vec![false],
+                signature: Signature::new()
+                    .inputs(vec![Type::FieldElement])
+                    .outputs(vec![Type::FieldElement]),
             };
 
-            let witness = program
-                .clone()
-                .execute::<FieldPrime>(&vec![FieldPrime::from(0)])
-                .unwrap();
+            let witness = program.clone().execute(&vec![FieldPrime::from(0)]).unwrap();
             let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
@@ -383,9 +383,10 @@ mod tests {
                     )],
                 },
                 private: vec![],
+                signature: Signature::new().outputs(vec![Type::FieldElement]),
             };
 
-            let witness = program.clone().execute::<FieldPrime>(&vec![]).unwrap();
+            let witness = program.clone().execute(&vec![]).unwrap();
             let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
@@ -417,11 +418,14 @@ mod tests {
                     ],
                 },
                 private: vec![true, false],
+                signature: Signature::new()
+                    .inputs(vec![Type::FieldElement, Type::FieldElement])
+                    .outputs(vec![Type::FieldElement, Type::FieldElement]),
             };
 
             let witness = program
                 .clone()
-                .execute::<FieldPrime>(&vec![FieldPrime::from(3), FieldPrime::from(4)])
+                .execute(&vec![FieldPrime::from(3), FieldPrime::from(4)])
                 .unwrap();
             let computation = Computation::with_witness(program, witness);
 
@@ -442,12 +446,12 @@ mod tests {
                     )],
                 },
                 private: vec![false],
+                signature: Signature::new()
+                    .inputs(vec![Type::FieldElement])
+                    .outputs(vec![Type::FieldElement]),
             };
 
-            let witness = program
-                .clone()
-                .execute::<FieldPrime>(&vec![FieldPrime::from(3)])
-                .unwrap();
+            let witness = program.clone().execute(&vec![FieldPrime::from(3)]).unwrap();
             let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
@@ -469,11 +473,14 @@ mod tests {
                     )],
                 },
                 private: vec![true, false],
+                signature: Signature::new()
+                    .inputs(vec![Type::FieldElement, Type::FieldElement])
+                    .outputs(vec![Type::FieldElement]),
             };
 
             let witness = program
                 .clone()
-                .execute::<FieldPrime>(&vec![FieldPrime::from(3), FieldPrime::from(4)])
+                .execute(&vec![FieldPrime::from(3), FieldPrime::from(4)])
                 .unwrap();
             let computation = Computation::with_witness(program, witness);
 

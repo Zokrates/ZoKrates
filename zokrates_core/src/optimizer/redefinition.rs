@@ -8,6 +8,30 @@
 // c := a
 // ```
 
+// # Redefinition rules
+
+// ## Defined variables
+
+// We say that a variable `v` is defined in constraint `c_n` or an ir program if there exists a constraint `c_i` with `i < n` of the form:
+// ```
+// q == k * v
+// where:
+// - q is quadratic and does not contain `v`
+// - k is a scalar
+// ```
+
+// ## Optimization rules
+
+// We maintain, `s` a set of substitutions as a mapping of `(variable => linear_combination)`. It starts empty.
+
+// - input variables are inserted in the substitution as `(v, [(1, v)])`
+// - the `~one` variable is inserted as `(~one, [(1, ~one)])`
+// - For each directive, for each variable `v` introduced, insert `(v, [(1, v)])`
+// - For each constraint `c`, we replace all variables by their value in `s` if any, otherwise leave them unchanged. Let's call `c_0` the resulting constraint. We either return `c_0` or nothing based on the form of `c_0`:
+//     - `~one * lin == k * v if v isn't defined`: insert `(v, lin / k)` and return nothing
+//     - `q == k * v if v isn't defined`: insert `(v, [(1, v)])` and return `c_0`
+//     - otherwise return `c_0`
+
 use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::folder::{fold_function, Folder};
 use crate::ir::LinComb;
@@ -30,43 +54,47 @@ impl<T: Field> RedefinitionOptimizer<T> {
     }
 
     pub fn optimize(p: Prog<T>) -> Prog<T> {
-        RedefinitionOptimizer::new().fold_program(p)
+        RedefinitionOptimizer::new().fold_module(p)
     }
 }
 
 impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
     fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
         match s {
-            // Detect constraints of the form `lincomb * ~ONE == x` where x is not in the map yet
             Statement::Constraint(quad, lin) => {
                 let quad = self.fold_quadratic_combination(quad);
                 let lin = self.fold_linear_combination(lin);
 
-                let to_insert = match quad.try_linear() {
-                    // left side must be linear
-                    Some(l) => match lin.try_summand() {
-                        // right side must be a single variable
-                        Some((variable, coefficient)) => {
-                            match variable == FlatVariable::one() {
-                                // variable must not be ~ONE
-                                false => match self.substitution.get(&variable) {
-                                    Some(_) => None,
-                                    None => Some((variable, l / &coefficient)),
-                                },
-                                true => None,
-                            }
+                let (keep_constraint, to_insert) = match lin.try_summand() {
+                    // if the right side is a single variable
+                    Some((variable, coefficient)) => {
+                        match self.substitution.get(&variable) {
+                            // if the variable is already defined
+                            Some(_) => (true, None),
+                            // if the variable is not defined yet
+                            None => match quad.try_linear() {
+                                // if the left side is linear
+                                Some(l) => (false, Some((variable, l / &coefficient))),
+                                // if the left side isn't linear
+                                None => (true, Some((variable, variable.into()))),
+                            },
                         }
-                        None => None,
-                    },
-                    None => None,
+                    }
+                    None => (true, None),
                 };
 
+                // insert into the substitution map
                 match to_insert {
                     Some((k, v)) => {
                         self.substitution.insert(k, v);
-                        vec![]
                     }
-                    None => vec![Statement::Constraint(quad, lin)],
+                    None => {}
+                };
+
+                // decide whether the constraint should be kept
+                match keep_constraint {
+                    false => vec![],
+                    true => vec![Statement::Constraint(quad, lin)],
                 }
             }
             Statement::Directive(d) => {
@@ -83,12 +111,12 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
     fn fold_linear_combination(&mut self, lc: LinComb<T>) -> LinComb<T> {
         // for each summand, check if it is equal to a linear term in our substitution, otherwise keep it as is
         lc.0.into_iter()
-            .map(
-                |(variable, coefficient)| match self.substitution.get(&variable) {
-                    Some(l) => l.clone() * &coefficient, // we only clone in the case that we found a value in the map
-                    None => LinComb::summand(coefficient, variable),
-                },
-            )
+            .map(|(variable, coefficient)| {
+                self.substitution
+                    .get(&variable)
+                    .map(|l| l.clone() * &coefficient)
+                    .unwrap_or(LinComb::summand(coefficient, variable))
+            })
             .fold(LinComb::zero(), |acc, x| acc + x)
     }
 
@@ -104,6 +132,10 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
         // to prevent the optimiser from replacing outputs, add them to the substitution
         self.substitution
             .extend(fun.returns.iter().map(|x| (x.clone(), x.clone().into())));
+
+        // to prevent the optimiser from replacing ~one, add it to the substitution
+        self.substitution
+            .insert(FlatVariable::one(), FlatVariable::one().into());
 
         fold_function(self, fun)
     }
@@ -138,6 +170,28 @@ mod tests {
             statements: vec![Statement::definition(z, x)],
             returns: vec![z],
         };
+
+        let mut optimizer = RedefinitionOptimizer::new();
+        assert_eq!(optimizer.fold_function(f), optimized);
+    }
+
+    #[test]
+    fn keep_one() {
+        // def main(x):
+        //    one = x
+        //    return one
+
+        let one = FlatVariable::one();
+        let x = FlatVariable::new(1);
+
+        let f: Function<FieldPrime> = Function {
+            id: "foo".to_string(),
+            arguments: vec![x],
+            statements: vec![Statement::definition(one, x)],
+            returns: vec![x.into()],
+        };
+
+        let optimized = f.clone();
 
         let mut optimizer = RedefinitionOptimizer::new();
         assert_eq!(optimizer.fold_function(f), optimized);
@@ -281,6 +335,43 @@ mod tests {
             ],
             returns: vec![r],
         };
+
+        let mut optimizer = RedefinitionOptimizer::new();
+        assert_eq!(optimizer.fold_function(f), optimized);
+    }
+
+    #[test]
+    fn keep_existing_quadratic_variable() {
+        // def main(x, y) -> ():
+        //     z = x * y
+        //     z = x
+        //     return
+
+        // ->
+
+        // def main(x, y) -> ():
+        //     z = x * y
+        //     z = x
+        //     return
+
+        let x = FlatVariable::new(0);
+        let y = FlatVariable::new(1);
+        let z = FlatVariable::new(2);
+
+        let f: Function<FieldPrime> = Function {
+            id: "main".to_string(),
+            arguments: vec![x, y],
+            statements: vec![
+                Statement::definition(
+                    z,
+                    QuadComb::from_linear_combinations(LinComb::from(x), LinComb::from(y)),
+                ),
+                Statement::definition(z, LinComb::from(x)),
+            ],
+            returns: vec![],
+        };
+
+        let optimized = f.clone();
 
         let mut optimizer = RedefinitionOptimizer::new();
         assert_eq!(optimizer.fold_function(f), optimized);

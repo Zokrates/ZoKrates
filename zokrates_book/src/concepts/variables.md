@@ -7,7 +7,7 @@ Variables are mutable, and always passed by value to functions.
 
 Shadowing is not allowed.
 ```zokrates
-{{#include ../../../zokrates_cli/examples/book/no_shadowing.code}}
+{{#include ../../../zokrates_cli/examples/book/no_shadowing.zok}}
 ```
 
 ### Scope
@@ -16,11 +16,11 @@ Shadowing is not allowed.
 
 Functions have their own scope
 ```zokrates
-{{#include ../../../zokrates_cli/examples/book/function_scope.code}}
+{{#include ../../../zokrates_cli/examples/book/function_scope.zok}}
 ```
 
 #### For-loop
 For-loops have their own scope
 ```zokrates
-{{#include ../../../zokrates_cli/examples/book/for_scope.code}}
+{{#include ../../../zokrates_cli/examples/book/for_scope.zok}}
 ```

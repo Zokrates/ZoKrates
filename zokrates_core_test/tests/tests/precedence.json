@@ -1,0 +1,19 @@
+{
+    "entry_point": "./tests/tests/precedence.zok",
+    "tests": [
+        {
+            "input": {
+                "values": [
+                    "12"
+                ]
+            },
+            "output": {
+                "Ok": {
+                    "values": [
+                        "12"
+                    ]
+                }
+            }
+        }
+    ]
+}

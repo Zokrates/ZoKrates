@@ -33,6 +33,15 @@ pub trait NodeValue: fmt::Display + Sized + PartialEq {
         Node::new(start, start.col(delta), self)
     }
 
+    fn start_end(self, start: Position, end: Position) -> Node<Self> {
+        Node::new(start, end, self)
+    }
+
+    #[cfg(test)]
+    fn mock(self) -> Node<Self> {
+        Node::new(Position::mock(), Position::mock(), self)
+    }
+
     fn span(self, span: Span) -> Node<Self> {
         let from = span.start_pos().line_col();
         let to = span.end_pos().line_col();
@@ -50,7 +59,6 @@ pub trait NodeValue: fmt::Display + Sized + PartialEq {
     }
 }
 
-#[cfg(test)]
 impl<V: NodeValue> From<V> for Node<V> {
     fn from(v: V) -> Node<V> {
         let mock_position = Position { col: 42, line: 42 };
@@ -66,13 +74,18 @@ impl<'ast, T: Field> NodeValue for Expression<'ast, T> {}
 impl<'ast, T: Field> NodeValue for ExpressionList<'ast, T> {}
 impl<'ast, T: Field> NodeValue for Assignee<'ast, T> {}
 impl<'ast, T: Field> NodeValue for Statement<'ast, T> {}
+impl<'ast, T: Field> NodeValue for SymbolDeclaration<'ast, T> {}
+impl NodeValue for UnresolvedType {}
+impl<'ast> NodeValue for StructType<'ast> {}
+impl<'ast> NodeValue for StructField<'ast> {}
 impl<'ast, T: Field> NodeValue for Function<'ast, T> {}
-impl<'ast, T: Field> NodeValue for Prog<'ast, T> {}
-impl<'ast, T: Field> NodeValue for Spread<'ast, T> {}
-impl<T: Field> NodeValue for Range<T> {}
+impl<'ast, T: Field> NodeValue for Module<'ast, T> {}
+impl<'ast> NodeValue for SymbolImport<'ast> {}
 impl<'ast> NodeValue for Variable<'ast> {}
 impl<'ast> NodeValue for Parameter<'ast> {}
-impl NodeValue for Import {}
+impl<'ast> NodeValue for Import<'ast> {}
+impl<'ast, T: Field> NodeValue for Spread<'ast, T> {}
+impl<T: Field> NodeValue for Range<T> {}
 
 impl<T: NodeValue> std::cmp::PartialEq for Node<T> {
     fn eq(&self, other: &Node<T>) -> bool {

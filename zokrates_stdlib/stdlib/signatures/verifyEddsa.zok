@@ -1,0 +1,50 @@
+import "hashes/sha256/1024bitPadded" as sha256
+import "ecc/edwardsScalarMult" as scalarMult 
+import "ecc/edwardsAdd" as add
+import "utils/pack/nonStrictUnpack256" as unpack256
+import "ecc/edwardsOnCurve" as onCurve
+import "ecc/edwardsOrderCheck" as orderCheck
+
+/// Verifies an EdDSA Signature.
+///
+/// Checks the correctness of a given EdDSA Signature (R,S) for the provided
+/// public key A and message (M0, M1).
+/// This python repo provides the tooling for creating valid signatures:
+/// https://github.com/Zokrates/pycrypto
+///
+/// For more information see:
+/// https://en.wikipedia.org/wiki/EdDSA
+/// https://eprint.iacr.org/2015/677.pdf
+///
+/// Arguments:
+///    R: Curve point. Hidden version of the per-message nonce.
+///    S: Field element. Signature to be verified.
+///    A: Curve point. Public part of the key used to create S.
+///    M0: 256bit array. First 256bits of the message used to create S  .
+///    M1: 256bit array. Trailing 256bits of the message used to create S  .
+///    context: Curve parameters used to create S.
+///
+/// Returns:
+///     Return 1 for S being a valid EdDSA Signature, 0 otherwise.
+def main(private field[2] R, private field S, field[2] A, field[256] M0, field[256] M1, field[10] context) -> (field):
+
+    field[2] G = [context[4], context[5]]
+
+    // Check if R is on curve and if it is not in a small subgroup. A is public input and can be checked offline 
+    field isOnCurve = onCurve(R, context) // throws if R is not on curve
+    field isPrimeOrder = orderCheck(R, context)
+    1 == isPrimeOrder	
+
+    field[256] Rx = unpack256(R[0])
+    field[256] Ax = unpack256(A[0]) 
+    field[256] hRAM = sha256(Rx, Ax, M0, M1)
+
+    field[256] sBits = unpack256(S)
+    field[2] lhs = scalarMult(sBits, G, context)
+
+    field[2] AhRAM = scalarMult(hRAM, A, context)
+    field[2] rhs = add(R, AhRAM, context)
+
+    field out = if rhs[0] == lhs[0] && rhs[1] == lhs[1] then 1 else 0 fi
+
+    return out 

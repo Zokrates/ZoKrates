@@ -1,7 +1,8 @@
 use crate::flat_absy::flat_parameter::FlatParameter;
 use crate::flat_absy::FlatVariable;
-use crate::helpers::Helper;
+use crate::solvers::Solver;
 use std::fmt;
+use typed_absy::types::signature::Signature;
 use zokrates_field::field::Field;
 
 mod expression;
@@ -10,13 +11,13 @@ mod from_flat;
 mod interpreter;
 mod witness;
 
-use self::expression::QuadComb;
+pub use self::expression::QuadComb;
 pub use self::expression::{CanonicalLinComb, LinComb};
 
 pub use self::interpreter::{Error, ExecutionResult};
 pub use self::witness::Witness;
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Hash, Eq)]
 pub enum Statement<T: Field> {
     Constraint(QuadComb<T>, LinComb<T>),
     Directive(Directive<T>),
@@ -32,11 +33,11 @@ impl<T: Field> Statement<T> {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
 pub struct Directive<T: Field> {
     pub inputs: Vec<LinComb<T>>,
     pub outputs: Vec<FlatVariable>,
-    pub helper: Helper,
+    pub solver: Solver,
 }
 
 impl<T: Field> fmt::Display for Directive<T> {
@@ -49,7 +50,7 @@ impl<T: Field> fmt::Display for Directive<T> {
                 .map(|o| format!("{}", o))
                 .collect::<Vec<_>>()
                 .join(", "),
-            self.helper,
+            self.solver,
             self.inputs
                 .iter()
                 .map(|i| format!("{}", i))
@@ -102,8 +103,9 @@ impl<T: Field> fmt::Display for Function<T> {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Prog<T: Field> {
+    pub signature: Signature,
     pub main: Function<T>,
     pub private: Vec<bool>,
 }
@@ -120,12 +122,8 @@ impl<T: Field> Prog<T> {
             .count()
     }
 
-    pub fn public_arguments_count(&self) -> usize {
-        self.private.iter().filter(|b| !**b).count()
-    }
-
-    pub fn private_arguments_count(&self) -> usize {
-        self.private.iter().filter(|b| **b).count()
+    pub fn arguments_count(&self) -> usize {
+        self.private.len()
     }
 
     pub fn parameters(&self) -> Vec<FlatParameter> {

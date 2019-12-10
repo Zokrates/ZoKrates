@@ -1,6 +1,5 @@
-use crate::absy;
+use crate::typed_absy::types::{MemberId, Type};
 use crate::typed_absy::Identifier;
-use crate::types::Type;
 use std::fmt;
 
 #[derive(Clone, PartialEq, Hash, Eq)]
@@ -18,8 +17,17 @@ impl<'ast> Variable<'ast> {
         Self::with_id_and_type(id, Type::Boolean)
     }
 
+    #[cfg(test)]
     pub fn field_array(id: Identifier<'ast>, size: usize) -> Variable<'ast> {
-        Self::with_id_and_type(id, Type::FieldElementArray(size))
+        Self::array(id, Type::FieldElement, size)
+    }
+
+    pub fn array(id: Identifier<'ast>, ty: Type, size: usize) -> Variable<'ast> {
+        Self::with_id_and_type(id, Type::array(ty, size))
+    }
+
+    pub fn struc(id: Identifier<'ast>, ty: Vec<(MemberId, Type)>) -> Variable<'ast> {
+        Self::with_id_and_type(id, Type::Struct(ty))
     }
 
     pub fn with_id_and_type(id: Identifier<'ast>, _type: Type) -> Variable<'ast> {
@@ -43,15 +51,15 @@ impl<'ast> fmt::Debug for Variable<'ast> {
     }
 }
 
-impl<'ast> From<absy::Variable<'ast>> for Variable<'ast> {
-    fn from(v: absy::Variable) -> Variable {
-        Variable::with_id_and_type(
-            Identifier {
-                id: v.id,
-                version: 0,
-                stack: vec![],
-            },
-            v._type,
-        )
-    }
-}
+// impl<'ast> From<absy::Variable<'ast>> for Variable<'ast> {
+//     fn from(v: absy::Variable) -> Variable {
+//         Variable::with_id_and_type(
+//             Identifier {
+//                 id: v.id,
+//                 version: 0,
+//                 stack: vec![],
+//             },
+//             v._type,
+//         )
+//     }
+// }

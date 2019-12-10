@@ -7,37 +7,23 @@
 use bincode::{deserialize_from, serialize_into, Infinite};
 use clap::{App, AppSettings, Arg, SubCommand};
 use serde_json::Value;
+use std::env;
 use std::fs::File;
 use std::io::{stdin, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::string::String;
-use std::{env, io};
+use zokrates_abi::Encode;
 use zokrates_core::compile::compile;
 use zokrates_core::ir;
 use zokrates_core::proof_system::*;
 use zokrates_field::field::{Field, FieldPrime};
 use zokrates_fs_resolver::resolve as fs_resolve;
-#[cfg(feature = "github")]
-use zokrates_github_resolver::{is_github_import, resolve as github_resolve};
 
 fn main() {
     cli().unwrap_or_else(|e| {
         println!("{}", e);
         std::process::exit(1);
     })
-}
-
-fn resolve(
-    location: &Option<String>,
-    source: &String,
-) -> Result<(BufReader<File>, String, String), io::Error> {
-    #[cfg(feature = "github")]
-    {
-        if is_github_import(source) {
-            return github_resolve(location, source);
-        };
-    }
-    fs_resolve(location, source)
 }
 
 fn cli() -> Result<(), String> {
@@ -57,7 +43,7 @@ fn cli() -> Result<(), String> {
     .author("Jacob Eberhardt, Thibaut Schaeffer, Stefan Deml")
     .about("Supports generation of zkSNARKs from high level language code including Smart Contracts for proof verification on the Ethereum Blockchain.\n'I know that I show nothing!'")
     .subcommand(SubCommand::with_name("compile")
-        .about("Compiles into flattened conditions. Produces two files: human-readable '.code' file for debugging and binary file")
+        .about("Compiles into flattened conditions. Produces two files: human-readable '.ztf' file for debugging and binary file")
         .arg(Arg::with_name("input")
             .short("i")
             .long("input")
@@ -89,8 +75,7 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(FLATTENED_CODE_DEFAULT_PATH)
-        )
-        .arg(Arg::with_name("proving-key-path")
+        ).arg(Arg::with_name("proving-key-path")
             .short("p")
             .long("proving-key-path")
             .help("Path of the generated proving key file")
@@ -98,8 +83,7 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(PROVING_KEY_DEFAULT_PATH)
-        )
-        .arg(Arg::with_name("verification-key-path")
+        ).arg(Arg::with_name("verification-key-path")
             .short("v")
             .long("verification-key-path")
             .help("Path of the generated verification key file")
@@ -107,8 +91,7 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(VERIFICATION_KEY_DEFAULT_PATH)
-        )
-        .arg(Arg::with_name("proving-scheme")
+        ).arg(Arg::with_name("proving-scheme")
             .short("s")
             .long("proving-scheme")
             .help("Proving scheme to use in the setup. Available options are G16 (default), PGHR13 and GM17")
@@ -132,8 +115,7 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(VERIFICATION_KEY_DEFAULT_PATH)
-        )
-        .arg(Arg::with_name("output")
+        ).arg(Arg::with_name("output")
             .short("o")
             .long("output")
             .help("Path of the output file")
@@ -180,9 +162,18 @@ fn cli() -> Result<(), String> {
         ).arg(Arg::with_name("arguments")
             .short("a")
             .long("arguments")
-            .help("Arguments for the program's main method as a space separated list")
+            .help("Arguments for the program's main function")
             .takes_value(true)
             .multiple(true) // allows multiple values
+            .required(false)
+        ).arg(Arg::with_name("abi")
+            .long("abi")
+            .help("Use the ABI")
+            .required(false)
+        ).arg(Arg::with_name("stdin")
+            .long("stdin")
+            .help("Read arguments from stdin")
+            .conflicts_with("arguments")
             .required(false)
         ).arg(Arg::with_name("light")
             .long("light")
@@ -274,14 +265,14 @@ fn cli() -> Result<(), String> {
 
             let bin_output_path = Path::new(sub_matches.value_of("output").unwrap());
 
-            let hr_output_path = bin_output_path.to_path_buf().with_extension("code");
+            let hr_output_path = bin_output_path.to_path_buf().with_extension("ztf");
 
             let file = File::open(path.clone()).unwrap();
 
             let mut reader = BufReader::new(file);
 
             let program_flattened: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(resolve))
+                compile(&mut reader, Some(location), Some(fs_resolve))
                     .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
 
             // number of constraints the flattened program will translate to.
@@ -333,60 +324,89 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(file);
 
-            let program_ast: ir::Prog<FieldPrime> =
+            let ir_prog: ir::Prog<FieldPrime> =
                 deserialize_from(&mut reader, Infinite).map_err(|why| why.to_string())?;
 
             // print deserialized flattened program
             if !sub_matches.is_present("light") {
-                println!("{}", program_ast);
+                println!("{}", ir_prog);
             }
 
-            let expected_cli_args_count =
-                program_ast.public_arguments_count() + program_ast.private_arguments_count();
+            let signature = ir_prog.signature.clone();
+
+            let is_stdin = sub_matches.is_present("stdin");
+            let is_abi = sub_matches.is_present("abi");
+
+            if !is_stdin && is_abi {
+                return Err(
+                    "ABI input as inline argument is not supported. Please use `--stdin`.".into(),
+                );
+            }
+
+            use zokrates_abi::Inputs;
 
             // get arguments
-            let arguments: Vec<_> = match sub_matches.values_of("arguments") {
+            let arguments = match is_stdin {
                 // take inline arguments
-                Some(p) => p
-                    .map(|x| FieldPrime::try_from_dec_str(x).map_err(|_| x.to_string()))
-                    .collect(),
+                false => {
+                    let arguments = sub_matches.values_of("arguments");
+                    arguments
+                        .map(|a| {
+                            a.map(|x| FieldPrime::try_from_dec_str(x).map_err(|_| x.to_string()))
+                                .collect::<Result<Vec<_>, _>>()
+                        })
+                        .unwrap_or(Ok(vec![]))
+                        .map(|v| Inputs::Raw(v))
+                }
                 // take stdin arguments
-                None => {
-                    if expected_cli_args_count > 0 {
-                        let mut stdin = stdin();
-                        let mut input = String::new();
-                        match stdin.read_to_string(&mut input) {
+                true => {
+                    let mut stdin = stdin();
+                    let mut input = String::new();
+
+                    match is_abi {
+                        true => match stdin.read_to_string(&mut input) {
                             Ok(_) => {
-                                input.retain(|x| x != '\n');
-                                input
-                                    .split(" ")
-                                    .map(|x| {
-                                        FieldPrime::try_from_dec_str(x).map_err(|_| x.to_string())
-                                    })
-                                    .collect()
+                                use zokrates_abi::parse_strict;
+
+                                parse_strict(&input, signature.inputs)
+                                    .map(|parsed| Inputs::Abi(parsed))
+                                    .map_err(|why| why.to_string())
                             }
                             Err(_) => Err(String::from("???")),
-                        }
-                    } else {
-                        Ok(vec![])
+                        },
+                        false => match ir_prog.arguments_count() {
+                            0 => Ok(Inputs::Raw(vec![])),
+                            _ => match stdin.read_to_string(&mut input) {
+                                Ok(_) => {
+                                    input.retain(|x| x != '\n');
+                                    input
+                                        .split(" ")
+                                        .map(|x| {
+                                            FieldPrime::try_from_dec_str(x)
+                                                .map_err(|_| x.to_string())
+                                        })
+                                        .collect::<Result<Vec<_>, _>>()
+                                        .map(|v| Inputs::Raw(v))
+                                }
+                                Err(_) => Err(String::from("???")),
+                            },
+                        },
                     }
                 }
             }
             .map_err(|e| format!("Could not parse argument: {}", e))?;
 
-            if arguments.len() != expected_cli_args_count {
-                Err(format!(
-                    "Wrong number of arguments. Given: {}, Required: {}.",
-                    arguments.len(),
-                    expected_cli_args_count
-                ))?
-            }
-
-            let witness = program_ast
-                .execute(&arguments)
+            let witness = ir_prog
+                .execute(&arguments.encode())
                 .map_err(|e| format!("Execution failed: {}", e))?;
 
-            println!("\nWitness: \n\n{}", witness.format_outputs());
+            use zokrates_abi::Decode;
+
+            let results_json_value: serde_json::Value =
+                zokrates_abi::CheckedValues::decode(witness.return_values(), signature.outputs)
+                    .into();
+
+            println!("\nWitness: \n\n{}", results_json_value.to_string());
 
             // write witness to file
             let output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -545,7 +565,7 @@ mod tests {
 
     #[test]
     fn examples() {
-        for p in glob("./examples/**/*.code").expect("Failed to read glob pattern") {
+        for p in glob("./examples/**/*.zok").expect("Failed to read glob pattern") {
             let path = match p {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
@@ -569,14 +589,14 @@ mod tests {
                 .unwrap();
 
             let _: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(resolve)).unwrap();
+                compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
         }
     }
 
     #[test]
     fn examples_with_input_success() {
         //these examples should compile and run
-        for p in glob("./examples/test*.code").expect("Failed to read glob pattern") {
+        for p in glob("./examples/test*.zok").expect("Failed to read glob pattern") {
             let path = match p {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
@@ -596,7 +616,7 @@ mod tests {
             let mut reader = BufReader::new(file);
 
             let program_flattened: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(resolve)).unwrap();
+                compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
             let _ = program_flattened
                 .execute(&vec![FieldPrime::from(0)])
@@ -608,7 +628,7 @@ mod tests {
     #[should_panic]
     fn examples_with_input_failure() {
         //these examples should compile but not run
-        for p in glob("./examples/runtime_errors/*.code").expect("Failed to read glob pattern") {
+        for p in glob("./examples/runtime_errors/*.zok").expect("Failed to read glob pattern") {
             let path = match p {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
@@ -628,7 +648,7 @@ mod tests {
             let mut reader = BufReader::new(file);
 
             let program_flattened: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(resolve)).unwrap();
+                compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
             let _ = program_flattened
                 .execute(&vec![FieldPrime::from(0)])

@@ -1,7 +1,0 @@
-import "PACKING/split"
-
-def main(field a) -> (field[254]):
-	
-	field[254] b = split(a)
-
-	return b

@@ -1,0 +1,15 @@
+{
+	"entry_point": "./tests/tests/hashes/utils/256bitsDirectionHelper.zok",
+	"tests": [
+		{
+			"input": {
+				"values": []
+			},
+			"output": {
+				"Ok": {
+					"values": ["1"]
+				}
+			}
+		}
+	]
+}

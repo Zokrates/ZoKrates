@@ -5,7 +5,6 @@
 //! @date 2018
 
 use crate::flat_absy::*;
-use crate::helpers::DirectiveStatement;
 use std::collections::HashMap;
 use zokrates_field::field::Field;
 
@@ -74,7 +73,7 @@ impl<T: Field> FlatStatement<T> {
                 e1.propagate(constants),
                 e2.propagate(constants),
             )),
-            FlatStatement::Directive(d) => Some(FlatStatement::Directive(DirectiveStatement {
+            FlatStatement::Directive(d) => Some(FlatStatement::Directive(FlatDirective {
                 inputs: d
                     .inputs
                     .into_iter()
@@ -103,14 +102,9 @@ impl<T: Field> Propagate<T> for FlatFunction<T> {
 
 impl<T: Field> FlatProg<T> {
     pub fn propagate(self) -> FlatProg<T> {
-        let mut functions = vec![];
+        let main = self.main.propagate();
 
-        for f in self.functions {
-            let fun = f.propagate();
-            functions.push(fun);
-        }
-
-        FlatProg { functions, ..self }
+        FlatProg { main }
     }
 }
 
