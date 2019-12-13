@@ -42,7 +42,7 @@ pub type TypedModules<'ast, T> = HashMap<TypedModuleId, TypedModule<'ast, T>>;
 pub type TypedFunctionSymbols<'ast, T> = HashMap<FunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>;
 
 /// A typed program as a collection of modules, one of them being the main
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct TypedProgram<'ast, T: Field> {
     pub modules: TypedModules<'ast, T>,
     pub main: TypedModuleId,
@@ -795,6 +795,7 @@ impl<'ast, T: Field> fmt::Display for UExpression<'ast, T> {
             UExpressionInner::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
             UExpressionInner::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
             UExpressionInner::Xor(ref lhs, ref rhs) => write!(f, "({} ^ {})", lhs, rhs),
+            UExpressionInner::Not(ref e) => write!(f, "!{}", e),
             UExpressionInner::Select(ref id, ref index) => write!(f, "{}[{}]", id, index),
             UExpressionInner::IfElse(ref condition, ref consequent, ref alternative) => write!(
                 f,

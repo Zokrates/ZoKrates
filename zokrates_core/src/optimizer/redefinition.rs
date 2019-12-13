@@ -99,6 +99,10 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
     }
 
     fn fold_function(&mut self, fun: Function<T>) -> Function<T> {
+        println!("{}", fun.statements.len());
+
+        println!("{}", fun);
+
         self.substitution.drain();
 
         // to prevent the optimiser from replacing outputs, add them to the substitution

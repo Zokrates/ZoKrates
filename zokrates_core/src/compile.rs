@@ -149,22 +149,22 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
                 .collect(),
         )
     })?;
-
+println!("HEY !");
     // analyse (unroll and constant propagation)
     let typed_ast = typed_ast.analyse();
-
+println!("HEY 2");
     // flatten input program
     let program_flattened = Flattener::flatten(typed_ast);
-
+println!("HEY 3");
     // analyse (constant propagation after call resolution)
     let program_flattened = program_flattened.analyse();
-
+println!("HEY 4");
     // convert to ir
     let ir_prog = ir::Prog::from(program_flattened);
-
+println!("HEY 5");
     // optimize
     let optimized_ir_prog = ir_prog.optimize();
-
+println!("HEY 6");
     Ok(optimized_ir_prog)
 }
 

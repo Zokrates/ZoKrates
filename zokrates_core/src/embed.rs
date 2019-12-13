@@ -208,7 +208,6 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
     FlatFunction {
         arguments,
         statements,
-        signature,
     }
 }
 
@@ -319,7 +318,6 @@ pub fn unpack_to_bitwidth<T: Field>(width: usize) -> FlatFunction<T> {
     FlatFunction {
         arguments,
         statements,
-        signature,
     }
 }
 

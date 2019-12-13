@@ -9,8 +9,6 @@ pub enum Type {
     FieldElement,
     Boolean,
     Uint(usize),
-    Array(Box<Type>, usize),
-    Struct(Vec<(MemberId, Type)>),
 }
 
 impl fmt::Display for Type {
@@ -19,16 +17,6 @@ impl fmt::Display for Type {
             Type::FieldElement => write!(f, "field"),
             Type::Boolean => write!(f, "bool"),
             Type::Uint(ref bitwidth) => write!(f, "u{}", bitwidth),
-            Type::Array(ref ty, ref size) => write!(f, "{}[{}]", ty, size),
-            Type::Struct(ref members) => write!(
-                f,
-                "{{{}}}",
-                members
-                    .iter()
-                    .map(|(id, t)| format!("{}: {}", id, t))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
         }
     }
 }
@@ -39,43 +27,16 @@ impl fmt::Debug for Type {
             Type::FieldElement => write!(f, "field"),
             Type::Boolean => write!(f, "bool"),
             Type::Uint(ref bitwidth) => write!(f, "u{}", bitwidth),
-            Type::Array(ref ty, ref size) => write!(f, "{}[{}]", ty, size),
-            Type::Struct(ref members) => write!(
-                f,
-                "{{{}}}",
-                members
-                    .iter()
-                    .map(|(id, t)| format!("{}: {}", id, t))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
         }
     }
 }
 
 impl Type {
-    pub fn array(ty: Type, size: usize) -> Self {
-        Type::Array(box ty, size)
-    }
-
-    pub fn struc(ty: Vec<(MemberId, Type)>) -> Self {
-        Type::Struct(ty)
-    }
-
     fn to_slug(&self) -> String {
         match self {
             Type::FieldElement => String::from("f"),
             Type::Boolean => String::from("b"),
             Type::Uint(bitwidth) => format!("u{}", bitwidth),
-            Type::Array(box ty, size) => format!("{}[{}]", ty.to_slug(), size),
-            Type::Struct(members) => format!(
-                "{{{}}}",
-                members
-                    .iter()
-                    .map(|(id, ty)| format!("{}:{}", id, ty))
-                    .collect::<Vec<_>>()
-                    .join(",")
-            ),
         }
     }
 
@@ -85,8 +46,6 @@ impl Type {
             Type::FieldElement => 1,
             Type::Boolean => 1,
             Type::Uint(_) => 1,
-            Type::Array(ty, size) => size * ty.get_primitive_count(),
-            Type::Struct(members) => members.iter().map(|(_, t)| t.get_primitive_count()).sum(),
         }
     }
 }

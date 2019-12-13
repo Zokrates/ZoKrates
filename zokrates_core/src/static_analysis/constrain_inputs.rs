@@ -27,18 +27,18 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2019
 
-use crate::typed_absy::folder::Folder;
-use crate::typed_absy::types::Type;
-use crate::typed_absy::*;
+use crate::zir::folder::Folder;
+use crate::zir::types::Type;
+use crate::zir::*;
 use std::collections::HashSet;
-use typed_absy::folder::fold_uint_expression;
-use typed_absy::folder::fold_uint_expression_inner;
+use zir::folder::fold_uint_expression;
+use zir::folder::fold_uint_expression_inner;
 use zokrates_field::field::Field;
 
 pub struct InputConstrainer<'ast, T: Field> {
     uints: HashSet<Identifier<'ast>>,
     next_var_id: usize,
-    constraints: Vec<TypedStatement<'ast, T>>,
+    constraints: Vec<ZirStatement<'ast, T>>,
 }
 
 impl<'ast, T: Field> InputConstrainer<'ast, T> {
@@ -50,96 +50,48 @@ impl<'ast, T: Field> InputConstrainer<'ast, T> {
         }
     }
 
-    pub fn constrain(p: TypedProgram<T>) -> TypedProgram<T> {
+    pub fn constrain(p: ZirProgram<T>) -> ZirProgram<T> {
         InputConstrainer::new().fold_program(p)
     }
 
     fn constrain_bits(&mut self, u: UExpression<'ast, T>) {
-        // let bitwidth = u.bitwidth;
-        // let u = UExpression {
-        //     metadata: Some(UMetadata {
-        //         bitwidth: Some(bitwidth),
-        //         should_reduce: Some(false)
-        //     }),
-        //     ..u
-        // };
-        // let bit_input = Variable::with_id_and_type(
-        //     CoreIdentifier::Internal("bit_input_array", self.next_var_id),
-        //     Type::array(Type::FieldElement, bitwidth),
-        // );
-        // self.next_var_id += 1;
-        // self.constraints.push(TypedStatement::MultipleDefinition(
-        //     vec![bit_input],
-        //     TypedExpressionList::FunctionCall(
-        //         match bitwidth {
-        //             8 => crate::embed::FlatEmbed::CheckU8.key::<T>(),
-        //             16 => crate::embed::FlatEmbed::CheckU16.key::<T>(),
-        //             32 => crate::embed::FlatEmbed::CheckU32.key::<T>(),
-        //             _ => unreachable!(),
-        //         },
-        //         vec![u.into()],
-        //         vec![Type::array(Type::FieldElement, bitwidth)],
-        //     ),
-        // ));
+        let bitwidth = u.bitwidth;
+        let u = UExpression {
+            metadata: Some(UMetadata {
+                bitwidth: Some(bitwidth),
+                should_reduce: Some(false)
+            }),
+            ..u
+        };
+        let bit_input = (self.next_var_id..self.next_var_id + bitwidth).map(|i| Variable::with_id_and_type(
+            Identifier::Internal("bit_input_array", i),
+            Type::FieldElement
+        )).collect();
+        self.next_var_id += bitwidth;
+        self.constraints.push(ZirStatement::MultipleDefinition(
+            bit_input,
+            ZirExpressionList::FunctionCall(
+                match bitwidth {
+                    8 => crate::embed::FlatEmbed::CheckU8.key::<T>().into(),
+                    16 => crate::embed::FlatEmbed::CheckU16.key::<T>().into(),
+                    32 => crate::embed::FlatEmbed::CheckU32.key::<T>().into(),
+                    _ => unreachable!(),
+                },
+                vec![u.into()],
+                vec![Type::FieldElement; bitwidth],
+            ),
+        ));
     }
 
-    fn constrain_expression(&mut self, e: TypedExpression<'ast, T>) {
+    fn constrain_expression(&mut self, e: ZirExpression<'ast, T>) {
         match e {
-            TypedExpression::FieldElement(_) => {}
-            TypedExpression::Boolean(b) => self.constraints.push(TypedStatement::Condition(
+            ZirExpression::FieldElement(_) => {}
+            ZirExpression::Boolean(b) => self.constraints.push(ZirStatement::Condition(
                 b.clone().into(),
                 BooleanExpression::And(box b.clone(), box b).into(),
             )),
-            TypedExpression::Uint(u) => {
+            ZirExpression::Uint(u) => {
                 self.constrain_bits(u);
-            }
-            TypedExpression::Array(a) => {
-                for i in 0..a.size() {
-                    let e = match a.inner_type() {
-                        Type::FieldElement => FieldElementExpression::select(
-                            a.clone(),
-                            FieldElementExpression::Number(T::from(i)),
-                        )
-                        .into(),
-                        Type::Uint(..) => UExpression::select(
-                            a.clone(),
-                            FieldElementExpression::Number(T::from(i)),
-                        )
-                        .into(),
-                        Type::Boolean => BooleanExpression::select(
-                            a.clone(),
-                            FieldElementExpression::Number(T::from(i)),
-                        )
-                        .into(),
-                        Type::Array(..) => ArrayExpression::select(
-                            a.clone(),
-                            FieldElementExpression::Number(T::from(i)),
-                        )
-                        .into(),
-                        Type::Struct(..) => StructExpression::select(
-                            a.clone(),
-                            FieldElementExpression::Number(T::from(i)),
-                        )
-                        .into(),
-                    };
-
-                    self.constrain_expression(e);
-                }
-            }
-            TypedExpression::Struct(s) => {
-                for (id, ty) in s.ty() {
-                    let e = match ty {
-                        Type::FieldElement => {
-                            FieldElementExpression::member(s.clone(), id.clone()).into()
-                        }
-                        Type::Boolean => BooleanExpression::member(s.clone(), id.clone()).into(),
-                        Type::Uint(..) => UExpression::member(s.clone(), id.clone()).into(),
-                        Type::Array(..) => ArrayExpression::member(s.clone(), id.clone()).into(),
-                        Type::Struct(..) => StructExpression::member(s.clone(), id.clone()).into(),
-                    };
-
-                    self.constrain_expression(e);
-                }
             }
         }
     }
@@ -156,12 +108,6 @@ impl<'ast, T: Field> Folder<'ast, T> for InputConstrainer<'ast, T> {
                 self.uints.insert(v.id.clone());
                 UExpressionInner::Identifier(v.id).annotate(bitwidth).into()
             }
-            Type::Struct(members) => StructExpressionInner::Identifier(v.id)
-                .annotate(members)
-                .into(),
-            Type::Array(box ty, size) => ArrayExpressionInner::Identifier(v.id)
-                .annotate(ty, size)
-                .into(),
         };
 
         self.constrain_expression(e);
@@ -169,7 +115,7 @@ impl<'ast, T: Field> Folder<'ast, T> for InputConstrainer<'ast, T> {
         p
     }
 
-    fn fold_function(&mut self, f: TypedFunction<'ast, T>) -> TypedFunction<'ast, T> {
+    fn fold_function(&mut self, f: ZirFunction<'ast, T>) -> ZirFunction<'ast, T> {
         let arguments: Vec<_> = f
             .arguments
             .into_iter()
@@ -181,7 +127,7 @@ impl<'ast, T: Field> Folder<'ast, T> for InputConstrainer<'ast, T> {
             .flat_map(|s| self.fold_statement(s))
             .collect();
 
-        TypedFunction {
+        ZirFunction {
             arguments,
             statements: self.constraints.drain(..).chain(statements).collect(),
             ..f

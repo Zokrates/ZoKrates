@@ -13,9 +13,9 @@ def main(u32[1][16] input) -> (u32[8]):
 	// assume padding is already done
 	input = input
 
-	for field i in 0..1 do
+	//for field i in 0..1 do
 
-		u32[64] w = [...input[i], ...[0x00000000; 48]]
+		u32[64] w = [...input[0], ...[0x00000000; 48]]
 
 		for field i in 16..64 do
 			u32 s0 = w[i-15] ^ w[i-15] ^ w[i-15]
@@ -32,25 +32,7 @@ def main(u32[1][16] input) -> (u32[8]):
 		u32 g = h6
 		u32 h = h7
 
-		for field i in 0..64 do
 
-			u32 S1 = e ^ e ^ e
-			u32 ch = (e ^ f) ^ ((e) ^ g)
-			u32 temp1 = h + S1 + ch + k[i] + w[i]
-			u32 S0 = a ^ a ^ a
-	        u32 maj = (a ^ b) ^ (a ^ c) ^ (b ^ c)
-	        u32 temp2 = S0 + maj
-
-	        h = g
-	        g = f
-	        f = e
-	        e = d + temp1
-	        d = c
-	        c = b
-	        b = a
-	        a = temp1 + temp2
-
-		endfor
 
 		h0 = h0 + a
 		h1 = h1 + b
@@ -61,6 +43,6 @@ def main(u32[1][16] input) -> (u32[8]):
 		h6 = h6 + g
 		h7 = h7 + h
 
-	endfor
+	//endfor
 
 	return [h0, h1, h2, h3, h4, h5, h6, h7]

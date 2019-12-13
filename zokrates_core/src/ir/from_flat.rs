@@ -67,7 +67,7 @@ impl<T: Field> From<FlatProg<T>> for Prog<T> {
         let main = flat_prog.main;
 
         // get the signature to keep high level information in the low level representation
-        let signature = main.signature.clone();
+        let signature = crate::typed_absy::types::Signature::new();
 
         // get the interface of the program, ie which inputs are private and public
         let private = main.arguments.iter().map(|p| p.private).collect();

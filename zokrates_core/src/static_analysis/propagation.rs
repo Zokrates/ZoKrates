@@ -159,6 +159,59 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     }
                 }
             },
+            UExpressionInner::IfElse(box condition, box consequence, box alternative) => {
+                let consequence = self.fold_uint_expression(consequence);
+                let alternative = self.fold_uint_expression(alternative);
+                match self.fold_boolean_expression(condition) {
+                    BooleanExpression::Value(true) => consequence.into_inner(),
+                    BooleanExpression::Value(false) => alternative.into_inner(),
+                    c => UExpressionInner::IfElse(box c, box consequence, box alternative),
+                }
+            }
+            UExpressionInner::Select(box array, box index) => {
+
+                let array = self.fold_array_expression(array);
+                let index = self.fold_field_expression(index);
+
+                let inner_type = array.inner_type().clone();
+                let size = array.size();
+
+                match (array.into_inner(), index) {
+                    (ArrayExpressionInner::Value(v), FieldElementExpression::Number(n)) => {
+                        let n_as_usize = n.to_dec_string().parse::<usize>().unwrap();
+                        if n_as_usize < size {
+                            UExpression::try_from(v[n_as_usize].clone()).unwrap().into_inner()
+                        } else {
+                            unreachable!(
+                                "out of bounds index ({} >= {}) found during static analysis",
+                                n_as_usize, size
+                            );
+                        }
+                    }
+                    (ArrayExpressionInner::Identifier(id), FieldElementExpression::Number(n)) => {
+                        match self.constants.get(&TypedAssignee::Select(
+                            box TypedAssignee::Identifier(Variable::array(
+                                id.clone(),
+                                inner_type.clone(),
+                                size,
+                            )),
+                            box FieldElementExpression::Number(n.clone()).into(),
+                        )) {
+                            Some(e) => match e {
+                                TypedExpression::Uint(e) => e.clone().into_inner(),
+                                _ => unreachable!(""),
+                            },
+                            None => UExpressionInner::Select(
+                                box ArrayExpressionInner::Identifier(id).annotate(inner_type, size),
+                                box FieldElementExpression::Number(n),
+                            ),
+                        }
+                    }
+                    (a, i) => {
+                        UExpressionInner::Select(box a.annotate(inner_type, size), box i)
+                    }
+                }
+            }
             e => e,
         }
     }

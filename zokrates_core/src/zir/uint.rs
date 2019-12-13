@@ -1,7 +1,5 @@
-use typed_absy::identifier::Identifier;
-use typed_absy::ArrayExpression;
-use typed_absy::BooleanExpression;
-use typed_absy::FieldElementExpression;
+use zir::identifier::Identifier;
+use zir::BooleanExpression;
 use zokrates_field::field::Field;
 
 type Bitwidth = usize;
@@ -23,11 +21,6 @@ impl<'ast, T: Field> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
         UExpressionInner::Xor(box self, box other).annotate(bitwidth)
-    }
-
-    pub fn not(self) -> UExpression<'ast, T> {
-        let bitwidth = self.bitwidth;
-        UExpressionInner::Not(box self).annotate(bitwidth)
     }
 }
 
@@ -64,10 +57,6 @@ pub enum UExpressionInner<'ast, T: Field> {
     Mult(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Xor(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Not(Box<UExpression<'ast, T>>),
-    Select(
-        Box<ArrayExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
     IfElse(
         Box<BooleanExpression<'ast, T>>,
         Box<UExpression<'ast, T>>,

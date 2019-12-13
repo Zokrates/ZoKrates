@@ -7,8 +7,8 @@
 
 use crate::flat_absy::*;
 use crate::helpers::{DirectiveStatement, Helper, RustHelper};
-use crate::typed_absy::types::{FunctionIdentifier, FunctionKey, MemberId, Signature, Type};
-use crate::typed_absy::*;
+use crate::zir::types::{FunctionIdentifier, Type, Signature, FunctionKey};
+use crate::zir::*;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -30,12 +30,12 @@ pub struct Flattener<'ast, T: Field> {
 // We introduce a trait in order to make it possible to make flattening `e` generic over the type of `e`
 
 trait Flatten<'ast, T: Field>:
-    TryFrom<TypedExpression<'ast, T>, Error = ()> + IfElse<'ast, T> + Select<'ast, T> + Member<'ast, T>
+    TryFrom<ZirExpression<'ast, T>, Error = ()> + IfElse<'ast, T>
 {
     fn flatten(
         self,
         flattener: &mut Flattener<'ast, T>,
-        symbols: &TypedFunctionSymbols<'ast, T>,
+        symbols: &ZirFunctionSymbols<'ast, T>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
     ) -> Vec<FlatExpression<T>>;
 }
@@ -44,7 +44,7 @@ impl<'ast, T: Field> Flatten<'ast, T> for FieldElementExpression<'ast, T> {
     fn flatten(
         self,
         flattener: &mut Flattener<'ast, T>,
-        symbols: &TypedFunctionSymbols<'ast, T>,
+        symbols: &ZirFunctionSymbols<'ast, T>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
     ) -> Vec<FlatExpression<T>> {
         vec![flattener.flatten_field_expression(symbols, statements_flattened, self)]
@@ -55,7 +55,7 @@ impl<'ast, T: Field> Flatten<'ast, T> for UExpression<'ast, T> {
     fn flatten(
         self,
         flattener: &mut Flattener<'ast, T>,
-        symbols: &TypedFunctionSymbols<'ast, T>,
+        symbols: &ZirFunctionSymbols<'ast, T>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
     ) -> Vec<FlatExpression<T>> {
         vec![flattener.flatten_uint_expression(symbols, statements_flattened, self)]
@@ -66,64 +66,15 @@ impl<'ast, T: Field> Flatten<'ast, T> for BooleanExpression<'ast, T> {
     fn flatten(
         self,
         flattener: &mut Flattener<'ast, T>,
-        symbols: &TypedFunctionSymbols<'ast, T>,
+        symbols: &ZirFunctionSymbols<'ast, T>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
     ) -> Vec<FlatExpression<T>> {
         vec![flattener.flatten_boolean_expression(symbols, statements_flattened, self)]
     }
 }
 
-impl<'ast, T: Field> Flatten<'ast, T> for StructExpression<'ast, T> {
-    fn flatten(
-        self,
-        flattener: &mut Flattener<'ast, T>,
-        symbols: &TypedFunctionSymbols<'ast, T>,
-        statements_flattened: &mut Vec<FlatStatement<T>>,
-    ) -> Vec<FlatExpression<T>> {
-        flattener.flatten_struct_expression(symbols, statements_flattened, self)
-    }
-}
-
-impl<'ast, T: Field> Flatten<'ast, T> for ArrayExpression<'ast, T> {
-    fn flatten(
-        self,
-        flattener: &mut Flattener<'ast, T>,
-        symbols: &TypedFunctionSymbols<'ast, T>,
-        statements_flattened: &mut Vec<FlatStatement<T>>,
-    ) -> Vec<FlatExpression<T>> {
-        match self.inner_type() {
-            Type::FieldElement => flattener
-                .flatten_array_expression::<FieldElementExpression<'ast, T>>(
-                    symbols,
-                    statements_flattened,
-                    self,
-                ),
-            Type::Boolean => flattener.flatten_array_expression::<BooleanExpression<'ast, T>>(
-                symbols,
-                statements_flattened,
-                self,
-            ),
-            Type::Uint(..) => flattener.flatten_array_expression::<UExpression<'ast, T>>(
-                symbols,
-                statements_flattened,
-                self,
-            ),
-            Type::Array(..) => flattener.flatten_array_expression::<ArrayExpression<'ast, T>>(
-                symbols,
-                statements_flattened,
-                self,
-            ),
-            Type::Struct(..) => flattener.flatten_array_expression::<StructExpression<'ast, T>>(
-                symbols,
-                statements_flattened,
-                self,
-            ),
-        }
-    }
-}
-
 impl<'ast, T: Field> Flattener<'ast, T> {
-    pub fn flatten(p: TypedProgram<'ast, T>) -> FlatProg<T> {
+    pub fn flatten(p: ZirProgram<'ast, T>) -> FlatProg<T> {
         Flattener::new().flatten_program(p)
     }
 
@@ -151,7 +102,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// * U is the type of the expression
     fn flatten_if_else_expression<U: Flatten<'ast, T>>(
         &mut self,
-        symbols: &TypedFunctionSymbols<'ast, T>,
+        symbols: &ZirFunctionSymbols<'ast, T>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
         condition: BooleanExpression<'ast, T>,
         consequence: U,
@@ -228,358 +179,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         res.into_iter().map(|r| r.into()).collect()
     }
 
-    fn flatten_member_expression(
-        &mut self,
-        symbols: &TypedFunctionSymbols<'ast, T>,
-        statements_flattened: &mut Vec<FlatStatement<T>>,
-        s: StructExpression<'ast, T>,
-        member_id: MemberId,
-    ) -> Vec<FlatExpression<T>> {
-        let members = s.ty().clone();
-        let expected_output_size = members
-            .iter()
-            .find(|(id, _)| *id == member_id)
-            .unwrap()
-            .1
-            .get_primitive_count();
-
-        let res =
-            match s.into_inner() {
-                StructExpressionInner::Value(values) => {
-                    // If the struct has an explicit value, we get the value at the given member
-                    assert_eq!(values.len(), members.len());
-                    values
-                        .into_iter()
-                        .zip(members.into_iter())
-                        .filter(|(_, (id, _))| *id == member_id)
-                        .flat_map(|(v, (_, t))| match t {
-                            Type::FieldElement => FieldElementExpression::try_from(v)
-                                .unwrap()
-                                .flatten(self, symbols, statements_flattened),
-                            Type::Uint(..) => UExpression::try_from(v).unwrap().flatten(
-                                self,
-                                symbols,
-                                statements_flattened,
-                            ),
-                            Type::Boolean => BooleanExpression::try_from(v).unwrap().flatten(
-                                self,
-                                symbols,
-                                statements_flattened,
-                            ),
-                            Type::Array(..) => ArrayExpression::try_from(v).unwrap().flatten(
-                                self,
-                                symbols,
-                                statements_flattened,
-                            ),
-                            Type::Struct(..) => StructExpression::try_from(v).unwrap().flatten(
-                                self,
-                                symbols,
-                                statements_flattened,
-                            ),
-                        })
-                        .collect()
-                }
-                StructExpressionInner::Identifier(id) => {
-                    // If the struct is an identifier, we allocated variables in the layout for that identifier. We need to access a subset of these values.
-                    // the struct is encoded as a sequence, so we need to identify the offset at which this member starts
-                    let offset = members
-                        .iter()
-                        .take_while(|(id, _)| *id != member_id)
-                        .map(|(_, ty)| ty.get_primitive_count())
-                        .sum();
-
-                    // we also need the size of this member
-                    let size = members
-                        .iter()
-                        .find(|(id, _)| *id == member_id)
-                        .unwrap()
-                        .1
-                        .get_primitive_count();
-                    self.layout.get(&id).unwrap()[offset..(offset + size)]
-                        .into_iter()
-                        .map(|i| i.clone().into())
-                        .collect()
-                }
-                StructExpressionInner::Select(box array, box index) => {
-                    let offset = members
-                        .iter()
-                        .take_while(|(id, _)| *id != member_id)
-                        .map(|(_, ty)| ty.get_primitive_count())
-                        .sum();
-
-                    // we also need the size of this member
-                    let size = members
-                        .iter()
-                        .find(|(id, _)| *id == member_id)
-                        .unwrap()
-                        .1
-                        .get_primitive_count();
-
-                    self.flatten_select_expression::<StructExpression<'ast, T>>(
-                        symbols,
-                        statements_flattened,
-                        array,
-                        index,
-                    )[offset..offset + size]
-                        .to_vec()
-                }
-                StructExpressionInner::FunctionCall(..) => unreachable!(),
-                StructExpressionInner::IfElse(box condition, box consequence, box alternative) => {
-                    // if the struct is `(if c then a else b)`, we want to access `(if c then a else b).member`
-                    // we reduce to `if c then a.member else b.member`
-                    let ty = members
-                        .clone()
-                        .into_iter()
-                        .find(|(id, _)| *id == member_id)
-                        .unwrap()
-                        .1;
-
-                    match ty {
-                        Type::FieldElement => self.flatten_if_else_expression(
-                            symbols,
-                            statements_flattened,
-                            condition.clone(),
-                            FieldElementExpression::member(consequence.clone(), member_id.clone()),
-                            FieldElementExpression::member(alternative.clone(), member_id),
-                        ),
-                        Type::Boolean => self.flatten_if_else_expression(
-                            symbols,
-                            statements_flattened,
-                            condition.clone(),
-                            BooleanExpression::member(consequence.clone(), member_id.clone()),
-                            BooleanExpression::member(alternative.clone(), member_id),
-                        ),
-                        Type::Uint(..) => self.flatten_if_else_expression(
-                            symbols,
-                            statements_flattened,
-                            condition.clone(),
-                            UExpression::member(consequence.clone(), member_id.clone()),
-                            UExpression::member(alternative.clone(), member_id),
-                        ),
-                        Type::Struct(..) => self.flatten_if_else_expression(
-                            symbols,
-                            statements_flattened,
-                            condition.clone(),
-                            StructExpression::member(consequence.clone(), member_id.clone()),
-                            StructExpression::member(alternative.clone(), member_id),
-                        ),
-                        Type::Array(..) => self.flatten_if_else_expression(
-                            symbols,
-                            statements_flattened,
-                            condition.clone(),
-                            ArrayExpression::member(consequence.clone(), member_id.clone()),
-                            ArrayExpression::member(alternative.clone(), member_id),
-                        ),
-                    }
-                }
-                StructExpressionInner::Member(box s0, m_id) => {
-                    let e = self.flatten_member_expression(symbols, statements_flattened, s0, m_id);
-
-                    let offset = members
-                        .iter()
-                        .take_while(|(id, _)| *id != member_id)
-                        .map(|(_, ty)| ty.get_primitive_count())
-                        .sum();
-
-                    // we also need the size of this member
-                    let size = members
-                        .iter()
-                        .find(|(id, _)| *id == member_id)
-                        .unwrap()
-                        .1
-                        .get_primitive_count();
-
-                    e[offset..(offset + size)].into()
-                }
-            };
-
-        assert_eq!(res.len(), expected_output_size);
-        res
-    }
-
-    /// Flatten an array selection expression
-    ///
-    /// # Arguments
-    ///
-    /// * `symbols` - Available functions in this context
-    /// * `statements_flattened` - Vector where new flattened statements can be added.
-    /// * `expression` - `TypedExpression` that will be flattened.
-    /// # Remarks
-    /// * U is the type of the expression
-    fn flatten_select_expression<U: Flatten<'ast, T>>(
-        &mut self,
-        symbols: &TypedFunctionSymbols<'ast, T>,
-        statements_flattened: &mut Vec<FlatStatement<T>>,
-        array: ArrayExpression<'ast, T>,
-        index: FieldElementExpression<'ast, T>,
-    ) -> Vec<FlatExpression<T>> {
-        let size = array.size();
-        let ty = array.inner_type().clone();
-
-        let element_size = ty.get_primitive_count();
-
-        match index {
-            FieldElementExpression::Number(n) => match array.into_inner() {
-                ArrayExpressionInner::Identifier(id) => {
-                    assert!(n < T::from(size));
-                    let n = n.to_dec_string().parse::<usize>().unwrap();
-                    self.layout.get(&id).unwrap()[n * element_size..(n + 1) * element_size]
-                        .into_iter()
-                        .map(|i| i.clone().into())
-                        .collect()
-                }
-                ArrayExpressionInner::Value(expressions) => {
-                    assert!(n < T::from(size));
-                    let n = n.to_dec_string().parse::<usize>().unwrap();
-                    U::try_from(expressions[n].clone()).unwrap().flatten(
-                        self,
-                        symbols,
-                        statements_flattened,
-                    )
-                }
-                ArrayExpressionInner::FunctionCall(..) => unreachable!(),
-                ArrayExpressionInner::IfElse(condition, consequence, alternative) => {
-                    // [if cond then [a, b] else [c, d]][1] == if cond then [a, b][1] else [c, d][1]
-                    U::if_else(
-                        *condition,
-                        U::select(*consequence, FieldElementExpression::Number(n.clone())),
-                        U::select(*alternative, FieldElementExpression::Number(n)),
-                    )
-                    .flatten(self, symbols, statements_flattened)
-                }
-                ArrayExpressionInner::Member(box s, id) => {
-                    assert!(n < T::from(size));
-                    let n = n.to_dec_string().parse::<usize>().unwrap();
-                    self.flatten_member_expression(symbols, statements_flattened, s, id)
-                        [n * ty.get_primitive_count()..(n + 1) * ty.get_primitive_count()]
-                        .to_vec()
-                }
-                ArrayExpressionInner::Select(box array, box index) => {
-                    assert!(n < T::from(size));
-                    let n = n.to_dec_string().parse::<usize>().unwrap();
-
-                    let e = match array.inner_type() {
-                        Type::FieldElement => self
-                            .flatten_select_expression::<FieldElementExpression<'ast, T>>(
-                                symbols,
-                                statements_flattened,
-                                array,
-                                index,
-                            ),
-                        Type::Boolean => self
-                            .flatten_select_expression::<BooleanExpression<'ast, T>>(
-                                symbols,
-                                statements_flattened,
-                                array,
-                                index,
-                            ),
-                        Type::Uint(..) => self.flatten_select_expression::<UExpression<'ast, T>>(
-                            symbols,
-                            statements_flattened,
-                            array,
-                            index,
-                        ),
-                        Type::Array(..) => self
-                            .flatten_select_expression::<ArrayExpression<'ast, T>>(
-                                symbols,
-                                statements_flattened,
-                                array,
-                                index,
-                            ),
-                        Type::Struct(..) => self
-                            .flatten_select_expression::<StructExpression<'ast, T>>(
-                                symbols,
-                                statements_flattened,
-                                array,
-                                index,
-                            ),
-                    };
-
-                    e[n * element_size..(n + 1) * element_size]
-                        .into_iter()
-                        .map(|i| i.clone().into())
-                        .collect()
-                }
-            },
-            e => {
-                // we have array[e] with e an arbitrary expression
-                // first we check that e is in 0..array.len(), so we check that sum(if e == i then 1 else 0) == 1
-                // here depending on the size, we could use a proper range check based on bits
-                let range_check = (0..size)
-                    .map(|i| {
-                        FieldElementExpression::IfElse(
-                            box BooleanExpression::FieldEq(
-                                box e.clone(),
-                                box FieldElementExpression::Number(T::from(i)),
-                            ),
-                            box FieldElementExpression::Number(T::from(1)),
-                            box FieldElementExpression::Number(T::from(0)),
-                        )
-                    })
-                    .fold(FieldElementExpression::Number(T::from(0)), |acc, e| {
-                        FieldElementExpression::Add(box acc, box e)
-                    });
-
-                let range_check_statement = TypedStatement::Condition(
-                    FieldElementExpression::Number(T::from(1)).into(),
-                    range_check.into(),
-                );
-
-                self.flatten_statement(symbols, statements_flattened, range_check_statement);
-
-                // now we flatten to sum(if e == i then array[i] else false)
-                (0..size)
-                    .map(|i| {
-                        let term = match array.clone().into_inner() {
-                            // a[i] = a[i]
-                            ArrayExpressionInner::Identifier(id) => U::select(
-                                ArrayExpressionInner::Identifier(id).annotate(ty.clone(), size),
-                                FieldElementExpression::Number(T::from(i)),
-                            ),
-                            // [a_0, ..., a_n][i] = a_i
-                            ArrayExpressionInner::Value(expressions) => {
-                                assert_eq!(size, expressions.len());
-                                U::try_from(expressions[i].clone()).unwrap()
-                            }
-                            ArrayExpressionInner::FunctionCall(..) => unreachable!(),
-                            // (if c then a else b fi)[i] = if c then a[i] else b[i]
-                            ArrayExpressionInner::IfElse(condition, consequence, alternative) => {
-                                U::if_else(
-                                    *condition,
-                                    U::select(
-                                        *consequence,
-                                        FieldElementExpression::Number(T::from(i)),
-                                    ),
-                                    U::select(
-                                        *alternative,
-                                        FieldElementExpression::Number(T::from(i)),
-                                    ),
-                                )
-                            }
-                            ArrayExpressionInner::Member(box s, id) => U::member(s, id),
-                            ArrayExpressionInner::Select(box array, box index) => U::select(
-                                ArrayExpressionInner::Select(box array, box index)
-                                    .annotate(ty.clone(), size),
-                                FieldElementExpression::Number(T::from(i)),
-                            ),
-                        };
-
-                        (term, FieldElementExpression::Number(T::from(i)))
-                    })
-                    .fold(None, |acc, (term, index)| match acc {
-                        None => Some(term),
-                        Some(acc) => Some(U::if_else(
-                            BooleanExpression::FieldEq(box e.clone(), box index),
-                            term,
-                            acc,
-                        )),
-                    })
-                    .unwrap()
-                    .flatten(self, symbols, statements_flattened)
-            }
-        }
-    }
-
     /// Flattens a boolean expression
     ///
     /// # Arguments
@@ -594,7 +193,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// * in order to preserve composability.
     fn flatten_boolean_expression(
         &mut self,
-        symbols: &TypedFunctionSymbols<'ast, T>,
+        symbols: &ZirFunctionSymbols<'ast, T>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
         expression: BooleanExpression<'ast, T>,
     ) -> FlatExpression<T> {
@@ -920,17 +519,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     alternative,
                 )[0]
             .clone(),
-            BooleanExpression::Member(box s, id) => {
-                self.flatten_member_expression(symbols, statements_flattened, s, id)[0].clone()
-            }
-            BooleanExpression::Select(box array, box index) => self
-                .flatten_select_expression::<BooleanExpression<'ast, T>>(
-                    symbols,
-                    statements_flattened,
-                    array,
-                    index,
-                )[0]
-            .clone(),
         }
     }
 
@@ -945,11 +533,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// * `param_expressions` - Arguments of this call
     fn flatten_function_call(
         &mut self,
-        symbols: &TypedFunctionSymbols<'ast, T>,
+        symbols: &ZirFunctionSymbols<'ast, T>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
         id: FunctionIdentifier<'ast>,
         return_types: Vec<Type>,
-        param_expressions: Vec<TypedExpression<'ast, T>>,
+        param_expressions: Vec<ZirExpression<'ast, T>>,
     ) -> FlatExpressionList<T> {
         let passed_signature = Signature::new()
             .inputs(param_expressions.iter().map(|e| e.get_type()).collect())
@@ -1047,53 +635,22 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// * `symbols` - Available functions in in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
-    /// * `expr` - `TypedExpression` that will be flattened.
+    /// * `expr` - `ZirExpression` that will be flattened.
     fn flatten_expression(
         &mut self,
-        symbols: &TypedFunctionSymbols<'ast, T>,
+        symbols: &ZirFunctionSymbols<'ast, T>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
-        expr: TypedExpression<'ast, T>,
+        expr: ZirExpression<'ast, T>,
     ) -> Vec<FlatExpression<T>> {
         match expr {
-            TypedExpression::FieldElement(e) => {
+            ZirExpression::FieldElement(e) => {
                 vec![self.flatten_field_expression(symbols, statements_flattened, e)]
             }
-            TypedExpression::Boolean(e) => {
+            ZirExpression::Boolean(e) => {
                 vec![self.flatten_boolean_expression(symbols, statements_flattened, e)]
             }
-            TypedExpression::Uint(e) => {
+            ZirExpression::Uint(e) => {
                 vec![self.flatten_uint_expression(symbols, statements_flattened, e)]
-            }
-            TypedExpression::Array(e) => match e.inner_type().clone() {
-                Type::FieldElement => self
-                    .flatten_array_expression::<FieldElementExpression<'ast, T>>(
-                        symbols,
-                        statements_flattened,
-                        e,
-                    ),
-                Type::Boolean => self.flatten_array_expression::<BooleanExpression<'ast, T>>(
-                    symbols,
-                    statements_flattened,
-                    e,
-                ),
-                Type::Uint(..) => self.flatten_array_expression::<UExpression<'ast, T>>(
-                    symbols,
-                    statements_flattened,
-                    e,
-                ),
-                Type::Array(..) => self.flatten_array_expression::<ArrayExpression<'ast, T>>(
-                    symbols,
-                    statements_flattened,
-                    e,
-                ),
-                Type::Struct(..) => self.flatten_array_expression::<StructExpression<'ast, T>>(
-                    symbols,
-                    statements_flattened,
-                    e,
-                ),
-            },
-            TypedExpression::Struct(e) => {
-                self.flatten_struct_expression(symbols, statements_flattened, e)
             }
         }
     }
@@ -1107,7 +664,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// * `expr` - `UExpression` that will be flattened.
     fn flatten_uint_expression(
         &mut self,
-        symbols: &TypedFunctionSymbols<'ast, T>,
+        symbols: &ZirFunctionSymbols<'ast, T>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
         expr: UExpression<'ast, T>,
     ) -> FlatExpression<T> {
@@ -1123,6 +680,46 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             UExpressionInner::Value(x) => FlatExpression::Number(T::from(x as u128)), // force to be a field element
             UExpressionInner::Identifier(x) => {
                 FlatExpression::Identifier(self.layout.get(&x).unwrap().clone()[0])
+            }
+            UExpressionInner::Not(box e) => {
+                let e_flattened = self.flatten_uint_expression(symbols, statements_flattened, e);
+
+                let e_bits =
+                    self.get_bits(e_flattened, target_bitwidth, statements_flattened);
+
+                assert_eq!(e_bits.len(), target_bitwidth);
+
+                let name_not = e_bits.iter().map(|_| self.use_sym()).collect::<Vec<_>>();
+
+                statements_flattened.extend(
+                    name_not
+                        .iter()
+                        .zip(e_bits.into_iter())
+                        .map(|(name, bit)| {
+                            FlatStatement::Definition(
+                                *name,
+                                FlatExpression::Sub(
+                                    box FlatExpression::Number(T::from(1)),
+                                    box bit,
+                                ),
+                            )
+                            
+                        }),
+                );
+
+                name_not.into_iter().enumerate().fold(
+                    FlatExpression::Number(T::from(0)),
+                    |acc, (i, n)| {
+                        FlatExpression::Add(
+                            box acc,
+                            box FlatExpression::Mult(
+                                box FlatExpression::Number(T::from(2).pow(target_bitwidth - i - 1)),
+                                box n.into(),
+                            ),
+                        )
+                    },
+                )
+
             }
             UExpressionInner::Add(box left, box right) => {
                 let left_flattened =
@@ -1166,6 +763,15 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 };
                 FlatExpression::Mult(box new_left, box new_right)
             }
+            UExpressionInner::IfElse(box condition, box consequence, box alternative) => self
+                .flatten_if_else_expression(
+                    symbols,
+                    statements_flattened,
+                    condition,
+                    consequence,
+                    alternative,
+                )[0]
+            .clone(),
             UExpressionInner::Xor(box left, box right) => {
                 let left_flattened =
                     self.flatten_uint_expression(symbols, statements_flattened, left);
@@ -1222,24 +828,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         )
                     },
                 )
-            }
-            UExpressionInner::Select(box array, box index) => self
-                .flatten_select_expression::<UExpression<'ast, T>>(
-                    symbols,
-                    statements_flattened,
-                    array,
-                    index,
-                )[0]
-            .clone(),
-            UExpressionInner::IfElse(box condition, box consequence, box alternative) => {
-                self.flatten_if_else_expression::<UExpression<'ast, T>>(
-                    symbols,
-                    statements_flattened,
-                    condition,
-                    consequence,
-                    alternative,
-                )[0]
-                .clone()
             }
         };
 
@@ -1321,7 +909,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// * `expr` - `FieldElementExpression` that will be flattened.
     fn flatten_field_expression(
         &mut self,
-        symbols: &TypedFunctionSymbols<'ast, T>,
+        symbols: &ZirFunctionSymbols<'ast, T>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
         expr: FieldElementExpression<'ast, T>,
     ) -> FlatExpression<T> {
@@ -1541,188 +1129,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 assert!(exprs_flattened.expressions.len() == 1); // outside of MultipleDefinition, FunctionCalls must return a single value
                 exprs_flattened.expressions[0].clone()
             }
-            FieldElementExpression::Member(box s, id) => {
-                self.flatten_member_expression(symbols, statements_flattened, s, id)[0].clone()
-            }
-            FieldElementExpression::Select(box array, box index) => self
-                .flatten_select_expression::<FieldElementExpression<'ast, T>>(
-                    symbols,
-                    statements_flattened,
-                    array,
-                    index,
-                )[0]
-            .clone(),
-        }
-    }
-
-    /// Flattens an array expression
-    ///
-    /// # Arguments
-    ///
-    /// * `symbols` - Available functions in in this context
-    /// * `statements_flattened` - Vector where new flattened statements can be added.
-    /// * `expr` - `StructExpression` that will be flattened.
-    fn flatten_struct_expression(
-        &mut self,
-        symbols: &TypedFunctionSymbols<'ast, T>,
-        statements_flattened: &mut Vec<FlatStatement<T>>,
-        expr: StructExpression<'ast, T>,
-    ) -> Vec<FlatExpression<T>> {
-        let ty = expr.get_type();
-        let expected_output_size = expr.get_type().get_primitive_count();
-        let members = expr.ty().clone();
-
-        let res = match expr.into_inner() {
-            StructExpressionInner::Identifier(x) => self
-                .layout
-                .get(&x)
-                .unwrap()
-                .iter()
-                .map(|v| FlatExpression::Identifier(v.clone()))
-                .collect(),
-            StructExpressionInner::Value(values) => values
-                .into_iter()
-                .flat_map(|v| self.flatten_expression(symbols, statements_flattened, v))
-                .collect(),
-            StructExpressionInner::FunctionCall(key, param_expressions) => {
-                let exprs_flattened = self.flatten_function_call(
-                    symbols,
-                    statements_flattened,
-                    key.id,
-                    vec![ty],
-                    param_expressions,
-                );
-                exprs_flattened.expressions
-            }
-            StructExpressionInner::IfElse(box condition, box consequence, box alternative) => {
-                members
-                    .into_iter()
-                    .flat_map(|(id, ty)| match ty {
-                        Type::FieldElement => FieldElementExpression::if_else(
-                            condition.clone(),
-                            FieldElementExpression::member(consequence.clone(), id.clone()),
-                            FieldElementExpression::member(alternative.clone(), id.clone()),
-                        )
-                        .flatten(self, symbols, statements_flattened),
-                        Type::Uint(..) => UExpression::if_else(
-                            condition.clone(),
-                            UExpression::member(consequence.clone(), id.clone()),
-                            UExpression::member(alternative.clone(), id.clone()),
-                        )
-                        .flatten(self, symbols, statements_flattened),
-                        Type::Boolean => BooleanExpression::if_else(
-                            condition.clone(),
-                            BooleanExpression::member(consequence.clone(), id.clone()),
-                            BooleanExpression::member(alternative.clone(), id.clone()),
-                        )
-                        .flatten(self, symbols, statements_flattened),
-                        Type::Struct(..) => StructExpression::if_else(
-                            condition.clone(),
-                            StructExpression::member(consequence.clone(), id.clone()),
-                            StructExpression::member(alternative.clone(), id.clone()),
-                        )
-                        .flatten(self, symbols, statements_flattened),
-                        Type::Array(..) => ArrayExpression::if_else(
-                            condition.clone(),
-                            ArrayExpression::member(consequence.clone(), id.clone()),
-                            ArrayExpression::member(alternative.clone(), id.clone()),
-                        )
-                        .flatten(self, symbols, statements_flattened),
-                    })
-                    .collect()
-            }
-            StructExpressionInner::Member(box s, id) => {
-                self.flatten_member_expression(symbols, statements_flattened, s, id)
-            }
-            StructExpressionInner::Select(box array, box index) => self
-                .flatten_select_expression::<StructExpression<'ast, T>>(
-                    symbols,
-                    statements_flattened,
-                    array,
-                    index,
-                ),
-        };
-
-        assert_eq!(res.len(), expected_output_size);
-        res
-    }
-
-    /// Flattens an array expression
-    ///
-    /// # Arguments
-    ///
-    /// * `symbols` - Available functions in in this context
-    /// * `statements_flattened` - Vector where new flattened statements can be added.
-    /// * `expr` - `ArrayExpression` that will be flattened.
-    /// # Remarks
-    /// * U is the inner type of the array
-    fn flatten_array_expression<U: Flatten<'ast, T>>(
-        &mut self,
-        symbols: &HashMap<FunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>,
-        statements_flattened: &mut Vec<FlatStatement<T>>,
-        expr: ArrayExpression<'ast, T>,
-    ) -> Vec<FlatExpression<T>> {
-        let ty = expr.get_type();
-
-        let size = expr.size();
-
-        match expr.into_inner() {
-            ArrayExpressionInner::Identifier(x) => self
-                .layout
-                .get(&x)
-                .unwrap()
-                .iter()
-                .map(|v| FlatExpression::Identifier(v.clone()))
-                .collect(),
-            ArrayExpressionInner::Value(values) => {
-                assert_eq!(size, values.len());
-                values
-                    .into_iter()
-                    .flat_map(|v| {
-                        U::try_from(v)
-                            .unwrap()
-                            .flatten(self, symbols, statements_flattened)
-                    })
-                    .collect()
-            }
-            ArrayExpressionInner::FunctionCall(key, param_expressions) => {
-                let exprs_flattened = self.flatten_function_call(
-                    symbols,
-                    statements_flattened,
-                    key.id,
-                    vec![ty],
-                    param_expressions,
-                );
-                assert!(exprs_flattened.expressions.len() == size); // outside of MultipleDefinition, FunctionCalls must return a single value
-                exprs_flattened.expressions
-            }
-            ArrayExpressionInner::IfElse(ref condition, ref consequence, ref alternative) => (0
-                ..size)
-                .flat_map(|i| {
-                    U::if_else(
-                        *condition.clone(),
-                        U::select(
-                            *consequence.clone(),
-                            FieldElementExpression::Number(T::from(i)),
-                        ),
-                        U::select(
-                            *alternative.clone(),
-                            FieldElementExpression::Number(T::from(i)),
-                        ),
-                    )
-                    .flatten(self, symbols, statements_flattened)
-                })
-                .collect(),
-            ArrayExpressionInner::Member(box s, id) => {
-                self.flatten_member_expression(symbols, statements_flattened, s, id)
-            }
-            ArrayExpressionInner::Select(box array, box index) => self
-                .flatten_select_expression::<ArrayExpression<'ast, T>>(
-                    symbols,
-                    statements_flattened,
-                    array,
-                    index,
-                ),
         }
     }
 
@@ -1732,15 +1138,15 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// * `symbols` - Available functions in in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
-    /// * `stat` - `TypedStatement` that will be flattened.
+    /// * `stat` - `ZirStatement` that will be flattened.
     fn flatten_statement(
         &mut self,
-        symbols: &TypedFunctionSymbols<'ast, T>,
+        symbols: &ZirFunctionSymbols<'ast, T>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
-        stat: TypedStatement<'ast, T>,
+        stat: ZirStatement<'ast, T>,
     ) {
         match stat {
-            TypedStatement::Return(exprs) => {
+            ZirStatement::Return(exprs) => {
                 let flat_expressions = exprs
                     .into_iter()
                     .map(|expr| self.flatten_expression(symbols, statements_flattened, expr))
@@ -1751,35 +1157,25 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     expressions: flat_expressions,
                 }));
             }
-            TypedStatement::Declaration(_) => {
+            ZirStatement::Declaration(_) => {
                 // declarations have already been checked
                 ()
             }
-            TypedStatement::Definition(assignee, expr) => {
+            ZirStatement::Definition(assignee, expr) => {
                 // define n variables with n the number of primitive types for v_type
                 // assign them to the n primitive types for expr
 
                 let rhs = self.flatten_expression(symbols, statements_flattened, expr);
 
-                match assignee {
-                    TypedAssignee::Identifier(ref v) => {
-                        let vars = self.use_variable(&v);
-                        // handle return of function call
-                        statements_flattened.extend(
-                            vars.into_iter()
-                                .zip(rhs)
-                                .map(|(v, e)| FlatStatement::Definition(v, e)),
-                        );
-                    }
-                    TypedAssignee::Select(..) => unreachable!(
-                        "array element redefs should have been replaced by array redefs in unroll"
-                    ),
-                    TypedAssignee::Member(..) => unreachable!(
-                        "struct member redefs should have been replaced by struct redef in unroll"
-                    ),
-                }
+                let vars = self.use_variable(&assignee);
+                // handle return of function call
+                statements_flattened.extend(
+                    vars.into_iter()
+                        .zip(rhs)
+                        .map(|(v, e)| FlatStatement::Definition(v, e)),
+                );
             }
-            TypedStatement::Condition(lhs, rhs) => {
+            ZirStatement::Condition(lhs, rhs) => {
                 // flatten expr1 and expr2 to n flattened expressions with n the number of primitive types for expr1
                 // add n conditions to check equality of the n expressions
 
@@ -1799,15 +1195,14 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     }
                 }
             }
-            TypedStatement::For(..) => unreachable!("static analyser should have unrolled"),
-            TypedStatement::MultipleDefinition(vars, rhs) => {
+            ZirStatement::MultipleDefinition(vars, rhs) => {
                 // flatten the right side to p = sum(var_i.type.primitive_count) expressions
                 // define p new variables to the right side expressions
 
                 let var_types = vars.iter().map(|v| v.get_type()).collect();
 
                 match rhs {
-                    TypedExpressionList::FunctionCall(key, exprs, _) => {
+                    ZirExpressionList::FunctionCall(key, exprs, _) => {
                         let rhs_flattened = self.flatten_function_call(
                             symbols,
                             statements_flattened,
@@ -1832,13 +1227,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// # Arguments
     ///
-    /// * `funct` - `TypedFunctionSymbol` that will be flattened.
+    /// * `funct` - `ZirFunctionSymbol` that will be flattened.
     ///
     /// # Remarks
     /// * Only "flat" symbols can be flattened here. Other function calls must have been inlined previously.
-    fn flatten_function_symbol(&mut self, funct: TypedFunctionSymbol<'ast, T>) -> FlatFunction<T> {
+    fn flatten_function_symbol(&mut self, funct: ZirFunctionSymbol<'ast, T>) -> FlatFunction<T> {
         match funct {
-            TypedFunctionSymbol::Flat(flat_function) => flat_function.synthetize(),
+            ZirFunctionSymbol::Flat(flat_function) => flat_function.synthetize(),
             _ => unreachable!("only local flat symbols can be flattened"),
         }
     }
@@ -1848,11 +1243,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// # Arguments
     ///
     /// * `symbols` - Available functions in in this context
-    /// * `funct` - `TypedFunction` that will be flattened
+    /// * `funct` - `ZirFunction` that will be flattened
     fn flatten_function(
         &mut self,
-        symbols: &TypedFunctionSymbols<'ast, T>,
-        funct: TypedFunction<'ast, T>,
+        symbols: &ZirFunctionSymbols<'ast, T>,
+        funct: ZirFunction<'ast, T>,
     ) -> FlatFunction<T> {
         self.layout = HashMap::new();
 
@@ -1866,15 +1261,17 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             .flat_map(|p| self.use_parameter(&p, &mut statements_flattened))
             .collect();
 
+        let stat_count = funct.statements.len();
+
         // flatten statements in functions and apply substitution
-        for stat in funct.statements {
+        for (i, stat) in funct.statements.into_iter().enumerate() {
+            println!("stat {} of {}", i, stat_count);
             self.flatten_statement(symbols, &mut statements_flattened, stat);
         }
 
         FlatFunction {
             arguments: arguments_flattened,
             statements: statements_flattened,
-            signature: funct.signature,
         }
     }
 
@@ -1882,8 +1279,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// # Arguments
     ///
-    /// * `prog` - `TypedProgram` that will be flattened.
-    fn flatten_program(&mut self, prog: TypedProgram<'ast, T>) -> FlatProg<T> {
+    /// * `prog` - `ZirProgram` that will be flattened.
+    fn flatten_program(&mut self, prog: ZirProgram<'ast, T>) -> FlatProg<T> {
         let main_module = prog.modules.get(&prog.main).unwrap();
 
         let main = main_module
@@ -1897,7 +1294,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let symbols = &main_module.functions;
 
         let main_flattened = match main {
-            TypedFunctionSymbol::Here(f) => self.flatten_function(&symbols, f),
+            ZirFunctionSymbol::Here(f) => self.flatten_function(&symbols, f),
             _ => unreachable!("main should be a typed function locally"),
         };
 
@@ -1959,7 +1356,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     fn get_function<'a>(
         &mut self,
         key: &'a FunctionKey<'ast>,
-        symbols: &'a TypedFunctionSymbols<'ast, T>,
+        symbols: &'a ZirFunctionSymbols<'ast, T>,
     ) -> FlatFunction<T> {
         let cached = self.flat_cache.get(&key).cloned();
 
@@ -1990,22 +1387,22 @@ mod tests {
         //     _0 = 7
         //     _1 = 1         // power flattening returns 1, definition introduces _7
         //     return _1
-        let function = TypedFunction {
+        let function = ZirFunction {
             arguments: vec![],
             statements: vec![
-                TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("a")),
+                ZirStatement::Definition(
+                    ZirAssignee::Identifier(Variable::field_element("a")),
                     FieldElementExpression::Number(FieldPrime::from(7)).into(),
                 ),
-                TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("b")),
+                ZirStatement::Definition(
+                    ZirAssignee::Identifier(Variable::field_element("b")),
                     FieldElementExpression::Pow(
                         box FieldElementExpression::Identifier("a".into()),
                         box FieldElementExpression::Number(FieldPrime::from(0)),
                     )
                     .into(),
                 ),
-                TypedStatement::Return(vec![FieldElementExpression::Identifier("b".into()).into()]),
+                ZirStatement::Return(vec![FieldElementExpression::Identifier("b".into()).into()]),
             ],
             signature: Signature {
                 inputs: vec![],
@@ -2050,22 +1447,22 @@ mod tests {
         //     _1 = 1 * _0     // x**1
         //     _2 = _1         // power flattening returns _1, definition introduces _2
         //     return _2
-        let function = TypedFunction {
+        let function = ZirFunction {
             arguments: vec![],
             statements: vec![
-                TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("a")),
+                ZirStatement::Definition(
+                    ZirAssignee::Identifier(Variable::field_element("a")),
                     FieldElementExpression::Number(FieldPrime::from(7)).into(),
                 ),
-                TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("b")),
+                ZirStatement::Definition(
+                    ZirAssignee::Identifier(Variable::field_element("b")),
                     FieldElementExpression::Pow(
                         box FieldElementExpression::Identifier("a".into()),
                         box FieldElementExpression::Number(FieldPrime::from(1)),
                     )
                     .into(),
                 ),
-                TypedStatement::Return(vec![FieldElementExpression::Identifier("b".into()).into()]),
+                ZirStatement::Return(vec![FieldElementExpression::Identifier("b".into()).into()]),
             ],
             signature: Signature {
                 inputs: vec![],
@@ -2135,22 +1532,22 @@ mod tests {
         //     _7 = _6         // power flattening returns _6, definition introduces _7
         //     return _7
 
-        let function = TypedFunction {
+        let function = ZirFunction {
             arguments: vec![],
             statements: vec![
-                TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("a")),
+                ZirStatement::Definition(
+                    ZirAssignee::Identifier(Variable::field_element("a")),
                     FieldElementExpression::Number(FieldPrime::from(7)).into(),
                 ),
-                TypedStatement::Definition(
-                    TypedAssignee::Identifier(Variable::field_element("b")),
+                ZirStatement::Definition(
+                    ZirAssignee::Identifier(Variable::field_element("b")),
                     FieldElementExpression::Pow(
                         box FieldElementExpression::Identifier("a".into()),
                         box FieldElementExpression::Number(FieldPrime::from(13)),
                     )
                     .into(),
                 ),
-                TypedStatement::Return(vec![FieldElementExpression::Identifier("b".into()).into()]),
+                ZirStatement::Return(vec![FieldElementExpression::Identifier("b".into()).into()]),
             ],
             signature: Signature {
                 inputs: vec![],
@@ -2287,13 +1684,13 @@ mod tests {
         let mut flattener = Flattener::new();
         let mut statements_flattened = vec![];
 
-        let definition = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_element("b")),
+        let definition = ZirStatement::Definition(
+            ZirAssignee::Identifier(Variable::field_element("b")),
             FieldElementExpression::Number(FieldPrime::from(42)).into(),
         );
 
-        let statement = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_element("a")),
+        let statement = ZirStatement::Definition(
+            ZirAssignee::Identifier(Variable::field_element("a")),
             FieldElementExpression::Div(
                 box FieldElementExpression::Div(
                     box FieldElementExpression::Number(FieldPrime::from(5)),
@@ -2390,8 +1787,8 @@ mod tests {
 
         let mut flattener = Flattener::new();
         let mut statements_flattened = vec![];
-        let statement = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_array("foo", 3)),
+        let statement = ZirStatement::Definition(
+            ZirAssignee::Identifier(Variable::field_array("foo", 3)),
             ArrayExpressionInner::Value(vec![
                 FieldElementExpression::Number(FieldPrime::from(1)).into(),
                 FieldElementExpression::Number(FieldPrime::from(2)).into(),
@@ -2426,8 +1823,8 @@ mod tests {
         // field[3] foo = [1, 2, 3]
         let mut flattener = Flattener::new();
         let mut statements_flattened = vec![];
-        let statement = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_array("foo", 3)),
+        let statement = ZirStatement::Definition(
+            ZirAssignee::Identifier(Variable::field_array("foo", 3)),
             ArrayExpressionInner::Value(vec![
                 FieldElementExpression::Number(FieldPrime::from(1)).into(),
                 FieldElementExpression::Number(FieldPrime::from(2)).into(),
@@ -2465,8 +1862,8 @@ mod tests {
 
         let mut flattener = Flattener::new();
         let mut statements_flattened = vec![];
-        let statement = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_array("foo", 3)),
+        let statement = ZirStatement::Definition(
+            ZirAssignee::Identifier(Variable::field_array("foo", 3)),
             ArrayExpressionInner::Value(vec![
                 FieldElementExpression::Number(FieldPrime::from(1)).into(),
                 FieldElementExpression::Number(FieldPrime::from(2)).into(),
@@ -2504,8 +1901,8 @@ mod tests {
         let mut flattener = Flattener::new();
 
         let mut statements_flattened = vec![];
-        let def = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_array("foo", 3)),
+        let def = ZirStatement::Definition(
+            ZirAssignee::Identifier(Variable::field_array("foo", 3)),
             ArrayExpressionInner::Value(vec![
                 FieldElementExpression::Number(FieldPrime::from(1)).into(),
                 FieldElementExpression::Number(FieldPrime::from(2)).into(),
@@ -2515,8 +1912,8 @@ mod tests {
             .into(),
         );
 
-        let sum = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_element("bar")),
+        let sum = ZirStatement::Definition(
+            ZirAssignee::Identifier(Variable::field_element("bar")),
             FieldElementExpression::Add(
                 box FieldElementExpression::Add(
                     box FieldElementExpression::Select(
@@ -2567,8 +1964,8 @@ mod tests {
         let mut flattener = Flattener::new();
 
         let mut statements_flattened = vec![];
-        let def = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_array("foo", 4)),
+        let def = ZirStatement::Definition(
+            ZirAssignee::Identifier(Variable::field_array("foo", 4)),
             ArrayExpressionInner::Value(vec![
                 ArrayExpressionInner::Value(vec![
                     FieldElementExpression::Number(FieldPrime::from(1)).into(),
@@ -2587,8 +1984,8 @@ mod tests {
             .into(),
         );
 
-        let sum = TypedStatement::Definition(
-            TypedAssignee::Identifier(Variable::field_element("bar")),
+        let sum = ZirStatement::Definition(
+            ZirAssignee::Identifier(Variable::field_element("bar")),
             FieldElementExpression::Add(
                 box FieldElementExpression::Add(
                     box FieldElementExpression::Add(

@@ -34,6 +34,7 @@ mod optimizer;
 mod parser;
 mod semantics;
 mod static_analysis;
+mod zir;
 
 pub mod absy;
 pub mod compile;

@@ -1943,6 +1943,7 @@ impl<'ast> Checker<'ast> {
                 let e_checked = self.check_expression(e, module_id, &types)?;
                 match e_checked {
                     TypedExpression::Boolean(e) => Ok(BooleanExpression::Not(box e).into()),
+                    TypedExpression::Uint(e) => Ok(UExpression::not(e).into()),
                     e => Err(Error {
                         pos: Some(pos),
 
