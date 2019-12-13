@@ -32,16 +32,16 @@ fn from_type(
         ],
         typed_absy::Type::Uint(bitwidth) => vec![zir::Type::Uint(bitwidth),
         ],
-        typed_absy::Type::Array(box ty, size) => {
-            let inner = from_type(ty);
-            (0..size)
+        typed_absy::Type::Array(array_type) => {
+            let inner = from_type(*array_type.ty);
+            (0..array_type.size)
             .flat_map(|i| inner.clone())
             .collect()
         },
         typed_absy::Type::Struct(members) => members
             .into_iter()
-            .flat_map(|(_, ty)| 
-                from_type(ty)
+            .flat_map(|struct_member| 
+                from_type(*struct_member.ty)
             )
             .collect(),
     }

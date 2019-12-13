@@ -8,7 +8,7 @@ use crate::typed_absy::folder::*;
 use crate::typed_absy::*;
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use typed_absy::types::{MemberId, Type};
+use typed_absy::types::{StructMember, Type};
 use zokrates_field::field::Field;
 
 pub struct Propagator<'ast, T: Field> {
@@ -353,7 +353,13 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 
                 match s.into_inner() {
                     StructExpressionInner::Value(v) => {
-                        match members.iter().zip(v).find(|(id, _)| id.0 == m).unwrap().1 {
+                        match members
+                            .iter()
+                            .zip(v)
+                            .find(|(member, _)| member.id == m)
+                            .unwrap()
+                            .1
+                        {
                             TypedExpression::FieldElement(s) => s,
                             _ => unreachable!(),
                         }
@@ -449,7 +455,13 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 
                 match s.into_inner() {
                     StructExpressionInner::Value(v) => {
-                        match members.iter().zip(v).find(|(id, _)| id.0 == m).unwrap().1 {
+                        match members
+                            .iter()
+                            .zip(v)
+                            .find(|(member, _)| member.id == m)
+                            .unwrap()
+                            .1
+                        {
                             TypedExpression::Array(a) => a.into_inner(),
                             _ => unreachable!(),
                         }
@@ -463,7 +475,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 
     fn fold_struct_expression_inner(
         &mut self,
-        ty: &Vec<(MemberId, Type)>,
+        ty: &Vec<StructMember>,
         e: StructExpressionInner<'ast, T>,
     ) -> StructExpressionInner<'ast, T> {
         match e {
@@ -545,7 +557,13 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 
                 match s.into_inner() {
                     StructExpressionInner::Value(v) => {
-                        match members.iter().zip(v).find(|(id, _)| id.0 == m).unwrap().1 {
+                        match members
+                            .iter()
+                            .zip(v)
+                            .find(|(member, _)| member.id == m)
+                            .unwrap()
+                            .1
+                        {
                             TypedExpression::Struct(s) => s.into_inner(),
                             _ => unreachable!(),
                         }
@@ -702,7 +720,13 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 
                 match s.into_inner() {
                     StructExpressionInner::Value(v) => {
-                        match members.iter().zip(v).find(|(id, _)| id.0 == m).unwrap().1 {
+                        match members
+                            .iter()
+                            .zip(v)
+                            .find(|(member, _)| member.id == m)
+                            .unwrap()
+                            .1
+                        {
                             TypedExpression::Boolean(s) => s,
                             _ => unreachable!(),
                         }

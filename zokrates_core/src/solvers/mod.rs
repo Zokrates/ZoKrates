@@ -1,10 +1,9 @@
-use crate::helpers::{Executable, Signed};
 use std::fmt;
 use zokrates_embed::generate_sha256_round_witness;
 use zokrates_field::field::Field;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
-pub enum RustHelper {
+pub enum Solver {
     Identity,
     ConditionEq,
     Bits(usize),
@@ -12,33 +11,33 @@ pub enum RustHelper {
     Sha256Round,
 }
 
-impl fmt::Display for RustHelper {
+impl fmt::Display for Solver {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
     }
 }
 
-impl Signed for RustHelper {
-    fn get_signature(&self) -> (usize, usize) {
+impl Solver {
+    pub fn get_signature(&self) -> (usize, usize) {
         match self {
-            RustHelper::Identity => (1, 1),
-            RustHelper::ConditionEq => (1, 2),
-            RustHelper::Bits(bitwidth) => (1, *bitwidth),
-            RustHelper::Div => (2, 1),
-            RustHelper::Sha256Round => (768, 26935),
+            Solver::Identity => (1, 1),
+            Solver::ConditionEq => (1, 2),
+            Solver::Bits(bitwidth) => (1, *bitwidth),
+            Solver::Div => (2, 1),
+            Solver::Sha256Round => (768, 26935),
         }
     }
 }
 
-impl<T: Field> Executable<T> for RustHelper {
-    fn execute(&self, inputs: &Vec<T>) -> Result<Vec<T>, String> {
+impl Solver {
+    pub fn execute<T: Field>(&self, inputs: &Vec<T>) -> Result<Vec<T>, String> {
         match self {
-            RustHelper::Identity => Ok(inputs.clone()),
-            RustHelper::ConditionEq => match inputs[0].is_zero() {
+            Solver::Identity => Ok(inputs.clone()),
+            Solver::ConditionEq => match inputs[0].is_zero() {
                 true => Ok(vec![T::zero(), T::one()]),
                 false => Ok(vec![T::one(), T::one() / inputs[0].clone()]),
             },
-            RustHelper::Bits(bitwidth) => {
+            Solver::Bits(bitwidth) => {
                 let mut num = inputs[0].clone();
                 let mut res = vec![];
 
@@ -53,8 +52,8 @@ impl<T: Field> Executable<T> for RustHelper {
                 assert_eq!(num, T::zero());
                 Ok(res)
             }
-            RustHelper::Div => Ok(vec![inputs[0].clone() / inputs[1].clone()]),
-            RustHelper::Sha256Round => {
+            Solver::Div => Ok(vec![inputs[0].clone() / inputs[1].clone()]),
+            Solver::Sha256Round => {
                 let i = &inputs[0..512];
                 let h = &inputs[512..];
                 let i: Vec<_> = i.iter().map(|x| x.clone().into_bellman()).collect();
@@ -77,7 +76,7 @@ mod tests {
     #[test]
     fn bits_of_one() {
         let inputs = vec![FieldPrime::from(1)];
-        let res = RustHelper::Bits(FieldPrime::get_required_bits())
+        let res = Solver::Bits(FieldPrime::get_required_bits())
             .execute(&inputs)
             .unwrap();
         assert_eq!(res[253], FieldPrime::from(1));
@@ -89,7 +88,7 @@ mod tests {
     #[test]
     fn bits_of_42() {
         let inputs = vec![FieldPrime::from(42)];
-        let res = RustHelper::Bits(FieldPrime::get_required_bits())
+        let res = Solver::Bits(FieldPrime::get_required_bits())
             .execute(&inputs)
             .unwrap();
         assert_eq!(res[253], FieldPrime::from(0));

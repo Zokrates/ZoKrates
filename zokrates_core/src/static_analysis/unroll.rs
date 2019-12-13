@@ -235,9 +235,9 @@ impl<'ast> Unroller<'ast> {
                             members
                                 .clone()
                                 .into_iter()
-                                .map(|(id, t)| match t {
+                                .map(|member| match *member.ty {
                                     Type::FieldElement => {
-                                        if id == head {
+                                        if member.id == head {
                                             Self::choose_many(
                                                 FieldElementExpression::member(
                                                     base.clone(),
@@ -249,12 +249,15 @@ impl<'ast> Unroller<'ast> {
                                                 statements,
                                             )
                                         } else {
-                                            FieldElementExpression::member(base.clone(), id.clone())
-                                                .into()
+                                            FieldElementExpression::member(
+                                                base.clone(),
+                                                member.id.clone(),
+                                            )
+                                            .into()
                                         }
                                     }
                                     Type::Uint(..) => {
-                                        if id == head {
+                                        if member.id == head {
                                             Self::choose_many(
                                                 UExpression::member(base.clone(), head.clone())
                                                     .into(),
@@ -263,11 +266,11 @@ impl<'ast> Unroller<'ast> {
                                                 statements,
                                             )
                                         } else {
-                                            UExpression::member(base.clone(), id.clone()).into()
+                                            UExpression::member(base.clone(), member.id.clone()).into()
                                         }
                                     }
                                     Type::Boolean => {
-                                        if id == head {
+                                        if member.id == head {
                                             Self::choose_many(
                                                 BooleanExpression::member(
                                                     base.clone(),
@@ -279,12 +282,15 @@ impl<'ast> Unroller<'ast> {
                                                 statements,
                                             )
                                         } else {
-                                            BooleanExpression::member(base.clone(), id.clone())
-                                                .into()
+                                            BooleanExpression::member(
+                                                base.clone(),
+                                                member.id.clone(),
+                                            )
+                                            .into()
                                         }
                                     }
                                     Type::Array(..) => {
-                                        if id == head {
+                                        if member.id == head {
                                             Self::choose_many(
                                                 ArrayExpression::member(base.clone(), head.clone())
                                                     .into(),
@@ -293,11 +299,12 @@ impl<'ast> Unroller<'ast> {
                                                 statements,
                                             )
                                         } else {
-                                            ArrayExpression::member(base.clone(), id.clone()).into()
+                                            ArrayExpression::member(base.clone(), member.id.clone())
+                                                .into()
                                         }
                                     }
                                     Type::Struct(..) => {
-                                        if id == head {
+                                        if member.id == head {
                                             Self::choose_many(
                                                 StructExpression::member(
                                                     base.clone(),
@@ -309,8 +316,11 @@ impl<'ast> Unroller<'ast> {
                                                 statements,
                                             )
                                         } else {
-                                            StructExpression::member(base.clone(), id.clone())
-                                                .into()
+                                            StructExpression::member(
+                                                base.clone(),
+                                                member.id.clone(),
+                                            )
+                                            .into()
                                         }
                                     }
                                 })
@@ -371,9 +381,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                             .annotate(bitwidth)
                             .into()
                     }
-                    Type::Array(box ty, size) => {
+                    Type::Array(array_type) => {
                         ArrayExpressionInner::Identifier(variable.id.clone().into())
-                            .annotate(ty, size)
+                            .annotate(*array_type.ty, array_type.size)
                             .into()
                     }
                     Type::Struct(members) => {

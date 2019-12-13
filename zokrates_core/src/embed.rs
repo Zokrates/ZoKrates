@@ -1,7 +1,8 @@
-use crate::helpers::{DirectiveStatement, Helper, RustHelper};
+use crate::solvers::Solver;
 use bellman::pairing::ff::ScalarEngine;
 use flat_absy::{
-    FlatExpression, FlatExpressionList, FlatFunction, FlatParameter, FlatStatement, FlatVariable,
+    FlatDirective, FlatExpression, FlatExpressionList, FlatFunction, FlatParameter, FlatStatement,
+    FlatVariable,
 };
 use reduce::Reduce;
 use std::collections::HashMap;
@@ -141,15 +142,6 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
         .into_iter()
         .map(|i| i + variable_count);
 
-    // define the signature of the resulting function
-    let signature = Signature {
-        inputs: vec![
-            Type::array(Type::FieldElement, input_indices.len()),
-            Type::array(Type::FieldElement, current_hash_indices.len()),
-        ],
-        outputs: vec![Type::array(Type::FieldElement, output_indices.len())],
-    };
-
     // define parameters to the function based on the variables
     let arguments = input_argument_indices
         .clone()
@@ -184,13 +176,13 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
         .collect();
 
     // insert a directive to set the witness based on the bellman gadget and  inputs
-    let directive_statement = FlatStatement::Directive(DirectiveStatement {
+    let directive_statement = FlatStatement::Directive(FlatDirective {
         outputs: cs_indices.map(|i| FlatVariable::new(i)).collect(),
         inputs: input_argument_indices
             .chain(current_hash_argument_indices)
             .map(|i| FlatVariable::new(i).into())
             .collect(),
-        helper: Helper::Rust(RustHelper::Sha256Round),
+        solver: Solver::Sha256Round,
     });
 
     // insert a statement to return the subset of the witness
@@ -257,12 +249,7 @@ pub fn unpack_to_bitwidth<T: Field>(width: usize) -> FlatFunction<T> {
         .map(|index| use_variable(&mut layout, format!("o{}", index), &mut counter))
         .collect();
 
-    let helper = Helper::bits(width);
-
-    let signature = Signature {
-        inputs: vec![Type::Uint(width)],
-        outputs: vec![Type::array(Type::FieldElement, width)],
-    };
+    let solver = Solver::Bits(width);
 
     let outputs = directive_outputs
         .iter()
@@ -304,10 +291,10 @@ pub fn unpack_to_bitwidth<T: Field>(width: usize) -> FlatFunction<T> {
 
     statements.insert(
         0,
-        FlatStatement::Directive(DirectiveStatement {
+        FlatStatement::Directive(FlatDirective {
             inputs: directive_inputs,
             outputs: directive_outputs,
-            helper: helper,
+            solver: solver,
         }),
     );
 
@@ -344,11 +331,11 @@ mod tests {
             ); // 128 bit checks, 1 directive, 1 sum check, 1 return
             assert_eq!(
                 unpack.statements[0],
-                FlatStatement::Directive(DirectiveStatement::new(
+                FlatStatement::Directive(FlatDirective::new(
                     (0..FieldPrime::get_required_bits())
                         .map(|i| FlatVariable::new(i + 1))
                         .collect(),
-                    Helper::bits(FieldPrime::get_required_bits()),
+                    Solver::Bits(FieldPrime::get_required_bits()),
                     vec![FlatVariable::new(0)]
                 ))
             );
@@ -370,17 +357,6 @@ mod tests {
         #[test]
         fn generate_sha256_constraints() {
             let compiled = sha256_round();
-
-            // function should have a signature of 768 inputs and 256 outputs
-            assert_eq!(
-                compiled.signature,
-                Signature::new()
-                    .inputs(vec![
-                        Type::array(Type::FieldElement, 512),
-                        Type::array(Type::FieldElement, 256)
-                    ])
-                    .outputs(vec![Type::array(Type::FieldElement, 256)])
-            );
 
             // function should have 768 inputs
             assert_eq!(compiled.arguments.len(), 768,);
@@ -441,9 +417,6 @@ mod tests {
             let prog = crate::ir::Prog {
                 main: f,
                 private: vec![true; 768],
-                signature: Signature::new()
-                    .inputs(vec![Type::FieldElement; 768])
-                    .outputs(vec![Type::FieldElement; 256]),
             };
 
             let input = (0..512)

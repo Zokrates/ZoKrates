@@ -6,10 +6,10 @@
 //! @date 2017
 
 use crate::flat_absy::*;
-use crate::helpers::{DirectiveStatement, Helper, RustHelper};
 use crate::zir::types::{FunctionIdentifier, Type, Signature, FunctionKey};
 use crate::zir::*;
 use std::collections::hash_map::Entry;
+use crate::solvers::Solver;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use zokrates_field::field::Field;
@@ -227,9 +227,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         (0..bitwidth).map(|_| self.use_sym()).collect();
 
                     // add a directive to get the bits
-                    statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
+                    statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
                         lhs_bits_be.clone(),
-                        Helper::bits(T::get_required_bits()),
+                        Solver::Bits(T::get_required_bits()),
                         vec![lhs_id],
                     )));
 
@@ -274,9 +274,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         (0..bitwidth).map(|_| self.use_sym()).collect();
 
                     // add a directive to get the bits
-                    statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
+                    statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
                         rhs_bits_be.clone(),
-                        Helper::bits(T::get_required_bits()),
+                        Solver::Bits(T::get_required_bits()),
                         vec![rhs_id],
                     )));
 
@@ -327,9 +327,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     (0..bitwidth).map(|_| self.use_sym()).collect();
 
                 // add a directive to get the bits
-                statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
+                statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
                     sub_bits_be.clone(),
-                    Helper::bits(T::get_required_bits()),
+                    Solver::Bits(T::get_required_bits()),
                     vec![subtraction_result.clone()],
                 )));
 
@@ -413,9 +413,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     FieldElementExpression::Sub(box lhs, box rhs),
                 );
 
-                statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
+                statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
                     vec![name_y, name_m],
-                    Helper::Rust(RustHelper::ConditionEq),
+                    Solver::ConditionEq,
                     vec![x.clone()],
                 )));
                 statements_flattened.push(FlatStatement::Condition(
@@ -606,9 +606,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         .into_iter()
                         .map(|i| i.apply_substitution(&replacement_map))
                         .collect();
-                    FlatStatement::Directive(DirectiveStatement {
+                    FlatStatement::Directive(FlatDirective {
                         outputs: new_outputs,
-                        helper: d.helper,
+                        solver: d.solver,
                         inputs: new_inputs,
                     })
                 }
@@ -860,9 +860,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             Entry::Occupied(entry) => entry.get().clone().into_iter().map(|e| e.into()).collect(),
             Entry::Vacant(_) => {
                 let bits = (0..bitwidth).map(|_| self.use_sym()).collect::<Vec<_>>();
-                statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
+                statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
                     bits.clone(),
-                    Helper::Rust(RustHelper::Bits(bitwidth)),
+                    Solver::Bits(bitwidth),
                     vec![e.clone()],
                 )));
 
@@ -1003,9 +1003,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 let inverse = self.use_sym();
 
                 // # invb = 1/b
-                statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
+                statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
                     vec![invb],
-                    Helper::Rust(RustHelper::Div),
+                    Solver::Div,
                     vec![FlatExpression::Number(T::one()), new_right.clone()],
                 )));
 
@@ -1016,9 +1016,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 ));
 
                 // # c = a/b
-                statements_flattened.push(FlatStatement::Directive(DirectiveStatement::new(
+                statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
                     vec![inverse],
-                    Helper::Rust(RustHelper::Div),
+                    Solver::Div,
                     vec![new_left.clone(), new_right.clone()],
                 )));
 
@@ -1427,7 +1427,6 @@ mod tests {
                     expressions: vec![FlatExpression::Identifier(FlatVariable::new(1))],
                 }),
             ],
-            signature: Signature::new().outputs(vec![Type::FieldElement]),
         };
 
         let flattened = flattener.flatten_function(&mut HashMap::new(), function);
@@ -1494,7 +1493,6 @@ mod tests {
                     expressions: vec![FlatExpression::Identifier(FlatVariable::new(2))],
                 }),
             ],
-            signature: Signature::new().outputs(vec![Type::FieldElement]),
         };
 
         let flattened = flattener.flatten_function(&mut HashMap::new(), function);
@@ -1614,7 +1612,6 @@ mod tests {
                     expressions: vec![FlatExpression::Identifier(FlatVariable::new(7))],
                 }),
             ],
-            signature: Signature::new().outputs(vec![Type::FieldElement]),
         };
 
         let flattened = flattener.flatten_function(&mut HashMap::new(), function);
@@ -1733,9 +1730,9 @@ mod tests {
                 FlatStatement::Definition(five, FlatExpression::Number(FieldPrime::from(5))),
                 FlatStatement::Definition(b0, b.into()),
                 // check div by 0
-                FlatStatement::Directive(DirectiveStatement::new(
+                FlatStatement::Directive(FlatDirective::new(
                     vec![invb0],
-                    Helper::Rust(RustHelper::Div),
+                    Solver::Div,
                     vec![FlatExpression::Number(FieldPrime::from(1)), b0.into()]
                 )),
                 FlatStatement::Condition(
@@ -1743,9 +1740,9 @@ mod tests {
                     FlatExpression::Mult(box invb0.into(), box b0.into()),
                 ),
                 // execute div
-                FlatStatement::Directive(DirectiveStatement::new(
+                FlatStatement::Directive(FlatDirective::new(
                     vec![sym_0],
-                    Helper::Rust(RustHelper::Div),
+                    Solver::Div,
                     vec![five, b0]
                 )),
                 FlatStatement::Condition(
@@ -1756,9 +1753,9 @@ mod tests {
                 FlatStatement::Definition(sym_1, sym_0.into()),
                 FlatStatement::Definition(b1, b.into()),
                 // check div by 0
-                FlatStatement::Directive(DirectiveStatement::new(
+                FlatStatement::Directive(FlatDirective::new(
                     vec![invb1],
-                    Helper::Rust(RustHelper::Div),
+                    Solver::Div,
                     vec![FlatExpression::Number(FieldPrime::from(1)), b1.into()]
                 )),
                 FlatStatement::Condition(
@@ -1766,9 +1763,9 @@ mod tests {
                     FlatExpression::Mult(box invb1.into(), box b1.into()),
                 ),
                 // execute div
-                FlatStatement::Directive(DirectiveStatement::new(
+                FlatStatement::Directive(FlatDirective::new(
                     vec![sym_2],
-                    Helper::Rust(RustHelper::Div),
+                    Solver::Div,
                     vec![sym_1, b1]
                 )),
                 FlatStatement::Condition(

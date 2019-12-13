@@ -24,15 +24,15 @@ fn flatten_identifier_rec<'a>(
             id: zir::Identifier::Source(id),
             _type: zir::Type::Uint(bitwidth),
         }],
-        typed_absy::Type::Array(box ty, size) => (0..size)
+        typed_absy::Type::Array(array_type) => (0..array_type.size)
             .flat_map(|i| {
-                flatten_identifier_rec(zir::SourceIdentifier::Select(box id.clone(), i), ty.clone())
+                flatten_identifier_rec(zir::SourceIdentifier::Select(box id.clone(), i), *array_type.ty.clone())
             })
             .collect(),
         typed_absy::Type::Struct(members) => members
             .into_iter()
-            .flat_map(|(name, ty)| {
-                flatten_identifier_rec(zir::SourceIdentifier::Member(box id.clone(), name), ty)
+            .flat_map(|struct_member| {
+                flatten_identifier_rec(zir::SourceIdentifier::Member(box id.clone(), struct_member.id), *struct_member.ty)
             })
             .collect(),
     }
@@ -297,8 +297,8 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
 
             let offset: usize = members
                 .iter()
-                .take_while(|(id, _)| id != id)
-                .map(|(_, ty)| ty.get_primitive_count())
+                .take_while(|member| member.id != id)
+                .map(|member| member.ty.get_primitive_count())
                 .sum();
 
             // we also need the size of this member
@@ -367,8 +367,8 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
 
             let offset: usize = members
                 .iter()
-                .take_while(|(id, _)| id != id)
-                .map(|(_, ty)| ty.get_primitive_count())
+                .take_while(|member| member.id != id)
+                .map(|member| member.ty.get_primitive_count())
                 .sum();
 
             // we also need the size of this member
@@ -455,8 +455,8 @@ pub fn fold_field_expression<'ast, T: Field>(
 
             let offset: usize = members
                 .iter()
-                .take_while(|(id, _)| id != id)
-                .map(|(_, ty)| ty.get_primitive_count())
+                .take_while(|member| member.id != id)
+                .map(|member| member.ty.get_primitive_count())
                 .sum();
 
             use std::convert::TryInto;
@@ -552,8 +552,8 @@ pub fn fold_boolean_expression<'ast, T: Field>(
 
             let offset: usize = members
                 .iter()
-                .take_while(|(id, _)| id != id)
-                .map(|(_, ty)| ty.get_primitive_count())
+                .take_while(|member| member.id != id)
+                .map(|member| member.ty.get_primitive_count())
                 .sum();
 
             use std::convert::TryInto;
@@ -670,7 +670,7 @@ pub fn fold_struct_expression<'ast, T: Field>(
     f: &mut Flattener<T>,
     e: typed_absy::StructExpression<'ast, T>,
 ) -> Vec<zir::ZirExpression<'ast, T>> {
-    f.fold_struct_expression_inner(&e.ty().clone(), e.into_inner())
+    f.fold_struct_expression_inner(&e.ty().clone().into_iter().map(|m| (m.id, *m.ty)).collect(), e.into_inner())
 }
 
 pub fn fold_function_symbol<'ast, T: Field>(

@@ -13,14 +13,14 @@ use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::folder::*;
 use crate::ir::LinComb;
 use crate::ir::*;
-use helpers::Helper;
+use solvers::Solver;
 use num::Zero;
 use std::collections::hash_map::{Entry, HashMap};
 use zokrates_field::field::Field;
 
 #[derive(Debug)]
 pub struct DirectiveOptimizer<T: Field> {
-    calls: HashMap<(Helper, Vec<LinComb<T>>), Vec<FlatVariable>>,
+    calls: HashMap<(Solver, Vec<LinComb<T>>), Vec<FlatVariable>>,
     /// Map of renamings for reassigned variables while processing the program.
     substitution: HashMap<FlatVariable, FlatVariable>,
 }
@@ -44,7 +44,7 @@ impl<T: Field> Folder<T> for DirectiveOptimizer<T> {
             Statement::Directive(d) => {
                 let d = self.fold_directive(d);
 
-                match self.calls.entry((d.helper.clone(), d.inputs.clone())) {
+                match self.calls.entry((d.solver.clone(), d.inputs.clone())) {
                     Entry::Vacant(e) => {
                         e.insert(d.outputs.clone());
                         vec![Statement::Directive(d)]
