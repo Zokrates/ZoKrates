@@ -1,5 +1,10 @@
 #!/bin/bash
 
+CWD="${0%/*}"
+if [ "$0" != "$CWD" ] && [ "$CWD" != "" ]; then 
+    cd $CWD
+fi
+
 NPM_VERSION=$(npm view zokrates-js dist-tags.latest)
 
 PACKAGE_VERSION=$(cat package.json \
@@ -26,7 +31,6 @@ fi
 
 # npm
 npm run build
-npm run test
 
 # publish package
 npm set //registry.npmjs.org/:_authToken=${NPM_TOKEN}

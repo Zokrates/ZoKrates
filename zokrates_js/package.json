@@ -24,6 +24,7 @@
     "wasm-pack:build": "wasm-pack build --out-name index --release --target bundler",
     "prebuild": "npm install && rimraf pkg && gulp stdlib",
     "build": "npm run wasm-pack:build",
+    "pretest": "npm install && gulp stdlib",
     "test": "mocha --require esm --recursive tests"
   },
   "devDependencies": {
