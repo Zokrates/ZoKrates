@@ -106,7 +106,6 @@ fn cli() -> Result<(), String> {
             .short("s")
             .long("proving-scheme")
             .help("Proving scheme to use in the setup. Available options are G16, PGHR13 and GM17")
-            .value_name("FILE")
             .takes_value(true)
             .required(false)
             .default_value(&default_scheme)
@@ -138,7 +137,6 @@ fn cli() -> Result<(), String> {
             .short("s")
             .long("proving-scheme")
             .help("Proving scheme to use to export the verifier. Available options are G16, PGHR13 and GM17")
-            .value_name("FILE")
             .takes_value(true)
             .required(false)
             .default_value(&default_scheme)
@@ -238,7 +236,6 @@ fn cli() -> Result<(), String> {
             .short("s")
             .long("proving-scheme")
             .help("Proving scheme to use to generate the proof. Available options are G16, PGHR13 and GM17")
-            .value_name("FILE")
             .takes_value(true)
             .required(false)
             .default_value(&default_scheme)
@@ -496,7 +493,8 @@ fn cli() -> Result<(), String> {
         ("export-verifier", Some(sub_matches)) => {
             {
                 let scheme = get_scheme(sub_matches.value_of("proving-scheme").unwrap())?;
-                let is_abiv2 = sub_matches.value_of("abi").unwrap() == "v2";
+
+                let is_abiv2 = sub_matches.value_of("solidity-abi").unwrap() == "v2";
                 println!("Exporting verifier...");
 
                 // read vk file
