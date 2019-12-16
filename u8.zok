@@ -35,7 +35,7 @@ def main(u32[1][16] input) -> (u32[8]):
 		for field i in 0..16 do
 
 			u32 S1 = e ^ e ^ e
-			u32 ch = (e ^ f) ^ ((e) ^ g)
+			u32 ch = (e ^ f) ^ (!e ^ g)
 			u32 temp1 = h + S1 + ch + k[i] + w[i]
 			u32 S0 = a ^ a ^ a
 	        u32 maj = (a ^ b) ^ (a ^ c) ^ (b ^ c)

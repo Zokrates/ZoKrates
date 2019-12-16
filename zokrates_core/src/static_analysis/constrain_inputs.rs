@@ -55,32 +55,32 @@ impl<'ast, T: Field> InputConstrainer<'ast, T> {
     }
 
     fn constrain_bits(&mut self, u: UExpression<'ast, T>) {
-        let bitwidth = u.bitwidth;
-        let u = UExpression {
-            metadata: Some(UMetadata {
-                bitwidth: Some(bitwidth),
-                should_reduce: Some(false)
-            }),
-            ..u
-        };
-        let bit_input = (self.next_var_id..self.next_var_id + bitwidth).map(|i| Variable::with_id_and_type(
-            Identifier::Internal("bit_input_array", i),
-            Type::FieldElement
-        )).collect();
-        self.next_var_id += bitwidth;
-        self.constraints.push(ZirStatement::MultipleDefinition(
-            bit_input,
-            ZirExpressionList::FunctionCall(
-                match bitwidth {
-                    8 => crate::embed::FlatEmbed::CheckU8.key::<T>().into(),
-                    16 => crate::embed::FlatEmbed::CheckU16.key::<T>().into(),
-                    32 => crate::embed::FlatEmbed::CheckU32.key::<T>().into(),
-                    _ => unreachable!(),
-                },
-                vec![u.into()],
-                vec![Type::FieldElement; bitwidth],
-            ),
-        ));
+        // let bitwidth = u.bitwidth;
+        // let u = UExpression {
+        //     metadata: Some(UMetadata {
+        //         bitwidth: Some(bitwidth),
+        //         should_reduce: Some(false)
+        //     }),
+        //     ..u
+        // };
+        // let bit_input = (self.next_var_id..self.next_var_id + bitwidth).map(|i| Variable::with_id_and_type(
+        //     Identifier::Internal("bit_input_array", i),
+        //     Type::FieldElement
+        // )).collect();
+        // self.next_var_id += bitwidth;
+        // self.constraints.push(ZirStatement::MultipleDefinition(
+        //     bit_input,
+        //     ZirExpressionList::FunctionCall(
+        //         match bitwidth {
+        //             8 => crate::embed::FlatEmbed::CheckU8.key::<T>().into(),
+        //             16 => crate::embed::FlatEmbed::CheckU16.key::<T>().into(),
+        //             32 => crate::embed::FlatEmbed::CheckU32.key::<T>().into(),
+        //             _ => unreachable!(),
+        //         },
+        //         vec![u.into()],
+        //         vec![Type::FieldElement; bitwidth],
+        //     ),
+        // ));
     }
 
     fn constrain_expression(&mut self, e: ZirExpression<'ast, T>) {
