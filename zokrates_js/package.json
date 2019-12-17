@@ -1,7 +1,7 @@
 {
   "name": "zokrates-js",
   "main": "js/index.js",
-  "author": "Darko Macesic <darem966@gmail.com>, Edi Sinovcic <edi@blockchain-it.hr>",
+  "author": "Darko Macesic <darem966@gmail.com>",
   "version": "1.0.18",
   "keywords": [
     "zokrates",
@@ -14,10 +14,6 @@
     "pkg",
     "stdlib.json"
   ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/blockchain-it-hr/zokrates-js"
-  },
   "types": "js/index.d.ts",
   "scripts": {
     "cargo:build": "cargo build --target=wasm32-unknown-unknown",
