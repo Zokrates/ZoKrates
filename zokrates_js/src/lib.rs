@@ -13,9 +13,10 @@ pub struct ResolverResult {
     location: String,
 }
 
-fn deserialize_program(input: &JsValue) -> ir::Prog<FieldPrime> {
+fn deserialize_program(input: &JsValue) -> Result<ir::Prog<FieldPrime>, JsValue> {
     let vec: Vec<u8> = input.into_serde().unwrap();
-    bincode::deserialize(&vec).unwrap()
+    bincode::deserialize(&vec)
+        .map_err(|err| JsValue::from_str(&format!("Could not deserialize program: {}", err)))
 }
 
 #[wasm_bindgen]
@@ -62,7 +63,7 @@ pub fn compile(
 
 #[wasm_bindgen]
 pub fn compute_witness(program: JsValue, args: JsValue) -> Result<JsValue, JsValue> {
-    let program_flattened = deserialize_program(&program);
+    let program_flattened = deserialize_program(&program)?;
 
     let input: String = args.as_string().unwrap();
     let signature = program_flattened.signature.clone();
@@ -84,10 +85,10 @@ pub fn compute_witness(program: JsValue, args: JsValue) -> Result<JsValue, JsVal
 }
 
 #[wasm_bindgen]
-pub fn setup(program: JsValue) -> JsValue {
-    let program_flattened = deserialize_program(&program);
+pub fn setup(program: JsValue) -> Result<JsValue, JsValue> {
+    let program_flattened = deserialize_program(&program)?;
     let keypair = proof_system::G16 {}.setup(program_flattened);
-    JsValue::from_serde(&keypair).unwrap()
+    Ok(JsValue::from_serde(&keypair).unwrap())
 }
 
 #[wasm_bindgen]
@@ -98,15 +99,17 @@ pub fn export_solidity_verifier(vk: JsValue, is_abiv2: JsValue) -> JsValue {
 }
 
 #[wasm_bindgen]
-pub fn generate_proof(program: JsValue, witness: JsValue, pk: JsValue) -> JsValue {
-    let program_flattened = deserialize_program(&program);
+pub fn generate_proof(program: JsValue, witness: JsValue, pk: JsValue) -> Result<JsValue, JsValue> {
+    let program_flattened = deserialize_program(&program)?;
     let str_witness: String = witness.as_string().unwrap();
-    let witness_out: ir::Witness<FieldPrime> = ir::Witness::read(str_witness.as_bytes()).unwrap();
-    let proving_key: Vec<u8> = pk.into_serde().unwrap();
 
+    let witness_out: ir::Witness<FieldPrime> = ir::Witness::read(str_witness.as_bytes())
+        .map_err(|err| JsValue::from_str(&format!("Could not read witness: {}", err)))?;
+
+    let proving_key: Vec<u8> = pk.into_serde().unwrap();
     let proof: String =
         proof_system::G16 {}.generate_proof(program_flattened, witness_out, proving_key);
-    JsValue::from_str(proof.as_str())
+    Ok(JsValue::from_str(proof.as_str()))
 }
 
 #[wasm_bindgen(start)]
