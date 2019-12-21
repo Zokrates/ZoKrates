@@ -30,10 +30,14 @@ pub fn compile(
         &p.clone().into(),
     ) {
         Ok(value) => {
-            let result: ResolverResult = value
-                .into_serde()
-                .map_err(|_| Error::new(format!("Could not resolve `{}`", p)))?;
-            Ok((result.source, result.location))
+            if value.is_null() || value.is_undefined() {
+                Err(Error::new(format!("Could not resolve `{}`", p)))
+            } else {
+                let result: ResolverResult = value
+                    .into_serde()
+                    .map_err(|_| Error::new(format!("Invalid resolve object format")))?;
+                Ok((result.source, result.location))
+            }
         }
         Err(_) => Err(Error::new(format!(
             "Error thrown in resolve callback; could not resolve `{}`",
