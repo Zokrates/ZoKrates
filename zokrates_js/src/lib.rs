@@ -1,32 +1,16 @@
+use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use zokrates_abi::{parse_strict, Encode, Inputs};
 use zokrates_core::compile::{compile as compile_core, CompileErrors};
+use zokrates_core::imports::Error;
 use zokrates_core::ir;
 use zokrates_core::proof_system::{self, ProofSystem};
 use zokrates_field::field::FieldPrime;
 
-extern crate serde_derive;
-
-#[wasm_bindgen]
+#[derive(Serialize, Deserialize)]
 pub struct ResolverResult {
     source: String,
     location: String,
-}
-
-#[wasm_bindgen]
-impl ResolverResult {
-    #[wasm_bindgen]
-    pub fn new(source: String, location: String) -> Self {
-        ResolverResult { source, location }
-    }
-}
-
-#[wasm_bindgen]
-extern "C" {
-    fn resolve(l: String, p: String) -> Option<ResolverResult>;
-
-    #[wasm_bindgen(js_namespace = console)]
-    fn log(s: &str);
 }
 
 fn deserialize_program(input: &JsValue) -> ir::Prog<FieldPrime> {
@@ -35,25 +19,32 @@ fn deserialize_program(input: &JsValue) -> ir::Prog<FieldPrime> {
 }
 
 #[wasm_bindgen]
-pub fn compile(source: JsValue, location: JsValue) -> Result<JsValue, JsValue> {
-    fn resolve_closure<'a>(
-        l: String,
-        p: String,
-    ) -> Result<(String, String), zokrates_core::imports::Error> {
-        let result = resolve(l, p.clone());
-        match result {
-            Some(res) => Ok((res.source, res.location)),
-            None => Err(zokrates_core::imports::Error::new(String::from(format!(
-                "Unable to resolve {}",
-                p
-            )))),
+pub fn compile(
+    source: JsValue,
+    location: JsValue,
+    resolve: &js_sys::Function,
+) -> Result<JsValue, JsValue> {
+    let closure = |l: String, p: String| match resolve.call2(
+        &JsValue::UNDEFINED,
+        &l.into(),
+        &p.clone().into(),
+    ) {
+        Ok(value) => {
+            let result: ResolverResult = value
+                .into_serde()
+                .map_err(|_| Error::new(format!("Could not resolve `{}`", p)))?;
+            Ok((result.source, result.location))
         }
+        Err(_) => Err(Error::new(format!(
+            "Error thrown in resolve callback; could not resolve `{}`",
+            p
+        ))),
     };
 
     let program_flattened: Result<ir::Prog<FieldPrime>, CompileErrors> = compile_core(
         source.as_string().unwrap(),
         location.as_string().unwrap(),
-        Some(resolve_closure),
+        Some(&closure),
     );
 
     match program_flattened {

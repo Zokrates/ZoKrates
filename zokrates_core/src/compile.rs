@@ -120,7 +120,7 @@ impl fmt::Display for CompileErrorInner {
     }
 }
 
-pub type Resolve<E> = fn(String, String) -> Result<(String, String), E>;
+pub type Resolve<'a, E> = &'a dyn Fn(String, String) -> Result<(String, String), E>;
 
 pub fn compile<T: Field, E: Into<imports::Error>>(
     source: String,

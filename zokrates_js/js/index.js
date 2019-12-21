@@ -1,7 +1,7 @@
 import { appendExtension, getAbsolutePath } from './utils';
 import stdlib from '../stdlib.json';
 
-const initialize = async (callback) => {
+const initialize = async () => {
 
   const EXTENSION_ZOK  = '.zok';
   const RESERVED_PATHS = [
@@ -14,18 +14,11 @@ const initialize = async (callback) => {
   // load web assembly module
   const zokrates = await import('../pkg/index.js');
 
-  // register module resolving callback to provided namespace
-  globalThis.resolve = (location, path) => resolveModule(location, path, callback);
-
   const resolveModule = (location, path, callback) => {
-    let result;
     if (isReserved(location) || isReserved(path)) {
-      result = resolveFromStandardLibrary(location, path);
-    } else {
-      result = callback(location, path);
-    } 
-    if (!result) return null;
-    return zokrates.ResolverResult.new(result.source, result.location);
+      return resolveFromStandardLibrary(location, path);
+    }
+    return callback(location, path);
   }
 
   const isReserved = (path) => RESERVED_PATHS.some(p => path.startsWith(p));
@@ -37,8 +30,10 @@ const initialize = async (callback) => {
   }
 
   return {
-    compile: (source, location) => {
-      return Uint8Array.from(zokrates.compile(source, location));
+    compile: (source, location, callback) => {
+      return Uint8Array.from(
+        zokrates.compile(source, location, (location, path) => resolveModule(location, path, callback))
+      );
     },
     setup: (program) => {
       let result = zokrates.setup(Array.from(program));
@@ -60,4 +55,4 @@ const initialize = async (callback) => {
   }
 }
 
-export { initialize };
+export { initialize }
