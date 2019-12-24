@@ -98,7 +98,11 @@ impl Type {
     }
 
     pub fn struc(ty: Vec<(MemberId, Type)>) -> Self {
-        Type::Struct(ty.into_iter().map(|(id, ty)| StructMember {id, ty: box ty}).collect())
+        Type::Struct(
+            ty.into_iter()
+                .map(|(id, ty)| StructMember { id, ty: box ty })
+                .collect(),
+        )
     }
 
     fn to_slug(&self) -> String {
@@ -124,7 +128,10 @@ impl Type {
             Type::FieldElement => 1,
             Type::Boolean => 1,
             Type::Uint(_) => 1,
-            Type::Struct(members) => members.iter().map(|struct_member| struct_member.ty.get_primitive_count()).sum(),
+            Type::Struct(members) => members
+                .iter()
+                .map(|struct_member| struct_member.ty.get_primitive_count())
+                .sum(),
             Type::Array(array_type) => array_type.size * array_type.ty.get_primitive_count(),
             Type::Struct(members) => members
                 .iter()

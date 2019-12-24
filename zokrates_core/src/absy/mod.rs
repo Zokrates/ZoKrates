@@ -481,7 +481,11 @@ pub enum Expression<'ast, T: Field> {
     ),
     Member(Box<ExpressionNode<'ast, T>>, Box<Identifier<'ast>>),
     Or(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
-    Xor(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
+    BitXor(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
+    BitAnd(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
+    BitOr(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
+    LeftShift(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
+    RightShift(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
 }
 
 pub type ExpressionNode<'ast, T> = Node<Expression<'ast, T>>;
@@ -498,7 +502,7 @@ impl<'ast, T: Field> fmt::Display for Expression<'ast, T> {
             Expression::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
             Expression::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
             Expression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
-            Expression::Pow(ref lhs, ref rhs) => write!(f, "{}**{}", lhs, rhs),
+            Expression::Pow(ref lhs, ref rhs) => write!(f, "({}**{})", lhs, rhs),
             Expression::BooleanConstant(b) => write!(f, "{}", b),
             Expression::IfElse(ref condition, ref consequent, ref alternative) => write!(
                 f,
@@ -515,12 +519,12 @@ impl<'ast, T: Field> fmt::Display for Expression<'ast, T> {
                 }
                 write!(f, ")")
             }
-            Expression::Lt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
-            Expression::Le(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
-            Expression::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
-            Expression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
-            Expression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
-            Expression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
+            Expression::Lt(ref lhs, ref rhs) => write!(f, "({} < {})", lhs, rhs),
+            Expression::Le(ref lhs, ref rhs) => write!(f, "({} <= {})", lhs, rhs),
+            Expression::Eq(ref lhs, ref rhs) => write!(f, "({} == {})", lhs, rhs),
+            Expression::Ge(ref lhs, ref rhs) => write!(f, "({} >= {})", lhs, rhs),
+            Expression::Gt(ref lhs, ref rhs) => write!(f, "({} > {})", lhs, rhs),
+            Expression::And(ref lhs, ref rhs) => write!(f, "({} && {})", lhs, rhs),
             Expression::Not(ref exp) => write!(f, "!{}", exp),
             Expression::InlineArray(ref exprs) => {
                 write!(f, "[")?;
@@ -544,8 +548,12 @@ impl<'ast, T: Field> fmt::Display for Expression<'ast, T> {
             }
             Expression::Select(ref array, ref index) => write!(f, "{}[{}]", array, index),
             Expression::Member(ref struc, ref id) => write!(f, "{}.{}", struc, id),
-            Expression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
-            Expression::Xor(ref lhs, ref rhs) => write!(f, "{} ^ {}", lhs, rhs),
+            Expression::Or(ref lhs, ref rhs) => write!(f, "({} || {})", lhs, rhs),
+            Expression::BitXor(ref lhs, ref rhs) => write!(f, "({} ^ {})", lhs, rhs),
+            Expression::BitAnd(ref lhs, ref rhs) => write!(f, "({} & {})", lhs, rhs),
+            Expression::BitOr(ref lhs, ref rhs) => write!(f, "({} | {})", lhs, rhs),
+            Expression::LeftShift(ref lhs, ref rhs) => write!(f, "({} << {})", lhs, rhs),
+            Expression::RightShift(ref lhs, ref rhs) => write!(f, "({} >> {})", lhs, rhs),
         }
     }
 }
@@ -594,9 +602,15 @@ impl<'ast, T: Field> fmt::Debug for Expression<'ast, T> {
             Expression::Select(ref array, ref index) => {
                 write!(f, "Select({:?}, {:?})", array, index)
             }
-            Expression::Member(ref struc, ref id) => write!(f, "{}.{}", struc, id),
-            Expression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
-            Expression::Xor(ref lhs, ref rhs) => write!(f, "{} ^ {}", lhs, rhs),
+            Expression::Member(ref struc, ref id) => write!(f, "Member({:?}, {:?})", struc, id),
+            Expression::Or(ref lhs, ref rhs) => write!(f, "Or({:?}, {:?})", lhs, rhs),
+            Expression::BitXor(ref lhs, ref rhs) => write!(f, "BitXor({:?}, {:?})", lhs, rhs),
+            Expression::BitAnd(ref lhs, ref rhs) => write!(f, "BitAnd({:?}, {:?})", lhs, rhs),
+            Expression::BitOr(ref lhs, ref rhs) => write!(f, "BitOr({:?}, {:?})", lhs, rhs),
+            Expression::LeftShift(ref lhs, ref rhs) => write!(f, "LeftShift({:?}, {:?})", lhs, rhs),
+            Expression::RightShift(ref lhs, ref rhs) => {
+                write!(f, "RightShift({:?}, {:?})", lhs, rhs)
+            }
         }
     }
 }

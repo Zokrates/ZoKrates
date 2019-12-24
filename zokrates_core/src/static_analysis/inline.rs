@@ -299,6 +299,28 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
             e => fold_struct_expression_inner(self, ty, e),
         }
     }
+
+    fn fold_uint_expression_inner(
+        &mut self,
+        size: usize,
+        e: UExpressionInner<'ast, T>,
+    ) -> UExpressionInner<'ast, T> {
+        match e {
+            UExpressionInner::FunctionCall(key, exps) => {
+                let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
+
+                match self.try_inline_call(&key, exps) {
+                    Ok(mut ret) => match ret.pop().unwrap() {
+                        TypedExpression::Uint(e) => e.into_inner(),
+                        _ => unreachable!(),
+                    },
+                    Err((key, expressions)) => UExpressionInner::FunctionCall(key, expressions),
+                }
+            }
+            // default
+            e => fold_uint_expression_inner(self, size, e),
+        }
+    }
 }
 
 #[cfg(test)]

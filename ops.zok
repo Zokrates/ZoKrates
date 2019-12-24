@@ -1,0 +1,5 @@
+def f(field a, field b) -> (bool):
+	return a == b
+
+def main(private field a, field b) -> (bool):
+	return f(a, b)

@@ -606,10 +606,6 @@ pub enum BooleanExpression<'ast, T: Field> {
         Box<BooleanExpression<'ast, T>>,
         Box<BooleanExpression<'ast, T>>,
     ),
-    Xor(
-        Box<BooleanExpression<'ast, T>>,
-        Box<BooleanExpression<'ast, T>>,
-    ),
     And(
         Box<BooleanExpression<'ast, T>>,
         Box<BooleanExpression<'ast, T>>,
@@ -827,10 +823,25 @@ impl<'ast, T: Field> fmt::Display for UExpression<'ast, T> {
             UExpressionInner::Value(ref v) => write!(f, "{}", v),
             UExpressionInner::Identifier(ref var) => write!(f, "{}", var),
             UExpressionInner::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
-            UExpressionInner::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
+            UExpressionInner::And(ref lhs, ref rhs) => write!(f, "({} & {})", lhs, rhs),
+            UExpressionInner::Or(ref lhs, ref rhs) => write!(f, "({} | {})", lhs, rhs),
             UExpressionInner::Xor(ref lhs, ref rhs) => write!(f, "({} ^ {})", lhs, rhs),
+            UExpressionInner::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
+            UExpressionInner::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
+            UExpressionInner::RightShift(ref e, ref by) => write!(f, "({} >> {})", e, by),
+            UExpressionInner::LeftShift(ref e, ref by) => write!(f, "({} << {})", e, by),
             UExpressionInner::Not(ref e) => write!(f, "!{}", e),
             UExpressionInner::Select(ref id, ref index) => write!(f, "{}[{}]", id, index),
+            UExpressionInner::FunctionCall(ref k, ref p) => {
+                write!(f, "{}(", k.id,)?;
+                for (i, param) in p.iter().enumerate() {
+                    write!(f, "{}", param)?;
+                    if i < p.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, ")")
+            }
             UExpressionInner::IfElse(ref condition, ref consequent, ref alternative) => write!(
                 f,
                 "if {} then {} else {} fi",
@@ -851,7 +862,6 @@ impl<'ast, T: Field> fmt::Display for BooleanExpression<'ast, T> {
             BooleanExpression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
             BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
             BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
-            BooleanExpression::Xor(ref lhs, ref rhs) => write!(f, "{} ^ {}", lhs, rhs),
             BooleanExpression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             BooleanExpression::Not(ref exp) => write!(f, "!{}", exp),
             BooleanExpression::Value(b) => write!(f, "{}", b),

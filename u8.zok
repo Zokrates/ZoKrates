@@ -1,3 +1,8 @@
+def right_rotate(u32 e, field by) -> (u32):
+	u32 shifted = e >> by
+	u32 remainder = e - (shifted << by)
+	return shifted + (remainder << (32 - by))
+
 def main(u32[1][16] input) -> (u32[8]):
 	u32 h0 = 0x6a09e667
 	u32 h1 = 0xbb67ae85
@@ -18,8 +23,8 @@ def main(u32[1][16] input) -> (u32[8]):
 		u32[64] w = [...input[0], ...[0x00000000; 48]]
 
 		for field i in 16..64 do
-			u32 s0 = w[i-15] ^ w[i-15] ^ w[i-15]
-	        u32 s1 = w[i- 2] ^ w[i- 2] ^ w[i- 2]
+			u32 s0 = right_rotate(w[i-15], 7) ^ right_rotate(w[i-15], 18) ^ (w[i-15] >> 3)
+	        u32 s1 = right_rotate(w[i-2], 17) ^ right_rotate(w[i-2], 19) ^ (w[i-2] >> 10)
 	        w[i] = w[i-16] + s0 + w[i-7] + s1
 		endfor
 
@@ -32,13 +37,13 @@ def main(u32[1][16] input) -> (u32[8]):
 		u32 g = h6
 		u32 h = h7
 
-		for field i in 0..16 do
+		for field i in 0..0 do
 
-			u32 S1 = e ^ e ^ e
-			u32 ch = (e ^ f) ^ (!e ^ g)
+			u32 S1 = right_rotate(e, 6) ^ right_rotate(e, 11) ^ right_rotate(e, 25)
+			u32 ch = (e & f) ^ (!e & g)
 			u32 temp1 = h + S1 + ch + k[i] + w[i]
-			u32 S0 = a ^ a ^ a
-	        u32 maj = (a ^ b) ^ (a ^ c) ^ (b ^ c)
+			u32 S0 = right_rotate(a, 2) ^ right_rotate(a, 13) ^ right_rotate(a, 22)
+	        u32 maj = (a & b) ^ (a & c) ^ (b & c)
 	        u32 temp2 = S0 + maj
 
 	        h = g

@@ -1,2 +1,10 @@
-def main(u8 a) -> (u8):
-	return !a
+def to_bool_array(u32 e) -> (bool[32]):
+	return [false; 32]
+
+def from_bool_array(bool[32] e) -> (u32):
+	return 0x00000000
+
+def main(u32 e) -> (u32):
+	field by = 8
+	bool[32] bits = to_bool_array(e)
+	return from_bool_array([...bits[24..], ...bits[..24]])

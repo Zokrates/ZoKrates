@@ -16,7 +16,7 @@ impl<T: Field> Prog<T> {
             witness.insert(arg.clone(), value.clone().into());
         }
 
-        for statement in &main.statements {
+        for (i, statement) in main.statements.iter().enumerate() {
             match statement {
                 Statement::Constraint(quad, lin) => match lin.is_assignee(&witness) {
                     true => {

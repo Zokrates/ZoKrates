@@ -24,16 +24,12 @@ pub trait Optimize {
 impl<T: Field> Optimize for Prog<T> {
     fn optimize(self) -> Self {
         // remove redefinitions
-        println!("opt 1");
         let r = RedefinitionOptimizer::optimize(self);
         // remove constraints that are always satisfied
-        println!("opt 2");
         let r = TautologyOptimizer::optimize(r);
         // // deduplicate directives which take the same input
-        println!("opt 3");
         let r = DirectiveOptimizer::optimize(r);
         // remove duplicate constraints
-        println!("opt 4");
         let r = DuplicateOptimizer::optimize(r);
         r
     }

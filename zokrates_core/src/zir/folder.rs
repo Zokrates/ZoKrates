@@ -229,11 +229,6 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
             let e2 = f.fold_boolean_expression(e2);
             BooleanExpression::Or(box e1, box e2)
         }
-        BooleanExpression::Xor(box e1, box e2) => {
-            let e1 = f.fold_boolean_expression(e1);
-            let e2 = f.fold_boolean_expression(e2);
-            BooleanExpression::Xor(box e1, box e2)
-        }
         BooleanExpression::And(box e1, box e2) => {
             let e1 = f.fold_boolean_expression(e1);
             let e2 = f.fold_boolean_expression(e2);
@@ -276,6 +271,12 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
 
             UExpressionInner::Add(box left, box right)
         }
+        UExpressionInner::Sub(box left, box right) => {
+            let left = f.fold_uint_expression(left);
+            let right = f.fold_uint_expression(right);
+
+            UExpressionInner::Sub(box left, box right)
+        }
         UExpressionInner::Mult(box left, box right) => {
             let left = f.fold_uint_expression(left);
             let right = f.fold_uint_expression(right);
@@ -287,6 +288,30 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
             let right = f.fold_uint_expression(right);
 
             UExpressionInner::Xor(box left, box right)
+        }
+        UExpressionInner::And(box left, box right) => {
+            let left = f.fold_uint_expression(left);
+            let right = f.fold_uint_expression(right);
+
+            UExpressionInner::And(box left, box right)
+        }
+        UExpressionInner::Or(box left, box right) => {
+            let left = f.fold_uint_expression(left);
+            let right = f.fold_uint_expression(right);
+
+            UExpressionInner::Or(box left, box right)
+        }
+        UExpressionInner::LeftShift(box e, box by) => {
+            let e = f.fold_uint_expression(e);
+            let by = f.fold_field_expression(by);
+
+            UExpressionInner::LeftShift(box e, box by)
+        }
+        UExpressionInner::RightShift(box e, box by) => {
+            let e = f.fold_uint_expression(e);
+            let by = f.fold_field_expression(by);
+
+            UExpressionInner::RightShift(box e, box by)
         }
         UExpressionInner::Not(box e) => {
             let e = f.fold_uint_expression(e);

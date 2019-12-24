@@ -761,6 +761,7 @@ impl<'ast> Checker<'ast> {
         match stat.value {
             Statement::Return(list) => {
                 let mut expression_list_checked = vec![];
+
                 for e in list.value.expressions {
                     let e_checked = self
                         .check_expression(e, module_id, &types)
@@ -891,6 +892,7 @@ impl<'ast> Checker<'ast> {
                             arguments_checked.iter().map(|a| a.get_type()).collect();
 
                         let query = FunctionQuery::new(&fun_id, &arguments_types, &vars_types);
+
                         let candidates = self.find_candidates(&query);
 
                         match candidates.len() {
@@ -1028,9 +1030,11 @@ impl<'ast> Checker<'ast> {
 
                 let checked_expression =
                     self.check_expression(s.value.expression, module_id, &types)?;
-                match checked_expression {
+
+                let res = match checked_expression {
                     TypedExpression::Array(e) => {
                         let ty = e.inner_type().clone();
+
                         let size = e.size();
                         match e.into_inner() {
                             // if we're doing a spread over an inline array, we return the inside of the array: ...[x, y, z] == x, y, z
@@ -1044,11 +1048,13 @@ impl<'ast> Checker<'ast> {
                                         FieldElementExpression::Number(T::from(i)),
                                     )
                                     .into(),
-                                    Type::Uint(bitwidth) => UExpression::select(
-                                        e.clone().annotate(Type::Uint(*bitwidth), size),
-                                        FieldElementExpression::Number(T::from(i)),
-                                    )
-                                    .into(),
+                                    Type::Uint(bitwidth) => {
+                                        UExpression::select(
+                                            e.clone().annotate(Type::Uint(*bitwidth), size),
+                                            FieldElementExpression::Number(T::from(i)),
+                                        )
+                                        .into()
+                                    }
                                     Type::Boolean => BooleanExpression::select(
                                         e.clone().annotate(Type::Boolean, size),
                                         FieldElementExpression::Number(T::from(i)),
@@ -1080,7 +1086,11 @@ impl<'ast> Checker<'ast> {
                             e.get_type()
                         ),
                     }),
-                }
+                };
+
+                let res = res.unwrap();
+
+                Ok(res)
             }
             SpreadOrExpression::Expression(e) => {
                 self.check_expression(e, module_id, &types).map(|r| vec![r])
@@ -1094,6 +1104,7 @@ impl<'ast> Checker<'ast> {
         module_id: &ModuleId,
         types: &TypeMap,
     ) -> Result<TypedExpression<'ast, T>, Error> {
+
         let pos = expr.pos();
 
         match expr.value {
@@ -1165,6 +1176,21 @@ impl<'ast> Checker<'ast> {
                 match (e1_checked, e2_checked) {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(FieldElementExpression::Sub(box e1, box e2).into())
+                    }
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
+                        if e1.get_type() == e2.get_type() {
+                            Ok(UExpression::sub(e1, e2).into())
+                        } else {
+                            Err(Error {
+                                pos: Some(pos),
+
+                                message: format!(
+                                    "Cannot apply `+` to {:?}, {:?}",
+                                    e1.get_type(),
+                                    e2.get_type()
+                                ),
+                            })
+                        }
                     }
                     (t1, t2) => Err(Error {
                         pos: Some(pos),
@@ -1352,6 +1378,15 @@ impl<'ast> Checker<'ast> {
                                 )
                                 .annotate(*array_type.ty.clone(), array_type.size.clone())
                                 .into()),
+                                Type::Uint(bitwidth) => Ok(UExpressionInner::FunctionCall(
+                                    FunctionKey {
+                                        id: f.id.clone(),
+                                        signature: f.signature.clone(),
+                                    },
+                                    arguments_checked,
+                                )
+                                .annotate(*bitwidth)
+                                .into()),
                                 _ => unimplemented!(),
                             },
                             n => Err(Error {
@@ -1520,12 +1555,37 @@ impl<'ast> Checker<'ast> {
                                 }),
                                 (f, t, _) => Ok(ArrayExpressionInner::Value(
                                     (f..t)
-                                        .map(|i| {
-                                            FieldElementExpression::Select(
+                                        .map(|i| match inner_type.clone() {
+                                            Type::FieldElement => FieldElementExpression::Select(
                                                 box array.clone(),
                                                 box FieldElementExpression::Number(T::from(i)),
                                             )
-                                            .into()
+                                            .into(),
+                                            Type::Boolean => BooleanExpression::Select(
+                                                box array.clone(),
+                                                box FieldElementExpression::Number(T::from(i)),
+                                            )
+                                            .into(),
+                                            Type::Uint(bitwidth) => UExpressionInner::Select(
+                                                box array.clone(),
+                                                box FieldElementExpression::Number(T::from(i)),
+                                            )
+                                            .annotate(bitwidth)
+                                            .into(),
+                                            Type::Struct(struct_ty) => {
+                                                StructExpressionInner::Select(
+                                                    box array.clone(),
+                                                    box FieldElementExpression::Number(T::from(i)),
+                                                )
+                                                .annotate(struct_ty)
+                                                .into()
+                                            }
+                                            Type::Array(array_ty) => ArrayExpressionInner::Select(
+                                                box array.clone(),
+                                                box FieldElementExpression::Number(T::from(i)),
+                                            )
+                                            .annotate(*array_ty.ty, array_ty.size)
+                                            .into(),
                                         })
                                         .collect(),
                                 )
@@ -1560,7 +1620,9 @@ impl<'ast> Checker<'ast> {
                                             .into())
                                     }
                                     Type::Uint(..) => Ok(UExpression::select(a, i).into()),
-                                    Type::FieldElement => Ok(FieldElementExpression::select(a, i).into()),
+                                    Type::FieldElement => {
+                                        Ok(FieldElementExpression::select(a, i).into())
+                                    }
                                     Type::Boolean => Ok(BooleanExpression::select(a, i).into()),
                                     Type::Array(..) => Ok(ArrayExpression::select(a, i).into()),
                                     Type::Struct(..) => Ok(StructExpression::select(a, i).into()),
@@ -1923,13 +1985,90 @@ impl<'ast> Checker<'ast> {
                     }),
                 }
             }
-            Expression::Xor(box e1, box e2) => {
+            Expression::LeftShift(box e1, box e2) => {
                 let e1_checked = self.check_expression(e1, module_id, &types)?;
                 let e2_checked = self.check_expression(e2, module_id, &types)?;
                 match (e1_checked, e2_checked) {
-                    (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
-                        Ok(BooleanExpression::Xor(box e1, box e2).into())
+                    (TypedExpression::Uint(e1), TypedExpression::FieldElement(e2)) => {
+                        Ok(UExpression::left_shift(e1, e2).into())
                     }
+                    (e1, e2) => Err(Error {
+                        pos: Some(pos),
+
+                        message: format!("cannot shift {} by {}", e1.get_type(), e2.get_type()),
+                    }),
+                }
+            }
+            Expression::RightShift(box e1, box e2) => {
+                let e1_checked = self.check_expression(e1, module_id, &types)?;
+                let e2_checked = self.check_expression(e2, module_id, &types)?;
+                match (e1_checked, e2_checked) {
+                    (TypedExpression::Uint(e1), TypedExpression::FieldElement(e2)) => {
+                        Ok(UExpression::right_shift(e1, e2).into())
+                    }
+                    (e1, e2) => Err(Error {
+                        pos: Some(pos),
+
+                        message: format!("cannot shift {} by {}", e1.get_type(), e2.get_type()),
+                    }),
+                }
+            }
+            Expression::BitOr(box e1, box e2) => {
+                let e1_checked = self.check_expression(e1, module_id, &types)?;
+                let e2_checked = self.check_expression(e2, module_id, &types)?;
+                match (e1_checked, e2_checked) {
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
+                        if e1.get_type() == e2.get_type() {
+                            Ok(UExpression::or(e1, e2).into())
+                        } else {
+                            Err(Error {
+                                pos: Some(pos),
+
+                                message: format!(
+                                    "Cannot apply `&` to {}, {}",
+                                    e1.get_type(),
+                                    e2.get_type()
+                                ),
+                            })
+                        }
+                    }
+                    (e1, e2) => Err(Error {
+                        pos: Some(pos),
+
+                        message: format!("cannot shift {} by {}", e1.get_type(), e2.get_type()),
+                    }),
+                }
+            }
+            Expression::BitAnd(box e1, box e2) => {
+                let e1_checked = self.check_expression(e1, module_id, &types)?;
+                let e2_checked = self.check_expression(e2, module_id, &types)?;
+                match (e1_checked, e2_checked) {
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
+                        if e1.get_type() == e2.get_type() {
+                            Ok(UExpression::and(e1, e2).into())
+                        } else {
+                            Err(Error {
+                                pos: Some(pos),
+
+                                message: format!(
+                                    "Cannot apply `&` to {}, {}",
+                                    e1.get_type(),
+                                    e2.get_type()
+                                ),
+                            })
+                        }
+                    }
+                    (e1, e2) => Err(Error {
+                        pos: Some(pos),
+
+                        message: format!("cannot shift {} by {}", e1.get_type(), e2.get_type()),
+                    }),
+                }
+            }
+            Expression::BitXor(box e1, box e2) => {
+                let e1_checked = self.check_expression(e1, module_id, &types)?;
+                let e2_checked = self.check_expression(e2, module_id, &types)?;
+                match (e1_checked, e2_checked) {
                     (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
                         if e1.get_type() == e2.get_type() {
                             Ok(UExpression::xor(e1, e2).into())

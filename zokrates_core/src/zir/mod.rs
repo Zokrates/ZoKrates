@@ -1,21 +1,21 @@
 pub mod folder;
+mod from_typed;
 mod identifier;
 mod parameter;
 pub mod types;
 mod uint;
 mod variable;
-mod from_typed;
 
 pub use self::parameter::Parameter;
 pub use self::types::Type;
 pub use self::variable::Variable;
 pub use zir::uint::{bitwidth, UExpression, UExpressionInner, UMetadata};
 
-use zir::types::{FunctionKey, Signature};
 use embed::FlatEmbed;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::fmt;
+use zir::types::{FunctionKey, Signature};
 use zokrates_field::field::Field;
 
 pub use self::folder::Folder;
@@ -408,10 +408,6 @@ pub enum BooleanExpression<'ast, T: Field> {
         Box<BooleanExpression<'ast, T>>,
         Box<BooleanExpression<'ast, T>>,
     ),
-    Xor(
-        Box<BooleanExpression<'ast, T>>,
-        Box<BooleanExpression<'ast, T>>,
-    ),
     And(
         Box<BooleanExpression<'ast, T>>,
         Box<BooleanExpression<'ast, T>>,
@@ -497,8 +493,13 @@ impl<'ast, T: Field> fmt::Display for UExpression<'ast, T> {
             UExpressionInner::Value(ref v) => write!(f, "{}", v),
             UExpressionInner::Identifier(ref var) => write!(f, "{}", var),
             UExpressionInner::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
+            UExpressionInner::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
             UExpressionInner::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
             UExpressionInner::Xor(ref lhs, ref rhs) => write!(f, "({} ^ {})", lhs, rhs),
+            UExpressionInner::And(ref lhs, ref rhs) => write!(f, "({} & {})", lhs, rhs),
+            UExpressionInner::Or(ref lhs, ref rhs) => write!(f, "({} | {})", lhs, rhs),
+            UExpressionInner::LeftShift(ref e, ref by) => write!(f, "({} << {})", e, by),
+            UExpressionInner::RightShift(ref e, ref by) => write!(f, "({} >> {})", e, by),
             UExpressionInner::Not(ref e) => write!(f, "!{}", e),
             UExpressionInner::IfElse(ref condition, ref consequent, ref alternative) => write!(
                 f,
@@ -520,7 +521,6 @@ impl<'ast, T: Field> fmt::Display for BooleanExpression<'ast, T> {
             BooleanExpression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
             BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
             BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
-            BooleanExpression::Xor(ref lhs, ref rhs) => write!(f, "{} ^ {}", lhs, rhs),
             BooleanExpression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             BooleanExpression::Not(ref exp) => write!(f, "!{}", exp),
             BooleanExpression::Value(b) => write!(f, "{}", b),
