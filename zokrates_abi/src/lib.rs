@@ -190,6 +190,8 @@ impl<T: Field> Decode<T> for CheckedValue<T> {
     fn decode(raw: Vec<T>, expected: Self::Expected) -> Self {
         let mut raw = raw;
 
+        println!("{:?}", raw);
+
         match expected {
             Type::FieldElement => CheckedValue::Field(raw.pop().unwrap()),
             Type::Uint(8) => CheckedValue::U8(
@@ -296,7 +298,7 @@ impl<T: Field> TryFrom<serde_json::Value> for Value<T> {
 
 impl<T: Field> Into<serde_json::Value> for CheckedValue<T> {
     fn into(self) -> serde_json::Value {
-        match self {
+        match dbg!(self) {
             CheckedValue::Field(f) => serde_json::Value::String(f.to_dec_string()),
             CheckedValue::U8(u) => serde_json::Value::String(format!("{:#04x}", u)),
             CheckedValue::U16(u) => serde_json::Value::String(format!("{:#06x}", u)),

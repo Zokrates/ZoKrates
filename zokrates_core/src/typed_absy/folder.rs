@@ -360,6 +360,10 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
             let e = f.fold_boolean_expression(e);
             BooleanExpression::Not(box e)
         }
+        BooleanExpression::FunctionCall(key, exps) => {
+            let exps = exps.into_iter().map(|e| f.fold_expression(e)).collect();
+            BooleanExpression::FunctionCall(key, exps)
+        }
         BooleanExpression::IfElse(box cond, box cons, box alt) => {
             let cond = f.fold_boolean_expression(cond);
             let cons = f.fold_boolean_expression(cons);

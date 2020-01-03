@@ -506,6 +506,16 @@ impl<'ast, T: Field> fmt::Display for UExpression<'ast, T> {
                 "if {} then {} else {} fi",
                 condition, consequent, alternative
             ),
+            UExpressionInner::FunctionCall(ref k, ref p) => {
+                write!(f, "{}(", k.id,)?;
+                for (i, param) in p.iter().enumerate() {
+                    write!(f, "{}", param)?;
+                    if i < p.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, ")")
+            }
         }
     }
 }

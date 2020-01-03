@@ -416,6 +416,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     should_reduce: Some(true),
                 })
             }
+            FunctionCall(..) => unreachable!(),
             IfElse(box condition, box consequence, box alternative) => {
                 let consequence = self.fold_uint_expression(consequence);
                 let alternative = self.fold_uint_expression(alternative);

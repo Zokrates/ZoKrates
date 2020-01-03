@@ -152,7 +152,7 @@ impl<'ast, T: Field> Flattener<T> {
                         .into_iter()
                         .flat_map(|a| self.fold_expression(a))
                         .collect(),
-                    unimplemented!(),
+                    vec![],
                 )
             }
         }
@@ -608,6 +608,9 @@ pub fn fold_boolean_expression<'ast, T: Field>(
             let alt = f.fold_boolean_expression(alt);
             zir::BooleanExpression::IfElse(box cond, box cons, box alt)
         }
+        typed_absy::BooleanExpression::FunctionCall(..) => {
+            unreachable!();
+        }
         typed_absy::BooleanExpression::Member(box s, id) => {
             let members = s.ty().clone();
 
@@ -714,7 +717,14 @@ pub fn fold_uint_expression_inner<'ast, T: Field>(
 
             zir::UExpressionInner::Not(box e)
         }
-        typed_absy::UExpressionInner::FunctionCall(..) => unreachable!(),
+        typed_absy::UExpressionInner::FunctionCall(key, exps) => {
+            let exps: Vec<_> = exps
+                .into_iter()
+                .flat_map(|e| f.fold_expression(e))
+                .collect();
+            let key = f.fold_function_key(key);
+            zir::UExpressionInner::FunctionCall(key, exps)
+        }
         typed_absy::UExpressionInner::Select(box array, box index) => {
             let array = f.fold_array_expression(array);
             let index = f.fold_field_expression(index);

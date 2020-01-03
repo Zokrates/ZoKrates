@@ -1048,13 +1048,11 @@ impl<'ast> Checker<'ast> {
                                         FieldElementExpression::Number(T::from(i)),
                                     )
                                     .into(),
-                                    Type::Uint(bitwidth) => {
-                                        UExpression::select(
-                                            e.clone().annotate(Type::Uint(*bitwidth), size),
-                                            FieldElementExpression::Number(T::from(i)),
-                                        )
-                                        .into()
-                                    }
+                                    Type::Uint(bitwidth) => UExpression::select(
+                                        e.clone().annotate(Type::Uint(*bitwidth), size),
+                                        FieldElementExpression::Number(T::from(i)),
+                                    )
+                                    .into(),
                                     Type::Boolean => BooleanExpression::select(
                                         e.clone().annotate(Type::Boolean, size),
                                         FieldElementExpression::Number(T::from(i)),
@@ -1104,7 +1102,6 @@ impl<'ast> Checker<'ast> {
         module_id: &ModuleId,
         types: &TypeMap,
     ) -> Result<TypedExpression<'ast, T>, Error> {
-
         let pos = expr.pos();
 
         match expr.value {
@@ -1353,6 +1350,14 @@ impl<'ast> Checker<'ast> {
                         match f.signature.outputs.len() {
                             1 => match &f.signature.outputs[0] {
                                 Type::FieldElement => Ok(FieldElementExpression::FunctionCall(
+                                    FunctionKey {
+                                        id: f.id.clone(),
+                                        signature: f.signature.clone(),
+                                    },
+                                    arguments_checked,
+                                )
+                                .into()),
+                                Type::Boolean => Ok(BooleanExpression::FunctionCall(
                                     FunctionKey {
                                         id: f.id.clone(),
                                         signature: f.signature.clone(),

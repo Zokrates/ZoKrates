@@ -65,7 +65,7 @@ fn cli() -> Result<(), String> {
         ).arg(Arg::with_name("output")
             .short("o")
             .long("output")
-            .help("Path of the output file")
+            .help("Path of the output binary")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -81,7 +81,7 @@ fn cli() -> Result<(), String> {
         .arg(Arg::with_name("input")
             .short("i")
             .long("input")
-            .help("Path of compiled code")
+            .help("Path of the binary")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -105,8 +105,7 @@ fn cli() -> Result<(), String> {
         ).arg(Arg::with_name("proving-scheme")
             .short("s")
             .long("proving-scheme")
-            .help("Proving scheme to use in the setup. Available options are G16 (default), PGHR13 and GM17")
-            .value_name("FILE")
+            .help("Proving scheme to use in the setup. Available options are G16, PGHR13 and GM17")
             .takes_value(true)
             .required(false)
             .default_value(&default_scheme)
@@ -137,15 +136,14 @@ fn cli() -> Result<(), String> {
         ).arg(Arg::with_name("proving-scheme")
             .short("s")
             .long("proving-scheme")
-            .help("Proving scheme to use to export the verifier. Available options are G16 (default), PGHR13 and GM17")
-            .value_name("FILE")
+            .help("Proving scheme to use to export the verifier. Available options are G16, PGHR13 and GM17")
             .takes_value(true)
             .required(false)
             .default_value(&default_scheme)
-        ).arg(Arg::with_name("abi")
+        ).arg(Arg::with_name("solidity-abi")
             .short("a")
-            .long("abi")
-            .help("Flag for setting the version of the ABI Encoder used in the contract. Default is v1.")
+            .long("solidity-abi")
+            .help("Flag for setting the version of the ABI Encoder used in the contract")
             .takes_value(true)
             .possible_values(&["v1", "v2"])
             .default_value(&default_solidity_abi)
@@ -157,7 +155,7 @@ fn cli() -> Result<(), String> {
         .arg(Arg::with_name("input")
             .short("i")
             .long("input")
-            .help("Path of compiled code")
+            .help("Path of the binary")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -165,7 +163,7 @@ fn cli() -> Result<(), String> {
         ).arg(Arg::with_name("abi_spec")
             .short("s")
             .long("abi_spec")
-            .help("Path to the ABI specification")
+            .help("Path of the ABI specification")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -229,7 +227,7 @@ fn cli() -> Result<(), String> {
         ).arg(Arg::with_name("input")
             .short("i")
             .long("input")
-            .help("Path of compiled code")
+            .help("Path of the binary")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -237,8 +235,7 @@ fn cli() -> Result<(), String> {
         ).arg(Arg::with_name("proving-scheme")
             .short("s")
             .long("proving-scheme")
-            .help("Proving scheme to use to generate the proof. Available options are G16 (default), PGHR13 and GM17")
-            .value_name("FILE")
+            .help("Proving scheme to use to generate the proof. Available options are G16, PGHR13 and GM17")
             .takes_value(true)
             .required(false)
             .default_value(&default_scheme)
@@ -384,6 +381,8 @@ fn cli() -> Result<(), String> {
 
                     let abi: Abi = from_reader(&mut reader).map_err(|why| why.to_string())?;
 
+                    println!("{:?}", abi);
+
                     abi.signature()
                 }
                 false => Signature::new()
@@ -496,7 +495,8 @@ fn cli() -> Result<(), String> {
         ("export-verifier", Some(sub_matches)) => {
             {
                 let scheme = get_scheme(sub_matches.value_of("proving-scheme").unwrap())?;
-                let is_abiv2 = sub_matches.value_of("abi").unwrap() == "v2";
+
+                let is_abiv2 = sub_matches.value_of("solidity-abi").unwrap() == "v2";
                 println!("Exporting verifier...");
 
                 // read vk file

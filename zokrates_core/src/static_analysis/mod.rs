@@ -45,7 +45,6 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
 
         // optimize uint expressions
         let zir = UintOptimizer::optimize(zir);
-
         zir
     }
 }

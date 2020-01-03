@@ -318,6 +318,10 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
 
             UExpressionInner::Not(box e)
         }
+        UExpressionInner::FunctionCall(key, exps) => {
+            let exps = exps.into_iter().map(|e| f.fold_expression(e)).collect();
+            UExpressionInner::FunctionCall(key, exps)
+        }
         UExpressionInner::IfElse(box cond, box cons, box alt) => {
             let cond = f.fold_boolean_expression(cond);
             let cons = f.fold_uint_expression(cons);

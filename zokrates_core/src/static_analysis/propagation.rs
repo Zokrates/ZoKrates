@@ -123,9 +123,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     ))) {
                     Some(e) => match e {
                         TypedExpression::Uint(e) => e.as_inner().clone(),
-                        _ => unreachable!(
-                            "constant stored for a uint should be a uint"
-                        ),
+                        _ => unreachable!("constant stored for a uint should be a uint"),
                     },
                     None => UExpressionInner::Identifier(id),
                 }
@@ -136,12 +134,15 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
                     use std::convert::TryInto;
-                    UExpressionInner::Value(v1 + v2 % 2_u128.pow(bitwidth.try_into().unwrap()))
+                    UExpressionInner::Value((v1 + v2) % 2_u128.pow(bitwidth.try_into().unwrap()))
                 }
                 (e, UExpressionInner::Value(v)) | (UExpressionInner::Value(v), e) => match v {
                     0 => e,
-                    _ => UExpressionInner::Add(box e.annotate(bitwidth), box UExpressionInner::Value(v).annotate(bitwidth))
-                }
+                    _ => UExpressionInner::Add(
+                        box e.annotate(bitwidth),
+                        box UExpressionInner::Value(v).annotate(bitwidth),
+                    ),
+                },
                 (e1, e2) => {
                     UExpressionInner::Add(box e1.annotate(bitwidth), box e2.annotate(bitwidth))
                 }
@@ -152,15 +153,18 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
                     use std::convert::TryInto;
-                    UExpressionInner::Value(v1 * v2 % 2_u128.pow(bitwidth.try_into().unwrap()))
+                    UExpressionInner::Value((v1 * v2) % 2_u128.pow(bitwidth.try_into().unwrap()))
                 }
                 (e, UExpressionInner::Value(v)) | (UExpressionInner::Value(v), e) => match v {
                     0 => UExpressionInner::Value(0),
                     1 => e,
-                    _ => UExpressionInner::Add(box e.annotate(bitwidth), box UExpressionInner::Value(v).annotate(bitwidth))
-                }
+                    _ => UExpressionInner::Mult(
+                        box e.annotate(bitwidth),
+                        box UExpressionInner::Value(v).annotate(bitwidth),
+                    ),
+                },
                 (e1, e2) => {
-                    UExpressionInner::Add(box e1.annotate(bitwidth), box e2.annotate(bitwidth))
+                    UExpressionInner::Mult(box e1.annotate(bitwidth), box e2.annotate(bitwidth))
                 }
             },
             UExpressionInner::Xor(box e1, box e2) => match (

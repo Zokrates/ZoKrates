@@ -84,6 +84,14 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         let check_u32 = crate::embed::FlatEmbed::CheckU32;
         let check_u32_key = check_u32.key::<T>();
 
+        // define a function in the main module for the `u32_to_bits` embed
+        let u32_to_bits = crate::embed::FlatEmbed::U32ToBits;
+        let u32_to_bits_key = u32_to_bits.key::<T>();
+
+        // define a function in the main module for the `u32_to_bits` embed
+        let u32_from_bits = crate::embed::FlatEmbed::U32FromBits;
+        let u32_from_bits_key = u32_from_bits.key::<T>();
+
         // return a program with a single module containing `main`, `_UNPACK`, and `_SHA256_ROUND
         TypedProgram {
             main: String::from("main"),
@@ -91,11 +99,13 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                 String::from("main"),
                 TypedModule {
                     functions: vec![
-                        (unpack_key, TypedFunctionSymbol::Flat(unpack)),
-                        (sha256_round_key, TypedFunctionSymbol::Flat(sha256_round)),
-                        (check_u8_key, TypedFunctionSymbol::Flat(check_u8)),
-                        (check_u16_key, TypedFunctionSymbol::Flat(check_u16)),
-                        (check_u32_key, TypedFunctionSymbol::Flat(check_u32)),
+                        // (unpack_key, TypedFunctionSymbol::Flat(unpack)),
+                        // (sha256_round_key, TypedFunctionSymbol::Flat(sha256_round)),
+                        // (check_u8_key, TypedFunctionSymbol::Flat(check_u8)),
+                        // (check_u16_key, TypedFunctionSymbol::Flat(check_u16)),
+                        // (check_u32_key, TypedFunctionSymbol::Flat(check_u32)),
+                        (u32_to_bits_key, TypedFunctionSymbol::Flat(u32_to_bits)),
+                        (u32_from_bits_key, TypedFunctionSymbol::Flat(u32_from_bits)),
                         (main_key, main),
                     ]
                     .into_iter()
@@ -253,6 +263,28 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
         }
     }
 
+    // inline calls which return a boolean element
+    fn fold_boolean_expression(
+        &mut self,
+        e: BooleanExpression<'ast, T>,
+    ) -> BooleanExpression<'ast, T> {
+        match e {
+            BooleanExpression::FunctionCall(key, exps) => {
+                let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
+
+                match self.try_inline_call(&key, exps) {
+                    Ok(mut ret) => match ret.pop().unwrap() {
+                        TypedExpression::Boolean(e) => e,
+                        _ => unreachable!(),
+                    },
+                    Err((key, expressions)) => BooleanExpression::FunctionCall(key, expressions),
+                }
+            }
+            e => fold_boolean_expression(self, e),
+        }
+    }
+
+    // inline calls which return an array
     fn fold_array_expression_inner(
         &mut self,
         ty: &Type,
