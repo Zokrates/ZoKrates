@@ -112,27 +112,6 @@ jobs:
       - run:
           name: Release
           command: ./scripts/release.sh
-  zokrates_js_build:
-    docker:
-      - image: blockchainit/rust-wasm-env:latest
-    steps:
-      - checkout
-      - run:
-          command: cd zokrates_js && npm run build
-  zokrates_js_test:
-    docker:
-      - image: circleci/node
-    steps:
-      - checkout
-      - run:
-          command: cd zokrates_js && npm run test
-  zokrates_js_publish:
-    docker:
-      - image: blockchainit/rust-wasm-env:latest
-    steps:
-      - checkout
-      - run:
-          command: cd zokrates_js && ./publish.sh
 workflows:
   version: 2
   build-test-and-deploy:
@@ -141,8 +120,6 @@ workflows:
       - test
       - wasm_test
       - integration_test
-      - zokrates_js_build
-      - zokrates_js_test
       - deploy:
           filters:
             branches:
@@ -153,12 +130,3 @@ workflows:
             - test
             - wasm_test
             - integration_test
-            - zokrates_js_build
-            - zokrates_js_test
-      - zokrates_js_publish:
-          filters:
-            branches:
-              only:
-                - master
-          requires:
-            - deploy

@@ -1,0 +1,8 @@
+pkg/
+node_modules/
+target/
+npm-debug.log
+.git
+.gitignore
+.vscode
+.idea
