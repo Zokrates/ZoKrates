@@ -12,7 +12,7 @@
 #include <cassert>
 #include <iomanip>
 
-// contains definition of alt_bn128 ec public parameters
+// contains definitions of alt_bn128 ec public parameters
 #include "libff/algebra/curves/alt_bn128/alt_bn128_pp.hpp"
 // contains required interfaces and types (keypair, proof, generator, prover, verifier)
 #include <libsnark/zk_proof_systems/ppzksnark/r1cs_ppzksnark/r1cs_ppzksnark.hpp>
@@ -24,7 +24,7 @@ using namespace libsnark;
 
 namespace pghr13 {
 
-//takes input and puts it into constraint system
+// takes input and puts it into a constraint system
 r1cs_ppzksnark_constraint_system<libff::alt_bn128_pp> createConstraintSystem(const uint8_t* A, const uint8_t* B, const uint8_t* C, int A_len, int B_len, int C_len, int constraints, int variables, int inputs)
 {
   r1cs_ppzksnark_constraint_system<libff::alt_bn128_pp> cs;

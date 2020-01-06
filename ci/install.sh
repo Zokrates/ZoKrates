@@ -1,3 +1,5 @@
+#!/bin/bash
+
 set -ex
 
 main() {
@@ -10,7 +12,7 @@ main() {
         sort=gsort  # for `sort --sort-version`, from brew's coreutils.
     fi
 
-    # Builds for iOS are done on OSX, but require the specific target to be
+    # Builds for iOS are done on macOS, but require the specific target to be
     # installed.
     case $TARGET in
         aarch64-apple-ios)

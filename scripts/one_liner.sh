@@ -28,10 +28,10 @@ need_cmd() {
 get_bitness() {
     need_cmd head
     # Architecture detection without dependencies beyond coreutils.
-    # ELF files start out "\x7fELF", and the following byte is
+    # ELF files start out "\x7fELF", and the following bytes are
     #   0x01 for 32-bit and
     #   0x02 for 64-bit.
-    # The printf builtin on some shells like dash only supports octal
+    # The printf builtin on some shells - like dash - only supports octal
     # escape sequences, so we use those.
     local _current_exe_head
     _current_exe_head=$(head -c 5 /proc/self/exe )
@@ -302,7 +302,7 @@ main() {
     # install ZoKrates
     for f in $(ls $td); do
         # put folders into $dest
-        if [ -d $td/$f ]; then 
+        if [ -d $td/$f ]; then
             if [ -e "$dest/$f" ] && [ $force = false ]; then
                 err "$f already exists in $dest, use --force to overwrite"
             else
@@ -327,7 +327,7 @@ main() {
 
     cat <<'EOF'
 
-ZoKrates was installed succesfully!
+ZoKrates was installed successfully!
 If this is the first time you're installing ZoKrates run the following:
 export PATH=$PATH:$HOME/.zokrates/bin
 export ZOKRATES_HOME=$HOME/.zokrates/stdlib

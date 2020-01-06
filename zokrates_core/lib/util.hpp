@@ -1,6 +1,6 @@
 #pragma once
 
-// contains definition of alt_bn128 ec public parameters
+// contains definitions of alt_bn128 ec public parameters
 #include "libff/algebra/curves/alt_bn128/alt_bn128_pp.hpp"
 #include <fstream>
 #include <iostream>

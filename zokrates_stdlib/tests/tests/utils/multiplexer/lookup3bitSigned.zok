@@ -1,15 +1,15 @@
-import "utils/multiplexer/lookup3bitSigned" as lookup 
+import "utils/multiplexer/lookup3bitSigned" as lookup
 
 def first() -> (field):
-	field[3] sel = [0,0,0] 
+	field[3] sel = [0,0,0]
 	field[4] t  = [0, 1, 2 , 3]
 	
 	0 == lookup(sel, t)
 	
-	return 1 
+	return 1
 
 def firstNeg() -> (field):
-	field[3] sel = [0,0,1] 
+	field[3] sel = [0,0,1]
 	field[4] t  = [0, 1, 2 , 3]
 	
 	0 == lookup(sel, t)
@@ -17,32 +17,32 @@ def firstNeg() -> (field):
 	return 1
 
 def second() -> (field):
-	field[3] sel = [1,0,0] 
+	field[3] sel = [1,0,0]
 	field[4] t  = [0, 1, 2 , 3]
 	
 	1 == lookup(sel, t)
 	
-	return 1 
+	return 1
 
 def secondNeg() -> (field):
-	field[3] sel = [1,0,1] 
+	field[3] sel = [1,0,1]
 	field[4] t  = [0, 1, 2 , 3]
 	
 	field out = 0 - 1
 	out == lookup(sel, t)
 	
-	return 1 
+	return 1
 
 def thrid() -> (field):
-	field[3] sel = [0,1,0] 
+	field[3] sel = [0,1,0]
 	field[4] t  = [0, 1, 2 , 3]
 	
 	2 == lookup(sel, t)
 	
-	return 1 
+	return 1
 
 def thridNeg() -> (field):
-	field[3] sel = [0,1,1] 
+	field[3] sel = [0,1,1]
 	field[4] t  = [0, 1, 2 , 3]
 	
 	field out = 0 - 2
@@ -51,7 +51,7 @@ def thridNeg() -> (field):
 	return 1
 
 def fourth() -> (field):
-	field[3] sel = [1,1,0] 
+	field[3] sel = [1,1,0]
 	field[4] t  = [0, 1, 2 , 3]
 	
 	3 == lookup(sel, t)
@@ -59,13 +59,13 @@ def fourth() -> (field):
 	return 1
 
 def fourthNeg() -> (field):
-	field[3] sel = [1,1,1] 
+	field[3] sel = [1,1,1]
 	field[4] t  = [0, 1, 2 , 3]
 	
 	field out = 0 - 3
 	out == lookup(sel, t)
 	
-	return 1 
+	return 1
 	
 def main() -> (field):
 

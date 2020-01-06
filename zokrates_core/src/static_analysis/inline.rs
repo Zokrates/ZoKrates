@@ -5,7 +5,7 @@
 //! @date 2019
 
 //! Start from the `main` function in the `main` module and inline all calls except those to flat embeds
-//! The resulting program has a single module, where we define a function for each flat embed, and replace function calls to the embeds found
+//! The resulting program has a single module, where we define a function for each flat embed and replace the function calls with the embeds found
 //! during inlining by calls to these functions, to be resolved during flattening.
 
 //! The resulting program has a single module of the form
@@ -24,7 +24,7 @@ use zokrates_field::field::Field;
 /// An inliner
 #[derive(Debug)]
 pub struct Inliner<'ast, T: Field> {
-    modules: TypedModules<'ast, T>, // the modules to look for functions in when inlining
+    modules: TypedModules<'ast, T>, // the modules to look for functions when inlining
     module_id: TypedModuleId,       // the current module we're visiting
     statement_buffer: Vec<TypedStatement<'ast, T>>, // a buffer of statements to be added to the inlined statements
     stack: Vec<(String, FunctionKey<'ast>, usize)>, // the current call stack
@@ -165,7 +165,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         }
     }
 
-    // Focus the Inliner on another module with id `module_id` and return the current `module_id`
+    // Focus the inliner on another module with id `module_id` and return the current `module_id`
     fn change_module(&mut self, module_id: TypedModuleId) -> TypedModuleId {
         std::mem::replace(&mut self.module_id, module_id)
     }

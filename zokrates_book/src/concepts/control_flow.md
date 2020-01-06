@@ -14,7 +14,7 @@ Arguments are passed by value.
 
 ### If expressions
 
-An if expression allows you to branch your code depending on a condition.
+An "if expression" allows you to branch your code depending on a condition.
 
 ```zokrates
 {{#include ../../../zokrates_cli/examples/book/if_else.zok}}
@@ -32,5 +32,5 @@ For loops are available with the following syntax:
 {{#include ../../../zokrates_cli/examples/book/for.zok}}
 ```
 
-The bounds have to be known at compile time, so only constants are allowed.
+The bounds have to be known at compile-time, so only constants are allowed.
 For-loops define their own scope.
