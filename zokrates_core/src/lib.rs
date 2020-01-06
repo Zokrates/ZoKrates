@@ -28,11 +28,11 @@ extern crate zokrates_pest_ast;
 
 mod embed;
 mod flatten;
-mod helpers;
-pub mod imports;
+mod imports;
 mod optimizer;
 mod parser;
 mod semantics;
+mod solvers;
 mod static_analysis;
 
 pub mod absy;
