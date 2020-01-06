@@ -78,7 +78,7 @@ impl<'ast> Unroller<'ast> {
                                 (0..size)
                                     .map(|i| match inner_ty {
                                         Type::Array(..) => ArrayExpression::if_else(
-                                            BooleanExpression::Eq(
+                                            BooleanExpression::FieldEq(
                                                 box FieldElementExpression::Number(T::from(i)),
                                                 box head.clone(),
                                             ),
@@ -105,7 +105,7 @@ impl<'ast> Unroller<'ast> {
                                         )
                                         .into(),
                                         Type::Struct(..) => StructExpression::if_else(
-                                            BooleanExpression::Eq(
+                                            BooleanExpression::FieldEq(
                                                 box FieldElementExpression::Number(T::from(i)),
                                                 box head.clone(),
                                             ),
@@ -132,7 +132,7 @@ impl<'ast> Unroller<'ast> {
                                         )
                                         .into(),
                                         Type::FieldElement => FieldElementExpression::if_else(
-                                            BooleanExpression::Eq(
+                                            BooleanExpression::FieldEq(
                                                 box FieldElementExpression::Number(T::from(i)),
                                                 box head.clone(),
                                             ),
@@ -159,7 +159,7 @@ impl<'ast> Unroller<'ast> {
                                         )
                                         .into(),
                                         Type::Boolean => BooleanExpression::if_else(
-                                            BooleanExpression::Eq(
+                                            BooleanExpression::FieldEq(
                                                 box FieldElementExpression::Number(T::from(i)),
                                                 box head.clone(),
                                             ),
@@ -208,9 +208,9 @@ impl<'ast> Unroller<'ast> {
                             members
                                 .clone()
                                 .into_iter()
-                                .map(|(id, t)| match t {
+                                .map(|member| match *member.ty {
                                     Type::FieldElement => {
-                                        if id == head {
+                                        if member.id == head {
                                             Self::choose_many(
                                                 FieldElementExpression::member(
                                                     base.clone(),
@@ -222,12 +222,15 @@ impl<'ast> Unroller<'ast> {
                                                 statements,
                                             )
                                         } else {
-                                            FieldElementExpression::member(base.clone(), id.clone())
-                                                .into()
+                                            FieldElementExpression::member(
+                                                base.clone(),
+                                                member.id.clone(),
+                                            )
+                                            .into()
                                         }
                                     }
                                     Type::Boolean => {
-                                        if id == head {
+                                        if member.id == head {
                                             Self::choose_many(
                                                 BooleanExpression::member(
                                                     base.clone(),
@@ -239,12 +242,15 @@ impl<'ast> Unroller<'ast> {
                                                 statements,
                                             )
                                         } else {
-                                            BooleanExpression::member(base.clone(), id.clone())
-                                                .into()
+                                            BooleanExpression::member(
+                                                base.clone(),
+                                                member.id.clone(),
+                                            )
+                                            .into()
                                         }
                                     }
                                     Type::Array(..) => {
-                                        if id == head {
+                                        if member.id == head {
                                             Self::choose_many(
                                                 ArrayExpression::member(base.clone(), head.clone())
                                                     .into(),
@@ -253,11 +259,12 @@ impl<'ast> Unroller<'ast> {
                                                 statements,
                                             )
                                         } else {
-                                            ArrayExpression::member(base.clone(), id.clone()).into()
+                                            ArrayExpression::member(base.clone(), member.id.clone())
+                                                .into()
                                         }
                                     }
                                     Type::Struct(..) => {
-                                        if id == head {
+                                        if member.id == head {
                                             Self::choose_many(
                                                 StructExpression::member(
                                                     base.clone(),
@@ -269,8 +276,11 @@ impl<'ast> Unroller<'ast> {
                                                 statements,
                                             )
                                         } else {
-                                            StructExpression::member(base.clone(), id.clone())
-                                                .into()
+                                            StructExpression::member(
+                                                base.clone(),
+                                                member.id.clone(),
+                                            )
+                                            .into()
                                         }
                                     }
                                 })
@@ -326,9 +336,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                     Type::Boolean => {
                         BooleanExpression::Identifier(variable.id.clone().into()).into()
                     }
-                    Type::Array(box ty, size) => {
+                    Type::Array(array_type) => {
                         ArrayExpressionInner::Identifier(variable.id.clone().into())
-                            .annotate(ty, size)
+                            .annotate(*array_type.ty, array_type.size)
                             .into()
                     }
                     Type::Struct(members) => {
@@ -445,7 +455,7 @@ mod tests {
             a1,
             ArrayExpressionInner::Value(vec![
                 FieldElementExpression::if_else(
-                    BooleanExpression::Eq(
+                    BooleanExpression::FieldEq(
                         box FieldElementExpression::Number(FieldPrime::from(0)),
                         box FieldElementExpression::Number(FieldPrime::from(1))
                     ),
@@ -457,7 +467,7 @@ mod tests {
                 )
                 .into(),
                 FieldElementExpression::if_else(
-                    BooleanExpression::Eq(
+                    BooleanExpression::FieldEq(
                         box FieldElementExpression::Number(FieldPrime::from(1)),
                         box FieldElementExpression::Number(FieldPrime::from(1))
                     ),
@@ -469,7 +479,7 @@ mod tests {
                 )
                 .into(),
                 FieldElementExpression::if_else(
-                    BooleanExpression::Eq(
+                    BooleanExpression::FieldEq(
                         box FieldElementExpression::Number(FieldPrime::from(2)),
                         box FieldElementExpression::Number(FieldPrime::from(1))
                     ),
@@ -506,7 +516,7 @@ mod tests {
             a1,
             ArrayExpressionInner::Value(vec![
                 ArrayExpression::if_else(
-                    BooleanExpression::Eq(
+                    BooleanExpression::FieldEq(
                         box FieldElementExpression::Number(FieldPrime::from(0)),
                         box FieldElementExpression::Number(FieldPrime::from(1))
                     ),
@@ -518,7 +528,7 @@ mod tests {
                 )
                 .into(),
                 ArrayExpression::if_else(
-                    BooleanExpression::Eq(
+                    BooleanExpression::FieldEq(
                         box FieldElementExpression::Number(FieldPrime::from(1)),
                         box FieldElementExpression::Number(FieldPrime::from(1))
                     ),
@@ -530,7 +540,7 @@ mod tests {
                 )
                 .into(),
                 ArrayExpression::if_else(
-                    BooleanExpression::Eq(
+                    BooleanExpression::FieldEq(
                         box FieldElementExpression::Number(FieldPrime::from(2)),
                         box FieldElementExpression::Number(FieldPrime::from(1))
                     ),
@@ -570,13 +580,13 @@ mod tests {
             a1,
             ArrayExpressionInner::Value(vec![
                 ArrayExpression::if_else(
-                    BooleanExpression::Eq(
+                    BooleanExpression::FieldEq(
                         box FieldElementExpression::Number(FieldPrime::from(0)),
                         box FieldElementExpression::Number(FieldPrime::from(0))
                     ),
                     ArrayExpressionInner::Value(vec![
                         FieldElementExpression::if_else(
-                            BooleanExpression::Eq(
+                            BooleanExpression::FieldEq(
                                 box FieldElementExpression::Number(FieldPrime::from(0)),
                                 box FieldElementExpression::Number(FieldPrime::from(0))
                             ),
@@ -591,7 +601,7 @@ mod tests {
                         )
                         .into(),
                         FieldElementExpression::if_else(
-                            BooleanExpression::Eq(
+                            BooleanExpression::FieldEq(
                                 box FieldElementExpression::Number(FieldPrime::from(1)),
                                 box FieldElementExpression::Number(FieldPrime::from(0))
                             ),
@@ -614,13 +624,13 @@ mod tests {
                 )
                 .into(),
                 ArrayExpression::if_else(
-                    BooleanExpression::Eq(
+                    BooleanExpression::FieldEq(
                         box FieldElementExpression::Number(FieldPrime::from(1)),
                         box FieldElementExpression::Number(FieldPrime::from(0))
                     ),
                     ArrayExpressionInner::Value(vec![
                         FieldElementExpression::if_else(
-                            BooleanExpression::Eq(
+                            BooleanExpression::FieldEq(
                                 box FieldElementExpression::Number(FieldPrime::from(0)),
                                 box FieldElementExpression::Number(FieldPrime::from(0))
                             ),
@@ -635,7 +645,7 @@ mod tests {
                         )
                         .into(),
                         FieldElementExpression::if_else(
-                            BooleanExpression::Eq(
+                            BooleanExpression::FieldEq(
                                 box FieldElementExpression::Number(FieldPrime::from(1)),
                                 box FieldElementExpression::Number(FieldPrime::from(0))
                             ),
@@ -976,7 +986,7 @@ mod tests {
                         )),
                         ArrayExpressionInner::Value(vec![
                             FieldElementExpression::IfElse(
-                                box BooleanExpression::Eq(
+                                box BooleanExpression::FieldEq(
                                     box FieldElementExpression::Number(FieldPrime::from(0)),
                                     box FieldElementExpression::Number(FieldPrime::from(1))
                                 ),
@@ -991,7 +1001,7 @@ mod tests {
                             )
                             .into(),
                             FieldElementExpression::IfElse(
-                                box BooleanExpression::Eq(
+                                box BooleanExpression::FieldEq(
                                     box FieldElementExpression::Number(FieldPrime::from(1)),
                                     box FieldElementExpression::Number(FieldPrime::from(1))
                                 ),
@@ -1114,7 +1124,7 @@ mod tests {
                         )),
                         ArrayExpressionInner::Value(vec![
                             ArrayExpressionInner::IfElse(
-                                box BooleanExpression::Eq(
+                                box BooleanExpression::FieldEq(
                                     box FieldElementExpression::Number(FieldPrime::from(0)),
                                     box FieldElementExpression::Number(FieldPrime::from(1))
                                 ),
@@ -1136,7 +1146,7 @@ mod tests {
                             .annotate(Type::FieldElement, 2)
                             .into(),
                             ArrayExpressionInner::IfElse(
-                                box BooleanExpression::Eq(
+                                box BooleanExpression::FieldEq(
                                     box FieldElementExpression::Number(FieldPrime::from(1)),
                                     box FieldElementExpression::Number(FieldPrime::from(1))
                                 ),

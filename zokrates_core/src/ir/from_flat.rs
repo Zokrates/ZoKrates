@@ -1,5 +1,6 @@
-use crate::flat_absy::{FlatExpression, FlatFunction, FlatProg, FlatStatement, FlatVariable};
-use crate::helpers;
+use crate::flat_absy::{
+    FlatDirective, FlatExpression, FlatFunction, FlatProg, FlatStatement, FlatVariable,
+};
 use crate::ir::{Directive, Function, LinComb, Prog, QuadComb, Statement};
 use num::Zero;
 use zokrates_field::field::Field;
@@ -66,19 +67,12 @@ impl<T: Field> From<FlatProg<T>> for Prog<T> {
         // get the main function
         let main = flat_prog.main;
 
-        // get the signature to keep high level information in the low level representation
-        let signature = main.signature.clone();
-
         // get the interface of the program, ie which inputs are private and public
         let private = main.arguments.iter().map(|p| p.private).collect();
 
         let main = main.into();
 
-        Prog {
-            private,
-            main,
-            signature,
-        }
+        Prog { private, main }
     }
 }
 
@@ -126,11 +120,11 @@ impl<T: Field> From<FlatStatement<T>> for Statement<T> {
     }
 }
 
-impl<T: Field> From<helpers::DirectiveStatement<T>> for Directive<T> {
-    fn from(ds: helpers::DirectiveStatement<T>) -> Directive<T> {
+impl<T: Field> From<FlatDirective<T>> for Directive<T> {
+    fn from(ds: FlatDirective<T>) -> Directive<T> {
         Directive {
             inputs: ds.inputs.into_iter().map(|i| i.into()).collect(),
-            helper: ds.helper,
+            solver: ds.solver,
             outputs: ds.outputs,
         }
     }

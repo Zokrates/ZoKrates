@@ -8,7 +8,7 @@ use crate::typed_absy::folder::*;
 use crate::typed_absy::*;
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use typed_absy::types::{MemberId, Type};
+use typed_absy::types::{StructMember, Type};
 use zokrates_field::field::Field;
 
 pub struct Propagator<'ast, T: Field> {
@@ -241,7 +241,13 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 
                 match s.into_inner() {
                     StructExpressionInner::Value(v) => {
-                        match members.iter().zip(v).find(|(id, _)| id.0 == m).unwrap().1 {
+                        match members
+                            .iter()
+                            .zip(v)
+                            .find(|(member, _)| member.id == m)
+                            .unwrap()
+                            .1
+                        {
                             TypedExpression::FieldElement(s) => s,
                             _ => unreachable!(),
                         }
@@ -337,7 +343,13 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 
                 match s.into_inner() {
                     StructExpressionInner::Value(v) => {
-                        match members.iter().zip(v).find(|(id, _)| id.0 == m).unwrap().1 {
+                        match members
+                            .iter()
+                            .zip(v)
+                            .find(|(member, _)| member.id == m)
+                            .unwrap()
+                            .1
+                        {
                             TypedExpression::Array(a) => a.into_inner(),
                             _ => unreachable!(),
                         }
@@ -351,7 +363,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 
     fn fold_struct_expression_inner(
         &mut self,
-        ty: &Vec<(MemberId, Type)>,
+        ty: &Vec<StructMember>,
         e: StructExpressionInner<'ast, T>,
     ) -> StructExpressionInner<'ast, T> {
         match e {
@@ -433,7 +445,13 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 
                 match s.into_inner() {
                     StructExpressionInner::Value(v) => {
-                        match members.iter().zip(v).find(|(id, _)| id.0 == m).unwrap().1 {
+                        match members
+                            .iter()
+                            .zip(v)
+                            .find(|(member, _)| member.id == m)
+                            .unwrap()
+                            .1
+                        {
                             TypedExpression::Struct(s) => s.into_inner(),
                             _ => unreachable!(),
                         }
@@ -460,7 +478,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                 },
                 None => BooleanExpression::Identifier(id),
             },
-            BooleanExpression::Eq(box e1, box e2) => {
+            BooleanExpression::FieldEq(box e1, box e2) => {
                 let e1 = self.fold_field_expression(e1);
                 let e2 = self.fold_field_expression(e2);
 
@@ -468,7 +486,18 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     (FieldElementExpression::Number(n1), FieldElementExpression::Number(n2)) => {
                         BooleanExpression::Value(n1 == n2)
                     }
-                    (e1, e2) => BooleanExpression::Eq(box e1, box e2),
+                    (e1, e2) => BooleanExpression::FieldEq(box e1, box e2),
+                }
+            }
+            BooleanExpression::BoolEq(box e1, box e2) => {
+                let e1 = self.fold_boolean_expression(e1);
+                let e2 = self.fold_boolean_expression(e2);
+
+                match (e1, e2) {
+                    (BooleanExpression::Value(n1), BooleanExpression::Value(n2)) => {
+                        BooleanExpression::Value(n1 == n2)
+                    }
+                    (e1, e2) => BooleanExpression::BoolEq(box e1, box e2),
                 }
             }
             BooleanExpression::Lt(box e1, box e2) => {
@@ -579,7 +608,13 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 
                 match s.into_inner() {
                     StructExpressionInner::Value(v) => {
-                        match members.iter().zip(v).find(|(id, _)| id.0 == m).unwrap().1 {
+                        match members
+                            .iter()
+                            .zip(v)
+                            .find(|(member, _)| member.id == m)
+                            .unwrap()
+                            .1
+                        {
                             TypedExpression::Boolean(s) => s,
                             _ => unreachable!(),
                         }
@@ -750,13 +785,13 @@ mod tests {
             }
 
             #[test]
-            fn eq() {
-                let e_true = BooleanExpression::Eq(
+            fn field_eq() {
+                let e_true = BooleanExpression::FieldEq(
                     box FieldElementExpression::Number(FieldPrime::from(2)),
                     box FieldElementExpression::Number(FieldPrime::from(2)),
                 );
 
-                let e_false = BooleanExpression::Eq(
+                let e_false = BooleanExpression::FieldEq(
                     box FieldElementExpression::Number(FieldPrime::from(4)),
                     box FieldElementExpression::Number(FieldPrime::from(2)),
                 );
@@ -767,6 +802,49 @@ mod tests {
                 );
                 assert_eq!(
                     Propagator::new().fold_boolean_expression(e_false),
+                    BooleanExpression::Value(false)
+                );
+            }
+
+            #[test]
+            fn bool_eq() {
+                assert_eq!(
+                    Propagator::<FieldPrime>::new().fold_boolean_expression(
+                        BooleanExpression::BoolEq(
+                            box BooleanExpression::Value(false),
+                            box BooleanExpression::Value(false)
+                        )
+                    ),
+                    BooleanExpression::Value(true)
+                );
+
+                assert_eq!(
+                    Propagator::<FieldPrime>::new().fold_boolean_expression(
+                        BooleanExpression::BoolEq(
+                            box BooleanExpression::Value(true),
+                            box BooleanExpression::Value(true)
+                        )
+                    ),
+                    BooleanExpression::Value(true)
+                );
+
+                assert_eq!(
+                    Propagator::<FieldPrime>::new().fold_boolean_expression(
+                        BooleanExpression::BoolEq(
+                            box BooleanExpression::Value(true),
+                            box BooleanExpression::Value(false)
+                        )
+                    ),
+                    BooleanExpression::Value(false)
+                );
+
+                assert_eq!(
+                    Propagator::<FieldPrime>::new().fold_boolean_expression(
+                        BooleanExpression::BoolEq(
+                            box BooleanExpression::Value(false),
+                            box BooleanExpression::Value(true)
+                        )
+                    ),
                     BooleanExpression::Value(false)
                 );
             }

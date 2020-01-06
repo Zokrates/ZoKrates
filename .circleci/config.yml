@@ -42,9 +42,9 @@ jobs:
       - restore_cache:
           keys:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
-      # - run:
-      #     name: Check format
-      #     command: rustup component add rustfmt; cargo fmt --all -- --check
+      - run:
+          name: Check format
+          command: rustup component add rustfmt; cargo fmt --all -- --check
       - run:
           name: Install libsnark prerequisites
           command: ./scripts/install_libsnark_prerequisites.sh
@@ -57,29 +57,6 @@ jobs:
       # - run:
       #     name: Generate code coverage report
       #     command: ./scripts/cov.sh
-  wasm_test:
-    docker:
-      - image: rustlang/rust:nightly-slim
-    steps:
-      - checkout
-      - run:
-          name: Version information
-          command: rustc --version; cargo --version; rustup --version
-      - run:
-          name: Calculate dependencies
-          command: cargo generate-lockfile
-      - restore_cache:
-          keys:
-            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
-      - run:
-          name: Download wasm32 target
-          command: rustup target add wasm32-unknown-unknown
-      - run:
-          name: Install libsnark prerequisites
-          command: ./scripts/install_libsnark_prerequisites.sh
-      - run:
-          name: Run tests with WASM enabled
-          command: cd zokrates_core && cargo test --release --features wasm -- --test-threads=1
   integration_test:
     docker:
       - image: rustlang/rust:nightly-slim
@@ -122,7 +99,6 @@ workflows:
     jobs:
       - build
       - test
-      - wasm_test
       - integration_test
       - deploy:
           filters:
