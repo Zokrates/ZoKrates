@@ -6,19 +6,20 @@
 
 use bincode::{deserialize_from, serialize_into, Infinite};
 use clap::{App, AppSettings, Arg, SubCommand};
-use serde_json::Value;
+use serde_json::{from_reader, to_writer_pretty, Value};
+use std::env;
 use std::fs::File;
 use std::io::{stdin, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::string::String;
-use std::{env, io};
-use zokrates_core::compile::compile;
+use zokrates_abi::Encode;
+use zokrates_core::compile::{compile, CompilationArtifacts};
 use zokrates_core::ir;
 use zokrates_core::proof_system::*;
+use zokrates_core::typed_absy::abi::Abi;
+use zokrates_core::typed_absy::{types::Signature, Type};
 use zokrates_field::field::{Field, FieldPrime};
 use zokrates_fs_resolver::resolve as fs_resolve;
-#[cfg(feature = "github")]
-use zokrates_github_resolver::{is_github_import, resolve as github_resolve};
 
 fn main() {
     cli().unwrap_or_else(|e| {
@@ -27,21 +28,9 @@ fn main() {
     })
 }
 
-fn resolve<'a>(
-    location: Option<String>,
-    source: &'a str,
-) -> Result<(BufReader<File>, String, &'a str), io::Error> {
-    #[cfg(feature = "github")]
-    {
-        if is_github_import(source) {
-            return github_resolve(location, source);
-        };
-    }
-    fs_resolve(location, source)
-}
-
 fn cli() -> Result<(), String> {
     const FLATTENED_CODE_DEFAULT_PATH: &str = "out";
+    const ABI_SPEC_DEFAULT_PATH: &str = "abi.json";
     const VERIFICATION_KEY_DEFAULT_PATH: &str = "verification.key";
     const PROVING_KEY_DEFAULT_PATH: &str = "proving.key";
     const VERIFICATION_CONTRACT_DEFAULT_PATH: &str = "verifier.sol";
@@ -65,10 +54,18 @@ fn cli() -> Result<(), String> {
             .value_name("FILE")
             .takes_value(true)
             .required(true)
+        ).arg(Arg::with_name("abi_spec")
+            .short("s")
+            .long("abi_spec")
+            .help("Path of the ABI specification")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(ABI_SPEC_DEFAULT_PATH)
         ).arg(Arg::with_name("output")
             .short("o")
             .long("output")
-            .help("Path of the output file")
+            .help("Path of the output binary")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -84,7 +81,7 @@ fn cli() -> Result<(), String> {
         .arg(Arg::with_name("input")
             .short("i")
             .long("input")
-            .help("Path of compiled code")
+            .help("Path of the binary")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -108,8 +105,7 @@ fn cli() -> Result<(), String> {
         ).arg(Arg::with_name("proving-scheme")
             .short("s")
             .long("proving-scheme")
-            .help("Proving scheme to use in the setup. Available options are G16 (default), PGHR13 and GM17")
-            .value_name("FILE")
+            .help("Proving scheme to use in the setup. Available options are G16, PGHR13 and GM17")
             .takes_value(true)
             .required(false)
             .default_value(&default_scheme)
@@ -140,15 +136,14 @@ fn cli() -> Result<(), String> {
         ).arg(Arg::with_name("proving-scheme")
             .short("s")
             .long("proving-scheme")
-            .help("Proving scheme to use to export the verifier. Available options are G16 (default), PGHR13 and GM17")
-            .value_name("FILE")
+            .help("Proving scheme to use to export the verifier. Available options are G16, PGHR13 and GM17")
             .takes_value(true)
             .required(false)
             .default_value(&default_scheme)
-        ).arg(Arg::with_name("abi")
+        ).arg(Arg::with_name("solidity-abi")
             .short("a")
-            .long("abi")
-            .help("Flag for setting the version of the ABI Encoder used in the contract. Default is v1.")
+            .long("solidity-abi")
+            .help("Flag for setting the version of the ABI Encoder used in the contract")
             .takes_value(true)
             .possible_values(&["v1", "v2"])
             .default_value(&default_solidity_abi)
@@ -160,11 +155,19 @@ fn cli() -> Result<(), String> {
         .arg(Arg::with_name("input")
             .short("i")
             .long("input")
-            .help("Path of compiled code")
+            .help("Path of the binary")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
             .default_value(FLATTENED_CODE_DEFAULT_PATH)
+        ).arg(Arg::with_name("abi_spec")
+            .short("s")
+            .long("abi_spec")
+            .help("Path of the ABI specification")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(ABI_SPEC_DEFAULT_PATH)
         ).arg(Arg::with_name("output")
             .short("o")
             .long("output")
@@ -176,9 +179,18 @@ fn cli() -> Result<(), String> {
         ).arg(Arg::with_name("arguments")
             .short("a")
             .long("arguments")
-            .help("Arguments for the program's main method as a space separated list")
+            .help("Arguments for the program's main function")
             .takes_value(true)
             .multiple(true) // allows multiple values
+            .required(false)
+        ).arg(Arg::with_name("abi")
+            .long("abi")
+            .help("Use the ABI")
+            .required(false)
+        ).arg(Arg::with_name("stdin")
+            .long("stdin")
+            .help("Read arguments from stdin")
+            .conflicts_with("arguments")
             .required(false)
         ).arg(Arg::with_name("light")
             .long("light")
@@ -215,7 +227,7 @@ fn cli() -> Result<(), String> {
         ).arg(Arg::with_name("input")
             .short("i")
             .long("input")
-            .help("Path of compiled code")
+            .help("Path of the binary")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -223,8 +235,7 @@ fn cli() -> Result<(), String> {
         ).arg(Arg::with_name("proving-scheme")
             .short("s")
             .long("proving-scheme")
-            .help("Proving scheme to use to generate the proof. Available options are G16 (default), PGHR13 and GM17")
-            .value_name("FILE")
+            .help("Proving scheme to use to generate the proof. Available options are G16, PGHR13 and GM17")
             .takes_value(true)
             .required(false)
             .default_value(&default_scheme)
@@ -270,15 +281,19 @@ fn cli() -> Result<(), String> {
 
             let bin_output_path = Path::new(sub_matches.value_of("output").unwrap());
 
+            let abi_spec_path = Path::new(sub_matches.value_of("abi_spec").unwrap());
+
             let hr_output_path = bin_output_path.to_path_buf().with_extension("ztf");
 
             let file = File::open(path.clone()).unwrap();
 
             let mut reader = BufReader::new(file);
 
-            let program_flattened: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(resolve))
+            let artifacts: CompilationArtifacts<FieldPrime> =
+                compile(&mut reader, Some(location), Some(fs_resolve))
                     .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
+
+            let program_flattened = artifacts.prog();
 
             // number of constraints the flattened program will translate to.
             let num_constraints = program_flattened.constraint_count();
@@ -290,6 +305,17 @@ fn cli() -> Result<(), String> {
             let mut writer = BufWriter::new(bin_output_file);
 
             serialize_into(&mut writer, &program_flattened, Infinite)
+                .map_err(|_| "Unable to write data to file.".to_string())?;
+
+            // serialize ABI spec and write to JSON file
+            let abi_spec_file = File::create(&abi_spec_path)
+                .map_err(|why| format!("couldn't create {}: {}", abi_spec_path.display(), why))?;
+
+            let abi = artifacts.abi();
+
+            let mut writer = BufWriter::new(abi_spec_file);
+
+            to_writer_pretty(&mut writer, &abi)
                 .map_err(|_| "Unable to write data to file.".to_string())?;
 
             if !light {
@@ -329,60 +355,103 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(file);
 
-            let program_ast: ir::Prog<FieldPrime> =
+            let ir_prog: ir::Prog<FieldPrime> =
                 deserialize_from(&mut reader, Infinite).map_err(|why| why.to_string())?;
 
             // print deserialized flattened program
             if !sub_matches.is_present("light") {
-                println!("{}", program_ast);
+                println!("{}", ir_prog);
             }
 
-            let expected_cli_args_count =
-                program_ast.public_arguments_count() + program_ast.private_arguments_count();
+            let is_stdin = sub_matches.is_present("stdin");
+            let is_abi = sub_matches.is_present("abi");
+
+            if !is_stdin && is_abi {
+                return Err(
+                    "ABI input as inline argument is not supported. Please use `--stdin`.".into(),
+                );
+            }
+
+            let signature = match is_abi {
+                true => {
+                    let path = Path::new(sub_matches.value_of("abi_spec").unwrap());
+                    let file = File::open(&path)
+                        .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
+                    let mut reader = BufReader::new(file);
+
+                    let abi: Abi = from_reader(&mut reader).map_err(|why| why.to_string())?;
+
+                    abi.signature()
+                }
+                false => Signature::new()
+                    .inputs(vec![Type::FieldElement; ir_prog.main.arguments.len()])
+                    .outputs(vec![Type::FieldElement; ir_prog.main.returns.len()]),
+            };
+
+            use zokrates_abi::Inputs;
 
             // get arguments
-            let arguments: Vec<_> = match sub_matches.values_of("arguments") {
+            let arguments = match is_stdin {
                 // take inline arguments
-                Some(p) => p
-                    .map(|x| FieldPrime::try_from_dec_str(x).map_err(|_| x.to_string()))
-                    .collect(),
+                false => {
+                    let arguments = sub_matches.values_of("arguments");
+                    arguments
+                        .map(|a| {
+                            a.map(|x| FieldPrime::try_from_dec_str(x).map_err(|_| x.to_string()))
+                                .collect::<Result<Vec<_>, _>>()
+                        })
+                        .unwrap_or(Ok(vec![]))
+                        .map(|v| Inputs::Raw(v))
+                }
                 // take stdin arguments
-                None => {
-                    if expected_cli_args_count > 0 {
-                        let mut stdin = stdin();
-                        let mut input = String::new();
-                        match stdin.read_to_string(&mut input) {
+                true => {
+                    let mut stdin = stdin();
+                    let mut input = String::new();
+
+                    match is_abi {
+                        true => match stdin.read_to_string(&mut input) {
                             Ok(_) => {
-                                input.retain(|x| x != '\n');
-                                input
-                                    .split(" ")
-                                    .map(|x| {
-                                        FieldPrime::try_from_dec_str(x).map_err(|_| x.to_string())
-                                    })
-                                    .collect()
+                                use zokrates_abi::parse_strict;
+
+                                parse_strict(&input, signature.inputs)
+                                    .map(|parsed| Inputs::Abi(parsed))
+                                    .map_err(|why| why.to_string())
                             }
                             Err(_) => Err(String::from("???")),
-                        }
-                    } else {
-                        Ok(vec![])
+                        },
+                        false => match ir_prog.arguments_count() {
+                            0 => Ok(Inputs::Raw(vec![])),
+                            _ => match stdin.read_to_string(&mut input) {
+                                Ok(_) => {
+                                    input.retain(|x| x != '\n');
+                                    input
+                                        .split(" ")
+                                        .map(|x| {
+                                            FieldPrime::try_from_dec_str(x)
+                                                .map_err(|_| x.to_string())
+                                        })
+                                        .collect::<Result<Vec<_>, _>>()
+                                        .map(|v| Inputs::Raw(v))
+                                }
+                                Err(_) => Err(String::from("???")),
+                            },
+                        },
                     }
                 }
             }
             .map_err(|e| format!("Could not parse argument: {}", e))?;
 
-            if arguments.len() != expected_cli_args_count {
-                Err(format!(
-                    "Wrong number of arguments. Given: {}, Required: {}.",
-                    arguments.len(),
-                    expected_cli_args_count
-                ))?
-            }
-
-            let witness = program_ast
-                .execute(&arguments)
+            let witness = ir_prog
+                .execute(&arguments.encode())
                 .map_err(|e| format!("Execution failed: {}", e))?;
 
-            println!("\nWitness: \n\n{}", witness.format_outputs());
+            use zokrates_abi::Decode;
+
+            let results_json_value: serde_json::Value =
+                zokrates_abi::CheckedValues::decode(witness.return_values(), signature.outputs)
+                    .into();
+
+            println!("\nWitness: \n\n{}", results_json_value);
 
             // write witness to file
             let output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -424,7 +493,8 @@ fn cli() -> Result<(), String> {
         ("export-verifier", Some(sub_matches)) => {
             {
                 let scheme = get_scheme(sub_matches.value_of("proving-scheme").unwrap())?;
-                let is_abiv2 = sub_matches.value_of("abi").unwrap() == "v2";
+
+                let is_abiv2 = sub_matches.value_of("solidity-abi").unwrap() == "v2";
                 println!("Exporting verifier...");
 
                 // read vk file
@@ -564,8 +634,8 @@ mod tests {
                 .into_string()
                 .unwrap();
 
-            let _: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(resolve)).unwrap();
+            let _: CompilationArtifacts<FieldPrime> =
+                compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
         }
     }
 
@@ -591,10 +661,11 @@ mod tests {
 
             let mut reader = BufReader::new(file);
 
-            let program_flattened: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(resolve)).unwrap();
+            let artifacts: CompilationArtifacts<FieldPrime> =
+                compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
-            let _ = program_flattened
+            let _ = artifacts
+                .prog()
                 .execute(&vec![FieldPrime::from(0)])
                 .unwrap();
         }
@@ -623,10 +694,11 @@ mod tests {
 
             let mut reader = BufReader::new(file);
 
-            let program_flattened: ir::Prog<FieldPrime> =
-                compile(&mut reader, Some(location), Some(resolve)).unwrap();
+            let artifacts: CompilationArtifacts<FieldPrime> =
+                compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
 
-            let _ = program_flattened
+            let _ = artifacts
+                .prog()
                 .execute(&vec![FieldPrime::from(0)])
                 .unwrap();
         }

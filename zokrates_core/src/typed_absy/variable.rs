@@ -1,7 +1,7 @@
-use crate::absy;
+use crate::typed_absy::types::Type;
 use crate::typed_absy::Identifier;
-use crate::types::Type;
 use std::fmt;
+use typed_absy::types::StructMember;
 
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub struct Variable<'ast> {
@@ -27,6 +27,10 @@ impl<'ast> Variable<'ast> {
         Self::with_id_and_type(id, Type::array(ty, size))
     }
 
+    pub fn struc(id: Identifier<'ast>, ty: Vec<StructMember>) -> Variable<'ast> {
+        Self::with_id_and_type(id, Type::Struct(ty))
+    }
+
     pub fn with_id_and_type(id: Identifier<'ast>, _type: Type) -> Variable<'ast> {
         Variable { id, _type }
     }
@@ -48,15 +52,15 @@ impl<'ast> fmt::Debug for Variable<'ast> {
     }
 }
 
-impl<'ast> From<absy::Variable<'ast>> for Variable<'ast> {
-    fn from(v: absy::Variable) -> Variable {
-        Variable::with_id_and_type(
-            Identifier {
-                id: v.id,
-                version: 0,
-                stack: vec![],
-            },
-            v._type,
-        )
-    }
-}
+// impl<'ast> From<absy::Variable<'ast>> for Variable<'ast> {
+//     fn from(v: absy::Variable) -> Variable {
+//         Variable::with_id_and_type(
+//             Identifier {
+//                 id: v.id,
+//                 version: 0,
+//                 stack: vec![],
+//             },
+//             v._type,
+//         )
+//     }
+// }

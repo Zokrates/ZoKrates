@@ -1,6 +1,6 @@
 use crate::flat_absy::flat_parameter::FlatParameter;
 use crate::flat_absy::FlatVariable;
-use crate::helpers::Helper;
+use crate::solvers::Solver;
 use std::fmt;
 use zokrates_field::field::Field;
 
@@ -36,7 +36,7 @@ impl<T: Field> Statement<T> {
 pub struct Directive<T: Field> {
     pub inputs: Vec<LinComb<T>>,
     pub outputs: Vec<FlatVariable>,
-    pub helper: Helper,
+    pub solver: Solver,
 }
 
 impl<T: Field> fmt::Display for Directive<T> {
@@ -49,7 +49,7 @@ impl<T: Field> fmt::Display for Directive<T> {
                 .map(|o| format!("{}", o))
                 .collect::<Vec<_>>()
                 .join(", "),
-            self.helper,
+            self.solver,
             self.inputs
                 .iter()
                 .map(|i| format!("{}", i))
@@ -120,12 +120,8 @@ impl<T: Field> Prog<T> {
             .count()
     }
 
-    pub fn public_arguments_count(&self) -> usize {
-        self.private.iter().filter(|b| !**b).count()
-    }
-
-    pub fn private_arguments_count(&self) -> usize {
-        self.private.iter().filter(|b| **b).count()
+    pub fn arguments_count(&self) -> usize {
+        self.private.len()
     }
 
     pub fn parameters(&self) -> Vec<FlatParameter> {

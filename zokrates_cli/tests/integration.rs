@@ -4,14 +4,15 @@ extern crate serde_json;
 #[cfg(test)]
 mod integration {
     use assert_cli;
-    use serde_json;
-    use serde_json::Value;
+    use serde_json::from_reader;
     use std::fs;
     use std::fs::File;
-    use std::io::prelude::*;
+    use std::io::{BufReader, Read};
     use std::panic;
     use std::path::Path;
     use tempdir::TempDir;
+    use zokrates_abi::{parse_strict, Encode};
+    use zokrates_core::typed_absy::abi::Abi;
 
     #[test]
     #[ignore]
@@ -29,8 +30,13 @@ mod integration {
                     Path::new(Path::new(path.file_stem().unwrap()).file_stem().unwrap());
                 let prog = dir.join(program_name).with_extension("zok");
                 let witness = dir.join(program_name).with_extension("expected.witness");
-                let args = dir.join(program_name).with_extension("arguments.json");
-                test_compile_and_witness(program_name.to_str().unwrap(), &prog, &args, &witness);
+                let json_input = dir.join(program_name).with_extension("arguments.json");
+                test_compile_and_witness(
+                    program_name.to_str().unwrap(),
+                    &prog,
+                    &json_input,
+                    &witness,
+                );
             }
         }
     }
@@ -47,13 +53,14 @@ mod integration {
     fn test_compile_and_witness(
         program_name: &str,
         program_path: &Path,
-        arguments_path: &Path,
+        inputs_path: &Path,
         expected_witness_path: &Path,
     ) {
         let tmp_dir = TempDir::new(".tmp").unwrap();
         let tmp_base = tmp_dir.path();
         let test_case_path = tmp_base.join(program_name);
         let flattened_path = tmp_base.join(program_name).join("out");
+        let abi_spec_path = tmp_base.join(program_name).join("abi.json");
         let witness_path = tmp_base.join(program_name).join("witness");
         let inline_witness_path = tmp_base.join(program_name).join("inline_witness");
         let proof_path = tmp_base.join(program_name).join("proof.json");
@@ -79,6 +86,8 @@ mod integration {
             "compile",
             "-i",
             program_path.to_str().unwrap(),
+            "-s",
+            abi_spec_path.to_str().unwrap(),
             "-o",
             flattened_path.to_str().unwrap(),
             "--light",
@@ -88,23 +97,53 @@ mod integration {
         assert_cli::Assert::command(&compile).succeeds().unwrap();
 
         // COMPUTE_WITNESS
-        let arguments: Value =
-            serde_json::from_reader(File::open(arguments_path).unwrap()).unwrap();
 
-        let arguments_str_list: Vec<String> = arguments
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|i| match *i {
-                Value::Number(ref n) => n.to_string(),
-                _ => panic!(format!(
-                    "Cannot read arguments. Check {}",
-                    arguments_path.to_str().unwrap()
-                )),
-            })
+        let compute = vec![
+            "../target/release/zokrates",
+            "compute-witness",
+            "-i",
+            flattened_path.to_str().unwrap(),
+            "-s",
+            abi_spec_path.to_str().unwrap(),
+            "-o",
+            witness_path.to_str().unwrap(),
+            "--stdin",
+            "--abi",
+        ];
+
+        // run witness-computation for ABI-encoded inputs through stdin
+        let json_input_str = fs::read_to_string(inputs_path).unwrap();
+
+        assert_cli::Assert::command(&compute)
+            .stdin(&json_input_str)
+            .succeeds()
+            .unwrap();
+
+        // run witness-computation for raw-encoded inputs (converted) with `-a <arguments>`
+
+        // First we need to convert our test input into raw field elements. We need to ABI spec for that
+        let file = File::open(&abi_spec_path)
+            .map_err(|why| format!("couldn't open {}: {}", flattened_path.display(), why))
+            .unwrap();
+
+        let mut reader = BufReader::new(file);
+
+        let abi: Abi = from_reader(&mut reader)
+            .map_err(|why| why.to_string())
+            .unwrap();
+
+        let signature = abi.signature().clone();
+
+        let inputs_abi: zokrates_abi::Inputs<zokrates_field::field::FieldPrime> =
+            parse_strict(&json_input_str, signature.inputs)
+                .map(|parsed| zokrates_abi::Inputs::Abi(parsed))
+                .map_err(|why| why.to_string())
+                .unwrap();
+        let inputs_raw: Vec<_> = inputs_abi
+            .encode()
+            .into_iter()
+            .map(|v| v.to_string())
             .collect();
-
-        // WITH `-a <arguments>`
 
         let mut compute_inline = vec![
             "../target/release/zokrates",
@@ -116,27 +155,11 @@ mod integration {
             "-a",
         ];
 
-        for arg in arguments_str_list.iter() {
+        for arg in &inputs_raw {
             compute_inline.push(arg);
         }
 
         assert_cli::Assert::command(&compute_inline)
-            .succeeds()
-            .unwrap();
-
-        // WITH stdin ARGUMENTS
-
-        let compute = vec![
-            "../target/release/zokrates",
-            "compute-witness",
-            "-i",
-            flattened_path.to_str().unwrap(),
-            "-o",
-            witness_path.to_str().unwrap(),
-        ];
-
-        assert_cli::Assert::command(&compute)
-            .stdin(&arguments_str_list.join(" "))
             .succeeds()
             .unwrap();
 

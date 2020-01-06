@@ -4,11 +4,13 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
+mod constrain_inputs;
 mod flat_propagation;
 mod inline;
 mod propagation;
 mod unroll;
 
+use self::constrain_inputs::InputConstrainer;
 use self::inline::Inliner;
 use self::propagation::Propagator;
 use self::unroll::Unroller;
@@ -28,6 +30,8 @@ impl<'ast, T: Field> Analyse for TypedProgram<'ast, T> {
         let r = Inliner::inline(r);
         // propagate
         let r = Propagator::propagate(r);
+        // constrain inputs
+        let r = InputConstrainer::constrain(r);
         r
     }
 }

@@ -371,7 +371,7 @@ mod tests {
 
                 let witness = program
                     .clone()
-                    .execute::<FieldPrime>(&vec![FieldPrime::from(42)])
+                    .execute(&vec![FieldPrime::from(42)])
                     .unwrap();
                 let computation = Computation::with_witness(program, witness);
 

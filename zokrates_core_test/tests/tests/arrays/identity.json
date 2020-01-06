@@ -1,0 +1,38 @@
+{
+	"entry_point": "./tests/tests/arrays/identity.code",
+	"tests": [
+		{
+			"input": {
+				"values": ["0", "0", "0"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["0", "0", "0"]
+				}
+			}
+		},
+		{
+			"input": {
+				"values": ["1", "0", "1"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["1", "0", "1"]
+				}
+			}
+		},
+		{
+			"input": {
+				"values": ["2", "1", "1"]
+			},
+			"output": {
+				"Err": {
+					"UnsatisfiedConstraint": {
+						"left": "4",
+						"right": "2"
+					}
+				}
+			}
+		}
+	]
+}
