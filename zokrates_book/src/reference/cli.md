@@ -39,7 +39,7 @@ Creates a witness file at `./witness`
 Generates a trusted setup for the compiled program found at `./out`.
 
 Creates a proving key and a verifying key at `./proving.key` and `./verifying.key`.
-These keys are derived from a source of randomness, commonly referred to as “toxic waste”. Anyone having access to the source of randomness can produce fake proofs that will be accepted by a verifier following the protocol.
+These keys are derived from a source of randomness, commonly referred to as "toxic waste". Anyone having access to the source of randomness can produce fake proofs that will be accepted by a verifier following the protocol.
 
 ## `export-verifier`
 
