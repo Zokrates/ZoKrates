@@ -4,6 +4,11 @@ declare module 'zokrates-js' {
     source: string,
     location: string
   }
+
+  export interface CompilationArtifacts {
+    program: Uint8Array,
+    abi: string,
+  }
   
   export interface SetupKeypair {
     vk: string,
@@ -12,9 +17,9 @@ declare module 'zokrates-js' {
 
   export type ResolveCallback = (location: string, path: string) => ResolverResult;
   export interface ZoKratesProvider {
-    compile(source: string, location: string, callback: ResolveCallback): Uint8Array;
+    compile(source: string, location: string, callback: ResolveCallback): CompilationArtifacts;
     setup(program: Uint8Array): SetupKeypair;
-    computeWitness(program: Uint8Array, args: string[]): string;
+    computeWitness(artifacts: CompilationArtifacts, args: string[]): string;
     exportSolidityVerifier(verifyingKey: string, isAbiv2: boolean): string
     generateProof(program: Uint8Array, witness: string, provingKey: Uint8Array): string;
   }

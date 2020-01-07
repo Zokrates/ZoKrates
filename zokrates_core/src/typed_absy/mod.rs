@@ -5,6 +5,7 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
+pub mod abi;
 pub mod folder;
 mod parameter;
 pub mod types;
@@ -22,6 +23,8 @@ use std::fmt;
 use zokrates_field::field::Field;
 
 pub use self::folder::Folder;
+use typed_absy::abi::{Abi, AbiInput};
+use typed_absy::types::StructMember;
 
 /// A identifier for a variable
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
@@ -51,6 +54,34 @@ pub type TypedFunctionSymbols<'ast, T> = HashMap<FunctionKey<'ast>, TypedFunctio
 pub struct TypedProgram<'ast, T: Field> {
     pub modules: TypedModules<'ast, T>,
     pub main: TypedModuleId,
+}
+
+impl<'ast, T: Field> TypedProgram<'ast, T> {
+    pub fn abi(&self) -> Abi {
+        let main = self.modules[&self.main]
+            .functions
+            .iter()
+            .find(|(id, _)| id.id == "main")
+            .unwrap()
+            .1;
+        let main = match main {
+            TypedFunctionSymbol::Here(main) => main,
+            _ => unreachable!(),
+        };
+
+        Abi {
+            inputs: main
+                .arguments
+                .iter()
+                .map(|p| AbiInput {
+                    public: !p.private,
+                    name: p.id.id.to_string(),
+                    ty: p.id._type.clone(),
+                })
+                .collect(),
+            outputs: main.signature.outputs.clone(),
+        }
+    }
 }
 
 impl<'ast, T: Field> fmt::Display for TypedProgram<'ast, T> {
@@ -252,16 +283,19 @@ impl<'ast, T: Field> Typed for TypedAssignee<'ast, T> {
             TypedAssignee::Select(ref a, _) => {
                 let a_type = a.get_type();
                 match a_type {
-                    Type::Array(box t, _) => t,
+                    Type::Array(t) => *t.ty,
                     _ => unreachable!("an array element should only be defined over arrays"),
                 }
             }
             TypedAssignee::Member(ref s, ref m) => {
                 let s_type = s.get_type();
                 match s_type {
-                    Type::Struct(members) => {
-                        members.iter().find(|(id, _)| id == m).unwrap().1.clone()
-                    }
+                    Type::Struct(members) => *members
+                        .iter()
+                        .find(|member| member.id == *m)
+                        .unwrap()
+                        .ty
+                        .clone(),
                     _ => unreachable!("a struct access should only be defined over structs"),
                 }
             }
@@ -446,7 +480,7 @@ impl<'ast, T: Field> fmt::Display for StructExpression<'ast, T> {
                 "{{{}}}",
                 self.ty
                     .iter()
-                    .map(|(id, _)| id)
+                    .map(|member| member.id.clone())
                     .zip(values.iter())
                     .map(|(id, o)| format!("{}: {}", id, o.to_string()))
                     .collect::<Vec<String>>()
@@ -615,6 +649,7 @@ pub enum BooleanExpression<'ast, T: Field> {
         Box<BooleanExpression<'ast, T>>,
     ),
     Member(Box<StructExpression<'ast, T>>, MemberId),
+    FunctionCall(FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
     Select(
         Box<ArrayExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
@@ -680,12 +715,12 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
 
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub struct StructExpression<'ast, T: Field> {
-    ty: Vec<(MemberId, Type)>,
+    ty: Vec<StructMember>,
     inner: StructExpressionInner<'ast, T>,
 }
 
 impl<'ast, T: Field> StructExpression<'ast, T> {
-    pub fn ty(&self) -> &Vec<(MemberId, Type)> {
+    pub fn ty(&self) -> &Vec<StructMember> {
         &self.ty
     }
 
@@ -716,7 +751,7 @@ pub enum StructExpressionInner<'ast, T: Field> {
 }
 
 impl<'ast, T: Field> StructExpressionInner<'ast, T> {
-    pub fn annotate(self, ty: Vec<(MemberId, Type)>) -> StructExpression<'ast, T> {
+    pub fn annotate(self, ty: Vec<StructMember>) -> StructExpression<'ast, T> {
         StructExpression { ty, inner: self }
     }
 }
@@ -818,6 +853,16 @@ impl<'ast, T: Field> fmt::Display for BooleanExpression<'ast, T> {
             BooleanExpression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             BooleanExpression::Not(ref exp) => write!(f, "!{}", exp),
             BooleanExpression::Value(b) => write!(f, "{}", b),
+            BooleanExpression::FunctionCall(ref k, ref p) => {
+                write!(f, "{}(", k.id,)?;
+                for (i, param) in p.iter().enumerate() {
+                    write!(f, "{}", param)?;
+                    if i < p.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, ")")
+            }
             BooleanExpression::IfElse(ref condition, ref consequent, ref alternative) => write!(
                 f,
                 "if {} then {} else {} fi",
@@ -1054,7 +1099,7 @@ impl<'ast, T: Field> Select<'ast, T> for BooleanExpression<'ast, T> {
 impl<'ast, T: Field> Select<'ast, T> for ArrayExpression<'ast, T> {
     fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
         let (ty, size) = match array.inner_type() {
-            Type::Array(inner, size) => (inner.clone(), size.clone()),
+            Type::Array(array_type) => (array_type.ty.clone(), array_type.size.clone()),
             _ => unreachable!(),
         };
 
@@ -1095,16 +1140,16 @@ impl<'ast, T: Field> Member<'ast, T> for ArrayExpression<'ast, T> {
 
         let ty = members
             .into_iter()
-            .find(|(id, _)| *id == member_id)
+            .find(|member| *member.id == member_id)
             .unwrap()
-            .1;
+            .ty;
 
-        let (ty, size) = match ty {
-            Type::Array(box ty, size) => (ty, size),
+        let (ty, size) = match *ty {
+            Type::Array(array_type) => (array_type.ty, array_type.size),
             _ => unreachable!(),
         };
 
-        ArrayExpressionInner::Member(box s, member_id).annotate(ty, size)
+        ArrayExpressionInner::Member(box s, member_id).annotate(*ty, size)
     }
 }
 
@@ -1114,11 +1159,11 @@ impl<'ast, T: Field> Member<'ast, T> for StructExpression<'ast, T> {
 
         let ty = members
             .into_iter()
-            .find(|(id, _)| *id == member_id)
+            .find(|member| *member.id == member_id)
             .unwrap()
-            .1;
+            .ty;
 
-        let members = match ty {
+        let members = match *ty {
             Type::Struct(members) => members,
             _ => unreachable!(),
         };

@@ -7,7 +7,6 @@ use wasm_bindgen_test::*;
 use zokrates_core::flat_absy::FlatVariable;
 use zokrates_core::ir::{Function, Prog, Statement};
 use zokrates_core::proof_system::ProofSystem;
-use zokrates_core::typed_absy::{Signature, Type};
 use zokrates_field::field::FieldPrime;
 
 use zokrates_core::proof_system::G16;
@@ -25,9 +24,6 @@ fn generate_proof() {
             )],
         },
         private: vec![false],
-        signature: Signature::new()
-            .inputs(vec![Type::FieldElement])
-            .outputs(vec![Type::FieldElement]),
     };
 
     let witness = program

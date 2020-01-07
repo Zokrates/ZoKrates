@@ -31,26 +31,29 @@ const initialize = async () => {
 
   return {
     compile: (source, location, callback) => {
-      return Uint8Array.from(
-        zokrates.compile(source, location, (location, path) => resolveModule(location, path, callback))
-      );
+        let result = zokrates.compile(source, location, (location, path) => 
+          resolveModule(location, path, callback)
+        );
+        return {
+            program: Array.from(result.program),
+            abi: result.abi
+        }
     },
     setup: (program) => {
-      let result = zokrates.setup(Array.from(program));
+      let result = zokrates.setup(program);
       return { 
-        vk: result.vk, 
-        pk: Uint8Array.from(result.pk) 
+        vk: result.vk,
+        pk: Array.from(result.pk)
       };
     },
-    computeWitness: (program, args) => {
-      const input = JSON.stringify(Array.from(args));
-      return zokrates.compute_witness(Array.from(program), input);
+    computeWitness: (artifacts, args) => {
+      return zokrates.compute_witness(artifacts, JSON.stringify(Array.from(args)));
     },
     exportSolidityVerifier: (verifyingKey, isAbiv2) => {
       return zokrates.export_solidity_verifier(verifyingKey, isAbiv2);
     },
     generateProof: (program, witness, provingKey) => {
-      return zokrates.generate_proof(Array.from(program), witness, Array.from(provingKey));
+      return zokrates.generate_proof(program, witness, provingKey);
     }
   }
 }

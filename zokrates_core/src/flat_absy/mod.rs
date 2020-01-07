@@ -11,7 +11,6 @@ pub mod flat_variable;
 pub use self::flat_parameter::FlatParameter;
 pub use self::flat_variable::FlatVariable;
 
-use crate::typed_absy::types::Signature;
 use solvers::{Signed, Solver};
 use std::collections::HashMap;
 use std::fmt;
@@ -41,8 +40,6 @@ pub struct FlatFunction<T: Field> {
     pub arguments: Vec<FlatParameter>,
     /// Vector of statements that are executed when running the function
     pub statements: Vec<FlatStatement<T>>,
-    /// Typed signature
-    pub signature: Signature,
 }
 
 impl<T: Field> fmt::Display for FlatFunction<T> {
@@ -68,9 +65,8 @@ impl<T: Field> fmt::Debug for FlatFunction<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "FlatFunction(arguments: {:?}, signature: {:?}):\n{}",
+            "FlatFunction(arguments: {:?}):\n{}",
             self.arguments,
-            self.signature,
             self.statements
                 .iter()
                 .map(|x| format!("\t{:?}", x))

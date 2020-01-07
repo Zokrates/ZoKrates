@@ -294,7 +294,6 @@ mod parse {
 mod tests {
     use super::*;
     use crate::ir::{Function, LinComb};
-    use typed_absy::types::{Signature, Type};
     use zokrates_field::field::FieldPrime;
 
     mod prove {
@@ -310,7 +309,6 @@ mod tests {
                     statements: vec![],
                 },
                 private: vec![],
-                signature: Signature::new(),
             };
 
             let witness = program.clone().execute(&vec![]).unwrap();
@@ -333,9 +331,6 @@ mod tests {
                     )],
                 },
                 private: vec![true],
-                signature: Signature::new()
-                    .inputs(vec![Type::FieldElement])
-                    .outputs(vec![Type::FieldElement]),
             };
 
             let witness = program.clone().execute(&vec![FieldPrime::from(0)]).unwrap();
@@ -358,9 +353,6 @@ mod tests {
                     )],
                 },
                 private: vec![false],
-                signature: Signature::new()
-                    .inputs(vec![Type::FieldElement])
-                    .outputs(vec![Type::FieldElement]),
             };
 
             let witness = program.clone().execute(&vec![FieldPrime::from(0)]).unwrap();
@@ -383,7 +375,6 @@ mod tests {
                     )],
                 },
                 private: vec![],
-                signature: Signature::new().outputs(vec![Type::FieldElement]),
             };
 
             let witness = program.clone().execute(&vec![]).unwrap();
@@ -418,9 +409,6 @@ mod tests {
                     ],
                 },
                 private: vec![true, false],
-                signature: Signature::new()
-                    .inputs(vec![Type::FieldElement, Type::FieldElement])
-                    .outputs(vec![Type::FieldElement, Type::FieldElement]),
             };
 
             let witness = program
@@ -446,9 +434,6 @@ mod tests {
                     )],
                 },
                 private: vec![false],
-                signature: Signature::new()
-                    .inputs(vec![Type::FieldElement])
-                    .outputs(vec![Type::FieldElement]),
             };
 
             let witness = program.clone().execute(&vec![FieldPrime::from(3)]).unwrap();
@@ -473,9 +458,6 @@ mod tests {
                     )],
                 },
                 private: vec![true, false],
-                signature: Signature::new()
-                    .inputs(vec![Type::FieldElement, Type::FieldElement])
-                    .outputs(vec![Type::FieldElement]),
             };
 
             let witness = program
