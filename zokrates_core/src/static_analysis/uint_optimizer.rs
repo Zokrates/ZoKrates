@@ -1,7 +1,6 @@
 use crate::zir::*;
 use std::collections::HashMap;
 use std::marker::PhantomData;
-use zir::bitwidth;
 use zir::folder::*;
 use zokrates_field::field::Field;
 
@@ -25,7 +24,13 @@ impl<'ast, T: Field> UintOptimizer<'ast, T> {
 
     fn register(&mut self, a: ZirAssignee<'ast>, e: ZirExpression<'ast, T>) {
         match (a, e) {
-            (a, ZirExpression::Uint(e)) => {
+            (a, ZirExpression::U32(e)) => {
+                self.ids.insert(a, e.metadata.unwrap());
+            }
+            (a, ZirExpression::U16(e)) => {
+                self.ids.insert(a, e.metadata.unwrap());
+            }
+            (a, ZirExpression::U8(e)) => {
                 self.ids.insert(a, e.metadata.unwrap());
             }
             _ => {}
@@ -34,10 +39,13 @@ impl<'ast, T: Field> UintOptimizer<'ast, T> {
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
-    fn fold_uint_expression(&mut self, e: UExpression<'ast, T>) -> UExpression<'ast, T> {
+    fn fold_uint_expression<U: Uint>(
+        &mut self,
+        e: UExpression<'ast, U, T>,
+    ) -> UExpression<'ast, U, T> {
         let max_bitwidth = T::get_required_bits() - 1;
 
-        let range = e.bitwidth;
+        let range = e.bitwidth();
 
         assert!(range < max_bitwidth / 2);
 
@@ -51,7 +59,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
         use self::UExpressionInner::*;
 
         match inner {
-            Value(v) => Value(v).annotate(range).metadata(UMetadata {
+            Value(v) => Value(v).annotate().metadata(UMetadata {
                 bitwidth: Some(range),
                 should_reduce: Some(
                     metadata
@@ -59,7 +67,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                         .unwrap_or(false),
                 ),
             }),
-            Identifier(id) => Identifier(id.clone()).annotate(range).metadata(
+            Identifier(id) => Identifier(id.clone()).annotate().metadata(
                 self.ids
                     .get(&Variable::uint(id, range))
                     .cloned()
@@ -371,12 +379,10 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     ..e_metadata
                 });
 
-                UExpressionInner::Not(box e)
-                    .annotate(range)
-                    .metadata(UMetadata {
-                        bitwidth: Some(range),
-                        should_reduce: Some(true),
-                    })
+                UExpressionInner::Not(box e).annotate().metadata(UMetadata {
+                    bitwidth: Some(range),
+                    should_reduce: Some(true),
+                })
             }
             LeftShift(box e, box by) => {
                 // reduce the two terms
@@ -471,7 +477,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 expressions
                     .into_iter()
                     .map(|e| match e {
-                        ZirExpression::Uint(e) => {
+                        ZirExpression::U32(e) => {
                             let e = self.fold_uint_expression(e);
 
                             let e = UExpression {
@@ -482,7 +488,33 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                                 ..e
                             };
 
-                            ZirExpression::Uint(e)
+                            ZirExpression::U32(e)
+                        }
+                        ZirExpression::U16(e) => {
+                            let e = self.fold_uint_expression(e);
+
+                            let e = UExpression {
+                                metadata: Some(UMetadata {
+                                    should_reduce: Some(true),
+                                    ..e.metadata.unwrap()
+                                }),
+                                ..e
+                            };
+
+                            ZirExpression::U16(e)
+                        }
+                        ZirExpression::U8(e) => {
+                            let e = self.fold_uint_expression(e);
+
+                            let e = UExpression {
+                                metadata: Some(UMetadata {
+                                    should_reduce: Some(true),
+                                    ..e.metadata.unwrap()
+                                }),
+                                ..e
+                            };
+
+                            ZirExpression::U8(e)
                         }
                         e => self.fold_expression(e),
                     })

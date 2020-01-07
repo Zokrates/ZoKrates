@@ -332,11 +332,10 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
         }
     }
 
-    fn fold_uint_expression_inner(
+    fn fold_uint_expression_inner<U: Uint>(
         &mut self,
-        size: usize,
-        e: UExpressionInner<'ast, T>,
-    ) -> UExpressionInner<'ast, T> {
+        e: UExpressionInner<'ast, U, T>,
+    ) -> UExpressionInner<'ast, U, T> {
         match e {
             UExpressionInner::FunctionCall(key, exps) => {
                 let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
@@ -350,7 +349,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                 }
             }
             // default
-            e => fold_uint_expression_inner(self, size, e),
+            e => fold_uint_expression_inner(self, e),
         }
     }
 }

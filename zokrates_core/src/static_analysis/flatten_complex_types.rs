@@ -1,6 +1,8 @@
+use std::convert::TryFrom;
 use std::marker::PhantomData;
 use typed_absy;
 use zir;
+use zir::Uint;
 use zokrates_field::field::Field;
 
 pub struct Flattener<T: Field> {
@@ -120,7 +122,9 @@ impl<'ast, T: Field> Flattener<T> {
                 vec![self.fold_field_expression(e).into()]
             }
             typed_absy::TypedExpression::Boolean(e) => vec![self.fold_boolean_expression(e).into()],
-            typed_absy::TypedExpression::Uint(e) => vec![self.fold_uint_expression(e).into()],
+            typed_absy::TypedExpression::U32(e) => vec![self.fold_uint_expression(e).into()],
+            typed_absy::TypedExpression::U16(e) => vec![self.fold_uint_expression(e).into()],
+            typed_absy::TypedExpression::U8(e) => vec![self.fold_uint_expression(e).into()],
             typed_absy::TypedExpression::Array(e) => self.fold_array_expression(e).into(),
             typed_absy::TypedExpression::Struct(e) => self.fold_struct_expression(e).into(),
         }
@@ -181,19 +185,18 @@ impl<'ast, T: Field> Flattener<T> {
     ) -> zir::BooleanExpression<'ast, T> {
         fold_boolean_expression(self, e)
     }
-    fn fold_uint_expression(
+    fn fold_uint_expression<U: Uint>(
         &mut self,
-        e: typed_absy::UExpression<'ast, T>,
-    ) -> zir::UExpression<'ast, T> {
+        e: typed_absy::UExpression<'ast, U, T>,
+    ) -> zir::UExpression<'ast, U, T> {
         fold_uint_expression(self, e)
     }
 
-    fn fold_uint_expression_inner(
+    fn fold_uint_expression_inner<U: Uint>(
         &mut self,
-        bitwidth: usize,
-        e: typed_absy::UExpressionInner<'ast, T>,
-    ) -> zir::UExpressionInner<'ast, T> {
-        fold_uint_expression_inner(self, bitwidth, e)
+        e: typed_absy::UExpressionInner<'ast, U, T>,
+    ) -> zir::UExpressionInner<'ast, U, T> {
+        fold_uint_expression_inner(self, e)
     }
 
     fn fold_array_expression_inner(
@@ -289,9 +292,18 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
                 .map(|v| match v._type {
                     zir::Type::FieldElement => zir::FieldElementExpression::Identifier(v.id).into(),
                     zir::Type::Boolean => zir::BooleanExpression::Identifier(v.id).into(),
-                    zir::Type::Uint(bitwidth) => zir::UExpressionInner::Identifier(v.id)
-                        .annotate(bitwidth)
-                        .into(),
+                    zir::Type::Uint(bitwidth) => match bitwidth {
+                        32 => zir::UExpressionInner::<'ast, u32, T>::Identifier(v.id)
+                            .annotate()
+                            .into(),
+                        16 => zir::UExpressionInner::<'ast, u16, T>::Identifier(v.id)
+                            .annotate()
+                            .into(),
+                        8 => zir::UExpressionInner::<'ast, u8, T>::Identifier(v.id)
+                            .annotate()
+                            .into(),
+                        _ => unreachable!(),
+                    },
                 })
                 .collect()
         }
@@ -323,7 +335,13 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
                     (zir::ZirExpression::Boolean(c), zir::ZirExpression::Boolean(a)) => {
                         zir::BooleanExpression::if_else(condition.clone(), c, a).into()
                     }
-                    (zir::ZirExpression::Uint(c), zir::ZirExpression::Uint(a)) => {
+                    (zir::ZirExpression::U32(c), zir::ZirExpression::U32(a)) => {
+                        zir::UExpression::if_else(condition.clone(), c, a).into()
+                    }
+                    (zir::ZirExpression::U16(c), zir::ZirExpression::U16(a)) => {
+                        zir::UExpression::if_else(condition.clone(), c, a).into()
+                    }
+                    (zir::ZirExpression::U8(c), zir::ZirExpression::U8(a)) => {
                         zir::UExpression::if_else(condition.clone(), c, a).into()
                     }
                     _ => unreachable!(),
@@ -377,9 +395,18 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
                 .map(|v| match v._type {
                     zir::Type::FieldElement => zir::FieldElementExpression::Identifier(v.id).into(),
                     zir::Type::Boolean => zir::BooleanExpression::Identifier(v.id).into(),
-                    zir::Type::Uint(bitwidth) => zir::UExpressionInner::Identifier(v.id)
-                        .annotate(bitwidth)
-                        .into(),
+                    zir::Type::Uint(bitwidth) => match bitwidth {
+                        32 => zir::UExpressionInner::<u32, _>::Identifier(v.id)
+                            .annotate()
+                            .into(),
+                        16 => zir::UExpressionInner::<u16, _>::Identifier(v.id)
+                            .annotate()
+                            .into(),
+                        8 => zir::UExpressionInner::<u8, _>::Identifier(v.id)
+                            .annotate()
+                            .into(),
+                        _ => unreachable!(),
+                    },
                 })
                 .collect()
         }
@@ -413,7 +440,13 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
                     (zir::ZirExpression::Boolean(c), zir::ZirExpression::Boolean(a)) => {
                         zir::BooleanExpression::if_else(condition.clone(), c, a).into()
                     }
-                    (zir::ZirExpression::Uint(c), zir::ZirExpression::Uint(a)) => {
+                    (zir::ZirExpression::U32(c), zir::ZirExpression::U32(a)) => {
+                        zir::UExpression::if_else(condition.clone(), c, a).into()
+                    }
+                    (zir::ZirExpression::U16(c), zir::ZirExpression::U16(a)) => {
+                        zir::UExpression::if_else(condition.clone(), c, a).into()
+                    }
+                    (zir::ZirExpression::U8(c), zir::ZirExpression::U8(a)) => {
                         zir::UExpression::if_else(condition.clone(), c, a).into()
                     }
                     _ => unreachable!(),
@@ -644,19 +677,22 @@ pub fn fold_boolean_expression<'ast, T: Field>(
     }
 }
 
-pub fn fold_uint_expression<'ast, T: Field>(
+pub fn fold_uint_expression<'ast, U: Uint, T: Field>(
     f: &mut Flattener<T>,
-    e: typed_absy::UExpression<'ast, T>,
-) -> zir::UExpression<'ast, T> {
-    f.fold_uint_expression_inner(e.bitwidth, e.inner)
-        .annotate(e.bitwidth)
+    e: typed_absy::UExpression<'ast, U, T>,
+) -> zir::UExpression<'ast, U, T> {
+    zir::UExpression {
+        metadata: None,
+        inner: f.fold_uint_expression_inner(e.inner),
+    }
 }
 
-pub fn fold_uint_expression_inner<'ast, T: Field>(
+pub fn fold_uint_expression_inner<'ast, U: Uint, T: Field>(
     f: &mut Flattener<T>,
-    bitwidth: usize,
-    e: typed_absy::UExpressionInner<'ast, T>,
-) -> zir::UExpressionInner<'ast, T> {
+    e: typed_absy::UExpressionInner<'ast, U, T>,
+) -> zir::UExpressionInner<'ast, U, T> {
+    let bitwidth = 32;
+
     match e {
         typed_absy::UExpressionInner::Value(v) => zir::UExpressionInner::Value(v),
         typed_absy::UExpressionInner::Identifier(id) => zir::UExpressionInner::Identifier(
@@ -731,16 +767,19 @@ pub fn fold_uint_expression_inner<'ast, T: Field>(
 
             use std::convert::TryInto;
 
-            match index {
-                zir::FieldElementExpression::Number(i) => {
-                    let e: zir::UExpression<_> = array[i.to_dec_string().parse::<usize>().unwrap()]
-                        .clone()
-                        .try_into()
-                        .unwrap();
-                    e.into_inner()
-                }
-                _ => unreachable!(),
-            }
+            unimplemented!()
+
+            // match index {
+            //     zir::FieldElementExpression::Number(i) => {
+            //         let element = array[i.to_dec_string().parse::<usize>().unwrap()].clone();
+            //         let e: zir::UExpression<U, T> = match bitwidth {
+            //             32 => zir::UExpression::<u32, T>::try_from(element).unwrap().into_inner
+            //             .try_into()
+            //             .unwrap();
+            //         e.into_inner()
+            //     }
+            //     _ => unreachable!(),
+            // }
         }
         typed_absy::UExpressionInner::IfElse(box cond, box cons, box alt) => {
             let cond = f.fold_boolean_expression(cond);

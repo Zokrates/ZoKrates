@@ -17,7 +17,7 @@ pub use self::identifier::CoreIdentifier;
 pub use self::parameter::Parameter;
 pub use self::types::Type;
 pub use self::variable::Variable;
-pub use typed_absy::uint::{bitwidth, UExpression, UExpressionInner, UMetadata};
+pub use typed_absy::uint::{UExpression, UExpressionInner, UMetadata, Uint};
 
 use crate::typed_absy::types::{FunctionKey, MemberId, Signature};
 use embed::FlatEmbed;
@@ -361,7 +361,9 @@ pub trait Typed {
 pub enum TypedExpression<'ast, T: Field> {
     Boolean(BooleanExpression<'ast, T>),
     FieldElement(FieldElementExpression<'ast, T>),
-    Uint(UExpression<'ast, T>),
+    U32(UExpression<'ast, u32, T>),
+    U16(UExpression<'ast, u16, T>),
+    U8(UExpression<'ast, u8, T>),
     Array(ArrayExpression<'ast, T>),
     Struct(StructExpression<'ast, T>),
 }
@@ -378,9 +380,21 @@ impl<'ast, T: Field> From<FieldElementExpression<'ast, T>> for TypedExpression<'
     }
 }
 
-impl<'ast, T: Field> From<UExpression<'ast, T>> for TypedExpression<'ast, T> {
-    fn from(e: UExpression<'ast, T>) -> TypedExpression<T> {
-        TypedExpression::Uint(e)
+impl<'ast, T: Field> From<UExpression<'ast, u32, T>> for TypedExpression<'ast, T> {
+    fn from(e: UExpression<'ast, u32, T>) -> TypedExpression<T> {
+        TypedExpression::U32(e)
+    }
+}
+
+impl<'ast, T: Field> From<UExpression<'ast, u16, T>> for TypedExpression<'ast, T> {
+    fn from(e: UExpression<'ast, u16, T>) -> TypedExpression<T> {
+        TypedExpression::U16(e)
+    }
+}
+
+impl<'ast, T: Field> From<UExpression<'ast, u8, T>> for TypedExpression<'ast, T> {
+    fn from(e: UExpression<'ast, u8, T>) -> TypedExpression<T> {
+        TypedExpression::U8(e)
     }
 }
 
@@ -506,9 +520,9 @@ impl<'ast, T: Field> Typed for FieldElementExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> Typed for UExpression<'ast, T> {
+impl<'ast, U: Uint, T: Field> Typed for UExpression<'ast, U, T> {
     fn get_type(&self) -> Type {
-        Type::Uint(self.bitwidth)
+        Type::Uint(self.bitwidth())
     }
 }
 
@@ -752,12 +766,34 @@ impl<'ast, T: Field> TryFrom<TypedExpression<'ast, T>> for BooleanExpression<'as
     }
 }
 
-impl<'ast, T: Field> TryFrom<TypedExpression<'ast, T>> for UExpression<'ast, T> {
+impl<'ast, T: Field> TryFrom<TypedExpression<'ast, T>> for UExpression<'ast, u32, T> {
     type Error = ();
 
-    fn try_from(te: TypedExpression<'ast, T>) -> Result<UExpression<'ast, T>, Self::Error> {
+    fn try_from(te: TypedExpression<'ast, T>) -> Result<UExpression<'ast, u32, T>, Self::Error> {
         match te {
-            TypedExpression::Uint(e) => Ok(e),
+            TypedExpression::U32(e) => Ok(e),
+            _ => Err(()),
+        }
+    }
+}
+
+impl<'ast, T: Field> TryFrom<TypedExpression<'ast, T>> for UExpression<'ast, u16, T> {
+    type Error = ();
+
+    fn try_from(te: TypedExpression<'ast, T>) -> Result<UExpression<'ast, u16, T>, Self::Error> {
+        match te {
+            TypedExpression::U16(e) => Ok(e),
+            _ => Err(()),
+        }
+    }
+}
+
+impl<'ast, T: Field> TryFrom<TypedExpression<'ast, T>> for UExpression<'ast, u8, T> {
+    type Error = ();
+
+    fn try_from(te: TypedExpression<'ast, T>) -> Result<UExpression<'ast, u8, T>, Self::Error> {
+        match te {
+            TypedExpression::U8(e) => Ok(e),
             _ => Err(()),
         }
     }
@@ -818,7 +854,7 @@ impl<'ast, T: Field> fmt::Display for FieldElementExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> fmt::Display for UExpression<'ast, T> {
+impl<'ast, U: Uint, T: Field> fmt::Display for UExpression<'ast, U, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.inner {
             UExpressionInner::Value(ref v) => write!(f, "{}", v),
@@ -1069,7 +1105,7 @@ impl<'ast, T: Field> IfElse<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> IfElse<'ast, T> for UExpression<'ast, T> {
+impl<'ast, U: Uint, T: Field> IfElse<'ast, T> for UExpression<'ast, U, T> {
     fn if_else(
         condition: BooleanExpression<'ast, T>,
         consequence: Self,
@@ -1077,7 +1113,7 @@ impl<'ast, T: Field> IfElse<'ast, T> for UExpression<'ast, T> {
     ) -> Self {
         let bitwidth = consequence.bitwidth;
 
-        UExpressionInner::IfElse(box condition, box consequence, box alternative).annotate(bitwidth)
+        UExpressionInner::IfElse(box condition, box consequence, box alternative).annotate()
     }
 }
 
@@ -1121,14 +1157,14 @@ impl<'ast, T: Field> Select<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> Select<'ast, T> for UExpression<'ast, T> {
+impl<'ast, U: Uint, T: Field> Select<'ast, T> for UExpression<'ast, U, T> {
     fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
         let bitwidth = match array.inner_type().clone() {
             Type::Uint(bitwidth) => bitwidth,
             _ => unreachable!(),
         };
 
-        UExpressionInner::Select(box array, box index).annotate(bitwidth)
+        UExpressionInner::Select(box array, box index).annotate()
     }
 }
 
@@ -1170,7 +1206,7 @@ impl<'ast, T: Field> Member<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> Member<'ast, T> for UExpression<'ast, T> {
+impl<'ast, U: Uint, T: Field> Member<'ast, T> for UExpression<'ast, U, T> {
     fn member(s: StructExpression<'ast, T>, member_id: MemberId) -> Self {
         unimplemented!()
         // UExpression::Member(box s, member_id)

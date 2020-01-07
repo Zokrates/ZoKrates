@@ -9,7 +9,8 @@ mod variable;
 pub use self::parameter::Parameter;
 pub use self::types::Type;
 pub use self::variable::Variable;
-pub use zir::uint::{bitwidth, UExpression, UExpressionInner, UMetadata};
+pub use zir::uint::Uint;
+pub use zir::uint::{UExpression, UExpressionInner, UMetadata};
 
 use embed::FlatEmbed;
 use std::collections::HashMap;
@@ -256,7 +257,9 @@ pub trait Typed {
 pub enum ZirExpression<'ast, T: Field> {
     Boolean(BooleanExpression<'ast, T>),
     FieldElement(FieldElementExpression<'ast, T>),
-    Uint(UExpression<'ast, T>),
+    U32(UExpression<'ast, u32, T>),
+    U16(UExpression<'ast, u16, T>),
+    U8(UExpression<'ast, u8, T>),
 }
 
 impl<'ast, T: Field> From<BooleanExpression<'ast, T>> for ZirExpression<'ast, T> {
@@ -271,9 +274,21 @@ impl<'ast, T: Field> From<FieldElementExpression<'ast, T>> for ZirExpression<'as
     }
 }
 
-impl<'ast, T: Field> From<UExpression<'ast, T>> for ZirExpression<'ast, T> {
-    fn from(e: UExpression<'ast, T>) -> ZirExpression<T> {
-        ZirExpression::Uint(e)
+impl<'ast, T: Field> From<UExpression<'ast, u32, T>> for ZirExpression<'ast, T> {
+    fn from(e: UExpression<'ast, u32, T>) -> ZirExpression<T> {
+        ZirExpression::U32(e)
+    }
+}
+
+impl<'ast, T: Field> From<UExpression<'ast, u16, T>> for ZirExpression<'ast, T> {
+    fn from(e: UExpression<'ast, u16, T>) -> ZirExpression<T> {
+        ZirExpression::U16(e)
+    }
+}
+
+impl<'ast, T: Field> From<UExpression<'ast, u8, T>> for ZirExpression<'ast, T> {
+    fn from(e: UExpression<'ast, u8, T>) -> ZirExpression<T> {
+        ZirExpression::U8(e)
     }
 }
 
@@ -282,7 +297,9 @@ impl<'ast, T: Field> fmt::Display for ZirExpression<'ast, T> {
         match *self {
             ZirExpression::Boolean(ref e) => write!(f, "{}", e),
             ZirExpression::FieldElement(ref e) => write!(f, "{}", e),
-            ZirExpression::Uint(ref e) => write!(f, "{}", e),
+            ZirExpression::U32(ref e) => write!(f, "{}", e),
+            ZirExpression::U16(ref e) => write!(f, "{}", e),
+            ZirExpression::U8(ref e) => write!(f, "{}", e),
         }
     }
 }
@@ -292,7 +309,9 @@ impl<'ast, T: Field> fmt::Debug for ZirExpression<'ast, T> {
         match *self {
             ZirExpression::Boolean(ref e) => write!(f, "{:?}", e),
             ZirExpression::FieldElement(ref e) => write!(f, "{:?}", e),
-            ZirExpression::Uint(ref e) => write!(f, "{:?}", e),
+            ZirExpression::U32(ref e) => write!(f, "{:?}", e),
+            ZirExpression::U16(ref e) => write!(f, "{:?}", e),
+            ZirExpression::U8(ref e) => write!(f, "{:?}", e),
         }
     }
 }
@@ -302,7 +321,9 @@ impl<'ast, T: Field> Typed for ZirExpression<'ast, T> {
         match *self {
             ZirExpression::Boolean(ref e) => e.get_type(),
             ZirExpression::FieldElement(ref e) => e.get_type(),
-            ZirExpression::Uint(ref e) => e.get_type(),
+            ZirExpression::U32(ref e) => e.get_type(),
+            ZirExpression::U16(ref e) => e.get_type(),
+            ZirExpression::U8(ref e) => e.get_type(),
         }
     }
 }
@@ -313,9 +334,9 @@ impl<'ast, T: Field> Typed for FieldElementExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> Typed for UExpression<'ast, T> {
+impl<'ast, U: Uint, T: Field> Typed for UExpression<'ast, U, T> {
     fn get_type(&self) -> Type {
-        Type::Uint(self.bitwidth)
+        Type::Uint(self.bitwidth())
     }
 }
 
@@ -445,12 +466,34 @@ impl<'ast, T: Field> TryFrom<ZirExpression<'ast, T>> for BooleanExpression<'ast,
     }
 }
 
-impl<'ast, T: Field> TryFrom<ZirExpression<'ast, T>> for UExpression<'ast, T> {
+impl<'ast, T: Field> TryFrom<ZirExpression<'ast, T>> for UExpression<'ast, u32, T> {
     type Error = ();
 
-    fn try_from(te: ZirExpression<'ast, T>) -> Result<UExpression<'ast, T>, Self::Error> {
+    fn try_from(te: ZirExpression<'ast, T>) -> Result<Self, Self::Error> {
         match te {
-            ZirExpression::Uint(e) => Ok(e),
+            ZirExpression::U32(e) => Ok(e),
+            _ => Err(()),
+        }
+    }
+}
+
+impl<'ast, T: Field> TryFrom<ZirExpression<'ast, T>> for UExpression<'ast, u16, T> {
+    type Error = ();
+
+    fn try_from(te: ZirExpression<'ast, T>) -> Result<Self, Self::Error> {
+        match te {
+            ZirExpression::U16(e) => Ok(e),
+            _ => Err(()),
+        }
+    }
+}
+
+impl<'ast, T: Field> TryFrom<ZirExpression<'ast, T>> for UExpression<'ast, u8, T> {
+    type Error = ();
+
+    fn try_from(te: ZirExpression<'ast, T>) -> Result<Self, Self::Error> {
+        match te {
+            ZirExpression::U8(e) => Ok(e),
             _ => Err(()),
         }
     }
@@ -487,7 +530,7 @@ impl<'ast, T: Field> fmt::Display for FieldElementExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> fmt::Display for UExpression<'ast, T> {
+impl<'ast, U: Uint, T: Field> fmt::Display for UExpression<'ast, U, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.inner {
             UExpressionInner::Value(ref v) => write!(f, "{}", v),
@@ -633,14 +676,12 @@ impl<'ast, T: Field> IfElse<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> IfElse<'ast, T> for UExpression<'ast, T> {
+impl<'ast, U: Uint, T: Field> IfElse<'ast, T> for UExpression<'ast, U, T> {
     fn if_else(
         condition: BooleanExpression<'ast, T>,
         consequence: Self,
         alternative: Self,
     ) -> Self {
-        let bitwidth = consequence.bitwidth;
-
-        UExpressionInner::IfElse(box condition, box consequence, box alternative).annotate(bitwidth)
+        UExpressionInner::IfElse(box condition, box consequence, box alternative).annotate()
     }
 }

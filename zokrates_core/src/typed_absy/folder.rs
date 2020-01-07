@@ -108,16 +108,18 @@ pub trait Folder<'ast, T: Field>: Sized {
     ) -> BooleanExpression<'ast, T> {
         fold_boolean_expression(self, e)
     }
-    fn fold_uint_expression(&mut self, e: UExpression<'ast, T>) -> UExpression<'ast, T> {
+    fn fold_uint_expression<U: Uint>(
+        &mut self,
+        e: UExpression<'ast, U, T>,
+    ) -> UExpression<'ast, U, T> {
         fold_uint_expression(self, e)
     }
 
-    fn fold_uint_expression_inner(
+    fn fold_uint_expression_inner<U: Uint>(
         &mut self,
-        bitwidth: usize,
-        e: UExpressionInner<'ast, T>,
-    ) -> UExpressionInner<'ast, T> {
-        fold_uint_expression_inner(self, bitwidth, e)
+        e: UExpressionInner<'ast, U, T>,
+    ) -> UExpressionInner<'ast, U, T> {
+        fold_uint_expression_inner(self, e)
     }
 
     fn fold_array_expression_inner(
@@ -382,21 +384,20 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
-pub fn fold_uint_expression<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_uint_expression<'ast, U: Uint, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
-    e: UExpression<'ast, T>,
-) -> UExpression<'ast, T> {
+    e: UExpression<'ast, U, T>,
+) -> UExpression<'ast, U, T> {
     UExpression {
-        inner: f.fold_uint_expression_inner(e.bitwidth, e.inner),
+        inner: f.fold_uint_expression_inner(e.inner),
         ..e
     }
 }
 
-pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
+pub fn fold_uint_expression_inner<'ast, U: Uint, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
-    bitwidth: usize,
-    e: UExpressionInner<'ast, T>,
-) -> UExpressionInner<'ast, T> {
+    e: UExpressionInner<'ast, U, T>,
+) -> UExpressionInner<'ast, U, T> {
     match e {
         UExpressionInner::Value(v) => UExpressionInner::Value(v),
         UExpressionInner::Identifier(id) => UExpressionInner::Identifier(f.fold_name(id)),

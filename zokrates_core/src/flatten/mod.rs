@@ -112,18 +112,18 @@ impl<T: Field> FlatUExpression<T> {
     }
 }
 
-impl<'ast, T: Field> Flatten<'ast, T> for UExpression<'ast, T> {
-    type Output = FlatUExpression<T>;
+// impl<'ast, U: Uint, T: Field> Flatten<'ast, T> for UExpression<'ast, U, T> {
+//     type Output = FlatUExpression<T>;
 
-    fn flatten(
-        self,
-        flattener: &mut Flattener<'ast, T>,
-        symbols: &ZirFunctionSymbols<'ast, T>,
-        statements_flattened: &mut Vec<FlatStatement<T>>,
-    ) -> Self::Output {
-        flattener.flatten_uint_expression(symbols, statements_flattened, self)
-    }
-}
+//     fn flatten(
+//         self,
+//         flattener: &mut Flattener<'ast, T>,
+//         symbols: &ZirFunctionSymbols<'ast, T>,
+//         statements_flattened: &mut Vec<FlatStatement<T>>,
+//     ) -> Self::Output {
+//         flattener.flatten_uint_expression(symbols, statements_flattened, self)
+//     }
+// }
 
 impl<'ast, T: Field> Flatten<'ast, T> for BooleanExpression<'ast, T> {
     type Output = Vec<FlatExpression<T>>;
@@ -602,7 +602,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             let mut param_expressions = param_expressions;
             let p = param_expressions.pop().unwrap();
             let p = match p {
-                ZirExpression::Uint(e) => e,
+                ZirExpression::U32(e) => e,
                 _ => unreachable!(),
             };
             let from = p.metadata.clone().unwrap().bitwidth.unwrap();
@@ -729,9 +729,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             ZirExpression::Boolean(e) => FlatUExpression::with_field(
                 self.flatten_boolean_expression(symbols, statements_flattened, e),
             ),
-            ZirExpression::Uint(e) => {
-                self.flatten_uint_expression(symbols, statements_flattened, e)
-            }
+            ZirExpression::U32(e) => self.flatten_uint_expression(symbols, statements_flattened, e),
+            ZirExpression::U16(e) => self.flatten_uint_expression(symbols, statements_flattened, e),
+            ZirExpression::U8(e) => self.flatten_uint_expression(symbols, statements_flattened, e),
         }
     }
 
@@ -742,13 +742,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// * `symbols` - Available functions in in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
     /// * `expr` - `UExpression` that will be flattened.
-    fn flatten_uint_expression(
+    fn flatten_uint_expression<U: Uint>(
         &mut self,
         symbols: &ZirFunctionSymbols<'ast, T>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
-        expr: UExpression<'ast, T>,
+        expr: UExpression<'ast, U, T>,
     ) -> FlatUExpression<T> {
-        let target_bitwidth = expr.bitwidth;
+        let target_bitwidth = 32;
 
         let metadata = expr.metadata.clone().unwrap().clone();
         let actual_bitwidth = metadata.bitwidth.unwrap();
@@ -757,9 +757,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let should_reduce = should_reduce && actual_bitwidth > target_bitwidth;
 
         let res = match expr.into_inner() {
-            UExpressionInner::Value(x) => {
-                FlatUExpression::with_field(FlatExpression::Number(T::from(x as u128)))
-            } // force to be a field element
+            UExpressionInner::Value(x) => FlatUExpression::with_field(FlatExpression::Number(
+                T::from(U::try_into(x).map_err(|_| "").unwrap()),
+            )), // force to be a field element
             UExpressionInner::Identifier(x) => {
                 let field = FlatExpression::Identifier(self.layout.get(&x).unwrap().clone());
                 let bits = self.bits_cache.get(&field).map(|bits| {

@@ -54,7 +54,7 @@ impl<'ast, T: Field> InputConstrainer<'ast, T> {
         InputConstrainer::new().fold_program(p)
     }
 
-    fn constrain_bits(&mut self, u: UExpression<'ast, T>) {
+    fn constrain_bits<U: Uint>(&mut self, u: UExpression<'ast, U, T>) {
         // let bitwidth = u.bitwidth;
         // let u = UExpression {
         //     metadata: Some(UMetadata {
@@ -90,7 +90,13 @@ impl<'ast, T: Field> InputConstrainer<'ast, T> {
                 b.clone().into(),
                 BooleanExpression::And(box b.clone(), box b).into(),
             )),
-            ZirExpression::Uint(u) => {
+            ZirExpression::U32(u) => {
+                self.constrain_bits(u);
+            }
+            ZirExpression::U16(u) => {
+                self.constrain_bits(u);
+            }
+            ZirExpression::U8(u) => {
                 self.constrain_bits(u);
             }
         }
@@ -106,7 +112,18 @@ impl<'ast, T: Field> Folder<'ast, T> for InputConstrainer<'ast, T> {
             Type::Boolean => BooleanExpression::Identifier(v.id).into(),
             Type::Uint(bitwidth) => {
                 self.uints.insert(v.id.clone());
-                UExpressionInner::Identifier(v.id).annotate(bitwidth).into()
+                match bitwidth {
+                    32 => UExpressionInner::<u32, _>::Identifier(v.id)
+                        .annotate()
+                        .into(),
+                    16 => UExpressionInner::<u16, _>::Identifier(v.id)
+                        .annotate()
+                        .into(),
+                    8 => UExpressionInner::<u8, _>::Identifier(v.id)
+                        .annotate()
+                        .into(),
+                    _ => unreachable!(),
+                }
             }
         };
 
@@ -134,13 +151,16 @@ impl<'ast, T: Field> Folder<'ast, T> for InputConstrainer<'ast, T> {
         }
     }
 
-    fn fold_uint_expression(&mut self, e: UExpression<'ast, T>) -> UExpression<'ast, T> {
+    fn fold_uint_expression<U: Uint>(
+        &mut self,
+        e: UExpression<'ast, U, T>,
+    ) -> UExpression<'ast, U, T> {
         match e.inner {
             UExpressionInner::Identifier(ref id) => {
                 if self.uints.contains(id) {
                     UExpression {
                         metadata: Some(UMetadata {
-                            bitwidth: Some(e.bitwidth),
+                            bitwidth: Some(e.bitwidth()),
                             should_reduce: Some(false),
                         }),
                         ..e
