@@ -856,6 +856,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 true => T::from(1),
                 false => T::from(0),
             }),
+            BooleanExpression::FunctionCall(..) => unreachable!(),
             BooleanExpression::IfElse(box condition, box consequence, box alternative) => self
                 .flatten_if_else_expression(
                     symbols,
