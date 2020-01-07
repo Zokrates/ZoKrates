@@ -1,0 +1,38 @@
+{
+  "name": "zokrates-js",
+  "main": "js/index.js",
+  "author": "Darko Macesic <darem966@gmail.com>",
+  "version": "1.0.19",
+  "keywords": [
+    "zokrates",
+    "wasm-bindgen",
+    "zksnarks"
+  ],
+  "license": "GPLv3",
+  "files": [
+    "js",
+    "pkg",
+    "stdlib.json"
+  ],
+  "types": "js/index.d.ts",
+  "scripts": {
+    "cargo:build": "cargo build --target=wasm32-unknown-unknown",
+    "wasm-pack:build": "wasm-pack build --out-name index --release --target bundler",
+    "setup": "npm install && gulp stdlib",
+    "prebuild": "rimraf pkg && npm run setup",
+    "build": "npm run wasm-pack:build",
+    "pretest": "npm run setup",
+    "test": "mocha --require esm --recursive tests"
+  },
+  "devDependencies": {
+    "dree": "^2.1.10",
+    "esm": "^3.2.25",
+    "gulp": "^4.0.2",
+    "gulp-cli": "^2.2.0",
+    "mocha": "^6.2.2",
+    "rimraf": "^3.0.0",
+    "serve": "^11.2.0",
+    "text-encoding": "^0.7.0"
+  },
+  "dependencies": {}
+}

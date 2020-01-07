@@ -276,7 +276,7 @@ fn cli() -> Result<(), String> {
                 .map_err(|why| format!("couldn't open input file {}: {}", path.display(), why))?;
 
             let program_flattened: ir::Prog<FieldPrime> =
-                compile(source, location, Some(fs_resolve))
+                compile(source, location, Some(&fs_resolve))
                     .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
 
             // number of constraints the flattened program will translate to.
@@ -629,7 +629,7 @@ mod tests {
             let mut source = String::new();
             reader.read_to_string(&mut source).unwrap();
 
-            let _: ir::Prog<FieldPrime> = compile(source, location, Some(fs_resolve)).unwrap();
+            let _: ir::Prog<FieldPrime> = compile(source, location, Some(&fs_resolve)).unwrap();
         }
     }
 
@@ -658,7 +658,7 @@ mod tests {
             reader.read_to_string(&mut source).unwrap();
 
             let program_flattened: ir::Prog<FieldPrime> =
-                compile(source, location, Some(fs_resolve)).unwrap();
+                compile(source, location, Some(&fs_resolve)).unwrap();
 
             let _ = program_flattened
                 .execute(&vec![FieldPrime::from(0)])
@@ -692,7 +692,7 @@ mod tests {
             reader.read_to_string(&mut source).unwrap();
 
             let program_flattened: ir::Prog<FieldPrime> =
-                compile(source, location, Some(fs_resolve)).unwrap();
+                compile(source, location, Some(&fs_resolve)).unwrap();
 
             let _ = program_flattened
                 .execute(&vec![FieldPrime::from(0)])

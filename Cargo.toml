@@ -10,3 +10,5 @@ members = [
     "zokrates_test",
     "zokrates_core_test",
 ]
+
+exclude = ["zokrates_js"]

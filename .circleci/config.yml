@@ -112,7 +112,6 @@ jobs:
       - run:
           name: Release
           command: ./scripts/release.sh
-
 workflows:
   version: 2
   build-test-and-deploy:
@@ -131,5 +130,3 @@ workflows:
             - test
             - wasm_test
             - integration_test
-
-
