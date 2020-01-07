@@ -10,7 +10,7 @@ npm install zokrates-js
 
 | Function | Description |
 | ------ | ------ |
-| initialize | Loads binding wasm module and sets necessary callbacks |
+| initialize | Loads binding wasm module and returns a promise with ZoKrates provider |
 | compile | Compiles source code into ZoKrates internal representation of arithmetic circuits |
 | computeWitness | Computes a valid assignment of the variables, which include the results of the computation |
 | setup | Generates a trusted setup for the compiled program |
@@ -20,7 +20,7 @@ npm install zokrates-js
 ## Usage
 
 ```js
-import * as zokrates from 'zokrates-js'
+import { initialize } from 'zokrates-js';
 
 function importResolver(location, path) {
   // implement your resolving logic here
@@ -30,8 +30,8 @@ function importResolver(location, path) {
   };
 }
 
-zokrates.initialize(importResolver).then(() => {
+initialize().then((zokratesProvider) => {
     // we have to initialize the wasm module before calling api functions
-    zokrates.compile("def main(private field a) -> (field): return a", "main")
+    zokratesProvider.compile("def main(private field a) -> (field): return a", "main", importResolver)
 });
 ```
