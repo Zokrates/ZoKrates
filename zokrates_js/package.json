@@ -18,9 +18,10 @@
   "scripts": {
     "cargo:build": "cargo build --target=wasm32-unknown-unknown",
     "wasm-pack:build": "wasm-pack build --out-name index --release --target bundler",
-    "prebuild": "npm install && rimraf pkg && gulp stdlib",
+    "setup": "npm install && gulp stdlib",
+    "prebuild": "rimraf pkg && npm run setup",
     "build": "npm run wasm-pack:build",
-    "pretest": "npm install && gulp stdlib",
+    "pretest": "npm run setup",
     "test": "mocha --require esm --recursive tests"
   },
   "devDependencies": {
