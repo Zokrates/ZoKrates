@@ -464,7 +464,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 }
             },
             e => {
-                // we have array[e] with e as an arbitrary expression
+                // we have array[e] with e an arbitrary expression
                 // first we check that e is in 0..array.len(), so we check that sum(if e == i then 1 else 0) == 1
                 // here, depending on the size, we could use a proper range check based on bits
                 let range_check = (0..size)
