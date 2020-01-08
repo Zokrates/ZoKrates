@@ -25,7 +25,7 @@ Unless the `--light` flag is set, a human-readable `.ztf` file is generated, whi
 ```
 
 Computes a witness for the compiled program found at `./out` and computes arguments of the program.
-A witness is a valid assignment of the variables that include the results of the computation.
+A witness is a valid assignment of the variables, including the results of the computation.
 Arguments of the program are passed as a space-separated list with the `-a` flag, or over `stdin`.
 
 Creates a witness file at `./witness`
