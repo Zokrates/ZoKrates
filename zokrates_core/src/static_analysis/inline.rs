@@ -24,7 +24,7 @@ use zokrates_field::field::Field;
 /// An inliner
 #[derive(Debug)]
 pub struct Inliner<'ast, T: Field> {
-    modules: TypedModules<'ast, T>, // the modules to look for functions when inlining
+    modules: TypedModules<'ast, T>, // the modules in which to look for functions when inlining
     module_id: TypedModuleId,       // the current module we're visiting
     statement_buffer: Vec<TypedStatement<'ast, T>>, // a buffer of statements to be added to the inlined statements
     stack: Vec<(String, FunctionKey<'ast>, usize)>, // the current call stack
