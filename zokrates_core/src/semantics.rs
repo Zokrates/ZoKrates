@@ -1292,6 +1292,14 @@ impl<'ast> Checker<'ast> {
                                     arguments_checked,
                                 )
                                 .into()),
+                                Type::Boolean => Ok(BooleanExpression::FunctionCall(
+                                    FunctionKey {
+                                        id: f.id.clone(),
+                                        signature: f.signature.clone(),
+                                    },
+                                    arguments_checked,
+                                )
+                                .into()),
                                 Type::Struct(members) => Ok(StructExpressionInner::FunctionCall(
                                     FunctionKey {
                                         id: f.id.clone(),
@@ -1310,7 +1318,6 @@ impl<'ast> Checker<'ast> {
                                 )
                                 .annotate(*array_type.ty.clone(), array_type.size.clone())
                                 .into()),
-                                _ => unimplemented!(),
                             },
                             n => Err(Error {
                                 pos: Some(pos),
@@ -1478,12 +1485,31 @@ impl<'ast> Checker<'ast> {
                                 }),
                                 (f, t, _) => Ok(ArrayExpressionInner::Value(
                                     (f..t)
-                                        .map(|i| {
-                                            FieldElementExpression::Select(
+                                        .map(|i| match inner_type.clone() {
+                                            Type::FieldElement => FieldElementExpression::Select(
                                                 box array.clone(),
                                                 box FieldElementExpression::Number(T::from(i)),
                                             )
-                                            .into()
+                                            .into(),
+                                            Type::Boolean => BooleanExpression::Select(
+                                                box array.clone(),
+                                                box FieldElementExpression::Number(T::from(i)),
+                                            )
+                                            .into(),
+                                            Type::Struct(struct_ty) => {
+                                                StructExpressionInner::Select(
+                                                    box array.clone(),
+                                                    box FieldElementExpression::Number(T::from(i)),
+                                                )
+                                                .annotate(struct_ty)
+                                                .into()
+                                            }
+                                            Type::Array(array_ty) => ArrayExpressionInner::Select(
+                                                box array.clone(),
+                                                box FieldElementExpression::Number(T::from(i)),
+                                            )
+                                            .annotate(*array_ty.ty, array_ty.size)
+                                            .into(),
                                         })
                                         .collect(),
                                 )

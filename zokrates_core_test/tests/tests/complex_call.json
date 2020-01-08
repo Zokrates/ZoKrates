@@ -1,0 +1,15 @@
+{
+	"entry_point": "./tests/tests/complex_call.zok",
+	"tests": [
+		{
+			"input": {
+				"values": ["1", "2", "0", "1", "2", "3", "4"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["1", "1", "3", "4"]
+				}
+			}
+		}
+	]
+}
