@@ -28,7 +28,7 @@ need_cmd() {
 get_bitness() {
     need_cmd head
     # Architecture detection without dependencies beyond coreutils.
-    # ELF files start out "\x7fELF", and the following bytes are
+    # ELF files start out "\x7fELF", and the following byte is
     #   0x01 for 32-bit and
     #   0x02 for 64-bit.
     # The printf builtin on some shells - like dash - only supports octal
