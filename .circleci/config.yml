@@ -20,7 +20,7 @@ jobs:
           command: ./scripts/install_libsnark_prerequisites.sh
       - run:
           name: Build
-          command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./build.sh
+          command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ RUSTFLAGS="-D warnings" ./build.sh
       - save_cache:
           paths:
             - /usr/local/cargo/registry
@@ -50,10 +50,10 @@ jobs:
           command: ./scripts/install_libsnark_prerequisites.sh
       - run:
           name: Build
-          command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./build.sh
+          command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ RUSTFLAGS="-D warnings" ./build.sh
       - run:
           name: Run tests
-          command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./test.sh
+          command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ RUSTFLAGS="-D warnings" ./test.sh
       # - run:
       #     name: Generate code coverage report
       #     command: ./scripts/cov.sh
@@ -81,7 +81,7 @@ jobs:
           command: ./scripts/install_solcjs_deb.sh
       - run:
           name: Run integration tests
-          command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./full_test.sh
+          command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ RUSTFLAGS="-D warnings" ./full_test.sh
   deploy:
     docker:
       - image: circleci/python

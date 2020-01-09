@@ -5,7 +5,6 @@ MAINTAINER JacobEberhardt <jacob.eberhardt@tu-berlin.de>, Thibaut Schaeffer <thi
 RUN useradd -u 1000 -m zokrates
 
 ARG RUST_TOOLCHAIN=nightly-2019-06-02
-ENV WITH_LIBSNARK=1
 ENV ZOKRATES_HOME=/home/zokrates/.zokrates
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
