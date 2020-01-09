@@ -1,0 +1,9 @@
+def main(field[4] values) -> ():
+    field acc = 1
+    for field i in 0..4 do
+        for field j in i..4 do
+            acc = acc * (values[j] - values[i])
+        endfor
+    endfor
+
+    return

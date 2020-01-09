@@ -326,7 +326,7 @@ pub enum TypedStatement<'ast, T: Field> {
     Definition(TypedAssignee<'ast, T>, TypedExpression<'ast, T>),
     Declaration(Variable<'ast>),
     Condition(TypedExpression<'ast, T>, TypedExpression<'ast, T>),
-    For(Variable<'ast>, T, T, Vec<TypedStatement<'ast, T>>),
+    For(Variable<'ast>, FieldElementExpression<'ast, T>, FieldElementExpression<'ast, T>, Vec<TypedStatement<'ast, T>>),
     MultipleDefinition(Vec<Variable<'ast>>, TypedExpressionList<'ast, T>),
 }
 
