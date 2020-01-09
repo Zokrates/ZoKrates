@@ -50,6 +50,7 @@ fn cli() -> Result<(), String> {
     const JSON_PROOF_PATH: &str = "proof.json";
     let default_scheme = env::var("ZOKRATES_PROVING_SCHEME").unwrap_or(String::from("g16"));
     let default_solidity_abi = "v1";
+    let default_solidity_version = "0.5";
 
     // cli specification using clap library
     let matches = App::new("ZoKrates")
@@ -154,6 +155,15 @@ fn cli() -> Result<(), String> {
             .possible_values(&["v1", "v2"])
             .default_value(&default_solidity_abi)
             .required(false)
+        ).arg(Arg::with_name("solidity")
+            .short("v")
+            .long("solidity")
+            .help("Solidity version")
+            .value_name("VERSION")
+            .takes_value(true)
+            .required(false)
+            .possible_values(&["0.5", "0.6"])
+            .default_value(&default_solidity_version)
         )
     )
     .subcommand(SubCommand::with_name("compute-witness")
@@ -464,6 +474,7 @@ fn cli() -> Result<(), String> {
             {
                 let scheme = get_scheme(sub_matches.value_of("proving-scheme").unwrap())?;
                 let is_abiv2 = sub_matches.value_of("abi").unwrap() == "v2";
+                let is_solv6 = sub_matches.value_of("solidity").unwrap() == "0.6";
                 println!("Exporting verifier...");
 
                 // read vk file
@@ -472,7 +483,7 @@ fn cli() -> Result<(), String> {
                     .map_err(|why| format!("couldn't open {}: {}", input_path.display(), why))?;
                 let reader = BufReader::new(input_file);
 
-                let verifier = scheme.export_solidity_verifier(reader, is_abiv2);
+                let verifier = scheme.export_solidity_verifier(reader, is_abiv2, is_solv6);
 
                 //write output file
                 let output_path = Path::new(sub_matches.value_of("output").unwrap());

@@ -1,7 +1,7 @@
 use crate::ir;
 use crate::proof_system::bn128::utils::bellman::Computation;
 use crate::proof_system::bn128::utils::solidity::{
-    SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
+    SOLIDITY_G2_ADDITION_LIB, SOLIDITY_G2_ADDITION_LIB_SOLV6,SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2, SOLIDITY_PAIRING_LIB_SOLV6, SOLIDITY_PAIRING_LIB_V2_SOLV6,
 };
 use crate::proof_system::ProofSystem;
 use bellman::groth16::Parameters;
@@ -57,19 +57,21 @@ impl ProofSystem for G16 {
         true
     }
 
-    fn export_solidity_verifier(&self, reader: BufReader<File>, is_abiv2: bool) -> String {
+    fn export_solidity_verifier(&self, reader: BufReader<File>, is_abiv2: bool, is_solv6: bool) -> String {
         let mut lines = reader.lines();
 
-        let (mut template_text, solidity_pairing_lib) = if is_abiv2 {
-            (
-                String::from(CONTRACT_TEMPLATE_V2),
-                String::from(SOLIDITY_PAIRING_LIB_V2),
-            )
-        } else {
-            (
-                String::from(CONTRACT_TEMPLATE),
-                String::from(SOLIDITY_PAIRING_LIB),
-            )
+        let mut template_text = String::from(if is_abiv2 {CONTRACT_TEMPLATE_V2} else {CONTRACT_TEMPLATE});
+
+        let solidity_pairing_lib = match (is_abiv2, is_solv6) {
+            (true, true)    => String::from(SOLIDITY_PAIRING_LIB_V2_SOLV6),
+            (true, false)   => String::from(SOLIDITY_PAIRING_LIB_V2),
+            (false, true)   => String::from(SOLIDITY_PAIRING_LIB_SOLV6),
+            (false, false)  => String::from(SOLIDITY_PAIRING_LIB),
+        };
+
+        let solidity_g2_addition_lib = match is_solv6 {
+            true => String::from(SOLIDITY_G2_ADDITION_LIB_SOLV6),
+            false => String::from(SOLIDITY_G2_ADDITION_LIB)
         };
 
         let gamma_abc_template = String::from("vk.gamma_abc[index] = Pairing.G1Point(points);"); //copy this for each entry
@@ -144,7 +146,7 @@ impl ProofSystem for G16 {
 
         format!(
             "{}{}{}",
-            SOLIDITY_G2_ADDITION_LIB, solidity_pairing_lib, template_text
+            solidity_g2_addition_lib, solidity_pairing_lib, template_text
         )
     }
 }
