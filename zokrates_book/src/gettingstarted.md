@@ -31,6 +31,40 @@ cargo +nightly build --release
 cd target/release
 ```
 
+If you want to enable the libsnark backend in ZoKrates, you need to install some prerequisites:
+- boost
+- cmake
+- libssl
+
+#### Libsnark prerequisites - Linux
+
+As an example, this command installs the required dependencies on Ubuntu:
+
+```bash
+apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    libboost-dev \
+    libboost-program-options-dev \
+    libgmp3-dev \
+    libprocps-dev \
+    libssl-dev \
+    pkg-config \
+    python-markdown
+```
+
+#### Libsnark prerequisites - MacOS
+
+You can use [brew](https://brew.sh/) to install the required dependencies:
+
+```bash
+brew install boost
+brew install cmake
+brew install openssl
+```
+
+Note that you should follow the instructions displayed after installing `openssl` regarding environment variables. If you're not sure if you followed them, use `brew reinstall openssl`.
+
 ## Hello ZoKrates!
 
 First, create the text-file `root.zok` and implement your program. In this example, we will prove knowledge of the square root `a` of a number `b`:

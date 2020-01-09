@@ -38,6 +38,7 @@ fn main() {
         // build libsnark
 
         let libsnark = cmake::Config::new(libsnark_source_path)
+            .define("WITH_SUPERCOP", "OFF")
             .define("WITH_PROCPS", "OFF")
             .define("CURVE", "ALT_BN128")
             .define("USE_PT_COMPRESSION", "OFF")
@@ -49,6 +50,7 @@ fn main() {
 
         cc::Build::new()
             .cpp(true)
+            .warnings(false)
             .debug(cfg!(debug_assertions))
             .flag("-std=c++11")
             .include(libsnark_source_path)
