@@ -38,10 +38,10 @@ from "./path/to/my/module" import main as module
 Note that this legacy method is likely to be become deprecated, so it is recommended to use the preferred way instead.
 ### Symbols
 
-Two type of symbols can be imported
+Two types of symbols can be imported:
 
 #### Functions
-Functions are imported by name. If many functions have the same name but different signatures, all of them get imported, and which one to use in a particular call is infered.
+Functions are imported by name. If many functions have the same name but different signatures, all of them get imported, and which one to use in a particular call is inferred.
 
 #### User-defined types
 User-defined types declared with the `struct` keyword are imported by name.
@@ -66,4 +66,3 @@ from "../../../mycode" import foo
 ### Absolute Imports
 
 Absolute imports don't start with `./` or `../` in the path and are used to import components from the ZoKrates standard library. Please check the according [section](./stdlib.html) for more details.
-`

@@ -23,7 +23,7 @@ import "hashes/sha256/512bit.zok"
 A function that takes 2 `field[256]` arrays as inputs and returns their sha256 compression function as an array of 256 field elements.
 The difference with `sha256` is that no padding is added at the end of the message, which makes it more efficient but also less compatible with Solidity.
 
-There also is support for 2-round (1024-bit input) and and 3-round (1536-bit input) variants, using  `hashes/1024bit.zok` or `hashes/1536bit.zok` respectively.
+There also is support for 2-round (1024-bit input) and 3-round (1536-bit input) variants, using  `hashes/1024bit.zok` and `hashes/1536bit.zok` respectively.
 
 #### sha256packed
 
