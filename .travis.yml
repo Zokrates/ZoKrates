@@ -63,11 +63,11 @@ before_cache:
   # Travis can't cache files that are not readable by "others"
   - chmod -R a+r $HOME/.cargo
 
-branches:
-  only:
-    # release tags
-    - /^\d+\.\d+\.\d+.*$/
-    - master
+# branches:
+#   only:
+#     # release tags
+#     - /^\d+\.\d+\.\d+.*$/
+#     - master
 
 notifications:
   email:
