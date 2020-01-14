@@ -12,6 +12,7 @@ if [[ "$OSTYPE" == "linux-gnu" ]]; then
     #     pkg-config \
     #     python-markdown \
     #     && rm -rf /var/lib/apt/lists/*
+    echo ""
 
 elif [[ "$OSTYPE" == "darwin"* ]]; then
     # brew install boost
