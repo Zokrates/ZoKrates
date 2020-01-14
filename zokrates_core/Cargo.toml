@@ -32,7 +32,7 @@ zokrates_pest_ast = { version = "0.1.0", path = "../zokrates_pest_ast" }
 zokrates_embed = { path = "../zokrates_embed" }
 rand = "0.4"
 csv = "1"
-bellman_ce = { git = "https://github.com/matter-labs/bellman", default-features = false }
+bellman_ce = { git = "https://github.com/matter-labs/bellman", rev = "53fffa9", default-features = false }
 
 [dev-dependencies]
 glob = "0.2.11"
