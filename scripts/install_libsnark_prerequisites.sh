@@ -21,6 +21,7 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
     brew info boost
     brew info cmake
     brew info openssl
+
 elif [[ "$OSTYPE" == "cygwin" ]]; then
     echo "Libsnark not supported"
 elif [[ "$OSTYPE" == "msys" ]]; then
