@@ -29,10 +29,24 @@ echo "Published zokrates/zokrates:$TAG"
 git tag $TAG
 git push origin $TAG
 
+# Build zokrates js
+docker build -t zokrates_js -f zokrates_js/Dockerfile .
+
+CID=$(docker create zokrates_js)
+
+docker cp ${CID}:/build zokrates_js/dist
+docker rm -f ${CID}
+
+cd zokrates_js/dist
+
+# Publish zokrates_js to npmjs
+chmod +x publish.sh
+./publish.sh
+
 # Publish book
 MDBOOK_TAR="https://github.com/rust-lang-nursery/mdBook/releases/download/v0.2.1/mdbook-v0.2.1-x86_64-unknown-linux-gnu.tar.gz"
 
-cd zokrates_book
+cd ../../zokrates_book
 
 ## Install mdbook
 wget -qO- $MDBOOK_TAR | tar xvz
