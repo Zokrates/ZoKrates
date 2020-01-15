@@ -11,6 +11,9 @@ sudo: required
 env:
   global:
     - CRATE_NAME=zokrates
+    - LDFLAGS="-L/usr/local/opt/openssl@1.1/lib"
+    - CPPFLAGS="-I/usr/local/opt/openssl@1.1/include"
+    - PKG_CONFIG_PATH="/usr/local/opt/openssl@1.1/lib/pkgconfig"
 
 addons:
   homebrew:

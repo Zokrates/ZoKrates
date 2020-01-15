@@ -26,7 +26,7 @@ main() {
 
     test -f Cargo.lock || cargo generate-lockfile
 
-    cross build --bin zokrates --target $TARGET --release
+    cargo build --bin zokrates --target $TARGET --release
 
     # Package artifacts
     # Binary
