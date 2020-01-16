@@ -11,9 +11,6 @@ sudo: required
 env:
   global:
     - CRATE_NAME=zokrates
-    - LDFLAGS="-L/usr/local/opt/openssl@1.1/lib"
-    - CPPFLAGS="-I/usr/local/opt/openssl@1.1/include"
-    - PKG_CONFIG_PATH="/usr/local/opt/openssl@1.1/lib/pkgconfig"
 
 addons:
   homebrew:
@@ -46,7 +43,11 @@ matrix:
     # OSX
     - env: TARGET=i686-apple-darwin
       os: osx
-    - env: TARGET=x86_64-apple-darwin
+    - env:
+        - TARGET=x86_64-apple-darwin
+        - LDFLAGS="-L/usr/local/opt/openssl@1.1/lib"
+        - CPPFLAGS="-I/usr/local/opt/openssl@1.1/include"
+        - PKG_CONFIG_PATH="/usr/local/opt/openssl@1.1/lib/pkgconfig"
       os: osx
 
     # *BSD
