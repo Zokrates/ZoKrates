@@ -1,0 +1,7 @@
+[build.env]
+passthrough = [
+    "CRATE_NAME",
+    "LDFLAGS",
+    "CPPFLAGS",
+    "PKG_CONFIG_PATH",
+]
