@@ -39,7 +39,7 @@ struct State<'ast, T: Field> {
     types: TypeMap,
 }
 
-/// A symbol for a given name: either a type, or a group of functions. Not both!
+/// A symbol for a given name: either a type or a group of functions. Not both!
 #[derive(PartialEq, Hash, Eq, Debug)]
 enum SymbolType {
     Type,
@@ -194,7 +194,7 @@ impl<'ast> Hash for ScopedVariable<'ast> {
 
 impl<'ast> Eq for ScopedVariable<'ast> {}
 
-/// Checker, checks the semantics of a program, keeping track of functions and variables in scope
+/// Checker checks the semantics of a program, keeping track of functions and variables in scope
 pub struct Checker<'ast> {
     scope: HashSet<ScopedVariable<'ast>>,
     functions: HashSet<FunctionKey<'ast>>,
@@ -879,7 +879,7 @@ impl<'ast> Checker<'ast> {
                             vars_types.push(t);
                             var_names.push(name);
                         }
-                        // find arguments types
+                        // find argument types
                         let mut arguments_checked = vec![];
                         for arg in arguments {
                             let arg_checked = self.check_expression(arg, module_id, &types).map_err(|e| vec![e])?;
@@ -4053,7 +4053,7 @@ mod tests {
 
             #[test]
             fn subset() {
-                // a A value cannot be defined with A as id but members being a subset of the declaration
+                // a A value cannot be defined with A as id if members are a subset of the declaration
 
                 // struct Foo = { foo: field, bar: bool }
                 // Foo foo = Foo { foo: 42 }
@@ -4095,8 +4095,8 @@ mod tests {
 
             #[test]
             fn invalid() {
-                // a A value cannot be defined with A as id but members being different ids than the declaration
-                // a A value cannot be defined with A as id but members being different types than the declaration
+                // a A value cannot be defined with A as id if members are different ids than the declaration
+                // a A value cannot be defined with A as id if members are different types than the declaration
 
                 // struct Foo = { foo: field, bar: bool }
                 // Foo { foo: 42, baz: bool } // error

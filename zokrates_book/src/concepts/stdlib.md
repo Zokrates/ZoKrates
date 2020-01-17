@@ -31,9 +31,9 @@ There also is support for 2-round (1024-bit input) and 3-round (1536-bit input) 
 import "hashes/sha256/512bitPacked.zok"
 ```
 
-A function that takes an array of 4 field elements as inputs, unpacks each of them to 128 bits (big endian), concatenates them and applies sha256. It then returns an array of 2 field elements, each representing 128 bits of the result.
+A function that takes an array of 4 field elements as inputs, unpacks each of them to 128 bits (big-endian), concatenates them and applies sha256. It then returns an array of 2 field elements, each representing 128 bits of the result.
 
-### Public-key Cryptography 
+### Public-key Cryptography
 
 #### Proof of private-key ownership
 
@@ -41,8 +41,8 @@ A function that takes an array of 4 field elements as inputs, unpacks each of th
 import "ecc/proofOfOwnership.zok"
 ```
 
-Verifies match of a given public/private keypair. Checks if the following equation holds for the provided keypair:  
-`pk = sk*G`  
+Verifies match of a given public/private keypair. Checks if the following equation holds for the provided keypair:
+`pk = sk*G`
 where `G` is the chosen base point of the subgroup and `*` denotes scalar multiplication in the subgroup.
 
 #### Signature verification
@@ -85,5 +85,5 @@ Packs 256 field elements as one. Overflows can occur.
 import "utils/pack/nonStrictUnpack256"
 ```
 
-Unpacks a field element to 256 field elements. Uniqueness of the output is not guaranteed.
+Unpacks a field element into 256 field elements. Uniqueness of the output is not guaranteed.
 

@@ -1,7 +1,7 @@
-import "./IVconstants" as IVconstants 
-import "./shaRoundNoBoolCheck" as sha256 
+import "./IVconstants" as IVconstants
+import "./shaRoundNoBoolCheck" as sha256
 
-// A function that takes 4 field[256] arrays as inputs 
+// A function that takes 4 field[256] arrays as inputs
 // and applies 2 rounds of sha256 compression.
 // It returns an array of 256 field elements.
 def main(field[256] a, field[256] b, field[256] c, field[256] d) -> (field[256]):

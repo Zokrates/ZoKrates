@@ -67,7 +67,7 @@ impl<T: Field> From<FlatProg<T>> for Prog<T> {
         // get the main function
         let main = flat_prog.main;
 
-        // get the interface of the program, ie which inputs are private and public
+        // get the interface of the program, i.e. which inputs are private and public
         let private = main.arguments.iter().map(|p| p.private).collect();
 
         let main = main.into();

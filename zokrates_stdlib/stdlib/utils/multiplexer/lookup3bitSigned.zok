@@ -5,7 +5,7 @@ import "./lookup2bit" as lookup
 // */
 def main(field[3] b, field[4] c) -> (field):
 
-	field alpha = lookup([b[0], b[1]], c) 
+	field alpha = lookup([b[0], b[1]], c)
 	field out = alpha - 2*b[2]*alpha
 	
 	return out

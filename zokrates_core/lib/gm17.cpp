@@ -24,7 +24,7 @@ using namespace libsnark;
 
 namespace gm17 {
 
-//takes input and puts it into constraint system
+// takes input and puts it into a constraint system
 r1cs_se_ppzksnark_constraint_system<libff::alt_bn128_pp> createConstraintSystem(const uint8_t* A, const uint8_t* B, const uint8_t* C, int A_len, int B_len, int C_len, int constraints, int variables, int inputs)
 {
   r1cs_se_ppzksnark_constraint_system<libff::alt_bn128_pp> cs;

@@ -18,8 +18,8 @@ def isWaldo(field a, field p, field q) -> (field):
 // define all
 def main(field a0, field a1, field a2, field a3, private field index, private field p, private field q) -> (field):
   // prover provides the index of Waldo
-  field waldo = if index == 0 then a0 else 0 fi 
-  waldo = waldo + if index == 1 then a1 else 0 fi 
-  waldo = waldo + if index == 2 then a2 else 0 fi 
+  field waldo = if index == 0 then a0 else 0 fi
+  waldo = waldo + if index == 1 then a1 else 0 fi
+  waldo = waldo + if index == 2 then a2 else 0 fi
   waldo = waldo + if index == 3 then a3 else 0 fi
   return isWaldo(waldo, p, q)

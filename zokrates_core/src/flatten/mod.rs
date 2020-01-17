@@ -1,4 +1,4 @@
-//! Module containing the `Flattener` to process a program that it is R1CS-able.
+//! Module containing the `Flattener` to process a program that is R1CS-able.
 //!
 //! @file flatten.rs
 //! @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
@@ -122,7 +122,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// # Arguments
     ///
-    /// * `symbols` - Available functions in in this context
+    /// * `symbols` - Available functions in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
     /// * `condition` - the condition as a `BooleanExpression`.
     /// * `consequence` - the consequence of type U.
@@ -466,7 +466,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             e => {
                 // we have array[e] with e an arbitrary expression
                 // first we check that e is in 0..array.len(), so we check that sum(if e == i then 1 else 0) == 1
-                // here depending on the size, we could use a proper range check based on bits
+                // here, depending on the size, we could use a proper range check based on bits
                 let range_check = (0..size)
                     .map(|i| {
                         FieldElementExpression::IfElse(
@@ -546,7 +546,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// # Arguments
     ///
-    /// * `symbols` - Available functions in in this context
+    /// * `symbols` - Available functions in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
     /// * `expression` - `BooleanExpression` that will be flattened.
     ///
@@ -581,7 +581,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 let lhs_id = self.use_sym();
                 statements_flattened.push(FlatStatement::Definition(lhs_id, lhs_flattened));
 
-                // check that lhs and rhs are within the right range, ie, their higher two bits are zero. We use big-endian so they are at positions 0 and 1
+                // check that lhs and rhs are within the right range, i.e., their higher two bits are zero. We use big-endian so they are at positions 0 and 1
 
                 // lhs
                 {
@@ -924,8 +924,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             replacement_map.insert(formal_argument.id, new_var);
         }
 
-        // Ensure Renaming and correct returns:
-        // add all flattened statements, adapt return statement
+        // Ensure renaming and correct returns:
+        // add all flattened statements, adapt return statements
 
         let (mut return_statements, statements): (Vec<_>, Vec<_>) =
             funct.statements.into_iter().partition(|s| match s {
@@ -991,7 +991,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// # Arguments
     ///
-    /// * `symbols` - Available functions in in this context
+    /// * `symbols` - Available functions in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
     /// * `expr` - `TypedExpression` that will be flattened.
     fn flatten_expression(
@@ -1040,7 +1040,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// # Arguments
     ///
-    /// * `symbols` - Available functions in in this context
+    /// * `symbols` - Available functions in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
     /// * `expr` - `FieldElementExpression` that will be flattened.
     fn flatten_field_expression(
@@ -1227,7 +1227,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                         // construct the result iterating through the bits, multiplying by the associated power iff the bit is true
                         ebits_le.into_iter().zip(powers).fold(
-                            FlatExpression::Number(T::from(1)), // initialise the result at 1. If we have no bits to iterate through, we're computing x**0 == 1
+                            FlatExpression::Number(T::from(1)), // initialise the result at 1. If we have no bits to itegrate through, we're computing x**0 == 1
                             |acc, (bit, power)| match bit {
                                 true => {
                                     // update the result by introducing a new variable
@@ -1283,7 +1283,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// # Arguments
     ///
-    /// * `symbols` - Available functions in in this context
+    /// * `symbols` - Available functions in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
     /// * `expr` - `StructExpression` that will be flattened.
     fn flatten_struct_expression(
@@ -1369,7 +1369,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// # Arguments
     ///
-    /// * `symbols` - Available functions in in this context
+    /// * `symbols` - Available functions in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
     /// * `expr` - `ArrayExpression` that will be flattened.
     /// # Remarks
@@ -1448,7 +1448,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// # Arguments
     ///
-    /// * `symbols` - Available functions in in this context
+    /// * `symbols` - Available functions in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
     /// * `stat` - `TypedStatement` that will be flattened.
     fn flatten_statement(
@@ -1565,7 +1565,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// # Arguments
     ///
-    /// * `symbols` - Available functions in in this context
+    /// * `symbols` - Available functions in this context
     /// * `funct` - `TypedFunction` that will be flattened
     fn flatten_function(
         &mut self,

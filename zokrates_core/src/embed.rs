@@ -10,7 +10,7 @@ use typed_absy::types::{FunctionKey, Signature, Type};
 use zokrates_embed::{generate_sha256_round_constraints, BellmanConstraint};
 use zokrates_field::field::Field;
 
-/// A low level function that contains non-deterministic introduction of variables. It is carried as is until
+/// A low level function that contains non-deterministic introduction of variables. It is carried out as is until
 /// the flattening step when it can be inlined.
 #[derive(Debug, Clone, PartialEq)]
 pub enum FlatEmbed {
