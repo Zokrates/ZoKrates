@@ -85,7 +85,7 @@ pub fn test_inner(test_path: &str) {
             .to_str()
             .unwrap()
             .to_string(),
-        Some(resolve),
+        Some(&resolve),
     )
     .unwrap();
 

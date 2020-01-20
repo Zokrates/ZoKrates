@@ -12,6 +12,7 @@ use semantics::{self, Checker};
 use static_analysis::Analyse;
 use std::collections::HashMap;
 use std::fmt;
+use std::io;
 use typed_absy::abi::Abi;
 use typed_arena::Arena;
 use zokrates_field::field::Field;
@@ -135,19 +136,16 @@ impl fmt::Display for CompileErrorInner {
     }
 }
 
-pub type Resolve<E> = fn(String, String) -> Result<(String, String), E>;
-
+pub type Resolve<'a, E> = &'a dyn Fn(String, String) -> Result<(String, String), E>;
 
 pub fn compile<T: Field, E: Into<imports::Error>>(
     source: String,
     location: String,
     resolve_option: Option<Resolve<E>>,
 ) -> Result<CompilationArtifacts<T>, CompileErrors> {
-
     let arena = Arena::new();
 
     let source = arena.alloc(source);
-
     let compiled = compile_program(source, location.clone(), resolve_option, &arena)?;
 
     // check semantics
@@ -245,7 +243,6 @@ mod test {
             String::from("./path/to/file"),
             None::<Resolve<io::Error>>,
         );
-
         assert!(res
             .unwrap_err()
             .to_string()

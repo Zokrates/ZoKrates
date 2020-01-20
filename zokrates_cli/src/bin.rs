@@ -295,8 +295,8 @@ fn cli() -> Result<(), String> {
                 .read_to_string(&mut source)
                 .map_err(|why| format!("couldn't open input file {}: {}", path.display(), why))?;
 
-            let program_flattened: ir::Prog<FieldPrime> =
-                compile(source, location, Some(fs_resolve))
+            let artifacts: CompilationArtifacts<FieldPrime> =
+                compile(source, location, Some(&fs_resolve))
                     .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
 
             let program_flattened = artifacts.prog();
@@ -678,7 +678,7 @@ mod tests {
             reader.read_to_string(&mut source).unwrap();
 
             let _: CompilationArtifacts<FieldPrime> =
-                compile(source, location, Some(fs_resolve)).unwrap();
+                compile(source, location, Some(&fs_resolve)).unwrap();
         }
     }
 
@@ -707,7 +707,7 @@ mod tests {
             reader.read_to_string(&mut source).unwrap();
 
             let artifacts: CompilationArtifacts<FieldPrime> =
-                compile(source, location, Some(fs_resolve)).unwrap();
+                compile(source, location, Some(&fs_resolve)).unwrap();
 
             let _ = artifacts
                 .prog()
@@ -742,7 +742,7 @@ mod tests {
             reader.read_to_string(&mut source).unwrap();
 
             let artifacts: CompilationArtifacts<FieldPrime> =
-                compile(source, location, Some(fs_resolve)).unwrap();
+                compile(source, location, Some(&fs_resolve)).unwrap();
 
             let _ = artifacts
                 .prog()
