@@ -12,18 +12,35 @@ use typed_absy::types::{StructMember, Type};
 use zokrates_field::field::Field;
 
 pub struct Propagator<'ast, T: Field> {
+    // constants keeps track of constant expressions
+    // we currently do not support partially constant expressions: `field [x, 1][1]` is not considered constant, `field [0, 1][1]` is
     constants: HashMap<TypedAssignee<'ast, T>, TypedExpression<'ast, T>>,
+    // the verbose mode doesn't remove statements which assign constants to variables
+    // it required when using propagation in combination with unrolling
+    verbose: bool,
 }
 
 impl<'ast, T: Field> Propagator<'ast, T> {
+    fn verbose() -> Self {
+        Propagator {
+            constants: HashMap::new(),
+            verbose: true,
+        }
+    }
+
     fn new() -> Self {
         Propagator {
             constants: HashMap::new(),
+            verbose: false,
         }
     }
 
     pub fn propagate(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
         Propagator::new().fold_program(p)
+    }
+
+    pub fn propagate_verbose(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
+        Propagator::verbose().fold_program(p)
     }
 }
 
@@ -50,6 +67,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
     }
 
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
+
         let res = match s {
             TypedStatement::Declaration(v) => Some(TypedStatement::Declaration(v)),
             TypedStatement::Return(expressions) => Some(TypedStatement::Return(
@@ -63,8 +81,15 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                 let expr = self.fold_expression(expr);
 
                 if is_constant(&expr) {
-                    self.constants.insert(TypedAssignee::Identifier(var), expr);
-                    None
+                    self.constants
+                        .insert(TypedAssignee::Identifier(var.clone()), expr.clone());
+                    match self.verbose {
+                        true => Some(TypedStatement::Definition(
+                            TypedAssignee::Identifier(var),
+                            expr,
+                        )),
+                        false => None,
+                    }
                 } else {
                     Some(TypedStatement::Definition(
                         TypedAssignee::Identifier(var),
@@ -86,9 +111,17 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     self.fold_expression(e2),
                 ))
             }
-            // we unrolled for loops in the previous step
-            TypedStatement::For(..) => {
-                unreachable!("for loop is unexpected, it should have been unrolled")
+            // only loops with variable bounds are expected here
+            // we stop propagation here as constants maybe be modified inside the loop body
+            // which we do not visit
+            TypedStatement::For(v, from, to, statements) => {
+                let from = self.fold_field_expression(from);
+                let to = self.fold_field_expression(to);
+
+                // invalidate the constants map as any constant could be modified inside the loop body, which we don't visit
+                self.constants.clear();
+
+                Some(TypedStatement::For(v, from, to, statements))
             }
             TypedStatement::MultipleDefinition(variables, expression_list) => {
                 let expression_list = self.fold_expression_list(expression_list);
