@@ -24,8 +24,8 @@ pub struct CompilationResult {
 }
 
 impl ResolverResult {
-    fn to_tuple(&self) -> (String, String) {
-        (self.source.clone(), self.location.clone())
+    fn into_tuple(self) -> (String, String) {
+        (self.source, self.location)
     }
 }
 
@@ -61,7 +61,7 @@ pub fn compile(
             Err(Error::new(format!("Could not resolve `{}`", p)))
         } else {
             let result: ResolverResult = value.into_serde().unwrap();
-            Ok(result.to_tuple())
+            Ok(result.into_tuple())
         }
     };
 

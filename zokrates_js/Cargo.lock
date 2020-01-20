@@ -49,7 +49,7 @@ dependencies = [
 [[package]]
 name = "bellman_ce"
 version = "0.3.1"
-source = "git+https://github.com/matter-labs/bellman#18349642080f82c19534647d52e09935db106ff5"
+source = "git+https://github.com/matter-labs/bellman?rev=9e35737#9e35737209d4afc2e69af1e0d7cbe6d02e32aecf"
 dependencies = [
  "bit-vec 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -941,7 +941,7 @@ dependencies = [
 name = "zokrates_core"
 version = "0.4.1"
 dependencies = [
- "bellman_ce 0.3.1 (git+https://github.com/matter-labs/bellman)",
+ "bellman_ce 0.3.1 (git+https://github.com/matter-labs/bellman?rev=9e35737)",
  "bincode 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "csv 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "ff_ce 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -966,7 +966,7 @@ dependencies = [
 name = "zokrates_embed"
 version = "0.1.0"
 dependencies = [
- "bellman_ce 0.3.1 (git+https://github.com/matter-labs/bellman)",
+ "bellman_ce 0.3.1 (git+https://github.com/matter-labs/bellman?rev=9e35737)",
  "sapling-crypto_ce 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -988,7 +988,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_js"
-version = "1.0.19"
+version = "1.0.20"
 dependencies = [
  "bincode 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "console_error_panic_hook 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1028,7 +1028,7 @@ dependencies = [
 "checksum autocfg 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)" = "1d49d90015b3c36167a20fe2810c5cd875ad504b39cff3d4eae7977e6b7c1cb2"
 "checksum backtrace 0.3.40 (registry+https://github.com/rust-lang/crates.io-index)" = "924c76597f0d9ca25d762c25a4d369d51267536465dc5064bdf0eb073ed477ea"
 "checksum backtrace-sys 0.1.32 (registry+https://github.com/rust-lang/crates.io-index)" = "5d6575f128516de27e3ce99689419835fce9643a9b215a14d2b5b685be018491"
-"checksum bellman_ce 0.3.1 (git+https://github.com/matter-labs/bellman)" = "<none>"
+"checksum bellman_ce 0.3.1 (git+https://github.com/matter-labs/bellman?rev=9e35737)" = "<none>"
 "checksum bellman_ce 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "938ec0feff00f9dfda0e7cbfe8db8b717966a84f6a12e63ed0943c4a90d6a5de"
 "checksum bincode 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e103c8b299b28a9c6990458b7013dc4a8356a9b854c51b9883241f5866fac36e"
 "checksum bincode 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "5753e2a71534719bf3f4e57006c3a4f0d2c672a4b676eec84161f763eca87dbf"
