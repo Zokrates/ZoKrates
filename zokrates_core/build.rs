@@ -17,10 +17,8 @@ fn main() {
         const LIBSNARK_URL: &'static str = "https://github.com/scipr-lab/libsnark.git";
         const LIBSNARK_COMMIT: &'static str = "f7c87b88744ecfd008126d415494d9b34c4c1b20";
 
-        let out_path = Path::from(env::var("OUT_DIR").unwrap());
-
-        let libsnark_source_path = out_path.join("libsnark");
-        let libsnark_wrapper_path = out_path.join("libsnark_wrapper.a");
+        let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+        let libsnark_source_path = &out_path.join("libsnark");
 
         let repo = Repository::open(libsnark_source_path).unwrap_or_else(|_| {
             remove_dir(libsnark_source_path).ok();
@@ -60,12 +58,8 @@ fn main() {
             .file("lib/util.cpp")
             .file("lib/gm17.cpp")
             .file("lib/pghr13.cpp")
-            .compile(libsnark_wrapper_a.as_str());
+            .compile("libsnark_wrapper.a");
 
-        println!(
-            "cargo:rustc-link-search={}",
-            libsnark_wrapper_path.display()
-        );
         println!(
             "cargo:rustc-link-search=native={}",
             libsnark.join("lib").display()
