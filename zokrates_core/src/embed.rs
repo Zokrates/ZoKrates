@@ -10,7 +10,7 @@ use typed_absy::types::{FunctionKey, Signature, Type};
 use zokrates_embed::{generate_sha256_round_constraints, BellmanConstraint};
 use zokrates_field::field::Field;
 
-/// A low level function that contains non-deterministic introduction of variables. It is carried as is until
+/// A low level function that contains non-deterministic introduction of variables. It is carried out as is until
 /// the flattening step when it can be inlined.
 #[derive(Debug, Clone, PartialEq)]
 pub enum FlatEmbed {
@@ -124,15 +124,6 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
         .into_iter()
         .map(|i| i + variable_count);
 
-    // define the signature of the resulting function
-    let signature = Signature {
-        inputs: vec![
-            Type::array(Type::FieldElement, input_indices.len()),
-            Type::array(Type::FieldElement, current_hash_indices.len()),
-        ],
-        outputs: vec![Type::array(Type::FieldElement, output_indices.len())],
-    };
-
     // define parameters to the function based on the variables
     let arguments = input_argument_indices
         .clone()
@@ -191,7 +182,6 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
     FlatFunction {
         arguments,
         statements,
-        signature,
     }
 }
 
@@ -235,11 +225,6 @@ pub fn unpack<T: Field>() -> FlatFunction<T> {
         .collect();
 
     let solver = Solver::bits();
-
-    let signature = Signature {
-        inputs: vec![Type::FieldElement],
-        outputs: vec![Type::array(Type::FieldElement, nbits)],
-    };
 
     let outputs = directive_outputs
         .iter()
@@ -296,7 +281,6 @@ pub fn unpack<T: Field>() -> FlatFunction<T> {
     FlatFunction {
         arguments,
         statements,
-        signature,
     }
 }
 
@@ -349,17 +333,6 @@ mod tests {
         #[test]
         fn generate_sha256_constraints() {
             let compiled = sha256_round();
-
-            // function should have a signature of 768 inputs and 256 outputs
-            assert_eq!(
-                compiled.signature,
-                Signature::new()
-                    .inputs(vec![
-                        Type::array(Type::FieldElement, 512),
-                        Type::array(Type::FieldElement, 256)
-                    ])
-                    .outputs(vec![Type::array(Type::FieldElement, 256)])
-            );
 
             // function should have 768 inputs
             assert_eq!(compiled.arguments.len(), 768,);
@@ -420,9 +393,6 @@ mod tests {
             let prog = crate::ir::Prog {
                 main: f,
                 private: vec![true; 768],
-                signature: Signature::new()
-                    .inputs(vec![Type::FieldElement; 768])
-                    .outputs(vec![Type::FieldElement; 256]),
             };
 
             let input = (0..512)

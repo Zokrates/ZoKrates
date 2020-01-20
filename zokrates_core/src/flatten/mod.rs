@@ -1,4 +1,4 @@
-//! Module containing the `Flattener` to process a program that it is R1CS-able.
+//! Module containing the `Flattener` to process a program that is R1CS-able.
 //!
 //! @file flatten.rs
 //! @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
@@ -122,7 +122,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// # Arguments
     ///
-    /// * `symbols` - Available functions in in this context
+    /// * `symbols` - Available functions in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
     /// * `condition` - the condition as a `BooleanExpression`.
     /// * `consequence` - the consequence of type U.
@@ -218,9 +218,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let members = s.ty().clone();
         let expected_output_size = members
             .iter()
-            .find(|(id, _)| *id == member_id)
+            .find(|member| *member.id == member_id)
             .unwrap()
-            .1
+            .ty
             .get_primitive_count();
 
         let res =
@@ -231,8 +231,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     values
                         .into_iter()
                         .zip(members.into_iter())
-                        .filter(|(_, (id, _))| *id == member_id)
-                        .flat_map(|(v, (_, t))| match t {
+                        .filter(|(_, member)| *member.id == member_id)
+                        .flat_map(|(v, member)| match *member.ty {
                             Type::FieldElement => FieldElementExpression::try_from(v)
                                 .unwrap()
                                 .flatten(self, symbols, statements_flattened),
@@ -259,16 +259,16 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     // the struct is encoded as a sequence, so we need to identify the offset at which this member starts
                     let offset = members
                         .iter()
-                        .take_while(|(id, _)| *id != member_id)
-                        .map(|(_, ty)| ty.get_primitive_count())
+                        .take_while(|member| *member.id != member_id)
+                        .map(|member| member.ty.get_primitive_count())
                         .sum();
 
                     // we also need the size of this member
                     let size = members
                         .iter()
-                        .find(|(id, _)| *id == member_id)
+                        .find(|member| *member.id == member_id)
                         .unwrap()
-                        .1
+                        .ty
                         .get_primitive_count();
                     self.layout.get(&id).unwrap()[offset..(offset + size)]
                         .into_iter()
@@ -278,16 +278,16 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 StructExpressionInner::Select(box array, box index) => {
                     let offset = members
                         .iter()
-                        .take_while(|(id, _)| *id != member_id)
-                        .map(|(_, ty)| ty.get_primitive_count())
+                        .take_while(|member| *member.id != member_id)
+                        .map(|member| member.ty.get_primitive_count())
                         .sum();
 
                     // we also need the size of this member
                     let size = members
                         .iter()
-                        .find(|(id, _)| *id == member_id)
+                        .find(|member| *member.id == member_id)
                         .unwrap()
-                        .1
+                        .ty
                         .get_primitive_count();
 
                     self.flatten_select_expression::<StructExpression<'ast, T>>(
@@ -302,12 +302,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 StructExpressionInner::IfElse(box condition, box consequence, box alternative) => {
                     // if the struct is `(if c then a else b)`, we want to access `(if c then a else b).member`
                     // we reduce to `if c then a.member else b.member`
-                    let ty = members
+                    let ty = *members
                         .clone()
                         .into_iter()
-                        .find(|(id, _)| *id == member_id)
+                        .find(|member| *member.id == member_id)
                         .unwrap()
-                        .1;
+                        .ty;
 
                     match ty {
                         Type::FieldElement => self.flatten_if_else_expression(
@@ -345,16 +345,16 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                     let offset = members
                         .iter()
-                        .take_while(|(id, _)| *id != member_id)
-                        .map(|(_, ty)| ty.get_primitive_count())
+                        .take_while(|member| *member.id != member_id)
+                        .map(|member| member.ty.get_primitive_count())
                         .sum();
 
                     // we also need the size of this member
                     let size = members
                         .iter()
-                        .find(|(id, _)| *id == member_id)
+                        .find(|member| *member.id == member_id)
                         .unwrap()
-                        .1
+                        .ty
                         .get_primitive_count();
 
                     e[offset..(offset + size)].into()
@@ -466,7 +466,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             e => {
                 // we have array[e] with e an arbitrary expression
                 // first we check that e is in 0..array.len(), so we check that sum(if e == i then 1 else 0) == 1
-                // here depending on the size, we could use a proper range check based on bits
+                // here, depending on the size, we could use a proper range check based on bits
                 let range_check = (0..size)
                     .map(|i| {
                         FieldElementExpression::IfElse(
@@ -546,7 +546,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// # Arguments
     ///
-    /// * `symbols` - Available functions in in this context
+    /// * `symbols` - Available functions in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
     /// * `expression` - `BooleanExpression` that will be flattened.
     ///
@@ -581,7 +581,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 let lhs_id = self.use_sym();
                 statements_flattened.push(FlatStatement::Definition(lhs_id, lhs_flattened));
 
-                // check that lhs and rhs are within the right range, ie, their higher two bits are zero. We use big-endian so they are at positions 0 and 1
+                // check that lhs and rhs are within the right range, i.e., their higher two bits are zero. We use big-endian so they are at positions 0 and 1
 
                 // lhs
                 {
@@ -856,6 +856,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 true => T::from(1),
                 false => T::from(0),
             }),
+            BooleanExpression::FunctionCall(..) => unreachable!(),
             BooleanExpression::IfElse(box condition, box consequence, box alternative) => self
                 .flatten_if_else_expression(
                     symbols,
@@ -923,8 +924,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             replacement_map.insert(formal_argument.id, new_var);
         }
 
-        // Ensure Renaming and correct returns:
-        // add all flattened statements, adapt return statement
+        // Ensure renaming and correct returns:
+        // add all flattened statements, adapt return statements
 
         let (mut return_statements, statements): (Vec<_>, Vec<_>) =
             funct.statements.into_iter().partition(|s| match s {
@@ -990,7 +991,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// # Arguments
     ///
-    /// * `symbols` - Available functions in in this context
+    /// * `symbols` - Available functions in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
     /// * `expr` - `TypedExpression` that will be flattened.
     fn flatten_expression(
@@ -1039,7 +1040,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// # Arguments
     ///
-    /// * `symbols` - Available functions in in this context
+    /// * `symbols` - Available functions in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
     /// * `expr` - `FieldElementExpression` that will be flattened.
     fn flatten_field_expression(
@@ -1226,7 +1227,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                         // construct the result iterating through the bits, multiplying by the associated power iff the bit is true
                         ebits_le.into_iter().zip(powers).fold(
-                            FlatExpression::Number(T::from(1)), // initialise the result at 1. If we have no bits to iterate through, we're computing x**0 == 1
+                            FlatExpression::Number(T::from(1)), // initialise the result at 1. If we have no bits to itegrate through, we're computing x**0 == 1
                             |acc, (bit, power)| match bit {
                                 true => {
                                     // update the result by introducing a new variable
@@ -1282,7 +1283,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// # Arguments
     ///
-    /// * `symbols` - Available functions in in this context
+    /// * `symbols` - Available functions in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
     /// * `expr` - `StructExpression` that will be flattened.
     fn flatten_struct_expression(
@@ -1320,29 +1321,29 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             StructExpressionInner::IfElse(box condition, box consequence, box alternative) => {
                 members
                     .into_iter()
-                    .flat_map(|(id, ty)| match ty {
+                    .flat_map(|member| match ty {
                         Type::FieldElement => FieldElementExpression::if_else(
                             condition.clone(),
-                            FieldElementExpression::member(consequence.clone(), id.clone()),
-                            FieldElementExpression::member(alternative.clone(), id.clone()),
+                            FieldElementExpression::member(consequence.clone(), member.id.clone()),
+                            FieldElementExpression::member(alternative.clone(), member.id.clone()),
                         )
                         .flatten(self, symbols, statements_flattened),
                         Type::Boolean => BooleanExpression::if_else(
                             condition.clone(),
-                            BooleanExpression::member(consequence.clone(), id.clone()),
-                            BooleanExpression::member(alternative.clone(), id.clone()),
+                            BooleanExpression::member(consequence.clone(), member.id.clone()),
+                            BooleanExpression::member(alternative.clone(), member.id.clone()),
                         )
                         .flatten(self, symbols, statements_flattened),
                         Type::Struct(..) => StructExpression::if_else(
                             condition.clone(),
-                            StructExpression::member(consequence.clone(), id.clone()),
-                            StructExpression::member(alternative.clone(), id.clone()),
+                            StructExpression::member(consequence.clone(), member.id.clone()),
+                            StructExpression::member(alternative.clone(), member.id.clone()),
                         )
                         .flatten(self, symbols, statements_flattened),
                         Type::Array(..) => ArrayExpression::if_else(
                             condition.clone(),
-                            ArrayExpression::member(consequence.clone(), id.clone()),
-                            ArrayExpression::member(alternative.clone(), id.clone()),
+                            ArrayExpression::member(consequence.clone(), member.id.clone()),
+                            ArrayExpression::member(alternative.clone(), member.id.clone()),
                         )
                         .flatten(self, symbols, statements_flattened),
                     })
@@ -1368,7 +1369,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// # Arguments
     ///
-    /// * `symbols` - Available functions in in this context
+    /// * `symbols` - Available functions in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
     /// * `expr` - `ArrayExpression` that will be flattened.
     /// # Remarks
@@ -1447,7 +1448,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// # Arguments
     ///
-    /// * `symbols` - Available functions in in this context
+    /// * `symbols` - Available functions in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
     /// * `stat` - `TypedStatement` that will be flattened.
     fn flatten_statement(
@@ -1564,7 +1565,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ///
     /// # Arguments
     ///
-    /// * `symbols` - Available functions in in this context
+    /// * `symbols` - Available functions in this context
     /// * `funct` - `TypedFunction` that will be flattened
     fn flatten_function(
         &mut self,
@@ -1591,7 +1592,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         FlatFunction {
             arguments: arguments_flattened,
             statements: statements_flattened,
-            signature: funct.signature,
         }
     }
 
@@ -1735,7 +1735,6 @@ mod tests {
                     expressions: vec![FlatExpression::Identifier(FlatVariable::new(1))],
                 }),
             ],
-            signature: Signature::new().outputs(vec![Type::FieldElement]),
         };
 
         let flattened = flattener.flatten_function(&mut HashMap::new(), function);
@@ -1802,7 +1801,6 @@ mod tests {
                     expressions: vec![FlatExpression::Identifier(FlatVariable::new(2))],
                 }),
             ],
-            signature: Signature::new().outputs(vec![Type::FieldElement]),
         };
 
         let flattened = flattener.flatten_function(&mut HashMap::new(), function);
@@ -1922,7 +1920,6 @@ mod tests {
                     expressions: vec![FlatExpression::Identifier(FlatVariable::new(7))],
                 }),
             ],
-            signature: Signature::new().outputs(vec![Type::FieldElement]),
         };
 
         let flattened = flattener.flatten_function(&mut HashMap::new(), function);

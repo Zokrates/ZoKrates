@@ -4,7 +4,7 @@ use std::cmp::max;
 use std::collections::HashMap;
 use zokrates_field::field::Field;
 
-// utility function. Converts a Fields vector-based byte representation to fixed size array.
+// utility function. Converts a Field's vector-based byte representation to fixed size array.
 fn vec_as_u8_32_array(vec: &Vec<u8>) -> [u8; 32] {
     assert!(vec.len() <= 32);
     let mut array = [0u8; 32];
@@ -174,7 +174,7 @@ pub fn prepare_generate_proof<T: Field>(
     )
 }
 
-/// Returns the index of `var` in `variables`, adding `var` with incremented index if it not yet exists.
+/// Returns the index of `var` in `variables`, adding `var` with incremented index if it does not yet exists.
 ///
 /// # Arguments
 ///
@@ -220,7 +220,7 @@ pub fn r1cs_program<T: Field>(
     //Only the main function is relevant in this step, since all calls to other functions were resolved during flattening
     let main = prog.main;
 
-    //~out are added after main's arguments as we want variables (columns)
+    //~out are added after main's arguments, since we want variables (columns)
     //in the r1cs to be aligned like "public inputs | private inputs"
     let main_return_count = main.returns.len();
 

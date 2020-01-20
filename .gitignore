@@ -5,6 +5,7 @@
 # ZoKrates default files
 out
 out.ztf
+abi.json
 proof.json
 proving.key
 verification.key
@@ -19,3 +20,4 @@ witness
 .DS_Store
 .idea
 .vscode
+*.iml

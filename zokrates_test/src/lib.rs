@@ -77,7 +77,7 @@ pub fn test_inner(test_path: &str) {
 
     let code = std::fs::read_to_string(&t.entry_point).unwrap();
 
-    let bin = compile(
+    let artifacts = compile(
         code,
         t.entry_point
             .parent()
@@ -88,6 +88,8 @@ pub fn test_inner(test_path: &str) {
         Some(resolve),
     )
     .unwrap();
+
+    let bin = artifacts.prog();
 
     for test in t.tests.into_iter() {
         let input = &test.input.values;

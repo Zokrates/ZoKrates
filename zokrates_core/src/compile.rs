@@ -12,11 +12,26 @@ use semantics::{self, Checker};
 use static_analysis::Analyse;
 use std::collections::HashMap;
 use std::fmt;
-use std::io;
-
+use typed_absy::abi::Abi;
 use typed_arena::Arena;
 use zokrates_field::field::Field;
 use zokrates_pest_ast as pest;
+
+#[derive(Debug)]
+pub struct CompilationArtifacts<T: Field> {
+    prog: ir::Prog<T>,
+    abi: Abi,
+}
+
+impl<T: Field> CompilationArtifacts<T> {
+    pub fn prog(&self) -> &ir::Prog<T> {
+        &self.prog
+    }
+
+    pub fn abi(&self) -> &Abi {
+        &self.abi
+    }
+}
 
 #[derive(Debug)]
 pub struct CompileErrors(Vec<CompileError>);
@@ -122,11 +137,13 @@ impl fmt::Display for CompileErrorInner {
 
 pub type Resolve<E> = fn(String, String) -> Result<(String, String), E>;
 
+
 pub fn compile<T: Field, E: Into<imports::Error>>(
     source: String,
     location: String,
     resolve_option: Option<Resolve<E>>,
-) -> Result<ir::Prog<T>, CompileErrors> {
+) -> Result<CompilationArtifacts<T>, CompileErrors> {
+
     let arena = Arena::new();
 
     let source = arena.alloc(source);
@@ -143,6 +160,8 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
         )
     })?;
 
+    let abi = typed_ast.abi();
+
     // analyse (unroll and constant propagation)
     let typed_ast = typed_ast.analyse();
 
@@ -158,7 +177,10 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     // optimize
     let optimized_ir_prog = ir_prog.optimize();
 
-    Ok(optimized_ir_prog)
+    Ok(CompilationArtifacts {
+        prog: optimized_ir_prog,
+        abi: abi,
+    })
 }
 
 pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
@@ -218,7 +240,7 @@ mod test {
 			   return foo()
 		"#
         .to_string();
-        let res: Result<ir::Prog<FieldPrime>, CompileErrors> = compile(
+        let res: Result<CompilationArtifacts<FieldPrime>, CompileErrors> = compile(
             source,
             String::from("./path/to/file"),
             None::<Resolve<io::Error>>,
@@ -237,7 +259,7 @@ mod test {
 			   return 1
 		"#
         .to_string();
-        let res: Result<ir::Prog<FieldPrime>, CompileErrors> = compile(
+        let res: Result<CompilationArtifacts<FieldPrime>, CompileErrors> = compile(
             source,
             String::from("./path/to/file"),
             None::<Resolve<io::Error>>,

@@ -2,7 +2,7 @@
 //
 // from zokrates.gadgets.pedersenHasher import PedersenHasher
 // import bitstring
-// hasher = PedersenHasher("test", 2)  
+// hasher = PedersenHasher("test", 2)
 // bs = bitstring.BitArray('0b110000')
 // hasher.hash_bits(bs)
 

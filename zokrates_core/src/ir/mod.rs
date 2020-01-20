@@ -2,7 +2,6 @@ use crate::flat_absy::flat_parameter::FlatParameter;
 use crate::flat_absy::FlatVariable;
 use crate::solvers::Solver;
 use std::fmt;
-use typed_absy::types::signature::Signature;
 use zokrates_field::field::Field;
 
 mod expression;
@@ -105,7 +104,6 @@ impl<T: Field> fmt::Display for Function<T> {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Prog<T: Field> {
-    pub signature: Signature,
     pub main: Function<T>,
     pub private: Vec<bool>,
 }
