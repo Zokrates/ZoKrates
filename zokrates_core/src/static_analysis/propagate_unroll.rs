@@ -43,7 +43,6 @@ impl PropagatedUnroller {
         p = unrolled.0;
 
         loop {
-
             // conditions to exit the loop
             if complete {
                 break;

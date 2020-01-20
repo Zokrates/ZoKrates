@@ -860,8 +860,9 @@ impl<'ast> Checker<'ast> {
                             "Expected lower loop bound to be of type field, found {}",
                             e.get_type()
                         ),
-                    })
-                }.map_err(|e| vec![e])?;
+                    }),
+                }
+                .map_err(|e| vec![e])?;
 
                 let to = match to {
                     TypedExpression::FieldElement(e) => Ok(e),
@@ -871,8 +872,9 @@ impl<'ast> Checker<'ast> {
                             "Expected higher loop bound to be of type field, found {}",
                             e.get_type()
                         ),
-                    })
-                }.map_err(|e| vec![e])?;
+                    }),
+                }
+                .map_err(|e| vec![e])?;
 
                 self.insert_into_scope(var.clone());
 

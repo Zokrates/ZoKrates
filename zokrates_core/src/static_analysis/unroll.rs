@@ -27,7 +27,6 @@ impl<'ast> Unroller<'ast> {
     }
 
     fn issue_next_ssa_variable(&mut self, v: Variable<'ast>) -> Variable<'ast> {
-
         let res = match self.substitution.get(&v.id.id) {
             Some(i) => Variable {
                 id: Identifier {
