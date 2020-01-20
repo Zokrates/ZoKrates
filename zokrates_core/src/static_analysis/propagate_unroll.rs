@@ -128,7 +128,11 @@ mod tests {
                 TypedAssignee::Identifier(Variable::field_element(
                     Identifier::from("foo").version(0),
                 )),
-                FieldElementExpression::Number(FieldPrime::from(0)).into(),
+                FieldElementExpression::Add(
+                    box FieldElementExpression::Number(FieldPrime::from(0)),
+                    box FieldElementExpression::Number(FieldPrime::from(0)),
+                )
+                .into(),
             ),
             TypedStatement::Definition(
                 TypedAssignee::Identifier(Variable::field_element(
@@ -140,7 +144,11 @@ mod tests {
                 TypedAssignee::Identifier(Variable::field_element(
                     Identifier::from("foo").version(1),
                 )),
-                FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                FieldElementExpression::Add(
+                    box FieldElementExpression::Number(FieldPrime::from(0)),
+                    box FieldElementExpression::Number(FieldPrime::from(1)),
+                )
+                .into(),
             ),
             TypedStatement::Definition(
                 TypedAssignee::Identifier(Variable::field_element(
@@ -158,7 +166,11 @@ mod tests {
                 TypedAssignee::Identifier(Variable::field_element(
                     Identifier::from("foo").version(2),
                 )),
-                FieldElementExpression::Number(FieldPrime::from(2)).into(),
+                FieldElementExpression::Add(
+                    box FieldElementExpression::Number(FieldPrime::from(1)),
+                    box FieldElementExpression::Number(FieldPrime::from(1)),
+                )
+                .into(),
             ),
         ];
 
