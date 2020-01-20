@@ -87,7 +87,7 @@ mod tests {
         // foo_1 = i_0 + j_1
         // i_1 = 1
         // j_2 = 1
-        // foo_2 = i_1 + j_2
+        // foo_2 = i_1 + j_1
 
         let s = TypedStatement::For(
             Variable::field_element("i".into()),
@@ -129,8 +129,8 @@ mod tests {
                     Identifier::from("foo").version(0),
                 )),
                 FieldElementExpression::Add(
-                    box FieldElementExpression::Number(FieldPrime::from(0)),
-                    box FieldElementExpression::Number(FieldPrime::from(0)),
+                    box FieldElementExpression::Identifier(Identifier::from("i").version(0)),
+                    box FieldElementExpression::Identifier(Identifier::from("j").version(0)),
                 )
                 .into(),
             ),
@@ -145,8 +145,8 @@ mod tests {
                     Identifier::from("foo").version(1),
                 )),
                 FieldElementExpression::Add(
-                    box FieldElementExpression::Number(FieldPrime::from(0)),
-                    box FieldElementExpression::Number(FieldPrime::from(1)),
+                    box FieldElementExpression::Identifier(Identifier::from("i").version(0)),
+                    box FieldElementExpression::Identifier(Identifier::from("j").version(1)),
                 )
                 .into(),
             ),
@@ -167,8 +167,8 @@ mod tests {
                     Identifier::from("foo").version(2),
                 )),
                 FieldElementExpression::Add(
-                    box FieldElementExpression::Number(FieldPrime::from(1)),
-                    box FieldElementExpression::Number(FieldPrime::from(1)),
+                    box FieldElementExpression::Identifier(Identifier::from("i").version(1)),
+                    box FieldElementExpression::Identifier(Identifier::from("j").version(2)),
                 )
                 .into(),
             ),
