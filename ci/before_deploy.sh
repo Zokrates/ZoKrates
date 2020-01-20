@@ -26,7 +26,9 @@ main() {
 
     test -f Cargo.lock || cargo generate-lockfile
 
-    cross build --bin zokrates --target $TARGET --release
+    TARGET=i686-apple-darwin
+
+    cargo build --bin zokrates --target $TARGET --release && echo "Building with libsnark not supported for $TARGET" && cross build --bin zokrates --no-default-features --target $TARGET --release
 
     # Package artifacts
     # Binary
