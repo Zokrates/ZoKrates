@@ -1,5 +1,5 @@
 const assert = require('assert')
-const utils = require('../js/utils');
+const utils = require('../utils');
 
 describe('absolute path resolving', function() {
 

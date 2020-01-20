@@ -1,5 +1,5 @@
 import { appendExtension, getAbsolutePath } from './utils';
-import stdlib from '../stdlib.json';
+import stdlib from './stdlib.json';
 
 const initialize = async () => {
 
@@ -7,16 +7,16 @@ const initialize = async () => {
   const RESERVED_PATHS = [
     'ecc/',
     'signature/',
-    'hashes/', 
+    'hashes/',
     'utils/'
   ];
 
   // load web assembly module
-  const zokrates = await import('../pkg/index.js');
+  const zokrates = await import('./pkg/index.js');
 
   const resolveModule = (location, path, callback) => {
     if (isReserved(location) || isReserved(path)) {
-      return resolveFromStandardLibrary(location, path);
+        return resolveFromStandardLibrary(location, path);
     }
     return callback(location, path);
   }
@@ -58,4 +58,4 @@ const initialize = async () => {
   }
 }
 
-export { initialize }
+export { initialize };

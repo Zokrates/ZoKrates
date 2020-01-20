@@ -1,5 +1,5 @@
 const assert = require('assert');
-const utils = require('../js/utils');
+const utils = require('../utils');
 const stdlib = require('../stdlib.json');
 
 describe('stdlib', function() {

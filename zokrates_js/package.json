@@ -1,8 +1,8 @@
 {
   "name": "zokrates-js",
-  "main": "js/index.js",
+  "main": "index.js",
   "author": "Darko Macesic <darem966@gmail.com>",
-  "version": "1.0.19",
+  "version": "1.0.20",
   "keywords": [
     "zokrates",
     "wasm-bindgen",
@@ -10,11 +10,14 @@
   ],
   "license": "GPLv3",
   "files": [
-    "js",
     "pkg",
-    "stdlib.json"
+    "index.js",
+    "index.d.ts",
+    "utils.js",
+    "stdlib.json",
+    "README.md"
   ],
-  "types": "js/index.d.ts",
+  "types": "index.d.ts",
   "scripts": {
     "cargo:build": "cargo build --target=wasm32-unknown-unknown",
     "wasm-pack:build": "wasm-pack build --out-name index --release --target bundler",

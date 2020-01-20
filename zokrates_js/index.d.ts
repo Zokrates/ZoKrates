@@ -16,6 +16,7 @@ declare module 'zokrates-js' {
   }
 
   export type ResolveCallback = (location: string, path: string) => ResolverResult;
+
   export interface ZoKratesProvider {
     compile(source: string, location: string, callback: ResolveCallback): CompilationArtifacts;
     setup(program: Uint8Array): SetupKeypair;
