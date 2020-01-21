@@ -1,5 +1,11 @@
 //! Module containing constant propagation for the typed AST
 //!
+//! On top of the usual behavior of removing statements which assign a constant to a variable (as the variable can simply be
+//! substituted for the constant whenever used), we provide a `verbose` mode which does not remove such statements. This is done
+//! as for partial passes which do not visit the whole program, the variables being defined may be be used in parts of the program
+//! that are not visited. Keeping the statements is semantically equivalent and enables rebuilding the set of constants at the
+//! next pass.
+//!
 //! @file propagation.rs
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
@@ -16,7 +22,7 @@ pub struct Propagator<'ast, T: Field> {
     // we currently do not support partially constant expressions: `field [x, 1][1]` is not considered constant, `field [0, 1][1]` is
     constants: HashMap<TypedAssignee<'ast, T>, TypedExpression<'ast, T>>,
     // the verbose mode doesn't remove statements which assign constants to variables
-    // it required when using propagation in combination with unrolling
+    // it's required when using propagation in combination with unrolling
     verbose: bool,
 }
 
