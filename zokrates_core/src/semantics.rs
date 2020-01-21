@@ -2802,9 +2802,12 @@ mod tests {
         // def bar():
         //   2 == foo()
         // should fail
-        let bar_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Condition(
-            Expression::FieldConstant(FieldPrime::from(2)).mock(),
-            Expression::FunctionCall("foo", vec![]).mock(),
+        let bar_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Assertion(
+            Expression::Eq(
+                box Expression::FieldConstant(FieldPrime::from(2)).mock(),
+                box Expression::FunctionCall("foo", vec![]).mock(),
+            )
+            .mock(),
         )
         .mock()];
 
@@ -2991,9 +2994,12 @@ mod tests {
         // def bar():
         //   1 == foo()
         // should fail
-        let bar_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Condition(
-            Expression::FieldConstant(FieldPrime::from(1)).mock(),
-            Expression::FunctionCall("foo", vec![]).mock(),
+        let bar_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Assertion(
+            Expression::Eq(
+                box Expression::FieldConstant(FieldPrime::from(1)).mock(),
+                box Expression::FunctionCall("foo", vec![]).mock(),
+            )
+            .mock(),
         )
         .mock()];
 

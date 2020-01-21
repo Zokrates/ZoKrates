@@ -970,14 +970,10 @@ mod tests {
             assert_eq!(
                 u.fold_statement(s),
                 vec![
-                    TypedStatement::Condition(
-                        BooleanExpression::Lt(
-                            box FieldElementExpression::Number(FieldPrime::from(1)),
-                            box FieldElementExpression::Number(FieldPrime::from(2))
-                        )
-                        .into(),
-                        BooleanExpression::Value(true).into()
-                    ),
+                    TypedStatement::Assertion(BooleanExpression::Lt(
+                        box FieldElementExpression::Number(FieldPrime::from(1)),
+                        box FieldElementExpression::Number(FieldPrime::from(2))
+                    )),
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::field_array(
                             Identifier::from("a").version(1),
@@ -1108,14 +1104,10 @@ mod tests {
             assert_eq!(
                 u.fold_statement(s),
                 vec![
-                    TypedStatement::Condition(
-                        BooleanExpression::Lt(
-                            box FieldElementExpression::Number(FieldPrime::from(1)),
-                            box FieldElementExpression::Number(FieldPrime::from(2))
-                        )
-                        .into(),
-                        BooleanExpression::Value(true).into()
-                    ),
+                    TypedStatement::Assertion(BooleanExpression::Lt(
+                        box FieldElementExpression::Number(FieldPrime::from(1)),
+                        box FieldElementExpression::Number(FieldPrime::from(2))
+                    )),
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::with_id_and_type(
                             Identifier::from("a").version(1),
