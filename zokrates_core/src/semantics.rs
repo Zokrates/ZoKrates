@@ -814,27 +814,17 @@ impl<'ast> Checker<'ast> {
                 }
                 .map_err(|e| vec![e])
             }
-            Statement::Condition(lhs, rhs) => {
-                let checked_lhs = self
-                    .check_expression(lhs, module_id, &types)
-                    .map_err(|e| vec![e])?;
-                let checked_rhs = self
-                    .check_expression(rhs, module_id, &types)
+            Statement::Assertion(e) => {
+                let e = self
+                    .check_expression(e, module_id, &types)
                     .map_err(|e| vec![e])?;
 
-                if checked_lhs.get_type() == checked_rhs.get_type() {
-                    Ok(TypedStatement::Condition(checked_lhs, checked_rhs))
-                } else {
-                    Err(Error {
+                match e {
+                    TypedExpression::Boolean(e) => Ok(TypedStatement::Assertion(e)),
+                    e => Err(Error {
                         pos: Some(pos),
-                        message: format!(
-                            "Cannot compare {} of type {:?} to {} of type {:?}",
-                            checked_lhs,
-                            checked_lhs.get_type(),
-                            checked_rhs,
-                            checked_rhs.get_type(),
-                        ),
-                    })
+                        message: format!("Cannot assert {} of type {:?}", e, e.get_type(),),
+                    }),
                 }
                 .map_err(|e| vec![e])
             }

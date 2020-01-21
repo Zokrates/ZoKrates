@@ -325,9 +325,25 @@ pub enum TypedStatement<'ast, T: Field> {
     Return(Vec<TypedExpression<'ast, T>>),
     Definition(TypedAssignee<'ast, T>, TypedExpression<'ast, T>),
     Declaration(Variable<'ast>),
-    Condition(TypedExpression<'ast, T>, TypedExpression<'ast, T>),
+    Assertion(BooleanExpression<'ast, T>),
     For(Variable<'ast>, T, T, Vec<TypedStatement<'ast, T>>),
     MultipleDefinition(Vec<Variable<'ast>>, TypedExpressionList<'ast, T>),
+}
+
+impl<'ast, T: Field> TypedStatement<'ast, T> {
+    pub fn assert_bool_eq(
+        left: BooleanExpression<'ast, T>,
+        right: BooleanExpression<'ast, T>,
+    ) -> Self {
+        TypedStatement::Assertion(BooleanExpression::BoolEq(box left, box right))
+    }
+
+    pub fn assert_field_eq(
+        left: FieldElementExpression<'ast, T>,
+        right: FieldElementExpression<'ast, T>,
+    ) -> Self {
+        TypedStatement::Assertion(BooleanExpression::FieldEq(box left, box right))
+    }
 }
 
 impl<'ast, T: Field> fmt::Debug for TypedStatement<'ast, T> {
@@ -347,9 +363,7 @@ impl<'ast, T: Field> fmt::Debug for TypedStatement<'ast, T> {
             TypedStatement::Definition(ref lhs, ref rhs) => {
                 write!(f, "Definition({:?}, {:?})", lhs, rhs)
             }
-            TypedStatement::Condition(ref lhs, ref rhs) => {
-                write!(f, "Condition({:?}, {:?})", lhs, rhs)
-            }
+            TypedStatement::Assertion(ref e) => write!(f, "Condition({:?})", e),
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {
                 write!(f, "for {:?} in {:?}..{:?} do\n", var, start, stop)?;
                 for l in list {
@@ -379,7 +393,7 @@ impl<'ast, T: Field> fmt::Display for TypedStatement<'ast, T> {
             }
             TypedStatement::Declaration(ref var) => write!(f, "{}", var),
             TypedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
-            TypedStatement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            TypedStatement::Assertion(ref e) => write!(f, "{}", e),
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {
                 write!(f, "for {} in {}..{} do\n", var, start, stop)?;
                 for l in list {

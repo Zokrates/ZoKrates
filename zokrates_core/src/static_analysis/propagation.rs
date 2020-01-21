@@ -79,12 +79,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                 unreachable!("struct update should have been replaced with full struct redef")
             }
             // propagate lhs and rhs for conditions
-            TypedStatement::Condition(e1, e2) => {
+            TypedStatement::Assertion(e) => {
                 // could stop execution here if condition is known to fail
-                Some(TypedStatement::Condition(
-                    self.fold_expression(e1),
-                    self.fold_expression(e2),
-                ))
+                Some(TypedStatement::Assertion(self.fold_boolean_expression(e)))
             }
             // we unrolled for loops in the previous step
             TypedStatement::For(..) => {

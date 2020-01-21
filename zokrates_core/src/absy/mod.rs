@@ -281,7 +281,7 @@ pub enum Statement<'ast, T: Field> {
     Return(ExpressionListNode<'ast, T>),
     Declaration(VariableNode<'ast>),
     Definition(AssigneeNode<'ast, T>, ExpressionNode<'ast, T>),
-    Condition(ExpressionNode<'ast, T>, ExpressionNode<'ast, T>),
+    Assertion(ExpressionNode<'ast, T>),
     For(VariableNode<'ast>, T, T, Vec<StatementNode<'ast, T>>),
     MultipleDefinition(Vec<AssigneeNode<'ast, T>>, ExpressionNode<'ast, T>),
 }
@@ -294,7 +294,7 @@ impl<'ast, T: Field> fmt::Display for Statement<'ast, T> {
             Statement::Return(ref expr) => write!(f, "return {}", expr),
             Statement::Declaration(ref var) => write!(f, "{}", var),
             Statement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
-            Statement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            Statement::Assertion(ref e) => write!(f, "{}", e),
             Statement::For(ref var, ref start, ref stop, ref list) => {
                 write!(f, "for {} in {}..{} do\n", var, start, stop)?;
                 for l in list {
@@ -323,7 +323,7 @@ impl<'ast, T: Field> fmt::Debug for Statement<'ast, T> {
             Statement::Definition(ref lhs, ref rhs) => {
                 write!(f, "Definition({:?}, {:?})", lhs, rhs)
             }
-            Statement::Condition(ref lhs, ref rhs) => write!(f, "Condition({:?}, {:?})", lhs, rhs),
+            Statement::Assertion(ref e) => write!(f, "Assertion({:?})", e),
             Statement::For(ref var, ref start, ref stop, ref list) => {
                 write!(f, "for {:?} in {:?}..{:?} do\n", var, start, stop)?;
                 for l in list {

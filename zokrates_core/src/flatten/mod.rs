@@ -482,10 +482,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         FieldElementExpression::Add(box acc, box e)
                     });
 
-                let range_check_statement = TypedStatement::Condition(
-                    FieldElementExpression::Number(T::from(1)).into(),
-                    range_check.into(),
-                );
+                let range_check_statement = TypedStatement::Assertion(BooleanExpression::FieldEq(
+                    box FieldElementExpression::Number(T::from(1)).into(),
+                    box range_check.into(),
+                ));
 
                 self.flatten_statement(symbols, statements_flattened, range_check_statement);
 
@@ -1497,25 +1497,15 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     ),
                 }
             }
-            TypedStatement::Condition(lhs, rhs) => {
-                // flatten expr1 and expr2 to n flattened expressions with n the number of primitive types for expr1
-                // add n conditions to check equality of the n expressions
+            TypedStatement::Assertion(e) => {
+                // flatten e and compare the result with 1
 
-                let lhs = self.flatten_expression(symbols, statements_flattened, lhs);
-                let rhs = self.flatten_expression(symbols, statements_flattened, rhs);
+                let e = self.flatten_boolean_expression(symbols, statements_flattened, e);
 
-                assert_eq!(lhs.len(), rhs.len());
-
-                for (l, r) in lhs.into_iter().zip(rhs.into_iter()) {
-                    if l.is_linear() {
-                        statements_flattened.push(FlatStatement::Condition(l, r));
-                    } else if r.is_linear() {
-                        // swap so that left side is linear
-                        statements_flattened.push(FlatStatement::Condition(r, l));
-                    } else {
-                        unimplemented!()
-                    }
-                }
+                statements_flattened.push(FlatStatement::Condition(
+                    FlatExpression::Number(T::from(1)),
+                    e,
+                ));
             }
             TypedStatement::For(..) => unreachable!("static analyser should have unrolled"),
             TypedStatement::MultipleDefinition(vars, rhs) => {

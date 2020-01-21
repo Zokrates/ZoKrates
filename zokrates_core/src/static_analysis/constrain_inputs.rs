@@ -50,9 +50,9 @@ impl<'ast, T: Field> InputConstrainer<'ast, T> {
     fn constrain_expression(&mut self, e: TypedExpression<'ast, T>) {
         match e {
             TypedExpression::FieldElement(_) => {}
-            TypedExpression::Boolean(b) => self.constraints.push(TypedStatement::Condition(
-                b.clone().into(),
-                BooleanExpression::And(box b.clone(), box b).into(),
+            TypedExpression::Boolean(b) => self.constraints.push(TypedStatement::assert_bool_eq(
+                b.clone(),
+                BooleanExpression::And(box b.clone(), box b),
             )),
             TypedExpression::Array(a) => {
                 for i in 0..a.size() {
