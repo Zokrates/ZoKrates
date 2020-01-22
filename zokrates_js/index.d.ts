@@ -20,7 +20,7 @@ declare module 'zokrates-js' {
   export interface ZoKratesProvider {
     compile(source: string, location: string, callback: ResolveCallback): CompilationArtifacts;
     setup(program: Uint8Array): SetupKeypair;
-    computeWitness(artifacts: CompilationArtifacts, args: string[]): string;
+    computeWitness(artifacts: CompilationArtifacts, args: any[]): string;
     exportSolidityVerifier(verifyingKey: string, isAbiv2: boolean): string
     generateProof(program: Uint8Array, witness: string, provingKey: Uint8Array): string;
   }
