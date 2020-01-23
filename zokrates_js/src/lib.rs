@@ -2,13 +2,13 @@ use bincode::{deserialize, serialize};
 use serde::{Deserialize, Serialize};
 use serde_json::to_string_pretty;
 use wasm_bindgen::prelude::*;
-use zokrates_abi::{parse_strict, Encode, Inputs};
+use zokrates_abi::{parse_strict, Encode, Decode, Inputs};
 use zokrates_core::compile::{compile as core_compile, CompilationArtifacts};
 use zokrates_core::imports::Error;
 use zokrates_core::ir;
 use zokrates_core::proof_system::{self, ProofSystem};
 use zokrates_core::typed_absy::abi::Abi;
-use zokrates_core::typed_absy::Type;
+use zokrates_core::typed_absy::{types::Signature};
 use zokrates_field::field::FieldPrime;
 
 #[derive(Serialize, Deserialize)]
@@ -21,6 +21,12 @@ pub struct ResolverResult {
 pub struct CompilationResult {
     program: Vec<u8>,
     abi: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ComputationResult {
+    witness: String,
+    output: String,
 }
 
 impl ResolverResult {
@@ -88,17 +94,26 @@ pub fn compute_witness(artifacts: JsValue, args: JsValue) -> Result<JsValue, JsV
     let abi: Abi = serde_json::from_str(result.abi.as_str())
         .map_err(|err| JsValue::from_str(&format!("Could not deserialize abi: {}", err)))?;
 
+    let signature: Signature = abi.signature();
     let input = args.as_string().unwrap();
-    let input_types: Vec<Type> = abi.inputs.iter().map(|i| i.ty.clone()).collect();
 
-    let inputs = parse_strict(&input, input_types)
+    let inputs = parse_strict(&input, signature.inputs)
         .map(|parsed| Inputs::Abi(parsed))
         .map_err(|why| JsValue::from_str(&format!("{}", why.to_string())))?;
 
-    program_flattened
+    let witness = program_flattened
         .execute(&inputs.encode())
-        .map(|witness| JsValue::from_str(&format!("{}", witness)))
-        .map_err(|err| JsValue::from_str(&format!("Execution failed: {}", err)))
+        .map_err(|err| JsValue::from_str(&format!("Execution failed: {}", err)))?;
+
+    let return_values: serde_json::Value =
+        zokrates_abi::CheckedValues::decode(witness.return_values(), signature.outputs).into();
+
+    let result = ComputationResult {
+        witness: format!("{}", witness),
+        output: to_string_pretty(&return_values).unwrap()
+    };
+
+    Ok(JsValue::from_serde(&result).unwrap())
 }
 
 #[wasm_bindgen]
