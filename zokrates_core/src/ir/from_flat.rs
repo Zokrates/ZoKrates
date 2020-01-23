@@ -84,14 +84,8 @@ impl<T: Field> From<FlatExpression<T>> for LinComb<T> {
             FlatExpression::Identifier(id) => LinComb::from(id),
             FlatExpression::Add(box e1, box e2) => LinComb::from(e1) + LinComb::from(e2),
             FlatExpression::Sub(box e1, box e2) => LinComb::from(e1) - LinComb::from(e2),
-            FlatExpression::Mult(
-                box FlatExpression::Number(n1),
-                box FlatExpression::Identifier(v1),
-            )
-            | FlatExpression::Mult(
-                box FlatExpression::Identifier(v1),
-                box FlatExpression::Number(n1),
-            ) => LinComb::summand(n1, v1),
+            FlatExpression::Mult(box FlatExpression::Number(n), box e)
+            | FlatExpression::Mult(box e, box FlatExpression::Number(n)) => LinComb::from(e) * &n,
             e => unimplemented!("{}", e),
         }
     }

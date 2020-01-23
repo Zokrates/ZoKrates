@@ -24,10 +24,129 @@ pub struct Flattener<'ast, T: Field> {
     flat_cache: HashMap<FunctionKey<'ast>, FlatFunction<T>>,
 }
 
+fn reduce_array_eq<'ast, T: Field>(
+    lhs: ArrayExpression<'ast, T>,
+    rhs: ArrayExpression<'ast, T>,
+) -> BooleanExpression<'ast, T> {
+    let (box ty, size) = match lhs.get_type() {
+        Type::Array(a_type) => (a_type.ty, a_type.size),
+        _ => unreachable!(),
+    };
+
+    match ty {
+        Type::FieldElement => (0..size)
+            .map(|i| {
+                FieldElementExpression::equal(
+                    FieldElementExpression::select(
+                        lhs.clone(),
+                        FieldElementExpression::Number(T::from(i)),
+                    ),
+                    FieldElementExpression::select(
+                        rhs.clone(),
+                        FieldElementExpression::Number(T::from(i)),
+                    ),
+                )
+            })
+            .fold(BooleanExpression::Value(true), |acc, e| {
+                BooleanExpression::And(box acc, box e)
+            }),
+        Type::Boolean => (0..size)
+            .map(|i| {
+                BooleanExpression::equal(
+                    BooleanExpression::select(
+                        lhs.clone(),
+                        FieldElementExpression::Number(T::from(i)),
+                    ),
+                    BooleanExpression::select(
+                        rhs.clone(),
+                        FieldElementExpression::Number(T::from(i)),
+                    ),
+                )
+            })
+            .fold(BooleanExpression::Value(true), |acc, e| {
+                BooleanExpression::And(box acc, box e)
+            }),
+        Type::Struct(..) => (0..size)
+            .map(|i| {
+                StructExpression::equal(
+                    StructExpression::select(
+                        lhs.clone(),
+                        FieldElementExpression::Number(T::from(i)),
+                    ),
+                    StructExpression::select(
+                        rhs.clone(),
+                        FieldElementExpression::Number(T::from(i)),
+                    ),
+                )
+            })
+            .fold(BooleanExpression::Value(true), |acc, e| {
+                BooleanExpression::And(box acc, box e)
+            }),
+        Type::Array(..) => (0..size)
+            .map(|i| {
+                ArrayExpression::equal(
+                    ArrayExpression::select(
+                        lhs.clone(),
+                        FieldElementExpression::Number(T::from(i)),
+                    ),
+                    ArrayExpression::select(
+                        rhs.clone(),
+                        FieldElementExpression::Number(T::from(i)),
+                    ),
+                )
+            })
+            .fold(BooleanExpression::Value(true), |acc, e| {
+                BooleanExpression::And(box acc, box e)
+            }),
+    }
+}
+
+fn reduce_struct_eq<'ast, T: Field>(
+    lhs: StructExpression<'ast, T>,
+    rhs: StructExpression<'ast, T>,
+) -> BooleanExpression<'ast, T> {
+    let members = match lhs.get_type() {
+        Type::Struct(s_type) => s_type,
+        _ => unreachable!(),
+    };
+
+    members
+        .into_iter()
+        .map(|m| {
+            let ty = *m.ty;
+            let id = m.id;
+            match ty {
+                Type::FieldElement => FieldElementExpression::equal(
+                    FieldElementExpression::member(lhs.clone(), id.clone()),
+                    FieldElementExpression::member(rhs.clone(), id.clone()),
+                ),
+                Type::Boolean => BooleanExpression::equal(
+                    BooleanExpression::member(lhs.clone(), id.clone()),
+                    BooleanExpression::member(rhs.clone(), id.clone()),
+                ),
+                Type::Struct(..) => StructExpression::equal(
+                    StructExpression::member(lhs.clone(), id.clone()),
+                    StructExpression::member(rhs.clone(), id.clone()),
+                ),
+                Type::Array(..) => ArrayExpression::equal(
+                    ArrayExpression::member(lhs.clone(), id.clone()),
+                    ArrayExpression::member(rhs.clone(), id.clone()),
+                ),
+            }
+        })
+        .fold(BooleanExpression::Value(true), |acc, e| {
+            BooleanExpression::And(box acc, box e)
+        })
+}
+
 // We introduce a trait in order to make it possible to make flattening `e` generic over the type of `e`
 
 trait Flatten<'ast, T: Field>:
-    TryFrom<TypedExpression<'ast, T>, Error = ()> + IfElse<'ast, T> + Select<'ast, T> + Member<'ast, T>
+    TryFrom<TypedExpression<'ast, T>, Error = ()>
+    + IfElse<'ast, T>
+    + Select<'ast, T>
+    + Member<'ast, T>
+    + Equal<'ast, T>
 {
     fn flatten(
         self,
@@ -542,6 +661,96 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
+    /// Flattens an assertion
+    ///
+    /// # Arguments
+    ///
+    /// * `symbols` - Available functions in this context
+    /// * `statements_flattened` - Vector where new flattened statements can be added.
+    /// * `expression` - `BooleanExpression` that this assertion asserts.
+    ///
+    /// # Notes
+    /// * we do not simply use `flatten_boolean_expression` as in the case of assertions, we only care about
+    ///   the boolean being true, whereas `flatten_boolean_expression` introduces a variable for this boolean
+    ///   In this case we don't care about the case where the boolean is false, so we can save constraints in many cases.
+
+    fn flatten_assertion(
+        &mut self,
+        symbols: &TypedFunctionSymbols<'ast, T>,
+        statements_flattened: &mut Vec<FlatStatement<T>>,
+        expression: BooleanExpression<'ast, T>,
+    ) {
+        match expression {
+            BooleanExpression::BoolEq(box lhs, box rhs) => {
+                let x = self.flatten_boolean_expression(symbols, statements_flattened, lhs);
+                let y = self.flatten_boolean_expression(symbols, statements_flattened, rhs);
+
+                let (x, y) = if x.is_linear() {
+                    (x, y)
+                } else if y.is_linear() {
+                    (y, x)
+                } else {
+                    // We linearize one of the terms here. It's unclear which one is better at this point.
+                    (self.linearize(statements_flattened, x), y)
+                };
+
+                // checking this assertion costs one constraint, rather than many if we needed
+                // the value of `lhs == rhs` in an R1CS variable
+                statements_flattened.push(FlatStatement::Condition(x, y));
+            }
+            BooleanExpression::FieldEq(box lhs, box rhs) => {
+                let x = self.flatten_field_expression(symbols, statements_flattened, lhs);
+                let y = self.flatten_field_expression(symbols, statements_flattened, rhs);
+
+                let (x, y) = if x.is_linear() {
+                    (x, y)
+                } else if y.is_linear() {
+                    (y, x)
+                } else {
+                    // We linearize one of the terms here. It's unclear which one is better at this point.
+                    (self.linearize(statements_flattened, x), y)
+                };
+
+                statements_flattened.push(FlatStatement::Condition(x, y));
+            }
+            BooleanExpression::ArrayEq(box lhs, box rhs) => {
+                self.flatten_assertion(symbols, statements_flattened, reduce_array_eq(lhs, rhs));
+            }
+            BooleanExpression::StructEq(box lhs, box rhs) => {
+                self.flatten_assertion(symbols, statements_flattened, reduce_struct_eq(lhs, rhs));
+            }
+            BooleanExpression::Le(box lhs, box rhs) => {
+                self.flatten_assertion(
+                    symbols,
+                    statements_flattened,
+                    BooleanExpression::Lt(box lhs.clone(), box rhs.clone()),
+                );
+                self.flatten_assertion(
+                    symbols,
+                    statements_flattened,
+                    BooleanExpression::FieldEq(box lhs.clone(), box rhs.clone()),
+                );
+            }
+            BooleanExpression::Ge(lhs, rhs) => self.flatten_assertion(
+                symbols,
+                statements_flattened,
+                BooleanExpression::Le(rhs, lhs),
+            ),
+            BooleanExpression::And(box lhs, box rhs) => {
+                self.flatten_assertion(symbols, statements_flattened, lhs);
+                self.flatten_assertion(symbols, statements_flattened, rhs);
+            }
+            BooleanExpression::FunctionCall(..) => unreachable!(),
+            e => {
+                let e = self.flatten_boolean_expression(symbols, statements_flattened, e);
+                statements_flattened.push(FlatStatement::Condition(
+                    FlatExpression::Number(T::from(1)),
+                    e,
+                ))
+            }
+        }
+    }
+
     /// Flattens a boolean expression
     ///
     /// # Arguments
@@ -549,11 +758,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     /// * `symbols` - Available functions in this context
     /// * `statements_flattened` - Vector where new flattened statements can be added.
     /// * `expression` - `BooleanExpression` that will be flattened.
-    ///
-    /// # Postconditions
-    ///
-    /// * `flatten_boolean_expressions` always returns a linear expression,
-    /// * in order to preserve composability.
     fn flatten_boolean_expression(
         &mut self,
         symbols: &TypedFunctionSymbols<'ast, T>,
@@ -578,8 +782,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     self.flatten_field_expression(symbols, statements_flattened, rhs);
 
                 // lhs
-                let lhs_id = self.use_sym();
-                statements_flattened.push(FlatStatement::Definition(lhs_id, lhs_flattened));
+                let lhs_id = self.linearize(statements_flattened, lhs_flattened);
 
                 // check that lhs and rhs are within the right range, i.e., their higher two bits are zero. We use big-endian so they are at positions 0 and 1
 
@@ -593,7 +796,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
                         lhs_bits_be.clone(),
                         Solver::bits(),
-                        vec![lhs_id],
+                        vec![lhs_id.clone()],
                     )));
 
                     // bitness checks
@@ -620,15 +823,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         );
                     }
 
-                    statements_flattened.push(FlatStatement::Condition(
-                        FlatExpression::Identifier(lhs_id),
-                        lhs_sum,
-                    ));
+                    statements_flattened.push(FlatStatement::Condition(lhs_id.clone(), lhs_sum));
                 }
 
                 // rhs
-                let rhs_id = self.use_sym();
-                statements_flattened.push(FlatStatement::Definition(rhs_id, rhs_flattened));
+                let rhs_id = self.linearize(statements_flattened, rhs_flattened);
 
                 // rhs
                 {
@@ -640,7 +839,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
                         rhs_bits_be.clone(),
                         Solver::bits(),
-                        vec![rhs_id],
+                        vec![rhs_id.clone()],
                     )));
 
                     // bitness checks
@@ -667,22 +866,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         );
                     }
 
-                    statements_flattened.push(FlatStatement::Condition(
-                        FlatExpression::Identifier(rhs_id),
-                        rhs_sum,
-                    ));
+                    statements_flattened.push(FlatStatement::Condition(rhs_id.clone(), rhs_sum));
                 }
 
                 // sym := (lhs * 2) - (rhs * 2)
                 let subtraction_result = FlatExpression::Sub(
-                    box FlatExpression::Mult(
-                        box FlatExpression::Number(T::from(2)),
-                        box FlatExpression::Identifier(lhs_id),
-                    ),
-                    box FlatExpression::Mult(
-                        box FlatExpression::Number(T::from(2)),
-                        box FlatExpression::Identifier(rhs_id),
-                    ),
+                    box FlatExpression::Mult(box FlatExpression::Number(T::from(2)), box lhs_id),
+                    box FlatExpression::Mult(box FlatExpression::Number(T::from(2)), box rhs_id),
                 );
 
                 // define variables for the bits
@@ -720,6 +910,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     );
                 }
 
+                assert!(subtraction_result.is_linear());
+
                 statements_flattened.push(FlatStatement::Condition(subtraction_result, expr));
 
                 FlatExpression::Identifier(sub_bits_be[bitwidth - 1])
@@ -742,6 +934,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 // | 0 | 1 |    -1 |             0 |
                 // | 0 | 0 |     0 |             1 |
                 // +---+---+-------+---------------+
+
+                let x = self.linearize(statements_flattened, x);
+                let y = self.linearize(statements_flattened, y);
 
                 let x_sub_y = FlatExpression::Sub(box x, box y);
                 let name_x_mult_x = self.use_sym();
@@ -798,6 +993,16 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 res
             }
+            BooleanExpression::ArrayEq(box lhs, box rhs) => self.flatten_boolean_expression(
+                symbols,
+                statements_flattened,
+                reduce_array_eq(lhs, rhs),
+            ),
+            BooleanExpression::StructEq(box lhs, box rhs) => self.flatten_boolean_expression(
+                symbols,
+                statements_flattened,
+                reduce_struct_eq(lhs, rhs),
+            ),
             BooleanExpression::Le(box lhs, box rhs) => {
                 let lt = self.flatten_boolean_expression(
                     symbols,
@@ -809,6 +1014,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     statements_flattened,
                     BooleanExpression::FieldEq(box lhs.clone(), box rhs.clone()),
                 );
+
+                let lt = self.linearize(statements_flattened, lt);
+                let eq = self.linearize(statements_flattened, eq);
+
                 FlatExpression::Add(box eq, box lt)
             }
             BooleanExpression::Gt(lhs, rhs) => self.flatten_boolean_expression(
@@ -822,16 +1031,19 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 BooleanExpression::Le(rhs, lhs),
             ),
             BooleanExpression::Or(box lhs, box rhs) => {
-                let x = box self.flatten_boolean_expression(symbols, statements_flattened, lhs);
-                let y = box self.flatten_boolean_expression(symbols, statements_flattened, rhs);
-                assert!(x.is_linear() && y.is_linear());
+                let x = self.flatten_boolean_expression(symbols, statements_flattened, lhs);
+                let y = self.flatten_boolean_expression(symbols, statements_flattened, rhs);
+
+                let x = self.linearize(statements_flattened, x);
+                let y = self.linearize(statements_flattened, y);
+
                 let name_x_and_y = self.use_sym();
                 statements_flattened.push(FlatStatement::Definition(
                     name_x_and_y,
-                    FlatExpression::Mult(x.clone(), y.clone()),
+                    FlatExpression::Mult(box x.clone(), box y.clone()),
                 ));
                 FlatExpression::Sub(
-                    box FlatExpression::Add(x, y),
+                    box FlatExpression::Add(box x, box y),
                     box FlatExpression::Identifier(name_x_and_y),
                 )
             }
@@ -839,14 +1051,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 let x = self.flatten_boolean_expression(symbols, statements_flattened, lhs);
                 let y = self.flatten_boolean_expression(symbols, statements_flattened, rhs);
 
-                let name_x_and_y = self.use_sym();
-                assert!(x.is_linear() && y.is_linear());
-                statements_flattened.push(FlatStatement::Definition(
-                    name_x_and_y,
-                    FlatExpression::Mult(box x, box y),
-                ));
-
-                FlatExpression::Identifier(name_x_and_y)
+                FlatExpression::Mult(
+                    box self.linearize(statements_flattened, x),
+                    box self.linearize(statements_flattened, y),
+                )
             }
             BooleanExpression::Not(box exp) => {
                 let x = self.flatten_boolean_expression(symbols, statements_flattened, exp);
@@ -1059,21 +1267,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     self.flatten_field_expression(symbols, statements_flattened, left);
                 let right_flattened =
                     self.flatten_field_expression(symbols, statements_flattened, right);
-                let new_left = if left_flattened.is_linear() {
-                    left_flattened
-                } else {
-                    let id = self.use_sym();
-                    statements_flattened.push(FlatStatement::Definition(id, left_flattened));
-                    FlatExpression::Identifier(id)
-                };
-                let new_right = if right_flattened.is_linear() {
-                    right_flattened
-                } else {
-                    let id = self.use_sym();
-                    statements_flattened.push(FlatStatement::Definition(id, right_flattened));
-                    FlatExpression::Identifier(id)
-                };
-                FlatExpression::Add(box new_left, box new_right)
+
+                FlatExpression::Add(
+                    box self.linearize(statements_flattened, left_flattened),
+                    box self.linearize(statements_flattened, right_flattened),
+                )
             }
             FieldElementExpression::Sub(box left, box right) => {
                 let left_flattened =
@@ -1081,59 +1279,30 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 let right_flattened =
                     self.flatten_field_expression(symbols, statements_flattened, right);
 
-                let new_left = if left_flattened.is_linear() {
-                    left_flattened
-                } else {
-                    let id = self.use_sym();
-                    statements_flattened.push(FlatStatement::Definition(id, left_flattened));
-                    FlatExpression::Identifier(id)
-                };
-                let new_right = if right_flattened.is_linear() {
-                    right_flattened
-                } else {
-                    let id = self.use_sym();
-                    statements_flattened.push(FlatStatement::Definition(id, right_flattened));
-                    FlatExpression::Identifier(id)
-                };
-
-                FlatExpression::Sub(box new_left, box new_right)
+                FlatExpression::Sub(
+                    box self.linearize(statements_flattened, left_flattened),
+                    box self.linearize(statements_flattened, right_flattened),
+                )
             }
             FieldElementExpression::Mult(box left, box right) => {
                 let left_flattened =
                     self.flatten_field_expression(symbols, statements_flattened, left);
                 let right_flattened =
                     self.flatten_field_expression(symbols, statements_flattened, right);
-                let new_left = if left_flattened.is_linear() {
-                    left_flattened
-                } else {
-                    let id = self.use_sym();
-                    statements_flattened.push(FlatStatement::Definition(id, left_flattened));
-                    FlatExpression::Identifier(id)
-                };
-                let new_right = if right_flattened.is_linear() {
-                    right_flattened
-                } else {
-                    let id = self.use_sym();
-                    statements_flattened.push(FlatStatement::Definition(id, right_flattened));
-                    FlatExpression::Identifier(id)
-                };
-                FlatExpression::Mult(box new_left, box new_right)
+
+                FlatExpression::Mult(
+                    box self.linearize(statements_flattened, left_flattened),
+                    box self.linearize(statements_flattened, right_flattened),
+                )
             }
             FieldElementExpression::Div(box left, box right) => {
                 let left_flattened =
                     self.flatten_field_expression(symbols, statements_flattened, left);
                 let right_flattened =
                     self.flatten_field_expression(symbols, statements_flattened, right);
-                let new_left: FlatExpression<T> = {
-                    let id = self.use_sym();
-                    statements_flattened.push(FlatStatement::Definition(id, left_flattened));
-                    id.into()
-                };
-                let new_right: FlatExpression<T> = {
-                    let id = self.use_sym();
-                    statements_flattened.push(FlatStatement::Definition(id, right_flattened));
-                    id.into()
-                };
+
+                let left_flattened = self.linearize(statements_flattened, left_flattened);
+                let right_flattened = self.linearize(statements_flattened, right_flattened);
 
                 let invb = self.use_sym();
                 let inverse = self.use_sym();
@@ -1142,26 +1311,26 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
                     vec![invb],
                     Solver::Div,
-                    vec![FlatExpression::Number(T::one()), new_right.clone()],
+                    vec![FlatExpression::Number(T::one()), right_flattened.clone()],
                 )));
 
                 // assert(invb * b == 1)
                 statements_flattened.push(FlatStatement::Condition(
                     FlatExpression::Number(T::one()),
-                    FlatExpression::Mult(box invb.into(), box new_right.clone().into()),
+                    FlatExpression::Mult(box invb.into(), box right_flattened.clone().into()),
                 ));
 
                 // # c = a/b
                 statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
                     vec![inverse],
                     Solver::Div,
-                    vec![new_left.clone(), new_right.clone()],
+                    vec![left_flattened.clone(), right_flattened.clone()],
                 )));
 
                 // assert(c * b == a)
                 statements_flattened.push(FlatStatement::Condition(
-                    new_left.into(),
-                    FlatExpression::Mult(box new_right, box inverse.into()),
+                    left_flattened.into(),
+                    FlatExpression::Mult(box right_flattened, box inverse.into()),
                 ));
 
                 inverse.into()
@@ -1176,9 +1345,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             base.clone(),
                         );
 
-                        // we require from the base to be linear
-                        // TODO change that
-                        assert!(base_flattened.is_linear());
+                        let base_flattened = self.linearize(statements_flattened, base_flattened);
 
                         let e = e.to_dec_string().parse::<usize>().unwrap();
 
@@ -1498,14 +1665,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 }
             }
             TypedStatement::Assertion(e) => {
-                // flatten e and compare the result with 1
-
-                let e = self.flatten_boolean_expression(symbols, statements_flattened, e);
-
-                statements_flattened.push(FlatStatement::Condition(
-                    FlatExpression::Number(T::from(1)),
-                    e,
-                ));
+                self.flatten_assertion(symbols, statements_flattened, e);
             }
             TypedStatement::For(..) => unreachable!("static analyser should have unrolled"),
             TypedStatement::MultipleDefinition(vars, rhs) => {
@@ -1664,6 +1824,21 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             self.flat_cache.insert(key.clone(), res.clone());
             res
         })
+    }
+
+    fn linearize(
+        &mut self,
+        statements_flattened: &mut Vec<FlatStatement<T>>,
+        e: FlatExpression<T>,
+    ) -> FlatExpression<T> {
+        match e {
+            FlatExpression::Mult(..) => {
+                let v = self.use_sym();
+                statements_flattened.push(FlatStatement::Definition(v, e));
+                v.into()
+            }
+            e => e,
+        }
     }
 }
 
@@ -2002,78 +2177,60 @@ mod tests {
 
         // define b
         let b = FlatVariable::new(0);
-        // define new wires for members of Div
-        let five = FlatVariable::new(1);
-        let b0 = FlatVariable::new(2);
         // Define inverse of denominator to prevent div by 0
-        let invb0 = FlatVariable::new(3);
+        let invb0 = FlatVariable::new(1);
         // Define inverse
-        let sym_0 = FlatVariable::new(4);
-        // Define result, which is first member to next Div
-        let sym_1 = FlatVariable::new(5);
-        // Define second member
-        let b1 = FlatVariable::new(6);
+        let sym_0 = FlatVariable::new(2);
         // Define inverse of denominator to prevent div by 0
-        let invb1 = FlatVariable::new(7);
+        let invb1 = FlatVariable::new(3);
         // Define inverse
-        let sym_2 = FlatVariable::new(8);
+        let sym_2 = FlatVariable::new(4);
         // Define left hand side
-        let a = FlatVariable::new(9);
+        let a = FlatVariable::new(5);
 
-        assert_eq!(
-            statements_flattened,
-            vec![
-                FlatStatement::Definition(b, FlatExpression::Number(FieldPrime::from(42))),
-                // inputs to first div (5/b)
-                FlatStatement::Definition(five, FlatExpression::Number(FieldPrime::from(5))),
-                FlatStatement::Definition(b0, b.into()),
-                // check div by 0
-                FlatStatement::Directive(FlatDirective::new(
-                    vec![invb0],
-                    Solver::Div,
-                    vec![FlatExpression::Number(FieldPrime::from(1)), b0.into()]
-                )),
-                FlatStatement::Condition(
-                    FlatExpression::Number(FieldPrime::from(1)),
-                    FlatExpression::Mult(box invb0.into(), box b0.into()),
-                ),
-                // execute div
-                FlatStatement::Directive(FlatDirective::new(
-                    vec![sym_0],
-                    Solver::Div,
-                    vec![five, b0]
-                )),
-                FlatStatement::Condition(
-                    five.into(),
-                    FlatExpression::Mult(box b0.into(), box sym_0.into()),
-                ),
-                // inputs to second div (res/b)
-                FlatStatement::Definition(sym_1, sym_0.into()),
-                FlatStatement::Definition(b1, b.into()),
-                // check div by 0
-                FlatStatement::Directive(FlatDirective::new(
-                    vec![invb1],
-                    Solver::Div,
-                    vec![FlatExpression::Number(FieldPrime::from(1)), b1.into()]
-                )),
-                FlatStatement::Condition(
-                    FlatExpression::Number(FieldPrime::from(1)),
-                    FlatExpression::Mult(box invb1.into(), box b1.into()),
-                ),
-                // execute div
-                FlatStatement::Directive(FlatDirective::new(
-                    vec![sym_2],
-                    Solver::Div,
-                    vec![sym_1, b1]
-                )),
-                FlatStatement::Condition(
-                    sym_1.into(),
-                    FlatExpression::Mult(box b1.into(), box sym_2.into()),
-                ),
-                // result
-                FlatStatement::Definition(a, sym_2.into()),
-            ]
-        );
+        let expected = vec![
+            FlatStatement::Definition(b, FlatExpression::Number(FieldPrime::from(42))),
+            // check div by 0
+            FlatStatement::Directive(FlatDirective::new(
+                vec![invb0],
+                Solver::Div,
+                vec![FlatExpression::Number(FieldPrime::from(1)), b.into()],
+            )),
+            FlatStatement::Condition(
+                FlatExpression::Number(FieldPrime::from(1)),
+                FlatExpression::Mult(box invb0.into(), box b.into()),
+            ),
+            // execute div
+            FlatStatement::Directive(FlatDirective::new(
+                vec![sym_0],
+                Solver::Div,
+                vec![FlatExpression::Number(FieldPrime::from(5)), b.into()],
+            )),
+            FlatStatement::Condition(
+                FlatExpression::Number(FieldPrime::from(5)),
+                FlatExpression::Mult(box b.into(), box sym_0.into()),
+            ),
+            // check div by 0
+            FlatStatement::Directive(FlatDirective::new(
+                vec![invb1],
+                Solver::Div,
+                vec![FlatExpression::Number(FieldPrime::from(1)), b.into()],
+            )),
+            FlatStatement::Condition(
+                FlatExpression::Number(FieldPrime::from(1)),
+                FlatExpression::Mult(box invb1.into(), box b.into()),
+            ),
+            // execute div
+            FlatStatement::Directive(FlatDirective::new(vec![sym_2], Solver::Div, vec![sym_0, b])),
+            FlatStatement::Condition(
+                sym_0.into(),
+                FlatExpression::Mult(box b.into(), box sym_2.into()),
+            ),
+            // result
+            FlatStatement::Definition(a, sym_2.into()),
+        ];
+
+        assert_eq!(statements_flattened, expected);
     }
 
     #[test]

@@ -640,6 +640,11 @@ pub enum BooleanExpression<'ast, T: Field> {
         Box<BooleanExpression<'ast, T>>,
         Box<BooleanExpression<'ast, T>>,
     ),
+    ArrayEq(Box<ArrayExpression<'ast, T>>, Box<ArrayExpression<'ast, T>>),
+    StructEq(
+        Box<StructExpression<'ast, T>>,
+        Box<StructExpression<'ast, T>>,
+    ),
     Ge(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
@@ -861,6 +866,8 @@ impl<'ast, T: Field> fmt::Display for BooleanExpression<'ast, T> {
             BooleanExpression::Le(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
             BooleanExpression::FieldEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::BoolEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            BooleanExpression::ArrayEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            BooleanExpression::StructEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
             BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
             BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
@@ -1183,5 +1190,33 @@ impl<'ast, T: Field> Member<'ast, T> for StructExpression<'ast, T> {
         };
 
         StructExpressionInner::Member(box s, member_id).annotate(members)
+    }
+}
+
+pub trait Equal<'ast, T: Field> {
+    fn equal(left: Self, right: Self) -> BooleanExpression<'ast, T>;
+}
+
+impl<'ast, T: Field> Equal<'ast, T> for FieldElementExpression<'ast, T> {
+    fn equal(left: Self, right: Self) -> BooleanExpression<'ast, T> {
+        BooleanExpression::FieldEq(box left, box right)
+    }
+}
+
+impl<'ast, T: Field> Equal<'ast, T> for BooleanExpression<'ast, T> {
+    fn equal(left: Self, right: Self) -> BooleanExpression<'ast, T> {
+        BooleanExpression::BoolEq(box left, box right)
+    }
+}
+
+impl<'ast, T: Field> Equal<'ast, T> for ArrayExpression<'ast, T> {
+    fn equal(left: Self, right: Self) -> BooleanExpression<'ast, T> {
+        BooleanExpression::ArrayEq(box left, box right)
+    }
+}
+
+impl<'ast, T: Field> Equal<'ast, T> for StructExpression<'ast, T> {
+    fn equal(left: Self, right: Self) -> BooleanExpression<'ast, T> {
+        BooleanExpression::StructEq(box left, box right)
     }
 }

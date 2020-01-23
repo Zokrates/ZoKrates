@@ -1380,6 +1380,38 @@ impl<'ast> Checker<'ast> {
                     (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
                         Ok(BooleanExpression::BoolEq(box e1, box e2).into())
                     }
+                    (TypedExpression::Array(e1), TypedExpression::Array(e2)) => {
+                        if e1.get_type() == e2.get_type() {
+                            Ok(BooleanExpression::ArrayEq(box e1, box e2).into())
+                        } else {
+                            Err(Error {
+                                pos: Some(pos),
+                                message: format!(
+                                    "Cannot compare {} of type {} to {} of type {}",
+                                    e1,
+                                    e1.get_type(),
+                                    e2,
+                                    e2.get_type()
+                                ),
+                            })
+                        }
+                    }
+                    (TypedExpression::Struct(e1), TypedExpression::Struct(e2)) => {
+                        if e1.get_type() == e2.get_type() {
+                            Ok(BooleanExpression::StructEq(box e1, box e2).into())
+                        } else {
+                            Err(Error {
+                                pos: Some(pos),
+                                message: format!(
+                                    "Cannot compare {} of type {} to {} of type {}",
+                                    e1,
+                                    e1.get_type(),
+                                    e2,
+                                    e2.get_type()
+                                ),
+                            })
+                        }
+                    }
                     (e1, e2) => Err(Error {
                         pos: Some(pos),
                         message: format!(

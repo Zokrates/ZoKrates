@@ -65,13 +65,10 @@ impl<'ast> Unroller<'ast> {
 
                     match head {
                         Access::Select(head) => {
-                            statements.insert(TypedStatement::assert_bool_eq(
-                                BooleanExpression::Lt(
-                                    box head.clone(),
-                                    box FieldElementExpression::Number(T::from(size)),
-                                ),
-                                BooleanExpression::Value(true),
-                            ));
+                            statements.insert(TypedStatement::Assertion(BooleanExpression::Lt(
+                                box head.clone(),
+                                box FieldElementExpression::Number(T::from(size)),
+                            )));
 
                             ArrayExpressionInner::Value(
                                 (0..size)

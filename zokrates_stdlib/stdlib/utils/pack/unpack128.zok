@@ -4,6 +4,12 @@ def main(field i) -> (field[128]):
 
     field[254] b = unpack(i)
 
-    b[0..126] == [0; 126]
+    field sum = 0
+
+    for field index in 0..126 do
+    	sum = sum + b[index]
+    endfor
+
+    sum == 0
 
     return b[126..254]

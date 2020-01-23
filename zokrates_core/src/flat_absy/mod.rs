@@ -240,9 +240,9 @@ impl<T: Field> FlatExpression<T> {
                 x.is_linear() && y.is_linear()
             }
             FlatExpression::Mult(ref x, ref y) => match (x.clone(), y.clone()) {
-                (box FlatExpression::Number(_), box FlatExpression::Number(_))
-                | (box FlatExpression::Number(_), box FlatExpression::Identifier(_))
-                | (box FlatExpression::Identifier(_), box FlatExpression::Number(_)) => true,
+                (box FlatExpression::Number(_), box e) | (box e, box FlatExpression::Number(_)) => {
+                    e.is_linear()
+                }
                 _ => false,
             },
         }
