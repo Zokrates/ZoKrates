@@ -252,7 +252,7 @@ impl<T: Field> FlatExpression<T> {
 impl<T: Field> fmt::Display for FlatExpression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            FlatExpression::Number(ref i) => write!(f, "{}", i),
+            FlatExpression::Number(ref i) => write!(f, "{}", i.to_compact_dec_string()),
             FlatExpression::Identifier(ref var) => write!(f, "{}", var),
             FlatExpression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
             FlatExpression::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),

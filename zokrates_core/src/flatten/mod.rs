@@ -34,22 +34,7 @@ fn reduce_array_eq<'ast, T: Field>(
     };
 
     match ty {
-        Type::FieldElement => (0..size)
-            .map(|i| {
-                FieldElementExpression::equal(
-                    FieldElementExpression::select(
-                        lhs.clone(),
-                        FieldElementExpression::Number(T::from(i)),
-                    ),
-                    FieldElementExpression::select(
-                        rhs.clone(),
-                        FieldElementExpression::Number(T::from(i)),
-                    ),
-                )
-            })
-            .fold(BooleanExpression::Value(true), |acc, e| {
-                BooleanExpression::And(box acc, box e)
-            }),
+        Type::FieldElement => ArrayExpression::equal(lhs, rhs),
         Type::Boolean => (0..size)
             .map(|i| {
                 BooleanExpression::equal(
@@ -500,6 +485,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         array: ArrayExpression<'ast, T>,
         index: FieldElementExpression<'ast, T>,
     ) -> Vec<FlatExpression<T>> {
+
         let size = array.size();
         let ty = array.inner_type().clone();
 
@@ -524,7 +510,20 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         statements_flattened,
                     )
                 }
-                ArrayExpressionInner::FunctionCall(..) => unreachable!(),
+                ArrayExpressionInner::FunctionCall(key, param_expressions) => {
+                    let n = n.to_dec_string().parse::<usize>().unwrap();
+                    let exprs_flattened = self.flatten_function_call(
+                        symbols,
+                        statements_flattened,
+                        key.id,
+                        key.signature.outputs,
+                        param_expressions,
+                    );
+                    assert!(exprs_flattened.expressions.len() == element_size * size); // outside of MultipleDefinition, FunctionCalls must return a single value
+                    exprs_flattened.expressions
+                        [n * ty.get_primitive_count()..(n + 1) * ty.get_primitive_count()]
+                        .to_vec()
+                }
                 ArrayExpressionInner::IfElse(condition, consequence, alternative) => {
                     // [if cond then [a, b] else [c, d]][1] == if cond then [a, b][1] else [c, d][1]
                     U::if_else(
@@ -714,7 +713,46 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 statements_flattened.push(FlatStatement::Condition(x, y));
             }
             BooleanExpression::ArrayEq(box lhs, box rhs) => {
-                self.flatten_assertion(symbols, statements_flattened, reduce_array_eq(lhs, rhs));
+                let inner_ty = match lhs.get_type() {
+                    Type::Array(a_type) => a_type.ty,
+                    _ => unreachable!(),
+                };
+                match *inner_ty {
+                    Type::FieldElement => {
+                        let lhs = self.flatten_array_expression::<FieldElementExpression<T>>(
+                            symbols,
+                            statements_flattened,
+                            lhs,
+                        );
+                        let rhs = self.flatten_array_expression::<FieldElementExpression<T>>(
+                            symbols,
+                            statements_flattened,
+                            rhs,
+                        );
+                        let statements = lhs
+                            .into_iter()
+                            .zip(rhs.into_iter())
+                            .map(|(x, y)| {
+                                let (x, y) = if x.is_linear() {
+                                    (x, y)
+                                } else if y.is_linear() {
+                                    (y, x)
+                                } else {
+                                    // We linearize one of the terms here. It's unclear which one is better at this point.
+                                    (self.linearize(statements_flattened, x), y)
+                                };
+
+                                FlatStatement::Condition(x, y)
+                            })
+                            .collect::<Vec<_>>();
+                        statements_flattened.extend(statements);
+                    }
+                    _ => self.flatten_assertion(
+                        symbols,
+                        statements_flattened,
+                        reduce_array_eq(lhs, rhs),
+                    ),
+                }
             }
             BooleanExpression::StructEq(box lhs, box rhs) => {
                 self.flatten_assertion(symbols, statements_flattened, reduce_struct_eq(lhs, rhs));
@@ -993,11 +1031,92 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 res
             }
-            BooleanExpression::ArrayEq(box lhs, box rhs) => self.flatten_boolean_expression(
-                symbols,
-                statements_flattened,
-                reduce_array_eq(lhs, rhs),
-            ),
+            BooleanExpression::ArrayEq(box lhs, box rhs) => {
+                let (inner_ty, size) = match lhs.get_type() {
+                    Type::Array(a_type) => (a_type.ty, a_type.size),
+                    _ => unreachable!(),
+                };
+                match *inner_ty {
+                    Type::FieldElement => {
+                        let lhs = self.flatten_array_expression::<FieldElementExpression<T>>(
+                            symbols,
+                            statements_flattened,
+                            lhs,
+                        );
+                        let rhs = self.flatten_array_expression::<FieldElementExpression<T>>(
+                            symbols,
+                            statements_flattened,
+                            rhs,
+                        );
+                        let conditions = lhs
+                            .into_iter()
+                            .zip(rhs.into_iter())
+                            .map(|(lhs, rhs)| {
+                                let name_y = self.use_sym();
+                                let name_m = self.use_sym();
+
+                                let x = FlatExpression::Sub(box lhs, box rhs);
+
+                                statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
+                                    vec![name_y, name_m],
+                                    Solver::ConditionEq,
+                                    vec![x.clone()],
+                                )));
+                                statements_flattened.push(FlatStatement::Condition(
+                                    FlatExpression::Identifier(name_y),
+                                    FlatExpression::Mult(box x.clone(), box FlatExpression::Identifier(name_m)),
+                                ));
+
+                                let res = FlatExpression::Sub(
+                                    box FlatExpression::Number(T::one()),
+                                    box FlatExpression::Identifier(name_y),
+                                );
+
+                                statements_flattened.push(FlatStatement::Condition(
+                                    FlatExpression::Number(T::zero()),
+                                    FlatExpression::Mult(box res.clone(), box x),
+                                ));
+
+                                res
+                            }).collect::<Vec<_>>();
+                        let condition_sum = conditions.into_iter().fold(FlatExpression::Number(T::from(0)), |acc, e| {
+                            self.linearize(statements_flattened, FlatExpression::Add(box acc, box e))
+                        });
+
+                        let name_y = self.use_sym();
+                        let name_m = self.use_sym();
+
+                        let x = FlatExpression::Sub(box condition_sum, box FlatExpression::Number(T::from(size)));
+
+                        statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
+                            vec![name_y, name_m],
+                            Solver::ConditionEq,
+                            vec![x.clone()],
+                        )));
+                        statements_flattened.push(FlatStatement::Condition(
+                            FlatExpression::Identifier(name_y),
+                            FlatExpression::Mult(box x.clone(), box FlatExpression::Identifier(name_m)),
+                        ));
+
+                        let res = FlatExpression::Sub(
+                            box FlatExpression::Number(T::one()),
+                            box FlatExpression::Identifier(name_y),
+                        );
+
+                        statements_flattened.push(FlatStatement::Condition(
+                            FlatExpression::Number(T::zero()),
+                            FlatExpression::Mult(box res.clone(), box x),
+                        ));
+
+                        res
+                    }
+                    _ => self.flatten_boolean_expression(
+                        symbols,
+                        statements_flattened,
+                        reduce_array_eq(lhs, rhs),
+                    ),
+                }
+            },
             BooleanExpression::StructEq(box lhs, box rhs) => self.flatten_boolean_expression(
                 symbols,
                 statements_flattened,
