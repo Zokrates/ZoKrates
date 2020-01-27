@@ -485,7 +485,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         array: ArrayExpression<'ast, T>,
         index: FieldElementExpression<'ast, T>,
     ) -> Vec<FlatExpression<T>> {
-
         let size = array.size();
         let ty = array.inner_type().clone();
 
@@ -1057,14 +1056,19 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                                 let x = FlatExpression::Sub(box lhs, box rhs);
 
-                                statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
-                                    vec![name_y, name_m],
-                                    Solver::ConditionEq,
-                                    vec![x.clone()],
-                                )));
+                                statements_flattened.push(FlatStatement::Directive(
+                                    FlatDirective::new(
+                                        vec![name_y, name_m],
+                                        Solver::ConditionEq,
+                                        vec![x.clone()],
+                                    ),
+                                ));
                                 statements_flattened.push(FlatStatement::Condition(
                                     FlatExpression::Identifier(name_y),
-                                    FlatExpression::Mult(box x.clone(), box FlatExpression::Identifier(name_m)),
+                                    FlatExpression::Mult(
+                                        box x.clone(),
+                                        box FlatExpression::Identifier(name_m),
+                                    ),
                                 ));
 
                                 let res = FlatExpression::Sub(
@@ -1078,15 +1082,25 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                                 ));
 
                                 res
-                            }).collect::<Vec<_>>();
-                        let condition_sum = conditions.into_iter().fold(FlatExpression::Number(T::from(0)), |acc, e| {
-                            self.linearize(statements_flattened, FlatExpression::Add(box acc, box e))
-                        });
+                            })
+                            .collect::<Vec<_>>();
+                        let condition_sum = conditions.into_iter().fold(
+                            FlatExpression::Number(T::from(0)),
+                            |acc, e| {
+                                self.linearize(
+                                    statements_flattened,
+                                    FlatExpression::Add(box acc, box e),
+                                )
+                            },
+                        );
 
                         let name_y = self.use_sym();
                         let name_m = self.use_sym();
 
-                        let x = FlatExpression::Sub(box condition_sum, box FlatExpression::Number(T::from(size)));
+                        let x = FlatExpression::Sub(
+                            box condition_sum,
+                            box FlatExpression::Number(T::from(size)),
+                        );
 
                         statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
                             vec![name_y, name_m],
@@ -1095,7 +1109,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         )));
                         statements_flattened.push(FlatStatement::Condition(
                             FlatExpression::Identifier(name_y),
-                            FlatExpression::Mult(box x.clone(), box FlatExpression::Identifier(name_m)),
+                            FlatExpression::Mult(
+                                box x.clone(),
+                                box FlatExpression::Identifier(name_m),
+                            ),
                         ));
 
                         let res = FlatExpression::Sub(
@@ -1116,7 +1133,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         reduce_array_eq(lhs, rhs),
                     ),
                 }
-            },
+            }
             BooleanExpression::StructEq(box lhs, box rhs) => self.flatten_boolean_expression(
                 symbols,
                 statements_flattened,
