@@ -89,19 +89,19 @@ namespace pghr13
         std::stringstream ss;
         unsigned icLength = vk->encoded_IC_query.rest.indices.size() + 1;
 
-        ss << "\t\tvk.a = " << outputPointG2AffineAsHex(vk->alphaA_g2) << endl;
-        ss << "\t\tvk.b = " << outputPointG1AffineAsHex(vk->alphaB_g1) << endl;
-        ss << "\t\tvk.c = " << outputPointG2AffineAsHex(vk->alphaC_g2) << endl;
-        ss << "\t\tvk.gamma = " << outputPointG2AffineAsHex(vk->gamma_g2) << endl;
-        ss << "\t\tvk.gamma_beta_1 = " << outputPointG1AffineAsHex(vk->gamma_beta_g1) << endl;
-        ss << "\t\tvk.gamma_beta_2 = " << outputPointG2AffineAsHex(vk->gamma_beta_g2) << endl;
-        ss << "\t\tvk.z = " << outputPointG2AffineAsHex(vk->rC_Z_g2) << endl;
-        ss << "\t\tvk.ic.len() = " << icLength << endl;
-        ss << "\t\tvk.ic[0] = " << outputPointG1AffineAsHex(vk->encoded_IC_query.first) << endl;
+        ss << "vk.a = " << outputPointG2AffineAsHex(vk->alphaA_g2) << endl;
+        ss << "vk.b = " << outputPointG1AffineAsHex(vk->alphaB_g1) << endl;
+        ss << "vk.c = " << outputPointG2AffineAsHex(vk->alphaC_g2) << endl;
+        ss << "vk.gamma = " << outputPointG2AffineAsHex(vk->gamma_g2) << endl;
+        ss << "vk.gamma_beta_1 = " << outputPointG1AffineAsHex(vk->gamma_beta_g1) << endl;
+        ss << "vk.gamma_beta_2 = " << outputPointG2AffineAsHex(vk->gamma_beta_g2) << endl;
+        ss << "vk.z = " << outputPointG2AffineAsHex(vk->rC_Z_g2) << endl;
+        ss << "vk.ic.len() = " << icLength << endl;
+        ss << "vk.ic[0] = " << outputPointG1AffineAsHex(vk->encoded_IC_query.first) << endl;
         for (size_t i = 1; i < icLength; ++i)
         {
             auto vk_ic_i = outputPointG1AffineAsHex(vk->encoded_IC_query.rest.values[i - 1]);
-            ss << "\t\tvk.IC[" << i << "] = " << vk_ic_i << endl;
+            ss << "vk.ic[" << i << "] = " << vk_ic_i << endl;
         }
         std::string str = ss.str();
         return str;
@@ -111,20 +111,17 @@ namespace pghr13
     {
         std::stringstream ss;
         ss << "{" << "\n";
-        ss << "\t\"proof\":" << "\n";
-        ss << "\t{" << "\n";
-        ss << "\t\t\"a\":" << outputPointG1AffineAsHexJson(proof->g_A.g) << ",\n";
-        ss << "\t\t\"a_p\":" << outputPointG1AffineAsHexJson(proof->g_A.h) << ",\n";
-        ss << "\t\t\"b\":" << "\n";
-        ss << "\t\t\t" << outputPointG2AffineAsHexJson(proof->g_B.g) << ",\n";
-        ss << "\t\t\n";
-        ss << "\t\t\"b_p\":" << outputPointG1AffineAsHexJson(proof->g_B.h) << ",\n";
-        ss << "\t\t\"c\":" << outputPointG1AffineAsHexJson(proof->g_C.g) << ",\n";
-        ss << "\t\t\"c_p\":" << outputPointG1AffineAsHexJson(proof->g_C.h) << ",\n";
-        ss << "\t\t\"h\":" << outputPointG1AffineAsHexJson(proof->g_H) << ",\n";
-        ss << "\t\t\"k\":" << outputPointG1AffineAsHexJson(proof->g_K) << "\n";
+        ss << "\t\"proof\": {" << "\n";
+        ss << "\t\t\"a\": " << outputPointG1AffineAsHexJson(proof->g_A.g) << ",\n";
+        ss << "\t\t\"a_p\": " << outputPointG1AffineAsHexJson(proof->g_A.h) << ",\n";
+        ss << "\t\t\"b\": " << outputPointG2AffineAsHexJson(proof->g_B.g) << ",\n";
+        ss << "\t\t\"b_p\": " << outputPointG1AffineAsHexJson(proof->g_B.h) << ",\n";
+        ss << "\t\t\"c\": " << outputPointG1AffineAsHexJson(proof->g_C.g) << ",\n";
+        ss << "\t\t\"c_p\": " << outputPointG1AffineAsHexJson(proof->g_C.h) << ",\n";
+        ss << "\t\t\"h\": " << outputPointG1AffineAsHexJson(proof->g_H) << ",\n";
+        ss << "\t\t\"k\": " << outputPointG1AffineAsHexJson(proof->g_K) << "\n";
         ss << "\t}," << "\n";
-        ss << "\t\"inputs\":" << "[";
+        ss << "\t\"inputs\": " << "[";
         for (int i = 1; i < public_inputs_length; i++) {
             if (i != 1) {
                 ss << ",";
