@@ -64,14 +64,6 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         // inline all calls in the main function, recursively
         let main = inliner.fold_function_symbol(main);
 
-        // define a function in the main module for the `unpack` embed
-        let unpack = crate::embed::FlatEmbed::Unpack;
-        let unpack_key = unpack.key::<T>();
-
-        // define a function in the main module for the `sha256_round` embed
-        let sha256_round = crate::embed::FlatEmbed::Sha256Round;
-        let sha256_round_key = sha256_round.key::<T>();
-
         // return a program with a single module containing `main`, `_UNPACK`, and `_SHA256_ROUND
         TypedProgram {
             main: String::from("main"),
@@ -79,8 +71,6 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                 String::from("main"),
                 TypedModule {
                     functions: vec![
-                        (unpack_key, TypedFunctionSymbol::Flat(unpack)),
-                        (sha256_round_key, TypedFunctionSymbol::Flat(sha256_round)),
                         (main_key, main),
                     ]
                     .into_iter()
@@ -92,20 +82,13 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         }
     }
 
-    /// try to inline a call to function with key `key` in the stack of `self`
-    /// if inlining succeeds, return the expressions returned by the function call
-    /// if inlining fails (as in the case of flat function symbols), return the arguments to the function call for further processing
-    fn try_inline_call(
+    fn inline_function_call(
         &mut self,
         key: &FunctionKey<'ast>,
+        function: TypedFunction<'ast, T>,
         expressions: Vec<TypedExpression<'ast, T>>,
-    ) -> Result<Vec<TypedExpression<'ast, T>>, (FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>)>
-    {
-        // here we clone a function symbol, which is cheap except when it contains the function body, in which case we'd clone anyways
-        match self.module().functions.get(&key).unwrap().clone() {
-            // if the function called is in the same module, we can go ahead and inline in this module
-            TypedFunctionSymbol::Here(function) => {
-                // increase the number of calls for this function by one
+    ) -> Vec<TypedExpression<'ast, T>> {
+        // increase the number of calls for this function by one
                 let count = self
                     .call_count
                     .entry((self.module_id.clone(), key.clone()))
@@ -146,10 +129,23 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                 self.stack.pop();
 
                 match ret.pop().unwrap() {
-                    TypedStatement::Return(exprs) => Ok(exprs),
+                    TypedStatement::Return(exprs) => exprs,
                     _ => unreachable!(""),
                 }
-            }
+    }
+    /// try to inline a call to function with key `key` in the stack of `self`
+    /// if inlining succeeds, return the expressions returned by the function call
+    /// if inlining fails (as in the case of flat function symbols), return the arguments to the function call for further processing
+    fn try_inline_call(
+        &mut self,
+        key: &FunctionKey<'ast>,
+        expressions: Vec<TypedExpression<'ast, T>>,
+    ) -> Result<Vec<TypedExpression<'ast, T>>, (FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>)>
+    {
+        // here we clone a function symbol, which is cheap except when it contains the function body, in which case we'd clone anyways
+        match self.module().functions.get(&key).unwrap().clone() {
+            // if the function called is in the same module, we can go ahead and inline in this module
+            TypedFunctionSymbol::Here(function) => Ok(self.inline_function_call(key, function, expressions)),
             // if the function called is in some other module, we switch focus to that module and call the function locally there
             TypedFunctionSymbol::There(function_key, module_id) => {
                 // switch focus to `module_id`
@@ -160,8 +156,8 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                 self.change_module(current_module);
                 Ok(res)
             }
-            // if the function is a flat symbol, replace the call with a call to the local function we provide so it can be inlined in flattening
-            TypedFunctionSymbol::Flat(embed) => Err((embed.key::<T>(), expressions)),
+            // if the function is a flat symbol, synthetize it
+            TypedFunctionSymbol::Flat(embed) => Ok(self.inline_function_call(key, embed.synthetize_typed(), expressions)),
         }
     }
 

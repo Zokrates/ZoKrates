@@ -53,7 +53,7 @@ pub enum Symbol<'ast, T: Field> {
     HereType(StructTypeNode<'ast>),
     HereFunction(FunctionNode<'ast, T>),
     There(SymbolImportNode<'ast>),
-    Flat(FlatEmbed),
+    Flat(&'static FlatEmbed),
 }
 
 impl<'ast, T: Field> fmt::Display for SymbolDeclaration<'ast, T> {

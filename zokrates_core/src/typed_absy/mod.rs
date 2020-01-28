@@ -160,7 +160,7 @@ impl<'ast> Identifier<'ast> {
 pub enum TypedFunctionSymbol<'ast, T: Field> {
     Here(TypedFunction<'ast, T>),
     There(FunctionKey<'ast>, TypedModuleId),
-    Flat(FlatEmbed),
+    Flat(&'static FlatEmbed),
 }
 
 impl<'ast, T: Field> TypedFunctionSymbol<'ast, T> {

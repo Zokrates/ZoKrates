@@ -118,6 +118,9 @@ impl<'ast> fmt::Debug for Import<'ast> {
 
 pub struct Importer {}
 
+static SHA256_ROUND: FlatEmbed = FlatEmbed::Sha256Round;
+static UNPACK: FlatEmbed = FlatEmbed::Unpack;
+
 impl Importer {
     pub fn new() -> Importer {
         Importer {}
@@ -146,7 +149,7 @@ impl Importer {
                         symbols.push(
                             SymbolDeclaration {
                                 id: &alias,
-                                symbol: Symbol::Flat(FlatEmbed::Sha256Round),
+                                symbol: Symbol::Flat(&SHA256_ROUND),
                             }
                             .start_end(pos.0, pos.1),
                         );
@@ -157,7 +160,7 @@ impl Importer {
                         symbols.push(
                             SymbolDeclaration {
                                 id: &alias,
-                                symbol: Symbol::Flat(FlatEmbed::Unpack),
+                                symbol: Symbol::Flat(&UNPACK),
                             }
                             .start_end(pos.0, pos.1),
                         );
