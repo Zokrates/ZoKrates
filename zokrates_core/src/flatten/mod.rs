@@ -788,6 +788,37 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
+    fn condition_zero(
+        &mut self,
+        statements_flattened: &mut Vec<FlatStatement<T>>,
+        x: FlatExpression<T>,
+    ) -> FlatExpression<T> {
+        let name_y = self.use_sym();
+        let name_m = self.use_sym();
+
+        statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
+            vec![name_y, name_m],
+            Solver::ConditionEq,
+            vec![x.clone()],
+        )));
+        statements_flattened.push(FlatStatement::Condition(
+            FlatExpression::Identifier(name_y),
+            FlatExpression::Mult(box x.clone(), box FlatExpression::Identifier(name_m)),
+        ));
+
+        let res = FlatExpression::Sub(
+            box FlatExpression::Number(T::one()),
+            box FlatExpression::Identifier(name_y),
+        );
+
+        statements_flattened.push(FlatStatement::Condition(
+            FlatExpression::Number(T::zero()),
+            FlatExpression::Mult(box res.clone(), box x),
+        ));
+
+        res
+    }
+
     /// Flattens a boolean expression
     ///
     /// # Arguments
@@ -999,36 +1030,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 // Y == X * M
                 // 0 == (1-Y) * X
 
-                let name_y = self.use_sym();
-                let name_m = self.use_sym();
-
                 let x = self.flatten_field_expression(
                     symbols,
                     statements_flattened,
                     FieldElementExpression::Sub(box lhs, box rhs),
                 );
 
-                statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
-                    vec![name_y, name_m],
-                    Solver::ConditionEq,
-                    vec![x.clone()],
-                )));
-                statements_flattened.push(FlatStatement::Condition(
-                    FlatExpression::Identifier(name_y),
-                    FlatExpression::Mult(box x.clone(), box FlatExpression::Identifier(name_m)),
-                ));
-
-                let res = FlatExpression::Sub(
-                    box FlatExpression::Number(T::one()),
-                    box FlatExpression::Identifier(name_y),
-                );
-
-                statements_flattened.push(FlatStatement::Condition(
-                    FlatExpression::Number(T::zero()),
-                    FlatExpression::Mult(box res.clone(), box x),
-                ));
-
-                res
+                self.condition_zero(statements_flattened, x)
             }
             BooleanExpression::ArrayEq(box lhs, box rhs) => {
                 let (inner_ty, size) = match lhs.get_type() {
@@ -1051,39 +1059,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             .into_iter()
                             .zip(rhs.into_iter())
                             .map(|(lhs, rhs)| {
-                                let name_y = self.use_sym();
-                                let name_m = self.use_sym();
-
                                 let x = FlatExpression::Sub(box lhs, box rhs);
 
-                                statements_flattened.push(FlatStatement::Directive(
-                                    FlatDirective::new(
-                                        vec![name_y, name_m],
-                                        Solver::ConditionEq,
-                                        vec![x.clone()],
-                                    ),
-                                ));
-                                statements_flattened.push(FlatStatement::Condition(
-                                    FlatExpression::Identifier(name_y),
-                                    FlatExpression::Mult(
-                                        box x.clone(),
-                                        box FlatExpression::Identifier(name_m),
-                                    ),
-                                ));
-
-                                let res = FlatExpression::Sub(
-                                    box FlatExpression::Number(T::one()),
-                                    box FlatExpression::Identifier(name_y),
-                                );
-
-                                statements_flattened.push(FlatStatement::Condition(
-                                    FlatExpression::Number(T::zero()),
-                                    FlatExpression::Mult(box res.clone(), box x),
-                                ));
-
-                                res
+                                self.condition_zero(statements_flattened, x)
                             })
                             .collect::<Vec<_>>();
+
+                        // And(x) == (sum(x) == x.len)
                         let condition_sum = conditions.into_iter().fold(
                             FlatExpression::Number(T::from(0)),
                             |acc, e| {
@@ -1094,38 +1076,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             },
                         );
 
-                        let name_y = self.use_sym();
-                        let name_m = self.use_sym();
-
                         let x = FlatExpression::Sub(
                             box condition_sum,
                             box FlatExpression::Number(T::from(size)),
                         );
 
-                        statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
-                            vec![name_y, name_m],
-                            Solver::ConditionEq,
-                            vec![x.clone()],
-                        )));
-                        statements_flattened.push(FlatStatement::Condition(
-                            FlatExpression::Identifier(name_y),
-                            FlatExpression::Mult(
-                                box x.clone(),
-                                box FlatExpression::Identifier(name_m),
-                            ),
-                        ));
-
-                        let res = FlatExpression::Sub(
-                            box FlatExpression::Number(T::one()),
-                            box FlatExpression::Identifier(name_y),
-                        );
-
-                        statements_flattened.push(FlatStatement::Condition(
-                            FlatExpression::Number(T::zero()),
-                            FlatExpression::Mult(box res.clone(), box x),
-                        ));
-
-                        res
+                        self.condition_zero(statements_flattened, x)
                     }
                     _ => self.flatten_boolean_expression(
                         symbols,
