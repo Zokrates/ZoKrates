@@ -1,11 +1,11 @@
 #pragma once
 
+#include <stdint.h>
+#include <cstdlib>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <stdint.h>
-#include <cstdlib>
 
 struct buffer_t {
   uint8_t* data;
@@ -23,9 +23,13 @@ struct proof_result_t {
     proof_result_t(buffer_t& proof_buf) : proof(proof_buf) { }
 };
 
-void __alloc(buffer_t* buffer, size_t length);
 void __free(uint8_t* ptr);
 
 #ifdef __cplusplus
 } // extern "C"
 #endif
+
+static inline void __alloc(buffer_t* buffer, size_t length) {
+    buffer->data = (uint8_t*)malloc(length);
+    buffer->length = length;
+}
