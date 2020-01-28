@@ -90,16 +90,16 @@ namespace gm17
         std::stringstream ss;
         unsigned queryLength = vk->query.size();
 
-        ss << "\t\tvk.h = " << outputPointG2AffineAsHex(vk->H) << endl;
-        ss << "\t\tvk.g_alpha = " << outputPointG1AffineAsHex(vk->G_alpha) << endl;
-        ss << "\t\tvk.h_beta = " << outputPointG2AffineAsHex(vk->H_beta) << endl;
-        ss << "\t\tvk.g_gamma = " << outputPointG1AffineAsHex(vk->G_gamma) << endl;
-        ss << "\t\tvk.h_gamma = " << outputPointG2AffineAsHex(vk->H_gamma) << endl;
-        ss << "\t\tvk.query.len() = " << queryLength << endl;
+        ss << "vk.h = " << outputPointG2AffineAsHex(vk->H) << endl;
+        ss << "vk.g_alpha = " << outputPointG1AffineAsHex(vk->G_alpha) << endl;
+        ss << "vk.h_beta = " << outputPointG2AffineAsHex(vk->H_beta) << endl;
+        ss << "vk.g_gamma = " << outputPointG1AffineAsHex(vk->G_gamma) << endl;
+        ss << "vk.h_gamma = " << outputPointG2AffineAsHex(vk->H_gamma) << endl;
+        ss << "vk.query.len() = " << queryLength << endl;
         for (size_t i = 0; i < queryLength; ++i)
         {
-            auto vkqueryi = outputPointG1AffineAsHex(vk->query[i]);
-            ss << "\t\tvk.query[" << i << "] = " << vkqueryi << endl;
+            auto vk_query_i = outputPointG1AffineAsHex(vk->query[i]);
+            ss << "vk.query[" << i << "] = " << vk_query_i << endl;
         }
         return ss.str();
     }
@@ -108,15 +108,12 @@ namespace gm17
     {
         std::stringstream ss;
         ss << "{" << "\n";
-        ss << "\t\"proof\":" << "\n";
-        ss << "\t{" << "\n";
-        ss << "\t\t\"a\":" << outputPointG1AffineAsHexJson(proof->A) << ",\n";
-        ss << "\t\t\"b\":" << "\n";
-        ss << "\t\t\t" << outputPointG2AffineAsHexJson(proof->B) << ",\n";
-        ss << "\t\t\n";
-        ss << "\t\t\"c\":" << outputPointG1AffineAsHexJson(proof->C) << "\n";
+        ss << "\t\"proof\": {" << "\n";
+        ss << "\t\t\"a\": " << outputPointG1AffineAsHexJson(proof->A) << ",\n";
+        ss << "\t\t\"b\": " << outputPointG2AffineAsHexJson(proof->B) << ",\n";
+        ss << "\t\t\"c\": " << outputPointG1AffineAsHexJson(proof->C) << "\n";
         ss << "\t}," << "\n";
-        ss << "\t\"inputs\":" << "[";
+        ss << "\t\"inputs\": " << "[";
         for (int i = 1; i < public_inputs_length; i++) {
             if (i != 1) {
                 ss << ",";
