@@ -24,6 +24,15 @@ pub struct Flattener<'ast, T: Field> {
     flat_cache: HashMap<FunctionKey<'ast>, FlatFunction<T>>,
 }
 
+/// Express an equality check for arrays of any type with equality checks for basic types and field element arrays
+///
+/// # Arguments
+///
+/// * `lhs` - The left array
+/// * `rhs` - The right array
+///
+/// # Returns
+/// * A boolean expression which is true iff the arrays are equal
 fn reduce_array_eq<'ast, T: Field>(
     lhs: ArrayExpression<'ast, T>,
     rhs: ArrayExpression<'ast, T>,
@@ -86,6 +95,15 @@ fn reduce_array_eq<'ast, T: Field>(
     }
 }
 
+/// Express an equality check for structs of any type with equality checks for basic types and field element arrays
+///
+/// # Arguments
+///
+/// * `lhs` - The left struct
+/// * `rhs` - The right struct
+///
+/// # Returns
+/// * A boolean expression which is true iff the structs are equal
 fn reduce_struct_eq<'ast, T: Field>(
     lhs: StructExpression<'ast, T>,
     rhs: StructExpression<'ast, T>,

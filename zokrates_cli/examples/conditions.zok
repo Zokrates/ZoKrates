@@ -3,7 +3,7 @@ struct Foo {
 }
 
 struct Bar {
-	Foo foo
+	Foo[1] foo
 }
 
 def isEqual(field a, field b) -> (bool):
@@ -15,5 +15,5 @@ def main(field a) -> (field):
   field c = 7 * (b + a)
   isEqual(c, 7 * b + 7 * a)
   field k = if [1, 2] == [3, 4] then 1 else 3 fi
-  Bar { foo : Foo { a: 42 }} == Bar { foo : Foo { a: 42 }}
+  [Bar { foo : [Foo { a: 42 }]}] == [Bar { foo : [Foo { a: 42 }]}]
   return b + c
