@@ -114,12 +114,15 @@ jobs:
           command: ./scripts/release.sh
   zokrates_js_build:
     docker:
-      - image: circleci/node
+      - image: rustlang/rust:nightly
     steps:
       - checkout
-      - setup_remote_docker
       - run:
-          command: ./zokrates_js/build.sh
+          name: Install wasm-pack
+          command: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - run:
+          name: Build
+          command: cd zokrates_js && wasm-pack build --release
   zokrates_js_test:
     docker:
       - image: circleci/node
