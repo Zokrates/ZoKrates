@@ -57,6 +57,10 @@ pub trait Folder<'ast, T: Field>: Sized {
         fold_statement(self, s)
     }
 
+    fn fold_directive(&mut self, s: TypedDirective<'ast, T>) -> TypedDirective<'ast, T> {
+        fold_directive(self, s)
+    }
+
     fn fold_expression(&mut self, e: TypedExpression<'ast, T>) -> TypedExpression<'ast, T> {
         match e {
             TypedExpression::FieldElement(e) => self.fold_field_expression(e).into(),
@@ -138,6 +142,17 @@ pub fn fold_module<'ast, T: Field, F: Folder<'ast, T>>(
     }
 }
 
+pub fn fold_directive<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    p: TypedDirective<'ast, T>,
+) -> TypedDirective<'ast, T> {
+    TypedDirective {
+        inputs: p.inputs.into_iter().map(|e| f.fold_expression(e)).collect(),
+        outputs: p.outputs.into_iter().map(|v| f.fold_variable(v)).collect(),
+        solver: p.solver,
+    }
+}
+
 pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
     s: TypedStatement<'ast, T>,
@@ -156,6 +171,7 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
         TypedStatement::Condition(left, right) => {
             TypedStatement::Condition(f.fold_expression(left), f.fold_expression(right))
         }
+        TypedStatement::Directive(d) => TypedStatement::Directive(f.fold_directive(d)),
         TypedStatement::For(v, from, to, statements) => TypedStatement::For(
             f.fold_variable(v),
             from,

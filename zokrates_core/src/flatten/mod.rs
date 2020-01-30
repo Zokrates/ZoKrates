@@ -1457,6 +1457,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened: &mut Vec<FlatStatement<T>>,
         stat: TypedStatement<'ast, T>,
     ) {
+        println!("flatten: {}", stat);
         match stat {
             TypedStatement::Return(exprs) => {
                 let flat_expressions = exprs
@@ -1472,6 +1473,24 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             TypedStatement::Declaration(_) => {
                 // declarations have already been checked
                 ()
+            }
+            TypedStatement::Directive(d) => {
+                let inputs = d
+                    .inputs
+                    .into_iter()
+                    .flat_map(|i| self.flatten_expression(symbols, statements_flattened, i))
+                    .collect();
+                let outputs = d
+                    .outputs
+                    .into_iter()
+                    .flat_map(|v| self.use_variable(&v))
+                    .collect();
+
+                statements_flattened.push(FlatStatement::Directive(FlatDirective {
+                    inputs,
+                    outputs,
+                    solver: unimplemented!(),
+                }));
             }
             TypedStatement::Definition(assignee, expr) => {
                 // define n variables with n the number of primitive types for v_type

@@ -70,11 +70,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
             modules: vec![(
                 String::from("main"),
                 TypedModule {
-                    functions: vec![
-                        (main_key, main),
-                    ]
-                    .into_iter()
-                    .collect(),
+                    functions: vec![(main_key, main)].into_iter().collect(),
                 },
             )]
             .into_iter()
@@ -88,50 +84,52 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         function: TypedFunction<'ast, T>,
         expressions: Vec<TypedExpression<'ast, T>>,
     ) -> Vec<TypedExpression<'ast, T>> {
+        println!("{}", function);
+
         // increase the number of calls for this function by one
-                let count = self
-                    .call_count
-                    .entry((self.module_id.clone(), key.clone()))
-                    .and_modify(|i| *i += 1)
-                    .or_insert(1);
-                // push this call to the stack
-                self.stack
-                    .push((self.module_id.clone(), key.clone(), *count));
-                // add definitions for the inputs
-                let inputs_bindings: Vec<_> = function
-                    .arguments
-                    .iter()
-                    .zip(expressions)
-                    .map(|(a, e)| {
-                        TypedStatement::Definition(
-                            self.fold_assignee(TypedAssignee::Identifier(a.id.clone())),
-                            e,
-                        )
-                    })
-                    .collect();
+        let count = self
+            .call_count
+            .entry((self.module_id.clone(), key.clone()))
+            .and_modify(|i| *i += 1)
+            .or_insert(1);
+        // push this call to the stack
+        self.stack
+            .push((self.module_id.clone(), key.clone(), *count));
+        // add definitions for the inputs
+        let inputs_bindings: Vec<_> = function
+            .arguments
+            .iter()
+            .zip(expressions)
+            .map(|(a, e)| {
+                TypedStatement::Definition(
+                    self.fold_assignee(TypedAssignee::Identifier(a.id.clone())),
+                    e,
+                )
+            })
+            .collect();
 
-                self.statement_buffer.extend(inputs_bindings);
+        self.statement_buffer.extend(inputs_bindings);
 
-                // filter out the return statement and keep it aside
-                let (statements, mut ret): (Vec<_>, Vec<_>) = function
-                    .statements
-                    .into_iter()
-                    .flat_map(|s| self.fold_statement(s))
-                    .partition(|s| match s {
-                        TypedStatement::Return(..) => false,
-                        _ => true,
-                    });
+        // filter out the return statement and keep it aside
+        let (statements, mut ret): (Vec<_>, Vec<_>) = function
+            .statements
+            .into_iter()
+            .flat_map(|s| self.fold_statement(s))
+            .partition(|s| match s {
+                TypedStatement::Return(..) => false,
+                _ => true,
+            });
 
-                // add all statements to the buffer
-                self.statement_buffer.extend(statements);
+        // add all statements to the buffer
+        self.statement_buffer.extend(statements);
 
-                // pop this call from the stack
-                self.stack.pop();
+        // pop this call from the stack
+        self.stack.pop();
 
-                match ret.pop().unwrap() {
-                    TypedStatement::Return(exprs) => exprs,
-                    _ => unreachable!(""),
-                }
+        match ret.pop().unwrap() {
+            TypedStatement::Return(exprs) => exprs,
+            _ => unreachable!(""),
+        }
     }
     /// try to inline a call to function with key `key` in the stack of `self`
     /// if inlining succeeds, return the expressions returned by the function call
@@ -145,7 +143,9 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         // here we clone a function symbol, which is cheap except when it contains the function body, in which case we'd clone anyways
         match self.module().functions.get(&key).unwrap().clone() {
             // if the function called is in the same module, we can go ahead and inline in this module
-            TypedFunctionSymbol::Here(function) => Ok(self.inline_function_call(key, function, expressions)),
+            TypedFunctionSymbol::Here(function) => {
+                Ok(self.inline_function_call(key, function, expressions))
+            }
             // if the function called is in some other module, we switch focus to that module and call the function locally there
             TypedFunctionSymbol::There(function_key, module_id) => {
                 // switch focus to `module_id`
@@ -157,7 +157,9 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                 Ok(res)
             }
             // if the function is a flat symbol, synthetize it
-            TypedFunctionSymbol::Flat(embed) => Ok(self.inline_function_call(key, embed.synthetize_typed(), expressions)),
+            TypedFunctionSymbol::Flat(embed) => {
+                Ok(self.inline_function_call(key, embed.synthetize_typed(), expressions))
+            }
         }
     }
 

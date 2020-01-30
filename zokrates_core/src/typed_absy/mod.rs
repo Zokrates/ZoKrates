@@ -7,6 +7,7 @@
 
 pub mod abi;
 pub mod folder;
+mod identifier;
 mod parameter;
 pub mod types;
 mod variable;
@@ -26,16 +27,7 @@ pub use self::folder::Folder;
 use typed_absy::abi::{Abi, AbiInput};
 use typed_absy::types::StructMember;
 
-/// A identifier for a variable
-#[derive(Debug, PartialEq, Clone, Hash, Eq)]
-pub struct Identifier<'ast> {
-    /// the id of the variable
-    pub id: &'ast str,
-    /// the version of the variable, used after SSA transformation
-    pub version: usize,
-    /// the call stack of the variable, used when inlining
-    pub stack: Vec<(TypedModuleId, FunctionKey<'ast>, usize)>,
-}
+pub use self::identifier::Identifier;
 
 /// An identifier for a `TypedModule`. Typically a path or uri.
 pub type TypedModuleId = String;
@@ -111,49 +103,6 @@ impl<'ast, T: Field> fmt::Display for TypedProgram<'ast, T> {
 pub struct TypedModule<'ast, T: Field> {
     /// Functions of the program
     pub functions: TypedFunctionSymbols<'ast, T>,
-}
-
-impl<'ast> fmt::Display for Identifier<'ast> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.stack.len() == 0 && self.version == 0 {
-            write!(f, "{}", self.id)
-        } else {
-            write!(
-                f,
-                "{}_{}_{}",
-                self.stack
-                    .iter()
-                    .map(|(name, sig, count)| format!("{}_{}_{}", name, sig.to_slug(), count))
-                    .collect::<Vec<_>>()
-                    .join("_"),
-                self.id,
-                self.version
-            )
-        }
-    }
-}
-
-impl<'ast> From<&'ast str> for Identifier<'ast> {
-    fn from(id: &'ast str) -> Identifier<'ast> {
-        Identifier {
-            id,
-            version: 0,
-            stack: vec![],
-        }
-    }
-}
-
-#[cfg(test)]
-impl<'ast> Identifier<'ast> {
-    pub fn version(mut self, version: usize) -> Self {
-        self.version = version;
-        self
-    }
-
-    pub fn stack(mut self, stack: Vec<(TypedModuleId, FunctionKey<'ast>, usize)>) -> Self {
-        self.stack = stack;
-        self
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -319,12 +268,42 @@ impl<'ast, T: Field> fmt::Display for TypedAssignee<'ast, T> {
     }
 }
 
+type Solver = ();
+
+#[derive(Clone, PartialEq, Debug, Hash, Eq)]
+pub struct TypedDirective<'ast, T: Field> {
+    pub inputs: Vec<TypedExpression<'ast, T>>,
+    pub outputs: Vec<Variable<'ast>>,
+    pub solver: Solver,
+}
+
+impl<'ast, T: Field> fmt::Display for TypedDirective<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "# {} = {}({})",
+            self.outputs
+                .iter()
+                .map(|o| o.to_string())
+                .collect::<Vec<String>>()
+                .join(", "),
+            "SOLVER_TODO",
+            self.inputs
+                .iter()
+                .map(|i| i.to_string())
+                .collect::<Vec<String>>()
+                .join(", ")
+        )
+    }
+}
+
 /// A statement in a `TypedFunction`
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum TypedStatement<'ast, T: Field> {
     Return(Vec<TypedExpression<'ast, T>>),
     Definition(TypedAssignee<'ast, T>, TypedExpression<'ast, T>),
     Declaration(Variable<'ast>),
+    Directive(TypedDirective<'ast, T>),
     Condition(TypedExpression<'ast, T>, TypedExpression<'ast, T>),
     For(Variable<'ast>, T, T, Vec<TypedStatement<'ast, T>>),
     MultipleDefinition(Vec<Variable<'ast>>, TypedExpressionList<'ast, T>),
@@ -347,6 +326,7 @@ impl<'ast, T: Field> fmt::Debug for TypedStatement<'ast, T> {
             TypedStatement::Definition(ref lhs, ref rhs) => {
                 write!(f, "Definition({:?}, {:?})", lhs, rhs)
             }
+            TypedStatement::Directive(ref d) => write!(f, "Directive({:?})", d),
             TypedStatement::Condition(ref lhs, ref rhs) => {
                 write!(f, "Condition({:?}, {:?})", lhs, rhs)
             }
@@ -379,6 +359,7 @@ impl<'ast, T: Field> fmt::Display for TypedStatement<'ast, T> {
             }
             TypedStatement::Declaration(ref var) => write!(f, "{}", var),
             TypedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
+            TypedStatement::Directive(ref d) => write!(f, "{}", d),
             TypedStatement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {
                 write!(f, "for {} in {}..{} do\n", var, start, stop)?;

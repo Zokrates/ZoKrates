@@ -4,10 +4,10 @@ use flat_absy::{
     FlatDirective, FlatExpression, FlatExpressionList, FlatFunction, FlatParameter, FlatStatement,
     FlatVariable,
 };
-use typed_absy::*;
 use reduce::Reduce;
 use std::collections::HashMap;
 use typed_absy::types::{FunctionKey, Signature, Type};
+use typed_absy::*;
 use zokrates_embed::{generate_sha256_round_constraints, BellmanConstraint};
 use zokrates_field::field::Field;
 
@@ -18,6 +18,8 @@ pub enum FlatEmbed {
     Sha256Round,
     Unpack,
 }
+
+static SHA_256_ROUND_STR: &'static str = "sha256round";
 
 impl FlatEmbed {
     pub fn signature<T: Field>(&self) -> Signature {
@@ -96,7 +98,10 @@ fn typed_expression_from_vec<T: Field>(
         .map(|(key, val)| {
             FieldElementExpression::Mult(
                 box FieldElementExpression::Number(T::from_bellman(val)),
-                box FieldElementExpression::Identifier(unimplemented!("FlatVariable::new(key)")),
+                box FieldElementExpression::Identifier(Identifier::internal(
+                    SHA_256_ROUND_STR,
+                    key,
+                )),
             )
         })
         .reduce(|acc, e| FieldElementExpression::Add(box acc, box e))
@@ -125,7 +130,10 @@ impl<T: Field> From<BellmanConstraint<T::BellmanEngine>> for TypedStatement<'sta
         let rhs_b = typed_expression_from_vec(c.b);
         let lhs = typed_expression_from_vec(c.c);
 
-        TypedStatement::Condition(lhs.into(), FieldElementExpression::Mult(box rhs_a, box rhs_b).into())
+        TypedStatement::Condition(
+            lhs.into(),
+            FieldElementExpression::Mult(box rhs_a, box rhs_b).into(),
+        )
     }
 }
 
@@ -191,7 +199,7 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
     });
 
     // insert flattened statements to represent constraints
-    let constraint_statements = r1cs.constraints.into_iter().map(|c| c.into());
+    //let constraint_statements = r1cs.constraints.into_iter().map(|c| c.into());
 
     // define which subset of the witness is returned
     let outputs: Vec<FlatExpression<T>> = output_indices
@@ -216,7 +224,7 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
     let statements = std::iter::once(directive_statement)
         .chain(std::iter::once(one_binding_statement))
         .chain(input_binding_statements)
-        .chain(constraint_statements)
+        //.chain(constraint_statements)
         .chain(std::iter::once(return_statement))
         .collect();
 
@@ -267,18 +275,63 @@ fn sha256_round_typed<T: Field>() -> TypedFunction<'static, T> {
         .map(|i| i + variable_count);
 
     // define parameters to the function based on the variables
-    let arguments = input_argument_indices
+    let arguments = vec![
+        Parameter {
+            id: Variable::array(
+                Identifier::internal(SHA_256_ROUND_STR, 1000000),
+                Type::FieldElement,
+                512,
+            ),
+            private: true,
+        },
+        Parameter {
+            id: Variable::array(
+                Identifier::internal(SHA_256_ROUND_STR, 1000001),
+                Type::FieldElement,
+                256,
+            ),
+            private: true,
+        },
+    ];
+
+    let array_access_statements: Vec<_> = input_argument_indices
         .clone()
         .chain(current_hash_argument_indices.clone())
-        .map(|i| Parameter {
-            id: unimplemented!(),
-            private: true,
+        .enumerate()
+        .map(|(index, i)| {
+            TypedStatement::Definition(
+                TypedAssignee::Identifier(Variable::field_element(Identifier::internal(
+                    SHA_256_ROUND_STR,
+                    i,
+                ))),
+                if index < 512 {
+                    FieldElementExpression::select(
+                        ArrayExpressionInner::Identifier(Identifier::internal(
+                            SHA_256_ROUND_STR,
+                            1000000,
+                        ))
+                        .annotate(Type::FieldElement, 512),
+                        FieldElementExpression::Number(T::from(index)),
+                    )
+                    .into()
+                } else {
+                    FieldElementExpression::select(
+                        ArrayExpressionInner::Identifier(Identifier::internal(
+                            SHA_256_ROUND_STR,
+                            1000001,
+                        ))
+                        .annotate(Type::FieldElement, 256),
+                        FieldElementExpression::Number(T::from(index - 512)),
+                    )
+                    .into()
+                },
+            )
         })
         .collect();
 
     // define a binding of the first variable in the constraint system to one
     let one_binding_statement = TypedStatement::Condition(
-        unimplemented!("variable 0"),
+        FieldElementExpression::Identifier(Identifier::internal(SHA_256_ROUND_STR, 0)).into(),
         FieldElementExpression::Number(T::from(1)).into(),
     );
 
@@ -286,8 +339,8 @@ fn sha256_round_typed<T: Field>() -> TypedFunction<'static, T> {
     // bind input and current_hash to inputs
     input_indices.clone().chain(current_hash_indices).zip(input_argument_indices.clone().chain(current_hash_argument_indices.clone())).map(|(cs_index, argument_index)| {
         TypedStatement::Condition(
-            unimplemented!("Variable::new(cs_index).into()"),
-            unimplemented!("Variable::new(argument_index).into()"),
+            FieldElementExpression::Identifier(Identifier::internal(SHA_256_ROUND_STR, cs_index)).into(),
+            FieldElementExpression::Identifier(Identifier::internal(SHA_256_ROUND_STR, argument_index)).into(),
         )
     });
 
@@ -295,28 +348,45 @@ fn sha256_round_typed<T: Field>() -> TypedFunction<'static, T> {
     let constraint_statements = r1cs.constraints.into_iter().map(|c| c.into());
 
     // define which subset of the witness is returned
-    let outputs: Vec<TypedExpression<T>> = output_indices
-        .map(|o| FieldElementExpression::Identifier(unimplemented!("FlatVariable::new(o)")).into())
-        .collect();
+    let output = ArrayExpressionInner::Value(
+        output_indices
+            .map(|o| {
+                FieldElementExpression::Identifier(Identifier::internal(SHA_256_ROUND_STR, o))
+                    .into()
+            })
+            .collect(),
+    )
+    .annotate(Type::FieldElement, 256)
+    .into();
 
     // // insert a directive to set the witness based on the bellman gadget and  inputs
-    // let directive_statement = FlatStatement::Directive(FlatDirective {
-    //     outputs: cs_indices.map(|i| FlatVariable::new(i)).collect(),
-    //     inputs: input_argument_indices
-    //         .chain(current_hash_argument_indices)
-    //         .map(|i| FlatVariable::new(i).into())
-    //         .collect(),
-    //     solver: Solver::Sha256Round,
-    // });
+    let directive_statement = TypedStatement::Directive(TypedDirective {
+        outputs: cs_indices
+            .map(|i| Variable::field_element(Identifier::internal(SHA_256_ROUND_STR, i)))
+            .collect(),
+        inputs: input_argument_indices
+            .chain(current_hash_argument_indices)
+            .map(|i| {
+                FieldElementExpression::Identifier(Identifier::internal(SHA_256_ROUND_STR, i))
+                    .into()
+            })
+            .collect(),
+        solver: (),
+    });
 
-    let directive_statement = unimplemented!();
+    //let directive_statement = unimplemented!();
 
     // insert a statement to return the subset of the witness
-    let return_statement = TypedStatement::Return(outputs);
+    let return_statement = TypedStatement::Return(vec![output]);
 
-    let statements = std::iter::once(directive_statement)
-        .chain(std::iter::once(one_binding_statement))
+    let statements = 
+        // std::iter::once(directive_statement)
+        array_access_statements.into_iter()
+        .chain(
+            std::iter::once(one_binding_statement)
+        )
         .chain(input_binding_statements)
+        .chain(std::iter::once(directive_statement))
         .chain(constraint_statements)
         .chain(std::iter::once(return_statement))
         .collect();
@@ -324,7 +394,7 @@ fn sha256_round_typed<T: Field>() -> TypedFunction<'static, T> {
     TypedFunction {
         arguments,
         statements,
-        signature: unimplemented!()
+        signature: FlatEmbed::Sha256Round.signature::<T>(),
     }
 }
 

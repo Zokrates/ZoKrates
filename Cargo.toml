@@ -10,3 +10,6 @@ members = [
     "zokrates_test",
     "zokrates_core_test",
 ]
+
+[profile.release]
+debug = true

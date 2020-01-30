@@ -78,6 +78,11 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
             TypedStatement::Definition(TypedAssignee::Member(..), _) => {
                 unreachable!("struct update should have been replaced with full struct redef")
             }
+            TypedStatement::Directive(d) => Some(
+                fold_statement(self, TypedStatement::Directive(d))
+                    .pop()
+                    .unwrap(),
+            ),
             // propagate lhs and rhs for conditions
             TypedStatement::Condition(e1, e2) => {
                 // could stop execution here if condition is known to fail
