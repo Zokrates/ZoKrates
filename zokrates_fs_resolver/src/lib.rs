@@ -33,7 +33,6 @@ pub fn resolve<'a>(
         return Err(io::Error::new(io::ErrorKind::Other, "Not a file"));
     }
 
-    //let alias = generate_alias(source);
     let next_location = generate_next_location(&path_owned)?;
     let source = read_to_string(path_owned)?;
 
