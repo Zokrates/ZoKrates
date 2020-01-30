@@ -4,6 +4,11 @@ version = "0.1.0"
 authors = ["schaeff <thibaut@schaeff.fr>"]
 edition = "2018"
 
+[features]
+default = []
+wasm = ["bellman_ce/wasm", "sapling-crypto_ce/wasm"]
+multicore = ["bellman_ce/multicore", "sapling-crypto_ce/multicore"]
+
 [dependencies]
-sapling-crypto_ce = "0.1"
-bellman_ce = "0.3"
+bellman_ce = { git = "https://github.com/matter-labs/bellman", rev = "9e35737", default-features = false}
+sapling-crypto_ce = { version = "0.1.1", default-features = false }

@@ -19,4 +19,5 @@ witness
 
 .DS_Store
 .idea
+.vscode
 *.iml

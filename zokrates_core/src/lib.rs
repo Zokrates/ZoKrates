@@ -13,22 +13,14 @@ extern crate bincode;
 extern crate ff_ce as ff;
 extern crate lazy_static;
 extern crate pairing_ce as pairing;
-#[cfg(feature = "wasm")]
-extern crate parity_wasm;
 extern crate regex;
-#[cfg(feature = "wasm")]
-extern crate rustc_hex;
-#[cfg(feature = "wasm")]
-extern crate serde_bytes;
-#[cfg(feature = "wasm")]
-extern crate wasmi;
 extern crate zokrates_embed;
 extern crate zokrates_field;
 extern crate zokrates_pest_ast;
 
 mod embed;
 mod flatten;
-mod imports;
+pub mod imports;
 mod optimizer;
 mod parser;
 mod semantics;

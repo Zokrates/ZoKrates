@@ -11,7 +11,7 @@ use pairing::bn256::{Bn256, Fr};
 use std::collections::BTreeMap;
 use zokrates_field::field::{Field, FieldPrime};
 
-use self::rand::*;
+use self::rand::ChaChaRng;
 use crate::flat_absy::FlatVariable;
 
 pub use self::parse::*;
@@ -160,7 +160,7 @@ impl Prog<FieldPrime> {
 
 impl Computation<FieldPrime> {
     pub fn prove(self, params: &Parameters<Bn256>) -> Proof<Bn256> {
-        let rng = &mut thread_rng();
+        let rng = &mut ChaChaRng::new_unseeded();
         let proof = create_random_proof(self.clone(), params, rng).unwrap();
 
         let pvk = prepare_verifying_key(&params.vk);
@@ -189,7 +189,7 @@ impl Computation<FieldPrime> {
     }
 
     pub fn setup(self) -> Parameters<Bn256> {
-        let rng = &mut thread_rng();
+        let rng = &mut ChaChaRng::new_unseeded();
         // run setup phase
         generate_random_parameters(self, rng).unwrap()
     }
