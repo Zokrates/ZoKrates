@@ -45,19 +45,11 @@ mod tests {
             TypedFunctionSymbol::Here(TypedFunction {
                 arguments: vec![
                     Parameter {
-                        id: Variable::field_element(Identifier {
-                            id: "a",
-                            version: 0,
-                            stack: vec![],
-                        }),
+                        id: Variable::field_element("a".into()),
                         private: true,
                     },
                     Parameter {
-                        id: Variable::boolean(Identifier {
-                            id: "b",
-                            version: 0,
-                            stack: vec![],
-                        }),
+                        id: Variable::boolean("b".into()),
                         private: false,
                     },
                 ],

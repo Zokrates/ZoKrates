@@ -84,8 +84,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         function: TypedFunction<'ast, T>,
         expressions: Vec<TypedExpression<'ast, T>>,
     ) -> Vec<TypedExpression<'ast, T>> {
-        println!("{}", function);
-
+        println!("inline");
         // increase the number of calls for this function by one
         let count = self
             .call_count
@@ -108,28 +107,52 @@ impl<'ast, T: Field> Inliner<'ast, T> {
             })
             .collect();
 
+        println!("now");
+
         self.statement_buffer.extend(inputs_bindings);
 
-        // filter out the return statement and keep it aside
-        let (statements, mut ret): (Vec<_>, Vec<_>) = function
+        println!("and");
+
+        let statements: Vec<_> = function
             .statements
             .into_iter()
             .flat_map(|s| self.fold_statement(s))
-            .partition(|s| match s {
-                TypedStatement::Return(..) => false,
-                _ => true,
-            });
+            .collect();
+
+        let exprs = statements
+            .iter()
+            .find_map(|s| match s {
+                TypedStatement::Return(e) => Some(e),
+                _ => None,
+            })
+            .unwrap()
+            .to_vec();
+
+        println!("then");
+
+        // let statements = function
+        //     .statements
+        //     .into_iter()
+        //     .flat_map(|s| self.fold_statement(s))
+        //     .filter(|s| match s {
+        //         TypedStatement::Return(..) => dbg!(false),
+        //         _ => dbg!(true),
+        //     }).collect::<Vec<_>>();
+
+        println!("extend");
 
         // add all statements to the buffer
-        self.statement_buffer.extend(statements);
+        self.statement_buffer
+            .extend(statements[..statements.len() - 1].to_vec());
+
+        println!("woops");
 
         // pop this call from the stack
         self.stack.pop();
 
-        match ret.pop().unwrap() {
-            TypedStatement::Return(exprs) => exprs,
-            _ => unreachable!(""),
-        }
+        println!("done");
+
+        exprs
     }
     /// try to inline a call to function with key `key` in the stack of `self`
     /// if inlining succeeds, return the expressions returned by the function call
@@ -158,7 +181,8 @@ impl<'ast, T: Field> Inliner<'ast, T> {
             }
             // if the function is a flat symbol, synthetize it
             TypedFunctionSymbol::Flat(embed) => {
-                Ok(self.inline_function_call(key, embed.synthetize_typed(), expressions))
+                println!("heee");
+                Ok(self.inline_function_call(key, embed.synthetize(), expressions))
             }
         }
     }

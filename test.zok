@@ -1,0 +1,5 @@
+import "EMBED/sha256round" as sha256
+
+def main() -> ():
+	field[256] r = sha256([1; 512], [1; 256])
+	return

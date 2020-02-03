@@ -168,22 +168,16 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     })?;
 
     let abi = typed_ast.abi();
-
     // analyse (unroll and constant propagation)
     let typed_ast = typed_ast.analyse();
-
     // flatten input program
     let program_flattened = Flattener::flatten(typed_ast);
-
     // analyse (constant propagation after call resolution)
     let program_flattened = program_flattened.analyse();
-
     // convert to ir
     let ir_prog = ir::Prog::from(program_flattened);
-
     // optimize
     let optimized_ir_prog = ir_prog.optimize();
-
     Ok(CompilationArtifacts {
         prog: optimized_ir_prog,
         abi: abi,

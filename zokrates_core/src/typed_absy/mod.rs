@@ -15,6 +15,7 @@ mod variable;
 pub use crate::typed_absy::parameter::Parameter;
 pub use crate::typed_absy::types::Type;
 pub use crate::typed_absy::variable::Variable;
+use solvers::Solver;
 
 use crate::typed_absy::types::{FunctionKey, MemberId, Signature};
 use embed::FlatEmbed;
@@ -268,8 +269,6 @@ impl<'ast, T: Field> fmt::Display for TypedAssignee<'ast, T> {
     }
 }
 
-type Solver = ();
-
 #[derive(Clone, PartialEq, Debug, Hash, Eq)]
 pub struct TypedDirective<'ast, T: Field> {
     pub inputs: Vec<TypedExpression<'ast, T>>,
@@ -287,7 +286,7 @@ impl<'ast, T: Field> fmt::Display for TypedDirective<'ast, T> {
                 .map(|o| o.to_string())
                 .collect::<Vec<String>>()
                 .join(", "),
-            "SOLVER_TODO",
+            self.solver,
             self.inputs
                 .iter()
                 .map(|i| i.to_string())

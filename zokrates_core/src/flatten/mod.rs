@@ -389,7 +389,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         match index {
             FieldElementExpression::Number(n) => match array.into_inner() {
                 ArrayExpressionInner::Identifier(id) => {
-                    assert!(n < T::from(size));
+                    assert!(n < T::from(size), "{}", id);
                     let n = n.to_dec_string().parse::<usize>().unwrap();
                     self.layout.get(&id).unwrap()[n * element_size..(n + 1) * element_size]
                         .into_iter()
@@ -880,113 +880,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
-    /// Flattens a function call
-    ///
-    /// # Arguments
-    ///
-    /// * `symbols` - Available functions in this context
-    /// * `statements_flattened` - Vector where new flattened statements can be added.
-    /// * `id` - `Identifier of the function.
-    /// * `return_types` - Types of the return values of the function
-    /// * `param_expressions` - Arguments of this call
-    fn flatten_function_call(
-        &mut self,
-        symbols: &TypedFunctionSymbols<'ast, T>,
-        statements_flattened: &mut Vec<FlatStatement<T>>,
-        id: FunctionIdentifier<'ast>,
-        return_types: Vec<Type>,
-        param_expressions: Vec<TypedExpression<'ast, T>>,
-    ) -> FlatExpressionList<T> {
-        let passed_signature = Signature::new()
-            .inputs(param_expressions.iter().map(|e| e.get_type()).collect())
-            .outputs(return_types);
-
-        let key = FunctionKey::with_id(id).signature(passed_signature);
-
-        let funct = self.get_function(&key, &symbols);
-
-        let mut replacement_map = HashMap::new();
-
-        // Handle complex parameters and assign values:
-        // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions
-        let params_flattened = param_expressions
-            .into_iter()
-            .map(|param_expr| self.flatten_expression(symbols, statements_flattened, param_expr))
-            .into_iter()
-            .flat_map(|x| x)
-            .collect::<Vec<_>>();
-
-        for (concrete_argument, formal_argument) in
-            params_flattened.into_iter().zip(funct.arguments)
-        {
-            let new_var = self.use_sym();
-            statements_flattened.push(FlatStatement::Definition(new_var, concrete_argument));
-            replacement_map.insert(formal_argument.id, new_var);
-        }
-
-        // Ensure renaming and correct returns:
-        // add all flattened statements, adapt return statements
-
-        let (mut return_statements, statements): (Vec<_>, Vec<_>) =
-            funct.statements.into_iter().partition(|s| match s {
-                FlatStatement::Return(..) => true,
-                _ => false,
-            });
-
-        let statements: Vec<_> = statements
-            .into_iter()
-            .map(|stat| match stat {
-                // set return statements as expression result
-                FlatStatement::Return(..) => unreachable!(),
-                FlatStatement::Definition(var, rhs) => {
-                    let new_var = self.use_sym();
-                    replacement_map.insert(var, new_var);
-                    let new_rhs = rhs.apply_substitution(&replacement_map);
-                    FlatStatement::Definition(new_var, new_rhs)
-                }
-                FlatStatement::Condition(lhs, rhs) => {
-                    let new_lhs = lhs.apply_substitution(&replacement_map);
-                    let new_rhs = rhs.apply_substitution(&replacement_map);
-                    FlatStatement::Condition(new_lhs, new_rhs)
-                }
-                FlatStatement::Directive(d) => {
-                    let new_outputs = d
-                        .outputs
-                        .into_iter()
-                        .map(|o| {
-                            let new_o = self.use_sym();
-                            replacement_map.insert(o, new_o);
-                            new_o
-                        })
-                        .collect();
-                    let new_inputs = d
-                        .inputs
-                        .into_iter()
-                        .map(|i| i.apply_substitution(&replacement_map))
-                        .collect();
-                    FlatStatement::Directive(FlatDirective {
-                        outputs: new_outputs,
-                        solver: d.solver,
-                        inputs: new_inputs,
-                    })
-                }
-            })
-            .collect();
-
-        statements_flattened.extend(statements);
-
-        match return_statements.pop().unwrap() {
-            FlatStatement::Return(list) => FlatExpressionList {
-                expressions: list
-                    .expressions
-                    .into_iter()
-                    .map(|x| x.apply_substitution(&replacement_map))
-                    .collect(),
-            },
-            _ => unreachable!(),
-        }
-    }
-
     /// Flattens an expression
     ///
     /// # Arguments
@@ -1254,17 +1147,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     alternative,
                 )[0]
             .clone(),
-            FieldElementExpression::FunctionCall(key, param_expressions) => {
-                let exprs_flattened = self.flatten_function_call(
-                    symbols,
-                    statements_flattened,
-                    key.id,
-                    vec![Type::FieldElement],
-                    param_expressions,
-                );
-                assert!(exprs_flattened.expressions.len() == 1); // outside of MultipleDefinition, FunctionCalls must return a single value
-                exprs_flattened.expressions[0].clone()
-            }
+            FieldElementExpression::FunctionCall(key, param_expressions) => unreachable!(),
             FieldElementExpression::Member(box s, id) => {
                 self.flatten_member_expression(symbols, statements_flattened, s, id)[0].clone()
             }
@@ -1308,16 +1191,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 .into_iter()
                 .flat_map(|v| self.flatten_expression(symbols, statements_flattened, v))
                 .collect(),
-            StructExpressionInner::FunctionCall(key, param_expressions) => {
-                let exprs_flattened = self.flatten_function_call(
-                    symbols,
-                    statements_flattened,
-                    key.id,
-                    vec![ty],
-                    param_expressions,
-                );
-                exprs_flattened.expressions
-            }
+            StructExpressionInner::FunctionCall(key, param_expressions) => unreachable!(),
             StructExpressionInner::IfElse(box condition, box consequence, box alternative) => {
                 members
                     .into_iter()
@@ -1403,17 +1277,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     })
                     .collect()
             }
-            ArrayExpressionInner::FunctionCall(key, param_expressions) => {
-                let exprs_flattened = self.flatten_function_call(
-                    symbols,
-                    statements_flattened,
-                    key.id,
-                    vec![ty],
-                    param_expressions,
-                );
-                assert!(exprs_flattened.expressions.len() == size); // outside of MultipleDefinition, FunctionCalls must return a single value
-                exprs_flattened.expressions
-            }
+            ArrayExpressionInner::FunctionCall(key, param_expressions) => unreachable!(),
             ArrayExpressionInner::IfElse(ref condition, ref consequence, ref alternative) => (0
                 ..size)
                 .flat_map(|i| {
@@ -1457,7 +1321,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened: &mut Vec<FlatStatement<T>>,
         stat: TypedStatement<'ast, T>,
     ) {
-        println!("flatten: {}", stat);
         match stat {
             TypedStatement::Return(exprs) => {
                 let flat_expressions = exprs
@@ -1489,7 +1352,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 statements_flattened.push(FlatStatement::Directive(FlatDirective {
                     inputs,
                     outputs,
-                    solver: unimplemented!(),
+                    solver: d.solver,
                 }));
             }
             TypedStatement::Definition(assignee, expr) => {
@@ -1537,46 +1400,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 }
             }
             TypedStatement::For(..) => unreachable!("static analyser should have unrolled"),
-            TypedStatement::MultipleDefinition(vars, rhs) => {
-                // flatten the right side to p = sum(var_i.type.primitive_count) expressions
-                // define p new variables to the right side expressions
-
-                let var_types = vars.iter().map(|v| v.get_type()).collect();
-
-                match rhs {
-                    TypedExpressionList::FunctionCall(key, exprs, _) => {
-                        let rhs_flattened = self.flatten_function_call(
-                            symbols,
-                            statements_flattened,
-                            &key.id,
-                            var_types,
-                            exprs,
-                        );
-
-                        let rhs = rhs_flattened.expressions.into_iter();
-
-                        let vars = vars.into_iter().flat_map(|v| self.use_variable(&v));
-
-                        statements_flattened
-                            .extend(vars.zip(rhs).map(|(v, r)| FlatStatement::Definition(v, r)));
-                    }
-                }
-            }
-        }
-    }
-
-    /// Flattens a function symbol
-    ///
-    /// # Arguments
-    ///
-    /// * `funct` - `TypedFunctionSymbol` that will be flattened.
-    ///
-    /// # Remarks
-    /// * Only "flat" symbols can be flattened here. Other function calls must have been inlined previously.
-    fn flatten_function_symbol(&mut self, funct: TypedFunctionSymbol<'ast, T>) -> FlatFunction<T> {
-        match funct {
-            TypedFunctionSymbol::Flat(flat_function) => flat_function.synthetize(),
-            _ => unreachable!("only local flat symbols can be flattened"),
+            TypedStatement::MultipleDefinition(vars, rhs) => unreachable!(),
         }
     }
 
@@ -1678,21 +1502,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     // create an internal variable. We do not register it in the layout
     fn use_sym(&mut self) -> FlatVariable {
         self.issue_new_variable()
-    }
-
-    fn get_function<'a>(
-        &mut self,
-        key: &'a FunctionKey<'ast>,
-        symbols: &'a TypedFunctionSymbols<'ast, T>,
-    ) -> FlatFunction<T> {
-        let cached = self.flat_cache.get(&key).cloned();
-
-        cached.unwrap_or_else(|| {
-            let f = symbols.get(&key).unwrap().clone();
-            let res = self.flatten_function_symbol(f);
-            self.flat_cache.insert(key.clone(), res.clone());
-            res
-        })
     }
 }
 
