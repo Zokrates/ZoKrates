@@ -86,17 +86,19 @@ fn flat_expression_from_vec<T: Field>(
 fn typed_expression_from_vec<T: Field>(
     v: Vec<(usize, <<T as Field>::BellmanEngine as ScalarEngine>::Fr)>,
 ) -> FieldElementExpression<'static, T> {
+    let mut v = v;
     match v.len() {
         0 => FieldElementExpression::Number(T::zero()),
-        1 => FieldElementExpression::Mult(
-            box FieldElementExpression::Number(T::from_bellman(v[0].clone().1)),
+        1 => {
+            let (key, val) = v.pop().unwrap();
+            FieldElementExpression::Mult(
+            box FieldElementExpression::Number(T::from_bellman(val)),
             box FieldElementExpression::Identifier(Identifier::internal(
                 SHA_256_ROUND_STR,
-                v[0].clone().0,
+                key,
             )),
-        ),
+        )},
         n => {
-            let mut v = v;
             let u = v.split_off(n / 2);
             FieldElementExpression::Add(
                 box typed_expression_from_vec(u),
