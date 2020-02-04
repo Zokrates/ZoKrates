@@ -16,10 +16,4 @@ wasm-bindgen = { version = "0.2.46", features = ["serde-serialize"] }
 zokrates_core = { path = "../zokrates_core", features = ["wasm"] }
 zokrates_field = { path = "../zokrates_field" }
 zokrates_abi = { path = "../zokrates_abi" }
-
-[target."cfg(debug_assertions)".dependencies]
 console_error_panic_hook = "0.1.5"
-
-# workaround until wasm-opt is fixed
-[package.metadata.wasm-pack.profile.release]
-wasm-opt = false
