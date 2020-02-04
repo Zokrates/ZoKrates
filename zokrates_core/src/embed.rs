@@ -4,7 +4,6 @@ use flat_absy::{
     FlatDirective, FlatExpression, FlatExpressionList, FlatFunction, FlatParameter, FlatStatement,
     FlatVariable,
 };
-use reduce::Reduce;
 use std::collections::HashMap;
 use typed_absy::types::{FunctionKey, Signature, Type};
 use zokrates_embed::{generate_sha256_round_constraints, BellmanConstraint};
@@ -57,24 +56,27 @@ impl FlatEmbed {
 }
 
 // util to convert a vector of `(variable_id, coefficient)` to a flat_expression
+// we build a binary tree of additions by splitting the vector recursively
 fn flat_expression_from_vec<T: Field>(
     v: Vec<(usize, <<T as Field>::BellmanEngine as ScalarEngine>::Fr)>,
 ) -> FlatExpression<T> {
-    match v
-        .into_iter()
-        .map(|(key, val)| {
+    let mut v = v;
+    match v.len() {
+        0 => FlatExpression::Number(T::zero()),
+        1 => {
+            let (key, val) = v.pop().unwrap();
             FlatExpression::Mult(
                 box FlatExpression::Number(T::from_bellman(val)),
                 box FlatExpression::Identifier(FlatVariable::new(key)),
             )
-        })
-        .reduce(|acc, e| FlatExpression::Add(box acc, box e))
-    {
-        Some(e @ FlatExpression::Mult(..)) => {
-            FlatExpression::Add(box FlatExpression::Number(T::zero()), box e)
-        } // the R1CS serializer only recognizes Add
-        Some(e) => e,
-        None => FlatExpression::Number(T::zero()),
+        }
+        n => {
+            let u = v.split_off(n / 2);
+            FlatExpression::Add(
+                box flat_expression_from_vec(u),
+                box flat_expression_from_vec(v),
+            )
+        }
     }
 }
 
