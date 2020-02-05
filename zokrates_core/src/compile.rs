@@ -13,7 +13,6 @@ use static_analysis::Analyse;
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
-use std::io::BufRead;
 use typed_absy::abi::Abi;
 use typed_arena::Arena;
 use zokrates_field::field::Field;
@@ -67,7 +66,7 @@ pub enum CompileErrorInner {
 }
 
 impl CompileErrorInner {
-    pub fn with_context(self, context: &Option<String>) -> CompileError {
+    pub fn with_context(self, context: &String) -> CompileError {
         CompileError {
             value: self,
             context: context.clone(),
@@ -77,12 +76,12 @@ impl CompileErrorInner {
 
 #[derive(Debug)]
 pub struct CompileError {
-    context: Option<String>,
+    context: String,
     value: CompileErrorInner,
 }
 
 impl CompileErrors {
-    pub fn with_context(self, context: Option<String>) -> Self {
+    pub fn with_context(self, context: String) -> Self {
         CompileErrors(
             self.0
                 .into_iter()
@@ -97,11 +96,7 @@ impl CompileErrors {
 
 impl fmt::Display for CompileError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let context = match self.context {
-            Some(ref x) => x.clone(),
-            None => "???".to_string(),
-        };
-        write!(f, "{}:{}", context, self.value)
+        write!(f, "{}:{}", self.context, self.value)
     }
 }
 
@@ -141,20 +136,16 @@ impl fmt::Display for CompileErrorInner {
     }
 }
 
-pub type Resolve<S, E> = fn(Option<String>, &str) -> Result<(S, String, &str), E>;
+pub type Resolve<'a, E> = &'a dyn Fn(String, String) -> Result<(String, String), E>;
 
-pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
-    reader: &mut R,
-    location: Option<String>,
-    resolve_option: Option<Resolve<S, E>>,
+pub fn compile<T: Field, E: Into<imports::Error>>(
+    source: String,
+    location: String,
+    resolve_option: Option<Resolve<E>>,
 ) -> Result<CompilationArtifacts<T>, CompileErrors> {
     let arena = Arena::new();
 
-    let mut source = String::new();
-    reader.read_to_string(&mut source).unwrap();
-
     let source = arena.alloc(source);
-
     let compiled = compile_program(source, location.clone(), resolve_option, &arena)?;
 
     // check semantics
@@ -184,10 +175,10 @@ pub fn compile<T: Field, R: BufRead, S: BufRead, E: Into<imports::Error>>(
     })
 }
 
-pub fn compile_program<'ast, T: Field, S: BufRead, E: Into<imports::Error>>(
+pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
     source: &'ast str,
-    location: Option<String>,
-    resolve_option: Option<Resolve<S, E>>,
+    location: String,
+    resolve_option: Option<Resolve<E>>,
     arena: &'ast Arena<String>,
 ) -> Result<Program<'ast, T>, CompileErrors> {
     let mut modules = HashMap::new();
@@ -200,8 +191,6 @@ pub fn compile_program<'ast, T: Field, S: BufRead, E: Into<imports::Error>>(
         &arena,
     )?;
 
-    let location = location.unwrap_or("???".to_string());
-
     modules.insert(location.clone(), main);
 
     Ok(Program {
@@ -210,10 +199,10 @@ pub fn compile_program<'ast, T: Field, S: BufRead, E: Into<imports::Error>>(
     })
 }
 
-pub fn compile_module<'ast, T: Field, S: BufRead, E: Into<imports::Error>>(
+pub fn compile_module<'ast, T: Field, E: Into<imports::Error>>(
     source: &'ast str,
-    location: Option<String>,
-    resolve_option: Option<Resolve<S, E>>,
+    location: String,
+    resolve_option: Option<Resolve<E>>,
     modules: &mut HashMap<ModuleId, Module<'ast, T>>,
     arena: &'ast Arena<String>,
 ) -> Result<Module<'ast, T>, CompileErrors> {
@@ -233,25 +222,21 @@ pub fn compile_module<'ast, T: Field, S: BufRead, E: Into<imports::Error>>(
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::io::{BufReader, Empty};
     use zokrates_field::field::FieldPrime;
 
     #[test]
     fn no_resolver_with_imports() {
-        let mut r = BufReader::new(
-            r#"
+        let source = r#"
 			import "./path/to/file" as foo
 			def main() -> (field):
 			   return foo()
 		"#
-            .as_bytes(),
-        );
+        .to_string();
         let res: Result<CompilationArtifacts<FieldPrime>, CompileErrors> = compile(
-            &mut r,
-            Some(String::from("./path/to/file")),
-            None::<Resolve<BufReader<Empty>, io::Error>>,
+            source,
+            String::from("./path/to/file"),
+            None::<Resolve<io::Error>>,
         );
-
         assert!(res
             .unwrap_err()
             .to_string()
@@ -260,17 +245,15 @@ mod test {
 
     #[test]
     fn no_resolver_without_imports() {
-        let mut r = BufReader::new(
-            r#"
+        let source = r#"
 			def main() -> (field):
 			   return 1
 		"#
-            .as_bytes(),
-        );
+        .to_string();
         let res: Result<CompilationArtifacts<FieldPrime>, CompileErrors> = compile(
-            &mut r,
-            Some(String::from("./path/to/file")),
-            None::<Resolve<BufReader<Empty>, io::Error>>,
+            source,
+            String::from("./path/to/file"),
+            None::<Resolve<io::Error>>,
         );
         assert!(res.is_ok());
     }

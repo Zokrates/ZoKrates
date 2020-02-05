@@ -11,5 +11,4 @@ members = [
     "zokrates_core_test",
 ]
 
-[profile.release]
-debug = true
+exclude = ["zokrates_js"]
