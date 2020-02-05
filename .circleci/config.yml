@@ -114,12 +114,12 @@ jobs:
           command: ./scripts/release.sh
   zokrates_js_build:
     docker:
-      - image: circleci/node
+      - image: dark64/rust-wasm-env:latest
     steps:
       - checkout
-      - setup_remote_docker
       - run:
-          command: ./zokrates_js/build.sh
+          name: Build
+          command: cd zokrates_js && npm run build
   zokrates_js_test:
     docker:
       - image: circleci/node
