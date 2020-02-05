@@ -31,7 +31,6 @@ impl<'ast, T: Field> Analyse for TypedProgram<'ast, T> {
         // propagate
         let r = Propagator::propagate(r);
         // constrain inputs
-        println!("go");
         let r = InputConstrainer::constrain(r);
         r
     }

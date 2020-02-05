@@ -7,7 +7,7 @@
 
 use crate::flat_absy::*;
 use crate::solvers::Solver;
-use crate::typed_absy::types::{FunctionIdentifier, FunctionKey, MemberId, Signature, Type};
+use crate::typed_absy::types::{FunctionKey, MemberId, Type};
 use crate::typed_absy::*;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -105,7 +105,6 @@ impl<'ast, T: Field> Flatten<'ast, T> for ArrayExpression<'ast, T> {
 
 impl<'ast, T: Field> Flattener<'ast, T> {
     pub fn flatten(p: TypedProgram<'ast, T>) -> FlatProg<T> {
-        println!("{}", p);
         Flattener::new().flatten_program(p)
     }
 
@@ -1148,7 +1147,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     alternative,
                 )[0]
             .clone(),
-            FieldElementExpression::FunctionCall(key, param_expressions) => unreachable!(),
+            FieldElementExpression::FunctionCall(..) => unreachable!(),
             FieldElementExpression::Member(box s, id) => {
                 self.flatten_member_expression(symbols, statements_flattened, s, id)[0].clone()
             }
@@ -1192,7 +1191,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 .into_iter()
                 .flat_map(|v| self.flatten_expression(symbols, statements_flattened, v))
                 .collect(),
-            StructExpressionInner::FunctionCall(key, param_expressions) => unreachable!(),
+            StructExpressionInner::FunctionCall(..) => unreachable!(),
             StructExpressionInner::IfElse(box condition, box consequence, box alternative) => {
                 members
                     .into_iter()
@@ -1255,8 +1254,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened: &mut Vec<FlatStatement<T>>,
         expr: ArrayExpression<'ast, T>,
     ) -> Vec<FlatExpression<T>> {
-        let ty = expr.get_type();
-
         let size = expr.size();
 
         match expr.into_inner() {
@@ -1278,7 +1275,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     })
                     .collect()
             }
-            ArrayExpressionInner::FunctionCall(key, param_expressions) => unreachable!(),
+            ArrayExpressionInner::FunctionCall(..) => unreachable!(),
             ArrayExpressionInner::IfElse(ref condition, ref consequence, ref alternative) => (0
                 ..size)
                 .flat_map(|i| {
@@ -2260,6 +2257,7 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
     fn next_variable() {
         let mut flattener: Flattener<FieldPrime> = Flattener::new();
         assert_eq!(
@@ -2272,19 +2270,14 @@ mod tests {
         );
         assert_eq!(
             vec![FlatVariable::new(1)],
-            flattener.use_variable(&Variable::field_element("a".into()))
+            flattener.use_variable(&Variable::field_element("b".into()))
         );
         assert_eq!(
-            flattener.layout.get(&"a".into()),
+            flattener.layout.get(&"b".into()),
             Some(&vec![FlatVariable::new(1)])
         );
-        assert_eq!(
-            vec![FlatVariable::new(2)],
-            flattener.use_variable(&Variable::field_element("a".into()))
-        );
-        assert_eq!(
-            flattener.layout.get(&"a".into()),
-            Some(&vec![FlatVariable::new(2)])
-        );
+
+        // this should panic as b is already defined
+        flattener.use_variable(&Variable::boolean("b".into()));
     }
 }

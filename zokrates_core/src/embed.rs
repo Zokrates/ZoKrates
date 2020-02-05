@@ -1,7 +1,5 @@
 use crate::solvers::Solver;
 use bellman::pairing::ff::ScalarEngine;
-use reduce::Reduce;
-use std::collections::HashMap;
 use typed_absy::types::{FunctionKey, Signature, Type};
 use typed_absy::*;
 use zokrates_embed::{generate_sha256_round_constraints, BellmanConstraint};
@@ -56,29 +54,35 @@ impl FlatEmbed {
     }
 }
 
-// util to convert a vector of `(variable_id, coefficient)` to a flat_expression
 fn typed_expression_from_vec<T: Field>(
     v: Vec<(usize, <<T as Field>::BellmanEngine as ScalarEngine>::Fr)>,
+) -> FieldElementExpression<'static, T> {
+    balanced_addition(
+        v.into_iter()
+            .map(|(key, val)| {
+                FieldElementExpression::Mult(
+                    box FieldElementExpression::Number(T::from_bellman(val)),
+                    box FieldElementExpression::Identifier(Identifier::internal(
+                        SHA_256_ROUND_STR,
+                        key,
+                    )),
+                )
+            })
+            .collect(),
+    )
+}
+
+// util to convert a vector of `(variable_id, coefficient)` to a flat_expression
+fn balanced_addition<T: Field>(
+    v: Vec<FieldElementExpression<'static, T>>,
 ) -> FieldElementExpression<'static, T> {
     let mut v = v;
     match v.len() {
         0 => FieldElementExpression::Number(T::zero()),
-        1 => {
-            let (key, val) = v.pop().unwrap();
-            FieldElementExpression::Mult(
-                box FieldElementExpression::Number(T::from_bellman(val)),
-                box FieldElementExpression::Identifier(Identifier::internal(
-                    SHA_256_ROUND_STR,
-                    key,
-                )),
-            )
-        }
+        1 => v.pop().unwrap(),
         n => {
             let u = v.split_off(n / 2);
-            FieldElementExpression::Add(
-                box typed_expression_from_vec(u),
-                box typed_expression_from_vec(v),
-            )
+            FieldElementExpression::Add(box balanced_addition(u), box balanced_addition(v))
         }
     }
 }
@@ -110,25 +114,15 @@ fn sha256_round<T: Field>() -> TypedFunction<'static, T> {
 
     let variable_count = r1cs.aux_count + 1; // auxiliary and ONE
 
-    let input_identifier = Identifier::internal(SHA_256_ROUND_STR, 100000000);
-    let current_hash_identifier = Identifier::internal(SHA_256_ROUND_STR, 100000001);
+    // each constraint system variable is a field element represented by an identifier (annotated in `[0, variable_count[`)
+    // the two inputs are arrays annotated respectively `variable_count` and `variable_count + 1`
+    let input_identifier = Identifier::internal(SHA_256_ROUND_STR, variable_count);
+    let current_hash_identifier = Identifier::internal(SHA_256_ROUND_STR, variable_count + 1);
 
     // indices of the sha256round constraint system variables
     let cs_indices = (0..variable_count).into_iter();
 
-    // indices of the arguments to the function
-    // apply an offset of `variable_count` to get the indice of our dummy `input` argument
-    let input_argument_indices = input_indices
-        .clone()
-        .into_iter()
-        .map(|i| i + variable_count);
-    // apply an offset of `variable_count` to get the indice of our dummy `current_hash` argument
-    let current_hash_argument_indices = current_hash_indices
-        .clone()
-        .into_iter()
-        .map(|i| i + variable_count);
-
-    // define parameters to the function based on the variables
+    // define parameters to the function
     let arguments = vec![
         Parameter {
             id: Variable::array(input_identifier.clone(), Type::FieldElement, 512),
@@ -140,16 +134,15 @@ fn sha256_round<T: Field>() -> TypedFunction<'static, T> {
         },
     ];
 
-    let array_access_statements: Vec<_> = input_argument_indices
+    // Bind constraint system variables to the inputs
+    let input_binding_statements: Vec<_> = input_indices
         .clone()
-        .chain(current_hash_argument_indices.clone())
+        .chain(current_hash_indices.clone())
         .enumerate()
         .map(|(index, i)| {
-            TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element(Identifier::internal(
-                    SHA_256_ROUND_STR,
-                    i,
-                ))),
+            TypedStatement::Condition(
+                FieldElementExpression::Identifier(Identifier::internal(SHA_256_ROUND_STR, i))
+                    .into(),
                 if index < 512 {
                     FieldElementExpression::select(
                         ArrayExpressionInner::Identifier(input_identifier.clone())
@@ -169,20 +162,11 @@ fn sha256_round<T: Field>() -> TypedFunction<'static, T> {
         })
         .collect();
 
-    // define a binding of the first variable in the constraint system to one
+    // define a binding of the first variable in the constraint system to ~ONE
     let one_binding_statement = TypedStatement::Condition(
         FieldElementExpression::Identifier(Identifier::internal(SHA_256_ROUND_STR, 0)).into(),
         FieldElementExpression::Number(T::from(1)).into(),
     );
-
-    let input_binding_statements =
-    // bind input and current_hash to inputs
-    input_indices.clone().chain(current_hash_indices).zip(input_argument_indices.clone().chain(current_hash_argument_indices.clone())).map(|(cs_index, argument_index)| {
-        TypedStatement::Condition(
-            FieldElementExpression::Identifier(Identifier::internal(SHA_256_ROUND_STR, cs_index)).into(),
-            FieldElementExpression::Identifier(Identifier::internal(SHA_256_ROUND_STR, argument_index)).into(),
-        )
-    });
 
     // insert flattened statements to represent constraints
     let constraint_statements = r1cs.constraints.into_iter().map(|c| c.into());
@@ -199,27 +183,26 @@ fn sha256_round<T: Field>() -> TypedFunction<'static, T> {
     .annotate(Type::FieldElement, 256)
     .into();
 
-    // // insert a directive to set the witness based on the bellman gadget and inputs
+    // insert a directive to set the witness based on the bellman gadget and inputs
     let directive_statement = TypedStatement::Directive(TypedDirective {
         outputs: cs_indices
             .map(|i| Variable::field_element(Identifier::internal(SHA_256_ROUND_STR, i)))
             .collect(),
-        inputs: input_argument_indices
-            .chain(current_hash_argument_indices)
-            .map(|i| {
-                FieldElementExpression::Identifier(Identifier::internal(SHA_256_ROUND_STR, i))
-                    .into()
-            })
-            .collect(),
+        inputs: vec![
+            ArrayExpressionInner::Identifier(input_identifier)
+                .annotate(Type::FieldElement, 512)
+                .into(),
+            ArrayExpressionInner::Identifier(current_hash_identifier)
+                .annotate(Type::FieldElement, 256)
+                .into(),
+        ],
         solver: Solver::Sha256Round,
     });
 
     // insert a statement to return the subset of the witness
     let return_statement = TypedStatement::Return(vec![output]);
 
-    let statements: Vec<_> = array_access_statements
-        .into_iter()
-        .chain(std::iter::once(directive_statement))
+    let statements: Vec<_> = std::iter::once(directive_statement)
         .chain(constraint_statements)
         .chain(std::iter::once(one_binding_statement))
         .chain(input_binding_statements)
@@ -243,16 +226,19 @@ fn sha256_round<T: Field>() -> TypedFunction<'static, T> {
 pub fn unpack<'ast, T: Field>() -> TypedFunction<'static, T> {
     let nbits = T::get_required_bits();
 
+    let input_identifier = Identifier::internal(UNPACK_STR, 0);
+    let output_identifier = Identifier::internal(UNPACK_STR, 1);
+
     let arguments = vec![Parameter {
-        id: Variable::field_element(Identifier::internal(UNPACK_STR, 0)),
+        id: Variable::field_element(input_identifier.clone()),
         private: true,
     }];
 
     // o0, ..., o253 = ToBits(i0)
 
     let directive_inputs =
-        vec![FieldElementExpression::Identifier(Identifier::internal(UNPACK_STR, 0)).into()];
-    let directive_output = ArrayExpressionInner::Identifier(Identifier::internal(UNPACK_STR, 1))
+        vec![FieldElementExpression::Identifier(input_identifier.clone()).into()];
+    let directive_output = ArrayExpressionInner::Identifier(output_identifier.clone())
         .annotate(Type::FieldElement, T::get_required_bits());
 
     let solver = Solver::bits();
@@ -285,23 +271,24 @@ pub fn unpack<'ast, T: Field>() -> TypedFunction<'static, T> {
         .collect();
 
     // sum check: o253 + o252 * 2 + ... + o{253 - (nbits - 1)} * 2**(nbits - 1)
-    let lhs_sum = (0..nbits).fold(FieldElementExpression::Number(T::from(0)), |acc, i| {
-        FieldElementExpression::Add(
-            box acc,
-            box FieldElementExpression::Mult(
-                box FieldElementExpression::Select(
-                    box directive_output.clone(),
-                    box FieldElementExpression::Number(T::from(T::get_required_bits() - i - 1)),
-                ),
-                box FieldElementExpression::Number(T::from(2).pow(i)),
-            ),
-        )
-    });
+    let lhs_sum = balanced_addition(
+        (0..nbits)
+            .map(|i| {
+                FieldElementExpression::Mult(
+                    box FieldElementExpression::Select(
+                        box directive_output.clone(),
+                        box FieldElementExpression::Number(T::from(T::get_required_bits() - i - 1)),
+                    ),
+                    box FieldElementExpression::Number(T::from(2).pow(i)),
+                )
+            })
+            .collect(),
+    );
 
     let lhs_sum_check = TypedStatement::Condition(
         lhs_sum.into(),
         FieldElementExpression::Mult(
-            box FieldElementExpression::Identifier(Identifier::internal(UNPACK_STR, 0)),
+            box FieldElementExpression::Identifier(input_identifier.clone()),
             box FieldElementExpression::Number(T::from(1)),
         )
         .into(),
@@ -310,7 +297,7 @@ pub fn unpack<'ast, T: Field>() -> TypedFunction<'static, T> {
     let directive_statement = TypedStatement::Directive(TypedDirective {
         inputs: directive_inputs,
         outputs: vec![Variable::array(
-            Identifier::internal(UNPACK_STR, 1),
+            output_identifier.clone(),
             Type::FieldElement,
             nbits,
         )],
@@ -347,8 +334,6 @@ mod tests {
         fn split254() {
             let unpack: TypedFunction<FieldPrime> = unpack();
 
-            println!("{}", unpack);
-
             // assert_eq!(
             //     unpack.arguments,
             //     vec![FlatParameter::private(FlatVariable::new(0))]
@@ -382,76 +367,76 @@ mod tests {
     mod sha256 {
         use super::*;
 
-        // #[test]
-        // fn generate_sha256_constraints() {
-        //     let compiled = sha256_round_typed();
+        #[test]
+        fn generate_sha256_constraints() {
+            let compiled = sha256_round::<FieldPrime>();
 
-        //     // function should have 2 inputs
-        //     assert_eq!(compiled.arguments.len(), 2);
+            // // function should have 2 inputs
+            // assert_eq!(compiled.arguments.len(), 2);
 
-        //     // function should return 1 values
-        //     assert_eq!(
-        //         compiled
-        //             .statements
-        //             .iter()
-        //             .filter_map(|s| match s {
-        //                 TypedStatement::Return(v) => Some(v),
-        //                 _ => None,
-        //             })
-        //             .next()
-        //             .unwrap()
-        //             .len(),
-        //         1,
-        //     );
+            // // function should return 1 values
+            // assert_eq!(
+            //     compiled
+            //         .statements
+            //         .iter()
+            //         .filter_map(|s| match s {
+            //             TypedStatement::Return(v) => Some(v),
+            //             _ => None,
+            //         })
+            //         .next()
+            //         .unwrap()
+            //         .len(),
+            //     1,
+            // );
 
-        //     // directive should take 768 inputs and return n_var outputs
-        //     let directive = compiled
-        //         .statements
-        //         .iter()
-        //         .filter_map(|s| match s {
-        //             TypedStatement::Directive(d) => Some(d.clone()),
-        //             _ => None,
-        //         })
-        //         .next()
-        //         .unwrap();
-        //     assert_eq!(directive.inputs.len(), 1);
-        //     assert_eq!(directive.outputs.len(), 1);
-        //     // function input should be offset by variable_count
-        //     assert_eq!(
-        //         compiled.arguments[0].id,
-        //         FlatVariable::new(directive.outputs.len() + 1)
-        //     );
+            // // directive should take 768 inputs and return n_var outputs
+            // let directive = compiled
+            //     .statements
+            //     .iter()
+            //     .filter_map(|s| match s {
+            //         TypedStatement::Directive(d) => Some(d.clone()),
+            //         _ => None,
+            //     })
+            //     .next()
+            //     .unwrap();
+            // assert_eq!(directive.inputs.len(), 1);
+            // assert_eq!(directive.outputs.len(), 1);
+            // // function input should be offset by variable_count
+            // assert_eq!(
+            //     compiled.arguments[0].id,
+            //     FlatVariable::new(directive.outputs.len() + 1)
+            // );
 
-        //     // bellman variable #0: index 0 should equal 1
-        //     assert_eq!(
-        //         compiled.statements[1],
-        //         FlatStatement::Condition(
-        //             FlatVariable::new(0).into(),
-        //             FlatExpression::Number(FieldPrime::from(1))
-        //         )
-        //     );
+            // // bellman variable #0: index 0 should equal 1
+            // assert_eq!(
+            //     compiled.statements[1],
+            //     FlatStatement::Condition(
+            //         FlatVariable::new(0).into(),
+            //         FlatExpression::Number(FieldPrime::from(1))
+            //     )
+            // );
 
-        //     // bellman input #0: index 1 should equal zokrates input #0: index v_count
-        //     assert_eq!(
-        //         compiled.statements[2],
-        //         FlatStatement::Condition(
-        //             FlatVariable::new(1).into(),
-        //             FlatVariable::new(26936).into()
-        //         )
-        //     );
+            // // bellman input #0: index 1 should equal zokrates input #0: index v_count
+            // assert_eq!(
+            //     compiled.statements[2],
+            //     FlatStatement::Condition(
+            //         FlatVariable::new(1).into(),
+            //         FlatVariable::new(26936).into()
+            //     )
+            // );
 
-        //     let f = crate::ir::Function::from(compiled);
-        //     let prog = crate::ir::Prog {
-        //         main: f,
-        //         private: vec![true; 768],
-        //     };
+            // let f = crate::ir::Function::from(compiled);
+            // let prog = crate::ir::Prog {
+            //     main: f,
+            //     private: vec![true; 768],
+            // };
 
-        //     let input = (0..512)
-        //         .map(|_| FieldPrime::from(0))
-        //         .chain((0..256).map(|_| FieldPrime::from(1)))
-        //         .collect();
+            // let input = (0..512)
+            //     .map(|_| FieldPrime::from(0))
+            //     .chain((0..256).map(|_| FieldPrime::from(1)))
+            //     .collect();
 
-        //     prog.execute(&input).unwrap();
-        // }
+            // prog.execute(&input).unwrap();
+        }
     }
 }
