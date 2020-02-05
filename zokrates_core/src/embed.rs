@@ -321,122 +321,122 @@ pub fn unpack<'ast, T: Field>() -> TypedFunction<'static, T> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use zokrates_field::field::FieldPrime;
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     use zokrates_field::field::FieldPrime;
 
-    #[cfg(test)]
-    mod split {
-        use super::*;
+//     #[cfg(test)]
+//     mod split {
+//         use super::*;
 
-        #[test]
-        fn split254() {
-            let unpack: TypedFunction<FieldPrime> = unpack();
+//         #[test]
+//         fn split254() {
+//             let unpack: TypedFunction<FieldPrime> = unpack();
 
-            // assert_eq!(
-            //     unpack.arguments,
-            //     vec![FlatParameter::private(FlatVariable::new(0))]
-            // );
-            // assert_eq!(
-            //     unpack.statements.len(),
-            //     FieldPrime::get_required_bits() + 1 + 1 + 1
-            // ); // 128 bit checks, 1 directive, 1 sum check, 1 return
-            // assert_eq!(
-            //     unpack.statements[0],
-            //     FlatStatement::Directive(FlatDirective::new(
-            //         (0..FieldPrime::get_required_bits())
-            //             .map(|i| FlatVariable::new(i + 1))
-            //             .collect(),
-            //         Solver::bits(),
-            //         vec![FlatVariable::new(0)]
-            //     ))
-            // );
-            // assert_eq!(
-            //     *unpack.statements.last().unwrap(),
-            //     FlatStatement::Return(FlatExpressionList {
-            //         expressions: (0..FieldPrime::get_required_bits())
-            //             .map(|i| FlatExpression::Identifier(FlatVariable::new(i + 1)))
-            //             .collect()
-            //     })
-            // );
-        }
-    }
+//             assert_eq!(
+//                 unpack.arguments,
+//                 vec![FlatParameter::private(FlatVariable::new(0))]
+//             );
+//             assert_eq!(
+//                 unpack.statements.len(),
+//                 FieldPrime::get_required_bits() + 1 + 1 + 1
+//             ); // 128 bit checks, 1 directive, 1 sum check, 1 return
+//             assert_eq!(
+//                 unpack.statements[0],
+//                 FlatStatement::Directive(FlatDirective::new(
+//                     (0..FieldPrime::get_required_bits())
+//                         .map(|i| FlatVariable::new(i + 1))
+//                         .collect(),
+//                     Solver::bits(),
+//                     vec![FlatVariable::new(0)]
+//                 ))
+//             );
+//             assert_eq!(
+//                 *unpack.statements.last().unwrap(),
+//                 FlatStatement::Return(FlatExpressionList {
+//                     expressions: (0..FieldPrime::get_required_bits())
+//                         .map(|i| FlatExpression::Identifier(FlatVariable::new(i + 1)))
+//                         .collect()
+//                 })
+//             );
+//         }
+//     }
 
-    #[cfg(test)]
-    mod sha256 {
-        use super::*;
+//     #[cfg(test)]
+//     mod sha256 {
+//         use super::*;
 
-        #[test]
-        fn generate_sha256_constraints() {
-            let compiled = sha256_round::<FieldPrime>();
+//         #[test]
+//         fn generate_sha256_constraints() {
+//             let compiled = sha256_round::<FieldPrime>();
 
-            // // function should have 2 inputs
-            // assert_eq!(compiled.arguments.len(), 2);
+//             // function should have 2 inputs
+//             assert_eq!(compiled.arguments.len(), 2);
 
-            // // function should return 1 values
-            // assert_eq!(
-            //     compiled
-            //         .statements
-            //         .iter()
-            //         .filter_map(|s| match s {
-            //             TypedStatement::Return(v) => Some(v),
-            //             _ => None,
-            //         })
-            //         .next()
-            //         .unwrap()
-            //         .len(),
-            //     1,
-            // );
+//             // function should return 1 values
+//             assert_eq!(
+//                 compiled
+//                     .statements
+//                     .iter()
+//                     .filter_map(|s| match s {
+//                         TypedStatement::Return(v) => Some(v),
+//                         _ => None,
+//                     })
+//                     .next()
+//                     .unwrap()
+//                     .len(),
+//                 1,
+//             );
 
-            // // directive should take 768 inputs and return n_var outputs
-            // let directive = compiled
-            //     .statements
-            //     .iter()
-            //     .filter_map(|s| match s {
-            //         TypedStatement::Directive(d) => Some(d.clone()),
-            //         _ => None,
-            //     })
-            //     .next()
-            //     .unwrap();
-            // assert_eq!(directive.inputs.len(), 1);
-            // assert_eq!(directive.outputs.len(), 1);
-            // // function input should be offset by variable_count
-            // assert_eq!(
-            //     compiled.arguments[0].id,
-            //     FlatVariable::new(directive.outputs.len() + 1)
-            // );
+//             // directive should take 768 inputs and return n_var outputs
+//             let directive = compiled
+//                 .statements
+//                 .iter()
+//                 .filter_map(|s| match s {
+//                     TypedStatement::Directive(d) => Some(d.clone()),
+//                     _ => None,
+//                 })
+//                 .next()
+//                 .unwrap();
+//             assert_eq!(directive.inputs.len(), 1);
+//             assert_eq!(directive.outputs.len(), 1);
+//             // function input should be offset by variable_count
+//             assert_eq!(
+//                 compiled.arguments[0].id,
+//                 FlatVariable::new(directive.outputs.len() + 1)
+//             );
 
-            // // bellman variable #0: index 0 should equal 1
-            // assert_eq!(
-            //     compiled.statements[1],
-            //     FlatStatement::Condition(
-            //         FlatVariable::new(0).into(),
-            //         FlatExpression::Number(FieldPrime::from(1))
-            //     )
-            // );
+//             // bellman variable #0: index 0 should equal 1
+//             assert_eq!(
+//                 compiled.statements[1],
+//                 FlatStatement::Condition(
+//                     FlatVariable::new(0).into(),
+//                     FlatExpression::Number(FieldPrime::from(1))
+//                 )
+//             );
 
-            // // bellman input #0: index 1 should equal zokrates input #0: index v_count
-            // assert_eq!(
-            //     compiled.statements[2],
-            //     FlatStatement::Condition(
-            //         FlatVariable::new(1).into(),
-            //         FlatVariable::new(26936).into()
-            //     )
-            // );
+//             // bellman input #0: index 1 should equal zokrates input #0: index v_count
+//             assert_eq!(
+//                 compiled.statements[2],
+//                 FlatStatement::Condition(
+//                     FlatVariable::new(1).into(),
+//                     FlatVariable::new(26936).into()
+//                 )
+//             );
 
-            // let f = crate::ir::Function::from(compiled);
-            // let prog = crate::ir::Prog {
-            //     main: f,
-            //     private: vec![true; 768],
-            // };
+//             let f = crate::ir::Function::from(compiled);
+//             let prog = crate::ir::Prog {
+//                 main: f,
+//                 private: vec![true; 768],
+//             };
 
-            // let input = (0..512)
-            //     .map(|_| FieldPrime::from(0))
-            //     .chain((0..256).map(|_| FieldPrime::from(1)))
-            //     .collect();
+//             let input = (0..512)
+//                 .map(|_| FieldPrime::from(0))
+//                 .chain((0..256).map(|_| FieldPrime::from(1)))
+//                 .collect();
 
-            // prog.execute(&input).unwrap();
-        }
-    }
-}
+//             prog.execute(&input).unwrap();
+//         }
+//     }
+// }
