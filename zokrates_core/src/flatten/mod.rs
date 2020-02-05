@@ -105,6 +105,7 @@ impl<'ast, T: Field> Flatten<'ast, T> for ArrayExpression<'ast, T> {
 
 impl<'ast, T: Field> Flattener<'ast, T> {
     pub fn flatten(p: TypedProgram<'ast, T>) -> FlatProg<T> {
+        println!("{}", p);
         Flattener::new().flatten_program(p)
     }
 
@@ -1400,7 +1401,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 }
             }
             TypedStatement::For(..) => unreachable!("static analyser should have unrolled"),
-            TypedStatement::MultipleDefinition(vars, rhs) => unreachable!(),
+            TypedStatement::MultipleDefinition(..) => unreachable!(),
         }
     }
 
@@ -1466,14 +1467,20 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
-    /// Checks if the given name is a not used variable and returns a fresh variable.
+    /// Checks if the given name is a not used variable and returns a fresh variables.
     /// # Arguments
     ///
-    /// * `name` - a String that holds the name of the variable
+    /// * `variable` - the variable to be registered
     fn use_variable(&mut self, variable: &Variable<'ast>) -> Vec<FlatVariable> {
         let vars = self.issue_new_variables(variable.get_type().get_primitive_count());
 
-        self.layout.insert(variable.id.clone(), vars.clone());
+        assert!(
+            self.layout
+                .insert(variable.id.clone(), vars.clone())
+                .is_none(),
+            "{} is already defined",
+            variable.id
+        );
         vars
     }
 
@@ -1511,6 +1518,14 @@ mod tests {
     use crate::typed_absy::types::Signature;
     use crate::typed_absy::types::Type;
     use zokrates_field::field::FieldPrime;
+
+    #[test]
+    #[should_panic]
+    fn duplicate_usage() {
+        let mut flattener: Flattener<FieldPrime> = Flattener::new();
+        flattener.use_variable(&Variable::field_element("".into()));
+        flattener.use_variable(&Variable::boolean("".into()));
+    }
 
     #[test]
     fn powers_zero() {
