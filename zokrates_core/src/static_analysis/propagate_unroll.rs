@@ -16,53 +16,45 @@
 //! - apply constant propagation to the program, *not visiting statements of loops whose bounds are not constant yet*
 //! - unroll again, this time the 5 inner loops all have constant bounds
 //!
-//! In the case that a loop bound cannot be reduced to a constant, we rely on a maximum number of passes after which we conclude that a bound is not constant
-//! This sets a hard limit on the number of loops with variable bounds in the program
-//!
-//! @file propagation.rs
-//! @author Thibaut Schaeffer <thibaut@schaeff.fr>
-//! @date 2018
+//! In the case that a loop bound cannot be reduced to a constant, we detect it by noticing that the unroll does
+//! not make progress anymore.
 
 use static_analysis::propagation::Propagator;
-use static_analysis::unroll::Unroller;
+use static_analysis::unroll::{Output, Unroller};
 use typed_absy::TypedProgram;
 use zokrates_field::field::Field;
 
 pub struct PropagatedUnroller;
 
-const MAX_DEPTH: usize = 100;
-
 impl PropagatedUnroller {
-    pub fn unroll<'ast, T: Field>(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
-        let mut p = p;
-        let mut count = 0;
+    pub fn unroll<'ast, T: Field>(
+        p: TypedProgram<'ast, T>,
+    ) -> Result<TypedProgram<'ast, T>, &'static str> {
+        let mut blocked_at = None;
 
         // unroll a first time, retrieving whether the unroll is complete
-        let unrolled = Unroller::unroll(p);
-        let mut complete = unrolled.1;
-        p = unrolled.0;
+        let mut unrolled = Unroller::unroll(p);
 
         loop {
             // conditions to exit the loop
-            if complete {
-                break;
-            }
-            if count > MAX_DEPTH {
-                panic!("Loop unrolling failed. Most likely this happened because a loop bound is not constant")
-            }
+            unrolled = match unrolled {
+                Output::Complete(p) => return Ok(p),
+                Output::Incomplete(next, index) => {
+                    if Some(index) == blocked_at {
+                        return Err("Loop unrolling failed. This happened because a loop bound is not constant");
+                    } else {
+                        // update the index where we blocked
+                        blocked_at = Some(index);
 
-            // propagate
-            p = Propagator::propagate_verbose(p);
+                        // propagate
+                        let propagated = Propagator::propagate_verbose(next);
 
-            // unroll
-            let unrolled = Unroller::unroll(p);
-            complete = unrolled.1;
-            p = unrolled.0;
-
-            count = count + 1;
+                        // unroll
+                        Unroller::unroll(propagated)
+                    }
+                }
+            };
         }
-
-        p
     }
 }
 
@@ -72,6 +64,41 @@ mod tests {
     use typed_absy::types::{FunctionKey, Signature};
     use typed_absy::*;
     use zokrates_field::field::FieldPrime;
+
+    #[test]
+    fn detect_non_constant_bound() {
+        let loops = vec![TypedStatement::For(
+            Variable::field_element("i".into()),
+            FieldElementExpression::Identifier("i".into()),
+            FieldElementExpression::Number(FieldPrime::from(2)),
+            vec![],
+        )];
+
+        let statements = loops;
+
+        let p = TypedProgram {
+            modules: vec![(
+                "main".to_string(),
+                TypedModule {
+                    functions: vec![(
+                        FunctionKey::with_id("main"),
+                        TypedFunctionSymbol::Here(TypedFunction {
+                            arguments: vec![],
+                            signature: Signature::new(),
+                            statements,
+                        }),
+                    )]
+                    .into_iter()
+                    .collect(),
+                },
+            )]
+            .into_iter()
+            .collect(),
+            main: "main".to_string(),
+        };
+
+        assert!(PropagatedUnroller::unroll(p).is_err());
+    }
 
     #[test]
     fn for_loop() {
@@ -195,7 +222,7 @@ mod tests {
             main: "main".to_string(),
         };
 
-        let statements = match PropagatedUnroller::unroll(p).modules["main"].functions
+        let statements = match PropagatedUnroller::unroll(p).unwrap().modules["main"].functions
             [&FunctionKey::with_id("main")]
             .clone()
         {

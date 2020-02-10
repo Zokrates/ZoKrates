@@ -11,11 +11,17 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use zokrates_field::field::Field;
 
+pub enum Output<'ast, T: Field> {
+    Complete(TypedProgram<'ast, T>),
+    Incomplete(TypedProgram<'ast, T>, usize),
+}
+
 pub struct Unroller<'ast> {
     // version index for any variable name
     substitution: HashMap<&'ast str, usize>,
     // whether all statements could be unrolled so far. Loops with variable bounds cannot.
     complete: bool,
+    statement_count: usize,
 }
 
 impl<'ast> Unroller<'ast> {
@@ -23,6 +29,7 @@ impl<'ast> Unroller<'ast> {
         Unroller {
             substitution: HashMap::new(),
             complete: true,
+            statement_count: 0,
         }
     }
 
@@ -46,10 +53,14 @@ impl<'ast> Unroller<'ast> {
         res
     }
 
-    pub fn unroll<T: Field>(p: TypedProgram<T>) -> (TypedProgram<T>, bool) {
+    pub fn unroll<T: Field>(p: TypedProgram<T>) -> Output<T> {
         let mut unroller = Unroller::new();
         let p = unroller.fold_program(p);
-        (p, unroller.complete)
+
+        match unroller.complete {
+            true => Output::Complete(p),
+            false => Output::Incomplete(p, unroller.statement_count),
+        }
     }
 
     fn choose_many<T: Field>(
@@ -329,6 +340,7 @@ fn linear<'ast, T: Field>(a: TypedAssignee<'ast, T>) -> (Variable, Vec<Access<'a
 
 impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
+        self.statement_count += 1;
         match s {
             TypedStatement::Declaration(_) => vec![],
             TypedStatement::Definition(assignee, expr) => {

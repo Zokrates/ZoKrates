@@ -12,7 +12,7 @@ use zokrates_field::field::Field;
 
 /// A low level function that contains non-deterministic introduction of variables. It is carried as is until
 /// the flattening step when it can be inlined.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum FlatEmbed {
     Sha256Round,
     Unpack,
