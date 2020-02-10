@@ -26,7 +26,7 @@ pub trait Analyse {
 impl<'ast, T: Field> Analyse for TypedProgram<'ast, T> {
     fn analyse(self) -> Self {
         // propagated unrolling
-        let r = PropagatedUnroller::unroll(self).unwrap();
+        let r = PropagatedUnroller::unroll(self).unwrap_or_else(|e| panic!(e));
         // inline
         let r = Inliner::inline(r);
         // propagate
