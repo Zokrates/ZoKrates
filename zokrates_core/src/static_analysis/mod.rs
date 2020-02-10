@@ -12,6 +12,7 @@ mod propagation;
 mod unroll;
 
 use self::constrain_inputs::InputConstrainer;
+use self::inline::Inliner;
 use self::propagate_unroll::PropagatedUnroller;
 use self::propagation::Propagator;
 use crate::flat_absy::FlatProg;
@@ -26,6 +27,8 @@ impl<'ast, T: Field> Analyse for TypedProgram<'ast, T> {
     fn analyse(self) -> Self {
         // propagated unrolling
         let r = PropagatedUnroller::unroll(self).unwrap_or_else(|e| panic!(e));
+        // inline
+        let r = Inliner::inline(r);
         // propagate
         let r = Propagator::propagate(r);
         // constrain inputs
