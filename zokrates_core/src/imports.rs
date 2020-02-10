@@ -172,8 +172,9 @@ impl Importer {
                 }
             } else {
                 // to resolve imports, we need a resolver
+                let folder = std::path::PathBuf::from(location.clone()).parent().unwrap().to_path_buf().into_os_string().into_string().unwrap();
                 match resolve_option {
-                    Some(resolve) => match resolve(location.clone(), import.source.to_string()) {
+                    Some(resolve) => match resolve(folder, import.source.to_string()) {
                         Ok((source, location)) => {
                             let source = arena.alloc(source);
 

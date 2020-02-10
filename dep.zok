@@ -1,0 +1,3 @@
+def foo() -> ():
+	field a = true
+	return

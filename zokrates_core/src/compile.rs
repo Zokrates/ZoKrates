@@ -61,7 +61,7 @@ impl fmt::Display for CompileErrors {
 pub enum CompileErrorInner {
     ParserError(pest::Error),
     ImportError(imports::Error),
-    SemanticError(semantics::Error),
+    SemanticError(semantics::ErrorInner),
     ReadError(io::Error),
 }
 
@@ -118,9 +118,12 @@ impl From<io::Error> for CompileErrorInner {
     }
 }
 
-impl From<semantics::Error> for CompileErrorInner {
+impl From<semantics::Error> for CompileError {
     fn from(error: semantics::Error) -> Self {
-        CompileErrorInner::SemanticError(error)
+        CompileError {
+            value: CompileErrorInner::SemanticError(error.inner),
+            context: error.module_id
+        }
     }
 }
 
@@ -143,6 +146,7 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     location: String,
     resolve_option: Option<Resolve<E>>,
 ) -> Result<CompilationArtifacts<T>, CompileErrors> {
+
     let arena = Arena::new();
 
     let source = arena.alloc(source);
@@ -153,7 +157,7 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
         CompileErrors(
             errors
                 .into_iter()
-                .map(|e| CompileErrorInner::from(e).with_context(&location))
+                .map(|e| CompileError::from(e))
                 .collect(),
         )
     })?;
