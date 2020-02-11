@@ -136,6 +136,10 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                 ))
             }
         };
+
+        // In verbose mode, we always return a statement
+        assert!(res.is_some() || !self.verbose);
+
         match res {
             Some(v) => vec![v],
             None => vec![],
