@@ -845,6 +845,37 @@ impl<'ast> Checker<'ast> {
 
                 let var = self.check_variable(var, module_id, types).unwrap();
 
+                let from = self
+                    .check_expression(from, module_id, &types)
+                    .map_err(|e| vec![e])?;
+                let to = self
+                    .check_expression(to, module_id, &types)
+                    .map_err(|e| vec![e])?;
+
+                let from = match from {
+                    TypedExpression::FieldElement(e) => Ok(e),
+                    e => Err(Error {
+                        pos: Some(pos),
+                        message: format!(
+                            "Expected lower loop bound to be of type field, found {}",
+                            e.get_type()
+                        ),
+                    }),
+                }
+                .map_err(|e| vec![e])?;
+
+                let to = match to {
+                    TypedExpression::FieldElement(e) => Ok(e),
+                    e => Err(Error {
+                        pos: Some(pos),
+                        message: format!(
+                            "Expected higher loop bound to be of type field, found {}",
+                            e.get_type()
+                        ),
+                    }),
+                }
+                .map_err(|e| vec![e])?;
+
                 self.insert_into_scope(var.clone());
 
                 let mut checked_statements = vec![];
@@ -2643,8 +2674,8 @@ mod tests {
         let foo_statements = vec![
             Statement::For(
                 absy::Variable::new("i", UnresolvedType::FieldElement.mock()).mock(),
-                FieldPrime::from(0),
-                FieldPrime::from(10),
+                Expression::FieldConstant(FieldPrime::from(0)).mock(),
+                Expression::FieldConstant(FieldPrime::from(10)).mock(),
                 vec![],
             )
             .mock(),
@@ -2701,8 +2732,8 @@ mod tests {
 
         let foo_statements = vec![Statement::For(
             absy::Variable::new("i", UnresolvedType::FieldElement.mock()).mock(),
-            FieldPrime::from(0),
-            FieldPrime::from(10),
+            Expression::FieldConstant(FieldPrime::from(0)).mock(),
+            Expression::FieldConstant(FieldPrime::from(10)).mock(),
             for_statements,
         )
         .mock()];
@@ -2717,8 +2748,8 @@ mod tests {
 
         let foo_statements_checked = vec![TypedStatement::For(
             typed_absy::Variable::field_element("i".into()),
-            FieldPrime::from(0),
-            FieldPrime::from(10),
+            FieldElementExpression::Number(FieldPrime::from(0)),
+            FieldElementExpression::Number(FieldPrime::from(10)),
             for_statements_checked,
         )];
 
