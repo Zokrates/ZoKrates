@@ -3,5 +3,5 @@ def main(field a, field b) -> (field):
     field y = if a + 2 == 4 || b * 2 == 2 then 1 else 0 fi
     field z = if y == 1 || y == 0 then y else 1 fi
     z == 1
-    return z 
+    return z
 

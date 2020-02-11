@@ -29,7 +29,7 @@ cargo +nightly -Z package-features build --release --package zokrates_cli --feat
 
 ## G16 malleability
 
-When using G16, developers should pay attention to the fact that an attacker seeing a valid proof can very easily generate a different but still valid proof. Therefore, depending on the use case, making sure on chain that the same proof cannot be submitted twice may *not* be enough to guarantee that attackers cannot replay proofs. Mechanisms to solve this issue include:
+When using G16, developers should pay attention to the fact that an attacker, seeing a valid proof, can very easily generate a different but still valid proof. Therefore, depending on the use case, making sure on chain that the same proof cannot be submitted twice may *not* be enough to guarantee that attackers cannot replay proofs. Mechanisms to solve this issue include:
 - signed proofs
 - nullifiers
 - usage of an ethereum address as a public input to the program

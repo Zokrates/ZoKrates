@@ -12,7 +12,7 @@ import "ecc/edwardsCompress" as edwardsCompress
 // #%%
 // entropy = np.random.bytes(64)
 // hasher = PedersenHasher("test")
-// print(hasher.dsl_code) 
+// print(hasher.dsl_code)
 
 // 512bit to 256bit Pedersen hash using compression of the field elements
 def main(field[512] e) -> (field[256]):

@@ -13,10 +13,10 @@ You can see an overview of the available subcommands by running
 ./zokrates compile -i /path/to/add.zok
 ```
 
-Compiles a `.zok` source code file into ZoKrates internal representation of arithmetic circuits. 
+Compiles a `.zok` source code file into ZoKrates internal representation of arithmetic circuits.
 
 Creates a compiled binary file at `./out`.
-Unless the `--light` flag is set, a human readable `.ztf` file is generated, which displays the compilation output in ZoKrates Text Format.
+Unless the `--light` flag is set, a human-readable `.ztf` file is generated, which displays the compilation output in ZoKrates Text Format.
 
 ## `compute-witness`
 
@@ -24,9 +24,9 @@ Unless the `--light` flag is set, a human readable `.ztf` file is generated, whi
 ./zokrates compute-witness -a 1 2 3
 ```
 
-Computes a witness for the compiled program found at `./out` and arguments to the program.
-A witness is a valid assignment of the variables, which include the results of the computation.
-Arguments to the program are passed as a space-separated list with the `-a` flag, or over `stdin`.
+Computes a witness for the compiled program found at `./out` and computes arguments of the program.
+A witness is a valid assignment of the variables, including the results of the computation.
+Arguments of the program are passed as a space-separated list with the `-a` flag, or over `stdin`.
 
 Creates a witness file at `./witness`
 
@@ -47,7 +47,7 @@ These keys are derived from a source of randomness, commonly referred to as "tox
 ./zokrates export-verifier
 ```
 
-Using the verifying key at `./verifying.key`, generates a Solidity contract which contains the generated verification key and a public function to verify a solution to the compiled program at `./out`.
+Using the verifying key at `./verifying.key`, generates a Solidity contract that contains the generated verification key and a public function to verify a solution to the compiled program at `./out`.
 
 Creates a verifier contract at `./verifier.sol`.
 

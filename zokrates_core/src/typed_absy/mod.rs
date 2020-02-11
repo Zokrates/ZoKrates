@@ -12,10 +12,10 @@ pub mod types;
 mod variable;
 
 pub use crate::typed_absy::parameter::Parameter;
-pub use crate::typed_absy::types::Type;
+pub use crate::typed_absy::types::{Signature, Type};
 pub use crate::typed_absy::variable::Variable;
 
-use crate::typed_absy::types::{FunctionKey, MemberId, Signature};
+use crate::typed_absy::types::{FunctionKey, MemberId};
 use embed::FlatEmbed;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -684,7 +684,7 @@ pub enum BooleanExpression<'ast, T: Field> {
 
 /// An expression of type `array`
 /// # Remarks
-/// * Contrary to basic types which represented as enums, we wrap an enum `ArrayExpressionInner` in a struct in order to keep track of the type (content and size)
+/// * Contrary to basic types which are represented as enums, we wrap an enum `ArrayExpressionInner` in a struct in order to keep track of the type (content and size)
 /// of the array. Only using an enum would require generics, which would propagate up to TypedExpression which we want to keep simple, hence this "runtime"
 /// type checking
 #[derive(Clone, PartialEq, Hash, Eq)]
@@ -1055,7 +1055,7 @@ impl<'ast, T: Field> fmt::Debug for TypedExpressionList<'ast, T> {
     }
 }
 
-// Common behaviour accross expressions
+// Common behaviour across expressions
 
 pub trait IfElse<'ast, T: Field> {
     fn if_else(condition: BooleanExpression<'ast, T>, consequence: Self, alternative: Self)

@@ -57,6 +57,26 @@ jobs:
       # - run:
       #     name: Generate code coverage report
       #     command: ./scripts/cov.sh
+  wasm_test:
+    docker:
+      - image: rustlang/rust:nightly-slim
+    steps:
+      - checkout
+      - run:
+          name: Version information
+          command: rustc --version; cargo --version; rustup --version
+      - run:
+          name: Calculate dependencies
+          command: cargo generate-lockfile
+      - restore_cache:
+          keys:
+            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - run:
+          name: Install wasm testing env
+          command: ./scripts/install_wasm_testing.sh
+      - run:
+          name: Test on firefox
+          command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ cd zokrates_core && wasm-pack test --firefox --headless -- --features wasm 
   integration_test:
     docker:
       - image: rustlang/rust:nightly-slim
@@ -84,7 +104,7 @@ jobs:
           command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./full_test.sh
   deploy:
     docker:
-      - image: circleci/python
+      - image: circleci/python:latest-node
     steps:
       - checkout
       - setup_remote_docker:
@@ -92,14 +112,31 @@ jobs:
       - run:
           name: Release
           command: ./scripts/release.sh
-
+  zokrates_js_build:
+    docker:
+      - image: dark64/rust-wasm-env:latest
+    steps:
+      - checkout
+      - run:
+          name: Build
+          command: cd zokrates_js && npm run build
+  zokrates_js_test:
+    docker:
+      - image: circleci/node
+    steps:
+      - checkout
+      - run:
+          command: cd zokrates_js && npm run test
 workflows:
   version: 2
   build-test-and-deploy:
     jobs:
       - build
       - test
+      - wasm_test
       - integration_test
+      - zokrates_js_build
+      - zokrates_js_test
       - deploy:
           filters:
             branches:
@@ -108,6 +145,7 @@ workflows:
           requires:
             - build
             - test
+            - wasm_test
             - integration_test
-
-
+            - zokrates_js_build
+            - zokrates_js_test

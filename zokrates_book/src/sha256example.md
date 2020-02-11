@@ -23,7 +23,7 @@ The first line imports the `sha256packed` function from the ZoKrates standard li
 
 `sha256packed` is a SHA256 implementation that is optimized for the use in the ZoKrates DSL. Here is how it works: We want to pass 512 bits of input to SHA256. However, a `field` value can only hold 254 bits due to the size of the underlying prime field we are using. As a consequence, we use four field elements, each one encoding 128 bits, to represent our input. The four elements are then concatenated in ZoKrates and passed to SHA256. Given that the resulting hash is 256 bit long, we split it in two and return each value as a 128 bit number.
 
-In case you are interested in an example that is fully compliant with existing SHA256 implementations in Python or Solidity you can have a look at this [blog](https://blog.decentriq.ch/proving-hash-pre-image-zksnarks-zokrates) post.
+In case you are interested in an example that is fully compliant with existing SHA256 implementations in Python or Solidity, you can have a look at this [blog](https://blog.decentriq.ch/proving-hash-pre-image-zksnarks-zokrates) post.
 
 Our code is really just using the `sha256packed`, returning the computed hash.
 
@@ -104,7 +104,7 @@ Finally, Peggy can run the command to construct the proof:
 ./zokrates generate-proof
 ```
 
-As the inputs were declared as private in the program, they do not appear in the proof thanks to the zero knowledge property of the protocol.
+As the inputs were declared as private in the program, they do not appear in the proof thanks to the zero-knowledge property of the protocol.
 
 ZoKrates creates a file, `proof.json`,  consisting of the three elliptic curve points that make up the zkSNARKs proof. The `verifyTx` function in the smart contract deployed by Victor accepts these three values, along with an array of public inputs. The array of public inputs consists of:
 

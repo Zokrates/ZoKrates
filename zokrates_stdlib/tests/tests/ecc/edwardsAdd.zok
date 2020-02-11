@@ -1,9 +1,9 @@
 import "ecc/edwardsAdd" as add
-import "ecc/edwardsNegate" as neg 
+import "ecc/edwardsNegate" as neg
 import "ecc/babyjubjubParams" as context
 
 // Code to create test cases:
-// https://github.com/Zokrates/pycrypto 
+// https://github.com/Zokrates/pycrypto
 def testDoubleViaAdd() -> (field):
 	context = context()
 	field[2] G = [context[4], context[5]]

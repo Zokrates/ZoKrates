@@ -3,62 +3,64 @@ use crate::proof_system::bn128::utils::bellman::Computation;
 use crate::proof_system::bn128::utils::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
-use crate::proof_system::ProofSystem;
+use crate::proof_system::{ProofSystem, SetupKeypair};
 use bellman::groth16::Parameters;
 use regex::Regex;
-use std::fs::File;
-use std::io::{BufRead, BufReader, Write};
-use std::path::PathBuf;
+
+use std::io::{Cursor, Read};
 use zokrates_field::field::FieldPrime;
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/reference/proving_schemes.html#g16-malleability for implications.";
 
 pub struct G16 {}
-impl ProofSystem for G16 {
-    fn setup(&self, program: ir::Prog<FieldPrime>, pk_path: &str, vk_path: &str) {
-        std::env::set_var("BELLMAN_VERBOSE", "0");
 
+impl G16 {
+    pub fn new() -> G16 {
+        G16 {}
+    }
+}
+
+impl ProofSystem for G16 {
+    fn setup(&self, program: ir::Prog<FieldPrime>) -> SetupKeypair {
+        #[cfg(not(target_arch = "wasm32"))]
+        std::env::set_var("BELLMAN_VERBOSE", "0");
         println!("{}", G16_WARNING);
 
         let parameters = Computation::without_witness(program).setup();
-        let parameters_file = File::create(PathBuf::from(pk_path)).unwrap();
-        parameters.write(parameters_file).unwrap();
-        let mut vk_file = File::create(PathBuf::from(vk_path)).unwrap();
-        vk_file
-            .write(serialize::serialize_vk(parameters.vk).as_ref())
-            .unwrap();
+        let mut cursor = Cursor::new(Vec::new());
+
+        parameters.write(&mut cursor).unwrap();
+        cursor.set_position(0);
+
+        let vk: String = serialize::serialize_vk(parameters.vk);
+        let mut pk: Vec<u8> = Vec::new();
+        cursor
+            .read_to_end(&mut pk)
+            .expect("Could not read cursor buffer");
+
+        SetupKeypair::from(vk, pk)
     }
 
     fn generate_proof(
         &self,
         program: ir::Prog<FieldPrime>,
         witness: ir::Witness<FieldPrime>,
-        pk_path: &str,
-        proof_path: &str,
-    ) -> bool {
+        proving_key: Vec<u8>,
+    ) -> String {
+        #[cfg(not(target_arch = "wasm32"))]
         std::env::set_var("BELLMAN_VERBOSE", "0");
 
         println!("{}", G16_WARNING);
 
         let computation = Computation::with_witness(program, witness);
-        let parameters_file = File::open(PathBuf::from(pk_path)).unwrap();
-
-        let params = Parameters::read(parameters_file, true).unwrap();
+        let params = Parameters::read(proving_key.as_slice(), true).unwrap();
 
         let proof = computation.clone().prove(&params);
-
-        let mut proof_file = File::create(PathBuf::from(proof_path)).unwrap();
-        write!(
-            proof_file,
-            "{}",
-            serialize::serialize_proof(&proof, &computation.public_inputs_values())
-        )
-        .unwrap();
-        true
+        serialize::serialize_proof(&proof, &computation.public_inputs_values())
     }
 
-    fn export_solidity_verifier(&self, reader: BufReader<File>, is_abiv2: bool) -> String {
-        let mut lines = reader.lines();
+    fn export_solidity_verifier(&self, vk: String, is_abiv2: bool) -> String {
+        let mut lines = vk.lines();
 
         let (mut template_text, solidity_pairing_lib) = if is_abiv2 {
             (
@@ -83,10 +85,9 @@ impl ProofSystem for G16 {
         let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
 
         for _ in 0..4 {
-            let current_line: String = lines
+            let current_line: &str = lines
                 .next()
-                .expect("Unexpected end of file in verification key!")
-                .unwrap();
+                .expect("Unexpected end of file in verification key!");
             let current_line_split: Vec<&str> = current_line.split("=").collect();
             assert_eq!(current_line_split.len(), 2);
             template_text = vk_regex
@@ -94,10 +95,9 @@ impl ProofSystem for G16 {
                 .into_owned();
         }
 
-        let current_line: String = lines
+        let current_line: &str = lines
             .next()
-            .expect("Unexpected end of file in verification key!")
-            .unwrap();
+            .expect("Unexpected end of file in verification key!");
         let current_line_split: Vec<&str> = current_line.split("=").collect();
         assert_eq!(current_line_split.len(), 2);
         let gamma_abc_count: i32 = current_line_split[1].trim().parse().unwrap();
@@ -118,10 +118,9 @@ impl ProofSystem for G16 {
         let mut gamma_abc_repeat_text = String::new();
         for x in 0..gamma_abc_count {
             let mut curr_template = gamma_abc_template.clone();
-            let current_line: String = lines
+            let current_line: &str = lines
                 .next()
-                .expect("Unexpected end of file in verification key!")
-                .unwrap();
+                .expect("Unexpected end of file in verification key!");
             let current_line_split: Vec<&str> = current_line.split("=").collect();
             assert_eq!(current_line_split.len(), 2);
             curr_template = vk_gamma_abc_index_regex

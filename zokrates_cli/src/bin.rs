@@ -136,7 +136,8 @@ fn cli() -> Result<(), String> {
         ).arg(Arg::with_name("proving-scheme")
             .short("s")
             .long("proving-scheme")
-            .help("Proving scheme to use to export the verifier. Available options are G16, PGHR13 and GM17")
+            .help("Proving scheme to use for exporting the verifier. Available options are G16 (default), PGHR13 and GM17")
+            .value_name("FILE")
             .takes_value(true)
             .required(false)
             .default_value(&default_scheme)
@@ -235,7 +236,8 @@ fn cli() -> Result<(), String> {
         ).arg(Arg::with_name("proving-scheme")
             .short("s")
             .long("proving-scheme")
-            .help("Proving scheme to use to generate the proof. Available options are G16, PGHR13 and GM17")
+            .help("Proving scheme to use for generating the proof. Available options are G16 (default), PGHR13 and GM17")
+            .value_name("FILE")
             .takes_value(true)
             .required(false)
             .default_value(&default_scheme)
@@ -288,9 +290,13 @@ fn cli() -> Result<(), String> {
             let file = File::open(path.clone()).unwrap();
 
             let mut reader = BufReader::new(file);
+            let mut source = String::new();
+            reader
+                .read_to_string(&mut source)
+                .map_err(|why| format!("couldn't open input file {}: {}", path.display(), why))?;
 
             let artifacts: CompilationArtifacts<FieldPrime> =
-                compile(&mut reader, Some(location), Some(fs_resolve))
+                compile(source, location, Some(&fs_resolve))
                     .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
 
             let program_flattened = artifacts.prog();
@@ -484,11 +490,27 @@ fn cli() -> Result<(), String> {
             }
 
             // get paths for proving and verification keys
-            let pk_path = sub_matches.value_of("proving-key-path").unwrap();
-            let vk_path = sub_matches.value_of("verification-key-path").unwrap();
+            let pk_path = Path::new(sub_matches.value_of("proving-key-path").unwrap());
+            let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
 
             // run setup phase
-            scheme.setup(program, pk_path, vk_path);
+            let keypair = scheme.setup(program);
+
+            // write verification key
+            let mut vk_file = File::create(vk_path)
+                .map_err(|why| format!("couldn't create {}: {}", vk_path.display(), why))?;
+            vk_file
+                .write(keypair.vk.as_ref())
+                .map_err(|why| format!("couldn't write to {}: {}", vk_path.display(), why))?;
+
+            // write proving key
+            let mut pk_file = File::create(pk_path)
+                .map_err(|why| format!("couldn't create {}: {}", pk_path.display(), why))?;
+            pk_file
+                .write(keypair.pk.as_ref())
+                .map_err(|why| format!("couldn't write to {}: {}", pk_path.display(), why))?;
+
+            println!("Setup completed.");
         }
         ("export-verifier", Some(sub_matches)) => {
             {
@@ -501,9 +523,14 @@ fn cli() -> Result<(), String> {
                 let input_path = Path::new(sub_matches.value_of("input").unwrap());
                 let input_file = File::open(&input_path)
                     .map_err(|why| format!("couldn't open {}: {}", input_path.display(), why))?;
-                let reader = BufReader::new(input_file);
+                let mut reader = BufReader::new(input_file);
 
-                let verifier = scheme.export_solidity_verifier(reader, is_abiv2);
+                let mut vk = String::new();
+                reader
+                    .read_to_string(&mut vk)
+                    .map_err(|why| format!("couldn't read {}: {}", input_path.display(), why))?;
+
+                let verifier = scheme.export_solidity_verifier(vk, is_abiv2);
 
                 //write output file
                 let output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -533,8 +560,8 @@ fn cli() -> Result<(), String> {
             let witness = ir::Witness::read(witness_file)
                 .map_err(|why| format!("could not load witness: {:?}", why))?;
 
-            let pk_path = sub_matches.value_of("provingkey").unwrap();
-            let proof_path = sub_matches.value_of("proofpath").unwrap();
+            let pk_path = Path::new(sub_matches.value_of("provingkey").unwrap());
+            let proof_path = Path::new(sub_matches.value_of("proofpath").unwrap());
 
             let program_path = Path::new(sub_matches.value_of("input").unwrap());
             let program_file = File::open(&program_path)
@@ -545,10 +572,23 @@ fn cli() -> Result<(), String> {
             let program: ir::Prog<FieldPrime> =
                 deserialize_from(&mut reader, Infinite).map_err(|why| format!("{:?}", why))?;
 
-            println!(
-                "generate-proof successful: {:?}",
-                scheme.generate_proof(program, witness, pk_path, proof_path)
-            );
+            let pk_file = File::open(&pk_path)
+                .map_err(|why| format!("couldn't open {}: {}", pk_path.display(), why))?;
+
+            let mut pk: Vec<u8> = Vec::new();
+            let mut pk_reader = BufReader::new(pk_file);
+            pk_reader
+                .read_to_end(&mut pk)
+                .map_err(|why| format!("couldn't read {}: {}", pk_path.display(), why))?;
+
+            let proof = scheme.generate_proof(program, witness, pk);
+            let mut proof_file = File::create(proof_path).unwrap();
+
+            proof_file
+                .write(proof.as_ref())
+                .map_err(|why| format!("couldn't write to {}: {}", proof_path.display(), why))?;
+
+            println!("generate-proof successful: {}", format!("{}", proof));
         }
         ("print-proof", Some(sub_matches)) => {
             let format = sub_matches.value_of("format").unwrap();
@@ -634,8 +674,11 @@ mod tests {
                 .into_string()
                 .unwrap();
 
+            let mut source = String::new();
+            reader.read_to_string(&mut source).unwrap();
+
             let _: CompilationArtifacts<FieldPrime> =
-                compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
+                compile(source, location, Some(&fs_resolve)).unwrap();
         }
     }
 
@@ -660,9 +703,11 @@ mod tests {
                 .unwrap();
 
             let mut reader = BufReader::new(file);
+            let mut source = String::new();
+            reader.read_to_string(&mut source).unwrap();
 
             let artifacts: CompilationArtifacts<FieldPrime> =
-                compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
+                compile(source, location, Some(&fs_resolve)).unwrap();
 
             let _ = artifacts
                 .prog()
@@ -693,9 +738,11 @@ mod tests {
                 .unwrap();
 
             let mut reader = BufReader::new(file);
+            let mut source = String::new();
+            reader.read_to_string(&mut source).unwrap();
 
             let artifacts: CompilationArtifacts<FieldPrime> =
-                compile(&mut reader, Some(location), Some(fs_resolve)).unwrap();
+                compile(source, location, Some(&fs_resolve)).unwrap();
 
             let _ = artifacts
                 .prog()

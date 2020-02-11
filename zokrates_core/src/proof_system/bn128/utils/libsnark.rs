@@ -2,10 +2,9 @@ use flat_absy::FlatVariable;
 use ir::{self, Statement};
 use std::cmp::max;
 use std::collections::HashMap;
-use std::ffi::CString;
 use zokrates_field::field::Field;
 
-// utility function. Converts a Fields vector-based byte representation to fixed size array.
+// utility function. Converts a Field's vector-based byte representation to fixed size array.
 fn vec_as_u8_32_array(vec: &Vec<u8>) -> [u8; 32] {
     assert!(vec.len() <= 32);
     let mut array = [0u8; 32];
@@ -18,8 +17,6 @@ fn vec_as_u8_32_array(vec: &Vec<u8>) -> [u8; 32] {
 // proof-system-independent preparation for the setup phase
 pub fn prepare_setup<T: Field>(
     program: ir::Prog<T>,
-    pk_path: &str,
-    vk_path: &str,
 ) -> (
     Vec<u8>,
     Vec<u8>,
@@ -30,8 +27,6 @@ pub fn prepare_setup<T: Field>(
     usize,
     usize,
     usize,
-    CString,
-    CString,
 ) {
     // transform to R1CS
     let (variables, public_variables_count, a, b, c) = r1cs_program(program);
@@ -129,10 +124,6 @@ pub fn prepare_setup<T: Field>(
         }
     }
 
-    // convert String slices to 'CString's
-    let pk_path_cstring = CString::new(pk_path).unwrap();
-    let vk_path_cstring = CString::new(vk_path).unwrap();
-
     (
         a_arr,
         b_arr,
@@ -143,8 +134,6 @@ pub fn prepare_setup<T: Field>(
         num_constraints,
         num_variables,
         num_inputs,
-        pk_path_cstring,
-        vk_path_cstring,
     )
 }
 
@@ -152,9 +141,7 @@ pub fn prepare_setup<T: Field>(
 pub fn prepare_generate_proof<T: Field>(
     program: ir::Prog<T>,
     witness: ir::Witness<T>,
-    pk_path: &str,
-    proof_path: &str,
-) -> (CString, CString, Vec<[u8; 32]>, usize, Vec<[u8; 32]>, usize) {
+) -> (Vec<[u8; 32]>, usize, Vec<[u8; 32]>, usize) {
     // recover variable order from the program
     let (variables, public_variables_count, _, _, _) = r1cs_program(program);
 
@@ -163,9 +150,6 @@ pub fn prepare_generate_proof<T: Field>(
     // split witness into public and private inputs at offset
     let mut public_inputs: Vec<_> = witness.clone();
     let private_inputs: Vec<_> = public_inputs.split_off(public_variables_count);
-
-    let pk_path_cstring = CString::new(pk_path).unwrap();
-    let proof_path_cstring = CString::new(proof_path).unwrap();
 
     let public_inputs_length = public_inputs.len();
     let private_inputs_length = private_inputs.len();
@@ -183,8 +167,6 @@ pub fn prepare_generate_proof<T: Field>(
     }
 
     (
-        pk_path_cstring,
-        proof_path_cstring,
         public_inputs_arr,
         public_inputs_length,
         private_inputs_arr,
@@ -192,7 +174,7 @@ pub fn prepare_generate_proof<T: Field>(
     )
 }
 
-/// Returns the index of `var` in `variables`, adding `var` with incremented index if it not yet exists.
+/// Returns the index of `var` in `variables`, adding `var` with incremented index if it does not yet exists.
 ///
 /// # Arguments
 ///
@@ -238,7 +220,7 @@ pub fn r1cs_program<T: Field>(
     //Only the main function is relevant in this step, since all calls to other functions were resolved during flattening
     let main = prog.main;
 
-    //~out are added after main's arguments as we want variables (columns)
+    //~out are added after main's arguments, since we want variables (columns)
     //in the r1cs to be aligned like "public inputs | private inputs"
     let main_return_count = main.returns.len();
 

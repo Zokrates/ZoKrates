@@ -75,19 +75,17 @@ pub fn test_inner(test_path: &str) {
     let t: Tests =
         serde_json::from_reader(BufReader::new(File::open(Path::new(test_path)).unwrap())).unwrap();
 
-    let mut code_reader = BufReader::new(File::open(&t.entry_point).unwrap());
+    let code = std::fs::read_to_string(&t.entry_point).unwrap();
 
     let artifacts = compile(
-        &mut code_reader,
-        Some(
-            t.entry_point
-                .parent()
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_string(),
-        ),
-        Some(resolve),
+        code,
+        t.entry_point
+            .parent()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string(),
+        Some(&resolve),
     )
     .unwrap();
 

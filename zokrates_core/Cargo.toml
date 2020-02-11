@@ -9,9 +9,10 @@ build = "build.rs"
 [features]
 default = []
 libsnark = ["cc", "cmake", "git2"]
+wasm = ["bellman_ce/wasm", "zokrates_embed/wasm"]
+multicore = ["bellman_ce/multicore"]
 
 [dependencies]
-libc = "0.2.0"
 num = {version = "0.1.36", default-features = false}
 num-bigint = {version = "0.1.36", default-features = false}
 lazy_static = "1.4"
@@ -24,7 +25,6 @@ serde_json = "1.0"
 serde_bytes = "0.10"
 bincode = "0.8.0"
 regex = "0.2"
-bellman_ce = "0.3"
 pairing_ce = "0.18"
 ff_ce = "0.7"
 zokrates_field = { version = "0.3.0", path = "../zokrates_field" }
@@ -32,10 +32,12 @@ zokrates_pest_ast = { version = "0.1.0", path = "../zokrates_pest_ast" }
 zokrates_embed = { path = "../zokrates_embed" }
 rand = "0.4"
 csv = "1"
+bellman_ce = { git = "https://github.com/matter-labs/bellman", rev = "9e35737", default-features = false }
 
 [dev-dependencies]
 glob = "0.2.11"
 assert_cli = "0.5"
+wasm-bindgen-test = "0.3.0"
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"], optional = true }
