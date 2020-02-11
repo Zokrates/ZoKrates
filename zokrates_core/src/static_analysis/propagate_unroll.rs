@@ -6,7 +6,7 @@
 //! 	for field j in i..5 do
 //! 		//
 //! 	endfor
-//! enfor
+//! endfor
 //! ```
 //!
 //! We can unroll the outer loop, but to unroll the inner one we need to propagate the value of `i` to the lower bound of the loop
