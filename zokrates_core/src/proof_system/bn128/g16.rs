@@ -4,11 +4,13 @@ use crate::proof_system::bn128::utils::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
 use crate::proof_system::{ProofSystem, SetupKeypair};
-use bellman::groth16::Parameters;
+use bellman::groth16::{Parameters, VerifyingKey, verify_proof, prepare_verifying_key};
 use regex::Regex;
+use pairing::bn256::{Bn256};
 
 use std::io::{Cursor, Read};
 use zokrates_field::field::FieldPrime;
+use serde_json::Value;
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/reference/proving_schemes.html#g16-malleability for implications.";
 
@@ -145,6 +147,18 @@ impl ProofSystem for G16 {
             "{}{}{}",
             SOLIDITY_G2_ADDITION_LIB, solidity_pairing_lib, template_text
         )
+    }
+
+    fn verify(&self, vk: String, proof: String) -> bool {
+        let proof: Value = serde_json::from_str(proof.as_str()).unwrap();
+
+        let v: VerifyingKey<Bn256> = {
+
+        };
+
+        verify_proof(
+
+        ).map_err(|_| false).unwrap()
     }
 }
 
