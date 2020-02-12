@@ -1,16 +1,17 @@
+use std::io::{Cursor, Read};
+
+use bellman::groth16::Parameters;
+use regex::Regex;
+
+use zokrates_field::field::FieldPrime;
+
 use crate::ir;
+use crate::proof_system::{ProofSystem, SetupKeypair};
 use crate::proof_system::bn128::utils::bellman::Computation;
+use crate::proof_system::bn128::utils::parser::KeyValueParser;
 use crate::proof_system::bn128::utils::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
-use crate::proof_system::{ProofSystem, SetupKeypair};
-use bellman::groth16::{Parameters, VerifyingKey, verify_proof, prepare_verifying_key};
-use regex::Regex;
-use pairing::bn256::{Bn256};
-
-use std::io::{Cursor, Read};
-use zokrates_field::field::FieldPrime;
-use serde_json::Value;
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/reference/proving_schemes.html#g16-malleability for implications.";
 
@@ -62,8 +63,7 @@ impl ProofSystem for G16 {
     }
 
     fn export_solidity_verifier(&self, vk: String, is_abiv2: bool) -> String {
-        let mut lines = vk.lines();
-
+        let vk_map = vk.parse_pairs();
         let (mut template_text, solidity_pairing_lib) = if is_abiv2 {
             (
                 String::from(CONTRACT_TEMPLATE_V2),
@@ -76,66 +76,42 @@ impl ProofSystem for G16 {
             )
         };
 
-        let gamma_abc_template = String::from("vk.gamma_abc[index] = Pairing.G1Point(points);"); //copy this for each entry
-
-        //replace things in template
         let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
         let vk_gamma_abc_len_regex = Regex::new(r#"(<%vk_gamma_abc_length%>)"#).unwrap();
-        let vk_gamma_abc_index_regex = Regex::new(r#"index"#).unwrap();
-        let vk_gamma_abc_points_regex = Regex::new(r#"points"#).unwrap();
         let vk_gamma_abc_repeat_regex = Regex::new(r#"(<%vk_gamma_abc_pts%>)"#).unwrap();
         let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
 
-        for _ in 0..4 {
-            let current_line: &str = lines
-                .next()
-                .expect("Unexpected end of file in verification key!");
-            let current_line_split: Vec<&str> = current_line.split("=").collect();
-            assert_eq!(current_line_split.len(), 2);
-            template_text = vk_regex
-                .replace(template_text.as_str(), current_line_split[1].trim())
-                .into_owned();
-        }
+        template_text = vk_regex.replace(template_text.as_str(), vk_map.get("vk.alpha").unwrap().as_str()).into_owned();
+        template_text = vk_regex.replace(template_text.as_str(), vk_map.get("vk.beta").unwrap().as_str()).into_owned();
+        template_text = vk_regex.replace(template_text.as_str(), vk_map.get("vk.gamma").unwrap().as_str()).into_owned();
+        template_text = vk_regex.replace(template_text.as_str(), vk_map.get("vk.delta").unwrap().as_str()).into_owned();
 
-        let current_line: &str = lines
-            .next()
-            .expect("Unexpected end of file in verification key!");
-        let current_line_split: Vec<&str> = current_line.split("=").collect();
-        assert_eq!(current_line_split.len(), 2);
-        let gamma_abc_count: i32 = current_line_split[1].trim().parse().unwrap();
+        let gamma_abc_count_str = vk_map.get("vk.gamma_abc.len()").unwrap();
+        let gamma_abc_count: i32 = gamma_abc_count_str.parse::<i32>().unwrap();
 
-        template_text = vk_gamma_abc_len_regex
-            .replace(
-                template_text.as_str(),
-                format!("{}", gamma_abc_count).as_str(),
-            )
-            .into_owned();
-        template_text = vk_input_len_regex
-            .replace(
-                template_text.as_str(),
-                format!("{}", gamma_abc_count - 1).as_str(),
-            )
-            .into_owned();
+        template_text = vk_gamma_abc_len_regex.replace(
+            template_text.as_str(),
+            format!("{}", gamma_abc_count).as_str()
+        ).into_owned();
+
+        template_text = vk_input_len_regex.replace(
+            template_text.as_str(),
+            format!("{}", gamma_abc_count - 1).as_str()
+        ).into_owned();
 
         let mut gamma_abc_repeat_text = String::new();
         for x in 0..gamma_abc_count {
-            let mut curr_template = gamma_abc_template.clone();
-            let current_line: &str = lines
-                .next()
-                .expect("Unexpected end of file in verification key!");
-            let current_line_split: Vec<&str> = current_line.split("=").collect();
-            assert_eq!(current_line_split.len(), 2);
-            curr_template = vk_gamma_abc_index_regex
-                .replace(curr_template.as_str(), format!("{}", x).as_str())
-                .into_owned();
-            curr_template = vk_gamma_abc_points_regex
-                .replace(curr_template.as_str(), current_line_split[1].trim())
-                .into_owned();
-            gamma_abc_repeat_text.push_str(curr_template.as_str());
+            gamma_abc_repeat_text.push_str(
+                format!(
+                    "vk.gamma_abc[{}] = Pairing.G1Point({});", x,
+                    vk_map.get(format!("vk.gamma_abc[{}]", x).as_str()).unwrap()
+                ).as_str()
+            );
             if x < gamma_abc_count - 1 {
                 gamma_abc_repeat_text.push_str("\n        ");
             }
         }
+
         template_text = vk_gamma_abc_repeat_regex
             .replace(template_text.as_str(), gamma_abc_repeat_text.as_str())
             .into_owned();
@@ -150,25 +126,17 @@ impl ProofSystem for G16 {
     }
 
     fn verify(&self, vk: String, proof: String) -> bool {
-        let proof: Value = serde_json::from_str(proof.as_str()).unwrap();
-
-        let v: VerifyingKey<Bn256> = {
-
-        };
-
-        verify_proof(
-
-        ).map_err(|_| false).unwrap()
+        unimplemented!()
     }
 }
 
 mod serialize {
+    use bellman::groth16::{Proof, VerifyingKey};
+    use pairing::bn256::{Bn256, Fr};
 
     use crate::proof_system::bn128::utils::bellman::{
         parse_fr_json, parse_g1_hex, parse_g1_json, parse_g2_hex, parse_g2_json,
     };
-    use bellman::groth16::{Proof, VerifyingKey};
-    use pairing::bn256::{Bn256, Fr};
 
     pub fn serialize_vk(vk: VerifyingKey<Bn256>) -> String {
         format!(
@@ -193,6 +161,7 @@ mod serialize {
     }
 
     pub fn serialize_proof(p: &Proof<Bn256>, inputs: &Vec<Fr>) -> String {
+
         format!(
             "{{
         \"proof\": {{
@@ -343,29 +312,16 @@ contract Verifier {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     mod serialize {
         use super::*;
 
         mod proof {
-            use super::*;
             use crate::flat_absy::FlatVariable;
             use crate::ir::*;
             use crate::proof_system::bn128::g16::serialize::serialize_proof;
 
-            #[allow(dead_code)]
-            #[derive(Deserialize)]
-            struct G16ProofPoints {
-                a: [String; 2],
-                b: [[String; 2]; 2],
-                c: [String; 2],
-            }
-
-            #[allow(dead_code)]
-            #[derive(Deserialize)]
-            struct G16Proof {
-                proof: G16ProofPoints,
-                inputs: Vec<String>,
-            }
+            use super::*;
 
             #[test]
             fn serialize() {

@@ -222,7 +222,7 @@ mod parse {
         static ref FR_REGEX: Regex = Regex::new(r"Fr\((?P<x>0[xX][0-9a-fA-F]{64})\)").unwrap();
     }
 
-    fn parse_g1(e: &<Bn256 as bellman::pairing::Engine>::G1Affine) -> (String, String) {
+    pub fn parse_g1(e: &<Bn256 as bellman::pairing::Engine>::G1Affine) -> (String, String) {
         let raw_e = e.to_string();
 
         let captures = G1_REGEX.captures(&raw_e).unwrap();

@@ -663,7 +663,7 @@ fn cli() -> Result<(), String> {
 
             println!("Performing verification...");
 
-            scheme.verify(vk_path, proof_path);
+            scheme.verify(String::from(vk_path), String::from(proof_path));
         }
         _ => unreachable!(),
     }

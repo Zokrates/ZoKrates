@@ -36,5 +36,5 @@ pub trait ProofSystem {
 
     fn export_solidity_verifier(&self, vk: String, is_abiv2: bool) -> String;
 
-    fn verify(&self, vk: String, proof: String);
+    fn verify(&self, vk: String, proof: String) -> bool;
 }
