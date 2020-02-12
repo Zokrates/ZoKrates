@@ -134,6 +134,9 @@ impl Importer {
         let mut symbols: Vec<_> = vec![];
 
         for import in destination.imports {
+
+            println!("Apply import {} to {}", import.value.source, location);
+
             let pos = import.pos();
             let import = import.value;
             let alias = import.alias;
@@ -174,7 +177,7 @@ impl Importer {
                 // to resolve imports, we need a resolver
                 match resolve_option {
                     Some(resolve) => match resolve(location.clone(), import.source.to_string()) {
-                        Ok((source, location)) => {
+                        Ok((source, new_location)) => {
                             let source = arena.alloc(source);
 
                             // generate an alias from the imported path if none was given explicitely
@@ -192,11 +195,15 @@ impl Importer {
                                     .unwrap(),
                             );
 
+                            println!("compile module {}", new_location);
+
                             let compiled =
-                                compile_module(source, location, resolve_option, modules, &arena)
+                                compile_module(source, new_location.clone(), resolve_option, modules, &arena)
                                     .map_err(|e| e.with_context(import.source.to_string()))?;
 
-                            modules.insert(import.source.to_string(), compiled);
+                            println!("Add module {} {}", new_location, import.source);
+
+                            assert!(modules.insert(new_location.clone(), compiled).is_none());
 
                             symbols.push(
                                 SymbolDeclaration {
@@ -204,7 +211,7 @@ impl Importer {
                                     symbol: Symbol::There(
                                         SymbolImport::with_id_in_module(
                                             import.symbol.unwrap_or("main"),
-                                            import.source.clone(),
+                                            new_location,
                                         )
                                         .start_end(pos.0, pos.1),
                                     ),

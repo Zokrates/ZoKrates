@@ -272,8 +272,6 @@ fn cli() -> Result<(), String> {
             let path = PathBuf::from(sub_matches.value_of("input").unwrap());
 
             let location = path
-                .parent()
-                .unwrap()
                 .to_path_buf()
                 .into_os_string()
                 .into_string()

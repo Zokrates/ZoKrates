@@ -1,0 +1,4 @@
+from "./dep/foo.zok" import foo as bar
+
+def foo() -> (field):
+	return 42

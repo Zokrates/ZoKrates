@@ -138,9 +138,11 @@ impl fmt::Display for CompileErrorInner {
 
 pub type Resolve<'a, E> = &'a dyn Fn(String, String) -> Result<(String, String), E>;
 
+type FilePath = String;
+
 pub fn compile<T: Field, E: Into<imports::Error>>(
     source: String,
-    location: String,
+    location: FilePath,
     resolve_option: Option<Resolve<E>>,
 ) -> Result<CompilationArtifacts<T>, CompileErrors> {
     let arena = Arena::new();
@@ -183,7 +185,7 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
 
 pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
     source: &'ast str,
-    location: String,
+    location: FilePath,
     resolve_option: Option<Resolve<E>>,
     arena: &'ast Arena<String>,
 ) -> Result<Program<'ast, T>, CompileErrors> {
@@ -207,7 +209,7 @@ pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
 
 pub fn compile_module<'ast, T: Field, E: Into<imports::Error>>(
     source: &'ast str,
-    location: String,
+    location: FilePath,
     resolve_option: Option<Resolve<E>>,
     modules: &mut HashMap<ModuleId, Module<'ast, T>>,
     arena: &'ast Arena<String>,

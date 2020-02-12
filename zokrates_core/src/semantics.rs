@@ -89,6 +89,7 @@ impl SymbolUnifier {
 
 impl<'ast, T: Field> State<'ast, T> {
     fn new(modules: Modules<'ast, T>) -> Self {
+        println!("{:#?}", modules);
         State {
             modules,
             typed_modules: HashMap::new(),

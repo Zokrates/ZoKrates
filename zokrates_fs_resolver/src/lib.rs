@@ -14,12 +14,15 @@ pub fn resolve<'a>(
     current_location: CurrentLocation,
     import_location: ImportLocation<'a>,
 ) -> Result<(SourceCode, CurrentLocation), io::Error> {
+
+    println!("get file {} {}", current_location, import_location);
+
     let source = Path::new(&import_location);
 
     // paths starting with `./` or `../` are interpreted relative to the current file
     // other paths `abc/def` are interpreted relative to $ZOKRATES_HOME
     let base = match source.components().next() {
-        Some(Component::CurDir) | Some(Component::ParentDir) => PathBuf::from(current_location),
+        Some(Component::CurDir) | Some(Component::ParentDir) => PathBuf::from(current_location).parent().unwrap().into(),
         _ => PathBuf::from(
             std::env::var(ZOKRATES_HOME).expect("$ZOKRATES_HOME is not set, please set it"),
         ),
@@ -40,9 +43,7 @@ pub fn resolve<'a>(
 }
 
 fn generate_next_location<'a>(path: &'a PathBuf) -> Result<String, io::Error> {
-    path.parent()
-        .ok_or(io::Error::new(io::ErrorKind::Other, "Invalid path"))
-        .map(|v| v.to_path_buf().into_os_string().into_string().unwrap())
+    Ok(path.to_path_buf().into_os_string().into_string().unwrap())
 }
 
 #[cfg(test)]
