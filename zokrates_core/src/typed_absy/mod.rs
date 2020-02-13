@@ -14,6 +14,7 @@ mod variable;
 pub use crate::typed_absy::parameter::Parameter;
 pub use crate::typed_absy::types::{Signature, Type};
 pub use crate::typed_absy::variable::Variable;
+use std::path::PathBuf;
 
 use crate::typed_absy::types::{FunctionKey, MemberId};
 use embed::FlatEmbed;
@@ -38,7 +39,7 @@ pub struct Identifier<'ast> {
 }
 
 /// An identifier for a `TypedModule`. Typically a path or uri.
-pub type TypedModuleId = String;
+pub type TypedModuleId = PathBuf;
 
 /// A collection of `TypedModule`s
 pub type TypedModules<'ast, T> = HashMap<TypedModuleId, TypedModule<'ast, T>>;
@@ -90,7 +91,7 @@ impl<'ast, T: Field> fmt::Display for TypedProgram<'ast, T> {
             writeln!(
                 f,
                 "| {}: |{}",
-                module_id,
+                module_id.display(),
                 if *module_id == self.main {
                     "<---- main"
                 } else {
@@ -123,7 +124,12 @@ impl<'ast> fmt::Display for Identifier<'ast> {
                 "{}_{}_{}",
                 self.stack
                     .iter()
-                    .map(|(name, sig, count)| format!("{}_{}_{}", name, sig.to_slug(), count))
+                    .map(|(name, sig, count)| format!(
+                        "{}_{}_{}",
+                        name.display(),
+                        sig.to_slug(),
+                        count
+                    ))
                     .collect::<Vec<_>>()
                     .join("_"),
                 self.id,
@@ -189,7 +195,10 @@ impl<'ast, T: Field> fmt::Display for TypedModule<'ast, T> {
                 TypedFunctionSymbol::Here(ref function) => format!("def {}{}", key.id, function),
                 TypedFunctionSymbol::There(ref fun_key, ref module_id) => format!(
                     "import {} from \"{}\" as {} // with signature {}",
-                    fun_key.id, module_id, key.id, key.signature
+                    fun_key.id,
+                    module_id.display(),
+                    key.id,
+                    key.signature
                 ),
                 TypedFunctionSymbol::Flat(ref flat_fun) => {
                     format!("def {}{}:\n\t// hidden", key.id, flat_fun.signature::<T>())

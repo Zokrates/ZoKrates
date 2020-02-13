@@ -255,21 +255,17 @@ impl<'ast> Checker<'ast> {
 
         let main_id = program.main.clone();
 
-        Checker::check_single_main(
-            state
-                .typed_modules
-                .get(&program.main.display().to_string())
-                .unwrap(),
-        )
-        .map_err(|inner| {
-            vec![Error {
-                inner,
-                module_id: main_id,
-            }]
-        })?;
+        Checker::check_single_main(state.typed_modules.get(&program.main).unwrap()).map_err(
+            |inner| {
+                vec![Error {
+                    inner,
+                    module_id: main_id,
+                }]
+            },
+        )?;
 
         Ok(TypedProgram {
-            main: program.main.display().to_string(),
+            main: program.main,
             modules: state.typed_modules,
         })
     }
@@ -399,7 +395,7 @@ impl<'ast> Checker<'ast> {
                         // find candidates in the checked module
                         let function_candidates: Vec<_> = state
                             .typed_modules
-                            .get(&import.module_id.display().to_string())
+                            .get(&import.module_id)
                             .unwrap()
                             .functions
                             .iter()
@@ -472,7 +468,7 @@ impl<'ast> Checker<'ast> {
                                         candidate.clone().id(declaration.id),
                                         TypedFunctionSymbol::There(
                                             candidate,
-                                            import.module_id.clone().display().to_string(),
+                                            import.module_id.clone(),
                                         ),
                                     );
                                 }
@@ -576,7 +572,7 @@ impl<'ast> Checker<'ast> {
                 // there should be no checked module at that key just yet, if there is we have a colision or we checked something twice
                 assert!(state
                     .typed_modules
-                    .insert(module_id.clone().display().to_string(), typed_module)
+                    .insert(module_id.clone(), typed_module)
                     .is_none());
             }
             None => {}
@@ -2178,13 +2174,13 @@ mod tests {
 
             assert_eq!(checker.check_module(&"bar".into(), &mut state), Ok(()));
             assert_eq!(
-                state.typed_modules.get(&"bar".to_string()),
+                state.typed_modules.get(&PathBuf::from("bar")),
                 Some(&TypedModule {
                     functions: vec![(
                         FunctionKey::with_id("main").signature(Signature::new()),
                         TypedFunctionSymbol::There(
                             FunctionKey::with_id("main").signature(Signature::new()),
-                            "foo".to_string()
+                            "foo".into()
                         )
                     )]
                     .into_iter()
@@ -2218,12 +2214,16 @@ mod tests {
                 imports: vec![],
             };
 
-            let mut state = State::new(vec![(MODULE_ID.into(), module)].into_iter().collect());
+            let mut state = State::new(
+                vec![(PathBuf::from(MODULE_ID).into(), module)]
+                    .into_iter()
+                    .collect(),
+            );
 
             let mut checker = Checker::new();
             assert_eq!(
                 checker
-                    .check_module(&MODULE_ID.into(), &mut state)
+                    .check_module(&PathBuf::from(MODULE_ID).into(), &mut state)
                     .unwrap_err()[0]
                     .inner
                     .message,
@@ -2256,19 +2256,26 @@ mod tests {
                 imports: vec![],
             };
 
-            let mut state = State::new(vec![(MODULE_ID.into(), module)].into_iter().collect());
+            let mut state = State::new(
+                vec![(PathBuf::from(MODULE_ID), module)]
+                    .into_iter()
+                    .collect(),
+            );
 
             let mut checker = Checker::new();
-            assert_eq!(checker.check_module(&MODULE_ID.into(), &mut state), Ok(()));
+            assert_eq!(
+                checker.check_module(&PathBuf::from(MODULE_ID), &mut state),
+                Ok(())
+            );
             assert!(state
                 .typed_modules
-                .get(&MODULE_ID.to_string())
+                .get(&PathBuf::from(MODULE_ID))
                 .unwrap()
                 .functions
                 .contains_key(&FunctionKey::with_id("foo").signature(Signature::new())));
             assert!(state
                 .typed_modules
-                .get(&MODULE_ID.to_string())
+                .get(&PathBuf::from(MODULE_ID))
                 .unwrap()
                 .functions
                 .contains_key(
@@ -2388,7 +2395,7 @@ mod tests {
             };
 
             let mut state = State::new(
-                vec![(MODULE_ID.into(), main), ("bar".into(), bar)]
+                vec![(PathBuf::from(MODULE_ID), main), ("bar".into(), bar)]
                     .into_iter()
                     .collect(),
             );
@@ -2396,7 +2403,7 @@ mod tests {
             let mut checker = Checker::new();
             assert_eq!(
                 checker
-                    .check_module(&MODULE_ID.into(), &mut state)
+                    .check_module(&PathBuf::from(MODULE_ID), &mut state)
                     .unwrap_err()[0]
                     .inner
                     .message,
@@ -2439,7 +2446,7 @@ mod tests {
             };
 
             let mut state = State::new(
-                vec![(MODULE_ID.into(), main), ("bar".into(), bar)]
+                vec![(PathBuf::from(MODULE_ID), main), ("bar".into(), bar)]
                     .into_iter()
                     .collect(),
             );
@@ -2447,7 +2454,7 @@ mod tests {
             let mut checker = Checker::new();
             assert_eq!(
                 checker
-                    .check_module(&MODULE_ID.into(), &mut state)
+                    .check_module(&PathBuf::from(MODULE_ID), &mut state)
                     .unwrap_err()[0]
                     .inner
                     .message,
@@ -3767,7 +3774,7 @@ mod tests {
                 assert_eq!(
                     checker.check_type(
                         UnresolvedType::User("Foo".into()).mock(),
-                        &MODULE_ID.into(),
+                        &PathBuf::from(MODULE_ID).into(),
                         &state.types
                     ),
                     Ok(Type::Struct(vec![StructMember::new(
@@ -3780,7 +3787,7 @@ mod tests {
                     checker
                         .check_type(
                             UnresolvedType::User("Bar".into()).mock(),
-                            &MODULE_ID.into(),
+                            &PathBuf::from(MODULE_ID).into(),
                             &state.types
                         )
                         .unwrap_err()
@@ -3812,7 +3819,7 @@ mod tests {
                             private: true,
                         }
                         .mock(),
-                        &MODULE_ID.into(),
+                        &PathBuf::from(MODULE_ID).into(),
                         &state.types,
                     ),
                     Ok(Parameter {
@@ -3836,7 +3843,7 @@ mod tests {
                                 private: true,
                             }
                             .mock(),
-                            &MODULE_ID.into(),
+                            &PathBuf::from(MODULE_ID).into(),
                             &state.types,
                         )
                         .unwrap_err()[0]
@@ -3866,7 +3873,7 @@ mod tests {
                                 .mock()
                         )
                         .mock(),
-                        &MODULE_ID.into(),
+                        &PathBuf::from(MODULE_ID).into(),
                         &state.types,
                     ),
                     Ok(TypedStatement::Declaration(Variable::with_id_and_type(
@@ -3887,7 +3894,7 @@ mod tests {
                                 private: true,
                             }
                             .mock(),
-                            &MODULE_ID.into(),
+                            &PathBuf::from(MODULE_ID).into(),
                             &state.types,
                         )
                         .unwrap_err()[0]
@@ -3930,7 +3937,7 @@ mod tests {
                             "foo".into()
                         )
                         .mock(),
-                        &MODULE_ID.into(),
+                        &PathBuf::from(MODULE_ID).into(),
                         &state.types
                     ),
                     Ok(FieldElementExpression::Member(
@@ -3975,7 +3982,7 @@ mod tests {
                                 "bar".into()
                             )
                             .mock(),
-                            &MODULE_ID.into(),
+                            &PathBuf::from(MODULE_ID).into(),
                             &state.types
                         )
                         .unwrap_err()
@@ -4012,7 +4019,7 @@ mod tests {
                                 )]
                             )
                             .mock(),
-                            &MODULE_ID.into(),
+                            &PathBuf::from(MODULE_ID).into(),
                             &state.types
                         )
                         .unwrap_err()
@@ -4056,7 +4063,7 @@ mod tests {
                             ]
                         )
                         .mock(),
-                        &MODULE_ID.into(),
+                        &PathBuf::from(MODULE_ID).into(),
                         &state.types
                     ),
                     Ok(StructExpressionInner::Value(vec![
@@ -4106,7 +4113,7 @@ mod tests {
                             ]
                         )
                         .mock(),
-                        &MODULE_ID.into(),
+                        &PathBuf::from(MODULE_ID).into(),
                         &state.types
                     ),
                     Ok(StructExpressionInner::Value(vec![
@@ -4154,7 +4161,7 @@ mod tests {
                                 )]
                             )
                             .mock(),
-                            &MODULE_ID.into(),
+                            &PathBuf::from(MODULE_ID).into(),
                             &state.types
                         )
                         .unwrap_err()
@@ -4201,7 +4208,7 @@ mod tests {
                                 )]
                             )
                             .mock(),
-                            &MODULE_ID.into(),
+                            &PathBuf::from(MODULE_ID).into(),
                             &state.types
                         ).unwrap_err()
                         .message,
@@ -4225,7 +4232,7 @@ mod tests {
                                 ]
                             )
                             .mock(),
-                            &MODULE_ID.into(),
+                            &PathBuf::from(MODULE_ID).into(),
                             &state.types
                         )
                         .unwrap_err()

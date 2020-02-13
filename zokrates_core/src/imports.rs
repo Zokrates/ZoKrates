@@ -183,8 +183,6 @@ impl Importer {
                 match resolve_option {
                     Some(resolve) => match resolve(location.clone(), import.source.to_path_buf()) {
                         Ok((source, new_location)) => {
-                            let source = arena.alloc(source);
-
                             // generate an alias from the imported path if none was given explicitely
                             let alias = import.alias.unwrap_or(
                                 std::path::Path::new(import.source)
@@ -200,15 +198,24 @@ impl Importer {
                                     .unwrap(),
                             );
 
-                            let compiled = compile_module(
-                                source,
-                                new_location.clone(),
-                                resolve_option,
-                                modules,
-                                &arena,
-                            )?;
+                            match modules.get(&new_location) {
+                                Some(_) => {}
+                                None => {
+                                    let source = arena.alloc(source);
 
-                            assert!(modules.insert(new_location.clone(), compiled).is_none());
+                                    let compiled = compile_module(
+                                        source,
+                                        new_location.clone(),
+                                        resolve_option,
+                                        modules,
+                                        &arena,
+                                    )?;
+
+                                    assert!(modules
+                                        .insert(new_location.clone(), compiled)
+                                        .is_none());
+                                }
+                            };
 
                             symbols.push(
                                 SymbolDeclaration {

@@ -78,7 +78,7 @@ mod tests {
 
         let p = TypedProgram {
             modules: vec![(
-                "main".to_string(),
+                "main".into(),
                 TypedModule {
                     functions: vec![(
                         FunctionKey::with_id("main"),
@@ -94,7 +94,7 @@ mod tests {
             )]
             .into_iter()
             .collect(),
-            main: "main".to_string(),
+            main: "main".into(),
         };
 
         assert!(PropagatedUnroller::unroll(p).is_err());
@@ -203,7 +203,7 @@ mod tests {
 
         let p = TypedProgram {
             modules: vec![(
-                "main".to_string(),
+                "main".into(),
                 TypedModule {
                     functions: vec![(
                         FunctionKey::with_id("main"),
@@ -219,11 +219,12 @@ mod tests {
             )]
             .into_iter()
             .collect(),
-            main: "main".to_string(),
+            main: "main".into(),
         };
 
-        let statements = match PropagatedUnroller::unroll(p).unwrap().modules["main"].functions
-            [&FunctionKey::with_id("main")]
+        let statements = match PropagatedUnroller::unroll(p).unwrap().modules
+            [std::path::Path::new("main")]
+        .functions[&FunctionKey::with_id("main")]
             .clone()
         {
             TypedFunctionSymbol::Here(f) => f.statements,
