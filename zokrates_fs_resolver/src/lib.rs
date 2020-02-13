@@ -6,20 +6,28 @@ use std::path::{Component, PathBuf};
 
 const ZOKRATES_HOME: &str = &"ZOKRATES_HOME";
 
-type CurrentLocation = String;
-type ImportLocation<'a> = String;
+type CurrentLocation = PathBuf;
+type ImportLocation<'a> = PathBuf;
 type SourceCode = String;
 
 pub fn resolve<'a>(
     current_location: CurrentLocation,
     import_location: ImportLocation<'a>,
 ) -> Result<(SourceCode, CurrentLocation), io::Error> {
+    println!(
+        "get file {} {}",
+        current_location.display(),
+        import_location.display()
+    );
+
     let source = Path::new(&import_location);
 
     // paths starting with `./` or `../` are interpreted relative to the current file
     // other paths `abc/def` are interpreted relative to $ZOKRATES_HOME
     let base = match source.components().next() {
-        Some(Component::CurDir) | Some(Component::ParentDir) => PathBuf::from(current_location),
+        Some(Component::CurDir) | Some(Component::ParentDir) => {
+            PathBuf::from(current_location).parent().unwrap().into()
+        }
         _ => PathBuf::from(
             std::env::var(ZOKRATES_HOME).expect("$ZOKRATES_HOME is not set, please set it"),
         ),
@@ -33,16 +41,9 @@ pub fn resolve<'a>(
         return Err(io::Error::new(io::ErrorKind::Other, "Not a file"));
     }
 
-    let next_location = generate_next_location(&path_owned)?;
-    let source = read_to_string(path_owned)?;
+    let source = read_to_string(&path_owned)?;
 
-    Ok((source, next_location))
-}
-
-fn generate_next_location<'a>(path: &'a PathBuf) -> Result<String, io::Error> {
-    path.parent()
-        .ok_or(io::Error::new(io::ErrorKind::Other, "Invalid path"))
-        .map(|v| v.to_path_buf().into_os_string().into_string().unwrap())
+    Ok((source, path_owned))
 }
 
 #[cfg(test)]

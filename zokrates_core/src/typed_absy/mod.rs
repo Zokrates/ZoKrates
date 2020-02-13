@@ -229,7 +229,7 @@ impl<'ast, T: Field> fmt::Display for TypedFunction<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "({}) -> ({}):\n{}",
+            "({}) -> ({}):",
             self.arguments
                 .iter()
                 .map(|x| format!("{}", x))
@@ -241,12 +241,16 @@ impl<'ast, T: Field> fmt::Display for TypedFunction<'ast, T> {
                 .map(|x| format!("{}", x))
                 .collect::<Vec<_>>()
                 .join(", "),
-            self.statements
-                .iter()
-                .map(|x| format!("\t{}", x))
-                .collect::<Vec<_>>()
-                .join("\n")
-        )
+        )?;
+
+        writeln!(f, "")?;
+
+        for s in &self.statements {
+            s.fmt_indented(f, 1)?;
+            writeln!(f, "")?;
+        }
+
+        Ok(())
     }
 }
 
@@ -326,7 +330,12 @@ pub enum TypedStatement<'ast, T: Field> {
     Definition(TypedAssignee<'ast, T>, TypedExpression<'ast, T>),
     Declaration(Variable<'ast>),
     Condition(TypedExpression<'ast, T>, TypedExpression<'ast, T>),
-    For(Variable<'ast>, T, T, Vec<TypedStatement<'ast, T>>),
+    For(
+        Variable<'ast>,
+        FieldElementExpression<'ast, T>,
+        FieldElementExpression<'ast, T>,
+        Vec<TypedStatement<'ast, T>>,
+    ),
     MultipleDefinition(Vec<Variable<'ast>>, TypedExpressionList<'ast, T>),
 }
 
@@ -360,6 +369,23 @@ impl<'ast, T: Field> fmt::Debug for TypedStatement<'ast, T> {
             TypedStatement::MultipleDefinition(ref lhs, ref rhs) => {
                 write!(f, "MultipleDefinition({:?}, {:?})", lhs, rhs)
             }
+        }
+    }
+}
+
+impl<'ast, T: Field> TypedStatement<'ast, T> {
+    fn fmt_indented(&self, f: &mut fmt::Formatter, depth: usize) -> fmt::Result {
+        match self {
+            TypedStatement::For(variable, from, to, statements) => {
+                write!(f, "{}", "\t".repeat(depth))?;
+                writeln!(f, "for {} in {}..{} do", variable, from, to)?;
+                for s in statements {
+                    s.fmt_indented(f, depth + 1)?;
+                    writeln!(f, "")?;
+                }
+                writeln!(f, "{}endfor", "\t".repeat(depth))
+            }
+            s => write!(f, "{}{}", "\t".repeat(depth), s),
         }
     }
 }

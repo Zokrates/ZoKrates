@@ -10,6 +10,7 @@ use crate::typed_absy::*;
 use crate::typed_absy::{Parameter, Variable};
 use std::collections::{hash_map::Entry, BTreeSet, HashMap, HashSet};
 use std::fmt;
+use std::path::PathBuf;
 use zokrates_field::field::Field;
 
 use crate::parser::Position;
@@ -29,14 +30,14 @@ pub struct ErrorInner {
 #[derive(PartialEq, Debug)]
 pub struct Error {
     pub inner: ErrorInner,
-    pub module_id: ModuleId
+    pub module_id: PathBuf,
 }
 
 impl ErrorInner {
-    fn with_module_id(self, id: &ModuleId) -> Error {
+    fn in_file(self, id: &ModuleId) -> Error {
         Error {
             inner: self,
-            module_id: id.clone()
+            module_id: id.clone(),
         }
     }
 }
@@ -254,11 +255,21 @@ impl<'ast> Checker<'ast> {
 
         let main_id = program.main.clone();
 
-        Checker::check_single_main(state.typed_modules.get(&program.main).unwrap())
-            .map_err(|inner| vec![Error { inner, module_id: main_id }])?;
+        Checker::check_single_main(
+            state
+                .typed_modules
+                .get(&program.main.display().to_string())
+                .unwrap(),
+        )
+        .map_err(|inner| {
+            vec![Error {
+                inner,
+                module_id: main_id,
+            }]
+        })?;
 
         Ok(TypedProgram {
-            main: program.main,
+            main: program.main.display().to_string(),
             modules: state.typed_modules,
         })
     }
@@ -325,13 +336,16 @@ impl<'ast> Checker<'ast> {
                 match self.check_struct_type_declaration(t.clone(), module_id, &state.types) {
                     Ok(ty) => {
                         match symbol_unifier.insert_type(declaration.id) {
-                            false => errors.push(ErrorInner {
-
-                                pos: Some(pos),
-                                message: format!(
-                                    "{} conflicts with another symbol",
-                                    declaration.id,
-                                )}.with_module_id(module_id)),
+                            false => errors.push(
+                                ErrorInner {
+                                    pos: Some(pos),
+                                    message: format!(
+                                        "{} conflicts with another symbol",
+                                        declaration.id,
+                                    ),
+                                }
+                                .in_file(module_id),
+                            ),
                             true => {}
                         };
                         state
@@ -340,17 +354,25 @@ impl<'ast> Checker<'ast> {
                             .or_default()
                             .insert(declaration.id.to_string(), ty);
                     }
-                    Err(e) => errors.extend(e.into_iter().map(|inner| Error {inner, module_id: module_id.clone() })),
+                    Err(e) => errors.extend(e.into_iter().map(|inner| Error {
+                        inner,
+                        module_id: module_id.clone(),
+                    })),
                 }
             }
             Symbol::HereFunction(f) => match self.check_function(f, module_id, &state.types) {
                 Ok(funct) => {
                     match symbol_unifier.insert_function(declaration.id, funct.signature.clone()) {
                         false => errors.push(
-            ErrorInner {
-                            pos: Some(pos),
-                            message: format!("{} conflicts with another symbol", declaration.id,)
-                            }.with_module_id(module_id)),
+                            ErrorInner {
+                                pos: Some(pos),
+                                message: format!(
+                                    "{} conflicts with another symbol",
+                                    declaration.id,
+                                ),
+                            }
+                            .in_file(module_id),
+                        ),
                         true => {}
                     };
 
@@ -365,7 +387,7 @@ impl<'ast> Checker<'ast> {
                     );
                 }
                 Err(e) => {
-                    errors.extend(e.into_iter().map(|inner| inner.with_module_id(module_id)));
+                    errors.extend(e.into_iter().map(|inner| inner.in_file(module_id)));
                 }
             },
             Symbol::There(import) => {
@@ -377,7 +399,7 @@ impl<'ast> Checker<'ast> {
                         // find candidates in the checked module
                         let function_candidates: Vec<_> = state
                             .typed_modules
-                            .get(&import.module_id)
+                            .get(&import.module_id.display().to_string())
                             .unwrap()
                             .functions
                             .iter()
@@ -424,9 +446,9 @@ impl<'ast> Checker<'ast> {
                                     pos: Some(pos),
                                     message: format!(
                                         "Could not find symbol {} in module {}",
-                                        import.symbol_id, import.module_id,
+                                        import.symbol_id, import.module_id.display(),
                                     ),
-                                }.with_module_id(module_id));
+                                }.in_file(module_id));
                             }
                             (_, Some(_)) => unreachable!("collision in module we're importing from should have been caught when checking it"),
                             _ => {
@@ -440,7 +462,7 @@ impl<'ast> Checker<'ast> {
                                                     "{} conflicts with another symbol",
                                                     declaration.id,
                                                 ),
-                                            }.with_module_id(module_id));
+                                            }.in_file(module_id));
                                         },
                                         true => {}
                                     };
@@ -450,7 +472,7 @@ impl<'ast> Checker<'ast> {
                                         candidate.clone().id(declaration.id),
                                         TypedFunctionSymbol::There(
                                             candidate,
-                                            import.module_id.clone(),
+                                            import.module_id.clone().display().to_string(),
                                         ),
                                     );
                                 }
@@ -465,10 +487,16 @@ impl<'ast> Checker<'ast> {
             Symbol::Flat(funct) => {
                 match symbol_unifier.insert_function(declaration.id, funct.signature::<T>()) {
                     false => {
-                        errors.push(ErrorInner {
-                            pos: Some(pos),
-                            message: format!("{} conflicts with another symbol", declaration.id,),
-                        }.with_module_id(module_id));
+                        errors.push(
+                            ErrorInner {
+                                pos: Some(pos),
+                                message: format!(
+                                    "{} conflicts with another symbol",
+                                    declaration.id,
+                                ),
+                            }
+                            .in_file(module_id),
+                        );
                     }
                     true => {}
                 };
@@ -548,7 +576,7 @@ impl<'ast> Checker<'ast> {
                 // there should be no checked module at that key just yet, if there is we have a colision or we checked something twice
                 assert!(state
                     .typed_modules
-                    .insert(module_id.clone(), typed_module)
+                    .insert(module_id.clone().display().to_string(), typed_module)
                     .is_none());
             }
             None => {}
@@ -864,6 +892,37 @@ impl<'ast> Checker<'ast> {
                 self.check_for_var(&var).map_err(|e| vec![e])?;
 
                 let var = self.check_variable(var, module_id, types).unwrap();
+
+                let from = self
+                    .check_expression(from, module_id, &types)
+                    .map_err(|e| vec![e])?;
+                let to = self
+                    .check_expression(to, module_id, &types)
+                    .map_err(|e| vec![e])?;
+
+                let from = match from {
+                    TypedExpression::FieldElement(e) => Ok(e),
+                    e => Err(ErrorInner {
+                        pos: Some(pos),
+                        message: format!(
+                            "Expected lower loop bound to be of type field, found {}",
+                            e.get_type()
+                        ),
+                    }),
+                }
+                .map_err(|e| vec![e])?;
+
+                let to = match to {
+                    TypedExpression::FieldElement(e) => Ok(e),
+                    e => Err(ErrorInner {
+                        pos: Some(pos),
+                        message: format!(
+                            "Expected higher loop bound to be of type field, found {}",
+                            e.get_type()
+                        ),
+                    }),
+                }
+                .map_err(|e| vec![e])?;
 
                 self.insert_into_scope(var.clone());
 
@@ -2663,8 +2722,8 @@ mod tests {
         let foo_statements = vec![
             Statement::For(
                 absy::Variable::new("i", UnresolvedType::FieldElement.mock()).mock(),
-                FieldPrime::from(0),
-                FieldPrime::from(10),
+                Expression::FieldConstant(FieldPrime::from(0)).mock(),
+                Expression::FieldConstant(FieldPrime::from(10)).mock(),
                 vec![],
             )
             .mock(),
@@ -2721,8 +2780,8 @@ mod tests {
 
         let foo_statements = vec![Statement::For(
             absy::Variable::new("i", UnresolvedType::FieldElement.mock()).mock(),
-            FieldPrime::from(0),
-            FieldPrime::from(10),
+            Expression::FieldConstant(FieldPrime::from(0)).mock(),
+            Expression::FieldConstant(FieldPrime::from(10)).mock(),
             for_statements,
         )
         .mock()];
@@ -2737,8 +2796,8 @@ mod tests {
 
         let foo_statements_checked = vec![TypedStatement::For(
             typed_absy::Variable::field_element("i".into()),
-            FieldPrime::from(0),
-            FieldPrime::from(10),
+            FieldElementExpression::Number(FieldPrime::from(0)),
+            FieldElementExpression::Number(FieldPrime::from(10)),
             for_statements_checked,
         )];
 
@@ -3301,14 +3360,15 @@ mod tests {
             &module_id,
             &types,
         );
-        let s2_checked: Result<TypedStatement<FieldPrime>, Vec<ErrorInner>> = checker.check_statement(
-            Statement::Declaration(
-                absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
-            )
-            .mock(),
-            &module_id,
-            &types,
-        );
+        let s2_checked: Result<TypedStatement<FieldPrime>, Vec<ErrorInner>> = checker
+            .check_statement(
+                Statement::Declaration(
+                    absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
+                )
+                .mock(),
+                &module_id,
+                &types,
+            );
         assert_eq!(
             s2_checked,
             Err(vec![ErrorInner {
@@ -3337,12 +3397,15 @@ mod tests {
             &module_id,
             &types,
         );
-        let s2_checked: Result<TypedStatement<FieldPrime>, Vec<ErrorInner>> = checker.check_statement(
-            Statement::Declaration(absy::Variable::new("a", UnresolvedType::Boolean.mock()).mock())
+        let s2_checked: Result<TypedStatement<FieldPrime>, Vec<ErrorInner>> = checker
+            .check_statement(
+                Statement::Declaration(
+                    absy::Variable::new("a", UnresolvedType::Boolean.mock()).mock(),
+                )
                 .mock(),
-            &module_id,
-            &types,
-        );
+                &module_id,
+                &types,
+            );
         assert_eq!(
             s2_checked,
             Err(vec![ErrorInner {

@@ -271,8 +271,6 @@ fn cli() -> Result<(), String> {
 
             let path = PathBuf::from(sub_matches.value_of("input").unwrap());
 
-            let location = path.to_path_buf().into_os_string().into_string().unwrap();
-
             let light = sub_matches.occurrences_of("light") > 0;
 
             let bin_output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -290,7 +288,7 @@ fn cli() -> Result<(), String> {
                 .map_err(|why| format!("couldn't open input file {}: {}", path.display(), why))?;
 
             let artifacts: CompilationArtifacts<FieldPrime> =
-                compile(source, location, Some(&fs_resolve))
+                compile(source, path, Some(&fs_resolve))
                     .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
 
             let program_flattened = artifacts.prog();

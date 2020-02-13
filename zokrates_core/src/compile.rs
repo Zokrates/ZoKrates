@@ -13,6 +13,7 @@ use static_analysis::Analyse;
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
+use std::path::PathBuf;
 use typed_absy::abi::Abi;
 use typed_arena::Arena;
 use zokrates_field::field::Field;
@@ -35,7 +36,7 @@ impl<T: Field> CompilationArtifacts<T> {
 }
 
 #[derive(Debug)]
-pub struct CompileErrors(Vec<CompileError>);
+pub struct CompileErrors(pub Vec<CompileError>);
 
 impl From<CompileError> for CompileErrors {
     fn from(e: CompileError) -> CompileErrors {
@@ -66,27 +67,27 @@ pub enum CompileErrorInner {
 }
 
 impl CompileErrorInner {
-    pub fn with_context(self, context: &String) -> CompileError {
+    pub fn in_file(self, context: &PathBuf) -> CompileError {
         CompileError {
             value: self,
-            context: context.clone(),
+            file: context.clone(),
         }
     }
 }
 
 #[derive(Debug)]
 pub struct CompileError {
-    context: String,
+    file: PathBuf,
     value: CompileErrorInner,
 }
 
 impl CompileErrors {
-    pub fn with_context(self, context: String) -> Self {
+    pub fn with_context(self, file: PathBuf) -> Self {
         CompileErrors(
             self.0
                 .into_iter()
                 .map(|e| CompileError {
-                    context: context.clone(),
+                    file: file.clone(),
                     ..e
                 })
                 .collect(),
@@ -96,7 +97,17 @@ impl CompileErrors {
 
 impl fmt::Display for CompileError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}:{}", self.context, self.value)
+        write!(
+            f,
+            "{}:{}",
+            self.file
+                .canonicalize()
+                .unwrap()
+                .strip_prefix(std::env::current_dir().unwrap())
+                .unwrap()
+                .display(),
+            self.value
+        )
     }
 }
 
@@ -122,7 +133,7 @@ impl From<semantics::Error> for CompileError {
     fn from(error: semantics::Error) -> Self {
         CompileError {
             value: CompileErrorInner::SemanticError(error.inner),
-            context: error.module_id
+            file: error.module_id,
         }
     }
 }
@@ -139,14 +150,15 @@ impl fmt::Display for CompileErrorInner {
     }
 }
 
-pub type Resolve<'a, E> = &'a dyn Fn(String, String) -> Result<(String, String), E>;
+pub type Resolve<'a, E> = &'a dyn Fn(PathBuf, PathBuf) -> Result<(String, PathBuf), E>;
+
+type FilePath = PathBuf;
 
 pub fn compile<T: Field, E: Into<imports::Error>>(
     source: String,
-    location: String,
+    location: FilePath,
     resolve_option: Option<Resolve<E>>,
 ) -> Result<CompilationArtifacts<T>, CompileErrors> {
-
     let arena = Arena::new();
 
     let source = arena.alloc(source);
@@ -154,12 +166,7 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
 
     // check semantics
     let typed_ast = Checker::check(compiled).map_err(|errors| {
-        CompileErrors(
-            errors
-                .into_iter()
-                .map(|e| CompileError::from(e))
-                .collect(),
-        )
+        CompileErrors(errors.into_iter().map(|e| CompileError::from(e)).collect())
     })?;
 
     let abi = typed_ast.abi();
@@ -187,7 +194,7 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
 
 pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
     source: &'ast str,
-    location: String,
+    location: FilePath,
     resolve_option: Option<Resolve<E>>,
     arena: &'ast Arena<String>,
 ) -> Result<Program<'ast, T>, CompileErrors> {
@@ -211,13 +218,13 @@ pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
 
 pub fn compile_module<'ast, T: Field, E: Into<imports::Error>>(
     source: &'ast str,
-    location: String,
+    location: FilePath,
     resolve_option: Option<Resolve<E>>,
     modules: &mut HashMap<ModuleId, Module<'ast, T>>,
     arena: &'ast Arena<String>,
 ) -> Result<Module<'ast, T>, CompileErrors> {
     let ast = pest::generate_ast(&source)
-        .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).with_context(&location)))?;
+        .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).in_file(&location)))?;
     let module_without_imports: Module<T> = Module::from(ast);
 
     Importer::new().apply_imports(
