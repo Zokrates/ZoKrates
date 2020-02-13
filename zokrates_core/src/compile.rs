@@ -44,20 +44,6 @@ impl From<CompileError> for CompileErrors {
     }
 }
 
-impl fmt::Display for CompileErrors {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.0
-                .iter()
-                .map(|e| format!("{}", e))
-                .collect::<Vec<_>>()
-                .join("\n\n")
-        )
-    }
-}
-
 #[derive(Debug)]
 pub enum CompileErrorInner {
     ParserError(pest::Error),
@@ -81,6 +67,16 @@ pub struct CompileError {
     value: CompileErrorInner,
 }
 
+impl CompileError {
+    pub fn file(&self) -> &PathBuf {
+        &self.file
+    }
+
+    pub fn value(&self) -> &CompileErrorInner {
+        &self.value
+    }
+}
+
 impl CompileErrors {
     pub fn with_context(self, file: PathBuf) -> Self {
         CompileErrors(
@@ -91,22 +87,6 @@ impl CompileErrors {
                     ..e
                 })
                 .collect(),
-        )
-    }
-}
-
-impl fmt::Display for CompileError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}:{}",
-            self.file
-                .canonicalize()
-                .unwrap()
-                .strip_prefix(std::env::current_dir().unwrap())
-                .unwrap()
-                .display(),
-            self.value
         )
     }
 }
@@ -140,13 +120,12 @@ impl From<semantics::Error> for CompileError {
 
 impl fmt::Display for CompileErrorInner {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let res = match *self {
-            CompileErrorInner::ParserError(ref e) => format!("{}", e),
-            CompileErrorInner::SemanticError(ref e) => format!("{}", e),
-            CompileErrorInner::ReadError(ref e) => format!("{}", e),
-            CompileErrorInner::ImportError(ref e) => format!("{}", e),
-        };
-        write!(f, "{}", res)
+        match *self {
+            CompileErrorInner::ParserError(ref e) => write!(f, "{}", e),
+            CompileErrorInner::SemanticError(ref e) => write!(f, "{}", e),
+            CompileErrorInner::ReadError(ref e) => write!(f, "{}", e),
+            CompileErrorInner::ImportError(ref e) => write!(f, "{}", e),
+        }
     }
 }
 

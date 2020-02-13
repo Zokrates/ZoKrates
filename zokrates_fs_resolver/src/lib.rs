@@ -14,12 +14,6 @@ pub fn resolve<'a>(
     current_location: CurrentLocation,
     import_location: ImportLocation<'a>,
 ) -> Result<(SourceCode, CurrentLocation), io::Error> {
-    println!(
-        "get file {} {}",
-        current_location.display(),
-        import_location.display()
-    );
-
     let source = Path::new(&import_location);
 
     // paths starting with `./` or `../` are interpreted relative to the current file

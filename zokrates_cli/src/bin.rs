@@ -13,7 +13,7 @@ use std::io::{stdin, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::string::String;
 use zokrates_abi::Encode;
-use zokrates_core::compile::{compile, CompilationArtifacts};
+use zokrates_core::compile::{compile, CompilationArtifacts, CompileError};
 use zokrates_core::ir;
 use zokrates_core::proof_system::*;
 use zokrates_core::typed_absy::abi::Abi;
@@ -287,9 +287,29 @@ fn cli() -> Result<(), String> {
                 .read_to_string(&mut source)
                 .map_err(|why| format!("couldn't open input file {}: {}", path.display(), why))?;
 
+            let fmt_error = |e: &CompileError| {
+                format!(
+                    "{}:{}",
+                    e.file()
+                        .canonicalize()
+                        .unwrap()
+                        .strip_prefix(std::env::current_dir().unwrap())
+                        .unwrap()
+                        .display(),
+                    e.value()
+                )
+            };
+
             let artifacts: CompilationArtifacts<FieldPrime> =
-                compile(source, path, Some(&fs_resolve))
-                    .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
+                compile(source, path, Some(&fs_resolve)).map_err(|e| {
+                    format!(
+                        "Compilation failed:\n\n{}",
+                        e.0.iter()
+                            .map(|e| fmt_error(e))
+                            .collect::<Vec<_>>()
+                            .join("\n\n")
+                    )
+                })?;
 
             let program_flattened = artifacts.prog();
 

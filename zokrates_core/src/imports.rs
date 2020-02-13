@@ -180,7 +180,6 @@ impl Importer {
                 }
             } else {
                 // to resolve imports, we need a resolver
-                let folder = location.clone().parent().unwrap();
                 match resolve_option {
                     Some(resolve) => match resolve(location.clone(), import.source.to_path_buf()) {
                         Ok((source, new_location)) => {
