@@ -54,32 +54,31 @@ mod tests {
         let file_path = folder.path().join("bar.zok");
         let mut file = File::create(file_path).unwrap();
         writeln!(file, "some code").unwrap();
-        let (_, next_location) =
-            resolve(folder.path().to_str().unwrap().to_string(), "./bar".into()).unwrap();
-        assert_eq!(next_location, folder.path().to_str().unwrap().to_string());
+        let (_, next_location) = resolve(folder.path().to_path_buf(), "./bar".into()).unwrap();
+        assert_eq!(next_location, folder.path());
     }
 
     #[test]
     fn non_existing_file() {
-        let res = resolve(String::from("./src"), "./rubbish".into());
+        let res = resolve("./src".into(), "./rubbish".into());
         assert!(res.is_err());
     }
 
     #[test]
     fn invalid_location() {
-        let res = resolve(String::from(",8!-$2abc"), "./foo".into());
+        let res = resolve(",8!-$2abc".into(), "./foo".into());
         assert!(res.is_err());
     }
 
     #[test]
     fn not_a_file() {
-        let res = resolve(String::from("."), "./src/".into());
+        let res = resolve(".".into(), "./src/".into());
         assert!(res.is_err());
     }
 
     #[test]
     fn no_parent() {
-        let res = resolve(String::from("."), ".".into());
+        let res = resolve(".".into(), ".".into());
         assert!(res.is_err());
     }
 
@@ -102,14 +101,7 @@ mod tests {
         // assign HOME folder to ZOKRATES_HOME
         std::env::set_var(ZOKRATES_HOME, zokrates_home_folder.path());
 
-        let result = resolve(
-            source_folder
-                .path()
-                .to_path_buf()
-                .to_string_lossy()
-                .to_string(),
-            "./bar.zok".into(),
-        );
+        let result = resolve(source_folder.path().to_path_buf(), "./bar.zok".into());
         assert!(result.is_ok());
         // the imported file should be the user's
         assert_eq!(result.unwrap().0, String::from("<user code>\n"));
@@ -134,14 +126,7 @@ mod tests {
         // assign HOME folder to ZOKRATES_HOME
         std::env::set_var(ZOKRATES_HOME, zokrates_home_folder.path());
 
-        let result = resolve(
-            source_folder
-                .path()
-                .to_path_buf()
-                .to_string_lossy()
-                .to_string(),
-            "bar.zok".into(),
-        );
+        let result = resolve(source_folder.path().to_path_buf(), "bar.zok".into());
         assert!(result.is_ok());
         // the imported file should be the user's
         assert_eq!(result.unwrap().0, String::from("<stdlib code>\n"));
@@ -158,14 +143,7 @@ mod tests {
         let mut file = File::create(file_path).unwrap();
         writeln!(file, "<user code>").unwrap();
 
-        let result = resolve(
-            source_subfolder
-                .path()
-                .to_path_buf()
-                .to_string_lossy()
-                .to_string(),
-            "../bar.zok".into(),
-        );
+        let result = resolve(source_subfolder.path().to_path_buf(), "../bar.zok".into());
         assert!(result.is_ok());
         // the imported file should be the user's
         assert_eq!(result.unwrap().0, String::from("<user code>\n"));
@@ -184,14 +162,14 @@ mod tests {
         // assign HOME folder to ZOKRATES_HOME
         std::env::set_var(ZOKRATES_HOME, zokrates_home_folder.path());
 
-        let result = resolve("/path/to/user/folder".to_string(), "./bar.zok".into());
+        let result = resolve("/path/to/user/folder".into(), "./bar.zok".into());
         assert!(result.is_err());
     }
 
     #[test]
     fn fail_if_not_found_in_std() {
         std::env::set_var(ZOKRATES_HOME, "");
-        let result = resolve("/path/to/source".to_string(), "bar.zok".into());
+        let result = resolve("/path/to/source".into(), "bar.zok".into());
         assert!(result.is_err());
     }
 
@@ -199,6 +177,6 @@ mod tests {
     #[should_panic]
     fn panic_if_home_not_set() {
         std::env::remove_var(ZOKRATES_HOME);
-        let _ = resolve("/path/to/source".to_string(), "bar.zok".into());
+        let _ = resolve("/path/to/source".into(), "bar.zok".into());
     }
 }

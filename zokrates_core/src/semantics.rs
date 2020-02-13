@@ -2007,7 +2007,7 @@ mod tests {
         #[test]
         fn element_type_mismatch() {
             let types = HashMap::new();
-            let module_id = String::from("");
+            let module_id = "".into();
             // [3, true]
             let a = Expression::InlineArray(vec![
                 Expression::FieldConstant(FieldPrime::from(3)).mock().into(),
@@ -2169,19 +2169,16 @@ mod tests {
             };
 
             let mut state = State::new(
-                vec![(String::from("foo"), foo), (String::from("bar"), bar)]
+                vec![("foo".into(), foo), ("bar".into(), bar)]
                     .into_iter()
                     .collect(),
             );
 
             let mut checker = Checker::new();
 
+            assert_eq!(checker.check_module(&"bar".into(), &mut state), Ok(()));
             assert_eq!(
-                checker.check_module(&String::from("bar"), &mut state),
-                Ok(())
-            );
-            assert_eq!(
-                state.typed_modules.get(&String::from("bar")),
+                state.typed_modules.get(&"bar".to_string()),
                 Some(&TypedModule {
                     functions: vec![(
                         FunctionKey::with_id("main").signature(Signature::new()),
@@ -2221,13 +2218,14 @@ mod tests {
                 imports: vec![],
             };
 
-            let mut state = State::new(vec![(MODULE_ID.to_string(), module)].into_iter().collect());
+            let mut state = State::new(vec![(MODULE_ID.into(), module)].into_iter().collect());
 
             let mut checker = Checker::new();
             assert_eq!(
                 checker
-                    .check_module(&MODULE_ID.to_string(), &mut state)
+                    .check_module(&MODULE_ID.into(), &mut state)
                     .unwrap_err()[0]
+                    .inner
                     .message,
                 "foo conflicts with another symbol"
             );
@@ -2258,13 +2256,10 @@ mod tests {
                 imports: vec![],
             };
 
-            let mut state = State::new(vec![(MODULE_ID.to_string(), module)].into_iter().collect());
+            let mut state = State::new(vec![(MODULE_ID.into(), module)].into_iter().collect());
 
             let mut checker = Checker::new();
-            assert_eq!(
-                checker.check_module(&MODULE_ID.to_string(), &mut state),
-                Ok(())
-            );
+            assert_eq!(checker.check_module(&MODULE_ID.into(), &mut state), Ok(()));
             assert!(state
                 .typed_modules
                 .get(&MODULE_ID.to_string())
@@ -2305,13 +2300,14 @@ mod tests {
                 imports: vec![],
             };
 
-            let mut state = State::new(vec![(String::from("main"), module)].into_iter().collect());
+            let mut state = State::new(vec![("main".into(), module)].into_iter().collect());
 
             let mut checker = Checker::new();
             assert_eq!(
                 checker
-                    .check_module(&String::from("main"), &mut state)
+                    .check_module(&"main".into(), &mut state)
                     .unwrap_err()[0]
+                    .inner
                     .message,
                 "foo conflicts with another symbol"
             );
@@ -2341,13 +2337,14 @@ mod tests {
                 imports: vec![],
             };
 
-            let mut state = State::new(vec![(String::from("main"), module)].into_iter().collect());
+            let mut state = State::new(vec![("main".into(), module)].into_iter().collect());
 
             let mut checker = Checker::new();
             assert_eq!(
                 checker
-                    .check_module(&String::from("main"), &mut state)
+                    .check_module(&"main".into(), &mut state)
                     .unwrap_err()[0]
+                    .inner
                     .message,
                 "foo conflicts with another symbol"
             );
@@ -2377,7 +2374,7 @@ mod tests {
                     SymbolDeclaration {
                         id: "foo",
                         symbol: Symbol::There(
-                            SymbolImport::with_id_in_module("main", "bar".to_string()).mock(),
+                            SymbolImport::with_id_in_module("main", "bar").mock(),
                         ),
                     }
                     .mock(),
@@ -2391,7 +2388,7 @@ mod tests {
             };
 
             let mut state = State::new(
-                vec![(MODULE_ID.to_string(), main), ("bar".to_string(), bar)]
+                vec![(MODULE_ID.into(), main), ("bar".into(), bar)]
                     .into_iter()
                     .collect(),
             );
@@ -2399,8 +2396,9 @@ mod tests {
             let mut checker = Checker::new();
             assert_eq!(
                 checker
-                    .check_module(&MODULE_ID.to_string(), &mut state)
+                    .check_module(&MODULE_ID.into(), &mut state)
                     .unwrap_err()[0]
+                    .inner
                     .message,
                 "foo conflicts with another symbol"
             );
@@ -2432,7 +2430,7 @@ mod tests {
                     SymbolDeclaration {
                         id: "foo",
                         symbol: Symbol::There(
-                            SymbolImport::with_id_in_module("main", "bar".to_string()).mock(),
+                            SymbolImport::with_id_in_module("main", "bar").mock(),
                         ),
                     }
                     .mock(),
@@ -2441,7 +2439,7 @@ mod tests {
             };
 
             let mut state = State::new(
-                vec![(MODULE_ID.to_string(), main), ("bar".to_string(), bar)]
+                vec![(MODULE_ID.into(), main), ("bar".into(), bar)]
                     .into_iter()
                     .collect(),
             );
@@ -2449,8 +2447,9 @@ mod tests {
             let mut checker = Checker::new();
             assert_eq!(
                 checker
-                    .check_module(&MODULE_ID.to_string(), &mut state)
+                    .check_module(&MODULE_ID.into(), &mut state)
                     .unwrap_err()[0]
+                    .inner
                     .message,
                 "foo conflicts with another symbol"
             );
@@ -2480,14 +2479,14 @@ mod tests {
         .mock();
 
         let types = HashMap::new();
-        let module_id = String::from("");
+        let module_id = "".into();
 
         let mut checker = Checker::new();
         assert_eq!(
             checker.check_statement(statement, &module_id, &types),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
-                message: "Identifier \"b\" is undefined".to_string()
+                message: "Identifier \"b\" is undefined".into()
             }])
         );
     }
@@ -2503,7 +2502,7 @@ mod tests {
         .mock();
 
         let types = HashMap::new();
-        let module_id = String::from("");
+        let module_id = "".into();
 
         let mut scope = HashSet::new();
         scope.insert(ScopedVariable {
@@ -2589,14 +2588,17 @@ mod tests {
             imports: vec![],
         };
 
-        let mut state = State::new(vec![(String::from("main"), module)].into_iter().collect());
+        let mut state = State::new(vec![("main".into(), module)].into_iter().collect());
 
         let mut checker = Checker::new();
         assert_eq!(
-            checker.check_module(&String::from("main"), &mut state),
-            Err(vec![ErrorInner {
-                pos: Some((Position::mock(), Position::mock())),
-                message: "Identifier \"a\" is undefined".to_string()
+            checker.check_module(&"main".into(), &mut state),
+            Err(vec![Error {
+                inner: ErrorInner {
+                    pos: Some((Position::mock(), Position::mock())),
+                    message: "Identifier \"a\" is undefined".into()
+                },
+                module_id: "main".into()
             }])
         );
     }
@@ -2704,12 +2706,10 @@ mod tests {
             imports: vec![],
         };
 
-        let mut state = State::new(vec![(String::from("main"), module)].into_iter().collect());
+        let mut state = State::new(vec![("main".into(), module)].into_iter().collect());
 
         let mut checker = Checker::new();
-        assert!(checker
-            .check_module(&String::from("main"), &mut state)
-            .is_ok());
+        assert!(checker.check_module(&"main".into(), &mut state).is_ok());
     }
 
     #[test]
@@ -2746,14 +2746,14 @@ mod tests {
         .mock();
 
         let types = HashMap::new();
-        let module_id = String::from("");
+        let module_id = "".into();
 
         let mut checker = Checker::new();
         assert_eq!(
             checker.check_function(foo, &module_id, &types),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
-                message: "Identifier \"i\" is undefined".to_string()
+                message: "Identifier \"i\" is undefined".into()
             }])
         );
     }
@@ -2821,7 +2821,7 @@ mod tests {
         };
 
         let types = HashMap::new();
-        let module_id = String::from("");
+        let module_id = "".into();
 
         let mut checker = Checker::new();
         assert_eq!(
@@ -2870,7 +2870,7 @@ mod tests {
         .mock();
 
         let types = HashMap::new();
-        let module_id = String::from("");
+        let module_id = "".into();
 
         let mut checker = new_with_args(HashSet::new(), 0, functions);
         assert_eq!(
@@ -2879,7 +2879,7 @@ mod tests {
                 pos: Some((Position::mock(), Position::mock())),
                 message:
                     "Function definition for function foo with signature () -> (field) not found."
-                        .to_string()
+                        .into()
             }])
         );
     }
@@ -2918,7 +2918,7 @@ mod tests {
         .mock();
 
         let types = HashMap::new();
-        let module_id = String::from("");
+        let module_id = "".into();
 
         let mut checker = new_with_args(HashSet::new(), 0, functions);
         assert_eq!(
@@ -2926,7 +2926,7 @@ mod tests {
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Function definition for function foo with signature () -> (_) not found."
-                    .to_string()
+                    .into()
             }])
         );
     }
@@ -2959,7 +2959,7 @@ mod tests {
         .mock();
 
         let types = HashMap::new();
-        let module_id = String::from("");
+        let module_id = "".into();
 
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
@@ -2969,7 +2969,7 @@ mod tests {
 
                 message:
                     "Function definition for function foo with signature () -> (field) not found."
-                        .to_string()
+                        .into()
             }])
         );
     }
@@ -3063,14 +3063,17 @@ mod tests {
             imports: vec![],
         };
 
-        let mut state = State::new(vec![(String::from("main"), module)].into_iter().collect());
+        let mut state = State::new(vec![("main".into(), module)].into_iter().collect());
 
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
-            checker.check_module(&String::from("main"), &mut state),
-            Err(vec![ErrorInner {
-                pos: Some((Position::mock(), Position::mock())),
-                message: "Identifier \"x\" is undefined".to_string()
+            checker.check_module(&"main".into(), &mut state),
+            Err(vec![Error {
+                inner: ErrorInner {
+                    pos: Some((Position::mock(), Position::mock())),
+                    message: "Identifier \"x\" is undefined".into()
+                },
+                module_id: "main".into()
             }])
         );
     }
@@ -3097,7 +3100,7 @@ mod tests {
         .mock();
 
         let types = HashMap::new();
-        let module_id = String::from("");
+        let module_id = "".into();
 
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
@@ -3106,7 +3109,7 @@ mod tests {
                 pos: Some((Position::mock(), Position::mock())),
 
                 message: "Function definition for function foo with signature () -> (_) not found."
-                    .to_string()
+                    .into()
             }])
         );
     }
@@ -3141,14 +3144,14 @@ mod tests {
         .mock();
 
         let types = HashMap::new();
-        let module_id = String::from("");
+        let module_id = "".into();
 
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
             checker.check_function(bar, &module_id, &types),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
-                message: "Identifier \"a\" is undefined".to_string()
+                message: "Identifier \"a\" is undefined".into()
             }])
         );
     }
@@ -3246,7 +3249,7 @@ mod tests {
         };
 
         let types = HashMap::new();
-        let module_id = String::from("");
+        let module_id = "".into();
 
         let mut checker = new_with_args(HashSet::new(), 0, functions);
         assert_eq!(
@@ -3326,18 +3329,19 @@ mod tests {
         };
 
         let program = Program {
-            modules: vec![(String::from("main"), main_module)]
-                .into_iter()
-                .collect(),
-            main: String::from("main"),
+            modules: vec![("main".into(), main_module)].into_iter().collect(),
+            main: "main".into(),
         };
 
         let mut checker = Checker::new();
         assert_eq!(
             checker.check_program(program),
-            Err(vec![ErrorInner {
-                pos: None,
-                message: "Only one main function allowed, found 2".to_string()
+            Err(vec![Error {
+                inner: ErrorInner {
+                    pos: None,
+                    message: "Only one main function allowed, found 2".into()
+                },
+                module_id: "main".into()
             }])
         );
     }
@@ -3350,7 +3354,7 @@ mod tests {
         // should fail
 
         let types = HashMap::new();
-        let module_id = String::from("");
+        let module_id = "".into();
         let mut checker = Checker::new();
         let _: Result<TypedStatement<FieldPrime>, Vec<ErrorInner>> = checker.check_statement(
             Statement::Declaration(
@@ -3373,7 +3377,7 @@ mod tests {
             s2_checked,
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
-                message: "Duplicate declaration for variable named a".to_string()
+                message: "Duplicate declaration for variable named a".into()
             }])
         );
     }
@@ -3386,7 +3390,7 @@ mod tests {
         // should fail
 
         let types = HashMap::new();
-        let module_id = String::from("");
+        let module_id = "".into();
 
         let mut checker = Checker::new();
         let _: Result<TypedStatement<FieldPrime>, Vec<ErrorInner>> = checker.check_statement(
@@ -3410,7 +3414,7 @@ mod tests {
             s2_checked,
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
-                message: "Duplicate declaration for variable named a".to_string()
+                message: "Duplicate declaration for variable named a".into()
             }])
         );
     }
@@ -3422,7 +3426,7 @@ mod tests {
         fn create_module_with_foo(
             s: StructType<'static>,
         ) -> (Checker<'static>, State<'static, FieldPrime>) {
-            let module_id = "".to_string();
+            let module_id: PathBuf = "".into();
 
             let module: Module<FieldPrime> = Module {
                 imports: vec![],
@@ -3449,7 +3453,7 @@ mod tests {
             #[test]
             fn empty_def() {
                 // an empty struct should be allowed to be defined
-                let module_id = "".to_string();
+                let module_id = "".into();
                 let types = HashMap::new();
                 let declaration = StructType { fields: vec![] }.mock();
 
@@ -3464,7 +3468,7 @@ mod tests {
             #[test]
             fn valid_def() {
                 // a valid struct should be allowed to be defined
-                let module_id = "".to_string();
+                let module_id = "".into();
                 let types = HashMap::new();
                 let declaration = StructType {
                     fields: vec![
@@ -3483,8 +3487,8 @@ mod tests {
                 .mock();
 
                 let expected_type = Type::Struct(vec![
-                    StructMember::new("foo".to_string(), Type::FieldElement),
-                    StructMember::new("bar".to_string(), Type::Boolean),
+                    StructMember::new("foo".into(), Type::FieldElement),
+                    StructMember::new("bar".into(), Type::Boolean),
                 ]);
 
                 assert_eq!(
@@ -3496,7 +3500,7 @@ mod tests {
             #[test]
             fn preserve_order() {
                 // two structs with inverted members are not equal
-                let module_id = "".to_string();
+                let module_id = "".into();
                 let types = HashMap::new();
 
                 let declaration0 = StructType {
@@ -3540,7 +3544,7 @@ mod tests {
             #[test]
             fn duplicate_member_def() {
                 // definition of a struct with a duplicate member should be rejected
-                let module_id = "".to_string();
+                let module_id = "".into();
                 let types = HashMap::new();
 
                 let declaration = StructType {
@@ -3575,7 +3579,7 @@ mod tests {
                 // struct Foo = { foo: field }
                 // struct Bar = { foo: Foo }
 
-                let module_id = "".to_string();
+                let module_id: PathBuf = "".into();
 
                 let module: Module<FieldPrime> = Module {
                     imports: vec![],
@@ -3600,7 +3604,7 @@ mod tests {
                                 StructType {
                                     fields: vec![StructField {
                                         id: "foo",
-                                        ty: UnresolvedType::User("Foo".to_string()).mock(),
+                                        ty: UnresolvedType::User("Foo".into()).mock(),
                                     }
                                     .mock()],
                                 }
@@ -3617,16 +3621,13 @@ mod tests {
                 assert_eq!(
                     state
                         .types
-                        .get(&"".to_string())
+                        .get(&module_id)
                         .unwrap()
                         .get(&"Bar".to_string())
                         .unwrap(),
                     &Type::Struct(vec![StructMember::new(
-                        "foo".to_string(),
-                        Type::Struct(vec![StructMember::new(
-                            "foo".to_string(),
-                            Type::FieldElement
-                        )])
+                        "foo".into(),
+                        Type::Struct(vec![StructMember::new("foo".into(), Type::FieldElement)])
                     )])
                 );
             }
@@ -3637,7 +3638,7 @@ mod tests {
 
                 // struct Bar = { foo: Foo }
 
-                let module_id = "".to_string();
+                let module_id: PathBuf = "".into();
 
                 let module: Module<FieldPrime> = Module {
                     imports: vec![],
@@ -3647,7 +3648,7 @@ mod tests {
                             StructType {
                                 fields: vec![StructField {
                                     id: "foo",
-                                    ty: UnresolvedType::User("Foo".to_string()).mock(),
+                                    ty: UnresolvedType::User("Foo".into()).mock(),
                                 }
                                 .mock()],
                             }
@@ -3668,7 +3669,7 @@ mod tests {
 
                 // struct Foo = { foo: Foo }
 
-                let module_id = "".to_string();
+                let module_id: PathBuf = "".into();
 
                 let module: Module<FieldPrime> = Module {
                     imports: vec![],
@@ -3678,7 +3679,7 @@ mod tests {
                             StructType {
                                 fields: vec![StructField {
                                     id: "foo",
-                                    ty: UnresolvedType::User("Foo".to_string()).mock(),
+                                    ty: UnresolvedType::User("Foo".into()).mock(),
                                 }
                                 .mock()],
                             }
@@ -3700,7 +3701,7 @@ mod tests {
                 // struct Foo = { bar: Bar }
                 // struct Bar = { foo: Foo }
 
-                let module_id = "".to_string();
+                let module_id: PathBuf = "".into();
 
                 let module: Module<FieldPrime> = Module {
                     imports: vec![],
@@ -3711,7 +3712,7 @@ mod tests {
                                 StructType {
                                     fields: vec![StructField {
                                         id: "bar",
-                                        ty: UnresolvedType::User("Bar".to_string()).mock(),
+                                        ty: UnresolvedType::User("Bar".into()).mock(),
                                     }
                                     .mock()],
                                 }
@@ -3725,7 +3726,7 @@ mod tests {
                                 StructType {
                                     fields: vec![StructField {
                                         id: "foo",
-                                        ty: UnresolvedType::User("Foo".to_string()).mock(),
+                                        ty: UnresolvedType::User("Foo".into()).mock(),
                                     }
                                     .mock()],
                                 }
@@ -3765,12 +3766,12 @@ mod tests {
 
                 assert_eq!(
                     checker.check_type(
-                        UnresolvedType::User("Foo".to_string()).mock(),
-                        &MODULE_ID.to_string(),
+                        UnresolvedType::User("Foo".into()).mock(),
+                        &MODULE_ID.into(),
                         &state.types
                     ),
                     Ok(Type::Struct(vec![StructMember::new(
-                        "foo".to_string(),
+                        "foo".into(),
                         Type::FieldElement
                     )]))
                 );
@@ -3778,8 +3779,8 @@ mod tests {
                 assert_eq!(
                     checker
                         .check_type(
-                            UnresolvedType::User("Bar".to_string()).mock(),
-                            &MODULE_ID.to_string(),
+                            UnresolvedType::User("Bar".into()).mock(),
+                            &MODULE_ID.into(),
                             &state.types
                         )
                         .unwrap_err()
@@ -3805,24 +3806,19 @@ mod tests {
                 assert_eq!(
                     checker.check_parameter(
                         absy::Parameter {
-                            id: absy::Variable::new(
-                                "a",
-                                UnresolvedType::User("Foo".to_string()).mock(),
-                            )
-                            .mock(),
+                            id:
+                                absy::Variable::new("a", UnresolvedType::User("Foo".into()).mock(),)
+                                    .mock(),
                             private: true,
                         }
                         .mock(),
-                        &MODULE_ID.to_string(),
+                        &MODULE_ID.into(),
                         &state.types,
                     ),
                     Ok(Parameter {
                         id: Variable::with_id_and_type(
                             "a".into(),
-                            Type::Struct(vec![StructMember::new(
-                                "foo".to_string(),
-                                Type::FieldElement
-                            )])
+                            Type::Struct(vec![StructMember::new("foo".into(), Type::FieldElement)])
                         ),
                         private: true
                     })
@@ -3834,13 +3830,13 @@ mod tests {
                             absy::Parameter {
                                 id: absy::Variable::new(
                                     "a",
-                                    UnresolvedType::User("Bar".to_string()).mock(),
+                                    UnresolvedType::User("Bar".into()).mock(),
                                 )
                                 .mock(),
                                 private: true,
                             }
                             .mock(),
-                            &MODULE_ID.to_string(),
+                            &MODULE_ID.into(),
                             &state.types,
                         )
                         .unwrap_err()[0]
@@ -3866,22 +3862,16 @@ mod tests {
                 assert_eq!(
                     checker.check_statement::<FieldPrime>(
                         Statement::Declaration(
-                            absy::Variable::new(
-                                "a",
-                                UnresolvedType::User("Foo".to_string()).mock(),
-                            )
-                            .mock()
+                            absy::Variable::new("a", UnresolvedType::User("Foo".into()).mock(),)
+                                .mock()
                         )
                         .mock(),
-                        &MODULE_ID.to_string(),
+                        &MODULE_ID.into(),
                         &state.types,
                     ),
                     Ok(TypedStatement::Declaration(Variable::with_id_and_type(
                         "a".into(),
-                        Type::Struct(vec![StructMember::new(
-                            "foo".to_string(),
-                            Type::FieldElement
-                        )])
+                        Type::Struct(vec![StructMember::new("foo".into(), Type::FieldElement)])
                     )))
                 );
 
@@ -3891,13 +3881,13 @@ mod tests {
                             absy::Parameter {
                                 id: absy::Variable::new(
                                     "a",
-                                    UnresolvedType::User("Bar".to_string()).mock(),
+                                    UnresolvedType::User("Bar".into()).mock(),
                                 )
                                 .mock(),
                                 private: true,
                             }
                             .mock(),
-                            &MODULE_ID.to_string(),
+                            &MODULE_ID.into(),
                             &state.types,
                         )
                         .unwrap_err()[0]
@@ -3930,7 +3920,7 @@ mod tests {
                     checker.check_expression(
                         Expression::Member(
                             box Expression::InlineStruct(
-                                "Foo".to_string(),
+                                "Foo".into(),
                                 vec![(
                                     "foo",
                                     Expression::FieldConstant(FieldPrime::from(42)).mock()
@@ -3940,7 +3930,7 @@ mod tests {
                             "foo".into()
                         )
                         .mock(),
-                        &MODULE_ID.to_string(),
+                        &MODULE_ID.into(),
                         &state.types
                     ),
                     Ok(FieldElementExpression::Member(
@@ -3948,11 +3938,8 @@ mod tests {
                             FieldPrime::from(42)
                         )
                         .into()])
-                        .annotate(vec![StructMember::new(
-                            "foo".to_string(),
-                            Type::FieldElement
-                        )]),
-                        "foo".to_string()
+                        .annotate(vec![StructMember::new("foo".into(), Type::FieldElement)]),
+                        "foo".into()
                     )
                     .into())
                 );
@@ -3978,7 +3965,7 @@ mod tests {
                         .check_expression(
                             Expression::Member(
                                 box Expression::InlineStruct(
-                                    "Foo".to_string(),
+                                    "Foo".into(),
                                     vec![(
                                         "foo",
                                         Expression::FieldConstant(FieldPrime::from(42)).mock()
@@ -3988,7 +3975,7 @@ mod tests {
                                 "bar".into()
                             )
                             .mock(),
-                            &MODULE_ID.to_string(),
+                            &MODULE_ID.into(),
                             &state.types
                         )
                         .unwrap_err()
@@ -4018,14 +4005,14 @@ mod tests {
                     checker
                         .check_expression(
                             Expression::InlineStruct(
-                                "Bar".to_string(),
+                                "Bar".into(),
                                 vec![(
                                     "foo",
                                     Expression::FieldConstant(FieldPrime::from(42)).mock()
                                 )]
                             )
                             .mock(),
-                            &MODULE_ID.to_string(),
+                            &MODULE_ID.into(),
                             &state.types
                         )
                         .unwrap_err()
@@ -4059,7 +4046,7 @@ mod tests {
                 assert_eq!(
                     checker.check_expression(
                         Expression::InlineStruct(
-                            "Foo".to_string(),
+                            "Foo".into(),
                             vec![
                                 (
                                     "foo",
@@ -4069,7 +4056,7 @@ mod tests {
                             ]
                         )
                         .mock(),
-                        &MODULE_ID.to_string(),
+                        &MODULE_ID.into(),
                         &state.types
                     ),
                     Ok(StructExpressionInner::Value(vec![
@@ -4077,8 +4064,8 @@ mod tests {
                         BooleanExpression::Value(true).into()
                     ])
                     .annotate(vec![
-                        StructMember::new("foo".to_string(), Type::FieldElement),
-                        StructMember::new("bar".to_string(), Type::Boolean)
+                        StructMember::new("foo".into(), Type::FieldElement),
+                        StructMember::new("bar".into(), Type::Boolean)
                     ])
                     .into())
                 );
@@ -4109,7 +4096,7 @@ mod tests {
                 assert_eq!(
                     checker.check_expression(
                         Expression::InlineStruct(
-                            "Foo".to_string(),
+                            "Foo".into(),
                             vec![
                                 ("bar", Expression::BooleanConstant(true).mock()),
                                 (
@@ -4119,7 +4106,7 @@ mod tests {
                             ]
                         )
                         .mock(),
-                        &MODULE_ID.to_string(),
+                        &MODULE_ID.into(),
                         &state.types
                     ),
                     Ok(StructExpressionInner::Value(vec![
@@ -4127,8 +4114,8 @@ mod tests {
                         BooleanExpression::Value(true).into()
                     ])
                     .annotate(vec![
-                        StructMember::new("foo".to_string(), Type::FieldElement),
-                        StructMember::new("bar".to_string(), Type::Boolean)
+                        StructMember::new("foo".into(), Type::FieldElement),
+                        StructMember::new("bar".into(), Type::Boolean)
                     ])
                     .into())
                 );
@@ -4160,14 +4147,14 @@ mod tests {
                     checker
                         .check_expression(
                             Expression::InlineStruct(
-                                "Foo".to_string(),
+                                "Foo".into(),
                                 vec![(
                                     "foo",
                                     Expression::FieldConstant(FieldPrime::from(42)).mock()
                                 )]
                             )
                             .mock(),
-                            &MODULE_ID.to_string(),
+                            &MODULE_ID.into(),
                             &state.types
                         )
                         .unwrap_err()
@@ -4204,7 +4191,7 @@ mod tests {
                     checker
                         .check_expression(
                             Expression::InlineStruct(
-                                "Foo".to_string(),
+                                "Foo".into(),
                                 vec![(
                                     "baz",
                                     Expression::BooleanConstant(true).mock()
@@ -4214,7 +4201,7 @@ mod tests {
                                 )]
                             )
                             .mock(),
-                            &MODULE_ID.to_string(),
+                            &MODULE_ID.into(),
                             &state.types
                         ).unwrap_err()
                         .message,
@@ -4225,7 +4212,7 @@ mod tests {
                     checker
                         .check_expression(
                             Expression::InlineStruct(
-                                "Foo".to_string(),
+                                "Foo".into(),
                                 vec![
                                     (
                                         "bar",
@@ -4238,7 +4225,7 @@ mod tests {
                                 ]
                             )
                             .mock(),
-                            &MODULE_ID.to_string(),
+                            &MODULE_ID.into(),
                             &state.types
                         )
                         .unwrap_err()
@@ -4258,7 +4245,7 @@ mod tests {
             let a = Assignee::Identifier::<FieldPrime>("a").mock();
 
             let types = HashMap::new();
-            let module_id = String::from("");
+            let module_id = "".into();
             let mut checker: Checker = Checker::new();
             checker
                 .check_statement::<FieldPrime>(
@@ -4292,7 +4279,7 @@ mod tests {
             .mock();
 
             let types = HashMap::new();
-            let module_id = String::from("");
+            let module_id = "".into();
 
             let mut checker: Checker = Checker::new();
             checker
@@ -4341,7 +4328,7 @@ mod tests {
             .mock();
 
             let types = HashMap::new();
-            let module_id = String::from("");
+            let module_id = "".into();
             let mut checker: Checker = Checker::new();
             checker
                 .check_statement::<FieldPrime>(

@@ -228,13 +228,10 @@ mod test {
 			   return foo()
 		"#
         .to_string();
-        let res: Result<CompilationArtifacts<FieldPrime>, CompileErrors> = compile(
-            source,
-            String::from("./path/to/file"),
-            None::<Resolve<io::Error>>,
-        );
-        assert!(res
-            .unwrap_err()
+        let res: Result<CompilationArtifacts<FieldPrime>, CompileErrors> =
+            compile(source, "./path/to/file".into(), None::<Resolve<io::Error>>);
+        assert!(res.unwrap_err().0[0]
+            .value()
             .to_string()
             .contains(&"Can't resolve import without a resolver"));
     }
@@ -246,11 +243,8 @@ mod test {
 			   return 1
 		"#
         .to_string();
-        let res: Result<CompilationArtifacts<FieldPrime>, CompileErrors> = compile(
-            source,
-            String::from("./path/to/file"),
-            None::<Resolve<io::Error>>,
-        );
+        let res: Result<CompilationArtifacts<FieldPrime>, CompileErrors> =
+            compile(source, "./path/to/file".into(), None::<Resolve<io::Error>>);
         assert!(res.is_ok());
     }
 }

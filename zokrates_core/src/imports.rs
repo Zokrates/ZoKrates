@@ -261,10 +261,10 @@ mod tests {
     #[test]
     fn create_with_no_alias() {
         assert_eq!(
-            Import::new(None, "./foo/bar/baz.zok"),
+            Import::new(None, Path::new("./foo/bar/baz.zok")),
             Import {
                 symbol: None,
-                source: "./foo/bar/baz.zok",
+                source: Path::new("./foo/bar/baz.zok"),
                 alias: None,
             }
         );
@@ -273,10 +273,10 @@ mod tests {
     #[test]
     fn create_with_alias() {
         assert_eq!(
-            Import::new_with_alias(None, "./foo/bar/baz.zok", &"myalias"),
+            Import::new_with_alias(None, Path::new("./foo/bar/baz.zok"), &"myalias"),
             Import {
                 symbol: None,
-                source: "./foo/bar/baz.zok",
+                source: Path::new("./foo/bar/baz.zok"),
                 alias: Some("myalias"),
             }
         );

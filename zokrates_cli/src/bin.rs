@@ -678,19 +678,12 @@ mod tests {
             let file = File::open(path.clone()).unwrap();
 
             let mut reader = BufReader::new(file);
-            let location = path
-                .parent()
-                .unwrap()
-                .to_path_buf()
-                .into_os_string()
-                .into_string()
-                .unwrap();
 
             let mut source = String::new();
             reader.read_to_string(&mut source).unwrap();
 
             let _: CompilationArtifacts<FieldPrime> =
-                compile(source, location, Some(&fs_resolve)).unwrap();
+                compile(source, path, Some(&fs_resolve)).unwrap();
         }
     }
 
@@ -706,20 +699,12 @@ mod tests {
 
             let file = File::open(path.clone()).unwrap();
 
-            let location = path
-                .parent()
-                .unwrap()
-                .to_path_buf()
-                .into_os_string()
-                .into_string()
-                .unwrap();
-
             let mut reader = BufReader::new(file);
             let mut source = String::new();
             reader.read_to_string(&mut source).unwrap();
 
             let artifacts: CompilationArtifacts<FieldPrime> =
-                compile(source, location, Some(&fs_resolve)).unwrap();
+                compile(source, path, Some(&fs_resolve)).unwrap();
 
             let _ = artifacts
                 .prog()
@@ -741,20 +726,12 @@ mod tests {
 
             let file = File::open(path.clone()).unwrap();
 
-            let location = path
-                .parent()
-                .unwrap()
-                .to_path_buf()
-                .into_os_string()
-                .into_string()
-                .unwrap();
-
             let mut reader = BufReader::new(file);
             let mut source = String::new();
             reader.read_to_string(&mut source).unwrap();
 
             let artifacts: CompilationArtifacts<FieldPrime> =
-                compile(source, location, Some(&fs_resolve)).unwrap();
+                compile(source, path, Some(&fs_resolve)).unwrap();
 
             let _ = artifacts
                 .prog()
