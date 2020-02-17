@@ -279,22 +279,22 @@ fn cli() -> Result<(), String> {
 
             let hr_output_path = bin_output_path.to_path_buf().with_extension("ztf");
 
-            let file = File::open(path.clone()).map_err(|why| format!("Couldn't open input file {}: {}", path.display(), why))?;
+            let file = File::open(path.clone())
+                .map_err(|why| format!("Couldn't open input file {}: {}", path.display(), why))?;
 
             let mut reader = BufReader::new(file);
             let mut source = String::new();
-            reader
-                .read_to_string(&mut source).unwrap();
+            reader.read_to_string(&mut source).unwrap();
 
             let fmt_error = |e: &CompileError| {
                 format!(
                     "{}:{}",
-                    e.file().display(),
-                    // .canonicalize()
-                    // .unwrap()
-                    // .strip_prefix(std::env::current_dir().unwrap())
-                    // .unwrap()
-                    // .display(),
+                    e.file()
+                        .canonicalize()
+                        .unwrap()
+                        .strip_prefix(std::env::current_dir().unwrap())
+                        .unwrap()
+                        .display(),
                     e.value()
                 )
             };
