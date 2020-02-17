@@ -13,7 +13,7 @@ use std::io::{stdin, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::string::String;
 use zokrates_abi::Encode;
-use zokrates_core::compile::{compile, CompilationArtifacts};
+use zokrates_core::compile::{compile, CompilationArtifacts, CompileError};
 use zokrates_core::ir;
 use zokrates_core::proof_system::*;
 use zokrates_core::typed_absy::abi::Abi;
@@ -271,14 +271,6 @@ fn cli() -> Result<(), String> {
 
             let path = PathBuf::from(sub_matches.value_of("input").unwrap());
 
-            let location = path
-                .parent()
-                .unwrap()
-                .to_path_buf()
-                .into_os_string()
-                .into_string()
-                .unwrap();
-
             let light = sub_matches.occurrences_of("light") > 0;
 
             let bin_output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -287,17 +279,36 @@ fn cli() -> Result<(), String> {
 
             let hr_output_path = bin_output_path.to_path_buf().with_extension("ztf");
 
-            let file = File::open(path.clone()).unwrap();
+            let file = File::open(path.clone())
+                .map_err(|why| format!("Couldn't open input file {}: {}", path.display(), why))?;
 
             let mut reader = BufReader::new(file);
             let mut source = String::new();
-            reader
-                .read_to_string(&mut source)
-                .map_err(|why| format!("couldn't open input file {}: {}", path.display(), why))?;
+            reader.read_to_string(&mut source).unwrap();
+
+            let fmt_error = |e: &CompileError| {
+                format!(
+                    "{}:{}",
+                    e.file()
+                        .canonicalize()
+                        .unwrap()
+                        .strip_prefix(std::env::current_dir().unwrap())
+                        .unwrap()
+                        .display(),
+                    e.value()
+                )
+            };
 
             let artifacts: CompilationArtifacts<FieldPrime> =
-                compile(source, location, Some(&fs_resolve))
-                    .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
+                compile(source, path, Some(&fs_resolve)).map_err(|e| {
+                    format!(
+                        "Compilation failed:\n\n{}",
+                        e.0.iter()
+                            .map(|e| fmt_error(e))
+                            .collect::<Vec<_>>()
+                            .join("\n\n")
+                    )
+                })?;
 
             let program_flattened = artifacts.prog();
 
@@ -306,7 +317,7 @@ fn cli() -> Result<(), String> {
 
             // serialize flattened program and write to binary file
             let bin_output_file = File::create(&bin_output_path)
-                .map_err(|why| format!("couldn't create {}: {}", bin_output_path.display(), why))?;
+                .map_err(|why| format!("Couldn't create {}: {}", bin_output_path.display(), why))?;
 
             let mut writer = BufWriter::new(bin_output_file);
 
@@ -315,7 +326,7 @@ fn cli() -> Result<(), String> {
 
             // serialize ABI spec and write to JSON file
             let abi_spec_file = File::create(&abi_spec_path)
-                .map_err(|why| format!("couldn't create {}: {}", abi_spec_path.display(), why))?;
+                .map_err(|why| format!("Couldn't create {}: {}", abi_spec_path.display(), why))?;
 
             let abi = artifacts.abi();
 
@@ -666,19 +677,12 @@ mod tests {
             let file = File::open(path.clone()).unwrap();
 
             let mut reader = BufReader::new(file);
-            let location = path
-                .parent()
-                .unwrap()
-                .to_path_buf()
-                .into_os_string()
-                .into_string()
-                .unwrap();
 
             let mut source = String::new();
             reader.read_to_string(&mut source).unwrap();
 
             let _: CompilationArtifacts<FieldPrime> =
-                compile(source, location, Some(&fs_resolve)).unwrap();
+                compile(source, path, Some(&fs_resolve)).unwrap();
         }
     }
 
@@ -694,20 +698,12 @@ mod tests {
 
             let file = File::open(path.clone()).unwrap();
 
-            let location = path
-                .parent()
-                .unwrap()
-                .to_path_buf()
-                .into_os_string()
-                .into_string()
-                .unwrap();
-
             let mut reader = BufReader::new(file);
             let mut source = String::new();
             reader.read_to_string(&mut source).unwrap();
 
             let artifacts: CompilationArtifacts<FieldPrime> =
-                compile(source, location, Some(&fs_resolve)).unwrap();
+                compile(source, path, Some(&fs_resolve)).unwrap();
 
             let _ = artifacts
                 .prog()
@@ -729,20 +725,12 @@ mod tests {
 
             let file = File::open(path.clone()).unwrap();
 
-            let location = path
-                .parent()
-                .unwrap()
-                .to_path_buf()
-                .into_os_string()
-                .into_string()
-                .unwrap();
-
             let mut reader = BufReader::new(file);
             let mut source = String::new();
             reader.read_to_string(&mut source).unwrap();
 
             let artifacts: CompilationArtifacts<FieldPrime> =
-                compile(source, location, Some(&fs_resolve)).unwrap();
+                compile(source, path, Some(&fs_resolve)).unwrap();
 
             let _ = artifacts
                 .prog()

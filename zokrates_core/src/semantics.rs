@@ -10,6 +10,7 @@ use crate::typed_absy::*;
 use crate::typed_absy::{Parameter, Variable};
 use std::collections::{hash_map::Entry, BTreeSet, HashMap, HashSet};
 use std::fmt;
+use std::path::PathBuf;
 use zokrates_field::field::Field;
 
 use crate::parser::Position;
@@ -21,9 +22,24 @@ use std::hash::{Hash, Hasher};
 use typed_absy::types::{ArrayType, StructMember};
 
 #[derive(PartialEq, Debug)]
-pub struct Error {
+pub struct ErrorInner {
     pos: Option<(Position, Position)>,
     message: String,
+}
+
+#[derive(PartialEq, Debug)]
+pub struct Error {
+    pub inner: ErrorInner,
+    pub module_id: PathBuf,
+}
+
+impl ErrorInner {
+    fn in_file(self, id: &ModuleId) -> Error {
+        Error {
+            inner: self,
+            module_id: id.clone(),
+        }
+    }
 }
 
 type TypeMap = HashMap<ModuleId, HashMap<UserTypeId, Type>>;
@@ -97,7 +113,7 @@ impl<'ast, T: Field> State<'ast, T> {
     }
 }
 
-impl fmt::Display for Error {
+impl fmt::Display for ErrorInner {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let location = self
             .pos
@@ -237,8 +253,16 @@ impl<'ast> Checker<'ast> {
             return Err(errors);
         }
 
-        Checker::check_single_main(state.typed_modules.get(&program.main).unwrap())
-            .map_err(|e| vec![e])?;
+        let main_id = program.main.clone();
+
+        Checker::check_single_main(state.typed_modules.get(&program.main).unwrap()).map_err(
+            |inner| {
+                vec![Error {
+                    inner,
+                    module_id: main_id,
+                }]
+            },
+        )?;
 
         Ok(TypedProgram {
             main: program.main,
@@ -251,7 +275,7 @@ impl<'ast> Checker<'ast> {
         s: StructTypeNode<'ast>,
         module_id: &ModuleId,
         types: &TypeMap,
-    ) -> Result<Type, Vec<Error>> {
+    ) -> Result<Type, Vec<ErrorInner>> {
         let pos = s.pos();
         let s = s.value;
 
@@ -267,7 +291,7 @@ impl<'ast> Checker<'ast> {
             {
                 Ok(f) => match fields_set.insert(f.0.clone()) {
                     true => fields.push(f),
-                    false => errors.push(Error {
+                    false => errors.push(ErrorInner {
                         pos: Some(pos),
                         message: format!("Duplicate key {} in struct definition", f.0,),
                     }),
@@ -298,7 +322,7 @@ impl<'ast> Checker<'ast> {
         functions: &mut HashMap<FunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>,
         symbol_unifier: &mut SymbolUnifier,
     ) -> Result<(), Vec<Error>> {
-        let mut errors = vec![];
+        let mut errors: Vec<Error> = vec![];
 
         let pos = declaration.pos();
         let declaration = declaration.value;
@@ -308,13 +332,16 @@ impl<'ast> Checker<'ast> {
                 match self.check_struct_type_declaration(t.clone(), module_id, &state.types) {
                     Ok(ty) => {
                         match symbol_unifier.insert_type(declaration.id) {
-                            false => errors.push(Error {
-                                pos: Some(pos),
-                                message: format!(
-                                    "{} conflicts with another symbol",
-                                    declaration.id,
-                                ),
-                            }),
+                            false => errors.push(
+                                ErrorInner {
+                                    pos: Some(pos),
+                                    message: format!(
+                                        "{} conflicts with another symbol",
+                                        declaration.id,
+                                    ),
+                                }
+                                .in_file(module_id),
+                            ),
                             true => {}
                         };
                         state
@@ -323,16 +350,25 @@ impl<'ast> Checker<'ast> {
                             .or_default()
                             .insert(declaration.id.to_string(), ty);
                     }
-                    Err(e) => errors.extend(e),
+                    Err(e) => errors.extend(e.into_iter().map(|inner| Error {
+                        inner,
+                        module_id: module_id.clone(),
+                    })),
                 }
             }
             Symbol::HereFunction(f) => match self.check_function(f, module_id, &state.types) {
                 Ok(funct) => {
                     match symbol_unifier.insert_function(declaration.id, funct.signature.clone()) {
-                        false => errors.push(Error {
-                            pos: Some(pos),
-                            message: format!("{} conflicts with another symbol", declaration.id,),
-                        }),
+                        false => errors.push(
+                            ErrorInner {
+                                pos: Some(pos),
+                                message: format!(
+                                    "{} conflicts with another symbol",
+                                    declaration.id,
+                                ),
+                            }
+                            .in_file(module_id),
+                        ),
                         true => {}
                     };
 
@@ -347,7 +383,7 @@ impl<'ast> Checker<'ast> {
                     );
                 }
                 Err(e) => {
-                    errors.extend(e);
+                    errors.extend(e.into_iter().map(|inner| inner.in_file(module_id)));
                 }
             },
             Symbol::There(import) => {
@@ -384,12 +420,14 @@ impl<'ast> Checker<'ast> {
                                 match symbol_unifier.insert_type(declaration.id) {
                                     false => {
                                         errors.push(Error {
+                                            module_id: module_id.clone(),
+                                            inner: ErrorInner {
                                             pos: Some(pos),
                                             message: format!(
                                                 "{} conflicts with another symbol",
                                                 declaration.id,
                                             ),
-                                        });
+                                        }});
                                     }
                                     true => {}
                                 };
@@ -400,13 +438,13 @@ impl<'ast> Checker<'ast> {
                                     .insert(import.symbol_id.to_string(), t.clone());
                             }
                             (0, None) => {
-                                errors.push(Error {
+                                errors.push(ErrorInner {
                                     pos: Some(pos),
                                     message: format!(
                                         "Could not find symbol {} in module {}",
-                                        import.symbol_id, import.module_id,
+                                        import.symbol_id, import.module_id.display(),
                                     ),
-                                });
+                                }.in_file(module_id));
                             }
                             (_, Some(_)) => unreachable!("collision in module we're importing from should have been caught when checking it"),
                             _ => {
@@ -414,13 +452,13 @@ impl<'ast> Checker<'ast> {
 
                                     match symbol_unifier.insert_function(declaration.id, candidate.signature.clone()) {
                                         false => {
-                                            errors.push(Error {
+                                            errors.push(ErrorInner {
                                                 pos: Some(pos),
                                                 message: format!(
                                                     "{} conflicts with another symbol",
                                                     declaration.id,
                                                 ),
-                                            });
+                                            }.in_file(module_id));
                                         },
                                         true => {}
                                     };
@@ -445,10 +483,16 @@ impl<'ast> Checker<'ast> {
             Symbol::Flat(funct) => {
                 match symbol_unifier.insert_function(declaration.id, funct.signature::<T>()) {
                     false => {
-                        errors.push(Error {
-                            pos: Some(pos),
-                            message: format!("{} conflicts with another symbol", declaration.id,),
-                        });
+                        errors.push(
+                            ErrorInner {
+                                pos: Some(pos),
+                                message: format!(
+                                    "{} conflicts with another symbol",
+                                    declaration.id,
+                                ),
+                            }
+                            .in_file(module_id),
+                        );
                     }
                     true => {}
                 };
@@ -537,7 +581,7 @@ impl<'ast> Checker<'ast> {
         Ok(())
     }
 
-    fn check_single_main<T: Field>(module: &TypedModule<T>) -> Result<(), Error> {
+    fn check_single_main<T: Field>(module: &TypedModule<T>) -> Result<(), ErrorInner> {
         match module
             .functions
             .iter()
@@ -545,21 +589,21 @@ impl<'ast> Checker<'ast> {
             .count()
         {
             1 => Ok(()),
-            0 => Err(Error {
+            0 => Err(ErrorInner {
                 pos: None,
                 message: format!("No main function found"),
             }),
-            n => Err(Error {
+            n => Err(ErrorInner {
                 pos: None,
                 message: format!("Only one main function allowed, found {}", n),
             }),
         }
     }
 
-    fn check_for_var(&self, var: &VariableNode) -> Result<(), Error> {
+    fn check_for_var(&self, var: &VariableNode) -> Result<(), ErrorInner> {
         match var.value.get_type() {
             UnresolvedType::FieldElement => Ok(()),
-            t => Err(Error {
+            t => Err(ErrorInner {
                 pos: Some(var.pos()),
                 message: format!("Variable in for loop cannot have type {}", t),
             }),
@@ -571,7 +615,7 @@ impl<'ast> Checker<'ast> {
         funct_node: FunctionNode<'ast, T>,
         module_id: &ModuleId,
         types: &TypeMap,
-    ) -> Result<TypedFunction<'ast, T>, Vec<Error>> {
+    ) -> Result<TypedFunction<'ast, T>, Vec<ErrorInner>> {
         self.enter_scope();
 
         let mut errors = vec![];
@@ -606,7 +650,7 @@ impl<'ast> Checker<'ast> {
                                         == s.outputs
                                     {
                                         true => {}
-                                        false => errors.push(Error {
+                                        false => errors.push(ErrorInner {
                                             pos: Some(pos),
                                             message: format!(
                                                 "Expected ({}) in return statement, found ({})",
@@ -658,7 +702,7 @@ impl<'ast> Checker<'ast> {
         p: ParameterNode<'ast>,
         module_id: &ModuleId,
         types: &TypeMap,
-    ) -> Result<Parameter<'ast>, Vec<Error>> {
+    ) -> Result<Parameter<'ast>, Vec<ErrorInner>> {
         let var = self.check_variable(p.value.id, module_id, types)?;
 
         Ok(Parameter {
@@ -672,7 +716,7 @@ impl<'ast> Checker<'ast> {
         signature: UnresolvedSignature,
         module_id: &ModuleId,
         types: &TypeMap,
-    ) -> Result<Signature, Vec<Error>> {
+    ) -> Result<Signature, Vec<ErrorInner>> {
         let mut errors = vec![];
         let mut inputs = vec![];
         let mut outputs = vec![];
@@ -711,7 +755,7 @@ impl<'ast> Checker<'ast> {
         ty: UnresolvedTypeNode,
         module_id: &ModuleId,
         types: &TypeMap,
-    ) -> Result<Type, Error> {
+    ) -> Result<Type, ErrorInner> {
         let pos = ty.pos();
         let ty = ty.value;
 
@@ -728,7 +772,7 @@ impl<'ast> Checker<'ast> {
                     .unwrap()
                     .get(&id)
                     .cloned()
-                    .ok_or_else(|| Error {
+                    .ok_or_else(|| ErrorInner {
                         pos: Some(pos),
                         message: format!("Undefined type {}", id),
                     })
@@ -741,7 +785,7 @@ impl<'ast> Checker<'ast> {
         v: crate::absy::VariableNode<'ast>,
         module_id: &ModuleId,
         types: &TypeMap,
-    ) -> Result<Variable<'ast>, Vec<Error>> {
+    ) -> Result<Variable<'ast>, Vec<ErrorInner>> {
         Ok(Variable::with_id_and_type(
             v.value.id.into(),
             self.check_type(v.value._type, module_id, types)
@@ -754,7 +798,7 @@ impl<'ast> Checker<'ast> {
         stat: StatementNode<'ast, T>,
         module_id: &ModuleId,
         types: &TypeMap,
-    ) -> Result<TypedStatement<'ast, T>, Vec<Error>> {
+    ) -> Result<TypedStatement<'ast, T>, Vec<ErrorInner>> {
         let pos = stat.pos();
 
         match stat.value {
@@ -773,7 +817,7 @@ impl<'ast> Checker<'ast> {
                 let var = self.check_variable(var, module_id, types)?;
                 match self.insert_into_scope(var.clone()) {
                     true => Ok(TypedStatement::Declaration(var)),
-                    false => Err(Error {
+                    false => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!("Duplicate declaration for variable named {}", var.id),
                     }),
@@ -804,7 +848,7 @@ impl<'ast> Checker<'ast> {
                 // make sure the assignee has the same type as the rhs
                 match var_type == expression_type {
                     true => Ok(TypedStatement::Definition(var, checked_expr)),
-                    false => Err(Error {
+                    false => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
                             "Expression {} of type {} cannot be assigned to {} of type {}",
@@ -825,7 +869,7 @@ impl<'ast> Checker<'ast> {
                 if checked_lhs.get_type() == checked_rhs.get_type() {
                     Ok(TypedStatement::Condition(checked_lhs, checked_rhs))
                 } else {
-                    Err(Error {
+                    Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
                             "Cannot compare {} of type {:?} to {} of type {:?}",
@@ -854,7 +898,7 @@ impl<'ast> Checker<'ast> {
 
                 let from = match from {
                     TypedExpression::FieldElement(e) => Ok(e),
-                    e => Err(Error {
+                    e => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
                             "Expected lower loop bound to be of type field, found {}",
@@ -866,7 +910,7 @@ impl<'ast> Checker<'ast> {
 
                 let to = match to {
                     TypedExpression::FieldElement(e) => Ok(e),
-                    e => Err(Error {
+                    e => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
                             "Expected higher loop bound to be of type field, found {}",
@@ -903,7 +947,7 @@ impl<'ast> Checker<'ast> {
 					            		Some(sv) => Some(sv.id.get_type())
 					            	}))
                     			}
-                    			ref a => Err(Error {
+                    			ref a => Err(ErrorInner {
                                     pos: Some(pos),
  message: format!("Left hand side of function return assignment must be a list of identifiers, found {}", a)})
                     		}.map_err(|e| vec![e])?;
@@ -943,13 +987,13 @@ impl<'ast> Checker<'ast> {
 
                                 Ok(TypedStatement::MultipleDefinition(assignees, call))
                     		},
-                    		0 => Err(Error {                         pos: Some(pos),
+                    		0 => Err(ErrorInner {                         pos: Some(pos),
  message: format!("Function definition for function {} with signature {} not found.", fun_id, query) }),
-                    		_ => Err(Error {                         pos: Some(pos),
+                    		_ => Err(ErrorInner {                         pos: Some(pos),
  message: format!("Function call for function {} with arguments {:?} is ambiguous.", fun_id, arguments_types) }),
                     	}
                     }
-                    _ => Err(Error {
+                    _ => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!("{} should be a FunctionCall", rhs),
                     }),
@@ -963,7 +1007,7 @@ impl<'ast> Checker<'ast> {
         assignee: AssigneeNode<'ast, T>,
         module_id: &ModuleId,
         types: &TypeMap,
-    ) -> Result<TypedAssignee<'ast, T>, Error> {
+    ) -> Result<TypedAssignee<'ast, T>, ErrorInner> {
         let pos = assignee.pos();
         // check that the assignee is declared
         match assignee.value {
@@ -972,7 +1016,7 @@ impl<'ast> Checker<'ast> {
                     variable_name.into(),
                     var.id._type.clone(),
                 ))),
-                None => Err(Error {
+                None => Err(ErrorInner {
                     pos: Some(assignee.pos()),
                     message: format!("Undeclared variable: {:?}", variable_name),
                 }),
@@ -995,7 +1039,7 @@ impl<'ast> Checker<'ast> {
 
                         let checked_typed_index = match checked_index {
                             TypedExpression::FieldElement(e) => Ok(e),
-                            e => Err(Error {
+                            e => Err(ErrorInner {
                                 pos: Some(pos),
 
                                 message: format!(
@@ -1011,7 +1055,7 @@ impl<'ast> Checker<'ast> {
                             box checked_typed_index,
                         ))
                     }
-                    ty => Err(Error {
+                    ty => Err(ErrorInner {
                         pos: Some(pos),
 
                         message: format!(
@@ -1028,12 +1072,12 @@ impl<'ast> Checker<'ast> {
                 match &ty {
                     Type::Struct(members) => match members.iter().find(|m| m.id == member) {
                         Some(_) => Ok(TypedAssignee::Member(box checked_assignee, member.into())),
-                        None => Err(Error {
+                        None => Err(ErrorInner {
                             pos: Some(pos),
                             message: format!("{} doesn't have member {}", ty, member),
                         }),
                     },
-                    ty => Err(Error {
+                    ty => Err(ErrorInner {
                         pos: Some(pos),
 
                         message: format!(
@@ -1051,7 +1095,7 @@ impl<'ast> Checker<'ast> {
         spread_or_expression: SpreadOrExpression<'ast, T>,
         module_id: &ModuleId,
         types: &TypeMap,
-    ) -> Result<Vec<TypedExpression<'ast, T>>, Error> {
+    ) -> Result<Vec<TypedExpression<'ast, T>>, ErrorInner> {
         match spread_or_expression {
             SpreadOrExpression::Spread(s) => {
                 let pos = s.pos();
@@ -1097,7 +1141,7 @@ impl<'ast> Checker<'ast> {
                                 .collect()),
                         }
                     }
-                    e => Err(Error {
+                    e => Err(ErrorInner {
                         pos: Some(pos),
 
                         message: format!(
@@ -1118,7 +1162,7 @@ impl<'ast> Checker<'ast> {
         expr: ExpressionNode<'ast, T>,
         module_id: &ModuleId,
         types: &TypeMap,
-    ) -> Result<TypedExpression<'ast, T>, Error> {
+    ) -> Result<TypedExpression<'ast, T>, ErrorInner> {
         let pos = expr.pos();
 
         match expr.value {
@@ -1140,7 +1184,7 @@ impl<'ast> Checker<'ast> {
                             .annotate(members)
                             .into()),
                     },
-                    None => Err(Error {
+                    None => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!("Identifier \"{}\" is undefined", name),
                     }),
@@ -1154,7 +1198,7 @@ impl<'ast> Checker<'ast> {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(FieldElementExpression::Add(box e1, box e2).into())
                     }
-                    (t1, t2) => Err(Error {
+                    (t1, t2) => Err(ErrorInner {
                         pos: Some(pos),
 
                         message: format!(
@@ -1173,7 +1217,7 @@ impl<'ast> Checker<'ast> {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(FieldElementExpression::Sub(box e1, box e2).into())
                     }
-                    (t1, t2) => Err(Error {
+                    (t1, t2) => Err(ErrorInner {
                         pos: Some(pos),
 
                         message: format!(
@@ -1192,7 +1236,7 @@ impl<'ast> Checker<'ast> {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(FieldElementExpression::Mult(box e1, box e2).into())
                     }
-                    (t1, t2) => Err(Error {
+                    (t1, t2) => Err(ErrorInner {
                         pos: Some(pos),
 
                         message: format!(
@@ -1211,7 +1255,7 @@ impl<'ast> Checker<'ast> {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(FieldElementExpression::Div(box e1, box e2).into())
                     }
-                    (t1, t2) => Err(Error {
+                    (t1, t2) => Err(ErrorInner {
                         pos: Some(pos),
 
                         message: format!(
@@ -1230,7 +1274,7 @@ impl<'ast> Checker<'ast> {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => Ok(
                         TypedExpression::FieldElement(FieldElementExpression::Pow(box e1, box e2)),
                     ),
-                    (t1, t2) => Err(Error {
+                    (t1, t2) => Err(ErrorInner {
                         pos: Some(pos),
 
                         message: format!(
@@ -1273,13 +1317,13 @@ impl<'ast> Checker<'ast> {
                                 },
                                 _ => unreachable!("types should match here as we checked them explicitly")
                             }
-                            false => Err(Error {
+                            false => Err(ErrorInner {
                                 pos: Some(pos),
                                 message: format!("{{consequence}} and {{alternative}} in `if/else` expression should have the same type, found {}, {}", consequence_type, alternative_type)
                             })
                         }
                     }
-                    c => Err(Error {
+                    c => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
                             "{{condition}} after `if` should be a boolean, found {}",
@@ -1350,7 +1394,7 @@ impl<'ast> Checker<'ast> {
                                 .annotate(*array_type.ty.clone(), array_type.size.clone())
                                 .into()),
                             },
-                            n => Err(Error {
+                            n => Err(ErrorInner {
                                 pos: Some(pos),
 
                                 message: format!(
@@ -1360,7 +1404,7 @@ impl<'ast> Checker<'ast> {
                             }),
                         }
                     }
-                    0 => Err(Error {
+                    0 => Err(ErrorInner {
                         pos: Some(pos),
 
                         message: format!(
@@ -1380,7 +1424,7 @@ impl<'ast> Checker<'ast> {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(BooleanExpression::Lt(box e1, box e2).into())
                     }
-                    (e1, e2) => Err(Error {
+                    (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
                             "Cannot compare {} of type {} to {} of type {}",
@@ -1399,7 +1443,7 @@ impl<'ast> Checker<'ast> {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(BooleanExpression::Le(box e1, box e2).into())
                     }
-                    (e1, e2) => Err(Error {
+                    (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
                             "Cannot compare {} of type {} to {} of type {}",
@@ -1421,7 +1465,7 @@ impl<'ast> Checker<'ast> {
                     (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
                         Ok(BooleanExpression::BoolEq(box e1, box e2).into())
                     }
-                    (e1, e2) => Err(Error {
+                    (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
                             "Cannot compare {} of type {} to {} of type {}",
@@ -1440,7 +1484,7 @@ impl<'ast> Checker<'ast> {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(BooleanExpression::Ge(box e1, box e2).into())
                     }
-                    (e1, e2) => Err(Error {
+                    (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
                             "Cannot compare {} of type {} to {} of type {}",
@@ -1459,7 +1503,7 @@ impl<'ast> Checker<'ast> {
                     (TypedExpression::FieldElement(e1), TypedExpression::FieldElement(e2)) => {
                         Ok(BooleanExpression::Gt(box e1, box e2).into())
                     }
-                    (e1, e2) => Err(Error {
+                    (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
                             "Cannot compare {} of type {} to {} of type {}",
@@ -1493,21 +1537,21 @@ impl<'ast> Checker<'ast> {
                                 .unwrap_or(array_size);
 
                             match (from, to, array_size) {
-                                (f, _, s) if f > s => Err(Error {
+                                (f, _, s) if f > s => Err(ErrorInner {
                                     pos: Some(pos),
                                     message: format!(
                                         "Lower range bound {} is out of array bounds [0, {}]",
                                         f, s,
                                     ),
                                 }),
-                                (_, t, s) if t > s => Err(Error {
+                                (_, t, s) if t > s => Err(ErrorInner {
                                     pos: Some(pos),
                                     message: format!(
                                         "Higher range bound {} is out of array bounds [0, {}]",
                                         t, s,
                                     ),
                                 }),
-                                (f, t, _) if f > t => Err(Error {
+                                (f, t, _) if f > t => Err(ErrorInner {
                                     pos: Some(pos),
                                     message: format!(
                                         "Lower range bound {} is larger than higher range bound {}",
@@ -1548,7 +1592,7 @@ impl<'ast> Checker<'ast> {
                                 .into()),
                             }
                         }
-                        e => Err(Error {
+                        e => Err(ErrorInner {
                             pos: Some(pos),
                             message: format!(
                                 "Cannot access slice of expression {} of type {}",
@@ -1582,7 +1626,7 @@ impl<'ast> Checker<'ast> {
                                     }
                                 }
                             }
-                            (a, e) => Err(Error {
+                            (a, e) => Err(ErrorInner {
                                 pos: Some(pos),
                                 message: format!(
                                     "Cannot access element {} on expression of type {}",
@@ -1621,13 +1665,13 @@ impl<'ast> Checker<'ast> {
                                         .into())
                                 }
                             },
-                            None => Err(Error {
+                            None => Err(ErrorInner {
                                 pos: Some(pos),
                                 message: format!("{} doesn't have member {}", s.get_type(), id,),
                             }),
                         }
                     }
-                    e => Err(Error {
+                    e => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
                             "Cannot access member {} on expression of type {}",
@@ -1656,7 +1700,7 @@ impl<'ast> Checker<'ast> {
                         for e in expressions_checked {
                             let unwrapped_e = match e {
                                 TypedExpression::FieldElement(e) => Ok(e),
-                                e => Err(Error {
+                                e => Err(ErrorInner {
                                     pos: Some(pos),
 
                                     message: format!(
@@ -1683,7 +1727,7 @@ impl<'ast> Checker<'ast> {
                         for e in expressions_checked {
                             let unwrapped_e = match e {
                                 TypedExpression::Boolean(e) => Ok(e),
-                                e => Err(Error {
+                                e => Err(ErrorInner {
                                     pos: Some(pos),
 
                                     message: format!(
@@ -1713,7 +1757,7 @@ impl<'ast> Checker<'ast> {
                                     if e.get_type() == ty {
                                         Ok(e)
                                     } else {
-                                        Err(Error {
+                                        Err(ErrorInner {
                                             pos: Some(pos),
 
                                             message: format!(
@@ -1725,7 +1769,7 @@ impl<'ast> Checker<'ast> {
                                         })
                                     }
                                 }
-                                e => Err(Error {
+                                e => Err(ErrorInner {
                                     pos: Some(pos),
 
                                     message: format!(
@@ -1755,7 +1799,7 @@ impl<'ast> Checker<'ast> {
                                     if e.get_type() == ty {
                                         Ok(e)
                                     } else {
-                                        Err(Error {
+                                        Err(ErrorInner {
                                             pos: Some(pos),
 
                                             message: format!(
@@ -1767,7 +1811,7 @@ impl<'ast> Checker<'ast> {
                                         })
                                     }
                                 }
-                                e => Err(Error {
+                                e => Err(ErrorInner {
                                     pos: Some(pos),
 
                                     message: format!(
@@ -1803,7 +1847,7 @@ impl<'ast> Checker<'ast> {
                 // check that we provided the required number of values
 
                 if members.len() != inline_members.len() {
-                    return Err(Error {
+                    return Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
                             "Inline struct {} does not match {} : {}",
@@ -1831,7 +1875,7 @@ impl<'ast> Checker<'ast> {
                                 self.check_expression(value, module_id, &types)?;
                             let checked_type = expression_checked.get_type();
                             if checked_type != *member.ty {
-                                return Err(Error {
+                                return Err(ErrorInner {
                                     pos: Some(pos),
                                     message: format!(
                                         "Member {} of struct {} has type {}, found {} of type {}",
@@ -1847,7 +1891,7 @@ impl<'ast> Checker<'ast> {
                             }
                         }
                         None => {
-                            return Err(Error {
+                            return Err(ErrorInner {
                                 pos: Some(pos),
                                 message: format!(
                                     "Member {} of struct {} : {} not found in value {}",
@@ -1872,7 +1916,7 @@ impl<'ast> Checker<'ast> {
                     (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
                         Ok(BooleanExpression::And(box e1, box e2).into())
                     }
-                    (e1, e2) => Err(Error {
+                    (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
 
                         message: format!(
@@ -1890,7 +1934,7 @@ impl<'ast> Checker<'ast> {
                     (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
                         Ok(BooleanExpression::Or(box e1, box e2).into())
                     }
-                    (e1, e2) => Err(Error {
+                    (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
 
                         message: format!("cannot compare {} to {}", e1.get_type(), e2.get_type()),
@@ -1901,7 +1945,7 @@ impl<'ast> Checker<'ast> {
                 let e_checked = self.check_expression(e, module_id, &types)?;
                 match e_checked {
                     TypedExpression::Boolean(e) => Ok(BooleanExpression::Not(box e).into()),
-                    e => Err(Error {
+                    e => Err(ErrorInner {
                         pos: Some(pos),
 
                         message: format!("cannot negate {}", e.get_type()),
@@ -1959,7 +2003,7 @@ mod tests {
         #[test]
         fn element_type_mismatch() {
             let types = HashMap::new();
-            let module_id = String::from("");
+            let module_id = "".into();
             // [3, true]
             let a = Expression::InlineArray(vec![
                 Expression::FieldConstant(FieldPrime::from(3)).mock().into(),
@@ -2121,25 +2165,22 @@ mod tests {
             };
 
             let mut state = State::new(
-                vec![(String::from("foo"), foo), (String::from("bar"), bar)]
+                vec![("foo".into(), foo), ("bar".into(), bar)]
                     .into_iter()
                     .collect(),
             );
 
             let mut checker = Checker::new();
 
+            assert_eq!(checker.check_module(&"bar".into(), &mut state), Ok(()));
             assert_eq!(
-                checker.check_module(&String::from("bar"), &mut state),
-                Ok(())
-            );
-            assert_eq!(
-                state.typed_modules.get(&String::from("bar")),
+                state.typed_modules.get(&PathBuf::from("bar")),
                 Some(&TypedModule {
                     functions: vec![(
                         FunctionKey::with_id("main").signature(Signature::new()),
                         TypedFunctionSymbol::There(
                             FunctionKey::with_id("main").signature(Signature::new()),
-                            "foo".to_string()
+                            "foo".into()
                         )
                     )]
                     .into_iter()
@@ -2173,13 +2214,18 @@ mod tests {
                 imports: vec![],
             };
 
-            let mut state = State::new(vec![(MODULE_ID.to_string(), module)].into_iter().collect());
+            let mut state = State::new(
+                vec![(PathBuf::from(MODULE_ID).into(), module)]
+                    .into_iter()
+                    .collect(),
+            );
 
             let mut checker = Checker::new();
             assert_eq!(
                 checker
-                    .check_module(&MODULE_ID.to_string(), &mut state)
+                    .check_module(&PathBuf::from(MODULE_ID).into(), &mut state)
                     .unwrap_err()[0]
+                    .inner
                     .message,
                 "foo conflicts with another symbol"
             );
@@ -2210,22 +2256,26 @@ mod tests {
                 imports: vec![],
             };
 
-            let mut state = State::new(vec![(MODULE_ID.to_string(), module)].into_iter().collect());
+            let mut state = State::new(
+                vec![(PathBuf::from(MODULE_ID), module)]
+                    .into_iter()
+                    .collect(),
+            );
 
             let mut checker = Checker::new();
             assert_eq!(
-                checker.check_module(&MODULE_ID.to_string(), &mut state),
+                checker.check_module(&PathBuf::from(MODULE_ID), &mut state),
                 Ok(())
             );
             assert!(state
                 .typed_modules
-                .get(&MODULE_ID.to_string())
+                .get(&PathBuf::from(MODULE_ID))
                 .unwrap()
                 .functions
                 .contains_key(&FunctionKey::with_id("foo").signature(Signature::new())));
             assert!(state
                 .typed_modules
-                .get(&MODULE_ID.to_string())
+                .get(&PathBuf::from(MODULE_ID))
                 .unwrap()
                 .functions
                 .contains_key(
@@ -2257,13 +2307,14 @@ mod tests {
                 imports: vec![],
             };
 
-            let mut state = State::new(vec![(String::from("main"), module)].into_iter().collect());
+            let mut state = State::new(vec![("main".into(), module)].into_iter().collect());
 
             let mut checker = Checker::new();
             assert_eq!(
                 checker
-                    .check_module(&String::from("main"), &mut state)
+                    .check_module(&"main".into(), &mut state)
                     .unwrap_err()[0]
+                    .inner
                     .message,
                 "foo conflicts with another symbol"
             );
@@ -2293,13 +2344,14 @@ mod tests {
                 imports: vec![],
             };
 
-            let mut state = State::new(vec![(String::from("main"), module)].into_iter().collect());
+            let mut state = State::new(vec![("main".into(), module)].into_iter().collect());
 
             let mut checker = Checker::new();
             assert_eq!(
                 checker
-                    .check_module(&String::from("main"), &mut state)
+                    .check_module(&"main".into(), &mut state)
                     .unwrap_err()[0]
+                    .inner
                     .message,
                 "foo conflicts with another symbol"
             );
@@ -2329,7 +2381,7 @@ mod tests {
                     SymbolDeclaration {
                         id: "foo",
                         symbol: Symbol::There(
-                            SymbolImport::with_id_in_module("main", "bar".to_string()).mock(),
+                            SymbolImport::with_id_in_module("main", "bar").mock(),
                         ),
                     }
                     .mock(),
@@ -2343,7 +2395,7 @@ mod tests {
             };
 
             let mut state = State::new(
-                vec![(MODULE_ID.to_string(), main), ("bar".to_string(), bar)]
+                vec![(PathBuf::from(MODULE_ID), main), ("bar".into(), bar)]
                     .into_iter()
                     .collect(),
             );
@@ -2351,8 +2403,9 @@ mod tests {
             let mut checker = Checker::new();
             assert_eq!(
                 checker
-                    .check_module(&MODULE_ID.to_string(), &mut state)
+                    .check_module(&PathBuf::from(MODULE_ID), &mut state)
                     .unwrap_err()[0]
+                    .inner
                     .message,
                 "foo conflicts with another symbol"
             );
@@ -2384,7 +2437,7 @@ mod tests {
                     SymbolDeclaration {
                         id: "foo",
                         symbol: Symbol::There(
-                            SymbolImport::with_id_in_module("main", "bar".to_string()).mock(),
+                            SymbolImport::with_id_in_module("main", "bar").mock(),
                         ),
                     }
                     .mock(),
@@ -2393,7 +2446,7 @@ mod tests {
             };
 
             let mut state = State::new(
-                vec![(MODULE_ID.to_string(), main), ("bar".to_string(), bar)]
+                vec![(PathBuf::from(MODULE_ID), main), ("bar".into(), bar)]
                     .into_iter()
                     .collect(),
             );
@@ -2401,8 +2454,9 @@ mod tests {
             let mut checker = Checker::new();
             assert_eq!(
                 checker
-                    .check_module(&MODULE_ID.to_string(), &mut state)
+                    .check_module(&PathBuf::from(MODULE_ID), &mut state)
                     .unwrap_err()[0]
+                    .inner
                     .message,
                 "foo conflicts with another symbol"
             );
@@ -2432,14 +2486,14 @@ mod tests {
         .mock();
 
         let types = HashMap::new();
-        let module_id = String::from("");
+        let module_id = "".into();
 
         let mut checker = Checker::new();
         assert_eq!(
             checker.check_statement(statement, &module_id, &types),
-            Err(vec![Error {
+            Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
-                message: "Identifier \"b\" is undefined".to_string()
+                message: "Identifier \"b\" is undefined".into()
             }])
         );
     }
@@ -2455,7 +2509,7 @@ mod tests {
         .mock();
 
         let types = HashMap::new();
-        let module_id = String::from("");
+        let module_id = "".into();
 
         let mut scope = HashSet::new();
         scope.insert(ScopedVariable {
@@ -2541,14 +2595,17 @@ mod tests {
             imports: vec![],
         };
 
-        let mut state = State::new(vec![(String::from("main"), module)].into_iter().collect());
+        let mut state = State::new(vec![("main".into(), module)].into_iter().collect());
 
         let mut checker = Checker::new();
         assert_eq!(
-            checker.check_module(&String::from("main"), &mut state),
+            checker.check_module(&"main".into(), &mut state),
             Err(vec![Error {
-                pos: Some((Position::mock(), Position::mock())),
-                message: "Identifier \"a\" is undefined".to_string()
+                inner: ErrorInner {
+                    pos: Some((Position::mock(), Position::mock())),
+                    message: "Identifier \"a\" is undefined".into()
+                },
+                module_id: "main".into()
             }])
         );
     }
@@ -2656,12 +2713,10 @@ mod tests {
             imports: vec![],
         };
 
-        let mut state = State::new(vec![(String::from("main"), module)].into_iter().collect());
+        let mut state = State::new(vec![("main".into(), module)].into_iter().collect());
 
         let mut checker = Checker::new();
-        assert!(checker
-            .check_module(&String::from("main"), &mut state)
-            .is_ok());
+        assert!(checker.check_module(&"main".into(), &mut state).is_ok());
     }
 
     #[test]
@@ -2698,14 +2753,14 @@ mod tests {
         .mock();
 
         let types = HashMap::new();
-        let module_id = String::from("");
+        let module_id = "".into();
 
         let mut checker = Checker::new();
         assert_eq!(
             checker.check_function(foo, &module_id, &types),
-            Err(vec![Error {
+            Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
-                message: "Identifier \"i\" is undefined".to_string()
+                message: "Identifier \"i\" is undefined".into()
             }])
         );
     }
@@ -2773,7 +2828,7 @@ mod tests {
         };
 
         let types = HashMap::new();
-        let module_id = String::from("");
+        let module_id = "".into();
 
         let mut checker = Checker::new();
         assert_eq!(
@@ -2822,16 +2877,16 @@ mod tests {
         .mock();
 
         let types = HashMap::new();
-        let module_id = String::from("");
+        let module_id = "".into();
 
         let mut checker = new_with_args(HashSet::new(), 0, functions);
         assert_eq!(
             checker.check_function(bar, &module_id, &types),
-            Err(vec![Error {
+            Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
                 message:
                     "Function definition for function foo with signature () -> (field) not found."
-                        .to_string()
+                        .into()
             }])
         );
     }
@@ -2870,15 +2925,15 @@ mod tests {
         .mock();
 
         let types = HashMap::new();
-        let module_id = String::from("");
+        let module_id = "".into();
 
         let mut checker = new_with_args(HashSet::new(), 0, functions);
         assert_eq!(
             checker.check_function(bar, &module_id, &types),
-            Err(vec![Error {
+            Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
                 message: "Function definition for function foo with signature () -> (_) not found."
-                    .to_string()
+                    .into()
             }])
         );
     }
@@ -2911,17 +2966,17 @@ mod tests {
         .mock();
 
         let types = HashMap::new();
-        let module_id = String::from("");
+        let module_id = "".into();
 
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
             checker.check_function(bar, &module_id, &types),
-            Err(vec![Error {
+            Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
 
                 message:
                     "Function definition for function foo with signature () -> (field) not found."
-                        .to_string()
+                        .into()
             }])
         );
     }
@@ -3015,14 +3070,17 @@ mod tests {
             imports: vec![],
         };
 
-        let mut state = State::new(vec![(String::from("main"), module)].into_iter().collect());
+        let mut state = State::new(vec![("main".into(), module)].into_iter().collect());
 
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
-            checker.check_module(&String::from("main"), &mut state),
+            checker.check_module(&"main".into(), &mut state),
             Err(vec![Error {
-                pos: Some((Position::mock(), Position::mock())),
-                message: "Identifier \"x\" is undefined".to_string()
+                inner: ErrorInner {
+                    pos: Some((Position::mock(), Position::mock())),
+                    message: "Identifier \"x\" is undefined".into()
+                },
+                module_id: "main".into()
             }])
         );
     }
@@ -3049,16 +3107,16 @@ mod tests {
         .mock();
 
         let types = HashMap::new();
-        let module_id = String::from("");
+        let module_id = "".into();
 
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
             checker.check_function(bar, &module_id, &types),
-            Err(vec![Error {
+            Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
 
                 message: "Function definition for function foo with signature () -> (_) not found."
-                    .to_string()
+                    .into()
             }])
         );
     }
@@ -3093,14 +3151,14 @@ mod tests {
         .mock();
 
         let types = HashMap::new();
-        let module_id = String::from("");
+        let module_id = "".into();
 
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
             checker.check_function(bar, &module_id, &types),
-            Err(vec![Error {
+            Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
-                message: "Identifier \"a\" is undefined".to_string()
+                message: "Identifier \"a\" is undefined".into()
             }])
         );
     }
@@ -3198,7 +3256,7 @@ mod tests {
         };
 
         let types = HashMap::new();
-        let module_id = String::from("");
+        let module_id = "".into();
 
         let mut checker = new_with_args(HashSet::new(), 0, functions);
         assert_eq!(
@@ -3278,18 +3336,19 @@ mod tests {
         };
 
         let program = Program {
-            modules: vec![(String::from("main"), main_module)]
-                .into_iter()
-                .collect(),
-            main: String::from("main"),
+            modules: vec![("main".into(), main_module)].into_iter().collect(),
+            main: "main".into(),
         };
 
         let mut checker = Checker::new();
         assert_eq!(
             checker.check_program(program),
             Err(vec![Error {
-                pos: None,
-                message: "Only one main function allowed, found 2".to_string()
+                inner: ErrorInner {
+                    pos: None,
+                    message: "Only one main function allowed, found 2".into()
+                },
+                module_id: "main".into()
             }])
         );
     }
@@ -3302,9 +3361,9 @@ mod tests {
         // should fail
 
         let types = HashMap::new();
-        let module_id = String::from("");
+        let module_id = "".into();
         let mut checker = Checker::new();
-        let _: Result<TypedStatement<FieldPrime>, Vec<Error>> = checker.check_statement(
+        let _: Result<TypedStatement<FieldPrime>, Vec<ErrorInner>> = checker.check_statement(
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
@@ -3312,19 +3371,20 @@ mod tests {
             &module_id,
             &types,
         );
-        let s2_checked: Result<TypedStatement<FieldPrime>, Vec<Error>> = checker.check_statement(
-            Statement::Declaration(
-                absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
-            )
-            .mock(),
-            &module_id,
-            &types,
-        );
+        let s2_checked: Result<TypedStatement<FieldPrime>, Vec<ErrorInner>> = checker
+            .check_statement(
+                Statement::Declaration(
+                    absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
+                )
+                .mock(),
+                &module_id,
+                &types,
+            );
         assert_eq!(
             s2_checked,
-            Err(vec![Error {
+            Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
-                message: "Duplicate declaration for variable named a".to_string()
+                message: "Duplicate declaration for variable named a".into()
             }])
         );
     }
@@ -3337,10 +3397,10 @@ mod tests {
         // should fail
 
         let types = HashMap::new();
-        let module_id = String::from("");
+        let module_id = "".into();
 
         let mut checker = Checker::new();
-        let _: Result<TypedStatement<FieldPrime>, Vec<Error>> = checker.check_statement(
+        let _: Result<TypedStatement<FieldPrime>, Vec<ErrorInner>> = checker.check_statement(
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
@@ -3348,17 +3408,20 @@ mod tests {
             &module_id,
             &types,
         );
-        let s2_checked: Result<TypedStatement<FieldPrime>, Vec<Error>> = checker.check_statement(
-            Statement::Declaration(absy::Variable::new("a", UnresolvedType::Boolean.mock()).mock())
+        let s2_checked: Result<TypedStatement<FieldPrime>, Vec<ErrorInner>> = checker
+            .check_statement(
+                Statement::Declaration(
+                    absy::Variable::new("a", UnresolvedType::Boolean.mock()).mock(),
+                )
                 .mock(),
-            &module_id,
-            &types,
-        );
+                &module_id,
+                &types,
+            );
         assert_eq!(
             s2_checked,
-            Err(vec![Error {
+            Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
-                message: "Duplicate declaration for variable named a".to_string()
+                message: "Duplicate declaration for variable named a".into()
             }])
         );
     }
@@ -3370,7 +3433,7 @@ mod tests {
         fn create_module_with_foo(
             s: StructType<'static>,
         ) -> (Checker<'static>, State<'static, FieldPrime>) {
-            let module_id = "".to_string();
+            let module_id: PathBuf = "".into();
 
             let module: Module<FieldPrime> = Module {
                 imports: vec![],
@@ -3397,7 +3460,7 @@ mod tests {
             #[test]
             fn empty_def() {
                 // an empty struct should be allowed to be defined
-                let module_id = "".to_string();
+                let module_id = "".into();
                 let types = HashMap::new();
                 let declaration = StructType { fields: vec![] }.mock();
 
@@ -3412,7 +3475,7 @@ mod tests {
             #[test]
             fn valid_def() {
                 // a valid struct should be allowed to be defined
-                let module_id = "".to_string();
+                let module_id = "".into();
                 let types = HashMap::new();
                 let declaration = StructType {
                     fields: vec![
@@ -3431,8 +3494,8 @@ mod tests {
                 .mock();
 
                 let expected_type = Type::Struct(vec![
-                    StructMember::new("foo".to_string(), Type::FieldElement),
-                    StructMember::new("bar".to_string(), Type::Boolean),
+                    StructMember::new("foo".into(), Type::FieldElement),
+                    StructMember::new("bar".into(), Type::Boolean),
                 ]);
 
                 assert_eq!(
@@ -3444,7 +3507,7 @@ mod tests {
             #[test]
             fn preserve_order() {
                 // two structs with inverted members are not equal
-                let module_id = "".to_string();
+                let module_id = "".into();
                 let types = HashMap::new();
 
                 let declaration0 = StructType {
@@ -3488,7 +3551,7 @@ mod tests {
             #[test]
             fn duplicate_member_def() {
                 // definition of a struct with a duplicate member should be rejected
-                let module_id = "".to_string();
+                let module_id = "".into();
                 let types = HashMap::new();
 
                 let declaration = StructType {
@@ -3523,7 +3586,7 @@ mod tests {
                 // struct Foo = { foo: field }
                 // struct Bar = { foo: Foo }
 
-                let module_id = "".to_string();
+                let module_id: PathBuf = "".into();
 
                 let module: Module<FieldPrime> = Module {
                     imports: vec![],
@@ -3548,7 +3611,7 @@ mod tests {
                                 StructType {
                                     fields: vec![StructField {
                                         id: "foo",
-                                        ty: UnresolvedType::User("Foo".to_string()).mock(),
+                                        ty: UnresolvedType::User("Foo".into()).mock(),
                                     }
                                     .mock()],
                                 }
@@ -3565,16 +3628,13 @@ mod tests {
                 assert_eq!(
                     state
                         .types
-                        .get(&"".to_string())
+                        .get(&module_id)
                         .unwrap()
                         .get(&"Bar".to_string())
                         .unwrap(),
                     &Type::Struct(vec![StructMember::new(
-                        "foo".to_string(),
-                        Type::Struct(vec![StructMember::new(
-                            "foo".to_string(),
-                            Type::FieldElement
-                        )])
+                        "foo".into(),
+                        Type::Struct(vec![StructMember::new("foo".into(), Type::FieldElement)])
                     )])
                 );
             }
@@ -3585,7 +3645,7 @@ mod tests {
 
                 // struct Bar = { foo: Foo }
 
-                let module_id = "".to_string();
+                let module_id: PathBuf = "".into();
 
                 let module: Module<FieldPrime> = Module {
                     imports: vec![],
@@ -3595,7 +3655,7 @@ mod tests {
                             StructType {
                                 fields: vec![StructField {
                                     id: "foo",
-                                    ty: UnresolvedType::User("Foo".to_string()).mock(),
+                                    ty: UnresolvedType::User("Foo".into()).mock(),
                                 }
                                 .mock()],
                             }
@@ -3616,7 +3676,7 @@ mod tests {
 
                 // struct Foo = { foo: Foo }
 
-                let module_id = "".to_string();
+                let module_id: PathBuf = "".into();
 
                 let module: Module<FieldPrime> = Module {
                     imports: vec![],
@@ -3626,7 +3686,7 @@ mod tests {
                             StructType {
                                 fields: vec![StructField {
                                     id: "foo",
-                                    ty: UnresolvedType::User("Foo".to_string()).mock(),
+                                    ty: UnresolvedType::User("Foo".into()).mock(),
                                 }
                                 .mock()],
                             }
@@ -3648,7 +3708,7 @@ mod tests {
                 // struct Foo = { bar: Bar }
                 // struct Bar = { foo: Foo }
 
-                let module_id = "".to_string();
+                let module_id: PathBuf = "".into();
 
                 let module: Module<FieldPrime> = Module {
                     imports: vec![],
@@ -3659,7 +3719,7 @@ mod tests {
                                 StructType {
                                     fields: vec![StructField {
                                         id: "bar",
-                                        ty: UnresolvedType::User("Bar".to_string()).mock(),
+                                        ty: UnresolvedType::User("Bar".into()).mock(),
                                     }
                                     .mock()],
                                 }
@@ -3673,7 +3733,7 @@ mod tests {
                                 StructType {
                                     fields: vec![StructField {
                                         id: "foo",
-                                        ty: UnresolvedType::User("Foo".to_string()).mock(),
+                                        ty: UnresolvedType::User("Foo".into()).mock(),
                                     }
                                     .mock()],
                                 }
@@ -3713,12 +3773,12 @@ mod tests {
 
                 assert_eq!(
                     checker.check_type(
-                        UnresolvedType::User("Foo".to_string()).mock(),
-                        &MODULE_ID.to_string(),
+                        UnresolvedType::User("Foo".into()).mock(),
+                        &PathBuf::from(MODULE_ID).into(),
                         &state.types
                     ),
                     Ok(Type::Struct(vec![StructMember::new(
-                        "foo".to_string(),
+                        "foo".into(),
                         Type::FieldElement
                     )]))
                 );
@@ -3726,8 +3786,8 @@ mod tests {
                 assert_eq!(
                     checker
                         .check_type(
-                            UnresolvedType::User("Bar".to_string()).mock(),
-                            &MODULE_ID.to_string(),
+                            UnresolvedType::User("Bar".into()).mock(),
+                            &PathBuf::from(MODULE_ID).into(),
                             &state.types
                         )
                         .unwrap_err()
@@ -3753,24 +3813,19 @@ mod tests {
                 assert_eq!(
                     checker.check_parameter(
                         absy::Parameter {
-                            id: absy::Variable::new(
-                                "a",
-                                UnresolvedType::User("Foo".to_string()).mock(),
-                            )
-                            .mock(),
+                            id:
+                                absy::Variable::new("a", UnresolvedType::User("Foo".into()).mock(),)
+                                    .mock(),
                             private: true,
                         }
                         .mock(),
-                        &MODULE_ID.to_string(),
+                        &PathBuf::from(MODULE_ID).into(),
                         &state.types,
                     ),
                     Ok(Parameter {
                         id: Variable::with_id_and_type(
                             "a".into(),
-                            Type::Struct(vec![StructMember::new(
-                                "foo".to_string(),
-                                Type::FieldElement
-                            )])
+                            Type::Struct(vec![StructMember::new("foo".into(), Type::FieldElement)])
                         ),
                         private: true
                     })
@@ -3782,13 +3837,13 @@ mod tests {
                             absy::Parameter {
                                 id: absy::Variable::new(
                                     "a",
-                                    UnresolvedType::User("Bar".to_string()).mock(),
+                                    UnresolvedType::User("Bar".into()).mock(),
                                 )
                                 .mock(),
                                 private: true,
                             }
                             .mock(),
-                            &MODULE_ID.to_string(),
+                            &PathBuf::from(MODULE_ID).into(),
                             &state.types,
                         )
                         .unwrap_err()[0]
@@ -3814,22 +3869,16 @@ mod tests {
                 assert_eq!(
                     checker.check_statement::<FieldPrime>(
                         Statement::Declaration(
-                            absy::Variable::new(
-                                "a",
-                                UnresolvedType::User("Foo".to_string()).mock(),
-                            )
-                            .mock()
+                            absy::Variable::new("a", UnresolvedType::User("Foo".into()).mock(),)
+                                .mock()
                         )
                         .mock(),
-                        &MODULE_ID.to_string(),
+                        &PathBuf::from(MODULE_ID).into(),
                         &state.types,
                     ),
                     Ok(TypedStatement::Declaration(Variable::with_id_and_type(
                         "a".into(),
-                        Type::Struct(vec![StructMember::new(
-                            "foo".to_string(),
-                            Type::FieldElement
-                        )])
+                        Type::Struct(vec![StructMember::new("foo".into(), Type::FieldElement)])
                     )))
                 );
 
@@ -3839,13 +3888,13 @@ mod tests {
                             absy::Parameter {
                                 id: absy::Variable::new(
                                     "a",
-                                    UnresolvedType::User("Bar".to_string()).mock(),
+                                    UnresolvedType::User("Bar".into()).mock(),
                                 )
                                 .mock(),
                                 private: true,
                             }
                             .mock(),
-                            &MODULE_ID.to_string(),
+                            &PathBuf::from(MODULE_ID).into(),
                             &state.types,
                         )
                         .unwrap_err()[0]
@@ -3878,7 +3927,7 @@ mod tests {
                     checker.check_expression(
                         Expression::Member(
                             box Expression::InlineStruct(
-                                "Foo".to_string(),
+                                "Foo".into(),
                                 vec![(
                                     "foo",
                                     Expression::FieldConstant(FieldPrime::from(42)).mock()
@@ -3888,7 +3937,7 @@ mod tests {
                             "foo".into()
                         )
                         .mock(),
-                        &MODULE_ID.to_string(),
+                        &PathBuf::from(MODULE_ID).into(),
                         &state.types
                     ),
                     Ok(FieldElementExpression::Member(
@@ -3896,11 +3945,8 @@ mod tests {
                             FieldPrime::from(42)
                         )
                         .into()])
-                        .annotate(vec![StructMember::new(
-                            "foo".to_string(),
-                            Type::FieldElement
-                        )]),
-                        "foo".to_string()
+                        .annotate(vec![StructMember::new("foo".into(), Type::FieldElement)]),
+                        "foo".into()
                     )
                     .into())
                 );
@@ -3926,7 +3972,7 @@ mod tests {
                         .check_expression(
                             Expression::Member(
                                 box Expression::InlineStruct(
-                                    "Foo".to_string(),
+                                    "Foo".into(),
                                     vec![(
                                         "foo",
                                         Expression::FieldConstant(FieldPrime::from(42)).mock()
@@ -3936,7 +3982,7 @@ mod tests {
                                 "bar".into()
                             )
                             .mock(),
-                            &MODULE_ID.to_string(),
+                            &PathBuf::from(MODULE_ID).into(),
                             &state.types
                         )
                         .unwrap_err()
@@ -3966,14 +4012,14 @@ mod tests {
                     checker
                         .check_expression(
                             Expression::InlineStruct(
-                                "Bar".to_string(),
+                                "Bar".into(),
                                 vec![(
                                     "foo",
                                     Expression::FieldConstant(FieldPrime::from(42)).mock()
                                 )]
                             )
                             .mock(),
-                            &MODULE_ID.to_string(),
+                            &PathBuf::from(MODULE_ID).into(),
                             &state.types
                         )
                         .unwrap_err()
@@ -4007,7 +4053,7 @@ mod tests {
                 assert_eq!(
                     checker.check_expression(
                         Expression::InlineStruct(
-                            "Foo".to_string(),
+                            "Foo".into(),
                             vec![
                                 (
                                     "foo",
@@ -4017,7 +4063,7 @@ mod tests {
                             ]
                         )
                         .mock(),
-                        &MODULE_ID.to_string(),
+                        &PathBuf::from(MODULE_ID).into(),
                         &state.types
                     ),
                     Ok(StructExpressionInner::Value(vec![
@@ -4025,8 +4071,8 @@ mod tests {
                         BooleanExpression::Value(true).into()
                     ])
                     .annotate(vec![
-                        StructMember::new("foo".to_string(), Type::FieldElement),
-                        StructMember::new("bar".to_string(), Type::Boolean)
+                        StructMember::new("foo".into(), Type::FieldElement),
+                        StructMember::new("bar".into(), Type::Boolean)
                     ])
                     .into())
                 );
@@ -4057,7 +4103,7 @@ mod tests {
                 assert_eq!(
                     checker.check_expression(
                         Expression::InlineStruct(
-                            "Foo".to_string(),
+                            "Foo".into(),
                             vec![
                                 ("bar", Expression::BooleanConstant(true).mock()),
                                 (
@@ -4067,7 +4113,7 @@ mod tests {
                             ]
                         )
                         .mock(),
-                        &MODULE_ID.to_string(),
+                        &PathBuf::from(MODULE_ID).into(),
                         &state.types
                     ),
                     Ok(StructExpressionInner::Value(vec![
@@ -4075,8 +4121,8 @@ mod tests {
                         BooleanExpression::Value(true).into()
                     ])
                     .annotate(vec![
-                        StructMember::new("foo".to_string(), Type::FieldElement),
-                        StructMember::new("bar".to_string(), Type::Boolean)
+                        StructMember::new("foo".into(), Type::FieldElement),
+                        StructMember::new("bar".into(), Type::Boolean)
                     ])
                     .into())
                 );
@@ -4108,14 +4154,14 @@ mod tests {
                     checker
                         .check_expression(
                             Expression::InlineStruct(
-                                "Foo".to_string(),
+                                "Foo".into(),
                                 vec![(
                                     "foo",
                                     Expression::FieldConstant(FieldPrime::from(42)).mock()
                                 )]
                             )
                             .mock(),
-                            &MODULE_ID.to_string(),
+                            &PathBuf::from(MODULE_ID).into(),
                             &state.types
                         )
                         .unwrap_err()
@@ -4152,7 +4198,7 @@ mod tests {
                     checker
                         .check_expression(
                             Expression::InlineStruct(
-                                "Foo".to_string(),
+                                "Foo".into(),
                                 vec![(
                                     "baz",
                                     Expression::BooleanConstant(true).mock()
@@ -4162,7 +4208,7 @@ mod tests {
                                 )]
                             )
                             .mock(),
-                            &MODULE_ID.to_string(),
+                            &PathBuf::from(MODULE_ID).into(),
                             &state.types
                         ).unwrap_err()
                         .message,
@@ -4173,7 +4219,7 @@ mod tests {
                     checker
                         .check_expression(
                             Expression::InlineStruct(
-                                "Foo".to_string(),
+                                "Foo".into(),
                                 vec![
                                     (
                                         "bar",
@@ -4186,7 +4232,7 @@ mod tests {
                                 ]
                             )
                             .mock(),
-                            &MODULE_ID.to_string(),
+                            &PathBuf::from(MODULE_ID).into(),
                             &state.types
                         )
                         .unwrap_err()
@@ -4206,7 +4252,7 @@ mod tests {
             let a = Assignee::Identifier::<FieldPrime>("a").mock();
 
             let types = HashMap::new();
-            let module_id = String::from("");
+            let module_id = "".into();
             let mut checker: Checker = Checker::new();
             checker
                 .check_statement::<FieldPrime>(
@@ -4240,7 +4286,7 @@ mod tests {
             .mock();
 
             let types = HashMap::new();
-            let module_id = String::from("");
+            let module_id = "".into();
 
             let mut checker: Checker = Checker::new();
             checker
@@ -4289,7 +4335,7 @@ mod tests {
             .mock();
 
             let types = HashMap::new();
-            let module_id = String::from("");
+            let module_id = "".into();
             let mut checker: Checker = Checker::new();
             checker
                 .check_statement::<FieldPrime>(

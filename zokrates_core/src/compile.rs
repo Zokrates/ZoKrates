@@ -13,6 +13,7 @@ use static_analysis::Analyse;
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
+use std::path::PathBuf;
 use typed_absy::abi::Abi;
 use typed_arena::Arena;
 use zokrates_field::field::Field;
@@ -35,7 +36,7 @@ impl<T: Field> CompilationArtifacts<T> {
 }
 
 #[derive(Debug)]
-pub struct CompileErrors(Vec<CompileError>);
+pub struct CompileErrors(pub Vec<CompileError>);
 
 impl From<CompileError> for CompileErrors {
     fn from(e: CompileError) -> CompileErrors {
@@ -43,60 +44,50 @@ impl From<CompileError> for CompileErrors {
     }
 }
 
-impl fmt::Display for CompileErrors {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.0
-                .iter()
-                .map(|e| format!("{}", e))
-                .collect::<Vec<_>>()
-                .join("\n\n")
-        )
-    }
-}
-
 #[derive(Debug)]
 pub enum CompileErrorInner {
     ParserError(pest::Error),
     ImportError(imports::Error),
-    SemanticError(semantics::Error),
+    SemanticError(semantics::ErrorInner),
     ReadError(io::Error),
 }
 
 impl CompileErrorInner {
-    pub fn with_context(self, context: &String) -> CompileError {
+    pub fn in_file(self, context: &PathBuf) -> CompileError {
         CompileError {
             value: self,
-            context: context.clone(),
+            file: context.clone(),
         }
     }
 }
 
 #[derive(Debug)]
 pub struct CompileError {
-    context: String,
+    file: PathBuf,
     value: CompileErrorInner,
 }
 
+impl CompileError {
+    pub fn file(&self) -> &PathBuf {
+        &self.file
+    }
+
+    pub fn value(&self) -> &CompileErrorInner {
+        &self.value
+    }
+}
+
 impl CompileErrors {
-    pub fn with_context(self, context: String) -> Self {
+    pub fn with_context(self, file: PathBuf) -> Self {
         CompileErrors(
             self.0
                 .into_iter()
                 .map(|e| CompileError {
-                    context: context.clone(),
+                    file: file.clone(),
                     ..e
                 })
                 .collect(),
         )
-    }
-}
-
-impl fmt::Display for CompileError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}:{}", self.context, self.value)
     }
 }
 
@@ -118,29 +109,34 @@ impl From<io::Error> for CompileErrorInner {
     }
 }
 
-impl From<semantics::Error> for CompileErrorInner {
+impl From<semantics::Error> for CompileError {
     fn from(error: semantics::Error) -> Self {
-        CompileErrorInner::SemanticError(error)
+        CompileError {
+            value: CompileErrorInner::SemanticError(error.inner),
+            file: error.module_id,
+        }
     }
 }
 
 impl fmt::Display for CompileErrorInner {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let res = match *self {
-            CompileErrorInner::ParserError(ref e) => format!("{}", e),
-            CompileErrorInner::SemanticError(ref e) => format!("{}", e),
-            CompileErrorInner::ReadError(ref e) => format!("{}", e),
-            CompileErrorInner::ImportError(ref e) => format!("{}", e),
-        };
-        write!(f, "{}", res)
+        match *self {
+            CompileErrorInner::ParserError(ref e) => write!(f, "{}", e),
+            CompileErrorInner::SemanticError(ref e) => write!(f, "{}", e),
+            CompileErrorInner::ReadError(ref e) => write!(f, "{}", e),
+            CompileErrorInner::ImportError(ref e) => write!(f, "{}", e),
+        }
     }
 }
 
-pub type Resolve<'a, E> = &'a dyn Fn(String, String) -> Result<(String, String), E>;
+// See zokrates_fs_resolver for the spec
+pub type Resolve<'a, E> = &'a dyn Fn(PathBuf, PathBuf) -> Result<(String, PathBuf), E>;
+
+type FilePath = PathBuf;
 
 pub fn compile<T: Field, E: Into<imports::Error>>(
     source: String,
-    location: String,
+    location: FilePath,
     resolve_option: Option<Resolve<E>>,
 ) -> Result<CompilationArtifacts<T>, CompileErrors> {
     let arena = Arena::new();
@@ -150,12 +146,7 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
 
     // check semantics
     let typed_ast = Checker::check(compiled).map_err(|errors| {
-        CompileErrors(
-            errors
-                .into_iter()
-                .map(|e| CompileErrorInner::from(e).with_context(&location))
-                .collect(),
-        )
+        CompileErrors(errors.into_iter().map(|e| CompileError::from(e)).collect())
     })?;
 
     let abi = typed_ast.abi();
@@ -183,7 +174,7 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
 
 pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
     source: &'ast str,
-    location: String,
+    location: FilePath,
     resolve_option: Option<Resolve<E>>,
     arena: &'ast Arena<String>,
 ) -> Result<Program<'ast, T>, CompileErrors> {
@@ -207,13 +198,13 @@ pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
 
 pub fn compile_module<'ast, T: Field, E: Into<imports::Error>>(
     source: &'ast str,
-    location: String,
+    location: FilePath,
     resolve_option: Option<Resolve<E>>,
     modules: &mut HashMap<ModuleId, Module<'ast, T>>,
     arena: &'ast Arena<String>,
 ) -> Result<Module<'ast, T>, CompileErrors> {
     let ast = pest::generate_ast(&source)
-        .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).with_context(&location)))?;
+        .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).in_file(&location)))?;
     let module_without_imports: Module<T> = Module::from(ast);
 
     Importer::new().apply_imports(
@@ -238,13 +229,10 @@ mod test {
 			   return foo()
 		"#
         .to_string();
-        let res: Result<CompilationArtifacts<FieldPrime>, CompileErrors> = compile(
-            source,
-            String::from("./path/to/file"),
-            None::<Resolve<io::Error>>,
-        );
-        assert!(res
-            .unwrap_err()
+        let res: Result<CompilationArtifacts<FieldPrime>, CompileErrors> =
+            compile(source, "./path/to/file".into(), None::<Resolve<io::Error>>);
+        assert!(res.unwrap_err().0[0]
+            .value()
             .to_string()
             .contains(&"Can't resolve import without a resolver"));
     }
@@ -256,11 +244,8 @@ mod test {
 			   return 1
 		"#
         .to_string();
-        let res: Result<CompilationArtifacts<FieldPrime>, CompileErrors> = compile(
-            source,
-            String::from("./path/to/file"),
-            None::<Resolve<io::Error>>,
-        );
+        let res: Result<CompilationArtifacts<FieldPrime>, CompileErrors> =
+            compile(source, "./path/to/file".into(), None::<Resolve<io::Error>>);
         assert!(res.is_ok());
     }
 }
