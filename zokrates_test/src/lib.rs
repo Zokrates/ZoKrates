@@ -77,17 +77,7 @@ pub fn test_inner(test_path: &str) {
 
     let code = std::fs::read_to_string(&t.entry_point).unwrap();
 
-    let artifacts = compile(
-        code,
-        t.entry_point
-            .parent()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string(),
-        Some(&resolve),
-    )
-    .unwrap();
+    let artifacts = compile(code, t.entry_point.clone(), Some(&resolve)).unwrap();
 
     let bin = artifacts.prog();
 

@@ -27,8 +27,8 @@ pub struct Inliner<'ast, T: Field> {
     modules: TypedModules<'ast, T>, // the modules in which to look for functions when inlining
     module_id: TypedModuleId,       // the current module we're visiting
     statement_buffer: Vec<TypedStatement<'ast, T>>, // a buffer of statements to be added to the inlined statements
-    stack: Vec<(String, FunctionKey<'ast>, usize)>, // the current call stack
-    call_count: HashMap<(String, FunctionKey<'ast>), usize>, // the call count for each function
+    stack: Vec<(TypedModuleId, FunctionKey<'ast>, usize)>, // the current call stack
+    call_count: HashMap<(TypedModuleId, FunctionKey<'ast>), usize>, // the call count for each function
 }
 
 impl<'ast, T: Field> Inliner<'ast, T> {
@@ -86,9 +86,9 @@ impl<'ast, T: Field> Inliner<'ast, T> {
 
         // return a program with a single module containing `main`, `_UNPACK`, and `_SHA256_ROUND
         TypedProgram {
-            main: String::from("main"),
+            main: "main".into(),
             modules: vec![(
-                String::from("main"),
+                "main".into(),
                 TypedModule {
                     functions: vec![
                         (unpack_key, TypedFunctionSymbol::Flat(unpack)),
@@ -326,6 +326,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
     use typed_absy::types::{FunctionKey, Signature, Type};
     use zokrates_field::field::FieldPrime;
 
@@ -369,7 +370,7 @@ mod tests {
                     TypedFunctionSymbol::There(
                         FunctionKey::with_id("foo")
                             .signature(Signature::new().outputs(vec![Type::FieldElement])),
-                        String::from("foo"),
+                        "foo".into(),
                     ),
                 ),
             ]
@@ -393,12 +394,12 @@ mod tests {
             .collect(),
         };
 
-        let modules: HashMap<_, _> = vec![(String::from("main"), main), (String::from("foo"), foo)]
+        let modules: HashMap<_, _> = vec![("main".into(), main), ("foo".into(), foo)]
             .into_iter()
             .collect();
 
         let program = TypedProgram {
-            main: String::from("main"),
+            main: "main".into(),
             modules,
         };
 
@@ -408,7 +409,7 @@ mod tests {
         assert_eq!(
             program
                 .modules
-                .get(&String::from("main"))
+                .get(&PathBuf::from("main"))
                 .unwrap()
                 .functions
                 .get(
@@ -484,7 +485,7 @@ mod tests {
                                 .inputs(vec![Type::FieldElement])
                                 .outputs(vec![Type::FieldElement]),
                         ),
-                        String::from("foo"),
+                        "foo".into(),
                     ),
                 ),
             ]
@@ -515,12 +516,12 @@ mod tests {
             .collect(),
         };
 
-        let modules: HashMap<_, _> = vec![(String::from("main"), main), (String::from("foo"), foo)]
+        let modules: HashMap<_, _> = vec![("main".into(), main), ("foo".into(), foo)]
             .into_iter()
             .collect();
 
         let program: TypedProgram<FieldPrime> = TypedProgram {
-            main: String::from("main"),
+            main: "main".into(),
             modules,
         };
 
@@ -529,7 +530,7 @@ mod tests {
         assert_eq!(program.modules.len(), 1);
 
         let stack = vec![(
-            String::from("foo"),
+            "foo".into(),
             FunctionKey::with_id("foo").signature(
                 Signature::new()
                     .inputs(vec![Type::FieldElement])
@@ -541,7 +542,7 @@ mod tests {
         assert_eq!(
             program
                 .modules
-                .get(&String::from("main"))
+                .get(&PathBuf::from("main"))
                 .unwrap()
                 .functions
                 .get(
@@ -629,7 +630,7 @@ mod tests {
                     TypedFunctionSymbol::There(
                         FunctionKey::with_id("foo")
                             .signature(Signature::new().outputs(vec![Type::FieldElement])),
-                        String::from("foo"),
+                        "foo".into(),
                     ),
                 ),
             ]
@@ -653,12 +654,12 @@ mod tests {
             .collect(),
         };
 
-        let modules: HashMap<_, _> = vec![(String::from("main"), main), (String::from("foo"), foo)]
+        let modules: HashMap<_, _> = vec![("main".into(), main), ("foo".into(), foo)]
             .into_iter()
             .collect();
 
         let program = TypedProgram {
-            main: String::from("main"),
+            main: "main".into(),
             modules,
         };
 
@@ -668,7 +669,7 @@ mod tests {
         assert_eq!(
             program
                 .modules
-                .get(&String::from("main"))
+                .get(&PathBuf::from("main"))
                 .unwrap()
                 .functions
                 .get(
@@ -748,10 +749,10 @@ mod tests {
             .collect(),
         };
 
-        let modules: HashMap<_, _> = vec![(String::from("main"), main)].into_iter().collect();
+        let modules: HashMap<_, _> = vec![("main".into(), main)].into_iter().collect();
 
         let program = TypedProgram {
-            main: String::from("main"),
+            main: "main".into(),
             modules,
         };
 
@@ -761,7 +762,7 @@ mod tests {
         assert_eq!(
             program
                 .modules
-                .get(&String::from("main"))
+                .get(&PathBuf::from("main"))
                 .unwrap()
                 .functions
                 .get(
@@ -847,7 +848,7 @@ mod tests {
                                 .inputs(vec![Type::FieldElement])
                                 .outputs(vec![Type::FieldElement]),
                         ),
-                        String::from("id"),
+                        "id".into(),
                     ),
                 ),
             ]
@@ -876,19 +877,19 @@ mod tests {
             .collect(),
         };
 
-        let modules = vec![(String::from("main"), main), (String::from("id"), id)]
+        let modules = vec![("main".into(), main), ("id".into(), id)]
             .into_iter()
             .collect();
 
         let program: TypedProgram<FieldPrime> = TypedProgram {
-            main: String::from("main"),
+            main: "main".into(),
             modules,
         };
 
         let program = Inliner::inline(program);
 
         let stack0 = vec![(
-            String::from("id"),
+            "id".into(),
             FunctionKey::with_id("main").signature(
                 Signature::new()
                     .inputs(vec![Type::FieldElement])
@@ -897,7 +898,7 @@ mod tests {
             1,
         )];
         let stack1 = vec![(
-            String::from("id"),
+            "id".into(),
             FunctionKey::with_id("main").signature(
                 Signature::new()
                     .inputs(vec![Type::FieldElement])
@@ -910,7 +911,7 @@ mod tests {
         assert_eq!(
             program
                 .modules
-                .get(&String::from("main"))
+                .get(&PathBuf::from("main"))
                 .unwrap()
                 .functions
                 .get(

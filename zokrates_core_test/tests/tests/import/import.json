@@ -1,0 +1,15 @@
+{
+	"entry_point": "./tests/tests/import/import.zok",
+	"tests": [
+		{
+			"input": {
+				"values": []
+			},
+			"output": {
+				"Ok": {
+					"values": ["3"]
+				}
+			}
+		}
+	]
+}

@@ -38,7 +38,12 @@ impl<'ast> fmt::Display for Identifier<'ast> {
                 "{}_{}_{}",
                 self.stack
                     .iter()
-                    .map(|(name, sig, count)| format!("{}_{}_{}", name, sig.to_slug(), count))
+                    .map(|(name, sig, count)| format!(
+                        "{}_{}_{}",
+                        name.display(),
+                        sig.to_slug(),
+                        count
+                    ))
                     .collect::<Vec<_>>()
                     .join("_"),
                 self.id,

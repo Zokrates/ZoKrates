@@ -17,6 +17,7 @@ pub use self::identifier::CoreIdentifier;
 pub use self::parameter::Parameter;
 pub use self::types::{Signature, Type};
 pub use self::variable::Variable;
+use std::path::PathBuf;
 pub use typed_absy::uint::{bitwidth, UExpression, UExpressionInner, UMetadata};
 
 use crate::typed_absy::types::{FunctionKey, MemberId};
@@ -33,7 +34,7 @@ use typed_absy::types::StructMember;
 pub use self::identifier::Identifier;
 
 /// An identifier for a `TypedModule`. Typically a path or uri.
-pub type TypedModuleId = String;
+pub type TypedModuleId = PathBuf;
 
 /// A collection of `TypedModule`s
 pub type TypedModules<'ast, T> = HashMap<TypedModuleId, TypedModule<'ast, T>>;
@@ -85,7 +86,7 @@ impl<'ast, T: Field> fmt::Display for TypedProgram<'ast, T> {
             writeln!(
                 f,
                 "| {}: |{}",
-                module_id,
+                module_id.display(),
                 if *module_id == self.main {
                     "<---- main"
                 } else {
@@ -141,7 +142,10 @@ impl<'ast, T: Field> fmt::Display for TypedModule<'ast, T> {
                 TypedFunctionSymbol::Here(ref function) => format!("def {}{}", key.id, function),
                 TypedFunctionSymbol::There(ref fun_key, ref module_id) => format!(
                     "import {} from \"{}\" as {} // with signature {}",
-                    fun_key.id, module_id, key.id, key.signature
+                    fun_key.id,
+                    module_id.display(),
+                    key.id,
+                    key.signature
                 ),
                 TypedFunctionSymbol::Flat(ref flat_fun) => {
                     format!("def {}{}:\n\t// hidden", key.id, flat_fun.signature::<T>())

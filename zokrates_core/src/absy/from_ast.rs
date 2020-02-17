@@ -25,13 +25,13 @@ impl<'ast> From<pest::ImportDirective<'ast>> for absy::ImportNode<'ast> {
 
         match import {
             pest::ImportDirective::Main(import) => {
-                imports::Import::new(None, import.source.span.as_str())
+                imports::Import::new(None, std::path::Path::new(import.source.span.as_str()))
                     .alias(import.alias.map(|a| a.span.as_str()))
                     .span(import.span)
             }
             pest::ImportDirective::From(import) => imports::Import::new(
                 Some(import.symbol.span.as_str()),
-                import.source.span.as_str(),
+                std::path::Path::new(import.source.span.as_str()),
             )
             .alias(import.alias.map(|a| a.span.as_str()))
             .span(import.span),

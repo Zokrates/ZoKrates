@@ -1,9 +1,10 @@
 use bincode::{deserialize, serialize};
 use serde::{Deserialize, Serialize};
 use serde_json::to_string_pretty;
+use std::path::PathBuf;
 use wasm_bindgen::prelude::*;
 use zokrates_abi::{parse_strict, Encode, Decode, Inputs};
-use zokrates_core::compile::{compile as core_compile, CompilationArtifacts};
+use zokrates_core::compile::{compile as core_compile, CompilationArtifacts, CompileError};
 use zokrates_core::imports::Error;
 use zokrates_core::ir;
 use zokrates_core::proof_system::{self, ProofSystem};
@@ -30,8 +31,8 @@ pub struct ComputationResult {
 }
 
 impl ResolverResult {
-    fn into_tuple(self) -> (String, String) {
-        (self.source, self.location)
+    fn into_tuple(self) -> (String, PathBuf) {
+        (self.source, PathBuf::from(self.location))
     }
 }
 
@@ -53,30 +54,38 @@ pub fn compile(
     location: JsValue,
     resolve: &js_sys::Function,
 ) -> Result<JsValue, JsValue> {
-    let closure = |l: String, p: String| {
+    let closure = |l: PathBuf, p: PathBuf| {
         let value = resolve
-            .call2(&JsValue::UNDEFINED, &l.into(), &p.clone().into())
+            .call2(&JsValue::UNDEFINED, &l.display().to_string().into(), &p.clone().display().to_string().into())
             .map_err(|_| {
                 Error::new(format!(
                     "Error thrown in callback: Could not resolve `{}`",
-                    p
+                    p.display()
                 ))
             })?;
 
         if value.is_null() || value.is_undefined() {
-            Err(Error::new(format!("Could not resolve `{}`", p)))
+            Err(Error::new(format!("Could not resolve `{}`", p.display())))
         } else {
             let result: ResolverResult = value.into_serde().unwrap();
             Ok(result.into_tuple())
         }
     };
 
+    let fmt_error = |e: &CompileError| {
+        format!(
+            "{}:{}",
+            e.file().display(),
+            e.value()
+        )
+    };
+
     let artifacts: CompilationArtifacts<FieldPrime> = core_compile(
         source.as_string().unwrap(),
-        location.as_string().unwrap(),
+        PathBuf::from(location.as_string().unwrap()),
         Some(&closure),
     )
-    .map_err(|ce| JsValue::from_str(&format!("{}", ce)))?;
+    .map_err(|ce| JsValue::from_str(&format!("{}", ce.0.iter().map(|e| fmt_error(e)).collect::<Vec<_>>().join("\n"))))?;
 
     let result = CompilationResult {
         program: serialize_program(artifacts.prog())?,

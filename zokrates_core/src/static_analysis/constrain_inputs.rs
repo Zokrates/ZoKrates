@@ -135,10 +135,16 @@ impl<'ast, T: Field> InputConstrainer<'ast, T> {
                         Type::Boolean => {
                             BooleanExpression::member(s.clone(), member.id.clone()).into()
                         }
-                        Type::Boolean => BooleanExpression::member(s.clone(), member.id.clone()).into(),
+                        Type::Boolean => {
+                            BooleanExpression::member(s.clone(), member.id.clone()).into()
+                        }
                         Type::Uint(..) => UExpression::member(s.clone(), member.id.clone()).into(),
-                        Type::Array(..) => ArrayExpression::member(s.clone(), member.id.clone()).into(),
-                        Type::Struct(..) => StructExpression::member(s.clone(), member.id.clone()).into(),
+                        Type::Array(..) => {
+                            ArrayExpression::member(s.clone(), member.id.clone()).into()
+                        }
+                        Type::Struct(..) => {
+                            StructExpression::member(s.clone(), member.id.clone()).into()
+                        }
                     };
 
                     self.constrain_expression(e);

@@ -284,7 +284,8 @@ impl<'ast> Unroller<'ast> {
                                                 statements,
                                             )
                                         } else {
-                                            UExpression::member(base.clone(), member.id.clone()).into()
+                                            UExpression::member(base.clone(), member.id.clone())
+                                                .into()
                                         }
                                     }
                                     Type::Boolean => {
