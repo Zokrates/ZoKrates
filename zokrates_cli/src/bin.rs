@@ -290,12 +290,12 @@ fn cli() -> Result<(), String> {
             let fmt_error = |e: &CompileError| {
                 format!(
                     "{}:{}",
-                    e.file()
-                        .canonicalize()
-                        .unwrap()
-                        .strip_prefix(std::env::current_dir().unwrap())
-                        .unwrap()
-                        .display(),
+                    e.file().display(),
+                    // .canonicalize()
+                    // .unwrap()
+                    // .strip_prefix(std::env::current_dir().unwrap())
+                    // .unwrap()
+                    // .display(),
                     e.value()
                 )
             };

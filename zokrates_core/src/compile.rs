@@ -129,6 +129,7 @@ impl fmt::Display for CompileErrorInner {
     }
 }
 
+// See zokrates_fs_resolver for the spec
 pub type Resolve<'a, E> = &'a dyn Fn(PathBuf, PathBuf) -> Result<(String, PathBuf), E>;
 
 type FilePath = PathBuf;
