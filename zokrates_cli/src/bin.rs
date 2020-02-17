@@ -279,13 +279,12 @@ fn cli() -> Result<(), String> {
 
             let hr_output_path = bin_output_path.to_path_buf().with_extension("ztf");
 
-            let file = File::open(path.clone()).unwrap();
+            let file = File::open(path.clone()).map_err(|why| format!("Couldn't open input file {}: {}", path.display(), why))?;
 
             let mut reader = BufReader::new(file);
             let mut source = String::new();
             reader
-                .read_to_string(&mut source)
-                .map_err(|why| format!("couldn't open input file {}: {}", path.display(), why))?;
+                .read_to_string(&mut source).unwrap();
 
             let fmt_error = |e: &CompileError| {
                 format!(
@@ -318,7 +317,7 @@ fn cli() -> Result<(), String> {
 
             // serialize flattened program and write to binary file
             let bin_output_file = File::create(&bin_output_path)
-                .map_err(|why| format!("couldn't create {}: {}", bin_output_path.display(), why))?;
+                .map_err(|why| format!("Couldn't create {}: {}", bin_output_path.display(), why))?;
 
             let mut writer = BufWriter::new(bin_output_file);
 
@@ -327,7 +326,7 @@ fn cli() -> Result<(), String> {
 
             // serialize ABI spec and write to JSON file
             let abi_spec_file = File::create(&abi_spec_path)
-                .map_err(|why| format!("couldn't create {}: {}", abi_spec_path.display(), why))?;
+                .map_err(|why| format!("Couldn't create {}: {}", abi_spec_path.display(), why))?;
 
             let abi = artifacts.abi();
 
