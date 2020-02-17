@@ -19,11 +19,15 @@ type SourceCode = String;
 /// * `current_location` - Path to the file we're importing into
 /// * `import_location` - Path to the file we're importing from
 ///
+/// # Returns
+/// * The content of the file we're importing from
+/// * The path to the file we're importing from
+///
 /// # Remarks
 ///
 /// * `current_location* must point to a file
-/// * `import_location` is relative to the directory in which `current_location` is, unless it's an absolute
-/// path, in which case it's relative to the root of the ZoKrates stdlib at `$ZOKRATES_HOME`
+/// * `import_location` and the returned path are both relative to the directory in which `current_location` is, unless it's an absolute
+/// path, in which case they are relative to the root of the ZoKrates stdlib at `$ZOKRATES_HOME`
 ///
 pub fn resolve<'a>(
     current_location: CurrentLocation,
