@@ -21,7 +21,7 @@ When defining a variable as the return value of a function, types are optional:
 {{#include ../../../zokrates_cli/examples/book/multi_def.zok}}
 ```
 
-If there is an ambiguity, providing the types of some of the assigned variables is necessary.
+If there is any ambiguity, providing the types of some of the assigned variables is necessary.
 
 ```zokrates
 {{#include ../../../zokrates_cli/examples/book/type_annotations.zok}}

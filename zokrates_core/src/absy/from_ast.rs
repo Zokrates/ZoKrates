@@ -283,16 +283,6 @@ impl<'ast, T: Field> From<pest::IterationStatement<'ast>> for absy::StatementNod
             .flat_map(|s| statements_from_statement(s))
             .collect();
 
-        let from = match from.value {
-            absy::Expression::FieldConstant(n) => n,
-            e => unimplemented!("For loop bounds should be constants, found {}", e),
-        };
-
-        let to = match to.value {
-            absy::Expression::FieldConstant(n) => n,
-            e => unimplemented!("For loop bounds should be constants, found {}", e),
-        };
-
         let var = absy::Variable::new(index, ty).span(statement.index.span);
 
         absy::Statement::For(var, from, to, statements).span(statement.span)

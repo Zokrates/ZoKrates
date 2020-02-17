@@ -1,17 +1,17 @@
-use crate::helpers::{DirectiveStatement, Helper, RustHelper};
+use crate::solvers::Solver;
 use bellman::pairing::ff::ScalarEngine;
 use flat_absy::{
-    FlatExpression, FlatExpressionList, FlatFunction, FlatParameter, FlatStatement, FlatVariable,
+    FlatDirective, FlatExpression, FlatExpressionList, FlatFunction, FlatParameter, FlatStatement,
+    FlatVariable,
 };
-use reduce::Reduce;
 use std::collections::HashMap;
 use typed_absy::types::{FunctionKey, Signature, Type};
 use zokrates_embed::{generate_sha256_round_constraints, BellmanConstraint};
 use zokrates_field::field::Field;
 
-/// A low level function that contains non-deterministic introduction of variables. It is carried as is until
+/// A low level function that contains non-deterministic introduction of variables. It is carried out as is until
 /// the flattening step when it can be inlined.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum FlatEmbed {
     Sha256Round,
     Unpack,
@@ -74,32 +74,34 @@ impl FlatEmbed {
 }
 
 // util to convert a vector of `(variable_id, coefficient)` to a flat_expression
+// we build a binary tree of additions by splitting the vector recursively
 fn flat_expression_from_vec<T: Field>(
-    v: Vec<(usize, <<T as Field>::BellmanEngine as ScalarEngine>::Fr)>,
+    v: &[(usize, <<T as Field>::BellmanEngine as ScalarEngine>::Fr)],
 ) -> FlatExpression<T> {
-    match v
-        .into_iter()
-        .map(|(key, val)| {
+    match v.len() {
+        0 => FlatExpression::Number(T::zero()),
+        1 => {
+            let (key, val) = v[0].clone();
             FlatExpression::Mult(
                 box FlatExpression::Number(T::from_bellman(val)),
                 box FlatExpression::Identifier(FlatVariable::new(key)),
             )
-        })
-        .reduce(|acc, e| FlatExpression::Add(box acc, box e))
-    {
-        Some(e @ FlatExpression::Mult(..)) => {
-            FlatExpression::Add(box FlatExpression::Number(T::zero()), box e)
-        } // the R1CS serializer only recognizes Add
-        Some(e) => e,
-        None => FlatExpression::Number(T::zero()),
+        }
+        n => {
+            let (u, v) = v.split_at(n / 2);
+            FlatExpression::Add(
+                box flat_expression_from_vec(u),
+                box flat_expression_from_vec(v),
+            )
+        }
     }
 }
 
 impl<T: Field> From<BellmanConstraint<T::BellmanEngine>> for FlatStatement<T> {
     fn from(c: zokrates_embed::BellmanConstraint<T::BellmanEngine>) -> FlatStatement<T> {
-        let rhs_a = flat_expression_from_vec(c.a);
-        let rhs_b = flat_expression_from_vec(c.b);
-        let lhs = flat_expression_from_vec(c.c);
+        let rhs_a = flat_expression_from_vec(&c.a);
+        let rhs_b = flat_expression_from_vec(&c.b);
+        let lhs = flat_expression_from_vec(&c.c);
 
         FlatStatement::Condition(lhs, FlatExpression::Mult(box rhs_a, box rhs_b))
     }
@@ -141,15 +143,6 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
         .into_iter()
         .map(|i| i + variable_count);
 
-    // define the signature of the resulting function
-    let signature = Signature {
-        inputs: vec![
-            Type::array(Type::FieldElement, input_indices.len()),
-            Type::array(Type::FieldElement, current_hash_indices.len()),
-        ],
-        outputs: vec![Type::array(Type::FieldElement, output_indices.len())],
-    };
-
     // define parameters to the function based on the variables
     let arguments = input_argument_indices
         .clone()
@@ -184,13 +177,13 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
         .collect();
 
     // insert a directive to set the witness based on the bellman gadget and  inputs
-    let directive_statement = FlatStatement::Directive(DirectiveStatement {
+    let directive_statement = FlatStatement::Directive(FlatDirective {
         outputs: cs_indices.map(|i| FlatVariable::new(i)).collect(),
         inputs: input_argument_indices
             .chain(current_hash_argument_indices)
             .map(|i| FlatVariable::new(i).into())
             .collect(),
-        helper: Helper::Rust(RustHelper::Sha256Round),
+        solver: Solver::Sha256Round,
     });
 
     // insert a statement to return the subset of the witness
@@ -208,7 +201,6 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
     FlatFunction {
         arguments,
         statements,
-        signature,
     }
 }
 
@@ -258,12 +250,7 @@ pub fn unpack_to_bitwidth<T: Field>(width: usize) -> FlatFunction<T> {
         .map(|index| use_variable(&mut layout, format!("o{}", index), &mut counter))
         .collect();
 
-    let helper = Helper::bits(width);
-
-    let signature = Signature {
-        inputs: vec![Type::Uint(width)],
-        outputs: vec![Type::array(Type::FieldElement, width)],
-    };
+    let solver = Solver::bits(width);
 
     let outputs = directive_outputs
         .iter()
@@ -305,10 +292,10 @@ pub fn unpack_to_bitwidth<T: Field>(width: usize) -> FlatFunction<T> {
 
     statements.insert(
         0,
-        FlatStatement::Directive(DirectiveStatement {
+        FlatStatement::Directive(FlatDirective {
             inputs: directive_inputs,
             outputs: directive_outputs,
-            helper: helper,
+            solver: solver,
         }),
     );
 
@@ -319,7 +306,6 @@ pub fn unpack_to_bitwidth<T: Field>(width: usize) -> FlatFunction<T> {
     FlatFunction {
         arguments,
         statements,
-        signature,
     }
 }
 
@@ -346,11 +332,11 @@ mod tests {
             ); // 128 bit checks, 1 directive, 1 sum check, 1 return
             assert_eq!(
                 unpack.statements[0],
-                FlatStatement::Directive(DirectiveStatement::new(
+                FlatStatement::Directive(FlatDirective::new(
                     (0..FieldPrime::get_required_bits())
                         .map(|i| FlatVariable::new(i + 1))
                         .collect(),
-                    Helper::bits(FieldPrime::get_required_bits()),
+                    Solver::bits(FieldPrime::get_required_bits()),
                     vec![FlatVariable::new(0)]
                 ))
             );
@@ -372,17 +358,6 @@ mod tests {
         #[test]
         fn generate_sha256_constraints() {
             let compiled = sha256_round();
-
-            // function should have a signature of 768 inputs and 256 outputs
-            assert_eq!(
-                compiled.signature,
-                Signature::new()
-                    .inputs(vec![
-                        Type::array(Type::FieldElement, 512),
-                        Type::array(Type::FieldElement, 256)
-                    ])
-                    .outputs(vec![Type::array(Type::FieldElement, 256)])
-            );
 
             // function should have 768 inputs
             assert_eq!(compiled.arguments.len(), 768,);
@@ -443,9 +418,6 @@ mod tests {
             let prog = crate::ir::Prog {
                 main: f,
                 private: vec![true; 768],
-                signature: Signature::new()
-                    .inputs(vec![Type::FieldElement; 768])
-                    .outputs(vec![Type::FieldElement; 256]),
             };
 
             let input = (0..512)

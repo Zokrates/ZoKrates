@@ -282,7 +282,12 @@ pub enum Statement<'ast, T: Field> {
     Declaration(VariableNode<'ast>),
     Definition(AssigneeNode<'ast, T>, ExpressionNode<'ast, T>),
     Condition(ExpressionNode<'ast, T>, ExpressionNode<'ast, T>),
-    For(VariableNode<'ast>, T, T, Vec<StatementNode<'ast, T>>),
+    For(
+        VariableNode<'ast>,
+        ExpressionNode<'ast, T>,
+        ExpressionNode<'ast, T>,
+        Vec<StatementNode<'ast, T>>,
+    ),
     MultipleDefinition(Vec<AssigneeNode<'ast, T>>, ExpressionNode<'ast, T>),
 }
 

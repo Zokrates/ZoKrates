@@ -1,8 +1,8 @@
-import "ecc/edwardsCompress" as edwardsCompress 
+import "ecc/edwardsCompress" as edwardsCompress
 import "ecc/babyjubjubParams" as context
 
 // Code to create test cases:
-// https://github.com/Zokrates/pycrypto 
+// https://github.com/Zokrates/pycrypto
 def testCompress() -> (field):
 	context = context()
 

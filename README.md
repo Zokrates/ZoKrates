@@ -17,7 +17,7 @@ _This is a proof-of-concept implementation. It has not been tested for productio
 curl -LSfs get.zokrat.es | sh
 ```
 
-Have a look at the [documentation](https://zokrates.github.io/) for more information about using ZoKrates.  
+Have a look at the [documentation](https://zokrates.github.io/) for more information about using ZoKrates.
 A getting started tutorial can be found [here](https://zokrates.github.io/sha256example.html).
 
 ## Getting Help
@@ -30,6 +30,6 @@ ZoKrates is released under the GNU Lesser General Public License v3.
 
 ## Contributing
 
-We happily welcome contributions. You can either pick an existing issue, or reach out on [Gitter](https://gitter.im/ZoKrates/Lobby).
+We happily welcome contributions. You can either pick an existing issue or reach out on [Gitter](https://gitter.im/ZoKrates/Lobby).
 
 Unless you explicitly state otherwise, any contribution you intentionally submit for inclusion in the work shall be licensed as above, without any additional terms or conditions.

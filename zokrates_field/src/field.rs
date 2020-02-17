@@ -89,7 +89,7 @@ pub trait Field:
     fn get_required_bits() -> usize;
     /// Tries to parse a string into this representation
     fn try_from_dec_str<'a>(s: &'a str) -> Result<Self, ()>;
-    /// Returns a decimal string representing a the member of the equivalence class of this `Field` in Z/pZ
+    /// Returns a decimal string representing the member of the equivalence class of this `Field` in Z/pZ
     /// which lies in [-(p-1)/2, (p-1)/2]
     fn to_compact_dec_string(&self) -> String;
 }
@@ -147,7 +147,7 @@ impl Field for FieldPrime {
         })
     }
     fn to_compact_dec_string(&self) -> String {
-        // values up to (p-1)/2 included are represented as positive, values between (p+1)/2 and p-1 as represented as negative by subtracting p
+        // values up to (p-1)/2 included are represented as positive, values between (p+1)/2 and p-1 are represented as negative by subtracting p
         if self.value <= FieldPrime::max_value().value / 2 {
             format!("{}", self.value.to_str_radix(10))
         } else {

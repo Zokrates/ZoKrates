@@ -5,7 +5,7 @@
 //! @date 2019
 
 //! Start from the `main` function in the `main` module and inline all calls except those to flat embeds
-//! The resulting program has a single module, where we define a function for each flat embed, and replace function calls to the embeds found
+//! The resulting program has a single module, where we define a function for each flat embed and replace the function calls with the embeds found
 //! during inlining by calls to these functions, to be resolved during flattening.
 
 //! The resulting program has a single module of the form
@@ -17,14 +17,14 @@
 //! where any call in `main` must be to `_SHA_256_ROUND` or `_UNPACK`
 
 use std::collections::HashMap;
-use typed_absy::types::{FunctionKey, MemberId, Type};
+use typed_absy::types::{FunctionKey, StructMember, Type};
 use typed_absy::{folder::*, *};
 use zokrates_field::field::Field;
 
 /// An inliner
 #[derive(Debug)]
 pub struct Inliner<'ast, T: Field> {
-    modules: TypedModules<'ast, T>, // the modules to look for functions in when inlining
+    modules: TypedModules<'ast, T>, // the modules in which to look for functions when inlining
     module_id: TypedModuleId,       // the current module we're visiting
     statement_buffer: Vec<TypedStatement<'ast, T>>, // a buffer of statements to be added to the inlined statements
     stack: Vec<(String, FunctionKey<'ast>, usize)>, // the current call stack
@@ -180,7 +180,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         }
     }
 
-    // Focus the Inliner on another module with id `module_id` and return the current `module_id`
+    // Focus the inliner on another module with id `module_id` and return the current `module_id`
     fn change_module(&mut self, module_id: TypedModuleId) -> TypedModuleId {
         std::mem::replace(&mut self.module_id, module_id)
     }
@@ -253,6 +253,28 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
         }
     }
 
+    // inline calls which return a boolean element
+    fn fold_boolean_expression(
+        &mut self,
+        e: BooleanExpression<'ast, T>,
+    ) -> BooleanExpression<'ast, T> {
+        match e {
+            BooleanExpression::FunctionCall(key, exps) => {
+                let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
+
+                match self.try_inline_call(&key, exps) {
+                    Ok(mut ret) => match ret.pop().unwrap() {
+                        TypedExpression::Boolean(e) => e,
+                        _ => unreachable!(),
+                    },
+                    Err((key, expressions)) => BooleanExpression::FunctionCall(key, expressions),
+                }
+            }
+            e => fold_boolean_expression(self, e),
+        }
+    }
+
+    // inline calls which return an array
     fn fold_array_expression_inner(
         &mut self,
         ty: &Type,
@@ -278,7 +300,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
 
     fn fold_struct_expression_inner(
         &mut self,
-        ty: &Vec<(MemberId, Type)>,
+        ty: &Vec<StructMember>,
         e: StructExpressionInner<'ast, T>,
     ) -> StructExpressionInner<'ast, T> {
         match e {

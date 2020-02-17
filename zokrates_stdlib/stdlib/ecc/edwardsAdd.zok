@@ -5,7 +5,7 @@ import "ecc/babyjubjubParams" as context
 def main(field[2] pt1, field[2] pt2, field[10] context) -> (field[2]):
 
     field a = context[0]
-    field d = context[1] 
+    field d = context[1]
 
     field u1 = pt1[0]
     field v1 = pt1[1]

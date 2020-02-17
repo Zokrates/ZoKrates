@@ -24,11 +24,17 @@ impl<'ast, T: Field> UintOptimizer<'ast, T> {
         match (a, e) {
             (a, TypedExpression::Uint(e)) => {
                 println!("{} := {}", a, e);
-                self.ids.insert(a, e.metadata.unwrap_or(UMetadata {bitwidth: Some(42), should_reduce: Some(true)}));
+                self.ids.insert(
+                    a,
+                    e.metadata.unwrap_or(UMetadata {
+                        bitwidth: Some(42),
+                        should_reduce: Some(true),
+                    }),
+                );
             }
             (a, TypedExpression::Array(e)) => {
                 let (inner_type, size) = match e.get_type() {
-                    Type::Array(box inner_type, size) => (inner_type, size),
+                    Type::Array(array_ty) => (*array_ty.ty, array_ty.size),
                     _ => unreachable!(),
                 };
 
@@ -316,7 +322,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 let index = self.fold_field_expression(index);
 
                 let (inner_type, size) = match array.get_type() {
-                    Type::Array(box inner_type, size) => (inner_type, size),
+                    Type::Array(array_ty) => (*array_ty.ty, array_ty.size),
                     _ => unreachable!(),
                 };
 

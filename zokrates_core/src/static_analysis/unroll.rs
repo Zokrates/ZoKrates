@@ -11,19 +11,30 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use zokrates_field::field::Field;
 
+pub enum Output<'ast, T: Field> {
+    Complete(TypedProgram<'ast, T>),
+    Incomplete(TypedProgram<'ast, T>, usize),
+}
+
 pub struct Unroller<'ast> {
-    substitution: HashMap<Identifier<'ast>, usize>,
+    // version index for any variable name
+    substitution: HashMap<CoreIdentifier<'ast>, usize>,
+    // whether all statements could be unrolled so far. Loops with variable bounds cannot.
+    complete: bool,
+    statement_count: usize,
 }
 
 impl<'ast> Unroller<'ast> {
     fn new() -> Self {
         Unroller {
             substitution: HashMap::new(),
+            complete: true,
+            statement_count: 0,
         }
     }
 
     fn issue_next_ssa_variable(&mut self, v: Variable<'ast>) -> Variable<'ast> {
-        let res = match self.substitution.get(&v.id) {
+        let res = match self.substitution.get(&v.id.id) {
             Some(i) => Variable {
                 id: Identifier {
                     id: v.id.clone().id,
@@ -34,15 +45,22 @@ impl<'ast> Unroller<'ast> {
             },
             None => Variable { ..v.clone() },
         };
+
         self.substitution
-            .entry(v.id)
+            .entry(v.id.id)
             .and_modify(|e| *e += 1)
             .or_insert(0);
         res
     }
 
-    pub fn unroll<T: Field>(p: TypedProgram<T>) -> TypedProgram<T> {
-        Unroller::new().fold_program(p)
+    pub fn unroll<T: Field>(p: TypedProgram<T>) -> Output<T> {
+        let mut unroller = Unroller::new();
+        let p = unroller.fold_program(p);
+
+        match unroller.complete {
+            true => Output::Complete(p),
+            false => Output::Incomplete(p, unroller.statement_count),
+        }
     }
 
     fn choose_many<T: Field>(
@@ -235,9 +253,9 @@ impl<'ast> Unroller<'ast> {
                             members
                                 .clone()
                                 .into_iter()
-                                .map(|(id, t)| match t {
+                                .map(|member| match *member.ty {
                                     Type::FieldElement => {
-                                        if id == head {
+                                        if member.id == head {
                                             Self::choose_many(
                                                 FieldElementExpression::member(
                                                     base.clone(),
@@ -249,12 +267,15 @@ impl<'ast> Unroller<'ast> {
                                                 statements,
                                             )
                                         } else {
-                                            FieldElementExpression::member(base.clone(), id.clone())
-                                                .into()
+                                            FieldElementExpression::member(
+                                                base.clone(),
+                                                member.id.clone(),
+                                            )
+                                            .into()
                                         }
                                     }
                                     Type::Uint(..) => {
-                                        if id == head {
+                                        if member.id == head {
                                             Self::choose_many(
                                                 UExpression::member(base.clone(), head.clone())
                                                     .into(),
@@ -263,11 +284,11 @@ impl<'ast> Unroller<'ast> {
                                                 statements,
                                             )
                                         } else {
-                                            UExpression::member(base.clone(), id.clone()).into()
+                                            UExpression::member(base.clone(), member.id.clone()).into()
                                         }
                                     }
                                     Type::Boolean => {
-                                        if id == head {
+                                        if member.id == head {
                                             Self::choose_many(
                                                 BooleanExpression::member(
                                                     base.clone(),
@@ -279,12 +300,15 @@ impl<'ast> Unroller<'ast> {
                                                 statements,
                                             )
                                         } else {
-                                            BooleanExpression::member(base.clone(), id.clone())
-                                                .into()
+                                            BooleanExpression::member(
+                                                base.clone(),
+                                                member.id.clone(),
+                                            )
+                                            .into()
                                         }
                                     }
                                     Type::Array(..) => {
-                                        if id == head {
+                                        if member.id == head {
                                             Self::choose_many(
                                                 ArrayExpression::member(base.clone(), head.clone())
                                                     .into(),
@@ -293,11 +317,12 @@ impl<'ast> Unroller<'ast> {
                                                 statements,
                                             )
                                         } else {
-                                            ArrayExpression::member(base.clone(), id.clone()).into()
+                                            ArrayExpression::member(base.clone(), member.id.clone())
+                                                .into()
                                         }
                                     }
                                     Type::Struct(..) => {
-                                        if id == head {
+                                        if member.id == head {
                                             Self::choose_many(
                                                 StructExpression::member(
                                                     base.clone(),
@@ -309,8 +334,11 @@ impl<'ast> Unroller<'ast> {
                                                 statements,
                                             )
                                         } else {
-                                            StructExpression::member(base.clone(), id.clone())
-                                                .into()
+                                            StructExpression::member(
+                                                base.clone(),
+                                                member.id.clone(),
+                                            )
+                                            .into()
                                         }
                                     }
                                 })
@@ -352,6 +380,7 @@ fn linear<'ast, T: Field>(a: TypedAssignee<'ast, T>) -> (Variable, Vec<Access<'a
 
 impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
+        self.statement_count += 1;
         match s {
             TypedStatement::Declaration(_) => vec![],
             TypedStatement::Definition(assignee, expr) => {
@@ -371,9 +400,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                             .annotate(bitwidth)
                             .into()
                     }
-                    Type::Array(box ty, size) => {
+                    Type::Array(array_type) => {
                         ArrayExpressionInner::Identifier(variable.id.clone().into())
-                            .annotate(ty, size)
+                            .annotate(*array_type.ty, array_type.size)
                             .into()
                     }
                     Type::Struct(members) => {
@@ -384,6 +413,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                 };
 
                 let base = self.fold_expression(base);
+
                 let indices = indices
                     .into_iter()
                     .map(|a| match a {
@@ -413,34 +443,45 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                 vec![TypedStatement::MultipleDefinition(variables, exprs)]
             }
             TypedStatement::For(v, from, to, stats) => {
-                let mut values: Vec<T> = vec![];
-                let mut current = from;
-                while current < to {
-                    values.push(current.clone());
-                    current = T::one() + &current;
+                let from = self.fold_field_expression(from);
+                let to = self.fold_field_expression(to);
+
+                match (from, to) {
+                    (FieldElementExpression::Number(from), FieldElementExpression::Number(to)) => {
+                        let mut values: Vec<T> = vec![];
+                        let mut current = from;
+                        while current < to {
+                            values.push(current.clone());
+                            current = T::one() + &current;
+                        }
+
+                        let res = values
+                            .into_iter()
+                            .map(|index| {
+                                vec![
+                                    vec![
+                                        TypedStatement::Declaration(v.clone()),
+                                        TypedStatement::Definition(
+                                            TypedAssignee::Identifier(v.clone()),
+                                            FieldElementExpression::Number(index).into(),
+                                        ),
+                                    ],
+                                    stats.clone(),
+                                ]
+                                .into_iter()
+                                .flat_map(|x| x)
+                            })
+                            .flat_map(|x| x)
+                            .flat_map(|x| self.fold_statement(x))
+                            .collect();
+
+                        res
+                    }
+                    (from, to) => {
+                        self.complete = false;
+                        vec![TypedStatement::For(v, from, to, stats)]
+                    }
                 }
-
-                let res = values
-                    .into_iter()
-                    .map(|index| {
-                        vec![
-                            vec![
-                                TypedStatement::Declaration(v.clone()),
-                                TypedStatement::Definition(
-                                    TypedAssignee::Identifier(v.clone()),
-                                    FieldElementExpression::Number(index).into(),
-                                ),
-                            ],
-                            stats.clone(),
-                        ]
-                        .into_iter()
-                        .flat_map(|x| x)
-                    })
-                    .flat_map(|x| x)
-                    .flat_map(|x| self.fold_statement(x))
-                    .collect();
-
-                res
             }
             s => fold_statement(self, s),
         }
@@ -449,7 +490,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
     fn fold_function(&mut self, f: TypedFunction<'ast, T>) -> TypedFunction<'ast, T> {
         self.substitution = HashMap::new();
         for arg in &f.arguments {
-            self.substitution.insert(arg.id.id.clone(), 0);
+            self.substitution.insert(arg.id.id.id.clone(), 0);
         }
 
         fold_function(self, f)
@@ -457,7 +498,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
 
     fn fold_name(&mut self, n: Identifier<'ast>) -> Identifier<'ast> {
         Identifier {
-            version: self.substitution.get(&n).unwrap_or(&0).clone(),
+            version: self.substitution.get(&n.id).unwrap_or(&0).clone(),
             ..n
         }
     }
@@ -727,9 +768,9 @@ mod tests {
             // foo_2 = i_2
 
             let s = TypedStatement::For(
-                Variable::field_element("i"),
-                FieldPrime::from(2),
-                FieldPrime::from(5),
+                Variable::field_element("i".into()),
+                FieldElementExpression::Number(FieldPrime::from(2)),
+                FieldElementExpression::Number(FieldPrime::from(5)),
                 vec![
                     TypedStatement::Declaration(Variable::field_element("foo")),
                     TypedStatement::Definition(
@@ -781,6 +822,46 @@ mod tests {
             let mut u = Unroller::new();
 
             assert_eq!(u.fold_statement(s), expected);
+        }
+
+        #[test]
+        fn idempotence() {
+            // an already unrolled program should not be modified by unrolling again
+
+            // a = 5
+            // a_1 = 6
+            // a_2 = 7
+
+            // should be turned into
+            // a = 5
+            // a_1 = 6
+            // a_2 = 7
+
+            let mut u = Unroller::new();
+
+            let s = TypedStatement::Definition(
+                TypedAssignee::Identifier(Variable::field_element(
+                    Identifier::from("a").version(0),
+                )),
+                FieldElementExpression::Number(FieldPrime::from(5)).into(),
+            );
+            assert_eq!(u.fold_statement(s.clone()), vec![s]);
+
+            let s = TypedStatement::Definition(
+                TypedAssignee::Identifier(Variable::field_element(
+                    Identifier::from("a").version(1),
+                )),
+                FieldElementExpression::Number(FieldPrime::from(6)).into(),
+            );
+            assert_eq!(u.fold_statement(s.clone()), vec![s]);
+
+            let s = TypedStatement::Definition(
+                TypedAssignee::Identifier(Variable::field_element(
+                    Identifier::from("a").version(2),
+                )),
+                FieldElementExpression::Number(FieldPrime::from(7)).into(),
+            );
+            assert_eq!(u.fold_statement(s.clone()), vec![s]);
         }
 
         #[test]

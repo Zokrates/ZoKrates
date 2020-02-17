@@ -11,7 +11,7 @@ use pairing::bn256::{Bn256, Fr};
 use std::collections::BTreeMap;
 use zokrates_field::field::{Field, FieldPrime};
 
-use self::rand::*;
+use self::rand::ChaChaRng;
 use crate::flat_absy::FlatVariable;
 
 pub use self::parse::*;
@@ -160,7 +160,7 @@ impl Prog<FieldPrime> {
 
 impl Computation<FieldPrime> {
     pub fn prove(self, params: &Parameters<Bn256>) -> Proof<Bn256> {
-        let rng = &mut thread_rng();
+        let rng = &mut ChaChaRng::new_unseeded();
         let proof = create_random_proof(self.clone(), params, rng).unwrap();
 
         let pvk = prepare_verifying_key(&params.vk);
@@ -189,7 +189,7 @@ impl Computation<FieldPrime> {
     }
 
     pub fn setup(self) -> Parameters<Bn256> {
-        let rng = &mut thread_rng();
+        let rng = &mut ChaChaRng::new_unseeded();
         // run setup phase
         generate_random_parameters(self, rng).unwrap()
     }
@@ -294,7 +294,6 @@ mod parse {
 mod tests {
     use super::*;
     use crate::ir::{Function, LinComb};
-    use typed_absy::types::{Signature, Type};
     use zokrates_field::field::FieldPrime;
 
     mod prove {
@@ -310,7 +309,6 @@ mod tests {
                     statements: vec![],
                 },
                 private: vec![],
-                signature: Signature::new(),
             };
 
             let witness = program.clone().execute(&vec![]).unwrap();
@@ -333,9 +331,6 @@ mod tests {
                     )],
                 },
                 private: vec![true],
-                signature: Signature::new()
-                    .inputs(vec![Type::FieldElement])
-                    .outputs(vec![Type::FieldElement]),
             };
 
             let witness = program.clone().execute(&vec![FieldPrime::from(0)]).unwrap();
@@ -358,9 +353,6 @@ mod tests {
                     )],
                 },
                 private: vec![false],
-                signature: Signature::new()
-                    .inputs(vec![Type::FieldElement])
-                    .outputs(vec![Type::FieldElement]),
             };
 
             let witness = program.clone().execute(&vec![FieldPrime::from(0)]).unwrap();
@@ -383,7 +375,6 @@ mod tests {
                     )],
                 },
                 private: vec![],
-                signature: Signature::new().outputs(vec![Type::FieldElement]),
             };
 
             let witness = program.clone().execute(&vec![]).unwrap();
@@ -418,9 +409,6 @@ mod tests {
                     ],
                 },
                 private: vec![true, false],
-                signature: Signature::new()
-                    .inputs(vec![Type::FieldElement, Type::FieldElement])
-                    .outputs(vec![Type::FieldElement, Type::FieldElement]),
             };
 
             let witness = program
@@ -446,9 +434,6 @@ mod tests {
                     )],
                 },
                 private: vec![false],
-                signature: Signature::new()
-                    .inputs(vec![Type::FieldElement])
-                    .outputs(vec![Type::FieldElement]),
             };
 
             let witness = program.clone().execute(&vec![FieldPrime::from(3)]).unwrap();
@@ -473,9 +458,6 @@ mod tests {
                     )],
                 },
                 private: vec![true, false],
-                signature: Signature::new()
-                    .inputs(vec![Type::FieldElement, Type::FieldElement])
-                    .outputs(vec![Type::FieldElement]),
             };
 
             let witness = program

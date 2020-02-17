@@ -18,6 +18,7 @@ use crate::absy::types::{UnresolvedSignature, UnresolvedType, UserTypeId};
 use crate::typed_absy::types::{FunctionKey, Signature, Type};
 
 use std::hash::{Hash, Hasher};
+use typed_absy::types::{ArrayType, StructMember};
 
 #[derive(PartialEq, Debug)]
 pub struct Error {
@@ -38,7 +39,7 @@ struct State<'ast, T: Field> {
     types: TypeMap,
 }
 
-/// A symbol for a given name: either a type, or a group of functions. Not both!
+/// A symbol for a given name: either a type or a group of functions. Not both!
 #[derive(PartialEq, Hash, Eq, Debug)]
 enum SymbolType {
     Type,
@@ -193,7 +194,7 @@ impl<'ast> Hash for ScopedVariable<'ast> {
 
 impl<'ast> Eq for ScopedVariable<'ast> {}
 
-/// Checker, checks the semantics of a program, keeping track of functions and variables in scope
+/// Checker checks the semantics of a program, keeping track of functions and variables in scope
 pub struct Checker<'ast> {
     scope: HashSet<ScopedVariable<'ast>>,
     functions: HashSet<FunctionKey<'ast>>,
@@ -281,7 +282,12 @@ impl<'ast> Checker<'ast> {
             return Err(errors);
         }
 
-        Ok(Type::Struct(fields))
+        Ok(Type::Struct(
+            fields
+                .iter()
+                .map(|f| StructMember::new(f.0.clone(), f.1.clone()))
+                .collect(),
+        ))
     }
 
     fn check_symbol_declaration<T: Field>(
@@ -713,10 +719,10 @@ impl<'ast> Checker<'ast> {
             UnresolvedType::FieldElement => Ok(Type::FieldElement),
             UnresolvedType::Boolean => Ok(Type::Boolean),
             UnresolvedType::Uint(bitwidth) => Ok(Type::Uint(bitwidth)),
-            UnresolvedType::Array(t, size) => Ok(Type::Array(
-                box self.check_type(*t, module_id, types)?,
+            UnresolvedType::Array(t, size) => Ok(Type::Array(ArrayType::new(
+                self.check_type(*t, module_id, types)?,
                 size,
-            )),
+            ))),
             UnresolvedType::User(id) => {
                 types
                     .get(module_id)
@@ -840,6 +846,37 @@ impl<'ast> Checker<'ast> {
 
                 let var = self.check_variable(var, module_id, types).unwrap();
 
+                let from = self
+                    .check_expression(from, module_id, &types)
+                    .map_err(|e| vec![e])?;
+                let to = self
+                    .check_expression(to, module_id, &types)
+                    .map_err(|e| vec![e])?;
+
+                let from = match from {
+                    TypedExpression::FieldElement(e) => Ok(e),
+                    e => Err(Error {
+                        pos: Some(pos),
+                        message: format!(
+                            "Expected lower loop bound to be of type field, found {}",
+                            e.get_type()
+                        ),
+                    }),
+                }
+                .map_err(|e| vec![e])?;
+
+                let to = match to {
+                    TypedExpression::FieldElement(e) => Ok(e),
+                    e => Err(Error {
+                        pos: Some(pos),
+                        message: format!(
+                            "Expected higher loop bound to be of type field, found {}",
+                            e.get_type()
+                        ),
+                    }),
+                }
+                .map_err(|e| vec![e])?;
+
                 self.insert_into_scope(var.clone());
 
                 let mut checked_statements = vec![];
@@ -874,7 +911,7 @@ impl<'ast> Checker<'ast> {
                             vars_types.push(t);
                             var_names.push(name);
                         }
-                        // find arguments types
+                        // find argument types
                         let mut arguments_checked = vec![];
                         for arg in arguments {
                             let arg_checked = self.check_expression(arg, module_id, &types).map_err(|e| vec![e])?;
@@ -990,7 +1027,7 @@ impl<'ast> Checker<'ast> {
 
                 let ty = checked_assignee.get_type();
                 match &ty {
-                    Type::Struct(members) => match members.iter().find(|(id, _)| id == member) {
+                    Type::Struct(members) => match members.iter().find(|m| m.id == member) {
                         Some(_) => Ok(TypedAssignee::Member(box checked_assignee, member.into())),
                         None => Err(Error {
                             pos: Some(pos),
@@ -1048,15 +1085,19 @@ impl<'ast> Checker<'ast> {
                                         FieldElementExpression::Number(T::from(i)),
                                     )
                                     .into(),
-                                    Type::Array(box ty, s) => ArrayExpression::select(
-                                        e.clone().annotate(Type::array(ty.clone(), *s), size),
-                                        FieldElementExpression::Number(T::from(i)),
+                                    Type::Array(array_type) => ArrayExpressionInner::Select(
+                                        box e
+                                            .clone()
+                                            .annotate(Type::Array(array_type.clone()), size),
+                                        box FieldElementExpression::Number(T::from(i)),
                                     )
+                                    .annotate(*array_type.ty.clone(), array_type.size)
                                     .into(),
-                                    Type::Struct(fields) => StructExpression::select(
-                                        e.clone().annotate(Type::Struct(fields.clone()), size),
-                                        FieldElementExpression::Number(T::from(i)),
+                                    Type::Struct(members) => StructExpressionInner::Select(
+                                        box e.clone().annotate(Type::Struct(members.clone()), size),
+                                        box FieldElementExpression::Number(T::from(i)),
                                     )
+                                    .annotate(members.clone())
                                     .into(),
                                 })
                                 .collect()),
@@ -1099,9 +1140,11 @@ impl<'ast> Checker<'ast> {
                         Type::FieldElement => {
                             Ok(FieldElementExpression::Identifier(name.into()).into())
                         }
-                        Type::Array(ty, size) => Ok(ArrayExpressionInner::Identifier(name.into())
-                            .annotate(*ty, size)
-                            .into()),
+                        Type::Array(array_type) => {
+                            Ok(ArrayExpressionInner::Identifier(name.into())
+                                .annotate(*array_type.ty, array_type.size)
+                                .into())
+                        }
                         Type::Struct(members) => Ok(StructExpressionInner::Identifier(name.into())
                             .annotate(members)
                             .into()),
@@ -1322,6 +1365,15 @@ impl<'ast> Checker<'ast> {
                                     arguments_checked,
                                 )
                                 .into()),
+                                Type::Boolean => Ok(BooleanExpression::FunctionCall(
+                                    FunctionKey {
+                                        id: f.id.clone(),
+                                        signature: f.signature.clone(),
+                                    },
+                                    arguments_checked,
+                                )
+                                .into()),
+                                Type::Uint(bitwidth) => unimplemented!(),
                                 Type::Struct(members) => Ok(StructExpressionInner::FunctionCall(
                                     FunctionKey {
                                         id: f.id.clone(),
@@ -1331,18 +1383,15 @@ impl<'ast> Checker<'ast> {
                                 )
                                 .annotate(members.clone())
                                 .into()),
-                                Type::Array(box ty, size) => {
-                                    Ok(ArrayExpressionInner::FunctionCall(
-                                        FunctionKey {
-                                            id: f.id.clone(),
-                                            signature: f.signature.clone(),
-                                        },
-                                        arguments_checked,
-                                    )
-                                    .annotate(ty.clone(), size.clone())
-                                    .into())
-                                }
-                                _ => unimplemented!(),
+                                Type::Array(array_type) => Ok(ArrayExpressionInner::FunctionCall(
+                                    FunctionKey {
+                                        id: f.id.clone(),
+                                        signature: f.signature.clone(),
+                                    },
+                                    arguments_checked,
+                                )
+                                .annotate(*array_type.ty.clone(), array_type.size.clone())
+                                .into()),
                             },
                             n => Err(Error {
                                 pos: Some(pos),
@@ -1510,12 +1559,32 @@ impl<'ast> Checker<'ast> {
                                 }),
                                 (f, t, _) => Ok(ArrayExpressionInner::Value(
                                     (f..t)
-                                        .map(|i| {
-                                            FieldElementExpression::Select(
+                                        .map(|i| match inner_type.clone() {
+                                            Type::FieldElement => FieldElementExpression::Select(
                                                 box array.clone(),
                                                 box FieldElementExpression::Number(T::from(i)),
                                             )
-                                            .into()
+                                            .into(),
+                                            Type::Boolean => BooleanExpression::Select(
+                                                box array.clone(),
+                                                box FieldElementExpression::Number(T::from(i)),
+                                            )
+                                            .into(),
+                                            Type::Uint(bitwidth) => unimplemented!(),
+                                            Type::Struct(struct_ty) => {
+                                                StructExpressionInner::Select(
+                                                    box array.clone(),
+                                                    box FieldElementExpression::Number(T::from(i)),
+                                                )
+                                                .annotate(struct_ty)
+                                                .into()
+                                            }
+                                            Type::Array(array_ty) => ArrayExpressionInner::Select(
+                                                box array.clone(),
+                                                box FieldElementExpression::Number(T::from(i)),
+                                            )
+                                            .annotate(*array_ty.ty, array_ty.size)
+                                            .into(),
                                         })
                                         .collect(),
                                 )
@@ -1536,9 +1605,7 @@ impl<'ast> Checker<'ast> {
                         match (array, self.check_expression(e, module_id, &types)?) {
                             (TypedExpression::Array(a), TypedExpression::FieldElement(i)) => {
                                 match a.inner_type().clone() {
-                                    Type::FieldElement => {
-                                        Ok(FieldElementExpression::select(a, i).into())
-                                    }
+                                    Type::FieldElement => Ok(FieldElementExpression::select(a, i).into()),
                                     Type::Uint(..) => Ok(UExpression::select(a, i).into()),
                                     Type::Boolean => Ok(BooleanExpression::select(a, i).into()),
                                     Type::Array(..) => Ok(ArrayExpression::select(a, i).into()),
@@ -1563,26 +1630,21 @@ impl<'ast> Checker<'ast> {
                 match e {
                     TypedExpression::Struct(s) => {
                         // check that the struct has that field and return the type if it does
-                        let ty = s
-                            .ty()
-                            .iter()
-                            .find(|(member_id, _)| member_id == id)
-                            .map(|(_, ty)| ty);
+                        let ty = s.ty().iter().find(|m| m.id == id).map(|m| *m.ty.clone());
 
                         match ty {
                             Some(ty) => match ty {
                                 Type::FieldElement => {
                                     Ok(FieldElementExpression::member(s, id.to_string()).into())
                                 }
-
                                 Type::Boolean => {
                                     Ok(BooleanExpression::member(s, id.to_string()).into())
                                 }
-
                                 Type::Uint(..) => Ok(UExpression::member(s, id.to_string()).into()),
-
-                                Type::Array(..) => {
-                                    Ok(ArrayExpression::member(s.clone(), id.to_string()).into())
+                                Type::Array(array_type) => {
+                                    Ok(ArrayExpressionInner::Member(box s.clone(), id.to_string())
+                                        .annotate(*array_type.ty.clone(), array_type.size)
+                                        .into())
                                 }
                                 Type::Struct(..) => {
                                     Ok(StructExpression::member(s.clone(), id.to_string()).into())
@@ -1833,20 +1895,20 @@ impl<'ast> Checker<'ast> {
                     .collect::<HashMap<_, _>>();
                 let mut result: Vec<TypedExpression<'ast, T>> = vec![];
 
-                for (member_id, ty) in &members {
-                    match inline_members_map.remove(member_id) {
+                for member in &members {
+                    match inline_members_map.remove(member.id.as_str()) {
                         Some(value) => {
                             let expression_checked =
                                 self.check_expression(value, module_id, &types)?;
                             let checked_type = expression_checked.get_type();
-                            if checked_type != *ty {
+                            if checked_type != *member.ty {
                                 return Err(Error {
                                     pos: Some(pos),
                                     message: format!(
                                         "Member {} of struct {} has type {}, found {} of type {}",
-                                        member_id,
+                                        member.id,
                                         id.clone(),
-                                        ty,
+                                        member.ty,
                                         expression_checked,
                                         checked_type,
                                     ),
@@ -1860,7 +1922,7 @@ impl<'ast> Checker<'ast> {
                                 pos: Some(pos),
                                 message: format!(
                                     "Member {} of struct {} : {} not found in value {}",
-                                    member_id,
+                                    member.id,
                                     id.clone(),
                                     Type::Struct(members.clone()),
                                     Expression::InlineStruct(id.clone(), inline_members),
@@ -2052,7 +2114,7 @@ mod tests {
     mod symbols {
         use super::*;
 
-        /// Helper function to create (() -> (): return)
+        /// solver function to create (() -> (): return)
         fn function0() -> FunctionNode<'static, FieldPrime> {
             let statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
                 ExpressionList {
@@ -2074,7 +2136,7 @@ mod tests {
             .mock()
         }
 
-        /// Helper function to create ((private field a) -> (): return)
+        /// solver function to create ((private field a) -> (): return)
         fn function1() -> FunctionNode<'static, FieldPrime> {
             let statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
                 ExpressionList {
@@ -2716,8 +2778,8 @@ mod tests {
         let foo_statements = vec![
             Statement::For(
                 absy::Variable::new("i", UnresolvedType::FieldElement.mock()).mock(),
-                FieldPrime::from(0),
-                FieldPrime::from(10),
+                Expression::FieldConstant(FieldPrime::from(0)).mock(),
+                Expression::FieldConstant(FieldPrime::from(10)).mock(),
                 vec![],
             )
             .mock(),
@@ -2774,8 +2836,8 @@ mod tests {
 
         let foo_statements = vec![Statement::For(
             absy::Variable::new("i", UnresolvedType::FieldElement.mock()).mock(),
-            FieldPrime::from(0),
-            FieldPrime::from(10),
+            Expression::FieldConstant(FieldPrime::from(0)).mock(),
+            Expression::FieldConstant(FieldPrime::from(10)).mock(),
             for_statements,
         )
         .mock()];
@@ -2789,9 +2851,15 @@ mod tests {
         ];
 
         let foo_statements_checked = vec![TypedStatement::For(
+<<<<<<< HEAD
             typed_absy::Variable::field_element("i"),
             FieldPrime::from(0),
             FieldPrime::from(10),
+=======
+            typed_absy::Variable::field_element("i".into()),
+            FieldElementExpression::Number(FieldPrime::from(0)),
+            FieldElementExpression::Number(FieldPrime::from(10)),
+>>>>>>> 84c144a77b821c4d8e3ddd3ca3ecfa86d9de6568
             for_statements_checked,
         )];
 
@@ -3408,7 +3476,7 @@ mod tests {
     mod structs {
         use super::*;
 
-        /// helper function to create a module at location "" with a single symbol `Foo { foo: field }`
+        /// solver function to create a module at location "" with a single symbol `Foo { foo: field }`
         fn create_module_with_foo(
             s: StructType<'static>,
         ) -> (Checker<'static>, State<'static, FieldPrime>) {
@@ -3473,8 +3541,8 @@ mod tests {
                 .mock();
 
                 let expected_type = Type::Struct(vec![
-                    ("foo".to_string(), Type::FieldElement),
-                    ("bar".to_string(), Type::Boolean),
+                    StructMember::new("foo".to_string(), Type::FieldElement),
+                    StructMember::new("bar".to_string(), Type::Boolean),
                 ]);
 
                 assert_eq!(
@@ -3521,13 +3589,9 @@ mod tests {
                 }
                 .mock();
 
-                assert!(
-                    Checker::new().check_struct_type_declaration(declaration0, &module_id, &types)
-                        != Checker::new().check_struct_type_declaration(
-                            declaration1,
-                            &module_id,
-                            &types
-                        )
+                assert_ne!(
+                    Checker::new().check_struct_type_declaration(declaration0, &module_id, &types),
+                    Checker::new().check_struct_type_declaration(declaration1, &module_id, &types)
                 );
             }
 
@@ -3615,9 +3679,12 @@ mod tests {
                         .unwrap()
                         .get(&"Bar".to_string())
                         .unwrap(),
-                    &Type::Struct(vec![(
+                    &Type::Struct(vec![StructMember::new(
                         "foo".to_string(),
-                        Type::Struct(vec![("foo".to_string(), Type::FieldElement)])
+                        Type::Struct(vec![StructMember::new(
+                            "foo".to_string(),
+                            Type::FieldElement
+                        )])
                     )])
                 );
             }
@@ -3760,7 +3827,10 @@ mod tests {
                         &MODULE_ID.to_string(),
                         &state.types
                     ),
-                    Ok(Type::Struct(vec![("foo".to_string(), Type::FieldElement)]))
+                    Ok(Type::Struct(vec![StructMember::new(
+                        "foo".to_string(),
+                        Type::FieldElement
+                    )]))
                 );
 
                 assert_eq!(
@@ -3806,8 +3876,16 @@ mod tests {
                     ),
                     Ok(Parameter {
                         id: Variable::with_id_and_type(
+<<<<<<< HEAD
                             "a",
                             Type::Struct(vec![("foo".to_string(), Type::FieldElement)])
+=======
+                            "a".into(),
+                            Type::Struct(vec![StructMember::new(
+                                "foo".to_string(),
+                                Type::FieldElement
+                            )])
+>>>>>>> 84c144a77b821c4d8e3ddd3ca3ecfa86d9de6568
                         ),
                         private: true
                     })
@@ -3862,8 +3940,16 @@ mod tests {
                         &state.types,
                     ),
                     Ok(TypedStatement::Declaration(Variable::with_id_and_type(
+<<<<<<< HEAD
                         "a",
                         Type::Struct(vec![("foo".to_string(), Type::FieldElement)])
+=======
+                        "a".into(),
+                        Type::Struct(vec![StructMember::new(
+                            "foo".to_string(),
+                            Type::FieldElement
+                        )])
+>>>>>>> 84c144a77b821c4d8e3ddd3ca3ecfa86d9de6568
                     )))
                 );
 
@@ -3930,7 +4016,10 @@ mod tests {
                             FieldPrime::from(42)
                         )
                         .into()])
-                        .annotate(vec![("foo".to_string(), Type::FieldElement)]),
+                        .annotate(vec![StructMember::new(
+                            "foo".to_string(),
+                            Type::FieldElement
+                        )]),
                         "foo".to_string()
                     )
                     .into())
@@ -4056,8 +4145,8 @@ mod tests {
                         BooleanExpression::Value(true).into()
                     ])
                     .annotate(vec![
-                        ("foo".to_string(), Type::FieldElement),
-                        ("bar".to_string(), Type::Boolean)
+                        StructMember::new("foo".to_string(), Type::FieldElement),
+                        StructMember::new("bar".to_string(), Type::Boolean)
                     ])
                     .into())
                 );
@@ -4106,8 +4195,8 @@ mod tests {
                         BooleanExpression::Value(true).into()
                     ])
                     .annotate(vec![
-                        ("foo".to_string(), Type::FieldElement),
-                        ("bar".to_string(), Type::Boolean)
+                        StructMember::new("foo".to_string(), Type::FieldElement),
+                        StructMember::new("bar".to_string(), Type::Boolean)
                     ])
                     .into())
                 );
@@ -4115,7 +4204,7 @@ mod tests {
 
             #[test]
             fn subset() {
-                // a A value cannot be defined with A as id but members being a subset of the declaration
+                // a A value cannot be defined with A as id if members are a subset of the declaration
 
                 // struct Foo = { foo: field, bar: bool }
                 // Foo foo = Foo { foo: 42 }
@@ -4157,8 +4246,8 @@ mod tests {
 
             #[test]
             fn invalid() {
-                // a A value cannot be defined with A as id but members being different ids than the declaration
-                // a A value cannot be defined with A as id but members being different types than the declaration
+                // a A value cannot be defined with A as id if members are different ids than the declaration
+                // a A value cannot be defined with A as id if members are different types than the declaration
 
                 // struct Foo = { foo: field, bar: bool }
                 // Foo { foo: 42, baz: bool } // error

@@ -7,15 +7,17 @@
 mod constrain_inputs;
 mod flat_propagation;
 mod inline;
+mod propagate_unroll;
 mod propagation;
 mod uint_optimizer;
 mod unroll;
 
 use self::constrain_inputs::InputConstrainer;
 use self::inline::Inliner;
+use self::propagate_unroll::PropagatedUnroller;
 use self::propagation::Propagator;
 use self::uint_optimizer::UintOptimizer;
-use self::unroll::Unroller;
+
 use crate::flat_absy::FlatProg;
 use crate::typed_absy::TypedProgram;
 use zokrates_field::field::Field;
@@ -26,8 +28,8 @@ pub trait Analyse {
 
 impl<'ast, T: Field> Analyse for TypedProgram<'ast, T> {
     fn analyse(self) -> Self {
-        // unroll
-        let r = Unroller::unroll(self);
+        // propagated unrolling
+        let r = PropagatedUnroller::unroll(self).unwrap_or_else(|e| panic!(e));
         // inline
         let r = Inliner::inline(r);
         // propagate
@@ -36,6 +38,7 @@ impl<'ast, T: Field> Analyse for TypedProgram<'ast, T> {
         let r = InputConstrainer::constrain(r);
         // optimize uint expressions
         let r = UintOptimizer::optimize(r);
+
         r
     }
 }

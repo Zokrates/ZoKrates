@@ -5,6 +5,7 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
+pub mod abi;
 pub mod folder;
 mod identifier;
 mod parameter;
@@ -14,11 +15,11 @@ mod variable;
 
 pub use self::identifier::CoreIdentifier;
 pub use self::parameter::Parameter;
-pub use self::types::Type;
+pub use self::types::{Signature, Type};
 pub use self::variable::Variable;
 pub use typed_absy::uint::{bitwidth, UExpression, UExpressionInner, UMetadata};
 
-use crate::typed_absy::types::{FunctionKey, MemberId, Signature};
+use crate::typed_absy::types::{FunctionKey, MemberId};
 use embed::FlatEmbed;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -26,6 +27,8 @@ use std::fmt;
 use zokrates_field::field::Field;
 
 pub use self::folder::Folder;
+use typed_absy::abi::{Abi, AbiInput};
+use typed_absy::types::StructMember;
 
 pub use self::identifier::Identifier;
 
@@ -46,6 +49,34 @@ pub type TypedFunctionSymbols<'ast, T> = HashMap<FunctionKey<'ast>, TypedFunctio
 pub struct TypedProgram<'ast, T: Field> {
     pub modules: TypedModules<'ast, T>,
     pub main: TypedModuleId,
+}
+
+impl<'ast, T: Field> TypedProgram<'ast, T> {
+    pub fn abi(&self) -> Abi {
+        let main = self.modules[&self.main]
+            .functions
+            .iter()
+            .find(|(id, _)| id.id == "main")
+            .unwrap()
+            .1;
+        let main = match main {
+            TypedFunctionSymbol::Here(main) => main,
+            _ => unreachable!(),
+        };
+
+        Abi {
+            inputs: main
+                .arguments
+                .iter()
+                .map(|p| AbiInput {
+                    public: !p.private,
+                    name: p.id.id.to_string(),
+                    ty: p.id._type.clone(),
+                })
+                .collect(),
+            outputs: main.signature.outputs.clone(),
+        }
+    }
 }
 
 impl<'ast, T: Field> fmt::Display for TypedProgram<'ast, T> {
@@ -150,7 +181,7 @@ impl<'ast, T: Field> fmt::Display for TypedFunction<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "({}) -> ({}):\n{}",
+            "({}) -> ({}):",
             self.arguments
                 .iter()
                 .map(|x| format!("{}", x))
@@ -162,12 +193,16 @@ impl<'ast, T: Field> fmt::Display for TypedFunction<'ast, T> {
                 .map(|x| format!("{}", x))
                 .collect::<Vec<_>>()
                 .join(", "),
-            self.statements
-                .iter()
-                .map(|x| format!("\t{}", x))
-                .collect::<Vec<_>>()
-                .join("\n")
-        )
+        )?;
+
+        writeln!(f, "")?;
+
+        for s in &self.statements {
+            s.fmt_indented(f, 1)?;
+            writeln!(f, "")?;
+        }
+
+        Ok(())
     }
 }
 
@@ -204,16 +239,19 @@ impl<'ast, T: Field> Typed for TypedAssignee<'ast, T> {
             TypedAssignee::Select(ref a, _) => {
                 let a_type = a.get_type();
                 match a_type {
-                    Type::Array(box t, _) => t,
+                    Type::Array(t) => *t.ty,
                     _ => unreachable!("an array element should only be defined over arrays"),
                 }
             }
             TypedAssignee::Member(ref s, ref m) => {
                 let s_type = s.get_type();
                 match s_type {
-                    Type::Struct(members) => {
-                        members.iter().find(|(id, _)| id == m).unwrap().1.clone()
-                    }
+                    Type::Struct(members) => *members
+                        .iter()
+                        .find(|member| member.id == *m)
+                        .unwrap()
+                        .ty
+                        .clone(),
                     _ => unreachable!("a struct access should only be defined over structs"),
                 }
             }
@@ -244,7 +282,12 @@ pub enum TypedStatement<'ast, T: Field> {
     Definition(TypedAssignee<'ast, T>, TypedExpression<'ast, T>),
     Declaration(Variable<'ast>),
     Condition(TypedExpression<'ast, T>, TypedExpression<'ast, T>),
-    For(Variable<'ast>, T, T, Vec<TypedStatement<'ast, T>>),
+    For(
+        Variable<'ast>,
+        FieldElementExpression<'ast, T>,
+        FieldElementExpression<'ast, T>,
+        Vec<TypedStatement<'ast, T>>,
+    ),
     MultipleDefinition(Vec<Variable<'ast>>, TypedExpressionList<'ast, T>),
 }
 
@@ -278,6 +321,23 @@ impl<'ast, T: Field> fmt::Debug for TypedStatement<'ast, T> {
             TypedStatement::MultipleDefinition(ref lhs, ref rhs) => {
                 write!(f, "MultipleDefinition({:?}, {:?})", lhs, rhs)
             }
+        }
+    }
+}
+
+impl<'ast, T: Field> TypedStatement<'ast, T> {
+    fn fmt_indented(&self, f: &mut fmt::Formatter, depth: usize) -> fmt::Result {
+        match self {
+            TypedStatement::For(variable, from, to, statements) => {
+                write!(f, "{}", "\t".repeat(depth))?;
+                writeln!(f, "for {} in {}..{} do", variable, from, to)?;
+                for s in statements {
+                    s.fmt_indented(f, depth + 1)?;
+                    writeln!(f, "")?;
+                }
+                writeln!(f, "{}endfor", "\t".repeat(depth))
+            }
+            s => write!(f, "{}{}", "\t".repeat(depth), s),
         }
     }
 }
@@ -407,7 +467,7 @@ impl<'ast, T: Field> fmt::Display for StructExpression<'ast, T> {
                 "{{{}}}",
                 self.ty
                     .iter()
-                    .map(|(id, _)| id)
+                    .map(|member| member.id.clone())
                     .zip(values.iter())
                     .map(|(id, o)| format!("{}: {}", id, o.to_string()))
                     .collect::<Vec<String>>()
@@ -587,6 +647,7 @@ pub enum BooleanExpression<'ast, T: Field> {
         Box<BooleanExpression<'ast, T>>,
     ),
     Member(Box<StructExpression<'ast, T>>, MemberId),
+    FunctionCall(FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
     Select(
         Box<ArrayExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
@@ -595,7 +656,7 @@ pub enum BooleanExpression<'ast, T: Field> {
 
 /// An expression of type `array`
 /// # Remarks
-/// * Contrary to basic types which represented as enums, we wrap an enum `ArrayExpressionInner` in a struct in order to keep track of the type (content and size)
+/// * Contrary to basic types which are represented as enums, we wrap an enum `ArrayExpressionInner` in a struct in order to keep track of the type (content and size)
 /// of the array. Only using an enum would require generics, which would propagate up to TypedExpression which we want to keep simple, hence this "runtime"
 /// type checking
 #[derive(Clone, PartialEq, Hash, Eq)]
@@ -652,12 +713,12 @@ impl<'ast, T: Field> ArrayExpression<'ast, T> {
 
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub struct StructExpression<'ast, T: Field> {
-    ty: Vec<(MemberId, Type)>,
+    ty: Vec<StructMember>,
     inner: StructExpressionInner<'ast, T>,
 }
 
 impl<'ast, T: Field> StructExpression<'ast, T> {
-    pub fn ty(&self) -> &Vec<(MemberId, Type)> {
+    pub fn ty(&self) -> &Vec<StructMember> {
         &self.ty
     }
 
@@ -688,7 +749,7 @@ pub enum StructExpressionInner<'ast, T: Field> {
 }
 
 impl<'ast, T: Field> StructExpressionInner<'ast, T> {
-    pub fn annotate(self, ty: Vec<(MemberId, Type)>) -> StructExpression<'ast, T> {
+    pub fn annotate(self, ty: Vec<StructMember>) -> StructExpression<'ast, T> {
         StructExpression { ty, inner: self }
     }
 }
@@ -820,6 +881,16 @@ impl<'ast, T: Field> fmt::Display for BooleanExpression<'ast, T> {
             BooleanExpression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             BooleanExpression::Not(ref exp) => write!(f, "!{}", exp),
             BooleanExpression::Value(b) => write!(f, "{}", b),
+            BooleanExpression::FunctionCall(ref k, ref p) => {
+                write!(f, "{}(", k.id,)?;
+                for (i, param) in p.iter().enumerate() {
+                    write!(f, "{}", param)?;
+                    if i < p.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, ")")
+            }
             BooleanExpression::IfElse(ref condition, ref consequent, ref alternative) => write!(
                 f,
                 "if {} then {} else {} fi",
@@ -986,7 +1057,7 @@ impl<'ast, T: Field> fmt::Debug for TypedExpressionList<'ast, T> {
     }
 }
 
-// Common behaviour accross expressions
+// Common behaviour across expressions
 
 pub trait IfElse<'ast, T: Field> {
     fn if_else(condition: BooleanExpression<'ast, T>, consequence: Self, alternative: Self)
@@ -1079,7 +1150,7 @@ impl<'ast, T: Field> Select<'ast, T> for UExpression<'ast, T> {
 impl<'ast, T: Field> Select<'ast, T> for ArrayExpression<'ast, T> {
     fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
         let (ty, size) = match array.inner_type() {
-            Type::Array(inner, size) => (inner.clone(), size.clone()),
+            Type::Array(array_type) => (array_type.ty.clone(), array_type.size.clone()),
             _ => unreachable!(),
         };
 
@@ -1127,16 +1198,16 @@ impl<'ast, T: Field> Member<'ast, T> for ArrayExpression<'ast, T> {
 
         let ty = members
             .into_iter()
-            .find(|(id, _)| *id == member_id)
+            .find(|member| *member.id == member_id)
             .unwrap()
-            .1;
+            .ty;
 
-        let (ty, size) = match ty {
-            Type::Array(box ty, size) => (ty, size),
+        let (ty, size) = match *ty {
+            Type::Array(array_type) => (array_type.ty, array_type.size),
             _ => unreachable!(),
         };
 
-        ArrayExpressionInner::Member(box s, member_id).annotate(ty, size)
+        ArrayExpressionInner::Member(box s, member_id).annotate(*ty, size)
     }
 }
 
@@ -1146,11 +1217,11 @@ impl<'ast, T: Field> Member<'ast, T> for StructExpression<'ast, T> {
 
         let ty = members
             .into_iter()
-            .find(|(id, _)| *id == member_id)
+            .find(|member| *member.id == member_id)
             .unwrap()
-            .1;
+            .ty;
 
-        let members = match ty {
+        let members = match *ty {
             Type::Struct(members) => members,
             _ => unreachable!(),
         };

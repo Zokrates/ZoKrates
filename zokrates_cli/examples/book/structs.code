@@ -5,7 +5,7 @@ struct Bar {
 
 struct Foo {
 	Bar a
-	bool b 
+	bool b
 }
 
 def main() -> (Foo):
