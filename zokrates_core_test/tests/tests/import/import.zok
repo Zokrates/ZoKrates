@@ -1,4 +1,4 @@
-from "./dep/foo.zok" import foo
+from "./dep/foo" import foo
 
 def main() -> (field):
 	return foo()

@@ -1,4 +1,4 @@
-from "./dep/foo.zok" import foo as bar
+from "./dep/foo" import foo as bar
 
 def foo() -> (field):
 	return 2 + bar()
