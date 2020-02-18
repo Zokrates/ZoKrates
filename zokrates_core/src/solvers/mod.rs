@@ -125,7 +125,7 @@ mod tests {
     #[test]
     fn bits_of_one() {
         let inputs = vec![FieldPrime::from(1)];
-        let res = Solver::Bits.execute(&inputs).unwrap();
+        let res = Solver::Bits(FieldPrime::get_required_bits()).execute(&inputs).unwrap();
         assert_eq!(res[253], FieldPrime::from(1));
         for i in 0..252 {
             assert_eq!(res[i], FieldPrime::from(0));
@@ -135,7 +135,7 @@ mod tests {
     #[test]
     fn bits_of_42() {
         let inputs = vec![FieldPrime::from(42)];
-        let res = Solver::Bits.execute(&inputs).unwrap();
+        let res = Solver::Bits(FieldPrime::get_required_bits()).execute(&inputs).unwrap();
         assert_eq!(res[253], FieldPrime::from(0));
         assert_eq!(res[252], FieldPrime::from(1));
         assert_eq!(res[251], FieldPrime::from(0));

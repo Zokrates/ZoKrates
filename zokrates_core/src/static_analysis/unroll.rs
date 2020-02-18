@@ -769,7 +769,7 @@ mod tests {
             // foo_2 = i_2
 
             let s = TypedStatement::For(
-                Variable::field_element("i".into()),
+                Variable::field_element("i"),
                 FieldElementExpression::Number(FieldPrime::from(2)),
                 FieldElementExpression::Number(FieldPrime::from(5)),
                 vec![

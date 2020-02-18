@@ -2908,7 +2908,7 @@ mod tests {
         ];
 
         let foo_statements_checked = vec![TypedStatement::For(
-            typed_absy::Variable::field_element("i".into()),
+            typed_absy::Variable::field_element("i"),
             FieldElementExpression::Number(FieldPrime::from(0)),
             FieldElementExpression::Number(FieldPrime::from(10)),
             for_statements_checked,
@@ -3930,7 +3930,7 @@ mod tests {
                     ),
                     Ok(Parameter {
                         id: Variable::with_id_and_type(
-                            "a".into(),
+                            "a",
                             Type::Struct(vec![StructMember::new(
                                 "foo".to_string(),
                                 Type::FieldElement

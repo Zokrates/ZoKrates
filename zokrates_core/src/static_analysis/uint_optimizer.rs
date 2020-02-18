@@ -23,7 +23,6 @@ impl<'ast, T: Field> UintOptimizer<'ast, T> {
     fn register(&mut self, a: TypedAssignee<'ast, T>, e: TypedExpression<'ast, T>) {
         match (a, e) {
             (a, TypedExpression::Uint(e)) => {
-                println!("{} := {}", a, e);
                 self.ids.insert(
                     a,
                     e.metadata.unwrap_or(UMetadata {
@@ -84,8 +83,6 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
         let range = e.bitwidth;
 
         assert!(range < max_bitwidth / 2);
-
-        println!("{:?}", e);
 
         if e.metadata.is_some() {
             return e;
@@ -362,7 +359,6 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
     }
 
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
-        println!("{}", s);
         match s {
             TypedStatement::Definition(a, e) => {
                 let e = self.fold_expression(e);

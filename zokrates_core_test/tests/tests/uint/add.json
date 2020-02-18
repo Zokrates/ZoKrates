@@ -1,0 +1,16 @@
+{
+	"entry_point": "./tests/tests/uint/add.zok",
+	"constraint_count": 29,
+	"tests": [
+		{
+			"input": {
+				"values": ["1", "2"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["3"]
+				}
+			}
+		}
+	]
+}

@@ -1,0 +1,36 @@
+{
+	"entry_point": "./tests/tests/uint/and.zok",
+	"constraint_count": 27,
+	"tests": [
+		{
+			"input": {
+				"values": ["255", "255"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["255"]
+				}
+			}
+		},
+		{
+			"input": {
+				"values": ["255", "0"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["0"]
+				}
+			}
+		},
+		{
+			"input": {
+				"values": ["123", "234"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["106"]
+				}
+			}
+		}
+	]
+}

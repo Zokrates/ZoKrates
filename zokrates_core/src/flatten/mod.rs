@@ -1303,7 +1303,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 });
 
                 // sum check
-                statements_flattened.push(FlatStatement::Condition(e.clone(), sum.clone()));
+                statements_flattened.push(FlatStatement::Condition(sum.clone(), e.clone()));
 
                 self.bits_cache.insert(e, bits.clone());
                 self.bits_cache.insert(sum, bits.clone());

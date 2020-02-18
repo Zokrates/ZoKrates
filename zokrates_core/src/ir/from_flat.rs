@@ -64,6 +64,7 @@ impl<T: Field> QuadComb<T> {
 
 impl<T: Field> From<FlatProg<T>> for Prog<T> {
     fn from(flat_prog: FlatProg<T>) -> Prog<T> {
+
         // get the main function
         let main = flat_prog.main;
 
@@ -123,7 +124,7 @@ impl<T: Field> From<FlatStatement<T>> for Statement<T> {
 impl<T: Field> From<FlatDirective<T>> for Directive<T> {
     fn from(ds: FlatDirective<T>) -> Directive<T> {
         Directive {
-            inputs: ds.inputs.into_iter().map(|i| i.into()).collect(),
+            inputs: ds.inputs.into_iter().map(|i| QuadComb::from_flat_expression(i)).collect(),
             solver: ds.solver,
             outputs: ds.outputs,
         }

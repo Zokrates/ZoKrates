@@ -14,11 +14,11 @@ impl<'ast> Variable<'ast> {
         Self::with_id_and_type(id, Type::FieldElement)
     }
 
-    pub fn boolean(id: Identifier<'ast>) -> Variable<'ast> {
+    pub fn boolean<I: Into<Identifier<'ast>>>(id: I) -> Variable<'ast> {
         Self::with_id_and_type(id, Type::Boolean)
     }
 
-    pub fn uint(id: Identifier<'ast>, bitwidth: usize) -> Variable<'ast> {
+    pub fn uint<I: Into<Identifier<'ast>>>(id: I, bitwidth: usize) -> Variable<'ast> {
         Self::with_id_and_type(id, Type::Uint(bitwidth))
     }
 

@@ -11,7 +11,6 @@
 
 use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::folder::*;
-use crate::ir::LinComb;
 use crate::ir::*;
 use solvers::Solver;
 use std::collections::hash_map::{Entry, HashMap};
@@ -19,7 +18,7 @@ use zokrates_field::field::Field;
 
 #[derive(Debug)]
 pub struct DirectiveOptimizer<T: Field> {
-    calls: HashMap<(Solver, Vec<LinComb<T>>), Vec<FlatVariable>>,
+    calls: HashMap<(Solver, Vec<QuadComb<T>>), Vec<FlatVariable>>,
     /// Map of renamings for reassigned variables while processing the program.
     substitution: HashMap<FlatVariable, FlatVariable>,
 }

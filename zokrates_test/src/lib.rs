@@ -8,6 +8,7 @@ use zokrates_field::field::{Field, FieldPrime};
 #[derive(Serialize, Deserialize)]
 struct Tests {
     pub entry_point: PathBuf,
+    pub constraint_count: Option<usize>,
     pub tests: Vec<Test>,
 }
 
@@ -80,6 +81,13 @@ pub fn test_inner(test_path: &str) {
     let artifacts = compile(code, t.entry_point.clone(), Some(&resolve)).unwrap();
 
     let bin = artifacts.prog();
+
+    match t.constraint_count {
+        Some(count) => {
+            assert!(bin.constraint_count() <= count, "Expected at the most {} constraints, found {}:\n{}", count, bin.constraint_count(), bin)
+        },
+        _ => {}
+    };
 
     for test in t.tests.into_iter() {
         let input = &test.input.values;

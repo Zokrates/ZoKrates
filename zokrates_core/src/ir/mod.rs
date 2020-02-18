@@ -34,7 +34,7 @@ impl<T: Field> Statement<T> {
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
 pub struct Directive<T: Field> {
-    pub inputs: Vec<LinComb<T>>,
+    pub inputs: Vec<QuadComb<T>>,
     pub outputs: Vec<FlatVariable>,
     pub solver: Solver,
 }
