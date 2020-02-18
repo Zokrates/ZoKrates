@@ -209,9 +209,9 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(WITNESS_DEFAULT_PATH)
-        ).arg(Arg::with_name("provingkey")
+        ).arg(Arg::with_name("proving-key-path")
             .short("p")
-            .long("provingkey")
+            .long("proving-key-path")
             .help("Path of the proving key file")
             .value_name("FILE")
             .takes_value(true)
@@ -588,7 +588,7 @@ fn cli() -> Result<(), String> {
             let witness = ir::Witness::read(witness_file)
                 .map_err(|why| format!("could not load witness: {:?}", why))?;
 
-            let pk_path = Path::new(sub_matches.value_of("provingkey").unwrap());
+            let pk_path = Path::new(sub_matches.value_of("proving-key-path").unwrap());
             let proof_path = Path::new(sub_matches.value_of("proof-path").unwrap());
 
             let program_path = Path::new(sub_matches.value_of("input").unwrap());
@@ -659,24 +659,12 @@ fn cli() -> Result<(), String> {
             let scheme = get_scheme(sub_matches.value_of("proving-scheme").unwrap())?;
 
             let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
-            let vk_file = File::open(&vk_path)
-                .map_err(|why| format!("couldn't open {}: {}", vk_path.display(), why))?;
-
-            let mut vk_reader = BufReader::new(vk_file);
-            let mut vk = Vec::new();
-            vk_reader
-                .read_to_end(&mut vk)
+            let vk = std::fs::read(vk_path)
                 .map_err(|why| format!("couldn't read {}: {}", vk_path.display(), why))?;
 
             let proof_path = Path::new(sub_matches.value_of("proof-path").unwrap());
-            let proof_file = File::open(&proof_path)
-                .map_err(|why| format!("couldn't open {}: {}", proof_path.display(), why))?;
-
-            let mut proof = String::new();
-            let mut proof_reader = BufReader::new(proof_file);
-            proof_reader
-                .read_to_string(&mut proof)
-                .map_err(|why| format!("couldn't read {}: {}", proof_path.display(), why))?;
+            let proof = std::fs::read_to_string(proof_path)
+                .map_err(|why| format!("couldn't read {}: {}", vk_path.display(), why))?;
 
             println!("Performing verification...");
             println!("Verified: {}", scheme.verify(vk, proof));
