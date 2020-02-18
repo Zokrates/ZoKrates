@@ -553,9 +553,9 @@ fn cli() -> Result<(), String> {
                     .map_err(|why| format!("couldn't open {}: {}", vk_path.display(), why))?;
 
                 let mut reader = BufReader::new(vk_file);
-                let mut vk = Vec::new();
+                let mut vk = String::new();
                 reader
-                    .read_to_end(&mut vk)
+                    .read_to_string(&mut vk)
                     .map_err(|why| format!("couldn't read {}: {}", vk_path.display(), why))?;
 
                 let verifier = scheme.export_solidity_verifier(vk, is_abi_v2);
@@ -659,12 +659,12 @@ fn cli() -> Result<(), String> {
             let scheme = get_scheme(sub_matches.value_of("proving-scheme").unwrap())?;
 
             let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
-            let vk = std::fs::read(vk_path)
+            let vk = std::fs::read_to_string(vk_path)
                 .map_err(|why| format!("couldn't read {}: {}", vk_path.display(), why))?;
 
             let proof_path = Path::new(sub_matches.value_of("proof-path").unwrap());
             let proof = std::fs::read_to_string(proof_path)
-                .map_err(|why| format!("couldn't read {}: {}", vk_path.display(), why))?;
+                .map_err(|why| format!("couldn't read {}: {}", proof_path.display(), why))?;
 
             println!("Performing verification...");
             println!("Verified: {}", scheme.verify(vk, proof));

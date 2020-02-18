@@ -15,6 +15,7 @@ use crate::proof_system::bn128::utils::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
 use crate::proof_system::{ProofSystem, SetupKeypair};
+use crate::proof_system::bn128::utils::parser::KeyValueParser;
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/reference/proving_schemes.html#g16-malleability for implications.";
 
@@ -68,13 +69,7 @@ impl ProofSystem for G16 {
             .write(&mut pk)
             .expect("Could not write proving key to buffer");
 
-        let mut vk: Vec<u8> = Vec::new();
-        parameters
-            .vk
-            .write(&mut vk)
-            .expect("Could not write verifying key to buffer");
-
-        SetupKeypair::from(vk, pk)
+        SetupKeypair::from(serialize_vk(parameters.vk), pk)
     }
 
     fn generate_proof(
@@ -113,8 +108,8 @@ impl ProofSystem for G16 {
         format!("{:#}", serde_json::to_string(&g16_proof).unwrap())
     }
 
-    fn export_solidity_verifier(&self, vk: Vec<u8>, abi_v2: bool) -> String {
-        let bellman_vk: VerifyingKey<Bn256> = VerifyingKey::read(vk.as_slice()).unwrap();
+    fn export_solidity_verifier(&self, vk: String, abi_v2: bool) -> String {
+        let vk_map = vk.parse_kv();
         let (mut template_text, solidity_pairing_lib) = if abi_v2 {
             (
                 String::from(CONTRACT_TEMPLATE_V2),
@@ -135,29 +130,29 @@ impl ProofSystem for G16 {
         template_text = vk_regex
             .replace(
                 template_text.as_str(),
-                parse_g1_hex(&bellman_vk.alpha_g1).as_str(),
+                vk_map.get("vk.alpha").unwrap().as_str(),
             )
             .into_owned();
         template_text = vk_regex
             .replace(
                 template_text.as_str(),
-                parse_g2_hex(&bellman_vk.beta_g2).as_str(),
+                vk_map.get("vk.beta").unwrap().as_str(),
             )
             .into_owned();
         template_text = vk_regex
             .replace(
                 template_text.as_str(),
-                parse_g2_hex(&bellman_vk.gamma_g2).as_str(),
+                vk_map.get("vk.gamma").unwrap().as_str(),
             )
             .into_owned();
         template_text = vk_regex
             .replace(
                 template_text.as_str(),
-                parse_g2_hex(&bellman_vk.delta_g2).as_str(),
+                vk_map.get("vk.delta").unwrap().as_str(),
             )
             .into_owned();
 
-        let gamma_abc_count: usize = bellman_vk.ic.len();
+        let gamma_abc_count: usize = vk_map.get("vk.gamma_abc.len()").unwrap().parse().unwrap();
         template_text = vk_gamma_abc_len_regex
             .replace(
                 template_text.as_str(),
@@ -178,7 +173,7 @@ impl ProofSystem for G16 {
                 format!(
                     "vk.gamma_abc[{}] = Pairing.G1Point({});",
                     x,
-                    parse_g1_hex(bellman_vk.ic.get(x).unwrap())
+                    vk_map.get(format!("vk.gamma_abc[{}]", x).as_str()).unwrap().as_str()
                 )
                 .as_str(),
             );
@@ -200,9 +195,12 @@ impl ProofSystem for G16 {
         )
     }
 
-    fn verify(&self, vk: Vec<u8>, proof: String) -> bool {
+    fn verify(&self, vk: String, proof: String) -> bool {
+        let vk_map = vk.parse_kv();
+        let vk_raw = base64::decode(vk_map.get("vk.raw").unwrap()).unwrap();
+
         let vk: VerifyingKey<Bn256> =
-            VerifyingKey::read(vk.as_slice()).expect("Could not read verifying key");
+            VerifyingKey::read(vk_raw.as_slice()).expect("Could not read verifying key");
 
         let pvk: PreparedVerifyingKey<Bn256> = prepare_verifying_key(&vk);
         let g16_proof: G16Proof = serde_json::from_str(proof.as_str()).unwrap();
@@ -222,6 +220,34 @@ impl ProofSystem for G16 {
 
         verify_proof(&pvk, &bellman_proof, &public_inputs).unwrap()
     }
+}
+
+fn serialize_vk(vk: VerifyingKey<Bn256>) -> String {
+    let mut raw: Vec<u8> = Vec::new();
+    vk.write(&mut raw)
+        .expect("Could not write verifying key to buffer");
+
+    format!(
+        "vk.alpha = {}
+vk.beta = {}
+vk.gamma = {}
+vk.delta = {}
+vk.gamma_abc.len() = {}
+{}
+vk.raw = {}",
+        parse_g1_hex(&vk.alpha_g1),
+        parse_g2_hex(&vk.beta_g2),
+        parse_g2_hex(&vk.gamma_g2),
+        parse_g2_hex(&vk.delta_g2),
+        vk.ic.len(),
+        vk.ic
+            .iter()
+            .enumerate()
+            .map(|(i, x)| format!("vk.gamma_abc[{}] = {}", i, parse_g1_hex(x)))
+            .collect::<Vec<_>>()
+            .join("\n"),
+        base64::encode(&raw)
+    )
 }
 
 const CONTRACT_TEMPLATE_V2: &str = r#"

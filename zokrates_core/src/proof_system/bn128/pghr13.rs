@@ -107,10 +107,10 @@ impl ProofSystem for PGHR13 {
         String::from_utf8(proof_vec).unwrap()
     }
 
-    fn export_solidity_verifier(&self, vk: String, is_abiv2: bool) -> String {
+    fn export_solidity_verifier(&self, vk: String, abi_v2: bool) -> String {
         let mut lines = vk.lines();
 
-        let (mut template_text, solidity_pairing_lib) = if is_abiv2 {
+        let (mut template_text, solidity_pairing_lib) = if abi_v2 {
             (
                 String::from(CONTRACT_TEMPLATE_V2),
                 String::from(SOLIDITY_PAIRING_LIB_V2),
