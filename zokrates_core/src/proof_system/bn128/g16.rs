@@ -11,11 +11,11 @@ use crate::proof_system::bn128::utils::bellman::Computation;
 use crate::proof_system::bn128::utils::bellman::{
     parse_fr, parse_g1, parse_g1_hex, parse_g2, parse_g2_hex,
 };
+use crate::proof_system::bn128::utils::parser::KeyValueParser;
 use crate::proof_system::bn128::utils::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
 use crate::proof_system::{ProofSystem, SetupKeypair};
-use crate::proof_system::bn128::utils::parser::KeyValueParser;
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/reference/proving_schemes.html#g16-malleability for implications.";
 
@@ -173,7 +173,10 @@ impl ProofSystem for G16 {
                 format!(
                     "vk.gamma_abc[{}] = Pairing.G1Point({});",
                     x,
-                    vk_map.get(format!("vk.gamma_abc[{}]", x).as_str()).unwrap().as_str()
+                    vk_map
+                        .get(format!("vk.gamma_abc[{}]", x).as_str())
+                        .unwrap()
+                        .as_str()
                 )
                 .as_str(),
             );
