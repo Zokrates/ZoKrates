@@ -93,6 +93,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "base64"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b41b7ea54a0c9d92199de89e20e58d49f02f8e699814ef3fdf266f6f748d15c7"
+
+[[package]]
 name = "bellman_ce"
 version = "0.3.1"
 source = "git+https://github.com/matter-labs/bellman?rev=9e35737#9e35737209d4afc2e69af1e0d7cbe6d02e32aecf"
@@ -1737,6 +1743,7 @@ name = "zokrates_core"
 version = "0.4.1"
 dependencies = [
  "assert_cli",
+ "base64",
  "bellman_ce 0.3.1 (git+https://github.com/matter-labs/bellman?rev=9e35737)",
  "bincode",
  "cc",

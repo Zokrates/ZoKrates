@@ -11,15 +11,15 @@ pub use self::bn128::PGHR13;
 use crate::ir;
 
 // We only need to serialize this struct, there is no need for deserialization as keys are
-// used separetely in other use cases
+// used separately in other use cases
 #[derive(Serialize)]
 pub struct SetupKeypair {
-    pub vk: String,
+    pub vk: Vec<u8>,
     pub pk: Vec<u8>,
 }
 
 impl SetupKeypair {
-    pub fn from(vk: String, pk: Vec<u8>) -> SetupKeypair {
+    pub fn from(vk: Vec<u8>, pk: Vec<u8>) -> SetupKeypair {
         SetupKeypair { vk, pk }
     }
 }
@@ -34,7 +34,7 @@ pub trait ProofSystem {
         proving_key: Vec<u8>,
     ) -> String;
 
-    fn export_solidity_verifier(&self, vk: String, is_abiv2: bool) -> String;
+    fn export_solidity_verifier(&self, vk: Vec<u8>, abi_v2: bool) -> String;
 
-    fn verify(&self, vk: String, proof: String) -> bool;
+    fn verify(&self, vk: Vec<u8>, proof: String) -> bool;
 }

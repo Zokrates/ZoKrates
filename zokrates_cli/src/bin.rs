@@ -117,10 +117,10 @@ fn cli() -> Result<(), String> {
     )
     .subcommand(SubCommand::with_name("export-verifier")
         .about("Exports a verifier as Solidity smart contract")
-        .arg(Arg::with_name("input")
-            .short("i")
-            .long("input")
-            .help("Path of the verifier")
+        .arg(Arg::with_name("verification-key-path")
+            .short("v")
+            .long("verification-key-path")
+            .help("Path of the generated verification key file")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -217,9 +217,9 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(PROVING_KEY_DEFAULT_PATH)
-        ).arg(Arg::with_name("proofpath")
+        ).arg(Arg::with_name("proof-path")
             .short("j")
-            .long("proofpath")
+            .long("proof-path")
             .help("Path of the JSON proof file")
             .value_name("FILE")
             .takes_value(true)
@@ -245,9 +245,9 @@ fn cli() -> Result<(), String> {
     )
      .subcommand(SubCommand::with_name("print-proof")
         .about("Prints proof in chosen format [remix, json]")
-        .arg(Arg::with_name("proofpath")
+        .arg(Arg::with_name("proof-path")
             .short("j")
-            .long("proofpath")
+            .long("proof-path")
             .help("Path of the JSON proof file")
             .value_name("FILE")
             .takes_value(true)
@@ -265,9 +265,9 @@ fn cli() -> Result<(), String> {
     )
     .subcommand(SubCommand::with_name("verify")
         .about("Verifies a given proof with the given constraint system and verification key")
-        .arg(Arg::with_name("proofpath")
+        .arg(Arg::with_name("proof-path")
             .short("j")
-            .long("proofpath")
+            .long("proof-path")
             .help("Path of the JSON proof file")
             .value_name("FILE")
             .takes_value(true)
@@ -544,21 +544,21 @@ fn cli() -> Result<(), String> {
             {
                 let scheme = get_scheme(sub_matches.value_of("proving-scheme").unwrap())?;
 
-                let is_abiv2 = sub_matches.value_of("solidity-abi").unwrap() == "v2";
+                let is_abi_v2 = sub_matches.value_of("solidity-abi").unwrap() == "v2";
                 println!("Exporting verifier...");
 
                 // read vk file
-                let input_path = Path::new(sub_matches.value_of("input").unwrap());
-                let input_file = File::open(&input_path)
-                    .map_err(|why| format!("couldn't open {}: {}", input_path.display(), why))?;
-                let mut reader = BufReader::new(input_file);
+                let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
+                let vk_file = File::open(&vk_path)
+                    .map_err(|why| format!("couldn't open {}: {}", vk_path.display(), why))?;
 
-                let mut vk = String::new();
+                let mut reader = BufReader::new(vk_file);
+                let mut vk = Vec::new();
                 reader
-                    .read_to_string(&mut vk)
-                    .map_err(|why| format!("couldn't read {}: {}", input_path.display(), why))?;
+                    .read_to_end(&mut vk)
+                    .map_err(|why| format!("couldn't read {}: {}", vk_path.display(), why))?;
 
-                let verifier = scheme.export_solidity_verifier(vk, is_abiv2);
+                let verifier = scheme.export_solidity_verifier(vk, is_abi_v2);
 
                 //write output file
                 let output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -589,7 +589,7 @@ fn cli() -> Result<(), String> {
                 .map_err(|why| format!("could not load witness: {:?}", why))?;
 
             let pk_path = Path::new(sub_matches.value_of("provingkey").unwrap());
-            let proof_path = Path::new(sub_matches.value_of("proofpath").unwrap());
+            let proof_path = Path::new(sub_matches.value_of("proof-path").unwrap());
 
             let program_path = Path::new(sub_matches.value_of("input").unwrap());
             let program_file = File::open(&program_path)
@@ -621,7 +621,7 @@ fn cli() -> Result<(), String> {
         ("print-proof", Some(sub_matches)) => {
             let format = sub_matches.value_of("format").unwrap();
 
-            let path = Path::new(sub_matches.value_of("proofpath").unwrap());
+            let path = Path::new(sub_matches.value_of("proof-path").unwrap());
 
             let file = File::open(&path)
                 .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
@@ -658,12 +658,28 @@ fn cli() -> Result<(), String> {
         ("verify", Some(sub_matches)) => {
             let scheme = get_scheme(sub_matches.value_of("proving-scheme").unwrap())?;
 
-            let proof_path = sub_matches.value_of("proofpath").unwrap();
-            let vk_path = sub_matches.value_of("verification-key-path").unwrap();
+            let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
+            let vk_file = File::open(&vk_path)
+                .map_err(|why| format!("couldn't open {}: {}", vk_path.display(), why))?;
+
+            let mut vk_reader = BufReader::new(vk_file);
+            let mut vk = Vec::new();
+            vk_reader
+                .read_to_end(&mut vk)
+                .map_err(|why| format!("couldn't read {}: {}", vk_path.display(), why))?;
+
+            let proof_path = Path::new(sub_matches.value_of("proof-path").unwrap());
+            let proof_file = File::open(&proof_path)
+                .map_err(|why| format!("couldn't open {}: {}", proof_path.display(), why))?;
+
+            let mut proof = String::new();
+            let mut proof_reader = BufReader::new(proof_file);
+            proof_reader
+                .read_to_string(&mut proof)
+                .map_err(|why| format!("couldn't read {}: {}", proof_path.display(), why))?;
 
             println!("Performing verification...");
-
-            scheme.verify(String::from(vk_path), String::from(proof_path));
+            println!("Verified: {}", scheme.verify(vk, proof));
         }
         _ => unreachable!(),
     }

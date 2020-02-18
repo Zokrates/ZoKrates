@@ -224,69 +224,50 @@ mod parse {
 
     pub fn parse_g1(e: &<Bn256 as bellman::pairing::Engine>::G1Affine) -> (String, String) {
         let raw_e = e.to_string();
-
         let captures = G1_REGEX.captures(&raw_e).unwrap();
-
         (
             captures.name(&"x").unwrap().as_str().to_string(),
             captures.name(&"y").unwrap().as_str().to_string(),
         )
     }
 
-    fn parse_g2(
+    pub fn parse_g2(
         e: &<Bn256 as bellman::pairing::Engine>::G2Affine,
-    ) -> (String, String, String, String) {
+    ) -> ((String, String), (String, String)) {
         let raw_e = e.to_string();
-
         let captures = G2_REGEX.captures(&raw_e).unwrap();
-
         (
-            captures.name(&"x1").unwrap().as_str().to_string(),
-            captures.name(&"x0").unwrap().as_str().to_string(),
-            captures.name(&"y1").unwrap().as_str().to_string(),
-            captures.name(&"y0").unwrap().as_str().to_string(),
+            (
+                captures.name(&"x1").unwrap().as_str().to_string(),
+                captures.name(&"x0").unwrap().as_str().to_string(),
+            ),
+            (
+                captures.name(&"y1").unwrap().as_str().to_string(),
+                captures.name(&"y0").unwrap().as_str().to_string(),
+            ),
         )
     }
 
-    fn parse_fr(e: &Fr) -> String {
+    pub fn parse_fr(e: &Fr) -> String {
         let raw_e = e.to_string();
-
         let captures = FR_REGEX.captures(&raw_e).unwrap();
-
         captures.name(&"x").unwrap().as_str().to_string()
-    }
-
-    pub fn parse_g1_json(e: &<Bn256 as bellman::pairing::Engine>::G1Affine) -> String {
-        let parsed = parse_g1(e);
-
-        format!("[\"{}\", \"{}\"]", parsed.0, parsed.1)
-    }
-
-    pub fn parse_g2_json(e: &<Bn256 as bellman::pairing::Engine>::G2Affine) -> String {
-        let parsed = parse_g2(e);
-
-        format!(
-            "[[\"{}\", \"{}\"], [\"{}\", \"{}\"]]",
-            parsed.0, parsed.1, parsed.2, parsed.3,
-        )
-    }
-
-    pub fn parse_fr_json(e: &Fr) -> String {
-        let parsed = parse_fr(e);
-
-        format!("\"{}\"", parsed)
     }
 
     pub fn parse_g1_hex(e: &<Bn256 as bellman::pairing::Engine>::G1Affine) -> String {
         let parsed = parse_g1(e);
-
         format!("{}, {}", parsed.0, parsed.1)
     }
 
     pub fn parse_g2_hex(e: &<Bn256 as bellman::pairing::Engine>::G2Affine) -> String {
         let parsed = parse_g2(e);
-
-        format!("[{}, {}], [{}, {}]", parsed.0, parsed.1, parsed.2, parsed.3,)
+        format!(
+            "[{}, {}], [{}, {}]",
+            (parsed.0).0,
+            (parsed.0).1,
+            (parsed.1).0,
+            (parsed.1).1
+        )
     }
 }
 
