@@ -32,8 +32,7 @@ mod tests {
     use std::collections::HashMap;
     use typed_absy::types::{ArrayType, FunctionKey, StructMember};
     use typed_absy::{
-        Parameter, Type, TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram,
-        Variable,
+        Parameter, Type, TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram, Variable,
     };
     use zokrates_field::field::FieldPrime;
 

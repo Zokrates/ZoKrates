@@ -170,9 +170,31 @@ impl Importer {
                             .start_end(pos.0, pos.1),
                         );
                     }
+                    "EMBED/u32_to_bits" => {
+                        let alias = alias.unwrap_or("u32_to_bits");
+
+                        symbols.push(
+                            SymbolDeclaration {
+                                id: &alias,
+                                symbol: Symbol::Flat(FlatEmbed::U32ToBits),
+                            }
+                            .start_end(pos.0, pos.1),
+                        );
+                    }
+                    "EMBED/u32_from_bits" => {
+                        let alias = alias.unwrap_or("u32_from_bits");
+
+                        symbols.push(
+                            SymbolDeclaration {
+                                id: &alias,
+                                symbol: Symbol::Flat(FlatEmbed::U32FromBits),
+                            }
+                            .start_end(pos.0, pos.1),
+                        );
+                    }
                     s => {
                         return Err(CompileErrorInner::ImportError(
-                            Error::new(format!("Embed {} not found. Options are \"EMBED/sha256round\", \"EMBED/unpack\"", s)).with_pos(Some(pos)),
+                            Error::new(format!("Embed {} not found. Options are \"EMBED/sha256round\", \"EMBED/unpack\", \"EMBED/u32_to_bits\", \"EMBED/u32_from_bits\"", s)).with_pos(Some(pos)),
                         )
                         .in_file(&location)
                         .into());

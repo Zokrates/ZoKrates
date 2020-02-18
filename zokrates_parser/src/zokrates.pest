@@ -103,22 +103,26 @@ hex_number_8 = @{ "0x" ~ ASCII_HEX_DIGIT{2} }
 hex_number_16 = @{ "0x" ~ ASCII_HEX_DIGIT{4} }
 hex_number_32 = @{ "0x" ~ ASCII_HEX_DIGIT{8} }
 
-op_inclusive_or = {"||"}
-op_exclusive_or = {"^"}
-op_and = {"&&"}
-op_equal = {"=="}
-op_not_equal = {"!="}
+op_or = @{"||"}
+op_and = @{"&&"}
+op_bit_xor = {"^"}
+op_bit_and = {"&"}
+op_bit_or = {"|"}
+op_equal = @{"=="}
+op_not_equal = @{"!="}
 op_lt = {"<"}
-op_lte = {"<="}
+op_lte = @{"<="}
 op_gt = {">"}
-op_gte = {">="}
+op_gte = @{">="}
 op_add = {"+"}
 op_sub = {"-"}
 op_mul = {"*"}
 op_div = {"/"}
-op_pow = {"**"}
+op_pow = @{"**"}
 op_not = {"!"}
-op_binary = _ { op_pow | op_inclusive_or | op_exclusive_or | op_and | op_equal | op_not_equal | op_lte | op_lt | op_gte | op_gt | op_add | op_sub | op_mul | op_div }
+op_left_shift = @{"<<"}
+op_right_shift = @{">>"}
+op_binary = _ { op_pow | op_or | op_and | op_bit_xor | op_bit_and | op_bit_or | op_left_shift | op_right_shift | op_equal | op_not_equal | op_lte | op_lt | op_gte | op_gt | op_add | op_sub | op_mul | op_div }
 op_unary = { op_not }
 
 

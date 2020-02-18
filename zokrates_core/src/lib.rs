@@ -26,6 +26,7 @@ mod parser;
 mod semantics;
 mod solvers;
 mod static_analysis;
+mod zir;
 
 pub mod absy;
 pub mod compile;

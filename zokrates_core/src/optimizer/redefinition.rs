@@ -54,7 +54,16 @@ impl<T: Field> RedefinitionOptimizer<T> {
     }
 
     pub fn optimize(p: Prog<T>) -> Prog<T> {
-        RedefinitionOptimizer::new().fold_module(p)
+        let mut p = p;
+
+        loop {
+            let size_before = p.main.statements.len();
+            p = RedefinitionOptimizer::new().fold_module(p);
+            let size_after = p.main.statements.len();
+            if size_after == size_before {
+                return p;
+            }
+        }
     }
 }
 
@@ -65,36 +74,40 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                 let quad = self.fold_quadratic_combination(quad);
                 let lin = self.fold_linear_combination(lin);
 
-                let (keep_constraint, to_insert) = match lin.try_summand() {
-                    // if the right side is a single variable
-                    Some((variable, coefficient)) => {
-                        match self.substitution.get(&variable) {
-                            // if the variable is already defined
-                            Some(_) => (true, None),
-                            // if the variable is not defined yet
-                            None => match quad.try_linear() {
-                                // if the left side is linear
-                                Some(l) => (false, Some((variable, l / &coefficient))),
-                                // if the left side isn't linear
-                                None => (true, Some((variable, variable.into()))),
-                            },
+                if self.substitution.len() < 15000 {
+                    let (keep_constraint, to_insert) = match lin.try_summand() {
+                        // if the right side is a single variable
+                        Some((variable, coefficient)) => {
+                            match self.substitution.get(&variable) {
+                                // if the variable is already defined
+                                Some(_) => (true, None),
+                                // if the variable is not defined yet
+                                None => match quad.try_linear() {
+                                    // if the left side is linear
+                                    Some(l) => (false, Some((variable, l / &coefficient))),
+                                    // if the left side isn't linear
+                                    None => (true, Some((variable, variable.into()))),
+                                },
+                            }
                         }
-                    }
-                    None => (true, None),
-                };
+                        None => (true, None),
+                    };
 
-                // insert into the substitution map
-                match to_insert {
-                    Some((k, v)) => {
-                        self.substitution.insert(k, v);
-                    }
-                    None => {}
-                };
+                    // insert into the substitution map
+                    match to_insert {
+                        Some((k, v)) => {
+                            self.substitution.insert(k, v);
+                        }
+                        None => {}
+                    };
 
-                // decide whether the constraint should be kept
-                match keep_constraint {
-                    false => vec![],
-                    true => vec![Statement::Constraint(quad, lin)],
+                    // decide whether the constraint should be kept
+                    match keep_constraint {
+                        false => vec![],
+                        true => vec![Statement::Constraint(quad, lin)],
+                    }
+                } else {
+                    vec![Statement::Constraint(quad, lin)]
                 }
             }
             Statement::Directive(d) => {

@@ -34,15 +34,19 @@ mod ast {
 
     fn build_precedence_climber() -> PrecClimber<Rule> {
         PrecClimber::new(vec![
-            Operator::new(Rule::op_inclusive_or, Assoc::Left),
-            Operator::new(Rule::op_exclusive_or, Assoc::Left),
+            Operator::new(Rule::op_or, Assoc::Left),
             Operator::new(Rule::op_and, Assoc::Left),
+            Operator::new(Rule::op_bit_or, Assoc::Left),
+            Operator::new(Rule::op_bit_xor, Assoc::Left),
+            Operator::new(Rule::op_bit_and, Assoc::Left),
             Operator::new(Rule::op_equal, Assoc::Left)
                 | Operator::new(Rule::op_not_equal, Assoc::Left),
             Operator::new(Rule::op_lte, Assoc::Left)
                 | Operator::new(Rule::op_gte, Assoc::Left)
                 | Operator::new(Rule::op_lt, Assoc::Left)
                 | Operator::new(Rule::op_gt, Assoc::Left),
+            Operator::new(Rule::op_right_shift, Assoc::Left)
+                | Operator::new(Rule::op_left_shift, Assoc::Left),
             Operator::new(Rule::op_add, Assoc::Left) | Operator::new(Rule::op_sub, Assoc::Left),
             Operator::new(Rule::op_mul, Assoc::Left) | Operator::new(Rule::op_div, Assoc::Left),
             Operator::new(Rule::op_pow, Assoc::Left),
@@ -73,9 +77,13 @@ mod ast {
             Rule::op_lt => Expression::binary(BinaryOperator::Lt, lhs, rhs, span),
             Rule::op_gte => Expression::binary(BinaryOperator::Gte, lhs, rhs, span),
             Rule::op_gt => Expression::binary(BinaryOperator::Gt, lhs, rhs, span),
-            Rule::op_inclusive_or => Expression::binary(BinaryOperator::Or, lhs, rhs, span),
-            Rule::op_exclusive_or => Expression::binary(BinaryOperator::Xor, lhs, rhs, span),
+            Rule::op_or => Expression::binary(BinaryOperator::Or, lhs, rhs, span),
             Rule::op_and => Expression::binary(BinaryOperator::And, lhs, rhs, span),
+            Rule::op_bit_xor => Expression::binary(BinaryOperator::BitXor, lhs, rhs, span),
+            Rule::op_bit_and => Expression::binary(BinaryOperator::BitAnd, lhs, rhs, span),
+            Rule::op_bit_or => Expression::binary(BinaryOperator::BitOr, lhs, rhs, span),
+            Rule::op_right_shift => Expression::binary(BinaryOperator::RightShift, lhs, rhs, span),
+            Rule::op_left_shift => Expression::binary(BinaryOperator::LeftShift, lhs, rhs, span),
             _ => unreachable!(),
         })
     }
@@ -402,7 +410,11 @@ mod ast {
 
     #[derive(Debug, PartialEq, Clone)]
     pub enum BinaryOperator {
-        Xor,
+        BitXor,
+        BitAnd,
+        BitOr,
+        RightShift,
+        LeftShift,
         Or,
         And,
         Add,

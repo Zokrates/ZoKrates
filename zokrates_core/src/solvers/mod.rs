@@ -4,6 +4,7 @@ use zokrates_field::field::Field;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
 pub enum Solver {
+    Identity,
     ConditionEq,
     Bits(usize),
     Div,
@@ -16,9 +17,10 @@ impl fmt::Display for Solver {
     }
 }
 
-impl Signed for Solver {
-    fn get_signature(&self) -> (usize, usize) {
+impl Solver {
+    pub fn get_signature(&self) -> (usize, usize) {
         match self {
+            Solver::Identity => (1, 1),
             Solver::ConditionEq => (1, 2),
             Solver::Bits(bitwidth) => (1, *bitwidth),
             Solver::Div => (2, 1),
@@ -27,12 +29,10 @@ impl Signed for Solver {
     }
 }
 
-impl<T: Field> Executable<T> for Solver {
-    fn execute(&self, inputs: &Vec<T>) -> Result<Vec<T>, String> {
-        let (expected_input_count, expected_output_count) = self.get_signature();
-        assert!(inputs.len() == expected_input_count);
-
+impl Solver {
+    pub fn execute<T: Field>(&self, inputs: &Vec<T>) -> Result<Vec<T>, String> {
         let res = match self {
+            Solver::Identity => inputs.clone(),
             Solver::ConditionEq => match inputs[0].is_zero() {
                 true => vec![T::zero(), T::one()],
                 false => vec![T::one(), T::one() / inputs[0].clone()],
@@ -40,8 +40,8 @@ impl<T: Field> Executable<T> for Solver {
             Solver::Bits(bitwidth) => {
                 let mut num = inputs[0].clone();
                 let mut res = vec![];
-                let bits = *bitwidth;
-                for i in (0..bits).rev() {
+
+                for i in (0..*bitwidth).rev() {
                     if T::from(2).pow(i) <= num {
                         num = num - T::from(2).pow(i);
                         res.push(T::one());
@@ -66,7 +66,7 @@ impl<T: Field> Executable<T> for Solver {
             }
         };
 
-        assert_eq!(res.len(), expected_output_count);
+        assert_eq!(res.len(), self.get_signature().1);
 
         Ok(res)
     }
@@ -78,54 +78,17 @@ impl Solver {
     }
 }
 
-pub trait Executable<T: Field>: Signed {
-    fn execute(&self, inputs: &Vec<T>) -> Result<Vec<T>, String>;
-}
-
-pub trait Signed {
-    fn get_signature(&self) -> (usize, usize);
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use zokrates_field::field::FieldPrime;
 
-    mod eq_condition {
-
-        // Wanted: (Y = (X != 0) ? 1 : 0)
-        // # Y = if X == 0 then 0 else 1 fi
-        // # M = if X == 0 then 1 else 1/X fi
-
-        use super::*;
-
-        #[test]
-        fn execute() {
-            let cond_eq = Solver::ConditionEq;
-            let inputs = vec![0];
-            let r = cond_eq
-                .execute(&inputs.iter().map(|&i| FieldPrime::from(i)).collect())
-                .unwrap();
-            let res: Vec<FieldPrime> = vec![0, 1].iter().map(|&i| FieldPrime::from(i)).collect();
-            assert_eq!(r, &res[..]);
-        }
-
-        #[test]
-        fn execute_non_eq() {
-            let cond_eq = Solver::ConditionEq;
-            let inputs = vec![1];
-            let r = cond_eq
-                .execute(&inputs.iter().map(|&i| FieldPrime::from(i)).collect())
-                .unwrap();
-            let res: Vec<FieldPrime> = vec![1, 1].iter().map(|&i| FieldPrime::from(i)).collect();
-            assert_eq!(r, &res[..]);
-        }
-    }
-
     #[test]
     fn bits_of_one() {
         let inputs = vec![FieldPrime::from(1)];
-        let res = Solver::Bits(FieldPrime::get_required_bits()).execute(&inputs).unwrap();
+        let res = Solver::Bits(FieldPrime::get_required_bits())
+            .execute(&inputs)
+            .unwrap();
         assert_eq!(res[253], FieldPrime::from(1));
         for i in 0..252 {
             assert_eq!(res[i], FieldPrime::from(0));
@@ -135,7 +98,9 @@ mod tests {
     #[test]
     fn bits_of_42() {
         let inputs = vec![FieldPrime::from(42)];
-        let res = Solver::Bits(FieldPrime::get_required_bits()).execute(&inputs).unwrap();
+        let res = Solver::Bits(FieldPrime::get_required_bits())
+            .execute(&inputs)
+            .unwrap();
         assert_eq!(res[253], FieldPrime::from(0));
         assert_eq!(res[252], FieldPrime::from(1));
         assert_eq!(res[251], FieldPrime::from(0));

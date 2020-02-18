@@ -1,9 +1,7 @@
-use typed_absy::identifier::Identifier;
-use typed_absy::types::FunctionKey;
-use typed_absy::ArrayExpression;
-use typed_absy::BooleanExpression;
-use typed_absy::FieldElementExpression;
-use typed_absy::TypedExpression;
+use zir::identifier::Identifier;
+use zir::types::FunctionKey;
+use zir::ZirExpression;
+use zir::{BooleanExpression, FieldElementExpression};
 use zokrates_field::field::Field;
 
 type Bitwidth = usize;
@@ -43,11 +41,6 @@ impl<'ast, T: Field> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);
         UExpressionInner::And(box self, box other).annotate(bitwidth)
-    }
-
-    pub fn not(self) -> UExpression<'ast, T> {
-        let bitwidth = self.bitwidth;
-        UExpressionInner::Not(box self).annotate(bitwidth)
     }
 
     pub fn left_shift(self, by: FieldElementExpression<'ast, T>) -> UExpression<'ast, T> {
@@ -96,7 +89,6 @@ pub enum UExpressionInner<'ast, T: Field> {
     Xor(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     And(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Or(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
-    Not(Box<UExpression<'ast, T>>),
     LeftShift(
         Box<UExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
@@ -105,11 +97,8 @@ pub enum UExpressionInner<'ast, T: Field> {
         Box<UExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
-    FunctionCall(FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
-    Select(
-        Box<ArrayExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
+    FunctionCall(FunctionKey<'ast>, Vec<ZirExpression<'ast, T>>),
+    Not(Box<UExpression<'ast, T>>),
     IfElse(
         Box<BooleanExpression<'ast, T>>,
         Box<UExpression<'ast, T>>,

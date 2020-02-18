@@ -369,7 +369,19 @@ impl<'ast, T: Field> From<pest::BinaryExpression<'ast>> for absy::ExpressionNode
                 box absy::ExpressionNode::from(*expression.left),
                 box absy::ExpressionNode::from(*expression.right),
             ),
-            pest::BinaryOperator::Xor => absy::Expression::Xor(
+            pest::BinaryOperator::BitXor => absy::Expression::BitXor(
+                box absy::ExpressionNode::from(*expression.left),
+                box absy::ExpressionNode::from(*expression.right),
+            ),
+            pest::BinaryOperator::LeftShift => absy::Expression::LeftShift(
+                box absy::ExpressionNode::from(*expression.left),
+                box absy::ExpressionNode::from(*expression.right),
+            ),
+            pest::BinaryOperator::RightShift => absy::Expression::RightShift(
+                box absy::ExpressionNode::from(*expression.left),
+                box absy::ExpressionNode::from(*expression.right),
+            ),
+            pest::BinaryOperator::BitAnd => absy::Expression::BitAnd(
                 box absy::ExpressionNode::from(*expression.left),
                 box absy::ExpressionNode::from(*expression.right),
             ),

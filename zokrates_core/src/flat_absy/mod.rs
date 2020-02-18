@@ -11,7 +11,7 @@ pub mod flat_variable;
 pub use self::flat_parameter::FlatParameter;
 pub use self::flat_variable::FlatVariable;
 
-use solvers::{Signed, Solver};
+use solvers::Solver;
 use std::collections::HashMap;
 use std::fmt;
 use zokrates_field::field::Field;

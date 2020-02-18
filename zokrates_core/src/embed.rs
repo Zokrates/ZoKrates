@@ -18,6 +18,10 @@ pub enum FlatEmbed {
     CheckU8,
     CheckU16,
     CheckU32,
+    U8ToBits,
+    U16ToBits,
+    U32ToBits,
+    U32FromBits,
 }
 
 impl FlatEmbed {
@@ -44,6 +48,18 @@ impl FlatEmbed {
             FlatEmbed::CheckU32 => Signature::new()
                 .inputs(vec![Type::Uint(32)])
                 .outputs(vec![Type::array(Type::FieldElement, 32)]),
+            FlatEmbed::U8ToBits => Signature::new()
+                .inputs(vec![Type::Uint(8)])
+                .outputs(vec![Type::array(Type::Boolean, 8)]),
+            FlatEmbed::U16ToBits => Signature::new()
+                .inputs(vec![Type::Uint(16)])
+                .outputs(vec![Type::array(Type::Boolean, 16)]),
+            FlatEmbed::U32ToBits => Signature::new()
+                .inputs(vec![Type::Uint(32)])
+                .outputs(vec![Type::array(Type::Boolean, 32)]),
+            FlatEmbed::U32FromBits => Signature::new()
+                .outputs(vec![Type::Uint(32)])
+                .inputs(vec![Type::array(Type::Boolean, 32)]),
         }
     }
 
@@ -58,6 +74,10 @@ impl FlatEmbed {
             FlatEmbed::CheckU8 => "_CHECK_U8",
             FlatEmbed::CheckU16 => "_CHECK_U16",
             FlatEmbed::CheckU32 => "_CHECK_U32",
+            FlatEmbed::U8ToBits => "_U8_TO_BITS",
+            FlatEmbed::U16ToBits => "_U16_TO_BITS",
+            FlatEmbed::U32ToBits => "_U32_TO_BITS",
+            FlatEmbed::U32FromBits => "_U32_FROM_BITS",
         }
     }
 
@@ -69,6 +89,10 @@ impl FlatEmbed {
             FlatEmbed::CheckU8 => unpack_to_bitwidth(8),
             FlatEmbed::CheckU16 => unpack_to_bitwidth(16),
             FlatEmbed::CheckU32 => unpack_to_bitwidth(32),
+            FlatEmbed::U8ToBits => unreachable!(),
+            FlatEmbed::U16ToBits => unreachable!(),
+            FlatEmbed::U32ToBits => unreachable!(),
+            FlatEmbed::U32FromBits => unreachable!(),
         }
     }
 }

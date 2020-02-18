@@ -1,6 +1,5 @@
 use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::{LinComb, Prog, QuadComb, Statement, Witness};
-use crate::solvers::Executable;
 use std::collections::BTreeMap;
 use std::fmt;
 use zokrates_field::field::Field;
@@ -17,7 +16,7 @@ impl<T: Field> Prog<T> {
             witness.insert(arg.clone(), value.clone().into());
         }
 
-        for statement in &main.statements {
+        for statement in main.statements.iter() {
             match statement {
                 Statement::Constraint(quad, lin) => match lin.is_assignee(&witness) {
                     true => {

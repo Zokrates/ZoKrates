@@ -398,6 +398,8 @@ fn cli() -> Result<(), String> {
 
                     let abi: Abi = from_reader(&mut reader).map_err(|why| why.to_string())?;
 
+                    println!("{:?}", abi);
+
                     abi.signature()
                 }
                 false => Signature::new()
