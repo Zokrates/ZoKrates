@@ -4,13 +4,15 @@ ZoKrates provides a command line interface.
 You can see an overview of the available subcommands by running
 
 ```sh
-./zokrates
+zokrates
 ```
+
+For each command, you can get the list of expected arguments using `--help`.
 
 ## `compile`
 
 ```sh
-./zokrates compile -i /path/to/add.zok
+zokrates compile -i /path/to/add.zok
 ```
 
 Compiles a `.zok` source code file into ZoKrates internal representation of arithmetic circuits.
@@ -21,19 +23,25 @@ Unless the `--light` flag is set, a human-readable `.ztf` file is generated, whi
 ## `compute-witness`
 
 ```sh
-./zokrates compute-witness -a 1 2 3
+zokrates compute-witness -a 1 2 3
 ```
 
 Computes a witness for the compiled program found at `./out` and computes arguments of the program.
 A witness is a valid assignment of the variables, including the results of the computation.
-Arguments of the program are passed as a space-separated list with the `-a` flag, or over `stdin`.
+Arguments of the program are passed as a space-separated list with the `-a` flag, or over `stdin` with the `--stdin` flag.
+
+With the `--abi` flag, arguments are passed in the ZoKrates JSON ABI format described [here](reference/abi.md):
+
+```sh
+cat arguments.json | zokrates compute-witness --stdin --abi
+```
 
 Creates a witness file at `./witness`
 
 ## `setup`
 
 ```sh
-./zokrates setup
+zokrates setup
 ```
 
 Generates a trusted setup for the compiled program found at `./out`.
@@ -44,7 +52,7 @@ These keys are derived from a source of randomness, commonly referred to as "tox
 ## `export-verifier`
 
 ```sh
-./zokrates export-verifier
+zokrates export-verifier
 ```
 
 Using the verifying key at `./verifying.key`, generates a Solidity contract that contains the generated verification key and a public function to verify a solution to the compiled program at `./out`.
@@ -54,7 +62,7 @@ Creates a verifier contract at `./verifier.sol`.
 ## `generate-proof`
 
 ```sh
-./zokrates generate-proof
+zokrates generate-proof
 ```
 
 Using the proving key at `./proving.key`, generates a proof for a computation of the compiled program `./out` resulting in `./witness`.
