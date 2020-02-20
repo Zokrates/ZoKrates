@@ -13,7 +13,7 @@ _This is a proof-of-concept implementation. It has not been tested for productio
 
 ## Getting Started
 
-Load the ZoKrates Plugin on [Remix](remix.ethereum.org) to write your first SNARK program!
+Load the ZoKrates Plugin on [Remix](https://remix.ethereum.org) to write your first SNARK program!
 
 Alternatively, you can install the ZoKrates CLI:
 

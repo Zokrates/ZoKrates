@@ -4,7 +4,7 @@
 
 ### Remix online IDE
 
-To write your first SNARK program, check out the ZoKrates plugin in the [Remix online IDE](remix.ethereum.org)!
+To write your first SNARK program, check out the ZoKrates plugin in the [Remix online IDE](https://remix.ethereum.org)!
 
 ### One-line install
 
