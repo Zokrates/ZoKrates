@@ -13,6 +13,10 @@ _This is a proof-of-concept implementation. It has not been tested for productio
 
 ## Getting Started
 
+Load the ZoKrates Plugin on [Remix](remix.ethereum.org) to write your first SNARK program!
+
+Alternatively, you can install the ZoKrates CLI:
+
 ```bash
 curl -LSfs get.zokrat.es | sh
 ```
@@ -22,7 +26,7 @@ A getting started tutorial can be found [here](https://zokrates.github.io/sha256
 
 ## Getting Help
 
-If you run into problems, ZoKrates has a Gitter room. You can come ask for help on [Gitter](https://gitter.im/ZoKrates/Lobby).
+If you run into problems, ZoKrates has a [Gitter](https://gitter.im/ZoKrates/Lobby) room.
 
 ## License
 
