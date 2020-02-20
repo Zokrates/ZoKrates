@@ -1,0 +1,2 @@
+def foo() -> (field):
+	return 1

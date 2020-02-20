@@ -1,4 +1,4 @@
-import "utils/multiplexer/lookup1bit" as lookup 
+import "utils/multiplexer/lookup1bit" as lookup
 
 def left() -> (field):
 	field sel = 0  //left
@@ -6,7 +6,7 @@ def left() -> (field):
 	
 	0 == lookup(sel, t)
 	
-	return 1 
+	return 1
 	
 def right() -> (field):
 	field sel = 1  //right
@@ -14,7 +14,7 @@ def right() -> (field):
 	
 	1 == lookup(sel, t)
 	
-	return 1 
+	return 1
 	
 def main() -> (field):
 

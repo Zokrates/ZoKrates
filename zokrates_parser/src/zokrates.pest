@@ -1,4 +1,4 @@
-/** 
+/**
 * ZoKrates Grammar
 * Author: Jacob Eberhardt, Thibaut Schaeffer
 */
@@ -33,14 +33,14 @@ vis_private = {"private"}
 vis_public = {"public"}
 vis = { vis_private | vis_public }
 
-// Statements 
+// Statements
 statement = { (return_statement // does not require subsequent newline
               | (iteration_statement
                 | multi_assignment_statement // try this first as we want all assignments based on return of function calls match here and not later
                 | definition_statement
                 | assignment_statement
-                | expression_statement 
-                ) ~ NEWLINE 
+                | expression_statement
+                ) ~ NEWLINE
             ) ~ NEWLINE* }
 
 iteration_statement = { "for" ~ ty ~ identifier ~ "in" ~ expression ~ ".." ~ expression ~ "do" ~ NEWLINE* ~ statement* ~ "endfor"}
@@ -119,8 +119,6 @@ WHITESPACE = _{ " " | "\t" | "\\" ~ NEWLINE}
 COMMENT = _{ ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!NEWLINE ~ ANY)*) }
 
 // TODO: Order by alphabet
-keyword = @{"for" | "endfor" | "as" | "in" | "return" | "byte" | "field" | "bool" | "if" | "do" | "else" | "export" | "false" |
-            "def" | "for" | "import" | "uint" |
-            "in" | "public" | "private" | "return" |
-            "struct" | "true"
+keyword = @{"as"|"bool"|"byte"|"def"|"do"|"else"|"endfor"|"export"|"false"|"field"|"for"|"if"|"then"|"fi"|"import"|
+            "in"|"private"|"public"|"return"|"struct"|"true"|"uint"
             }

@@ -9,7 +9,7 @@
   "author": "Paul Etscheit",
   "license": "LGPL-3.0-only",
   "dependencies": {
-    "solc": "^0.5.9",
-    "web3": "^1.0.0-beta.37"
+    "solc": "^0.6.1",
+    "web3": "^1.0.0"
   }
 }

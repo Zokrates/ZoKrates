@@ -25,13 +25,13 @@ impl<'ast> From<pest::ImportDirective<'ast>> for absy::ImportNode<'ast> {
 
         match import {
             pest::ImportDirective::Main(import) => {
-                imports::Import::new(None, import.source.span.as_str())
+                imports::Import::new(None, std::path::Path::new(import.source.span.as_str()))
                     .alias(import.alias.map(|a| a.span.as_str()))
                     .span(import.span)
             }
             pest::ImportDirective::From(import) => imports::Import::new(
                 Some(import.symbol.span.as_str()),
-                import.source.span.as_str(),
+                std::path::Path::new(import.source.span.as_str()),
             )
             .alias(import.alias.map(|a| a.span.as_str()))
             .span(import.span),
@@ -282,16 +282,6 @@ impl<'ast, T: Field> From<pest::IterationStatement<'ast>> for absy::StatementNod
             .into_iter()
             .flat_map(|s| statements_from_statement(s))
             .collect();
-
-        let from = match from.value {
-            absy::Expression::FieldConstant(n) => n,
-            e => unimplemented!("For loop bounds should be constants, found {}", e),
-        };
-
-        let to = match to.value {
-            absy::Expression::FieldConstant(n) => n,
-            e => unimplemented!("For loop bounds should be constants, found {}", e),
-        };
 
         let var = absy::Variable::new(index, ty).span(statement.index.span);
 

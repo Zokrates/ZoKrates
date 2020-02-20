@@ -1,5 +1,5 @@
-import "utils/multiplexer/lookup3bitSigned" as sel3s 
-import "utils/multiplexer/lookup2bit" as sel2 
+import "utils/multiplexer/lookup3bitSigned" as sel3s
+import "utils/multiplexer/lookup2bit" as sel2
 import "ecc/babyjubjubParams" as context
 import "ecc/edwardsAdd" as add
 
