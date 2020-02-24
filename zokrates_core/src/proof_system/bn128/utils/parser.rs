@@ -1,13 +1,11 @@
 use std::collections::HashMap;
 
-pub trait KeyValueParser {
-    fn parse_kv(&self) -> HashMap<String, String>;
-}
+pub struct KeyValueParser;
 
-impl KeyValueParser for String {
-    fn parse_kv(&self) -> HashMap<String, String> {
+impl KeyValueParser {
+    pub fn parse(input: String) -> HashMap<String, String> {
         let mut map = HashMap::new();
-        let mut lines = self.lines();
+        let mut lines = input.lines();
 
         while let Some(current_line) = lines.next() {
             let key_value: Vec<&str> = current_line.split("=").collect();
@@ -34,14 +32,14 @@ mod tests {
             b = 2
         "#;
 
-        let map = String::from(example).parse_kv();
+        let map = KeyValueParser::parse(String::from(example));
         assert_eq!("1", map.get("a").unwrap());
         assert_eq!("2", map.get("b").unwrap());
     }
 
     #[test]
     fn parse_empty() {
-        let map = String::from("").parse_kv();
+        let map = KeyValueParser::parse(String::new());
         assert!(map.is_empty());
     }
 }

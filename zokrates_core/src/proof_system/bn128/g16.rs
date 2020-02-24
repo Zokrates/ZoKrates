@@ -109,7 +109,7 @@ impl ProofSystem for G16 {
     }
 
     fn export_solidity_verifier(&self, vk: String, abi_v2: bool) -> String {
-        let vk_map = vk.parse_kv();
+        let vk_map = KeyValueParser::parse(vk);
         let (mut template_text, solidity_pairing_lib) = if abi_v2 {
             (
                 String::from(CONTRACT_TEMPLATE_V2),
@@ -199,7 +199,7 @@ impl ProofSystem for G16 {
     }
 
     fn verify(&self, vk: String, proof: String) -> bool {
-        let vk_map = vk.parse_kv();
+        let vk_map = KeyValueParser::parse(vk);
         let vk_raw = base64::decode(vk_map.get("vk.raw").unwrap()).unwrap();
 
         let vk: VerifyingKey<Bn256> =
@@ -215,7 +215,7 @@ impl ProofSystem for G16 {
             .inputs
             .iter()
             .map(|s| {
-                FieldPrime::try_from_hex_str(s.as_str())
+                FieldPrime::try_from_str(s.trim_start_matches("0x"), 16)
                     .unwrap()
                     .into_bellman()
             })
@@ -382,46 +382,32 @@ contract Verifier {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::flat_absy::FlatVariable;
+    use crate::ir::{Function, Prog, Statement};
 
-    mod serialize {
-        use super::*;
+    #[test]
+    fn verify() {
+        let program: Prog<FieldPrime> = Prog {
+            main: Function {
+                id: String::from("main"),
+                arguments: vec![FlatVariable::new(0)],
+                returns: vec![FlatVariable::public(0)],
+                statements: vec![Statement::Constraint(
+                    FlatVariable::new(0).into(),
+                    FlatVariable::public(0).into(),
+                )],
+            },
+            private: vec![false],
+        };
 
-        mod proof {
-            use crate::flat_absy::FlatVariable;
-            use crate::ir::*;
-            use crate::proof_system::bn128::g16::serialize::serialize_proof;
+        let g16 = G16 {};
+        let keypair = g16.setup(program.clone());
+        let witness = program
+            .clone()
+            .execute(&vec![FieldPrime::from(42)])
+            .unwrap();
 
-            use super::*;
-
-            #[test]
-            fn serialize() {
-                let program: Prog<FieldPrime> = Prog {
-                    main: Function {
-                        id: String::from("main"),
-                        arguments: vec![FlatVariable::new(0)],
-                        returns: vec![FlatVariable::public(0)],
-                        statements: vec![Statement::Constraint(
-                            FlatVariable::new(0).into(),
-                            FlatVariable::public(0).into(),
-                        )],
-                    },
-                    private: vec![false],
-                };
-
-                let witness = program
-                    .clone()
-                    .execute(&vec![FieldPrime::from(42)])
-                    .unwrap();
-                let computation = Computation::with_witness(program, witness);
-
-                let public_inputs_values = computation.public_inputs_values();
-
-                let params = computation.clone().setup();
-                let proof = computation.prove(&params);
-
-                let serialized_proof = serialize_proof(&proof, &public_inputs_values);
-                serde_json::from_str::<G16Proof>(&serialized_proof).unwrap();
-            }
-        }
+        let proof = g16.generate_proof(program.clone(), witness, keypair.pk);
+        assert!(g16.verify(keypair.vk, proof))
     }
 }
