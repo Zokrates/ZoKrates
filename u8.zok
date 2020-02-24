@@ -41,7 +41,9 @@ def right_rotate_25(u32 e) -> (u32):
 	bool[32] b = to_bits(e)
 	return from_bits([...b[25..], ...b[..25]])
 
-def main(u32[1][16] input) -> (u32[8]):	
+def main() -> (u32[8]):	
+
+	u32[1][16] input = [[0x00000000; 16]]
 
 	u32 h0 = 0x6a09e667
 	u32 h1 = 0xbb67ae85
@@ -76,7 +78,7 @@ def main(u32[1][16] input) -> (u32[8]):
 		u32 g = h6
 		u32 h = h7
 
-		for field i in 0..64 do
+		for field i in 0..0 do
 
 			u32 S1 = right_rotate_6(e) ^ right_rotate_11(e) ^ right_rotate_25(e)
 			u32 ch = (e + f) ^ (!e + g)

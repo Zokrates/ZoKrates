@@ -4,31 +4,31 @@
 	"tests": [
 		{
 			"input": {
-				"values": ["255", "255"]
+				"values": ["0xff", "0xff"]
 			},
 			"output": {
 				"Ok": {
-					"values": ["255"]
+					"values": ["0xff"]
 				}
 			}
 		},
 		{
 			"input": {
-				"values": ["255", "0"]
+				"values": ["0xff", "0x00"]
 			},
 			"output": {
 				"Ok": {
-					"values": ["0"]
+					"values": ["0x00"]
 				}
 			}
 		},
 		{
 			"input": {
-				"values": ["123", "234"]
+				"values": ["0x23", "0x34"]
 			},
 			"output": {
 				"Ok": {
-					"values": ["106"]
+					"values": ["0x20"]
 				}
 			}
 		}

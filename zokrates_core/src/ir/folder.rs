@@ -52,6 +52,7 @@ pub fn fold_statement<T: Field, F: Folder<T>>(f: &mut F, s: Statement<T>) -> Vec
             f.fold_linear_combination(lin),
         )],
         Statement::Directive(dir) => vec![Statement::Directive(f.fold_directive(dir))],
+        Statement::Log(s) => vec![Statement::Log(s)],
     }
 }
 

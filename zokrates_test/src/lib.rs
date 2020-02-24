@@ -35,6 +35,16 @@ struct Output {
 
 type Val = String;
 
+fn parse_val<T: Field>(s: String) -> T {
+    let s = if s.starts_with("0x") {
+        u32::from_str_radix(s.trim_start_matches("0x"), 16).unwrap().to_string()
+    } else {
+        s
+    };
+
+    T::try_from_dec_str(&s).unwrap()
+}
+
 impl From<ir::ExecutionResult<FieldPrime>> for ComparableResult {
     fn from(r: ir::ExecutionResult<FieldPrime>) -> ComparableResult {
         ComparableResult(r.map(|v| v.return_values()))
@@ -45,8 +55,8 @@ impl From<TestResult> for ComparableResult {
     fn from(r: TestResult) -> ComparableResult {
         ComparableResult(r.map(|v| {
             v.values
-                .iter()
-                .map(|v| FieldPrime::try_from_dec_str(v).unwrap())
+                .into_iter()
+                .map(parse_val)
                 .collect()
         }))
     }
@@ -95,11 +105,13 @@ pub fn test_inner(test_path: &str) {
 
     for test in t.tests.into_iter() {
         let input = &test.input.values;
+
         let output = bin.execute(
-            &input
+            &dbg!(input
                 .iter()
-                .map(|v| FieldPrime::try_from_dec_str(&v.clone()).unwrap())
-                .collect(),
+                .cloned()
+                .map(parse_val)
+                .collect()),
         );
 
         match compare(output, test.output) {

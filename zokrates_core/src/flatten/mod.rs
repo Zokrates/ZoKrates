@@ -92,7 +92,7 @@ impl<T: Field> FlatUExpression<T> {
             Some(f) => f,
             None => match self.bits {
                 Some(bits) => {
-                    assert_eq!(bits.len(), 32);
+                    //assert_eq!(bits.len(), 32);
                     bits.into_iter().rev().enumerate().fold(
                         FlatExpression::Number(T::from(0)),
                         |acc, (index, bit)| {
@@ -692,7 +692,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         solver: d.solver,
                         inputs: new_inputs,
                     })
-                }
+                },
+                FlatStatement::Log(s) => FlatStatement::Log(s),
             })
             .collect();
 
@@ -748,6 +749,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened: &mut Vec<FlatStatement<T>>,
         expr: UExpression<'ast, T>,
     ) -> FlatUExpression<T> {
+
         let target_bitwidth = expr.bitwidth;
 
         let metadata = expr.metadata.clone().unwrap().clone();
@@ -1028,6 +1030,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 let left_flattened =
                     self.flatten_uint_expression(symbols, statements_flattened, left);
+
                 let right_flattened =
                     self.flatten_uint_expression(symbols, statements_flattened, right);
 
@@ -1112,7 +1115,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         // constants do not require directives!
         match e.field.clone() {
             Some(FlatExpression::Number(x)) => {
-                let bits = vec![FlatExpression::Number(T::from(0)); 32];
+                let bits: Vec<_> = Solver::bits(from).execute(&vec![x]).unwrap().into_iter().map(|x| FlatExpression::Number(x)).collect();
                 self.bits_cache
                     .insert(e.field.clone().unwrap(), bits.clone());
                 return bits;
@@ -1428,6 +1431,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened: &mut Vec<FlatStatement<T>>,
         stat: ZirStatement<'ast, T>,
     ) {
+        statements_flattened.push(FlatStatement::Log(format!("{}", stat)));
         match stat {
             ZirStatement::Return(exprs) => {
                 let flat_expressions = exprs
