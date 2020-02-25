@@ -1,15 +1,11 @@
 [package]
 name = "zokrates_fs_resolver"
-version = "0.5.0"
-authors = ["Thibaut Schaeffer <thibaut@schaeff.fr>"]
-repository = "https://github.com/JacobEberhardt/ZoKrates.git"
-
-[features]
-default = []
+version = "0.1.0"
+authors = ["dark64 <darem966@gmail.com>"]
+edition = "2018"
 
 [dependencies]
+zokrates_core = { version = "0.4.2", path = "../zokrates_core" }
 
 [dev-dependencies]
 tempfile = "3"
-
-[lib]

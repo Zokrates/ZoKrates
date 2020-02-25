@@ -129,20 +129,23 @@ impl fmt::Display for CompileErrorInner {
     }
 }
 
-// See zokrates_fs_resolver for the spec
-pub type Resolve<'a, E> = &'a dyn Fn(PathBuf, PathBuf) -> Result<(String, PathBuf), E>;
-
-type FilePath = PathBuf;
+pub trait Resolver<E: Into<imports::Error>> {
+    fn resolve(
+        &self,
+        current_location: PathBuf,
+        import_location: PathBuf,
+    ) -> Result<(String, PathBuf), E>;
+}
 
 pub fn compile<T: Field, E: Into<imports::Error>>(
     source: String,
-    location: FilePath,
-    resolve_option: Option<Resolve<E>>,
+    location: PathBuf,
+    resolver: Option<&dyn Resolver<E>>,
 ) -> Result<CompilationArtifacts<T>, CompileErrors> {
     let arena = Arena::new();
 
     let source = arena.alloc(source);
-    let compiled = compile_program(source, location.clone(), resolve_option, &arena)?;
+    let compiled = compile_program(source, location.clone(), resolver, &arena)?;
 
     // check semantics
     let typed_ast = Checker::check(compiled).map_err(|errors| {
@@ -174,19 +177,13 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
 
 pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
     source: &'ast str,
-    location: FilePath,
-    resolve_option: Option<Resolve<E>>,
+    location: PathBuf,
+    resolver: Option<&dyn Resolver<E>>,
     arena: &'ast Arena<String>,
 ) -> Result<Program<'ast, T>, CompileErrors> {
     let mut modules = HashMap::new();
 
-    let main = compile_module(
-        &source,
-        location.clone(),
-        resolve_option,
-        &mut modules,
-        &arena,
-    )?;
+    let main = compile_module(&source, location.clone(), resolver, &mut modules, &arena)?;
 
     modules.insert(location.clone(), main);
 
@@ -198,8 +195,8 @@ pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
 
 pub fn compile_module<'ast, T: Field, E: Into<imports::Error>>(
     source: &'ast str,
-    location: FilePath,
-    resolve_option: Option<Resolve<E>>,
+    location: PathBuf,
+    resolver: Option<&dyn Resolver<E>>,
     modules: &mut HashMap<ModuleId, Module<'ast, T>>,
     arena: &'ast Arena<String>,
 ) -> Result<Module<'ast, T>, CompileErrors> {
@@ -210,7 +207,7 @@ pub fn compile_module<'ast, T: Field, E: Into<imports::Error>>(
     Importer::new().apply_imports(
         module_without_imports,
         location.clone(),
-        resolve_option,
+        resolver,
         modules,
         &arena,
     )
@@ -229,8 +226,11 @@ mod test {
 			   return foo()
 		"#
         .to_string();
-        let res: Result<CompilationArtifacts<FieldPrime>, CompileErrors> =
-            compile(source, "./path/to/file".into(), None::<Resolve<io::Error>>);
+        let res: Result<CompilationArtifacts<FieldPrime>, CompileErrors> = compile(
+            source,
+            "./path/to/file".into(),
+            None::<&dyn Resolver<io::Error>>,
+        );
         assert!(res.unwrap_err().0[0]
             .value()
             .to_string()
@@ -244,8 +244,11 @@ mod test {
 			   return 1
 		"#
         .to_string();
-        let res: Result<CompilationArtifacts<FieldPrime>, CompileErrors> =
-            compile(source, "./path/to/file".into(), None::<Resolve<io::Error>>);
+        let res: Result<CompilationArtifacts<FieldPrime>, CompileErrors> = compile(
+            source,
+            "./path/to/file".into(),
+            None::<&dyn Resolver<io::Error>>,
+        );
         assert!(res.is_ok());
     }
 }

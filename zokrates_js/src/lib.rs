@@ -3,13 +3,15 @@ use serde::{Deserialize, Serialize};
 use serde_json::to_string_pretty;
 use std::path::PathBuf;
 use wasm_bindgen::prelude::*;
-use zokrates_abi::{parse_strict, Encode, Decode, Inputs};
-use zokrates_core::compile::{compile as core_compile, CompilationArtifacts, CompileError};
+use zokrates_abi::{parse_strict, Decode, Encode, Inputs};
+use zokrates_core::compile::{
+    compile as core_compile, CompilationArtifacts, CompileError, Resolver,
+};
 use zokrates_core::imports::Error;
 use zokrates_core::ir;
 use zokrates_core::proof_system::{self, ProofSystem};
 use zokrates_core::typed_absy::abi::Abi;
-use zokrates_core::typed_absy::{types::Signature};
+use zokrates_core::typed_absy::types::Signature;
 use zokrates_field::field::FieldPrime;
 
 #[derive(Serialize, Deserialize)]
@@ -48,44 +50,71 @@ fn serialize_program(program: &ir::Prog<FieldPrime>) -> Result<Vec<u8>, JsValue>
         .map_err(|err| JsValue::from_str(&format!("Could not serialize program: {}", err)))
 }
 
+pub struct JsResolver<'a> {
+    callback: &'a js_sys::Function,
+}
+
+impl<'a> JsResolver<'a> {
+    pub fn new(callback: &'a js_sys::Function) -> Self {
+        JsResolver { callback }
+    }
+}
+
+impl<'a> Resolver<Error> for JsResolver<'a> {
+    fn resolve(
+        &self,
+        current_location: PathBuf,
+        import_location: PathBuf,
+    ) -> Result<(String, PathBuf), Error> {
+        let value = self
+            .callback
+            .call2(
+                &JsValue::UNDEFINED,
+                &current_location.to_str().unwrap().into(),
+                &import_location.to_str().unwrap().into(),
+            )
+            .map_err(|_| {
+                Error::new(format!(
+                    "Error thrown in callback: could not resolve {}",
+                    import_location.display()
+                ))
+            })?;
+
+        if value.is_null() || value.is_undefined() {
+            Err(Error::new(format!(
+                "Could not resolve {}",
+                import_location.display()
+            )))
+        } else {
+            let result: ResolverResult = value.into_serde().unwrap();
+            Ok(result.into_tuple())
+        }
+    }
+}
+
 #[wasm_bindgen]
 pub fn compile(
     source: JsValue,
     location: JsValue,
     resolve: &js_sys::Function,
 ) -> Result<JsValue, JsValue> {
-    let closure = |l: PathBuf, p: PathBuf| {
-        let value = resolve
-            .call2(&JsValue::UNDEFINED, &l.display().to_string().into(), &p.clone().display().to_string().into())
-            .map_err(|_| {
-                Error::new(format!(
-                    "Error thrown in callback: Could not resolve `{}`",
-                    p.display()
-                ))
-            })?;
-
-        if value.is_null() || value.is_undefined() {
-            Err(Error::new(format!("Could not resolve `{}`", p.display())))
-        } else {
-            let result: ResolverResult = value.into_serde().unwrap();
-            Ok(result.into_tuple())
-        }
-    };
-
-    let fmt_error = |e: &CompileError| {
-        format!(
-            "{}:{}",
-            e.file().display(),
-            e.value()
-        )
-    };
+    let fmt_error = |e: &CompileError| format!("{}:{}", e.file().display(), e.value());
+    let resolver = JsResolver::new(resolve);
 
     let artifacts: CompilationArtifacts<FieldPrime> = core_compile(
         source.as_string().unwrap(),
         PathBuf::from(location.as_string().unwrap()),
-        Some(&closure),
+        Some(&resolver),
     )
-    .map_err(|ce| JsValue::from_str(&format!("{}", ce.0.iter().map(|e| fmt_error(e)).collect::<Vec<_>>().join("\n"))))?;
+    .map_err(|ce| {
+        JsValue::from_str(&format!(
+            "{}",
+            ce.0.iter()
+                .map(|e| fmt_error(e))
+                .collect::<Vec<_>>()
+                .join("\n")
+        ))
+    })?;
 
     let result = CompilationResult {
         program: serialize_program(artifacts.prog())?,
@@ -119,7 +148,7 @@ pub fn compute_witness(artifacts: JsValue, args: JsValue) -> Result<JsValue, JsV
 
     let result = ComputationResult {
         witness: format!("{}", witness),
-        output: to_string_pretty(&return_values).unwrap()
+        output: to_string_pretty(&return_values).unwrap(),
     };
 
     Ok(JsValue::from_serde(&result).unwrap())

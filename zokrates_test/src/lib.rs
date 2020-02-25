@@ -69,7 +69,7 @@ fn compare(result: ir::ExecutionResult<FieldPrime>, expected: TestResult) -> Res
 
 use std::io::{BufReader, Read};
 use zokrates_core::compile::compile;
-use zokrates_fs_resolver::resolve;
+use zokrates_fs_resolver::FileSystemResolver;
 
 pub fn test_inner(test_path: &str) {
     let t: Tests =
@@ -77,7 +77,8 @@ pub fn test_inner(test_path: &str) {
 
     let code = std::fs::read_to_string(&t.entry_point).unwrap();
 
-    let artifacts = compile(code, t.entry_point.clone(), Some(&resolve)).unwrap();
+    let resolver = FileSystemResolver::new();
+    let artifacts = compile(code, t.entry_point.clone(), Some(&resolver)).unwrap();
 
     let bin = artifacts.prog();
 
