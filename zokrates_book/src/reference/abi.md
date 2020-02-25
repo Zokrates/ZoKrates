@@ -20,9 +20,9 @@ def main(private Foo foo, bool[2] bar, field num) -> (field):
 
 ## ABI specification
 
-When compiling a program, an ABI specification `abi.json` file is created and describes the interface of the program.
+When compiling a program, an ABI specification is generated and describes the interface of the program.
 
-In this example, the generate ABI specification is:
+In this example, the ABI specification is:
 
 ```json
 {
@@ -69,7 +69,7 @@ In this example, the generate ABI specification is:
         }
     ]
 }
-``
+```
 
 
 ## ABI input format
