@@ -1,0 +1,17 @@
+import "EMBED/u32_to_bits" as to_bits
+import "EMBED/u32_from_bits" as from_bits
+
+def right_rotate_6(u32 e) -> (u32):
+	bool[32] b = to_bits(e)
+	return from_bits([...b[6..], ...b[..6]])
+
+def right_rotate_11(u32 e) -> (u32):
+	bool[32] b = to_bits(e)
+	return from_bits([...b[11..], ...b[..11]])
+
+def right_rotate_25(u32 e) -> (u32):
+	bool[32] b = to_bits(e)
+	return from_bits([...b[25..], ...b[..25]])
+
+def main(u32 e) -> (u32):
+	return right_rotate_6(e) ^ right_rotate_11(e) ^ right_rotate_25(e)
