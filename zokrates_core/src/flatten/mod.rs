@@ -752,8 +752,11 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened: &mut Vec<FlatStatement<T>>,
         expr: UExpression<'ast, T>,
     ) -> FlatUExpression<T> {
-
-        statements_flattened.push(FlatStatement::Log(format!("  {}{}", "   ".repeat(self.depth), expr)));
+        statements_flattened.push(FlatStatement::Log(format!(
+            "  {}{}",
+            "   ".repeat(self.depth),
+            expr
+        )));
 
         self.depth += 1;
 
@@ -802,7 +805,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     },
                 ));
 
-                FlatUExpression::with_bits(name_not.into_iter().map(|v| v.into()).collect::<Vec<_>>())
+                FlatUExpression::with_bits(
+                    name_not.into_iter().map(|v| v.into()).collect::<Vec<_>>(),
+                )
             }
             UExpressionInner::Add(box left, box right) => {
                 let left_flattened = self
@@ -1114,10 +1119,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         self.depth -= 1;
 
-        statements_flattened.push(FlatStatement::Log(format!("  {} DONE", "   ".repeat(self.depth))));
+        statements_flattened.push(FlatStatement::Log(format!(
+            "  {} DONE",
+            "   ".repeat(self.depth)
+        )));
 
         res
-
     }
 
     fn get_bits(

@@ -517,39 +517,68 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     })
                     .collect(),
             )],
-            ZirStatement::MultipleDefinition(lhs, rhs) => {
-                match rhs {
-                    ZirExpressionList::FunctionCall(key, arguments, ty) => {
-                        match key.clone().id {
-                            "_U32_FROM_BITS" => {
-                                assert_eq!(lhs.len(), 1);
-                                let expr = UExpressionInner::FunctionCall(key.clone(), arguments.clone().into_iter().map(|a| self.fold_expression(a)).collect()).annotate(32).metadata(UMetadata {
-                                    bitwidth: Some(32),
-                                    should_reduce: Some(true)
-                                });
-                                self.register(lhs[0].clone(), ZirExpression::Uint(expr));
-                                vec![ZirStatement::MultipleDefinition(lhs, ZirExpressionList::FunctionCall(key, arguments, ty))]
-                            },
-                            "_U32_TO_BITS" => {
-                                assert_eq!(lhs.len(), 32);
-                                vec![ZirStatement::MultipleDefinition(lhs, ZirExpressionList::FunctionCall(key, arguments.into_iter().map(|e| self.fold_expression(e)).collect(), ty))]
-                            },
-                            _ => {
-                                unimplemented!()
-                            }
-                        }
+            ZirStatement::MultipleDefinition(lhs, rhs) => match rhs {
+                ZirExpressionList::FunctionCall(key, arguments, ty) => match key.clone().id {
+                    "_U32_FROM_BITS" => {
+                        assert_eq!(lhs.len(), 1);
+                        let expr = UExpressionInner::FunctionCall(
+                            key.clone(),
+                            arguments
+                                .clone()
+                                .into_iter()
+                                .map(|a| self.fold_expression(a))
+                                .collect(),
+                        )
+                        .annotate(32)
+                        .metadata(UMetadata {
+                            bitwidth: Some(32),
+                            should_reduce: Some(true),
+                        });
+                        self.register(lhs[0].clone(), ZirExpression::Uint(expr));
+                        vec![ZirStatement::MultipleDefinition(
+                            lhs,
+                            ZirExpressionList::FunctionCall(key, arguments, ty),
+                        )]
                     }
-                }
+                    "_U32_TO_BITS" => {
+                        assert_eq!(lhs.len(), 32);
+                        vec![ZirStatement::MultipleDefinition(
+                            lhs,
+                            ZirExpressionList::FunctionCall(
+                                key,
+                                arguments
+                                    .into_iter()
+                                    .map(|e| self.fold_expression(e))
+                                    .collect(),
+                                ty,
+                            ),
+                        )]
+                    }
+                    _ => unimplemented!(),
+                },
             },
             // we need to put back in range to assert
-            ZirStatement::Condition(lhs, rhs) => match (self.fold_expression(lhs), self.fold_expression(rhs)) {
-                (ZirExpression::Uint(lhs), ZirExpression::Uint(rhs)) => {
-                    let lhs_metadata = lhs.metadata.clone().unwrap();
-                    let rhs_metadata = rhs.metadata.clone().unwrap();
-                    vec![ZirStatement::Condition(lhs.metadata(UMetadata { should_reduce: Some(true), ..lhs_metadata}).into(), rhs.metadata(UMetadata { should_reduce: Some(true), ..rhs_metadata}).into())]
-                },
-                (lhs, rhs) => vec![ZirStatement::Condition(lhs, rhs)]
-            },
+            ZirStatement::Condition(lhs, rhs) => {
+                match (self.fold_expression(lhs), self.fold_expression(rhs)) {
+                    (ZirExpression::Uint(lhs), ZirExpression::Uint(rhs)) => {
+                        let lhs_metadata = lhs.metadata.clone().unwrap();
+                        let rhs_metadata = rhs.metadata.clone().unwrap();
+                        vec![ZirStatement::Condition(
+                            lhs.metadata(UMetadata {
+                                should_reduce: Some(true),
+                                ..lhs_metadata
+                            })
+                            .into(),
+                            rhs.metadata(UMetadata {
+                                should_reduce: Some(true),
+                                ..rhs_metadata
+                            })
+                            .into(),
+                        )]
+                    }
+                    (lhs, rhs) => vec![ZirStatement::Condition(lhs, rhs)],
+                }
+            }
             s => fold_statement(self, s),
         }
     }

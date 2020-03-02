@@ -134,6 +134,56 @@ mod tests {
         }
 
         #[test]
+        fn parse_field_def_to_multi() {
+            parses_to! {
+                parser: ZoKratesParser,
+                input: r#"field a = foo()
+            "#,
+                rule: Rule::statement,
+                tokens: [
+                    statement(0, 28, [
+                        multi_assignment_statement(0, 15, [
+                            optionally_typed_identifier(0, 7, [
+                                ty(0, 5, [
+                                    ty_basic(0, 5, [
+                                        ty_field(0, 5)
+                                    ])
+                                ]),
+                                identifier(6, 7)
+                            ]),
+                            identifier(10, 13),
+                        ])
+                    ])
+                ]
+            };
+        }
+
+        #[test]
+        fn parse_u8_def_to_multi() {
+            parses_to! {
+                parser: ZoKratesParser,
+                input: r#"u32 a = foo()
+            "#,
+                rule: Rule::statement,
+                tokens: [
+                    statement(0, 26, [
+                        multi_assignment_statement(0, 13, [
+                            optionally_typed_identifier(0, 5, [
+                                ty(0, 3, [
+                                    ty_basic(0, 3, [
+                                        ty_u32(0, 3)
+                                    ])
+                                ]),
+                                identifier(4, 5)
+                            ]),
+                            identifier(8, 11),
+                        ])
+                    ])
+                ]
+            };
+        }
+
+        #[test]
         fn parse_invalid_identifier() {
             fails_with! {
                 parser: ZoKratesParser,

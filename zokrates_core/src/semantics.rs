@@ -2070,7 +2070,11 @@ impl<'ast> Checker<'ast> {
                     (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
 
-                        message: format!("cannot left-shift {} by {}", e1.get_type(), e2.get_type()),
+                        message: format!(
+                            "cannot left-shift {} by {}",
+                            e1.get_type(),
+                            e2.get_type()
+                        ),
                     }),
                 }
             }
@@ -2084,7 +2088,11 @@ impl<'ast> Checker<'ast> {
                     (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
 
-                        message: format!("cannot right-shift {} by {}", e1.get_type(), e2.get_type()),
+                        message: format!(
+                            "cannot right-shift {} by {}",
+                            e1.get_type(),
+                            e2.get_type()
+                        ),
                     }),
                 }
             }
