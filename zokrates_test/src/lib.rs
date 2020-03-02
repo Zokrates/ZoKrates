@@ -36,14 +36,6 @@ struct Output {
 type Val = String;
 
 fn parse_val<T: Field>(s: String) -> T {
-    let s = if s.starts_with("0x") {
-        u32::from_str_radix(s.trim_start_matches("0x"), 16)
-            .unwrap()
-            .to_string()
-    } else {
-        s
-    };
-
     T::try_from_dec_str(&s).unwrap()
 }
 
