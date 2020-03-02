@@ -1,6 +1,6 @@
 {
 	"entry_point": "./tests/tests/uint/mul.zok",
-	"constraint_count": 36,
+	"constraint_count": 37,
 	"tests": [
 		{
 			"input": {

@@ -49,7 +49,7 @@ impl<T: Field> Prog<T> {
                         }
                         Err(_) => return Err(Error::Solver),
                     };
-                },
+                }
                 _ => {}
             }
         }

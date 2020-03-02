@@ -87,6 +87,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
             )),
             // propagation to the defined variable if rhs is a constant
             TypedStatement::Definition(TypedAssignee::Identifier(var), expr) => {
+
                 let expr = self.fold_expression(expr);
 
                 if is_constant(&expr) {
@@ -134,10 +135,96 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
             }
             TypedStatement::MultipleDefinition(variables, expression_list) => {
                 let expression_list = self.fold_expression_list(expression_list);
-                Some(TypedStatement::MultipleDefinition(
-                    variables,
-                    expression_list,
-                ))
+                match expression_list {
+                    TypedExpressionList::FunctionCall(key, arguments, types) => {
+                        let arguments: Vec<_> = arguments.into_iter().map(|a| self.fold_expression(a)).collect();
+
+                        if arguments.iter().all(|a| is_constant(a)) {
+                            let expr: TypedExpression<'ast, T> = if key.id == "_U32_FROM_BITS" {
+
+                                assert_eq!(variables.len(), 1);
+                                assert_eq!(arguments.len(), 1);
+
+                                use std::convert::TryInto;
+
+                                match arguments[0].clone() {
+                                    TypedExpression::Array(a) => match a.into_inner() {
+                                        ArrayExpressionInner::Value(v) => {
+                                            assert_eq!(v.len(), 32);
+                                            UExpressionInner::Value(
+                                            v.into_iter()
+                                                .map(|v| match v {
+                                                    TypedExpression::Boolean(
+                                                        BooleanExpression::Value(v),
+                                                    ) => v,
+                                                    _ => unreachable!(),
+                                                })
+                                                .enumerate()
+                                                .fold(0, |acc, (i, v)| {
+                                                    if v {
+                                                        acc + 2u128
+                                                            .pow((32 - i - 1).try_into().unwrap())
+                                                    } else {
+                                                        acc
+                                                    }
+                                                }),
+                                        )
+                                        .annotate(32)
+                                        .into()},
+                                        _ => unreachable!(),
+                                    },
+                                    _ => unreachable!(),
+                                }
+                            } else if key.id == "_U32_TO_BITS" {
+                                assert_eq!(variables.len(), 1);
+                                assert_eq!(arguments.len(), 1);
+
+                                match arguments[0].clone() {
+                                    TypedExpression::Uint(a) => match a.into_inner() {
+                                        UExpressionInner::Value(v) => {
+                                            let mut num = v;
+                                            let mut res = vec![];
+
+                                            for i in (0..32).rev() {
+                                                if 2u128.pow(i) <= num {
+                                                    num = num - 2u128.pow(i);
+                                                    res.push(true);
+                                                } else {
+                                                    res.push(false);
+                                                }
+                                            }
+                                            assert_eq!(num, 0);
+
+                                            ArrayExpressionInner::Value(res.into_iter().map(|v| BooleanExpression::Value(v).into()).collect())
+                                            .annotate(Type::Boolean, 32)
+                                            .into()
+                                        }
+                                        _ => unreachable!(),
+                                    },
+                                    _ => unreachable!(),
+                                }
+                            } else {
+                                unreachable!()
+                            };
+
+                            self.constants.insert(
+                                TypedAssignee::Identifier(variables[0].clone()),
+                                expr.clone(),
+                            );
+                            match self.verbose {
+                                true => Some(TypedStatement::MultipleDefinition(
+                                    variables,
+                                    TypedExpressionList::FunctionCall(key, arguments, types),
+                                )),
+                                false => None,
+                            }
+                        } else {
+                            if self.verbose {println!("not constant!")};
+                            let l = TypedExpressionList::FunctionCall(key, arguments, types);
+                            Some(TypedStatement::MultipleDefinition(variables, l))
+                        }
+                    }
+                }
             }
         };
 
@@ -189,6 +276,25 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     UExpressionInner::Add(box e1.annotate(bitwidth), box e2.annotate(bitwidth))
                 }
             },
+            UExpressionInner::Sub(box e1, box e2) => match (
+                self.fold_uint_expression(e1).into_inner(),
+                self.fold_uint_expression(e2).into_inner(),
+            ) {
+                (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
+                    use std::convert::TryInto;
+                    UExpressionInner::Value((v1.wrapping_sub(v2)) % 2_u128.pow(bitwidth.try_into().unwrap()))
+                }
+                (e, UExpressionInner::Value(v)) | (UExpressionInner::Value(v), e) => match v {
+                    0 => e,
+                    _ => UExpressionInner::Sub(
+                        box e.annotate(bitwidth),
+                        box UExpressionInner::Value(v).annotate(bitwidth),
+                    ),
+                },
+                (e1, e2) => {
+                    UExpressionInner::Sub(box e1.annotate(bitwidth), box e2.annotate(bitwidth))
+                }
+            },
             UExpressionInner::Mult(box e1, box e2) => match (
                 self.fold_uint_expression(e1).into_inner(),
                 self.fold_uint_expression(e2).into_inner(),
@@ -209,6 +315,43 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     UExpressionInner::Mult(box e1.annotate(bitwidth), box e2.annotate(bitwidth))
                 }
             },
+            UExpressionInner::RightShift(box e, box by) => {
+                let e = self.fold_uint_expression(e);
+                let by = self.fold_field_expression(by);
+                match (e.into_inner(), by) {
+                    (UExpressionInner::Value(v), FieldElementExpression::Number(by)) => {
+                        let by_as_usize = by.to_dec_string().parse::<usize>().unwrap();
+                        UExpressionInner::Value(v >> by_as_usize)
+                    }
+                    (e, FieldElementExpression::Number(by)) => {
+                        UExpressionInner::RightShift(box e.annotate(bitwidth), box FieldElementExpression::Number(by))
+                    }
+                    (_, e2) => unreachable!(format!(
+                        "non-constant shift {} detected during static analysis",
+                        e2
+                    )),
+                }
+            },
+            UExpressionInner::LeftShift(box e, box by) => {
+
+                println!("LEFT?");
+
+                let e = self.fold_uint_expression(e);
+                let by = self.fold_field_expression(by);
+                match (e.into_inner(), by) {
+                    (UExpressionInner::Value(v), FieldElementExpression::Number(by)) => {
+                        let by_as_usize = by.to_dec_string().parse::<usize>().unwrap();
+                        UExpressionInner::Value((v << by_as_usize) & 0xffffffff)
+                    }
+                    (e, FieldElementExpression::Number(by)) => {
+                        UExpressionInner::LeftShift(box e.annotate(bitwidth), box FieldElementExpression::Number(by))
+                    }
+                    (_, e2) => unreachable!(format!(
+                        "non-constant shift {} detected during static analysis",
+                        e2
+                    )),
+                }
+            },
             UExpressionInner::Xor(box e1, box e2) => match (
                 self.fold_uint_expression(e1).into_inner(),
                 self.fold_uint_expression(e2).into_inner(),
@@ -226,6 +369,19 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     }
                 }
             },
+            UExpressionInner::And(box e1, box e2) => match (
+                self.fold_uint_expression(e1).into_inner(),
+                self.fold_uint_expression(e2).into_inner(),
+            ) {
+                (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
+                    UExpressionInner::Value(v1 & v2)
+                }
+                (UExpressionInner::Value(0), e2) => UExpressionInner::Value(0),
+                (e1, UExpressionInner::Value(0)) => UExpressionInner::Value(0),
+                (e1, e2) => {
+                    UExpressionInner::And(box e1.annotate(bitwidth), box e2.annotate(bitwidth))
+                }
+            },
             UExpressionInner::IfElse(box condition, box consequence, box alternative) => {
                 let consequence = self.fold_uint_expression(consequence);
                 let alternative = self.fold_uint_expression(alternative);
@@ -238,7 +394,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
             UExpressionInner::Not(box e) => {
                 let e = self.fold_uint_expression(e).into_inner();
                 match e {
-                    UExpressionInner::Value(v) => UExpressionInner::Value(!v),
+                    UExpressionInner::Value(v) => UExpressionInner::Value((!v) & 0xffffffff),
                     e => UExpressionInner::Not(box e.annotate(bitwidth)),
                 }
             }
@@ -465,7 +621,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     },
                     None => ArrayExpressionInner::Identifier(id),
                 }
-            }
+            },
             ArrayExpressionInner::Select(box array, box index) => {
                 let array = self.fold_array_expression(array);
                 let index = self.fold_field_expression(index);
@@ -542,6 +698,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     inner => ArrayExpressionInner::Member(box inner.annotate(members), m),
                 }
             }
+            ArrayExpressionInner::FunctionCall(key, arguments) => unimplemented!(),
             e => fold_array_expression_inner(self, ty, size, e),
         }
     }
@@ -781,6 +938,49 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     BooleanExpression::Value(true) => consequence,
                     BooleanExpression::Value(false) => alternative,
                     c => BooleanExpression::IfElse(box c, box consequence, box alternative),
+                }
+            }
+            BooleanExpression::Select(box array, box index) => {
+                let array = self.fold_array_expression(array);
+                let index = self.fold_field_expression(index);
+
+                let inner_type = array.inner_type().clone();
+                let size = array.size();
+
+                match (array.into_inner(), index) {
+                    (ArrayExpressionInner::Value(v), FieldElementExpression::Number(n)) => {
+                        let n_as_usize = n.to_dec_string().parse::<usize>().unwrap();
+                        if n_as_usize < size {
+                            BooleanExpression::try_from(v[n_as_usize].clone()).unwrap()
+                        } else {
+                            unreachable!(
+                                "out of bounds index ({} >= {}) found during static analysis",
+                                n_as_usize, size
+                            );
+                        }
+                    }
+                    (ArrayExpressionInner::Identifier(id), FieldElementExpression::Number(n)) => {
+                        match self.constants.get(&TypedAssignee::Select(
+                            box TypedAssignee::Identifier(Variable::array(
+                                id.clone(),
+                                inner_type.clone(),
+                                size,
+                            )),
+                            box FieldElementExpression::Number(n.clone()).into(),
+                        )) {
+                            Some(e) => match e {
+                                TypedExpression::Boolean(e) => e.clone(),
+                                _ => unreachable!(""),
+                            },
+                            None => BooleanExpression::Select(
+                                box ArrayExpressionInner::Identifier(id).annotate(inner_type, size),
+                                box FieldElementExpression::Number(n),
+                            ),
+                        }
+                    }
+                    (a, i) => {
+                        BooleanExpression::Select(box a.annotate(inner_type, size), box i)
+                    }
                 }
             }
             BooleanExpression::Member(box s, m) => {

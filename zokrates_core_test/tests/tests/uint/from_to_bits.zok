@@ -1,0 +1,6 @@
+import "EMBED/u32_to_bits" as to_bits
+import "EMBED/u32_from_bits" as from_bits
+
+def main(u32 e) -> (u32):
+	f = to_bits(e)
+	return from_bits(f)

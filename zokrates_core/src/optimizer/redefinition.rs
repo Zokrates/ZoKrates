@@ -33,7 +33,7 @@
 //     - otherwise return `c_0`
 
 use crate::flat_absy::flat_variable::FlatVariable;
-use crate::ir::folder::{fold_function, Folder, fold_statement};
+use crate::ir::folder::{fold_function, fold_statement, Folder};
 use crate::ir::LinComb;
 use crate::ir::*;
 use num::Zero;
@@ -117,8 +117,8 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                     self.substitution.insert(o.clone(), o.clone().into());
                 }
                 vec![Statement::Directive(d)]
-            },
-            s => fold_statement(self, s)
+            }
+            s => fold_statement(self, s),
         }
     }
 

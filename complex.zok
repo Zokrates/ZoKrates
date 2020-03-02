@@ -1,3 +1,0 @@
-def main(u8[3][3] input) -> ():
-	u8[3][3] b = input
-	return

@@ -1,4 +1,2 @@
-def main(u32 a, u32 d) -> (u32):
-	u32 b = 0x12345678
-	u32 c = 0x01234567
-	return (a ^ b) + c + d
+def main(u8 a, u8 b) -> (u8):
+	return a + b

@@ -35,11 +35,11 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         let r = PropagatedUnroller::unroll(self).unwrap_or_else(|e| panic!(e));
         // inline
         let r = Inliner::inline(r);
+
         // propagate
         let r = Propagator::propagate(r);
 
         let zir = Flattener::flatten(r.clone());
-
         // constrain inputs
         let zir = InputConstrainer::constrain(zir);
 

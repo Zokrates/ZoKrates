@@ -153,8 +153,8 @@ impl<T: Field> FlatStatement<T> {
                     inputs,
                     ..d
                 })
-            },
-            FlatStatement::Log(l) => FlatStatement::Log(l)
+            }
+            FlatStatement::Log(l) => FlatStatement::Log(l),
         }
     }
 }

@@ -4,11 +4,21 @@
 	"tests": [
 		{
 			"input": {
-				"values": ["0"]
+				"values": ["0x000000f0"]
 			},
 			"output": {
 				"Ok": {
-					"values": ["0"]
+					"values": ["0x0000000f"]
+				}
+			}
+		},
+		{
+			"input": {
+				"values": ["0x12345678"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["0x81234567"]
 				}
 			}
 		}

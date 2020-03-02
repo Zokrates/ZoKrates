@@ -1,0 +1,106 @@
+import "EMBED/u32_to_bits" as to_bits
+import "EMBED/u32_from_bits" as from_bits
+
+def right_rotate_2(u32 e) -> (u32):
+	bool[32] b = to_bits(e)
+	res = from_bits([...b[30..], ...b[..30]])
+	return res
+
+def right_rotate_4(u32 e) -> (u32):
+	bool[32] b = to_bits(e)
+	res = from_bits([...b[28..], ...b[..28]])
+	return res
+
+def right_rotate_6(u32 e) -> (u32):
+	bool[32] b = to_bits(e)
+	res = from_bits([...b[26..], ...b[..26]])
+	return res
+
+def right_rotate_7(u32 e) -> (u32):
+	bool[32] b = to_bits(e)
+	res = from_bits([...b[25..], ...b[..25]])
+	return res
+
+def right_rotate_11(u32 e) -> (u32):
+	bool[32] b = to_bits(e)
+	res = from_bits([...b[21..], ...b[..21]])
+	return res
+
+def right_rotate_13(u32 e) -> (u32):
+	bool[32] b = to_bits(e)
+	res = from_bits([...b[19..], ...b[..19]])
+	return res
+
+def right_rotate_17(u32 e) -> (u32):
+	bool[32] b = to_bits(e)
+	res = from_bits([...b[15..], ...b[..15]])
+	return res
+
+def right_rotate_18(u32 e) -> (u32):
+	bool[32] b = to_bits(e)
+	res = from_bits([...b[14..], ...b[..14]])
+	return res
+
+def right_rotate_19(u32 e) -> (u32):
+	bool[32] b = to_bits(e)
+	res = from_bits([...b[13..], ...b[..13]])
+	return res
+
+def right_rotate_22(u32 e) -> (u32):
+	bool[32] b = to_bits(e)
+	res = from_bits([...b[10..], ...b[..10]])
+	return res
+
+def right_rotate_25(u32 e) -> (u32):
+	bool[32] b = to_bits(e)
+	res = from_bits([...b[7..], ...b[..7]])
+	return res
+
+def main(u32 e, u32 f, u32[4] terms) -> ():
+
+	// rotate
+	rotated = right_rotate_4(e)
+	rotated == 0x81234567
+
+	// and
+	(e & f) == 0x00204460
+
+	// xor
+	(e ^ f) == 0x1317131f
+
+	// shift
+	e >> 12 == 0x00012345
+	e << 12 == 0x45678000
+
+	// not
+	!e == 0xedcba987
+
+	// add
+	terms[0] + terms[1] + terms[2] + terms[3] == 0xddddddda
+
+	// to_bits
+	bits1 = to_bits(e)
+	bool[32] expected1 = [false, false, false, true, false, false, true, false, false, false, true, true, false, true,  false, false, false, true, false, true, false, true, true, false, false, true, true,  true, true, false, false, false]
+	bits1 == expected1
+	e == from_bits(expected1)
+
+	bits2 = to_bits(f)
+	bool[32] expected2 = [false, false, false, false, false, false, false, true, false, false, true, false, false, false, true, true, false, true, false, false, false, true,  false, true, false, true, true, false, false, true, true, true]
+	bits2 == expected2
+	f == from_bits(expected2)
+
+	// S0
+	e2 = right_rotate_2(e)
+	e13 = right_rotate_13(e)
+	e22 = right_rotate_22(e)
+	u32 S0 = e2 ^ e13 ^ e22
+	S0 == 0x66146474
+
+	// S1
+	e6 = right_rotate_6(e)
+	e11 = right_rotate_11(e)
+	e25 = right_rotate_25(e)
+	u32 S1 = e6 ^ e11 ^ e25
+	S1 == 0x3561abda
+
+	return

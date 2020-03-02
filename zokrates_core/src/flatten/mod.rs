@@ -25,6 +25,7 @@ pub struct Flattener<'ast, T: Field> {
     flat_cache: HashMap<FunctionKey<'ast>, FlatFunction<T>>,
     /// Cached bit decompositions to avoid re-generating them
     bits_cache: HashMap<FlatExpression<T>, Vec<FlatExpression<T>>>,
+    depth: usize,
 }
 
 // We introduce a trait in order to make it possible to make flattening `e` generic over the type of `e`
@@ -151,6 +152,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             layout: HashMap::new(),
             flat_cache: HashMap::new(),
             bits_cache: HashMap::new(),
+            depth: 0,
         }
     }
 
@@ -607,11 +609,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             };
             let from = p.metadata.clone().unwrap().bitwidth.unwrap();
             let p = self.flatten_uint_expression(symbols, statements_flattened, p);
-            return self
+            let bits = self
                 .get_bits(p, from, 32, statements_flattened)
                 .into_iter()
                 .map(|b| FlatUExpression::with_field(b))
                 .collect();
+            return bits;
         }
 
         if funct == crate::embed::FlatEmbed::U32FromBits {
@@ -692,7 +695,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         solver: d.solver,
                         inputs: new_inputs,
                     })
-                },
+                }
                 FlatStatement::Log(s) => FlatStatement::Log(s),
             })
             .collect();
@@ -750,9 +753,14 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         expr: UExpression<'ast, T>,
     ) -> FlatUExpression<T> {
 
+        statements_flattened.push(FlatStatement::Log(format!("  {}{}", "   ".repeat(self.depth), expr)));
+
+        self.depth += 1;
+
         let target_bitwidth = expr.bitwidth;
 
         let metadata = expr.metadata.clone().unwrap().clone();
+
         let actual_bitwidth = metadata.bitwidth.unwrap();
         let should_reduce = metadata.should_reduce.unwrap();
 
@@ -794,7 +802,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     },
                 ));
 
-                FlatUExpression::with_bits(e_bits)
+                FlatUExpression::with_bits(name_not.into_iter().map(|v| v.into()).collect::<Vec<_>>())
             }
             UExpressionInner::Add(box left, box right) => {
                 let left_flattened = self
@@ -1074,7 +1082,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             UExpressionInner::Or(..) => unimplemented!(),
         };
 
-        match should_reduce {
+        let res = match should_reduce {
             true => {
                 let bits = self.get_bits(
                     res.clone(),
@@ -1102,7 +1110,14 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 FlatUExpression::with_bits(bits).field(field)
             }
             false => res,
-        }
+        };
+
+        self.depth -= 1;
+
+        statements_flattened.push(FlatStatement::Log(format!("  {} DONE", "   ".repeat(self.depth))));
+
+        res
+
     }
 
     fn get_bits(
@@ -1115,7 +1130,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         // constants do not require directives!
         match e.field.clone() {
             Some(FlatExpression::Number(x)) => {
-                let bits: Vec<_> = Solver::bits(from).execute(&vec![x]).unwrap().into_iter().map(|x| FlatExpression::Number(x)).collect();
+                let bits: Vec<_> = Solver::bits(from)
+                    .execute(&vec![x])
+                    .unwrap()
+                    .into_iter()
+                    .map(|x| FlatExpression::Number(x))
+                    .collect();
                 self.bits_cache
                     .insert(e.field.clone().unwrap(), bits.clone());
                 return bits;
@@ -1431,7 +1451,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened: &mut Vec<FlatStatement<T>>,
         stat: ZirStatement<'ast, T>,
     ) {
-        statements_flattened.push(FlatStatement::Log(format!("{}", stat)));
         match stat {
             ZirStatement::Return(exprs) => {
                 let flat_expressions = exprs
