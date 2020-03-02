@@ -1,0 +1,6 @@
+{
+	"entry_point": "./tests/tests/memoize/memoize.zok",
+	"max_constraint_count": 14,
+	"tests": [
+	]
+}
