@@ -620,6 +620,363 @@ mod tests {
     }
 
     #[test]
+    fn memoize_local_call() {
+        // // foo
+        // def foo(field a) -> (field):
+        //     return a
+
+        // // main
+        // def main(field a) -> (field):
+        //     field b = foo(a) + foo(a)
+        //     return b
+
+        // inlined
+        // def main(field a) -> (field)
+        //     field _0 = a + a
+        //     return _0
+
+        let signature = Signature::new()
+            .outputs(vec![Type::FieldElement])
+            .inputs(vec![Type::FieldElement]);
+
+        let main: TypedModule<FieldPrime> = TypedModule {
+            functions: vec![
+                (
+                    FunctionKey::with_id("main").signature(signature.clone()),
+                    TypedFunctionSymbol::Here(TypedFunction {
+                        arguments: vec![Parameter {
+                            id: Variable::field_element("a".into()),
+                            private: true,
+                        }],
+                        statements: vec![
+                            TypedStatement::Definition(
+                                TypedAssignee::Identifier(Variable::field_element("b".into())),
+                                FieldElementExpression::Add(
+                                    box FieldElementExpression::FunctionCall(
+                                        FunctionKey::with_id("foo").signature(signature.clone()),
+                                        vec![FieldElementExpression::Identifier("a".into()).into()],
+                                    ),
+                                    box FieldElementExpression::FunctionCall(
+                                        FunctionKey::with_id("foo").signature(signature.clone()),
+                                        vec![FieldElementExpression::Identifier("a".into()).into()],
+                                    ),
+                                )
+                                .into(),
+                            ),
+                            TypedStatement::Return(vec![FieldElementExpression::Identifier(
+                                "b".into(),
+                            )
+                            .into()]),
+                        ],
+                        signature: signature.clone(),
+                    }),
+                ),
+                (
+                    FunctionKey::with_id("foo").signature(signature.clone()),
+                    TypedFunctionSymbol::There(
+                        FunctionKey::with_id("foo").signature(signature.clone()),
+                        "foo".into(),
+                    ),
+                ),
+            ]
+            .into_iter()
+            .collect(),
+        };
+
+        let foo: TypedModule<FieldPrime> = TypedModule {
+            functions: vec![(
+                FunctionKey::with_id("foo").signature(signature.clone()),
+                TypedFunctionSymbol::Here(TypedFunction {
+                    arguments: vec![Parameter {
+                        id: Variable::field_element("a".into()),
+                        private: true,
+                    }],
+                    statements: vec![TypedStatement::Return(vec![
+                        FieldElementExpression::Identifier("a".into()).into(),
+                    ])],
+                    signature: signature.clone(),
+                }),
+            )]
+            .into_iter()
+            .collect(),
+        };
+
+        let modules: HashMap<_, _> = vec![("main".into(), main), ("foo".into(), foo)]
+            .into_iter()
+            .collect();
+
+        let program = TypedProgram {
+            main: "main".into(),
+            modules,
+        };
+
+        let program = Inliner::inline(program);
+
+        assert_eq!(program.modules.len(), 1);
+        assert_eq!(
+            program
+                .modules
+                .get(&PathBuf::from("main"))
+                .unwrap()
+                .functions
+                .get(&FunctionKey::with_id("main").signature(signature.clone()))
+                .unwrap(),
+            &TypedFunctionSymbol::Here(TypedFunction {
+                arguments: vec![Parameter {
+                    id: Variable::field_element("a".into()),
+                    private: true,
+                }],
+                statements: vec![
+                    TypedStatement::Definition(
+                        TypedAssignee::Identifier(Variable::field_element(
+                            Identifier::from("a").stack(vec![(
+                                "foo".into(),
+                                FunctionKey::with_id("foo").signature(signature.clone()),
+                                1
+                            )])
+                        )),
+                        FieldElementExpression::Identifier("a".into()).into()
+                    ),
+                    TypedStatement::Definition(
+                        TypedAssignee::Identifier(Variable::field_element("b".into())),
+                        FieldElementExpression::Add(
+                            box FieldElementExpression::Identifier(Identifier::from("a").stack(
+                                vec![(
+                                    "foo".into(),
+                                    FunctionKey::with_id("foo").signature(signature.clone()),
+                                    1
+                                )]
+                            )),
+                            box FieldElementExpression::Identifier(Identifier::from("a").stack(
+                                vec![(
+                                    "foo".into(),
+                                    FunctionKey::with_id("foo").signature(signature.clone()),
+                                    1
+                                )]
+                            ))
+                        )
+                        .into()
+                    ),
+                    TypedStatement::Return(vec![
+                        FieldElementExpression::Identifier("b".into()).into(),
+                    ])
+                ],
+                signature: signature.clone(),
+            })
+        );
+    }
+
+    #[test]
+    fn only_memoize_in_same_function() {
+        // // foo
+        // def foo(field a) -> (field):
+        //     return a
+
+        // // main
+        // def main(field a) -> (field):
+        //     field b = foo(a) + bar(a)
+        //     return b
+        //
+        // def bar(field a) -> (field):
+        //     return foo(a)
+
+        // inlined
+        // def main(field a) -> (field)
+        //     field _0 = a + a
+        //     return _0
+
+        let signature = Signature::new()
+            .outputs(vec![Type::FieldElement])
+            .inputs(vec![Type::FieldElement]);
+
+        let main: TypedModule<FieldPrime> = TypedModule {
+            functions: vec![
+                (
+                    FunctionKey::with_id("main").signature(
+                        Signature::new()
+                            .outputs(vec![Type::FieldElement])
+                            .inputs(vec![Type::FieldElement]),
+                    ),
+                    TypedFunctionSymbol::Here(TypedFunction {
+                        arguments: vec![Parameter {
+                            id: Variable::field_element("a".into()),
+                            private: true,
+                        }],
+                        statements: vec![
+                            TypedStatement::Definition(
+                                TypedAssignee::Identifier(Variable::field_element("b".into())),
+                                FieldElementExpression::Add(
+                                    box FieldElementExpression::FunctionCall(
+                                        FunctionKey::with_id("foo").signature(signature.clone()),
+                                        vec![FieldElementExpression::Identifier("a".into()).into()],
+                                    ),
+                                    box FieldElementExpression::FunctionCall(
+                                        FunctionKey::with_id("bar").signature(signature.clone()),
+                                        vec![FieldElementExpression::Identifier("a".into()).into()],
+                                    ),
+                                )
+                                .into(),
+                            ),
+                            TypedStatement::Return(vec![FieldElementExpression::Identifier(
+                                "b".into(),
+                            )
+                            .into()]),
+                        ],
+                        signature: signature.clone(),
+                    }),
+                ),
+                (
+                    FunctionKey::with_id("bar").signature(signature.clone()),
+                    TypedFunctionSymbol::Here(TypedFunction {
+                        arguments: vec![Parameter {
+                            id: Variable::field_element("a".into()),
+                            private: true,
+                        }],
+                        statements: vec![TypedStatement::Return(vec![
+                            FieldElementExpression::FunctionCall(
+                                FunctionKey::with_id("foo").signature(signature.clone()),
+                                vec![FieldElementExpression::Identifier("a".into()).into()],
+                            )
+                            .into(),
+                        ])],
+                        signature: signature.clone(),
+                    }),
+                ),
+                (
+                    FunctionKey::with_id("foo").signature(signature.clone()),
+                    TypedFunctionSymbol::There(
+                        FunctionKey::with_id("foo").signature(signature.clone()),
+                        "foo".into(),
+                    ),
+                ),
+            ]
+            .into_iter()
+            .collect(),
+        };
+
+        let foo: TypedModule<FieldPrime> = TypedModule {
+            functions: vec![(
+                FunctionKey::with_id("foo").signature(signature.clone()),
+                TypedFunctionSymbol::Here(TypedFunction {
+                    arguments: vec![Parameter {
+                        id: Variable::field_element("a".into()),
+                        private: true,
+                    }],
+                    statements: vec![TypedStatement::Return(vec![
+                        FieldElementExpression::Identifier("a".into()).into(),
+                    ])],
+                    signature: signature.clone(),
+                }),
+            )]
+            .into_iter()
+            .collect(),
+        };
+
+        let modules: HashMap<_, _> = vec![("main".into(), main), ("foo".into(), foo)]
+            .into_iter()
+            .collect();
+
+        let program = TypedProgram {
+            main: "main".into(),
+            modules,
+        };
+
+        let program = Inliner::inline(program);
+
+        assert_eq!(program.modules.len(), 1);
+        assert_eq!(
+            program
+                .modules
+                .get(&PathBuf::from("main"))
+                .unwrap()
+                .functions
+                .get(&FunctionKey::with_id("main").signature(signature.clone()))
+                .unwrap(),
+            &TypedFunctionSymbol::Here(TypedFunction {
+                arguments: vec![Parameter {
+                    id: Variable::field_element("a".into()),
+                    private: true,
+                }],
+                statements: vec![
+                    TypedStatement::Definition(
+                        TypedAssignee::Identifier(Variable::field_element(
+                            Identifier::from("a").stack(vec![(
+                                "foo".into(),
+                                FunctionKey::with_id("foo").signature(signature.clone()),
+                                1
+                            )])
+                        )),
+                        FieldElementExpression::Identifier("a".into()).into()
+                    ),
+                    TypedStatement::Definition(
+                        TypedAssignee::Identifier(Variable::field_element(
+                            Identifier::from("a").stack(vec![(
+                                "main".into(),
+                                FunctionKey::with_id("bar").signature(signature.clone()),
+                                1
+                            )])
+                        )),
+                        FieldElementExpression::Identifier("a".into()).into()
+                    ),
+                    TypedStatement::Definition(
+                        TypedAssignee::Identifier(Variable::field_element(
+                            Identifier::from("a").stack(vec![
+                                (
+                                    "main".into(),
+                                    FunctionKey::with_id("bar").signature(signature.clone()),
+                                    1
+                                ),
+                                (
+                                    "foo".into(),
+                                    FunctionKey::with_id("foo").signature(signature.clone()),
+                                    2
+                                )
+                            ])
+                        )),
+                        FieldElementExpression::Identifier(Identifier::from("a").stack(vec![(
+                            "main".into(),
+                            FunctionKey::with_id("bar").signature(signature.clone()),
+                            1
+                        )]))
+                        .into()
+                    ),
+                    TypedStatement::Definition(
+                        TypedAssignee::Identifier(Variable::field_element("b".into())),
+                        FieldElementExpression::Add(
+                            box FieldElementExpression::Identifier(Identifier::from("a").stack(
+                                vec![(
+                                    "foo".into(),
+                                    FunctionKey::with_id("foo").signature(signature.clone()),
+                                    1
+                                )]
+                            )),
+                            box FieldElementExpression::Identifier(Identifier::from("a").stack(
+                                vec![
+                                    (
+                                        "main".into(),
+                                        FunctionKey::with_id("bar").signature(signature.clone()),
+                                        1
+                                    ),
+                                    (
+                                        "foo".into(),
+                                        FunctionKey::with_id("foo").signature(signature.clone()),
+                                        2
+                                    )
+                                ]
+                            ))
+                        )
+                        .into()
+                    ),
+                    TypedStatement::Return(vec![
+                        FieldElementExpression::Identifier("b".into()).into(),
+                    ])
+                ],
+                signature: signature.clone(),
+            })
+        );
+    }
+
+    #[test]
     fn multi_def_from_other_module() {
         // // foo
         // def foo() -> (field):
