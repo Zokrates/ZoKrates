@@ -129,6 +129,8 @@ impl fmt::Display for CompileErrorInner {
     }
 }
 
+type FilePath = PathBuf;
+
 pub trait Resolver<E: Into<imports::Error>> {
     fn resolve(
         &self,
@@ -139,7 +141,7 @@ pub trait Resolver<E: Into<imports::Error>> {
 
 pub fn compile<T: Field, E: Into<imports::Error>>(
     source: String,
-    location: PathBuf,
+    location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
 ) -> Result<CompilationArtifacts<T>, CompileErrors> {
     let arena = Arena::new();
@@ -171,13 +173,13 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
 
     Ok(CompilationArtifacts {
         prog: optimized_ir_prog,
-        abi: abi,
+        abi,
     })
 }
 
 pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
     source: &'ast str,
-    location: PathBuf,
+    location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
     arena: &'ast Arena<String>,
 ) -> Result<Program<'ast, T>, CompileErrors> {
@@ -195,7 +197,7 @@ pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
 
 pub fn compile_module<'ast, T: Field, E: Into<imports::Error>>(
     source: &'ast str,
-    location: PathBuf,
+    location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
     modules: &mut HashMap<ModuleId, Module<'ast, T>>,
     arena: &'ast Arena<String>,

@@ -1804,7 +1804,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_fs_resolver"
-version = "0.1.0"
+version = "0.5.0"
 dependencies = [
  "tempfile",
  "zokrates_core",
