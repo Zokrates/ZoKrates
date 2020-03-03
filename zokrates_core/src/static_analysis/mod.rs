@@ -5,6 +5,7 @@
 //! @date 2018
 
 mod constrain_inputs;
+mod dead_code;
 mod flat_propagation;
 mod inline;
 mod propagate_unroll;
@@ -12,6 +13,7 @@ mod propagation;
 mod unroll;
 
 use self::constrain_inputs::InputConstrainer;
+use self::dead_code::DeadCodeAnalyser;
 use self::inline::Inliner;
 use self::propagate_unroll::PropagatedUnroller;
 use self::propagation::Propagator;
@@ -27,6 +29,8 @@ impl<'ast, T: Field> Analyse for TypedProgram<'ast, T> {
     fn analyse(self) -> Self {
         // propagated unrolling
         let r = PropagatedUnroller::unroll(self).unwrap_or_else(|e| panic!(e));
+        // dead code
+        let r = DeadCodeAnalyser::analyse(r).unwrap_or_else(|e| e.program);
         // inline
         let r = Inliner::inline(r);
         // propagate

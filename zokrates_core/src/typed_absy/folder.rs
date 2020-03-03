@@ -43,14 +43,7 @@ pub trait Folder<'ast, T: Field>: Sized {
     }
 
     fn fold_assignee(&mut self, a: TypedAssignee<'ast, T>) -> TypedAssignee<'ast, T> {
-        match a {
-            TypedAssignee::Identifier(v) => TypedAssignee::Identifier(self.fold_variable(v)),
-            TypedAssignee::Select(box a, box index) => TypedAssignee::Select(
-                box self.fold_assignee(a),
-                box self.fold_field_expression(index),
-            ),
-            TypedAssignee::Member(box s, m) => TypedAssignee::Member(box self.fold_assignee(s), m),
-        }
+        fold_assignee(self, a)
     }
 
     fn fold_statement(&mut self, s: TypedStatement<'ast, T>) -> Vec<TypedStatement<'ast, T>> {
@@ -58,12 +51,7 @@ pub trait Folder<'ast, T: Field>: Sized {
     }
 
     fn fold_expression(&mut self, e: TypedExpression<'ast, T>) -> TypedExpression<'ast, T> {
-        match e {
-            TypedExpression::FieldElement(e) => self.fold_field_expression(e).into(),
-            TypedExpression::Boolean(e) => self.fold_boolean_expression(e).into(),
-            TypedExpression::Array(e) => self.fold_array_expression(e).into(),
-            TypedExpression::Struct(e) => self.fold_struct_expression(e).into(),
-        }
+        fold_expression(self, e)
     }
 
     fn fold_array_expression(&mut self, e: ArrayExpression<'ast, T>) -> ArrayExpression<'ast, T> {
@@ -171,6 +159,18 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
         ),
     };
     vec![res]
+}
+
+pub fn fold_expression<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    e: TypedExpression<'ast, T>,
+) -> TypedExpression<'ast, T> {
+    match e {
+        TypedExpression::FieldElement(e) => f.fold_field_expression(e).into(),
+        TypedExpression::Boolean(e) => f.fold_boolean_expression(e).into(),
+        TypedExpression::Array(e) => f.fold_array_expression(e).into(),
+        TypedExpression::Struct(e) => f.fold_struct_expression(e).into(),
+    }
 }
 
 pub fn fold_array_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
@@ -405,6 +405,19 @@ pub fn fold_struct_expression<'ast, T: Field, F: Folder<'ast, T>>(
     StructExpression {
         inner: f.fold_struct_expression_inner(&e.ty, e.inner),
         ..e
+    }
+}
+
+pub fn fold_assignee<'ast, T: Field, F: Folder<'ast, T>>(
+    f: &mut F,
+    a: TypedAssignee<'ast, T>,
+) -> TypedAssignee<'ast, T> {
+    match a {
+        TypedAssignee::Identifier(v) => TypedAssignee::Identifier(f.fold_variable(v)),
+        TypedAssignee::Select(box a, box index) => {
+            TypedAssignee::Select(box f.fold_assignee(a), box f.fold_field_expression(index))
+        }
+        TypedAssignee::Member(box s, m) => TypedAssignee::Member(box f.fold_assignee(s), m),
     }
 }
 
