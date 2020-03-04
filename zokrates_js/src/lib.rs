@@ -4,9 +4,8 @@ use serde_json::to_string_pretty;
 use std::path::PathBuf;
 use wasm_bindgen::prelude::*;
 use zokrates_abi::{parse_strict, Decode, Encode, Inputs};
-use zokrates_core::compile::{
-    compile as core_compile, CompilationArtifacts, CompileError, Resolver,
-};
+use zokrates_common::Resolver;
+use zokrates_core::compile::{compile as core_compile, CompilationArtifacts, CompileError};
 use zokrates_core::imports::Error;
 use zokrates_core::ir;
 use zokrates_core::proof_system::{self, ProofSystem};
