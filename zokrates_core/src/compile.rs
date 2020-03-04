@@ -16,6 +16,7 @@ use std::io;
 use std::path::PathBuf;
 use typed_absy::abi::Abi;
 use typed_arena::Arena;
+use zokrates_common::Resolver;
 use zokrates_field::field::Field;
 use zokrates_pest_ast as pest;
 
@@ -130,14 +131,6 @@ impl fmt::Display for CompileErrorInner {
 }
 
 type FilePath = PathBuf;
-
-pub trait Resolver<E: Into<imports::Error>> {
-    fn resolve(
-        &self,
-        current_location: PathBuf,
-        import_location: PathBuf,
-    ) -> Result<(String, PathBuf), E>;
-}
 
 pub fn compile<T: Field, E: Into<imports::Error>>(
     source: String,

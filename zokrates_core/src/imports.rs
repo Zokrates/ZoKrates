@@ -6,7 +6,7 @@
 
 use crate::absy::*;
 use crate::compile::compile_module;
-use crate::compile::{CompileErrorInner, CompileErrors, Resolver};
+use crate::compile::{CompileErrorInner, CompileErrors};
 use crate::embed::FlatEmbed;
 use crate::parser::Position;
 use std::collections::HashMap;
@@ -15,6 +15,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use typed_arena::Arena;
+use zokrates_common::Resolver;
 use zokrates_field::field::Field;
 
 #[derive(PartialEq, Debug)]

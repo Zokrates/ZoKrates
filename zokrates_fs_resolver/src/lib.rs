@@ -3,11 +3,11 @@ use std::io;
 
 use std::path::Path;
 use std::path::{Component, PathBuf};
-use zokrates_core::compile::Resolver;
+use zokrates_common::Resolver;
 
 const ZOKRATES_HOME: &str = &"ZOKRATES_HOME";
 
-pub struct FileSystemResolver {}
+pub struct FileSystemResolver;
 
 impl FileSystemResolver {
     pub fn new() -> Self {
