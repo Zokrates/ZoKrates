@@ -5,6 +5,7 @@
 //! @date 2018
 
 mod constrain_inputs;
+mod constraint_analyser;
 mod flat_propagation;
 mod inline;
 mod propagate_unroll;
@@ -12,11 +13,13 @@ mod propagation;
 mod unroll;
 
 use self::constrain_inputs::InputConstrainer;
+use self::constraint_analyser::ConstraintAnalyser;
 use self::inline::Inliner;
 use self::propagate_unroll::PropagatedUnroller;
 use self::propagation::Propagator;
 use crate::flat_absy::FlatProg;
 use crate::typed_absy::TypedProgram;
+use ir::Prog;
 use zokrates_field::field::Field;
 
 pub trait Analyse {
@@ -41,5 +44,12 @@ impl<'ast, T: Field> Analyse for TypedProgram<'ast, T> {
 impl<T: Field> Analyse for FlatProg<T> {
     fn analyse(self) -> Self {
         self.propagate()
+    }
+}
+
+impl<T: Field> Analyse for Prog<T> {
+    fn analyse(self) -> Self {
+        let r = ConstraintAnalyser::analyse(self);
+        r
     }
 }
