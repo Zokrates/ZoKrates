@@ -1,6 +1,7 @@
 use ir;
 use proof_system::bn128::utils::ffi::{Buffer, ProofResult, SetupResult};
 use proof_system::bn128::utils::libsnark::{prepare_generate_proof, prepare_setup};
+use proof_system::bn128::utils::parser::KeyValueParser;
 use proof_system::bn128::utils::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
@@ -18,12 +19,12 @@ impl PGHR13 {
 
 extern "C" {
     fn pghr13_setup(
-        A: *const u8,
-        B: *const u8,
-        C: *const u8,
-        A_len: i32,
-        B_len: i32,
-        C_len: i32,
+        a: *const u8,
+        b: *const u8,
+        c: *const u8,
+        a_len: i32,
+        b_len: i32,
+        c_len: i32,
         constraints: i32,
         variables: i32,
         inputs: i32,
@@ -31,8 +32,8 @@ extern "C" {
 
     fn pghr13_generate_proof(
         pk_buf: *mut Buffer,
-        publquery_inputs: *const u8,
-        publquery_inputs_length: i32,
+        public_query_inputs: *const u8,
+        public_query_inputs_length: i32,
         private_inputs: *const u8,
         private_inputs_length: i32,
     ) -> ProofResult;
@@ -108,8 +109,7 @@ impl ProofSystem for PGHR13 {
     }
 
     fn export_solidity_verifier(&self, vk: String, abi_v2: bool) -> String {
-        let mut lines = vk.lines();
-
+        let vk_map = KeyValueParser::parse(vk);
         let (mut template_text, solidity_pairing_lib) = if abi_v2 {
             (
                 String::from(CONTRACT_TEMPLATE_V2),
@@ -122,60 +122,55 @@ impl ProofSystem for PGHR13 {
             )
         };
 
-        let ic_template = String::from("vk.ic[index] = Pairing.G1Point(points);"); //copy this for each entry
-
-        //replace things in template
+        // replace things in template
         let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
         let vk_ic_len_regex = Regex::new(r#"(<%vk_ic_length%>)"#).unwrap();
-        let vk_ic_index_regex = Regex::new(r#"index"#).unwrap();
-        let vk_ic_points_regex = Regex::new(r#"points"#).unwrap();
         let vk_ic_repeat_regex = Regex::new(r#"(<%vk_ic_pts%>)"#).unwrap();
         let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
 
-        for _ in 0..7 {
-            let current_line: &str = lines
-                .next()
-                .expect("Unexpected end of file in verification key!");
-            let current_line_split: Vec<&str> = current_line.split("=").collect();
-            assert_eq!(current_line_split.len(), 2);
+        let keys = vec![
+            "vk.a",
+            "vk.b",
+            "vk.c",
+            "vk.gamma",
+            "vk.gamma_beta_1",
+            "vk.gamma_beta_2",
+            "vk.z",
+        ];
+
+        for key in keys.iter() {
             template_text = vk_regex
-                .replace(template_text.as_str(), current_line_split[1].trim())
+                .replace(template_text.as_str(), vk_map.get(*key).unwrap().as_str())
                 .into_owned();
         }
 
-        let current_line: &str = lines
-            .next()
-            .expect("Unexpected end of file in verification key!");
-        let current_line_split: Vec<&str> = current_line.split("=").collect();
-        assert_eq!(current_line_split.len(), 2);
-        let ic_count: i32 = current_line_split[1].trim().parse().unwrap();
-
+        let ic_count: usize = vk_map.get("vk.ic.len()").unwrap().parse().unwrap();
         template_text = vk_ic_len_regex
             .replace(template_text.as_str(), format!("{}", ic_count).as_str())
             .into_owned();
+
         template_text = vk_input_len_regex
             .replace(template_text.as_str(), format!("{}", ic_count - 1).as_str())
             .into_owned();
 
         let mut ic_repeat_text = String::new();
         for x in 0..ic_count {
-            let mut curr_template = ic_template.clone();
-            let current_line: &str = lines
-                .next()
-                .expect("Unexpected end of file in verification key!");
-            let current_line_split: Vec<&str> = current_line.split("=").collect();
-            assert_eq!(current_line_split.len(), 2);
-            curr_template = vk_ic_index_regex
-                .replace(curr_template.as_str(), format!("{}", x).as_str())
-                .into_owned();
-            curr_template = vk_ic_points_regex
-                .replace(curr_template.as_str(), current_line_split[1].trim())
-                .into_owned();
-            ic_repeat_text.push_str(curr_template.as_str());
+            ic_repeat_text.push_str(
+                format!(
+                    "vk.ic[{}] = Pairing.G1Point({});",
+                    x,
+                    vk_map
+                        .get(format!("vk.ic[{}]", x).as_str())
+                        .unwrap()
+                        .as_str()
+                )
+                .as_str(),
+            );
             if x < ic_count - 1 {
                 ic_repeat_text.push_str("\n        ");
             }
         }
+
         template_text = vk_ic_repeat_regex
             .replace(template_text.as_str(), ic_repeat_text.as_str())
             .into_owned();
@@ -189,7 +184,7 @@ impl ProofSystem for PGHR13 {
         )
     }
 
-    fn verify(&self, vk: String, proof: String) -> bool {
+    fn verify(&self, _vk: String, _proof: String) -> bool {
         unimplemented!()
     }
 }

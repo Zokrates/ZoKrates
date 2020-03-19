@@ -1,11 +1,13 @@
+use regex::Regex;
+
 use ir;
 use proof_system::bn128::utils::ffi::{Buffer, ProofResult, SetupResult};
 use proof_system::bn128::utils::libsnark::{prepare_generate_proof, prepare_setup};
+use proof_system::bn128::utils::parser::KeyValueParser;
 use proof_system::bn128::utils::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
 use proof_system::{ProofSystem, SetupKeypair};
-use regex::Regex;
 use zokrates_field::field::FieldPrime;
 
 pub struct GM17 {}
@@ -18,12 +20,12 @@ impl GM17 {
 
 extern "C" {
     fn gm17_setup(
-        A: *const u8,
-        B: *const u8,
-        C: *const u8,
-        A_len: i32,
-        B_len: i32,
-        C_len: i32,
+        a: *const u8,
+        b: *const u8,
+        c: *const u8,
+        a_len: i32,
+        b_len: i32,
+        c_len: i32,
         constraints: i32,
         variables: i32,
         inputs: i32,
@@ -31,8 +33,8 @@ extern "C" {
 
     fn gm17_generate_proof(
         pk_buf: *mut Buffer,
-        publquery_inputs: *const u8,
-        publquery_inputs_length: i32,
+        public_query_inputs: *const u8,
+        public_query_inputs_length: i32,
         private_inputs: *const u8,
         private_inputs_length: i32,
     ) -> ProofResult;
@@ -107,8 +109,7 @@ impl ProofSystem for GM17 {
     }
 
     fn export_solidity_verifier(&self, vk: String, abi_v2: bool) -> String {
-        let mut lines = vk.lines();
-
+        let vk_map = KeyValueParser::parse(vk);
         let (mut template_text, solidity_pairing_lib) = if abi_v2 {
             (
                 String::from(CONTRACT_TEMPLATE_V2),
@@ -121,37 +122,31 @@ impl ProofSystem for GM17 {
             )
         };
 
-        let query_template = String::from("vk.query[index] = Pairing.G1Point(points);"); //copy this for each entry
-
-        //replace things in template
+        // replace things in template
         let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
         let vk_query_len_regex = Regex::new(r#"(<%vk_query_length%>)"#).unwrap();
-        let vk_query_index_regex = Regex::new(r#"index"#).unwrap();
-        let vk_query_points_regex = Regex::new(r#"points"#).unwrap();
         let vk_query_repeat_regex = Regex::new(r#"(<%vk_query_pts%>)"#).unwrap();
         let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
 
-        for _ in 0..5 {
-            let current_line: &str = lines
-                .next()
-                .expect("Unexpected end of file in verification key!");
-            let current_line_split: Vec<&str> = current_line.split("=").collect();
-            assert_eq!(current_line_split.len(), 2);
+        let keys = vec![
+            "vk.h",
+            "vk.g_alpha",
+            "vk.h_beta",
+            "vk.g_gamma",
+            "vk.h_gamma",
+        ];
+
+        for key in keys.iter() {
             template_text = vk_regex
-                .replace(template_text.as_str(), current_line_split[1].trim())
+                .replace(template_text.as_str(), vk_map.get(*key).unwrap().as_str())
                 .into_owned();
         }
 
-        let current_line: &str = lines
-            .next()
-            .expect("Unexpected end of file in verification key!");
-        let current_line_split: Vec<&str> = current_line.split("=").collect();
-        assert_eq!(current_line_split.len(), 2);
-        let query_count: i32 = current_line_split[1].trim().parse().unwrap();
-
+        let query_count: usize = vk_map.get("vk.query.len()").unwrap().parse().unwrap();
         template_text = vk_query_len_regex
             .replace(template_text.as_str(), format!("{}", query_count).as_str())
             .into_owned();
+
         template_text = vk_input_len_regex
             .replace(
                 template_text.as_str(),
@@ -161,23 +156,22 @@ impl ProofSystem for GM17 {
 
         let mut query_repeat_text = String::new();
         for x in 0..query_count {
-            let mut curr_template = query_template.clone();
-            let current_line: &str = lines
-                .next()
-                .expect("Unexpected end of file in verification key!");
-            let current_line_split: Vec<&str> = current_line.split("=").collect();
-            assert_eq!(current_line_split.len(), 2);
-            curr_template = vk_query_index_regex
-                .replace(curr_template.as_str(), format!("{}", x).as_str())
-                .into_owned();
-            curr_template = vk_query_points_regex
-                .replace(curr_template.as_str(), current_line_split[1].trim())
-                .into_owned();
-            query_repeat_text.push_str(curr_template.as_str());
+            query_repeat_text.push_str(
+                format!(
+                    "vk.query[{}] = Pairing.G1Point({});",
+                    x,
+                    vk_map
+                        .get(format!("vk.query[{}]", x).as_str())
+                        .unwrap()
+                        .as_str()
+                )
+                .as_str(),
+            );
             if x < query_count - 1 {
                 query_repeat_text.push_str("\n        ");
             }
         }
+
         template_text = vk_query_repeat_regex
             .replace(template_text.as_str(), query_repeat_text.as_str())
             .into_owned();
@@ -191,7 +185,7 @@ impl ProofSystem for GM17 {
         )
     }
 
-    fn verify(&self, vk: String, proof: String) -> bool {
+    fn verify(&self, _vk: String, _proof: String) -> bool {
         unimplemented!()
     }
 }

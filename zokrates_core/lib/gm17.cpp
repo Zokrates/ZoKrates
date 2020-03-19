@@ -25,7 +25,7 @@ using std::endl;
 
 namespace gm17
 {
-    r1cs_se_ppzksnark_constraint_system<libff::alt_bn128_pp> createConstraintSystem(const uint8_t* A, const uint8_t* B, const uint8_t* C, int32_t A_len, int32_t B_len, int32_t C_len, int32_t constraints, int32_t variables, int32_t inputs)
+    r1cs_se_ppzksnark_constraint_system<libff::alt_bn128_pp> createConstraintSystem(const uint8_t* a, const uint8_t* b, const uint8_t* c, int32_t a_len, int32_t b_len, int32_t c_len, int32_t constraints, int32_t variables, int32_t inputs)
     {
         r1cs_se_ppzksnark_constraint_system<libff::alt_bn128_pp> cs;
         cs.primary_input_size = inputs;
@@ -41,13 +41,13 @@ namespace gm17
             uint8_t variable_value[32];
         };
 
-        const VariableValueMapping* A_vvmap = (VariableValueMapping*) A;
-        const VariableValueMapping* B_vvmap = (VariableValueMapping*) B;
-        const VariableValueMapping* C_vvmap = (VariableValueMapping*) C;
+        const VariableValueMapping* a_vvmap = (VariableValueMapping*) a;
+        const VariableValueMapping* b_vvmap = (VariableValueMapping*) b;
+        const VariableValueMapping* c_vvmap = (VariableValueMapping*) c;
 
-        int A_id = 0;
-        int B_id = 0;
-        int C_id = 0;
+        int a_id = 0;
+        int b_id = 0;
+        int c_id = 0;
 
         // initialize curve parameters
         libff::alt_bn128_pp::init_public_params();
@@ -55,26 +55,26 @@ namespace gm17
         for (int row = 0; row < constraints; row++)
         {
             linear_combination<libff::Fr<libff::alt_bn128_pp> > lin_comb_A, lin_comb_B, lin_comb_C;
-            while (A_id < A_len && A_vvmap[A_id].constraint_id == row) {
-                libff::bigint<libff::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(A_vvmap[A_id].variable_value);
+            while (a_id < a_len && a_vvmap[a_id].constraint_id == row) {
+                libff::bigint<libff::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(a_vvmap[a_id].variable_value);
                 if (!value.is_zero()) {
-                    lin_comb_A.add_term(A_vvmap[A_id].variable_id, value);
+                    lin_comb_A.add_term(a_vvmap[a_id].variable_id, value);
                 }
-                A_id++;
+                a_id++;
             }
-            while (B_id < B_len && B_vvmap[B_id].constraint_id == row) {
-                libff::bigint<libff::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(B_vvmap[B_id].variable_value);
+            while (b_id < b_len && b_vvmap[b_id].constraint_id == row) {
+                libff::bigint<libff::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(b_vvmap[b_id].variable_value);
                 if (!value.is_zero()) {
-                    lin_comb_B.add_term(B_vvmap[B_id].variable_id, value);
+                    lin_comb_B.add_term(b_vvmap[b_id].variable_id, value);
                 }
-                B_id++;
+                b_id++;
             }
-            while (C_id < C_len && C_vvmap[C_id].constraint_id == row) {
-                libff::bigint<libff::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(C_vvmap[C_id].variable_value);
+            while (c_id < c_len && c_vvmap[c_id].constraint_id == row) {
+                libff::bigint<libff::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(c_vvmap[c_id].variable_value);
                 if (!value.is_zero()) {
-                    lin_comb_C.add_term(C_vvmap[C_id].variable_id, value);
+                    lin_comb_C.add_term(c_vvmap[c_id].variable_id, value);
                 }
-                C_id++;
+                c_id++;
             }
             cs.add_constraint(r1cs_constraint<libff::Fr<libff::alt_bn128_pp> >(lin_comb_A, lin_comb_B, lin_comb_C));
         }
@@ -127,7 +127,7 @@ namespace gm17
     }
 }
 
-setup_result_t gm17_setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int32_t A_len, int32_t B_len, int32_t C_len, int32_t constraints, int32_t variables, int32_t inputs)
+setup_result_t gm17_setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int32_t a_len, int32_t b_len, int32_t c_len, int32_t constraints, int32_t variables, int32_t inputs)
 {
     libff::inhibit_profiling_info = true;
     libff::inhibit_profiling_counters = true;
@@ -135,7 +135,7 @@ setup_result_t gm17_setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, 
     // initialize curve parameters
     libff::alt_bn128_pp::init_public_params();
 
-    auto cs = gm17::createConstraintSystem(A, B, C, A_len, B_len, C_len, constraints, variables, inputs);
+    auto cs = gm17::createConstraintSystem(A, B, C, a_len, b_len, c_len, constraints, variables, inputs);
     assert(cs.num_variables() >= (unsigned)inputs);
     assert(cs.num_inputs() == (unsigned)inputs);
     assert(cs.num_constraints() == (unsigned)constraints);
@@ -175,7 +175,7 @@ proof_result_t gm17_generate_proof(buffer_t* pk_buf, const uint8_t* public_input
     ss >> proving_key;
 
     // assign variables based on witness values, excludes ~one
-    r1cs_variable_assignment<libff::Fr<libff::alt_bn128_pp> > full_variable_assignment;
+    r1cs_variable_assignment<libff::Fr<libff::alt_bn128_pp>> full_variable_assignment;
     for (int i = 1; i < public_inputs_length; i++) {
         full_variable_assignment.push_back(libff::Fr<libff::alt_bn128_pp>(libsnarkBigintFromBytes(public_inputs + i * 32)));
     }

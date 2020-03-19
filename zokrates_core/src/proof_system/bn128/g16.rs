@@ -127,30 +127,12 @@ impl ProofSystem for G16 {
         let vk_gamma_abc_repeat_regex = Regex::new(r#"(<%vk_gamma_abc_pts%>)"#).unwrap();
         let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
 
-        template_text = vk_regex
-            .replace(
-                template_text.as_str(),
-                vk_map.get("vk.alpha").unwrap().as_str(),
-            )
-            .into_owned();
-        template_text = vk_regex
-            .replace(
-                template_text.as_str(),
-                vk_map.get("vk.beta").unwrap().as_str(),
-            )
-            .into_owned();
-        template_text = vk_regex
-            .replace(
-                template_text.as_str(),
-                vk_map.get("vk.gamma").unwrap().as_str(),
-            )
-            .into_owned();
-        template_text = vk_regex
-            .replace(
-                template_text.as_str(),
-                vk_map.get("vk.delta").unwrap().as_str(),
-            )
-            .into_owned();
+        let keys = vec!["vk.alpha", "vk.beta", "vk.gamma", "vk.delta"];
+        for key in keys.iter() {
+            template_text = vk_regex
+                .replace(template_text.as_str(), vk_map.get(*key).unwrap().as_str())
+                .into_owned();
+        }
 
         let gamma_abc_count: usize = vk_map.get("vk.gamma_abc.len()").unwrap().parse().unwrap();
         template_text = vk_gamma_abc_len_regex
@@ -208,8 +190,9 @@ impl ProofSystem for G16 {
         let pvk: PreparedVerifyingKey<Bn256> = prepare_verifying_key(&vk);
         let g16_proof: G16Proof = serde_json::from_str(proof.as_str()).unwrap();
 
-        let proof_bytes = base64::decode(g16_proof.raw.as_str()).unwrap();
-        let bellman_proof: Proof<Bn256> = Proof::read(proof_bytes.as_slice()).unwrap();
+        let bellman_proof: Proof<Bn256> =
+            Proof::read(base64::decode(g16_proof.raw.as_str()).unwrap().as_slice())
+                .expect("Could not read proof");
 
         let public_inputs: Vec<Fr> = g16_proof
             .inputs
@@ -257,8 +240,8 @@ const CONTRACT_TEMPLATE_V2: &str = r#"
 contract Verifier {
     using Pairing for *;
     struct VerifyingKey {
-        Pairing.G1Point a;
-        Pairing.G2Point b;
+        Pairing.G1Point alpha;
+        Pairing.G2Point beta;
         Pairing.G2Point gamma;
         Pairing.G2Point delta;
         Pairing.G1Point[] gamma_abc;
@@ -269,8 +252,8 @@ contract Verifier {
         Pairing.G1Point c;
     }
     function verifyingKey() pure internal returns (VerifyingKey memory vk) {
-        vk.a = Pairing.G1Point(<%vk_a%>);
-        vk.b = Pairing.G2Point(<%vk_b%>);
+        vk.alpha = Pairing.G1Point(<%vk_alpha%>);
+        vk.beta = Pairing.G2Point(<%vk_beta%>);
         vk.gamma = Pairing.G2Point(<%vk_gamma%>);
         vk.delta = Pairing.G2Point(<%vk_delta%>);
         vk.gamma_abc = new Pairing.G1Point[](<%vk_gamma_abc_length%>);
@@ -291,7 +274,7 @@ contract Verifier {
              proof.a, proof.b,
              Pairing.negate(vk_x), vk.gamma,
              Pairing.negate(proof.c), vk.delta,
-             Pairing.negate(vk.a), vk.b)) return 1;
+             Pairing.negate(vk.alpha), vk.beta)) return 1;
         return 0;
     }
     event Verified(string s);
@@ -317,8 +300,8 @@ const CONTRACT_TEMPLATE: &str = r#"
 contract Verifier {
     using Pairing for *;
     struct VerifyingKey {
-        Pairing.G1Point a;
-        Pairing.G2Point b;
+        Pairing.G1Point alpha;
+        Pairing.G2Point beta;
         Pairing.G2Point gamma;
         Pairing.G2Point delta;
         Pairing.G1Point[] gamma_abc;
@@ -329,8 +312,8 @@ contract Verifier {
         Pairing.G1Point c;
     }
     function verifyingKey() pure internal returns (VerifyingKey memory vk) {
-        vk.a = Pairing.G1Point(<%vk_a%>);
-        vk.b = Pairing.G2Point(<%vk_b%>);
+        vk.alpha = Pairing.G1Point(<%vk_alpha%>);
+        vk.beta = Pairing.G2Point(<%vk_beta%>);
         vk.gamma = Pairing.G2Point(<%vk_gamma%>);
         vk.delta = Pairing.G2Point(<%vk_delta%>);
         vk.gamma_abc = new Pairing.G1Point[](<%vk_gamma_abc_length%>);
@@ -351,7 +334,7 @@ contract Verifier {
              proof.a, proof.b,
              Pairing.negate(vk_x), vk.gamma,
              Pairing.negate(proof.c), vk.delta,
-             Pairing.negate(vk.a), vk.b)) return 1;
+             Pairing.negate(vk.alpha), vk.beta)) return 1;
         return 0;
     }
     event Verified(string s);
@@ -381,9 +364,10 @@ contract Verifier {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::flat_absy::FlatVariable;
     use crate::ir::{Function, Prog, Statement};
+
+    use super::*;
 
     #[test]
     fn verify() {
