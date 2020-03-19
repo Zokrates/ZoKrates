@@ -1,20 +1,23 @@
 use crate::ir::Prog;
-use flat_absy::{FlatParameter, FlatVariable};
+use flat_absy::{FlatVariable};
 use ir::folder::Folder;
 use std::collections::HashSet;
 use zokrates_field::field::Field;
 
 #[derive(Debug)]
 pub struct UnconstrainedInputDetector {
-    parameters: Vec<FlatParameter>,
     pub(self) variables: HashSet<FlatVariable>,
 }
 
 impl UnconstrainedInputDetector {
     pub fn new<T: Field>(p: &Prog<T>) -> Self {
         UnconstrainedInputDetector {
-            parameters: p.parameters(),
-            variables: HashSet::new(),
+            variables: p
+                .parameters()
+                .iter()
+                .filter(|p| p.private)
+                .map(|p| p.id)
+                .collect(),
         }
     }
     pub fn detect<T: Field>(p: Prog<T>) -> Prog<T> {
@@ -35,14 +38,6 @@ impl UnconstrainedInputDetector {
 
 impl<T: Field> Folder<T> for UnconstrainedInputDetector {
     fn fold_argument(&mut self, p: FlatVariable) -> FlatVariable {
-        match self.parameters.get(p.id()) {
-            Some(param) => {
-                if param.private {
-                    self.variables.insert(p);
-                }
-            }
-            _ => {}
-        }
         p
     }
     fn fold_variable(&mut self, v: FlatVariable) -> FlatVariable {
