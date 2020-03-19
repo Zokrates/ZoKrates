@@ -105,7 +105,7 @@ impl ProofSystem for G16 {
             base64::encode(&raw),
         );
 
-        format!("{:#}", serde_json::to_string(&g16_proof).unwrap())
+        format!("{}", serde_json::to_string_pretty(&g16_proof).unwrap())
     }
 
     fn export_solidity_verifier(&self, vk: String, abi_v2: bool) -> String {
