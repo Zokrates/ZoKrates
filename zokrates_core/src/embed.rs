@@ -11,7 +11,7 @@ use zokrates_field::field::Field;
 
 /// A low level function that contains non-deterministic introduction of variables. It is carried out as is until
 /// the flattening step when it can be inlined.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum FlatEmbed {
     Sha256Round,
     Unpack,
@@ -58,20 +58,19 @@ impl FlatEmbed {
 // util to convert a vector of `(variable_id, coefficient)` to a flat_expression
 // we build a binary tree of additions by splitting the vector recursively
 fn flat_expression_from_vec<T: Field>(
-    v: Vec<(usize, <<T as Field>::BellmanEngine as ScalarEngine>::Fr)>,
+    v: &[(usize, <<T as Field>::BellmanEngine as ScalarEngine>::Fr)],
 ) -> FlatExpression<T> {
-    let mut v = v;
     match v.len() {
         0 => FlatExpression::Number(T::zero()),
         1 => {
-            let (key, val) = v.pop().unwrap();
+            let (key, val) = v[0].clone();
             FlatExpression::Mult(
                 box FlatExpression::Number(T::from_bellman(val)),
                 box FlatExpression::Identifier(FlatVariable::new(key)),
             )
         }
         n => {
-            let u = v.split_off(n / 2);
+            let (u, v) = v.split_at(n / 2);
             FlatExpression::Add(
                 box flat_expression_from_vec(u),
                 box flat_expression_from_vec(v),
@@ -82,9 +81,9 @@ fn flat_expression_from_vec<T: Field>(
 
 impl<T: Field> From<BellmanConstraint<T::BellmanEngine>> for FlatStatement<T> {
     fn from(c: zokrates_embed::BellmanConstraint<T::BellmanEngine>) -> FlatStatement<T> {
-        let rhs_a = flat_expression_from_vec(c.a);
-        let rhs_b = flat_expression_from_vec(c.b);
-        let lhs = flat_expression_from_vec(c.c);
+        let rhs_a = flat_expression_from_vec(&c.a);
+        let rhs_b = flat_expression_from_vec(&c.b);
+        let lhs = flat_expression_from_vec(&c.c);
 
         FlatStatement::Condition(lhs, FlatExpression::Mult(box rhs_a, box rhs_b))
     }

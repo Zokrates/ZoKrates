@@ -1,0 +1,27 @@
+def main(field[4] values) -> (field, field, field):
+    field res0 = 1
+    field res1 = 0
+
+    field counter = 0
+
+    for field i in 0..4 do
+        for field j in i..4 do
+            counter = counter + 1
+            res0 = res0 * (values[i] + values[j])
+        endfor
+    endfor
+
+    for field i in 0..counter do
+        res1 = res1 + 1
+    endfor
+
+    field res2 = 0
+    field i = 0
+    for field i in i..5 do
+        i = 5
+        for field i in 0..i do
+            res2 = res2 + 1
+        endfor
+    endfor
+
+    return res0, res1, res2

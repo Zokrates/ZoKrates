@@ -69,10 +69,10 @@ mod tests {
         );
 
         let mut modules = HashMap::new();
-        modules.insert(String::from("main"), TypedModule { functions });
+        modules.insert("main".into(), TypedModule { functions });
 
         let typed_ast: TypedProgram<FieldPrime> = TypedProgram {
-            main: String::from("main"),
+            main: "main".into(),
             modules,
         };
 

@@ -8,6 +8,7 @@ use zokrates_field::field::{Field, FieldPrime};
 #[derive(Serialize, Deserialize)]
 struct Tests {
     pub entry_point: PathBuf,
+    pub max_constraint_count: Option<usize>,
     pub tests: Vec<Test>,
 }
 
@@ -34,6 +35,10 @@ struct Output {
 
 type Val = String;
 
+fn parse_val<T: Field>(s: String) -> T {
+    T::try_from_dec_str(&s).unwrap()
+}
+
 impl From<ir::ExecutionResult<FieldPrime>> for ComparableResult {
     fn from(r: ir::ExecutionResult<FieldPrime>) -> ComparableResult {
         ComparableResult(r.map(|v| v.return_values()))
@@ -42,12 +47,7 @@ impl From<ir::ExecutionResult<FieldPrime>> for ComparableResult {
 
 impl From<TestResult> for ComparableResult {
     fn from(r: TestResult) -> ComparableResult {
-        ComparableResult(r.map(|v| {
-            v.values
-                .iter()
-                .map(|v| FieldPrime::try_from_dec_str(v).unwrap())
-                .collect()
-        }))
+        ComparableResult(r.map(|v| v.values.into_iter().map(parse_val).collect()))
     }
 }
 
@@ -69,7 +69,7 @@ fn compare(result: ir::ExecutionResult<FieldPrime>, expected: TestResult) -> Res
 
 use std::io::{BufReader, Read};
 use zokrates_core::compile::compile;
-use zokrates_fs_resolver::resolve;
+use zokrates_fs_resolver::FileSystemResolver;
 
 pub fn test_inner(test_path: &str) {
     let t: Tests =
@@ -77,28 +77,26 @@ pub fn test_inner(test_path: &str) {
 
     let code = std::fs::read_to_string(&t.entry_point).unwrap();
 
-    let artifacts = compile(
-        code,
-        t.entry_point
-            .parent()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string(),
-        Some(&resolve),
-    )
-    .unwrap();
+    let resolver = FileSystemResolver::new();
+    let artifacts = compile(code, t.entry_point.clone(), Some(&resolver)).unwrap();
 
     let bin = artifacts.prog();
 
+    match t.max_constraint_count {
+        Some(count) => assert!(
+            bin.constraint_count() <= count,
+            "Expected at the most {} constraints, found {}:\n{}",
+            count,
+            bin.constraint_count(),
+            bin
+        ),
+        _ => {}
+    };
+
     for test in t.tests.into_iter() {
         let input = &test.input.values;
-        let output = bin.execute(
-            &input
-                .iter()
-                .map(|v| FieldPrime::try_from_dec_str(&v.clone()).unwrap())
-                .collect(),
-        );
+
+        let output = bin.execute(&(input.iter().cloned().map(parse_val).collect()));
 
         match compare(output, test.output) {
             Err(e) => {

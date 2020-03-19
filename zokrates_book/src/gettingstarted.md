@@ -2,6 +2,10 @@
 
 ## Installation
 
+### Remix online IDE
+
+To write your first SNARK program, check out the ZoKrates plugin in the [Remix online IDE](https://remix.ethereum.org)!
+
 ### One-line install
 
 We provide a one-line install for Linux, MacOS and FreeBSD:
@@ -22,7 +26,7 @@ From there on, you can use the `zokrates` CLI.
 
 ### From source
 
-You can build the container yourself from [source](https://github.com/ZoKrates/ZoKrates/) with the following commands:
+You can build ZoKrates from [source](https://github.com/ZoKrates/ZoKrates/) with the following commands:
 
 ```bash
 git clone https://github.com/ZoKrates/ZoKrates
@@ -47,15 +51,15 @@ Then run the different phases of the protocol:
 
 ```bash
 # compile
-./zokrates compile -i root.zok
+zokrates compile -i root.zok
 # perform the setup phase
-./zokrates setup
+zokrates setup
 # execute the program
-./zokrates compute-witness -a 337 113569
+zokrates compute-witness -a 337 113569
 # generate a proof of computation
-./zokrates generate-proof
+zokrates generate-proof
 # export a solidity verifier
-./zokrates export-verifier
+zokrates export-verifier
 ```
 
 The CLI commands are explained in more detail in the [CLI reference](reference/cli.md).

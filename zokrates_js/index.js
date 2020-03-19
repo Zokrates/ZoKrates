@@ -14,25 +14,25 @@ const initialize = async () => {
   // load web assembly module
   const zokrates = await import('./pkg/index.js');
 
-  const resolveModule = (location, path, callback) => {
-    if (isReserved(location) || isReserved(path)) {
-        return resolveFromStandardLibrary(location, path);
+  const resolveModule = (currentLocation, importLocation, callback) => {
+    if (isReserved(currentLocation) || isReserved(importLocation)) {
+        return resolveFromStandardLibrary(currentLocation, importLocation);
     }
-    return callback(location, path);
+    return callback(currentLocation, importLocation);
   }
 
   const isReserved = (path) => RESERVED_PATHS.some(p => path.startsWith(p));
 
-  const resolveFromStandardLibrary = (location, path) => {
-    let key = appendExtension(getAbsolutePath(location, path), EXTENSION_ZOK);
+  const resolveFromStandardLibrary = (currentLocation, importLocation) => {
+    let key = appendExtension(getAbsolutePath(currentLocation, importLocation), EXTENSION_ZOK);
     let source = stdlib[key];
     return source ? { source, location: key } : null;
   }
 
   return {
     compile: (source, location, callback) => {
-        let result = zokrates.compile(source, location, (location, path) => 
-          resolveModule(location, path, callback)
+        let result = zokrates.compile(source, location, (currentLocation, importLocation) =>
+          resolveModule(currentLocation, importLocation, callback)
         );
         return {
             program: Array.from(result.program),
