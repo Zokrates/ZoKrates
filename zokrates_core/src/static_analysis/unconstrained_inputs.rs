@@ -1,5 +1,5 @@
 use crate::ir::Prog;
-use flat_absy::{FlatVariable};
+use flat_absy::FlatVariable;
 use ir::folder::Folder;
 use std::collections::HashSet;
 use zokrates_field::field::Field;
