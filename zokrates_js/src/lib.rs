@@ -157,7 +157,7 @@ pub fn compute_witness(artifacts: JsValue, args: JsValue) -> Result<JsValue, JsV
 pub fn setup(program: JsValue) -> Result<JsValue, JsValue> {
     let input: Vec<u8> = program.into_serde().unwrap();
     let program_flattened = deserialize_program(&input)?;
-    let keypair = proof_system::G16 {}.setup(program_flattened);
+    let keypair = proof_system::G16 {}.setup(program_flattened, false);
     Ok(JsValue::from_serde(&keypair).unwrap())
 }
 
@@ -178,7 +178,7 @@ pub fn generate_proof(program: JsValue, witness: JsValue, pk: JsValue) -> Result
         .map_err(|err| JsValue::from_str(&format!("Could not read witness: {}", err)))?;
 
     let proving_key: Vec<u8> = pk.into_serde().unwrap();
-    let proof = proof_system::G16 {}.generate_proof(program_flattened, ir_witness, proving_key);
+    let proof = proof_system::G16 {}.generate_proof(program_flattened, ir_witness, proving_key, false);
 
     Ok(JsValue::from_str(proof.as_str()))
 }

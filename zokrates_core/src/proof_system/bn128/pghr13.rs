@@ -40,7 +40,7 @@ extern "C" {
 }
 
 impl ProofSystem for PGHR13 {
-    fn setup(&self, program: ir::Prog<FieldPrime>) -> SetupKeypair {
+    fn setup(&self, program: ir::Prog<FieldPrime>, _dev_mode: bool) -> SetupKeypair {
         let (a_arr, b_arr, c_arr, a_vec, b_vec, c_vec, num_constraints, num_variables, num_inputs) =
             prepare_setup(program);
 
@@ -78,6 +78,7 @@ impl ProofSystem for PGHR13 {
         program: ir::Prog<FieldPrime>,
         witness: ir::Witness<FieldPrime>,
         proving_key: Vec<u8>,
+        _dev_mode: bool,
     ) -> String {
         let (public_inputs_arr, public_inputs_length, private_inputs_arr, private_inputs_length) =
             prepare_generate_proof(program, witness);
