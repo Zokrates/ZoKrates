@@ -117,9 +117,9 @@ fn cli() -> Result<(), String> {
     )
     .subcommand(SubCommand::with_name("export-verifier")
         .about("Exports a verifier as Solidity smart contract")
-        .arg(Arg::with_name("verification-key-path")
-            .short("v")
-            .long("verification-key-path")
+        .arg(Arg::with_name("input")
+            .short("i")
+            .long("input")
             .help("Path of the generated verification key file")
             .value_name("FILE")
             .takes_value(true)
@@ -560,7 +560,7 @@ fn cli() -> Result<(), String> {
                 println!("Exporting verifier...");
 
                 // read vk file
-                let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
+                let vk_path = Path::new(sub_matches.value_of("input").unwrap());
                 let vk_file = File::open(&vk_path)
                     .map_err(|why| format!("couldn't open {}: {}", vk_path.display(), why))?;
 

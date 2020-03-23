@@ -54,6 +54,12 @@ impl G16Proof {
     fn new(proof: G16ProofPoints, inputs: Vec<String>, raw: String) -> Self {
         G16Proof { proof, inputs, raw }
     }
+    fn from_json(str: &str) -> Self {
+        serde_json::from_str(str).unwrap()
+    }
+    fn to_json_pretty(&self) -> String {
+        serde_json::to_string_pretty(&self).unwrap()
+    }
 }
 
 impl ProofSystem for G16 {
@@ -88,9 +94,7 @@ impl ProofSystem for G16 {
 
         let proof = computation.clone().prove(&params);
         let mut raw: Vec<u8> = Vec::new();
-        proof
-            .write(&mut raw)
-            .expect("Could not write proof to buffer");
+        proof.write(&mut raw).unwrap();
 
         let proof_points =
             G16ProofPoints::new(parse_g1(&proof.a), parse_g2(&proof.b), parse_g1(&proof.c));
@@ -104,8 +108,7 @@ impl ProofSystem for G16 {
                 .collect::<Vec<_>>(),
             base64::encode(&raw),
         );
-
-        format!("{}", serde_json::to_string_pretty(&g16_proof).unwrap())
+        g16_proof.to_json_pretty()
     }
 
     fn export_solidity_verifier(&self, vk: String, abi_v2: bool) -> String {
@@ -184,15 +187,12 @@ impl ProofSystem for G16 {
         let vk_map = KeyValueParser::parse(vk);
         let vk_raw = base64::decode(vk_map.get("vk.raw").unwrap()).unwrap();
 
-        let vk: VerifyingKey<Bn256> =
-            VerifyingKey::read(vk_raw.as_slice()).expect("Could not read verifying key");
-
+        let vk: VerifyingKey<Bn256> = VerifyingKey::read(vk_raw.as_slice()).unwrap();
         let pvk: PreparedVerifyingKey<Bn256> = prepare_verifying_key(&vk);
-        let g16_proof: G16Proof = serde_json::from_str(proof.as_str()).unwrap();
 
+        let g16_proof = G16Proof::from_json(proof.as_str());
         let bellman_proof: Proof<Bn256> =
-            Proof::read(base64::decode(g16_proof.raw.as_str()).unwrap().as_slice())
-                .expect("Could not read proof");
+            Proof::read(base64::decode(g16_proof.raw.as_str()).unwrap().as_slice()).unwrap();
 
         let public_inputs: Vec<Fr> = g16_proof
             .inputs
