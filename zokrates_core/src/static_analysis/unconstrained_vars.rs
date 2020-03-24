@@ -6,13 +6,13 @@ use std::collections::HashSet;
 use zokrates_field::field::Field;
 
 #[derive(Debug)]
-pub struct UnconstrainedInputDetector {
+pub struct UnconstrainedVariableDetector {
     pub(self) variables: HashSet<FlatVariable>,
 }
 
-impl UnconstrainedInputDetector {
+impl UnconstrainedVariableDetector {
     pub fn new<T: Field>(p: &Prog<T>) -> Self {
-        UnconstrainedInputDetector {
+        UnconstrainedVariableDetector {
             variables: p
                 .parameters()
                 .iter()
@@ -29,7 +29,7 @@ impl UnconstrainedInputDetector {
         assert!(
             instance.variables.is_empty(),
             format!(
-                "Unconstrained private parameters are not allowed (found {} occasions)",
+                "Unconstrained variables are not allowed (found {} occasions)",
                 instance.variables.len()
             )
         );
@@ -37,7 +37,7 @@ impl UnconstrainedInputDetector {
     }
 }
 
-impl<T: Field> Folder<T> for UnconstrainedInputDetector {
+impl<T: Field> Folder<T> for UnconstrainedVariableDetector {
     fn fold_argument(&mut self, p: FlatVariable) -> FlatVariable {
         p
     }
@@ -86,11 +86,11 @@ mod tests {
             main,
         };
 
-        UnconstrainedInputDetector::detect(p);
+        UnconstrainedVariableDetector::detect(p);
     }
 
     #[test]
-    fn should_pass_with_private_input() {
+    fn should_pass_with_constrained_private_input() {
         // def main(private x) -> (1):
         //   y = x
         //   return y
@@ -110,7 +110,7 @@ mod tests {
             main,
         };
 
-        UnconstrainedInputDetector::detect(p);
+        UnconstrainedVariableDetector::detect(p);
     }
 
     #[test]
@@ -163,6 +163,6 @@ mod tests {
             main,
         };
 
-        UnconstrainedInputDetector::detect(p);
+        UnconstrainedVariableDetector::detect(p);
     }
 }

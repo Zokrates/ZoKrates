@@ -9,14 +9,14 @@ mod flat_propagation;
 mod inline;
 mod propagate_unroll;
 mod propagation;
-mod unconstrained_inputs;
+mod unconstrained_vars;
 mod unroll;
 
 use self::constrain_inputs::InputConstrainer;
 use self::inline::Inliner;
 use self::propagate_unroll::PropagatedUnroller;
 use self::propagation::Propagator;
-use self::unconstrained_inputs::UnconstrainedInputDetector;
+use self::unconstrained_vars::UnconstrainedVariableDetector;
 use crate::flat_absy::FlatProg;
 use crate::typed_absy::TypedProgram;
 use ir::Prog;
@@ -49,7 +49,7 @@ impl<T: Field> Analyse for FlatProg<T> {
 
 impl<T: Field> Analyse for Prog<T> {
     fn analyse(self) -> Self {
-        let r = UnconstrainedInputDetector::detect(self);
+        let r = UnconstrainedVariableDetector::detect(self);
         r
     }
 }
