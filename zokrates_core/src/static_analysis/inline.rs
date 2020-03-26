@@ -21,31 +21,55 @@ use typed_absy::types::{FunctionKey, StructMember, Type};
 use typed_absy::{folder::*, *};
 use zokrates_field::field::Field;
 
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+struct Location<'ast> {
+    module: TypedModuleId,
+    key: FunctionKey<'ast>,
+}
+
+impl<'ast> Location<'ast> {
+    fn module(&self) -> &TypedModuleId {
+        &self.module
+    }
+}
+
+type CallCache<'ast, T> = HashMap<
+    Location<'ast>,
+    HashMap<
+        FunctionKey<'ast>,
+        HashMap<Vec<TypedExpression<'ast, T>>, Vec<TypedExpression<'ast, T>>>,
+    >,
+>;
+
 /// An inliner
 #[derive(Debug)]
 pub struct Inliner<'ast, T: Field> {
-    modules: TypedModules<'ast, T>, // the modules in which to look for functions when inlining
-    module_id: TypedModuleId,       // the current module we're visiting
-    function_key: FunctionKey<'ast>, // the current function we're visiting
-    statement_buffer: Vec<TypedStatement<'ast, T>>, // a buffer of statements to be added to the inlined statements
-    stack: Vec<(TypedModuleId, FunctionKey<'ast>, usize)>, // the current call stack
-    call_count: HashMap<(TypedModuleId, FunctionKey<'ast>), usize>, // the call count for each function
-    call_cache: HashMap<
-        (TypedModuleId, FunctionKey<'ast>),
-        HashMap<(FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>), Vec<TypedExpression<'ast, T>>>,
-    >,
+    /// the modules in which to look for functions when inlining
+    modules: TypedModules<'ast, T>,
+    /// the current module we're visiting
+    location: Location<'ast>,
+    /// a buffer of statements to be added to the inlined statements
+    statement_buffer: Vec<TypedStatement<'ast, T>>,
+    /// the current call stack
+    stack: Vec<(TypedModuleId, FunctionKey<'ast>, usize)>,
+    /// the call count for each function
+    call_count: HashMap<(TypedModuleId, FunctionKey<'ast>), usize>,
+    /// the cache for memoization: for each function body, tracks function calls
+    call_cache: CallCache<'ast, T>,
 }
 
 impl<'ast, T: Field> Inliner<'ast, T> {
-    fn with_modules_and_module_id<S: Into<TypedModuleId>>(
+    fn with_modules_and_module_id_and_key<S: Into<TypedModuleId>>(
         modules: TypedModules<'ast, T>,
         module_id: S,
         key: FunctionKey<'ast>,
     ) -> Self {
         Inliner {
             modules,
-            module_id: module_id.into(),
-            function_key: key,
+            location: Location {
+                module: module_id.into(),
+                key,
+            },
             statement_buffer: vec![],
             stack: vec![],
             call_count: HashMap::new(),
@@ -67,8 +91,11 @@ impl<'ast, T: Field> Inliner<'ast, T> {
             .unwrap();
 
         // initialize an inliner over all modules, starting from the main module
-        let mut inliner =
-            Inliner::with_modules_and_module_id(p.modules, main_module_id, main_key.clone());
+        let mut inliner = Inliner::with_modules_and_module_id_and_key(
+            p.modules,
+            main_module_id,
+            main_key.clone(),
+        );
 
         // inline all calls in the main function, recursively
         let main = inliner.fold_function_symbol(main);
@@ -110,9 +137,9 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         expressions: Vec<TypedExpression<'ast, T>>,
     ) -> Result<Vec<TypedExpression<'ast, T>>, (FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>)>
     {
-        match self.call_cache().get(&(key.clone(), expressions.clone())) {
-            Some(exprs) => return Ok(exprs.clone()),
-            None => {}
+        match self.call_cache().get(key).map(|m| m.get(&expressions)) {
+            Some(Some(exprs)) => return Ok(exprs.clone()),
+            _ => {}
         };
 
         // here we clone a function symbol, which is cheap except when it contains the function body, in which case we'd clone anyways
@@ -120,17 +147,18 @@ impl<'ast, T: Field> Inliner<'ast, T> {
             // if the function called is in the same module, we can go ahead and inline in this module
             TypedFunctionSymbol::Here(function) => {
                 let (current_module, current_key) =
-                    self.change_context(self.module_id.clone(), key.clone());
+                    self.change_context(self.module_id().clone(), key.clone());
+
+                let module_id = self.module_id().clone();
 
                 // increase the number of calls for this function by one
                 let count = self
                     .call_count
-                    .entry((self.module_id.clone(), key.clone()))
+                    .entry((self.module_id().clone(), key.clone()))
                     .and_modify(|i| *i += 1)
                     .or_insert(1);
                 // push this call to the stack
-                self.stack
-                    .push((self.module_id.clone(), key.clone(), *count));
+                self.stack.push((module_id, key.clone(), *count));
                 // add definitions for the inputs
                 let inputs_bindings: Vec<_> = function
                     .arguments
@@ -186,7 +214,9 @@ impl<'ast, T: Field> Inliner<'ast, T> {
 
         res.map(|exprs| {
             self.call_cache_mut()
-                .insert((key.clone(), expressions), exprs.clone());
+                .entry(key.clone())
+                .or_insert_with(|| HashMap::new())
+                .insert(expressions, exprs.clone());
             exprs
         })
     }
@@ -197,33 +227,37 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         module_id: TypedModuleId,
         function_key: FunctionKey<'ast>,
     ) -> (TypedModuleId, FunctionKey<'ast>) {
-        let current_module = std::mem::replace(&mut self.module_id, module_id);
-        let current_key = std::mem::replace(&mut self.function_key, function_key);
+        let current_module = std::mem::replace(&mut self.location.module, module_id);
+        let current_key = std::mem::replace(&mut self.location.key, function_key);
         (current_module, current_key)
     }
 
     fn module(&self) -> &TypedModule<'ast, T> {
-        self.modules.get(&self.module_id).unwrap()
+        self.modules.get(self.module_id()).unwrap()
     }
 
     fn call_cache(
         &mut self,
-    ) -> &HashMap<(FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>), Vec<TypedExpression<'ast, T>>>
-    {
+    ) -> &HashMap<
+        FunctionKey<'ast>,
+        HashMap<Vec<TypedExpression<'ast, T>>, Vec<TypedExpression<'ast, T>>>,
+    > {
         self.call_cache
-            .entry((self.module_id.clone().clone(), self.function_key.clone()))
+            .entry(self.location.clone())
             .or_insert_with(|| HashMap::new())
     }
 
     fn call_cache_mut(
         &mut self,
     ) -> &mut HashMap<
-        (FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
-        Vec<TypedExpression<'ast, T>>,
+        FunctionKey<'ast>,
+        HashMap<Vec<TypedExpression<'ast, T>>, Vec<TypedExpression<'ast, T>>>,
     > {
-        self.call_cache
-            .get_mut(&(self.module_id.clone().clone(), self.function_key.clone()))
-            .unwrap()
+        self.call_cache.get_mut(&self.location).unwrap()
+    }
+
+    fn module_id(&self) -> &TypedModuleId {
+        self.location.module()
     }
 }
 
