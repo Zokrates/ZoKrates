@@ -11,7 +11,7 @@ pub struct UnconstrainedVariableDetector {
 }
 
 impl UnconstrainedVariableDetector {
-    pub fn new<T: Field>(p: &Prog<T>) -> Self {
+    fn new<T: Field>(p: &Prog<T>) -> Self {
         UnconstrainedVariableDetector {
             variables: p
                 .parameters()
@@ -63,22 +63,26 @@ mod tests {
     #[test]
     #[should_panic]
     fn should_detect_unconstrained_private_input() {
-        // def main(private x) -> (1):
-        //   return 42
+        // def main(_0) -> (1):
+        //     (1 * ~one) * (42 * ~one) == 1 * ~out_0
+        //     return ~out_0
 
-        let x = FlatVariable::new(0);
+        let _0 = FlatVariable::new(0); // unused var
+
+        let one = FlatVariable::one();
+        let out_0 = FlatVariable::public(0);
 
         let main: Function<FieldPrime> = Function {
             id: "main".to_string(),
-            arguments: vec![x],
+            arguments: vec![_0],
             statements: vec![Statement::constraint(
                 QuadComb::from_linear_combinations(
-                    LinComb::summand(1, FlatVariable::one()),
-                    LinComb::summand(42, FlatVariable::one()),
+                    LinComb::summand(1, one),
+                    LinComb::summand(42, one),
                 ),
-                LinComb::summand(1, FlatVariable::public(0)),
+                LinComb::summand(1, out_0),
             )],
-            returns: vec![FlatVariable::public(0)],
+            returns: vec![out_0],
         };
 
         let p: Prog<FieldPrime> = Prog {
@@ -91,18 +95,18 @@ mod tests {
 
     #[test]
     fn should_pass_with_constrained_private_input() {
-        // def main(private x) -> (1):
-        //   y = x
-        //   return y
+        // def main(_0) -> (1):
+        //     (1 * ~one) * (1 * _0) == 1 * ~out_0
+        //     return ~out_0
 
-        let x = FlatVariable::new(0);
-        let y = FlatVariable::new(1);
+        let _0 = FlatVariable::new(0);
+        let out_0 = FlatVariable::public(0);
 
         let main: Function<FieldPrime> = Function {
             id: "main".to_string(),
-            arguments: vec![x],
-            statements: vec![Statement::definition(y, LinComb::from(x))],
-            returns: vec![y],
+            arguments: vec![_0],
+            statements: vec![Statement::definition(out_0, LinComb::from(_0))],
+            returns: vec![out_0],
         };
 
         let p: Prog<FieldPrime> = Prog {
@@ -115,27 +119,32 @@ mod tests {
 
     #[test]
     fn should_pass_with_directive() {
-        // def main(private x) -> (1):
-        //   return if x == 42 then 1 else 0 fi
+        // def main(_0) -> (1):
+        //     # _1, _2 = ConditionEq((-42) * ~one + 1 * _0)
+        //     ((-42) * ~one + 1 * _0) * (1 * _2) == 1 * _1
+        //     (1 * ~one + (-1) * _1) * ((-42) * ~one + 1 * _0) == 0
+        //     (1 * ~one) * (1 * ~one + (-1) * _1) == 1 * ~out_0
+        //     return ~out_0
 
-        let x = FlatVariable::new(0);
+        let _0 = FlatVariable::new(0);
         let _1 = FlatVariable::new(1);
         let _2 = FlatVariable::new(2);
+
         let out_0 = FlatVariable::public(0);
         let one = FlatVariable::one();
 
         let main: Function<FieldPrime> = Function {
             id: "main".to_string(),
-            arguments: vec![x],
+            arguments: vec![_0],
             statements: vec![
                 Statement::Directive(Directive {
-                    inputs: vec![LinComb::summand(-42, one) + LinComb::summand(1, x)],
+                    inputs: vec![LinComb::summand(-42, one) + LinComb::summand(1, _0)],
                     outputs: vec![_1, _2],
                     solver: Solver::ConditionEq,
                 }),
                 Statement::constraint(
                     QuadComb::from_linear_combinations(
-                        LinComb::summand(-42, one) + LinComb::summand(1, x),
+                        LinComb::summand(-42, one) + LinComb::summand(1, _0),
                         LinComb::summand(1, _2),
                     ),
                     LinComb::summand(1, _1),
@@ -143,7 +152,7 @@ mod tests {
                 Statement::constraint(
                     QuadComb::from_linear_combinations(
                         LinComb::summand(1, one) + LinComb::summand(-1, _1),
-                        LinComb::summand(-42, one) + LinComb::summand(1, x),
+                        LinComb::summand(-42, one) + LinComb::summand(1, _0),
                     ),
                     LinComb::zero(),
                 ),
