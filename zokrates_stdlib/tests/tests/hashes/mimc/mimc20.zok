@@ -1,0 +1,4 @@
+import "hashes/mimc/mimc20"
+
+def main(field a, field b) -> (field):
+	return mimc20(a, b)
