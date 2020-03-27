@@ -3,7 +3,7 @@ use regex::Regex;
 use ir;
 use proof_system::bn128::utils::ffi::{Buffer, ProofResult, SetupResult};
 use proof_system::bn128::utils::libsnark::{prepare_generate_proof, prepare_setup};
-use proof_system::bn128::utils::parser::KeyValueParser;
+use proof_system::bn128::utils::parser::parse_vk;
 use proof_system::bn128::utils::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
@@ -41,7 +41,7 @@ extern "C" {
 }
 
 impl ProofSystem for GM17 {
-    fn setup(&self, program: ir::Prog<FieldPrime>, _dev_mode: bool) -> SetupKeypair {
+    fn setup(&self, program: ir::Prog<FieldPrime>, _include_raw: bool) -> SetupKeypair {
         let (a_arr, b_arr, c_arr, a_vec, b_vec, c_vec, num_constraints, num_variables, num_inputs) =
             prepare_setup(program);
 
@@ -79,7 +79,7 @@ impl ProofSystem for GM17 {
         program: ir::Prog<FieldPrime>,
         witness: ir::Witness<FieldPrime>,
         proving_key: Vec<u8>,
-        _dev_mode: bool,
+        _include_raw: bool,
     ) -> String {
         let (public_inputs_arr, public_inputs_length, private_inputs_arr, private_inputs_length) =
             prepare_generate_proof(program, witness);
@@ -110,7 +110,7 @@ impl ProofSystem for GM17 {
     }
 
     fn export_solidity_verifier(&self, vk: String, abi_v2: bool) -> String {
-        let vk_map = KeyValueParser::parse(vk);
+        let vk_map = parse_vk(vk);
         let (mut template_text, solidity_pairing_lib) = if abi_v2 {
             (
                 String::from(CONTRACT_TEMPLATE_V2),

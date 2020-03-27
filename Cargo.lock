@@ -81,12 +81,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "base64"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b41b7ea54a0c9d92199de89e20e58d49f02f8e699814ef3fdf266f6f748d15c7"
-
-[[package]]
 name = "bellman_ce"
 version = "0.3.1"
 source = "git+https://github.com/matter-labs/bellman?rev=9e35737#9e35737209d4afc2e69af1e0d7cbe6d02e32aecf"
@@ -487,7 +481,7 @@ checksum = "18af1ea1b80a4b474fae13af4c58cf0a5a2bc33832d5fa70f68a4b286178fdb5"
 dependencies = [
  "byteorder",
  "ff_derive_ce",
- "hex",
+ "hex 0.3.2",
  "rand 0.4.6",
 ]
 
@@ -604,6 +598,12 @@ name = "hex"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "805026a5d0141ffc30abb3be3173848ad46a1b1664fe632428479619a3644d77"
+
+[[package]]
+name = "hex"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "644f9158b2f133fd50f5fb3242878846d9eb792e445c893805ff0e3824006e35"
 
 [[package]]
 name = "idna"
@@ -1664,7 +1664,6 @@ name = "zokrates_core"
 version = "0.4.2"
 dependencies = [
  "assert_cli",
- "base64",
  "bellman_ce 0.3.1 (git+https://github.com/matter-labs/bellman?rev=9e35737)",
  "bincode",
  "cc",
@@ -1673,6 +1672,7 @@ dependencies = [
  "ff_ce",
  "git2",
  "glob 0.2.11",
+ "hex 0.4.2",
  "lazy_static",
  "num",
  "num-bigint 0.1.44",

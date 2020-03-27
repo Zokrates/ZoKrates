@@ -1,5 +1,3 @@
-extern crate base64;
-
 use bellman::groth16::*;
 use bellman::pairing::bn256::{Bn256, Fr};
 use regex::Regex;
@@ -11,7 +9,7 @@ use crate::proof_system::bn128::utils::bellman::Computation;
 use crate::proof_system::bn128::utils::bellman::{
     parse_fr, parse_g1, parse_g1_hex, parse_g2, parse_g2_hex,
 };
-use crate::proof_system::bn128::utils::parser::KeyValueParser;
+use crate::proof_system::bn128::utils::parser::parse_vk;
 use crate::proof_system::bn128::utils::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
@@ -64,7 +62,7 @@ impl G16Proof {
 }
 
 impl ProofSystem for G16 {
-    fn setup(&self, program: ir::Prog<FieldPrime>, dev_mode: bool) -> SetupKeypair {
+    fn setup(&self, program: ir::Prog<FieldPrime>, include_raw: bool) -> SetupKeypair {
         #[cfg(not(target_arch = "wasm32"))]
         std::env::set_var("BELLMAN_VERBOSE", "0");
         println!("{}", G16_WARNING);
@@ -76,7 +74,7 @@ impl ProofSystem for G16 {
             .write(&mut pk)
             .expect("Could not write proving key to buffer");
 
-        SetupKeypair::from(serialize_vk(parameters.vk, dev_mode), pk)
+        SetupKeypair::from(serialize_vk(parameters.vk, include_raw), pk)
     }
 
     fn generate_proof(
@@ -84,7 +82,7 @@ impl ProofSystem for G16 {
         program: ir::Prog<FieldPrime>,
         witness: ir::Witness<FieldPrime>,
         proving_key: Vec<u8>,
-        dev_mode: bool,
+        include_raw: bool,
     ) -> String {
         #[cfg(not(target_arch = "wasm32"))]
         std::env::set_var("BELLMAN_VERBOSE", "0");
@@ -104,18 +102,18 @@ impl ProofSystem for G16 {
             .map(parse_fr)
             .collect::<Vec<_>>();
 
-        if dev_mode {
+        if include_raw {
             let mut raw: Vec<u8> = Vec::new();
             proof.write(&mut raw).unwrap();
 
-            G16Proof::new(proof_points, inputs, Some(base64::encode(&raw))).to_json_pretty()
+            G16Proof::new(proof_points, inputs, Some(hex::encode(&raw))).to_json_pretty()
         } else {
             G16Proof::new(proof_points, inputs, None).to_json_pretty()
         }
     }
 
     fn export_solidity_verifier(&self, vk: String, abi_v2: bool) -> String {
-        let vk_map = KeyValueParser::parse(vk);
+        let vk_map = parse_vk(vk);
         let (mut template_text, solidity_pairing_lib) = if abi_v2 {
             (
                 String::from(CONTRACT_TEMPLATE_V2),
@@ -187,14 +185,14 @@ impl ProofSystem for G16 {
     }
 
     fn verify(&self, vk: String, proof: String) -> bool {
-        let vk_map = KeyValueParser::parse(vk);
+        let vk_map = parse_vk(vk);
         let vk_raw = vk_map.get("vk.raw");
         assert!(
             vk_raw.is_some(),
-            "Missing \"vk.raw\" key;  pass \"--dev\" flag when running setup"
+            "Missing \"vk.raw\" key;  pass \"--raw\" flag when running setup"
         );
 
-        let vk_raw = base64::decode(vk_raw.unwrap()).unwrap();
+        let vk_raw = hex::decode(vk_raw.unwrap()).unwrap();
 
         let vk: VerifyingKey<Bn256> = VerifyingKey::read(vk_raw.as_slice()).unwrap();
         let pvk: PreparedVerifyingKey<Bn256> = prepare_verifying_key(&vk);
@@ -202,11 +200,11 @@ impl ProofSystem for G16 {
         let g16_proof = G16Proof::from_json(proof.as_str());
         assert!(
             g16_proof.raw.is_some(),
-            "Missing \"raw\" field in proof; pass \"--dev\" flag when generating proof"
+            "Missing \"raw\" field in proof; pass \"--raw\" flag when generating proof"
         );
 
-        let vec_proof = base64::decode(g16_proof.raw.unwrap().as_str()).unwrap();
-        let bellman_proof: Proof<Bn256> = Proof::read(vec_proof.as_slice()).unwrap();
+        let raw_proof = hex::decode(g16_proof.raw.unwrap()).unwrap();
+        let bellman_proof: Proof<Bn256> = Proof::read(raw_proof.as_slice()).unwrap();
 
         let public_inputs: Vec<Fr> = g16_proof
             .inputs
@@ -222,35 +220,47 @@ impl ProofSystem for G16 {
     }
 }
 
-fn serialize_vk(vk: VerifyingKey<Bn256>, dev_mode: bool) -> String {
-    let mut svk = format!(
-        "vk.alpha = {}
-vk.beta = {}
-vk.gamma = {}
-vk.delta = {}
-vk.gamma_abc.len() = {}
-{}",
-        parse_g1_hex(&vk.alpha_g1),
-        parse_g2_hex(&vk.beta_g2),
-        parse_g2_hex(&vk.gamma_g2),
-        parse_g2_hex(&vk.delta_g2),
-        vk.ic.len(),
-        vk.ic
-            .iter()
-            .enumerate()
-            .map(|(i, x)| format!("vk.gamma_abc[{}] = {}", i, parse_g1_hex(x)))
-            .collect::<Vec<_>>()
-            .join("\n")
-    );
+fn serialize_vk(vk: VerifyingKey<Bn256>, include_raw: bool) -> String {
+    let mut writer = csv::WriterBuilder::new()
+        .delimiter(b'=')
+        .from_writer(vec![]);
 
-    if dev_mode {
+    writer
+        .write_record(vec!["vk.alpha", parse_g1_hex(&vk.alpha_g1).as_str()])
+        .unwrap();
+    writer
+        .write_record(vec!["vk.beta", parse_g2_hex(&vk.beta_g2).as_str()])
+        .unwrap();
+    writer
+        .write_record(vec!["vk.gamma", parse_g2_hex(&vk.gamma_g2).as_str()])
+        .unwrap();
+    writer
+        .write_record(vec!["vk.delta", parse_g2_hex(&vk.delta_g2).as_str()])
+        .unwrap();
+    writer
+        .write_record(vec!["vk.gamma_abc.len()", vk.ic.len().to_string().as_str()])
+        .unwrap();
+
+    let mut e = vk.ic.iter().enumerate();
+    while let Some((i, x)) = e.next() {
+        writer
+            .write_record(vec![
+                format!("vk.gamma_abc[{}]", i).as_str(),
+                parse_g1_hex(x).as_str(),
+            ])
+            .unwrap()
+    }
+
+    if include_raw {
         let mut raw: Vec<u8> = Vec::new();
         vk.write(&mut raw).unwrap();
-        svk.push_str(format!("\nvk.raw = {}", base64::encode(&raw)).as_str());
-        svk
-    } else {
-        svk
+
+        writer
+            .write_record(vec!["vk.raw", hex::encode(&raw).as_str()])
+            .unwrap();
     }
+
+    String::from_utf8(writer.into_inner().unwrap()).unwrap()
 }
 
 const CONTRACT_TEMPLATE_V2: &str = r#"
@@ -403,6 +413,7 @@ mod tests {
 
         let g16 = G16 {};
         let keypair = g16.setup(program.clone(), true);
+
         let witness = program
             .clone()
             .execute(&vec![FieldPrime::from(42)])

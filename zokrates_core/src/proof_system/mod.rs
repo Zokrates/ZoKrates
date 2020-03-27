@@ -25,14 +25,14 @@ impl SetupKeypair {
 }
 
 pub trait ProofSystem {
-    fn setup(&self, program: ir::Prog<FieldPrime>, dev_mode: bool) -> SetupKeypair;
+    fn setup(&self, program: ir::Prog<FieldPrime>, include_raw: bool) -> SetupKeypair;
 
     fn generate_proof(
         &self,
         program: ir::Prog<FieldPrime>,
         witness: ir::Witness<FieldPrime>,
         proving_key: Vec<u8>,
-        dev_mode: bool,
+        include_raw: bool,
     ) -> String;
 
     fn export_solidity_verifier(&self, vk: String, abi_v2: bool) -> String;
