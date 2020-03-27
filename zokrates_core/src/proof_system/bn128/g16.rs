@@ -226,25 +226,25 @@ fn serialize_vk(vk: VerifyingKey<Bn256>, include_raw: bool) -> String {
         .from_writer(vec![]);
 
     writer
-        .write_record(vec!["vk.alpha", parse_g1_hex(&vk.alpha_g1).as_str()])
+        .write_record(&["vk.alpha", parse_g1_hex(&vk.alpha_g1).as_str()])
         .unwrap();
     writer
-        .write_record(vec!["vk.beta", parse_g2_hex(&vk.beta_g2).as_str()])
+        .write_record(&["vk.beta", parse_g2_hex(&vk.beta_g2).as_str()])
         .unwrap();
     writer
-        .write_record(vec!["vk.gamma", parse_g2_hex(&vk.gamma_g2).as_str()])
+        .write_record(&["vk.gamma", parse_g2_hex(&vk.gamma_g2).as_str()])
         .unwrap();
     writer
-        .write_record(vec!["vk.delta", parse_g2_hex(&vk.delta_g2).as_str()])
+        .write_record(&["vk.delta", parse_g2_hex(&vk.delta_g2).as_str()])
         .unwrap();
     writer
-        .write_record(vec!["vk.gamma_abc.len()", vk.ic.len().to_string().as_str()])
+        .write_record(&["vk.gamma_abc.len()", vk.ic.len().to_string().as_str()])
         .unwrap();
 
     let mut e = vk.ic.iter().enumerate();
     while let Some((i, x)) = e.next() {
         writer
-            .write_record(vec![
+            .write_record(&[
                 format!("vk.gamma_abc[{}]", i).as_str(),
                 parse_g1_hex(x).as_str(),
             ])
@@ -256,7 +256,7 @@ fn serialize_vk(vk: VerifyingKey<Bn256>, include_raw: bool) -> String {
         vk.write(&mut raw).unwrap();
 
         writer
-            .write_record(vec!["vk.raw", hex::encode(&raw).as_str()])
+            .write_record(&["vk.raw", hex::encode(&raw).as_str()])
             .unwrap();
     }
 
