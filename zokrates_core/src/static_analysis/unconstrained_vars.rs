@@ -1,6 +1,6 @@
 use crate::ir::Prog;
 use flat_absy::FlatVariable;
-use ir::folder::{fold_directive, Folder};
+use ir::folder::Folder;
 use ir::Directive;
 use std::collections::HashSet;
 use zokrates_field::field::Field;
@@ -47,7 +47,7 @@ impl<T: Field> Folder<T> for UnconstrainedVariableDetector {
     }
     fn fold_directive(&mut self, d: Directive<T>) -> Directive<T> {
         self.variables.extend(d.outputs.iter());
-        fold_directive(self, d)
+        d
     }
 }
 
