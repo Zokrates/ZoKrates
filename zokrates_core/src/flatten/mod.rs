@@ -592,7 +592,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     // add a directive to get the bits
                     statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
                         lhs_bits_be.clone(),
-                        Solver::bits(),
+                        Solver::bits(bitwidth),
                         vec![lhs_id],
                     )));
 
@@ -639,7 +639,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     // add a directive to get the bits
                     statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
                         rhs_bits_be.clone(),
-                        Solver::bits(),
+                        Solver::bits(bitwidth),
                         vec![rhs_id],
                     )));
 
@@ -692,7 +692,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 // add a directive to get the bits
                 statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
                     sub_bits_be.clone(),
-                    Solver::bits(),
+                    Solver::bits(bitwidth),
                     vec![subtraction_result.clone()],
                 )));
 

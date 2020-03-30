@@ -221,11 +221,11 @@ pub fn unpack<T: Field>() -> FlatFunction<T> {
         format!("i0"),
         &mut counter,
     ))];
-    let directive_outputs: Vec<FlatVariable> = (0..T::get_required_bits())
+    let directive_outputs: Vec<FlatVariable> = (0..nbits)
         .map(|index| use_variable(&mut layout, format!("o{}", index), &mut counter))
         .collect();
 
-    let solver = Solver::bits();
+    let solver = Solver::bits(nbits);
 
     let outputs = directive_outputs
         .iter()
@@ -237,7 +237,7 @@ pub fn unpack<T: Field>() -> FlatFunction<T> {
     // o253, o252, ... o{253 - (nbits - 1)} are bits
     let mut statements: Vec<FlatStatement<T>> = (0..nbits)
         .map(|index| {
-            let bit = FlatExpression::Identifier(FlatVariable::new(T::get_required_bits() - index));
+            let bit = FlatExpression::Identifier(FlatVariable::new(nbits - index));
             FlatStatement::Condition(
                 bit.clone(),
                 FlatExpression::Mult(box bit.clone(), box bit.clone()),
@@ -252,7 +252,7 @@ pub fn unpack<T: Field>() -> FlatFunction<T> {
         lhs_sum = FlatExpression::Add(
             box lhs_sum,
             box FlatExpression::Mult(
-                box FlatExpression::Identifier(FlatVariable::new(T::get_required_bits() - i)),
+                box FlatExpression::Identifier(FlatVariable::new(nbits - i)),
                 box FlatExpression::Number(T::from(2).pow(i)),
             ),
         );
@@ -312,7 +312,7 @@ mod tests {
                     (0..FieldPrime::get_required_bits())
                         .map(|i| FlatVariable::new(i + 1))
                         .collect(),
-                    Solver::bits(),
+                    Solver::bits(FieldPrime::get_required_bits()),
                     vec![FlatVariable::new(0)]
                 ))
             );
