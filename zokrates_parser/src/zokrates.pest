@@ -1,7 +1,3 @@
-/**
-* ZoKrates Grammar
-* Author: Jacob Eberhardt, Thibaut Schaeffer
-*/
 
 file = { SOI ~ NEWLINE* ~ import_directive* ~ NEWLINE* ~ ty_struct_definition* ~ NEWLINE* ~ function_definition* ~ EOI }
 

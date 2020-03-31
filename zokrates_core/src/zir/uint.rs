@@ -97,7 +97,6 @@ pub enum UExpressionInner<'ast, T: Field> {
         Box<UExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
-    FunctionCall(FunctionKey<'ast>, Vec<ZirExpression<'ast, T>>),
     Not(Box<UExpression<'ast, T>>),
     IfElse(
         Box<BooleanExpression<'ast, T>>,

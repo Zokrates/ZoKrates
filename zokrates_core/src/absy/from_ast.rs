@@ -5,7 +5,6 @@ use zokrates_pest_ast as pest;
 
 impl<'ast, T: Field> From<pest::File<'ast>> for absy::Module<'ast, T> {
     fn from(prog: pest::File<'ast>) -> absy::Module<T> {
-        println!("{:#?}", prog);
         absy::Module::with_symbols(
             prog.structs
                 .into_iter()

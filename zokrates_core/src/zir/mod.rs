@@ -376,7 +376,6 @@ pub enum FieldElementExpression<'ast, T: Field> {
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
     ),
-    FunctionCall(FunctionKey<'ast>, Vec<ZirExpression<'ast, T>>),
 }
 
 /// An expression of type `bool`
@@ -477,16 +476,6 @@ impl<'ast, T: Field> fmt::Display for FieldElementExpression<'ast, T> {
                     condition, consequent, alternative
                 )
             }
-            FieldElementExpression::FunctionCall(ref k, ref p) => {
-                write!(f, "{}(", k.id,)?;
-                for (i, param) in p.iter().enumerate() {
-                    write!(f, "{}", param)?;
-                    if i < p.len() - 1 {
-                        write!(f, ", ")?;
-                    }
-                }
-                write!(f, ")")
-            }
         }
     }
 }
@@ -510,16 +499,6 @@ impl<'ast, T: Field> fmt::Display for UExpression<'ast, T> {
                 "if {} then {} else {} fi",
                 condition, consequent, alternative
             ),
-            UExpressionInner::FunctionCall(ref k, ref p) => {
-                write!(f, "{}(", k.id,)?;
-                for (i, param) in p.iter().enumerate() {
-                    write!(f, "{}", param)?;
-                    if i < p.len() - 1 {
-                        write!(f, ", ")?;
-                    }
-                }
-                write!(f, ")")
-            }
         }
     }
 }
@@ -571,11 +550,6 @@ impl<'ast, T: Field> fmt::Debug for FieldElementExpression<'ast, T> {
                     "IfElse({:?}, {:?}, {:?})",
                     condition, consequent, alternative
                 )
-            }
-            FieldElementExpression::FunctionCall(ref i, ref p) => {
-                write!(f, "FunctionCall({:?}, (", i)?;
-                f.debug_list().entries(p.iter()).finish()?;
-                write!(f, ")")
             }
         }
     }

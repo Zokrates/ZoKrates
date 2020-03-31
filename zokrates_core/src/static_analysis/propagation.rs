@@ -453,6 +453,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     (a, i) => UExpressionInner::Select(box a.annotate(inner_type, size), box i),
                 }
             }
+            //UintExpressionInner::FunctionCall(key, arguments) => unreachable!("Function call outside of multidef"),
             e => fold_uint_expression_inner(self, bitwidth, e),
         }
     }
@@ -608,6 +609,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     inner => FieldElementExpression::Member(box inner.annotate(members), m),
                 }
             }
+            FieldElementExpression::FunctionCall(key, arguments) => {
+                unreachable!("Function call outside of multidef")
+            }
             e => fold_field_expression(self, e),
         }
     }
@@ -710,7 +714,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     inner => ArrayExpressionInner::Member(box inner.annotate(members), m),
                 }
             }
-            ArrayExpressionInner::FunctionCall(key, arguments) => unimplemented!(),
+            ArrayExpressionInner::FunctionCall(key, arguments) => {
+                unreachable!("Function call outside of multidef")
+            }
             e => fold_array_expression_inner(self, ty, size, e),
         }
     }
@@ -812,6 +818,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     }
                     inner => StructExpressionInner::Member(box inner.annotate(members), m),
                 }
+            }
+            StructExpressionInner::FunctionCall(key, arguments) => {
+                unreachable!("Function call outside of multidef")
             }
             e => fold_struct_expression_inner(self, ty, e),
         }
@@ -1016,6 +1025,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     }
                     inner => BooleanExpression::Member(box inner.annotate(members), m),
                 }
+            }
+            BooleanExpression::FunctionCall(key, arguments) => {
+                unreachable!("Function call outside of multidef")
             }
             e => fold_boolean_expression(self, e),
         }

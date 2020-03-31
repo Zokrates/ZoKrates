@@ -36,6 +36,8 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         // inline
         let r = Inliner::inline(r);
 
+        println!("{}", r);
+
         // propagate
         let r = Propagator::propagate(r);
 

@@ -17,7 +17,7 @@
 //! where any call in `main` must be to `_SHA_256_ROUND` or `_UNPACK`
 
 use std::collections::HashMap;
-use typed_absy::types::{FunctionKey, StructMember, Type};
+use typed_absy::types::{ArrayType, FunctionKey, StructMember, Type};
 use typed_absy::{folder::*, *};
 use zokrates_field::field::Field;
 
@@ -186,7 +186,15 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                 Ok(res)
             }
             // if the function is a flat symbol, replace the call with a call to the local function we provide so it can be inlined in flattening
-            TypedFunctionSymbol::Flat(embed) => Err((embed.key::<T>(), expressions)),
+            TypedFunctionSymbol::Flat(embed) => {
+                // increase the number of calls for this function by one
+                let count = self
+                    .call_count
+                    .entry((self.module_id.clone(), embed.key::<T>().clone()))
+                    .and_modify(|i| *i += 1)
+                    .or_insert(1);
+                Err((embed.key::<T>(), expressions))
+            }
         }
     }
 
@@ -255,7 +263,21 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         _ => unreachable!(),
                     },
                     Err((key, expressions)) => {
-                        FieldElementExpression::FunctionCall(key, expressions)
+                        let tys = key.signature.outputs.clone();
+                        let id = Identifier {
+                            id: CoreIdentifier::Call(key.clone()),
+                            version: *self
+                                .call_count
+                                .get(&(self.module_id.clone(), key.clone()))
+                                .unwrap(),
+                            stack: self.stack.clone(),
+                        };
+                        self.statement_buffer
+                            .push(TypedStatement::MultipleDefinition(
+                                vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
+                                TypedExpressionList::FunctionCall(key, expressions, tys),
+                            ));
+                        FieldElementExpression::Identifier(id)
                     }
                 }
             }
@@ -277,7 +299,23 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         TypedExpression::Boolean(e) => e,
                         _ => unreachable!(),
                     },
-                    Err((key, expressions)) => BooleanExpression::FunctionCall(key, expressions),
+                    Err((key, expressions)) => {
+                        let tys = key.signature.outputs.clone();
+                        let id = Identifier {
+                            id: CoreIdentifier::Call(key.clone()),
+                            version: *self
+                                .call_count
+                                .get(&(self.module_id.clone(), key.clone()))
+                                .unwrap(),
+                            stack: self.stack.clone(),
+                        };
+                        self.statement_buffer
+                            .push(TypedStatement::MultipleDefinition(
+                                vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
+                                TypedExpressionList::FunctionCall(key, expressions, tys),
+                            ));
+                        BooleanExpression::Identifier(id)
+                    }
                 }
             }
             e => fold_boolean_expression(self, e),
@@ -300,7 +338,23 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         TypedExpression::Array(e) => e.into_inner(),
                         _ => unreachable!(),
                     },
-                    Err((key, expressions)) => ArrayExpressionInner::FunctionCall(key, expressions),
+                    Err((key, expressions)) => {
+                        let tys = key.signature.outputs.clone();
+                        let id = Identifier {
+                            id: CoreIdentifier::Call(key.clone()),
+                            version: *self
+                                .call_count
+                                .get(&(self.module_id.clone(), key.clone()))
+                                .unwrap(),
+                            stack: self.stack.clone(),
+                        };
+                        self.statement_buffer
+                            .push(TypedStatement::MultipleDefinition(
+                                vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
+                                TypedExpressionList::FunctionCall(key, expressions, tys),
+                            ));
+                        ArrayExpressionInner::Identifier(id)
+                    }
                 }
             }
             // default
@@ -323,7 +377,21 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         _ => unreachable!(),
                     },
                     Err((key, expressions)) => {
-                        StructExpressionInner::FunctionCall(key, expressions)
+                        let tys = key.signature.outputs.clone();
+                        let id = Identifier {
+                            id: CoreIdentifier::Call(key.clone()),
+                            version: *self
+                                .call_count
+                                .get(&(self.module_id.clone(), key.clone()))
+                                .unwrap(),
+                            stack: self.stack.clone(),
+                        };
+                        self.statement_buffer
+                            .push(TypedStatement::MultipleDefinition(
+                                vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
+                                TypedExpressionList::FunctionCall(key, expressions, tys),
+                            ));
+                        StructExpressionInner::Identifier(id)
                     }
                 }
             }

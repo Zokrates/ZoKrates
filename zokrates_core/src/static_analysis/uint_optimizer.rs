@@ -462,24 +462,6 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     ),
                 })
             }
-            FunctionCall(key, arguments) => {
-                if key.signature == FlatEmbed::U32FromBits.signature::<T>().into() {
-                    FunctionCall(
-                        key,
-                        arguments
-                            .into_iter()
-                            .map(|a| self.fold_expression(a))
-                            .collect(),
-                    )
-                    .annotate(32)
-                    .metadata(UMetadata {
-                        bitwidth: Some(32),
-                        should_reduce: Some(false),
-                    })
-                } else {
-                    unreachable!("oi")
-                }
-            }
             e => fold_uint_expression_inner(self, range, e).annotate(range),
         };
 
@@ -521,20 +503,20 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 ZirExpressionList::FunctionCall(key, arguments, ty) => match key.clone().id {
                     "_U32_FROM_BITS" => {
                         assert_eq!(lhs.len(), 1);
-                        let expr = UExpressionInner::FunctionCall(
-                            key.clone(),
-                            arguments
-                                .clone()
-                                .into_iter()
-                                .map(|a| self.fold_expression(a))
-                                .collect(),
-                        )
-                        .annotate(32)
-                        .metadata(UMetadata {
-                            bitwidth: Some(32),
-                            should_reduce: Some(true),
-                        });
-                        self.register(lhs[0].clone(), ZirExpression::Uint(expr));
+                        // let expr = UExpressionInner::FunctionCall(
+                        //     key.clone(),
+                        //     arguments
+                        //         .clone()
+                        //         .into_iter()
+                        //         .map(|a| self.fold_expression(a))
+                        //         .collect(),
+                        // )
+                        // .annotate(32)
+                        // .metadata(UMetadata {
+                        //     bitwidth: Some(32),
+                        //     should_reduce: Some(true),
+                        // });
+                        // self.register(lhs[0].clone(), ZirExpression::Uint(expr));
                         vec![ZirStatement::MultipleDefinition(
                             lhs,
                             ZirExpressionList::FunctionCall(key, arguments, ty),

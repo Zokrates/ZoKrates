@@ -964,17 +964,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             //     )[0]
             // .clone()
             ,
-            UExpressionInner::FunctionCall(key, param_expressions) => {
-                let exprs_flattened = self.flatten_function_call(
-                    symbols,
-                    statements_flattened,
-                    key.id,
-                    vec![Type::Uint(target_bitwidth)],
-                    param_expressions,
-                );
-                assert!(exprs_flattened.len() == 1); // outside of MultipleDefinition, FunctionCalls must return a single value
-                exprs_flattened[0].clone()
-            }
             UExpressionInner::Xor(box left, box right) => {
                 let left_from = left.metadata.clone().unwrap().bitwidth.unwrap();
                 let right_from = right.metadata.clone().unwrap().bitwidth.unwrap();
@@ -1431,17 +1420,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     alternative,
                 )[0]
             .clone(),
-            FieldElementExpression::FunctionCall(key, param_expressions) => {
-                let exprs_flattened = self.flatten_function_call(
-                    symbols,
-                    statements_flattened,
-                    key.id,
-                    vec![Type::FieldElement],
-                    param_expressions,
-                );
-                assert!(exprs_flattened.len() == 1); // outside of MultipleDefinition, FunctionCalls must return a single value
-                exprs_flattened[0].clone().get_field_unchecked()
-            }
         }
     }
 
