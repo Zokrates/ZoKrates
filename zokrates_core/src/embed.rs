@@ -203,7 +203,7 @@ fn use_variable(
 /// * the return value of the `FlatFunction` is not deterministic: as we decompose over log_2(p) + 1 bits, some
 ///   elements can have multiple representations: For example, `unpack(0)` is `[0, ..., 0]` but also `unpack(p)`
 pub fn unpack<T: Field>() -> FlatFunction<T> {
-    let nbits = T::get_required_bits();
+    let bit_width = T::get_required_bits();
 
     let mut counter = 0;
 
@@ -221,23 +221,23 @@ pub fn unpack<T: Field>() -> FlatFunction<T> {
         format!("i0"),
         &mut counter,
     ))];
-    let directive_outputs: Vec<FlatVariable> = (0..nbits)
+    let directive_outputs: Vec<FlatVariable> = (0..bit_width)
         .map(|index| use_variable(&mut layout, format!("o{}", index), &mut counter))
         .collect();
 
-    let solver = Solver::bits(nbits);
+    let solver = Solver::bits(bit_width);
 
     let outputs = directive_outputs
         .iter()
         .enumerate()
-        .filter(|(index, _)| *index >= T::get_required_bits() - nbits)
+        .filter(|(index, _)| *index >= T::get_required_bits() - bit_width)
         .map(|(_, o)| FlatExpression::Identifier(o.clone()))
         .collect();
 
-    // o253, o252, ... o{253 - (nbits - 1)} are bits
-    let mut statements: Vec<FlatStatement<T>> = (0..nbits)
+    // o253, o252, ... o{253 - (bit_width - 1)} are bits
+    let mut statements: Vec<FlatStatement<T>> = (0..bit_width)
         .map(|index| {
-            let bit = FlatExpression::Identifier(FlatVariable::new(nbits - index));
+            let bit = FlatExpression::Identifier(FlatVariable::new(bit_width - index));
             FlatStatement::Condition(
                 bit.clone(),
                 FlatExpression::Mult(box bit.clone(), box bit.clone()),
@@ -245,14 +245,14 @@ pub fn unpack<T: Field>() -> FlatFunction<T> {
         })
         .collect();
 
-    // sum check: o253 + o252 * 2 + ... + o{253 - (nbits - 1)} * 2**(nbits - 1)
+    // sum check: o253 + o252 * 2 + ... + o{253 - (bit_width - 1)} * 2**(bit_width - 1)
     let mut lhs_sum = FlatExpression::Number(T::from(0));
 
-    for i in 0..nbits {
+    for i in 0..bit_width {
         lhs_sum = FlatExpression::Add(
             box lhs_sum,
             box FlatExpression::Mult(
-                box FlatExpression::Identifier(FlatVariable::new(nbits - i)),
+                box FlatExpression::Identifier(FlatVariable::new(bit_width - i)),
                 box FlatExpression::Number(T::from(2).pow(i)),
             ),
         );
