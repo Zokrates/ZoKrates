@@ -296,18 +296,6 @@ impl<'ast, T: Field> From<pest::IterationStatement<'ast>> for absy::StatementNod
     }
 }
 
-// impl<'ast, T: Field> From<pest::AssignmentStatement<'ast>> for absy::StatementNode<'ast, T> {
-//     fn from(statement: pest::AssignmentStatement<'ast>) -> absy::StatementNode<T> {
-//         use absy::NodeValue;
-
-//         absy::Statement::Definition(
-//             absy::AssigneeNode::from(statement.assignee),
-//             absy::ExpressionNode::from(statement.expression),
-//         )
-//         .span(statement.span)
-//     }
-// }
-
 impl<'ast, T: Field> From<pest::Expression<'ast>> for absy::ExpressionNode<'ast, T> {
     fn from(expression: pest::Expression<'ast>) -> absy::ExpressionNode<'ast, T> {
         match expression {
