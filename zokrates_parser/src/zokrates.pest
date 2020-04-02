@@ -36,22 +36,18 @@ vis = { vis_private | vis_public }
 // Statements
 statement = { (return_statement // does not require subsequent newline
               | (iteration_statement
-                | multi_assignment_statement // try this first as we want all assignments based on return of function calls match here and not later
                 | definition_statement
-                | assignment_statement
                 | expression_statement
                 ) ~ NEWLINE
             ) ~ NEWLINE* }
 
 iteration_statement = { "for" ~ ty ~ identifier ~ "in" ~ expression ~ ".." ~ expression ~ "do" ~ NEWLINE* ~ statement* ~ "endfor"}
 return_statement = { "return" ~ expression_list}
-multi_assignment_statement = { optionally_typed_identifier_list ~ "=" ~ identifier ~ "(" ~ expression_list ~ ")"} // This is very specific with regards to parsing. However, I think more generality is not needed here.
-definition_statement = {ty ~ identifier ~ "=" ~ expression} // declare and assign, so only identifiers are allowed, unlike `assignment_statement`
-assignment_statement = {assignee ~ "=" ~ expression } // TODO: Is this optimal? Can the left side be written more elegantly?
+definition_statement = { optionally_typed_assignee_list ~ "=" ~ expression } // declare and assign, so only identifiers are allowed, unlike `assignment_statement`
 expression_statement = {expression}
 
-optionally_typed_identifier_list = _{ optionally_typed_identifier ~ ("," ~ optionally_typed_identifier)* }
-optionally_typed_identifier = { (identifier) | (ty ~ identifier) } // we don't use { ty? ~ identifier } as with a single token, it gets parsed as `ty` but we want `identifier`
+optionally_typed_assignee_list = _{ optionally_typed_assignee ~ ("," ~ optionally_typed_assignee)* }
+optionally_typed_assignee = { (assignee) | (ty ~ assignee) } // we don't use { ty? ~ identifier } as with a single token, it gets parsed as `ty` but we want `identifier`
 
 // Expressions
 expression_list = _{(expression ~ ("," ~ expression)*)?}
