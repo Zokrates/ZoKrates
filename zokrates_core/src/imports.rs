@@ -6,7 +6,7 @@
 
 use crate::absy::*;
 use crate::compile::compile_module;
-use crate::compile::{CompileErrorInner, CompileErrors, Resolve};
+use crate::compile::{CompileErrorInner, CompileErrors};
 use crate::embed::FlatEmbed;
 use crate::parser::Position;
 use std::collections::HashMap;
@@ -15,6 +15,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use typed_arena::Arena;
+use zokrates_common::Resolver;
 use zokrates_field::field::Field;
 
 #[derive(PartialEq, Debug)]
@@ -135,7 +136,7 @@ impl Importer {
         &self,
         destination: Module<'ast, T>,
         location: PathBuf,
-        resolve_option: Option<Resolve<E>>,
+        resolver: Option<&dyn Resolver<E>>,
         modules: &mut HashMap<ModuleId, Module<'ast, T>>,
         arena: &'ast Arena<String>,
     ) -> Result<Module<'ast, T>, CompileErrors> {
@@ -202,8 +203,8 @@ impl Importer {
                 }
             } else {
                 // to resolve imports, we need a resolver
-                match resolve_option {
-                    Some(resolve) => match resolve(location.clone(), import.source.to_path_buf()) {
+                match resolver {
+                    Some(res) => match res.resolve(location.clone(), import.source.to_path_buf()) {
                         Ok((source, new_location)) => {
                             // generate an alias from the imported path if none was given explicitely
                             let alias = import.alias.unwrap_or(
@@ -228,7 +229,7 @@ impl Importer {
                                     let compiled = compile_module(
                                         source,
                                         new_location.clone(),
-                                        resolve_option,
+                                        resolver,
                                         modules,
                                         &arena,
                                     )?;

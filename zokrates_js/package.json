@@ -2,7 +2,7 @@
   "name": "zokrates-js",
   "main": "index.js",
   "author": "Darko Macesic <darem966@gmail.com>",
-  "version": "1.0.20",
+  "version": "1.0.21",
   "keywords": [
     "zokrates",
     "wasm-bindgen",
@@ -28,13 +28,13 @@
     "test": "mocha --require esm --recursive tests"
   },
   "devDependencies": {
-    "dree": "^2.1.10",
+    "dree": "^2.4.14",
     "esm": "^3.2.25",
     "gulp": "^4.0.2",
     "gulp-cli": "^2.2.0",
-    "mocha": "^6.2.2",
-    "rimraf": "^3.0.0",
-    "serve": "^11.2.0",
+    "mocha": "^7.1.1",
+    "rimraf": "^3.0.2",
+    "serve": "^11.3.0",
     "text-encoding": "^0.7.0"
   },
   "dependencies": {}

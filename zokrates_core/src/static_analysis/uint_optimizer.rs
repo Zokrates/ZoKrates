@@ -24,13 +24,13 @@ impl<'ast, T: Field> UintOptimizer<'ast, T> {
         UintOptimizer::new().fold_program(p)
     }
 
-    fn register(&mut self, a: ZirAssignee<'ast>, e: ZirExpression<'ast, T>) {
-        match (a, e) {
-            (a, ZirExpression::Uint(e)) => {
-                self.ids.insert(a, e.metadata.unwrap());
-            }
-            _ => {}
-        }
+    fn register(&mut self, a: ZirAssignee<'ast>, m: UMetadata) {
+        // match (a, m) {
+        //     (a, ZirExpression::Uint(e)) => {
+                self.ids.insert(a, m);
+            // }
+            // _ => {}
+        // }
     }
 }
 
@@ -474,7 +474,12 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
         match s {
             ZirStatement::Definition(a, e) => {
                 let e = self.fold_expression(e);
-                self.register(a.clone(), e.clone());
+                match e {
+                    ZirExpression::Uint(ref i) => {
+                        self.register(a.clone(), i.metadata.clone().unwrap());
+                    },
+                    _ => {}
+                };
                 vec![ZirStatement::Definition(a, e)]
             }
             // we need to put back in range to return
@@ -503,20 +508,10 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 ZirExpressionList::FunctionCall(key, arguments, ty) => match key.clone().id {
                     "_U32_FROM_BITS" => {
                         assert_eq!(lhs.len(), 1);
-                        // let expr = UExpressionInner::FunctionCall(
-                        //     key.clone(),
-                        //     arguments
-                        //         .clone()
-                        //         .into_iter()
-                        //         .map(|a| self.fold_expression(a))
-                        //         .collect(),
-                        // )
-                        // .annotate(32)
-                        // .metadata(UMetadata {
-                        //     bitwidth: Some(32),
-                        //     should_reduce: Some(true),
-                        // });
-                        // self.register(lhs[0].clone(), ZirExpression::Uint(expr));
+                        self.register(lhs[0].clone(), UMetadata {
+                            bitwidth: Some(32),
+                            should_reduce: Some(true),
+                        });
                         vec![ZirStatement::MultipleDefinition(
                             lhs,
                             ZirExpressionList::FunctionCall(key, arguments, ty),

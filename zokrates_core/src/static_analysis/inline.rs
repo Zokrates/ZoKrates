@@ -414,7 +414,23 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         TypedExpression::Uint(e) => e.into_inner(),
                         _ => unreachable!(),
                     },
-                    Err((key, expressions)) => UExpressionInner::FunctionCall(key, expressions),
+                    Err((key, expressions)) => {
+                        let tys = key.signature.outputs.clone();
+                        let id = Identifier {
+                            id: CoreIdentifier::Call(key.clone()),
+                            version: *self
+                                .call_count
+                                .get(&(self.module_id.clone(), key.clone()))
+                                .unwrap(),
+                            stack: self.stack.clone(),
+                        };
+                        self.statement_buffer
+                            .push(TypedStatement::MultipleDefinition(
+                                vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
+                                TypedExpressionList::FunctionCall(key, expressions, tys),
+                            ));
+                        UExpressionInner::Identifier(id)
+                    }
                 }
             }
             // default

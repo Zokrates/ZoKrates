@@ -18,6 +18,7 @@
     - [Proving schemes](reference/proving_schemes.md)
     - [Verification](reference/verification.md)
     - [ZIR](reference/ir.md)
+    - [JSON ABI](reference/abi.md)
 	- [Testing](reference/testing.md)
 
 - [Tutorial: Proof of preimage](./sha256example.md)

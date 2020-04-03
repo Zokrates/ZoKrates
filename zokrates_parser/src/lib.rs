@@ -122,11 +122,22 @@ mod tests {
                 rule: Rule::statement,
                 tokens: [
                     statement(0, 22, [
-                        multi_assignment_statement(0, 9, [
-                            optionally_typed_identifier(0, 1, [
-                                identifier(0, 1)
+                        definition_statement(0, 9, [
+                            optionally_typed_assignee(0, 2, [
+                                assignee(0, 2, [
+                                    identifier(0, 1)
+                                ])
                             ]),
-                            identifier(4, 7),
+                            expression(4, 9, [
+                                term(4, 9, [
+                                    postfix_expression(4, 9, [
+                                        identifier(4, 7),
+                                        access(7, 9, [
+                                            call_access(7, 9)
+                                        ])
+                                    ])
+                                ])
+                            ]),
                         ])
                     ])
                 ]

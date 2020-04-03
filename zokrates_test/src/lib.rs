@@ -8,7 +8,7 @@ use zokrates_field::field::{Field, FieldPrime};
 #[derive(Serialize, Deserialize)]
 struct Tests {
     pub entry_point: PathBuf,
-    pub constraint_count: Option<usize>,
+    pub max_constraint_count: Option<usize>,
     pub tests: Vec<Test>,
 }
 
@@ -77,7 +77,7 @@ fn compare(result: ir::ExecutionResult<FieldPrime>, expected: TestResult) -> Res
 
 use std::io::{BufReader, Read};
 use zokrates_core::compile::compile;
-use zokrates_fs_resolver::resolve;
+use zokrates_fs_resolver::FileSystemResolver;
 
 pub fn test_inner(test_path: &str) {
     let t: Tests =
@@ -85,11 +85,12 @@ pub fn test_inner(test_path: &str) {
 
     let code = std::fs::read_to_string(&t.entry_point).unwrap();
 
-    let artifacts = compile(code, t.entry_point.clone(), Some(&resolve)).unwrap();
+    let resolver = FileSystemResolver::new();
+    let artifacts = compile(code, t.entry_point.clone(), Some(&resolver)).unwrap();
 
     let bin = artifacts.prog();
 
-    match t.constraint_count {
+    match t.max_constraint_count {
         Some(count) => assert!(
             bin.constraint_count() <= count,
             "Expected at the most {} constraints, found {}:\n{}",
