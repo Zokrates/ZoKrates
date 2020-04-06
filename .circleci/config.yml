@@ -42,9 +42,12 @@ jobs:
       - restore_cache:
           keys:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
-      # - run:
-      #     name: Check format
-      #     command: rustup component add rustfmt; cargo fmt --all -- --check
+      - run:
+         name: Check format
+         command: rustup component add rustfmt; cargo fmt --all -- --check
+      - run:
+         name: Check cpp format
+         command: apt-get install -y clang-format; sh scripts/clang-format.sh
       - run:
           name: Install libsnark prerequisites
           command: ./scripts/install_libsnark_prerequisites.sh
