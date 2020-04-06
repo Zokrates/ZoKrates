@@ -28,10 +28,52 @@ pub struct Flattener<'ast, T: Field> {
     depth: usize,
 }
 
+trait FlattenOutput<T: Field>: Sized {
+    fn branches(self, other: Self) -> (Self, Self);
+
+    fn flat(&self) -> Vec<FlatExpression<T>>;
+}
+
+impl<T: Field> FlattenOutput<T> for FlatExpression<T> {
+    fn branches(self, other: Self) -> (Self, Self) {
+        (self, other)
+    } 
+
+    fn flat(&self) -> Vec<FlatExpression<T>> {
+        vec![self.clone()]
+    }
+}
+
+impl<T: Field> FlattenOutput<T> for FlatUExpression<T> {
+    fn branches(self, other: Self) -> (Self, Self) {
+        let left_bits = self.bits.unwrap();
+        let right_bits = other.bits.unwrap();
+        let size = std::cmp::max(left_bits.len(), right_bits.len());
+
+        let left_bits = (0..size - left_bits.len()).map(|_| FlatExpression::Number(T::from(0))).chain(left_bits).collect();
+        let right_bits = (0..size - right_bits.len()).map(|_| FlatExpression::Number(T::from(0))).chain(right_bits).collect();
+
+        (
+            FlatUExpression {
+                bits: Some(left_bits),
+                ..self
+            },
+            FlatUExpression {
+                bits: Some(right_bits),
+                ..other
+            }
+        )
+    }
+
+    fn flat(&self) -> Vec<FlatExpression<T>> {
+        self.bits.clone().unwrap().clone().into_iter().chain(std::iter::once(self.field.clone().unwrap())).collect()
+    }
+}
+
 // We introduce a trait in order to make it possible to make flattening `e` generic over the type of `e`
 
 trait Flatten<'ast, T: Field>: TryFrom<ZirExpression<'ast, T>, Error = ()> + IfElse<'ast, T> {
-    type Output;
+    type Output: FlattenOutput<T>;
 
     fn flatten(
         self,
@@ -42,7 +84,7 @@ trait Flatten<'ast, T: Field>: TryFrom<ZirExpression<'ast, T>, Error = ()> + IfE
 }
 
 impl<'ast, T: Field> Flatten<'ast, T> for FieldElementExpression<'ast, T> {
-    type Output = Vec<FlatExpression<T>>;
+    type Output = FlatExpression<T>;
 
     fn flatten(
         self,
@@ -50,7 +92,33 @@ impl<'ast, T: Field> Flatten<'ast, T> for FieldElementExpression<'ast, T> {
         symbols: &ZirFunctionSymbols<'ast, T>,
         statements_flattened: &mut Vec<FlatStatement<T>>,
     ) -> Self::Output {
-        vec![flattener.flatten_field_expression(symbols, statements_flattened, self)]
+        flattener.flatten_field_expression(symbols, statements_flattened, self)
+    }
+}
+
+impl<'ast, T: Field> Flatten<'ast, T> for UExpression<'ast, T> {
+    type Output = FlatUExpression<T>;
+
+    fn flatten(
+        self,
+        flattener: &mut Flattener<'ast, T>,
+        symbols: &ZirFunctionSymbols<'ast, T>,
+        statements_flattened: &mut Vec<FlatStatement<T>>,
+    ) -> Self::Output {
+        flattener.flatten_uint_expression(symbols, statements_flattened, self)
+    }
+}
+
+impl<'ast, T: Field> Flatten<'ast, T> for BooleanExpression<'ast, T> {
+    type Output = FlatExpression<T>;
+
+    fn flatten(
+        self,
+        flattener: &mut Flattener<'ast, T>,
+        symbols: &ZirFunctionSymbols<'ast, T>,
+        statements_flattened: &mut Vec<FlatStatement<T>>,
+    ) -> Self::Output {
+        flattener.flatten_boolean_expression(symbols, statements_flattened, self)
     }
 }
 
@@ -113,32 +181,6 @@ impl<T: Field> FlatUExpression<T> {
     }
 }
 
-impl<'ast, T: Field> Flatten<'ast, T> for UExpression<'ast, T> {
-    type Output = FlatUExpression<T>;
-
-    fn flatten(
-        self,
-        flattener: &mut Flattener<'ast, T>,
-        symbols: &ZirFunctionSymbols<'ast, T>,
-        statements_flattened: &mut Vec<FlatStatement<T>>,
-    ) -> Self::Output {
-        flattener.flatten_uint_expression(symbols, statements_flattened, self)
-    }
-}
-
-impl<'ast, T: Field> Flatten<'ast, T> for BooleanExpression<'ast, T> {
-    type Output = Vec<FlatExpression<T>>;
-
-    fn flatten(
-        self,
-        flattener: &mut Flattener<'ast, T>,
-        symbols: &ZirFunctionSymbols<'ast, T>,
-        statements_flattened: &mut Vec<FlatStatement<T>>,
-    ) -> Self::Output {
-        vec![flattener.flatten_boolean_expression(symbols, statements_flattened, self)]
-    }
-}
-
 impl<'ast, T: Field> Flattener<'ast, T> {
     pub fn flatten(p: ZirProgram<'ast, T>) -> FlatProg<T> {
         Flattener::new().flatten_program(p)
@@ -174,78 +216,85 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         condition: BooleanExpression<'ast, T>,
         consequence: U,
         alternative: U,
-    ) -> Vec<FlatExpression<T>> {
+    ) -> FlatUExpression<T> {
         let condition = self.flatten_boolean_expression(symbols, statements_flattened, condition);
 
         let consequence = consequence.flatten(self, symbols, statements_flattened);
 
         let alternative = alternative.flatten(self, symbols, statements_flattened);
 
-        unimplemented!()
+        let condition_id = self.use_sym();
+        statements_flattened.push(FlatStatement::Definition(condition_id, condition));
 
-        // let size = consequence.len();
+        let consequence = consequence.flat();
+        let alternative = alternative.flat();
+        
+        let size = consequence.len();
 
-        // let condition_id = self.use_sym();
-        // statements_flattened.push(FlatStatement::Definition(condition_id, condition));
+        let consequence_ids: Vec<_> = (0..size).map(|_| self.use_sym()).collect();
+        statements_flattened.extend(
+            consequence
+                .into_iter()
+                .zip(consequence_ids.iter())
+                .map(|(c, c_id)| FlatStatement::Definition(*c_id, c)),
+        );
 
-        // let consequence_ids: Vec<_> = (0..size).map(|_| self.use_sym()).collect();
-        // statements_flattened.extend(
-        //     consequence
-        //         .into_iter()
-        //         .zip(consequence_ids.iter())
-        //         .map(|(c, c_id)| FlatStatement::Definition(*c_id, c)),
-        // );
+        let alternative_ids: Vec<_> = (0..size).map(|_| self.use_sym()).collect();
+        statements_flattened.extend(
+            alternative
+                .into_iter()
+                .zip(alternative_ids.iter())
+                .map(|(a, a_id)| FlatStatement::Definition(*a_id, a)),
+        );
 
-        // let alternative_ids: Vec<_> = (0..size).map(|_| self.use_sym()).collect();
-        // statements_flattened.extend(
-        //     alternative
-        //         .into_iter()
-        //         .zip(alternative_ids.iter())
-        //         .map(|(a, a_id)| FlatStatement::Definition(*a_id, a)),
-        // );
+        let term0_ids: Vec<_> = (0..size).map(|_| self.use_sym()).collect();
+        statements_flattened.extend(consequence_ids.iter().zip(term0_ids.iter()).map(
+            |(c_id, t0_id)| {
+                FlatStatement::Definition(
+                    *t0_id,
+                    FlatExpression::Mult(
+                        box condition_id.clone().into(),
+                        box FlatExpression::from(*c_id),
+                    ),
+                )
+            },
+        ));
 
-        // let term0_ids: Vec<_> = (0..size).map(|_| self.use_sym()).collect();
-        // statements_flattened.extend(consequence_ids.iter().zip(term0_ids.iter()).map(
-        //     |(c_id, t0_id)| {
-        //         FlatStatement::Definition(
-        //             *t0_id,
-        //             FlatExpression::Mult(
-        //                 box condition_id.clone().into(),
-        //                 box FlatExpression::from(*c_id),
-        //             ),
-        //         )
-        //     },
-        // ));
+        let term1_ids: Vec<_> = (0..size).map(|_| self.use_sym()).collect();
+        statements_flattened.extend(alternative_ids.iter().zip(term1_ids.iter()).map(
+            |(a_id, t1_id)| {
+                FlatStatement::Definition(
+                    *t1_id,
+                    FlatExpression::Mult(
+                        box FlatExpression::Sub(
+                            box FlatExpression::Number(T::one()),
+                            box condition_id.into(),
+                        ),
+                        box FlatExpression::from(*a_id),
+                    ),
+                )
+            },
+        ));
 
-        // let term1_ids: Vec<_> = (0..size).map(|_| self.use_sym()).collect();
-        // statements_flattened.extend(alternative_ids.iter().zip(term1_ids.iter()).map(
-        //     |(a_id, t1_id)| {
-        //         FlatStatement::Definition(
-        //             *t1_id,
-        //             FlatExpression::Mult(
-        //                 box FlatExpression::Sub(
-        //                     box FlatExpression::Number(T::one()),
-        //                     box condition_id.into(),
-        //                 ),
-        //                 box FlatExpression::from(*a_id),
-        //             ),
-        //         )
-        //     },
-        // ));
+        let res: Vec<_> = (0..size).map(|_| self.use_sym()).collect();
+        statements_flattened.extend(term0_ids.iter().zip(term1_ids).zip(res.iter()).map(
+            |((t0_id, t1_id), r_id)| {
+                FlatStatement::Definition(
+                    *r_id,
+                    FlatExpression::Add(
+                        box FlatExpression::from(*t0_id),
+                        box FlatExpression::from(t1_id),
+                    ),
+                )
+            },
+        ));
 
-        // let res: Vec<_> = (0..size).map(|_| self.use_sym()).collect();
-        // statements_flattened.extend(term0_ids.iter().zip(term1_ids).zip(res.iter()).map(
-        //     |((t0_id, t1_id), r_id)| {
-        //         FlatStatement::Definition(
-        //             *r_id,
-        //             FlatExpression::Add(
-        //                 box FlatExpression::from(*t0_id),
-        //                 box FlatExpression::from(t1_id),
-        //             ),
-        //         )
-        //     },
-        // ));
-        // res.into_iter().map(|r| r.into()).collect()
+        let mut res: Vec<_> = res.into_iter().map(|r| r.into()).collect();
+
+        FlatUExpression {
+            field: Some(res.pop().unwrap()),
+            bits: Some(res)
+        }
     }
 
     /// Flattens a boolean expression
@@ -569,7 +618,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     condition,
                     consequence,
                     alternative,
-                )[0]
+                ).get_field_unchecked()
             .clone(),
         }
     }
@@ -952,17 +1001,16 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 FlatUExpression::with_field(FlatExpression::Identifier(res))
             }
             UExpressionInner::IfElse(box condition, box consequence, box alternative) => {
-                unimplemented!()
+                self
+                    .flatten_if_else_expression(
+                        symbols,
+                        statements_flattened,
+                        condition,
+                        consequence,
+                        alternative,
+                    )
+                .clone()
             }
-            // self
-            //     .flatten_if_else_expression(
-            //         symbols,
-            //         statements_flattened,
-            //         condition,
-            //         consequence,
-            //         alternative,
-            //     )[0]
-            // .clone()
             ,
             UExpressionInner::Xor(box left, box right) => {
                 let left_from = left.metadata.clone().unwrap().bitwidth.unwrap();
@@ -1418,7 +1466,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     condition,
                     consequence,
                     alternative,
-                )[0]
+                ).get_field_unchecked()
             .clone(),
         }
     }
@@ -1645,7 +1693,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         key: &'a FunctionKey<'ast>,
         symbols: &'a ZirFunctionSymbols<'ast, T>,
     ) -> crate::embed::FlatEmbed {
-        let f = symbols.get(&key).unwrap().clone();
+        let f = symbols.get(&key).expect(&format!("{}", key.id)).clone();
         let res = match f {
             ZirFunctionSymbol::Flat(flat_function) => flat_function,
             _ => unreachable!("only local flat symbols can be flattened"),

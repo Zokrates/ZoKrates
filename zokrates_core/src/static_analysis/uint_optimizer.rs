@@ -517,8 +517,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                             ZirExpressionList::FunctionCall(key, arguments, ty),
                         )]
                     }
-                    "_U32_TO_BITS" => {
-                        assert_eq!(lhs.len(), 32);
+                    _ => {
                         vec![ZirStatement::MultipleDefinition(
                             lhs,
                             ZirExpressionList::FunctionCall(
@@ -531,7 +530,6 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                             ),
                         )]
                     }
-                    _ => unimplemented!(),
                 },
             },
             // we need to put back in range to assert
