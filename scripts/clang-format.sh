@@ -1,14 +1,17 @@
 #!/bin/bash
 
-cd zokrates_core/lib
-clang-format -i -style=WebKit -verbose *.cpp *.hpp
+dir=$1
+ret=0
 
-modified=`git status | grep "modified"`
-if [[ -z $modified ]]; then
-  exit 0;
-fi
+for file in $dir/*.cpp $dir/*.hpp; do
+  clang-format -i -style=WebKit -verbose $file
+  out=$(git diff --exit-code $file)
 
-git diff
-git reset HEAD --hard
+  if [ $? -ne 0 ]; then
+    ret=1
+    echo "ERROR: clang-format diff in: $file"
+    echo "$out"
+  fi
+done
 
-exit 1
+exit $ret

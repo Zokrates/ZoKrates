@@ -30,7 +30,7 @@ jobs:
           key: v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
   test:
     docker:
-      - image: rustlang/rust:nightly-slim
+      - image: rustlang/rust:nightly
     steps:
       - checkout
       - run:
@@ -41,25 +41,30 @@ jobs:
           command: cargo generate-lockfile
       - restore_cache:
           keys:
-            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
-      - run:
-         name: Check format
-         command: rustup component add rustfmt; cargo fmt --all -- --check
-      - run:
-         name: Check cpp format
-         command: apt-get install -y clang-format; sh scripts/clang-format.sh
+           - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+      # - run:
+      #   name: Check format
+      #   command: rustup component add rustfmt; cargo fmt --all -- --check
       - run:
           name: Install libsnark prerequisites
           command: ./scripts/install_libsnark_prerequisites.sh
+      - run:
+          name: Check cpp format (clang-format)
+          command: |
+            apt-get update -y
+            apt-get install -y lsb-release software-properties-common
+            bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
+            apt-get install -y clang-format
+            bash scripts/clang-format.sh zokrates_core/lib
       - run:
           name: Build
           command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./build.sh
       - run:
           name: Run tests
           command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./test.sh
-      # - run:
-      #     name: Generate code coverage report
-      #     command: ./scripts/cov.sh
+      - run:
+          name: Generate code coverage report
+          command: ./scripts/cov.sh
   wasm_test:
     docker:
       - image: rustlang/rust:nightly-slim
