@@ -15,7 +15,7 @@ pub use ast::{
     InlineStructExpression, InlineStructMember, IterationStatement, Parameter, PostfixExpression,
     Range, RangeOrExpression, ReturnStatement, Span, Spread, SpreadOrExpression, Statement,
     StructDefinition, StructField, TernaryExpression, ToExpression, Type, UnaryExpression,
-    UnaryOperator, Visibility,
+    UnaryOperator, Visibility, OptionallyTypedAssignee, DecimalNumberExpression, FieldType
 };
 
 mod ast {
