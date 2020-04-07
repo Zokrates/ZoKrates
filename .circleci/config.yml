@@ -58,14 +58,13 @@ jobs:
           name: Generate code coverage report
           command: ./scripts/cov.sh
   cpp_test:
-    machine: true
+    docker:
+      - image: dark64/clang-format-checker:env
     steps:
       - checkout
       - run:
           name: Check cpp format (clang-format)
-          command: |
-            docker pull dark64/clang-format-checker
-            docker run --rm -v $(pwd):/src dark64/clang-format-checker -r zokrates_core/lib
+          command: run-clang-format.py -r $(pwd)/zokrates_core/lib
   wasm_test:
     docker:
       - image: rustlang/rust:nightly-slim
