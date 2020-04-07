@@ -43,8 +43,8 @@ jobs:
           keys:
            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       # - run:
-      #   name: Check format
-      #   command: rustup component add rustfmt; cargo fmt --all -- --check
+      #    name: Check format
+      #    command: rustup component add rustfmt; cargo fmt --all -- --check
       - run:
           name: Install libsnark prerequisites
           command: ./scripts/install_libsnark_prerequisites.sh
@@ -155,6 +155,7 @@ workflows:
           requires:
             - build
             - test
+            - cpp_test
             - wasm_test
             - integration_test
             - zokrates_js_build
