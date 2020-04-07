@@ -49,14 +49,6 @@ jobs:
           name: Install libsnark prerequisites
           command: ./scripts/install_libsnark_prerequisites.sh
       - run:
-          name: Check cpp format (clang-format)
-          command: |
-            apt-get update -y
-            apt-get install -y lsb-release software-properties-common
-            bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
-            apt-get install -y clang-format
-            bash scripts/clang-format.sh zokrates_core/lib
-      - run:
           name: Build
           command: ZOKRATES_HOME=$(pwd)/zokrates_stdlib/stdlib/ WITH_LIBSNARK=1 RUSTFLAGS="-D warnings" ./build.sh
       - run:
@@ -65,6 +57,15 @@ jobs:
       - run:
           name: Generate code coverage report
           command: ./scripts/cov.sh
+  cpp_test:
+    machine: true
+    steps:
+      - checkout
+      - run:
+          name: Check cpp format (clang-format)
+          command: |
+            docker pull dark64/clang-format-checker
+            docker run --rm -v $(pwd):/src dark64/clang-format-checker -r zokrates_core/lib
   wasm_test:
     docker:
       - image: rustlang/rust:nightly-slim
@@ -141,6 +142,7 @@ workflows:
     jobs:
       - build
       - test
+      - cpp_test
       - wasm_test
       - integration_test
       - zokrates_js_build
