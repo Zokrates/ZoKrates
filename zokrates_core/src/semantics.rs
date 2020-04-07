@@ -795,7 +795,6 @@ impl<'ast> Checker<'ast> {
         module_id: &ModuleId,
         types: &TypeMap,
     ) -> Result<TypedStatement<'ast, T>, Vec<ErrorInner>> {
-        println!("{}", stat);
 
         let pos = stat.pos();
 
@@ -934,8 +933,6 @@ impl<'ast> Checker<'ast> {
                 match rhs.value {
                     // Right side has to be a function call
                     Expression::FunctionCall(fun_id, arguments) => {
-
-                        println!("{:?}", assignees);
 
                         // check lhs assignees are defined
                         let (assignees, errors): (Vec<_>, Vec<_>) = assignees.into_iter().map(|a| self.check_assignee(a, module_id, types)).partition(|r| r.is_ok());
