@@ -1,7 +1,7 @@
-// MimcFeistel configured with 220 rounds
+// MiMCFeistel configured with 220 rounds
 
 import "./IVconstants" as IVconstants
-def main(field xL_in, field xR_in, field k) -> (field, field):
+def main(field xL_in, field xR_in, field k) -> (field[2]):
 	IV = IVconstants()
 
 	field t = 0
@@ -25,4 +25,4 @@ def main(field xL_in, field xR_in, field k) -> (field, field):
 		xR[i] = if i < 219 then (if i == 0 then xL_in else xL[idx] fi) else xR[idx] + t4[i]*t fi
 	endfor
 
-	return xL[219], xR[219]
+	return [xL[219], xR[219]]
