@@ -4,7 +4,7 @@ def lt(field a,field b) -> (field):
 def cutoff() -> (field):
     return 31337
 
-def getThing(index) -> (field):
+def getThing(field index) -> (field):
     field result = 3
     result = if index == 0 then 13 else result fi
     result = if index == 1 then 23 else result fi
