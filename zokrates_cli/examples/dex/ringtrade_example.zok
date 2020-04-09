@@ -55,8 +55,8 @@ def checkConstraints(field[3] amount, field[3] sourceToken, field[3] targetToken
   endfor
 
   // the amount of sell volume for a token equals its buy volume:
-  buyVolumeToken = tupleForTokensWithValue(0)
-  sellVolumeToken = tupleForTokensWithValue(0)
+  field[3] buyVolumeToken = tupleForTokensWithValue(0)
+  field[3] sellVolumeToken = tupleForTokensWithValue(0)
 
   for field i in 0..3 do
     buyVolumeToken = addVolumesForOrder(buyVolumeToken, targetToken[i], volume[i] * sourceTokenPriceOrder[i])
@@ -66,7 +66,7 @@ def checkConstraints(field[3] amount, field[3] sourceToken, field[3] targetToken
   buyVolumeToken == sellVolumeToken
 
   // If an order σ ∈ Oi→j with a limit price p has a positive trading volume, then every order in Oi→j with a lower limit price should be completely fulfilled.
-  highestTouchedOrder = tupleForTokenPairsWithValue(0)
+  field[9] highestTouchedOrder = tupleForTokenPairsWithValue(0)
 
   for field i in 0..3 do
     highestTouchedOrder = updateHighestTouchedOrder(highestTouchedOrder, sourceToken[i], targetToken[i], limit[i], volume[i])
@@ -89,7 +89,7 @@ def main(private field[3] encodedOrder, private field[3] bitmapOrder, private fi
 
   // Decode orders
   for field i in 0..3 do
-    a, s, t, l = decodeOrder(encodedOrder[i])
+    field a, field s, field t, field l = decodeOrder(encodedOrder[i])
     amount[i] = a
     sourceToken[i] = s
     targetToken[i] = t

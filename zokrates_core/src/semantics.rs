@@ -3073,7 +3073,7 @@ mod tests {
 
     #[test]
     fn undeclared_variables() {
-        // def foo():
+        // def foo() -> (field, field):
         //  return 1, 2
         // def main():
         //  a, b = foo()
@@ -3115,7 +3115,7 @@ mod tests {
             .mock(),
             Statement::Return(
                 ExpressionList {
-                    expressions: vec![Expression::FieldConstant(FieldPrime::from(1)).mock()],
+                    expressions: vec![],
                 }
                 .mock(),
             )
@@ -3127,7 +3127,7 @@ mod tests {
             statements: main_statements,
             signature: UnresolvedSignature {
                 inputs: vec![],
-                outputs: vec![UnresolvedType::FieldElement.mock()],
+                outputs: vec![],
             },
         }
         .mock();
@@ -3165,6 +3165,100 @@ mod tests {
                     inner: ErrorInner {
                         pos: Some((Position::mock(), Position::mock())),
                         message: "Variable `b` is undeclared".into()
+                    },
+                    module_id: "main".into()
+                }
+            ])
+        );
+    }
+
+    #[test]
+    fn assign_to_non_variable() {
+        // def foo() -> (field):
+        //  return 1
+        // def main():
+        //  field[1] a = [0]
+        //  a[0] = foo()
+        //  return
+        // should fail
+
+        let foo_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+            ExpressionList {
+                expressions: vec![
+                    Expression::FieldConstant(FieldPrime::from(1)).mock(),
+                ],
+            }
+            .mock(),
+        )
+        .mock()];
+
+        let foo = Function {
+            arguments: vec![],
+            statements: foo_statements,
+            signature: UnresolvedSignature {
+                inputs: vec![],
+                outputs: vec![
+                    UnresolvedType::FieldElement.mock(),
+                ],
+            },
+        }
+        .mock();
+
+        let main_statements: Vec<StatementNode<FieldPrime>> = vec![
+            Statement::Declaration(absy::Variable::new("a", UnresolvedType::array(UnresolvedType::FieldElement.mock(), 1).mock()).mock()).mock(),
+            Statement::Definition(Assignee::Identifier("a".into()).mock(), Expression::InlineArray(vec![absy::SpreadOrExpression::Expression(Expression::FieldConstant(FieldPrime::from(0)).mock())]).mock()).mock(),
+            Statement::MultipleDefinition(
+                vec![
+                    Assignee::Select(box Assignee::Identifier("a").mock(), box RangeOrExpression::Expression(absy::Expression::FieldConstant(FieldPrime::from(0)).mock())).mock(),
+                ],
+                Expression::FunctionCall("foo", vec![]).mock(),
+            )
+            .mock(),
+            Statement::Return(
+                ExpressionList {
+                    expressions: vec![],
+                }
+                .mock(),
+            )
+            .mock(),
+        ];
+
+        let main = Function {
+            arguments: vec![],
+            statements: main_statements,
+            signature: UnresolvedSignature {
+                inputs: vec![],
+                outputs: vec![],
+            },
+        }
+        .mock();
+
+        let module = Module {
+            symbols: vec![
+                SymbolDeclaration {
+                    id: "foo",
+                    symbol: Symbol::HereFunction(foo),
+                }
+                .mock(),
+                SymbolDeclaration {
+                    id: "main",
+                    symbol: Symbol::HereFunction(main),
+                }
+                .mock(),
+            ],
+            imports: vec![],
+        };
+
+        let mut state = State::new(vec![("main".into(), module)].into_iter().collect());
+
+        let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
+        assert_eq!(
+            checker.check_module(&"main".into(), &mut state),
+            Err(vec![
+                Error {
+                    inner: ErrorInner {
+                        pos: Some((Position::mock(), Position::mock())),
+                        message: "Only assignment to identifiers is supported, found a[0]".into()
                     },
                     module_id: "main".into()
                 }
