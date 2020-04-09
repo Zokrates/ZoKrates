@@ -9,6 +9,7 @@ use crate::typed_absy::types::{MemberId, Type};
 use crate::typed_absy::*;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use typed_absy::identifier::CoreIdentifier;
 use zokrates_field::field::Field;
 
 pub enum Output<'ast, T: Field> {
@@ -18,7 +19,7 @@ pub enum Output<'ast, T: Field> {
 
 pub struct Unroller<'ast> {
     // version index for any variable name
-    substitution: HashMap<&'ast str, usize>,
+    substitution: HashMap<CoreIdentifier<'ast>, usize>,
     // whether all statements could be unrolled so far. Loops with variable bounds cannot.
     complete: bool,
     statement_count: usize,
@@ -37,7 +38,7 @@ impl<'ast> Unroller<'ast> {
         let res = match self.substitution.get(&v.id.id) {
             Some(i) => Variable {
                 id: Identifier {
-                    id: v.id.id,
+                    id: v.id.id.clone(),
                     version: i + 1,
                     stack: vec![],
                 },

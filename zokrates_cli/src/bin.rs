@@ -670,7 +670,7 @@ mod tests {
             };
 
             if !path.is_file() {
-                continue
+                continue;
             }
 
             assert!(path.extension().expect("extension expected") == "zok");
