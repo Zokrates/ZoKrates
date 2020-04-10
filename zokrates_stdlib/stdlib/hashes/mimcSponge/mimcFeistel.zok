@@ -21,7 +21,6 @@ def main(field xL_in, field xR_in, field k) -> (field[2]):
 		t4[i] = t2[i] * t2[i]
 
 		xL[i] = if i < 219 then (if i == 0 then xR_in + t4[i] * t else xR[idx] + t4[i] * t fi) else xL[idx] fi
-
 		xR[i] = if i < 219 then (if i == 0 then xL_in else xL[idx] fi) else xR[idx] + t4[i]*t fi
 	endfor
 
