@@ -57,7 +57,7 @@ jobs:
       # - run:
       #     name: Generate code coverage report
       #     command: ./scripts/cov.sh
-  cpp_test:
+  cpp_format:
     docker:
       - image: dark64/clang-format-checker:env
     steps:
@@ -141,7 +141,7 @@ workflows:
     jobs:
       - build
       - test
-      - cpp_test
+      - cpp_format
       - wasm_test
       - integration_test
       - zokrates_js_build
@@ -154,7 +154,7 @@ workflows:
           requires:
             - build
             - test
-            - cpp_test
+            - cpp_format
             - wasm_test
             - integration_test
             - zokrates_js_build
