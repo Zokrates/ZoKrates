@@ -2,7 +2,7 @@ use flat_absy::FlatVariable;
 use ir::{self, Statement};
 use std::cmp::max;
 use std::collections::HashMap;
-use zokrates_field::field::Field;
+use zokrates_field::field::{Field, FieldPrime};
 
 // utility function. Converts a Field's vector-based byte representation to fixed size array.
 fn vec_as_u8_32_array(vec: &Vec<u8>) -> [u8; 32] {
@@ -12,6 +12,19 @@ fn vec_as_u8_32_array(vec: &Vec<u8>) -> [u8; 32] {
         array[31 - index] = *byte;
     }
     array
+}
+
+pub fn prepare_public_inputs(public_inputs: Vec<&str>) -> (Vec<[u8; 32]>, usize) {
+    let public_inputs_length = public_inputs.len();
+    let mut public_inputs_arr: Vec<[u8; 32]> = vec![[0u8; 32]; public_inputs_length];
+
+    for (index, value) in public_inputs.into_iter().enumerate() {
+        let field: FieldPrime =
+            FieldPrime::try_from_str(value.trim_start_matches("0x"), 16).unwrap();
+        public_inputs_arr[index] = vec_as_u8_32_array(&field.into_byte_vector());
+    }
+
+    (public_inputs_arr, public_inputs_length)
 }
 
 // proof-system-independent preparation for the setup phase

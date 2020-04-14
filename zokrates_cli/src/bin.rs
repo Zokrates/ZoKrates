@@ -687,7 +687,13 @@ fn cli() -> Result<(), String> {
                 .map_err(|why| format!("couldn't read {}: {}", proof_path.display(), why))?;
 
             println!("Performing verification...");
-            println!("Verified: {}", scheme.verify(vk, proof));
+            println!(
+                "The verification result is: {}",
+                match scheme.verify(vk, proof) {
+                    true => "PASS",
+                    false => "FAIL",
+                }
+            );
         }
         _ => unreachable!(),
     }

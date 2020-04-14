@@ -1,4 +1,7 @@
-use bellman::groth16::*;
+use bellman::groth16::{
+    prepare_verifying_key, verify_proof, Parameters, PreparedVerifyingKey, Proof as BellmanProof,
+    VerifyingKey,
+};
 use bellman::pairing::bn256::{Bn256, Fr};
 use regex::Regex;
 
@@ -14,6 +17,7 @@ use crate::proof_system::bn128::utils::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
 use crate::proof_system::{ProofSystem, SetupKeypair};
+use proof_system::bn128::{G1PairingPoint, G2PairingPoint, Proof};
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/reference/proving_schemes.html#g16-malleability for implications.";
 
@@ -25,22 +29,11 @@ impl G16 {
     }
 }
 
-type G1PairingPoint = (String, String);
-type G2PairingPoint = (G1PairingPoint, G1PairingPoint);
-
 #[derive(Serialize, Deserialize)]
 struct G16ProofPoints {
     a: G1PairingPoint,
     b: G2PairingPoint,
     c: G1PairingPoint,
-}
-
-#[derive(Serialize, Deserialize)]
-struct G16Proof {
-    proof: G16ProofPoints,
-    inputs: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    raw: Option<String>,
 }
 
 impl G16ProofPoints {
@@ -49,10 +42,7 @@ impl G16ProofPoints {
     }
 }
 
-impl G16Proof {
-    fn new(proof: G16ProofPoints, inputs: Vec<String>, raw: Option<String>) -> Self {
-        G16Proof { proof, inputs, raw }
-    }
+impl Proof<G16ProofPoints> {
     fn from_json(str: &str) -> Self {
         serde_json::from_str(str).unwrap()
     }
@@ -106,9 +96,10 @@ impl ProofSystem for G16 {
             let mut raw: Vec<u8> = Vec::new();
             proof.write(&mut raw).unwrap();
 
-            G16Proof::new(proof_points, inputs, Some(hex::encode(&raw))).to_json_pretty()
+            Proof::<G16ProofPoints>::new(proof_points, inputs, Some(base64::encode(&raw)))
+                .to_json_pretty()
         } else {
-            G16Proof::new(proof_points, inputs, None).to_json_pretty()
+            Proof::<G16ProofPoints>::new(proof_points, inputs, None).to_json_pretty()
         }
     }
 
@@ -185,26 +176,11 @@ impl ProofSystem for G16 {
     }
 
     fn verify(&self, vk: String, proof: String) -> bool {
-        let vk_map = parse_vk(vk);
-        let vk_raw = vk_map.get("vk.raw");
-        assert!(
-            vk_raw.is_some(),
-            "Missing \"vk.raw\" key;  pass \"--raw\" flag when running setup"
-        );
-
-        let vk_raw = hex::decode(vk_raw.unwrap()).unwrap();
-
-        let vk: VerifyingKey<Bn256> = VerifyingKey::read(vk_raw.as_slice()).unwrap();
+        let vk: VerifyingKey<Bn256> = get_raw_vk(vk);
         let pvk: PreparedVerifyingKey<Bn256> = prepare_verifying_key(&vk);
 
-        let g16_proof = G16Proof::from_json(proof.as_str());
-        assert!(
-            g16_proof.raw.is_some(),
-            "Missing \"raw\" field in proof; pass \"--raw\" flag when generating proof"
-        );
-
-        let raw_proof = hex::decode(g16_proof.raw.unwrap()).unwrap();
-        let bellman_proof: Proof<Bn256> = Proof::read(raw_proof.as_slice()).unwrap();
+        let g16_proof: Proof<G16ProofPoints> = Proof::from_json(proof.as_str());
+        let proof: BellmanProof<Bn256> = get_raw_proof(&g16_proof);
 
         let public_inputs: Vec<Fr> = g16_proof
             .inputs
@@ -216,8 +192,28 @@ impl ProofSystem for G16 {
             })
             .collect::<Vec<_>>();
 
-        verify_proof(&pvk, &bellman_proof, &public_inputs).unwrap()
+        verify_proof(&pvk, &proof, &public_inputs).unwrap()
     }
+}
+
+fn get_raw_proof(proof: &Proof<G16ProofPoints>) -> BellmanProof<Bn256> {
+    assert!(
+        proof.raw.is_some(),
+        "Missing \"raw\" field in proof: pass \"--raw\" flag when generating proof"
+    );
+    let proof = base64::decode(proof.raw.as_ref().unwrap()).unwrap();
+    BellmanProof::read(proof.as_slice()).unwrap()
+}
+
+fn get_raw_vk(vk: String) -> VerifyingKey<Bn256> {
+    let map = parse_vk(vk);
+    let raw = map.get("vk.raw");
+    assert!(
+        raw.is_some(),
+        "Missing \"vk.raw\" key:  pass \"--raw\" flag when running setup"
+    );
+    let raw = base64::decode(raw.unwrap()).unwrap();
+    VerifyingKey::read(raw.as_slice()).unwrap()
 }
 
 fn serialize_vk(vk: VerifyingKey<Bn256>, include_raw: bool) -> String {
@@ -256,7 +252,7 @@ fn serialize_vk(vk: VerifyingKey<Bn256>, include_raw: bool) -> String {
         vk.write(&mut raw).unwrap();
 
         writer
-            .write_record(&["vk.raw", hex::encode(&raw).as_str()])
+            .write_record(&["vk.raw", base64::encode(&raw).as_str()])
             .unwrap();
     }
 

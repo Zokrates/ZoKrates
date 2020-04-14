@@ -16,8 +16,19 @@ libff::bigint<libff::alt_bn128_r_limbs> libsnarkBigintFromBytes(const uint8_t* _
             x.data[3 - i] |= uint64_t(_x[i * 8 + j]) << (8 * (7 - j));
         }
     }
-    
     return x;
+}
+
+std::string toHex(const std::string& in)
+{
+    std::ostringstream out;
+    out << std::setfill('0');
+
+    for (unsigned char const& c : in) {
+        out << std::hex << std::setw(2) << static_cast<unsigned int>(c);
+    }
+
+    return out.str();
 }
 
 std::string HexStringFromLibsnarkBigint(libff::bigint<libff::alt_bn128_r_limbs> _x)
@@ -28,15 +39,12 @@ std::string HexStringFromLibsnarkBigint(libff::bigint<libff::alt_bn128_r_limbs> 
             x[i * 8 + j] = uint8_t(uint64_t(_x.data[3 - i]) >> (8 * (7 - j)));
         }
     }
-    std::stringstream ss;
-    ss << std::setfill('0');
-    for (unsigned i = 0; i < 32; i++) {
-        ss << std::hex << std::setw(2) << (int)x[i];
-    }
-    return ss.str();
+    std::string tmp((char*)x, 32);
+    return toHex(tmp);
 }
 
-std::string outputInputAsHex(libff::bigint<libff::alt_bn128_r_limbs> _x) {
+std::string outputInputAsHex(libff::bigint<libff::alt_bn128_r_limbs> _x)
+{
     return "\"0x" + HexStringFromLibsnarkBigint(_x) + "\"";
 }
 
@@ -44,38 +52,26 @@ std::string outputPointG1AffineAsHex(libff::alt_bn128_G1 _p)
 {
     libff::alt_bn128_G1 aff = _p;
     aff.to_affine_coordinates();
-    return "0x" +
-        HexStringFromLibsnarkBigint(aff.X.as_bigint()) + ", 0x" +
-        HexStringFromLibsnarkBigint(aff.Y.as_bigint());
+    return "0x" + HexStringFromLibsnarkBigint(aff.X.as_bigint()) + ", 0x" + HexStringFromLibsnarkBigint(aff.Y.as_bigint());
 }
 
 std::string outputPointG1AffineAsHexJson(libff::alt_bn128_G1 _p)
 {
     libff::alt_bn128_G1 aff = _p;
     aff.to_affine_coordinates();
-    return "[\"0x" +
-        HexStringFromLibsnarkBigint(aff.X.as_bigint()) + "\", \"0x" +
-        HexStringFromLibsnarkBigint(aff.Y.as_bigint())+"\"]";
+    return "[\"0x" + HexStringFromLibsnarkBigint(aff.X.as_bigint()) + "\", \"0x" + HexStringFromLibsnarkBigint(aff.Y.as_bigint()) + "\"]";
 }
 
 std::string outputPointG2AffineAsHex(libff::alt_bn128_G2 _p)
 {
     libff::alt_bn128_G2 aff = _p;
     aff.to_affine_coordinates();
-    return "[0x" +
-        HexStringFromLibsnarkBigint(aff.X.c1.as_bigint()) + ", 0x" +
-        HexStringFromLibsnarkBigint(aff.X.c0.as_bigint()) + "], [0x" +
-        HexStringFromLibsnarkBigint(aff.Y.c1.as_bigint()) + ", 0x" +
-        HexStringFromLibsnarkBigint(aff.Y.c0.as_bigint()) + "]";
+    return "[0x" + HexStringFromLibsnarkBigint(aff.X.c1.as_bigint()) + ", 0x" + HexStringFromLibsnarkBigint(aff.X.c0.as_bigint()) + "], [0x" + HexStringFromLibsnarkBigint(aff.Y.c1.as_bigint()) + ", 0x" + HexStringFromLibsnarkBigint(aff.Y.c0.as_bigint()) + "]";
 }
 
 std::string outputPointG2AffineAsHexJson(libff::alt_bn128_G2 _p)
 {
     libff::alt_bn128_G2 aff = _p;
     aff.to_affine_coordinates();
-    return "[[\"0x" +
-        HexStringFromLibsnarkBigint(aff.X.c1.as_bigint()) + "\", \"0x" +
-        HexStringFromLibsnarkBigint(aff.X.c0.as_bigint()) + "\"], [\"0x" +
-        HexStringFromLibsnarkBigint(aff.Y.c1.as_bigint()) + "\", \"0x" +
-        HexStringFromLibsnarkBigint(aff.Y.c0.as_bigint()) + "\"]]";
+    return "[[\"0x" + HexStringFromLibsnarkBigint(aff.X.c1.as_bigint()) + "\", \"0x" + HexStringFromLibsnarkBigint(aff.X.c0.as_bigint()) + "\"], [\"0x" + HexStringFromLibsnarkBigint(aff.Y.c1.as_bigint()) + "\", \"0x" + HexStringFromLibsnarkBigint(aff.Y.c0.as_bigint()) + "\"]]";
 }

@@ -1,10 +1,13 @@
 use ir;
 use proof_system::bn128::utils::ffi::{Buffer, ProofResult, SetupResult};
-use proof_system::bn128::utils::libsnark::{prepare_generate_proof, prepare_setup};
+use proof_system::bn128::utils::libsnark::{
+    prepare_generate_proof, prepare_public_inputs, prepare_setup,
+};
 use proof_system::bn128::utils::parser::parse_vk;
 use proof_system::bn128::utils::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
+use proof_system::bn128::{G1PairingPoint, G2PairingPoint, Proof};
 use proof_system::{ProofSystem, SetupKeypair};
 use regex::Regex;
 use zokrates_field::field::FieldPrime;
@@ -14,6 +17,24 @@ pub struct PGHR13 {}
 impl PGHR13 {
     pub fn new() -> PGHR13 {
         PGHR13 {}
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct PGHR13ProofPoints {
+    a: G1PairingPoint,
+    a_p: G1PairingPoint,
+    b: G2PairingPoint,
+    b_p: G1PairingPoint,
+    c: G1PairingPoint,
+    c_p: G1PairingPoint,
+    h: G1PairingPoint,
+    k: G1PairingPoint,
+}
+
+impl Proof<PGHR13ProofPoints> {
+    fn from_json(str: &str) -> Self {
+        serde_json::from_str(str).unwrap()
     }
 }
 
@@ -28,6 +49,7 @@ extern "C" {
         constraints: i32,
         variables: i32,
         inputs: i32,
+        include_raw: bool,
     ) -> SetupResult;
 
     fn pghr13_generate_proof(
@@ -36,11 +58,19 @@ extern "C" {
         public_query_inputs_length: i32,
         private_inputs: *const u8,
         private_inputs_length: i32,
+        include_raw: bool,
     ) -> ProofResult;
+
+    fn pghr13_verify(
+        vk_buf: *mut Buffer,
+        proof_buf: *mut Buffer,
+        public_inputs: *const u8,
+        public_inputs_length: i32,
+    ) -> bool;
 }
 
 impl ProofSystem for PGHR13 {
-    fn setup(&self, program: ir::Prog<FieldPrime>, _include_raw: bool) -> SetupKeypair {
+    fn setup(&self, program: ir::Prog<FieldPrime>, include_raw: bool) -> SetupKeypair {
         let (a_arr, b_arr, c_arr, a_vec, b_vec, c_vec, num_constraints, num_variables, num_inputs) =
             prepare_setup(program);
 
@@ -55,6 +85,7 @@ impl ProofSystem for PGHR13 {
                 num_constraints as i32,
                 num_variables as i32,
                 num_inputs as i32,
+                include_raw,
             );
 
             let vk: Vec<u8> =
@@ -78,22 +109,24 @@ impl ProofSystem for PGHR13 {
         program: ir::Prog<FieldPrime>,
         witness: ir::Witness<FieldPrime>,
         proving_key: Vec<u8>,
-        _include_raw: bool,
+        include_raw: bool,
     ) -> String {
         let (public_inputs_arr, public_inputs_length, private_inputs_arr, private_inputs_length) =
             prepare_generate_proof(program, witness);
 
-        let mut pk = proving_key.clone();
-        let mut pk_buf = Buffer::from_vec(pk.as_mut());
-
         let proof_vec = unsafe {
+            let mut pk_buf = Buffer::from_vec(&proving_key);
+
             let result = pghr13_generate_proof(
                 &mut pk_buf as *mut _,
                 public_inputs_arr[0].as_ptr(),
                 public_inputs_length as i32,
                 private_inputs_arr[0].as_ptr(),
                 private_inputs_length as i32,
+                include_raw,
             );
+
+            pk_buf.drop(); // drop the buffer manually
 
             let proof_vec: Vec<u8> =
                 std::slice::from_raw_parts(result.proof.data, result.proof.length as usize)
@@ -185,8 +218,43 @@ impl ProofSystem for PGHR13 {
         )
     }
 
-    fn verify(&self, _vk: String, _proof: String) -> bool {
-        unimplemented!()
+    fn verify(&self, vk: String, proof: String) -> bool {
+        let map = parse_vk(vk);
+        let vk_raw = map.get("vk.raw");
+        assert!(
+            vk_raw.is_some(),
+            "Missing \"vk.raw\" key:  pass \"--raw\" flag when running setup"
+        );
+
+        let proof: Proof<PGHR13ProofPoints> = Proof::from_json(proof.as_str());
+        assert!(
+            proof.raw.is_some(),
+            "Missing \"raw\" field in proof: pass \"--raw\" flag when generating proof"
+        );
+
+        let vk_raw = hex::decode(vk_raw.unwrap().clone()).unwrap();
+        let proof_raw = hex::decode(proof.raw.unwrap().clone()).unwrap();
+
+        let public_inputs: Vec<&str> = proof.inputs.iter().map(|v| v.as_str()).collect();
+
+        let (public_inputs_arr, public_inputs_length) = prepare_public_inputs(public_inputs);
+
+        unsafe {
+            let mut vk_buffer = Buffer::from_vec(&vk_raw);
+            let mut proof_buffer = Buffer::from_vec(&proof_raw);
+
+            let ans = pghr13_verify(
+                &mut vk_buffer as *mut _,
+                &mut proof_buffer as *mut _,
+                public_inputs_arr[0].as_ptr(),
+                public_inputs_length as i32,
+            );
+
+            vk_buffer.drop();
+            proof_buffer.drop();
+
+            ans
+        }
     }
 }
 
