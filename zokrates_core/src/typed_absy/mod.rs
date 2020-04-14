@@ -7,6 +7,7 @@
 
 pub mod abi;
 pub mod folder;
+pub mod identifier;
 mod parameter;
 pub mod types;
 mod variable;
@@ -25,18 +26,8 @@ use zokrates_field::field::Field;
 
 pub use self::folder::Folder;
 use typed_absy::abi::{Abi, AbiInput};
+pub use typed_absy::identifier::Identifier;
 use typed_absy::types::StructMember;
-
-/// A identifier for a variable
-#[derive(Debug, PartialEq, Clone, Hash, Eq)]
-pub struct Identifier<'ast> {
-    /// the id of the variable
-    pub id: &'ast str,
-    /// the version of the variable, used after SSA transformation
-    pub version: usize,
-    /// the call stack of the variable, used when inlining
-    pub stack: Vec<(TypedModuleId, FunctionKey<'ast>, usize)>,
-}
 
 /// An identifier for a `TypedModule`. Typically a path or uri.
 pub type TypedModuleId = PathBuf;
@@ -112,54 +103,6 @@ impl<'ast, T: Field> fmt::Display for TypedProgram<'ast, T> {
 pub struct TypedModule<'ast, T: Field> {
     /// Functions of the program
     pub functions: TypedFunctionSymbols<'ast, T>,
-}
-
-impl<'ast> fmt::Display for Identifier<'ast> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.stack.len() == 0 && self.version == 0 {
-            write!(f, "{}", self.id)
-        } else {
-            write!(
-                f,
-                "{}_{}_{}",
-                self.stack
-                    .iter()
-                    .map(|(name, sig, count)| format!(
-                        "{}_{}_{}",
-                        name.display(),
-                        sig.to_slug(),
-                        count
-                    ))
-                    .collect::<Vec<_>>()
-                    .join("_"),
-                self.id,
-                self.version
-            )
-        }
-    }
-}
-
-impl<'ast> From<&'ast str> for Identifier<'ast> {
-    fn from(id: &'ast str) -> Identifier<'ast> {
-        Identifier {
-            id,
-            version: 0,
-            stack: vec![],
-        }
-    }
-}
-
-#[cfg(test)]
-impl<'ast> Identifier<'ast> {
-    pub fn version(mut self, version: usize) -> Self {
-        self.version = version;
-        self
-    }
-
-    pub fn stack(mut self, stack: Vec<(TypedModuleId, FunctionKey<'ast>, usize)>) -> Self {
-        self.stack = stack;
-        self
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

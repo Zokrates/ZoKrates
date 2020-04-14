@@ -9,11 +9,11 @@ extern crate lazy_static;
 
 pub use ast::{
     Access, ArrayAccess, ArrayInitializerExpression, ArrayType, AssertionStatement, Assignee,
-    AssigneeAccess, AssignmentStatement, BasicOrStructType, BasicType, BinaryExpression,
-    BinaryOperator, CallAccess, ConstantExpression, DefinitionStatement, Expression, File,
+    AssigneeAccess, BasicOrStructType, BasicType, BinaryExpression, BinaryOperator, CallAccess,
+    ConstantExpression, DecimalNumberExpression, DefinitionStatement, Expression, FieldType, File,
     FromExpression, Function, IdentifierExpression, ImportDirective, ImportSource,
     InlineArrayExpression, InlineStructExpression, InlineStructMember, IterationStatement,
-    MultiAssignmentStatement, Parameter, PostfixExpression, Range, RangeOrExpression,
+    OptionallyTypedAssignee, Parameter, PostfixExpression, Range, RangeOrExpression,
     ReturnStatement, Span, Spread, SpreadOrExpression, Statement, StructDefinition, StructField,
     TernaryExpression, ToExpression, Type, UnaryExpression, UnaryOperator, Visibility,
 };
@@ -315,24 +315,12 @@ mod ast {
         Definition(DefinitionStatement<'ast>),
         Assertion(AssertionStatement<'ast>),
         Iteration(IterationStatement<'ast>),
-        Assignment(AssignmentStatement<'ast>),
-        MultiAssignment(MultiAssignmentStatement<'ast>),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::definition_statement))]
     pub struct DefinitionStatement<'ast> {
-        pub ty: Type<'ast>,
-        pub id: IdentifierExpression<'ast>,
-        pub expression: Expression<'ast>,
-        #[pest_ast(outer())]
-        pub span: Span<'ast>,
-    }
-
-    #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::assignment_statement))]
-    pub struct AssignmentStatement<'ast> {
-        pub assignee: Assignee<'ast>,
+        pub lhs: Vec<OptionallyTypedAssignee<'ast>>,
         pub expression: Expression<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
@@ -354,16 +342,6 @@ mod ast {
         pub from: Expression<'ast>,
         pub to: Expression<'ast>,
         pub statements: Vec<Statement<'ast>>,
-        #[pest_ast(outer())]
-        pub span: Span<'ast>,
-    }
-
-    #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::multi_assignment_statement))]
-    pub struct MultiAssignmentStatement<'ast> {
-        pub lhs: Vec<OptionallyTypedIdentifier<'ast>>,
-        pub function_id: IdentifierExpression<'ast>,
-        pub arguments: Vec<Expression<'ast>>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -513,10 +491,10 @@ mod ast {
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
-    #[pest_ast(rule(Rule::optionally_typed_identifier))]
-    pub struct OptionallyTypedIdentifier<'ast> {
+    #[pest_ast(rule(Rule::optionally_typed_assignee))]
+    pub struct OptionallyTypedAssignee<'ast> {
         pub ty: Option<Type<'ast>>,
-        pub id: IdentifierExpression<'ast>,
+        pub a: Assignee<'ast>,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -1018,54 +996,68 @@ mod tests {
                     returns: vec![Type::Basic(BasicType::Field(FieldType {
                         span: Span::new(&source, 15, 20).unwrap()
                     }))],
-                    statements: vec![Statement::MultiAssignment(MultiAssignmentStatement {
-                        function_id: IdentifierExpression {
-                            value: String::from("foo"),
-                            span: Span::new(&source, 36, 39).unwrap()
-                        },
+                    statements: vec![Statement::Definition(DefinitionStatement {
                         lhs: vec![
-                            OptionallyTypedIdentifier {
+                            OptionallyTypedAssignee {
                                 ty: Some(Type::Basic(BasicType::Field(FieldType {
                                     span: Span::new(&source, 23, 28).unwrap()
                                 }))),
-                                id: IdentifierExpression {
-                                    value: String::from("a"),
-                                    span: Span::new(&source, 29, 30).unwrap(),
+                                a: Assignee {
+                                    id: IdentifierExpression {
+                                        value: String::from("a"),
+                                        span: Span::new(&source, 29, 30).unwrap(),
+                                    },
+                                    accesses: vec![],
+                                    span: Span::new(&source, 29, 30).unwrap()
                                 },
                                 span: Span::new(&source, 23, 30).unwrap()
                             },
-                            OptionallyTypedIdentifier {
+                            OptionallyTypedAssignee {
                                 ty: None,
-                                id: IdentifierExpression {
-                                    value: String::from("b"),
-                                    span: Span::new(&source, 32, 33).unwrap(),
+                                a: Assignee {
+                                    id: IdentifierExpression {
+                                        value: String::from("b"),
+                                        span: Span::new(&source, 32, 33).unwrap(),
+                                    },
+                                    accesses: vec![],
+                                    span: Span::new(&source, 32, 34).unwrap()
                                 },
-                                span: Span::new(&source, 32, 33).unwrap()
+                                span: Span::new(&source, 32, 34).unwrap()
                             },
                         ],
-                        arguments: vec![
-                            Expression::Constant(ConstantExpression::DecimalNumber(
-                                DecimalNumberExpression {
-                                    value: String::from("1"),
-                                    span: Span::new(&source, 40, 41).unwrap()
-                                }
-                            )),
-                            Expression::add(
-                                Expression::Constant(ConstantExpression::DecimalNumber(
-                                    DecimalNumberExpression {
-                                        value: String::from("2"),
-                                        span: Span::new(&source, 43, 44).unwrap()
-                                    }
-                                )),
-                                Expression::Constant(ConstantExpression::DecimalNumber(
-                                    DecimalNumberExpression {
-                                        value: String::from("3"),
-                                        span: Span::new(&source, 47, 48).unwrap()
-                                    }
-                                )),
-                                Span::new(&source, 43, 48).unwrap()
-                            ),
-                        ],
+                        expression: Expression::Postfix(PostfixExpression {
+                            id: IdentifierExpression {
+                                value: String::from("foo"),
+                                span: Span::new(&source, 36, 39).unwrap()
+                            },
+                            accesses: vec![Access::Call(CallAccess {
+                                expressions: vec![
+                                    Expression::Constant(ConstantExpression::DecimalNumber(
+                                        DecimalNumberExpression {
+                                            value: String::from("1"),
+                                            span: Span::new(&source, 40, 41).unwrap()
+                                        }
+                                    )),
+                                    Expression::add(
+                                        Expression::Constant(ConstantExpression::DecimalNumber(
+                                            DecimalNumberExpression {
+                                                value: String::from("2"),
+                                                span: Span::new(&source, 43, 44).unwrap()
+                                            }
+                                        )),
+                                        Expression::Constant(ConstantExpression::DecimalNumber(
+                                            DecimalNumberExpression {
+                                                value: String::from("3"),
+                                                span: Span::new(&source, 47, 48).unwrap()
+                                            }
+                                        )),
+                                        Span::new(&source, 43, 48).unwrap()
+                                    ),
+                                ],
+                                span: Span::new(&source, 39, 49).unwrap()
+                            })],
+                            span: Span::new(&source, 36, 49).unwrap(),
+                        }),
                         span: Span::new(&source, 23, 49).unwrap()
                     })],
                     span: Span::new(&source, 0, 50).unwrap(),

@@ -719,11 +719,17 @@ mod tests {
 
     #[test]
     fn examples() {
-        for p in glob("./examples/**/*.zok").expect("Failed to read glob pattern") {
+        for p in glob("./examples/**/*").expect("Failed to read glob pattern") {
             let path = match p {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
             };
+
+            if !path.is_file() {
+                continue;
+            }
+
+            assert!(path.extension().expect("extension expected") == "zok");
 
             if path.to_str().unwrap().contains("error") {
                 continue;
@@ -747,7 +753,7 @@ mod tests {
     #[test]
     fn examples_with_input_success() {
         //these examples should compile and run
-        for p in glob("./examples/test*.zok").expect("Failed to read glob pattern") {
+        for p in glob("./examples/test*").expect("Failed to read glob pattern") {
             let path = match p {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
@@ -775,7 +781,7 @@ mod tests {
     #[should_panic]
     fn examples_with_input_failure() {
         //these examples should compile but not run
-        for p in glob("./examples/runtime_errors/*.zok").expect("Failed to read glob pattern") {
+        for p in glob("./examples/runtime_errors/*").expect("Failed to read glob pattern") {
             let path = match p {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),

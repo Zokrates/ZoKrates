@@ -96,7 +96,7 @@ impl ProofSystem for G16 {
             let mut raw: Vec<u8> = Vec::new();
             proof.write(&mut raw).unwrap();
 
-            Proof::<G16ProofPoints>::new(proof_points, inputs, Some(base64::encode(&raw)))
+            Proof::<G16ProofPoints>::new(proof_points, inputs, Some(hex::encode(&raw)))
                 .to_json_pretty()
         } else {
             Proof::<G16ProofPoints>::new(proof_points, inputs, None).to_json_pretty()
@@ -201,7 +201,7 @@ fn get_raw_proof(proof: &Proof<G16ProofPoints>) -> BellmanProof<Bn256> {
         proof.raw.is_some(),
         "Missing \"raw\" field in proof: pass \"--raw\" flag when generating proof"
     );
-    let proof = base64::decode(proof.raw.as_ref().unwrap()).unwrap();
+    let proof = hex::decode(proof.raw.as_ref().unwrap()).unwrap();
     BellmanProof::read(proof.as_slice()).unwrap()
 }
 
@@ -212,7 +212,7 @@ fn get_raw_vk(vk: String) -> VerifyingKey<Bn256> {
         raw.is_some(),
         "Missing \"vk.raw\" key:  pass \"--raw\" flag when running setup"
     );
-    let raw = base64::decode(raw.unwrap()).unwrap();
+    let raw = hex::decode(raw.unwrap()).unwrap();
     VerifyingKey::read(raw.as_slice()).unwrap()
 }
 
@@ -252,7 +252,7 @@ fn serialize_vk(vk: VerifyingKey<Bn256>, include_raw: bool) -> String {
         vk.write(&mut raw).unwrap();
 
         writer
-            .write_record(&["vk.raw", base64::encode(&raw).as_str()])
+            .write_record(&["vk.raw", hex::encode(&raw).as_str()])
             .unwrap();
     }
 

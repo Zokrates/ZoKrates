@@ -995,7 +995,7 @@ impl<'ast> Checker<'ast> {
                     }
                     _ => Err(ErrorInner {
                         pos: Some(pos),
-                        message: format!("{} should be a FunctionCall", rhs),
+                        message: format!("{} should be a function call", rhs),
                     }),
                 }.map_err(|e| vec![e])
             }
