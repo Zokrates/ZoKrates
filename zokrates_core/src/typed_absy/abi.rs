@@ -32,8 +32,7 @@ mod tests {
     use std::collections::HashMap;
     use typed_absy::types::{ArrayType, FunctionKey, StructMember};
     use typed_absy::{
-        Identifier, Parameter, Type, TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram,
-        Variable,
+        Parameter, Type, TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram, Variable,
     };
     use zokrates_field::field::FieldPrime;
 
@@ -45,19 +44,11 @@ mod tests {
             TypedFunctionSymbol::Here(TypedFunction {
                 arguments: vec![
                     Parameter {
-                        id: Variable::field_element(Identifier {
-                            id: "a",
-                            version: 0,
-                            stack: vec![],
-                        }),
+                        id: Variable::field_element("a".into()),
                         private: true,
                     },
                     Parameter {
-                        id: Variable::boolean(Identifier {
-                            id: "b",
-                            version: 0,
-                            stack: vec![],
-                        }),
+                        id: Variable::boolean("b".into()),
                         private: false,
                     },
                 ],
