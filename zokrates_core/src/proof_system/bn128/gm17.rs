@@ -216,20 +216,16 @@ impl ProofSystem for GM17 {
 
     fn verify(&self, vk: String, proof: String) -> bool {
         let map = parse_vk(vk);
-        let vk_raw = map.get("vk.raw");
-        assert!(
-            vk_raw.is_some(),
-            "Missing \"vk.raw\" key:  pass \"--raw\" flag when running setup"
-        );
+        let vk_raw = map
+            .get("vk.raw")
+            .expect("Missing vk.raw key: pass --raw flag when running setup");
+        let vk_raw = hex::decode(vk_raw).unwrap();
 
         let proof: Proof<GM17ProofPoints> = Proof::from_json(proof.as_str());
-        assert!(
-            proof.raw.is_some(),
-            "Missing \"raw\" field in proof: pass \"--raw\" flag when generating proof"
-        );
-
-        let vk_raw = hex::decode(vk_raw.unwrap().clone()).unwrap();
-        let proof_raw = hex::decode(proof.raw.unwrap().clone()).unwrap();
+        let proof_raw = proof
+            .raw
+            .expect("Missing raw field in proof: pass --raw flag when generating proof");
+        let proof_raw = hex::decode(proof_raw).unwrap();
 
         let public_inputs: Vec<&str> = proof.inputs.iter().map(|v| v.as_str()).collect();
 

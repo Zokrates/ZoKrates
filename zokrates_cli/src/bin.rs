@@ -636,7 +636,7 @@ fn cli() -> Result<(), String> {
                 .write(proof.as_ref())
                 .map_err(|why| format!("couldn't write to {}: {}", proof_path.display(), why))?;
 
-            println!("generate-proof successful: {}", format!("{}", proof));
+            println!("Proof: \n\n{}", format!("{}", proof));
         }
         ("print-proof", Some(sub_matches)) => {
             let format = sub_matches.value_of("format").unwrap();
