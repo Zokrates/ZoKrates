@@ -270,6 +270,7 @@ pub fn unpack_to_bitwidth<T: Field>(width: usize) -> FlatFunction<T> {
         format!("i0"),
         &mut counter,
     ))];
+
     let directive_outputs: Vec<FlatVariable> = (0..width)
         .map(|index| use_variable(&mut layout, format!("o{}", index), &mut counter))
         .collect();

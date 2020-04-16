@@ -9,6 +9,6 @@ def main(field a) -> ():
 	local(a) + local(a) + local(a) + local(a) + local(a) == 5 * (a ** 8)
 
 	// calling an imported function many times with the same arg should cost only once
-	dep(a) + dep(a) + dep(a) + dep(a) + dep(a) == 4 * (a ** 4)
+	dep(a) + dep(a) + dep(a) + dep(a) + dep(a) == 5 * (a ** 4)
 
 	return

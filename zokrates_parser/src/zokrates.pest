@@ -46,7 +46,7 @@ definition_statement = { optionally_typed_assignee_list ~ "=" ~ expression } // 
 expression_statement = {expression}
 
 optionally_typed_assignee_list = _{ optionally_typed_assignee ~ ("," ~ optionally_typed_assignee)* }
-optionally_typed_assignee = { (assignee) | (ty ~ assignee) } // we don't use { ty? ~ identifier } as with a single token, it gets parsed as `ty` but we want `identifier`
+optionally_typed_assignee = { (ty ~ assignee) | (assignee) } // we don't use { ty? ~ identifier } as with a single token, it gets parsed as `ty` but we want `identifier`
 
 // Expressions
 expression_list = _{(expression ~ ("," ~ expression)*)?}
@@ -121,7 +121,6 @@ op_unary = { op_not }
 WHITESPACE = _{ " " | "\t" | "\\" ~ NEWLINE}
 COMMENT = _{ ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!NEWLINE ~ ANY)*) }
 
-// TODO: Order by alphabet
 keyword = @{"as"|"bool"|"byte"|"def"|"do"|"else"|"endfor"|"export"|"false"|"field"|"for"|"if"|"then"|"fi"|"import"|"from"|
             "in"|"private"|"public"|"return"|"struct"|"true"|"u8"|"u16"|"u32"
             }

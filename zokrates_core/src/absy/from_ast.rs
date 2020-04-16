@@ -1000,4 +1000,147 @@ mod tests {
             absy::Module::<FieldPrime>::from(ast);
         }
     }
+    #[test]
+    fn declarations() {
+        use self::pest::Span;
+
+        let span = Span::new(&"", 0, 0).unwrap();
+
+        // For different definitions, we generate declarations
+        // Case 1: `id = expr` where `expr` is not a function call
+        // This is a simple assignment, doesn't implicitely declare a variable
+        // A `Definition` is generatedm and no `Declaration`s
+
+        let definition = pest::DefinitionStatement {
+            lhs: vec![pest::OptionallyTypedAssignee {
+                ty: None,
+                a: pest::Assignee {
+                    id: pest::IdentifierExpression {
+                        value: String::from("a"),
+                        span: span.clone(),
+                    },
+                    accesses: vec![],
+                    span: span.clone(),
+                },
+                span: span.clone(),
+            }],
+            expression: pest::Expression::Constant(pest::ConstantExpression::DecimalNumber(
+                pest::DecimalNumberExpression {
+                    value: String::from("42"),
+                    span: span.clone(),
+                },
+            )),
+            span: span.clone(),
+        };
+
+        let statements: Vec<absy::StatementNode<FieldPrime>> =
+            statements_from_definition(definition);
+
+        assert_eq!(statements.len(), 1);
+        match &statements[0].value {
+            absy::Statement::Definition(..) => {}
+            s => {
+                panic!("should be a Definition, found {}", s);
+            }
+        };
+
+        // Case 2: `id = expr` where `expr` is a function call
+        // A MultiDef is generated
+
+        let definition = pest::DefinitionStatement {
+            lhs: vec![pest::OptionallyTypedAssignee {
+                ty: None,
+                a: pest::Assignee {
+                    id: pest::IdentifierExpression {
+                        value: String::from("a"),
+                        span: span.clone(),
+                    },
+                    accesses: vec![],
+                    span: span.clone(),
+                },
+                span: span.clone(),
+            }],
+            expression: pest::Expression::Postfix(pest::PostfixExpression {
+                id: pest::IdentifierExpression {
+                    value: String::from("foo"),
+                    span: span.clone(),
+                },
+                accesses: vec![pest::Access::Call(pest::CallAccess {
+                    expressions: vec![],
+                    span: span.clone(),
+                })],
+                span: span.clone(),
+            }),
+            span: span.clone(),
+        };
+
+        let statements: Vec<absy::StatementNode<FieldPrime>> =
+            statements_from_definition(definition);
+
+        assert_eq!(statements.len(), 1);
+        match &statements[0].value {
+            absy::Statement::MultipleDefinition(..) => {}
+            s => {
+                panic!("should be a Definition, found {}", s);
+            }
+        };
+        // Case 3: `ids = expr` where `expr` is a function call
+        // This implicitely declares all variables which are type annotated
+
+        // `field a, b = foo()`
+
+        let definition = pest::DefinitionStatement {
+            lhs: vec![
+                pest::OptionallyTypedAssignee {
+                    ty: Some(pest::Type::Basic(pest::BasicType::Field(pest::FieldType {
+                        span: span.clone(),
+                    }))),
+                    a: pest::Assignee {
+                        id: pest::IdentifierExpression {
+                            value: String::from("a"),
+                            span: span.clone(),
+                        },
+                        accesses: vec![],
+                        span: span.clone(),
+                    },
+                    span: span.clone(),
+                },
+                pest::OptionallyTypedAssignee {
+                    ty: None,
+                    a: pest::Assignee {
+                        id: pest::IdentifierExpression {
+                            value: String::from("b"),
+                            span: span.clone(),
+                        },
+                        accesses: vec![],
+                        span: span.clone(),
+                    },
+                    span: span.clone(),
+                },
+            ],
+            expression: pest::Expression::Postfix(pest::PostfixExpression {
+                id: pest::IdentifierExpression {
+                    value: String::from("foo"),
+                    span: span.clone(),
+                },
+                accesses: vec![pest::Access::Call(pest::CallAccess {
+                    expressions: vec![],
+                    span: span.clone(),
+                })],
+                span: span.clone(),
+            }),
+            span: span.clone(),
+        };
+
+        let statements: Vec<absy::StatementNode<FieldPrime>> =
+            statements_from_definition(definition);
+
+        assert_eq!(statements.len(), 2);
+        match &statements[1].value {
+            absy::Statement::MultipleDefinition(..) => {}
+            s => {
+                panic!("should be a Definition, found {}", s);
+            }
+        };
+    }
 }

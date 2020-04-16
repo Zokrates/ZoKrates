@@ -1,6 +1,6 @@
 {
 	"entry_point": "./tests/tests/uint/constant.zok",
-	"constraint_count": 1,
+	"max_constraint_count": 1,
 	"tests": [
 		{
 			"input": {

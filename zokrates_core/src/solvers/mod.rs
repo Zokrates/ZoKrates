@@ -22,7 +22,7 @@ impl Solver {
         match self {
             Solver::Identity => (1, 1),
             Solver::ConditionEq => (1, 2),
-            Solver::Bits(bitwidth) => (1, *bitwidth),
+            Solver::Bits(bit_width) => (1, *bit_width),
             Solver::Div => (2, 1),
             Solver::Sha256Round => (768, 26935),
         }
@@ -37,11 +37,11 @@ impl Solver {
                 true => vec![T::zero(), T::one()],
                 false => vec![T::one(), T::one() / inputs[0].clone()],
             },
-            Solver::Bits(bitwidth) => {
+            Solver::Bits(bit_width) => {
                 let mut num = inputs[0].clone();
                 let mut res = vec![];
 
-                for i in (0..*bitwidth).rev() {
+                for i in (0..*bit_width).rev() {
                     if T::from(2).pow(i) <= num {
                         num = num - T::from(2).pow(i);
                         res.push(T::one());

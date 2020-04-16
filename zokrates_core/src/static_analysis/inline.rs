@@ -398,8 +398,14 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         self.statement_buffer
                             .push(TypedStatement::MultipleDefinition(
                                 vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
-                                TypedExpressionList::FunctionCall(key, expressions, tys),
+                                TypedExpressionList::FunctionCall(key.clone(), expressions.clone(), tys),
                             ));
+
+                        self.call_cache_mut()
+                            .entry(key.clone())
+                            .or_insert_with(|| HashMap::new())
+                            .insert(expressions, vec![BooleanExpression::Identifier(id.clone()).into()]);
+
                         BooleanExpression::Identifier(id)
                     }
                 }
@@ -424,22 +430,31 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         TypedExpression::Array(e) => e.into_inner(),
                         _ => unreachable!(),
                     },
-                    Err((key, expressions)) => {
+                    Err((embed_key, expressions)) => {
+
                         let tys = key.signature.outputs.clone();
                         let id = Identifier {
                             id: CoreIdentifier::Call(key.clone()),
                             version: *self
                                 .call_count
-                                .get(&(self.module_id().clone(), key.clone()))
+                                .get(&(self.module_id().clone(), embed_key.clone()))
                                 .unwrap(),
                             stack: self.stack.clone(),
                         };
                         self.statement_buffer
                             .push(TypedStatement::MultipleDefinition(
                                 vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
-                                TypedExpressionList::FunctionCall(key, expressions, tys),
+                                TypedExpressionList::FunctionCall(embed_key.clone(), expressions.clone(), tys),
                             ));
-                        ArrayExpressionInner::Identifier(id)
+
+                        let out = ArrayExpressionInner::Identifier(id);
+
+                        self.call_cache_mut()
+                            .entry(key.clone())
+                            .or_insert_with(|| HashMap::new())
+                            .insert(expressions, vec![out.clone().annotate(ty.clone(), size).into()]);
+
+                        out
                     }
                 }
             }
@@ -500,22 +515,30 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         TypedExpression::Uint(e) => e.into_inner(),
                         _ => unreachable!(),
                     },
-                    Err((key, expressions)) => {
+                    Err((embed_key, expressions)) => {
                         let tys = key.signature.outputs.clone();
                         let id = Identifier {
                             id: CoreIdentifier::Call(key.clone()),
                             version: *self
                                 .call_count
-                                .get(&(self.module_id().clone(), key.clone()))
+                                .get(&(self.module_id().clone(), embed_key.clone()))
                                 .unwrap(),
                             stack: self.stack.clone(),
                         };
                         self.statement_buffer
                             .push(TypedStatement::MultipleDefinition(
                                 vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
-                                TypedExpressionList::FunctionCall(key, expressions, tys),
+                                TypedExpressionList::FunctionCall(embed_key.clone(), expressions.clone(), tys),
                             ));
-                        UExpressionInner::Identifier(id)
+
+                        let out = UExpressionInner::Identifier(id);
+
+                        self.call_cache_mut()
+                            .entry(key.clone())
+                            .or_insert_with(|| HashMap::new())
+                            .insert(expressions, vec![out.clone().annotate(size).into()]);
+
+                        out
                     }
                 }
             }

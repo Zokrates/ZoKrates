@@ -1,6 +1,6 @@
 {
 	"entry_point": "./tests/tests/uint/maj.zok",
-	"constraint_count": 196,
+	"max_constraint_count": 196,
 	"tests": [
 		{
 			"input": {

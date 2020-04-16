@@ -153,16 +153,27 @@ mod tests {
                 rule: Rule::statement,
                 tokens: [
                     statement(0, 28, [
-                        multi_assignment_statement(0, 15, [
-                            optionally_typed_identifier(0, 7, [
+                        definition_statement(0, 15, [
+                            optionally_typed_assignee(0, 7, [
                                 ty(0, 5, [
                                     ty_basic(0, 5, [
                                         ty_field(0, 5)
                                     ])
                                 ]),
-                                identifier(6, 7)
+                                assignee(6, 7, [
+                                    identifier(6, 7)
+                                ])
                             ]),
-                            identifier(10, 13),
+                            expression(10, 15, [
+                                term(10, 15, [
+                                    postfix_expression(10, 15, [
+                                        identifier(10, 13),
+                                        access(13, 15, [
+                                            call_access(13, 15)
+                                        ])
+                                    ])
+                                ])
+                            ]),
                         ])
                     ])
                 ]
@@ -178,16 +189,27 @@ mod tests {
                 rule: Rule::statement,
                 tokens: [
                     statement(0, 26, [
-                        multi_assignment_statement(0, 13, [
-                            optionally_typed_identifier(0, 5, [
+                        definition_statement(0, 13, [
+                            optionally_typed_assignee(0, 5, [
                                 ty(0, 3, [
                                     ty_basic(0, 3, [
                                         ty_u32(0, 3)
                                     ])
                                 ]),
-                                identifier(4, 5)
+                                assignee(4, 5, [
+                                    identifier(4, 5)
+                                ])
                             ]),
-                            identifier(8, 11),
+                            expression(8, 13, [
+                                term(8, 13, [
+                                    postfix_expression(8, 13, [
+                                        identifier(8, 11),
+                                        access(11, 13, [
+                                            call_access(11, 13)
+                                        ])
+                                    ])
+                                ])
+                            ]),
                         ])
                     ])
                 ]

@@ -5,11 +5,11 @@
  * @date 2017
  */
 
-#include "util.hpp"
 #include "gm17.hpp"
+#include "util.hpp"
 #include <cassert>
-#include <string>
 #include <sstream>
+#include <string>
 
 // contains definition of alt_bn128 ec public parameters
 #include "libff/algebra/curves/alt_bn128/alt_bn128_pp.hpp"
@@ -23,108 +23,112 @@ using namespace libsnark;
 using std::cout;
 using std::endl;
 
-namespace gm17
+namespace gm17 {
+r1cs_se_ppzksnark_constraint_system<libff::alt_bn128_pp> createConstraintSystem(const uint8_t* A, const uint8_t* B, const uint8_t* C, int32_t A_len, int32_t B_len, int32_t C_len, int32_t constraints, int32_t variables, int32_t inputs)
 {
-    r1cs_se_ppzksnark_constraint_system<libff::alt_bn128_pp> createConstraintSystem(const uint8_t* A, const uint8_t* B, const uint8_t* C, int32_t A_len, int32_t B_len, int32_t C_len, int32_t constraints, int32_t variables, int32_t inputs)
-    {
-        r1cs_se_ppzksnark_constraint_system<libff::alt_bn128_pp> cs;
-        cs.primary_input_size = inputs;
-        cs.auxiliary_input_size = variables - inputs - 1; // ~one not included
+    r1cs_se_ppzksnark_constraint_system<libff::alt_bn128_pp> cs;
+    cs.primary_input_size = inputs;
+    cs.auxiliary_input_size = variables - inputs - 1; // ~one not included
 
-        cout << "num variables: " << variables <<endl;
-        cout << "num constraints: " << constraints <<endl;
-        cout << "num inputs: " << inputs <<endl;
+    cout << "num variables: " << variables << endl;
+    cout << "num constraints: " << constraints << endl;
+    cout << "num inputs: " << inputs << endl;
 
-        struct VariableValueMapping {
-            int constraint_id;
-            int variable_id;
-            uint8_t variable_value[32];
-        };
+    struct VariableValueMapping {
+        int constraint_id;
+        int variable_id;
+        uint8_t variable_value[32];
+    };
 
-        const VariableValueMapping* A_vvmap = (VariableValueMapping*) A;
-        const VariableValueMapping* B_vvmap = (VariableValueMapping*) B;
-        const VariableValueMapping* C_vvmap = (VariableValueMapping*) C;
+    const VariableValueMapping* A_vvmap = (VariableValueMapping*)A;
+    const VariableValueMapping* B_vvmap = (VariableValueMapping*)B;
+    const VariableValueMapping* C_vvmap = (VariableValueMapping*)C;
 
-        int A_id = 0;
-        int B_id = 0;
-        int C_id = 0;
+    int A_id = 0;
+    int B_id = 0;
+    int C_id = 0;
 
-        // initialize curve parameters
-        libff::alt_bn128_pp::init_public_params();
+    // initialize curve parameters
+    libff::alt_bn128_pp::init_public_params();
 
-        for (int row = 0; row < constraints; row++)
-        {
-            linear_combination<libff::Fr<libff::alt_bn128_pp> > lin_comb_A, lin_comb_B, lin_comb_C;
-            while (A_id < A_len && A_vvmap[A_id].constraint_id == row) {
-                libff::bigint<libff::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(A_vvmap[A_id].variable_value);
-                if (!value.is_zero()) {
-                    lin_comb_A.add_term(A_vvmap[A_id].variable_id, value);
-                }
-                A_id++;
+    for (int row = 0; row < constraints; row++) {
+        linear_combination<libff::Fr<libff::alt_bn128_pp>> lin_comb_A, lin_comb_B, lin_comb_C;
+        while (A_id < A_len && A_vvmap[A_id].constraint_id == row) {
+            libff::bigint<libff::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(A_vvmap[A_id].variable_value);
+            if (!value.is_zero()) {
+                lin_comb_A.add_term(A_vvmap[A_id].variable_id, value);
             }
-            while (B_id < B_len && B_vvmap[B_id].constraint_id == row) {
-                libff::bigint<libff::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(B_vvmap[B_id].variable_value);
-                if (!value.is_zero()) {
-                    lin_comb_B.add_term(B_vvmap[B_id].variable_id, value);
-                }
-                B_id++;
-            }
-            while (C_id < C_len && C_vvmap[C_id].constraint_id == row) {
-                libff::bigint<libff::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(C_vvmap[C_id].variable_value);
-                if (!value.is_zero()) {
-                    lin_comb_C.add_term(C_vvmap[C_id].variable_id, value);
-                }
-                C_id++;
-            }
-            cs.add_constraint(r1cs_constraint<libff::Fr<libff::alt_bn128_pp> >(lin_comb_A, lin_comb_B, lin_comb_C));
+            A_id++;
         }
-        return cs;
-    }
-
-    r1cs_se_ppzksnark_keypair<libff::alt_bn128_pp> generateKeypair(const r1cs_se_ppzksnark_constraint_system<libff::alt_bn128_pp> &cs) {
-        return r1cs_se_ppzksnark_generator<libff::alt_bn128_pp>(cs); //from r1cs_se_ppzksnark.hpp
-    }
-
-    std::string serializeVerificationKey(r1cs_se_ppzksnark_verification_key<libff::alt_bn128_pp>* vk)
-    {
-        std::stringstream ss;
-        unsigned queryLength = vk->query.size();
-
-        ss << "vk.h = " << outputPointG2AffineAsHex(vk->H) << endl;
-        ss << "vk.g_alpha = " << outputPointG1AffineAsHex(vk->G_alpha) << endl;
-        ss << "vk.h_beta = " << outputPointG2AffineAsHex(vk->H_beta) << endl;
-        ss << "vk.g_gamma = " << outputPointG1AffineAsHex(vk->G_gamma) << endl;
-        ss << "vk.h_gamma = " << outputPointG2AffineAsHex(vk->H_gamma) << endl;
-        ss << "vk.query.len() = " << queryLength << endl;
-        for (size_t i = 0; i < queryLength; ++i)
-        {
-            auto vk_query_i = outputPointG1AffineAsHex(vk->query[i]);
-            ss << "vk.query[" << i << "] = " << vk_query_i << endl;
-        }
-        return ss.str();
-    }
-
-    std::string serializeProof(r1cs_se_ppzksnark_proof<libff::alt_bn128_pp>* proof, const uint8_t* public_inputs, int32_t public_inputs_length)
-    {
-        std::stringstream ss;
-        ss << "{" << "\n";
-        ss << "\t\"proof\": {" << "\n";
-        ss << "\t\t\"a\": " << outputPointG1AffineAsHexJson(proof->A) << ",\n";
-        ss << "\t\t\"b\": " << outputPointG2AffineAsHexJson(proof->B) << ",\n";
-        ss << "\t\t\"c\": " << outputPointG1AffineAsHexJson(proof->C) << "\n";
-        ss << "\t}," << "\n";
-        ss << "\t\"inputs\": " << "[";
-        for (int i = 1; i < public_inputs_length; i++) {
-            if (i != 1) {
-                ss << ",";
+        while (B_id < B_len && B_vvmap[B_id].constraint_id == row) {
+            libff::bigint<libff::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(B_vvmap[B_id].variable_value);
+            if (!value.is_zero()) {
+                lin_comb_B.add_term(B_vvmap[B_id].variable_id, value);
             }
-            ss << outputInputAsHex(libsnarkBigintFromBytes(public_inputs + i * 32));
+            B_id++;
         }
-        ss << "]" << "\n";
-        ss << "}" << "\n";
-        std::string str = ss.str();
-        return str;
+        while (C_id < C_len && C_vvmap[C_id].constraint_id == row) {
+            libff::bigint<libff::alt_bn128_r_limbs> value = libsnarkBigintFromBytes(C_vvmap[C_id].variable_value);
+            if (!value.is_zero()) {
+                lin_comb_C.add_term(C_vvmap[C_id].variable_id, value);
+            }
+            C_id++;
+        }
+        cs.add_constraint(r1cs_constraint<libff::Fr<libff::alt_bn128_pp>>(lin_comb_A, lin_comb_B, lin_comb_C));
     }
+    return cs;
+}
+
+r1cs_se_ppzksnark_keypair<libff::alt_bn128_pp> generateKeypair(const r1cs_se_ppzksnark_constraint_system<libff::alt_bn128_pp>& cs)
+{
+    return r1cs_se_ppzksnark_generator<libff::alt_bn128_pp>(cs); //from r1cs_se_ppzksnark.hpp
+}
+
+std::string serializeVerificationKey(r1cs_se_ppzksnark_verification_key<libff::alt_bn128_pp>* vk)
+{
+    std::stringstream ss;
+    unsigned queryLength = vk->query.size();
+
+    ss << "vk.h = " << outputPointG2AffineAsHex(vk->H) << endl;
+    ss << "vk.g_alpha = " << outputPointG1AffineAsHex(vk->G_alpha) << endl;
+    ss << "vk.h_beta = " << outputPointG2AffineAsHex(vk->H_beta) << endl;
+    ss << "vk.g_gamma = " << outputPointG1AffineAsHex(vk->G_gamma) << endl;
+    ss << "vk.h_gamma = " << outputPointG2AffineAsHex(vk->H_gamma) << endl;
+    ss << "vk.query.len() = " << queryLength << endl;
+    for (size_t i = 0; i < queryLength; ++i) {
+        auto vk_query_i = outputPointG1AffineAsHex(vk->query[i]);
+        ss << "vk.query[" << i << "] = " << vk_query_i << endl;
+    }
+    return ss.str();
+}
+
+std::string serializeProof(r1cs_se_ppzksnark_proof<libff::alt_bn128_pp>* proof, const uint8_t* public_inputs, int32_t public_inputs_length)
+{
+    std::stringstream ss;
+    ss << "{"
+       << "\n";
+    ss << "\t\"proof\": {"
+       << "\n";
+    ss << "\t\t\"a\": " << outputPointG1AffineAsHexJson(proof->A) << ",\n";
+    ss << "\t\t\"b\": " << outputPointG2AffineAsHexJson(proof->B) << ",\n";
+    ss << "\t\t\"c\": " << outputPointG1AffineAsHexJson(proof->C) << "\n";
+    ss << "\t},"
+       << "\n";
+    ss << "\t\"inputs\": "
+       << "[";
+    for (int i = 1; i < public_inputs_length; i++) {
+        if (i != 1) {
+            ss << ",";
+        }
+        ss << outputInputAsHex(libsnarkBigintFromBytes(public_inputs + i * 32));
+    }
+    ss << "]"
+       << "\n";
+    ss << "}"
+       << "\n";
+    std::string str = ss.str();
+    return str;
+}
 }
 
 setup_result_t gm17_setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int32_t A_len, int32_t B_len, int32_t C_len, int32_t constraints, int32_t variables, int32_t inputs)
@@ -175,7 +179,7 @@ proof_result_t gm17_generate_proof(buffer_t* pk_buf, const uint8_t* public_input
     ss >> proving_key;
 
     // assign variables based on witness values, excludes ~one
-    r1cs_variable_assignment<libff::Fr<libff::alt_bn128_pp> > full_variable_assignment;
+    r1cs_variable_assignment<libff::Fr<libff::alt_bn128_pp>> full_variable_assignment;
     for (int i = 1; i < public_inputs_length; i++) {
         full_variable_assignment.push_back(libff::Fr<libff::alt_bn128_pp>(libsnarkBigintFromBytes(public_inputs + i * 32)));
     }

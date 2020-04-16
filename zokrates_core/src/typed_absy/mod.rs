@@ -7,7 +7,8 @@
 
 pub mod abi;
 pub mod folder;
-mod identifier;
+pub mod identifier;
+
 mod parameter;
 pub mod types;
 mod uint;

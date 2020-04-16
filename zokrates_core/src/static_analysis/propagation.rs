@@ -226,9 +226,6 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                 false => None,
                             }
                         } else {
-                            if self.verbose {
-                                println!("not constant!")
-                            };
                             let l = TypedExpressionList::FunctionCall(key, arguments, types);
                             Some(TypedStatement::MultipleDefinition(variables, l))
                         }
@@ -345,8 +342,6 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                 }
             }
             UExpressionInner::LeftShift(box e, box by) => {
-                println!("LEFT?");
-
                 let e = self.fold_uint_expression(e);
                 let by = self.fold_field_expression(by);
                 match (e.into_inner(), by) {

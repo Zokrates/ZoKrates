@@ -41,6 +41,31 @@ def right_rotate_25(u32 e) -> (u32):
 	bool[32] b = to_bits(e)
 	return from_bits([...b[7..], ...b[..7]])
 
+def extend(u32[64] w, field i) -> (u32):
+	u32 s0 = right_rotate_7(w[i-15]) ^ right_rotate_18(w[i-15]) ^ (w[i-15] >> 3)
+    u32 s1 = right_rotate_17(w[i-2]) ^ right_rotate_19(w[i-2]) ^ (w[i-2] >> 10)
+    return w[i-16] + s0 + w[i-7] + s1
+
+def temp1(u32 e, u32 f, u32 g, u32 h, u32 k, u32 w) -> (u32):
+	// ch := (e and f) xor ((not e) and g)
+	u32 ch = (e & f) ^ ((!e) & g)
+
+	// S1 := (e rightrotate 6) xor (e rightrotate 11) xor (e rightrotate 25)
+	u32 S1 = right_rotate_6(e) ^ right_rotate_11(e) ^ right_rotate_25(e)
+	
+	// temp1 := h + S1 + ch + k + w
+	return h + S1 + ch + k + w
+
+def temp2(u32 a, u32 b, u32 c) -> (u32):
+	// maj := (a and b) xor (a and c) xor (b and c)
+    u32 maj = (a & b) ^ (a & c) ^ (b & c)
+
+	// S0 := (a rightrotate 2) xor (a rightrotate 13) xor (a rightrotate 22)
+	u32 S0 = right_rotate_2(a) ^ right_rotate_13(a) ^ right_rotate_22(a)
+
+    // temp2 := S0 + maj
+    return S0 + maj
+
 def main(u32[1][16] input) -> (u32[8]):	
 
 	u32 h0 = 0x6a09e667
@@ -62,9 +87,8 @@ def main(u32[1][16] input) -> (u32[8]):
 		u32[64] w = [...input[0], ...[0x00000000; 48]]
 
 		for field i in 16..64 do
-			u32 s0 = right_rotate_7(w[i-15]) ^ right_rotate_18(w[i-15]) ^ (w[i-15] >> 3)
-	        u32 s1 = right_rotate_17(w[i-2]) ^ right_rotate_19(w[i-2]) ^ (w[i-2] >> 10)
-	        w[i] = w[i-16] + s0 + w[i-7] + s1
+	        r = extend(w, i)
+	        w[i] = r
 		endfor
 
 		u32 a = h0
@@ -78,32 +102,18 @@ def main(u32[1][16] input) -> (u32[8]):
 
 		for field i in 0..64 do
 
-			// ch := (e and f) xor ((not e) and g)
-			u32 ch = (e & f) ^ ((!e) & g)
+			u32 t1 = temp1(e, f, g, h, k[i], w[i])
 
-        	// S1 := (e rightrotate 6) xor (e rightrotate 11) xor (e rightrotate 25)
-			u32 S1 = right_rotate_6(e) ^ right_rotate_11(e) ^ right_rotate_25(e)
-			
-			// temp1 := h + S1 + ch + k[i] + w[i]
-			u32 temp1 = h + S1 + ch + k[i] + w[i]
-
-			// maj := (a and b) xor (a and c) xor (b and c)
-	        u32 maj = (a & b) ^ (a & c) ^ (b & c)
-
-			// S0 := (a rightrotate 2) xor (a rightrotate 13) xor (a rightrotate 22)
-			u32 S0 = right_rotate_2(a) ^ right_rotate_13(a) ^ right_rotate_22(a)
-
-	        // temp2 := S0 + maj
-	        u32 temp2 = S0 + maj
+			u32 t2 = temp2(a, b, c)
 
 	        h = g
 	        g = f
 	        f = e
-	        e = d + temp1
+	        e = d + t1
 	        d = c
 	        c = b
 	        b = a
-	        a = temp1 + temp2
+	        a = t1 + t2
 
 		endfor
 
