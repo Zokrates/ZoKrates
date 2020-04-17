@@ -179,12 +179,8 @@ impl<'ast> FunctionQuery<'ast> {
             })
     }
 
-    fn match_funcs(&self, funcs: &HashSet<FunctionKey<'ast>>) -> Vec<FunctionKey<'ast>> {
-        funcs
-            .iter()
-            .filter(|func| self.match_func(func))
-            .cloned()
-            .collect()
+    fn match_funcs(&self, funcs: &HashSet<FunctionKey<'ast>>) -> Option<FunctionKey<'ast>> {
+        funcs.iter().find(|func| self.match_func(func)).cloned()
     }
 }
 
@@ -799,6 +795,7 @@ impl<'ast> Checker<'ast> {
         module_id: &ModuleId,
         types: &TypeMap,
     ) -> Result<TypedStatement<'ast, T>, Vec<ErrorInner>> {
+
         let pos = stat.pos();
 
         match stat.value {
@@ -936,24 +933,31 @@ impl<'ast> Checker<'ast> {
                 match rhs.value {
                     // Right side has to be a function call
                     Expression::FunctionCall(fun_id, arguments) => {
-                        // find lhs types
-                        let mut vars_types: Vec<Option<Type>> = vec![];
-                        let mut var_names = vec![];
-                        for assignee in assignees {
-                            let (name, t) = match assignee.value {
-                    			Assignee::Identifier(name) => {
-                    				Ok((name, match self.get_scope(&name) {
-					            		None => None,
-					            		Some(sv) => Some(sv.id.get_type())
-					            	}))
-                    			}
-                    			ref a => Err(ErrorInner {
-                                    pos: Some(pos),
- message: format!("Left hand side of function return assignment must be a list of identifiers, found {}", a)})
-                    		}.map_err(|e| vec![e])?;
-                            vars_types.push(t);
-                            var_names.push(name);
+
+                        // check lhs assignees are defined
+                        let (assignees, errors): (Vec<_>, Vec<_>) = assignees.into_iter().map(|a| self.check_assignee(a, module_id, types)).partition(|r| r.is_ok());
+
+                        if errors.len() > 0 {
+                            return Err(errors.into_iter().map(|e| e.unwrap_err()).collect());
                         }
+
+                        // constrain assignees to being identifiers
+                        let (variables, errors): (Vec<_>, Vec<_>) = assignees.into_iter().map(|a| match a.unwrap() {
+                            TypedAssignee::Identifier(v) => Ok(v),
+                            a => Err(ErrorInner {
+                                pos: Some(pos),
+                                message: format!("Only assignment to identifiers is supported, found {}", a)
+                            })
+                        }).partition(|r| r.is_ok());
+
+                        if errors.len() > 0 {
+                            return Err(errors.into_iter().map(|e| e.unwrap_err()).collect());
+                        }
+
+                        let variables: Vec<_> = variables.into_iter().map(|v| v.unwrap()).collect();
+
+                        let vars_types = variables.iter().map(|a| Some(a.get_type().clone())).collect();
+
                         // find argument types
                         let mut arguments_checked = vec![];
                         for arg in arguments {
@@ -965,32 +969,18 @@ impl<'ast> Checker<'ast> {
                             arguments_checked.iter().map(|a| a.get_type()).collect();
 
                         let query = FunctionQuery::new(&fun_id, &arguments_types, &vars_types);
-                        let candidates = self.find_candidates(&query);
+                        let f = self.find_function(&query);
 
-                        match candidates.len() {
+                        match f {
                     		// the function has to be defined
-                    		1 => {
-                    			let f = &candidates[0];
-
-                                // we can infer the left hand side to be typed as the return values
-                    			let lhs: Vec<Variable> = var_names.iter().zip(f.signature.outputs.iter()).map(|(name, ty)|
-                    				Variable::with_id_and_type(crate::typed_absy::Identifier::from(*name), ty.clone())
-                    			).collect();
-
-                                let assignees: Vec<_> = lhs.iter().map(|v| v.clone().into()).collect();
+                    		Some(f) => {
 
                                 let call = TypedExpressionList::FunctionCall(f.clone(), arguments_checked, f.signature.outputs.clone());
 
-                                for var in lhs {
-                                    self.insert_into_scope(var);
-                                }
-
-                                Ok(TypedStatement::MultipleDefinition(assignees, call))
+                                Ok(TypedStatement::MultipleDefinition(variables, call))
                     		},
-                    		0 => Err(ErrorInner {                         pos: Some(pos),
+                    		None => Err(ErrorInner {                         pos: Some(pos),
  message: format!("Function definition for function {} with signature {} not found.", fun_id, query) }),
-                    		_ => Err(ErrorInner {                         pos: Some(pos),
- message: format!("Function call for function {} with arguments {:?} is ambiguous.", fun_id, arguments_types) }),
                     	}
                     }
                     _ => Err(ErrorInner {
@@ -1018,7 +1008,7 @@ impl<'ast> Checker<'ast> {
                 ))),
                 None => Err(ErrorInner {
                     pos: Some(assignee.pos()),
-                    message: format!("Undeclared variable: {:?}", variable_name),
+                    message: format!("Variable `{}` is undeclared", variable_name),
                 }),
             },
             Assignee::Select(box assignee, box index) => {
@@ -1350,12 +1340,11 @@ impl<'ast> Checker<'ast> {
                 // we use type inference to determine the type of the return, so we don't specify it
                 let query = FunctionQuery::new(&fun_id, &arguments_types, &vec![None]);
 
-                let candidates = self.find_candidates(&query);
+                let f = self.find_function(&query);
 
-                match candidates.len() {
+                match f {
                     // the function has to be defined
-                    1 => {
-                        let f = &candidates[0];
+                    Some(f) => {
                         // the return count has to be 1
                         match f.signature.outputs.len() {
                             1 => match &f.signature.outputs[0] {
@@ -1404,7 +1393,7 @@ impl<'ast> Checker<'ast> {
                             }),
                         }
                     }
-                    0 => Err(ErrorInner {
+                    None => Err(ErrorInner {
                         pos: Some(pos),
 
                         message: format!(
@@ -1412,9 +1401,6 @@ impl<'ast> Checker<'ast> {
                             fun_id, query
                         ),
                     }),
-                    _ => {
-                        unreachable!("duplicate definition should have been caught before the call")
-                    }
                 }
             }
             Expression::Lt(box e1, box e2) => {
@@ -1972,7 +1958,7 @@ impl<'ast> Checker<'ast> {
         })
     }
 
-    fn find_candidates(&self, query: &FunctionQuery<'ast>) -> Vec<FunctionKey<'ast>> {
+    fn find_function(&self, query: &FunctionQuery<'ast>) -> Option<FunctionKey<'ast>> {
         query.match_funcs(&self.functions)
     }
 
@@ -3082,6 +3068,201 @@ mod tests {
                 },
                 module_id: "main".into()
             }])
+        );
+    }
+
+    #[test]
+    fn undeclared_variables() {
+        // def foo() -> (field, field):
+        //  return 1, 2
+        // def main():
+        //  a, b = foo()
+        //  return 1
+        // should fail
+
+        let foo_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+            ExpressionList {
+                expressions: vec![
+                    Expression::FieldConstant(FieldPrime::from(1)).mock(),
+                    Expression::FieldConstant(FieldPrime::from(2)).mock(),
+                ],
+            }
+            .mock(),
+        )
+        .mock()];
+
+        let foo = Function {
+            arguments: vec![],
+            statements: foo_statements,
+            signature: UnresolvedSignature {
+                inputs: vec![],
+                outputs: vec![
+                    UnresolvedType::FieldElement.mock(),
+                    UnresolvedType::FieldElement.mock(),
+                ],
+            },
+        }
+        .mock();
+
+        let main_statements: Vec<StatementNode<FieldPrime>> = vec![
+            Statement::MultipleDefinition(
+                vec![
+                    Assignee::Identifier("a").mock(),
+                    Assignee::Identifier("b").mock(),
+                ],
+                Expression::FunctionCall("foo", vec![]).mock(),
+            )
+            .mock(),
+            Statement::Return(
+                ExpressionList {
+                    expressions: vec![],
+                }
+                .mock(),
+            )
+            .mock(),
+        ];
+
+        let main = Function {
+            arguments: vec![],
+            statements: main_statements,
+            signature: UnresolvedSignature {
+                inputs: vec![],
+                outputs: vec![],
+            },
+        }
+        .mock();
+
+        let module = Module {
+            symbols: vec![
+                SymbolDeclaration {
+                    id: "foo",
+                    symbol: Symbol::HereFunction(foo),
+                }
+                .mock(),
+                SymbolDeclaration {
+                    id: "main",
+                    symbol: Symbol::HereFunction(main),
+                }
+                .mock(),
+            ],
+            imports: vec![],
+        };
+
+        let mut state = State::new(vec![("main".into(), module)].into_iter().collect());
+
+        let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
+        assert_eq!(
+            checker.check_module(&"main".into(), &mut state),
+            Err(vec![
+                Error {
+                    inner: ErrorInner {
+                        pos: Some((Position::mock(), Position::mock())),
+                        message: "Variable `a` is undeclared".into()
+                    },
+                    module_id: "main".into()
+                },
+                Error {
+                    inner: ErrorInner {
+                        pos: Some((Position::mock(), Position::mock())),
+                        message: "Variable `b` is undeclared".into()
+                    },
+                    module_id: "main".into()
+                }
+            ])
+        );
+    }
+
+    #[test]
+    fn assign_to_non_variable() {
+        // def foo() -> (field):
+        //  return 1
+        // def main():
+        //  field[1] a = [0]
+        //  a[0] = foo()
+        //  return
+        // should fail
+
+        let foo_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+            ExpressionList {
+                expressions: vec![
+                    Expression::FieldConstant(FieldPrime::from(1)).mock(),
+                ],
+            }
+            .mock(),
+        )
+        .mock()];
+
+        let foo = Function {
+            arguments: vec![],
+            statements: foo_statements,
+            signature: UnresolvedSignature {
+                inputs: vec![],
+                outputs: vec![
+                    UnresolvedType::FieldElement.mock(),
+                ],
+            },
+        }
+        .mock();
+
+        let main_statements: Vec<StatementNode<FieldPrime>> = vec![
+            Statement::Declaration(absy::Variable::new("a", UnresolvedType::array(UnresolvedType::FieldElement.mock(), 1).mock()).mock()).mock(),
+            Statement::Definition(Assignee::Identifier("a".into()).mock(), Expression::InlineArray(vec![absy::SpreadOrExpression::Expression(Expression::FieldConstant(FieldPrime::from(0)).mock())]).mock()).mock(),
+            Statement::MultipleDefinition(
+                vec![
+                    Assignee::Select(box Assignee::Identifier("a").mock(), box RangeOrExpression::Expression(absy::Expression::FieldConstant(FieldPrime::from(0)).mock())).mock(),
+                ],
+                Expression::FunctionCall("foo", vec![]).mock(),
+            )
+            .mock(),
+            Statement::Return(
+                ExpressionList {
+                    expressions: vec![],
+                }
+                .mock(),
+            )
+            .mock(),
+        ];
+
+        let main = Function {
+            arguments: vec![],
+            statements: main_statements,
+            signature: UnresolvedSignature {
+                inputs: vec![],
+                outputs: vec![],
+            },
+        }
+        .mock();
+
+        let module = Module {
+            symbols: vec![
+                SymbolDeclaration {
+                    id: "foo",
+                    symbol: Symbol::HereFunction(foo),
+                }
+                .mock(),
+                SymbolDeclaration {
+                    id: "main",
+                    symbol: Symbol::HereFunction(main),
+                }
+                .mock(),
+            ],
+            imports: vec![],
+        };
+
+        let mut state = State::new(vec![("main".into(), module)].into_iter().collect());
+
+        let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
+        assert_eq!(
+            checker.check_module(&"main".into(), &mut state),
+            Err(vec![
+                Error {
+                    inner: ErrorInner {
+                        pos: Some((Position::mock(), Position::mock())),
+                        message: "Only assignment to identifiers is supported, found a[0]".into()
+                    },
+                    module_id: "main".into()
+                }
+            ])
         );
     }
 
