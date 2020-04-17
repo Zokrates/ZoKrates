@@ -158,16 +158,16 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     let program_flattened = Flattener::flatten(typed_ast);
 
     // analyse (constant propagation after call resolution)
-    let program_flattened = program_flattened.analyse();
+    // let program_flattened = program_flattened.analyse();
 
     // convert to ir
     let ir_prog = ir::Prog::from(program_flattened);
 
     // optimize
-    let optimized_ir_prog = ir_prog.optimize();
+    // let optimized_ir_prog = ir_prog.optimize();
 
     Ok(CompilationArtifacts {
-        prog: optimized_ir_prog,
+        prog: ir_prog,
         abi: abi,
     })
 }

@@ -30,7 +30,7 @@ impl<'ast, T: Field> Analyse for TypedProgram<'ast, T> {
         // inline
         let r = Inliner::inline(r);
         // propagate
-        let r = Propagator::propagate(r);
+        // let r = Propagator::propagate(r);
         // constrain inputs
         let r = InputConstrainer::constrain(r);
 
