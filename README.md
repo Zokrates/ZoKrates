@@ -8,3 +8,6 @@ It turns off the following optimizations:
 - Constant Propagation after Flattening
 - Memoization (TODO after it is released)
 
+**Warning**
+This breaks the packing dsl programs, since they require constant propagation.
+Otherwise, the exponentiation performed has non-constant exponent.
