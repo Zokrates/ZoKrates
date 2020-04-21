@@ -14,7 +14,7 @@ enum Curve {
 #[derive(Serialize, Deserialize, Clone)]
 struct Tests {
     pub entry_point: PathBuf,
-    pub curves: Vec<Curve>,
+    pub curves: Option<Vec<Curve>>,
     pub max_constraint_count: Option<usize>,
     pub tests: Vec<Test>,
 }
@@ -82,7 +82,9 @@ pub fn test_inner(test_path: &str) {
     let t: Tests =
         serde_json::from_reader(BufReader::new(File::open(Path::new(test_path)).unwrap())).unwrap();
 
-    for c in &t.curves {
+    let curves = t.curves.clone().unwrap_or(vec![Curve::Bn128]);
+
+    for c in &curves {
         match c {
             Curve::Bn128 => compile_and_run::<Bn128Field>(t.clone()),
             Curve::Bls12 => compile_and_run::<Bls12Field>(t.clone()),
