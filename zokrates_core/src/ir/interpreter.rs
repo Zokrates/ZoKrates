@@ -18,7 +18,9 @@ impl<T: Field> Prog<T> {
 
         for statement in main.statements.iter() {
             match statement {
-                Statement::Constraint(quad, lin) => match lin.is_assignee(&witness) {
+                Statement::Constraint(quad, lin) => {
+                    println!("{}", statement);
+                    match lin.is_assignee(&witness) {
                     true => {
                         let val = quad.evaluate(&witness).unwrap();
                         witness.insert(lin.0.iter().next().unwrap().0.clone(), val);
@@ -32,7 +34,7 @@ impl<T: Field> Prog<T> {
                                 right: rhs_value.to_dec_string(),
                             });
                         }
-                    }
+                    }}
                 },
                 Statement::Directive(ref d) => {
                     let input_values: Vec<T> = d

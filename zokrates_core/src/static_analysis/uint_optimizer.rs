@@ -1,3 +1,4 @@
+use num_bigint::BigUint;
 use crate::embed::FlatEmbed;
 use crate::zir::*;
 use std::collections::HashMap;
@@ -38,7 +39,11 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
     fn fold_uint_expression(&mut self, e: UExpression<'ast, T>) -> UExpression<'ast, T> {
         let max_bitwidth = T::get_required_bits() - 1;
 
+        let max = T::max_value().into_big_uint();
+
         let range = e.bitwidth;
+
+        let range_max: BigUint = (2_usize.pow(range as u32) - 1).into();
 
         assert!(range < max_bitwidth / 2);
 
@@ -53,6 +58,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
         let res = match inner {
             Value(v) => Value(v).annotate(range).metadata(UMetadata {
+                max: Some(v.into()),
                 bitwidth: Some(range),
                 should_reduce: Some(
                     metadata
@@ -75,60 +81,87 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 let right_metadata = right.metadata.clone().unwrap();
 
                 // determine the bitwidth of each term. It's their current bitwidth, unless they are tagged as `should_reduce` in which case they now have bitwidth 8
-                let left_bitwidth = left_metadata
-                    .should_reduce
-                    .map(|should_reduce| {
-                        if should_reduce {
-                            range
-                        } else {
-                            left_metadata.bitwidth.unwrap()
-                        }
-                    })
-                    .unwrap();
-                let right_bitwidth = right_metadata
-                    .should_reduce
-                    .map(|should_reduce| {
-                        if should_reduce {
-                            range
-                        } else {
-                            right_metadata.bitwidth.unwrap()
-                        }
-                    })
-                    .unwrap();
+                let left_after = left_metadata.after(range);
 
-                let output_width = std::cmp::max(left_bitwidth, right_bitwidth) + 1; // bitwidth(a + b) = max(bitwidth(a), bitwidth(b)) + 1
+                let right_after = right_metadata.after(range);
 
-                if output_width > max_bitwidth {
-                    // the addition doesnt fit, we reduce both terms first (TODO maybe one would be enough here)
+                let left_max = left_after.clone().max.unwrap();
 
-                    let left = UExpression {
-                        metadata: Some(UMetadata {
-                            should_reduce: Some(true),
-                            ..left_metadata
-                        }),
-                        ..left
-                    };
+                let right_max = right_after.clone().max.unwrap();
 
-                    let right = UExpression {
-                        metadata: Some(UMetadata {
-                            should_reduce: Some(true),
-                            ..right_metadata
-                        }),
-                        ..right
-                    };
+                //let output_width = std::cmp::max(left_after.bitwidth.unwrap(), right_after.bitwidth.unwrap()) + 1; // bitwidth(a + b) = max(bitwidth(a), bitwidth(b)) + 1
 
-                    UExpression::add(left, right).metadata(UMetadata {
-                        bitwidth: Some(range + 1),
-                        should_reduce: Some(
-                            metadata
-                                .map(|m| m.should_reduce.unwrap_or(false))
-                                .unwrap_or(false),
-                        ),
-                    })
+                if left_max.clone() + right_max.clone() > max {
+                    // the addition doesnt fit, we try to reduce one term
+
+                    if left_max.clone() + range_max.clone() <= max {
+                        let right = UExpression {
+                            metadata: Some(UMetadata {
+                                should_reduce: Some(true),
+                                ..right_after
+                            }),
+                            ..right
+                        };
+
+                        UExpression::add(left, right).metadata(UMetadata {
+                            max: Some(left_max.clone() + range_max.clone()),
+                            bitwidth: Some(std::cmp::max(left_after.bitwidth.unwrap(), range) + 1),
+                            should_reduce: Some(
+                                metadata
+                                    .map(|m| m.should_reduce.unwrap_or(false))
+                                    .unwrap_or(false),
+                            ),
+                        })
+                    } else if right_max.clone() + range_max.clone() <= max {
+                        let left = UExpression {
+                            metadata: Some(UMetadata {
+                                should_reduce: Some(true),
+                                ..left_after
+                            }),
+                            ..left
+                        };
+
+                        UExpression::add(left, right).metadata(UMetadata {
+                            max: Some(left_max.clone() + right_max.clone()),
+                            bitwidth: Some(std::cmp::max(right_after.bitwidth.unwrap(), range) + 1),
+                            should_reduce: Some(
+                                metadata
+                                    .map(|m| m.should_reduce.unwrap_or(false))
+                                    .unwrap_or(false),
+                            ),
+                        })
+                    } else {
+                        let left = UExpression {
+                            metadata: Some(UMetadata {
+                                should_reduce: Some(true),
+                                ..left_after
+                            }),
+                            ..left
+                        };
+
+                        let right = UExpression {
+                            metadata: Some(UMetadata {
+                                should_reduce: Some(true),
+                                ..right_after
+                            }),
+                            ..right
+                        };
+
+                        UExpression::add(left, right).metadata(UMetadata {
+                            max: Some(range_max.clone() * 2_u32),
+                            bitwidth: Some(range + 1),
+                            should_reduce: Some(
+                                metadata
+                                    .map(|m| m.should_reduce.unwrap_or(false))
+                                    .unwrap_or(false),
+                            ),
+                        })
+                    }
                 } else {
                     // the addition fits, so we just add
                     UExpression::add(left, right).metadata(UMetadata {
-                        bitwidth: Some(output_width),
+                        max: Some(left_max.clone() + right_max.clone()),
+                        bitwidth: Some(std::cmp::max(left_after.bitwidth.unwrap(), right_after.bitwidth.unwrap())),
                         should_reduce: Some(
                             metadata
                                 .map(|m| m.should_reduce.unwrap_or(false))
@@ -196,6 +229,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     };
 
                     UExpression::sub(left, right).metadata(UMetadata {
+                        max: Some(2_u32 * range_max),
                         bitwidth: Some(range + 1),
                         should_reduce: Some(
                             metadata
@@ -205,6 +239,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     })
                 } else {
                     UExpression::sub(left, right).metadata(UMetadata {
+                        max: None,
                         bitwidth: Some(output_width),
                         should_reduce: Some(
                             metadata
@@ -215,37 +250,6 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 }
             }
             Xor(box left, box right) => {
-                // reduce the two terms
-                let left = self.fold_uint_expression(left);
-                let right = self.fold_uint_expression(right);
-
-                let left_metadata = left.metadata.clone().unwrap_or(UMetadata {
-                    bitwidth: Some(range),
-                    should_reduce: Some(true),
-                });
-                let right_metadata = right.metadata.clone().unwrap_or(UMetadata {
-                    bitwidth: Some(range),
-                    should_reduce: Some(true),
-                });
-
-                // for xor we need both terms to be in range. Therefore we reduce them to being in range.
-                // NB: if they are already in range, the flattening process will ignore the reduction
-                let left = left.metadata(UMetadata {
-                    should_reduce: Some(true),
-                    ..left_metadata
-                });
-
-                let right = right.metadata(UMetadata {
-                    should_reduce: Some(true),
-                    ..right_metadata
-                });
-
-                UExpression::xor(left, right).metadata(UMetadata {
-                    bitwidth: Some(range),
-                    should_reduce: Some(true),
-                })
-            }
-            And(box left, box right) => {
                 // reduce the two terms
                 let left = self.fold_uint_expression(left);
                 let right = self.fold_uint_expression(right);
@@ -265,9 +269,36 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     ..right_metadata
                 });
 
-                UExpression::and(left, right).metadata(UMetadata {
+                UExpression::xor(left, right).metadata(UMetadata {
+                    max: Some(range_max.clone()),
                     bitwidth: Some(range),
+                    should_reduce: Some(false),
+                })
+            }
+            And(box left, box right) => {
+                // reduce the two terms
+                let left = self.fold_uint_expression(left);
+                let right = self.fold_uint_expression(right);
+
+                let left_metadata = left.metadata.clone().unwrap();
+                let right_metadata = right.metadata.clone().unwrap();
+
+                // for and we need both terms to be in range. Therefore we reduce them to being in range.
+                // NB: if they are already in range, the flattening process will ignore the reduction
+                let left = left.metadata(UMetadata {
                     should_reduce: Some(true),
+                    ..left_metadata
+                });
+
+                let right = right.metadata(UMetadata {
+                    should_reduce: Some(true),
+                    ..right_metadata
+                });
+
+                UExpression::and(left, right).metadata(UMetadata {
+                    max: Some(range_max.clone()),
+                    bitwidth: Some(range),
+                    should_reduce: Some(false),
                 })
             }
             Or(box left, box right) => {
@@ -291,8 +322,9 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 });
 
                 UExpression::or(left, right).metadata(UMetadata {
+                    max: None,
                     bitwidth: Some(range),
-                    should_reduce: Some(true),
+                    should_reduce: Some(false),
                 })
             }
             Mult(box left, box right) => {
@@ -304,60 +336,86 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 let right_metadata = right.metadata.clone().unwrap();
 
                 // determine the bitwidth of each term. It's their current bitwidth, unless they are tagged as `should_reduce` in which case they now have bitwidth 8
-                let left_bitwidth = left_metadata
-                    .should_reduce
-                    .map(|should_reduce| {
-                        if should_reduce {
-                            range
-                        } else {
-                            left_metadata.bitwidth.unwrap()
-                        }
-                    })
-                    .unwrap();
-                let right_bitwidth = right_metadata
-                    .should_reduce
-                    .map(|should_reduce| {
-                        if should_reduce {
-                            range
-                        } else {
-                            right_metadata.bitwidth.unwrap()
-                        }
-                    })
-                    .unwrap();
+                let left_after = left_metadata.after(range);
 
-                let output_width = left_bitwidth + right_bitwidth; // bitwidth(a*b) = bitwidth(a) + bitwidth(b)
+                let right_after = right_metadata.after(range);
+                let output_width = left_after.bitwidth.clone().unwrap() + right_after.bitwidth.clone().unwrap(); // bitwidth(a*b) = bitwidth(a) + bitwidth(b)
 
-                if output_width > max_bitwidth {
-                    // the multiplication doesnt fit, we reduce both terms first (TODO maybe one would be enough here)
+                let left_max = left_after.clone().max.unwrap();
 
-                    let left = UExpression {
-                        metadata: Some(UMetadata {
-                            should_reduce: Some(true),
-                            ..left_metadata
-                        }),
-                        ..left
-                    };
+                let right_max = right_after.clone().max.unwrap();
 
-                    let right = UExpression {
-                        metadata: Some(UMetadata {
-                            should_reduce: Some(true),
-                            ..right_metadata
-                        }),
-                        ..right
-                    };
+                if left_max.clone() * right_max.clone() > max {
+                    // the addition doesnt fit, we try to reduce one term
 
-                    UExpression::mult(left, right).metadata(UMetadata {
-                        bitwidth: Some(2 * range),
-                        should_reduce: Some(
-                            metadata
-                                .map(|m| m.should_reduce.unwrap_or(false))
-                                .unwrap_or(false),
-                        ),
-                    })
+                    if left_max.clone() * range_max.clone() <= max {
+                        let right = UExpression {
+                            metadata: Some(UMetadata {
+                                should_reduce: Some(true),
+                                ..right_after
+                            }),
+                            ..right
+                        };
+
+                        UExpression::mult(left, right).metadata(UMetadata {
+                            max: Some(left_max.clone() * range_max.clone()),
+                            bitwidth: Some(std::cmp::max(left_after.bitwidth.unwrap(), range) + 1),
+                            should_reduce: Some(
+                                metadata
+                                    .map(|m| m.should_reduce.unwrap_or(false))
+                                    .unwrap_or(false),
+                            ),
+                        })
+                    } else if right_max.clone() * range_max.clone() <= max {
+                        let left = UExpression {
+                            metadata: Some(UMetadata {
+                                should_reduce: Some(true),
+                                ..left_after
+                            }),
+                            ..left
+                        };
+
+                        UExpression::mult(left, right).metadata(UMetadata {
+                            max: Some(left_max.clone() * right_max.clone()),
+                            bitwidth: Some(std::cmp::max(right_after.bitwidth.unwrap(), range) + 1),
+                            should_reduce: Some(
+                                metadata
+                                    .map(|m| m.should_reduce.unwrap_or(false))
+                                    .unwrap_or(false),
+                            ),
+                        })
+                    } else {
+                        let left = UExpression {
+                            metadata: Some(UMetadata {
+                                should_reduce: Some(true),
+                                ..left_after
+                            }),
+                            ..left
+                        };
+
+                        let right = UExpression {
+                            metadata: Some(UMetadata {
+                                should_reduce: Some(true),
+                                ..right_after
+                            }),
+                            ..right
+                        };
+
+                        UExpression::mult(left, right).metadata(UMetadata {
+                            max: Some(range_max.clone() * range_max.clone()),
+                            bitwidth: Some(range + 1),
+                            should_reduce: Some(
+                                metadata
+                                    .map(|m| m.should_reduce.unwrap_or(false))
+                                    .unwrap_or(false),
+                            ),
+                        })
+                    }
                 } else {
-                    // the multiplication fits, so we just multiply
+                    // the addition fits, so we just add
                     UExpression::mult(left, right).metadata(UMetadata {
-                        bitwidth: Some(output_width),
+                        max: Some(left_max.clone() * right_max.clone()),
+                        bitwidth: Some(std::cmp::max(left_after.bitwidth.unwrap(), right_after.bitwidth.unwrap())),
                         should_reduce: Some(
                             metadata
                                 .map(|m| m.should_reduce.unwrap_or(false))
@@ -381,6 +439,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 UExpressionInner::Not(box e)
                     .annotate(range)
                     .metadata(UMetadata {
+                        max: Some(range_max.clone()),
                         bitwidth: Some(range),
                         should_reduce: Some(true),
                     })
@@ -400,6 +459,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 });
 
                 UExpression::left_shift(e, by).metadata(UMetadata {
+                    max: Some(range_max.clone()),
                     bitwidth: Some(range),
                     should_reduce: Some(true),
                 })
@@ -419,6 +479,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 });
 
                 UExpression::right_shift(e, by).metadata(UMetadata {
+                    max: Some(range_max.clone()),
                     bitwidth: Some(range),
                     should_reduce: Some(true),
                 })
@@ -454,6 +515,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 let output_width = std::cmp::max(consequence_bitwidth, alternative_bitwidth);
 
                 UExpression::if_else(condition, consequence, alternative).metadata(UMetadata {
+                    max: None,
                     bitwidth: Some(output_width),
                     should_reduce: Some(
                         metadata
@@ -509,6 +571,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     "_U32_FROM_BITS" => {
                         assert_eq!(lhs.len(), 1);
                         self.register(lhs[0].clone(), UMetadata {
+                            max: Some(BigUint::from(2_u64.pow(32_u32) - 1)),
                             bitwidth: Some(32),
                             should_reduce: Some(true),
                         });
@@ -569,6 +632,7 @@ mod tests {
         let e = UExpressionInner::Identifier("foo".into())
             .annotate(32)
             .metadata(UMetadata {
+                max: None,
                 bitwidth: Some(33),
                 should_reduce: Some(false),
             });

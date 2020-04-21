@@ -91,13 +91,19 @@ pub fn test_inner(test_path: &str) {
     let bin = artifacts.prog();
 
     match t.max_constraint_count {
-        Some(count) => assert!(
-            bin.constraint_count() <= count,
-            "Expected at the most {} constraints, found {}:\n{}",
-            count,
-            bin.constraint_count(),
-            bin
-        ),
+        Some(target_count) => {
+
+            let count = bin.constraint_count();
+            // assert!(
+            // count <= target_count,
+            // "Expected at the most {} constraints, found {}:\n{}",
+            // target_count,
+            // count,
+            // bin
+            // );
+
+            println!("{} at {}% of max", test_path, (count as f32)/(target_count as f32) * 100_f32);
+        },
         _ => {}
     };
 

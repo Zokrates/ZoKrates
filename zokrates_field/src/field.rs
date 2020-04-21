@@ -92,6 +92,8 @@ pub trait Field:
     /// Returns a decimal string representing the member of the equivalence class of this `Field` in Z/pZ
     /// which lies in [-(p-1)/2, (p-1)/2]
     fn to_compact_dec_string(&self) -> String;
+    /// Converts to BigUint
+    fn into_big_uint(self) -> BigUint;
 }
 
 #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Serialize, Deserialize)]
@@ -101,6 +103,10 @@ pub struct FieldPrime {
 
 impl Field for FieldPrime {
     type BellmanEngine = Bn256;
+
+    fn into_big_uint(self) -> BigUint {
+        self.value.to_biguint().unwrap()
+    }
 
     fn into_byte_vector(&self) -> Vec<u8> {
         match self.value.to_biguint() {

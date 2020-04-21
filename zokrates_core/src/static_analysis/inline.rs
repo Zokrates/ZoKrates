@@ -135,7 +135,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                 "main".into(),
                 TypedModule {
                     functions: vec![
-                        // (unpack_key, TypedFunctionSymbol::Flat(unpack)),
+                        (unpack_key, TypedFunctionSymbol::Flat(unpack)),
                         // (sha256_round_key, TypedFunctionSymbol::Flat(sha256_round)),
                         // (check_u8_key, TypedFunctionSymbol::Flat(check_u8)),
                         // (check_u16_key, TypedFunctionSymbol::Flat(check_u16)),

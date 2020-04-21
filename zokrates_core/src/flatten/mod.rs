@@ -5,6 +5,7 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
+use num_bigint::BigUint;
 use crate::flat_absy::*;
 use crate::solvers::Solver;
 use crate::zir::types::{FunctionIdentifier, FunctionKey, Signature, Type};
@@ -13,6 +14,15 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use zokrates_field::field::Field;
+
+fn log2(a: BigUint) -> u32 {
+    use num::traits::Pow;
+    let mut res = 1_u32;
+    while BigUint::from(2_u32).pow(res) < a {
+        res = res + 1
+    }
+    res
+}
 
 /// Flattener, computes flattened program.
 #[derive(Debug)]
@@ -815,7 +825,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         let metadata = expr.metadata.clone().unwrap().clone();
 
-        let actual_bitwidth = metadata.bitwidth.unwrap();
+        let actual_bitwidth = log2(metadata.max.unwrap()) as usize;
         let should_reduce = metadata.should_reduce.unwrap();
 
         let should_reduce = should_reduce && actual_bitwidth > target_bitwidth;
@@ -1046,26 +1056,31 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         .iter()
                         .zip(left_bits.iter().zip(right_bits.iter()))
                         .flat_map(|(name, (x, y))| {
-                            let name_2_x_and_y = self.use_sym();
-                            vec![
-                                FlatStatement::Definition(
-                                    name_2_x_and_y,
+                            match (x, y) {
+                                (FlatExpression::Number(n), e) | (e, FlatExpression::Number(n)) => {
+                                    if *n == T::from(0) {
+                                        vec![
+                                            FlatStatement::Definition(name.clone(), y.clone())
+                                        ]
+                                    } else if *n == T::from(1) {
+                                        vec![
+                                            FlatStatement::Definition(name.clone(), FlatExpression::Sub(box FlatExpression::Number(T::from(1)), box y.clone()))
+                                        ]
+                                    } else {
+                                        unreachable!()
+                                    }
+                                },
+                                (x, y) =>                             vec![
+                                FlatStatement::Directive(FlatDirective::new(vec![name.clone()], Solver::Xor, vec![x.clone(), y.clone()])),
+                                FlatStatement::Condition(
+                                    FlatExpression::Add(box x.clone(), box FlatExpression::Sub(box y.clone(), box name.clone().into())),
                                     FlatExpression::Mult(
-                                        box FlatExpression::Mult(
-                                            box FlatExpression::Number(T::from(2)),
-                                            box x.clone(),
-                                        ),
+                                        box FlatExpression::Add(box x.clone(), box x.clone()),
                                         box y.clone(),
                                     ),
                                 ),
-                                FlatStatement::Definition(
-                                    *name,
-                                    FlatExpression::Sub(
-                                        box FlatExpression::Add(box x.clone(), box y.clone()),
-                                        box FlatExpression::Identifier(name_2_x_and_y),
-                                    ),
-                                ),
                             ]
+                            }
                         }),
                 );
 

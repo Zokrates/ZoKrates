@@ -1,6 +1,6 @@
 {
 	"entry_point": "./tests/tests/uint/from_to_bits.zok",
-	"max_constraint_count": 68,
+	"max_constraint_count": 34,
 	"tests": [
 		{
 			"input": {

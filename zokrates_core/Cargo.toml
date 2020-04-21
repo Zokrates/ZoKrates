@@ -14,7 +14,6 @@ multicore = ["bellman_ce/multicore"]
 
 [dependencies]
 num = {version = "0.1.36", default-features = false}
-num-bigint = {version = "0.1.36", default-features = false}
 lazy_static = "1.4"
 typed-arena = "1.4.1"
 reduce = "0.1.1"
@@ -34,6 +33,10 @@ zokrates_common = { path = "../zokrates_common" }
 rand = "0.4"
 csv = "1"
 bellman_ce = { version = "0.3.3", default-features = false}
+
+[dependencies.num-bigint]
+version = "0.2"
+features = ["serde"]
 
 [dev-dependencies]
 glob = "0.2.11"

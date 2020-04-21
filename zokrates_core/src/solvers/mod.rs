@@ -9,6 +9,7 @@ pub enum Solver {
     Bits(usize),
     Div,
     Sha256Round,
+    Xor,
 }
 
 impl fmt::Display for Solver {
@@ -25,6 +26,7 @@ impl Solver {
             Solver::Bits(bit_width) => (1, *bit_width),
             Solver::Div => (2, 1),
             Solver::Sha256Round => (768, 26935),
+            Solver::Xor => (2, 1),
         }
     }
 }
@@ -63,6 +65,12 @@ impl Solver {
                     .into_iter()
                     .map(|x| T::from_bellman(x))
                     .collect()
+            },
+            Solver::Xor => {
+                let x = inputs[0].clone();
+                let y = inputs[1].clone();
+
+                vec![x.clone() + y.clone() - T::from(2) * x * y]
             }
         };
 

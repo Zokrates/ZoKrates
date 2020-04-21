@@ -1,3 +1,4 @@
+use num_bigint::BigUint;
 use zir::identifier::Identifier;
 use zir::types::FunctionKey;
 use zir::ZirExpression;
@@ -69,7 +70,22 @@ impl<'ast, T: Field> From<&'ast str> for UExpressionInner<'ast, T> {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct UMetadata {
     pub bitwidth: Option<Bitwidth>,
+    pub max: Option<BigUint>,
     pub should_reduce: Option<bool>,
+}
+
+impl UMetadata {
+    pub fn after(self, bitwidth: usize) -> Self {
+        use std::convert::TryInto;
+        match self.should_reduce.unwrap() {
+            true => UMetadata {
+                should_reduce: Some(false),
+                bitwidth: Some(bitwidth),
+                max: Some(2_usize.pow(bitwidth.try_into().unwrap()).into())
+            }, 
+            false => self
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

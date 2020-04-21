@@ -74,7 +74,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                 let quad = self.fold_quadratic_combination(quad);
                 let lin = self.fold_linear_combination(lin);
 
-                if self.substitution.len() < 15000 {
+                if self.substitution.len() < 150000 {
                     let (keep_constraint, to_insert) = match lin.try_summand() {
                         // if the right side is a single variable
                         Some((variable, coefficient)) => {

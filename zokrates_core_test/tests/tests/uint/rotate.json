@@ -1,6 +1,6 @@
 {
 	"entry_point": "./tests/tests/uint/rotate.zok",
-	"max_constraint_count": 98,
+	"max_constraint_count": 34,
 	"tests": [
 		{
 			"input": {
