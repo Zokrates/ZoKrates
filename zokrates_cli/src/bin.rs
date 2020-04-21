@@ -4,19 +4,22 @@
 // @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
 // @date 2017
 
+use bincode::{serialize_into, Infinite};
 use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
-use serde_json::Value;
+use serde_json::{from_reader, to_writer_pretty, Value};
+use std::env;
 use std::fs::File;
 use std::io::{stdin, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::string::String;
-use std::{env, io};
 use zokrates_abi::Encode;
-use zokrates_core::compile::compile;
+use zokrates_core::compile::{compile, CompilationArtifacts, CompileError};
 use zokrates_core::ir::{self, ProgEnum};
 use zokrates_core::proof_system::*;
+use zokrates_core::typed_absy::abi::Abi;
+use zokrates_core::typed_absy::{types::Signature, Type};
 use zokrates_field::{Bls12Field, Bn128Field, Field};
-use zokrates_fs_resolver::resolve as fs_resolve;
+use zokrates_fs_resolver::FileSystemResolver;
 
 const CURVES: &[&str] = &["bn128", "bls12_381"];
 #[cfg(feature = "libsnark")]
@@ -29,19 +32,6 @@ fn main() {
         println!("{}", e);
         std::process::exit(1);
     })
-}
-
-fn resolve<'a>(
-    location: Option<String>,
-    source: &'a str,
-) -> Result<(BufReader<File>, String, &'a str), io::Error> {
-    #[cfg(feature = "github")]
-    {
-        if is_github_import(source) {
-            return github_resolve(location, source);
-        };
-    }
-    fs_resolve(location, source)
 }
 
 fn cli_generate_proof<T: Field, P: ProofSystem<T>>(
@@ -60,29 +50,48 @@ fn cli_generate_proof<T: Field, P: ProofSystem<T>>(
     let witness = ir::Witness::read(witness_file)
         .map_err(|why| format!("could not load witness: {:?}", why))?;
 
-    let pk_path = sub_matches.value_of("provingkey").unwrap();
-    let proof_path = sub_matches.value_of("proofpath").unwrap();
+    let pk_path = Path::new(sub_matches.value_of("provingkey").unwrap());
+    let proof_path = Path::new(sub_matches.value_of("proofpath").unwrap());
 
-    println!(
-        "generate-proof successful: {:?}",
-        P::generate_proof(program, witness, pk_path, proof_path)
-    );
+    let pk_file = File::open(&pk_path)
+        .map_err(|why| format!("couldn't open {}: {}", pk_path.display(), why))?;
+
+    let mut pk: Vec<u8> = Vec::new();
+    let mut pk_reader = BufReader::new(pk_file);
+    pk_reader
+        .read_to_end(&mut pk)
+        .map_err(|why| format!("couldn't read {}: {}", pk_path.display(), why))?;
+
+    let proof = P::generate_proof(program, witness, pk);
+    let mut proof_file = File::create(proof_path).unwrap();
+
+    proof_file
+        .write(proof.as_ref())
+        .map_err(|why| format!("couldn't write to {}: {}", proof_path.display(), why))?;
+
+    println!("generate-proof successful: {}", format!("{}", proof));
+
     Ok(())
 }
 
 fn cli_export_verifier<T: Field, P: ProofSystem<T>>(
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
-    let is_abiv2 = sub_matches.value_of("abi").unwrap() == "v2";
+    let is_abiv2 = sub_matches.value_of("solidity-abi").unwrap() == "v2";
     println!("Exporting verifier...");
 
     // read vk file
     let input_path = Path::new(sub_matches.value_of("input").unwrap());
     let input_file = File::open(&input_path)
         .map_err(|why| format!("couldn't open {}: {}", input_path.display(), why))?;
-    let reader = BufReader::new(input_file);
+    let mut reader = BufReader::new(input_file);
 
-    let verifier = P::export_solidity_verifier(reader, is_abiv2);
+    let mut vk = String::new();
+    reader
+        .read_to_string(&mut vk)
+        .map_err(|why| format!("couldn't read {}: {}", input_path.display(), why))?;
+
+    let verifier = P::export_solidity_verifier(vk, is_abiv2);
 
     //write output file
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -110,11 +119,27 @@ fn cli_setup<T: Field, P: ProofSystem<T>>(
     }
 
     // get paths for proving and verification keys
-    let pk_path = sub_matches.value_of("proving-key-path").unwrap();
-    let vk_path = sub_matches.value_of("verification-key-path").unwrap();
+    let pk_path = Path::new(sub_matches.value_of("proving-key-path").unwrap());
+    let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
 
     // run setup phase
-    P::setup(program, pk_path, vk_path);
+    let keypair = P::setup(program);
+
+    // write verification key
+    let mut vk_file = File::create(vk_path)
+        .map_err(|why| format!("couldn't create {}: {}", vk_path.display(), why))?;
+    vk_file
+        .write(keypair.vk.as_ref())
+        .map_err(|why| format!("couldn't write to {}: {}", vk_path.display(), why))?;
+
+    // write proving key
+    let mut pk_file = File::create(pk_path)
+        .map_err(|why| format!("couldn't create {}: {}", pk_path.display(), why))?;
+    pk_file
+        .write(keypair.pk.as_ref())
+        .map_err(|why| format!("couldn't write to {}: {}", pk_path.display(), why))?;
+
+    println!("Setup completed.");
 
     Ok(())
 }
@@ -127,14 +152,28 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
         println!("{}", ir_prog);
     }
 
-    let signature = ir_prog.signature.clone();
-
     let is_stdin = sub_matches.is_present("stdin");
     let is_abi = sub_matches.is_present("abi");
 
     if !is_stdin && is_abi {
         return Err("ABI input as inline argument is not supported. Please use `--stdin`.".into());
     }
+
+    let signature = match is_abi {
+        true => {
+            let path = Path::new(sub_matches.value_of("abi_spec").unwrap());
+            let file = File::open(&path)
+                .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
+            let mut reader = BufReader::new(file);
+
+            let abi: Abi = from_reader(&mut reader).map_err(|why| why.to_string())?;
+
+            abi.signature()
+        }
+        false => Signature::new()
+            .inputs(vec![Type::FieldElement; ir_prog.main.arguments.len()])
+            .outputs(vec![Type::FieldElement; ir_prog.main.returns.len()]),
+    };
 
     use zokrates_abi::Inputs;
 
@@ -195,7 +234,7 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
     let results_json_value: serde_json::Value =
         zokrates_abi::CheckedValues::decode(witness.return_values(), signature.outputs).into();
 
-    println!("\nWitness: \n\n{}", results_json_value.to_string());
+    println!("\nWitness: \n\n{}", results_json_value);
 
     // write witness to file
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -215,37 +254,69 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     println!("Compiling {}\n", sub_matches.value_of("input").unwrap());
     let path = PathBuf::from(sub_matches.value_of("input").unwrap());
 
-    let location = path
-        .parent()
-        .unwrap()
-        .to_path_buf()
-        .into_os_string()
-        .into_string()
-        .unwrap();
-
     let light = sub_matches.occurrences_of("light") > 0;
 
     let bin_output_path = Path::new(sub_matches.value_of("output").unwrap());
 
+    let abi_spec_path = Path::new(sub_matches.value_of("abi_spec").unwrap());
+
     let hr_output_path = bin_output_path.to_path_buf().with_extension("ztf");
 
-    let file = File::open(path.clone()).unwrap();
+    let file = File::open(path.clone())
+        .map_err(|why| format!("Couldn't open input file {}: {}", path.display(), why))?;
 
     let mut reader = BufReader::new(file);
+    let mut source = String::new();
+    reader.read_to_string(&mut source).unwrap();
 
-    let program_flattened: ir::Prog<T> = compile(&mut reader, Some(location), Some(resolve))
-        .map_err(|e| format!("Compilation failed:\n\n {}", e))?;
+    let fmt_error = |e: &CompileError| {
+        format!(
+            "{}:{}",
+            e.file()
+                .canonicalize()
+                .unwrap()
+                .strip_prefix(std::env::current_dir().unwrap())
+                .unwrap()
+                .display(),
+            e.value()
+        )
+    };
+
+    let resolver = FileSystemResolver::new();
+    let artifacts: CompilationArtifacts<T> =
+        compile(source, path, Some(&resolver)).map_err(|e| {
+            format!(
+                "Compilation failed:\n\n{}",
+                e.0.iter()
+                    .map(|e| fmt_error(e))
+                    .collect::<Vec<_>>()
+                    .join("\n\n")
+            )
+        })?;
+
+    let program_flattened = artifacts.prog();
 
     // number of constraints the flattened program will translate to.
     let num_constraints = program_flattened.constraint_count();
 
     // serialize flattened program and write to binary file
     let bin_output_file = File::create(&bin_output_path)
-        .map_err(|why| format!("couldn't create {}: {}", bin_output_path.display(), why))?;
+        .map_err(|why| format!("Couldn't create {}: {}", bin_output_path.display(), why))?;
 
     let mut writer = BufWriter::new(bin_output_file);
 
-    program_flattened.serialize(&mut writer);
+    serialize_into(&mut writer, &program_flattened, Infinite)
+        .map_err(|_| "Unable to write data to file.".to_string())?;
+
+    // serialize ABI spec and write to JSON file
+    let abi_spec_file = File::create(&abi_spec_path)
+        .map_err(|why| format!("Couldn't create {}: {}", abi_spec_path.display(), why))?;
+
+    let abi = artifacts.abi();
+
+    let mut writer = BufWriter::new(abi_spec_file);
+
+    to_writer_pretty(&mut writer, &abi).map_err(|_| "Unable to write data to file.".to_string())?;
 
     if !light {
         // write human-readable output file
@@ -277,6 +348,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
 fn cli() -> Result<(), String> {
     const FLATTENED_CODE_DEFAULT_PATH: &str = "out";
+    const ABI_SPEC_DEFAULT_PATH: &str = "abi.json";
     const VERIFICATION_KEY_DEFAULT_PATH: &str = "verification.key";
     const PROVING_KEY_DEFAULT_PATH: &str = "proving.key";
     const VERIFICATION_CONTRACT_DEFAULT_PATH: &str = "verifier.sol";
@@ -301,10 +373,18 @@ fn cli() -> Result<(), String> {
             .value_name("FILE")
             .takes_value(true)
             .required(true)
+        ).arg(Arg::with_name("abi_spec")
+            .short("s")
+            .long("abi_spec")
+            .help("Path of the ABI specification")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(ABI_SPEC_DEFAULT_PATH)
         ).arg(Arg::with_name("output")
             .short("o")
             .long("output")
-            .help("Path of the output file")
+            .help("Path of the output binary")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -328,7 +408,7 @@ fn cli() -> Result<(), String> {
         .arg(Arg::with_name("input")
             .short("i")
             .long("input")
-            .help("Path of compiled code")
+            .help("Path of the binary")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -399,9 +479,9 @@ fn cli() -> Result<(), String> {
             .required(false)
             .possible_values(SCHEMES)
             .default_value(&default_scheme)
-        ).arg(Arg::with_name("abi")
+        ).arg(Arg::with_name("solidity-abi")
             .short("a")
-            .long("abi")
+            .long("solidity-abi")
             .help("Flag for setting the version of the ABI Encoder used in the contract")
             .takes_value(true)
             .possible_values(&["v1", "v2"])
@@ -414,11 +494,19 @@ fn cli() -> Result<(), String> {
         .arg(Arg::with_name("input")
             .short("i")
             .long("input")
-            .help("Path of compiled code")
+            .help("Path of the binary")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
             .default_value(FLATTENED_CODE_DEFAULT_PATH)
+        ).arg(Arg::with_name("abi_spec")
+            .short("s")
+            .long("abi_spec")
+            .help("Path of the ABI specification")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(ABI_SPEC_DEFAULT_PATH)
         ).arg(Arg::with_name("output")
             .short("o")
             .long("output")
@@ -478,7 +566,7 @@ fn cli() -> Result<(), String> {
         ).arg(Arg::with_name("input")
             .short("i")
             .long("input")
-            .help("Path of compiled code")
+            .help("Path of the binary")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
@@ -595,12 +683,11 @@ fn cli() -> Result<(), String> {
         ("generate-proof", Some(sub_matches)) => {
             let proof_system = sub_matches.value_of("proving-scheme").unwrap();
 
-            // read compiled program
-            let path = Path::new(sub_matches.value_of("input").unwrap());
-            let file = File::open(&path)
-                .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
+            let program_path = Path::new(sub_matches.value_of("input").unwrap());
+            let program_file = File::open(&program_path)
+                .map_err(|why| format!("couldn't open {}: {}", program_path.display(), why))?;
 
-            let mut reader = BufReader::new(file);
+            let mut reader = BufReader::new(program_file);
 
             let prog = ProgEnum::deserialize(&mut reader).map_err(|_| "wrong file".to_string())?;
 
@@ -672,11 +759,17 @@ mod tests {
 
     #[test]
     fn examples() {
-        for p in glob("./examples/**/*.zok").expect("Failed to read glob pattern") {
+        for p in glob("./examples/**/*").expect("Failed to read glob pattern") {
             let path = match p {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
             };
+
+            if !path.is_file() {
+                continue;
+            }
+
+            assert!(path.extension().expect("extension expected") == "zok");
 
             if path.to_str().unwrap().contains("error") {
                 continue;
@@ -687,23 +780,20 @@ mod tests {
             let file = File::open(path.clone()).unwrap();
 
             let mut reader = BufReader::new(file);
-            let location = path
-                .parent()
-                .unwrap()
-                .to_path_buf()
-                .into_os_string()
-                .into_string()
-                .unwrap();
 
-            let _: ir::Prog<Bn128Field> =
-                compile(&mut reader, Some(location), Some(resolve)).unwrap();
+            let mut source = String::new();
+            reader.read_to_string(&mut source).unwrap();
+
+            let resolver = FileSystemResolver::new();
+            let _: CompilationArtifacts<Bn128Field> =
+                compile(source, path, Some(&resolver)).unwrap();
         }
     }
 
     #[test]
     fn examples_with_input_success() {
         //these examples should compile and run
-        for p in glob("./examples/test*.zok").expect("Failed to read glob pattern") {
+        for p in glob("./examples/test*").expect("Failed to read glob pattern") {
             let path = match p {
                 Ok(x) => x,
                 Err(why) => panic!("Error: {:?}", why),
@@ -712,20 +802,16 @@ mod tests {
 
             let file = File::open(path.clone()).unwrap();
 
-            let location = path
-                .parent()
-                .unwrap()
-                .to_path_buf()
-                .into_os_string()
-                .into_string()
-                .unwrap();
-
             let mut reader = BufReader::new(file);
+            let mut source = String::new();
+            reader.read_to_string(&mut source).unwrap();
 
-            let program_flattened: ir::Prog<Bn128Field> =
-                compile(&mut reader, Some(location), Some(resolve)).unwrap();
+            let resolver = FileSystemResolver::new();
+            let artifacts: CompilationArtifacts<Bn128Field> =
+                compile(source, path, Some(&resolver)).unwrap();
 
-            let _ = program_flattened
+            let _ = artifacts
+                .prog()
                 .execute(&vec![Bn128Field::from(0)])
                 .unwrap();
         }
@@ -734,29 +820,26 @@ mod tests {
     #[test]
     #[should_panic]
     fn examples_with_input_failure() {
-        println!("something");
         //these examples should compile but not run
-        for p in glob("./examples/runtime_errors/*.zok").expect("Failed to read glob pattern") {
-            let path = p.unwrap();
-
+        for p in glob("./examples/runtime_errors/*").expect("Failed to read glob pattern") {
+            let path = match p {
+                Ok(x) => x,
+                Err(why) => panic!("Error: {:?}", why),
+            };
             println!("Testing {:?}", path);
 
             let file = File::open(path.clone()).unwrap();
 
-            let location = path
-                .parent()
-                .unwrap()
-                .to_path_buf()
-                .into_os_string()
-                .into_string()
-                .unwrap();
-
             let mut reader = BufReader::new(file);
+            let mut source = String::new();
+            reader.read_to_string(&mut source).unwrap();
 
-            let program_flattened: ir::Prog<Bn128Field> =
-                compile(&mut reader, Some(location), Some(resolve)).unwrap();
+            let resolver = FileSystemResolver::new();
+            let artifacts: CompilationArtifacts<Bn128Field> =
+                compile(source, path, Some(&resolver)).unwrap();
 
-            let _ = program_flattened
+            let _ = artifacts
+                .prog()
                 .execute(&vec![Bn128Field::from(0)])
                 .unwrap();
         }

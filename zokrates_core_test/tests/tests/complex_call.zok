@@ -1,0 +1,11 @@
+struct Foo {
+	bool[2] a
+	field b
+}
+
+def f(bool a, field b, Foo c, field[2] d) -> (Foo, field):
+	return Foo { a: [a, a], b: d[0] }, if c.a[0] then b + c.b else d[1] fi
+
+def main(bool a, field b, Foo c, field[2] d) -> (Foo, field):
+	Foo e, field f = f(a, b, c, d)
+	return e, f

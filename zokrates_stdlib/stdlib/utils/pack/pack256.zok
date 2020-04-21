@@ -7,4 +7,4 @@ def main(field[256] bits) -> (field):
 		out = out + bits[i] * (2 ** j)
 	endfor
 
-    return out 
+    return out

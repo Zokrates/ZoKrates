@@ -1,0 +1,4 @@
+from "./dep/foo" import foo
+
+def main() -> (field):
+	return foo()

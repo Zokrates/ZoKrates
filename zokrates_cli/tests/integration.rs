@@ -4,6 +4,7 @@ extern crate serde_json;
 #[cfg(test)]
 mod integration {
     use assert_cli;
+    use serde_json::from_reader;
     use std::fs;
     use std::fs::File;
     use std::io::{BufReader, Read};
@@ -11,8 +12,7 @@ mod integration {
     use std::path::Path;
     use tempdir::TempDir;
     use zokrates_abi::{parse_strict, Encode};
-    use zokrates_core::ir;
-    use zokrates_field::Bn128Field;
+    use zokrates_core::typed_absy::abi::Abi;
 
     #[test]
     #[ignore]
@@ -60,6 +60,7 @@ mod integration {
         let tmp_base = tmp_dir.path();
         let test_case_path = tmp_base.join(program_name);
         let flattened_path = tmp_base.join(program_name).join("out");
+        let abi_spec_path = tmp_base.join(program_name).join("abi.json");
         let witness_path = tmp_base.join(program_name).join("witness");
         let inline_witness_path = tmp_base.join(program_name).join("inline_witness");
         let proof_path = tmp_base.join(program_name).join("proof.json");
@@ -85,6 +86,8 @@ mod integration {
             "compile",
             "-i",
             program_path.to_str().unwrap(),
+            "-s",
+            abi_spec_path.to_str().unwrap(),
             "-o",
             flattened_path.to_str().unwrap(),
             "--light",
@@ -95,33 +98,21 @@ mod integration {
 
         // COMPUTE_WITNESS
 
-        // derive program signature from IR program representation
-        let file = File::open(&flattened_path)
-            .map_err(|why| format!("couldn't open {}: {}", flattened_path.display(), why))
-            .unwrap();
-
-        let mut reader = BufReader::new(file);
-
-        let ir_prog: ir::Prog<Bn128Field> = match ir::ProgEnum::deserialize(&mut reader).unwrap() {
-            ir::ProgEnum::Bn128Program(p) => p,
-            _ => unreachable!(),
-        };
-
-        let signature = ir_prog.signature.clone();
-
-        // run witness-computation for ABI-encoded inputs through stdin
-        let json_input_str = fs::read_to_string(inputs_path).unwrap();
-
         let compute = vec![
             "../target/release/zokrates",
             "compute-witness",
             "-i",
             flattened_path.to_str().unwrap(),
+            "-s",
+            abi_spec_path.to_str().unwrap(),
             "-o",
             witness_path.to_str().unwrap(),
             "--stdin",
             "--abi",
         ];
+
+        // run witness-computation for ABI-encoded inputs through stdin
+        let json_input_str = fs::read_to_string(inputs_path).unwrap();
 
         assert_cli::Assert::command(&compute)
             .stdin(&json_input_str)
@@ -129,6 +120,20 @@ mod integration {
             .unwrap();
 
         // run witness-computation for raw-encoded inputs (converted) with `-a <arguments>`
+
+        // First we need to convert our test input into raw field elements. We need to ABI spec for that
+        let file = File::open(&abi_spec_path)
+            .map_err(|why| format!("couldn't open {}: {}", flattened_path.display(), why))
+            .unwrap();
+
+        let mut reader = BufReader::new(file);
+
+        let abi: Abi = from_reader(&mut reader)
+            .map_err(|why| why.to_string())
+            .unwrap();
+
+        let signature = abi.signature().clone();
+
         let inputs_abi: zokrates_abi::Inputs<zokrates_field::Bn128Field> =
             parse_strict(&json_input_str, signature.inputs)
                 .map(|parsed| zokrates_abi::Inputs::Abi(parsed))

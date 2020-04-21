@@ -89,17 +89,17 @@ impl<T: Field> Value<T> {
         match (self, ty) {
             (Value::Field(f), Type::FieldElement) => Ok(CheckedValue::Field(f)),
             (Value::Boolean(b), Type::Boolean) => Ok(CheckedValue::Boolean(b)),
-            (Value::Array(a), Type::Array(box inner_ty, size)) => {
-                if a.len() != size {
+            (Value::Array(a), Type::Array(array_type)) => {
+                if a.len() != array_type.size {
                     Err(format!(
                         "Expected array of size {}, found array of size {}",
-                        size,
+                        array_type.size,
                         a.len()
                     ))
                 } else {
                     let a = a
                         .into_iter()
-                        .map(|val| val.check(inner_ty.clone()))
+                        .map(|val| val.check(*array_type.ty.clone()))
                         .collect::<Result<Vec<_>, _>>()?;
                     Ok(CheckedValue::Array(a))
                 }
@@ -114,10 +114,10 @@ impl<T: Field> Value<T> {
                 } else {
                     let s = members
                         .into_iter()
-                        .map(|(id, ty)| {
-                            s.remove(&id)
-                                .ok_or_else(|| format!("Member with id `{}` not found", id))
-                                .map(|v| v.check(ty).map(|v| (id, v)))
+                        .map(|member| {
+                            s.remove(&member.id)
+                                .ok_or_else(|| format!("Member with id `{}` not found", member.id))
+                                .map(|v| v.check(*member.ty.clone()).map(|v| (member.id, v)))
                         })
                         .collect::<Result<Vec<_>, _>>()?
                         .into_iter()
@@ -187,19 +187,19 @@ impl<T: From<usize> + PartialEq + Clone> Decode<T> for CheckedValue<T> {
                     unreachable!()
                 })
             }
-            Type::Array(box inner_ty, _) => CheckedValue::Array(
-                raw.chunks(inner_ty.get_primitive_count())
-                    .map(|c| CheckedValue::decode(c.to_vec(), inner_ty.clone()))
+            Type::Array(array_type) => CheckedValue::Array(
+                raw.chunks(array_type.ty.get_primitive_count())
+                    .map(|c| CheckedValue::decode(c.to_vec(), *array_type.ty.clone()))
                     .collect(),
             ),
             Type::Struct(members) => CheckedValue::Struct(
                 members
                     .into_iter()
-                    .scan(0, |state, (id, ty)| {
-                        let new_state = *state + ty.get_primitive_count();
-                        let res = CheckedValue::decode(raw[*state..new_state].to_vec(), ty);
+                    .scan(0, |state, member| {
+                        let new_state = *state + member.ty.get_primitive_count();
+                        let res = CheckedValue::decode(raw[*state..new_state].to_vec(), *member.ty);
                         *state = new_state;
-                        Some((id, res))
+                        Some((member.id, res))
                     })
                     .collect(),
             ),
@@ -365,6 +365,7 @@ mod tests {
 
     mod strict {
         use super::*;
+        use zokrates_core::typed_absy::types::StructMember;
 
         #[test]
         fn fields() {
@@ -409,7 +410,10 @@ mod tests {
             assert_eq!(
                 parse_strict::<Bn128Field>(
                     s,
-                    vec![Type::Struct(vec![("a".into(), Type::FieldElement)])]
+                    vec![Type::Struct(vec![StructMember::new(
+                        "a".into(),
+                        Type::FieldElement
+                    )])]
                 )
                 .unwrap(),
                 CheckedValues(vec![CheckedValue::Struct(
@@ -423,7 +427,10 @@ mod tests {
             assert_eq!(
                 parse_strict::<Bn128Field>(
                     s,
-                    vec![Type::Struct(vec![("a".into(), Type::FieldElement)])]
+                    vec![Type::Struct(vec![StructMember::new(
+                        "a".into(),
+                        Type::FieldElement
+                    )])]
                 )
                 .unwrap_err(),
                 Error::Type("Member with id `a` not found".into())
@@ -433,7 +440,10 @@ mod tests {
             assert_eq!(
                 parse_strict::<Bn128Field>(
                     s,
-                    vec![Type::Struct(vec![("a".into(), Type::FieldElement)])]
+                    vec![Type::Struct(vec![StructMember::new(
+                        "a".into(),
+                        Type::FieldElement
+                    )])]
                 )
                 .unwrap_err(),
                 Error::Type("Expected 1 member(s), found 0".into())
@@ -443,7 +453,10 @@ mod tests {
             assert_eq!(
                 parse_strict::<Bn128Field>(
                     s,
-                    vec![Type::Struct(vec![("a".into(), Type::FieldElement)])]
+                    vec![Type::Struct(vec![StructMember::new(
+                        "a".into(),
+                        Type::FieldElement
+                    )])]
                 )
                 .unwrap_err(),
                 Error::Type("Value `false` doesn't match expected type `field`".into())

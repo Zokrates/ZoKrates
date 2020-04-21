@@ -15,6 +15,7 @@ enum Curve {
 struct Tests {
     pub entry_point: PathBuf,
     pub curves: Vec<Curve>,
+    pub max_constraint_count: Option<usize>,
     pub tests: Vec<Test>,
 }
 
@@ -41,6 +42,10 @@ struct Output {
 
 type Val = String;
 
+fn parse_val<T: Field>(s: String) -> T {
+    T::try_from_dec_str(&s).unwrap()
+}
+
 impl<T: Field> From<ir::ExecutionResult<T>> for ComparableResult<T> {
     fn from(r: ir::ExecutionResult<T>) -> ComparableResult<T> {
         ComparableResult(r.map(|v| v.return_values()))
@@ -49,12 +54,7 @@ impl<T: Field> From<ir::ExecutionResult<T>> for ComparableResult<T> {
 
 impl<T: Field> From<TestResult> for ComparableResult<T> {
     fn from(r: TestResult) -> ComparableResult<T> {
-        ComparableResult(r.map(|v| {
-            v.values
-                .iter()
-                .map(|v| T::try_from_dec_str(v).unwrap())
-                .collect()
-        }))
+        ComparableResult(r.map(|v| v.values.into_iter().map(parse_val).collect()))
     }
 }
 
@@ -76,7 +76,7 @@ fn compare<T: Field>(result: ir::ExecutionResult<T>, expected: TestResult) -> Re
 
 use std::io::{BufReader, Read};
 use zokrates_core::compile::compile;
-use zokrates_fs_resolver::resolve;
+use zokrates_fs_resolver::FileSystemResolver;
 
 pub fn test_inner(test_path: &str) {
     let t: Tests =
@@ -91,30 +91,28 @@ pub fn test_inner(test_path: &str) {
 }
 
 fn compile_and_run<T: Field>(t: Tests) {
-    let mut code_reader = BufReader::new(File::open(&t.entry_point).unwrap());
+    let code = std::fs::read_to_string(&t.entry_point).unwrap();
 
-    let bin = compile::<T, _, _, _>(
-        &mut code_reader,
-        Some(
-            t.entry_point
-                .parent()
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_string(),
+    let resolver = FileSystemResolver::new();
+    let artifacts = compile::<T, _>(code, t.entry_point.clone(), Some(&resolver)).unwrap();
+
+    let bin = artifacts.prog();
+
+    match t.max_constraint_count {
+        Some(count) => assert!(
+            bin.constraint_count() <= count,
+            "Expected at the most {} constraints, found {}:\n{}",
+            count,
+            bin.constraint_count(),
+            bin
         ),
-        Some(resolve),
-    )
-    .unwrap();
+        _ => {}
+    };
 
     for test in t.tests.into_iter() {
         let input = &test.input.values;
-        let output = bin.execute(
-            &input
-                .iter()
-                .map(|v| T::try_from_dec_str(&v.clone()).unwrap())
-                .collect(),
-        );
+
+        let output = bin.execute(&(input.iter().cloned().map(parse_val).collect()));
 
         match compare(output, test.output) {
             Err(e) => {

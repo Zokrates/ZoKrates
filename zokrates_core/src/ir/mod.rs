@@ -1,8 +1,7 @@
 use crate::flat_absy::flat_parameter::FlatParameter;
 use crate::flat_absy::FlatVariable;
-use crate::helpers::Helper;
+use crate::solvers::Solver;
 use std::fmt;
-use typed_absy::types::signature::Signature;
 use zokrates_field::Field;
 
 mod expression;
@@ -53,14 +52,14 @@ impl<T: Field> Statement<T> {
 pub struct Directive<T> {
     pub inputs: Vec<LinComb<T>>,
     pub outputs: Vec<FlatVariable>,
-    pub helper: Helper,
+    pub solver: Solver,
 }
 
 impl<T: Field> PartialEq for Directive<T> {
     fn eq(&self, other: &Self) -> bool {
         self.inputs.eq(&other.inputs)
             && self.outputs.eq(&other.outputs)
-            && self.helper.eq(&other.helper)
+            && self.solver.eq(&other.solver)
     }
 }
 
@@ -76,7 +75,7 @@ impl<T: Field> fmt::Display for Directive<T> {
                 .map(|o| format!("{}", o))
                 .collect::<Vec<_>>()
                 .join(", "),
-            self.helper,
+            self.solver,
             self.inputs
                 .iter()
                 .map(|i| format!("{}", i))
@@ -140,16 +139,13 @@ impl<T: Field> fmt::Display for Function<T> {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Prog<T> {
-    pub signature: Signature,
     pub main: Function<T>,
     pub private: Vec<bool>,
 }
 
 impl<T: Field> PartialEq for Prog<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.signature.eq(&other.signature)
-            && self.main.eq(&other.main)
-            && self.private.eq(&other.private)
+        self.main.eq(&other.main) && self.private.eq(&other.private)
     }
 }
 

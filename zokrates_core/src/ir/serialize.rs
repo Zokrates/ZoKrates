@@ -61,7 +61,6 @@ mod tests {
     use super::*;
     use ir;
     use std::io::{Cursor, Seek, SeekFrom};
-    use typed_absy::types::Signature;
     use zokrates_field::{Bls12Field, Bn128Field};
 
     #[test]
@@ -74,7 +73,6 @@ mod tests {
                 statements: vec![],
             },
             private: vec![],
-            signature: Signature::new(),
         };
 
         let mut buffer = Cursor::new(vec![]);
@@ -96,7 +94,6 @@ mod tests {
                 statements: vec![],
             },
             private: vec![],
-            signature: Signature::new(),
         };
 
         let mut buffer = Cursor::new(vec![]);

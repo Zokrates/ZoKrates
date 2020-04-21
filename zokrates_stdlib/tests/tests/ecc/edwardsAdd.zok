@@ -1,13 +1,14 @@
 import "ecc/edwardsAdd" as add
-import "ecc/edwardsNegate" as neg 
+import "ecc/edwardsNegate" as neg
 import "ecc/babyjubjubParams" as context
+from "ecc/babyjubjubParams" import BabyJubJubParams
 
 // Code to create test cases:
-// https://github.com/Zokrates/pycrypto 
+// https://github.com/Zokrates/pycrypto
 def testDoubleViaAdd() -> (field):
-	context = context()
-	field[2] G = [context[4], context[5]]
-
+	BabyJubJubParams context = context()
+	field[2] G = [context.Gu, context.Gv]
+	
 	field[2] out = add(G, G, context)
 
 	out[0] == 17324563846726889236817837922625232543153115346355010501047597319863650987830
@@ -16,13 +17,13 @@ def testDoubleViaAdd() -> (field):
 	return 1
 
 def testIdentities() -> (field):
-	context = context()
-	field[2] G = [context[4], context[5]]
-	field[2] inf = [context[2], context[3]]
+	BabyJubJubParams context = context()
+	field[2] G = [context.Gu, context.Gv]
+	field[2] inf = context.INFINITY
 
 	G == add(G, inf, context)
 	
-	field[2] nG = neg(G, context)
+	field[2] nG = neg(G)
 	field[2] nGaddG = add(G, nG, context)
 
 	inf == nGaddG

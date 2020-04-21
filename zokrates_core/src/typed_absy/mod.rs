@@ -5,16 +5,19 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
+pub mod abi;
 pub mod folder;
+pub mod identifier;
 mod parameter;
 pub mod types;
 mod variable;
 
 pub use crate::typed_absy::parameter::Parameter;
-pub use crate::typed_absy::types::Type;
+pub use crate::typed_absy::types::{Signature, Type};
 pub use crate::typed_absy::variable::Variable;
+use std::path::PathBuf;
 
-use crate::typed_absy::types::{FunctionKey, MemberId, Signature};
+use crate::typed_absy::types::{FunctionKey, MemberId};
 use embed::FlatEmbed;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -22,20 +25,12 @@ use std::fmt;
 use zokrates_field::Field;
 
 pub use self::folder::Folder;
-
-/// A identifier for a variable
-#[derive(Debug, PartialEq, Clone, Hash, Eq)]
-pub struct Identifier<'ast> {
-    /// the id of the variable
-    pub id: &'ast str,
-    /// the version of the variable, used after SSA transformation
-    pub version: usize,
-    /// the call stack of the variable, used when inlining
-    pub stack: Vec<(TypedModuleId, FunctionKey<'ast>, usize)>,
-}
+use typed_absy::abi::{Abi, AbiInput};
+pub use typed_absy::identifier::Identifier;
+use typed_absy::types::StructMember;
 
 /// An identifier for a `TypedModule`. Typically a path or uri.
-pub type TypedModuleId = String;
+pub type TypedModuleId = PathBuf;
 
 /// A collection of `TypedModule`s
 pub type TypedModules<'ast, T> = HashMap<TypedModuleId, TypedModule<'ast, T>>;
@@ -53,13 +48,41 @@ pub struct TypedProgram<'ast, T> {
     pub main: TypedModuleId,
 }
 
+impl<'ast, T: Field> TypedProgram<'ast, T> {
+    pub fn abi(&self) -> Abi {
+        let main = self.modules[&self.main]
+            .functions
+            .iter()
+            .find(|(id, _)| id.id == "main")
+            .unwrap()
+            .1;
+        let main = match main {
+            TypedFunctionSymbol::Here(main) => main,
+            _ => unreachable!(),
+        };
+
+        Abi {
+            inputs: main
+                .arguments
+                .iter()
+                .map(|p| AbiInput {
+                    public: !p.private,
+                    name: p.id.id.to_string(),
+                    ty: p.id._type.clone(),
+                })
+                .collect(),
+            outputs: main.signature.outputs.clone(),
+        }
+    }
+}
+
 impl<'ast, T: Field> fmt::Display for TypedProgram<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (module_id, module) in &self.modules {
             writeln!(
                 f,
                 "| {}: |{}",
-                module_id,
+                module_id.display(),
                 if *module_id == self.main {
                     "<---- main"
                 } else {
@@ -80,49 +103,6 @@ impl<'ast, T: Field> fmt::Display for TypedProgram<'ast, T> {
 pub struct TypedModule<'ast, T> {
     /// Functions of the program
     pub functions: TypedFunctionSymbols<'ast, T>,
-}
-
-impl<'ast> fmt::Display for Identifier<'ast> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.stack.len() == 0 && self.version == 0 {
-            write!(f, "{}", self.id)
-        } else {
-            write!(
-                f,
-                "{}_{}_{}",
-                self.stack
-                    .iter()
-                    .map(|(name, sig, count)| format!("{}_{}_{}", name, sig.to_slug(), count))
-                    .collect::<Vec<_>>()
-                    .join("_"),
-                self.id,
-                self.version
-            )
-        }
-    }
-}
-
-impl<'ast> From<&'ast str> for Identifier<'ast> {
-    fn from(id: &'ast str) -> Identifier<'ast> {
-        Identifier {
-            id,
-            version: 0,
-            stack: vec![],
-        }
-    }
-}
-
-#[cfg(test)]
-impl<'ast> Identifier<'ast> {
-    pub fn version(mut self, version: usize) -> Self {
-        self.version = version;
-        self
-    }
-
-    pub fn stack(mut self, stack: Vec<(TypedModuleId, FunctionKey<'ast>, usize)>) -> Self {
-        self.stack = stack;
-        self
-    }
 }
 
 #[derive(Clone, PartialEq)]
@@ -169,7 +149,10 @@ impl<'ast, T: Field> fmt::Display for TypedModule<'ast, T> {
                 TypedFunctionSymbol::Here(ref function) => format!("def {}{}", key.id, function),
                 TypedFunctionSymbol::There(ref fun_key, ref module_id) => format!(
                     "import {} from \"{}\" as {} // with signature {}",
-                    fun_key.id, module_id, key.id, key.signature
+                    fun_key.id,
+                    module_id.display(),
+                    key.id,
+                    key.signature
                 ),
                 TypedFunctionSymbol::Flat(ref flat_fun) => {
                     format!("def {}{}:\n\t// hidden", key.id, flat_fun.signature::<T>())
@@ -209,7 +192,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "({}) -> ({}):\n{}",
+            "({}) -> ({}):",
             self.arguments
                 .iter()
                 .map(|x| format!("{}", x))
@@ -221,12 +204,16 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
                 .map(|x| format!("{}", x))
                 .collect::<Vec<_>>()
                 .join(", "),
-            self.statements
-                .iter()
-                .map(|x| format!("\t{}", x))
-                .collect::<Vec<_>>()
-                .join("\n")
-        )
+        )?;
+
+        writeln!(f, "")?;
+
+        for s in &self.statements {
+            s.fmt_indented(f, 1)?;
+            writeln!(f, "")?;
+        }
+
+        Ok(())
     }
 }
 
@@ -263,16 +250,19 @@ impl<'ast, T> Typed for TypedAssignee<'ast, T> {
             TypedAssignee::Select(ref a, _) => {
                 let a_type = a.get_type();
                 match a_type {
-                    Type::Array(box t, _) => t,
+                    Type::Array(t) => *t.ty,
                     _ => unreachable!("an array element should only be defined over arrays"),
                 }
             }
             TypedAssignee::Member(ref s, ref m) => {
                 let s_type = s.get_type();
                 match s_type {
-                    Type::Struct(members) => {
-                        members.iter().find(|(id, _)| id == m).unwrap().1.clone()
-                    }
+                    Type::Struct(members) => *members
+                        .iter()
+                        .find(|member| member.id == *m)
+                        .unwrap()
+                        .ty
+                        .clone(),
                     _ => unreachable!("a struct access should only be defined over structs"),
                 }
             }
@@ -307,7 +297,12 @@ pub enum TypedStatement<'ast, T> {
     Definition(TypedAssignee<'ast, T>, TypedExpression<'ast, T>),
     Declaration(Variable<'ast>),
     Condition(TypedExpression<'ast, T>, TypedExpression<'ast, T>),
-    For(Variable<'ast>, T, T, Vec<TypedStatement<'ast, T>>),
+    For(
+        Variable<'ast>,
+        FieldElementExpression<'ast, T>,
+        FieldElementExpression<'ast, T>,
+        Vec<TypedStatement<'ast, T>>,
+    ),
     MultipleDefinition(Vec<Variable<'ast>>, TypedExpressionList<'ast, T>),
 }
 
@@ -341,6 +336,23 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedStatement<'ast, T> {
             TypedStatement::MultipleDefinition(ref lhs, ref rhs) => {
                 write!(f, "MultipleDefinition({:?}, {:?})", lhs, rhs)
             }
+        }
+    }
+}
+
+impl<'ast, T: fmt::Display> TypedStatement<'ast, T> {
+    fn fmt_indented(&self, f: &mut fmt::Formatter, depth: usize) -> fmt::Result {
+        match self {
+            TypedStatement::For(variable, from, to, statements) => {
+                write!(f, "{}", "\t".repeat(depth))?;
+                writeln!(f, "for {} in {}..{} do", variable, from, to)?;
+                for s in statements {
+                    s.fmt_indented(f, depth + 1)?;
+                    writeln!(f, "")?;
+                }
+                writeln!(f, "{}endfor", "\t".repeat(depth))
+            }
+            s => write!(f, "{}{}", "\t".repeat(depth), s),
         }
     }
 }
@@ -461,7 +473,7 @@ impl<'ast, T: fmt::Display> fmt::Display for StructExpression<'ast, T> {
                 "{{{}}}",
                 self.ty
                     .iter()
-                    .map(|(id, _)| id)
+                    .map(|member| member.id.clone())
                     .zip(values.iter())
                     .map(|(id, o)| format!("{}: {}", id, o))
                     .collect::<Vec<String>>()
@@ -630,6 +642,7 @@ pub enum BooleanExpression<'ast, T> {
         Box<BooleanExpression<'ast, T>>,
     ),
     Member(Box<StructExpression<'ast, T>>, MemberId),
+    FunctionCall(FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
     Select(
         Box<ArrayExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
@@ -638,7 +651,7 @@ pub enum BooleanExpression<'ast, T> {
 
 /// An expression of type `array`
 /// # Remarks
-/// * Contrary to basic types which represented as enums, we wrap an enum `ArrayExpressionInner` in a struct in order to keep track of the type (content and size)
+/// * Contrary to basic types which are represented as enums, we wrap an enum `ArrayExpressionInner` in a struct in order to keep track of the type (content and size)
 /// of the array. Only using an enum would require generics, which would propagate up to TypedExpression which we want to keep simple, hence this "runtime"
 /// type checking
 #[derive(Clone, PartialEq, Hash, Eq)]
@@ -695,12 +708,12 @@ impl<'ast, T> ArrayExpression<'ast, T> {
 
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub struct StructExpression<'ast, T> {
-    ty: Vec<(MemberId, Type)>,
+    ty: Vec<StructMember>,
     inner: StructExpressionInner<'ast, T>,
 }
 
 impl<'ast, T> StructExpression<'ast, T> {
-    pub fn ty(&self) -> &Vec<(MemberId, Type)> {
+    pub fn ty(&self) -> &Vec<StructMember> {
         &self.ty
     }
 
@@ -731,7 +744,7 @@ pub enum StructExpressionInner<'ast, T> {
 }
 
 impl<'ast, T> StructExpressionInner<'ast, T> {
-    pub fn annotate(self, ty: Vec<(MemberId, Type)>) -> StructExpression<'ast, T> {
+    pub fn annotate(self, ty: Vec<StructMember>) -> StructExpression<'ast, T> {
         StructExpression { ty, inner: self }
     }
 }
@@ -833,6 +846,16 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
             BooleanExpression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
             BooleanExpression::Not(ref exp) => write!(f, "!{}", exp),
             BooleanExpression::Value(b) => write!(f, "{}", b),
+            BooleanExpression::FunctionCall(ref k, ref p) => {
+                write!(f, "{}(", k.id,)?;
+                for (i, param) in p.iter().enumerate() {
+                    write!(f, "{}", param)?;
+                    if i < p.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, ")")
+            }
             BooleanExpression::IfElse(ref condition, ref consequent, ref alternative) => write!(
                 f,
                 "if {} then {} else {} fi",
@@ -900,6 +923,11 @@ impl<'ast, T: fmt::Debug> fmt::Debug for BooleanExpression<'ast, T> {
             BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "Gt({:?}, {:?})", lhs, rhs),
             BooleanExpression::And(ref lhs, ref rhs) => write!(f, "And({:?}, {:?})", lhs, rhs),
             BooleanExpression::Not(ref exp) => write!(f, "Not({:?})", exp),
+            BooleanExpression::FunctionCall(ref i, ref p) => {
+                write!(f, "FunctionCall({:?}, (", i)?;
+                f.debug_list().entries(p.iter()).finish()?;
+                write!(f, ")")
+            }
             BooleanExpression::Select(ref array, ref index) => {
                 write!(f, "Select({:?}, {:?})", array, index)
             }
@@ -1026,7 +1054,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedExpressionList<'ast, T> {
     }
 }
 
-// Common behaviour accross expressions
+// Common behaviour across expressions
 
 pub trait IfElse<'ast, T> {
     fn if_else(condition: BooleanExpression<'ast, T>, consequence: Self, alternative: Self)
@@ -1096,7 +1124,7 @@ impl<'ast, T> Select<'ast, T> for BooleanExpression<'ast, T> {
 impl<'ast, T> Select<'ast, T> for ArrayExpression<'ast, T> {
     fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
         let (ty, size) = match array.inner_type() {
-            Type::Array(inner, size) => (inner.clone(), size.clone()),
+            Type::Array(array_type) => (array_type.ty.clone(), array_type.size.clone()),
             _ => unreachable!(),
         };
 
@@ -1137,16 +1165,16 @@ impl<'ast, T> Member<'ast, T> for ArrayExpression<'ast, T> {
 
         let ty = members
             .into_iter()
-            .find(|(id, _)| *id == member_id)
+            .find(|member| *member.id == member_id)
             .unwrap()
-            .1;
+            .ty;
 
-        let (ty, size) = match ty {
-            Type::Array(box ty, size) => (ty, size),
+        let (ty, size) = match *ty {
+            Type::Array(array_type) => (array_type.ty, array_type.size),
             _ => unreachable!(),
         };
 
-        ArrayExpressionInner::Member(box s, member_id).annotate(ty, size)
+        ArrayExpressionInner::Member(box s, member_id).annotate(*ty, size)
     }
 }
 
@@ -1156,11 +1184,11 @@ impl<'ast, T> Member<'ast, T> for StructExpression<'ast, T> {
 
         let ty = members
             .into_iter()
-            .find(|(id, _)| *id == member_id)
+            .find(|member| *member.id == member_id)
             .unwrap()
-            .1;
+            .ty;
 
-        let members = match ty {
+        let members = match *ty {
             Type::Struct(members) => members,
             _ => unreachable!(),
         };

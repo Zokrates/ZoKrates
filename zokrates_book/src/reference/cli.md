@@ -5,12 +5,17 @@ You can see an overview of the available subcommands by running
 
 ```sh
 zokrates
+<<<<<<< HEAD
 ```
 
 You can get help about a particular subcommand with `--help`, for example:
 ```sh
 zokrates compile --help
+=======
+>>>>>>> develop
 ```
+
+For each command, you can get the list of expected arguments using `--help`.
 
 ## `compile`
 
@@ -18,10 +23,10 @@ zokrates compile --help
 zokrates compile -i /path/to/add.zok
 ```
 
-Compiles a `.zok` source code file into ZoKrates internal representation of arithmetic circuits. 
+Compiles a `.zok` source code file into ZoKrates internal representation of arithmetic circuits.
 
 Creates a compiled binary file at `./out`.
-Unless the `--light` flag is set, a human readable `.ztf` file is generated, which displays the compilation output in ZoKrates Text Format.
+Unless the `--light` flag is set, a human-readable `.ztf` file is generated, which displays the compilation output in ZoKrates Text Format.
 
 ## `compute-witness`
 
@@ -29,9 +34,15 @@ Unless the `--light` flag is set, a human readable `.ztf` file is generated, whi
 zokrates compute-witness -a 1 2 3
 ```
 
-Computes a witness for the compiled program found at `./out` and arguments to the program.
-A witness is a valid assignment of the variables, which include the results of the computation.
-Arguments to the program are passed as a space-separated list with the `-a` flag, or over `stdin`.
+Computes a witness for the compiled program found at `./out` and computes arguments of the program.
+A witness is a valid assignment of the variables, including the results of the computation.
+Arguments of the program are passed as a space-separated list with the `-a` flag, or over `stdin` with the `--stdin` flag.
+
+With the `--abi` flag, arguments are passed in the ZoKrates JSON ABI format described [here](reference/abi.md):
+
+```sh
+cat arguments.json | zokrates compute-witness --stdin --abi
+```
 
 Creates a witness file at `./witness`
 
@@ -44,7 +55,7 @@ zokrates setup
 Generates a trusted setup for the compiled program found at `./out`.
 
 Creates a proving key and a verifying key at `./proving.key` and `./verifying.key`.
-These keys are derived from a source of randomness, commonly referred to as “toxic waste”. Anyone having access to the source of randomness can produce fake proofs that will be accepted by a verifier following the protocol.
+These keys are derived from a source of randomness, commonly referred to as "toxic waste". Anyone having access to the source of randomness can produce fake proofs that will be accepted by a verifier following the protocol.
 
 The [proving scheme](proving_schemes.md) and curve can be chosen with the `proving-scheme` and `curve` flags.
 
@@ -54,7 +65,7 @@ The [proving scheme](proving_schemes.md) and curve can be chosen with the `provi
 zokrates export-verifier
 ```
 
-Using the verifying key at `./verifying.key`, generates a Solidity contract which contains the generated verification key and a public function to verify a solution to the compiled program at `./out`.
+Using the verifying key at `./verifying.key`, generates a Solidity contract that contains the generated verification key and a public function to verify a solution to the compiled program at `./out`.
 
 Creates a verifier contract at `./verifier.sol`.
 

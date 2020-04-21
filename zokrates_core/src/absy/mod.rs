@@ -16,6 +16,7 @@ pub use crate::absy::parameter::{Parameter, ParameterNode};
 use crate::absy::types::{FunctionIdentifier, UnresolvedSignature, UnresolvedType, UserTypeId};
 pub use crate::absy::variable::{Variable, VariableNode};
 use embed::FlatEmbed;
+use std::path::PathBuf;
 
 use crate::imports::ImportNode;
 use std::fmt;
@@ -27,7 +28,7 @@ use std::collections::HashMap;
 pub type Identifier<'ast> = &'ast str;
 
 /// The identifier of a `Module`, typically a path or uri
-pub type ModuleId = String;
+pub type ModuleId = PathBuf;
 
 /// A collection of `Module`s
 pub type Modules<'ast, T> = HashMap<ModuleId, Module<'ast, T>>;
@@ -171,7 +172,12 @@ impl<'ast> SymbolImport<'ast> {
 
 impl<'ast> fmt::Display for SymbolImport<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} from {}", self.symbol_id, self.module_id)
+        write!(
+            f,
+            "{} from {}",
+            self.symbol_id,
+            self.module_id.display().to_string()
+        )
     }
 }
 
@@ -297,7 +303,12 @@ pub enum Statement<'ast, T> {
     Declaration(VariableNode<'ast>),
     Definition(AssigneeNode<'ast, T>, ExpressionNode<'ast, T>),
     Condition(ExpressionNode<'ast, T>, ExpressionNode<'ast, T>),
-    For(VariableNode<'ast>, T, T, Vec<StatementNode<'ast, T>>),
+    For(
+        VariableNode<'ast>,
+        ExpressionNode<'ast, T>,
+        ExpressionNode<'ast, T>,
+        Vec<StatementNode<'ast, T>>,
+    ),
     MultipleDefinition(Vec<AssigneeNode<'ast, T>>, ExpressionNode<'ast, T>),
 }
 

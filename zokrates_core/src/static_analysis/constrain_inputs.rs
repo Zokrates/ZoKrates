@@ -83,14 +83,20 @@ impl<'ast, T: Field> InputConstrainer<'ast, T> {
                 }
             }
             TypedExpression::Struct(s) => {
-                for (id, ty) in s.ty() {
-                    let e = match ty {
+                for member in s.ty() {
+                    let e = match *member.ty {
                         Type::FieldElement => {
-                            FieldElementExpression::member(s.clone(), id.clone()).into()
+                            FieldElementExpression::member(s.clone(), member.id.clone()).into()
                         }
-                        Type::Boolean => BooleanExpression::member(s.clone(), id.clone()).into(),
-                        Type::Array(..) => ArrayExpression::member(s.clone(), id.clone()).into(),
-                        Type::Struct(..) => StructExpression::member(s.clone(), id.clone()).into(),
+                        Type::Boolean => {
+                            BooleanExpression::member(s.clone(), member.id.clone()).into()
+                        }
+                        Type::Array(..) => {
+                            ArrayExpression::member(s.clone(), member.id.clone()).into()
+                        }
+                        Type::Struct(..) => {
+                            StructExpression::member(s.clone(), member.id.clone()).into()
+                        }
                     };
 
                     self.constrain_expression(e);
@@ -101,25 +107,6 @@ impl<'ast, T: Field> InputConstrainer<'ast, T> {
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for InputConstrainer<'ast, T> {
-    fn fold_parameter(&mut self, p: Parameter<'ast>) -> Parameter<'ast> {
-        let v = p.id.clone();
-
-        let e = match v.get_type() {
-            Type::FieldElement => FieldElementExpression::Identifier(v.id).into(),
-            Type::Boolean => BooleanExpression::Identifier(v.id).into(),
-            Type::Struct(members) => StructExpressionInner::Identifier(v.id)
-                .annotate(members)
-                .into(),
-            Type::Array(box ty, size) => ArrayExpressionInner::Identifier(v.id)
-                .annotate(ty, size)
-                .into(),
-        };
-
-        self.constrain_expression(e);
-
-        p
-    }
-
     fn fold_function(&mut self, f: TypedFunction<'ast, T>) -> TypedFunction<'ast, T> {
         TypedFunction {
             arguments: f
@@ -130,5 +117,24 @@ impl<'ast, T: Field> Folder<'ast, T> for InputConstrainer<'ast, T> {
             statements: self.constraints.drain(..).chain(f.statements).collect(),
             ..f
         }
+    }
+
+    fn fold_parameter(&mut self, p: Parameter<'ast>) -> Parameter<'ast> {
+        let v = p.id.clone();
+
+        let e = match v.get_type() {
+            Type::FieldElement => FieldElementExpression::Identifier(v.id).into(),
+            Type::Boolean => BooleanExpression::Identifier(v.id).into(),
+            Type::Struct(members) => StructExpressionInner::Identifier(v.id)
+                .annotate(members)
+                .into(),
+            Type::Array(array_type) => ArrayExpressionInner::Identifier(v.id)
+                .annotate((*array_type.ty).clone(), array_type.size)
+                .into(),
+        };
+
+        self.constrain_expression(e);
+
+        p
     }
 }

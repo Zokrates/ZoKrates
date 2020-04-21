@@ -1,16 +1,11 @@
-extern crate libc;
-
-use self::libc::{c_char, c_int};
 use ir;
+use proof_system::bn128::utils::ffi::{Buffer, ProofResult, SetupResult};
 use proof_system::bn128::utils::libsnark::{prepare_generate_proof, prepare_setup};
 use proof_system::bn128::utils::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
-use proof_system::ProofSystem;
-
+use proof_system::{ProofSystem, SetupKeypair};
 use regex::Regex;
-use std::fs::File;
-use std::io::{BufRead, BufReader};
 
 use zokrates_field::Bn128Field;
 
@@ -23,48 +18,34 @@ impl PGHR13 {
 }
 
 extern "C" {
-    fn _pghr13_setup(
+    fn pghr13_setup(
         A: *const u8,
         B: *const u8,
         C: *const u8,
-        A_len: c_int,
-        B_len: c_int,
-        C_len: c_int,
-        constraints: c_int,
-        variables: c_int,
-        inputs: c_int,
-        pk_path: *const c_char,
-        vk_path: *const c_char,
-    ) -> bool;
+        A_len: i32,
+        B_len: i32,
+        C_len: i32,
+        constraints: i32,
+        variables: i32,
+        inputs: i32,
+    ) -> SetupResult;
 
-    fn _pghr13_generate_proof(
-        pk_path: *const c_char,
-        proof_path: *const c_char,
-        public_inputs: *const u8,
-        public_inputs_length: c_int,
+    fn pghr13_generate_proof(
+        pk_buf: *mut Buffer,
+        publquery_inputs: *const u8,
+        publquery_inputs_length: i32,
         private_inputs: *const u8,
-        private_inputs_length: c_int,
-    ) -> bool;
+        private_inputs_length: i32,
+    ) -> ProofResult;
 }
 
 impl ProofSystem<Bn128Field> for PGHR13 {
-    fn setup(program: ir::Prog<Bn128Field>, pk_path: &str, vk_path: &str) {
-        let (
-            a_arr,
-            b_arr,
-            c_arr,
-            a_vec,
-            b_vec,
-            c_vec,
-            num_constraints,
-            num_variables,
-            num_inputs,
-            pk_path_cstring,
-            vk_path_cstring,
-        ) = prepare_setup(program, pk_path, vk_path);
+    fn setup(program: ir::Prog<Bn128Field>) -> SetupKeypair {
+        let (a_arr, b_arr, c_arr, a_vec, b_vec, c_vec, num_constraints, num_variables, num_inputs) =
+            prepare_setup(program);
 
-        unsafe {
-            _pghr13_setup(
+        let keypair = unsafe {
+            let result: SetupResult = pghr13_setup(
                 a_arr.as_ptr(),
                 b_arr.as_ptr(),
                 c_arr.as_ptr(),
@@ -74,46 +55,60 @@ impl ProofSystem<Bn128Field> for PGHR13 {
                 num_constraints as i32,
                 num_variables as i32,
                 num_inputs as i32,
-                pk_path_cstring.as_ptr(),
-                vk_path_cstring.as_ptr(),
             );
-        }
+
+            let vk: Vec<u8> =
+                std::slice::from_raw_parts(result.vk.data, result.vk.length as usize).to_vec();
+            let pk: Vec<u8> =
+                std::slice::from_raw_parts(result.pk.data, result.pk.length as usize).to_vec();
+
+            // Memory is allocated in C and raw pointers are returned to Rust. The caller has to manually
+            // free the memory.
+            result.vk.free();
+            result.pk.free();
+
+            (vk, pk)
+        };
+
+        SetupKeypair::from(String::from_utf8(keypair.0).unwrap(), keypair.1)
     }
 
     fn generate_proof(
         program: ir::Prog<Bn128Field>,
         witness: ir::Witness<Bn128Field>,
-        pk_path: &str,
-        proof_path: &str,
-    ) -> bool {
-        let (
-            pk_path_cstring,
-            proof_path_cstring,
-            public_inputs_arr,
-            public_inputs_length,
-            private_inputs_arr,
-            private_inputs_length,
-        ) = prepare_generate_proof(program, witness, pk_path, proof_path);
+        proving_key: Vec<u8>,
+    ) -> String {
+        let (public_inputs_arr, public_inputs_length, private_inputs_arr, private_inputs_length) =
+            prepare_generate_proof(program, witness);
 
-        println!(
-            "{:?}",
-            (pk_path_cstring.clone(), proof_path_cstring.clone(),)
-        );
+        let mut pk = proving_key.clone();
+        let mut pk_buf = Buffer::from_vec(pk.as_mut());
 
-        unsafe {
-            _pghr13_generate_proof(
-                pk_path_cstring.as_ptr(),
-                proof_path_cstring.as_ptr(),
+        let proof_vec = unsafe {
+            let result = pghr13_generate_proof(
+                &mut pk_buf as *mut _,
                 public_inputs_arr[0].as_ptr(),
                 public_inputs_length as i32,
                 private_inputs_arr[0].as_ptr(),
                 private_inputs_length as i32,
-            )
-        }
+            );
+
+            let proof_vec: Vec<u8> =
+                std::slice::from_raw_parts(result.proof.data, result.proof.length as usize)
+                    .to_vec();
+
+            // Memory is allocated in C and raw pointers are returned to Rust. The caller has to manually
+            // free the memory.
+            result.proof.free();
+
+            proof_vec
+        };
+
+        String::from_utf8(proof_vec).unwrap()
     }
 
-    fn export_solidity_verifier(reader: BufReader<File>, is_abiv2: bool) -> String {
-        let mut lines = reader.lines();
+    fn export_solidity_verifier(vk: String, is_abiv2: bool) -> String {
+        let mut lines = vk.lines();
 
         let (mut template_text, solidity_pairing_lib) = if is_abiv2 {
             (
@@ -138,10 +133,9 @@ impl ProofSystem<Bn128Field> for PGHR13 {
         let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
 
         for _ in 0..7 {
-            let current_line: String = lines
+            let current_line: &str = lines
                 .next()
-                .expect("Unexpected end of file in verification key!")
-                .unwrap();
+                .expect("Unexpected end of file in verification key!");
             let current_line_split: Vec<&str> = current_line.split("=").collect();
             assert_eq!(current_line_split.len(), 2);
             template_text = vk_regex
@@ -149,10 +143,9 @@ impl ProofSystem<Bn128Field> for PGHR13 {
                 .into_owned();
         }
 
-        let current_line: String = lines
+        let current_line: &str = lines
             .next()
-            .expect("Unexpected end of file in verification key!")
-            .unwrap();
+            .expect("Unexpected end of file in verification key!");
         let current_line_split: Vec<&str> = current_line.split("=").collect();
         assert_eq!(current_line_split.len(), 2);
         let ic_count: i32 = current_line_split[1].trim().parse().unwrap();
@@ -167,10 +160,9 @@ impl ProofSystem<Bn128Field> for PGHR13 {
         let mut ic_repeat_text = String::new();
         for x in 0..ic_count {
             let mut curr_template = ic_template.clone();
-            let current_line: String = lines
+            let current_line: &str = lines
                 .next()
-                .expect("Unexpected end of file in verification key!")
-                .unwrap();
+                .expect("Unexpected end of file in verification key!");
             let current_line_split: Vec<&str> = current_line.split("=").collect();
             assert_eq!(current_line_split.len(), 2);
             curr_template = vk_ic_index_regex

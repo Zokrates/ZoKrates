@@ -1,9 +1,9 @@
 # Tutorial: Proving knowledge of a hash preimage
 
-Let’s jump into ZoKrates by working through a hands-on project together!
+Let's jump into ZoKrates by working through a hands-on project together!
 
-We’ll implement an operation that's very typical in blockchain use-cases: proving knowledge of the preimage for a given hash digest.  
-In particular, we'll show how ZoKrates and the Ethereum blockchain can be used to allow a prover, let’s call her Peggy, to demonstrate beyond any reasonable doubt to a verifier, let’s call him Victor, that she knows a hash preimage for a digest chosen by Victor, without revealing what the preimage is.
+We'll implement an operation that's very typical in blockchain use-cases: proving knowledge of the preimage for a given hash digest.
+In particular, we'll show how ZoKrates and the Ethereum blockchain can be used to allow a prover, let's call her Peggy, to demonstrate beyond any reasonable doubt to a verifier, let's call him Victor, that she knows a hash preimage for a digest chosen by Victor, without revealing what the preimage is.
 
 ## Pre-requisites
 
@@ -21,9 +21,9 @@ First, we create a new file named `hashexample.zok` with the following content:
 
 The first line imports the `sha256packed` function from the ZoKrates standard library.
 
-`sha256packed` is a SHA256 implementation that is optimized for the use in the ZoKrates DSL. Here is how it works: We want to pass 512 bits of input to sha256. However, a `field` value can only hold 254 bits due to the size of the underlying prime field we are using. As a consequence, we use four field elements, each one encoding 128 bits, to represent our input. The four elements are then concatenated in ZoKrates and passed to SHA256. Given that the resulting hash is 256 bit long, we split it in two and return each value as a 128 bit number.
+`sha256packed` is a SHA256 implementation that is optimized for the use in the ZoKrates DSL. Here is how it works: We want to pass 512 bits of input to SHA256. However, a `field` value can only hold 254 bits due to the size of the underlying prime field we are using. As a consequence, we use four field elements, each one encoding 128 bits, to represent our input. The four elements are then concatenated in ZoKrates and passed to SHA256. Given that the resulting hash is 256 bit long, we split it in two and return each value as a 128 bit number.
 
-In case you are interested in an example that is fully compliant with existing SHA256 implementations in Python or Solidity you can have a look at this [blog](https://blog.decentriq.ch/proving-hash-pre-image-zksnarks-zokrates) post.
+In case you are interested in an example that is fully compliant with existing SHA256 implementations in Python or Solidity, you can have a look at this [blog](https://blog.decentriq.ch/proving-hash-pre-image-zksnarks-zokrates) post.
 
 Our code is really just using the `sha256packed`, returning the computed hash.
 
@@ -63,7 +63,7 @@ Hence, by concatenating the outputs as 128 bit numbers, we arrive at the followi
 
 For now, we have seen that we can compute a hash using ZoKrates.
 
-Let's recall our goal: Peggy wants to prove that she knows a preimage for a digest chosen by Victor, without revealing what the preimage is. Without loss of generality, let's now assume that Victor choses the digest to be the one we found in our example above.  
+Let's recall our goal: Peggy wants to prove that she knows a preimage for a digest chosen by Victor, without revealing what the preimage is. Without loss of generality, let's now assume that Victor chooses the digest to be the one we found in our example above.
 
 To make it work, the two parties have to follow their roles in the protocol:
 
@@ -81,7 +81,7 @@ So, having defined the program, Victor is now ready to compile the code:
 ./zokrates compile -i hashexample.zok
 ```
 
-Based on that Victor can run the setup phase and export verifier smart contract as a Solidity file:
+Based on that Victor can run the setup phase and export a verifier smart contract as a Solidity file:
 
 ```sh
 ./zokrates setup
@@ -104,14 +104,14 @@ Finally, Peggy can run the command to construct the proof:
 ./zokrates generate-proof
 ```
 
-As the inputs were declared as private in the program, they do not appear in the proof thanks to the zero knowledge property of the protocol.
+As the inputs were declared as private in the program, they do not appear in the proof thanks to the zero-knowledge property of the protocol.
 
 ZoKrates creates a file, `proof.json`,  consisting of the three elliptic curve points that make up the zkSNARKs proof. The `verifyTx` function in the smart contract deployed by Victor accepts these three values, along with an array of public inputs. The array of public inputs consists of:
 
 * any public inputs to the main function, declared without the `private` keyword
 * the return values of the ZoKrates function
 
-In the example we're considering, all inputs are private and there is a single return value of `1`, hence Peggy has to define her public input array as follows: `[1]`  
+In the example we're considering, all inputs are private and there is a single return value of `1`, hence Peggy has to define her public input array as follows: `[1]`.
 
 Peggy can then submit her proof by calling `verifyTx`.
 
@@ -119,10 +119,10 @@ Victor monitors the verification smart contract for the `Verified` event, which 
 
 ## Conclusion
 
-At this point, you’ve successfully ran you first zkSNARK on the Ethereum blockchain. Congratulations!  
+At this point, you've successfully ran you first zkSNARK on the Ethereum blockchain. Congratulations!
 
 >Remember that in this example only two parties were involved. This special case makes it easy to deal with the trust assumptions of zkSNARKs: only Victor was interested in verifying the claim by Peggy, hence he can trust his execution of the setup phase.
 >
->In general, multiple parties may be interested in verifying the correctness of Peggy's statement. For example, in the zero-knowledge based cryptocurrency Zcash, each node needs to be able to validate the correctness of transactions. In order to generalize the setup phase to these multi-party use-cases a tricky process, commonly referred to as “trusted setup” or "ceremony" needs to be conducted.
+>In general, multiple parties may be interested in verifying the correctness of Peggy's statement. For example, in the zero-knowledge based cryptocurrency Zcash, each node needs to be able to validate the correctness of transactions. In order to generalize the setup phase to these multi-party use-cases a tricky process, commonly referred to as "trusted setup" or "ceremony" needs to be conducted.
 >
 >ZoKrates would welcome ideas to add support for such ceremonies!

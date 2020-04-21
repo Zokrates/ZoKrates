@@ -1,6 +1,6 @@
 [package]
 name = "zokrates_cli"
-version = "0.5.0"
+version = "0.5.2"
 authors = ["Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>", "Dennis Kuhnert <mail@kyroy.com>", "Thibaut Schaeffer <thibaut@schaeff.fr>"]
 repository = "https://github.com/JacobEberhardt/ZoKrates.git"
 edition = "2018"
@@ -8,7 +8,6 @@ edition = "2018"
 [features]
 default = []
 libsnark = ["zokrates_core/libsnark"]
-wasm = ["zokrates_core/wasm"]
 
 [dependencies]
 clap = "2.26.2"
@@ -17,7 +16,7 @@ regex = "0.2"
 zokrates_field = { version = "0.3", path = "../zokrates_field" }
 zokrates_abi = { version = "0.1", path = "../zokrates_abi" }
 zokrates_core = { version = "0.4", path = "../zokrates_core" }
-zokrates_fs_resolver = { version = "0.4", path = "../zokrates_fs_resolver"}
+zokrates_fs_resolver = { version = "0.5", path = "../zokrates_fs_resolver"}
 serde_json = "1.0"
 
 [dev-dependencies]

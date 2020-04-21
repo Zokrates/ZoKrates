@@ -11,7 +11,7 @@ use bellman::{Circuit, ConstraintSystem, LinearCombination, SynthesisError, Vari
 use std::collections::BTreeMap;
 use zokrates_field::Field;
 
-use self::rand::*;
+use self::rand::ChaChaRng;
 use crate::flat_absy::FlatVariable;
 
 pub use self::parse::*;
@@ -160,7 +160,8 @@ impl<T: Field> Prog<T> {
 
 impl<T: Field> Computation<T> {
     pub fn prove(self, params: &Parameters<T::BellmanEngine>) -> Proof<T::BellmanEngine> {
-        let rng = &mut thread_rng();
+        let rng = &mut ChaChaRng::new_unseeded();
+
         let proof = create_random_proof(self.clone(), params, rng).unwrap();
 
         let pvk = prepare_verifying_key(&params.vk);
@@ -189,7 +190,7 @@ impl<T: Field> Computation<T> {
     }
 
     pub fn setup(self) -> Parameters<T::BellmanEngine> {
-        let rng = &mut thread_rng();
+        let rng = &mut ChaChaRng::new_unseeded();
         // run setup phase
         generate_random_parameters(self, rng).unwrap()
     }
@@ -306,7 +307,6 @@ mod parse {
 mod tests {
     use super::*;
     use crate::ir::{Function, LinComb};
-    use typed_absy::types::{Signature, Type};
     use zokrates_field::Bn128Field;
 
     mod prove {
@@ -322,7 +322,6 @@ mod tests {
                     statements: vec![],
                 },
                 private: vec![],
-                signature: Signature::new(),
             };
 
             let witness = program.clone().execute(&vec![]).unwrap();
@@ -345,9 +344,6 @@ mod tests {
                     )],
                 },
                 private: vec![true],
-                signature: Signature::new()
-                    .inputs(vec![Type::FieldElement])
-                    .outputs(vec![Type::FieldElement]),
             };
 
             let witness = program.clone().execute(&vec![Bn128Field::from(0)]).unwrap();
@@ -370,9 +366,6 @@ mod tests {
                     )],
                 },
                 private: vec![false],
-                signature: Signature::new()
-                    .inputs(vec![Type::FieldElement])
-                    .outputs(vec![Type::FieldElement]),
             };
 
             let witness = program.clone().execute(&vec![Bn128Field::from(0)]).unwrap();
@@ -395,7 +388,6 @@ mod tests {
                     )],
                 },
                 private: vec![],
-                signature: Signature::new().outputs(vec![Type::FieldElement]),
             };
 
             let witness = program.clone().execute(&vec![]).unwrap();
@@ -430,9 +422,6 @@ mod tests {
                     ],
                 },
                 private: vec![true, false],
-                signature: Signature::new()
-                    .inputs(vec![Type::FieldElement, Type::FieldElement])
-                    .outputs(vec![Type::FieldElement, Type::FieldElement]),
             };
 
             let witness = program
@@ -458,9 +447,6 @@ mod tests {
                     )],
                 },
                 private: vec![false],
-                signature: Signature::new()
-                    .inputs(vec![Type::FieldElement])
-                    .outputs(vec![Type::FieldElement]),
             };
 
             let witness = program.clone().execute(&vec![Bn128Field::from(3)]).unwrap();
@@ -485,9 +471,6 @@ mod tests {
                     )],
                 },
                 private: vec![true, false],
-                signature: Signature::new()
-                    .inputs(vec![Type::FieldElement, Type::FieldElement])
-                    .outputs(vec![Type::FieldElement]),
             };
 
             let witness = program

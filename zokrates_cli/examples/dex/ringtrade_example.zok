@@ -43,20 +43,20 @@ def checkConstraints(field[3] amount, field[3] sourceToken, field[3] targetToken
 
   field[3] sourceTokenPriceOrder = [0, 0, 0]
   field[3] targetTokenPriceOrder = [0, 0, 0]
-  
+
   for field i in 0..3 do
     sourceTokenPriceOrder[i] = priceToken[sourceToken[i]]
     targetTokenPriceOrder[i] = priceToken[targetToken[i]]
   endfor
 
-  // orders are only touched, if the limit price is below the calculated price:
+  // orders are only touched if the limit price is below the calculated price:
   for field i in 0..3 do
     1 == if volume[i] == 0 then 1 else limitLessThanPrice(sourceTokenPriceOrder[i], targetTokenPriceOrder[i], limit[i]) fi
   endfor
 
   // the amount of sell volume for a token equals its buy volume:
-  buyVolumeToken = tupleForTokensWithValue(0)
-  sellVolumeToken = tupleForTokensWithValue(0)
+  field[3] buyVolumeToken = tupleForTokensWithValue(0)
+  field[3] sellVolumeToken = tupleForTokensWithValue(0)
 
   for field i in 0..3 do
     buyVolumeToken = addVolumesForOrder(buyVolumeToken, targetToken[i], volume[i] * sourceTokenPriceOrder[i])
@@ -66,9 +66,9 @@ def checkConstraints(field[3] amount, field[3] sourceToken, field[3] targetToken
   buyVolumeToken == sellVolumeToken
 
   // If an order σ ∈ Oi→j with a limit price p has a positive trading volume, then every order in Oi→j with a lower limit price should be completely fulfilled.
-  highestTouchedOrder = tupleForTokenPairsWithValue(0)
+  field[9] highestTouchedOrder = tupleForTokenPairsWithValue(0)
 
-  for field i in 0..3 do 
+  for field i in 0..3 do
     highestTouchedOrder = updateHighestTouchedOrder(highestTouchedOrder, sourceToken[i], targetToken[i], limit[i], volume[i])
   endfor
 
@@ -76,7 +76,7 @@ def checkConstraints(field[3] amount, field[3] sourceToken, field[3] targetToken
     1 == verifyCompletelyFulfilledIfLimitLowerHighestTouchedOrder(highestTouchedOrder, amount[i], sourceToken[i], targetToken[i], limit[i], volume[i])
   endfor
 
-  return 1 // Could return total volume to maximize for
+  return 1 // Could return the total volume to maximize for
 
 def main(private field[3] encodedOrder, private field[3] bitmapOrder, private field[3] volume, private field[3] priceToken) -> (field):
   // Remove orders that are not double signed
@@ -88,8 +88,8 @@ def main(private field[3] encodedOrder, private field[3] bitmapOrder, private fi
   field[3] limit = [0, 0, 0]
 
   // Decode orders
-  for field i in 0..3 do 
-    a, s, t, l = decodeOrder(encodedOrder[i])
+  for field i in 0..3 do
+    field a, field s, field t, field l = decodeOrder(encodedOrder[i])
     amount[i] = a
     sourceToken[i] = s
     targetToken[i] = t

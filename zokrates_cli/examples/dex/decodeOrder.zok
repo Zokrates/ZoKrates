@@ -9,6 +9,7 @@ def main(field order) -> (field, field, field, field):
   // LSB
   field amount = 0
   field exponent = 1
+  field bit = 0
   for field i in 0..120 do
     bit, order = popLeastSignificantBit(order)
     amount = amount + (bit * exponent)

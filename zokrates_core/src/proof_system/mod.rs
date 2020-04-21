@@ -1,6 +1,5 @@
 mod bn128;
 
-use std::fs::File;
 use zokrates_field::Field;
 
 pub use self::bn128::G16;
@@ -10,17 +9,29 @@ pub use self::bn128::GM17;
 pub use self::bn128::PGHR13;
 
 use crate::ir;
-use std::io::BufReader;
+
+// We only need to serialize this struct, there is no need for deserialization as keys are
+// used separetely in other use cases
+#[derive(Serialize)]
+pub struct SetupKeypair {
+    pub vk: String,
+    pub pk: Vec<u8>,
+}
+
+impl SetupKeypair {
+    pub fn from(vk: String, pk: Vec<u8>) -> SetupKeypair {
+        SetupKeypair { vk, pk }
+    }
+}
 
 pub trait ProofSystem<T: Field> {
-    fn setup(program: ir::Prog<T>, pk_path: &str, vk_path: &str);
+    fn setup(program: ir::Prog<T>) -> SetupKeypair;
 
     fn generate_proof(
         program: ir::Prog<T>,
         witness: ir::Witness<T>,
-        pk_path: &str,
-        proof_path: &str,
-    ) -> bool;
+        proving_key: Vec<u8>,
+    ) -> String;
 
-    fn export_solidity_verifier(reader: BufReader<File>, is_abiv2: bool) -> String;
+    fn export_solidity_verifier(vk: String, is_abiv2: bool) -> String;
 }
