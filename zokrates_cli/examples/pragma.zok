@@ -1,0 +1,4 @@
+#pragma curve bls12_381
+
+def main() -> ():
+	return

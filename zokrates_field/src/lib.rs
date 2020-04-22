@@ -83,12 +83,14 @@ pub trait Field:
     fn to_compact_dec_string(&self) -> String;
     /// Returns the size of the field as a decimal string
     fn id() -> [u8; 4];
+    /// the name of the curve associated with this field
+    fn name() -> &'static str;
 }
 
 #[macro_use]
 mod prime_field {
     macro_rules! prime_field {
-        ($modulus:expr, $bellman_type:ty) => {
+        ($modulus:expr, $bellman_type:ty, $name:expr) => {
             use crate::{Field, Pow};
             use lazy_static::lazy_static;
             use num_bigint::{BigInt, BigUint, Sign, ToBigInt};
@@ -176,6 +178,10 @@ mod prime_field {
                         res[i] = hash[i];
                     }
                     res
+                }
+
+                fn name() -> &'static str {
+                    $name
                 }
             }
 

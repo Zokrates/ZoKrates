@@ -4,6 +4,10 @@
 // @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
 // @date 2017
 
+mod constants;
+
+use constants::*;
+
 use bincode::{serialize_into, Infinite};
 use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
 use serde_json::{from_reader, to_writer_pretty, Value};
@@ -20,12 +24,6 @@ use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::{types::Signature, Type};
 use zokrates_field::{Bls12Field, Bn128Field, Field};
 use zokrates_fs_resolver::FileSystemResolver;
-
-const CURVES: &[&str] = &["bn128", "bls12_381"];
-#[cfg(feature = "libsnark")]
-const SCHEMES: &[&str] = &["g16", "pghr13", "gm17"];
-#[cfg(not(feature = "libsnark"))]
-const SCHEMES: &[&str] = &["g16"];
 
 fn main() {
     cli().unwrap_or_else(|e| {
@@ -354,8 +352,8 @@ fn cli() -> Result<(), String> {
     const VERIFICATION_CONTRACT_DEFAULT_PATH: &str = "verifier.sol";
     const WITNESS_DEFAULT_PATH: &str = "witness";
     const JSON_PROOF_PATH: &str = "proof.json";
-    let default_curve = env::var("ZOKRATES_CURVE").unwrap_or(String::from("bn128"));
-    let default_scheme = env::var("ZOKRATES_PROVING_SCHEME").unwrap_or(String::from("g16"));
+    let default_curve = env::var("ZOKRATES_CURVE").unwrap_or(constants::BN128.into());
+    let default_scheme = env::var("ZOKRATES_PROVING_SCHEME").unwrap_or(constants::G16.into());
     let default_solidity_abi = "v1";
 
     // cli specification using clap library
@@ -609,8 +607,8 @@ fn cli() -> Result<(), String> {
             let curve = sub_matches.value_of("curve").unwrap();
 
             match curve {
-                "bn128" => cli_compile::<Bn128Field>(sub_matches)?,
-                "bls12_381" => cli_compile::<Bls12Field>(sub_matches)?,
+                constants::BN128 => cli_compile::<Bn128Field>(sub_matches)?,
+                constants::BLS12_381 => cli_compile::<Bls12Field>(sub_matches)?,
                 _ => unreachable!(),
             }
         }
@@ -622,7 +620,9 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(file);
 
-            match ProgEnum::deserialize(&mut reader).map_err(|_| "wrong file".to_string())? {
+            match ProgEnum::deserialize(&mut reader)
+                .map_err(|_| "Failed to deserialize".to_string())?
+            {
                 ProgEnum::Bn128Program(p) => cli_compute(p, sub_matches)?,
                 ProgEnum::Bls12Program(p) => cli_compute(p, sub_matches)?,
             }
@@ -637,20 +637,21 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(file);
 
-            let prog = ProgEnum::deserialize(&mut reader).map_err(|_| "wrong file".to_string())?;
+            let prog = ProgEnum::deserialize(&mut reader)
+                .map_err(|_| "Failed to deserialize".to_string())?;
 
             match proof_system {
-                "g16" => match prog {
+                constants::G16 => match prog {
                     ProgEnum::Bn128Program(p) => cli_setup::<_, G16>(p, sub_matches)?,
                     ProgEnum::Bls12Program(p) => cli_setup::<_, G16>(p, sub_matches)?,
                 },
-                "pghr13" => match prog {
-                    #[cfg(feature = "libsnark")]
+                #[cfg(feature = "libsnark")]
+                constants::PGHR13 => match prog {
                     ProgEnum::Bn128Program(p) => cli_setup::<_, PGHR13>(p, sub_matches)?,
                     _ => unimplemented!(),
                 },
-                "gm17" => match prog {
-                    #[cfg(feature = "libsnark")]
+                #[cfg(feature = "libsnark")]
+                constants::GM17 => match prog {
                     ProgEnum::Bn128Program(p) => cli_setup::<_, GM17>(p, sub_matches)?,
                     _ => unimplemented!(),
                 },
@@ -662,19 +663,19 @@ fn cli() -> Result<(), String> {
             let proof_system = sub_matches.value_of("proving-scheme").unwrap();
 
             match proof_system {
-                "g16" => match curve {
-                    "bn128" => cli_export_verifier::<Bn128Field, G16>(sub_matches)?,
-                    "bls12_381" => cli_export_verifier::<Bls12Field, G16>(sub_matches)?,
+                constants::G16 => match curve {
+                    constants::BN128 => cli_export_verifier::<Bn128Field, G16>(sub_matches)?,
+                    constants::BLS12_381 => cli_export_verifier::<Bls12Field, G16>(sub_matches)?,
                     _ => unimplemented!(),
                 },
-                "pghr13" => match curve {
-                    #[cfg(feature = "libsnark")]
-                    "bn128" => cli_export_verifier::<Bn128Field, PGHR13>(sub_matches)?,
+                #[cfg(feature = "libsnark")]
+                constants::PGHR13 => match curve {
+                    constants::BN128 => cli_export_verifier::<Bn128Field, PGHR13>(sub_matches)?,
                     _ => unimplemented!(),
                 },
-                "gm17" => match curve {
-                    #[cfg(feature = "libsnark")]
-                    "bn128" => cli_export_verifier::<Bn128Field, GM17>(sub_matches)?,
+                #[cfg(feature = "libsnark")]
+                constants::GM17 => match curve {
+                    constants::BN128 => cli_export_verifier::<Bn128Field, GM17>(sub_matches)?,
                     _ => unimplemented!(),
                 },
                 _ => unreachable!(),
@@ -692,17 +693,17 @@ fn cli() -> Result<(), String> {
             let prog = ProgEnum::deserialize(&mut reader).map_err(|_| "wrong file".to_string())?;
 
             match proof_system {
-                "g16" => match prog {
+                constants::G16 => match prog {
                     ProgEnum::Bn128Program(p) => cli_generate_proof::<_, G16>(p, sub_matches)?,
                     ProgEnum::Bls12Program(p) => cli_generate_proof::<_, G16>(p, sub_matches)?,
                 },
-                "pghr13" => match prog {
-                    #[cfg(feature = "libsnark")]
+                #[cfg(feature = "libsnark")]
+                constants::PGHR13 => match prog {
                     ProgEnum::Bn128Program(p) => cli_generate_proof::<_, PGHR13>(p, sub_matches)?,
                     _ => unimplemented!(),
                 },
-                "gm17" => match prog {
-                    #[cfg(feature = "libsnark")]
+                #[cfg(feature = "libsnark")]
+                constants::GM17 => match prog {
                     ProgEnum::Bn128Program(p) => cli_generate_proof::<_, GM17>(p, sub_matches)?,
                     _ => unimplemented!(),
                 },
