@@ -385,14 +385,14 @@ mod tests {
         };
 
         let g16 = G16 {};
-        let keypair = g16.setup(program.clone(), true);
+        let keypair = g16.setup(program.clone());
 
         let witness = program
             .clone()
             .execute(&vec![FieldPrime::from(42)])
             .unwrap();
 
-        let proof = g16.generate_proof(program.clone(), witness, keypair.pk, true);
+        let proof = g16.generate_proof(program.clone(), witness, keypair.pk);
         assert!(g16.verify(keypair.vk, proof))
     }
 }

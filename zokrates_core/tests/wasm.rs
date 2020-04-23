@@ -31,6 +31,6 @@ fn generate_proof() {
         .execute(&vec![FieldPrime::from(42)])
         .unwrap();
 
-    let keys = G16::new().setup(program.clone(), false);
-    let _proof = G16::new().generate_proof(program, witness, keys.pk, false);
+    let keys = G16::new().setup(program.clone());
+    let _proof = G16::new().generate_proof(program, witness, keys.pk);
 }
