@@ -8,7 +8,6 @@ mod constants;
 
 use constants::*;
 
-use bincode::{serialize_into, Infinite};
 use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
 use serde_json::{from_reader, to_writer_pretty, Value};
 use std::env;
