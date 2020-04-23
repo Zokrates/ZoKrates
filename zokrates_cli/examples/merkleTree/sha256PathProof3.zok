@@ -13,8 +13,8 @@ def main(field treeDepth, field[256] rootDigest, private field[256] leafDigest, 
 	
 	//Loop up the tree
 	currentDirection = directionSelector[0]
-	lhs = multiplex(currentDirection, currentDigest, PathDigest0)
-	rhs = multiplex(NOT(currentDirection), currentDigest, PathDigest0)
+	field[256] lhs = multiplex(currentDirection, currentDigest, PathDigest0)
+	field[256] rhs = multiplex(NOT(currentDirection), currentDigest, PathDigest0)
 	currentDigest = sha256(lhs, rhs)
 	counter = counter + 1
 
