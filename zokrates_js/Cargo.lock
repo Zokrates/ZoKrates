@@ -48,16 +48,16 @@ dependencies = [
 
 [[package]]
 name = "bellman_ce"
-version = "0.3.4"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e1a2edf80a8ed042463f8888946f70fcd901f1615711bb253b7dc32b9c9fe73"
+checksum = "0300152b8d0c0220c70a39d6da08adff84352f5dd28d91944bc60e9dc8cbebb9"
 dependencies = [
  "bit-vec",
  "byteorder",
  "cfg-if",
  "futures",
  "num_cpus",
- "pairing_ce 0.21.0",
+ "pairing_ce",
  "rand",
  "web-sys",
 ]
@@ -257,19 +257,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83c0a6a2c53b0bd6d8cae976816dc8a171e0554c03f304e3dac110473e0219fd"
 dependencies = [
  "byteorder",
- "ff_derive_ce 0.7.0",
- "hex",
- "rand",
-]
-
-[[package]]
-name = "ff_ce"
-version = "0.10.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40ced6646e4e98a53da162e38ffe9c865edbd7a2f9ff197067b0a8bf1114bf8a"
-dependencies = [
- "byteorder",
- "ff_derive_ce 0.8.0",
+ "ff_derive_ce",
  "hex",
  "rand",
 ]
@@ -279,20 +267,6 @@ name = "ff_derive_ce"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7543567f0c51910363eb5706ee2f5368a64e79a8ae607d0332aa60bae03a1bb1"
-dependencies = [
- "num-bigint 0.2.6",
- "num-integer",
- "num-traits 0.2.11",
- "proc-macro2 1.0.10",
- "quote 1.0.3",
- "syn 1.0.17",
-]
-
-[[package]]
-name = "ff_derive_ce"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50c052fa6d4c2f12305ec364bfb8ef884836f3f61ea015b202372ff996d1ac4b"
 dependencies = [
  "num-bigint 0.2.6",
  "num-integer",
@@ -576,18 +550,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c7b23aa7f0489d9a5e8e15cc5b7cb4f3e9b9d64812b8875fb91d25b640b0939"
 dependencies = [
  "byteorder",
- "ff_ce 0.9.0",
- "rand",
-]
-
-[[package]]
-name = "pairing_ce"
-version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f55ca3bd80245b5d43dd4467bc9ab5daf869bd76c6cd3ca54c4499b41923657d"
-dependencies = [
- "byteorder",
- "ff_ce 0.10.2",
+ "ff_ce",
  "rand",
 ]
 
@@ -777,9 +740,9 @@ checksum = "ed3d612bc64430efeb3f7ee6ef26d590dce0c43249217bddc62112540c7941e1"
 
 [[package]]
 name = "sapling-crypto_ce"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ffe77471d478ef599b096c1914dc088cfb1f318c4df1c5a4e413d1c6212ff1e"
+checksum = "ec318b68765114e578fe42446b6861565b302bc93089aa01669d19417a6de993"
 dependencies = [
  "bellman_ce",
  "blake2-rfc_bellman_edition",
@@ -1081,12 +1044,12 @@ dependencies = [
  "bellman_ce",
  "bincode 0.8.0",
  "csv",
- "ff_ce 0.9.0",
+ "ff_ce",
  "hex",
  "lazy_static",
  "num",
  "num-bigint 0.1.44",
- "pairing_ce 0.20.0",
+ "pairing_ce",
  "rand",
  "reduce",
  "regex",
@@ -1114,12 +1077,12 @@ name = "zokrates_field"
 version = "0.3.5"
 dependencies = [
  "bincode 0.8.0",
- "ff_ce 0.9.0",
+ "ff_ce",
  "lazy_static",
  "num-bigint 0.2.6",
  "num-integer",
  "num-traits 0.2.11",
- "pairing_ce 0.20.0",
+ "pairing_ce",
  "serde",
  "serde_derive",
  "serde_json",
