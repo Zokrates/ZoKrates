@@ -19,12 +19,11 @@ type G2PairingPoint = (G1PairingPoint, G1PairingPoint);
 struct Proof<T> {
     proof: T,
     inputs: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    raw: Option<String>,
+    raw: String,
 }
 
 impl<T> Proof<T> {
-    fn new(proof: T, inputs: Vec<String>, raw: Option<String>) -> Self {
+    fn new(proof: T, inputs: Vec<String>, raw: String) -> Self {
         Proof { proof, inputs, raw }
     }
 }

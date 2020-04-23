@@ -19,15 +19,13 @@ libff::bigint<libff::alt_bn128_r_limbs> libsnarkBigintFromBytes(const uint8_t* _
     return x;
 }
 
-std::string toHex(const std::string& in)
+std::string toHexString(const std::string& in)
 {
     std::ostringstream out;
     out << std::setfill('0');
-
     for (unsigned char const& c : in) {
         out << std::hex << std::setw(2) << static_cast<unsigned int>(c);
     }
-
     return out.str();
 }
 
@@ -40,7 +38,7 @@ std::string HexStringFromLibsnarkBigint(libff::bigint<libff::alt_bn128_r_limbs> 
         }
     }
     std::string tmp((char*)x, 32);
-    return toHex(tmp);
+    return toHexString(tmp);
 }
 
 std::string outputInputAsHex(libff::bigint<libff::alt_bn128_r_limbs> _x)

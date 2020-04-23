@@ -85,7 +85,7 @@ r1cs_se_ppzksnark_keypair<libff::alt_bn128_pp> generateKeypair(const r1cs_se_ppz
     return r1cs_se_ppzksnark_generator<libff::alt_bn128_pp>(cs); //from r1cs_se_ppzksnark.hpp
 }
 
-std::string serializeVerificationKey(r1cs_se_ppzksnark_verification_key<libff::alt_bn128_pp>* vk, bool include_raw)
+std::string serializeVerificationKey(r1cs_se_ppzksnark_verification_key<libff::alt_bn128_pp>* vk)
 {
     std::stringstream ss;
     unsigned queryLength = vk->query.size();
@@ -100,16 +100,12 @@ std::string serializeVerificationKey(r1cs_se_ppzksnark_verification_key<libff::a
         auto vk_query_i = outputPointG1AffineAsHex(vk->query[i]);
         ss << "vk.query[" << i << "]=" << vk_query_i << endl;
     }
-    if (include_raw) {
-        std::stringstream ss_;
-        ss_ << *vk;
-        ss << "vk.raw=" << toHex(ss_.str()) << endl;
-    }
+    ss << "vk.raw=" << toHexString(serialize(*vk)) << endl;
     std::string str = ss.str();
     return str;
 }
 
-std::string serializeProof(r1cs_se_ppzksnark_proof<libff::alt_bn128_pp>* proof, const uint8_t* public_inputs, int32_t public_inputs_length, bool include_raw)
+std::string serializeProof(r1cs_se_ppzksnark_proof<libff::alt_bn128_pp>* proof, const uint8_t* public_inputs, int32_t public_inputs_length)
 {
     std::stringstream ss;
     ss << "{"
@@ -129,20 +125,16 @@ std::string serializeProof(r1cs_se_ppzksnark_proof<libff::alt_bn128_pp>* proof, 
         }
         ss << outputInputAsHex(libsnarkBigintFromBytes(public_inputs + i * 32));
     }
-    ss << "]";
-    if (include_raw) {
-        std::stringstream ss_;
-        ss_ << *proof;
-        ss << ",\n\t\"raw\": \"" << toHex(ss_.str()) << "\"";
-    }
-    ss << "\n}"
+    ss << "],\n";
+    ss << "\t\"raw\": \"" << toHexString(serialize(*proof)) << "\"\n";
+    ss << "}"
        << "\n";
     std::string str = ss.str();
     return str;
 }
 }
 
-setup_result_t gm17_setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int32_t a_len, int32_t b_len, int32_t c_len, int32_t constraints, int32_t variables, int32_t inputs, bool include_raw)
+setup_result_t gm17_setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, int32_t a_len, int32_t b_len, int32_t c_len, int32_t constraints, int32_t variables, int32_t inputs)
 {
     libff::inhibit_profiling_info = true;
     libff::inhibit_profiling_counters = true;
@@ -157,7 +149,7 @@ setup_result_t gm17_setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, 
 
     // create keypair
     auto keypair = r1cs_se_ppzksnark_generator<libff::alt_bn128_pp>(cs);
-    auto vk = gm17::serializeVerificationKey(&keypair.vk, include_raw);
+    auto vk = gm17::serializeVerificationKey(&keypair.vk);
 
     buffer_t vk_buf = create_buffer(vk);
     buffer_t pk_buf = create_buffer(keypair.pk);
@@ -166,7 +158,7 @@ setup_result_t gm17_setup(const uint8_t* A, const uint8_t* B, const uint8_t* C, 
     return result;
 }
 
-proof_result_t gm17_generate_proof(buffer_t* pk_buf, const uint8_t* public_inputs, int32_t public_inputs_length, const uint8_t* private_inputs, int32_t private_inputs_length, bool include_raw)
+proof_result_t gm17_generate_proof(buffer_t* pk_buf, const uint8_t* public_inputs, int32_t public_inputs_length, const uint8_t* private_inputs, int32_t private_inputs_length)
 {
     libff::inhibit_profiling_info = true;
     libff::inhibit_profiling_counters = true;
@@ -198,7 +190,7 @@ proof_result_t gm17_generate_proof(buffer_t* pk_buf, const uint8_t* public_input
 
     // Proof Generation
     auto proof = r1cs_se_ppzksnark_prover<libff::alt_bn128_pp>(proving_key, primary_input, auxiliary_input);
-    auto proof_json = gm17::serializeProof(&proof, public_inputs, public_inputs_length, include_raw);
+    auto proof_json = gm17::serializeProof(&proof, public_inputs, public_inputs_length);
 
     buffer_t proof_buf = create_buffer(proof_json);
     proof_result_t result(proof_buf);

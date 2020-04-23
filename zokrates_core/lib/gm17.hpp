@@ -22,16 +22,14 @@ setup_result_t gm17_setup(
     int32_t c_len,
     int32_t constraints,
     int32_t variables,
-    int32_t inputs,
-    bool include_raw);
+    int32_t inputs);
 
 proof_result_t gm17_generate_proof(
     buffer_t* pk_buf,
     const uint8_t* public_inputs,
     int32_t public_inputs_length,
     const uint8_t* private_inputs,
-    int32_t private_inputs_length,
-    bool include_raw);
+    int32_t private_inputs_length);
 
 bool gm17_verify(
     buffer_t* vk_buf,

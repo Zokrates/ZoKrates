@@ -157,14 +157,14 @@ pub fn compute_witness(artifacts: JsValue, args: JsValue) -> Result<JsValue, JsV
 pub fn setup(program: JsValue) -> Result<JsValue, JsValue> {
     let input: Vec<u8> = program.into_serde().unwrap();
     let program_flattened = deserialize_program(&input)?;
-    let keypair = proof_system::G16 {}.setup(program_flattened, false);
+    let keypair = proof_system::G16 {}.setup(program_flattened);
     Ok(JsValue::from_serde(&keypair).unwrap())
 }
 
 #[wasm_bindgen]
-pub fn export_solidity_verifier(vk: JsValue, is_abiv2: JsValue) -> JsValue {
+pub fn export_solidity_verifier(vk: JsValue, is_abi_v2: JsValue) -> JsValue {
     let verifier = proof_system::G16 {}
-        .export_solidity_verifier(vk.as_string().unwrap(), is_abiv2.as_bool().unwrap());
+        .export_solidity_verifier(vk.as_string().unwrap(), is_abi_v2.as_bool().unwrap());
     JsValue::from_str(verifier.as_str())
 }
 
@@ -178,7 +178,7 @@ pub fn generate_proof(program: JsValue, witness: JsValue, pk: JsValue) -> Result
         .map_err(|err| JsValue::from_str(&format!("Could not read witness: {}", err)))?;
 
     let proving_key: Vec<u8> = pk.into_serde().unwrap();
-    let proof = proof_system::G16 {}.generate_proof(program_flattened, ir_witness, proving_key, false);
+    let proof = proof_system::G16 {}.generate_proof(program_flattened, ir_witness, proving_key);
 
     Ok(JsValue::from_str(proof.as_str()))
 }

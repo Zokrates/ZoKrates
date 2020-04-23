@@ -52,7 +52,7 @@ impl Proof<G16ProofPoints> {
 }
 
 impl ProofSystem for G16 {
-    fn setup(&self, program: ir::Prog<FieldPrime>, include_raw: bool) -> SetupKeypair {
+    fn setup(&self, program: ir::Prog<FieldPrime>) -> SetupKeypair {
         #[cfg(not(target_arch = "wasm32"))]
         std::env::set_var("BELLMAN_VERBOSE", "0");
         println!("{}", G16_WARNING);
@@ -64,7 +64,7 @@ impl ProofSystem for G16 {
             .write(&mut pk)
             .expect("Could not write proving key to buffer");
 
-        SetupKeypair::from(serialize_vk(parameters.vk, include_raw), pk)
+        SetupKeypair::from(serialize_vk(parameters.vk), pk)
     }
 
     fn generate_proof(
@@ -72,7 +72,6 @@ impl ProofSystem for G16 {
         program: ir::Prog<FieldPrime>,
         witness: ir::Witness<FieldPrime>,
         proving_key: Vec<u8>,
-        include_raw: bool,
     ) -> String {
         #[cfg(not(target_arch = "wasm32"))]
         std::env::set_var("BELLMAN_VERBOSE", "0");
@@ -92,15 +91,10 @@ impl ProofSystem for G16 {
             .map(parse_fr)
             .collect::<Vec<_>>();
 
-        if include_raw {
-            let mut raw: Vec<u8> = Vec::new();
-            proof.write(&mut raw).unwrap();
+        let mut raw: Vec<u8> = Vec::new();
+        proof.write(&mut raw).unwrap();
 
-            Proof::<G16ProofPoints>::new(proof_points, inputs, Some(hex::encode(&raw)))
-                .to_json_pretty()
-        } else {
-            Proof::<G16ProofPoints>::new(proof_points, inputs, None).to_json_pretty()
-        }
+        Proof::<G16ProofPoints>::new(proof_points, inputs, hex::encode(&raw)).to_json_pretty()
     }
 
     fn export_solidity_verifier(&self, vk: String, abi_v2: bool) -> String {
@@ -177,21 +171,14 @@ impl ProofSystem for G16 {
 
     fn verify(&self, vk: String, proof: String) -> bool {
         let map = parse_vk(vk);
-        let vk_raw = map
-            .get("vk.raw")
-            .expect("Missing vk.raw key: pass --raw flag when running setup");
+        let vk_raw = hex::decode(map.get("vk.raw").unwrap()).unwrap();
 
-        let vk_raw = hex::decode(vk_raw).unwrap();
         let vk: VerifyingKey<Bn256> = VerifyingKey::read(vk_raw.as_slice()).unwrap();
-
         let pvk: PreparedVerifyingKey<Bn256> = prepare_verifying_key(&vk);
 
         let g16_proof: Proof<G16ProofPoints> = Proof::from_json(proof.as_str());
-        let raw_proof = g16_proof
-            .raw
-            .expect("Missing raw field in proof: pass --raw flag when generating proof");
+        let raw_proof = hex::decode(g16_proof.raw).unwrap();
 
-        let raw_proof = hex::decode(raw_proof).unwrap();
         let proof: BellmanProof<Bn256> = BellmanProof::read(raw_proof.as_slice()).unwrap();
 
         let public_inputs: Vec<Fr> = g16_proof
@@ -208,7 +195,7 @@ impl ProofSystem for G16 {
     }
 }
 
-fn serialize_vk(vk: VerifyingKey<Bn256>, include_raw: bool) -> String {
+fn serialize_vk(vk: VerifyingKey<Bn256>) -> String {
     let mut writer = csv::WriterBuilder::new()
         .delimiter(b'=')
         .from_writer(vec![]);
@@ -239,14 +226,12 @@ fn serialize_vk(vk: VerifyingKey<Bn256>, include_raw: bool) -> String {
             .unwrap()
     }
 
-    if include_raw {
-        let mut raw: Vec<u8> = Vec::new();
-        vk.write(&mut raw).unwrap();
+    let mut raw: Vec<u8> = Vec::new();
+    vk.write(&mut raw).unwrap();
 
-        writer
-            .write_record(&["vk.raw", hex::encode(&raw).as_str()])
-            .unwrap();
-    }
+    writer
+        .write_record(&["vk.raw", hex::encode(&raw).as_str()])
+        .unwrap();
 
     String::from_utf8(writer.into_inner().unwrap()).unwrap()
 }

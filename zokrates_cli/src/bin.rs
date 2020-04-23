@@ -113,10 +113,6 @@ fn cli() -> Result<(), String> {
             .long("light")
             .help("Skip logs and human readable output")
             .required(false)
-        ).arg(Arg::with_name("raw")
-            .long("raw")
-            .help("Includes raw format of verification key used for native verification")
-            .required(false)
         )
     )
     .subcommand(SubCommand::with_name("export-verifier")
@@ -245,10 +241,6 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(&default_scheme)
-        ).arg(Arg::with_name("raw")
-            .long("raw")
-            .help("Includes raw format of proof used for native verification")
-            .required(false)
         )
     )
      .subcommand(SubCommand::with_name("print-proof")
@@ -542,7 +534,7 @@ fn cli() -> Result<(), String> {
             let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
 
             // run setup phase
-            let keypair = scheme.setup(program, sub_matches.is_present("raw"));
+            let keypair = scheme.setup(program);
 
             // write verification key
             let mut vk_file = File::create(vk_path)
@@ -629,7 +621,7 @@ fn cli() -> Result<(), String> {
                 .read_to_end(&mut pk)
                 .map_err(|why| format!("couldn't read {}: {}", pk_path.display(), why))?;
 
-            let proof = scheme.generate_proof(program, witness, pk, sub_matches.is_present("raw"));
+            let proof = scheme.generate_proof(program, witness, pk);
             let mut proof_file = File::create(proof_path).unwrap();
 
             proof_file

@@ -11,7 +11,7 @@
 #include <string>
 
 libff::bigint<libff::alt_bn128_r_limbs> libsnarkBigintFromBytes(const uint8_t* _x);
-std::string toHex(const std::string& s);
+std::string toHexString(const std::string& s);
 std::string HexStringFromLibsnarkBigint(libff::bigint<libff::alt_bn128_r_limbs> _x);
 std::string outputInputAsHex(libff::bigint<libff::alt_bn128_r_limbs> _x);
 std::string outputPointG1AffineAsHex(libff::alt_bn128_G1 _p);
@@ -28,15 +28,22 @@ inline void from_buffer(buffer_t* buffer, T& t)
 }
 
 template <typename T>
-inline buffer_t create_buffer(T& t)
+inline std::string serialize(const T& t)
 {
     std::stringstream ss;
     ss << t;
+    return ss.str();
+}
 
-    std::string tmp = ss.str();
+template <typename T>
+inline buffer_t create_buffer(T& t)
+{
+    std::string tmp = serialize(t);
+    size_t length = tmp.length();
 
     buffer_t buffer;
-    make_buffer(&buffer, tmp.length());
+    buffer.data = (uint8_t*)malloc(length);
+    buffer.length = length;
 
     tmp.copy(reinterpret_cast<char*>(buffer.data), buffer.length);
     return buffer;

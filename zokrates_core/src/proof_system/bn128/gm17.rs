@@ -45,7 +45,6 @@ extern "C" {
         constraints: i32,
         variables: i32,
         inputs: i32,
-        include_raw: bool,
     ) -> SetupResult;
 
     fn gm17_generate_proof(
@@ -54,7 +53,6 @@ extern "C" {
         public_query_inputs_length: i32,
         private_inputs: *const u8,
         private_inputs_length: i32,
-        include_raw: bool,
     ) -> ProofResult;
 
     fn gm17_verify(
@@ -66,7 +64,7 @@ extern "C" {
 }
 
 impl ProofSystem for GM17 {
-    fn setup(&self, program: ir::Prog<FieldPrime>, include_raw: bool) -> SetupKeypair {
+    fn setup(&self, program: ir::Prog<FieldPrime>) -> SetupKeypair {
         let (a_arr, b_arr, c_arr, a_vec, b_vec, c_vec, num_constraints, num_variables, num_inputs) =
             prepare_setup(program);
 
@@ -81,7 +79,6 @@ impl ProofSystem for GM17 {
                 num_constraints as i32,
                 num_variables as i32,
                 num_inputs as i32,
-                include_raw,
             );
 
             let vk: Vec<u8> =
@@ -105,7 +102,6 @@ impl ProofSystem for GM17 {
         program: ir::Prog<FieldPrime>,
         witness: ir::Witness<FieldPrime>,
         proving_key: Vec<u8>,
-        include_raw: bool,
     ) -> String {
         let (public_inputs_arr, public_inputs_length, private_inputs_arr, private_inputs_length) =
             prepare_generate_proof(program, witness);
@@ -118,7 +114,6 @@ impl ProofSystem for GM17 {
                 public_inputs_length as i32,
                 private_inputs_arr[0].as_ptr(),
                 private_inputs_length as i32,
-                include_raw,
             );
 
             pk_buffer.drop(); // drop the buffer manually
@@ -216,16 +211,10 @@ impl ProofSystem for GM17 {
 
     fn verify(&self, vk: String, proof: String) -> bool {
         let map = parse_vk(vk);
-        let vk_raw = map
-            .get("vk.raw")
-            .expect("Missing vk.raw key: pass --raw flag when running setup");
-        let vk_raw = hex::decode(vk_raw).unwrap();
+        let vk_raw = hex::decode(map.get("vk.raw").unwrap()).unwrap();
 
         let proof: Proof<GM17ProofPoints> = Proof::from_json(proof.as_str());
-        let proof_raw = proof
-            .raw
-            .expect("Missing raw field in proof: pass --raw flag when generating proof");
-        let proof_raw = hex::decode(proof_raw).unwrap();
+        let proof_raw = hex::decode(proof.raw).unwrap();
 
         let public_inputs: Vec<&str> = proof.inputs.iter().map(|v| v.as_str()).collect();
 
