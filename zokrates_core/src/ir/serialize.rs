@@ -23,20 +23,23 @@ impl<T: Field> Prog<T> {
 }
 
 impl ProgEnum {
-    pub fn deserialize<R: Read>(mut r: R) -> Result<Self, ()> {
+    pub fn deserialize<R: Read>(mut r: R) -> Result<Self, String> {
         // Check the magic number, `ZOK`
         let mut magic = [0; 4];
-        r.read_exact(&mut magic).map_err(|_| ())?;
+        r.read_exact(&mut magic)
+            .map_err(|_| String::from("Cannot read magic number"))?;
 
         if &magic == ZOKRATES_MAGIC {
             // Check the version, 1
             let mut version = [0; 4];
-            r.read_exact(&mut version).map_err(|_| ())?;
+            r.read_exact(&mut version)
+                .map_err(|_| String::from("Cannot read version"))?;
 
             if &version == ZOKRATES_VERSION_1 {
                 // Check the curve identifier, deserializing accordingly
                 let mut curve = [0; 4];
-                r.read_exact(&mut curve).map_err(|_| ())?;
+                r.read_exact(&mut curve)
+                    .map_err(|_| String::from("Cannot read curve identifier"))?;
 
                 match curve {
                     m if m == Bls12Field::id() => Ok(ProgEnum::Bls12Program(
@@ -45,13 +48,13 @@ impl ProgEnum {
                     m if m == Bn128Field::id() => Ok(ProgEnum::Bn128Program(
                         deserialize_from(&mut r, Infinite).unwrap(),
                     )),
-                    _ => Err(()),
+                    _ => Err(String::from("Unknown curve identifier")),
                 }
             } else {
-                Err(())
+                Err(String::from("Unknown version"))
             }
         } else {
-            Err(())
+            Err(String::from("Wrong magic number"))
         }
     }
 }

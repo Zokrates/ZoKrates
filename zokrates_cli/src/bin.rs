@@ -303,8 +303,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let mut writer = BufWriter::new(bin_output_file);
 
-    serialize_into(&mut writer, &program_flattened, Infinite)
-        .map_err(|_| "Unable to write data to file.".to_string())?;
+    program_flattened.serialize(&mut writer);
 
     // serialize ABI spec and write to JSON file
     let abi_spec_file = File::create(&abi_spec_path)
@@ -620,9 +619,7 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(file);
 
-            match ProgEnum::deserialize(&mut reader)
-                .map_err(|_| "Failed to deserialize".to_string())?
-            {
+            match ProgEnum::deserialize(&mut reader)? {
                 ProgEnum::Bn128Program(p) => cli_compute(p, sub_matches)?,
                 ProgEnum::Bls12Program(p) => cli_compute(p, sub_matches)?,
             }
@@ -637,8 +634,7 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(file);
 
-            let prog = ProgEnum::deserialize(&mut reader)
-                .map_err(|_| "Failed to deserialize".to_string())?;
+            let prog = ProgEnum::deserialize(&mut reader)?;
 
             match proof_system {
                 constants::G16 => match prog {
@@ -690,7 +686,7 @@ fn cli() -> Result<(), String> {
 
             let mut reader = BufReader::new(program_file);
 
-            let prog = ProgEnum::deserialize(&mut reader).map_err(|_| "wrong file".to_string())?;
+            let prog = ProgEnum::deserialize(&mut reader)?;
 
             match proof_system {
                 constants::G16 => match prog {
