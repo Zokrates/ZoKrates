@@ -790,6 +790,7 @@ mod tests {
         assert_eq!(
             generate_ast(&source),
             Ok(File {
+                pragma: None,
                 structs: vec![],
                 functions: vec![Function {
                     id: IdentifierExpression {
@@ -842,6 +843,7 @@ mod tests {
         assert_eq!(
             generate_ast(&source),
             Ok(File {
+                pragma: None,
                 structs: vec![],
                 functions: vec![Function {
                     id: IdentifierExpression {
@@ -912,6 +914,7 @@ mod tests {
         assert_eq!(
             generate_ast(&source),
             Ok(File {
+                pragma: None,
                 structs: vec![],
                 functions: vec![Function {
                     id: IdentifierExpression {
@@ -969,6 +972,7 @@ mod tests {
         assert_eq!(
             generate_ast(&source),
             Ok(File {
+                pragma: None,
                 structs: vec![],
                 functions: vec![Function {
                     id: IdentifierExpression {
@@ -1004,6 +1008,7 @@ mod tests {
         assert_eq!(
             generate_ast(&source),
             Ok(File {
+                pragma: None,
                 structs: vec![],
                 functions: vec![Function {
                     id: IdentifierExpression {
