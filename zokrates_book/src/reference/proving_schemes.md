@@ -8,7 +8,7 @@ Proving schemes supported by ZoKrates require a pairing-friendly elliptic curve.
 This curve is supported by Ethereum.
 
 ### BLS12_381
-This curve is *not* supported by Ethereum and currently only supports the G16 [proving scheme](#schemes).
+This curve is *not* supported by Ethereum and is currently only available for the G16 [proving scheme](#schemes).
 
 ## Schemes
 
