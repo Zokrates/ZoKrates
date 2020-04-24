@@ -94,7 +94,6 @@ dependencies = [
  "num_cpus",
  "pairing_ce",
  "rand 0.4.6",
- "web-sys",
 ]
 
 [[package]]

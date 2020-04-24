@@ -26,7 +26,7 @@ declare module 'zokrates-js' {
     compile(source: string, location: string, callback: ResolveCallback): CompilationArtifacts;
     setup(program: Uint8Array): SetupKeypair;
     computeWitness(artifacts: CompilationArtifacts, args: any[]): ComputationResult;
-    exportSolidityVerifier(verifyingKey: string, isAbiv2: boolean): string
+    exportSolidityVerifier(verifyingKey: string, isAbiv2: boolean): string;
     generateProof(program: Uint8Array, witness: string, provingKey: Uint8Array): string;
   }
 

@@ -1,7 +1,8 @@
 node_modules
-/dist
-/target
-/pkg
-/wasm-pack.log
-/stdlib
+dist
+dist-node
+target
+pkg
+wasm-pack.log
+stdlib
 stdlib.json
