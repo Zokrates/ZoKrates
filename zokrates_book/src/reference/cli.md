@@ -5,14 +5,11 @@ You can see an overview of the available subcommands by running
 
 ```sh
 zokrates
-<<<<<<< HEAD
 ```
 
 You can get help about a particular subcommand with `--help`, for example:
 ```sh
 zokrates compile --help
-=======
->>>>>>> develop
 ```
 
 For each command, you can get the list of expected arguments using `--help`.
