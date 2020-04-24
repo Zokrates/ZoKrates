@@ -10,8 +10,8 @@ use proof_system::bn128::utils::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
 use proof_system::bn128::{G1PairingPoint, G2PairingPoint, Proof};
-use proof_system::{ProofSystem, SetupKeypair};
-use zokrates_field::field::FieldPrime;
+use proof_system::{AbiVersion, ProofSystem, SetupKeypair};
+use zokrates_field::field::{Field, FieldPrime};
 
 pub struct GM17 {}
 
@@ -26,12 +26,6 @@ struct GM17ProofPoints {
     a: G1PairingPoint,
     b: G2PairingPoint,
     c: G1PairingPoint,
-}
-
-impl Proof<GM17ProofPoints> {
-    fn from_json(str: &str) -> Self {
-        serde_json::from_str(str).unwrap()
-    }
 }
 
 extern "C" {
@@ -106,8 +100,9 @@ impl ProofSystem for GM17 {
         let (public_inputs_arr, public_inputs_length, private_inputs_arr, private_inputs_length) =
             prepare_generate_proof(program, witness);
 
+        let mut pk_buffer = Buffer::from_vec(&proving_key);
+
         let proof = unsafe {
-            let mut pk_buffer = Buffer::from_vec(&proving_key);
             let result = gm17_generate_proof(
                 &mut pk_buffer as *mut _,
                 public_inputs_arr[0].as_ptr(),
@@ -132,18 +127,17 @@ impl ProofSystem for GM17 {
         String::from_utf8(proof).unwrap()
     }
 
-    fn export_solidity_verifier(&self, vk: String, abi_v2: bool) -> String {
-        let vk_map = parse_vk(vk);
-        let (mut template_text, solidity_pairing_lib) = if abi_v2 {
-            (
-                String::from(CONTRACT_TEMPLATE_V2),
-                String::from(SOLIDITY_PAIRING_LIB_V2),
-            )
-        } else {
-            (
+    fn export_solidity_verifier(&self, vk: String, abi_version: AbiVersion) -> String {
+        let vk_map = parse_vk(vk).unwrap();
+        let (mut template_text, solidity_pairing_lib) = match abi_version {
+            AbiVersion::V1 => (
                 String::from(CONTRACT_TEMPLATE),
                 String::from(SOLIDITY_PAIRING_LIB),
-            )
+            ),
+            AbiVersion::V2 => (
+                String::from(CONTRACT_TEMPLATE_V2),
+                String::from(SOLIDITY_PAIRING_LIB_V2),
+            ),
         };
 
         // replace things in template
@@ -210,20 +204,27 @@ impl ProofSystem for GM17 {
     }
 
     fn verify(&self, vk: String, proof: String) -> bool {
-        let map = parse_vk(vk);
+        let map = parse_vk(vk).unwrap();
         let vk_raw = hex::decode(map.get("vk.raw").unwrap()).unwrap();
 
-        let proof: Proof<GM17ProofPoints> = Proof::from_json(proof.as_str());
+        let proof = Proof::<GM17ProofPoints>::from_str(proof.as_str());
         let proof_raw = hex::decode(proof.raw).unwrap();
 
-        let public_inputs: Vec<&str> = proof.inputs.iter().map(|v| v.as_str()).collect();
+        let public_inputs: Vec<FieldPrime> = proof
+            .inputs
+            .iter()
+            .map(|v| {
+                FieldPrime::try_from_str(v.as_str().trim_start_matches("0x"), 16)
+                    .expect(format!("Invalid field value: {}", v.as_str()).as_str())
+            })
+            .collect();
 
         let (public_inputs_arr, public_inputs_length) = prepare_public_inputs(public_inputs);
 
-        unsafe {
-            let mut vk_buffer = Buffer::from_vec(&vk_raw);
-            let mut proof_buffer = Buffer::from_vec(&proof_raw);
+        let mut vk_buffer = Buffer::from_vec(&vk_raw);
+        let mut proof_buffer = Buffer::from_vec(&proof_raw);
 
+        unsafe {
             let ans = gm17_verify(
                 &mut vk_buffer as *mut _,
                 &mut proof_buffer as *mut _,

@@ -8,7 +8,7 @@ use zokrates_common::Resolver;
 use zokrates_core::compile::{compile as core_compile, CompilationArtifacts, CompileError};
 use zokrates_core::imports::Error;
 use zokrates_core::ir;
-use zokrates_core::proof_system::{self, ProofSystem};
+use zokrates_core::proof_system::{self, ProofSystem, AbiVersion};
 use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::types::Signature;
 use zokrates_field::field::FieldPrime;
@@ -162,10 +162,14 @@ pub fn setup(program: JsValue) -> Result<JsValue, JsValue> {
 }
 
 #[wasm_bindgen]
-pub fn export_solidity_verifier(vk: JsValue, is_abi_v2: JsValue) -> JsValue {
+pub fn export_solidity_verifier(vk: JsValue, abi_version: JsValue) -> Result<JsValue, JsValue> {
+    let abi_version = AbiVersion::from(abi_version.as_string().unwrap().as_str())
+        .map_err(|err| JsValue::from_str(err))?;
+
     let verifier = proof_system::G16 {}
-        .export_solidity_verifier(vk.as_string().unwrap(), is_abi_v2.as_bool().unwrap());
-    JsValue::from_str(verifier.as_str())
+        .export_solidity_verifier(vk.as_string().unwrap(), abi_version);
+
+    Ok(JsValue::from_str(verifier.as_str()))
 }
 
 #[wasm_bindgen]

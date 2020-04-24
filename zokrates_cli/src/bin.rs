@@ -264,7 +264,7 @@ fn cli() -> Result<(), String> {
         )
     )
     .subcommand(SubCommand::with_name("verify")
-        .about("Verifies a given proof with the given constraint system and verification key")
+        .about("Verifies a given proof with the given verification key")
         .arg(Arg::with_name("proof-path")
             .short("j")
             .long("proof-path")
@@ -367,7 +367,7 @@ fn cli() -> Result<(), String> {
             if !light {
                 // write human-readable output file
                 let hr_output_file = File::create(&hr_output_path).map_err(|why| {
-                    format!("couldn't create {}: {}", hr_output_path.display(), why)
+                    format!("Couldn't create {}: {}", hr_output_path.display(), why)
                 })?;
 
                 let mut hrofb = BufWriter::new(hr_output_file);
@@ -397,7 +397,7 @@ fn cli() -> Result<(), String> {
             // read compiled program
             let path = Path::new(sub_matches.value_of("input").unwrap());
             let file = File::open(&path)
-                .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
+                .map_err(|why| format!("Couldn't open {}: {}", path.display(), why))?;
 
             let mut reader = BufReader::new(file);
 
@@ -422,7 +422,7 @@ fn cli() -> Result<(), String> {
                 true => {
                     let path = Path::new(sub_matches.value_of("abi_spec").unwrap());
                     let file = File::open(&path)
-                        .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
+                        .map_err(|why| format!("Couldn't open {}: {}", path.display(), why))?;
                     let mut reader = BufReader::new(file);
 
                     let abi: Abi = from_reader(&mut reader).map_err(|why| why.to_string())?;
@@ -502,13 +502,13 @@ fn cli() -> Result<(), String> {
             // write witness to file
             let output_path = Path::new(sub_matches.value_of("output").unwrap());
             let output_file = File::create(&output_path)
-                .map_err(|why| format!("couldn't create {}: {}", output_path.display(), why))?;
+                .map_err(|why| format!("Couldn't create {}: {}", output_path.display(), why))?;
 
             let writer = BufWriter::new(output_file);
 
             witness
                 .write(writer)
-                .map_err(|why| format!("could not save witness: {:?}", why))?;
+                .map_err(|why| format!("Could not save witness: {:?}", why))?;
         }
         ("setup", Some(sub_matches)) => {
             let scheme = get_scheme(sub_matches.value_of("proving-scheme").unwrap())?;
@@ -517,7 +517,7 @@ fn cli() -> Result<(), String> {
 
             let path = Path::new(sub_matches.value_of("input").unwrap());
             let file = File::open(&path)
-                .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
+                .map_err(|why| format!("Couldn't open {}: {}", path.display(), why))?;
 
             let mut reader = BufReader::new(file);
 
@@ -538,17 +538,17 @@ fn cli() -> Result<(), String> {
 
             // write verification key
             let mut vk_file = File::create(vk_path)
-                .map_err(|why| format!("couldn't create {}: {}", vk_path.display(), why))?;
+                .map_err(|why| format!("Couldn't create {}: {}", vk_path.display(), why))?;
             vk_file
                 .write(keypair.vk.as_ref())
-                .map_err(|why| format!("couldn't write to {}: {}", vk_path.display(), why))?;
+                .map_err(|why| format!("Couldn't write to {}: {}", vk_path.display(), why))?;
 
             // write proving key
             let mut pk_file = File::create(pk_path)
-                .map_err(|why| format!("couldn't create {}: {}", pk_path.display(), why))?;
+                .map_err(|why| format!("Couldn't create {}: {}", pk_path.display(), why))?;
             pk_file
                 .write(keypair.pk.as_ref())
-                .map_err(|why| format!("couldn't write to {}: {}", pk_path.display(), why))?;
+                .map_err(|why| format!("Couldn't write to {}: {}", pk_path.display(), why))?;
 
             println!("Setup completed.");
         }
@@ -556,26 +556,27 @@ fn cli() -> Result<(), String> {
             {
                 let scheme = get_scheme(sub_matches.value_of("proving-scheme").unwrap())?;
 
-                let is_abi_v2 = sub_matches.value_of("solidity-abi").unwrap() == "v2";
+                let abi_version = AbiVersion::from(sub_matches.value_of("solidity-abi").unwrap())?;
+
                 println!("Exporting verifier...");
 
                 // read vk file
                 let vk_path = Path::new(sub_matches.value_of("input").unwrap());
                 let vk_file = File::open(&vk_path)
-                    .map_err(|why| format!("couldn't open {}: {}", vk_path.display(), why))?;
+                    .map_err(|why| format!("Couldn't open {}: {}", vk_path.display(), why))?;
 
                 let mut reader = BufReader::new(vk_file);
                 let mut vk = String::new();
                 reader
                     .read_to_string(&mut vk)
-                    .map_err(|why| format!("couldn't read {}: {}", vk_path.display(), why))?;
+                    .map_err(|why| format!("Couldn't read {}: {}", vk_path.display(), why))?;
 
-                let verifier = scheme.export_solidity_verifier(vk, is_abi_v2);
+                let verifier = scheme.export_solidity_verifier(vk, abi_version);
 
                 //write output file
                 let output_path = Path::new(sub_matches.value_of("output").unwrap());
                 let output_file = File::create(&output_path)
-                    .map_err(|why| format!("couldn't create {}: {}", output_path.display(), why))?;
+                    .map_err(|why| format!("Couldn't create {}: {}", output_path.display(), why))?;
 
                 let mut writer = BufWriter::new(output_file);
 
@@ -592,20 +593,18 @@ fn cli() -> Result<(), String> {
 
             // deserialize witness
             let witness_path = Path::new(sub_matches.value_of("witness").unwrap());
-            let witness_file = match File::open(&witness_path) {
-                Ok(file) => file,
-                Err(why) => panic!("couldn't open {}: {}", witness_path.display(), why),
-            };
+            let witness_file = File::open(&witness_path)
+                .map_err(|why| format!("Couldn't open {}: {}", witness_path.display(), why))?;
 
             let witness = ir::Witness::read(witness_file)
-                .map_err(|why| format!("could not load witness: {:?}", why))?;
+                .map_err(|why| format!("Could not load witness: {:?}", why))?;
 
             let pk_path = Path::new(sub_matches.value_of("proving-key-path").unwrap());
             let proof_path = Path::new(sub_matches.value_of("proof-path").unwrap());
 
             let program_path = Path::new(sub_matches.value_of("input").unwrap());
             let program_file = File::open(&program_path)
-                .map_err(|why| format!("couldn't open {}: {}", program_path.display(), why))?;
+                .map_err(|why| format!("Couldn't open {}: {}", program_path.display(), why))?;
 
             let mut reader = BufReader::new(program_file);
 
@@ -613,22 +612,22 @@ fn cli() -> Result<(), String> {
                 deserialize_from(&mut reader, Infinite).map_err(|why| format!("{:?}", why))?;
 
             let pk_file = File::open(&pk_path)
-                .map_err(|why| format!("couldn't open {}: {}", pk_path.display(), why))?;
+                .map_err(|why| format!("Couldn't open {}: {}", pk_path.display(), why))?;
 
             let mut pk: Vec<u8> = Vec::new();
             let mut pk_reader = BufReader::new(pk_file);
             pk_reader
                 .read_to_end(&mut pk)
-                .map_err(|why| format!("couldn't read {}: {}", pk_path.display(), why))?;
+                .map_err(|why| format!("Couldn't read {}: {}", pk_path.display(), why))?;
 
             let proof = scheme.generate_proof(program, witness, pk);
             let mut proof_file = File::create(proof_path).unwrap();
 
             proof_file
                 .write(proof.as_ref())
-                .map_err(|why| format!("couldn't write to {}: {}", proof_path.display(), why))?;
+                .map_err(|why| format!("Couldn't write to {}: {}", proof_path.display(), why))?;
 
-            println!("Proof: \n\n{}", format!("{}", proof));
+            println!("\nProof:\n{}", format!("{}", proof));
         }
         ("print-proof", Some(sub_matches)) => {
             let format = sub_matches.value_of("format").unwrap();
@@ -636,7 +635,7 @@ fn cli() -> Result<(), String> {
             let path = Path::new(sub_matches.value_of("proof-path").unwrap());
 
             let file = File::open(&path)
-                .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
+                .map_err(|why| format!("Couldn't open {}: {}", path.display(), why))?;
 
             let proof_object: Value =
                 serde_json::from_reader(file).map_err(|why| format!("{:?}", why))?;
@@ -672,11 +671,11 @@ fn cli() -> Result<(), String> {
 
             let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
             let vk = std::fs::read_to_string(vk_path)
-                .map_err(|why| format!("couldn't read {}: {}", vk_path.display(), why))?;
+                .map_err(|why| format!("Couldn't read {}: {}", vk_path.display(), why))?;
 
             let proof_path = Path::new(sub_matches.value_of("proof-path").unwrap());
             let proof = std::fs::read_to_string(proof_path)
-                .map_err(|why| format!("couldn't read {}: {}", proof_path.display(), why))?;
+                .map_err(|why| format!("Couldn't read {}: {}", proof_path.display(), why))?;
 
             println!("Performing verification...");
             println!(

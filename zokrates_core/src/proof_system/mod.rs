@@ -24,6 +24,21 @@ impl SetupKeypair {
     }
 }
 
+pub enum AbiVersion {
+    V1,
+    V2,
+}
+
+impl AbiVersion {
+    pub fn from(v: &str) -> Result<Self, &str> {
+        match v {
+            "v1" => Ok(AbiVersion::V1),
+            "v2" => Ok(AbiVersion::V2),
+            _ => Err("Invalid ABI version"),
+        }
+    }
+}
+
 pub trait ProofSystem {
     fn setup(&self, program: ir::Prog<FieldPrime>) -> SetupKeypair;
 
@@ -34,7 +49,7 @@ pub trait ProofSystem {
         proving_key: Vec<u8>,
     ) -> String;
 
-    fn export_solidity_verifier(&self, vk: String, abi_v2: bool) -> String;
+    fn export_solidity_verifier(&self, vk: String, abi_version: AbiVersion) -> String;
 
     fn verify(&self, vk: String, proof: String) -> bool;
 }

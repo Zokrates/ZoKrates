@@ -18,6 +18,7 @@ use crate::proof_system::bn128::utils::solidity::{
 };
 use crate::proof_system::{ProofSystem, SetupKeypair};
 use proof_system::bn128::{G1PairingPoint, G2PairingPoint, Proof};
+use proof_system::AbiVersion;
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/reference/proving_schemes.html#g16-malleability for implications.";
 
@@ -42,15 +43,6 @@ impl G16ProofPoints {
     }
 }
 
-impl Proof<G16ProofPoints> {
-    fn from_json(str: &str) -> Self {
-        serde_json::from_str(str).unwrap()
-    }
-    fn to_json_pretty(&self) -> String {
-        serde_json::to_string_pretty(&self).unwrap()
-    }
-}
-
 impl ProofSystem for G16 {
     fn setup(&self, program: ir::Prog<FieldPrime>) -> SetupKeypair {
         #[cfg(not(target_arch = "wasm32"))]
@@ -60,9 +52,7 @@ impl ProofSystem for G16 {
         let parameters = Computation::without_witness(program).setup();
 
         let mut pk: Vec<u8> = Vec::new();
-        parameters
-            .write(&mut pk)
-            .expect("Could not write proving key to buffer");
+        parameters.write(&mut pk).unwrap();
 
         SetupKeypair::from(serialize_vk(parameters.vk), pk)
     }
@@ -97,18 +87,17 @@ impl ProofSystem for G16 {
         Proof::<G16ProofPoints>::new(proof_points, inputs, hex::encode(&raw)).to_json_pretty()
     }
 
-    fn export_solidity_verifier(&self, vk: String, abi_v2: bool) -> String {
-        let vk_map = parse_vk(vk);
-        let (mut template_text, solidity_pairing_lib) = if abi_v2 {
-            (
-                String::from(CONTRACT_TEMPLATE_V2),
-                String::from(SOLIDITY_PAIRING_LIB_V2),
-            )
-        } else {
-            (
+    fn export_solidity_verifier(&self, vk: String, abi_version: AbiVersion) -> String {
+        let vk_map = parse_vk(vk).unwrap();
+        let (mut template_text, solidity_pairing_lib) = match abi_version {
+            AbiVersion::V1 => (
                 String::from(CONTRACT_TEMPLATE),
                 String::from(SOLIDITY_PAIRING_LIB),
-            )
+            ),
+            AbiVersion::V2 => (
+                String::from(CONTRACT_TEMPLATE_V2),
+                String::from(SOLIDITY_PAIRING_LIB_V2),
+            ),
         };
 
         let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
@@ -170,15 +159,15 @@ impl ProofSystem for G16 {
     }
 
     fn verify(&self, vk: String, proof: String) -> bool {
-        let map = parse_vk(vk);
+        let map = parse_vk(vk).unwrap();
         let vk_raw = hex::decode(map.get("vk.raw").unwrap()).unwrap();
 
         let vk: VerifyingKey<Bn256> = VerifyingKey::read(vk_raw.as_slice()).unwrap();
         let pvk: PreparedVerifyingKey<Bn256> = prepare_verifying_key(&vk);
 
-        let g16_proof: Proof<G16ProofPoints> = Proof::from_json(proof.as_str());
-        let raw_proof = hex::decode(g16_proof.raw).unwrap();
+        let g16_proof = Proof::<G16ProofPoints>::from_str(proof.as_str());
 
+        let raw_proof = hex::decode(g16_proof.raw).unwrap();
         let proof: BellmanProof<Bn256> = BellmanProof::read(raw_proof.as_slice()).unwrap();
 
         let public_inputs: Vec<Fr> = g16_proof
@@ -186,7 +175,7 @@ impl ProofSystem for G16 {
             .iter()
             .map(|s| {
                 FieldPrime::try_from_str(s.trim_start_matches("0x"), 16)
-                    .unwrap()
+                    .expect(format!("Invalid field value: {}", s).as_str())
                     .into_bellman()
             })
             .collect::<Vec<_>>();

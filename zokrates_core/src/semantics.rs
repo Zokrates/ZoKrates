@@ -795,7 +795,6 @@ impl<'ast> Checker<'ast> {
         module_id: &ModuleId,
         types: &TypeMap,
     ) -> Result<TypedStatement<'ast, T>, Vec<ErrorInner>> {
-
         let pos = stat.pos();
 
         match stat.value {
@@ -3184,9 +3183,7 @@ mod tests {
 
         let foo_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
             ExpressionList {
-                expressions: vec![
-                    Expression::FieldConstant(FieldPrime::from(1)).mock(),
-                ],
+                expressions: vec![Expression::FieldConstant(FieldPrime::from(1)).mock()],
             }
             .mock(),
         )
@@ -3197,20 +3194,36 @@ mod tests {
             statements: foo_statements,
             signature: UnresolvedSignature {
                 inputs: vec![],
-                outputs: vec![
-                    UnresolvedType::FieldElement.mock(),
-                ],
+                outputs: vec![UnresolvedType::FieldElement.mock()],
             },
         }
         .mock();
 
         let main_statements: Vec<StatementNode<FieldPrime>> = vec![
-            Statement::Declaration(absy::Variable::new("a", UnresolvedType::array(UnresolvedType::FieldElement.mock(), 1).mock()).mock()).mock(),
-            Statement::Definition(Assignee::Identifier("a".into()).mock(), Expression::InlineArray(vec![absy::SpreadOrExpression::Expression(Expression::FieldConstant(FieldPrime::from(0)).mock())]).mock()).mock(),
+            Statement::Declaration(
+                absy::Variable::new(
+                    "a",
+                    UnresolvedType::array(UnresolvedType::FieldElement.mock(), 1).mock(),
+                )
+                .mock(),
+            )
+            .mock(),
+            Statement::Definition(
+                Assignee::Identifier("a".into()).mock(),
+                Expression::InlineArray(vec![absy::SpreadOrExpression::Expression(
+                    Expression::FieldConstant(FieldPrime::from(0)).mock(),
+                )])
+                .mock(),
+            )
+            .mock(),
             Statement::MultipleDefinition(
-                vec![
-                    Assignee::Select(box Assignee::Identifier("a").mock(), box RangeOrExpression::Expression(absy::Expression::FieldConstant(FieldPrime::from(0)).mock())).mock(),
-                ],
+                vec![Assignee::Select(
+                    box Assignee::Identifier("a").mock(),
+                    box RangeOrExpression::Expression(
+                        absy::Expression::FieldConstant(FieldPrime::from(0)).mock(),
+                    ),
+                )
+                .mock()],
                 Expression::FunctionCall("foo", vec![]).mock(),
             )
             .mock(),
@@ -3254,15 +3267,13 @@ mod tests {
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
             checker.check_module(&"main".into(), &mut state),
-            Err(vec![
-                Error {
-                    inner: ErrorInner {
-                        pos: Some((Position::mock(), Position::mock())),
-                        message: "Only assignment to identifiers is supported, found a[0]".into()
-                    },
-                    module_id: "main".into()
-                }
-            ])
+            Err(vec![Error {
+                inner: ErrorInner {
+                    pos: Some((Position::mock(), Position::mock())),
+                    message: "Only assignment to identifiers is supported, found a[0]".into()
+                },
+                module_id: "main".into()
+            }])
         );
     }
 

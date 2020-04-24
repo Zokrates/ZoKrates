@@ -8,7 +8,6 @@
 #include "gm17.hpp"
 #include "util.hpp"
 #include <cassert>
-#include <fstream>
 #include <sstream>
 #include <string>
 
