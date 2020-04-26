@@ -3,7 +3,10 @@
 * Author: Jacob Eberhardt, Thibaut Schaeffer
 */
 
-file = { SOI ~ NEWLINE* ~ import_directive* ~ NEWLINE* ~ ty_struct_definition* ~ NEWLINE* ~ function_definition* ~ EOI }
+file = { SOI ~ NEWLINE* ~ pragma? ~ NEWLINE* ~ import_directive* ~ NEWLINE* ~ ty_struct_definition* ~ NEWLINE* ~ function_definition* ~ EOI }
+
+pragma = { "#pragma" ~ "curve" ~ curve }
+curve = @{ (ASCII_ALPHANUMERIC | "_") * }
 
 import_directive = { main_import_directive | from_import_directive }
 from_import_directive = { "from" ~ "\"" ~ import_source ~ "\"" ~ "import" ~ identifier ~ ("as" ~ identifier)? ~ NEWLINE*}

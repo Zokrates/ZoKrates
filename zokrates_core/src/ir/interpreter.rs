@@ -3,7 +3,7 @@ use crate::ir::{LinComb, Prog, QuadComb, Statement, Witness};
 use crate::solvers::Executable;
 use std::collections::BTreeMap;
 use std::fmt;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub type ExecutionResult<T> = Result<Witness<T>, Error>;
 
@@ -93,7 +93,7 @@ impl<T: Field> QuadComb<T> {
     }
 }
 
-#[derive(PartialEq, Serialize, Deserialize)]
+#[derive(PartialEq, Serialize, Deserialize, Clone)]
 pub enum Error {
     UnsatisfiedConstraint { left: String, right: String },
     Solver,

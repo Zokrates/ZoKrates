@@ -1,3 +1,5 @@
+#pragma curve bn128
+
 // Parameters are based on: https://github.com/HarryR/ethsnarks/tree/9cdf0117c2e42c691e75b98979cb29b099eca998/src/jubjub
 // Note: parameters will be updated soon to be more compatible with zCash's implementation
 

@@ -3,21 +3,28 @@ extern crate serde_derive;
 
 use std::path::PathBuf;
 use zokrates_core::ir;
-use zokrates_field::field::{Field, FieldPrime};
+use zokrates_field::{Bls12Field, Bn128Field, Field};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
+enum Curve {
+    Bn128,
+    Bls12,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 struct Tests {
     pub entry_point: PathBuf,
+    pub curves: Option<Vec<Curve>>,
     pub max_constraint_count: Option<usize>,
     pub tests: Vec<Test>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 struct Input {
     pub values: Vec<Val>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 struct Test {
     pub input: Input,
     pub output: TestResult,
@@ -26,9 +33,9 @@ struct Test {
 type TestResult = Result<Output, ir::Error>;
 
 #[derive(PartialEq, Debug)]
-struct ComparableResult(Result<Vec<FieldPrime>, ir::Error>);
+struct ComparableResult<T>(Result<Vec<T>, ir::Error>);
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 struct Output {
     values: Vec<Val>,
 }
@@ -39,19 +46,19 @@ fn parse_val<T: Field>(s: String) -> T {
     T::try_from_dec_str(&s).unwrap()
 }
 
-impl From<ir::ExecutionResult<FieldPrime>> for ComparableResult {
-    fn from(r: ir::ExecutionResult<FieldPrime>) -> ComparableResult {
+impl<T: Field> From<ir::ExecutionResult<T>> for ComparableResult<T> {
+    fn from(r: ir::ExecutionResult<T>) -> ComparableResult<T> {
         ComparableResult(r.map(|v| v.return_values()))
     }
 }
 
-impl From<TestResult> for ComparableResult {
-    fn from(r: TestResult) -> ComparableResult {
+impl<T: Field> From<TestResult> for ComparableResult<T> {
+    fn from(r: TestResult) -> ComparableResult<T> {
         ComparableResult(r.map(|v| v.values.into_iter().map(parse_val).collect()))
     }
 }
 
-fn compare(result: ir::ExecutionResult<FieldPrime>, expected: TestResult) -> Result<(), String> {
+fn compare<T: Field>(result: ir::ExecutionResult<T>, expected: TestResult) -> Result<(), String> {
     // extract outputs from result
     let result = ComparableResult::from(result);
     // deserialize expected result
@@ -75,10 +82,21 @@ pub fn test_inner(test_path: &str) {
     let t: Tests =
         serde_json::from_reader(BufReader::new(File::open(Path::new(test_path)).unwrap())).unwrap();
 
+    let curves = t.curves.clone().unwrap_or(vec![Curve::Bn128]);
+
+    for c in &curves {
+        match c {
+            Curve::Bn128 => compile_and_run::<Bn128Field>(t.clone()),
+            Curve::Bls12 => compile_and_run::<Bls12Field>(t.clone()),
+        }
+    }
+}
+
+fn compile_and_run<T: Field>(t: Tests) {
     let code = std::fs::read_to_string(&t.entry_point).unwrap();
 
     let resolver = FileSystemResolver::new();
-    let artifacts = compile(code, t.entry_point.clone(), Some(&resolver)).unwrap();
+    let artifacts = compile::<T, _>(code, t.entry_point.clone(), Some(&resolver)).unwrap();
 
     let bin = artifacts.prog();
 

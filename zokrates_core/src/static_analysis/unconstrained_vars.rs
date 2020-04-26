@@ -3,7 +3,7 @@ use flat_absy::FlatVariable;
 use ir::folder::Folder;
 use ir::Directive;
 use std::collections::HashSet;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 #[derive(Debug)]
 pub struct UnconstrainedVariableDetector {
@@ -56,9 +56,8 @@ mod tests {
     use super::*;
     use flat_absy::FlatVariable;
     use ir::{Function, LinComb, Prog, QuadComb, Statement};
-    use num::Zero;
     use solvers::Solver;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[test]
     #[should_panic]
@@ -72,7 +71,7 @@ mod tests {
         let one = FlatVariable::one();
         let out_0 = FlatVariable::public(0);
 
-        let main: Function<FieldPrime> = Function {
+        let main: Function<Bn128Field> = Function {
             id: "main".to_string(),
             arguments: vec![_0],
             statements: vec![Statement::constraint(
@@ -85,7 +84,7 @@ mod tests {
             returns: vec![out_0],
         };
 
-        let p: Prog<FieldPrime> = Prog {
+        let p: Prog<Bn128Field> = Prog {
             private: vec![true],
             main,
         };
@@ -102,14 +101,14 @@ mod tests {
         let _0 = FlatVariable::new(0);
         let out_0 = FlatVariable::public(0);
 
-        let main: Function<FieldPrime> = Function {
+        let main: Function<Bn128Field> = Function {
             id: "main".to_string(),
             arguments: vec![_0],
             statements: vec![Statement::definition(out_0, LinComb::from(_0))],
             returns: vec![out_0],
         };
 
-        let p: Prog<FieldPrime> = Prog {
+        let p: Prog<Bn128Field> = Prog {
             private: vec![true],
             main,
         };
@@ -133,7 +132,7 @@ mod tests {
         let out_0 = FlatVariable::public(0);
         let one = FlatVariable::one();
 
-        let main: Function<FieldPrime> = Function {
+        let main: Function<Bn128Field> = Function {
             id: "main".to_string(),
             arguments: vec![_0],
             statements: vec![
@@ -167,7 +166,7 @@ mod tests {
             returns: vec![out_0],
         };
 
-        let p: Prog<FieldPrime> = Prog {
+        let p: Prog<Bn128Field> = Prog {
             private: vec![true],
             main,
         };

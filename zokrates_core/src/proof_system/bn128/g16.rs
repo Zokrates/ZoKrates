@@ -6,33 +6,27 @@ use crate::proof_system::bn128::utils::solidity::{
 use crate::proof_system::{ProofSystem, SetupKeypair};
 use bellman::groth16::Parameters;
 use regex::Regex;
-
 use std::io::{Cursor, Read};
-use zokrates_field::field::FieldPrime;
+use zokrates_field::Field;
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/reference/proving_schemes.html#g16-malleability for implications.";
 
 pub struct G16 {}
 
-impl G16 {
-    pub fn new() -> G16 {
-        G16 {}
-    }
-}
-
-impl ProofSystem for G16 {
-    fn setup(&self, program: ir::Prog<FieldPrime>) -> SetupKeypair {
+impl<T: Field> ProofSystem<T> for G16 {
+    fn setup(program: ir::Prog<T>) -> SetupKeypair {
         #[cfg(not(target_arch = "wasm32"))]
         std::env::set_var("BELLMAN_VERBOSE", "0");
         println!("{}", G16_WARNING);
 
         let parameters = Computation::without_witness(program).setup();
+
         let mut cursor = Cursor::new(Vec::new());
 
         parameters.write(&mut cursor).unwrap();
         cursor.set_position(0);
 
-        let vk: String = serialize::serialize_vk(parameters.vk);
+        let vk: String = serialize::serialize_vk::<T>(parameters.vk);
         let mut pk: Vec<u8> = Vec::new();
         cursor
             .read_to_end(&mut pk)
@@ -42,9 +36,8 @@ impl ProofSystem for G16 {
     }
 
     fn generate_proof(
-        &self,
-        program: ir::Prog<FieldPrime>,
-        witness: ir::Witness<FieldPrime>,
+        program: ir::Prog<T>,
+        witness: ir::Witness<T>,
         proving_key: Vec<u8>,
     ) -> String {
         #[cfg(not(target_arch = "wasm32"))]
@@ -56,10 +49,11 @@ impl ProofSystem for G16 {
         let params = Parameters::read(proving_key.as_slice(), true).unwrap();
 
         let proof = computation.clone().prove(&params);
-        serialize::serialize_proof(&proof, &computation.public_inputs_values())
+
+        serialize::serialize_proof::<T>(&proof, &computation.public_inputs_values())
     }
 
-    fn export_solidity_verifier(&self, vk: String, is_abiv2: bool) -> String {
+    fn export_solidity_verifier(vk: String, is_abiv2: bool) -> String {
         let mut lines = vk.lines();
 
         let (mut template_text, solidity_pairing_lib) = if is_abiv2 {
@@ -154,9 +148,10 @@ mod serialize {
         parse_fr_json, parse_g1_hex, parse_g1_json, parse_g2_hex, parse_g2_json,
     };
     use bellman::groth16::{Proof, VerifyingKey};
-    use pairing::bn256::{Bn256, Fr};
+    use bellman::pairing::ff::ScalarEngine;
+    use zokrates_field::Field;
 
-    pub fn serialize_vk(vk: VerifyingKey<Bn256>) -> String {
+    pub fn serialize_vk<T: Field>(vk: VerifyingKey<T::BellmanEngine>) -> String {
         format!(
             "vk.alpha = {}
     vk.beta = {}
@@ -164,21 +159,24 @@ mod serialize {
     vk.delta = {}
     vk.gamma_abc.len() = {}
     {}",
-            parse_g1_hex(&vk.alpha_g1),
-            parse_g2_hex(&vk.beta_g2),
-            parse_g2_hex(&vk.gamma_g2),
-            parse_g2_hex(&vk.delta_g2),
+            parse_g1_hex::<T>(&vk.alpha_g1),
+            parse_g2_hex::<T>(&vk.beta_g2),
+            parse_g2_hex::<T>(&vk.gamma_g2),
+            parse_g2_hex::<T>(&vk.delta_g2),
             vk.ic.len(),
             vk.ic
                 .iter()
                 .enumerate()
-                .map(|(i, x)| format!("vk.gamma_abc[{}] = {}", i, parse_g1_hex(x)))
+                .map(|(i, x)| format!("vk.gamma_abc[{}] = {}", i, parse_g1_hex::<T>(x)))
                 .collect::<Vec<_>>()
                 .join("\n")
         )
     }
 
-    pub fn serialize_proof(p: &Proof<Bn256>, inputs: &Vec<Fr>) -> String {
+    pub fn serialize_proof<T: Field>(
+        p: &Proof<T::BellmanEngine>,
+        inputs: &Vec<<T::BellmanEngine as ScalarEngine>::Fr>,
+    ) -> String {
         format!(
             "{{
         \"proof\": {{
@@ -188,12 +186,12 @@ mod serialize {
         }},
         \"inputs\": [{}]
     }}",
-            parse_g1_json(&p.a),
-            parse_g2_json(&p.b),
-            parse_g1_json(&p.c),
+            parse_g1_json::<T>(&p.a),
+            parse_g2_json::<T>(&p.b),
+            parse_g1_json::<T>(&p.c),
             inputs
                 .iter()
-                .map(parse_fr_json)
+                .map(parse_fr_json::<T>)
                 .collect::<Vec<_>>()
                 .join(", "),
         )
@@ -332,11 +330,12 @@ mod tests {
     mod serialize {
         use super::*;
 
-        mod proof {
+        mod bn {
             use super::*;
             use crate::flat_absy::FlatVariable;
             use crate::ir::*;
             use crate::proof_system::bn128::g16::serialize::serialize_proof;
+            use zokrates_field::Bn128Field;
 
             #[allow(dead_code)]
             #[derive(Deserialize)]
@@ -355,7 +354,7 @@ mod tests {
 
             #[test]
             fn serialize() {
-                let program: Prog<FieldPrime> = Prog {
+                let program: Prog<Bn128Field> = Prog {
                     main: Function {
                         id: String::from("main"),
                         arguments: vec![FlatVariable::new(0)],
@@ -370,7 +369,7 @@ mod tests {
 
                 let witness = program
                     .clone()
-                    .execute(&vec![FieldPrime::from(42)])
+                    .execute(&vec![Bn128Field::from(42)])
                     .unwrap();
                 let computation = Computation::with_witness(program, witness);
 
@@ -379,7 +378,7 @@ mod tests {
                 let params = computation.clone().setup();
                 let proof = computation.prove(&params);
 
-                let serialized_proof = serialize_proof(&proof, &public_inputs_values);
+                let serialized_proof = serialize_proof::<Bn128Field>(&proof, &public_inputs_values);
                 serde_json::from_str::<G16Proof>(&serialized_proof).unwrap();
             }
         }

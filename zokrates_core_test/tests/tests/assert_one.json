@@ -1,5 +1,6 @@
 {
 	"entry_point": "./tests/tests/assert_one.zok",
+	"curves": ["Bn128", "Bls12"],
 	"tests": [
 		{
 			"input": {

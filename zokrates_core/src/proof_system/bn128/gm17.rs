@@ -6,7 +6,8 @@ use proof_system::bn128::utils::solidity::{
 };
 use proof_system::{ProofSystem, SetupKeypair};
 use regex::Regex;
-use zokrates_field::field::FieldPrime;
+
+use zokrates_field::Bn128Field;
 
 pub struct GM17 {}
 
@@ -38,8 +39,8 @@ extern "C" {
     ) -> ProofResult;
 }
 
-impl ProofSystem for GM17 {
-    fn setup(&self, program: ir::Prog<FieldPrime>) -> SetupKeypair {
+impl ProofSystem<Bn128Field> for GM17 {
+    fn setup(program: ir::Prog<Bn128Field>) -> SetupKeypair {
         let (a_arr, b_arr, c_arr, a_vec, b_vec, c_vec, num_constraints, num_variables, num_inputs) =
             prepare_setup(program);
 
@@ -73,9 +74,8 @@ impl ProofSystem for GM17 {
     }
 
     fn generate_proof(
-        &self,
-        program: ir::Prog<FieldPrime>,
-        witness: ir::Witness<FieldPrime>,
+        program: ir::Prog<Bn128Field>,
+        witness: ir::Witness<Bn128Field>,
         proving_key: Vec<u8>,
     ) -> String {
         let (public_inputs_arr, public_inputs_length, private_inputs_arr, private_inputs_length) =
@@ -106,7 +106,7 @@ impl ProofSystem for GM17 {
         String::from_utf8(proof_vec).unwrap()
     }
 
-    fn export_solidity_verifier(&self, vk: String, is_abiv2: bool) -> String {
+    fn export_solidity_verifier(vk: String, is_abiv2: bool) -> String {
         let mut lines = vk.lines();
 
         let (mut template_text, solidity_pairing_lib) = if is_abiv2 {
