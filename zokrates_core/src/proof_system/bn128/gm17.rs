@@ -10,7 +10,7 @@ use proof_system::bn128::utils::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
 use proof_system::bn128::{G1PairingPoint, G2PairingPoint, Proof};
-use proof_system::{SolidityAbi, ProofSystem, SetupKeypair};
+use proof_system::{ProofSystem, SetupKeypair, SolidityAbi};
 use zokrates_field::field::{Field, FieldPrime};
 
 pub struct GM17 {}

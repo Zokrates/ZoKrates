@@ -18,7 +18,7 @@ use crate::proof_system::bn128::utils::solidity::{
 };
 use crate::proof_system::{ProofSystem, SetupKeypair};
 use proof_system::bn128::{G1PairingPoint, G2PairingPoint, Proof};
-use proof_system::{SolidityAbi};
+use proof_system::SolidityAbi;
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/reference/proving_schemes.html#g16-malleability for implications.";
 
