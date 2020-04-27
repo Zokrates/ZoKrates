@@ -1734,6 +1734,7 @@ dependencies = [
 name = "zokrates_field"
 version = "0.3.5"
 dependencies = [
+ "bellman_ce",
  "bincode",
  "ff_ce",
  "lazy_static",
@@ -1745,6 +1746,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]

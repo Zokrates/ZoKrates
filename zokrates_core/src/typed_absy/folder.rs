@@ -2,7 +2,7 @@
 
 use crate::typed_absy::*;
 use typed_absy::types::StructMember;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub trait Folder<'ast, T: Field>: Sized {
     fn fold_program(&mut self, p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {

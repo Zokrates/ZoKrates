@@ -2,10 +2,9 @@ use bellman::groth16::{
     prepare_verifying_key, verify_proof, Parameters, PreparedVerifyingKey, Proof as BellmanProof,
     VerifyingKey,
 };
-use bellman::pairing::bn256::{Bn256, Fr};
 use regex::Regex;
 
-use zokrates_field::field::{Field, FieldPrime};
+use zokrates_field::Field;
 
 use crate::ir;
 use crate::proof_system::bn128::utils::bellman::Computation;
@@ -24,12 +23,6 @@ const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subjec
 
 pub struct G16 {}
 
-impl G16 {
-    pub fn new() -> G16 {
-        G16 {}
-    }
-}
-
 #[derive(Serialize, Deserialize)]
 struct G16ProofPoints {
     a: G1PairingPoint,
@@ -43,24 +36,24 @@ impl G16ProofPoints {
     }
 }
 
-impl ProofSystem for G16 {
-    fn setup(&self, program: ir::Prog<FieldPrime>) -> SetupKeypair {
+impl<T: Field> ProofSystem<T> for G16 {
+    fn setup(program: ir::Prog<T>) -> SetupKeypair {
         #[cfg(not(target_arch = "wasm32"))]
         std::env::set_var("BELLMAN_VERBOSE", "0");
         println!("{}", G16_WARNING);
 
         let parameters = Computation::without_witness(program).setup();
+        let vk = serialize_vk::<T>(&parameters.vk);
 
         let mut pk: Vec<u8> = Vec::new();
         parameters.write(&mut pk).unwrap();
 
-        SetupKeypair::from(serialize_vk(parameters.vk), pk)
+        SetupKeypair::from(vk, pk)
     }
 
     fn generate_proof(
-        &self,
-        program: ir::Prog<FieldPrime>,
-        witness: ir::Witness<FieldPrime>,
+        program: ir::Prog<T>,
+        witness: ir::Witness<T>,
         proving_key: Vec<u8>,
     ) -> String {
         #[cfg(not(target_arch = "wasm32"))]
@@ -72,13 +65,16 @@ impl ProofSystem for G16 {
         let params = Parameters::read(proving_key.as_slice(), true).unwrap();
 
         let proof = computation.clone().prove(&params);
-        let proof_points =
-            G16ProofPoints::new(parse_g1(&proof.a), parse_g2(&proof.b), parse_g1(&proof.c));
+        let proof_points = G16ProofPoints::new(
+            parse_g1::<T>(&proof.a),
+            parse_g2::<T>(&proof.b),
+            parse_g1::<T>(&proof.c),
+        );
 
         let inputs = computation
             .public_inputs_values()
             .iter()
-            .map(parse_fr)
+            .map(parse_fr::<T>)
             .collect::<Vec<_>>();
 
         let mut raw: Vec<u8> = Vec::new();
@@ -87,7 +83,7 @@ impl ProofSystem for G16 {
         Proof::<G16ProofPoints>::new(proof_points, inputs, hex::encode(&raw)).to_json_pretty()
     }
 
-    fn export_solidity_verifier(&self, vk: String, abi: SolidityAbi) -> String {
+    fn export_solidity_verifier(vk: String, abi: SolidityAbi) -> String {
         let vk_map = parse_vk(vk).unwrap();
         let (mut template_text, solidity_pairing_lib) = match abi {
             SolidityAbi::V1 => (
@@ -158,24 +154,25 @@ impl ProofSystem for G16 {
         )
     }
 
-    fn verify(&self, vk: String, proof: String) -> bool {
+    fn verify(vk: String, proof: String) -> bool {
         let map = parse_vk(vk).unwrap();
         let vk_raw = hex::decode(map.get("vk.raw").unwrap()).unwrap();
 
-        let vk: VerifyingKey<Bn256> = VerifyingKey::read(vk_raw.as_slice()).unwrap();
-        let pvk: PreparedVerifyingKey<Bn256> = prepare_verifying_key(&vk);
+        let vk: VerifyingKey<T::BellmanEngine> = VerifyingKey::read(vk_raw.as_slice()).unwrap();
+        let pvk: PreparedVerifyingKey<T::BellmanEngine> = prepare_verifying_key(&vk);
 
         let g16_proof = Proof::<G16ProofPoints>::from_str(proof.as_str());
 
         let raw_proof = hex::decode(g16_proof.raw).unwrap();
-        let proof: BellmanProof<Bn256> = BellmanProof::read(raw_proof.as_slice()).unwrap();
+        let proof: BellmanProof<T::BellmanEngine> =
+            BellmanProof::read(raw_proof.as_slice()).unwrap();
 
-        let public_inputs: Vec<Fr> = g16_proof
+        let public_inputs: Vec<_> = g16_proof
             .inputs
             .iter()
             .map(|s| {
-                FieldPrime::try_from_str(s.trim_start_matches("0x"), 16)
-                    .expect(format!("Invalid field value: {}", s).as_str())
+                T::try_from_str(s.trim_start_matches("0x"), 16)
+                    .expect(format!("Invalid {} value: {}", T::name(), s).as_str())
                     .into_bellman()
             })
             .collect::<Vec<_>>();
@@ -184,22 +181,22 @@ impl ProofSystem for G16 {
     }
 }
 
-fn serialize_vk(vk: VerifyingKey<Bn256>) -> String {
+fn serialize_vk<T: Field>(vk: &VerifyingKey<T::BellmanEngine>) -> String {
     let mut writer = csv::WriterBuilder::new()
         .delimiter(b'=')
         .from_writer(vec![]);
 
     writer
-        .write_record(&["vk.alpha", parse_g1_hex(&vk.alpha_g1).as_str()])
+        .write_record(&["vk.alpha", parse_g1_hex::<T>(&vk.alpha_g1).as_str()])
         .unwrap();
     writer
-        .write_record(&["vk.beta", parse_g2_hex(&vk.beta_g2).as_str()])
+        .write_record(&["vk.beta", parse_g2_hex::<T>(&vk.beta_g2).as_str()])
         .unwrap();
     writer
-        .write_record(&["vk.gamma", parse_g2_hex(&vk.gamma_g2).as_str()])
+        .write_record(&["vk.gamma", parse_g2_hex::<T>(&vk.gamma_g2).as_str()])
         .unwrap();
     writer
-        .write_record(&["vk.delta", parse_g2_hex(&vk.delta_g2).as_str()])
+        .write_record(&["vk.delta", parse_g2_hex::<T>(&vk.delta_g2).as_str()])
         .unwrap();
     writer
         .write_record(&["vk.gamma_abc.len()", vk.ic.len().to_string().as_str()])
@@ -210,7 +207,7 @@ fn serialize_vk(vk: VerifyingKey<Bn256>) -> String {
         writer
             .write_record(&[
                 format!("vk.gamma_abc[{}]", i).as_str(),
-                parse_g1_hex(x).as_str(),
+                parse_g1_hex::<T>(x).as_str(),
             ])
             .unwrap()
     }
@@ -357,10 +354,11 @@ mod tests {
     use crate::ir::{Function, Prog, Statement};
 
     use super::*;
+    use zokrates_field::Bn128Field;
 
     #[test]
     fn verify() {
-        let program: Prog<FieldPrime> = Prog {
+        let program: Prog<Bn128Field> = Prog {
             main: Function {
                 id: String::from("main"),
                 arguments: vec![FlatVariable::new(0)],
@@ -373,15 +371,15 @@ mod tests {
             private: vec![false],
         };
 
-        let g16 = G16 {};
-        let keypair = g16.setup(program.clone());
-
+        let keypair = G16::setup(program.clone());
         let witness = program
             .clone()
-            .execute(&vec![FieldPrime::from(42)])
+            .execute(&vec![Bn128Field::from(42)])
             .unwrap();
 
-        let proof = g16.generate_proof(program.clone(), witness, keypair.pk);
-        assert!(g16.verify(keypair.vk, proof))
+        let proof = G16::generate_proof(program.clone(), witness, keypair.pk);
+        let ans = <G16 as ProofSystem<Bn128Field>>::verify(keypair.vk, proof);
+
+        assert!(ans);
     }
 }

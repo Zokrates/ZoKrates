@@ -1,5 +1,6 @@
 {
 	"entry_point": "./tests/tests/utils/multiplexer/256bit.zok",
+	"curves": ["Bn128"],
 	"tests": [
 		{
 			"input": {

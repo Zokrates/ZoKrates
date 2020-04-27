@@ -2,7 +2,7 @@ use flat_absy::FlatVariable;
 use ir::{self, Statement};
 use std::cmp::max;
 use std::collections::HashMap;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 // utility function. Converts a Field's vector-based byte representation to fixed size array.
 fn vec_as_u8_32_array(vec: &Vec<u8>) -> [u8; 32] {

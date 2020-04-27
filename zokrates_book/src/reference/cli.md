@@ -7,6 +7,11 @@ You can see an overview of the available subcommands by running
 zokrates
 ```
 
+You can get help about a particular subcommand with `--help`, for example:
+```sh
+zokrates compile --help
+```
+
 For each command, you can get the list of expected arguments using `--help`.
 
 ## `compile`
@@ -48,6 +53,8 @@ Generates a trusted setup for the compiled program found at `./out`.
 
 Creates a proving key and a verifying key at `./proving.key` and `./verifying.key`.
 These keys are derived from a source of randomness, commonly referred to as "toxic waste". Anyone having access to the source of randomness can produce fake proofs that will be accepted by a verifier following the protocol.
+
+The [proving scheme](proving_schemes.md) and curve can be chosen with the `proving-scheme` and `curve` flags.
 
 ## `export-verifier`
 

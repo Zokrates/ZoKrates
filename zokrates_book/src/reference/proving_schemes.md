@@ -1,16 +1,26 @@
 # Proving schemes
 
+## Curves
+
+Proving schemes supported by ZoKrates require a pairing-friendly elliptic curve. The options are the following:
+
+### ALT_BN128
+This curve is supported by Ethereum.
+
+### BLS12_381
+This curve is *not* supported by Ethereum and is currently only available for the G16 [proving scheme](#schemes).
+
+## Schemes
+
 ZoKrates supports different proving schemes. All of the available schemes rely on the ALT_BN128 curve, which means that they're all compatible with Ethereum.
 
 We identify the schemes by the reference to the paper that introduced them. Currently the options available are:
 
-| Name | Paper | CLI flag | Requires libsnark |
-| ---- | ----- | -------- | --------- |
-| PGHR13 | [Here](https://eprint.iacr.org/2013/279) | `--proving-scheme pghr13` | Yes |
-| G16 | [Here](https://eprint.iacr.org/2016/260) | `--proving-scheme g16` | No |
-| GM17 | [Here](https://eprint.iacr.org/2017/540) | `--proving-scheme gm17` | Yes |
-
-The default proving scheme is G16.
+| Name | CLI flag | Requires libsnark | Curves |
+| ---- | -------- | ----------------- | ------ |
+| [PGHR13](https://eprint.iacr.org/2013/279) | `--proving-scheme pghr13` | Yes | ALTBN_128 |
+| [G16](https://eprint.iacr.org/2016/260) | `--proving-scheme g16` | No | ALTBN_128, BLS12_381 |
+| [GM17](https://eprint.iacr.org/2017/540) | `--proving-scheme gm17` | Yes | ALTBN_128 |
 
 When not using the default, the CLI flag has to be provided for the following commands:
 - `setup`

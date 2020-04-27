@@ -34,7 +34,7 @@ mod tests {
     use typed_absy::{
         Parameter, Type, TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram, Variable,
     };
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[test]
     fn generate_abi_from_typed_ast() {
@@ -62,7 +62,7 @@ mod tests {
         let mut modules = HashMap::new();
         modules.insert("main".into(), TypedModule { functions });
 
-        let typed_ast: TypedProgram<FieldPrime> = TypedProgram {
+        let typed_ast: TypedProgram<Bn128Field> = TypedProgram {
             main: "main".into(),
             modules,
         };

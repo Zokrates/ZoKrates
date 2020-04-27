@@ -14,7 +14,7 @@ pub use self::flat_variable::FlatVariable;
 use solvers::{Signed, Solver};
 use std::collections::HashMap;
 use std::fmt;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 #[derive(Clone, PartialEq)]
 pub struct FlatProg<T: Field> {
@@ -155,13 +155,6 @@ impl<T: Field> FlatStatement<T> {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub struct FlatDirective<T: Field> {
-    pub inputs: Vec<FlatExpression<T>>,
-    pub outputs: Vec<FlatVariable>,
-    pub solver: Solver,
-}
-
 impl<T: Field> FlatDirective<T> {
     pub fn new<E: Into<FlatExpression<T>>>(
         outputs: Vec<FlatVariable>,
@@ -199,8 +192,15 @@ impl<T: Field> fmt::Display for FlatDirective<T> {
     }
 }
 
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct FlatDirective<T> {
+    pub inputs: Vec<FlatExpression<T>>,
+    pub outputs: Vec<FlatVariable>,
+    pub solver: Solver,
+}
+
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub enum FlatExpression<T: Field> {
+pub enum FlatExpression<T> {
     Number(T),
     Identifier(FlatVariable),
     Add(Box<FlatExpression<T>>, Box<FlatExpression<T>>),
@@ -261,10 +261,10 @@ impl<T: Field> fmt::Display for FlatExpression<T> {
     }
 }
 
-impl<T: Field> fmt::Debug for FlatExpression<T> {
+impl<T: fmt::Debug> fmt::Debug for FlatExpression<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            FlatExpression::Number(ref i) => write!(f, "Num({})", i),
+            FlatExpression::Number(ref i) => write!(f, "Num({:?})", i),
             FlatExpression::Identifier(ref var) => write!(f, "Ide({})", var),
             FlatExpression::Add(ref lhs, ref rhs) => write!(f, "Add({:?}, {:?})", lhs, rhs),
             FlatExpression::Sub(ref lhs, ref rhs) => write!(f, "Sub({:?}, {:?})", lhs, rhs),
@@ -279,8 +279,8 @@ impl<T: Field> From<FlatVariable> for FlatExpression<T> {
     }
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub struct FlatExpressionList<T: Field> {
+#[derive(Clone, PartialEq)]
+pub struct FlatExpressionList<T> {
     pub expressions: Vec<FlatExpression<T>>,
 }
 

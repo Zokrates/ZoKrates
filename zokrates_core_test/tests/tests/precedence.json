@@ -1,6 +1,7 @@
 {
     "entry_point": "./tests/tests/precedence.zok",
-    "tests": [
+    "curves": ["Bn128", "Bls12"],
+	"tests": [
         {
             "input": {
                 "values": [

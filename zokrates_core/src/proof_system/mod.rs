@@ -1,7 +1,5 @@
 mod bn128;
 
-use zokrates_field::field::FieldPrime;
-
 pub use self::bn128::G16;
 #[cfg(feature = "libsnark")]
 pub use self::bn128::GM17;
@@ -9,6 +7,7 @@ pub use self::bn128::GM17;
 pub use self::bn128::PGHR13;
 
 use crate::ir;
+use zokrates_field::Field;
 
 // We only need to serialize this struct, there is no need for deserialization as keys are
 // used separately in other use cases
@@ -39,17 +38,16 @@ impl SolidityAbi {
     }
 }
 
-pub trait ProofSystem {
-    fn setup(&self, program: ir::Prog<FieldPrime>) -> SetupKeypair;
+pub trait ProofSystem<T: Field> {
+    fn setup(program: ir::Prog<T>) -> SetupKeypair;
 
     fn generate_proof(
-        &self,
-        program: ir::Prog<FieldPrime>,
-        witness: ir::Witness<FieldPrime>,
+        program: ir::Prog<T>,
+        witness: ir::Witness<T>,
         proving_key: Vec<u8>,
     ) -> String;
 
-    fn export_solidity_verifier(&self, vk: String, abi: SolidityAbi) -> String;
+    fn export_solidity_verifier(vk: String, abi: SolidityAbi) -> String;
 
-    fn verify(&self, vk: String, proof: String) -> bool;
+    fn verify(vk: String, proof: String) -> bool;
 }

@@ -134,7 +134,7 @@ mod integration {
 
         let signature = abi.signature().clone();
 
-        let inputs_abi: zokrates_abi::Inputs<zokrates_field::field::FieldPrime> =
+        let inputs_abi: zokrates_abi::Inputs<zokrates_field::Bn128Field> =
             parse_strict(&json_input_str, signature.inputs)
                 .map(|parsed| zokrates_abi::Inputs::Abi(parsed))
                 .map_err(|why| why.to_string())

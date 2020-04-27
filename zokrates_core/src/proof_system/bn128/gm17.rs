@@ -1,5 +1,3 @@
-use regex::Regex;
-
 use ir;
 use proof_system::bn128::utils::ffi::{Buffer, ProofResult, SetupResult};
 use proof_system::bn128::utils::libsnark::{
@@ -11,15 +9,12 @@ use proof_system::bn128::utils::solidity::{
 };
 use proof_system::bn128::{G1PairingPoint, G2PairingPoint, Proof};
 use proof_system::{ProofSystem, SetupKeypair, SolidityAbi};
-use zokrates_field::field::{Field, FieldPrime};
+use regex::Regex;
+
+use zokrates_field::Bn128Field;
+use zokrates_field::Field;
 
 pub struct GM17 {}
-
-impl GM17 {
-    pub fn new() -> GM17 {
-        GM17 {}
-    }
-}
 
 #[derive(Serialize, Deserialize)]
 struct GM17ProofPoints {
@@ -57,8 +52,8 @@ extern "C" {
     ) -> bool;
 }
 
-impl ProofSystem for GM17 {
-    fn setup(&self, program: ir::Prog<FieldPrime>) -> SetupKeypair {
+impl ProofSystem<Bn128Field> for GM17 {
+    fn setup(program: ir::Prog<Bn128Field>) -> SetupKeypair {
         let (a_arr, b_arr, c_arr, a_vec, b_vec, c_vec, num_constraints, num_variables, num_inputs) =
             prepare_setup(program);
 
@@ -92,9 +87,8 @@ impl ProofSystem for GM17 {
     }
 
     fn generate_proof(
-        &self,
-        program: ir::Prog<FieldPrime>,
-        witness: ir::Witness<FieldPrime>,
+        program: ir::Prog<Bn128Field>,
+        witness: ir::Witness<Bn128Field>,
         proving_key: Vec<u8>,
     ) -> String {
         let (public_inputs_arr, public_inputs_length, private_inputs_arr, private_inputs_length) =
@@ -127,7 +121,7 @@ impl ProofSystem for GM17 {
         String::from_utf8(proof).unwrap()
     }
 
-    fn export_solidity_verifier(&self, vk: String, abi: SolidityAbi) -> String {
+    fn export_solidity_verifier(vk: String, abi: SolidityAbi) -> String {
         let vk_map = parse_vk(vk).unwrap();
         let (mut template_text, solidity_pairing_lib) = match abi {
             SolidityAbi::V1 => (
@@ -203,19 +197,19 @@ impl ProofSystem for GM17 {
         )
     }
 
-    fn verify(&self, vk: String, proof: String) -> bool {
+    fn verify(vk: String, proof: String) -> bool {
         let map = parse_vk(vk).unwrap();
         let vk_raw = hex::decode(map.get("vk.raw").unwrap()).unwrap();
 
         let proof = Proof::<GM17ProofPoints>::from_str(proof.as_str());
         let proof_raw = hex::decode(proof.raw).unwrap();
 
-        let public_inputs: Vec<FieldPrime> = proof
+        let public_inputs: Vec<_> = proof
             .inputs
             .iter()
             .map(|v| {
-                FieldPrime::try_from_str(v.as_str().trim_start_matches("0x"), 16)
-                    .expect(format!("Invalid field value: {}", v.as_str()).as_str())
+                Bn128Field::try_from_str(v.as_str().trim_start_matches("0x"), 16)
+                    .expect(format!("Invalid bn128 value: {}", v.as_str()).as_str())
             })
             .collect();
 
