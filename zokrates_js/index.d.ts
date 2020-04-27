@@ -20,14 +20,14 @@ declare module 'zokrates-js' {
     pk: Uint8Array,
   }
 
-  export type AbiVersion = "v1" | "v2";
+  export type SolidityAbi = "v1" | "v2";
   export type ResolveCallback = (location: string, path: string) => ResolverResult;
 
   export interface ZoKratesProvider {
     compile(source: string, location: string, callback: ResolveCallback): CompilationArtifacts;
     setup(program: Uint8Array): SetupKeypair;
     computeWitness(artifacts: CompilationArtifacts, args: any[]): ComputationResult;
-    exportSolidityVerifier(verifyingKey: string, abiVersion: AbiVersion): string;
+    exportSolidityVerifier(verifyingKey: string, abi: SolidityAbi): string;
     generateProof(program: Uint8Array, witness: string, provingKey: Uint8Array): string;
   }
 

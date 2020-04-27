@@ -556,7 +556,7 @@ fn cli() -> Result<(), String> {
             {
                 let scheme = get_scheme(sub_matches.value_of("proving-scheme").unwrap())?;
 
-                let abi_version = AbiVersion::from(sub_matches.value_of("solidity-abi").unwrap())?;
+                let abi_version = SolidityAbi::from(sub_matches.value_of("solidity-abi").unwrap())?;
 
                 println!("Exporting verifier...");
 

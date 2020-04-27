@@ -24,16 +24,16 @@ impl SetupKeypair {
     }
 }
 
-pub enum AbiVersion {
+pub enum SolidityAbi {
     V1,
     V2,
 }
 
-impl AbiVersion {
+impl SolidityAbi {
     pub fn from(v: &str) -> Result<Self, &str> {
         match v {
-            "v1" => Ok(AbiVersion::V1),
-            "v2" => Ok(AbiVersion::V2),
+            "v1" => Ok(SolidityAbi::V1),
+            "v2" => Ok(SolidityAbi::V2),
             _ => Err("Invalid ABI version"),
         }
     }
@@ -49,7 +49,7 @@ pub trait ProofSystem {
         proving_key: Vec<u8>,
     ) -> String;
 
-    fn export_solidity_verifier(&self, vk: String, abi_version: AbiVersion) -> String;
+    fn export_solidity_verifier(&self, vk: String, abi: SolidityAbi) -> String;
 
     fn verify(&self, vk: String, proof: String) -> bool;
 }

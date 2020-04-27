@@ -8,7 +8,7 @@ use proof_system::bn128::utils::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
 use proof_system::bn128::{G1PairingPoint, G2PairingPoint, Proof};
-use proof_system::{AbiVersion, ProofSystem, SetupKeypair};
+use proof_system::{SolidityAbi, ProofSystem, SetupKeypair};
 use regex::Regex;
 use zokrates_field::field::{Field, FieldPrime};
 
@@ -131,14 +131,14 @@ impl ProofSystem for PGHR13 {
         String::from_utf8(proof_vec).unwrap()
     }
 
-    fn export_solidity_verifier(&self, vk: String, abi_version: AbiVersion) -> String {
+    fn export_solidity_verifier(&self, vk: String, abi: SolidityAbi) -> String {
         let vk_map = parse_vk(vk).unwrap();
-        let (mut template_text, solidity_pairing_lib) = match abi_version {
-            AbiVersion::V1 => (
+        let (mut template_text, solidity_pairing_lib) = match abi {
+            SolidityAbi::V1 => (
                 String::from(CONTRACT_TEMPLATE),
                 String::from(SOLIDITY_PAIRING_LIB),
             ),
-            AbiVersion::V2 => (
+            SolidityAbi::V2 => (
                 String::from(CONTRACT_TEMPLATE_V2),
                 String::from(SOLIDITY_PAIRING_LIB_V2),
             ),
