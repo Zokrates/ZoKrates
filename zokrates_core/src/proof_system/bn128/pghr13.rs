@@ -3,12 +3,11 @@ use proof_system::bn128::utils::ffi::{Buffer, ProofResult, SetupResult};
 use proof_system::bn128::utils::libsnark::{
     prepare_generate_proof, prepare_public_inputs, prepare_setup,
 };
-use proof_system::bn128::utils::parser::parse_vk;
 use proof_system::bn128::utils::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
-use proof_system::bn128::{G1PairingPoint, G2PairingPoint, Proof};
-use proof_system::{ProofSystem, SetupKeypair, SolidityAbi};
+use proof_system::bn128::{G1Affine, G2Affine};
+use proof_system::{Proof, ProofSystem, SetupKeypair, SolidityAbi};
 use regex::Regex;
 
 use zokrates_field::Bn128Field;
@@ -17,15 +16,28 @@ use zokrates_field::Field;
 pub struct PGHR13 {}
 
 #[derive(Serialize, Deserialize)]
-pub struct PGHR13ProofPoints {
-    a: G1PairingPoint,
-    a_p: G1PairingPoint,
-    b: G2PairingPoint,
-    b_p: G1PairingPoint,
-    c: G1PairingPoint,
-    c_p: G1PairingPoint,
-    h: G1PairingPoint,
-    k: G1PairingPoint,
+pub struct VerificationKey {
+    a: G2Affine,
+    b: G1Affine,
+    c: G2Affine,
+    gamma: G2Affine,
+    gamma_beta_1: G1Affine,
+    gamma_beta_2: G2Affine,
+    z: G2Affine,
+    ic: Vec<G1Affine>,
+    raw: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ProofPoints {
+    a: G1Affine,
+    a_p: G1Affine,
+    b: G2Affine,
+    b_p: G1Affine,
+    c: G1Affine,
+    c_p: G1Affine,
+    h: G1Affine,
+    k: G1Affine,
 }
 
 extern "C" {
@@ -58,7 +70,10 @@ extern "C" {
 }
 
 impl ProofSystem<Bn128Field> for PGHR13 {
-    fn setup(program: ir::Prog<Bn128Field>) -> SetupKeypair {
+    type VerificationKey = VerificationKey;
+    type ProofPoints = ProofPoints;
+
+    fn setup(program: ir::Prog<Bn128Field>) -> SetupKeypair<VerificationKey> {
         let (a_arr, b_arr, c_arr, a_vec, b_vec, c_vec, num_constraints, num_variables, num_inputs) =
             prepare_setup(program);
 
@@ -88,20 +103,21 @@ impl ProofSystem<Bn128Field> for PGHR13 {
             (vk, pk)
         };
 
-        SetupKeypair::from(String::from_utf8(keypair.0).unwrap(), keypair.1)
+        let vk = serde_json::from_str(String::from_utf8(keypair.0).unwrap().as_str()).unwrap();
+        SetupKeypair::new(vk, keypair.1)
     }
 
     fn generate_proof(
         program: ir::Prog<Bn128Field>,
         witness: ir::Witness<Bn128Field>,
         proving_key: Vec<u8>,
-    ) -> String {
+    ) -> Proof<ProofPoints> {
         let (public_inputs_arr, public_inputs_length, private_inputs_arr, private_inputs_length) =
             prepare_generate_proof(program, witness);
 
         let mut pk_buf = Buffer::from_vec(&proving_key);
 
-        let proof_vec = unsafe {
+        let proof = unsafe {
             let result = pghr13_generate_proof(
                 &mut pk_buf as *mut _,
                 public_inputs_arr[0].as_ptr(),
@@ -112,7 +128,7 @@ impl ProofSystem<Bn128Field> for PGHR13 {
 
             pk_buf.drop(); // drop the buffer manually
 
-            let proof_vec: Vec<u8> =
+            let proof: Vec<u8> =
                 std::slice::from_raw_parts(result.proof.data, result.proof.length as usize)
                     .to_vec();
 
@@ -120,14 +136,13 @@ impl ProofSystem<Bn128Field> for PGHR13 {
             // free the memory.
             result.proof.free();
 
-            proof_vec
+            proof
         };
 
-        String::from_utf8(proof_vec).unwrap()
+        serde_json::from_str(String::from_utf8(proof).unwrap().as_str()).unwrap()
     }
 
-    fn export_solidity_verifier(vk: String, abi: SolidityAbi) -> String {
-        let vk_map = parse_vk(vk).unwrap();
+    fn export_solidity_verifier(vk: VerificationKey, abi: SolidityAbi) -> String {
         let (mut template_text, solidity_pairing_lib) = match abi {
             SolidityAbi::V1 => (
                 String::from(CONTRACT_TEMPLATE),
@@ -145,23 +160,41 @@ impl ProofSystem<Bn128Field> for PGHR13 {
         let vk_ic_repeat_regex = Regex::new(r#"(<%vk_ic_pts%>)"#).unwrap();
         let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
 
-        let keys = vec![
-            "vk.a",
-            "vk.b",
-            "vk.c",
-            "vk.gamma",
-            "vk.gamma_beta_1",
-            "vk.gamma_beta_2",
-            "vk.z",
-        ];
+        template_text = vk_regex
+            .replace(template_text.as_str(), format!("{}", vk.a).as_str())
+            .into_owned();
 
-        for key in keys.iter() {
-            template_text = vk_regex
-                .replace(template_text.as_str(), vk_map.get(*key).unwrap().as_str())
-                .into_owned();
-        }
+        template_text = vk_regex
+            .replace(template_text.as_str(), format!("{}", vk.b).as_str())
+            .into_owned();
 
-        let ic_count: usize = vk_map.get("vk.ic.len()").unwrap().parse().unwrap();
+        template_text = vk_regex
+            .replace(template_text.as_str(), format!("{}", vk.c).as_str())
+            .into_owned();
+
+        template_text = vk_regex
+            .replace(template_text.as_str(), format!("{}", vk.gamma).as_str())
+            .into_owned();
+
+        template_text = vk_regex
+            .replace(
+                template_text.as_str(),
+                format!("{}", vk.gamma_beta_1).as_str(),
+            )
+            .into_owned();
+
+        template_text = vk_regex
+            .replace(
+                template_text.as_str(),
+                format!("{}", vk.gamma_beta_2).as_str(),
+            )
+            .into_owned();
+
+        template_text = vk_regex
+            .replace(template_text.as_str(), format!("{}", vk.z).as_str())
+            .into_owned();
+
+        let ic_count: usize = vk.ic.len();
         template_text = vk_ic_len_regex
             .replace(template_text.as_str(), format!("{}", ic_count).as_str())
             .into_owned();
@@ -171,19 +204,16 @@ impl ProofSystem<Bn128Field> for PGHR13 {
             .into_owned();
 
         let mut ic_repeat_text = String::new();
-        for x in 0..ic_count {
+        for (i, x) in vk.ic.iter().enumerate() {
             ic_repeat_text.push_str(
                 format!(
                     "vk.ic[{}] = Pairing.G1Point({});",
-                    x,
-                    vk_map
-                        .get(format!("vk.ic[{}]", x).as_str())
-                        .unwrap()
-                        .as_str()
+                    i,
+                    format!("{}", x).as_str()
                 )
                 .as_str(),
             );
-            if x < ic_count - 1 {
+            if i < ic_count - 1 {
                 ic_repeat_text.push_str("\n        ");
             }
         }
@@ -201,12 +231,9 @@ impl ProofSystem<Bn128Field> for PGHR13 {
         )
     }
 
-    fn verify(vk: String, proof: String) -> bool {
-        let map = parse_vk(vk).unwrap();
-        let vk_raw = hex::decode(map.get("vk.raw").unwrap()).unwrap();
-
-        let proof = Proof::<PGHR13ProofPoints>::from_str(proof.as_str());
-        let proof_raw = hex::decode(proof.raw).unwrap();
+    fn verify(vk: VerificationKey, proof: Proof<ProofPoints>) -> bool {
+        let vk_raw = hex::decode(vk.raw.clone()).unwrap();
+        let proof_raw = hex::decode(proof.raw.clone()).unwrap();
 
         let public_inputs: Vec<_> = proof
             .inputs
