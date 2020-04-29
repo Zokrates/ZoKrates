@@ -89,20 +89,26 @@ std::string serializeVerificationKey(r1cs_ppzksnark_verification_key<libff::alt_
     std::stringstream ss;
     unsigned icLength = vk->encoded_IC_query.rest.indices.size() + 1;
 
-    ss << "vk.a=" << outputPointG2AffineAsHex(vk->alphaA_g2) << endl;
-    ss << "vk.b=" << outputPointG1AffineAsHex(vk->alphaB_g1) << endl;
-    ss << "vk.c=" << outputPointG2AffineAsHex(vk->alphaC_g2) << endl;
-    ss << "vk.gamma=" << outputPointG2AffineAsHex(vk->gamma_g2) << endl;
-    ss << "vk.gamma_beta_1=" << outputPointG1AffineAsHex(vk->gamma_beta_g1) << endl;
-    ss << "vk.gamma_beta_2=" << outputPointG2AffineAsHex(vk->gamma_beta_g2) << endl;
-    ss << "vk.z=" << outputPointG2AffineAsHex(vk->rC_Z_g2) << endl;
-    ss << "vk.ic.len()=" << icLength << endl;
-    ss << "vk.ic[0]=" << outputPointG1AffineAsHex(vk->encoded_IC_query.first) << endl;
-    for (size_t i = 1; i < icLength; ++i) {
-        auto vk_ic_i = outputPointG1AffineAsHex(vk->encoded_IC_query.rest.values[i - 1]);
-        ss << "vk.ic[" << i << "]=" << vk_ic_i << endl;
+    ss << "{\n";
+    ss << "\t\"a\": " << outputPointG2AffineAsHexJson(vk->alphaA_g2) << ",\n";
+    ss << "\t\"b\": " << outputPointG1AffineAsHexJson(vk->alphaB_g1) << ",\n";
+    ss << "\t\"c\": " << outputPointG2AffineAsHexJson(vk->alphaC_g2) << ",\n";
+    ss << "\t\"gamma\": " << outputPointG2AffineAsHexJson(vk->gamma_g2) << ",\n";
+    ss << "\t\"gamma_beta_1\": " << outputPointG1AffineAsHexJson(vk->gamma_beta_g1) << ",\n";
+    ss << "\t\"gamma_beta_2\": " << outputPointG2AffineAsHexJson(vk->gamma_beta_g2) << ",\n";
+    ss << "\t\"z\": " << outputPointG2AffineAsHexJson(vk->rC_Z_g2) << ",\n";
+    ss << "\t\"ic\": [";
+    for (size_t i = 0; i < icLength; ++i) {
+        if (i == 0) {
+            ss << outputPointG1AffineAsHexJson(vk->encoded_IC_query.first);
+            continue;
+        }
+        ss << ", ";
+        ss << outputPointG1AffineAsHexJson(vk->encoded_IC_query.rest.values[i]);
     }
-    ss << "vk.raw=" << toHexString(serialize(*vk)) << endl;
+    ss << "],\n";
+    ss << "\t\"raw\": \"" << toHexString(serialize(*vk)) << "\"\n";
+    ss << "}\n";
     std::string str = ss.str();
     return str;
 }
@@ -112,7 +118,7 @@ std::string serializeProof(r1cs_ppzksnark_proof<libff::alt_bn128_pp>* proof, con
     std::stringstream ss;
     ss << "{"
        << "\n";
-    ss << "\t\"proof\": {"
+    ss << "\t\"points\": {"
        << "\n";
     ss << "\t\t\"a\": " << outputPointG1AffineAsHexJson(proof->g_A.g) << ",\n";
     ss << "\t\t\"a_p\": " << outputPointG1AffineAsHexJson(proof->g_A.h) << ",\n";

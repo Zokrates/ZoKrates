@@ -11,26 +11,21 @@ pub use self::g16::G16;
 pub use self::gm17::GM17;
 #[cfg(feature = "libsnark")]
 pub use self::pghr13::PGHR13;
-use serde::{Deserialize, Serialize};
-
-type G1PairingPoint = (String, String);
-type G2PairingPoint = (G1PairingPoint, G1PairingPoint);
 
 #[derive(Serialize, Deserialize)]
-struct Proof<T> {
-    proof: T,
-    inputs: Vec<String>,
-    raw: String,
+pub struct G1Affine(String, String);
+
+#[derive(Serialize, Deserialize)]
+pub struct G2Affine(G1Affine, G1Affine);
+
+impl std::fmt::Display for G1Affine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}, {}", self.0, self.1)
+    }
 }
 
-impl<'a, T: Serialize + Deserialize<'a>> Proof<T> {
-    fn new(proof: T, inputs: Vec<String>, raw: String) -> Self {
-        Proof { proof, inputs, raw }
-    }
-    fn from_str(proof: &'a str) -> Proof<T> {
-        serde_json::from_str(proof).expect("Invalid proof json format")
-    }
-    fn to_json_pretty(&self) -> String {
-        serde_json::to_string_pretty(self).unwrap()
+impl std::fmt::Display for G2Affine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{}], [{}]", self.0, self.1)
     }
 }

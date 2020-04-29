@@ -88,18 +88,22 @@ std::string serializeVerificationKey(r1cs_se_ppzksnark_verification_key<libff::a
 {
     std::stringstream ss;
     unsigned queryLength = vk->query.size();
-
-    ss << "vk.h=" << outputPointG2AffineAsHex(vk->H) << endl;
-    ss << "vk.g_alpha=" << outputPointG1AffineAsHex(vk->G_alpha) << endl;
-    ss << "vk.h_beta=" << outputPointG2AffineAsHex(vk->H_beta) << endl;
-    ss << "vk.g_gamma=" << outputPointG1AffineAsHex(vk->G_gamma) << endl;
-    ss << "vk.h_gamma=" << outputPointG2AffineAsHex(vk->H_gamma) << endl;
-    ss << "vk.query.len()=" << queryLength << endl;
+    ss << "{\n";
+    ss << "\t\"h\": " << outputPointG2AffineAsHexJson(vk->H) << ",\n";
+    ss << "\t\"g_alpha\": " << outputPointG1AffineAsHexJson(vk->G_alpha) << ",\n";
+    ss << "\t\"h_beta\": " << outputPointG2AffineAsHexJson(vk->H_beta) << ",\n";
+    ss << "\t\"g_gamma\": " << outputPointG1AffineAsHexJson(vk->G_gamma) << ",\n";
+    ss << "\t\"h_gamma\": " << outputPointG2AffineAsHexJson(vk->H_gamma) << ",\n";
+    ss << "\t\"query\": [";
     for (size_t i = 0; i < queryLength; ++i) {
-        auto vk_query_i = outputPointG1AffineAsHex(vk->query[i]);
-        ss << "vk.query[" << i << "]=" << vk_query_i << endl;
+        if (i != 0) {
+            ss << ", ";
+        }
+        ss << outputPointG1AffineAsHexJson(vk->query[i]);
     }
-    ss << "vk.raw=" << toHexString(serialize(*vk)) << endl;
+    ss << "],\n";
+    ss << "\t\"raw\": \"" << toHexString(serialize(*vk)) << "\"\n";
+    ss << "}\n";
     std::string str = ss.str();
     return str;
 }
@@ -109,7 +113,7 @@ std::string serializeProof(r1cs_se_ppzksnark_proof<libff::alt_bn128_pp>* proof, 
     std::stringstream ss;
     ss << "{"
        << "\n";
-    ss << "\t\"proof\": {"
+    ss << "\t\"points\": {"
        << "\n";
     ss << "\t\t\"a\": " << outputPointG1AffineAsHexJson(proof->A) << ",\n";
     ss << "\t\t\"b\": " << outputPointG2AffineAsHexJson(proof->B) << ",\n";

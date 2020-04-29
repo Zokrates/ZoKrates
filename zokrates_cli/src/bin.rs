@@ -62,11 +62,12 @@ fn cli_generate_proof<T: Field, P: ProofSystem<T>>(
     let proof = P::generate_proof(program, witness, pk);
     let mut proof_file = File::create(proof_path).unwrap();
 
-    proof_file
-        .write(proof.as_ref())
-        .map_err(|why| format!("Couldn't write to {}: {}", proof_path.display(), why))?;
-
+    let proof = serde_json::to_string_pretty(&proof).unwrap();
     println!("Proof:\n{}", format!("{}", proof));
+
+    proof_file
+        .write(proof.as_bytes())
+        .map_err(|why| format!("Couldn't write to {}: {}", proof_path.display(), why))?;
 
     Ok(())
 }
@@ -80,14 +81,13 @@ fn cli_export_verifier<T: Field, P: ProofSystem<T>>(
     let input_path = Path::new(sub_matches.value_of("input").unwrap());
     let input_file = File::open(&input_path)
         .map_err(|why| format!("Couldn't open {}: {}", input_path.display(), why))?;
-    let mut reader = BufReader::new(input_file);
+    let reader = BufReader::new(input_file);
 
-    let mut vk = String::new();
-    reader
-        .read_to_string(&mut vk)
-        .map_err(|why| format!("Couldn't read {}: {}", input_path.display(), why))?;
+    let vk = serde_json::from_reader(reader)
+        .map_err(|why| format!("Couldn't deserialize verifying key: {}", why))?;
 
     let abi = SolidityAbi::from(sub_matches.value_of("solidity-abi").unwrap())?;
+
     let verifier = P::export_solidity_verifier(vk, abi);
 
     //write output file
@@ -100,6 +100,7 @@ fn cli_export_verifier<T: Field, P: ProofSystem<T>>(
     writer
         .write_all(&verifier.as_bytes())
         .map_err(|_| "Failed writing output to file.".to_string())?;
+
     println!("Finished exporting verifier.");
     Ok(())
 }
@@ -126,7 +127,11 @@ fn cli_setup<T: Field, P: ProofSystem<T>>(
     let mut vk_file = File::create(vk_path)
         .map_err(|why| format!("couldn't create {}: {}", vk_path.display(), why))?;
     vk_file
-        .write(keypair.vk.as_ref())
+        .write(
+            serde_json::to_string_pretty(&keypair.vk)
+                .unwrap()
+                .as_bytes(),
+        )
         .map_err(|why| format!("couldn't write to {}: {}", vk_path.display(), why))?;
 
     // write proving key
@@ -344,12 +349,20 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
 fn cli_verify<T: Field, P: ProofSystem<T>>(sub_matches: &ArgMatches) -> Result<(), String> {
     let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
-    let vk = std::fs::read_to_string(vk_path)
-        .map_err(|why| format!("Couldn't read {}: {}", vk_path.display(), why))?;
+    let vk_file = File::open(&vk_path)
+        .map_err(|why| format!("Couldn't open {}: {}", vk_path.display(), why))?;
+
+    let vk_reader = BufReader::new(vk_file);
+    let vk = serde_json::from_reader(vk_reader)
+        .map_err(|why| format!("Couldn't deserialize verification key: {}", why))?;
 
     let proof_path = Path::new(sub_matches.value_of("proof-path").unwrap());
-    let proof = std::fs::read_to_string(proof_path)
-        .map_err(|why| format!("Couldn't read {}: {}", proof_path.display(), why))?;
+    let proof_file = File::open(&proof_path)
+        .map_err(|why| format!("Couldn't open {}: {}", proof_path.display(), why))?;
+
+    let proof_reader = BufReader::new(proof_file);
+    let proof = serde_json::from_reader(proof_reader)
+        .map_err(|why| format!("Couldn't deserialize proof: {}", why))?;
 
     println!("Performing verification...");
     println!(

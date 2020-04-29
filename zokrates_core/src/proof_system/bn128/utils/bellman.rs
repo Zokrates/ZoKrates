@@ -210,6 +210,7 @@ mod parse {
     use lazy_static::lazy_static;
 
     use super::*;
+    use proof_system::bn128::{G1Affine, G2Affine};
     use regex::Regex;
 
     lazy_static! {
@@ -228,10 +229,10 @@ mod parse {
 
     pub fn parse_g1<T: BellmanFieldExtensions>(
         e: &<T::BellmanEngine as bellman::pairing::Engine>::G1Affine,
-    ) -> (String, String) {
+    ) -> G1Affine {
         let raw_e = e.to_string();
         let captures = G1_REGEX.captures(&raw_e).unwrap();
-        (
+        G1Affine(
             captures.name(&"x").unwrap().as_str().to_string(),
             captures.name(&"y").unwrap().as_str().to_string(),
         )
@@ -239,15 +240,15 @@ mod parse {
 
     pub fn parse_g2<T: BellmanFieldExtensions>(
         e: &<T::BellmanEngine as bellman::pairing::Engine>::G2Affine,
-    ) -> ((String, String), (String, String)) {
+    ) -> G2Affine {
         let raw_e = e.to_string();
         let captures = G2_REGEX.captures(&raw_e).unwrap();
-        (
-            (
+        G2Affine(
+            G1Affine(
                 captures.name(&"x1").unwrap().as_str().to_string(),
                 captures.name(&"x0").unwrap().as_str().to_string(),
             ),
-            (
+            G1Affine(
                 captures.name(&"y1").unwrap().as_str().to_string(),
                 captures.name(&"y0").unwrap().as_str().to_string(),
             ),
@@ -260,7 +261,8 @@ mod parse {
         captures.name(&"x").unwrap().as_str().to_string()
     }
 
-    pub fn parse_g1_hex<T: BellmanFieldExtensions>(
+    /*
+    pub fn parse_g1_hex<T: Field>(
         e: &<T::BellmanEngine as bellman::pairing::Engine>::G1Affine,
     ) -> String {
         let parsed = parse_g1::<T>(e);
@@ -279,6 +281,7 @@ mod parse {
             (parsed.1).1
         )
     }
+    */
 }
 
 #[cfg(test)]

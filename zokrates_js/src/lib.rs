@@ -167,7 +167,7 @@ pub fn export_solidity_verifier(vk: JsValue, abi_version: JsValue) -> Result<JsV
         .map_err(|err| JsValue::from_str(err))?;
 
     let verifier = <proof_system::G16 as ProofSystem<Bn128Field>>::export_solidity_verifier(
-        vk.as_string().unwrap(),
+        vk.into_serde().unwrap(),
         abi_version,
     );
 
@@ -186,7 +186,7 @@ pub fn generate_proof(program: JsValue, witness: JsValue, pk: JsValue) -> Result
     let proving_key: Vec<u8> = pk.into_serde().unwrap();
     let proof = proof_system::G16::generate_proof(program_flattened, ir_witness, proving_key);
 
-    Ok(JsValue::from_str(proof.as_str()))
+    Ok(JsValue::from_serde(&proof).unwrap())
 }
 
 #[wasm_bindgen(start)]
