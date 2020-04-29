@@ -56,6 +56,8 @@ pub trait Field:
     + Pow<usize, Output = Self>
     + Pow<Self, Output = Self>
     + for<'a> Pow<&'a Self, Output = Self>
+    + num_traits::CheckedAdd
+    + num_traits::CheckedMul
 {
     /// An associated type to be able to operate with Bellman ff traits
     type BellmanEngine: Engine;
@@ -99,6 +101,28 @@ pub trait Field:
 #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct FieldPrime {
     value: BigInt,
+}
+
+impl num_traits::CheckedAdd for FieldPrime {
+    fn checked_add(&self, other: &Self) -> Option<Self> {
+        let res = self.value.clone() + other.value.clone();
+        if res >= *P {
+            None
+        } else {
+            Some(FieldPrime { value: res })
+        }
+    }
+}
+
+impl num_traits::CheckedMul for FieldPrime {
+    fn checked_mul(&self, other: &Self) -> Option<Self> {
+        let res = self.value.clone() * other.value.clone();
+        if res >= *P {
+            None
+        } else {
+            Some(FieldPrime { value: res })
+        }
+    }
 }
 
 impl Field for FieldPrime {

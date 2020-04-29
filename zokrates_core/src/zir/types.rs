@@ -231,28 +231,5 @@ pub mod signature {
 
             assert_eq!(s.to_slug(), String::from("i3fofbf"));
         }
-
-        #[test]
-        fn array_slug() {
-            let s = Signature::new()
-                .inputs(vec![
-                    Type::array(Type::FieldElement, 42),
-                    Type::array(Type::FieldElement, 21),
-                ])
-                .outputs(vec![]);
-
-            assert_eq!(s.to_slug(), String::from("if[42]f[21]o"));
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn array() {
-        let t = Type::Array(box Type::FieldElement, 42);
-        assert_eq!(t.get_primitive_count(), 42);
     }
 }

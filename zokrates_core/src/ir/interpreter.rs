@@ -21,21 +21,22 @@ impl<T: Field> Prog<T> {
                 Statement::Constraint(quad, lin) => {
                     println!("{}", statement);
                     match lin.is_assignee(&witness) {
-                    true => {
-                        let val = quad.evaluate(&witness).unwrap();
-                        witness.insert(lin.0.iter().next().unwrap().0.clone(), val);
-                    }
-                    false => {
-                        let lhs_value = quad.evaluate(&witness).unwrap();
-                        let rhs_value = lin.evaluate(&witness).unwrap();
-                        if lhs_value != rhs_value {
-                            return Err(Error::UnsatisfiedConstraint {
-                                left: lhs_value.to_dec_string(),
-                                right: rhs_value.to_dec_string(),
-                            });
+                        true => {
+                            let val = quad.evaluate(&witness).unwrap();
+                            witness.insert(lin.0.iter().next().unwrap().0.clone(), val);
                         }
-                    }}
-                },
+                        false => {
+                            let lhs_value = quad.evaluate(&witness).unwrap();
+                            let rhs_value = lin.evaluate(&witness).unwrap();
+                            if lhs_value != rhs_value {
+                                return Err(Error::UnsatisfiedConstraint {
+                                    left: lhs_value.to_dec_string(),
+                                    right: rhs_value.to_dec_string(),
+                                });
+                            }
+                        }
+                    }
+                }
                 Statement::Directive(ref d) => {
                     let input_values: Vec<T> = d
                         .inputs

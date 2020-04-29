@@ -4049,32 +4049,28 @@ mod tests {
                 });
 
                 assert_eq!(
-                                    checker.check_parameter(
-                                        absy::Parameter {
-                                            id:
-                                                absy::Variable::new("a", UnresolvedType::User("Foo".into()).mock(),)
-                                                    .mock(),
-                                            private: true,
-                                        }
-                                        .mock(),
-                                        &PathBuf::from(MODULE_ID).into(),
-                                        &state.types,
-                                    ),
-                                    Ok(Parameter {
-                                        id: Variable::with_id_and_type(
-                <<<<<<< HEAD
-                                            "a",
-                =======
-                                            "a".into(),
-                >>>>>>> b0382ea64e8df4bbdf363fc6fc4c3862900629e7
-                                            Type::Struct(vec![StructMember::new(
-                                                "foo".to_string(),
-                                                Type::FieldElement
-                                            )])
-                                        ),
-                                        private: true
-                                    })
-                                );
+                    checker.check_parameter(
+                        absy::Parameter {
+                            id:
+                                absy::Variable::new("a", UnresolvedType::User("Foo".into()).mock(),)
+                                    .mock(),
+                            private: true,
+                        }
+                        .mock(),
+                        &PathBuf::from(MODULE_ID).into(),
+                        &state.types,
+                    ),
+                    Ok(Parameter {
+                        id: Variable::with_id_and_type(
+                            "a",
+                            Type::Struct(vec![StructMember::new(
+                                "foo".to_string(),
+                                Type::FieldElement
+                            )])
+                        ),
+                        private: true
+                    })
+                );
 
                 assert_eq!(
                     checker
@@ -4112,27 +4108,23 @@ mod tests {
                 });
 
                 assert_eq!(
-                                    checker.check_statement::<FieldPrime>(
-                                        Statement::Declaration(
-                                            absy::Variable::new("a", UnresolvedType::User("Foo".into()).mock(),)
-                                                .mock()
-                                        )
-                                        .mock(),
-                                        &PathBuf::from(MODULE_ID).into(),
-                                        &state.types,
-                                    ),
-                                    Ok(TypedStatement::Declaration(Variable::with_id_and_type(
-                <<<<<<< HEAD
-                                        "a",
-                =======
-                                        "a".into(),
-                >>>>>>> b0382ea64e8df4bbdf363fc6fc4c3862900629e7
-                                        Type::Struct(vec![StructMember::new(
-                                            "foo".to_string(),
-                                            Type::FieldElement
-                                        )])
-                                    )))
-                                );
+                    checker.check_statement::<FieldPrime>(
+                        Statement::Declaration(
+                            absy::Variable::new("a", UnresolvedType::User("Foo".into()).mock(),)
+                                .mock()
+                        )
+                        .mock(),
+                        &PathBuf::from(MODULE_ID).into(),
+                        &state.types,
+                    ),
+                    Ok(TypedStatement::Declaration(Variable::with_id_and_type(
+                        "a",
+                        Type::Struct(vec![StructMember::new(
+                            "foo".to_string(),
+                            Type::FieldElement
+                        )])
+                    )))
+                );
 
                 assert_eq!(
                     checker

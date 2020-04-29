@@ -65,7 +65,7 @@ impl Solver {
                     .into_iter()
                     .map(|x| T::from_bellman(x))
                     .collect()
-            },
+            }
             Solver::Xor => {
                 let x = inputs[0].clone();
                 let y = inputs[1].clone();

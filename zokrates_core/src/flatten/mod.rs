@@ -5,23 +5,18 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
-use num_bigint::BigUint;
 use crate::flat_absy::*;
 use crate::solvers::Solver;
 use crate::zir::types::{FunctionIdentifier, FunctionKey, Signature, Type};
 use crate::zir::*;
+use num_bigint::BigUint;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use zokrates_field::field::Field;
 
 fn log2(a: BigUint) -> u32 {
-    use num::traits::Pow;
-    let mut res = 1_u32;
-    while BigUint::from(2_u32).pow(res) < a {
-        res = res + 1
-    }
-    res
+    a.bits() as u32
 }
 
 /// Flattener, computes flattened program.
@@ -47,7 +42,7 @@ trait FlattenOutput<T: Field>: Sized {
 impl<T: Field> FlattenOutput<T> for FlatExpression<T> {
     fn branches(self, other: Self) -> (Self, Self) {
         (self, other)
-    } 
+    }
 
     fn flat(&self) -> Vec<FlatExpression<T>> {
         vec![self.clone()]
@@ -60,8 +55,14 @@ impl<T: Field> FlattenOutput<T> for FlatUExpression<T> {
         let right_bits = other.bits.unwrap();
         let size = std::cmp::max(left_bits.len(), right_bits.len());
 
-        let left_bits = (0..size - left_bits.len()).map(|_| FlatExpression::Number(T::from(0))).chain(left_bits).collect();
-        let right_bits = (0..size - right_bits.len()).map(|_| FlatExpression::Number(T::from(0))).chain(right_bits).collect();
+        let left_bits = (0..size - left_bits.len())
+            .map(|_| FlatExpression::Number(T::from(0)))
+            .chain(left_bits)
+            .collect();
+        let right_bits = (0..size - right_bits.len())
+            .map(|_| FlatExpression::Number(T::from(0)))
+            .chain(right_bits)
+            .collect();
 
         (
             FlatUExpression {
@@ -71,12 +72,18 @@ impl<T: Field> FlattenOutput<T> for FlatUExpression<T> {
             FlatUExpression {
                 bits: Some(right_bits),
                 ..other
-            }
+            },
         )
     }
 
     fn flat(&self) -> Vec<FlatExpression<T>> {
-        self.bits.clone().unwrap().clone().into_iter().chain(std::iter::once(self.field.clone().unwrap())).collect()
+        self.bits
+            .clone()
+            .unwrap()
+            .clone()
+            .into_iter()
+            .chain(std::iter::once(self.field.clone().unwrap()))
+            .collect()
     }
 }
 
@@ -238,7 +245,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         let consequence = consequence.flat();
         let alternative = alternative.flat();
-        
+
         let size = consequence.len();
 
         let consequence_ids: Vec<_> = (0..size).map(|_| self.use_sym()).collect();
@@ -303,7 +310,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         FlatUExpression {
             field: Some(res.pop().unwrap()),
-            bits: Some(res)
+            bits: Some(res),
         }
     }
 
@@ -629,8 +636,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     condition,
                     consequence,
                     alternative,
-                ).get_field_unchecked()
-            .clone(),
+                )
+                .get_field_unchecked()
+                .clone(),
         }
     }
 
@@ -667,10 +675,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 ZirExpression::Uint(e) => e,
                 _ => unreachable!(),
             };
-            let from = p.metadata.clone().unwrap().bitwidth.unwrap();
+            let from = log2(p.metadata.clone().unwrap().max);
             let p = self.flatten_uint_expression(symbols, statements_flattened, p);
             let bits = self
-                .get_bits(p, from, 32, statements_flattened)
+                .get_bits(p, from as usize, 32, statements_flattened)
                 .into_iter()
                 .map(|b| FlatUExpression::with_field(b))
                 .collect();
@@ -813,19 +821,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         statements_flattened: &mut Vec<FlatStatement<T>>,
         expr: UExpression<'ast, T>,
     ) -> FlatUExpression<T> {
-        statements_flattened.push(FlatStatement::Log(format!(
-            "  {}{}",
-            "   ".repeat(self.depth),
-            expr
-        )));
-
         self.depth += 1;
 
         let target_bitwidth = expr.bitwidth;
 
         let metadata = expr.metadata.clone().unwrap().clone();
 
-        let actual_bitwidth = log2(metadata.max.unwrap()) as usize;
+        let actual_bitwidth = log2(metadata.max) as usize;
         let should_reduce = metadata.should_reduce.unwrap();
 
         let should_reduce = should_reduce && actual_bitwidth > target_bitwidth;
@@ -843,12 +845,16 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 FlatUExpression::with_field(field).bits(bits)
             }
             UExpressionInner::Not(box e) => {
-                let from = e.metadata.clone().unwrap().bitwidth.unwrap();
+                let from = log2(e.metadata.clone().unwrap().max);
 
                 let e_flattened = self.flatten_uint_expression(symbols, statements_flattened, e);
 
-                let e_bits =
-                    self.get_bits(e_flattened, from, target_bitwidth, statements_flattened);
+                let e_bits = self.get_bits(
+                    e_flattened,
+                    from as usize,
+                    target_bitwidth,
+                    statements_flattened,
+                );
 
                 assert_eq!(e_bits.len(), target_bitwidth);
 
@@ -898,7 +904,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             }
             UExpressionInner::Sub(box left, box right) => {
                 let aux = FlatExpression::Number(
-                    T::from(2).pow(right.metadata.clone().unwrap().bitwidth.unwrap()),
+                    T::from(2).pow(log2(right.metadata.clone().unwrap().max) as usize),
                 );
 
                 let left_flattened = self
@@ -928,7 +934,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 ))
             }
             UExpressionInner::LeftShift(box e, box by) => {
-                let from = e.metadata.clone().unwrap().bitwidth.unwrap();
+                let from = log2(e.metadata.clone().unwrap().max);
 
                 let e = self.flatten_uint_expression(symbols, statements_flattened, e);
 
@@ -939,7 +945,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     _ => unreachable!(),
                 };
 
-                let e_bits = self.get_bits(e, from, target_bitwidth, statements_flattened);
+                let e_bits = self.get_bits(e, from as usize, target_bitwidth, statements_flattened);
 
                 assert_eq!(e_bits.len(), target_bitwidth);
 
@@ -955,7 +961,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 )
             }
             UExpressionInner::RightShift(box e, box by) => {
-                let from = e.metadata.clone().unwrap().bitwidth.unwrap();
+                let from = log2(e.metadata.clone().unwrap().max);
 
                 let e = self.flatten_uint_expression(symbols, statements_flattened, e);
 
@@ -966,7 +972,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     _ => unreachable!(),
                 };
 
-                let e_bits = self.get_bits(e, from, target_bitwidth, statements_flattened);
+                let e_bits = self.get_bits(e, from as usize, target_bitwidth, statements_flattened);
 
                 assert_eq!(e_bits.len(), target_bitwidth);
 
@@ -1012,21 +1018,18 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 FlatUExpression::with_field(FlatExpression::Identifier(res))
             }
-            UExpressionInner::IfElse(box condition, box consequence, box alternative) => {
-                self
-                    .flatten_if_else_expression(
-                        symbols,
-                        statements_flattened,
-                        condition,
-                        consequence,
-                        alternative,
-                    )
-                .clone()
-            }
-            ,
+            UExpressionInner::IfElse(box condition, box consequence, box alternative) => self
+                .flatten_if_else_expression(
+                    symbols,
+                    statements_flattened,
+                    condition,
+                    consequence,
+                    alternative,
+                )
+                .clone(),
             UExpressionInner::Xor(box left, box right) => {
-                let left_from = left.metadata.clone().unwrap().bitwidth.unwrap();
-                let right_from = right.metadata.clone().unwrap().bitwidth.unwrap();
+                let left_from = log2(left.metadata.clone().unwrap().max);
+                let right_from = log2(right.metadata.clone().unwrap().max);
 
                 let left_flattened =
                     self.flatten_uint_expression(symbols, statements_flattened, left);
@@ -1035,13 +1038,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 let left_bits = self.get_bits(
                     left_flattened,
-                    left_from,
+                    left_from as usize,
                     target_bitwidth,
                     statements_flattened,
                 );
                 let right_bits = self.get_bits(
                     right_flattened,
-                    right_from,
+                    right_from as usize,
                     target_bitwidth,
                     statements_flattened,
                 );
@@ -1055,32 +1058,42 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     name_xor
                         .iter()
                         .zip(left_bits.iter().zip(right_bits.iter()))
-                        .flat_map(|(name, (x, y))| {
-                            match (x, y) {
-                                (FlatExpression::Number(n), e) | (e, FlatExpression::Number(n)) => {
-                                    if *n == T::from(0) {
-                                        vec![
-                                            FlatStatement::Definition(name.clone(), y.clone())
-                                        ]
-                                    } else if *n == T::from(1) {
-                                        vec![
-                                            FlatStatement::Definition(name.clone(), FlatExpression::Sub(box FlatExpression::Number(T::from(1)), box y.clone()))
-                                        ]
-                                    } else {
-                                        unreachable!()
-                                    }
-                                },
-                                (x, y) =>                             vec![
-                                FlatStatement::Directive(FlatDirective::new(vec![name.clone()], Solver::Xor, vec![x.clone(), y.clone()])),
+                        .flat_map(|(name, (x, y))| match (x, y) {
+                            (FlatExpression::Number(n), e) | (e, FlatExpression::Number(n)) => {
+                                if *n == T::from(0) {
+                                    vec![FlatStatement::Definition(name.clone(), y.clone())]
+                                } else if *n == T::from(1) {
+                                    vec![FlatStatement::Definition(
+                                        name.clone(),
+                                        FlatExpression::Sub(
+                                            box FlatExpression::Number(T::from(1)),
+                                            box y.clone(),
+                                        ),
+                                    )]
+                                } else {
+                                    unreachable!()
+                                }
+                            }
+                            (x, y) => vec![
+                                FlatStatement::Directive(FlatDirective::new(
+                                    vec![name.clone()],
+                                    Solver::Xor,
+                                    vec![x.clone(), y.clone()],
+                                )),
                                 FlatStatement::Condition(
-                                    FlatExpression::Add(box x.clone(), box FlatExpression::Sub(box y.clone(), box name.clone().into())),
+                                    FlatExpression::Add(
+                                        box x.clone(),
+                                        box FlatExpression::Sub(
+                                            box y.clone(),
+                                            box name.clone().into(),
+                                        ),
+                                    ),
                                     FlatExpression::Mult(
                                         box FlatExpression::Add(box x.clone(), box x.clone()),
                                         box y.clone(),
                                     ),
                                 ),
-                            ]
-                            }
+                            ],
                         }),
                 );
 
@@ -1092,8 +1105,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 )
             }
             UExpressionInner::And(box left, box right) => {
-                let left_from = left.metadata.clone().unwrap().bitwidth.unwrap();
-                let right_from = right.metadata.clone().unwrap().bitwidth.unwrap();
+                let left_from = log2(left.metadata.clone().unwrap().max);
+                let right_from = log2(right.metadata.clone().unwrap().max);
 
                 let left_flattened =
                     self.flatten_uint_expression(symbols, statements_flattened, left);
@@ -1103,13 +1116,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 let left_bits = self.get_bits(
                     left_flattened,
-                    left_from,
+                    left_from as usize,
                     target_bitwidth,
                     statements_flattened,
                 );
                 let right_bits = self.get_bits(
                     right_flattened,
-                    right_from,
+                    right_from as usize,
                     target_bitwidth,
                     statements_flattened,
                 );
@@ -1191,12 +1204,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         // constants do not require directives!
         match e.field.clone() {
             Some(FlatExpression::Number(x)) => {
-                let bits: Vec<_> = Solver::bits(from)
+                let bits: Vec<_> = Solver::bits(to)
                     .execute(&vec![x])
                     .unwrap()
                     .into_iter()
                     .map(|x| FlatExpression::Number(x))
                     .collect();
+
                 self.bits_cache
                     .insert(e.field.clone().unwrap(), bits.clone());
                 return bits;
@@ -1483,8 +1497,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     condition,
                     consequence,
                     alternative,
-                ).get_field_unchecked()
-            .clone(),
+                )
+                .get_field_unchecked()
+                .clone(),
         }
     }
 
@@ -1578,7 +1593,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                         let rhs = rhs_flattened.into_iter();
 
-                        let vars: Vec<_> = vars.into_iter().map(|v| self.use_variable(&v)).collect();
+                        let vars: Vec<_> =
+                            vars.into_iter().map(|v| self.use_variable(&v)).collect();
 
                         statements_flattened.extend(
                             vars.iter().zip(rhs).map(|(v, r)| {
@@ -1587,7 +1603,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         );
 
                         if key.id == "_U32_FROM_BITS" {
-                            let bits = exprs.into_iter().map(|e| self.flatten_expression(symbols, statements_flattened, e).get_field_unchecked()).collect();
+                            let bits = exprs
+                                .into_iter()
+                                .map(|e| {
+                                    self.flatten_expression(symbols, statements_flattened, e)
+                                        .get_field_unchecked()
+                                })
+                                .collect();
                             self.bits_cache.insert(vars[0].clone().into(), bits);
                         }
                     }
@@ -1727,8 +1749,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::typed_absy::types::Signature;
-    use crate::typed_absy::types::Type;
     use zokrates_field::field::FieldPrime;
 
     #[test]
@@ -1746,11 +1766,11 @@ mod tests {
             arguments: vec![],
             statements: vec![
                 ZirStatement::Definition(
-                    ZirAssignee::Identifier(Variable::field_element("a")),
+                    Variable::field_element("a"),
                     FieldElementExpression::Number(FieldPrime::from(7)).into(),
                 ),
                 ZirStatement::Definition(
-                    ZirAssignee::Identifier(Variable::field_element("b")),
+                    Variable::field_element("b"),
                     FieldElementExpression::Pow(
                         box FieldElementExpression::Identifier("a".into()),
                         box FieldElementExpression::Number(FieldPrime::from(0)),
@@ -1805,11 +1825,11 @@ mod tests {
             arguments: vec![],
             statements: vec![
                 ZirStatement::Definition(
-                    ZirAssignee::Identifier(Variable::field_element("a")),
+                    Variable::field_element("a"),
                     FieldElementExpression::Number(FieldPrime::from(7)).into(),
                 ),
                 ZirStatement::Definition(
-                    ZirAssignee::Identifier(Variable::field_element("b")),
+                    Variable::field_element("b"),
                     FieldElementExpression::Pow(
                         box FieldElementExpression::Identifier("a".into()),
                         box FieldElementExpression::Number(FieldPrime::from(1)),
@@ -1889,11 +1909,11 @@ mod tests {
             arguments: vec![],
             statements: vec![
                 ZirStatement::Definition(
-                    ZirAssignee::Identifier(Variable::field_element("a")),
+                    Variable::field_element("a"),
                     FieldElementExpression::Number(FieldPrime::from(7)).into(),
                 ),
                 ZirStatement::Definition(
-                    ZirAssignee::Identifier(Variable::field_element("b")),
+                    Variable::field_element("b"),
                     FieldElementExpression::Pow(
                         box FieldElementExpression::Identifier("a".into()),
                         box FieldElementExpression::Number(FieldPrime::from(13)),
@@ -2037,12 +2057,12 @@ mod tests {
         let mut statements_flattened = vec![];
 
         let definition = ZirStatement::Definition(
-            ZirAssignee::Identifier(Variable::field_element("b")),
+            Variable::field_element("b"),
             FieldElementExpression::Number(FieldPrime::from(42)).into(),
         );
 
         let statement = ZirStatement::Definition(
-            ZirAssignee::Identifier(Variable::field_element("a")),
+            Variable::field_element("a"),
             FieldElementExpression::Div(
                 box FieldElementExpression::Div(
                     box FieldElementExpression::Number(FieldPrime::from(5)),
@@ -2133,362 +2153,362 @@ mod tests {
         );
     }
 
-    #[test]
-    fn field_array() {
-        // foo = [ , , ]
+    // #[test]
+    // fn field_array() {
+    //     // foo = [ , , ]
 
-        let mut flattener = Flattener::new();
-        let mut statements_flattened = vec![];
-        let statement = ZirStatement::Definition(
-            ZirAssignee::Identifier(Variable::field_array("foo", 3)),
-            ArrayExpressionInner::Value(vec![
-                FieldElementExpression::Number(FieldPrime::from(1)).into(),
-                FieldElementExpression::Number(FieldPrime::from(2)).into(),
-                FieldElementExpression::Number(FieldPrime::from(3)).into(),
-            ])
-            .annotate(Type::FieldElement, 3)
-            .into(),
-        );
-        let expression =
-            ArrayExpressionInner::Identifier("foo".into()).annotate(Type::FieldElement, 3);
+    //     let mut flattener = Flattener::new();
+    //     let mut statements_flattened = vec![];
+    //     let statement = ZirStatement::Definition(
+    //         ZirAssignee::Identifier(Variable::field_array("foo", 3)),
+    //         ArrayExpressionInner::Value(vec![
+    //             FieldElementExpression::Number(FieldPrime::from(1)).into(),
+    //             FieldElementExpression::Number(FieldPrime::from(2)).into(),
+    //             FieldElementExpression::Number(FieldPrime::from(3)).into(),
+    //         ])
+    //         .annotate(Type::FieldElement, 3)
+    //         .into(),
+    //     );
+    //     let expression =
+    //         ArrayExpressionInner::Identifier("foo".into()).annotate(Type::FieldElement, 3);
 
-        flattener.flatten_statement(&HashMap::new(), &mut statements_flattened, statement);
+    //     flattener.flatten_statement(&HashMap::new(), &mut statements_flattened, statement);
 
-        let expressions = flattener.flatten_array_expression::<FieldElementExpression<_>>(
-            &HashMap::new(),
-            &mut statements_flattened,
-            expression,
-        );
+    //     let expressions = flattener.flatten_array_expression::<FieldElementExpression<_>>(
+    //         &HashMap::new(),
+    //         &mut statements_flattened,
+    //         expression,
+    //     );
 
-        assert_eq!(
-            expressions,
-            vec![
-                FlatExpression::Identifier(FlatVariable::new(0)),
-                FlatExpression::Identifier(FlatVariable::new(1)),
-                FlatExpression::Identifier(FlatVariable::new(2)),
-            ]
-        );
-    }
+    //     assert_eq!(
+    //         expressions,
+    //         vec![
+    //             FlatExpression::Identifier(FlatVariable::new(0)),
+    //             FlatExpression::Identifier(FlatVariable::new(1)),
+    //             FlatExpression::Identifier(FlatVariable::new(2)),
+    //         ]
+    //     );
+    // }
 
-    #[test]
-    fn array_definition() {
-        // field[3] foo = [1, 2, 3]
-        let mut flattener = Flattener::new();
-        let mut statements_flattened = vec![];
-        let statement = ZirStatement::Definition(
-            ZirAssignee::Identifier(Variable::field_array("foo", 3)),
-            ArrayExpressionInner::Value(vec![
-                FieldElementExpression::Number(FieldPrime::from(1)).into(),
-                FieldElementExpression::Number(FieldPrime::from(2)).into(),
-                FieldElementExpression::Number(FieldPrime::from(3)).into(),
-            ])
-            .annotate(Type::FieldElement, 3)
-            .into(),
-        );
+    // #[test]
+    // fn array_definition() {
+    //     // field[3] foo = [1, 2, 3]
+    //     let mut flattener = Flattener::new();
+    //     let mut statements_flattened = vec![];
+    //     let statement = ZirStatement::Definition(
+    //         ZirAssignee::Identifier(Variable::field_array("foo", 3)),
+    //         ArrayExpressionInner::Value(vec![
+    //             FieldElementExpression::Number(FieldPrime::from(1)).into(),
+    //             FieldElementExpression::Number(FieldPrime::from(2)).into(),
+    //             FieldElementExpression::Number(FieldPrime::from(3)).into(),
+    //         ])
+    //         .annotate(Type::FieldElement, 3)
+    //         .into(),
+    //     );
 
-        flattener.flatten_statement(&HashMap::new(), &mut statements_flattened, statement);
+    //     flattener.flatten_statement(&HashMap::new(), &mut statements_flattened, statement);
 
-        assert_eq!(
-            statements_flattened,
-            vec![
-                FlatStatement::Definition(
-                    FlatVariable::new(0),
-                    FlatExpression::Number(FieldPrime::from(1))
-                ),
-                FlatStatement::Definition(
-                    FlatVariable::new(1),
-                    FlatExpression::Number(FieldPrime::from(2))
-                ),
-                FlatStatement::Definition(
-                    FlatVariable::new(2),
-                    FlatExpression::Number(FieldPrime::from(3))
-                ),
-            ]
-        );
-    }
+    //     assert_eq!(
+    //         statements_flattened,
+    //         vec![
+    //             FlatStatement::Definition(
+    //                 FlatVariable::new(0),
+    //                 FlatExpression::Number(FieldPrime::from(1))
+    //             ),
+    //             FlatStatement::Definition(
+    //                 FlatVariable::new(1),
+    //                 FlatExpression::Number(FieldPrime::from(2))
+    //             ),
+    //             FlatStatement::Definition(
+    //                 FlatVariable::new(2),
+    //                 FlatExpression::Number(FieldPrime::from(3))
+    //             ),
+    //         ]
+    //     );
+    // }
 
-    #[test]
-    fn array_selection() {
-        // field[3] foo = [1, 2, 3]
-        // foo[1]
+    // #[test]
+    // fn array_selection() {
+    //     // field[3] foo = [1, 2, 3]
+    //     // foo[1]
 
-        let mut flattener = Flattener::new();
-        let mut statements_flattened = vec![];
-        let statement = ZirStatement::Definition(
-            ZirAssignee::Identifier(Variable::field_array("foo", 3)),
-            ArrayExpressionInner::Value(vec![
-                FieldElementExpression::Number(FieldPrime::from(1)).into(),
-                FieldElementExpression::Number(FieldPrime::from(2)).into(),
-                FieldElementExpression::Number(FieldPrime::from(3)).into(),
-            ])
-            .annotate(Type::FieldElement, 3)
-            .into(),
-        );
+    //     let mut flattener = Flattener::new();
+    //     let mut statements_flattened = vec![];
+    //     let statement = ZirStatement::Definition(
+    //         ZirAssignee::Identifier(Variable::field_array("foo", 3)),
+    //         ArrayExpressionInner::Value(vec![
+    //             FieldElementExpression::Number(FieldPrime::from(1)).into(),
+    //             FieldElementExpression::Number(FieldPrime::from(2)).into(),
+    //             FieldElementExpression::Number(FieldPrime::from(3)).into(),
+    //         ])
+    //         .annotate(Type::FieldElement, 3)
+    //         .into(),
+    //     );
 
-        let expression = FieldElementExpression::Select(
-            box ArrayExpressionInner::Identifier("foo".into()).annotate(Type::FieldElement, 3),
-            box FieldElementExpression::Number(FieldPrime::from(1)),
-        );
+    //     let expression = FieldElementExpression::Select(
+    //         box ArrayExpressionInner::Identifier("foo".into()).annotate(Type::FieldElement, 3),
+    //         box FieldElementExpression::Number(FieldPrime::from(1)),
+    //     );
 
-        flattener.flatten_statement(&HashMap::new(), &mut statements_flattened, statement);
+    //     flattener.flatten_statement(&HashMap::new(), &mut statements_flattened, statement);
 
-        let flat_expression = flattener.flatten_field_expression(
-            &HashMap::new(),
-            &mut statements_flattened,
-            expression,
-        );
+    //     let flat_expression = flattener.flatten_field_expression(
+    //         &HashMap::new(),
+    //         &mut statements_flattened,
+    //         expression,
+    //     );
 
-        assert_eq!(
-            flat_expression,
-            FlatExpression::Identifier(FlatVariable::new(1)),
-        );
-    }
+    //     assert_eq!(
+    //         flat_expression,
+    //         FlatExpression::Identifier(FlatVariable::new(1)),
+    //     );
+    // }
 
-    #[test]
-    fn array_sum() {
-        // field[3] foo = [1, 2, 3]
-        // bar = foo[0] + foo[1] + foo[2]
-        // we don't optimise detecting constants, this will be done in an optimiser pass
+    // #[test]
+    // fn array_sum() {
+    //     // field[3] foo = [1, 2, 3]
+    //     // bar = foo[0] + foo[1] + foo[2]
+    //     // we don't optimise detecting constants, this will be done in an optimiser pass
 
-        let mut flattener = Flattener::new();
+    //     let mut flattener = Flattener::new();
 
-        let mut statements_flattened = vec![];
-        let def = ZirStatement::Definition(
-            ZirAssignee::Identifier(Variable::field_array("foo", 3)),
-            ArrayExpressionInner::Value(vec![
-                FieldElementExpression::Number(FieldPrime::from(1)).into(),
-                FieldElementExpression::Number(FieldPrime::from(2)).into(),
-                FieldElementExpression::Number(FieldPrime::from(3)).into(),
-            ])
-            .annotate(Type::FieldElement, 3)
-            .into(),
-        );
+    //     let mut statements_flattened = vec![];
+    //     let def = ZirStatement::Definition(
+    //         ZirAssignee::Identifier(Variable::field_array("foo", 3)),
+    //         ArrayExpressionInner::Value(vec![
+    //             FieldElementExpression::Number(FieldPrime::from(1)).into(),
+    //             FieldElementExpression::Number(FieldPrime::from(2)).into(),
+    //             FieldElementExpression::Number(FieldPrime::from(3)).into(),
+    //         ])
+    //         .annotate(Type::FieldElement, 3)
+    //         .into(),
+    //     );
 
-        let sum = ZirStatement::Definition(
-            ZirAssignee::Identifier(Variable::field_element("bar")),
-            FieldElementExpression::Add(
-                box FieldElementExpression::Add(
-                    box FieldElementExpression::Select(
-                        box ArrayExpressionInner::Identifier("foo".into())
-                            .annotate(Type::FieldElement, 3),
-                        box FieldElementExpression::Number(FieldPrime::from(0)),
-                    ),
-                    box FieldElementExpression::Select(
-                        box ArrayExpressionInner::Identifier("foo".into())
-                            .annotate(Type::FieldElement, 3),
-                        box FieldElementExpression::Number(FieldPrime::from(1)),
-                    ),
-                ),
-                box FieldElementExpression::Select(
-                    box ArrayExpressionInner::Identifier("foo".into())
-                        .annotate(Type::FieldElement, 3),
-                    box FieldElementExpression::Number(FieldPrime::from(2)),
-                ),
-            )
-            .into(),
-        );
+    //     let sum = ZirStatement::Definition(
+    //         ZirAssignee::Identifier(Variable::field_element("bar")),
+    //         FieldElementExpression::Add(
+    //             box FieldElementExpression::Add(
+    //                 box FieldElementExpression::Select(
+    //                     box ArrayExpressionInner::Identifier("foo".into())
+    //                         .annotate(Type::FieldElement, 3),
+    //                     box FieldElementExpression::Number(FieldPrime::from(0)),
+    //                 ),
+    //                 box FieldElementExpression::Select(
+    //                     box ArrayExpressionInner::Identifier("foo".into())
+    //                         .annotate(Type::FieldElement, 3),
+    //                     box FieldElementExpression::Number(FieldPrime::from(1)),
+    //                 ),
+    //             ),
+    //             box FieldElementExpression::Select(
+    //                 box ArrayExpressionInner::Identifier("foo".into())
+    //                     .annotate(Type::FieldElement, 3),
+    //                 box FieldElementExpression::Number(FieldPrime::from(2)),
+    //             ),
+    //         )
+    //         .into(),
+    //     );
 
-        flattener.flatten_statement(&HashMap::new(), &mut statements_flattened, def);
+    //     flattener.flatten_statement(&HashMap::new(), &mut statements_flattened, def);
 
-        flattener.flatten_statement(&HashMap::new(), &mut statements_flattened, sum);
+    //     flattener.flatten_statement(&HashMap::new(), &mut statements_flattened, sum);
 
-        assert_eq!(
-            statements_flattened[3],
-            FlatStatement::Definition(
-                FlatVariable::new(3),
-                FlatExpression::Add(
-                    box FlatExpression::Add(
-                        box FlatExpression::Identifier(FlatVariable::new(0)),
-                        box FlatExpression::Identifier(FlatVariable::new(1)),
-                    ),
-                    box FlatExpression::Identifier(FlatVariable::new(2)),
-                )
-            )
-        );
-    }
+    //     assert_eq!(
+    //         statements_flattened[3],
+    //         FlatStatement::Definition(
+    //             FlatVariable::new(3),
+    //             FlatExpression::Add(
+    //                 box FlatExpression::Add(
+    //                     box FlatExpression::Identifier(FlatVariable::new(0)),
+    //                     box FlatExpression::Identifier(FlatVariable::new(1)),
+    //                 ),
+    //                 box FlatExpression::Identifier(FlatVariable::new(2)),
+    //             )
+    //         )
+    //     );
+    // }
 
-    #[test]
-    fn array_of_array_sum() {
-        // field[2][2] foo = [[1, 2], [3, 4]]
-        // bar = foo[0][0] + foo[0][1] + foo[1][0] + foo[1][1]
-        // we don't optimise detecting constants, this will be done in an optimiser pass
+    // #[test]
+    // fn array_of_array_sum() {
+    //     // field[2][2] foo = [[1, 2], [3, 4]]
+    //     // bar = foo[0][0] + foo[0][1] + foo[1][0] + foo[1][1]
+    //     // we don't optimise detecting constants, this will be done in an optimiser pass
 
-        let mut flattener = Flattener::new();
+    //     let mut flattener = Flattener::new();
 
-        let mut statements_flattened = vec![];
-        let def = ZirStatement::Definition(
-            ZirAssignee::Identifier(Variable::field_array("foo", 4)),
-            ArrayExpressionInner::Value(vec![
-                ArrayExpressionInner::Value(vec![
-                    FieldElementExpression::Number(FieldPrime::from(1)).into(),
-                    FieldElementExpression::Number(FieldPrime::from(2)).into(),
-                ])
-                .annotate(Type::FieldElement, 2)
-                .into(),
-                ArrayExpressionInner::Value(vec![
-                    FieldElementExpression::Number(FieldPrime::from(3)).into(),
-                    FieldElementExpression::Number(FieldPrime::from(4)).into(),
-                ])
-                .annotate(Type::FieldElement, 2)
-                .into(),
-            ])
-            .annotate(Type::array(Type::FieldElement, 2), 2)
-            .into(),
-        );
+    //     let mut statements_flattened = vec![];
+    //     let def = ZirStatement::Definition(
+    //         ZirAssignee::Identifier(Variable::field_array("foo", 4)),
+    //         ArrayExpressionInner::Value(vec![
+    //             ArrayExpressionInner::Value(vec![
+    //                 FieldElementExpression::Number(FieldPrime::from(1)).into(),
+    //                 FieldElementExpression::Number(FieldPrime::from(2)).into(),
+    //             ])
+    //             .annotate(Type::FieldElement, 2)
+    //             .into(),
+    //             ArrayExpressionInner::Value(vec![
+    //                 FieldElementExpression::Number(FieldPrime::from(3)).into(),
+    //                 FieldElementExpression::Number(FieldPrime::from(4)).into(),
+    //             ])
+    //             .annotate(Type::FieldElement, 2)
+    //             .into(),
+    //         ])
+    //         .annotate(Type::array(Type::FieldElement, 2), 2)
+    //         .into(),
+    //     );
 
-        let sum = ZirStatement::Definition(
-            ZirAssignee::Identifier(Variable::field_element("bar")),
-            FieldElementExpression::Add(
-                box FieldElementExpression::Add(
-                    box FieldElementExpression::Add(
-                        box FieldElementExpression::Select(
-                            box ArrayExpressionInner::Select(
-                                box ArrayExpressionInner::Identifier("foo".into())
-                                    .annotate(Type::array(Type::FieldElement, 2), 2),
-                                box FieldElementExpression::Number(FieldPrime::from(0)),
-                            )
-                            .annotate(Type::FieldElement, 2),
-                            box FieldElementExpression::Number(FieldPrime::from(0)),
-                        ),
-                        box FieldElementExpression::Select(
-                            box ArrayExpressionInner::Select(
-                                box ArrayExpressionInner::Identifier("foo".into())
-                                    .annotate(Type::array(Type::FieldElement, 2), 2),
-                                box FieldElementExpression::Number(FieldPrime::from(0)),
-                            )
-                            .annotate(Type::FieldElement, 2),
-                            box FieldElementExpression::Number(FieldPrime::from(1)),
-                        ),
-                    ),
-                    box FieldElementExpression::Select(
-                        box ArrayExpressionInner::Select(
-                            box ArrayExpressionInner::Identifier("foo".into())
-                                .annotate(Type::array(Type::FieldElement, 2), 2),
-                            box FieldElementExpression::Number(FieldPrime::from(1)),
-                        )
-                        .annotate(Type::FieldElement, 2),
-                        box FieldElementExpression::Number(FieldPrime::from(0)),
-                    ),
-                ),
-                box FieldElementExpression::Select(
-                    box ArrayExpressionInner::Select(
-                        box ArrayExpressionInner::Identifier("foo".into())
-                            .annotate(Type::array(Type::FieldElement, 2), 2),
-                        box FieldElementExpression::Number(FieldPrime::from(1)),
-                    )
-                    .annotate(Type::FieldElement, 2),
-                    box FieldElementExpression::Number(FieldPrime::from(1)),
-                ),
-            )
-            .into(),
-        );
+    //     let sum = ZirStatement::Definition(
+    //         ZirAssignee::Identifier(Variable::field_element("bar")),
+    //         FieldElementExpression::Add(
+    //             box FieldElementExpression::Add(
+    //                 box FieldElementExpression::Add(
+    //                     box FieldElementExpression::Select(
+    //                         box ArrayExpressionInner::Select(
+    //                             box ArrayExpressionInner::Identifier("foo".into())
+    //                                 .annotate(Type::array(Type::FieldElement, 2), 2),
+    //                             box FieldElementExpression::Number(FieldPrime::from(0)),
+    //                         )
+    //                         .annotate(Type::FieldElement, 2),
+    //                         box FieldElementExpression::Number(FieldPrime::from(0)),
+    //                     ),
+    //                     box FieldElementExpression::Select(
+    //                         box ArrayExpressionInner::Select(
+    //                             box ArrayExpressionInner::Identifier("foo".into())
+    //                                 .annotate(Type::array(Type::FieldElement, 2), 2),
+    //                             box FieldElementExpression::Number(FieldPrime::from(0)),
+    //                         )
+    //                         .annotate(Type::FieldElement, 2),
+    //                         box FieldElementExpression::Number(FieldPrime::from(1)),
+    //                     ),
+    //                 ),
+    //                 box FieldElementExpression::Select(
+    //                     box ArrayExpressionInner::Select(
+    //                         box ArrayExpressionInner::Identifier("foo".into())
+    //                             .annotate(Type::array(Type::FieldElement, 2), 2),
+    //                         box FieldElementExpression::Number(FieldPrime::from(1)),
+    //                     )
+    //                     .annotate(Type::FieldElement, 2),
+    //                     box FieldElementExpression::Number(FieldPrime::from(0)),
+    //                 ),
+    //             ),
+    //             box FieldElementExpression::Select(
+    //                 box ArrayExpressionInner::Select(
+    //                     box ArrayExpressionInner::Identifier("foo".into())
+    //                         .annotate(Type::array(Type::FieldElement, 2), 2),
+    //                     box FieldElementExpression::Number(FieldPrime::from(1)),
+    //                 )
+    //                 .annotate(Type::FieldElement, 2),
+    //                 box FieldElementExpression::Number(FieldPrime::from(1)),
+    //             ),
+    //         )
+    //         .into(),
+    //     );
 
-        flattener.flatten_statement(&HashMap::new(), &mut statements_flattened, def);
+    //     flattener.flatten_statement(&HashMap::new(), &mut statements_flattened, def);
 
-        flattener.flatten_statement(&HashMap::new(), &mut statements_flattened, sum);
+    //     flattener.flatten_statement(&HashMap::new(), &mut statements_flattened, sum);
 
-        assert_eq!(
-            statements_flattened[4],
-            FlatStatement::Definition(
-                FlatVariable::new(4),
-                FlatExpression::Add(
-                    box FlatExpression::Add(
-                        box FlatExpression::Add(
-                            box FlatExpression::Identifier(FlatVariable::new(0)),
-                            box FlatExpression::Identifier(FlatVariable::new(1)),
-                        ),
-                        box FlatExpression::Identifier(FlatVariable::new(2))
-                    ),
-                    box FlatExpression::Identifier(FlatVariable::new(3)),
-                )
-            )
-        );
-    }
+    //     assert_eq!(
+    //         statements_flattened[4],
+    //         FlatStatement::Definition(
+    //             FlatVariable::new(4),
+    //             FlatExpression::Add(
+    //                 box FlatExpression::Add(
+    //                     box FlatExpression::Add(
+    //                         box FlatExpression::Identifier(FlatVariable::new(0)),
+    //                         box FlatExpression::Identifier(FlatVariable::new(1)),
+    //                     ),
+    //                     box FlatExpression::Identifier(FlatVariable::new(2))
+    //                 ),
+    //                 box FlatExpression::Identifier(FlatVariable::new(3)),
+    //             )
+    //         )
+    //     );
+    // }
 
-    #[test]
-    fn array_if() {
-        // if 1 == 1 then [1] else [3] fi
-        let with_arrays = {
-            let mut flattener = Flattener::new();
-            let mut statements_flattened = vec![];
+    // #[test]
+    // fn array_if() {
+    //     // if 1 == 1 then [1] else [3] fi
+    //     let with_arrays = {
+    //         let mut flattener = Flattener::new();
+    //         let mut statements_flattened = vec![];
 
-            let e = ArrayExpressionInner::IfElse(
-                box BooleanExpression::FieldEq(
-                    box FieldElementExpression::Number(FieldPrime::from(1)),
-                    box FieldElementExpression::Number(FieldPrime::from(1)),
-                ),
-                box ArrayExpressionInner::Value(vec![FieldElementExpression::Number(
-                    FieldPrime::from(1),
-                )
-                .into()])
-                .annotate(Type::FieldElement, 1),
-                box ArrayExpressionInner::Value(vec![FieldElementExpression::Number(
-                    FieldPrime::from(3),
-                )
-                .into()])
-                .annotate(Type::FieldElement, 2),
-            )
-            .annotate(Type::FieldElement, 1);
+    //         let e = ArrayExpressionInner::IfElse(
+    //             box BooleanExpression::FieldEq(
+    //                 box FieldElementExpression::Number(FieldPrime::from(1)),
+    //                 box FieldElementExpression::Number(FieldPrime::from(1)),
+    //             ),
+    //             box ArrayExpressionInner::Value(vec![FieldElementExpression::Number(
+    //                 FieldPrime::from(1),
+    //             )
+    //             .into()])
+    //             .annotate(Type::FieldElement, 1),
+    //             box ArrayExpressionInner::Value(vec![FieldElementExpression::Number(
+    //                 FieldPrime::from(3),
+    //             )
+    //             .into()])
+    //             .annotate(Type::FieldElement, 2),
+    //         )
+    //         .annotate(Type::FieldElement, 1);
 
-            (
-                flattener.flatten_array_expression::<FieldElementExpression<_>>(
-                    &HashMap::new(),
-                    &mut statements_flattened,
-                    e,
-                )[0]
-                .clone(),
-                statements_flattened,
-            )
-        };
+    //         (
+    //             flattener.flatten_array_expression::<FieldElementExpression<_>>(
+    //                 &HashMap::new(),
+    //                 &mut statements_flattened,
+    //                 e,
+    //             )[0]
+    //             .clone(),
+    //             statements_flattened,
+    //         )
+    //     };
 
-        let without_arrays = {
-            let mut statements_flattened = vec![];
-            let mut flattener = Flattener::new();
-            // if 1 == 1 then 1 else 3 fi
-            let e = FieldElementExpression::IfElse(
-                box BooleanExpression::FieldEq(
-                    box FieldElementExpression::Number(FieldPrime::from(1)),
-                    box FieldElementExpression::Number(FieldPrime::from(1)),
-                ),
-                box FieldElementExpression::Number(FieldPrime::from(1)),
-                box FieldElementExpression::Number(FieldPrime::from(3)),
-            );
+    //     let without_arrays = {
+    //         let mut statements_flattened = vec![];
+    //         let mut flattener = Flattener::new();
+    //         // if 1 == 1 then 1 else 3 fi
+    //         let e = FieldElementExpression::IfElse(
+    //             box BooleanExpression::FieldEq(
+    //                 box FieldElementExpression::Number(FieldPrime::from(1)),
+    //                 box FieldElementExpression::Number(FieldPrime::from(1)),
+    //             ),
+    //             box FieldElementExpression::Number(FieldPrime::from(1)),
+    //             box FieldElementExpression::Number(FieldPrime::from(3)),
+    //         );
 
-            (
-                flattener.flatten_field_expression(&HashMap::new(), &mut statements_flattened, e),
-                statements_flattened,
-            )
-        };
+    //         (
+    //             flattener.flatten_field_expression(&HashMap::new(), &mut statements_flattened, e),
+    //             statements_flattened,
+    //         )
+    //     };
 
-        assert_eq!(with_arrays, without_arrays);
-    }
+    //     assert_eq!(with_arrays, without_arrays);
+    // }
 
     #[test]
     fn next_variable() {
         let mut flattener: Flattener<FieldPrime> = Flattener::new();
         assert_eq!(
-            vec![FlatVariable::new(0)],
+            FlatVariable::new(0),
             flattener.use_variable(&Variable::field_element("a"))
         );
         assert_eq!(
             flattener.layout.get(&"a".into()),
-            Some(&vec![FlatVariable::new(0)])
+            Some(&FlatVariable::new(0))
         );
         assert_eq!(
-            vec![FlatVariable::new(1)],
+            FlatVariable::new(1),
             flattener.use_variable(&Variable::field_element("a"))
         );
         assert_eq!(
             flattener.layout.get(&"a".into()),
-            Some(&vec![FlatVariable::new(1)])
+            Some(&FlatVariable::new(1))
         );
         assert_eq!(
-            vec![FlatVariable::new(2)],
+            FlatVariable::new(2),
             flattener.use_variable(&Variable::field_element("a"))
         );
         assert_eq!(
             flattener.layout.get(&"a".into()),
-            Some(&vec![FlatVariable::new(2)])
+            Some(&FlatVariable::new(2))
         );
     }
 }

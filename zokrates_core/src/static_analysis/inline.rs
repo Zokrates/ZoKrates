@@ -136,10 +136,10 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                 TypedModule {
                     functions: vec![
                         (unpack_key, TypedFunctionSymbol::Flat(unpack)),
-                        // (sha256_round_key, TypedFunctionSymbol::Flat(sha256_round)),
-                        // (check_u8_key, TypedFunctionSymbol::Flat(check_u8)),
-                        // (check_u16_key, TypedFunctionSymbol::Flat(check_u16)),
-                        // (check_u32_key, TypedFunctionSymbol::Flat(check_u32)),
+                        (sha256_round_key, TypedFunctionSymbol::Flat(sha256_round)),
+                        (check_u8_key, TypedFunctionSymbol::Flat(check_u8)),
+                        (check_u16_key, TypedFunctionSymbol::Flat(check_u16)),
+                        (check_u32_key, TypedFunctionSymbol::Flat(check_u32)),
                         (u32_to_bits_key, TypedFunctionSymbol::Flat(u32_to_bits)),
                         (u32_from_bits_key, TypedFunctionSymbol::Flat(u32_from_bits)),
                         (main_key, main),
@@ -398,13 +398,20 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         self.statement_buffer
                             .push(TypedStatement::MultipleDefinition(
                                 vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
-                                TypedExpressionList::FunctionCall(key.clone(), expressions.clone(), tys),
+                                TypedExpressionList::FunctionCall(
+                                    key.clone(),
+                                    expressions.clone(),
+                                    tys,
+                                ),
                             ));
 
                         self.call_cache_mut()
                             .entry(key.clone())
                             .or_insert_with(|| HashMap::new())
-                            .insert(expressions, vec![BooleanExpression::Identifier(id.clone()).into()]);
+                            .insert(
+                                expressions,
+                                vec![BooleanExpression::Identifier(id.clone()).into()],
+                            );
 
                         BooleanExpression::Identifier(id)
                     }
@@ -431,7 +438,6 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         _ => unreachable!(),
                     },
                     Err((embed_key, expressions)) => {
-
                         let tys = key.signature.outputs.clone();
                         let id = Identifier {
                             id: CoreIdentifier::Call(key.clone()),
@@ -444,7 +450,11 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         self.statement_buffer
                             .push(TypedStatement::MultipleDefinition(
                                 vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
-                                TypedExpressionList::FunctionCall(embed_key.clone(), expressions.clone(), tys),
+                                TypedExpressionList::FunctionCall(
+                                    embed_key.clone(),
+                                    expressions.clone(),
+                                    tys,
+                                ),
                             ));
 
                         let out = ArrayExpressionInner::Identifier(id);
@@ -452,7 +462,10 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         self.call_cache_mut()
                             .entry(key.clone())
                             .or_insert_with(|| HashMap::new())
-                            .insert(expressions, vec![out.clone().annotate(ty.clone(), size).into()]);
+                            .insert(
+                                expressions,
+                                vec![out.clone().annotate(ty.clone(), size).into()],
+                            );
 
                         out
                     }
@@ -528,7 +541,11 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         self.statement_buffer
                             .push(TypedStatement::MultipleDefinition(
                                 vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
-                                TypedExpressionList::FunctionCall(embed_key.clone(), expressions.clone(), tys),
+                                TypedExpressionList::FunctionCall(
+                                    embed_key.clone(),
+                                    expressions.clone(),
+                                    tys,
+                                ),
                             ));
 
                         let out = UExpressionInner::Identifier(id);
@@ -833,12 +850,12 @@ mod tests {
                     FunctionKey::with_id("main").signature(signature.clone()),
                     TypedFunctionSymbol::Here(TypedFunction {
                         arguments: vec![Parameter {
-                            id: Variable::field_element("a".into()),
+                            id: Variable::field_element("a"),
                             private: true,
                         }],
                         statements: vec![
                             TypedStatement::Definition(
-                                TypedAssignee::Identifier(Variable::field_element("b".into())),
+                                TypedAssignee::Identifier(Variable::field_element("b")),
                                 FieldElementExpression::Add(
                                     box FieldElementExpression::FunctionCall(
                                         FunctionKey::with_id("foo").signature(signature.clone()),
@@ -876,7 +893,7 @@ mod tests {
                 FunctionKey::with_id("foo").signature(signature.clone()),
                 TypedFunctionSymbol::Here(TypedFunction {
                     arguments: vec![Parameter {
-                        id: Variable::field_element("a".into()),
+                        id: Variable::field_element("a"),
                         private: true,
                     }],
                     statements: vec![TypedStatement::Return(vec![
@@ -911,7 +928,7 @@ mod tests {
                 .unwrap(),
             &TypedFunctionSymbol::Here(TypedFunction {
                 arguments: vec![Parameter {
-                    id: Variable::field_element("a".into()),
+                    id: Variable::field_element("a"),
                     private: true,
                 }],
                 statements: vec![
@@ -926,7 +943,7 @@ mod tests {
                         FieldElementExpression::Identifier("a".into()).into()
                     ),
                     TypedStatement::Definition(
-                        TypedAssignee::Identifier(Variable::field_element("b".into())),
+                        TypedAssignee::Identifier(Variable::field_element("b")),
                         FieldElementExpression::Add(
                             box FieldElementExpression::Identifier(Identifier::from("a").stack(
                                 vec![(
@@ -987,12 +1004,12 @@ mod tests {
                     ),
                     TypedFunctionSymbol::Here(TypedFunction {
                         arguments: vec![Parameter {
-                            id: Variable::field_element("a".into()),
+                            id: Variable::field_element("a"),
                             private: true,
                         }],
                         statements: vec![
                             TypedStatement::Definition(
-                                TypedAssignee::Identifier(Variable::field_element("b".into())),
+                                TypedAssignee::Identifier(Variable::field_element("b")),
                                 FieldElementExpression::Add(
                                     box FieldElementExpression::FunctionCall(
                                         FunctionKey::with_id("foo").signature(signature.clone()),
@@ -1017,7 +1034,7 @@ mod tests {
                     FunctionKey::with_id("bar").signature(signature.clone()),
                     TypedFunctionSymbol::Here(TypedFunction {
                         arguments: vec![Parameter {
-                            id: Variable::field_element("a".into()),
+                            id: Variable::field_element("a"),
                             private: true,
                         }],
                         statements: vec![TypedStatement::Return(vec![
@@ -1047,7 +1064,7 @@ mod tests {
                 FunctionKey::with_id("foo").signature(signature.clone()),
                 TypedFunctionSymbol::Here(TypedFunction {
                     arguments: vec![Parameter {
-                        id: Variable::field_element("a".into()),
+                        id: Variable::field_element("a"),
                         private: true,
                     }],
                     statements: vec![TypedStatement::Return(vec![
@@ -1082,7 +1099,7 @@ mod tests {
                 .unwrap(),
             &TypedFunctionSymbol::Here(TypedFunction {
                 arguments: vec![Parameter {
-                    id: Variable::field_element("a".into()),
+                    id: Variable::field_element("a"),
                     private: true,
                 }],
                 statements: vec![
@@ -1129,7 +1146,7 @@ mod tests {
                         .into()
                     ),
                     TypedStatement::Definition(
-                        TypedAssignee::Identifier(Variable::field_element("b".into())),
+                        TypedAssignee::Identifier(Variable::field_element("b")),
                         FieldElementExpression::Add(
                             box FieldElementExpression::Identifier(Identifier::from("a").stack(
                                 vec![(

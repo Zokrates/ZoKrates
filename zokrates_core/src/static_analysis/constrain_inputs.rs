@@ -133,25 +133,4 @@ impl<'ast, T: Field> Folder<'ast, T> for InputConstrainer<'ast, T> {
             ..f
         }
     }
-
-    fn fold_uint_expression(&mut self, e: UExpression<'ast, T>) -> UExpression<'ast, T> {
-        match e.inner {
-            UExpressionInner::Identifier(ref id) => {
-                if self.uints.contains(id) {
-                    use std::convert::TryInto;
-                    UExpression {
-                        metadata: Some(UMetadata {
-                            max: Some(2_usize.pow(e.bitwidth.try_into().unwrap()).into()),
-                            bitwidth: Some(e.bitwidth),
-                            should_reduce: Some(false),
-                        }),
-                        ..e
-                    }
-                } else {
-                    e
-                }
-            }
-            _ => fold_uint_expression(self, e),
-        }
-    }
 }

@@ -710,7 +710,9 @@ pub fn fold_uint_expression_inner<'ast, T: Field>(
 
             zir::UExpressionInner::Not(box e)
         }
-        typed_absy::UExpressionInner::FunctionCall(key, exps) => unreachable!("function calls should have been removed"),
+        typed_absy::UExpressionInner::FunctionCall(key, exps) => {
+            unreachable!("function calls should have been removed")
+        }
         typed_absy::UExpressionInner::Select(box array, box index) => {
             let array = f.fold_array_expression(array);
             let index = f.fold_field_expression(index);

@@ -10,26 +10,26 @@ mod flatten_complex_types;
 mod inline;
 mod propagate_unroll;
 mod propagation;
-mod uint_optimizer;
+mod redefinition;
 mod return_binder;
+mod uint_optimizer;
 mod unconstrained_vars;
 mod unroll;
-mod redefinition;
 
 use self::constrain_inputs::InputConstrainer;
 use self::flatten_complex_types::Flattener;
 use self::inline::Inliner;
 use self::propagate_unroll::PropagatedUnroller;
 use self::propagation::Propagator;
-use self::uint_optimizer::UintOptimizer;
 use self::redefinition::RedefinitionOptimizer;
+use self::return_binder::ReturnBinder;
+use self::uint_optimizer::UintOptimizer;
+use self::unconstrained_vars::UnconstrainedVariableDetector;
 use crate::flat_absy::FlatProg;
+use crate::ir::Prog;
 use crate::typed_absy::TypedProgram;
 use zir::ZirProgram;
-use self::return_binder::ReturnBinder;
-use self::unconstrained_vars::UnconstrainedVariableDetector;
 use zokrates_field::field::Field;
-use crate::ir::Prog;
 
 pub trait Analyse {
     fn analyse(self) -> Self;

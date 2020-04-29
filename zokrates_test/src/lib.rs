@@ -92,7 +92,6 @@ pub fn test_inner(test_path: &str) {
 
     match t.max_constraint_count {
         Some(target_count) => {
-
             let count = bin.constraint_count();
             // assert!(
             // count <= target_count,
@@ -102,8 +101,12 @@ pub fn test_inner(test_path: &str) {
             // bin
             // );
 
-            println!("{} at {}% of max", test_path, (count as f32)/(target_count as f32) * 100_f32);
-        },
+            println!(
+                "{} at {}% of max",
+                test_path,
+                (count as f32) / (target_count as f32) * 100_f32
+            );
+        }
         _ => {}
     };
 

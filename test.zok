@@ -1,6 +1,2 @@
-def main(u32[1000] a) -> (u32):
-	u32 res = 0x00000000
-	for field i in 0..1000 do
-		res = res + a[i]
-	endfor
-	return res
+def main(u8 a) -> (u8):
+	return a + a

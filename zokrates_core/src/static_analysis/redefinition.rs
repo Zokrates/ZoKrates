@@ -10,24 +10,24 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
-use std::marker::PhantomData;
 use crate::typed_absy::folder::*;
 use crate::typed_absy::*;
 use std::collections::HashMap;
 use std::convert::TryFrom;
+use std::marker::PhantomData;
 use typed_absy::types::{StructMember, Type};
 use zokrates_field::field::Field;
 
 pub struct RedefinitionOptimizer<'ast, T: Field> {
     identifiers: HashMap<Identifier<'ast>, Identifier<'ast>>,
-    phantom: PhantomData<T>
+    phantom: PhantomData<T>,
 }
 
 impl<'ast, T: Field> RedefinitionOptimizer<'ast, T> {
     fn new() -> Self {
         RedefinitionOptimizer {
             identifiers: HashMap::new(),
-            phantom: PhantomData
+            phantom: PhantomData,
         }
     }
 
@@ -71,19 +71,16 @@ impl<'ast, T: Field> Folder<'ast, T> for RedefinitionOptimizer<'ast, T> {
                     Some(id) => {
                         let target = self.identifiers.get(&id).unwrap_or(&id).clone();
 
-                        self.identifiers
-                            .insert(var.id, target);
+                        self.identifiers.insert(var.id, target);
                         vec![]
-                    },
-                    None => {
-                        vec![TypedStatement::Definition(
-                            TypedAssignee::Identifier(var),
-                            expr,
-                        )]
                     }
+                    None => vec![TypedStatement::Definition(
+                        TypedAssignee::Identifier(var),
+                        expr,
+                    )],
                 }
-            },
-            s => fold_statement(self, s)
+            }
+            s => fold_statement(self, s),
         }
     }
 
