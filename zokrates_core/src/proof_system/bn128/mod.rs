@@ -18,14 +18,14 @@ pub struct G1Affine(String, String);
 #[derive(Serialize, Deserialize)]
 pub struct G2Affine(G1Affine, G1Affine);
 
-impl std::fmt::Display for G1Affine {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}, {}", self.0, self.1)
+impl ToString for G1Affine {
+    fn to_string(&self) -> String {
+        format!("{}, {}", self.0, self.1)
     }
 }
 
-impl std::fmt::Display for G2Affine {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[{}], [{}]", self.0, self.1)
+impl ToString for G2Affine {
+    fn to_string(&self) -> String {
+        format!("[{}], [{}]", self.0.to_string(), self.1.to_string())
     }
 }

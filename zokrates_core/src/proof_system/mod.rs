@@ -1,16 +1,14 @@
 mod bn128;
 
 pub use self::bn128::G16;
-
 #[cfg(feature = "libsnark")]
 pub use self::bn128::GM17;
-
 #[cfg(feature = "libsnark")]
 pub use self::bn128::PGHR13;
 
 use crate::ir;
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use zokrates_field::Field;
 
 // We only need to serialize this struct, there is no need for deserialization as keys are
@@ -21,7 +19,7 @@ pub struct SetupKeypair<V> {
     pub pk: Vec<u8>,
 }
 
-impl<'a, V: Serialize + Deserialize<'a>> SetupKeypair<V> {
+impl<V: Serialize + DeserializeOwned> SetupKeypair<V> {
     pub fn new(vk: V, pk: Vec<u8>) -> SetupKeypair<V> {
         SetupKeypair { vk, pk }
     }
