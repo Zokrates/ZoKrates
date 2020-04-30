@@ -154,23 +154,23 @@ impl ProofSystem<Bn128Field> for GM17 {
         let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
 
         template_text = vk_regex
-            .replace(template_text.as_str(), format!("{}", vk.h).as_str())
+            .replace(template_text.as_str(), vk.h.to_string().as_str())
             .into_owned();
 
         template_text = vk_regex
-            .replace(template_text.as_str(), format!("{}", vk.g_alpha).as_str())
+            .replace(template_text.as_str(), vk.g_alpha.to_string().as_str())
             .into_owned();
 
         template_text = vk_regex
-            .replace(template_text.as_str(), format!("{}", vk.h_beta).as_str())
+            .replace(template_text.as_str(), vk.h_beta.to_string().as_str())
             .into_owned();
 
         template_text = vk_regex
-            .replace(template_text.as_str(), format!("{}", vk.g_gamma).as_str())
+            .replace(template_text.as_str(), vk.g_gamma.to_string().as_str())
             .into_owned();
 
         template_text = vk_regex
-            .replace(template_text.as_str(), format!("{}", vk.h_gamma).as_str())
+            .replace(template_text.as_str(), vk.h_gamma.to_string().as_str())
             .into_owned();
 
         let query_count: usize = vk.query.len();
@@ -186,12 +186,12 @@ impl ProofSystem<Bn128Field> for GM17 {
             .into_owned();
 
         let mut query_repeat_text = String::new();
-        for (i, x) in vk.query.iter().enumerate() {
+        for (i, g1) in vk.query.iter().enumerate() {
             query_repeat_text.push_str(
                 format!(
                     "vk.query[{}] = Pairing.G1Point({});",
                     i,
-                    format!("{}", x).as_str()
+                    g1.to_string().as_str()
                 )
                 .as_str(),
             );

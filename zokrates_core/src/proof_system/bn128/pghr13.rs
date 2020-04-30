@@ -161,37 +161,31 @@ impl ProofSystem<Bn128Field> for PGHR13 {
         let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
 
         template_text = vk_regex
-            .replace(template_text.as_str(), format!("{}", vk.a).as_str())
+            .replace(template_text.as_str(), vk.a.to_string().as_str())
             .into_owned();
 
         template_text = vk_regex
-            .replace(template_text.as_str(), format!("{}", vk.b).as_str())
+            .replace(template_text.as_str(), vk.b.to_string().as_str())
             .into_owned();
 
         template_text = vk_regex
-            .replace(template_text.as_str(), format!("{}", vk.c).as_str())
+            .replace(template_text.as_str(), vk.c.to_string().as_str())
             .into_owned();
 
         template_text = vk_regex
-            .replace(template_text.as_str(), format!("{}", vk.gamma).as_str())
+            .replace(template_text.as_str(), vk.gamma.to_string().as_str())
             .into_owned();
 
         template_text = vk_regex
-            .replace(
-                template_text.as_str(),
-                format!("{}", vk.gamma_beta_1).as_str(),
-            )
+            .replace(template_text.as_str(), vk.gamma_beta_1.to_string().as_str())
             .into_owned();
 
         template_text = vk_regex
-            .replace(
-                template_text.as_str(),
-                format!("{}", vk.gamma_beta_2).as_str(),
-            )
+            .replace(template_text.as_str(), vk.gamma_beta_2.to_string().as_str())
             .into_owned();
 
         template_text = vk_regex
-            .replace(template_text.as_str(), format!("{}", vk.z).as_str())
+            .replace(template_text.as_str(), vk.z.to_string().as_str())
             .into_owned();
 
         let ic_count: usize = vk.ic.len();
@@ -204,12 +198,12 @@ impl ProofSystem<Bn128Field> for PGHR13 {
             .into_owned();
 
         let mut ic_repeat_text = String::new();
-        for (i, x) in vk.ic.iter().enumerate() {
+        for (i, g1) in vk.ic.iter().enumerate() {
             ic_repeat_text.push_str(
                 format!(
                     "vk.ic[{}] = Pairing.G1Point({});",
                     i,
-                    format!("{}", x).as_str()
+                    g1.to_string().as_str()
                 )
                 .as_str(),
             );

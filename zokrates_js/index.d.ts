@@ -46,7 +46,7 @@ declare module 'zokrates-js' {
   }
 
   export type SolidityAbi = "v1" | "v2";
-  export type ResolveCallback = (location: string, path: string) => ResolverResult;
+  export type ResolveCallback = (location: string, path: string) => ResolverResult;krat
 
   export interface ZoKratesProvider {
     compile(source: string, location: string, callback: ResolveCallback): CompilationArtifacts;
