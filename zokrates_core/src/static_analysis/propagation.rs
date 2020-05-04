@@ -383,8 +383,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
                     UExpressionInner::Value(v1 & v2)
                 }
-                (UExpressionInner::Value(0), e2) => UExpressionInner::Value(0),
-                (e1, UExpressionInner::Value(0)) => UExpressionInner::Value(0),
+                (UExpressionInner::Value(0), _) | (_, UExpressionInner::Value(0)) => {
+                    UExpressionInner::Value(0)
+                }
                 (e1, e2) => {
                     UExpressionInner::And(box e1.annotate(bitwidth), box e2.annotate(bitwidth))
                 }

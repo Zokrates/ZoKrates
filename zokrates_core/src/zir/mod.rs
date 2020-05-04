@@ -10,7 +10,7 @@ pub use self::parameter::Parameter;
 pub use self::types::Type;
 pub use self::variable::Variable;
 use std::path::PathBuf;
-pub use zir::uint::{bitwidth, UExpression, UExpressionInner, UMetadata};
+pub use zir::uint::{UExpression, UExpressionInner, UMetadata};
 
 use embed::FlatEmbed;
 use std::collections::HashMap;

@@ -9,15 +9,10 @@ use crate::flat_absy::*;
 use crate::solvers::Solver;
 use crate::zir::types::{FunctionIdentifier, FunctionKey, Signature, Type};
 use crate::zir::*;
-use num_bigint::BigUint;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use zokrates_field::field::Field;
-
-fn log2(a: BigUint) -> u32 {
-    a.bits() as u32
-}
 
 /// Flattener, computes flattened program.
 #[derive(Debug)]
@@ -675,7 +670,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 ZirExpression::Uint(e) => e,
                 _ => unreachable!(),
             };
-            let from = log2(p.metadata.clone().unwrap().max);
+            let from = p.metadata.clone().unwrap().bitwidth();
             let p = self.flatten_uint_expression(symbols, statements_flattened, p);
             let bits = self
                 .get_bits(p, from as usize, 32, statements_flattened)
@@ -827,7 +822,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         let metadata = expr.metadata.clone().unwrap().clone();
 
-        let actual_bitwidth = log2(metadata.max) as usize;
+        let actual_bitwidth = metadata.bitwidth() as usize;
         let should_reduce = metadata.should_reduce.unwrap();
 
         let should_reduce = should_reduce && actual_bitwidth > target_bitwidth;
@@ -845,7 +840,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 FlatUExpression::with_field(field).bits(bits)
             }
             UExpressionInner::Not(box e) => {
-                let from = log2(e.metadata.clone().unwrap().max);
+                let from = e.metadata.clone().unwrap().bitwidth();
 
                 let e_flattened = self.flatten_uint_expression(symbols, statements_flattened, e);
 
@@ -904,7 +899,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             }
             UExpressionInner::Sub(box left, box right) => {
                 let aux = FlatExpression::Number(
-                    T::from(2).pow(log2(right.metadata.clone().unwrap().max) as usize),
+                    T::from(2).pow(right.metadata.clone().unwrap().bitwidth() as usize),
                 );
 
                 let left_flattened = self
@@ -934,7 +929,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 ))
             }
             UExpressionInner::LeftShift(box e, box by) => {
-                let from = log2(e.metadata.clone().unwrap().max);
+                let from = e.metadata.clone().unwrap().bitwidth();
 
                 let e = self.flatten_uint_expression(symbols, statements_flattened, e);
 
@@ -961,7 +956,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 )
             }
             UExpressionInner::RightShift(box e, box by) => {
-                let from = log2(e.metadata.clone().unwrap().max);
+                let from = e.metadata.clone().unwrap().bitwidth();
 
                 let e = self.flatten_uint_expression(symbols, statements_flattened, e);
 
@@ -1028,8 +1023,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 )
                 .clone(),
             UExpressionInner::Xor(box left, box right) => {
-                let left_from = log2(left.metadata.clone().unwrap().max);
-                let right_from = log2(right.metadata.clone().unwrap().max);
+                let left_from = left.metadata.clone().unwrap().bitwidth();
+                let right_from = right.metadata.clone().unwrap().bitwidth();
 
                 let left_flattened =
                     self.flatten_uint_expression(symbols, statements_flattened, left);
@@ -1061,13 +1056,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         .flat_map(|(name, (x, y))| match (x, y) {
                             (FlatExpression::Number(n), e) | (e, FlatExpression::Number(n)) => {
                                 if *n == T::from(0) {
-                                    vec![FlatStatement::Definition(name.clone(), y.clone())]
+                                    vec![FlatStatement::Definition(name.clone(), e.clone())]
                                 } else if *n == T::from(1) {
                                     vec![FlatStatement::Definition(
                                         name.clone(),
                                         FlatExpression::Sub(
                                             box FlatExpression::Number(T::from(1)),
-                                            box y.clone(),
+                                            box e.clone(),
                                         ),
                                     )]
                                 } else {
@@ -1105,8 +1100,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 )
             }
             UExpressionInner::And(box left, box right) => {
-                let left_from = log2(left.metadata.clone().unwrap().max);
-                let right_from = log2(right.metadata.clone().unwrap().max);
+                let left_from = left.metadata.clone().unwrap().bitwidth();
+                let right_from = right.metadata.clone().unwrap().bitwidth();
 
                 let left_flattened =
                     self.flatten_uint_expression(symbols, statements_flattened, left);
@@ -1186,10 +1181,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         self.depth -= 1;
 
-        statements_flattened.push(FlatStatement::Log(format!(
-            "  {} DONE",
-            "   ".repeat(self.depth)
-        )));
+        // statements_flattened.push(FlatStatement::Log(format!(
+        //     "  {} DONE",
+        //     "   ".repeat(self.depth)
+        // )));
 
         res
     }

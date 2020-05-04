@@ -1,2 +1,2 @@
-def main(u8 a) -> (u8):
-	return a + a
+def main(u8 a, u8 b, u8 c) -> (u8):
+	return a - b - c

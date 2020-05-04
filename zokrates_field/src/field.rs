@@ -96,6 +96,8 @@ pub trait Field:
     fn to_compact_dec_string(&self) -> String;
     /// Converts to BigUint
     fn into_big_uint(self) -> BigUint;
+    /// Gets the number of bits
+    fn bits(&self) -> u32;
 }
 
 #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Serialize, Deserialize)]
@@ -105,8 +107,13 @@ pub struct FieldPrime {
 
 impl num_traits::CheckedAdd for FieldPrime {
     fn checked_add(&self, other: &Self) -> Option<Self> {
+        use num_traits::Pow;
         let res = self.value.clone() + other.value.clone();
-        if res >= *P {
+
+        let bound = BigInt::from(2u32).pow(Self::get_required_bits() - 1);
+
+        // we only go up to 2**(bitwidth - 1) because after that we lose uniqueness of bit decomposition
+        if res >= bound {
             None
         } else {
             Some(FieldPrime { value: res })
@@ -116,8 +123,10 @@ impl num_traits::CheckedAdd for FieldPrime {
 
 impl num_traits::CheckedMul for FieldPrime {
     fn checked_mul(&self, other: &Self) -> Option<Self> {
+        use num_traits::Pow;
         let res = self.value.clone() * other.value.clone();
-        if res >= *P {
+        // we only go up to 2**(bitwidth - 1) because after that we lose uniqueness of bit decomposition
+        if res >= BigInt::from(2u32).pow(Self::get_required_bits() - 1) {
             None
         } else {
             Some(FieldPrime { value: res })
@@ -148,6 +157,10 @@ impl Field for FieldPrime {
 
     fn to_dec_string(&self) -> String {
         self.value.to_str_radix(10)
+    }
+
+    fn bits(&self) -> u32 {
+        self.value.bits() as u32
     }
 
     fn inverse_mul(&self) -> FieldPrime {

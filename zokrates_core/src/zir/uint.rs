@@ -68,15 +68,28 @@ impl<'ast, T: Field> From<&'ast str> for UExpressionInner<'ast, T> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct UMetadata {
-    pub max: BigUint,
+pub struct UMetadata<T> {
+    pub max: T,
     pub should_reduce: Option<bool>,
+}
+
+impl<T: Field> UMetadata<T> {
+    pub fn with_max<U: Into<T>>(max: U) -> Self {
+        UMetadata {
+            max: max.into(),
+            should_reduce: None,
+        }
+    }
+
+    pub fn bitwidth(&self) -> u32 {
+        self.max.bits() as u32
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct UExpression<'ast, T: Field> {
     pub bitwidth: Bitwidth,
-    pub metadata: Option<UMetadata>,
+    pub metadata: Option<UMetadata<T>>,
     pub inner: UExpressionInner<'ast, T>,
 }
 
@@ -117,16 +130,12 @@ impl<'ast, T: Field> UExpressionInner<'ast, T> {
 }
 
 impl<'ast, T: Field> UExpression<'ast, T> {
-    pub fn metadata(self, metadata: UMetadata) -> UExpression<'ast, T> {
+    pub fn metadata(self, metadata: UMetadata<T>) -> UExpression<'ast, T> {
         UExpression {
             metadata: Some(metadata),
             ..self
         }
     }
-}
-
-pub fn bitwidth(a: u128) -> Bitwidth {
-    (128 - a.leading_zeros()) as Bitwidth
 }
 
 impl<'ast, T: Field> UExpression<'ast, T> {

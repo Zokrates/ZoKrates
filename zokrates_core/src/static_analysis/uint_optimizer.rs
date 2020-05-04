@@ -8,7 +8,7 @@ use zokrates_field::field::Field;
 
 #[derive(Default)]
 pub struct UintOptimizer<'ast, T: Field> {
-    ids: HashMap<ZirAssignee<'ast>, UMetadata>,
+    ids: HashMap<ZirAssignee<'ast>, UMetadata<T>>,
     phantom: PhantomData<T>,
 }
 
@@ -24,7 +24,7 @@ impl<'ast, T: Field> UintOptimizer<'ast, T> {
         UintOptimizer::new().fold_program(p)
     }
 
-    fn register(&mut self, a: ZirAssignee<'ast>, m: UMetadata) {
+    fn register(&mut self, a: ZirAssignee<'ast>, m: UMetadata<T>) {
         self.ids.insert(a, m);
     }
 }
@@ -51,19 +51,18 @@ fn force_no_reduce<'ast, T: Field>(e: UExpression<'ast, T>) -> UExpression<'ast,
 
 impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
     fn fold_uint_expression(&mut self, e: UExpression<'ast, T>) -> UExpression<'ast, T> {
+        if e.metadata.is_some() {
+            return e;
+        }
+
         let max_bitwidth = T::get_required_bits() - 1;
 
         let range = e.bitwidth;
 
-        let range_max: BigUint = (2_usize.pow(range as u32) - 1).into();
+        let range_max: T = (2_usize.pow(range as u32) - 1).into();
 
         assert!(range < max_bitwidth / 2);
 
-        if e.metadata.is_some() {
-            unreachable!("{:?} had metadata", e);
-        }
-
-        let metadata = e.metadata;
         let inner = e.inner;
 
         use self::UExpressionInner::*;
@@ -71,7 +70,6 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
         let res = match inner {
             Value(v) => Value(v).annotate(range).metadata(UMetadata {
                 max: v.into(),
-                
                 should_reduce: Some(false),
             }),
             Identifier(id) => Identifier(id.clone()).annotate(range).metadata(
@@ -81,8 +79,6 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     .expect(&format!("identifier should have been defined: {}", id)),
             ),
             Add(box left, box right) => {
-                use num::CheckedAdd;
-
                 // reduce the two terms
                 let left = self.fold_uint_expression(left);
                 let right = self.fold_uint_expression(right);
@@ -119,113 +115,81 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
                 UExpression::add(left, right).metadata(UMetadata {
                     max,
-                    
+
                     should_reduce: Some(false),
                 })
             }
             Sub(box left, box right) => {
-                unimplemented!()
-                // // reduce the two terms
-                // let left = self.fold_uint_expression(left);
-                // let right = self.fold_uint_expression(right);
+                use num::traits::{CheckedAdd, Pow};
 
-                // let left_metadata = left.metadata.clone().unwrap();
-                // let right_metadata = right.metadata.clone().unwrap();
+                // let `target` the target bitwidth of `left` and `right`
+                // `0 <= left <= max_left`
+                // `0 <= right <= max_right`
+                // `- max_right <= left - right <= max_right`
+                // let `n_bits_left` the number of bits needed to represent `max_left`
+                // let `n = max(n_bits_left, target)`
+                // let offset = 2**n`
 
-                // // determine the bitwidth of each term. It's their current bitwidth, unless they are tagged as `should_reduce` in which case they now have bitwidth 8
-                // let left_bitwidth = left_metadata
-                //     .should_reduce
-                //     .map(|should_reduce| {
-                //         if should_reduce {
-                //             range
-                //         } else {
-                //             left_metadata.bitwidth.unwrap()
-                //         }
-                //     })
-                //     .unwrap();
-                // let right_bitwidth = right_metadata
-                //     .should_reduce
-                //     .map(|should_reduce| {
-                //         if should_reduce {
-                //             range
-                //         } else {
-                //             right_metadata.bitwidth.unwrap()
-                //         }
-                //     })
-                //     .unwrap();
+                // `2**n - max_left <= a - b + 2 ** n <= bound  where  bound = max_left + offset`
 
-                // // a(p), b(q) both of target n (p and q their real bitwidth)
-                // // a(p) - b(q) can always underflow
-                // // instead consider s = a(p) - b(q) + 2**q which is always positive
-                // // the min of s is 0 and the max is 2**p + 2**q, which is smaller than 2**(max(p, q) + 1)
+                // If ´bound < N´, we set we return `bound` as the max of ´left - right`
+                // Else we start again, reducing `left`. In this case `max_left` becomes `2**target - 1`
+                // Else we start again, reducing `right`. In this case `offset` becomes `2**target`
+                // Else we start again reducing both. In this case `bound` becomes `2**(target+1) - 1` which is always
+                // smaller or equal to N for target in {8, 16, 32}
 
-                // // so we can use s(max(p, q) + 1) as a representation of a - b if max(p, q) + 1 < max_bitwidth
+                // reduce the two terms
+                let left = self.fold_uint_expression(left);
+                let right = self.fold_uint_expression(right);
 
-                // let output_width = std::cmp::max(left_bitwidth, right_bitwidth) + 1; // bitwidth(a + b) = max(bitwidth(a), bitwidth(b)) + 1
+                let left_max = left.metadata.clone().unwrap().max;
+                let right_bitwidth = right.metadata.clone().unwrap().bitwidth();
 
-                // if output_width > max_bitwidth {
-                //     // the addition doesnt fit, we reduce both terms first (TODO maybe one would be enough here)
+                let offset =
+                    T::from(2u32).pow(std::cmp::max(right_bitwidth, range as u32) as usize);
+                let target_offset = T::from(2u32).pow(range);
 
-                //     let left = UExpression {
-                //         metadata: Some(UMetadata {
-                //             should_reduce: Some(true),
-                //             ..left_metadata
-                //         }),
-                //         ..left
-                //     };
+                let (should_reduce_left, should_reduce_right, max) = left_max
+                    .checked_add(&offset)
+                    .map(|max| (false, false, max))
+                    .unwrap_or_else(|| {
+                        range_max
+                            .clone()
+                            .checked_add(&offset)
+                            .map(|max| (true, false, max))
+                            .unwrap_or_else(|| {
+                                left_max
+                                    .checked_add(&target_offset.clone())
+                                    .map(|max| (false, true, max))
+                                    .unwrap_or_else(|| {
+                                        (true, true, range_max.clone() + target_offset)
+                                    })
+                            })
+                    });
 
-                //     let right = UExpression {
-                //         metadata: Some(UMetadata {
-                //             should_reduce: Some(true),
-                //             ..right_metadata
-                //         }),
-                //         ..right
-                //     };
+                let left = if should_reduce_left {
+                    force_reduce(left)
+                } else {
+                    left
+                };
+                let right = if should_reduce_right {
+                    force_reduce(right)
+                } else {
+                    right
+                };
 
-                //     UExpression::sub(left, right).metadata(UMetadata {
-                //         max: 2_u32 * range_max,
-                //         bitwidth: Some(range + 1),
-                //         should_reduce: Some(
-                //             metadata
-                //                 .map(|m| m.should_reduce.unwrap_or(false))
-                //                 .unwrap_or(false),
-                //         ),
-                //     })
-                // } else {
-                //     UExpression::sub(left, right).metadata(UMetadata {
-                //         max: None,
-                //         bitwidth: Some(output_width),
-                //         should_reduce: Some(
-                //             metadata
-                //                 .map(|m| m.should_reduce.unwrap_or(false))
-                //                 .unwrap_or(false),
-                //         ),
-                //     })
-                // }
+                UExpression::sub(left, right).metadata(UMetadata {
+                    max,
+                    should_reduce: Some(false),
+                })
             }
             Xor(box left, box right) => {
                 // reduce the two terms
                 let left = self.fold_uint_expression(left);
                 let right = self.fold_uint_expression(right);
 
-                let left_metadata = left.metadata.clone().unwrap();
-                let right_metadata = right.metadata.clone().unwrap();
-
-                // for xor we need both terms to be in range. Therefore we reduce them to being in range.
-                // NB: if they are already in range, the flattening process will ignore the reduction
-                let left = left.metadata(UMetadata {
-                    should_reduce: Some(true),
-                    ..left_metadata
-                });
-
-                let right = right.metadata(UMetadata {
-                    should_reduce: Some(true),
-                    ..right_metadata
-                });
-
-                UExpression::xor(left, right).metadata(UMetadata {
+                UExpression::xor(force_reduce(left), force_reduce(right)).metadata(UMetadata {
                     max: range_max.clone(),
-                    
                     should_reduce: Some(false),
                 })
             }
@@ -236,7 +200,6 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
                 UExpression::and(force_reduce(left), force_reduce(right)).metadata(UMetadata {
                     max: range_max.clone(),
-                    
                     should_reduce: Some(false),
                 })
             }
@@ -247,7 +210,6 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
                 UExpression::or(force_reduce(left), force_reduce(right)).metadata(UMetadata {
                     max: range_max.clone(),
-                    
                     should_reduce: Some(false),
                 })
             }
@@ -300,7 +262,6 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     .annotate(range)
                     .metadata(UMetadata {
                         max: range_max.clone(),
-                        
                         should_reduce: Some(false),
                     })
             }
@@ -321,7 +282,6 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
                 UExpression::right_shift(force_reduce(e), by).metadata(UMetadata {
                     max: range_max.clone(),
-                    
                     should_reduce: Some(false),
                 })
             }
@@ -332,15 +292,15 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 let consequence_max = consequence.metadata.clone().unwrap().max;
                 let alternative_max = alternative.metadata.clone().unwrap().max;
 
-                let max = std::cmp::max(consequence_max, alternative_max);
+                unimplemented!();
 
-                UExpression::if_else(condition, consequence, alternative).metadata(UMetadata {
-                    max,
-                    
-                    should_reduce: Some(false),
-                })
+                // let max = std::cmp::max(consequence_max, alternative_max);
+
+                // UExpression::if_else(condition, consequence, alternative).metadata(UMetadata {
+                //     max,
+                //     should_reduce: Some(false),
+                // })
             }
-            e => unimplemented!("{:?}", e),
         };
 
         assert!(res.metadata.is_some());
@@ -392,7 +352,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                         self.register(
                             lhs[0].clone(),
                             UMetadata {
-                                max: BigUint::from(2_u64.pow(32_u32) - 1),
+                                max: T::from(2).pow(32) - T::from(1),
                                 should_reduce: Some(false),
                             },
                         );
@@ -446,7 +406,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 self.register(
                     p.id.clone(),
                     UMetadata {
-                        max: BigUint::from(2_u64.pow(bitwidth as u32) - 1),
+                        max: T::from(2_u32).pow(bitwidth) - T::from(1),
                         should_reduce: Some(false),
                     },
                 );
@@ -465,21 +425,99 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::field::{FieldPrime, Pow};
 
+    #[should_panic]
     #[test]
     fn existing_metadata() {
         let e = UExpressionInner::Identifier("foo".into())
             .annotate(32)
-            .metadata(UMetadata {
-                max: BigUint::from(2_u64.pow(33_u32) - 1),
-                should_reduce: Some(false),
-            });
+            .metadata(UMetadata::with_max(2_u32.pow(33_u32) - 1));
 
         let mut optimizer: UintOptimizer<FieldPrime> = UintOptimizer::new();
 
-        let optimized = optimizer.fold_uint_expression(e.clone());
+        let _ = optimizer.fold_uint_expression(e.clone());
+    }
 
-        assert_eq!(e, optimized);
+    #[test]
+    fn add() {
+        // max(left + right) = max(left) + max(right)
+
+        let left: UExpression<FieldPrime> = UExpressionInner::Identifier("foo".into())
+            .annotate(32)
+            .metadata(UMetadata::with_max(42u32));
+
+        let right = UExpressionInner::Identifier("foo".into())
+            .annotate(32)
+            .metadata(UMetadata::with_max(33u32));
+
+        assert_eq!(
+            UintOptimizer::new()
+                .fold_uint_expression(UExpression::add(left, right))
+                .metadata
+                .unwrap()
+                .max,
+            75u32.into()
+        );
+    }
+
+    #[test]
+    fn sub() {
+        // `left` and `right` are smaller than the target
+        let left: UExpression<FieldPrime> = UExpressionInner::Identifier("a".into())
+            .annotate(32)
+            .metadata(UMetadata::with_max(42u32));
+
+        let right = UExpressionInner::Identifier("b".into())
+            .annotate(32)
+            .metadata(UMetadata::with_max(33u32));
+
+        assert_eq!(
+            UintOptimizer::new()
+                .fold_uint_expression(UExpression::sub(left, right))
+                .metadata
+                .unwrap()
+                .max,
+            FieldPrime::from(2u32).pow(32) + FieldPrime::from(42)
+        );
+
+        // `left` and `right` are larger than the target but no readjustment is required
+        let left: UExpression<FieldPrime> = UExpressionInner::Identifier("a".into())
+            .annotate(32)
+            .metadata(UMetadata::with_max(u64::MAX as u128));
+
+        let right = UExpressionInner::Identifier("b".into())
+            .annotate(32)
+            .metadata(UMetadata::with_max(u64::MAX as u128));
+
+        assert_eq!(
+            UintOptimizer::new()
+                .fold_uint_expression(UExpression::sub(left, right))
+                .metadata
+                .unwrap()
+                .max,
+            FieldPrime::from(2).pow(64) + FieldPrime::from(u64::MAX as u128)
+        );
+
+        // `left` and `right` are larger than the target and needs to be readjusted
+        let left: UExpression<FieldPrime> = UExpressionInner::Identifier("a".into())
+            .annotate(32)
+            .metadata(UMetadata::with_max(
+                FieldPrime::from(2u32).pow(FieldPrime::get_required_bits() - 1)
+                    - FieldPrime::from(1),
+            ));
+
+        let right = UExpressionInner::Identifier("b".into())
+            .annotate(32)
+            .metadata(UMetadata::with_max(42u32));
+
+        assert_eq!(
+            UintOptimizer::new()
+                .fold_uint_expression(UExpression::sub(left, right))
+                .metadata
+                .unwrap()
+                .max,
+            FieldPrime::from(2u32).pow(32) * FieldPrime::from(2) - FieldPrime::from(1)
+        );
     }
 }
