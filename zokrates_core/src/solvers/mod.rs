@@ -10,6 +10,7 @@ pub enum Solver {
     Div,
     Sha256Round,
     Xor,
+    Or,
 }
 
 impl fmt::Display for Solver {
@@ -27,6 +28,7 @@ impl Solver {
             Solver::Div => (2, 1),
             Solver::Sha256Round => (768, 26935),
             Solver::Xor => (2, 1),
+            Solver::Or => (2, 1),
         }
     }
 }
@@ -71,6 +73,12 @@ impl Solver {
                 let y = inputs[1].clone();
 
                 vec![x.clone() + y.clone() - T::from(2) * x * y]
+            }
+            Solver::Or => {
+                let x = inputs[0].clone();
+                let y = inputs[1].clone();
+
+                vec![x.clone() + y.clone() - x * y]
             }
         };
 

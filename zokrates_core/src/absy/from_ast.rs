@@ -380,6 +380,10 @@ impl<'ast, T: Field> From<pest::BinaryExpression<'ast>> for absy::ExpressionNode
                 box absy::ExpressionNode::from(*expression.left),
                 box absy::ExpressionNode::from(*expression.right),
             ),
+            pest::BinaryOperator::BitOr => absy::Expression::BitOr(
+                box absy::ExpressionNode::from(*expression.left),
+                box absy::ExpressionNode::from(*expression.right),
+            ),
             o => unimplemented!("Operator {:?} not implemented", o),
         }
         .span(expression.span)

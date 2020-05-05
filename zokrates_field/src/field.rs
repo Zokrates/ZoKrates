@@ -36,6 +36,7 @@ pub trait Field:
     + From<u32>
     + From<usize>
     + From<u128>
+    + From<BigUint>
     + Zero
     + One
     + Clone
@@ -219,6 +220,15 @@ impl Display for FieldPrime {
 impl Debug for FieldPrime {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.value.to_str_radix(10))
+    }
+}
+
+impl From<BigUint> for FieldPrime {
+    fn from(num: BigUint) -> Self {
+        let x = ToBigInt::to_bigint(&num).unwrap();
+        FieldPrime {
+            value: &x - x.div_floor(&*P) * &*P,
+        }
     }
 }
 

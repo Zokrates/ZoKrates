@@ -1,22 +1,17 @@
-use crate::embed::FlatEmbed;
 use crate::zir::*;
-use num_bigint::BigUint;
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use zir::folder::*;
 use zokrates_field::field::Field;
 
 #[derive(Default)]
 pub struct UintOptimizer<'ast, T: Field> {
     ids: HashMap<ZirAssignee<'ast>, UMetadata<T>>,
-    phantom: PhantomData<T>,
 }
 
 impl<'ast, T: Field> UintOptimizer<'ast, T> {
     pub fn new() -> Self {
         UintOptimizer {
             ids: HashMap::new(),
-            phantom: PhantomData,
         }
     }
 
@@ -292,14 +287,15 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 let consequence_max = consequence.metadata.clone().unwrap().max;
                 let alternative_max = alternative.metadata.clone().unwrap().max;
 
-                unimplemented!();
+                let max = std::cmp::max(
+                    consequence_max.into_big_uint(),
+                    alternative_max.into_big_uint(),
+                );
 
-                // let max = std::cmp::max(consequence_max, alternative_max);
-
-                // UExpression::if_else(condition, consequence, alternative).metadata(UMetadata {
-                //     max,
-                //     should_reduce: Some(false),
-                // })
+                UExpression::if_else(condition, consequence, alternative).metadata(UMetadata {
+                    max: max.into(),
+                    should_reduce: Some(false),
+                })
             }
         };
 
@@ -518,6 +514,31 @@ mod tests {
                 .unwrap()
                 .max,
             FieldPrime::from(2u32).pow(32) * FieldPrime::from(2) - FieldPrime::from(1)
+        );
+    }
+
+    #[test]
+    fn if_else() {
+        // `left` and `right` are smaller than the target
+        let consequence: UExpression<FieldPrime> = UExpressionInner::Identifier("a".into())
+            .annotate(32)
+            .metadata(UMetadata::with_max(42u32));
+
+        let alternative = UExpressionInner::Identifier("b".into())
+            .annotate(32)
+            .metadata(UMetadata::with_max(33u32));
+
+        assert_eq!(
+            UintOptimizer::new()
+                .fold_uint_expression(UExpression::if_else(
+                    BooleanExpression::Value(true),
+                    consequence,
+                    alternative
+                ))
+                .metadata
+                .unwrap()
+                .max,
+            FieldPrime::from(42)
         );
     }
 }

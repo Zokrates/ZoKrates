@@ -590,18 +590,23 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 BooleanExpression::Le(rhs, lhs),
             ),
             BooleanExpression::Or(box lhs, box rhs) => {
-                let x = box self.flatten_boolean_expression(symbols, statements_flattened, lhs);
-                let y = box self.flatten_boolean_expression(symbols, statements_flattened, rhs);
+                let x = self.flatten_boolean_expression(symbols, statements_flattened, lhs);
+                let y = self.flatten_boolean_expression(symbols, statements_flattened, rhs);
                 assert!(x.is_linear() && y.is_linear());
-                let name_x_and_y = self.use_sym();
-                statements_flattened.push(FlatStatement::Definition(
-                    name_x_and_y,
-                    FlatExpression::Mult(x.clone(), y.clone()),
+                let name_x_or_y = self.use_sym();
+                statements_flattened.push(FlatStatement::Directive(FlatDirective {
+                    solver: Solver::Or,
+                    outputs: vec![name_x_or_y],
+                    inputs: vec![x.clone(), y.clone()],
+                }));
+                statements_flattened.push(FlatStatement::Condition(
+                    FlatExpression::Add(
+                        box x.clone(),
+                        box FlatExpression::Sub(box y.clone(), box name_x_or_y.clone().into()),
+                    ),
+                    FlatExpression::Mult(box x.clone(), box y.clone()),
                 ));
-                FlatExpression::Sub(
-                    box FlatExpression::Add(x, y),
-                    box FlatExpression::Identifier(name_x_and_y),
-                )
+                name_x_or_y.into()
             }
             BooleanExpression::And(box lhs, box rhs) => {
                 let x = self.flatten_boolean_expression(symbols, statements_flattened, lhs);
@@ -1146,7 +1151,77 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         .collect::<Vec<_>>(),
                 )
             }
-            UExpressionInner::Or(..) => unimplemented!(),
+            UExpressionInner::Or(box left, box right) => {
+                let left_from = left.metadata.clone().unwrap().bitwidth();
+                let right_from = right.metadata.clone().unwrap().bitwidth();
+
+                let left_flattened =
+                    self.flatten_uint_expression(symbols, statements_flattened, left);
+                let right_flattened =
+                    self.flatten_uint_expression(symbols, statements_flattened, right);
+
+                let left_bits = self.get_bits(
+                    left_flattened,
+                    left_from as usize,
+                    target_bitwidth,
+                    statements_flattened,
+                );
+                let right_bits = self.get_bits(
+                    right_flattened,
+                    right_from as usize,
+                    target_bitwidth,
+                    statements_flattened,
+                );
+
+                assert_eq!(left_bits.len(), target_bitwidth);
+                assert_eq!(right_bits.len(), target_bitwidth);
+
+                let name_or = left_bits.iter().map(|_| self.use_sym()).collect::<Vec<_>>();
+
+                statements_flattened.extend(
+                    name_or
+                        .iter()
+                        .zip(left_bits.iter().zip(right_bits.iter()))
+                        .flat_map(|(name, (x, y))| match (x, y) {
+                            (FlatExpression::Number(n), e) | (e, FlatExpression::Number(n)) => {
+                                if *n == T::from(0) {
+                                    vec![FlatStatement::Definition(name.clone(), e.clone())]
+                                } else if *n == T::from(1) {
+                                    vec![FlatStatement::Definition(
+                                        name.clone(),
+                                        FlatExpression::Number(T::from(1)),
+                                    )]
+                                } else {
+                                    unreachable!()
+                                }
+                            }
+                            (x, y) => vec![
+                                FlatStatement::Directive(FlatDirective::new(
+                                    vec![name.clone()],
+                                    Solver::Or,
+                                    vec![x.clone(), y.clone()],
+                                )),
+                                FlatStatement::Condition(
+                                    FlatExpression::Add(
+                                        box x.clone(),
+                                        box FlatExpression::Sub(
+                                            box y.clone(),
+                                            box name.clone().into(),
+                                        ),
+                                    ),
+                                    FlatExpression::Mult(box x.clone(), box y.clone()),
+                                ),
+                            ],
+                        }),
+                );
+
+                FlatUExpression::with_bits(
+                    name_or
+                        .into_iter()
+                        .map(|v| FlatExpression::Identifier(v))
+                        .collect::<Vec<_>>(),
+                )
+            }
         };
 
         let res = match should_reduce {
