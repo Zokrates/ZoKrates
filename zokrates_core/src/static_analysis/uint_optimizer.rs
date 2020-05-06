@@ -423,17 +423,17 @@ mod tests {
     use super::*;
     use zokrates_field::field::{FieldPrime, Pow};
 
-    #[should_panic]
-    #[test]
-    fn existing_metadata() {
-        let e = UExpressionInner::Identifier("foo".into())
-            .annotate(32)
-            .metadata(UMetadata::with_max(2_u32.pow(33_u32) - 1));
+    // #[should_panic]
+    // #[test]
+    // fn existing_metadata() {
+    //     let e = UExpressionInner::Identifier("foo".into())
+    //         .annotate(32)
+    //         .metadata(UMetadata::with_max(2_u32.pow(33_u32) - 1));
 
-        let mut optimizer: UintOptimizer<FieldPrime> = UintOptimizer::new();
+    //     let mut optimizer: UintOptimizer<FieldPrime> = UintOptimizer::new();
 
-        let _ = optimizer.fold_uint_expression(e.clone());
-    }
+    //     let _ = optimizer.fold_uint_expression(e.clone());
+    // }
 
     #[test]
     fn add() {

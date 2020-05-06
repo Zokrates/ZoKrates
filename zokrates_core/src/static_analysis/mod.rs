@@ -15,6 +15,7 @@ mod return_binder;
 mod uint_optimizer;
 mod unconstrained_vars;
 mod unroll;
+mod variable_access_remover;
 
 use self::constrain_inputs::InputConstrainer;
 use self::flatten_complex_types::Flattener;
@@ -25,6 +26,7 @@ use self::redefinition::RedefinitionOptimizer;
 use self::return_binder::ReturnBinder;
 use self::uint_optimizer::UintOptimizer;
 use self::unconstrained_vars::UnconstrainedVariableDetector;
+use self::variable_access_remover::VariableAccessRemover;
 use crate::flat_absy::FlatProg;
 use crate::ir::Prog;
 use crate::typed_absy::TypedProgram;
@@ -49,6 +51,8 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         let r = Propagator::propagate(r);
 
         let r = RedefinitionOptimizer::optimize(r);
+
+        let r = VariableAccessRemover::apply(r);
 
         let zir = Flattener::flatten(r.clone());
         // constrain inputs

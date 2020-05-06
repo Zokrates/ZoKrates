@@ -261,7 +261,7 @@ pub fn fold_statement<'ast, T: Field>(
                 .map(|(left, right)| zir::ZirStatement::Condition(left, right))
                 .collect()
         }
-        typed_absy::TypedStatement::For(v, from, to, statements) => unreachable!(),
+        typed_absy::TypedStatement::For(..) => unreachable!(),
         typed_absy::TypedStatement::MultipleDefinition(variables, elist) => {
             vec![zir::ZirStatement::MultipleDefinition(
                 variables
@@ -299,7 +299,7 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
             .into_iter()
             .flat_map(|e| f.fold_expression(e))
             .collect(),
-        typed_absy::ArrayExpressionInner::FunctionCall(id, exps) => unreachable!(),
+        typed_absy::ArrayExpressionInner::FunctionCall(..) => unreachable!(),
         typed_absy::ArrayExpressionInner::IfElse(
             box condition,
             box consequence,
@@ -505,7 +505,7 @@ pub fn fold_field_expression<'ast, T: Field>(
             let alt = f.fold_field_expression(alt);
             zir::FieldElementExpression::IfElse(box cond, box cons, box alt)
         }
-        typed_absy::FieldElementExpression::FunctionCall(key, exps) => unreachable!(),
+        typed_absy::FieldElementExpression::FunctionCall(key, exps) => unreachable!("oops"),
         typed_absy::FieldElementExpression::Member(box s, id) => {
             let members = s.ty().clone();
 
@@ -534,7 +534,7 @@ pub fn fold_field_expression<'ast, T: Field>(
                 .clone()
                 .try_into()
                 .unwrap(),
-                _ => unreachable!(),
+                _ => unreachable!("oops"),
             }
         }
     }
@@ -710,7 +710,7 @@ pub fn fold_uint_expression_inner<'ast, T: Field>(
 
             zir::UExpressionInner::Not(box e)
         }
-        typed_absy::UExpressionInner::FunctionCall(key, exps) => {
+        typed_absy::UExpressionInner::FunctionCall(..) => {
             unreachable!("function calls should have been removed")
         }
         typed_absy::UExpressionInner::Select(box array, box index) => {

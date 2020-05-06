@@ -196,8 +196,8 @@ mod tests {
                                         ty_u32(0, 3)
                                     ])
                                 ]),
-                                assignee(4, 5, [
-                                    identifier(4, 5)
+                                assignee(4, 6, [
+                                    identifier(4, 6)
                                 ])
                             ]),
                             expression(8, 13, [

@@ -141,7 +141,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                             .map(|a| self.fold_expression(a))
                             .collect();
 
-                        if arguments.iter().all(|a| is_constant(a)) {
+                        if arguments.iter().all(|a| is_constant(a))
+                            && (key.id == "_U32_FROM_BITS" || key.id == "_U32_TO_BITS")
+                        {
                             let expr: TypedExpression<'ast, T> = if key.id == "_U32_FROM_BITS" {
                                 assert_eq!(variables.len(), 1);
                                 assert_eq!(arguments.len(), 1);
@@ -158,7 +160,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                                         TypedExpression::Boolean(
                                                             BooleanExpression::Value(v),
                                                         ) => v,
-                                                        _ => unreachable!(),
+                                                        _ => unreachable!("should be a boolean"),
                                                     })
                                                     .enumerate()
                                                     .fold(0, |acc, (i, v)| {
@@ -174,9 +176,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                             .annotate(32)
                                             .into()
                                         }
-                                        _ => unreachable!(),
+                                        _ => unreachable!("should be an array value"),
                                     },
-                                    _ => unreachable!(),
+                                    _ => unreachable!("should be an array"),
                                 }
                             } else if key.id == "_U32_TO_BITS" {
                                 assert_eq!(variables.len(), 1);
@@ -206,9 +208,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                             .annotate(Type::Boolean, 32)
                                             .into()
                                         }
-                                        _ => unreachable!(),
+                                        _ => unreachable!("should be a uint value"),
                                     },
-                                    _ => unreachable!(),
+                                    _ => unreachable!("should be a uint"),
                                 }
                             } else {
                                 unreachable!()
@@ -568,7 +570,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                         )) {
                             Some(e) => match e {
                                 TypedExpression::FieldElement(e) => e.clone(),
-                                _ => unreachable!(""),
+                                _ => unreachable!("??"),
                             },
                             None => FieldElementExpression::Select(
                                 box ArrayExpressionInner::Identifier(id).annotate(inner_type, size),
@@ -586,7 +588,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 
                 let members = match s.get_type() {
                     Type::Struct(members) => members,
-                    _ => unreachable!(),
+                    _ => unreachable!("???"),
                 };
 
                 match s.into_inner() {
@@ -599,7 +601,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                             .1
                         {
                             TypedExpression::FieldElement(s) => s,
-                            _ => unreachable!(),
+                            _ => unreachable!("????"),
                         }
                     }
                     inner => FieldElementExpression::Member(box inner.annotate(members), m),
@@ -666,7 +668,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                         )) {
                             Some(e) => match e {
                                 TypedExpression::Array(e) => e.clone().into_inner(),
-                                _ => unreachable!(""),
+                                _ => unreachable!("should be an array"),
                             },
                             None => ArrayExpressionInner::Select(
                                 box ArrayExpressionInner::Identifier(id).annotate(inner_type, size),
@@ -691,7 +693,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 
                 let members = match s.get_type() {
                     Type::Struct(members) => members,
-                    _ => unreachable!(),
+                    _ => unreachable!("should be a struct"),
                 };
 
                 match s.into_inner() {
@@ -704,7 +706,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                             .1
                         {
                             TypedExpression::Array(a) => a.into_inner(),
-                            _ => unreachable!(),
+                            _ => unreachable!("should be an array"),
                         }
                     }
                     inner => ArrayExpressionInner::Member(box inner.annotate(members), m),
@@ -769,7 +771,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                         )) {
                             Some(e) => match e {
                                 TypedExpression::Struct(e) => e.clone().into_inner(),
-                                _ => unreachable!(""),
+                                _ => unreachable!("should be a struct"),
                             },
                             None => StructExpressionInner::Select(
                                 box ArrayExpressionInner::Identifier(id).annotate(inner_type, size),
@@ -796,7 +798,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 
                 let members = match s.get_type() {
                     Type::Struct(members) => members,
-                    _ => unreachable!(),
+                    _ => unreachable!("should be a struct"),
                 };
 
                 match s.into_inner() {
@@ -809,7 +811,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                             .1
                         {
                             TypedExpression::Struct(s) => s.into_inner(),
-                            _ => unreachable!(),
+                            _ => unreachable!("should be a struct"),
                         }
                     }
                     inner => StructExpressionInner::Member(box inner.annotate(members), m),
@@ -987,7 +989,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                         )) {
                             Some(e) => match e {
                                 TypedExpression::Boolean(e) => e.clone(),
-                                _ => unreachable!(""),
+                                _ => unreachable!("Should be a boolean"),
                             },
                             None => BooleanExpression::Select(
                                 box ArrayExpressionInner::Identifier(id).annotate(inner_type, size),
@@ -1003,7 +1005,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 
                 let members = match s.get_type() {
                     Type::Struct(members) => members,
-                    _ => unreachable!(),
+                    _ => unreachable!("should be a struct"),
                 };
 
                 match s.into_inner() {
@@ -1016,7 +1018,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                             .1
                         {
                             TypedExpression::Boolean(s) => s,
-                            _ => unreachable!(),
+                            _ => unreachable!("should be a boolean"),
                         }
                     }
                     inner => BooleanExpression::Member(box inner.annotate(members), m),
