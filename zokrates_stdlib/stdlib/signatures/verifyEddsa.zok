@@ -4,6 +4,7 @@ import "ecc/edwardsAdd" as add
 import "utils/pack/nonStrictUnpack256" as unpack256
 import "ecc/edwardsOnCurve" as onCurve
 import "ecc/edwardsOrderCheck" as orderCheck
+from "ecc/babyjubjubParams" import BabyJubJubParams
 
 /// Verifies an EdDSA Signature.
 ///
@@ -26,9 +27,9 @@ import "ecc/edwardsOrderCheck" as orderCheck
 ///
 /// Returns:
 ///     Return 1 for S being a valid EdDSA Signature, 0 otherwise.
-def main(private field[2] R, private field S, field[2] A, field[256] M0, field[256] M1, field[10] context) -> (field):
+def main(private field[2] R, private field S, field[2] A, field[256] M0, field[256] M1, BabyJubJubParams context) -> (field):
 
-    field[2] G = [context[4], context[5]]
+    field[2] G = [context.Gu, context.Gv]
 
     // Check if R is on curve and if it is not in a small subgroup. A is public input and can be checked offline
     field isOnCurve = onCurve(R, context) // throws if R is not on curve

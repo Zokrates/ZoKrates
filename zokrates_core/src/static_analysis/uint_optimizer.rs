@@ -1,7 +1,7 @@
 use crate::zir::*;
 use std::collections::HashMap;
 use zir::folder::*;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 #[derive(Default)]
 pub struct UintOptimizer<'ast, T: Field> {
@@ -421,7 +421,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::{FieldPrime, Pow};
+    use zokrates_field::{Bn128Field, Pow};
 
     // #[should_panic]
     // #[test]
@@ -430,7 +430,7 @@ mod tests {
     //         .annotate(32)
     //         .metadata(UMetadata::with_max(2_u32.pow(33_u32) - 1));
 
-    //     let mut optimizer: UintOptimizer<FieldPrime> = UintOptimizer::new();
+    //     let mut optimizer: UintOptimizer<Bn128Field> = UintOptimizer::new();
 
     //     let _ = optimizer.fold_uint_expression(e.clone());
     // }
@@ -439,7 +439,7 @@ mod tests {
     fn add() {
         // max(left + right) = max(left) + max(right)
 
-        let left: UExpression<FieldPrime> = UExpressionInner::Identifier("foo".into())
+        let left: UExpression<Bn128Field> = UExpressionInner::Identifier("foo".into())
             .annotate(32)
             .metadata(UMetadata::with_max(42u32));
 
@@ -460,7 +460,7 @@ mod tests {
     #[test]
     fn sub() {
         // `left` and `right` are smaller than the target
-        let left: UExpression<FieldPrime> = UExpressionInner::Identifier("a".into())
+        let left: UExpression<Bn128Field> = UExpressionInner::Identifier("a".into())
             .annotate(32)
             .metadata(UMetadata::with_max(42u32));
 
@@ -474,11 +474,11 @@ mod tests {
                 .metadata
                 .unwrap()
                 .max,
-            FieldPrime::from(2u32).pow(32) + FieldPrime::from(42)
+            Bn128Field::from(2u32).pow(32) + Bn128Field::from(42)
         );
 
         // `left` and `right` are larger than the target but no readjustment is required
-        let left: UExpression<FieldPrime> = UExpressionInner::Identifier("a".into())
+        let left: UExpression<Bn128Field> = UExpressionInner::Identifier("a".into())
             .annotate(32)
             .metadata(UMetadata::with_max(u64::MAX as u128));
 
@@ -492,15 +492,15 @@ mod tests {
                 .metadata
                 .unwrap()
                 .max,
-            FieldPrime::from(2).pow(64) + FieldPrime::from(u64::MAX as u128)
+            Bn128Field::from(2).pow(64) + Bn128Field::from(u64::MAX as u128)
         );
 
         // `left` and `right` are larger than the target and needs to be readjusted
-        let left: UExpression<FieldPrime> = UExpressionInner::Identifier("a".into())
+        let left: UExpression<Bn128Field> = UExpressionInner::Identifier("a".into())
             .annotate(32)
             .metadata(UMetadata::with_max(
-                FieldPrime::from(2u32).pow(FieldPrime::get_required_bits() - 1)
-                    - FieldPrime::from(1),
+                Bn128Field::from(2u32).pow(Bn128Field::get_required_bits() - 1)
+                    - Bn128Field::from(1),
             ));
 
         let right = UExpressionInner::Identifier("b".into())
@@ -513,14 +513,14 @@ mod tests {
                 .metadata
                 .unwrap()
                 .max,
-            FieldPrime::from(2u32).pow(32) * FieldPrime::from(2) - FieldPrime::from(1)
+            Bn128Field::from(2u32).pow(32) * Bn128Field::from(2) - Bn128Field::from(1)
         );
     }
 
     #[test]
     fn if_else() {
         // `left` and `right` are smaller than the target
-        let consequence: UExpression<FieldPrime> = UExpressionInner::Identifier("a".into())
+        let consequence: UExpression<Bn128Field> = UExpressionInner::Identifier("a".into())
             .annotate(32)
             .metadata(UMetadata::with_max(42u32));
 
@@ -538,7 +538,7 @@ mod tests {
                 .metadata
                 .unwrap()
                 .max,
-            FieldPrime::from(42)
+            Bn128Field::from(42)
         );
     }
 }

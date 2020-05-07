@@ -2,26 +2,42 @@ use crate::flat_absy::flat_parameter::FlatParameter;
 use crate::flat_absy::FlatVariable;
 use crate::solvers::Solver;
 use std::fmt;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 mod expression;
 pub mod folder;
 mod from_flat;
 mod interpreter;
+mod serialize;
 mod witness;
 
 pub use self::expression::QuadComb;
 pub use self::expression::{CanonicalLinComb, LinComb};
+pub use self::serialize::ProgEnum;
 
 pub use self::interpreter::{Error, ExecutionResult};
 pub use self::witness::Witness;
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Hash, Eq)]
-pub enum Statement<T: Field> {
+#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
+pub enum Statement<T> {
     Constraint(QuadComb<T>, LinComb<T>),
     Directive(Directive<T>),
     Log(String),
 }
+
+impl<T: Field> PartialEq for Statement<T> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Statement::Constraint(l1, r1), Statement::Constraint(l2, r2)) => {
+                l1.eq(l2) && r1.eq(r2)
+            }
+            (Statement::Directive(d1), Statement::Directive(d2)) => d1.eq(d2),
+            _ => false,
+        }
+    }
+}
+
+impl<T: Field> Eq for Statement<T> {}
 
 impl<T: Field> Statement<T> {
     pub fn definition<U: Into<QuadComb<T>>>(v: FlatVariable, e: U) -> Self {
@@ -33,12 +49,22 @@ impl<T: Field> Statement<T> {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
-pub struct Directive<T: Field> {
+#[derive(Clone, Debug, Serialize, Deserialize, Hash)]
+pub struct Directive<T> {
     pub inputs: Vec<QuadComb<T>>,
     pub outputs: Vec<FlatVariable>,
     pub solver: Solver,
 }
+
+impl<T: Field> PartialEq for Directive<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.inputs.eq(&other.inputs)
+            && self.outputs.eq(&other.outputs)
+            && self.solver.eq(&other.solver)
+    }
+}
+
+impl<T: Field> Eq for Directive<T> {}
 
 impl<T: Field> fmt::Display for Directive<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -70,12 +96,21 @@ impl<T: Field> fmt::Display for Statement<T> {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-pub struct Function<T: Field> {
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Function<T> {
     pub id: String,
     pub statements: Vec<Statement<T>>,
     pub arguments: Vec<FlatVariable>,
     pub returns: Vec<FlatVariable>,
+}
+
+impl<T: Field> PartialEq for Function<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.id.eq(&other.id)
+            && self.statements.eq(&other.statements)
+            && self.arguments.eq(&other.arguments)
+            && self.returns.eq(&other.returns)
+    }
 }
 
 impl<T: Field> fmt::Display for Function<T> {
@@ -104,10 +139,16 @@ impl<T: Field> fmt::Display for Function<T> {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct Prog<T: Field> {
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Prog<T> {
     pub main: Function<T>,
     pub private: Vec<bool>,
+}
+
+impl<T: Field> PartialEq for Prog<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.main.eq(&other.main) && self.private.eq(&other.private)
+    }
 }
 
 impl<T: Field> Prog<T> {
@@ -148,14 +189,14 @@ impl<T: Field> fmt::Display for Prog<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     mod statement {
         use super::*;
 
         #[test]
         fn print_constraint() {
-            let c: Statement<FieldPrime> = Statement::Constraint(
+            let c: Statement<Bn128Field> = Statement::Constraint(
                 QuadComb::from_linear_combinations(
                     FlatVariable::new(42).into(),
                     FlatVariable::new(42).into(),

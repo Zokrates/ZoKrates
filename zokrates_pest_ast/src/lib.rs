@@ -166,10 +166,28 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::file))]
     pub struct File<'ast> {
+        pub pragma: Option<Pragma<'ast>>,
         pub imports: Vec<ImportDirective<'ast>>,
         pub structs: Vec<StructDefinition<'ast>>,
         pub functions: Vec<Function<'ast>>,
         pub eoi: EOI,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::pragma))]
+    pub struct Pragma<'ast> {
+        pub curve: Curve<'ast>,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::curve))]
+    pub struct Curve<'ast> {
+        #[pest_ast(outer(with(span_into_str)))]
+        pub name: String,
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -841,6 +859,7 @@ mod tests {
         assert_eq!(
             generate_ast(&source),
             Ok(File {
+                pragma: None,
                 structs: vec![],
                 functions: vec![Function {
                     id: IdentifierExpression {
@@ -893,6 +912,7 @@ mod tests {
         assert_eq!(
             generate_ast(&source),
             Ok(File {
+                pragma: None,
                 structs: vec![],
                 functions: vec![Function {
                     id: IdentifierExpression {
@@ -963,6 +983,7 @@ mod tests {
         assert_eq!(
             generate_ast(&source),
             Ok(File {
+                pragma: None,
                 structs: vec![],
                 functions: vec![Function {
                     id: IdentifierExpression {
@@ -1020,6 +1041,7 @@ mod tests {
         assert_eq!(
             generate_ast(&source),
             Ok(File {
+                pragma: None,
                 structs: vec![],
                 functions: vec![Function {
                     id: IdentifierExpression {
@@ -1055,6 +1077,7 @@ mod tests {
         assert_eq!(
             generate_ast(&source),
             Ok(File {
+                pragma: None,
                 structs: vec![],
                 functions: vec![Function {
                     id: IdentifierExpression {

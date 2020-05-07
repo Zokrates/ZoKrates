@@ -1,7 +1,7 @@
 // Generic walk through a typed AST. Not mutating in place
 
 use crate::zir::*;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub trait Folder<'ast, T: Field>: Sized {
     fn fold_program(&mut self, p: ZirProgram<'ast, T>) -> ZirProgram<'ast, T> {

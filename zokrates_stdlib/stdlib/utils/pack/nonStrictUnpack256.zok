@@ -1,3 +1,5 @@
+#pragma curve bn128
+
 // Non-strict version:
 // Note that this does not strongly enforce that the commitment is
 // in the field.

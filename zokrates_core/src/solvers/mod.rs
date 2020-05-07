@@ -1,6 +1,6 @@
 use std::fmt;
 use zokrates_embed::generate_sha256_round_witness;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
 pub enum Solver {
@@ -97,32 +97,63 @@ impl Solver {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
+
+    mod eq_condition {
+
+        // Wanted: (Y = (X != 0) ? 1 : 0)
+        // # Y = if X == 0 then 0 else 1 fi
+        // # M = if X == 0 then 1 else 1/X fi
+
+        use super::*;
+
+        #[test]
+        fn execute() {
+            let cond_eq = Solver::ConditionEq;
+            let inputs = vec![0];
+            let r = cond_eq
+                .execute(&inputs.iter().map(|&i| Bn128Field::from(i)).collect())
+                .unwrap();
+            let res: Vec<Bn128Field> = vec![0, 1].iter().map(|&i| Bn128Field::from(i)).collect();
+            assert_eq!(r, &res[..]);
+        }
+
+        #[test]
+        fn execute_non_eq() {
+            let cond_eq = Solver::ConditionEq;
+            let inputs = vec![1];
+            let r = cond_eq
+                .execute(&inputs.iter().map(|&i| Bn128Field::from(i)).collect())
+                .unwrap();
+            let res: Vec<Bn128Field> = vec![1, 1].iter().map(|&i| Bn128Field::from(i)).collect();
+            assert_eq!(r, &res[..]);
+        }
+    }
 
     #[test]
     fn bits_of_one() {
-        let inputs = vec![FieldPrime::from(1)];
-        let res = Solver::Bits(FieldPrime::get_required_bits())
+        let inputs = vec![Bn128Field::from(1)];
+        let res = Solver::Bits(Bn128Field::get_required_bits())
             .execute(&inputs)
             .unwrap();
-        assert_eq!(res[253], FieldPrime::from(1));
+        assert_eq!(res[253], Bn128Field::from(1));
         for i in 0..252 {
-            assert_eq!(res[i], FieldPrime::from(0));
+            assert_eq!(res[i], Bn128Field::from(0));
         }
     }
 
     #[test]
     fn bits_of_42() {
-        let inputs = vec![FieldPrime::from(42)];
-        let res = Solver::Bits(FieldPrime::get_required_bits())
+        let inputs = vec![Bn128Field::from(42)];
+        let res = Solver::Bits(Bn128Field::get_required_bits())
             .execute(&inputs)
             .unwrap();
-        assert_eq!(res[253], FieldPrime::from(0));
-        assert_eq!(res[252], FieldPrime::from(1));
-        assert_eq!(res[251], FieldPrime::from(0));
-        assert_eq!(res[250], FieldPrime::from(1));
-        assert_eq!(res[249], FieldPrime::from(0));
-        assert_eq!(res[248], FieldPrime::from(1));
-        assert_eq!(res[247], FieldPrime::from(0));
+        assert_eq!(res[253], Bn128Field::from(0));
+        assert_eq!(res[252], Bn128Field::from(1));
+        assert_eq!(res[251], Bn128Field::from(0));
+        assert_eq!(res[250], Bn128Field::from(1));
+        assert_eq!(res[249], Bn128Field::from(0));
+        assert_eq!(res[248], Bn128Field::from(1));
+        assert_eq!(res[247], Bn128Field::from(0));
     }
 }

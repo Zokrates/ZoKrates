@@ -1,5 +1,6 @@
 {
 	"entry_point": "./tests/tests/utils/pack/pack128.zok",
+	"curves": ["Bn128"],
 	"tests": [
 		{
 			"input": {

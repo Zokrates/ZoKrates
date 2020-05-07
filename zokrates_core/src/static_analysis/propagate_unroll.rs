@@ -22,7 +22,7 @@
 use static_analysis::propagation::Propagator;
 use static_analysis::unroll::{Output, Unroller};
 use typed_absy::TypedProgram;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub struct PropagatedUnroller;
 
@@ -63,14 +63,14 @@ mod tests {
     use super::*;
     use typed_absy::types::{FunctionKey, Signature};
     use typed_absy::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[test]
     fn detect_non_constant_bound() {
         let loops = vec![TypedStatement::For(
             Variable::field_element("i"),
             FieldElementExpression::Identifier("i".into()),
-            FieldElementExpression::Number(FieldPrime::from(2)),
+            FieldElementExpression::Number(Bn128Field::from(2)),
             vec![],
         )];
 
@@ -118,12 +118,12 @@ mod tests {
 
         let s = TypedStatement::For(
             Variable::field_element("i"),
-            FieldElementExpression::Number(FieldPrime::from(0)),
-            FieldElementExpression::Number(FieldPrime::from(2)),
+            FieldElementExpression::Number(Bn128Field::from(0)),
+            FieldElementExpression::Number(Bn128Field::from(2)),
             vec![TypedStatement::For(
                 Variable::field_element("j"),
                 FieldElementExpression::Identifier("i".into()),
-                FieldElementExpression::Number(FieldPrime::from(2)),
+                FieldElementExpression::Number(Bn128Field::from(2)),
                 vec![
                     TypedStatement::Declaration(Variable::field_element("foo")),
                     TypedStatement::Definition(
@@ -143,13 +143,13 @@ mod tests {
                 TypedAssignee::Identifier(Variable::field_element(
                     Identifier::from("i").version(0),
                 )),
-                FieldElementExpression::Number(FieldPrime::from(0)).into(),
+                FieldElementExpression::Number(Bn128Field::from(0)).into(),
             ),
             TypedStatement::Definition(
                 TypedAssignee::Identifier(Variable::field_element(
                     Identifier::from("j").version(0),
                 )),
-                FieldElementExpression::Number(FieldPrime::from(0)).into(),
+                FieldElementExpression::Number(Bn128Field::from(0)).into(),
             ),
             TypedStatement::Definition(
                 TypedAssignee::Identifier(Variable::field_element(
@@ -165,7 +165,7 @@ mod tests {
                 TypedAssignee::Identifier(Variable::field_element(
                     Identifier::from("j").version(1),
                 )),
-                FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                FieldElementExpression::Number(Bn128Field::from(1)).into(),
             ),
             TypedStatement::Definition(
                 TypedAssignee::Identifier(Variable::field_element(
@@ -181,13 +181,13 @@ mod tests {
                 TypedAssignee::Identifier(Variable::field_element(
                     Identifier::from("i").version(1),
                 )),
-                FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                FieldElementExpression::Number(Bn128Field::from(1)).into(),
             ),
             TypedStatement::Definition(
                 TypedAssignee::Identifier(Variable::field_element(
                     Identifier::from("j").version(2),
                 )),
-                FieldElementExpression::Number(FieldPrime::from(1)).into(),
+                FieldElementExpression::Number(Bn128Field::from(1)).into(),
             ),
             TypedStatement::Definition(
                 TypedAssignee::Identifier(Variable::field_element(

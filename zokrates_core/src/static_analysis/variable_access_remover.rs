@@ -1,6 +1,6 @@
 use typed_absy::types::StructMember;
 use typed_absy::{folder::*, *};
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub struct VariableAccessRemover<'ast, T: Field> {
     statements: Vec<TypedStatement<'ast, T>>,
@@ -136,7 +136,7 @@ impl<'ast, T: Field> Folder<'ast, T> for VariableAccessRemover<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[test]
     fn select() {
@@ -147,7 +147,7 @@ mod tests {
         // i <= 1 == true
         // b = if i == 0 then a[0] else if i == 1 then a[1] else 0
 
-        let access: TypedStatement<FieldPrime> = TypedStatement::Definition(
+        let access: TypedStatement<Bn128Field> = TypedStatement::Definition(
             TypedAssignee::Identifier(Variable::field_element("b")),
             FieldElementExpression::Select(
                 box ArrayExpressionInner::Identifier("a".into()).annotate(Type::FieldElement, 2),

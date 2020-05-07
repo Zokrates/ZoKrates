@@ -11,7 +11,7 @@ use zokrates_core::ir;
 use zokrates_core::proof_system::{self, ProofSystem};
 use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::types::Signature;
-use zokrates_field::field::FieldPrime;
+use zokrates_field::Bn128Field;
 
 #[derive(Serialize, Deserialize)]
 pub struct ResolverResult {
@@ -38,13 +38,13 @@ impl ResolverResult {
 }
 
 #[inline]
-fn deserialize_program(value: &Vec<u8>) -> Result<ir::Prog<FieldPrime>, JsValue> {
+fn deserialize_program(value: &Vec<u8>) -> Result<ir::Prog<Bn128Field>, JsValue> {
     deserialize(&value)
         .map_err(|err| JsValue::from_str(&format!("Could not deserialize program: {}", err)))
 }
 
 #[inline]
-fn serialize_program(program: &ir::Prog<FieldPrime>) -> Result<Vec<u8>, JsValue> {
+fn serialize_program(program: &ir::Prog<Bn128Field>) -> Result<Vec<u8>, JsValue> {
     serialize(program)
         .map_err(|err| JsValue::from_str(&format!("Could not serialize program: {}", err)))
 }
@@ -100,7 +100,7 @@ pub fn compile(
     let fmt_error = |e: &CompileError| format!("{}:{}", e.file().display(), e.value());
     let resolver = JsResolver::new(resolve);
 
-    let artifacts: CompilationArtifacts<FieldPrime> = core_compile(
+    let artifacts: CompilationArtifacts<Bn128Field> = core_compile(
         source.as_string().unwrap(),
         PathBuf::from(location.as_string().unwrap()),
         Some(&resolver),
@@ -157,14 +157,14 @@ pub fn compute_witness(artifacts: JsValue, args: JsValue) -> Result<JsValue, JsV
 pub fn setup(program: JsValue) -> Result<JsValue, JsValue> {
     let input: Vec<u8> = program.into_serde().unwrap();
     let program_flattened = deserialize_program(&input)?;
-    let keypair = proof_system::G16 {}.setup(program_flattened);
+    let keypair = proof_system::G16::setup(program_flattened);
     Ok(JsValue::from_serde(&keypair).unwrap())
 }
 
 #[wasm_bindgen]
 pub fn export_solidity_verifier(vk: JsValue, is_abiv2: JsValue) -> JsValue {
-    let verifier = proof_system::G16 {}
-        .export_solidity_verifier(vk.as_string().unwrap(), is_abiv2.as_bool().unwrap());
+    let verifier = <proof_system::G16 as ProofSystem<Bn128Field>>::
+        export_solidity_verifier(vk.as_string().unwrap(), is_abiv2.as_bool().unwrap());
     JsValue::from_str(verifier.as_str())
 }
 
@@ -174,11 +174,11 @@ pub fn generate_proof(program: JsValue, witness: JsValue, pk: JsValue) -> Result
     let program_flattened = deserialize_program(&input)?;
 
     let str_witness = witness.as_string().unwrap();
-    let ir_witness: ir::Witness<FieldPrime> = ir::Witness::read(str_witness.as_bytes())
+    let ir_witness: ir::Witness<Bn128Field> = ir::Witness::read(str_witness.as_bytes())
         .map_err(|err| JsValue::from_str(&format!("Could not read witness: {}", err)))?;
 
     let proving_key: Vec<u8> = pk.into_serde().unwrap();
-    let proof = proof_system::G16 {}.generate_proof(program_flattened, ir_witness, proving_key);
+    let proof = proof_system::G16::generate_proof(program_flattened, ir_witness, proving_key);
 
     Ok(JsValue::from_str(proof.as_str()))
 }

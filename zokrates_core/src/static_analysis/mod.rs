@@ -31,7 +31,7 @@ use crate::flat_absy::FlatProg;
 use crate::ir::Prog;
 use crate::typed_absy::TypedProgram;
 use zir::ZirProgram;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub trait Analyse {
     fn analyse(self) -> Self;

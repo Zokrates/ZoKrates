@@ -14,7 +14,7 @@ use crate::ir::folder::*;
 use crate::ir::*;
 use solvers::Solver;
 use std::collections::hash_map::{Entry, HashMap};
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 #[derive(Debug)]
 pub struct DirectiveOptimizer<T: Field> {

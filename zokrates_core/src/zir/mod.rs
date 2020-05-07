@@ -17,7 +17,7 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::fmt;
 use zir::types::{FunctionKey, Signature};
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub use self::folder::Folder;
 
@@ -37,12 +37,12 @@ pub type ZirFunctionSymbols<'ast, T> = HashMap<FunctionKey<'ast>, ZirFunctionSym
 
 /// A typed program as a collection of modules, one of them being the main
 #[derive(PartialEq, Debug)]
-pub struct ZirProgram<'ast, T: Field> {
+pub struct ZirProgram<'ast, T> {
     pub modules: ZirModules<'ast, T>,
     pub main: ZirModuleId,
 }
 
-impl<'ast, T: Field> fmt::Display for ZirProgram<'ast, T> {
+impl<'ast, T: fmt::Display> fmt::Display for ZirProgram<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (module_id, module) in &self.modules {
             writeln!(
@@ -66,19 +66,19 @@ impl<'ast, T: Field> fmt::Display for ZirProgram<'ast, T> {
 
 /// A typed program as a collection of functions. Types have been resolved during semantic checking.
 #[derive(PartialEq, Clone)]
-pub struct ZirModule<'ast, T: Field> {
+pub struct ZirModule<'ast, T> {
     /// Functions of the program
     pub functions: ZirFunctionSymbols<'ast, T>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ZirFunctionSymbol<'ast, T: Field> {
+pub enum ZirFunctionSymbol<'ast, T> {
     Here(ZirFunction<'ast, T>),
     There(FunctionKey<'ast>, ZirModuleId),
     Flat(FlatEmbed),
 }
 
-impl<'ast, T: Field> ZirFunctionSymbol<'ast, T> {
+impl<'ast, T> ZirFunctionSymbol<'ast, T> {
     pub fn signature<'a>(&'a self, modules: &'a ZirModules<T>) -> Signature {
         match self {
             ZirFunctionSymbol::Here(f) => f.signature.clone(),
@@ -90,12 +90,12 @@ impl<'ast, T: Field> ZirFunctionSymbol<'ast, T> {
                 .unwrap()
                 .signature(&modules)
                 .clone(),
-            ZirFunctionSymbol::Flat(flat_fun) => flat_fun.signature::<T>().into(),
+            ZirFunctionSymbol::Flat(flat_fun) => flat_fun.signature().into(),
         }
     }
 }
 
-impl<'ast, T: Field> fmt::Display for ZirModule<'ast, T> {
+impl<'ast, T: fmt::Display> fmt::Display for ZirModule<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let res = self
             .functions
@@ -110,7 +110,7 @@ impl<'ast, T: Field> fmt::Display for ZirModule<'ast, T> {
                     key.signature
                 ),
                 ZirFunctionSymbol::Flat(ref flat_fun) => {
-                    format!("def {}{}:\n\t// hidden", key.id, flat_fun.signature::<T>())
+                    format!("def {}{}:\n\t// hidden", key.id, flat_fun.signature())
                 }
             })
             .collect::<Vec<_>>();
@@ -118,7 +118,7 @@ impl<'ast, T: Field> fmt::Display for ZirModule<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> fmt::Debug for ZirModule<'ast, T> {
+impl<'ast, T: fmt::Debug> fmt::Debug for ZirModule<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -134,7 +134,7 @@ impl<'ast, T: Field> fmt::Debug for ZirModule<'ast, T> {
 
 /// A typed function
 #[derive(Clone, PartialEq)]
-pub struct ZirFunction<'ast, T: Field> {
+pub struct ZirFunction<'ast, T> {
     /// Arguments of the function
     pub arguments: Vec<Parameter<'ast>>,
     /// Vector of statements that are executed when running the function
@@ -143,7 +143,7 @@ pub struct ZirFunction<'ast, T: Field> {
     pub signature: Signature,
 }
 
-impl<'ast, T: Field> fmt::Display for ZirFunction<'ast, T> {
+impl<'ast, T: fmt::Display> fmt::Display for ZirFunction<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -168,7 +168,7 @@ impl<'ast, T: Field> fmt::Display for ZirFunction<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> fmt::Debug for ZirFunction<'ast, T> {
+impl<'ast, T: fmt::Debug> fmt::Debug for ZirFunction<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -187,7 +187,7 @@ pub type ZirAssignee<'ast> = Variable<'ast>;
 
 /// A statement in a `ZirFunction`
 #[derive(Clone, PartialEq, Hash, Eq)]
-pub enum ZirStatement<'ast, T: Field> {
+pub enum ZirStatement<'ast, T> {
     Return(Vec<ZirExpression<'ast, T>>),
     Definition(ZirAssignee<'ast>, ZirExpression<'ast, T>),
     Declaration(Variable<'ast>),
@@ -195,13 +195,13 @@ pub enum ZirStatement<'ast, T: Field> {
     MultipleDefinition(Vec<Variable<'ast>>, ZirExpressionList<'ast, T>),
 }
 
-impl<'ast, T: Field> fmt::Debug for ZirStatement<'ast, T> {
+impl<'ast, T: fmt::Debug> fmt::Debug for ZirStatement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             ZirStatement::Return(ref exprs) => {
                 write!(f, "Return(")?;
                 for (i, expr) in exprs.iter().enumerate() {
-                    write!(f, "{}", expr)?;
+                    write!(f, "{:?}", expr)?;
                     if i < exprs.len() - 1 {
                         write!(f, ", ")?;
                     }
@@ -222,7 +222,7 @@ impl<'ast, T: Field> fmt::Debug for ZirStatement<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> fmt::Display for ZirStatement<'ast, T> {
+impl<'ast, T: fmt::Display> fmt::Display for ZirStatement<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             ZirStatement::Return(ref exprs) => {
@@ -257,7 +257,7 @@ pub trait Typed {
 
 /// A typed expression
 #[derive(Clone, PartialEq, Hash, Eq)]
-pub enum ZirExpression<'ast, T: Field> {
+pub enum ZirExpression<'ast, T> {
     Boolean(BooleanExpression<'ast, T>),
     FieldElement(FieldElementExpression<'ast, T>),
     Uint(UExpression<'ast, T>),
@@ -281,7 +281,7 @@ impl<'ast, T: Field> From<UExpression<'ast, T>> for ZirExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> fmt::Display for ZirExpression<'ast, T> {
+impl<'ast, T: fmt::Display> fmt::Display for ZirExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             ZirExpression::Boolean(ref e) => write!(f, "{}", e),
@@ -291,7 +291,7 @@ impl<'ast, T: Field> fmt::Display for ZirExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> fmt::Debug for ZirExpression<'ast, T> {
+impl<'ast, T: fmt::Debug> fmt::Debug for ZirExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             ZirExpression::Boolean(ref e) => write!(f, "{:?}", e),
@@ -334,7 +334,7 @@ pub trait MultiTyped {
 }
 
 #[derive(Clone, PartialEq, Hash, Eq)]
-pub enum ZirExpressionList<'ast, T: Field> {
+pub enum ZirExpressionList<'ast, T> {
     FunctionCall(FunctionKey<'ast>, Vec<ZirExpression<'ast, T>>, Vec<Type>),
 }
 
@@ -348,7 +348,7 @@ impl<'ast, T: Field> MultiTyped for ZirExpressionList<'ast, T> {
 
 /// An expression of type `field`
 #[derive(Clone, PartialEq, Hash, Eq)]
-pub enum FieldElementExpression<'ast, T: Field> {
+pub enum FieldElementExpression<'ast, T> {
     Number(T),
     Identifier(Identifier<'ast>),
     Add(
@@ -380,7 +380,7 @@ pub enum FieldElementExpression<'ast, T: Field> {
 
 /// An expression of type `bool`
 #[derive(Clone, PartialEq, Hash, Eq)]
-pub enum BooleanExpression<'ast, T: Field> {
+pub enum BooleanExpression<'ast, T> {
     Identifier(Identifier<'ast>),
     Value(bool),
     Lt(
@@ -424,7 +424,7 @@ pub enum BooleanExpression<'ast, T: Field> {
 }
 
 // Downcasts
-impl<'ast, T: Field> TryFrom<ZirExpression<'ast, T>> for FieldElementExpression<'ast, T> {
+impl<'ast, T> TryFrom<ZirExpression<'ast, T>> for FieldElementExpression<'ast, T> {
     type Error = ();
 
     fn try_from(
@@ -437,7 +437,7 @@ impl<'ast, T: Field> TryFrom<ZirExpression<'ast, T>> for FieldElementExpression<
     }
 }
 
-impl<'ast, T: Field> TryFrom<ZirExpression<'ast, T>> for BooleanExpression<'ast, T> {
+impl<'ast, T> TryFrom<ZirExpression<'ast, T>> for BooleanExpression<'ast, T> {
     type Error = ();
 
     fn try_from(te: ZirExpression<'ast, T>) -> Result<BooleanExpression<'ast, T>, Self::Error> {
@@ -448,7 +448,7 @@ impl<'ast, T: Field> TryFrom<ZirExpression<'ast, T>> for BooleanExpression<'ast,
     }
 }
 
-impl<'ast, T: Field> TryFrom<ZirExpression<'ast, T>> for UExpression<'ast, T> {
+impl<'ast, T> TryFrom<ZirExpression<'ast, T>> for UExpression<'ast, T> {
     type Error = ();
 
     fn try_from(te: ZirExpression<'ast, T>) -> Result<UExpression<'ast, T>, Self::Error> {
@@ -459,7 +459,7 @@ impl<'ast, T: Field> TryFrom<ZirExpression<'ast, T>> for UExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> fmt::Display for FieldElementExpression<'ast, T> {
+impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             FieldElementExpression::Number(ref i) => write!(f, "{}", i),
@@ -480,7 +480,7 @@ impl<'ast, T: Field> fmt::Display for FieldElementExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> fmt::Display for UExpression<'ast, T> {
+impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.inner {
             UExpressionInner::Value(ref v) => write!(f, "{}", v),
@@ -503,7 +503,7 @@ impl<'ast, T: Field> fmt::Display for UExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> fmt::Display for BooleanExpression<'ast, T> {
+impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             BooleanExpression::Identifier(ref var) => write!(f, "{}", var),
@@ -526,17 +526,17 @@ impl<'ast, T: Field> fmt::Display for BooleanExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> fmt::Debug for BooleanExpression<'ast, T> {
+impl<'ast, T: fmt::Debug> fmt::Debug for BooleanExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self)
+        write!(f, "{:?}", self)
     }
 }
 
-impl<'ast, T: Field> fmt::Debug for FieldElementExpression<'ast, T> {
+impl<'ast, T: fmt::Debug> fmt::Debug for FieldElementExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            FieldElementExpression::Number(ref i) => write!(f, "Num({})", i),
-            FieldElementExpression::Identifier(ref var) => write!(f, "Ide({})", var),
+            FieldElementExpression::Number(ref i) => write!(f, "Num({:?})", i),
+            FieldElementExpression::Identifier(ref var) => write!(f, "Ide({:?})", var),
             FieldElementExpression::Add(ref lhs, ref rhs) => write!(f, "Add({:?}, {:?})", lhs, rhs),
             FieldElementExpression::Sub(ref lhs, ref rhs) => write!(f, "Sub({:?}, {:?})", lhs, rhs),
             FieldElementExpression::Mult(ref lhs, ref rhs) => {
@@ -555,7 +555,7 @@ impl<'ast, T: Field> fmt::Debug for FieldElementExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> fmt::Display for ZirExpressionList<'ast, T> {
+impl<'ast, T: fmt::Display> fmt::Display for ZirExpressionList<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             ZirExpressionList::FunctionCall(ref key, ref p, _) => {
@@ -572,7 +572,7 @@ impl<'ast, T: Field> fmt::Display for ZirExpressionList<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> fmt::Debug for ZirExpressionList<'ast, T> {
+impl<'ast, T: fmt::Debug> fmt::Debug for ZirExpressionList<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             ZirExpressionList::FunctionCall(ref i, ref p, _) => {
@@ -586,12 +586,12 @@ impl<'ast, T: Field> fmt::Debug for ZirExpressionList<'ast, T> {
 
 // Common behaviour accross expressions
 
-pub trait IfElse<'ast, T: Field> {
+pub trait IfElse<'ast, T> {
     fn if_else(condition: BooleanExpression<'ast, T>, consequence: Self, alternative: Self)
         -> Self;
 }
 
-impl<'ast, T: Field> IfElse<'ast, T> for FieldElementExpression<'ast, T> {
+impl<'ast, T> IfElse<'ast, T> for FieldElementExpression<'ast, T> {
     fn if_else(
         condition: BooleanExpression<'ast, T>,
         consequence: Self,
@@ -601,7 +601,7 @@ impl<'ast, T: Field> IfElse<'ast, T> for FieldElementExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> IfElse<'ast, T> for BooleanExpression<'ast, T> {
+impl<'ast, T> IfElse<'ast, T> for BooleanExpression<'ast, T> {
     fn if_else(
         condition: BooleanExpression<'ast, T>,
         consequence: Self,
@@ -611,7 +611,7 @@ impl<'ast, T: Field> IfElse<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> IfElse<'ast, T> for UExpression<'ast, T> {
+impl<'ast, T> IfElse<'ast, T> for UExpression<'ast, T> {
     fn if_else(
         condition: BooleanExpression<'ast, T>,
         consequence: Self,

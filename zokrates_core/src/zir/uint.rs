@@ -3,7 +3,7 @@ use zir::identifier::Identifier;
 use zir::types::FunctionKey;
 use zir::ZirExpression;
 use zir::{BooleanExpression, FieldElementExpression};
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 type Bitwidth = usize;
 
@@ -87,14 +87,14 @@ impl<T: Field> UMetadata<T> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct UExpression<'ast, T: Field> {
+pub struct UExpression<'ast, T> {
     pub bitwidth: Bitwidth,
     pub metadata: Option<UMetadata<T>>,
     pub inner: UExpressionInner<'ast, T>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum UExpressionInner<'ast, T: Field> {
+pub enum UExpressionInner<'ast, T> {
     Identifier(Identifier<'ast>),
     Value(u128),
     Add(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
@@ -119,7 +119,7 @@ pub enum UExpressionInner<'ast, T: Field> {
     ),
 }
 
-impl<'ast, T: Field> UExpressionInner<'ast, T> {
+impl<'ast, T> UExpressionInner<'ast, T> {
     pub fn annotate(self, bitwidth: Bitwidth) -> UExpression<'ast, T> {
         UExpression {
             metadata: None,
@@ -129,7 +129,7 @@ impl<'ast, T: Field> UExpressionInner<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> UExpression<'ast, T> {
+impl<'ast, T> UExpression<'ast, T> {
     pub fn metadata(self, metadata: UMetadata<T>) -> UExpression<'ast, T> {
         UExpression {
             metadata: Some(metadata),
@@ -138,7 +138,7 @@ impl<'ast, T: Field> UExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> UExpression<'ast, T> {
+impl<'ast, T> UExpression<'ast, T> {
     pub fn bitwidth(&self) -> Bitwidth {
         self.bitwidth
     }
@@ -155,7 +155,7 @@ impl<'ast, T: Field> UExpression<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     // fn count_readjustments<'ast, T: Field>(e: UExpression<'ast, T>) -> usize {
     //     let metadata = e.metadata;
@@ -194,7 +194,7 @@ mod tests {
     //         |acc, _| UExpression::add(acc, UExpressionInner::Identifier("a".into()).annotate(8)),
     //     );
 
-    //     let e = e.reduce::<FieldPrime>();
+    //     let e = e.reduce::<Bn128Field>();
 
     //     assert_eq!(count_readjustments(e), 0);
     // }
@@ -212,7 +212,7 @@ mod tests {
     //         |acc, _| UExpression::mult(acc, UExpressionInner::Identifier("a".into()).annotate(8)),
     //     );
 
-    //     let e = e.reduce::<FieldPrime>();
+    //     let e = e.reduce::<Bn128Field>();
 
     //     assert_eq!(count_readjustments(e), 3);
     // }

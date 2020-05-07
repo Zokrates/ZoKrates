@@ -154,13 +154,13 @@ mod tests {
                 tokens: [
                     statement(0, 28, [
                         definition_statement(0, 15, [
-                            optionally_typed_assignee(0, 7, [
+                            optionally_typed_assignee(0, 8, [
                                 ty(0, 5, [
                                     ty_basic(0, 5, [
                                         ty_field(0, 5)
                                     ])
                                 ]),
-                                assignee(6, 7, [
+                                assignee(6, 8, [
                                     identifier(6, 7)
                                 ])
                             ]),
@@ -190,14 +190,14 @@ mod tests {
                 tokens: [
                     statement(0, 26, [
                         definition_statement(0, 13, [
-                            optionally_typed_assignee(0, 5, [
+                            optionally_typed_assignee(0, 6, [
                                 ty(0, 3, [
                                     ty_basic(0, 3, [
                                         ty_u32(0, 3)
                                     ])
                                 ]),
                                 assignee(4, 6, [
-                                    identifier(4, 6)
+                                    identifier(4, 5)
                                 ])
                             ]),
                             expression(8, 13, [

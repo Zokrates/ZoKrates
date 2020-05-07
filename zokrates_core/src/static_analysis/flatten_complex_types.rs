@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use typed_absy;
 use zir;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub struct Flattener<T: Field> {
     phantom: PhantomData<T>,

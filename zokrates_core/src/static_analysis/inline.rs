@@ -19,7 +19,7 @@
 use std::collections::HashMap;
 use typed_absy::types::{ArrayType, FunctionKey, StructMember, Type};
 use typed_absy::{folder::*, *};
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 struct Location<'ast> {
@@ -101,7 +101,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         let main = inliner.fold_function_symbol(main);
 
         // define a function in the main module for the `unpack` embed
-        let unpack = crate::embed::FlatEmbed::Unpack;
+        let unpack = crate::embed::FlatEmbed::Unpack(T::get_required_bits());
         let unpack_key = unpack.key::<T>();
 
         // define a function in the main module for the `sha256_round` embed
@@ -570,7 +570,7 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
     use typed_absy::types::{FunctionKey, Signature, Type};
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[test]
     fn call_other_module_without_variables() {
@@ -627,7 +627,7 @@ mod tests {
                 TypedFunctionSymbol::Here(TypedFunction {
                     arguments: vec![],
                     statements: vec![TypedStatement::Return(vec![
-                        FieldElementExpression::Number(FieldPrime::from(42)).into(),
+                        FieldElementExpression::Number(Bn128Field::from(42)).into(),
                     ])],
                     signature: Signature::new().outputs(vec![Type::FieldElement]),
                 }),
@@ -662,7 +662,7 @@ mod tests {
             &TypedFunctionSymbol::Here(TypedFunction {
                 arguments: vec![],
                 statements: vec![TypedStatement::Return(vec![
-                    FieldElementExpression::Number(FieldPrime::from(42)).into(),
+                    FieldElementExpression::Number(Bn128Field::from(42)).into(),
                 ])],
                 signature: Signature::new().outputs(vec![Type::FieldElement]),
             })
@@ -762,7 +762,7 @@ mod tests {
             .into_iter()
             .collect();
 
-        let program: TypedProgram<FieldPrime> = TypedProgram {
+        let program: TypedProgram<Bn128Field> = TypedProgram {
             main: "main".into(),
             modules,
         };
@@ -844,7 +844,7 @@ mod tests {
             .outputs(vec![Type::FieldElement])
             .inputs(vec![Type::FieldElement]);
 
-        let main: TypedModule<FieldPrime> = TypedModule {
+        let main: TypedModule<Bn128Field> = TypedModule {
             functions: vec![
                 (
                     FunctionKey::with_id("main").signature(signature.clone()),
@@ -888,7 +888,7 @@ mod tests {
             .collect(),
         };
 
-        let foo: TypedModule<FieldPrime> = TypedModule {
+        let foo: TypedModule<Bn128Field> = TypedModule {
             functions: vec![(
                 FunctionKey::with_id("foo").signature(signature.clone()),
                 TypedFunctionSymbol::Here(TypedFunction {
@@ -994,7 +994,7 @@ mod tests {
             .outputs(vec![Type::FieldElement])
             .inputs(vec![Type::FieldElement]);
 
-        let main: TypedModule<FieldPrime> = TypedModule {
+        let main: TypedModule<Bn128Field> = TypedModule {
             functions: vec![
                 (
                     FunctionKey::with_id("main").signature(
@@ -1059,7 +1059,7 @@ mod tests {
             .collect(),
         };
 
-        let foo: TypedModule<FieldPrime> = TypedModule {
+        let foo: TypedModule<Bn128Field> = TypedModule {
             functions: vec![(
                 FunctionKey::with_id("foo").signature(signature.clone()),
                 TypedFunctionSymbol::Here(TypedFunction {
@@ -1244,7 +1244,7 @@ mod tests {
                 TypedFunctionSymbol::Here(TypedFunction {
                     arguments: vec![],
                     statements: vec![TypedStatement::Return(vec![
-                        FieldElementExpression::Number(FieldPrime::from(42)).into(),
+                        FieldElementExpression::Number(Bn128Field::from(42)).into(),
                     ])],
                     signature: Signature::new().outputs(vec![Type::FieldElement]),
                 }),
@@ -1281,7 +1281,7 @@ mod tests {
                 statements: vec![
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::field_element("a")),
-                        FieldElementExpression::Number(FieldPrime::from(42)).into()
+                        FieldElementExpression::Number(Bn128Field::from(42)).into()
                     ),
                     TypedStatement::Return(vec![
                         FieldElementExpression::Identifier("a".into()).into(),
@@ -1338,7 +1338,7 @@ mod tests {
                     TypedFunctionSymbol::Here(TypedFunction {
                         arguments: vec![],
                         statements: vec![TypedStatement::Return(vec![
-                            FieldElementExpression::Number(FieldPrime::from(42)).into(),
+                            FieldElementExpression::Number(Bn128Field::from(42)).into(),
                         ])],
                         signature: Signature::new().outputs(vec![Type::FieldElement]),
                     }),
@@ -1374,7 +1374,7 @@ mod tests {
                 statements: vec![
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::field_element("a")),
-                        FieldElementExpression::Number(FieldPrime::from(42)).into()
+                        FieldElementExpression::Number(Bn128Field::from(42)).into()
                     ),
                     TypedStatement::Return(vec![
                         FieldElementExpression::Identifier("a".into()).into(),
@@ -1480,7 +1480,7 @@ mod tests {
             .into_iter()
             .collect();
 
-        let program: TypedProgram<FieldPrime> = TypedProgram {
+        let program: TypedProgram<Bn128Field> = TypedProgram {
             main: "main".into(),
             modules,
         };

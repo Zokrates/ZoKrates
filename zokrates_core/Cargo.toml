@@ -32,7 +32,7 @@ zokrates_embed = { path = "../zokrates_embed" }
 zokrates_common = { path = "../zokrates_common" }
 rand = "0.4"
 csv = "1"
-bellman_ce = { version = "0.3.3", default-features = false}
+bellman_ce = { version = "=0.3.3", default-features = false}
 
 [dependencies.num-bigint]
 version = "0.2"

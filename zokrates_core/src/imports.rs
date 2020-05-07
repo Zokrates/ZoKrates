@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 
 use typed_arena::Arena;
 use zokrates_common::Resolver;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 #[derive(PartialEq, Debug)]
 pub struct Error {
@@ -166,7 +166,7 @@ impl Importer {
                         symbols.push(
                             SymbolDeclaration {
                                 id: &alias,
-                                symbol: Symbol::Flat(FlatEmbed::Unpack),
+                                symbol: Symbol::Flat(FlatEmbed::Unpack(T::get_required_bits())),
                             }
                             .start_end(pos.0, pos.1),
                         );

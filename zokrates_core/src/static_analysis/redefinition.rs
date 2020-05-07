@@ -16,7 +16,7 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::marker::PhantomData;
 use typed_absy::types::{StructMember, Type};
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub struct RedefinitionOptimizer<'ast, T: Field> {
     identifiers: HashMap<Identifier<'ast>, Identifier<'ast>>,
@@ -92,5 +92,5 @@ impl<'ast, T: Field> Folder<'ast, T> for RedefinitionOptimizer<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 }

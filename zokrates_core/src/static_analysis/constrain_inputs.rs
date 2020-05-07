@@ -1,39 +1,37 @@
-//! Add runtime boolean checks on user inputs
-//!
-//! Example:
-//! ```zokrates
-//! struct Foo {
-//!    bar: bool
-//! }
-//!
-//! def main(Foo f) -> ():
-//!    f.bar == f.bar && f.bar
-//!    return
-//! ```
-//!
-//! Becomes
-//!
-//! ```zokrates
-//! struct Foo {
-//!    bar: bool
-//! }
-//!
-//! def main(Foo f) -> ():
-//!    f.bar == f.bar && f.bar
-//!    return
-//! ```
-//!
-//! @file constrain_inputs.rs
-//! @author Thibaut Schaeffer <thibaut@schaeff.fr>
-//! @date 2019
+// Add runtime boolean checks on user inputs
+
+// Example:
+// ```zokrates
+// struct Foo {
+//    bar: bool
+// }
+
+// def main(Foo f) -> ():
+//    f.bar == f.bar && f.bar
+//    return
+// ```
+
+// Becomes
+
+// ```zokrates
+// struct Foo {
+//    bar: bool
+// }
+
+// def main(Foo f) -> ():
+//    f.bar == f.bar && f.bar
+//    return
+// ```
+
+// @file constrain_inputs.rs
+// @author Thibaut Schaeffer <thibaut@schaeff.fr>
+// @date 2019
 
 use crate::zir::folder::Folder;
 use crate::zir::types::Type;
 use crate::zir::*;
 use std::collections::HashSet;
-use zir::folder::fold_uint_expression;
-use zir::folder::fold_uint_expression_inner;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub struct InputConstrainer<'ast, T: Field> {
     uints: HashSet<Identifier<'ast>>,

@@ -1,6 +1,6 @@
 mod bn128;
 
-use zokrates_field::field::FieldPrime;
+use zokrates_field::Field;
 
 pub use self::bn128::G16;
 #[cfg(feature = "libsnark")]
@@ -24,15 +24,14 @@ impl SetupKeypair {
     }
 }
 
-pub trait ProofSystem {
-    fn setup(&self, program: ir::Prog<FieldPrime>) -> SetupKeypair;
+pub trait ProofSystem<T: Field> {
+    fn setup(program: ir::Prog<T>) -> SetupKeypair;
 
     fn generate_proof(
-        &self,
-        program: ir::Prog<FieldPrime>,
-        witness: ir::Witness<FieldPrime>,
+        program: ir::Prog<T>,
+        witness: ir::Witness<T>,
         proving_key: Vec<u8>,
     ) -> String;
 
-    fn export_solidity_verifier(&self, vk: String, is_abiv2: bool) -> String;
+    fn export_solidity_verifier(vk: String, is_abiv2: bool) -> String;
 }
