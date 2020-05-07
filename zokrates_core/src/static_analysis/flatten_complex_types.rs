@@ -99,8 +99,7 @@ impl<'ast, T: Field> Flattener<T> {
     ) -> Vec<zir::ZirAssignee<'ast>> {
         match a {
             typed_absy::TypedAssignee::Identifier(v) => self.fold_variable(v),
-            typed_absy::TypedAssignee::Select(..) => unreachable!(),
-            typed_absy::TypedAssignee::Member(..) => unreachable!(),
+            _ => unreachable!(),
         }
     }
 
@@ -145,7 +144,7 @@ impl<'ast, T: Field> Flattener<T> {
         es: typed_absy::TypedExpressionList<'ast, T>,
     ) -> zir::ZirExpressionList<'ast, T> {
         match es {
-            typed_absy::TypedExpressionList::FunctionCall(id, arguments, types) => {
+            typed_absy::TypedExpressionList::FunctionCall(id, arguments, _) => {
                 zir::ZirExpressionList::FunctionCall(
                     self.fold_function_key(id),
                     arguments
@@ -163,10 +162,6 @@ impl<'ast, T: Field> Flattener<T> {
         k: typed_absy::types::FunctionKey<'ast>,
     ) -> zir::types::FunctionKey<'ast> {
         k.into()
-    }
-
-    fn fold_signature(&mut self, s: typed_absy::types::Signature) -> zir::types::Signature {
-        s.into()
     }
 
     fn fold_field_expression(
@@ -387,9 +382,7 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
             .into_iter()
             .flat_map(|e| f.fold_expression(e))
             .collect(),
-        typed_absy::StructExpressionInner::FunctionCall(id, exps) => {
-            unreachable!();
-        }
+        typed_absy::StructExpressionInner::FunctionCall(..) => unreachable!(),
         typed_absy::StructExpressionInner::IfElse(
             box condition,
             box consequence,
@@ -505,7 +498,7 @@ pub fn fold_field_expression<'ast, T: Field>(
             let alt = f.fold_field_expression(alt);
             zir::FieldElementExpression::IfElse(box cond, box cons, box alt)
         }
-        typed_absy::FieldElementExpression::FunctionCall(key, exps) => unreachable!("oops"),
+        typed_absy::FieldElementExpression::FunctionCall(..) => unreachable!(""),
         typed_absy::FieldElementExpression::Member(box s, id) => {
             let members = s.ty().clone();
 
@@ -534,7 +527,7 @@ pub fn fold_field_expression<'ast, T: Field>(
                 .clone()
                 .try_into()
                 .unwrap(),
-                _ => unreachable!("oops"),
+                _ => unreachable!(""),
             }
         }
     }
@@ -601,9 +594,7 @@ pub fn fold_boolean_expression<'ast, T: Field>(
             let alt = f.fold_boolean_expression(alt);
             zir::BooleanExpression::IfElse(box cond, box cons, box alt)
         }
-        typed_absy::BooleanExpression::FunctionCall(..) => {
-            unreachable!();
-        }
+        typed_absy::BooleanExpression::FunctionCall(..) => unreachable!(),
         typed_absy::BooleanExpression::Member(box s, id) => {
             let members = s.ty().clone();
 

@@ -1249,7 +1249,7 @@ impl<'ast, T> Member<'ast, T> for BooleanExpression<'ast, T> {
 }
 
 impl<'ast, T> Member<'ast, T> for UExpression<'ast, T> {
-    fn member(s: StructExpression<'ast, T>, member_id: MemberId) -> Self {
+    fn member(_: StructExpression<'ast, T>, _: MemberId) -> Self {
         unimplemented!()
         // UExpression::Member(box s, member_id)
     }

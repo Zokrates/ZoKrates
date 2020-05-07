@@ -1,7 +1,6 @@
 use std::fmt;
-use zir::types::{MemberId, Type};
+use zir::types::Type;
 use zir::Identifier;
-use zokrates_field::Field;
 
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub struct Variable<'ast> {

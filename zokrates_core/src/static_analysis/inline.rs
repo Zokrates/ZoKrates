@@ -17,7 +17,7 @@
 //! where any call in `main` must be to `_SHA_256_ROUND` or `_UNPACK`
 
 use std::collections::HashMap;
-use typed_absy::types::{ArrayType, FunctionKey, StructMember, Type};
+use typed_absy::types::{FunctionKey, StructMember, Type};
 use typed_absy::{folder::*, *};
 use zokrates_field::Field;
 
@@ -236,7 +236,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
             // if the function is a flat symbol, replace the call with a call to the local function we provide so it can be inlined in flattening
             TypedFunctionSymbol::Flat(embed) => {
                 // increase the number of calls for this function by one
-                let count = self
+                let _ = self
                     .call_count
                     .entry((self.module_id().clone(), embed.key::<T>().clone()))
                     .and_modify(|i| *i += 1)

@@ -130,10 +130,6 @@ impl Type {
             Type::Uint(_) => 1,
             Type::Struct(members) => members.iter().map(|m| m.ty.get_primitive_count()).sum(),
             Type::Array(array_type) => array_type.size * array_type.ty.get_primitive_count(),
-            Type::Struct(members) => members
-                .iter()
-                .map(|member| member.ty.get_primitive_count())
-                .sum(),
         }
     }
 }

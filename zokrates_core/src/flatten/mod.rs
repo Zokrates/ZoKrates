@@ -1710,10 +1710,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             .map(|p| self.use_parameter(&p, &mut statements_flattened))
             .collect();
 
-        let stat_count = funct.statements.len();
-
         // flatten statements in functions and apply substitution
-        for (i, stat) in funct.statements.into_iter().enumerate() {
+        for stat in funct.statements {
             self.flatten_statement(symbols, &mut statements_flattened, stat);
         }
 
@@ -1791,10 +1789,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let var = FlatVariable::new(self.next_var_idx);
         self.next_var_idx += 1;
         var
-    }
-
-    fn issue_new_variables(&mut self, count: usize) -> Vec<FlatVariable> {
-        (0..count).map(|_| self.issue_new_variable()).collect()
     }
 
     // create an internal variable. We do not register it in the layout

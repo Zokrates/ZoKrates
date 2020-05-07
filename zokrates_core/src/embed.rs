@@ -67,7 +67,7 @@ impl FlatEmbed {
     pub fn id(&self) -> &'static str {
         match self {
             FlatEmbed::Sha256Round => "_SHA256_ROUND",
-            FlatEmbed::Unpack(bitwidth) => "_UNPACK",
+            FlatEmbed::Unpack(_) => "_UNPACK",
             FlatEmbed::CheckU8 => "_CHECK_U8",
             FlatEmbed::CheckU16 => "_CHECK_U16",
             FlatEmbed::CheckU32 => "_CHECK_U32",
@@ -82,7 +82,7 @@ impl FlatEmbed {
     pub fn synthetize<T: Field>(&self) -> FlatFunction<T> {
         match self {
             FlatEmbed::Sha256Round => sha256_round(),
-            FlatEmbed::Unpack(_) => unpack_to_host_bitwidth(),
+            FlatEmbed::Unpack(bitwidth) => unpack_to_bitwidth(*bitwidth),
             FlatEmbed::CheckU8 => unpack_to_bitwidth(8),
             FlatEmbed::CheckU16 => unpack_to_bitwidth(16),
             FlatEmbed::CheckU32 => unpack_to_bitwidth(32),
@@ -236,15 +236,6 @@ fn use_variable(
     var
 }
 
-/// A `FlatFunction` which returns a bit decomposition of a field element
-///
-/// # Remarks
-/// * the return value of the `FlatFunction` is not deterministic: as we decompose over log_2(p) + 1 bits, some
-///   elements can have multiple representations: For example, `unpack(0)` is `[0, ..., 0]` but also `unpack(p)`
-pub fn unpack_to_host_bitwidth<T: Field>() -> FlatFunction<T> {
-    unpack_to_bitwidth(T::get_required_bits())
-}
-
 /// A `FlatFunction` which checks a u8
 pub fn unpack_to_bitwidth<T: Field>(width: usize) -> FlatFunction<T> {
     let nbits = T::get_required_bits();
@@ -342,7 +333,8 @@ mod tests {
 
         #[test]
         fn split254() {
-            let unpack: FlatFunction<Bn128Field> = unpack_to_host_bitwidth();
+            let unpack: FlatFunction<Bn128Field> =
+                unpack_to_bitwidth(Bn128Field::get_required_bits());
 
             assert_eq!(
                 unpack.arguments,

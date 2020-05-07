@@ -1455,16 +1455,6 @@ impl<'ast> Checker<'ast> {
                                 )
                                 .annotate(*array_type.ty.clone(), array_type.size.clone())
                                 .into()),
-                                Type::Uint(bitwidth) => Ok(UExpressionInner::FunctionCall(
-                                    FunctionKey {
-                                        id: f.id.clone(),
-                                        signature: f.signature.clone(),
-                                    },
-                                    arguments_checked,
-                                )
-                                .annotate(*bitwidth)
-                                .into()),
-                                _ => unimplemented!(),
                             },
                             n => Err(ErrorInner {
                                 pos: Some(pos),

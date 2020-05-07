@@ -1,37 +1,20 @@
-//! Module containing constant propagation for the typed AST
-//!
-//! On top of the usual behavior of removing statements which assign a constant to a variable (as the variable can simply be
-//! substituted for the constant whenever used), we provide a `verbose` mode which does not remove such statements. This is done
-//! as for partial passes which do not visit the whole program, the variables being defined may be be used in parts of the program
-//! that are not visited. Keeping the statements is semantically equivalent and enables rebuilding the set of constants at the
-//! next pass.
-//!
-//! @file propagation.rs
-//! @author Thibaut Schaeffer <thibaut@schaeff.fr>
-//! @date 2018
-
 use crate::typed_absy::folder::*;
 use crate::typed_absy::*;
 use std::collections::HashMap;
-use std::convert::TryFrom;
-use std::marker::PhantomData;
-use typed_absy::types::{StructMember, Type};
 use zokrates_field::Field;
 
-pub struct RedefinitionOptimizer<'ast, T: Field> {
+pub struct RedefinitionOptimizer<'ast> {
     identifiers: HashMap<Identifier<'ast>, Identifier<'ast>>,
-    phantom: PhantomData<T>,
 }
 
-impl<'ast, T: Field> RedefinitionOptimizer<'ast, T> {
+impl<'ast> RedefinitionOptimizer<'ast> {
     fn new() -> Self {
         RedefinitionOptimizer {
             identifiers: HashMap::new(),
-            phantom: PhantomData,
         }
     }
 
-    pub fn optimize(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
+    pub fn optimize<T: Field>(p: TypedProgram<'ast, T>) -> TypedProgram<'ast, T> {
         RedefinitionOptimizer::new().fold_program(p)
     }
 }
@@ -56,7 +39,7 @@ fn try_id<'ast, T: Field>(e: &TypedExpression<'ast, T>) -> Option<Identifier<'as
     }
 }
 
-impl<'ast, T: Field> Folder<'ast, T> for RedefinitionOptimizer<'ast, T> {
+impl<'ast, T: Field> Folder<'ast, T> for RedefinitionOptimizer<'ast> {
     fn fold_function(&mut self, f: TypedFunction<'ast, T>) -> TypedFunction<'ast, T> {
         self.identifiers = HashMap::new();
         fold_function(self, f)
@@ -87,10 +70,4 @@ impl<'ast, T: Field> Folder<'ast, T> for RedefinitionOptimizer<'ast, T> {
     fn fold_name(&mut self, s: Identifier<'ast>) -> Identifier<'ast> {
         self.identifiers.get(&s).map(|r| r.clone()).unwrap_or(s)
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use zokrates_field::Bn128Field;
 }

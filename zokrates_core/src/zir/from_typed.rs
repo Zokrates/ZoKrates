@@ -25,7 +25,7 @@ fn from_type(t: typed_absy::types::Type) -> Vec<zir::types::Type> {
         typed_absy::Type::Uint(bitwidth) => vec![zir::Type::Uint(bitwidth)],
         typed_absy::Type::Array(array_type) => {
             let inner = from_type(*array_type.ty);
-            (0..array_type.size).flat_map(|i| inner.clone()).collect()
+            (0..array_type.size).flat_map(|_| inner.clone()).collect()
         }
         typed_absy::Type::Struct(members) => members
             .into_iter()

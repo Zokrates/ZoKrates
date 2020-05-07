@@ -115,8 +115,6 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 })
             }
             Sub(box left, box right) => {
-                use num::traits::{CheckedAdd, Pow};
-
                 // let `target` the target bitwidth of `left` and `right`
                 // `0 <= left <= max_left`
                 // `0 <= right <= max_right`
@@ -209,8 +207,6 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 })
             }
             Mult(box left, box right) => {
-                use num::CheckedMul;
-
                 // reduce the two terms
                 let left = self.fold_uint_expression(left);
                 let right = self.fold_uint_expression(right);
@@ -421,7 +417,8 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::{Bn128Field, Pow};
+    use zokrates_field::Bn128Field;
+    use zokrates_field::Pow;
 
     // #[should_panic]
     // #[test]
