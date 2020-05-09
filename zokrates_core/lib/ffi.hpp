@@ -35,9 +35,3 @@ void __free(uint8_t* ptr);
 #ifdef __cplusplus
 } // extern "C"
 #endif
-
-static inline void __alloc(buffer_t* buffer, size_t length)
-{
-    buffer->data = (uint8_t*)malloc(length);
-    buffer->length = length;
-}

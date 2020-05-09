@@ -367,21 +367,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "curl-sys"
-version = "0.4.30+curl-7.69.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "923b38e423a8f47a4058e96f2a1fa2865a6231097ee860debd678d244277d50c"
-dependencies = [
- "cc",
- "libc",
- "libz-sys",
- "openssl-sys",
- "pkg-config",
- "vcpkg",
- "winapi",
-]
-
-[[package]]
 name = "difference"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -602,9 +587,9 @@ dependencies = [
 
 [[package]]
 name = "git2"
-version = "0.8.0"
+version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7339329bfa14a00223244311560d11f8f489b453fb90092af97f267a6090ab0"
+checksum = "2be62b002b81549c68d31792d7dce5752c3658ea85715f4032ebbf9a6fdb0bb6"
 dependencies = [
  "bitflags",
  "libc",
@@ -644,9 +629,9 @@ checksum = "644f9158b2f133fd50f5fb3242878846d9eb792e445c893805ff0e3824006e35"
 
 [[package]]
 name = "idna"
-version = "0.1.5"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38f09e0f0b1fb55fdee1f17470ad800da77af5186a1a76c026b679358b7e844e"
+checksum = "02e2673c30ee86b5b96a9cb52ad15718aa1f966f5ab9ad54a8b95d5ca33120a9"
 dependencies = [
  "matches",
  "unicode-bidi",
@@ -700,12 +685,11 @@ checksum = "99e85c08494b21a9054e7fe1374a732aeadaff3980b6990b94bfd3a70f690005"
 
 [[package]]
 name = "libgit2-sys"
-version = "0.7.11"
+version = "0.12.4+1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48441cb35dc255da8ae72825689a95368bf510659ae1ad55dc4aa88cb1789bf1"
+checksum = "ef2870ecd7b50a76391b108edc2c62283ad2b62e5b1ab4d5263ef1cd04ef1c44"
 dependencies = [
  "cc",
- "curl-sys",
  "libc",
  "libssh2-sys",
  "libz-sys",
@@ -907,9 +891,9 @@ dependencies = [
 
 [[package]]
 name = "percent-encoding"
-version = "1.0.1"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31010dd2e1ac33d5b46a5b413495239882813e0369f8ed8a5e266f173602f831"
+checksum = "d4fd5641d01c8f18a23da7b6fe29298ff4b55afcccdf78973b24cf3175fee32e"
 
 [[package]]
 name = "pest"
@@ -1477,9 +1461,9 @@ checksum = "826e7639553986605ec5979c7dd957c7895e93eabed50ab2ffa7f6128a75097c"
 
 [[package]]
 name = "url"
-version = "1.7.2"
+version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd4e7c0d531266369519a4aa4f399d748bd37043b00bde1e4ff1f60a120b355a"
+checksum = "829d4a8476c35c9bf0bbce5a3b23f4106f79728039b726d292bb93bc106787cb"
 dependencies = [
  "idna",
  "matches",
@@ -1710,6 +1694,7 @@ dependencies = [
  "ff_ce",
  "git2",
  "glob 0.2.11",
+ "hex",
  "lazy_static",
  "num",
  "num-bigint 0.1.44",

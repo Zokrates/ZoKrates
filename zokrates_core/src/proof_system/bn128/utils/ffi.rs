@@ -20,12 +20,25 @@ extern "C" {
 }
 
 impl Buffer {
-    pub fn from_vec(v: &mut Vec<u8>) -> Buffer {
-        let length = v.len() as i32;
+    pub fn from_vec(v: &Vec<u8>) -> Buffer {
+        let mut buf = vec![0; v.len()].into_boxed_slice();
+        buf.copy_from_slice(v.as_slice());
+
+        let data = buf.as_mut_ptr();
+        let len = buf.len();
+
+        std::mem::forget(buf);
+
         Buffer {
-            data: v.as_mut_ptr(),
-            length,
+            data,
+            length: len as i32,
         }
+    }
+
+    pub unsafe fn drop(&self) {
+        let s = std::slice::from_raw_parts_mut(self.data, self.length as usize);
+        let s = s.as_mut_ptr();
+        Box::from_raw(s);
     }
 
     /// The purpose of this function is to free memory previously allocated by "malloc"

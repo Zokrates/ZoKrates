@@ -225,72 +225,44 @@ mod parse {
         static ref FR_REGEX: Regex = Regex::new(r"Fr\((?P<x>0[xX][0-9a-fA-F]*)\)").unwrap();
     }
 
-    fn parse_g1<T: Field>(
+    pub fn parse_g1<T: Field>(
         e: &<T::BellmanEngine as bellman::pairing::Engine>::G1Affine,
     ) -> (String, String) {
         let raw_e = e.to_string();
-
         let captures = G1_REGEX.captures(&raw_e).unwrap();
-
         (
             captures.name(&"x").unwrap().as_str().to_string(),
             captures.name(&"y").unwrap().as_str().to_string(),
         )
     }
 
-    fn parse_g2<T: Field>(
+    pub fn parse_g2<T: Field>(
         e: &<T::BellmanEngine as bellman::pairing::Engine>::G2Affine,
-    ) -> (String, String, String, String) {
+    ) -> ((String, String), (String, String)) {
         let raw_e = e.to_string();
-
         let captures = G2_REGEX.captures(&raw_e).unwrap();
-
         (
-            captures.name(&"x1").unwrap().as_str().to_string(),
-            captures.name(&"x0").unwrap().as_str().to_string(),
-            captures.name(&"y1").unwrap().as_str().to_string(),
-            captures.name(&"y0").unwrap().as_str().to_string(),
+            (
+                captures.name(&"x1").unwrap().as_str().to_string(),
+                captures.name(&"x0").unwrap().as_str().to_string(),
+            ),
+            (
+                captures.name(&"y1").unwrap().as_str().to_string(),
+                captures.name(&"y0").unwrap().as_str().to_string(),
+            ),
         )
     }
 
-    fn parse_fr<T: Field>(e: &<T::BellmanEngine as ScalarEngine>::Fr) -> String {
+    pub fn parse_fr<T: Field>(e: &<T::BellmanEngine as ScalarEngine>::Fr) -> String {
         let raw_e = e.to_string();
-
         let captures = FR_REGEX.captures(&raw_e).unwrap();
-
         captures.name(&"x").unwrap().as_str().to_string()
-    }
-
-    pub fn parse_g1_json<T: Field>(
-        e: &<T::BellmanEngine as bellman::pairing::Engine>::G1Affine,
-    ) -> String {
-        let parsed = parse_g1::<T>(e);
-
-        format!("[\"{}\", \"{}\"]", parsed.0, parsed.1)
-    }
-
-    pub fn parse_g2_json<T: Field>(
-        e: &<T::BellmanEngine as bellman::pairing::Engine>::G2Affine,
-    ) -> String {
-        let parsed = parse_g2::<T>(e);
-
-        format!(
-            "[[\"{}\", \"{}\"], [\"{}\", \"{}\"]]",
-            parsed.0, parsed.1, parsed.2, parsed.3,
-        )
-    }
-
-    pub fn parse_fr_json<T: Field>(e: &<T::BellmanEngine as ScalarEngine>::Fr) -> String {
-        let parsed = parse_fr::<T>(e);
-
-        format!("\"{}\"", parsed)
     }
 
     pub fn parse_g1_hex<T: Field>(
         e: &<T::BellmanEngine as bellman::pairing::Engine>::G1Affine,
     ) -> String {
         let parsed = parse_g1::<T>(e);
-
         format!("{}, {}", parsed.0, parsed.1)
     }
 
@@ -298,8 +270,13 @@ mod parse {
         e: &<T::BellmanEngine as bellman::pairing::Engine>::G2Affine,
     ) -> String {
         let parsed = parse_g2::<T>(e);
-
-        format!("[{}, {}], [{}, {}]", parsed.0, parsed.1, parsed.2, parsed.3,)
+        format!(
+            "[{}, {}], [{}, {}]",
+            (parsed.0).0,
+            (parsed.0).1,
+            (parsed.1).0,
+            (parsed.1).1
+        )
     }
 }
 

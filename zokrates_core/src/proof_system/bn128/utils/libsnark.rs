@@ -14,6 +14,17 @@ fn vec_as_u8_32_array(vec: &Vec<u8>) -> [u8; 32] {
     array
 }
 
+pub fn prepare_public_inputs<T: Field>(public_inputs: Vec<T>) -> (Vec<[u8; 32]>, usize) {
+    let public_inputs_length = public_inputs.len();
+    let mut public_inputs_arr: Vec<[u8; 32]> = vec![[0u8; 32]; public_inputs_length];
+
+    for (index, value) in public_inputs.into_iter().enumerate() {
+        public_inputs_arr[index] = vec_as_u8_32_array(&value.into_byte_vector());
+    }
+
+    (public_inputs_arr, public_inputs_length)
+}
+
 // proof-system-independent preparation for the setup phase
 pub fn prepare_setup<T: Field>(
     program: ir::Prog<T>,

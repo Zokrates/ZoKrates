@@ -16,8 +16,17 @@ libff::bigint<libff::alt_bn128_r_limbs> libsnarkBigintFromBytes(const uint8_t* _
             x.data[3 - i] |= uint64_t(_x[i * 8 + j]) << (8 * (7 - j));
         }
     }
-
     return x;
+}
+
+std::string toHexString(const std::string& in)
+{
+    std::ostringstream out;
+    out << std::setfill('0');
+    for (unsigned char const& c : in) {
+        out << std::hex << std::setw(2) << static_cast<unsigned int>(c);
+    }
+    return out.str();
 }
 
 std::string HexStringFromLibsnarkBigint(libff::bigint<libff::alt_bn128_r_limbs> _x)
@@ -28,12 +37,8 @@ std::string HexStringFromLibsnarkBigint(libff::bigint<libff::alt_bn128_r_limbs> 
             x[i * 8 + j] = uint8_t(uint64_t(_x.data[3 - i]) >> (8 * (7 - j)));
         }
     }
-    std::stringstream ss;
-    ss << std::setfill('0');
-    for (unsigned i = 0; i < 32; i++) {
-        ss << std::hex << std::setw(2) << (int)x[i];
-    }
-    return ss.str();
+    std::string tmp((char*)x, 32);
+    return toHexString(tmp);
 }
 
 std::string outputInputAsHex(libff::bigint<libff::alt_bn128_r_limbs> _x)

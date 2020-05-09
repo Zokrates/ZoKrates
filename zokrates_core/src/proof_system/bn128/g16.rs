@@ -1,17 +1,40 @@
+use bellman::groth16::{
+    prepare_verifying_key, verify_proof, Parameters, PreparedVerifyingKey, Proof as BellmanProof,
+    VerifyingKey,
+};
+use regex::Regex;
+
+use zokrates_field::Field;
+
 use crate::ir;
 use crate::proof_system::bn128::utils::bellman::Computation;
+use crate::proof_system::bn128::utils::bellman::{
+    parse_fr, parse_g1, parse_g1_hex, parse_g2, parse_g2_hex,
+};
+use crate::proof_system::bn128::utils::parser::parse_vk;
 use crate::proof_system::bn128::utils::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
 use crate::proof_system::{ProofSystem, SetupKeypair};
-use bellman::groth16::Parameters;
-use regex::Regex;
-use std::io::{Cursor, Read};
-use zokrates_field::Field;
+use proof_system::bn128::{G1PairingPoint, G2PairingPoint, Proof};
+use proof_system::SolidityAbi;
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/reference/proving_schemes.html#g16-malleability for implications.";
 
 pub struct G16 {}
+
+#[derive(Serialize, Deserialize)]
+struct G16ProofPoints {
+    a: G1PairingPoint,
+    b: G2PairingPoint,
+    c: G1PairingPoint,
+}
+
+impl G16ProofPoints {
+    fn new(a: G1PairingPoint, b: G2PairingPoint, c: G1PairingPoint) -> Self {
+        G16ProofPoints { a, b, c }
+    }
+}
 
 impl<T: Field> ProofSystem<T> for G16 {
     fn setup(program: ir::Prog<T>) -> SetupKeypair {
@@ -20,17 +43,10 @@ impl<T: Field> ProofSystem<T> for G16 {
         println!("{}", G16_WARNING);
 
         let parameters = Computation::without_witness(program).setup();
+        let vk = serialize_vk::<T>(&parameters.vk);
 
-        let mut cursor = Cursor::new(Vec::new());
-
-        parameters.write(&mut cursor).unwrap();
-        cursor.set_position(0);
-
-        let vk: String = serialize::serialize_vk::<T>(parameters.vk);
         let mut pk: Vec<u8> = Vec::new();
-        cursor
-            .read_to_end(&mut pk)
-            .expect("Could not read cursor buffer");
+        parameters.write(&mut pk).unwrap();
 
         SetupKeypair::from(vk, pk)
     }
@@ -49,59 +65,57 @@ impl<T: Field> ProofSystem<T> for G16 {
         let params = Parameters::read(proving_key.as_slice(), true).unwrap();
 
         let proof = computation.clone().prove(&params);
+        let proof_points = G16ProofPoints::new(
+            parse_g1::<T>(&proof.a),
+            parse_g2::<T>(&proof.b),
+            parse_g1::<T>(&proof.c),
+        );
 
-        serialize::serialize_proof::<T>(&proof, &computation.public_inputs_values())
+        let inputs = computation
+            .public_inputs_values()
+            .iter()
+            .map(parse_fr::<T>)
+            .collect::<Vec<_>>();
+
+        let mut raw: Vec<u8> = Vec::new();
+        proof.write(&mut raw).unwrap();
+
+        Proof::<G16ProofPoints>::new(proof_points, inputs, hex::encode(&raw)).to_json_pretty()
     }
 
-    fn export_solidity_verifier(vk: String, is_abiv2: bool) -> String {
-        let mut lines = vk.lines();
-
-        let (mut template_text, solidity_pairing_lib) = if is_abiv2 {
-            (
-                String::from(CONTRACT_TEMPLATE_V2),
-                String::from(SOLIDITY_PAIRING_LIB_V2),
-            )
-        } else {
-            (
+    fn export_solidity_verifier(vk: String, abi: SolidityAbi) -> String {
+        let vk_map = parse_vk(vk).unwrap();
+        let (mut template_text, solidity_pairing_lib) = match abi {
+            SolidityAbi::V1 => (
                 String::from(CONTRACT_TEMPLATE),
                 String::from(SOLIDITY_PAIRING_LIB),
-            )
+            ),
+            SolidityAbi::V2 => (
+                String::from(CONTRACT_TEMPLATE_V2),
+                String::from(SOLIDITY_PAIRING_LIB_V2),
+            ),
         };
 
-        let gamma_abc_template = String::from("vk.gamma_abc[index] = Pairing.G1Point(points);"); //copy this for each entry
-
-        //replace things in template
         let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
         let vk_gamma_abc_len_regex = Regex::new(r#"(<%vk_gamma_abc_length%>)"#).unwrap();
-        let vk_gamma_abc_index_regex = Regex::new(r#"index"#).unwrap();
-        let vk_gamma_abc_points_regex = Regex::new(r#"points"#).unwrap();
         let vk_gamma_abc_repeat_regex = Regex::new(r#"(<%vk_gamma_abc_pts%>)"#).unwrap();
         let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
 
-        for _ in 0..4 {
-            let current_line: &str = lines
-                .next()
-                .expect("Unexpected end of file in verification key!");
-            let current_line_split: Vec<&str> = current_line.split("=").collect();
-            assert_eq!(current_line_split.len(), 2);
+        let keys = vec!["vk.alpha", "vk.beta", "vk.gamma", "vk.delta"];
+        for key in keys.iter() {
             template_text = vk_regex
-                .replace(template_text.as_str(), current_line_split[1].trim())
+                .replace(template_text.as_str(), vk_map.get(*key).unwrap().as_str())
                 .into_owned();
         }
 
-        let current_line: &str = lines
-            .next()
-            .expect("Unexpected end of file in verification key!");
-        let current_line_split: Vec<&str> = current_line.split("=").collect();
-        assert_eq!(current_line_split.len(), 2);
-        let gamma_abc_count: i32 = current_line_split[1].trim().parse().unwrap();
-
+        let gamma_abc_count: usize = vk_map.get("vk.gamma_abc.len()").unwrap().parse().unwrap();
         template_text = vk_gamma_abc_len_regex
             .replace(
                 template_text.as_str(),
                 format!("{}", gamma_abc_count).as_str(),
             )
             .into_owned();
+
         template_text = vk_input_len_regex
             .replace(
                 template_text.as_str(),
@@ -111,23 +125,22 @@ impl<T: Field> ProofSystem<T> for G16 {
 
         let mut gamma_abc_repeat_text = String::new();
         for x in 0..gamma_abc_count {
-            let mut curr_template = gamma_abc_template.clone();
-            let current_line: &str = lines
-                .next()
-                .expect("Unexpected end of file in verification key!");
-            let current_line_split: Vec<&str> = current_line.split("=").collect();
-            assert_eq!(current_line_split.len(), 2);
-            curr_template = vk_gamma_abc_index_regex
-                .replace(curr_template.as_str(), format!("{}", x).as_str())
-                .into_owned();
-            curr_template = vk_gamma_abc_points_regex
-                .replace(curr_template.as_str(), current_line_split[1].trim())
-                .into_owned();
-            gamma_abc_repeat_text.push_str(curr_template.as_str());
+            gamma_abc_repeat_text.push_str(
+                format!(
+                    "vk.gamma_abc[{}] = Pairing.G1Point({});",
+                    x,
+                    vk_map
+                        .get(format!("vk.gamma_abc[{}]", x).as_str())
+                        .unwrap()
+                        .as_str()
+                )
+                .as_str(),
+            );
             if x < gamma_abc_count - 1 {
                 gamma_abc_repeat_text.push_str("\n        ");
             }
         }
+
         template_text = vk_gamma_abc_repeat_regex
             .replace(template_text.as_str(), gamma_abc_repeat_text.as_str())
             .into_owned();
@@ -140,70 +153,81 @@ impl<T: Field> ProofSystem<T> for G16 {
             SOLIDITY_G2_ADDITION_LIB, solidity_pairing_lib, template_text
         )
     }
+
+    fn verify(vk: String, proof: String) -> bool {
+        let map = parse_vk(vk).unwrap();
+        let vk_raw = hex::decode(map.get("vk.raw").unwrap()).unwrap();
+
+        let vk: VerifyingKey<T::BellmanEngine> = VerifyingKey::read(vk_raw.as_slice()).unwrap();
+        let pvk: PreparedVerifyingKey<T::BellmanEngine> = prepare_verifying_key(&vk);
+
+        let g16_proof = Proof::<G16ProofPoints>::from_str(proof.as_str());
+
+        let raw_proof = hex::decode(g16_proof.raw).unwrap();
+        let proof: BellmanProof<T::BellmanEngine> =
+            BellmanProof::read(raw_proof.as_slice()).unwrap();
+
+        let public_inputs: Vec<_> = g16_proof
+            .inputs
+            .iter()
+            .map(|s| {
+                T::try_from_str(s.trim_start_matches("0x"), 16)
+                    .expect(format!("Invalid {} value: {}", T::name(), s).as_str())
+                    .into_bellman()
+            })
+            .collect::<Vec<_>>();
+
+        verify_proof(&pvk, &proof, &public_inputs).unwrap()
+    }
 }
 
-mod serialize {
+fn serialize_vk<T: Field>(vk: &VerifyingKey<T::BellmanEngine>) -> String {
+    let mut writer = csv::WriterBuilder::new()
+        .delimiter(b'=')
+        .from_writer(vec![]);
 
-    use crate::proof_system::bn128::utils::bellman::{
-        parse_fr_json, parse_g1_hex, parse_g1_json, parse_g2_hex, parse_g2_json,
-    };
-    use bellman::groth16::{Proof, VerifyingKey};
-    use bellman::pairing::ff::ScalarEngine;
-    use zokrates_field::Field;
+    writer
+        .write_record(&["vk.alpha", parse_g1_hex::<T>(&vk.alpha_g1).as_str()])
+        .unwrap();
+    writer
+        .write_record(&["vk.beta", parse_g2_hex::<T>(&vk.beta_g2).as_str()])
+        .unwrap();
+    writer
+        .write_record(&["vk.gamma", parse_g2_hex::<T>(&vk.gamma_g2).as_str()])
+        .unwrap();
+    writer
+        .write_record(&["vk.delta", parse_g2_hex::<T>(&vk.delta_g2).as_str()])
+        .unwrap();
+    writer
+        .write_record(&["vk.gamma_abc.len()", vk.ic.len().to_string().as_str()])
+        .unwrap();
 
-    pub fn serialize_vk<T: Field>(vk: VerifyingKey<T::BellmanEngine>) -> String {
-        format!(
-            "vk.alpha = {}
-    vk.beta = {}
-    vk.gamma = {}
-    vk.delta = {}
-    vk.gamma_abc.len() = {}
-    {}",
-            parse_g1_hex::<T>(&vk.alpha_g1),
-            parse_g2_hex::<T>(&vk.beta_g2),
-            parse_g2_hex::<T>(&vk.gamma_g2),
-            parse_g2_hex::<T>(&vk.delta_g2),
-            vk.ic.len(),
-            vk.ic
-                .iter()
-                .enumerate()
-                .map(|(i, x)| format!("vk.gamma_abc[{}] = {}", i, parse_g1_hex::<T>(x)))
-                .collect::<Vec<_>>()
-                .join("\n")
-        )
+    let mut e = vk.ic.iter().enumerate();
+    while let Some((i, x)) = e.next() {
+        writer
+            .write_record(&[
+                format!("vk.gamma_abc[{}]", i).as_str(),
+                parse_g1_hex::<T>(x).as_str(),
+            ])
+            .unwrap()
     }
 
-    pub fn serialize_proof<T: Field>(
-        p: &Proof<T::BellmanEngine>,
-        inputs: &Vec<<T::BellmanEngine as ScalarEngine>::Fr>,
-    ) -> String {
-        format!(
-            "{{
-        \"proof\": {{
-            \"a\": {},
-            \"b\": {},
-            \"c\": {}
-        }},
-        \"inputs\": [{}]
-    }}",
-            parse_g1_json::<T>(&p.a),
-            parse_g2_json::<T>(&p.b),
-            parse_g1_json::<T>(&p.c),
-            inputs
-                .iter()
-                .map(parse_fr_json::<T>)
-                .collect::<Vec<_>>()
-                .join(", "),
-        )
-    }
+    let mut raw: Vec<u8> = Vec::new();
+    vk.write(&mut raw).unwrap();
+
+    writer
+        .write_record(&["vk.raw", hex::encode(&raw).as_str()])
+        .unwrap();
+
+    String::from_utf8(writer.into_inner().unwrap()).unwrap()
 }
 
 const CONTRACT_TEMPLATE_V2: &str = r#"
 contract Verifier {
     using Pairing for *;
     struct VerifyingKey {
-        Pairing.G1Point a;
-        Pairing.G2Point b;
+        Pairing.G1Point alpha;
+        Pairing.G2Point beta;
         Pairing.G2Point gamma;
         Pairing.G2Point delta;
         Pairing.G1Point[] gamma_abc;
@@ -214,8 +238,8 @@ contract Verifier {
         Pairing.G1Point c;
     }
     function verifyingKey() pure internal returns (VerifyingKey memory vk) {
-        vk.a = Pairing.G1Point(<%vk_a%>);
-        vk.b = Pairing.G2Point(<%vk_b%>);
+        vk.alpha = Pairing.G1Point(<%vk_alpha%>);
+        vk.beta = Pairing.G2Point(<%vk_beta%>);
         vk.gamma = Pairing.G2Point(<%vk_gamma%>);
         vk.delta = Pairing.G2Point(<%vk_delta%>);
         vk.gamma_abc = new Pairing.G1Point[](<%vk_gamma_abc_length%>);
@@ -236,7 +260,7 @@ contract Verifier {
              proof.a, proof.b,
              Pairing.negate(vk_x), vk.gamma,
              Pairing.negate(proof.c), vk.delta,
-             Pairing.negate(vk.a), vk.b)) return 1;
+             Pairing.negate(vk.alpha), vk.beta)) return 1;
         return 0;
     }
     event Verified(string s);
@@ -262,8 +286,8 @@ const CONTRACT_TEMPLATE: &str = r#"
 contract Verifier {
     using Pairing for *;
     struct VerifyingKey {
-        Pairing.G1Point a;
-        Pairing.G2Point b;
+        Pairing.G1Point alpha;
+        Pairing.G2Point beta;
         Pairing.G2Point gamma;
         Pairing.G2Point delta;
         Pairing.G1Point[] gamma_abc;
@@ -274,8 +298,8 @@ contract Verifier {
         Pairing.G1Point c;
     }
     function verifyingKey() pure internal returns (VerifyingKey memory vk) {
-        vk.a = Pairing.G1Point(<%vk_a%>);
-        vk.b = Pairing.G2Point(<%vk_b%>);
+        vk.alpha = Pairing.G1Point(<%vk_alpha%>);
+        vk.beta = Pairing.G2Point(<%vk_beta%>);
         vk.gamma = Pairing.G2Point(<%vk_gamma%>);
         vk.delta = Pairing.G2Point(<%vk_delta%>);
         vk.gamma_abc = new Pairing.G1Point[](<%vk_gamma_abc_length%>);
@@ -296,7 +320,7 @@ contract Verifier {
              proof.a, proof.b,
              Pairing.negate(vk_x), vk.gamma,
              Pairing.negate(proof.c), vk.delta,
-             Pairing.negate(vk.a), vk.b)) return 1;
+             Pairing.negate(vk.alpha), vk.beta)) return 1;
         return 0;
     }
     event Verified(string s);
@@ -326,61 +350,36 @@ contract Verifier {
 
 #[cfg(test)]
 mod tests {
+    use crate::flat_absy::FlatVariable;
+    use crate::ir::{Function, Prog, Statement};
+
     use super::*;
-    mod serialize {
-        use super::*;
+    use zokrates_field::Bn128Field;
 
-        mod bn {
-            use super::*;
-            use crate::flat_absy::FlatVariable;
-            use crate::ir::*;
-            use crate::proof_system::bn128::g16::serialize::serialize_proof;
-            use zokrates_field::Bn128Field;
+    #[test]
+    fn verify() {
+        let program: Prog<Bn128Field> = Prog {
+            main: Function {
+                id: String::from("main"),
+                arguments: vec![FlatVariable::new(0)],
+                returns: vec![FlatVariable::public(0)],
+                statements: vec![Statement::Constraint(
+                    FlatVariable::new(0).into(),
+                    FlatVariable::public(0).into(),
+                )],
+            },
+            private: vec![false],
+        };
 
-            #[allow(dead_code)]
-            #[derive(Deserialize)]
-            struct G16ProofPoints {
-                a: [String; 2],
-                b: [[String; 2]; 2],
-                c: [String; 2],
-            }
+        let keypair = G16::setup(program.clone());
+        let witness = program
+            .clone()
+            .execute(&vec![Bn128Field::from(42)])
+            .unwrap();
 
-            #[allow(dead_code)]
-            #[derive(Deserialize)]
-            struct G16Proof {
-                proof: G16ProofPoints,
-                inputs: Vec<String>,
-            }
+        let proof = G16::generate_proof(program.clone(), witness, keypair.pk);
+        let ans = <G16 as ProofSystem<Bn128Field>>::verify(keypair.vk, proof);
 
-            #[test]
-            fn serialize() {
-                let program: Prog<Bn128Field> = Prog {
-                    main: Function {
-                        id: String::from("main"),
-                        arguments: vec![FlatVariable::new(0)],
-                        returns: vec![FlatVariable::public(0)],
-                        statements: vec![Statement::Constraint(
-                            FlatVariable::new(0).into(),
-                            FlatVariable::public(0).into(),
-                        )],
-                    },
-                    private: vec![false],
-                };
-
-                let witness = program
-                    .clone()
-                    .execute(&vec![Bn128Field::from(42)])
-                    .unwrap();
-                let computation = Computation::with_witness(program, witness);
-
-                let public_inputs_values = computation.public_inputs_values();
-
-                let params = computation.clone().setup();
-                let proof = computation.prove(&params);
-
-                let serialized_proof = serialize_proof::<Bn128Field>(&proof, &public_inputs_values);
-                serde_json::from_str::<G16Proof>(&serialized_proof).unwrap();
-            }
-        }
+        assert!(ans);
     }
 }

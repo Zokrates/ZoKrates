@@ -41,32 +41,32 @@ fn cli_generate_proof<T: Field, P: ProofSystem<T>>(
     let witness_path = Path::new(sub_matches.value_of("witness").unwrap());
     let witness_file = match File::open(&witness_path) {
         Ok(file) => file,
-        Err(why) => panic!("couldn't open {}: {}", witness_path.display(), why),
+        Err(why) => panic!("Couldn't open {}: {}", witness_path.display(), why),
     };
 
     let witness = ir::Witness::read(witness_file)
-        .map_err(|why| format!("could not load witness: {:?}", why))?;
+        .map_err(|why| format!("Could not load witness: {:?}", why))?;
 
-    let pk_path = Path::new(sub_matches.value_of("provingkey").unwrap());
-    let proof_path = Path::new(sub_matches.value_of("proofpath").unwrap());
+    let pk_path = Path::new(sub_matches.value_of("proving-key-path").unwrap());
+    let proof_path = Path::new(sub_matches.value_of("proof-path").unwrap());
 
     let pk_file = File::open(&pk_path)
-        .map_err(|why| format!("couldn't open {}: {}", pk_path.display(), why))?;
+        .map_err(|why| format!("Couldn't open {}: {}", pk_path.display(), why))?;
 
     let mut pk: Vec<u8> = Vec::new();
     let mut pk_reader = BufReader::new(pk_file);
     pk_reader
         .read_to_end(&mut pk)
-        .map_err(|why| format!("couldn't read {}: {}", pk_path.display(), why))?;
+        .map_err(|why| format!("Couldn't read {}: {}", pk_path.display(), why))?;
 
     let proof = P::generate_proof(program, witness, pk);
     let mut proof_file = File::create(proof_path).unwrap();
 
     proof_file
         .write(proof.as_ref())
-        .map_err(|why| format!("couldn't write to {}: {}", proof_path.display(), why))?;
+        .map_err(|why| format!("Couldn't write to {}: {}", proof_path.display(), why))?;
 
-    println!("generate-proof successful: {}", format!("{}", proof));
+    println!("Proof:\n{}", format!("{}", proof));
 
     Ok(())
 }
@@ -74,26 +74,26 @@ fn cli_generate_proof<T: Field, P: ProofSystem<T>>(
 fn cli_export_verifier<T: Field, P: ProofSystem<T>>(
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
-    let is_abiv2 = sub_matches.value_of("solidity-abi").unwrap() == "v2";
     println!("Exporting verifier...");
 
     // read vk file
     let input_path = Path::new(sub_matches.value_of("input").unwrap());
     let input_file = File::open(&input_path)
-        .map_err(|why| format!("couldn't open {}: {}", input_path.display(), why))?;
+        .map_err(|why| format!("Couldn't open {}: {}", input_path.display(), why))?;
     let mut reader = BufReader::new(input_file);
 
     let mut vk = String::new();
     reader
         .read_to_string(&mut vk)
-        .map_err(|why| format!("couldn't read {}: {}", input_path.display(), why))?;
+        .map_err(|why| format!("Couldn't read {}: {}", input_path.display(), why))?;
 
-    let verifier = P::export_solidity_verifier(vk, is_abiv2);
+    let abi = SolidityAbi::from(sub_matches.value_of("solidity-abi").unwrap())?;
+    let verifier = P::export_solidity_verifier(vk, abi);
 
     //write output file
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
     let output_file = File::create(&output_path)
-        .map_err(|why| format!("couldn't create {}: {}", output_path.display(), why))?;
+        .map_err(|why| format!("Couldn't create {}: {}", output_path.display(), why))?;
 
     let mut writer = BufWriter::new(output_file);
 
@@ -317,7 +317,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     if !light {
         // write human-readable output file
         let hr_output_file = File::create(&hr_output_path)
-            .map_err(|why| format!("couldn't create {}: {}", hr_output_path.display(), why))?;
+            .map_err(|why| format!("Couldn't create {}: {}", hr_output_path.display(), why))?;
 
         let mut hrofb = BufWriter::new(hr_output_file);
         write!(&mut hrofb, "{}\n", program_flattened)
@@ -339,6 +339,27 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     }
 
     println!("Number of constraints: {}", num_constraints);
+    Ok(())
+}
+
+fn cli_verify<T: Field, P: ProofSystem<T>>(sub_matches: &ArgMatches) -> Result<(), String> {
+    let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
+    let vk = std::fs::read_to_string(vk_path)
+        .map_err(|why| format!("Couldn't read {}: {}", vk_path.display(), why))?;
+
+    let proof_path = Path::new(sub_matches.value_of("proof-path").unwrap());
+    let proof = std::fs::read_to_string(proof_path)
+        .map_err(|why| format!("Couldn't read {}: {}", proof_path.display(), why))?;
+
+    println!("Performing verification...");
+    println!(
+        "The verification result is: {}",
+        match P::verify(vk, proof) {
+            true => "PASS",
+            false => "FAIL",
+        }
+    );
+
     Ok(())
 }
 
@@ -543,17 +564,17 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(WITNESS_DEFAULT_PATH)
-        ).arg(Arg::with_name("provingkey")
+        ).arg(Arg::with_name("proving-key-path")
             .short("p")
-            .long("provingkey")
+            .long("proving-key-path")
             .help("Path of the proving key file")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
             .default_value(PROVING_KEY_DEFAULT_PATH)
-        ).arg(Arg::with_name("proofpath")
+        ).arg(Arg::with_name("proof-path")
             .short("j")
-            .long("proofpath")
+            .long("proof-path")
             .help("Path of the JSON proof file")
             .value_name("FILE")
             .takes_value(true)
@@ -580,9 +601,9 @@ fn cli() -> Result<(), String> {
     )
      .subcommand(SubCommand::with_name("print-proof")
         .about("Prints proof in the chosen format")
-        .arg(Arg::with_name("proofpath")
+        .arg(Arg::with_name("proof-path")
             .short("j")
-            .long("proofpath")
+            .long("proof-path")
             .help("Path of the JSON proof file")
             .value_name("FILE")
             .takes_value(true)
@@ -598,6 +619,42 @@ fn cli() -> Result<(), String> {
             .required(true)
         )
     )
+    .subcommand(SubCommand::with_name("verify")
+        .about("Verifies a given proof with the given verification key")
+        .arg(Arg::with_name("proof-path")
+            .short("j")
+            .long("proof-path")
+            .help("Path of the JSON proof file")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(JSON_PROOF_PATH)
+        ).arg(Arg::with_name("verification-key-path")
+            .short("v")
+            .long("verification-key-path")
+            .help("Path of the generated verification key file")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(VERIFICATION_KEY_DEFAULT_PATH)
+        ).arg(Arg::with_name("proving-scheme")
+            .short("s")
+            .long("proving-scheme")
+            .help("Proving scheme to use in the setup. Available options are G16 (default), PGHR13 and GM17")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(false)
+            .default_value(&default_scheme)
+        ).arg(Arg::with_name("curve")
+            .short("c")
+            .long("curve")
+            .help("Curve to be used in the verification")
+            .takes_value(true)
+            .required(false)
+            .possible_values(CURVES)
+            .default_value(&default_curve)
+        )
+    )
     .get_matches();
 
     match matches.subcommand() {
@@ -611,10 +668,12 @@ fn cli() -> Result<(), String> {
             }
         }
         ("compute-witness", Some(sub_matches)) => {
+            println!("Computing witness...");
+
             // read compiled program
             let path = Path::new(sub_matches.value_of("input").unwrap());
             let file = File::open(&path)
-                .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
+                .map_err(|why| format!("Couldn't open {}: {}", path.display(), why))?;
 
             let mut reader = BufReader::new(file);
 
@@ -629,7 +688,7 @@ fn cli() -> Result<(), String> {
             // read compiled program
             let path = Path::new(sub_matches.value_of("input").unwrap());
             let file = File::open(&path)
-                .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
+                .map_err(|why| format!("Couldn't open {}: {}", path.display(), why))?;
 
             let mut reader = BufReader::new(file);
 
@@ -681,7 +740,7 @@ fn cli() -> Result<(), String> {
 
             let program_path = Path::new(sub_matches.value_of("input").unwrap());
             let program_file = File::open(&program_path)
-                .map_err(|why| format!("couldn't open {}: {}", program_path.display(), why))?;
+                .map_err(|why| format!("Couldn't open {}: {}", program_path.display(), why))?;
 
             let mut reader = BufReader::new(program_file);
 
@@ -708,10 +767,10 @@ fn cli() -> Result<(), String> {
         ("print-proof", Some(sub_matches)) => {
             let format = sub_matches.value_of("format").unwrap();
 
-            let path = Path::new(sub_matches.value_of("proofpath").unwrap());
+            let path = Path::new(sub_matches.value_of("proof-path").unwrap());
 
             let file = File::open(&path)
-                .map_err(|why| format!("couldn't open {}: {}", path.display(), why))?;
+                .map_err(|why| format!("Couldn't open {}: {}", path.display(), why))?;
 
             let proof_object: Value =
                 serde_json::from_reader(file).map_err(|why| format!("{:?}", why))?;
@@ -739,6 +798,29 @@ fn cli() -> Result<(), String> {
                     println!();
                     println!("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
                 }
+                _ => unreachable!(),
+            }
+        }
+        ("verify", Some(sub_matches)) => {
+            let curve = sub_matches.value_of("curve").unwrap();
+            let proof_system = sub_matches.value_of("proving-scheme").unwrap();
+
+            match proof_system {
+                constants::G16 => match curve {
+                    constants::BN128 => cli_verify::<Bn128Field, G16>(sub_matches)?,
+                    constants::BLS12_381 => cli_verify::<Bls12Field, G16>(sub_matches)?,
+                    _ => unimplemented!(),
+                },
+                #[cfg(feature = "libsnark")]
+                constants::PGHR13 => match curve {
+                    constants::BN128 => cli_verify::<Bn128Field, PGHR13>(sub_matches)?,
+                    _ => unimplemented!(),
+                },
+                #[cfg(feature = "libsnark")]
+                constants::GM17 => match curve {
+                    constants::BN128 => cli_verify::<Bn128Field, GM17>(sub_matches)?,
+                    _ => unimplemented!(),
+                },
                 _ => unreachable!(),
             }
         }

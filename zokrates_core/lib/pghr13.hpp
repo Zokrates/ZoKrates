@@ -14,12 +14,12 @@ extern "C" {
 #include "ffi.hpp"
 
 setup_result_t pghr13_setup(
-    const uint8_t* A,
-    const uint8_t* B,
-    const uint8_t* C,
-    int32_t A_len,
-    int32_t B_len,
-    int32_t C_len,
+    const uint8_t* a,
+    const uint8_t* b,
+    const uint8_t* c,
+    int32_t a_len,
+    int32_t b_len,
+    int32_t c_len,
     int32_t constraints,
     int32_t variables,
     int32_t inputs);
@@ -30,6 +30,12 @@ proof_result_t pghr13_generate_proof(
     int32_t public_inputs_length,
     const uint8_t* private_inputs,
     int32_t private_inputs_length);
+
+bool pghr13_verify(
+    buffer_t* vk_buf,
+    buffer_t* proof_buf,
+    const uint8_t* public_inputs,
+    int32_t public_inputs_length);
 
 #ifdef __cplusplus
 } // extern "C"
