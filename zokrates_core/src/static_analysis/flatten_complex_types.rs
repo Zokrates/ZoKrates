@@ -721,6 +721,23 @@ pub fn fold_uint_expression_inner<'ast, T: Field>(
                 _ => unreachable!(),
             }
         }
+        typed_absy::UExpressionInner::Member(box s, id) => {
+            let members = s.ty().clone();
+
+            let s = f.fold_struct_expression(s);
+
+            let offset: usize = members
+                .iter()
+                .take_while(|member| member.id != id)
+                .map(|member| member.ty.get_primitive_count())
+                .sum();
+
+            use std::convert::TryInto;
+
+            let res: zir::UExpression<'ast, T> = s[offset].clone().try_into().unwrap();
+
+            res.into_inner()
+        }
         typed_absy::UExpressionInner::IfElse(box cond, box cons, box alt) => {
             let cond = f.fold_boolean_expression(cond);
             let cons = f.fold_uint_expression(cons);

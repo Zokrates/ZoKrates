@@ -894,6 +894,7 @@ impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
                 "if {} then {} else {} fi",
                 condition, consequent, alternative
             ),
+            UExpressionInner::Member(ref struc, ref id) => write!(f, "{}.{}", struc, id),
         }
     }
 }
@@ -1249,9 +1250,21 @@ impl<'ast, T> Member<'ast, T> for BooleanExpression<'ast, T> {
 }
 
 impl<'ast, T> Member<'ast, T> for UExpression<'ast, T> {
-    fn member(_: StructExpression<'ast, T>, _: MemberId) -> Self {
-        unimplemented!()
-        // UExpression::Member(box s, member_id)
+    fn member(s: StructExpression<'ast, T>, member_id: MemberId) -> Self {
+        let members = s.ty().clone();
+
+        let ty = members
+            .into_iter()
+            .find(|member| *member.id == member_id)
+            .unwrap()
+            .ty;
+
+        let bitwidth = match *ty {
+            Type::Uint(bitwidth) => bitwidth,
+            _ => unreachable!(),
+        };
+
+        UExpressionInner::Member(box s, member_id).annotate(bitwidth)
     }
 }
 

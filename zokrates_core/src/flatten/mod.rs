@@ -1642,7 +1642,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     // swap so that left side is linear
                     statements_flattened.push(FlatStatement::Condition(rhs, lhs));
                 } else {
-                    unimplemented!()
+                    unreachable!()
                 }
             }
             ZirStatement::MultipleDefinition(vars, rhs) => {

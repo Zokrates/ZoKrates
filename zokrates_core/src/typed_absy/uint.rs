@@ -1,9 +1,5 @@
-use typed_absy::identifier::Identifier;
 use typed_absy::types::FunctionKey;
-use typed_absy::ArrayExpression;
-use typed_absy::BooleanExpression;
-use typed_absy::FieldElementExpression;
-use typed_absy::TypedExpression;
+use typed_absy::*;
 use zokrates_field::Field;
 
 type Bitwidth = usize;
@@ -106,14 +102,15 @@ pub enum UExpressionInner<'ast, T> {
         Box<FieldElementExpression<'ast, T>>,
     ),
     FunctionCall(FunctionKey<'ast>, Vec<TypedExpression<'ast, T>>),
-    Select(
-        Box<ArrayExpression<'ast, T>>,
-        Box<FieldElementExpression<'ast, T>>,
-    ),
     IfElse(
         Box<BooleanExpression<'ast, T>>,
         Box<UExpression<'ast, T>>,
         Box<UExpression<'ast, T>>,
+    ),
+    Member(Box<StructExpression<'ast, T>>, MemberId),
+    Select(
+        Box<ArrayExpression<'ast, T>>,
+        Box<FieldElementExpression<'ast, T>>,
     ),
 }
 

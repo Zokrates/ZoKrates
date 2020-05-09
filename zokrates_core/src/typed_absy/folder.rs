@@ -468,6 +468,10 @@ pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
             let alt = f.fold_uint_expression(alt);
             UExpressionInner::IfElse(box cond, box cons, box alt)
         }
+        UExpressionInner::Member(box s, id) => {
+            let s = f.fold_struct_expression(s);
+            UExpressionInner::Member(box s, id)
+        }
     }
 }
 
