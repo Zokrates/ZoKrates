@@ -259,7 +259,7 @@ contract Verifier {
         vk.query = new Pairing.G1Point[](<%vk_query_length%>);
         <%vk_query_pts%>
     }
-    function verify(uint[] memory input, Proof memory proof) internal returns (uint) {
+    function verify(uint[] memory input, Proof memory proof) internal view returns (uint) {
         uint256 snark_scalar_field = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
         VerifyingKey memory vk = verifyingKey();
         require(input.length + 1 == vk.query.length);
@@ -282,17 +282,15 @@ contract Verifier {
         if (!Pairing.pairingProd2(proof.a, vk.h_gamma, Pairing.negate(vk.g_gamma), proof.b)) return 2;
         return 0;
     }
-    event Verified(string s);
     function verifyTx(
             Proof memory proof,
             uint[<%vk_input_length%>] memory input
-        ) public returns (bool r) {
+        ) public view returns (bool r) {
         uint[] memory inputValues = new uint[](input.length);
         for(uint i = 0; i < input.length; i++){
             inputValues[i] = input[i];
         }
         if (verify(inputValues, proof) == 0) {
-            emit Verified("Transaction successfully verified.");
             return true;
         } else {
             return false;
@@ -326,7 +324,7 @@ contract Verifier {
         vk.query = new Pairing.G1Point[](<%vk_query_length%>);
         <%vk_query_pts%>
     }
-    function verify(uint[] memory input, Proof memory proof) internal returns (uint) {
+    function verify(uint[] memory input, Proof memory proof) internal view returns (uint) {
         uint256 snark_scalar_field = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
         VerifyingKey memory vk = verifyingKey();
         require(input.length + 1 == vk.query.length);
@@ -349,13 +347,12 @@ contract Verifier {
         if (!Pairing.pairingProd2(proof.a, vk.h_gamma, Pairing.negate(vk.g_gamma), proof.b)) return 2;
         return 0;
     }
-    event Verified(string s);
     function verifyTx(
             uint[2] memory a,
             uint[2][2] memory b,
             uint[2] memory c,
             uint[<%vk_input_length%>] memory input
-        ) public returns (bool r) {
+        ) public view returns (bool r) {
         Proof memory proof;
         proof.a = Pairing.G1Point(a[0], a[1]);
         proof.b = Pairing.G2Point([b[0][0], b[0][1]], [b[1][0], b[1][1]]);
@@ -365,7 +362,6 @@ contract Verifier {
             inputValues[i] = input[i];
         }
         if (verify(inputValues, proof) == 0) {
-            emit Verified("Transaction successfully verified.");
             return true;
         } else {
             return false;
