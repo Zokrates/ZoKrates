@@ -49,8 +49,8 @@ const initialize = async () => {
     computeWitness: (artifacts, args) => {
       return zokrates.compute_witness(artifacts, JSON.stringify(Array.from(args)));
     },
-    exportSolidityVerifier: (verifyingKey, isAbiv2) => {
-      return zokrates.export_solidity_verifier(verifyingKey, isAbiv2);
+    exportSolidityVerifier: (verifyingKey, abiVersion) => {
+      return zokrates.export_solidity_verifier(verifyingKey, abiVersion);
     },
     generateProof: (program, witness, provingKey) => {
       return zokrates.generate_proof(program, witness, provingKey);

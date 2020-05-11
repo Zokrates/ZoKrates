@@ -1,2 +1,7 @@
-def main(u8 a, u8 b, u8 c) -> (u8):
-	return a - b - c
+struct Foo {
+	u32 a
+	u8 b
+}
+
+def main(Foo f) -> (u8):
+	return f.b

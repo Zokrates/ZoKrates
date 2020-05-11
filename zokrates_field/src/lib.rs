@@ -83,6 +83,7 @@ pub trait Field:
     fn get_required_bits() -> usize;
     /// Tries to parse a string into this representation
     fn try_from_dec_str<'a>(s: &'a str) -> Result<Self, ()>;
+    fn try_from_str(s: &str, radix: u32) -> Result<Self, ()>;
     /// Returns a decimal string representing a the member of the equivalence class of this `Field` in Z/pZ
     /// which lies in [-(p-1)/2, (p-1)/2]
     fn to_compact_dec_string(&self) -> String;
@@ -170,7 +171,10 @@ mod prime_field {
                     (*P).bits()
                 }
                 fn try_from_dec_str<'a>(s: &'a str) -> Result<Self, ()> {
-                    let x = BigInt::parse_bytes(s.as_bytes(), 10).ok_or(())?;
+                    Self::try_from_str(s, 10)
+                }
+                fn try_from_str(s: &str, radix: u32) -> Result<Self, ()> {
+                    let x = BigInt::parse_bytes(s.as_bytes(), radix).ok_or(())?;
                     Ok(FieldPrime {
                         value: &x - x.div_floor(&*P) * &*P,
                     })
