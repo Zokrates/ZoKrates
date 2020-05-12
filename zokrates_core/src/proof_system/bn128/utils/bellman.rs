@@ -260,28 +260,6 @@ mod parse {
         let captures = FR_REGEX.captures(&raw_e).unwrap();
         captures.name(&"x").unwrap().as_str().to_string()
     }
-
-    /*
-    pub fn parse_g1_hex<T: Field>(
-        e: &<T::BellmanEngine as bellman::pairing::Engine>::G1Affine,
-    ) -> String {
-        let parsed = parse_g1::<T>(e);
-        format!("{}, {}", parsed.0, parsed.1)
-    }
-
-    pub fn parse_g2_hex<T: BellmanFieldExtensions>(
-        e: &<T::BellmanEngine as bellman::pairing::Engine>::G2Affine,
-    ) -> String {
-        let parsed = parse_g2::<T>(e);
-        format!(
-            "[{}, {}], [{}, {}]",
-            (parsed.0).0,
-            (parsed.0).1,
-            (parsed.1).0,
-            (parsed.1).1
-        )
-    }
-    */
 }
 
 #[cfg(test)]
