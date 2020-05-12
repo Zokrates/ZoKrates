@@ -21,7 +21,7 @@ pub trait Folder<T: Field>: Sized {
         fold_variable(self, v)
     }
 
-    fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
+    fn fold_statement(&mut self, s: Statement<T>) -> Option<Statement<T>> {
         fold_statement(self, s)
     }
 
@@ -45,14 +45,14 @@ pub fn fold_module<T: Field, F: Folder<T>>(f: &mut F, p: Prog<T>) -> Prog<T> {
     }
 }
 
-pub fn fold_statement<T: Field, F: Folder<T>>(f: &mut F, s: Statement<T>) -> Vec<Statement<T>> {
+pub fn fold_statement<T: Field, F: Folder<T>>(f: &mut F, s: Statement<T>) -> Option<Statement<T>> {
     match s {
-        Statement::Constraint(quad, lin) => vec![Statement::Constraint(
+        Statement::Constraint(quad, lin) => Some(Statement::Constraint(
             f.fold_quadratic_combination(quad),
             f.fold_linear_combination(lin),
-        )],
-        Statement::Directive(dir) => vec![Statement::Directive(f.fold_directive(dir))],
-        Statement::Log(s) => vec![Statement::Log(s)],
+        )),
+        Statement::Directive(dir) => Some(Statement::Directive(f.fold_directive(dir))),
+        Statement::Log(s) => Some(Statement::Log(s)),
     }
 }
 

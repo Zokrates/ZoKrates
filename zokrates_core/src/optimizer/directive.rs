@@ -37,7 +37,7 @@ impl<T: Field> DirectiveOptimizer<T> {
 }
 
 impl<T: Field> Folder<T> for DirectiveOptimizer<T> {
-    fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
+    fn fold_statement(&mut self, s: Statement<T>) -> Option<Statement<T>> {
         match s {
             Statement::Directive(d) => {
                 let d = self.fold_directive(d);
@@ -45,12 +45,12 @@ impl<T: Field> Folder<T> for DirectiveOptimizer<T> {
                 match self.calls.entry((d.solver.clone(), d.inputs.clone())) {
                     Entry::Vacant(e) => {
                         e.insert(d.outputs.clone());
-                        vec![Statement::Directive(d)]
+                        Some(Statement::Directive(d))
                     }
                     Entry::Occupied(e) => {
                         self.substitution
                             .extend(d.outputs.into_iter().zip(e.get().into_iter().cloned()));
-                        vec![]
+                        None
                     }
                 }
             }

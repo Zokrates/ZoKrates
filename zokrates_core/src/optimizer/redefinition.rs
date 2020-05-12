@@ -67,7 +67,7 @@ impl<T: Field> RedefinitionOptimizer<T> {
 }
 
 impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
-    fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
+    fn fold_statement(&mut self, s: Statement<T>) -> Option<Statement<T>> {
         match s {
             Statement::Constraint(quad, lin) => {
                 let quad = self.fold_quadratic_combination(quad);
@@ -102,11 +102,11 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
 
                     // decide whether the constraint should be kept
                     match keep_constraint {
-                        false => vec![],
-                        true => vec![Statement::Constraint(quad, lin)],
+                        false => None,
+                        true => Some(Statement::Constraint(quad, lin)),
                     }
                 } else {
-                    vec![Statement::Constraint(quad, lin)]
+                    Some(Statement::Constraint(quad, lin))
                 }
             }
             Statement::Directive(d) => {
@@ -115,7 +115,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                 for o in d.outputs.iter() {
                     self.substitution.insert(o.clone(), o.clone().into());
                 }
-                vec![Statement::Directive(d)]
+                Some(Statement::Directive(d))
             }
             s => fold_statement(self, s),
         }

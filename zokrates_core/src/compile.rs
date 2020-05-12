@@ -161,21 +161,27 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
 
     // analyse (unroll and constant propagation)
     let typed_ast = typed_ast.analyse();
+    println!("analysed");
 
     // flatten input program
     let program_flattened = Flattener::flatten(typed_ast);
+    println!("flattened");
 
     // analyse (constant propagation after call resolution)
     let program_flattened = program_flattened.analyse();
+    println!("analysed");
 
     // convert to ir
     let ir_prog = ir::Prog::from(program_flattened);
+    println!("converted");
 
     // optimize
-    let optimized_ir_prog = ir_prog.optimize();
+    let optimized_ir_prog = ir_prog;
+    println!("optimized");
 
     // analyse (check for unused constraints)
     let optimized_ir_prog = optimized_ir_prog.analyse();
+    println!("analysed");
 
     Ok(CompilationArtifacts {
         prog: optimized_ir_prog,
