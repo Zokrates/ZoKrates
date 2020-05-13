@@ -64,6 +64,7 @@ let jsonInterface = JSON.parse(solc.compile(jsonContractSource));
 
     function makeTransaction(account, correct) {
         let proof = getProof(correct);
+        console.log(proof)
 
         function handleReceipt(tx) {
             if (tx.status == true && !correct) {
