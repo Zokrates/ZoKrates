@@ -18,6 +18,9 @@ use std::string::String;
 use zokrates_abi::Encode;
 use zokrates_core::compile::{compile, CompilationArtifacts, CompileError};
 use zokrates_core::ir::{self, ProgEnum};
+use zokrates_core::proof_system::bellman::groth16::G16;
+use zokrates_core::proof_system::libsnark::gm17::GM17;
+use zokrates_core::proof_system::libsnark::pghr13::PGHR13;
 use zokrates_core::proof_system::*;
 use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::{types::Signature, Type};
@@ -683,8 +686,6 @@ fn cli() -> Result<(), String> {
             }
         }
         ("compute-witness", Some(sub_matches)) => {
-            println!("Computing witness...");
-
             // read compiled program
             let path = Path::new(sub_matches.value_of("input").unwrap());
             let file = File::open(&path)

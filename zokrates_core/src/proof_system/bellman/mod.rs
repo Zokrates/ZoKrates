@@ -1,3 +1,5 @@
+pub mod groth16;
+
 extern crate rand;
 
 use crate::ir::{CanonicalLinComb, Prog, Statement, Witness};
@@ -210,7 +212,7 @@ mod parse {
     use lazy_static::lazy_static;
 
     use super::*;
-    use proof_system::bn128::{G1Affine, G2Affine};
+    use proof_system::{G1Affine, G2Affine};
     use regex::Regex;
 
     lazy_static! {
