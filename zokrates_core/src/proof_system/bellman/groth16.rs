@@ -7,14 +7,12 @@ use regex::Regex;
 use zokrates_field::Field;
 
 use crate::ir;
-use crate::proof_system::bn128::utils::bellman::Computation;
-use crate::proof_system::bn128::utils::bellman::{parse_fr, parse_g1, parse_g2};
-use crate::proof_system::bn128::utils::solidity::{
+use crate::proof_system::bellman::Computation;
+use crate::proof_system::bellman::{parse_fr, parse_g1, parse_g2};
+use crate::proof_system::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
-use crate::proof_system::{ProofSystem, SetupKeypair};
-use proof_system::bn128::{G1Affine, G2Affine};
-use proof_system::{Proof, SolidityAbi};
+use proof_system::{G1Affine, G2Affine, Proof, ProofSystem, SetupKeypair, SolidityAbi};
 
 const G16_WARNING: &str = "WARNING: You are using the G16 scheme which is subject to malleability. See zokrates.github.io/reference/proving_schemes.html#g16-malleability for implications.";
 

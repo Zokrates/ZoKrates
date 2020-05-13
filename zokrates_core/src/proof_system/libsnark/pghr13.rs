@@ -1,13 +1,10 @@
 use ir;
-use proof_system::bn128::utils::ffi::{Buffer, ProofResult, SetupResult};
-use proof_system::bn128::utils::libsnark::{
-    prepare_generate_proof, prepare_public_inputs, prepare_setup,
-};
-use proof_system::bn128::utils::solidity::{
+use proof_system::libsnark::ffi::{Buffer, ProofResult, SetupResult};
+use proof_system::libsnark::{prepare_generate_proof, prepare_public_inputs, prepare_setup};
+use proof_system::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
-use proof_system::bn128::{G1Affine, G2Affine};
-use proof_system::{Proof, ProofSystem, SetupKeypair, SolidityAbi};
+use proof_system::{G1Affine, G2Affine, Proof, ProofSystem, SetupKeypair, SolidityAbi};
 use regex::Regex;
 
 use zokrates_field::Bn128Field;

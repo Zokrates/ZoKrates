@@ -96,7 +96,8 @@ std::string serializeVerificationKey(r1cs_se_ppzksnark_verification_key<libff::a
     ss << "\"h_gamma\":" << outputPointG2AffineAsHexJson(vk->H_gamma) << ",";
     ss << "\"query\":[";
     for (size_t i = 0; i < queryLength; ++i) {
-        if (i != 0) ss << ",";
+        if (i != 0)
+            ss << ",";
         ss << outputPointG1AffineAsHexJson(vk->query[i]);
     }
     ss << "],";
