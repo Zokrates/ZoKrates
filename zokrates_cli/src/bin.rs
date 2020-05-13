@@ -19,7 +19,9 @@ use zokrates_abi::Encode;
 use zokrates_core::compile::{compile, CompilationArtifacts, CompileError};
 use zokrates_core::ir::{self, ProgEnum};
 use zokrates_core::proof_system::bellman::groth16::G16;
+#[cfg(feature = "libsnark")]
 use zokrates_core::proof_system::libsnark::gm17::GM17;
+#[cfg(feature = "libsnark")]
 use zokrates_core::proof_system::libsnark::pghr13::PGHR13;
 use zokrates_core::proof_system::*;
 use zokrates_core::typed_absy::abi::Abi;
