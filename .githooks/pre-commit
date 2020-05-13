@@ -1,0 +1,29 @@
+#!/bin/bash
+
+rustfmt +nightly --version &>/dev/null
+if [ $? != 0 ]; then
+    printf "[pre-commit] \033[0;31mERROR\033[0m: rustfmt +nightly not available, install rustfmt via -\n"
+    printf "[pre-commit] \033[0;31mERROR\033[0m: $ rustup component add rustfmt --toolchain nightly\n"
+    exit 0
+fi
+
+files=()
+
+for file in $(git diff --name-only --cached); do
+    if [ ${file: -3} == ".rs" ]; then
+        rustfmt +nightly --check $file &>/dev/null
+        if [ $? != 0 ]; then
+            files+=($file)
+        fi
+    fi
+done
+
+if [ -n "$files" ]; then
+  for file in "${files[@]}"; do
+    rustfmt +nightly $file
+    git add $file
+    printf "[\033[1;32mrustfmt\033[0m] $file\n"
+  done
+fi
+
+exit 0
