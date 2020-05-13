@@ -114,7 +114,7 @@ std::string serializeProof(r1cs_ppzksnark_proof<libff::alt_bn128_pp>* proof, con
 {
     std::stringstream ss;
     ss << "{";
-    ss << "\"points\":{";
+    ss << "\"proof\":{";
     ss << "\"a\":" << outputPointG1AffineAsHexJson(proof->g_A.g) << ",";
     ss << "\"a_p\":" << outputPointG1AffineAsHexJson(proof->g_A.h) << ",";
     ss << "\"b\":" << outputPointG2AffineAsHexJson(proof->g_B.g) << ",";

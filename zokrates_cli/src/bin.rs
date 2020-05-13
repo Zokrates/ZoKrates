@@ -819,7 +819,7 @@ fn cli() -> Result<(), String> {
                 "json" => {
                     println!("~~~~~~~~ Copy the output below for valid ABIv2 format ~~~~~~~~");
                     println!();
-                    print!("{}", proof_object["points"]);
+                    print!("{}", proof_object["proof"]);
                     print!(",");
                     println!("{}", proof_object["inputs"]);
                     println!();
@@ -829,7 +829,7 @@ fn cli() -> Result<(), String> {
                     println!("~~~~~~~~ Copy the output below for valid ABIv1 format ~~~~~~~~");
                     println!();
 
-                    for (_, value) in proof_object["points"].as_object().unwrap().iter() {
+                    for (_, value) in proof_object["proof"].as_object().unwrap().iter() {
                         print!("{}", value);
                         print!(",");
                     }

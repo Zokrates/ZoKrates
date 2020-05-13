@@ -8,7 +8,8 @@ use zokrates_common::Resolver;
 use zokrates_core::compile::{compile as core_compile, CompilationArtifacts, CompileError};
 use zokrates_core::imports::Error;
 use zokrates_core::ir;
-use zokrates_core::proof_system::{self, ProofSystem, SolidityAbi};
+use zokrates_core::proof_system::{ProofSystem, SolidityAbi};
+use zokrates_core::proof_system::bellman::groth16::G16;
 use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::types::Signature;
 use zokrates_field::Bn128Field;
@@ -157,7 +158,7 @@ pub fn compute_witness(artifacts: JsValue, args: JsValue) -> Result<JsValue, JsV
 pub fn setup(program: JsValue) -> Result<JsValue, JsValue> {
     let input: Vec<u8> = program.into_serde().unwrap();
     let program_flattened = deserialize_program(&input)?;
-    let keypair = proof_system::G16::setup(program_flattened);
+    let keypair = G16::setup(program_flattened);
     Ok(JsValue::from_serde(&keypair).unwrap())
 }
 
@@ -166,7 +167,7 @@ pub fn export_solidity_verifier(vk: JsValue, abi_version: JsValue) -> Result<JsV
     let abi_version = SolidityAbi::from(abi_version.as_string().unwrap().as_str())
         .map_err(|err| JsValue::from_str(err))?;
 
-    let verifier = <proof_system::G16 as ProofSystem<Bn128Field>>::export_solidity_verifier(
+    let verifier = <G16 as ProofSystem<Bn128Field>>::export_solidity_verifier(
         vk.into_serde().unwrap(),
         abi_version,
     );
@@ -184,7 +185,7 @@ pub fn generate_proof(program: JsValue, witness: JsValue, pk: JsValue) -> Result
         .map_err(|err| JsValue::from_str(&format!("Could not read witness: {}", err)))?;
 
     let proving_key: Vec<u8> = pk.into_serde().unwrap();
-    let proof = proof_system::G16::generate_proof(program_flattened, ir_witness, proving_key);
+    let proof = G16::generate_proof(program_flattened, ir_witness, proving_key);
 
     Ok(JsValue::from_serde(&proof).unwrap())
 }
