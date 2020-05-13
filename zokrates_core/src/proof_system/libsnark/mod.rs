@@ -1,4 +1,4 @@
-mod ffi;
+pub mod ffi;
 pub mod gm17;
 pub mod pghr13;
 
