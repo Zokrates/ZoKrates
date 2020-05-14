@@ -1,9 +1,12 @@
 #!/bin/bash
 
+log () {
+  printf "[\033[1;37mpre-commit\033[0m] $1\n"
+}
+
 rustfmt +nightly --version &>/dev/null
 if [ $? != 0 ]; then
-    printf "[pre-commit] \033[0;31mERROR\033[0m: rustfmt +nightly not available, install rustfmt via -\n"
-    printf "[pre-commit] \033[0;31mERROR\033[0m: $ rustup component add rustfmt --toolchain nightly\n"
+    log "\033[0;33mWARN\033[0m: rustfmt +nightly not found, skipping pre-commit hook"
     exit 0
 fi
 
@@ -19,11 +22,13 @@ for file in $(git diff --name-only --cached); do
 done
 
 if [ -n "$files" ]; then
+  log "the following files have improper formatting:\n"
   for file in "${files[@]}"; do
-    rustfmt +nightly $file
-    git add $file
-    printf "[\033[1;32mrustfmt\033[0m] $file\n"
+    printf "\033[0;33m\t$file\n"
   done
+  printf "\n\033[0m"
+  log "aborting commit"
+  exit 1
 fi
 
 exit 0
