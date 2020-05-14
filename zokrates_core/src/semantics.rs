@@ -1297,12 +1297,8 @@ impl<'ast> Checker<'ast> {
                                     Ok(ArrayExpressionInner::IfElse(box condition, box consequence, box alternative).annotate(inner_type, size).into())
                                 },
                                 (TypedExpression::Struct(consequence), TypedExpression::Struct(alternative)) => {
-                                    if consequence.get_type() == alternative.get_type() {
-                                        let ty = consequence.ty().clone();
-                                        Ok(StructExpressionInner::IfElse(box condition, box consequence, box alternative).annotate(ty).into())
-                                    } else {
-                                        unimplemented!("handle consequence alternative inner type mismatch")
-                                    }
+                                    let ty = consequence.ty().clone();
+                                    Ok(StructExpressionInner::IfElse(box condition, box consequence, box alternative).annotate(ty).into())
                                 },
                                 _ => unreachable!("types should match here as we checked them explicitly")
                             }
