@@ -51,7 +51,7 @@ zokrates setup
 
 Generates a trusted setup for the compiled program found at `./out`.
 
-Creates a proving key and a verifying key at `./proving.key` and `./verifying.key`.
+Creates a proving key and a verification key at `./proving.key` and `./verification.key`.
 These keys are derived from a source of randomness, commonly referred to as "toxic waste". Anyone having access to the source of randomness can produce fake proofs that will be accepted by a verifier following the protocol.
 
 The [proving scheme](proving_schemes.md) and curve can be chosen with the `proving-scheme` and `curve` flags.
@@ -62,7 +62,7 @@ The [proving scheme](proving_schemes.md) and curve can be chosen with the `provi
 zokrates export-verifier
 ```
 
-Using the verifying key at `./verifying.key`, generates a Solidity contract that contains the generated verification key and a public function to verify a solution to the compiled program at `./out`.
+Using the verification key at `./verification.key`, generates a Solidity contract that contains the generated verification key and a public function to verify a solution to the compiled program at `./out`.
 
 Creates a verifier contract at `./verifier.sol`.
 
@@ -95,3 +95,12 @@ Verifier.at(<verifier contract address>).verifyTx(A, A_p, B, B_p, C, C_p, H, K, 
 ```
 
 Where `A, ..., K` are defined as above (adding brackets and quotes: `A = ["0x123", "0x345"]`), `publicInputs` are the public inputs supplied to witness generation and `outputs` are the results of the computation.
+
+## `verify`
+
+```sh
+zokrates verify
+```
+
+Natively verifies a given proof `./proof.json` with the given verification key `./verification.key`.
+The [proving scheme](proving_schemes.md) and curve can be set with the `proving-scheme` and `curve` flags, expecting the same combination as defined in the setup phase.
