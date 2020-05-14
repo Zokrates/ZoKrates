@@ -81,6 +81,17 @@ mod integration {
         fs::create_dir(test_case_path).unwrap();
 
         // prepare compile arguments
+        let check = vec![
+            "../target/release/zokrates",
+            "check",
+            "-i",
+            program_path.to_str().unwrap(),
+        ];
+
+        // check
+        assert_cli::Assert::command(&check).succeeds().unwrap();
+
+        // prepare compile arguments
         let compile = vec![
             "../target/release/zokrates",
             "compile",
@@ -130,7 +141,7 @@ mod integration {
 
         let abi: Abi = from_reader(&mut reader)
             .map_err(|why| why.to_string())
-            .unwrap();
+                     .unwrap();
 
         let signature = abi.signature().clone();
 

@@ -29,15 +29,15 @@ pub struct Flattener<'ast, T: Field> {
 }
 
 trait FlattenOutput<T: Field>: Sized {
-    fn branches(self, other: Self) -> (Self, Self);
+    // fn branches(self, other: Self) -> (Self, Self);
 
     fn flat(&self) -> Vec<FlatExpression<T>>;
 }
 
 impl<T: Field> FlattenOutput<T> for FlatExpression<T> {
-    fn branches(self, other: Self) -> (Self, Self) {
-        (self, other)
-    }
+    // fn branches(self, other: Self) -> (Self, Self) {
+    //     (self, other)
+    // }
 
     fn flat(&self) -> Vec<FlatExpression<T>> {
         vec![self.clone()]
@@ -45,31 +45,31 @@ impl<T: Field> FlattenOutput<T> for FlatExpression<T> {
 }
 
 impl<T: Field> FlattenOutput<T> for FlatUExpression<T> {
-    fn branches(self, other: Self) -> (Self, Self) {
-        let left_bits = self.bits.unwrap();
-        let right_bits = other.bits.unwrap();
-        let size = std::cmp::max(left_bits.len(), right_bits.len());
+    // fn branches(self, other: Self) -> (Self, Self) {
+    //     let left_bits = self.bits.unwrap();
+    //     let right_bits = other.bits.unwrap();
+    //     let size = std::cmp::max(left_bits.len(), right_bits.len());
 
-        let left_bits = (0..size - left_bits.len())
-            .map(|_| FlatExpression::Number(T::from(0)))
-            .chain(left_bits)
-            .collect();
-        let right_bits = (0..size - right_bits.len())
-            .map(|_| FlatExpression::Number(T::from(0)))
-            .chain(right_bits)
-            .collect();
+    //     let left_bits = (0..size - left_bits.len())
+    //         .map(|_| FlatExpression::Number(T::from(0)))
+    //         .chain(left_bits)
+    //         .collect();
+    //     let right_bits = (0..size - right_bits.len())
+    //         .map(|_| FlatExpression::Number(T::from(0)))
+    //         .chain(right_bits)
+    //         .collect();
 
-        (
-            FlatUExpression {
-                bits: Some(left_bits),
-                ..self
-            },
-            FlatUExpression {
-                bits: Some(right_bits),
-                ..other
-            },
-        )
-    }
+    //     (
+    //         FlatUExpression {
+    //             bits: Some(left_bits),
+    //             ..self
+    //         },
+    //         FlatUExpression {
+    //             bits: Some(right_bits),
+    //             ..other
+    //         },
+    //     )
+    // }
 
     fn flat(&self) -> Vec<FlatExpression<T>> {
         self.bits

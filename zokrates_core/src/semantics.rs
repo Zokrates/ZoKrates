@@ -1366,6 +1366,10 @@ impl<'ast> Checker<'ast> {
                                         unimplemented!("handle consequence alternative inner type mismatch")
                                     }
                                 },
+                                (TypedExpression::Uint(consequence), TypedExpression::Uint(alternative)) => {
+                                    let bitwidth = consequence.bitwidth();
+                                    Ok(UExpressionInner::IfElse(box condition, box consequence, box alternative).annotate(bitwidth).into())
+                                },
                                 _ => unreachable!("types should match here as we checked them explicitly")
                             }
                             false => Err(ErrorInner {
