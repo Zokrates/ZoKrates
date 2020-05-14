@@ -1839,9 +1839,8 @@ impl<'ast> Checker<'ast> {
                     return Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
-                            "Inline struct {} does not match {} : {}",
+                            "Inline struct {} does not match {}",
                             Expression::InlineStruct(id.clone(), inline_members),
-                            id,
                             Type::Struct(struct_type)
                         ),
                     });
@@ -1883,9 +1882,8 @@ impl<'ast> Checker<'ast> {
                             return Err(ErrorInner {
                                 pos: Some(pos),
                                 message: format!(
-                                    "Member {} of struct {} : {} not found in value {}",
+                                    "Member {} of struct {} not found in value {}",
                                     member.id,
-                                    id.clone(),
                                     Type::Struct(struct_type.clone()),
                                     Expression::InlineStruct(id.clone(), inline_members),
                                 ),
@@ -4233,7 +4231,7 @@ mod tests {
                         )
                         .unwrap_err()
                         .message,
-                    "{foo: field} doesn\'t have member bar"
+                    "Foo {foo: field} doesn\'t have member bar"
                 );
             }
         }
@@ -4420,7 +4418,7 @@ mod tests {
                         )
                         .unwrap_err()
                         .message,
-                    "Inline struct Foo {foo: 42} does not match Foo : {foo: field, bar: bool}"
+                    "Inline struct Foo {foo: 42} does not match Foo {foo: field, bar: bool}"
                 );
             }
 
@@ -4466,7 +4464,7 @@ mod tests {
                             &state.types
                         ).unwrap_err()
                         .message,
-                    "Member bar of struct Foo : {foo: field, bar: bool} not found in value Foo {baz: true, foo: 42}"
+                    "Member bar of struct Foo {foo: field, bar: bool} not found in value Foo {baz: true, foo: 42}"
                 );
 
                 assert_eq!(

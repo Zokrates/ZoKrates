@@ -30,7 +30,7 @@ impl Abi {
 mod tests {
     use super::*;
     use std::collections::HashMap;
-    use typed_absy::types::{ArrayType, FunctionKey, StructMember};
+    use typed_absy::types::{ArrayType, FunctionKey, StructMember, StructType};
     use typed_absy::{
         Parameter, Type, TypedFunction, TypedFunctionSymbol, TypedModule, TypedProgram, Variable,
     };
