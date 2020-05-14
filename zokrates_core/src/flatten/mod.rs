@@ -26,12 +26,6 @@ impl<T: Field> std::iter::Extend<FlatStatement<T>> for FlatStatements<T> {
 
 impl<T: Field> FlatStatements<T> {
     fn push(&mut self, e: FlatStatement<T>) {
-        match &e {
-            FlatStatement::Definition(l, FlatExpression::Identifier(_)) => {
-                println!("{}", e);
-            }
-            _ => {}
-        };
         self.0.push(e)
     }
 
@@ -896,22 +890,17 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                 assert_eq!(e_bits.len(), target_bitwidth);
 
-                let name_not = e_bits.iter().map(|_| self.use_sym()).collect::<Vec<_>>();
-
-                statements_flattened.extend(name_not.iter().zip(e_bits.iter()).map(
-                    |(name, bit)| {
-                        FlatStatement::Definition(
-                            *name,
-                            FlatExpression::Sub(
-                                box FlatExpression::Number(T::from(1)),
-                                box bit.clone(),
-                            ),
-                        )
+                let name_not: Vec<_> = e_bits.into_iter().map(
+                    |bit| {
+                        self.define(FlatExpression::Sub(
+                            box FlatExpression::Number(T::from(1)),
+                            box bit,
+                        ), statements_flattened).into()
                     },
-                ));
+                ).collect();
 
                 FlatUExpression::with_bits(
-                    name_not.into_iter().map(|v| v.into()).collect::<Vec<_>>(),
+                    name_not,
                 )
             }
             UExpressionInner::Add(box left, box right) => {
@@ -1098,10 +1087,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             if n == T::from(0) {
                                 self.define(e, statements_flattened).into()
                             } else if n == T::from(1) {
-                                FlatExpression::Sub(
+                                self.define(FlatExpression::Sub(
                                     box FlatExpression::Number(T::from(1)),
                                     box e.clone(),
-                                )
+                                ), statements_flattened).into()
                             } else {
                                 unreachable!()
                             }

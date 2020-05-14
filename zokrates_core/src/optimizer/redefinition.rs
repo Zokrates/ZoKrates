@@ -32,6 +32,7 @@
 //     - `q == k * v if v isn't defined`: insert `(v, [(1, v)])` and return `c_0`
 //     - otherwise return `c_0`
 
+use std::collections::HashSet;
 use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::folder::{fold_function, fold_statement, Folder};
 use crate::ir::LinComb;
@@ -43,12 +44,14 @@ use zokrates_field::Field;
 pub struct RedefinitionOptimizer<T: Field> {
     /// Map of renamings for reassigned variables while processing the program.
     substitution: HashMap<FlatVariable, LinComb<T>>,
+    ignore: HashSet<FlatVariable>
 }
 
 impl<T: Field> RedefinitionOptimizer<T> {
     fn new() -> RedefinitionOptimizer<T> {
         RedefinitionOptimizer {
             substitution: HashMap::new(),
+            ignore: HashSet::new(),
         }
     }
 
@@ -74,23 +77,33 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                 let lin = self.fold_linear_combination(lin);
 
                 if self.substitution.len() < 150000 {
-                    let (keep_constraint, to_insert) = match lin.try_summand() {
+                    let (keep_constraint, to_insert, to_ignore) = match lin.try_summand() {
                         // if the right side is a single variable
                         Some((variable, coefficient)) => {
-                            match self.substitution.get(&variable) {
-                                // if the variable is already defined
-                                Some(_) => (true, None),
-                                // if the variable is not defined yet
-                                None => match quad.try_linear() {
-                                    // if the left side is linear
-                                    Some(l) => (false, Some((variable, l / &coefficient))),
-                                    // if the left side isn't linear
-                                    None => (true, Some((variable, variable.into()))),
+                            match self.ignore.contains(&variable) {
+                                false => match self.substitution.get(&variable) {
+                                    // if the variable is already defined
+                                    Some(_) => (true, None, None),
+                                    // if the variable is not defined yet
+                                    None => match quad.try_linear() {
+                                        // if the left side is linear
+                                        Some(l) => (false, Some((variable, l / &coefficient)), None),
+                                        // if the left side isn't linear
+                                        None => (true, None, Some(variable)),
+                                    },
                                 },
+                                true => (true, None, None)
                             }
                         }
-                        None => (true, None),
+                        None => (true, None, None),
                     };
+
+                    match to_ignore {
+                        Some(v) => {
+                            self.ignore.insert(v);
+                        },
+                        None => {}
+                    }
 
                     // insert into the substitution map
                     match to_insert {
@@ -112,8 +125,8 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
             Statement::Directive(d) => {
                 let d = self.fold_directive(d);
                 // to prevent the optimiser from replacing variables introduced by directives, add them to the substitution
-                for o in d.outputs.iter() {
-                    self.substitution.insert(o.clone(), o.clone().into());
+                for o in d.outputs.iter().cloned() {
+                    self.ignore.insert(o);
                 }
                 Some(Statement::Directive(d))
             }
@@ -122,33 +135,38 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
     }
 
     fn fold_linear_combination(&mut self, lc: LinComb<T>) -> LinComb<T> {
+        println!("fold");
         // for each summand, check if it is equal to a linear term in our substitution, otherwise keep it as is
-        lc.0.into_iter()
+        let res = lc.0.into_iter()
             .map(|(variable, coefficient)| {
-                self.substitution
+                (self.substitution
                     .get(&variable)
-                    .map(|l| l.clone() * &coefficient)
-                    .unwrap_or(LinComb::summand(coefficient, variable))
+                    .map(|l| l.clone())
+                    .unwrap_or(variable.into()), coefficient)
             })
-            .fold(LinComb::zero(), |acc, x| acc + x)
+            .fold(LinComb::zero(), |acc, (l, coeff)| acc + l * &coeff);
+
+        println!("folded");
+        res
     }
 
     fn fold_argument(&mut self, a: FlatVariable) -> FlatVariable {
         // to prevent the optimiser from replacing user input, add it to the substitution
-        self.substitution.insert(a.clone(), a.clone().into());
+        self.ignore.insert(a);
         a
     }
 
     fn fold_function(&mut self, fun: Function<T>) -> Function<T> {
         self.substitution.drain();
+        self.ignore.drain();
 
         // to prevent the optimiser from replacing outputs, add them to the substitution
-        self.substitution
-            .extend(fun.returns.iter().map(|x| (x.clone(), x.clone().into())));
+        self.ignore
+            .extend(fun.returns.iter().cloned());
 
         // to prevent the optimiser from replacing ~one, add it to the substitution
-        self.substitution
-            .insert(FlatVariable::one(), FlatVariable::one().into());
+        self.ignore
+            .insert(FlatVariable::one());
 
         fold_function(self, fun)
     }

@@ -6,8 +6,6 @@ use zokrates_field::Field;
 
 impl<T: Field> From<FlatFunction<T>> for Function<T> {
     fn from(flat_function: FlatFunction<T>) -> Function<T> {
-        println!("{:?}", flat_function.statements.len());
-
         let return_expressions: Vec<FlatExpression<T>> = flat_function
             .statements
             .iter()

@@ -176,7 +176,7 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     println!("converted");
 
     // optimize
-    let optimized_ir_prog = ir_prog;
+    let optimized_ir_prog = ir_prog.optimize();
     println!("optimized");
 
     // analyse (check for unused constraints)
