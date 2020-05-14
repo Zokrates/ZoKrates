@@ -47,11 +47,11 @@ impl<'ast, T: Field> From<pest::StructDefinition<'ast>> for absy::SymbolDeclarat
 
         let id = definition.id.span.as_str();
 
-        let ty = absy::StructType {
+        let ty = absy::StructDefinition {
             fields: definition
                 .fields
                 .into_iter()
-                .map(|f| absy::StructFieldNode::from(f))
+                .map(|f| absy::StructDefinitionFieldNode::from(f))
                 .collect(),
         }
         .span(span.clone());
@@ -64,8 +64,8 @@ impl<'ast, T: Field> From<pest::StructDefinition<'ast>> for absy::SymbolDeclarat
     }
 }
 
-impl<'ast> From<pest::StructField<'ast>> for absy::StructFieldNode<'ast> {
-    fn from(field: pest::StructField<'ast>) -> absy::StructFieldNode {
+impl<'ast> From<pest::StructField<'ast>> for absy::StructDefinitionFieldNode<'ast> {
+    fn from(field: pest::StructField<'ast>) -> absy::StructDefinitionFieldNode {
         use absy::NodeValue;
 
         let span = field.span;
@@ -74,7 +74,7 @@ impl<'ast> From<pest::StructField<'ast>> for absy::StructFieldNode<'ast> {
 
         let ty = absy::UnresolvedTypeNode::from(field.ty);
 
-        absy::StructField { id, ty }.span(span)
+        absy::StructDefinitionField { id, ty }.span(span)
     }
 }
 
