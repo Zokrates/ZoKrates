@@ -1,0 +1,4 @@
+import "utils/binary/xor" as XOR
+
+def main(field a, field b) -> (field):
+    return XOR(a, b)
