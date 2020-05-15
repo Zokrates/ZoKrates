@@ -1,3 +1,11 @@
+pub const BELLMAN: &str = "bellman";
+#[cfg(feature = "libsnark")]
+pub const LIBSNARK: &str = "libsnark";
+#[cfg(feature = "libsnark")]
+pub const BACKENDS: &[&str] = &[BELLMAN, LIBSNARK];
+#[cfg(not(feature = "libsnark"))]
+pub const BACKENDS: &[&str] = &[BELLMAN];
+
 pub const BN128: &str = "bn128";
 pub const BLS12_381: &str = "bls12_381";
 pub const BLS12_377: &str = "bls12_377";
