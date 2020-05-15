@@ -1,0 +1,2 @@
+def main(field a, field b) -> (bool):
+  return !(a == b)

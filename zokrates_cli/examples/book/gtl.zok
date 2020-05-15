@@ -1,0 +1,7 @@
+def main() -> (bool):
+    field a = if 10 > 9 then 1 else 0 fi
+    field b = if 10 >= 9 then 1 else 0 fi
+    field c = if 10 <= 10 then 1 else 0 fi
+    field d = if 10 < 9 then 1 else 0 fi
+    
+    return a == b && c == d
