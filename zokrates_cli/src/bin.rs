@@ -743,30 +743,32 @@ fn cli() -> Result<(), String> {
             let prog = ProgEnum::deserialize(&mut reader)?;
 
             match backend {
-                constants::BELLMAN => {
-                    match proof_system {
-                        constants::G16 => match prog {
-                            ProgEnum::Bn128Program(p) => cli_setup::<_, G16>(p, sub_matches),
-                            ProgEnum::Bls12Program(p) => cli_setup::<_, G16>(p, sub_matches),
-                        },
-                        _ => Err(format!("Proving scheme {} is not supported by {} backend", proof_system, backend)),
-                    }?
-                },
+                constants::BELLMAN => match proof_system {
+                    constants::G16 => match prog {
+                        ProgEnum::Bn128Program(p) => cli_setup::<_, G16>(p, sub_matches),
+                        ProgEnum::Bls12Program(p) => cli_setup::<_, G16>(p, sub_matches),
+                    },
+                    _ => Err(format!(
+                        "Proving scheme {} is not supported by {} backend",
+                        proof_system, backend
+                    )),
+                }?,
                 #[cfg(feature = "libsnark")]
-                constants::LIBSNARK => {
-                    match proof_system {
-                        constants::PGHR13 => match prog {
-                            ProgEnum::Bn128Program(p) => cli_setup::<_, PGHR13>(p, sub_matches),
-                            _ => unimplemented!(),
-                        },
-                        constants::GM17 => match prog {
-                            ProgEnum::Bn128Program(p) => cli_setup::<_, GM17>(p, sub_matches),
-                            _ => unimplemented!(),
-                        },
-                        _ => Err(format!("Proving scheme {} is not supported by {} backend", proof_system, backend)),
-                    }?
-                },
-                _ => unreachable!()
+                constants::LIBSNARK => match proof_system {
+                    constants::PGHR13 => match prog {
+                        ProgEnum::Bn128Program(p) => cli_setup::<_, PGHR13>(p, sub_matches),
+                        _ => unimplemented!(),
+                    },
+                    constants::GM17 => match prog {
+                        ProgEnum::Bn128Program(p) => cli_setup::<_, GM17>(p, sub_matches),
+                        _ => unimplemented!(),
+                    },
+                    _ => Err(format!(
+                        "Proving scheme {} is not supported by {} backend",
+                        proof_system, backend
+                    )),
+                }?,
+                _ => unreachable!(),
             }
         }
         ("export-verifier", Some(sub_matches)) => {
@@ -775,31 +777,33 @@ fn cli() -> Result<(), String> {
             let proof_system = sub_matches.value_of("proving-scheme").unwrap();
 
             match backend {
-                constants::BELLMAN => {
-                    match proof_system {
-                        constants::G16 => match curve {
-                            constants::BN128 => cli_export_verifier::<Bn128Field, G16>(sub_matches),
-                            constants::BLS12_381 => cli_export_verifier::<Bls12Field, G16>(sub_matches),
-                            _ => unimplemented!(),
-                        },
-                        _ => Err(format!("Proving scheme {} is not supported by {} backend", proof_system, backend)),
-                    }?
-                },
+                constants::BELLMAN => match proof_system {
+                    constants::G16 => match curve {
+                        constants::BN128 => cli_export_verifier::<Bn128Field, G16>(sub_matches),
+                        constants::BLS12_381 => cli_export_verifier::<Bls12Field, G16>(sub_matches),
+                        _ => unimplemented!(),
+                    },
+                    _ => Err(format!(
+                        "Proving scheme {} is not supported by {} backend",
+                        proof_system, backend
+                    )),
+                }?,
                 #[cfg(feature = "libsnark")]
-                constants::LIBSNARK => {
-                    match proof_system {
-                        constants::PGHR13 => match curve {
-                            constants::BN128 => cli_export_verifier::<Bn128Field, PGHR13>(sub_matches),
-                            _ => unimplemented!(),
-                        },
-                        constants::GM17 => match curve {
-                            constants::BN128 => cli_export_verifier::<Bn128Field, GM17>(sub_matches),
-                            _ => unimplemented!(),
-                        },
-                        _ => Err(format!("Proving scheme {} is not supported by {} backend", proof_system, backend)),
-                    }?
-                },
-                _ => unreachable!()
+                constants::LIBSNARK => match proof_system {
+                    constants::PGHR13 => match curve {
+                        constants::BN128 => cli_export_verifier::<Bn128Field, PGHR13>(sub_matches),
+                        _ => unimplemented!(),
+                    },
+                    constants::GM17 => match curve {
+                        constants::BN128 => cli_export_verifier::<Bn128Field, GM17>(sub_matches),
+                        _ => unimplemented!(),
+                    },
+                    _ => Err(format!(
+                        "Proving scheme {} is not supported by {} backend",
+                        proof_system, backend
+                    )),
+                }?,
+                _ => unreachable!(),
             }
         }
         ("generate-proof", Some(sub_matches)) => {
@@ -814,30 +818,34 @@ fn cli() -> Result<(), String> {
             let prog = ProgEnum::deserialize(&mut reader)?;
 
             match backend {
-                constants::BELLMAN => {
-                    match proof_system {
-                        constants::G16 => match prog {
-                            ProgEnum::Bn128Program(p) => cli_generate_proof::<_, G16>(p, sub_matches),
-                            ProgEnum::Bls12Program(p) => cli_generate_proof::<_, G16>(p, sub_matches),
-                        },
-                        _ => Err(format!("Proving scheme {} is not supported by {} backend", proof_system, backend)),
-                    }?
-                },
+                constants::BELLMAN => match proof_system {
+                    constants::G16 => match prog {
+                        ProgEnum::Bn128Program(p) => cli_generate_proof::<_, G16>(p, sub_matches),
+                        ProgEnum::Bls12Program(p) => cli_generate_proof::<_, G16>(p, sub_matches),
+                    },
+                    _ => Err(format!(
+                        "Proving scheme {} is not supported by {} backend",
+                        proof_system, backend
+                    )),
+                }?,
                 #[cfg(feature = "libsnark")]
-                constants::LIBSNARK => {
-                    match proof_system {
-                        constants::PGHR13 => match prog {
-                            ProgEnum::Bn128Program(p) => cli_generate_proof::<_, PGHR13>(p, sub_matches),
-                            _ => unimplemented!(),
-                        },
-                        constants::GM17 => match prog {
-                            ProgEnum::Bn128Program(p) => cli_generate_proof::<_, GM17>(p, sub_matches),
-                            _ => unimplemented!(),
-                        },
-                        _ => Err(format!("Proving scheme {} is not supported by {} backend", proof_system, backend)),
-                    }?
-                },
-                _ => unreachable!()
+                constants::LIBSNARK => match proof_system {
+                    constants::PGHR13 => match prog {
+                        ProgEnum::Bn128Program(p) => {
+                            cli_generate_proof::<_, PGHR13>(p, sub_matches)
+                        }
+                        _ => unimplemented!(),
+                    },
+                    constants::GM17 => match prog {
+                        ProgEnum::Bn128Program(p) => cli_generate_proof::<_, GM17>(p, sub_matches),
+                        _ => unimplemented!(),
+                    },
+                    _ => Err(format!(
+                        "Proving scheme {} is not supported by {} backend",
+                        proof_system, backend
+                    )),
+                }?,
+                _ => unreachable!(),
             }
         }
         ("print-proof", Some(sub_matches)) => {
@@ -883,31 +891,33 @@ fn cli() -> Result<(), String> {
             let proof_system = sub_matches.value_of("proving-scheme").unwrap();
 
             match backend {
-                constants::BELLMAN => {
-                    match proof_system {
-                        constants::G16 => match curve {
-                            constants::BN128 => cli_verify::<Bn128Field, G16>(sub_matches),
-                            constants::BLS12_381 => cli_verify::<Bls12Field, G16>(sub_matches),
-                            _ => unimplemented!(),
-                        },
-                        _ => Err(format!("Proving scheme {} is not supported by {} backend", proof_system, backend)),
-                    }?
-                },
+                constants::BELLMAN => match proof_system {
+                    constants::G16 => match curve {
+                        constants::BN128 => cli_verify::<Bn128Field, G16>(sub_matches),
+                        constants::BLS12_381 => cli_verify::<Bls12Field, G16>(sub_matches),
+                        _ => unimplemented!(),
+                    },
+                    _ => Err(format!(
+                        "Proving scheme {} is not supported by {} backend",
+                        proof_system, backend
+                    )),
+                }?,
                 #[cfg(feature = "libsnark")]
-                constants::LIBSNARK => {
-                    match proof_system {
-                        constants::PGHR13 => match curve {
-                            constants::BN128 => cli_verify::<Bn128Field, PGHR13>(sub_matches),
-                            _ => unimplemented!(),
-                        },
-                        constants::GM17 => match curve {
-                            constants::BN128 => cli_verify::<Bn128Field, GM17>(sub_matches),
-                            _ => unimplemented!(),
-                        },
-                        _ => Err(format!("Proving scheme {} is not supported by {} backend", proof_system, backend)),
-                    }?
-                },
-                _ => unreachable!()
+                constants::LIBSNARK => match proof_system {
+                    constants::PGHR13 => match curve {
+                        constants::BN128 => cli_verify::<Bn128Field, PGHR13>(sub_matches),
+                        _ => unimplemented!(),
+                    },
+                    constants::GM17 => match curve {
+                        constants::BN128 => cli_verify::<Bn128Field, GM17>(sub_matches),
+                        _ => unimplemented!(),
+                    },
+                    _ => Err(format!(
+                        "Proving scheme {} is not supported by {} backend",
+                        proof_system, backend
+                    )),
+                }?,
+                _ => unreachable!(),
             }
         }
         _ => unreachable!(),

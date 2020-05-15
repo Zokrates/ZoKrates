@@ -205,13 +205,13 @@ mod integration {
         }
 
         #[cfg(feature = "libsnark")]
-        let backends = map!{
+        let backends = map! {
             "bellman" => ["g16"],
             "libsnark" => ["gm17", "pghr13"]
         };
 
         #[cfg(not(feature = "libsnark"))]
-        let backends = map!{"bellman" => ["g16"]};
+        let backends = map! {"bellman" => ["g16"]};
 
         for (backend, schemes) in backends {
             for scheme in &schemes {
@@ -284,6 +284,5 @@ mod integration {
                 .unwrap();
             }
         }
-
     }
 }
