@@ -326,7 +326,7 @@ impl<'ast> Checker<'ast> {
         let pos = declaration.pos();
         let declaration = declaration.value;
 
-        match declaration.symbol {
+        match declaration.symbol.clone() {
             Symbol::HereType(t) => {
                 match self.check_struct_type_declaration(
                     declaration.id.to_string(),
@@ -394,6 +394,8 @@ impl<'ast> Checker<'ast> {
                 let pos = import.pos();
                 let import = import.value;
 
+                println!("{:?}", declaration);
+
                 match Checker::new().check_module(&import.module_id, state) {
                     Ok(()) => {
                         // find candidates in the checked module
@@ -420,6 +422,21 @@ impl<'ast> Checker<'ast> {
 
                         match (function_candidates.len(), type_candidate) {
                             (0, Some(t)) => {
+
+                                println!("before {:?}", t);
+
+                                // rename the type to the declared symbol
+                                let t = match t {
+                                    Type::Struct(t) => Type::Struct(StructType {
+                                        module: module_id.clone(),
+                                        name: declaration.id.into(),
+                                        ..t
+                                    }),
+                                    _ => unreachable!()
+                                };
+
+                                println!("after {:?}", t);
+
                                 // we imported a type, so the symbol it gets bound to should not already exist
                                 match symbol_unifier.insert_type(declaration.id) {
                                     false => {
@@ -439,7 +456,7 @@ impl<'ast> Checker<'ast> {
                                     .types
                                     .entry(module_id.clone())
                                     .or_default()
-                                    .insert(import.symbol_id.to_string(), t.clone());
+                                    .insert(declaration.id.to_string(), t.clone());
                             }
                             (0, None) => {
                                 errors.push(ErrorInner {
