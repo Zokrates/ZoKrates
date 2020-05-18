@@ -116,5 +116,5 @@ Passed to the verifier contract, this proof can be checked. See
 zokrates verify
 ```
 
-Natively verifies a given proof `./proof.json` with the given verification key `./verification.key`.
+Natively verifies a given proof `./proof.json` with a given verification key `./verification.key`.
 The [proving scheme](proving_schemes.md) and curve can be set with the `proving-scheme` and `curve` flags, expecting the same combination as defined in the setup.

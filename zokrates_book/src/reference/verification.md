@@ -1,6 +1,6 @@
 # Verification
 
-Passed to the verifier contract, a given proof can be checked.
+Passed to the verifier contract, a proof can be checked.
 For example, using `web3`, a call would look like the following:
 
 ```javascript
@@ -12,9 +12,7 @@ let verifier = new web3.eth.Contract(abi, address, {
     gasPrice: '20000000000000'; // default gas price in wei
 });
 
-verifier.methods.verifyTx(proof.proof, proof.inputs)
-    .send({
-        from: accounts[0], // default from address
-        gas: 5000000 // gas limit
-    });
+let result = await verifier.methods
+    .verifyTx(proof.proof, proof.inputs)
+    .call({ from: accounts[0] });
 ```
