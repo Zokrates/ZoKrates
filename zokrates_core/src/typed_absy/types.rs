@@ -20,13 +20,21 @@ pub struct ArrayType {
     pub ty: Box<Type>,
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+#[derive(Clone, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct StructType {
     #[serde(skip)]
     pub module: PathBuf,
     pub name: String,
     pub members: Vec<StructMember>,
 }
+
+impl PartialEq for StructType {
+    fn eq(&self, other: &Self) -> bool {
+        self.members.eq(&other.members)
+    }
+}
+
+impl Eq for StructType {}
 
 impl StructType {
     pub fn new(module: PathBuf, name: String, members: Vec<StructMember>) -> Self {

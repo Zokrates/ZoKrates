@@ -33,7 +33,12 @@ impl<'ast> From<pest::ImportDirective<'ast>> for absy::ImportNode<'ast> {
                 Some(import.symbol.span.as_str()),
                 std::path::Path::new(import.source.span.as_str()),
             )
-            .alias(import.alias.map(|a| a.span.as_str()))
+            .alias(
+                import
+                    .alias
+                    .map(|a| a.span.as_str())
+                    .or(Some(import.symbol.span.as_str())),
+            )
             .span(import.span),
         }
     }
