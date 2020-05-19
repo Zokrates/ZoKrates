@@ -19,6 +19,7 @@ use std::path::PathBuf;
 use typed_absy::abi::Abi;
 use typed_absy::TypedProgram;
 use typed_arena::Arena;
+use zir::ZirProgram;
 use zokrates_common::Resolver;
 use zokrates_field::Field;
 use zokrates_pest_ast as pest;
@@ -150,9 +151,7 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
 ) -> Result<CompilationArtifacts<T>, CompileErrors> {
     let arena = Arena::new();
 
-    let typed_ast = check_with_arena(source, location, resolver, &arena)?;
-
-    let abi = typed_ast.abi();
+    let (typed_ast, abi) = check_with_arena(source, location, resolver, &arena)?;
 
     // flatten input program
     let program_flattened = Flattener::flatten(typed_ast);
@@ -190,7 +189,7 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
     arena: &'ast Arena<String>,
-) -> Result<TypedProgram<'ast, T>, CompileErrors> {
+) -> Result<(ZirProgram<'ast, T>, Abi), CompileErrors> {
     let source = arena.alloc(source);
     let compiled = compile_program(source, location.clone(), resolver, &arena)?;
 
@@ -199,10 +198,12 @@ fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
         CompileErrors(errors.into_iter().map(|e| CompileError::from(e)).collect())
     })?;
 
+    let abi = typed_ast.abi();
+
     // analyse (unroll and constant propagation)
     let typed_ast = typed_ast.analyse();
 
-    Ok(typed_ast)
+    Ok((typed_ast, abi))
 }
 
 pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(

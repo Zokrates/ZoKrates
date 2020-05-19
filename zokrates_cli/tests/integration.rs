@@ -141,7 +141,7 @@ mod integration {
 
         let abi: Abi = from_reader(&mut reader)
             .map_err(|why| why.to_string())
-                     .unwrap();
+            .unwrap();
 
         let signature = abi.signature().clone();
 

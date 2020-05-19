@@ -484,12 +484,12 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "50c052fa6d4c2f12305ec364bfb8ef884836f3f61ea015b202372ff996d1ac4b"
 dependencies = [
- "num-bigint 0.2.6",
+ "num-bigint",
  "num-integer",
  "num-traits 0.2.11",
- "proc-macro2 1.0.10",
- "quote 1.0.3",
- "syn 1.0.17",
+ "proc-macro2 1.0.12",
+ "quote 1.0.4",
+ "syn 1.0.19",
 ]
 
 [[package]]
