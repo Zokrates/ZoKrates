@@ -26,7 +26,7 @@ use zokrates_core::proof_system::libsnark::pghr13::PGHR13;
 use zokrates_core::proof_system::*;
 use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::{types::Signature, Type};
-use zokrates_field::{Bls12Field, Bn128Field, Field};
+use zokrates_field::{Bls12_381Field, Bls12_377Field, Bw6_761Field, Bn128Field, Field};
 use zokrates_fs_resolver::FileSystemResolver;
 
 fn main() {
@@ -713,7 +713,9 @@ fn cli() -> Result<(), String> {
 
             match curve {
                 constants::BN128 => cli_compile::<Bn128Field>(sub_matches)?,
-                constants::BLS12_381 => cli_compile::<Bls12Field>(sub_matches)?,
+                constants::BLS12_381 => cli_compile::<Bls12_381Field>(sub_matches)?,
+                constants::BLS12_377 => cli_compile::<Bls12_377Field>(sub_matches)?,
+                constants::BW6_761 => cli_compile::<Bw6_761Field>(sub_matches)?,
                 _ => unreachable!(),
             }
         }
@@ -727,7 +729,9 @@ fn cli() -> Result<(), String> {
 
             match ProgEnum::deserialize(&mut reader)? {
                 ProgEnum::Bn128Program(p) => cli_compute(p, sub_matches)?,
-                ProgEnum::Bls12Program(p) => cli_compute(p, sub_matches)?,
+                ProgEnum::Bls12_381Program(p) => cli_compute(p, sub_matches)?,
+                ProgEnum::Bls12_377Program(p) => cli_compute(p, sub_matches)?,
+                ProgEnum::Bw6_761Program(p) => cli_compute(p, sub_matches)?,
             }
         }
         ("setup", Some(sub_matches)) => {
@@ -747,6 +751,8 @@ fn cli() -> Result<(), String> {
                     constants::G16 => match prog {
                         ProgEnum::Bn128Program(p) => cli_setup::<_, G16>(p, sub_matches),
                         ProgEnum::Bls12Program(p) => cli_setup::<_, G16>(p, sub_matches),
+                        ProgEnum::Bls12_377Program(p) => cli_setup::<_, G16>(p, sub_matches)?,
+                        ProgEnum::Bw6_761Program(p) => cli_setup::<_, G16>(p, sub_matches)?,
                     },
                     _ => Err(format!(
                         "Proving scheme {} is not supported by {} backend",
@@ -761,6 +767,9 @@ fn cli() -> Result<(), String> {
                     },
                     constants::GM17 => match prog {
                         ProgEnum::Bn128Program(p) => cli_setup::<_, GM17>(p, sub_matches),
+                        ProgEnum::Bls12_381Program(p) => cli_setup::<_, GM17>(p, sub_matches)?,
+                        ProgEnum::Bls12_377Program(p) => cli_setup::<_, GM17>(p, sub_matches)?,
+                        ProgEnum::Bw6_761Program(p) => cli_setup::<_, GM17>(p, sub_matches)?,
                         _ => unimplemented!(),
                     },
                     _ => Err(format!(
@@ -780,7 +789,9 @@ fn cli() -> Result<(), String> {
                 constants::BELLMAN => match proof_system {
                     constants::G16 => match curve {
                         constants::BN128 => cli_export_verifier::<Bn128Field, G16>(sub_matches),
-                        constants::BLS12_381 => cli_export_verifier::<Bls12Field, G16>(sub_matches),
+                        constants::BLS12_381 => cli_export_verifier::<Bls12_381Field, G16>(sub_matches),
+                        constants::BLS12_377 => cli_export_verifier::<Bls12_377Field, G16>(sub_matches)?,
+                        constants::BW6_761 => cli_export_verifier::<Bw6_761Field, G16>(sub_matches)?,
                         _ => unimplemented!(),
                     },
                     _ => Err(format!(
@@ -796,6 +807,9 @@ fn cli() -> Result<(), String> {
                     },
                     constants::GM17 => match curve {
                         constants::BN128 => cli_export_verifier::<Bn128Field, GM17>(sub_matches),
+                        constants::BLS12_381 => cli_export_verifier::<Bls12_381Field, GM17>(sub_matches)?,
+                        constants::BLS12_377 => cli_export_verifier::<Bls12_377Field, GM17>(sub_matches)?,
+                        constants::BW6_761 => cli_export_verifier::<Bw6_761Field, GM17>(sub_matches)?,
                         _ => unimplemented!(),
                     },
                     _ => Err(format!(
@@ -821,8 +835,9 @@ fn cli() -> Result<(), String> {
                 constants::BELLMAN => match proof_system {
                     constants::G16 => match prog {
                         ProgEnum::Bn128Program(p) => cli_generate_proof::<_, G16>(p, sub_matches),
-                        ProgEnum::Bls12Program(p) => cli_generate_proof::<_, G16>(p, sub_matches),
-                    },
+                        ProgEnum::Bls12_381Program(p) => cli_generate_proof::<_, G16>(p, sub_matches)?,
+                        ProgEnum::Bls12_377Program(p) => cli_generate_proof::<_, G16>(p, sub_matches)?,
+                        ProgEnum::Bw6_761Program(p) => cli_generate_proof::<_, G16>(p, sub_matches)?,                    },
                     _ => Err(format!(
                         "Proving scheme {} is not supported by {} backend",
                         proof_system, backend
@@ -838,6 +853,9 @@ fn cli() -> Result<(), String> {
                     },
                     constants::GM17 => match prog {
                         ProgEnum::Bn128Program(p) => cli_generate_proof::<_, GM17>(p, sub_matches),
+                        ProgEnum::Bls12_381Program(p) => cli_generate_proof::<_, GM17>(p, sub_matches)?,
+                        ProgEnum::Bls12_377Program(p) => cli_generate_proof::<_, GM17>(p, sub_matches)?,
+                        ProgEnum::Bw6_761Program(p) => cli_generate_proof::<_, GM17>(p, sub_matches)?,
                         _ => unimplemented!(),
                     },
                     _ => Err(format!(
@@ -894,8 +912,9 @@ fn cli() -> Result<(), String> {
                 constants::BELLMAN => match proof_system {
                     constants::G16 => match curve {
                         constants::BN128 => cli_verify::<Bn128Field, G16>(sub_matches),
-                        constants::BLS12_381 => cli_verify::<Bls12Field, G16>(sub_matches),
-                        _ => unimplemented!(),
+                        constants::BLS12_381 => cli_verify::<Bls12_381Field, G16>(sub_matches)?,
+                        constants::BLS12_377 => cli_verify::<Bls12_377Field, G16>(sub_matches)?,
+                        constants::BW6_761 => cli_verify::<Bw6_761Field, G16>(sub_matches)?,                        _ => unimplemented!(),
                     },
                     _ => Err(format!(
                         "Proving scheme {} is not supported by {} backend",
@@ -910,6 +929,9 @@ fn cli() -> Result<(), String> {
                     },
                     constants::GM17 => match curve {
                         constants::BN128 => cli_verify::<Bn128Field, GM17>(sub_matches),
+                        constants::BLS12_381 => cli_verify::<Bls12_381Field, GM17>(sub_matches)?,
+                        constants::BLS12_377 => cli_verify::<Bls12_377Field, GM17>(sub_matches)?,
+                        constants::BW6_761 => cli_verify::<Bw6_761Field, GM17>(sub_matches)?,
                         _ => unimplemented!(),
                     },
                     _ => Err(format!(
