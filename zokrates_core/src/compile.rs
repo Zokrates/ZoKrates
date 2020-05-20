@@ -17,7 +17,6 @@ use std::fmt;
 use std::io;
 use std::path::PathBuf;
 use typed_absy::abi::Abi;
-use typed_absy::TypedProgram;
 use typed_arena::Arena;
 use zir::ZirProgram;
 use zokrates_common::Resolver;
