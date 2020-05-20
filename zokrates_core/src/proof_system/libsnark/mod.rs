@@ -297,7 +297,7 @@ pub fn r1cs_program<T: Field>(
     let mut variables_list = vec![FlatVariable::new(0); variables.len()];
     for (k, v) in variables.drain() {
         assert_eq!(variables_list[v], FlatVariable::new(0));
-        std::mem::replace(&mut variables_list[v], k);
+        variables_list[v] = k;
     }
     (variables_list, private_inputs_offset, a, b, c)
 }
