@@ -126,10 +126,17 @@ impl<'ast, T> UExpressionInner<'ast, T> {
     }
 }
 
-impl<'ast, T> UExpression<'ast, T> {
+impl<'ast, T: Field> UExpression<'ast, T> {
     pub fn metadata(self, metadata: UMetadata<T>) -> UExpression<'ast, T> {
         UExpression {
             metadata: Some(metadata),
+            ..self
+        }
+    }
+
+    pub fn with_max<U: Into<T>>(self, max: U) -> Self {
+        UExpression {
+            metadata: Some(UMetadata::with_max(max)),
             ..self
         }
     }

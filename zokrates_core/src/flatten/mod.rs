@@ -31,7 +31,7 @@ pub struct Flattener<'ast, T: Field> {
 trait FlattenOutput<T: Field>: Sized {
     // fn branches(self, other: Self) -> (Self, Self);
 
-    fn flat(&self) -> Vec<FlatExpression<T>>;
+    fn flat(&self) -> FlatExpression<T>;
 }
 
 impl<T: Field> FlattenOutput<T> for FlatExpression<T> {
@@ -39,8 +39,8 @@ impl<T: Field> FlattenOutput<T> for FlatExpression<T> {
     //     (self, other)
     // }
 
-    fn flat(&self) -> Vec<FlatExpression<T>> {
-        vec![self.clone()]
+    fn flat(&self) -> FlatExpression<T> {
+        self.clone()
     }
 }
 
@@ -71,14 +71,8 @@ impl<T: Field> FlattenOutput<T> for FlatUExpression<T> {
     //     )
     // }
 
-    fn flat(&self) -> Vec<FlatExpression<T>> {
-        self.bits
-            .clone()
-            .unwrap()
-            .clone()
-            .into_iter()
-            .chain(std::iter::once(self.field.clone().unwrap()))
-            .collect()
+    fn flat(&self) -> FlatExpression<T> {
+        self.clone().get_field_unchecked()
     }
 }
 
@@ -241,71 +235,45 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let consequence = consequence.flat();
         let alternative = alternative.flat();
 
-        let size = consequence.len();
+        let consequence_id = self.use_sym();
+        statements_flattened.push(FlatStatement::Definition(consequence_id, consequence));
 
-        let consequence_ids: Vec<_> = (0..size).map(|_| self.use_sym()).collect();
-        statements_flattened.extend(
-            consequence
-                .into_iter()
-                .zip(consequence_ids.iter())
-                .map(|(c, c_id)| FlatStatement::Definition(*c_id, c)),
-        );
+        let alternative_id = self.use_sym();
+        statements_flattened.push(FlatStatement::Definition(alternative_id, alternative));
 
-        let alternative_ids: Vec<_> = (0..size).map(|_| self.use_sym()).collect();
-        statements_flattened.extend(
-            alternative
-                .into_iter()
-                .zip(alternative_ids.iter())
-                .map(|(a, a_id)| FlatStatement::Definition(*a_id, a)),
-        );
-
-        let term0_ids: Vec<_> = (0..size).map(|_| self.use_sym()).collect();
-        statements_flattened.extend(consequence_ids.iter().zip(term0_ids.iter()).map(
-            |(c_id, t0_id)| {
-                FlatStatement::Definition(
-                    *t0_id,
-                    FlatExpression::Mult(
-                        box condition_id.clone().into(),
-                        box FlatExpression::from(*c_id),
-                    ),
-                )
-            },
+        let term0_id = self.use_sym();
+        statements_flattened.push(FlatStatement::Definition(
+            term0_id,
+            FlatExpression::Mult(
+                box condition_id.clone().into(),
+                box FlatExpression::from(consequence_id),
+            ),
         ));
 
-        let term1_ids: Vec<_> = (0..size).map(|_| self.use_sym()).collect();
-        statements_flattened.extend(alternative_ids.iter().zip(term1_ids.iter()).map(
-            |(a_id, t1_id)| {
-                FlatStatement::Definition(
-                    *t1_id,
-                    FlatExpression::Mult(
-                        box FlatExpression::Sub(
-                            box FlatExpression::Number(T::one()),
-                            box condition_id.into(),
-                        ),
-                        box FlatExpression::from(*a_id),
-                    ),
-                )
-            },
+        let term1_id = self.use_sym();
+        statements_flattened.push(FlatStatement::Definition(
+            term1_id,
+            FlatExpression::Mult(
+                box FlatExpression::Sub(
+                    box FlatExpression::Number(T::one()),
+                    box condition_id.into(),
+                ),
+                box FlatExpression::from(alternative_id),
+            ),
         ));
 
-        let res: Vec<_> = (0..size).map(|_| self.use_sym()).collect();
-        statements_flattened.extend(term0_ids.iter().zip(term1_ids).zip(res.iter()).map(
-            |((t0_id, t1_id), r_id)| {
-                FlatStatement::Definition(
-                    *r_id,
-                    FlatExpression::Add(
-                        box FlatExpression::from(*t0_id),
-                        box FlatExpression::from(t1_id),
-                    ),
-                )
-            },
+        let res = self.use_sym();
+        statements_flattened.push(FlatStatement::Definition(
+            res,
+            FlatExpression::Add(
+                box FlatExpression::from(term0_id),
+                box FlatExpression::from(term1_id),
+            ),
         ));
-
-        let mut res: Vec<_> = res.into_iter().map(|r| r.into()).collect();
 
         FlatUExpression {
-            field: Some(res.pop().unwrap()),
-            bits: Some(res),
+            field: Some(FlatExpression::Identifier(res)),
+            bits: None,
         }
     }
 
