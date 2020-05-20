@@ -8,7 +8,7 @@
 use crate::ir::folder::fold_statement;
 use crate::ir::folder::Folder;
 use crate::ir::*;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub struct TautologyOptimizer {}
 

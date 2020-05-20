@@ -12,6 +12,7 @@
 	- [Imports](./concepts/imports.md)
 	- [Comments](./concepts/comments.md)
 	- [Standard Library](./concepts/stdlib.md)
+	- [Macros](./concepts/macros.md)
 
 - [Reference](reference/index.md)
     - [CLI](reference/cli.md)

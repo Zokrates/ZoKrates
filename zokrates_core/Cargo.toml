@@ -24,8 +24,9 @@ serde_derive = "1.0"
 serde_json = "1.0"
 serde_bytes = "0.10"
 bincode = "0.8.0"
+hex = "0.4.2"
 regex = "0.2"
-pairing_ce = "0.20"
+pairing_ce = "^0.21"
 ff_ce = "0.9"
 zokrates_field = { version = "0.3.0", path = "../zokrates_field" }
 zokrates_pest_ast = { version = "0.1.0", path = "../zokrates_pest_ast" }
@@ -33,7 +34,7 @@ zokrates_embed = { path = "../zokrates_embed" }
 zokrates_common = { path = "../zokrates_common" }
 rand = "0.4"
 csv = "1"
-bellman_ce = { version = "0.3.3", default-features = false}
+bellman_ce = { version = "^0.3", default-features = false}
 
 [dev-dependencies]
 glob = "0.2.11"
@@ -43,4 +44,4 @@ wasm-bindgen-test = "0.3.0"
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"], optional = true }
 cmake = { version = "0.1.31", optional = true }
-git2 = { version = "0.8.0", optional = true }
+git2 = { version = "0.13.1", optional = true }

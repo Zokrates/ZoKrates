@@ -7,6 +7,8 @@ use absy::{Module, ModuleId, Program};
 use flatten::Flattener;
 use imports::{self, Importer};
 use ir;
+use macros;
+use macros::process_macros;
 use optimizer::Optimize;
 use semantics::{self, Checker};
 use static_analysis::Analyse;
@@ -15,9 +17,10 @@ use std::fmt;
 use std::io;
 use std::path::PathBuf;
 use typed_absy::abi::Abi;
+use typed_absy::TypedProgram;
 use typed_arena::Arena;
 use zokrates_common::Resolver;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 use zokrates_pest_ast as pest;
 
 #[derive(Debug)]
@@ -49,6 +52,7 @@ impl From<CompileError> for CompileErrors {
 pub enum CompileErrorInner {
     ParserError(pest::Error),
     ImportError(imports::Error),
+    MacroError(macros::Error),
     SemanticError(semantics::ErrorInner),
     ReadError(io::Error),
 }
@@ -110,6 +114,12 @@ impl From<io::Error> for CompileErrorInner {
     }
 }
 
+impl From<macros::Error> for CompileErrorInner {
+    fn from(error: macros::Error) -> Self {
+        CompileErrorInner::MacroError(error)
+    }
+}
+
 impl From<semantics::Error> for CompileError {
     fn from(error: semantics::Error) -> Self {
         CompileError {
@@ -123,6 +133,7 @@ impl fmt::Display for CompileErrorInner {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             CompileErrorInner::ParserError(ref e) => write!(f, "{}", e),
+            CompileErrorInner::MacroError(ref e) => write!(f, "{}", e),
             CompileErrorInner::SemanticError(ref e) => write!(f, "{}", e),
             CompileErrorInner::ReadError(ref e) => write!(f, "{}", e),
             CompileErrorInner::ImportError(ref e) => write!(f, "{}", e),
@@ -139,18 +150,9 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
 ) -> Result<CompilationArtifacts<T>, CompileErrors> {
     let arena = Arena::new();
 
-    let source = arena.alloc(source);
-    let compiled = compile_program(source, location.clone(), resolver, &arena)?;
-
-    // check semantics
-    let typed_ast = Checker::check(compiled).map_err(|errors| {
-        CompileErrors(errors.into_iter().map(|e| CompileError::from(e)).collect())
-    })?;
+    let typed_ast = check_with_arena(source, location, resolver, &arena)?;
 
     let abi = typed_ast.abi();
-
-    // analyse (unroll and constant propagation)
-    let typed_ast = typed_ast.analyse();
 
     // flatten input program
     let program_flattened = Flattener::flatten(typed_ast);
@@ -171,6 +173,36 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
         prog: optimized_ir_prog,
         abi,
     })
+}
+
+pub fn check<'ast, T: Field, E: Into<imports::Error>>(
+    source: String,
+    location: FilePath,
+    resolver: Option<&dyn Resolver<E>>,
+) -> Result<(), CompileErrors> {
+    let arena = Arena::new();
+
+    check_with_arena::<T, _>(source, location, resolver, &arena).map(|_| ())
+}
+
+fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
+    source: String,
+    location: FilePath,
+    resolver: Option<&dyn Resolver<E>>,
+    arena: &'ast Arena<String>,
+) -> Result<TypedProgram<'ast, T>, CompileErrors> {
+    let source = arena.alloc(source);
+    let compiled = compile_program(source, location.clone(), resolver, &arena)?;
+
+    // check semantics
+    let typed_ast = Checker::check(compiled).map_err(|errors| {
+        CompileErrors(errors.into_iter().map(|e| CompileError::from(e)).collect())
+    })?;
+
+    // analyse (unroll and constant propagation)
+    let typed_ast = typed_ast.analyse();
+
+    Ok(typed_ast)
 }
 
 pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
@@ -200,6 +232,10 @@ pub fn compile_module<'ast, T: Field, E: Into<imports::Error>>(
 ) -> Result<Module<'ast, T>, CompileErrors> {
     let ast = pest::generate_ast(&source)
         .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).in_file(&location)))?;
+
+    let ast = process_macros::<T>(ast)
+        .map_err(|e| CompileErrors::from(CompileErrorInner::from(e).in_file(&location)))?;
+
     let module_without_imports: Module<T> = Module::from(ast);
 
     Importer::new().apply_imports(
@@ -214,7 +250,7 @@ pub fn compile_module<'ast, T: Field, E: Into<imports::Error>>(
 #[cfg(test)]
 mod test {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[test]
     fn no_resolver_with_imports() {
@@ -224,7 +260,7 @@ mod test {
 			   return foo()
 		"#
         .to_string();
-        let res: Result<CompilationArtifacts<FieldPrime>, CompileErrors> = compile(
+        let res: Result<CompilationArtifacts<Bn128Field>, CompileErrors> = compile(
             source,
             "./path/to/file".into(),
             None::<&dyn Resolver<io::Error>>,
@@ -242,7 +278,7 @@ mod test {
 			   return 1
 		"#
         .to_string();
-        let res: Result<CompilationArtifacts<FieldPrime>, CompileErrors> = compile(
+        let res: Result<CompilationArtifacts<Bn128Field>, CompileErrors> = compile(
             source,
             "./path/to/file".into(),
             None::<&dyn Resolver<io::Error>>,

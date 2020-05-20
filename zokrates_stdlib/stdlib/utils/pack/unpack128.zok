@@ -1,3 +1,5 @@
+#pragma curve bn128
+
 import "EMBED/unpack" as unpack
 
 def main(field i) -> (field[128]):

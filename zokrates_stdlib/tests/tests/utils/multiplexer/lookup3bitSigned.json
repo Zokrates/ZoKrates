@@ -1,5 +1,6 @@
 {
 	"entry_point": "./tests/tests/utils/multiplexer/lookup3bitSigned.zok",
+	"curves": ["Bn128"],
 	"tests": [
 		{
 			"input": {

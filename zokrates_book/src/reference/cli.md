@@ -7,6 +7,11 @@ You can see an overview of the available subcommands by running
 zokrates
 ```
 
+You can get help about a particular subcommand with `--help`, for example:
+```sh
+zokrates compile --help
+```
+
 For each command, you can get the list of expected arguments using `--help`.
 
 ## `compile`
@@ -15,10 +20,18 @@ For each command, you can get the list of expected arguments using `--help`.
 zokrates compile -i /path/to/add.zok
 ```
 
-Compiles a `.zok` source code file into ZoKrates internal representation of arithmetic circuits.
+Compiles a `.zok` source code file and its dependencies into ZoKrates internal representation of arithmetic circuits.
 
 Creates a compiled binary file at `./out`.
 Unless the `--light` flag is set, a human-readable `.ztf` file is generated, which displays the compilation output in ZoKrates Text Format.
+
+## `check`
+
+```sh
+zokrates check -i /path/to/add.zok
+```
+
+Checks a `.zok` source code file and its dependencies for errors.
 
 ## `compute-witness`
 
@@ -48,6 +61,8 @@ Generates a trusted setup for the compiled program found at `./out`.
 
 Creates a proving key and a verifying key at `./proving.key` and `./verifying.key`.
 These keys are derived from a source of randomness, commonly referred to as "toxic waste". Anyone having access to the source of randomness can produce fake proofs that will be accepted by a verifier following the protocol.
+
+The [proving scheme](proving_schemes.md) and curve can be chosen with the `proving-scheme` and `curve` flags.
 
 ## `export-verifier`
 

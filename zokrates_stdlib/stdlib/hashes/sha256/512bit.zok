@@ -8,8 +8,8 @@ def main(field[256] a, field[256] b) -> (field[256]):
 
     // a and b is NOT checked to be of type bool
 
-    IV =  IVconstants()
-    digest =  sha256(a, b, IV)
+    field[256] IV = IVconstants()
+    field[256] digest =  sha256(a, b, IV)
     //digest is constraint to be of type bool
 
     return digest

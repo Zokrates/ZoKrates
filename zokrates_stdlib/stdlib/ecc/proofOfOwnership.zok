@@ -1,6 +1,7 @@
 import "ecc/edwardsAdd" as add
 import "ecc/edwardsScalarMult" as multiply
 import "utils/pack/nonStrictUnpack256" as unpack256
+from "ecc/babyjubjubParams" import BabyJubJubParams
 
 /// Verifies match of a given public/private keypair.
 ///
@@ -16,9 +17,9 @@ import "utils/pack/nonStrictUnpack256" as unpack256
 ///
 /// Returns:
 ///     Return 1 for pk/sk being a valid keypair, 0 otherwise.
-def main(field[2] pk, field sk, field[10] context) -> (field):
+def main(field[2] pk, field sk, BabyJubJubParams context) -> (field):
 
-    field[2] G = [context[4], context[5]]
+    field[2] G = [context.Gu, context.Gv]
 
     field[256] skBits = unpack256(sk)
     field[2] ptExp = multiply(skBits, G, context)

@@ -6,10 +6,10 @@ use bellman::groth16::{
     create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof,
     Parameters,
 };
+use bellman::pairing::ff::ScalarEngine;
 use bellman::{Circuit, ConstraintSystem, LinearCombination, SynthesisError, Variable};
-use pairing::bn256::{Bn256, Fr};
 use std::collections::BTreeMap;
-use zokrates_field::field::{Field, FieldPrime};
+use zokrates_field::Field;
 
 use self::rand::ChaChaRng;
 use crate::flat_absy::FlatVariable;
@@ -17,7 +17,7 @@ use crate::flat_absy::FlatVariable;
 pub use self::parse::*;
 
 #[derive(Clone)]
-pub struct Computation<T: Field> {
+pub struct Computation<T> {
     program: Prog<T>,
     witness: Option<Witness<T>>,
 }
@@ -38,12 +38,12 @@ impl<T: Field> Computation<T> {
     }
 }
 
-fn bellman_combination<CS: ConstraintSystem<Bn256>>(
-    l: CanonicalLinComb<FieldPrime>,
+fn bellman_combination<T: Field, CS: ConstraintSystem<T::BellmanEngine>>(
+    l: CanonicalLinComb<T>,
     cs: &mut CS,
     symbols: &mut BTreeMap<FlatVariable, Variable>,
-    witness: &mut Witness<FieldPrime>,
-) -> LinearCombination<Bn256> {
+    witness: &mut Witness<T>,
+) -> LinearCombination<T::BellmanEngine> {
     l.0.into_iter()
         .map(|(k, v)| {
             (
@@ -81,11 +81,11 @@ fn bellman_combination<CS: ConstraintSystem<Bn256>>(
         .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
-impl Prog<FieldPrime> {
-    pub fn synthesize<CS: ConstraintSystem<Bn256>>(
+impl<T: Field> Prog<T> {
+    pub fn synthesize<CS: ConstraintSystem<T::BellmanEngine>>(
         self,
         cs: &mut CS,
-        witness: Option<Witness<FieldPrime>>,
+        witness: Option<Witness<T>>,
     ) -> Result<(), SynthesisError> {
         // mapping from IR variables
         let mut symbols = BTreeMap::new();
@@ -158,9 +158,10 @@ impl Prog<FieldPrime> {
     }
 }
 
-impl Computation<FieldPrime> {
-    pub fn prove(self, params: &Parameters<Bn256>) -> Proof<Bn256> {
+impl<T: Field> Computation<T> {
+    pub fn prove(self, params: &Parameters<T::BellmanEngine>) -> Proof<T::BellmanEngine> {
         let rng = &mut ChaChaRng::new_unseeded();
+
         let proof = create_random_proof(self.clone(), params, rng).unwrap();
 
         let pvk = prepare_verifying_key(&params.vk);
@@ -173,7 +174,7 @@ impl Computation<FieldPrime> {
         proof
     }
 
-    pub fn public_inputs_values(&self) -> Vec<Fr> {
+    pub fn public_inputs_values(&self) -> Vec<<T::BellmanEngine as ScalarEngine>::Fr> {
         self.program
             .main
             .arguments
@@ -188,15 +189,18 @@ impl Computation<FieldPrime> {
             .collect()
     }
 
-    pub fn setup(self) -> Parameters<Bn256> {
+    pub fn setup(self) -> Parameters<T::BellmanEngine> {
         let rng = &mut ChaChaRng::new_unseeded();
         // run setup phase
         generate_random_parameters(self, rng).unwrap()
     }
 }
 
-impl Circuit<Bn256> for Computation<FieldPrime> {
-    fn synthesize<CS: ConstraintSystem<Bn256>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
+impl<T: Field> Circuit<T::BellmanEngine> for Computation<T> {
+    fn synthesize<CS: ConstraintSystem<T::BellmanEngine>>(
+        self,
+        cs: &mut CS,
+    ) -> Result<(), SynthesisError> {
         self.program.synthesize(cs, self.witness)
     }
 }
@@ -208,85 +212,71 @@ mod parse {
     use regex::Regex;
 
     lazy_static! {
-        static ref G2_REGEX: Regex = Regex::new(r"G2\(x=Fq2\(Fq\((?P<x0>0[xX][0-9a-fA-F]{64})\) \+ Fq\((?P<x1>0[xX][0-9a-fA-F]{64})\) \* u\), y=Fq2\(Fq\((?P<y0>0[xX][0-9a-fA-F]{64})\) \+ Fq\((?P<y1>0[xX][0-9a-fA-F]{64})\) \* u\)\)").unwrap();
+        static ref G2_REGEX: Regex = Regex::new(r"G2\(x=Fq2\(Fq\((?P<x0>0[xX][0-9a-fA-F]*)\) \+ Fq\((?P<x1>0[xX][0-9a-fA-F]*)\) \* u\), y=Fq2\(Fq\((?P<y0>0[xX][0-9a-fA-F]*)\) \+ Fq\((?P<y1>0[xX][0-9a-fA-F]*)\) \* u\)\)").unwrap();
     }
 
     lazy_static! {
-        static ref G1_REGEX: Regex = Regex::new(
-            r"G1\(x=Fq\((?P<x>0[xX][0-9a-fA-F]{64})\), y=Fq\((?P<y>0[xX][0-9a-fA-F]{64})\)\)"
-        )
-        .unwrap();
+        static ref G1_REGEX: Regex =
+            Regex::new(r"G1\(x=Fq\((?P<x>0[xX][0-9a-fA-F]*)\), y=Fq\((?P<y>0[xX][0-9a-fA-F]*)\)\)")
+                .unwrap();
     }
 
     lazy_static! {
-        static ref FR_REGEX: Regex = Regex::new(r"Fr\((?P<x>0[xX][0-9a-fA-F]{64})\)").unwrap();
+        static ref FR_REGEX: Regex = Regex::new(r"Fr\((?P<x>0[xX][0-9a-fA-F]*)\)").unwrap();
     }
 
-    fn parse_g1(e: &<Bn256 as bellman::pairing::Engine>::G1Affine) -> (String, String) {
+    pub fn parse_g1<T: Field>(
+        e: &<T::BellmanEngine as bellman::pairing::Engine>::G1Affine,
+    ) -> (String, String) {
         let raw_e = e.to_string();
-
         let captures = G1_REGEX.captures(&raw_e).unwrap();
-
         (
             captures.name(&"x").unwrap().as_str().to_string(),
             captures.name(&"y").unwrap().as_str().to_string(),
         )
     }
 
-    fn parse_g2(
-        e: &<Bn256 as bellman::pairing::Engine>::G2Affine,
-    ) -> (String, String, String, String) {
+    pub fn parse_g2<T: Field>(
+        e: &<T::BellmanEngine as bellman::pairing::Engine>::G2Affine,
+    ) -> ((String, String), (String, String)) {
         let raw_e = e.to_string();
-
         let captures = G2_REGEX.captures(&raw_e).unwrap();
-
         (
-            captures.name(&"x1").unwrap().as_str().to_string(),
-            captures.name(&"x0").unwrap().as_str().to_string(),
-            captures.name(&"y1").unwrap().as_str().to_string(),
-            captures.name(&"y0").unwrap().as_str().to_string(),
+            (
+                captures.name(&"x1").unwrap().as_str().to_string(),
+                captures.name(&"x0").unwrap().as_str().to_string(),
+            ),
+            (
+                captures.name(&"y1").unwrap().as_str().to_string(),
+                captures.name(&"y0").unwrap().as_str().to_string(),
+            ),
         )
     }
 
-    fn parse_fr(e: &Fr) -> String {
+    pub fn parse_fr<T: Field>(e: &<T::BellmanEngine as ScalarEngine>::Fr) -> String {
         let raw_e = e.to_string();
-
         let captures = FR_REGEX.captures(&raw_e).unwrap();
-
         captures.name(&"x").unwrap().as_str().to_string()
     }
 
-    pub fn parse_g1_json(e: &<Bn256 as bellman::pairing::Engine>::G1Affine) -> String {
-        let parsed = parse_g1(e);
-
-        format!("[\"{}\", \"{}\"]", parsed.0, parsed.1)
-    }
-
-    pub fn parse_g2_json(e: &<Bn256 as bellman::pairing::Engine>::G2Affine) -> String {
-        let parsed = parse_g2(e);
-
-        format!(
-            "[[\"{}\", \"{}\"], [\"{}\", \"{}\"]]",
-            parsed.0, parsed.1, parsed.2, parsed.3,
-        )
-    }
-
-    pub fn parse_fr_json(e: &Fr) -> String {
-        let parsed = parse_fr(e);
-
-        format!("\"{}\"", parsed)
-    }
-
-    pub fn parse_g1_hex(e: &<Bn256 as bellman::pairing::Engine>::G1Affine) -> String {
-        let parsed = parse_g1(e);
-
+    pub fn parse_g1_hex<T: Field>(
+        e: &<T::BellmanEngine as bellman::pairing::Engine>::G1Affine,
+    ) -> String {
+        let parsed = parse_g1::<T>(e);
         format!("{}, {}", parsed.0, parsed.1)
     }
 
-    pub fn parse_g2_hex(e: &<Bn256 as bellman::pairing::Engine>::G2Affine) -> String {
-        let parsed = parse_g2(e);
-
-        format!("[{}, {}], [{}, {}]", parsed.0, parsed.1, parsed.2, parsed.3,)
+    pub fn parse_g2_hex<T: Field>(
+        e: &<T::BellmanEngine as bellman::pairing::Engine>::G2Affine,
+    ) -> String {
+        let parsed = parse_g2::<T>(e);
+        format!(
+            "[{}, {}], [{}, {}]",
+            (parsed.0).0,
+            (parsed.0).1,
+            (parsed.1).0,
+            (parsed.1).1
+        )
     }
 }
 
@@ -294,14 +284,14 @@ mod parse {
 mod tests {
     use super::*;
     use crate::ir::{Function, LinComb};
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     mod prove {
         use super::*;
 
         #[test]
         fn empty() {
-            let program: Prog<FieldPrime> = Prog {
+            let program: Prog<Bn128Field> = Prog {
                 main: Function {
                     id: String::from("main"),
                     arguments: vec![],
@@ -320,7 +310,7 @@ mod tests {
 
         #[test]
         fn identity() {
-            let program: Prog<FieldPrime> = Prog {
+            let program: Prog<Bn128Field> = Prog {
                 main: Function {
                     id: String::from("main"),
                     arguments: vec![FlatVariable::new(0)],
@@ -333,7 +323,7 @@ mod tests {
                 private: vec![true],
             };
 
-            let witness = program.clone().execute(&vec![FieldPrime::from(0)]).unwrap();
+            let witness = program.clone().execute(&vec![Bn128Field::from(0)]).unwrap();
             let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
@@ -342,7 +332,7 @@ mod tests {
 
         #[test]
         fn public_identity() {
-            let program: Prog<FieldPrime> = Prog {
+            let program: Prog<Bn128Field> = Prog {
                 main: Function {
                     id: String::from("main"),
                     arguments: vec![FlatVariable::new(0)],
@@ -355,7 +345,7 @@ mod tests {
                 private: vec![false],
             };
 
-            let witness = program.clone().execute(&vec![FieldPrime::from(0)]).unwrap();
+            let witness = program.clone().execute(&vec![Bn128Field::from(0)]).unwrap();
             let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
@@ -364,7 +354,7 @@ mod tests {
 
         #[test]
         fn no_arguments() {
-            let program: Prog<FieldPrime> = Prog {
+            let program: Prog<Bn128Field> = Prog {
                 main: Function {
                     id: String::from("main"),
                     arguments: vec![],
@@ -388,7 +378,7 @@ mod tests {
         fn unordered_variables() {
             // public variables must be ordered from 0
             // private variables can be unordered
-            let program: Prog<FieldPrime> = Prog {
+            let program: Prog<Bn128Field> = Prog {
                 main: Function {
                     id: String::from("main"),
                     arguments: vec![FlatVariable::new(42), FlatVariable::new(51)],
@@ -413,7 +403,7 @@ mod tests {
 
             let witness = program
                 .clone()
-                .execute(&vec![FieldPrime::from(3), FieldPrime::from(4)])
+                .execute(&vec![Bn128Field::from(3), Bn128Field::from(4)])
                 .unwrap();
             let computation = Computation::with_witness(program, witness);
 
@@ -423,7 +413,7 @@ mod tests {
 
         #[test]
         fn one() {
-            let program: Prog<FieldPrime> = Prog {
+            let program: Prog<Bn128Field> = Prog {
                 main: Function {
                     id: String::from("main"),
                     arguments: vec![FlatVariable::new(42)],
@@ -436,7 +426,7 @@ mod tests {
                 private: vec![false],
             };
 
-            let witness = program.clone().execute(&vec![FieldPrime::from(3)]).unwrap();
+            let witness = program.clone().execute(&vec![Bn128Field::from(3)]).unwrap();
             let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
@@ -445,7 +435,7 @@ mod tests {
 
         #[test]
         fn with_directives() {
-            let program: Prog<FieldPrime> = Prog {
+            let program: Prog<Bn128Field> = Prog {
                 main: Function {
                     id: String::from("main"),
                     arguments: vec![FlatVariable::new(42), FlatVariable::new(51)],
@@ -462,7 +452,7 @@ mod tests {
 
             let witness = program
                 .clone()
-                .execute(&vec![FieldPrime::from(3), FieldPrime::from(4)])
+                .execute(&vec![Bn128Field::from(3), Bn128Field::from(4)])
                 .unwrap();
             let computation = Computation::with_witness(program, witness);
 

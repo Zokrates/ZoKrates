@@ -1,5 +1,6 @@
 {
 	"entry_point": "./tests/tests/hashes/utils/256bitsDirectionHelper.zok",
+	"curves": ["Bn128"],
 	"tests": [
 		{
 			"input": {

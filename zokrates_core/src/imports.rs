@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 
 use typed_arena::Arena;
 use zokrates_common::Resolver;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 #[derive(PartialEq, Debug)]
 pub struct Error {

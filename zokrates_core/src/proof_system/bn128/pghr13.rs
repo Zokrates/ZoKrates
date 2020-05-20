@@ -1,29 +1,41 @@
 use ir;
 use proof_system::bn128::utils::ffi::{Buffer, ProofResult, SetupResult};
-use proof_system::bn128::utils::libsnark::{prepare_generate_proof, prepare_setup};
+use proof_system::bn128::utils::libsnark::{
+    prepare_generate_proof, prepare_public_inputs, prepare_setup,
+};
+use proof_system::bn128::utils::parser::parse_vk;
 use proof_system::bn128::utils::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
-use proof_system::{ProofSystem, SetupKeypair};
+use proof_system::bn128::{G1PairingPoint, G2PairingPoint, Proof};
+use proof_system::{ProofSystem, SetupKeypair, SolidityAbi};
 use regex::Regex;
-use zokrates_field::field::FieldPrime;
+
+use zokrates_field::Bn128Field;
+use zokrates_field::Field;
 
 pub struct PGHR13 {}
 
-impl PGHR13 {
-    pub fn new() -> PGHR13 {
-        PGHR13 {}
-    }
+#[derive(Serialize, Deserialize)]
+pub struct PGHR13ProofPoints {
+    a: G1PairingPoint,
+    a_p: G1PairingPoint,
+    b: G2PairingPoint,
+    b_p: G1PairingPoint,
+    c: G1PairingPoint,
+    c_p: G1PairingPoint,
+    h: G1PairingPoint,
+    k: G1PairingPoint,
 }
 
 extern "C" {
     fn pghr13_setup(
-        A: *const u8,
-        B: *const u8,
-        C: *const u8,
-        A_len: i32,
-        B_len: i32,
-        C_len: i32,
+        a: *const u8,
+        b: *const u8,
+        c: *const u8,
+        a_len: i32,
+        b_len: i32,
+        c_len: i32,
         constraints: i32,
         variables: i32,
         inputs: i32,
@@ -31,15 +43,22 @@ extern "C" {
 
     fn pghr13_generate_proof(
         pk_buf: *mut Buffer,
-        publquery_inputs: *const u8,
-        publquery_inputs_length: i32,
+        public_query_inputs: *const u8,
+        public_query_inputs_length: i32,
         private_inputs: *const u8,
         private_inputs_length: i32,
     ) -> ProofResult;
+
+    fn pghr13_verify(
+        vk_buf: *mut Buffer,
+        proof_buf: *mut Buffer,
+        public_inputs: *const u8,
+        public_inputs_length: i32,
+    ) -> bool;
 }
 
-impl ProofSystem for PGHR13 {
-    fn setup(&self, program: ir::Prog<FieldPrime>) -> SetupKeypair {
+impl ProofSystem<Bn128Field> for PGHR13 {
+    fn setup(program: ir::Prog<Bn128Field>) -> SetupKeypair {
         let (a_arr, b_arr, c_arr, a_vec, b_vec, c_vec, num_constraints, num_variables, num_inputs) =
             prepare_setup(program);
 
@@ -73,16 +92,14 @@ impl ProofSystem for PGHR13 {
     }
 
     fn generate_proof(
-        &self,
-        program: ir::Prog<FieldPrime>,
-        witness: ir::Witness<FieldPrime>,
+        program: ir::Prog<Bn128Field>,
+        witness: ir::Witness<Bn128Field>,
         proving_key: Vec<u8>,
     ) -> String {
         let (public_inputs_arr, public_inputs_length, private_inputs_arr, private_inputs_length) =
             prepare_generate_proof(program, witness);
 
-        let mut pk = proving_key.clone();
-        let mut pk_buf = Buffer::from_vec(pk.as_mut());
+        let mut pk_buf = Buffer::from_vec(&proving_key);
 
         let proof_vec = unsafe {
             let result = pghr13_generate_proof(
@@ -92,6 +109,8 @@ impl ProofSystem for PGHR13 {
                 private_inputs_arr[0].as_ptr(),
                 private_inputs_length as i32,
             );
+
+            pk_buf.drop(); // drop the buffer manually
 
             let proof_vec: Vec<u8> =
                 std::slice::from_raw_parts(result.proof.data, result.proof.length as usize)
@@ -107,75 +126,68 @@ impl ProofSystem for PGHR13 {
         String::from_utf8(proof_vec).unwrap()
     }
 
-    fn export_solidity_verifier(&self, vk: String, is_abiv2: bool) -> String {
-        let mut lines = vk.lines();
-
-        let (mut template_text, solidity_pairing_lib) = if is_abiv2 {
-            (
-                String::from(CONTRACT_TEMPLATE_V2),
-                String::from(SOLIDITY_PAIRING_LIB_V2),
-            )
-        } else {
-            (
+    fn export_solidity_verifier(vk: String, abi: SolidityAbi) -> String {
+        let vk_map = parse_vk(vk).unwrap();
+        let (mut template_text, solidity_pairing_lib) = match abi {
+            SolidityAbi::V1 => (
                 String::from(CONTRACT_TEMPLATE),
                 String::from(SOLIDITY_PAIRING_LIB),
-            )
+            ),
+            SolidityAbi::V2 => (
+                String::from(CONTRACT_TEMPLATE_V2),
+                String::from(SOLIDITY_PAIRING_LIB_V2),
+            ),
         };
 
-        let ic_template = String::from("vk.ic[index] = Pairing.G1Point(points);"); //copy this for each entry
-
-        //replace things in template
+        // replace things in template
         let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
         let vk_ic_len_regex = Regex::new(r#"(<%vk_ic_length%>)"#).unwrap();
-        let vk_ic_index_regex = Regex::new(r#"index"#).unwrap();
-        let vk_ic_points_regex = Regex::new(r#"points"#).unwrap();
         let vk_ic_repeat_regex = Regex::new(r#"(<%vk_ic_pts%>)"#).unwrap();
         let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
 
-        for _ in 0..7 {
-            let current_line: &str = lines
-                .next()
-                .expect("Unexpected end of file in verification key!");
-            let current_line_split: Vec<&str> = current_line.split("=").collect();
-            assert_eq!(current_line_split.len(), 2);
+        let keys = vec![
+            "vk.a",
+            "vk.b",
+            "vk.c",
+            "vk.gamma",
+            "vk.gamma_beta_1",
+            "vk.gamma_beta_2",
+            "vk.z",
+        ];
+
+        for key in keys.iter() {
             template_text = vk_regex
-                .replace(template_text.as_str(), current_line_split[1].trim())
+                .replace(template_text.as_str(), vk_map.get(*key).unwrap().as_str())
                 .into_owned();
         }
 
-        let current_line: &str = lines
-            .next()
-            .expect("Unexpected end of file in verification key!");
-        let current_line_split: Vec<&str> = current_line.split("=").collect();
-        assert_eq!(current_line_split.len(), 2);
-        let ic_count: i32 = current_line_split[1].trim().parse().unwrap();
-
+        let ic_count: usize = vk_map.get("vk.ic.len()").unwrap().parse().unwrap();
         template_text = vk_ic_len_regex
             .replace(template_text.as_str(), format!("{}", ic_count).as_str())
             .into_owned();
+
         template_text = vk_input_len_regex
             .replace(template_text.as_str(), format!("{}", ic_count - 1).as_str())
             .into_owned();
 
         let mut ic_repeat_text = String::new();
         for x in 0..ic_count {
-            let mut curr_template = ic_template.clone();
-            let current_line: &str = lines
-                .next()
-                .expect("Unexpected end of file in verification key!");
-            let current_line_split: Vec<&str> = current_line.split("=").collect();
-            assert_eq!(current_line_split.len(), 2);
-            curr_template = vk_ic_index_regex
-                .replace(curr_template.as_str(), format!("{}", x).as_str())
-                .into_owned();
-            curr_template = vk_ic_points_regex
-                .replace(curr_template.as_str(), current_line_split[1].trim())
-                .into_owned();
-            ic_repeat_text.push_str(curr_template.as_str());
+            ic_repeat_text.push_str(
+                format!(
+                    "vk.ic[{}] = Pairing.G1Point({});",
+                    x,
+                    vk_map
+                        .get(format!("vk.ic[{}]", x).as_str())
+                        .unwrap()
+                        .as_str()
+                )
+                .as_str(),
+            );
             if x < ic_count - 1 {
                 ic_repeat_text.push_str("\n        ");
             }
         }
+
         template_text = vk_ic_repeat_regex
             .replace(template_text.as_str(), ic_repeat_text.as_str())
             .into_owned();
@@ -187,6 +199,42 @@ impl ProofSystem for PGHR13 {
             "{}{}{}",
             SOLIDITY_G2_ADDITION_LIB, solidity_pairing_lib, template_text
         )
+    }
+
+    fn verify(vk: String, proof: String) -> bool {
+        let map = parse_vk(vk).unwrap();
+        let vk_raw = hex::decode(map.get("vk.raw").unwrap()).unwrap();
+
+        let proof = Proof::<PGHR13ProofPoints>::from_str(proof.as_str());
+        let proof_raw = hex::decode(proof.raw).unwrap();
+
+        let public_inputs: Vec<_> = proof
+            .inputs
+            .iter()
+            .map(|v| {
+                Bn128Field::try_from_str(v.as_str().trim_start_matches("0x"), 16)
+                    .expect(format!("Invalid bn128 value: {}", v.as_str()).as_str())
+            })
+            .collect();
+
+        let (public_inputs_arr, public_inputs_length) = prepare_public_inputs(public_inputs);
+
+        let mut vk_buffer = Buffer::from_vec(&vk_raw);
+        let mut proof_buffer = Buffer::from_vec(&proof_raw);
+
+        unsafe {
+            let ans = pghr13_verify(
+                &mut vk_buffer as *mut _,
+                &mut proof_buffer as *mut _,
+                public_inputs_arr[0].as_ptr(),
+                public_inputs_length as i32,
+            );
+
+            vk_buffer.drop();
+            proof_buffer.drop();
+
+            ans
+        }
     }
 }
 
