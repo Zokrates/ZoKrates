@@ -21,7 +21,7 @@ use zokrates_core::ir::{self, ProgEnum};
 use zokrates_core::proof_system::*;
 use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::{types::Signature, Type};
-use zokrates_field::{Bls12Field, Bn128Field, Field, BellmanFieldExtensions};
+use zokrates_field::{Bls12_381Field, Bls12_377Field, Bw6_761Field, Bn128Field, Field};
 use zokrates_fs_resolver::FileSystemResolver;
 
 fn main() {
@@ -141,7 +141,7 @@ fn cli_setup<T: Field, P: ProofSystem<T>>(
     Ok(())
 }
 
-fn cli_compute<T: Field + BellmanFieldExtensions>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Result<(), String> {
+fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Result<(), String> {
     println!("Computing witness...");
 
     // print deserialized flattened program
@@ -247,7 +247,7 @@ fn cli_compute<T: Field + BellmanFieldExtensions>(ir_prog: ir::Prog<T>, sub_matc
     Ok(())
 }
 
-fn cli_compile<T: Field + BellmanFieldExtensions>(sub_matches: &ArgMatches) -> Result<(), String> {
+fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     println!("Compiling {}\n", sub_matches.value_of("input").unwrap());
     let path = PathBuf::from(sub_matches.value_of("input").unwrap());
 
@@ -663,7 +663,9 @@ fn cli() -> Result<(), String> {
 
             match curve {
                 constants::BN128 => cli_compile::<Bn128Field>(sub_matches)?,
-                constants::BLS12_381 => cli_compile::<Bls12Field>(sub_matches)?,
+                constants::BLS12_381 => cli_compile::<Bls12_381Field>(sub_matches)?,
+                constants::BLS12_377 => cli_compile::<Bls12_377Field>(sub_matches)?,
+                constants::BW6_761 => cli_compile::<Bw6_761Field>(sub_matches)?,
                 _ => unreachable!(),
             }
         }
@@ -679,7 +681,9 @@ fn cli() -> Result<(), String> {
 
             match ProgEnum::deserialize(&mut reader)? {
                 ProgEnum::Bn128Program(p) => cli_compute(p, sub_matches)?,
-                ProgEnum::Bls12Program(p) => cli_compute(p, sub_matches)?,
+                ProgEnum::Bls12_381Program(p) => cli_compute(p, sub_matches)?,
+                ProgEnum::Bls12_377Program(p) => cli_compute(p, sub_matches)?,
+                ProgEnum::Bw6_761Program(p) => cli_compute(p, sub_matches)?,
             }
         }
         ("setup", Some(sub_matches)) => {
@@ -697,7 +701,8 @@ fn cli() -> Result<(), String> {
             match proof_system {
                 constants::G16 => match prog {
                     ProgEnum::Bn128Program(p) => cli_setup::<_, G16>(p, sub_matches)?,
-                    ProgEnum::Bls12Program(p) => cli_setup::<_, G16>(p, sub_matches)?,
+                    ProgEnum::Bls12_381Program(p) => cli_setup::<_, G16>(p, sub_matches)?,
+                    _ => unimplemented!(),
                 },
                 #[cfg(feature = "libsnark")]
                 constants::PGHR13 => match prog {
@@ -707,6 +712,12 @@ fn cli() -> Result<(), String> {
                 #[cfg(feature = "libsnark")]
                 constants::GM17 => match prog {
                     ProgEnum::Bn128Program(p) => cli_setup::<_, GM17>(p, sub_matches)?,
+                    _ => unimplemented!(),
+                },
+                #[cfg(feature = "zexe")]
+                constants::GM17 => match prog {
+                    ProgEnum::Bls_377Program(p) => cli_setup::<_, GM17>(p, sub_matches)?,
+                    ProgEnum::Bw6_761Program(p) => cli_setup::<_, GM17>(p, sub_matches)?,
                     _ => unimplemented!(),
                 },
                 _ => unreachable!(),
@@ -719,7 +730,7 @@ fn cli() -> Result<(), String> {
             match proof_system {
                 constants::G16 => match curve {
                     constants::BN128 => cli_export_verifier::<Bn128Field, G16>(sub_matches)?,
-                    constants::BLS12_381 => cli_export_verifier::<Bls12Field, G16>(sub_matches)?,
+                    constants::BLS12_381 => cli_export_verifier::<Bls12_381Field, G16>(sub_matches)?,
                     _ => unimplemented!(),
                 },
                 #[cfg(feature = "libsnark")]
@@ -730,6 +741,12 @@ fn cli() -> Result<(), String> {
                 #[cfg(feature = "libsnark")]
                 constants::GM17 => match curve {
                     constants::BN128 => cli_export_verifier::<Bn128Field, GM17>(sub_matches)?,
+                    _ => unimplemented!(),
+                },
+                #[cfg(feature = "zexe")]
+                constants::GM17 => match curve {
+                    constants::BLS12_377 => cli_export_verifier::<Bls12_377Field, GM17>(sub_matches)?,
+                    constants::BW6_761 => cli_export_verifier::<Bw6_761Field, GM17>(sub_matches)?,
                     _ => unimplemented!(),
                 },
                 _ => unreachable!(),
@@ -749,7 +766,8 @@ fn cli() -> Result<(), String> {
             match proof_system {
                 constants::G16 => match prog {
                     ProgEnum::Bn128Program(p) => cli_generate_proof::<_, G16>(p, sub_matches)?,
-                    ProgEnum::Bls12Program(p) => cli_generate_proof::<_, G16>(p, sub_matches)?,
+                    ProgEnum::Bls12_381Program(p) => cli_generate_proof::<_, G16>(p, sub_matches)?,
+                    _ => unimplemented!(),
                 },
                 #[cfg(feature = "libsnark")]
                 constants::PGHR13 => match prog {
@@ -759,6 +777,12 @@ fn cli() -> Result<(), String> {
                 #[cfg(feature = "libsnark")]
                 constants::GM17 => match prog {
                     ProgEnum::Bn128Program(p) => cli_generate_proof::<_, GM17>(p, sub_matches)?,
+                    _ => unimplemented!(),
+                },
+                #[cfg(feature = "zexe")]
+                constants::GM17 => match prog {
+                    ProgEnum::Bls2_377Program(p) => cli_generate_proof::<_, GM17>(p, sub_matches)?,
+                    ProgEnum::Bw6_761Program(p) => cli_generate_proof::<_, GM17>(p, sub_matches)?,
                     _ => unimplemented!(),
                 },
                 _ => unreachable!(),
@@ -808,7 +832,7 @@ fn cli() -> Result<(), String> {
             match proof_system {
                 constants::G16 => match curve {
                     constants::BN128 => cli_verify::<Bn128Field, G16>(sub_matches)?,
-                    constants::BLS12_381 => cli_verify::<Bls12Field, G16>(sub_matches)?,
+                    constants::BLS12_381 => cli_verify::<Bls12_381Field, G16>(sub_matches)?,
                     _ => unimplemented!(),
                 },
                 #[cfg(feature = "libsnark")]
@@ -819,6 +843,12 @@ fn cli() -> Result<(), String> {
                 #[cfg(feature = "libsnark")]
                 constants::GM17 => match curve {
                     constants::BN128 => cli_verify::<Bn128Field, GM17>(sub_matches)?,
+                    _ => unimplemented!(),
+                },
+                #[cfg(feature = "zexe")]
+                constants::GM17 => match curve {
+                    constants::BLS12_377 => cli_export_verifier::<Bls12_377Field, GM17>(sub_matches)?,
+                    constants::BW6_761 => cli_export_verifier::<Bw6_761Field, GM17>(sub_matches)?,
                     _ => unimplemented!(),
                 },
                 _ => unreachable!(),

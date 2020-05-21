@@ -3,7 +3,7 @@ extern crate serde_derive;
 
 use std::path::PathBuf;
 use zokrates_core::ir;
-use zokrates_field::{Bls12Field, Bn128Field, Field, BellmanFieldExtensions};
+use zokrates_field::{Bls12_381Field, Bn128Field, Field, BellmanFieldExtensions};
 
 #[derive(Serialize, Deserialize, Clone)]
 enum Curve {
@@ -87,7 +87,7 @@ pub fn test_inner(test_path: &str) {
     for c in &curves {
         match c {
             Curve::Bn128 => compile_and_run::<Bn128Field>(t.clone()),
-            Curve::Bls12 => compile_and_run::<Bls12Field>(t.clone()),
+            Curve::Bls12 => compile_and_run::<Bls12_381Field>(t.clone()),
         }
     }
 }
