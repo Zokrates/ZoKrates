@@ -31,7 +31,7 @@ pub struct ProofPoints {
 }
 
 extern "C" {
-    fn gm17_setup(
+    fn gm17_bn128_setup(
         a: *const u8,
         b: *const u8,
         c: *const u8,
@@ -43,7 +43,7 @@ extern "C" {
         inputs: i32,
     ) -> SetupResult;
 
-    fn gm17_generate_proof(
+    fn gm17_bn128_generate_proof(
         pk_buf: *mut Buffer,
         public_query_inputs: *const u8,
         public_query_inputs_length: i32,
@@ -51,7 +51,7 @@ extern "C" {
         private_inputs_length: i32,
     ) -> ProofResult;
 
-    fn gm17_verify(
+    fn gm17_bn128_verify(
         vk_buf: *mut Buffer,
         proof_buf: *mut Buffer,
         public_inputs: *const u8,
@@ -68,7 +68,7 @@ impl ProofSystem<Bn128Field> for GM17 {
             prepare_setup(program);
 
         let keypair = unsafe {
-            let result: SetupResult = gm17_setup(
+            let result: SetupResult = gm17_bn128_setup(
                 a_arr.as_ptr(),
                 b_arr.as_ptr(),
                 c_arr.as_ptr(),
@@ -108,7 +108,7 @@ impl ProofSystem<Bn128Field> for GM17 {
         let mut pk_buffer = Buffer::from_vec(&proving_key);
 
         let proof = unsafe {
-            let result = gm17_generate_proof(
+            let result = gm17_bn128_generate_proof(
                 &mut pk_buffer as *mut _,
                 public_inputs_arr[0].as_ptr(),
                 public_inputs_length as i32,
@@ -229,7 +229,7 @@ impl ProofSystem<Bn128Field> for GM17 {
         let mut proof_buffer = Buffer::from_vec(&proof_raw);
 
         unsafe {
-            let ans = gm17_verify(
+            let ans = gm17_bn128_verify(
                 &mut vk_buffer as *mut _,
                 &mut proof_buffer as *mut _,
                 public_inputs_arr[0].as_ptr(),

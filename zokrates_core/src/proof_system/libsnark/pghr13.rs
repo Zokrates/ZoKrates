@@ -38,7 +38,7 @@ pub struct ProofPoints {
 }
 
 extern "C" {
-    fn pghr13_setup(
+    fn pghr13_bn128_setup(
         a: *const u8,
         b: *const u8,
         c: *const u8,
@@ -50,7 +50,7 @@ extern "C" {
         inputs: i32,
     ) -> SetupResult;
 
-    fn pghr13_generate_proof(
+    fn pghr13_bn128_generate_proof(
         pk_buf: *mut Buffer,
         public_query_inputs: *const u8,
         public_query_inputs_length: i32,
@@ -58,7 +58,7 @@ extern "C" {
         private_inputs_length: i32,
     ) -> ProofResult;
 
-    fn pghr13_verify(
+    fn pghr13_bn128_verify(
         vk_buf: *mut Buffer,
         proof_buf: *mut Buffer,
         public_inputs: *const u8,
@@ -75,7 +75,7 @@ impl ProofSystem<Bn128Field> for PGHR13 {
             prepare_setup(program);
 
         let keypair = unsafe {
-            let result: SetupResult = pghr13_setup(
+            let result: SetupResult = pghr13_bn128_setup(
                 a_arr.as_ptr(),
                 b_arr.as_ptr(),
                 c_arr.as_ptr(),
@@ -115,7 +115,7 @@ impl ProofSystem<Bn128Field> for PGHR13 {
         let mut pk_buf = Buffer::from_vec(&proving_key);
 
         let proof = unsafe {
-            let result = pghr13_generate_proof(
+            let result = pghr13_bn128_generate_proof(
                 &mut pk_buf as *mut _,
                 public_inputs_arr[0].as_ptr(),
                 public_inputs_length as i32,
@@ -241,7 +241,7 @@ impl ProofSystem<Bn128Field> for PGHR13 {
         let mut proof_buffer = Buffer::from_vec(&proof_raw);
 
         unsafe {
-            let ans = pghr13_verify(
+            let ans = pghr13_bn128_verify(
                 &mut vk_buffer as *mut _,
                 &mut proof_buffer as *mut _,
                 public_inputs_arr[0].as_ptr(),
