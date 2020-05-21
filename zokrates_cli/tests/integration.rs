@@ -207,10 +207,15 @@ mod integration {
         #[cfg(feature = "libsnark")]
         let backends = map! {
             "bellman" => ["g16"],
-            "libsnark" => ["gm17", "pghr13"]
+            "libsnark" => ["gm17", "pghr13"]        };
+
+        #[cfg(feature = "enable-zexe")]
+        let backends = map! {
+            "bellman" => ["g16"],
+            "zexe" => ["gm17"]
         };
 
-        #[cfg(not(feature = "libsnark"))]
+        #[cfg(not(any(feature = "libsnark", feature = "enable-zexe")))]
         let backends = map! {"bellman" => ["g16"]};
 
         for (backend, schemes) in backends {

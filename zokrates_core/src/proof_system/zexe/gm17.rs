@@ -1,4 +1,4 @@
-use zexe::gm17::{
+use zexe_gm17::{
     prepare_verifying_key, verify_proof, Parameters, PreparedVerifyingKey, Proof as ZexeProof,
     VerifyingKey,
 };
@@ -6,6 +6,7 @@ use zexe::gm17::{
 use regex::Regex;
 
 use zokrates_field::Field;
+use zokrates_field::BellmanFieldExtensions;
 
 use crate::ir;
 use crate::proof_system::zexe::Computation;
@@ -35,7 +36,7 @@ pub struct VerificationKey {
     raw: String,
 }
 
-impl<T: Field> ProofSystem<T> for GM17 {
+impl<T: Field + BellmanFieldExtensions> ProofSystem<T> for GM17 {
     type VerificationKey = VerificationKey;
     type ProofPoints = ProofPoints;
 

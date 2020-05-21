@@ -19,8 +19,8 @@ use zokrates_abi::Encode;
 use zokrates_core::compile::{compile, CompilationArtifacts, CompileError};
 use zokrates_core::ir::{self, ProgEnum};
 use zokrates_core::proof_system::bellman::groth16::G16;
-#[cfg(feature = "libsnark")]
-use zokrates_core::proof_system::libsnark::gm17::GM17;
+#[cfg(feature = "enable-zexe")]
+use zokrates_core::proof_system::zexe::gm17::GM17;
 #[cfg(feature = "libsnark")]
 use zokrates_core::proof_system::libsnark::pghr13::PGHR13;
 use zokrates_core::proof_system::*;
@@ -767,7 +767,7 @@ fn cli() -> Result<(), String> {
                         _ => Err(format!("Proving scheme {} is not supported by {} backend", proof_system, backend)),
                     }?
                 },
-                #[cfg(feature = "zexe")]
+                #[cfg(feature = "enable-zexe")]
                 constants::ZEXE => {
                     match proof_system {
                         constants::GM17 => match prog {
@@ -807,7 +807,7 @@ fn cli() -> Result<(), String> {
                         _ => Err(format!("Proving scheme {} is not supported by {} backend", proof_system, backend)),
                     }?
                 },
-                #[cfg(feature = "zexe")]
+                #[cfg(feature = "enable-zexe")]
                 constants::ZEXE => {
                     match proof_system {
                         constants::GM17 => match curve {
@@ -853,7 +853,7 @@ fn cli() -> Result<(), String> {
                         _ => Err(format!("Proving scheme {} is not supported by {} backend", proof_system, backend)),
                     }?
                 },
-                #[cfg(feature = "zexe")]
+                #[cfg(feature = "enable-zexe")]
                 constants::ZEXE => {
                     match proof_system {
                         constants::GM17 => match prog {
@@ -930,7 +930,7 @@ fn cli() -> Result<(), String> {
                         _ => Err(format!("Proving scheme {} is not supported by {} backend", proof_system, backend)),
                     }?
                 },
-                #[cfg(feature = "zexe")]
+                #[cfg(feature = "enable-zexe")]
                 constants::zexe => {
                     match proof_system {
                         constants::GM17 => match curve {

@@ -1,6 +1,8 @@
 pub mod bellman;
 #[cfg(feature = "libsnark")]
 pub mod libsnark;
+#[cfg(feature = "enable-zexe")]
+pub mod zexe;
 
 mod solidity;
 

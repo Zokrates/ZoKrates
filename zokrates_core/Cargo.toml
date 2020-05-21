@@ -11,6 +11,7 @@ default = []
 libsnark = ["cc", "cmake", "git2"]
 wasm = ["bellman_ce/wasm", "zokrates_embed/wasm"]
 multicore = ["bellman_ce/multicore"]
+enable-zexe = ["gm17"]
 
 [dependencies]
 num = {version = "0.1.36", default-features = false}
@@ -35,6 +36,7 @@ zokrates_common = { path = "../zokrates_common" }
 rand = "0.4"
 csv = "1"
 bellman_ce = { version = "=0.3.3", default-features = false}
+gm17 = { git = "https://github.com/scipr-lab/zexe.git", optional = true }
 
 [dev-dependencies]
 glob = "0.2.11"

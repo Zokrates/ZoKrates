@@ -20,6 +20,7 @@ extern crate zokrates_common;
 extern crate zokrates_embed;
 extern crate zokrates_field;
 extern crate zokrates_pest_ast;
+extern crate gm17 as zexe_gm17;
 
 mod embed;
 mod flatten;

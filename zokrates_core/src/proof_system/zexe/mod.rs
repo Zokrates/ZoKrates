@@ -2,19 +2,17 @@ pub mod gm17;
 
 extern crate rand;
 
-use crate::ir::{CanonicalLinComb, Prog, Statement, Witness};
-use zexe::gm17::Proof;
-use zexe::gm17::{
+use crate::ir::{Prog, Witness};
+use zexe_gm17::Proof;
+use zexe_gm17::{
     create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof,
     Parameters,
 };
 use bellman::pairing::ff::ScalarEngine;
-use bellman::{Circuit, ConstraintSystem, LinearCombination, SynthesisError, Variable};
-use std::collections::BTreeMap;
 use zokrates_field::Field;
+use zokrates_field::BellmanFieldExtensions;
 
 use self::rand::ChaChaRng;
-use crate::flat_absy::FlatVariable;
 
 pub use self::parse::*;
 
@@ -40,7 +38,7 @@ impl<T: Field> Computation<T> {
     }
 }
 
-impl<T: Field> Computation<T> {
+impl<T: Field + BellmanFieldExtensions> Computation<T> {
     pub fn prove(self, params: &Parameters<T::BellmanEngine>) -> Proof<T::BellmanEngine> {
         let rng = &mut ChaChaRng::new_unseeded();
 
@@ -100,7 +98,7 @@ mod parse {
         static ref FR_REGEX: Regex = Regex::new(r"Fr\((?P<x>0[xX][0-9a-fA-F]*)\)").unwrap();
     }
 
-    pub fn parse_g1<T: Field>(
+    pub fn parse_g1<T: BellmanFieldExtensions>(
         e: &<T::BellmanEngine as bellman::pairing::Engine>::G1Affine,
     ) -> G1Affine {
         let raw_e = e.to_string();
@@ -111,7 +109,7 @@ mod parse {
         )
     }
 
-    pub fn parse_g2<T: Field>(
+    pub fn parse_g2<T: BellmanFieldExtensions>(
         e: &<T::BellmanEngine as bellman::pairing::Engine>::G2Affine,
     ) -> G2Affine {
         let raw_e = e.to_string();
@@ -128,7 +126,7 @@ mod parse {
         )
     }
 
-    pub fn parse_fr<T: Field>(e: &<T::BellmanEngine as ScalarEngine>::Fr) -> String {
+    pub fn parse_fr<T: BellmanFieldExtensions>(e: &<T::BellmanEngine as ScalarEngine>::Fr) -> String {
         let raw_e = e.to_string();
         let captures = FR_REGEX.captures(&raw_e).unwrap();
         captures.name(&"x").unwrap().as_str().to_string()
