@@ -1,3 +1,5 @@
+pub mod gm17;
+
 extern crate rand;
 
 use crate::ir::{CanonicalLinComb, Prog, Statement, Witness};
@@ -38,129 +40,8 @@ impl<T: Field> Computation<T> {
     }
 }
 
-fn bellman_combination<T: Field, CS: ConstraintSystem<T::BellmanEngine>>(
-    l: CanonicalLinComb<T>,
-    cs: &mut CS,
-    symbols: &mut BTreeMap<FlatVariable, Variable>,
-    witness: &mut Witness<T>,
-) -> LinearCombination<T::BellmanEngine> {
-    l.0.into_iter()
-        .map(|(k, v)| {
-            (
-                v.into_bellman(),
-                symbols
-                    .entry(k)
-                    .or_insert_with(|| {
-                        match k.is_output() {
-                            true => cs.alloc_input(
-                                || format!("{}", k),
-                                || {
-                                    Ok(witness
-                                        .0
-                                        .remove(&k)
-                                        .ok_or(SynthesisError::AssignmentMissing)?
-                                        .into_bellman())
-                                },
-                            ),
-                            false => cs.alloc(
-                                || format!("{}", k),
-                                || {
-                                    Ok(witness
-                                        .0
-                                        .remove(&k)
-                                        .ok_or(SynthesisError::AssignmentMissing)?
-                                        .into_bellman())
-                                },
-                            ),
-                        }
-                        .unwrap()
-                    })
-                    .clone(),
-            )
-        })
-        .fold(LinearCombination::zero(), |acc, e| acc + e)
-}
-
-impl<T: Field> Prog<T> {
-    pub fn synthesize<CS: ConstraintSystem<T::BellmanEngine>>(
-        self,
-        cs: &mut CS,
-        witness: Option<Witness<T>>,
-    ) -> Result<(), SynthesisError> {
-        // mapping from IR variables
-        let mut symbols = BTreeMap::new();
-
-        let mut witness = witness.unwrap_or(Witness::empty());
-
-        assert!(symbols.insert(FlatVariable::one(), CS::one()).is_none());
-
-        symbols.extend(
-            self.main
-                .arguments
-                .iter()
-                .zip(self.private)
-                .enumerate()
-                .map(|(index, (var, private))| {
-                    let wire = match private {
-                        true => cs.alloc(
-                            || format!("PRIVATE_INPUT_{}", index),
-                            || {
-                                Ok(witness
-                                    .0
-                                    .remove(&var)
-                                    .ok_or(SynthesisError::AssignmentMissing)?
-                                    .into_bellman())
-                            },
-                        ),
-                        false => cs.alloc_input(
-                            || format!("PUBLIC_INPUT_{}", index),
-                            || {
-                                Ok(witness
-                                    .0
-                                    .remove(&var)
-                                    .ok_or(SynthesisError::AssignmentMissing)?
-                                    .into_bellman())
-                            },
-                        ),
-                    }
-                    .unwrap();
-                    (var.clone(), wire)
-                }),
-        );
-
-        let main = self.main;
-
-        for statement in main.statements {
-            match statement {
-                Statement::Constraint(quad, lin) => {
-                    let a = &bellman_combination(
-                        quad.left.clone().as_canonical(),
-                        cs,
-                        &mut symbols,
-                        &mut witness,
-                    );
-                    let b = &bellman_combination(
-                        quad.right.clone().as_canonical(),
-                        cs,
-                        &mut symbols,
-                        &mut witness,
-                    );
-                    let c =
-                        &bellman_combination(lin.as_canonical(), cs, &mut symbols, &mut witness);
-
-                    cs.enforce(|| "Constraint", |lc| lc + a, |lc| lc + b, |lc| lc + c);
-                }
-                _ => {}
-            }
-        }
-
-        Ok(())
-    }
-}
-
 impl<T: Field> Computation<T> {
-    pub fn prove(self, params: &Parameters<T::BellmanEngine>) -> Proof<T::BellmanEngine>
-    {
+    pub fn prove(self, params: &Parameters<T::BellmanEngine>) -> Proof<T::BellmanEngine> {
         let rng = &mut ChaChaRng::new_unseeded();
 
         let proof = create_random_proof(self.clone(), params, rng).unwrap();
@@ -197,19 +78,12 @@ impl<T: Field> Computation<T> {
     }
 }
 
-impl<T: Field> Circuit<T::BellmanEngine> for Computation<T> {
-    fn synthesize<CS: ConstraintSystem<T::BellmanEngine>>(
-        self,
-        cs: &mut CS,
-    ) -> Result<(), SynthesisError> {
-        self.program.synthesize(cs, self.witness)
-    }
-}
 
 mod parse {
     use lazy_static::lazy_static;
 
     use super::*;
+    use proof_system::{G1Affine, G2Affine};
     use regex::Regex;
 
     lazy_static! {
@@ -228,10 +102,10 @@ mod parse {
 
     pub fn parse_g1<T: Field>(
         e: &<T::BellmanEngine as bellman::pairing::Engine>::G1Affine,
-    ) -> (String, String) {
+    ) -> G1Affine {
         let raw_e = e.to_string();
         let captures = G1_REGEX.captures(&raw_e).unwrap();
-        (
+        G1Affine(
             captures.name(&"x").unwrap().as_str().to_string(),
             captures.name(&"y").unwrap().as_str().to_string(),
         )
@@ -239,15 +113,15 @@ mod parse {
 
     pub fn parse_g2<T: Field>(
         e: &<T::BellmanEngine as bellman::pairing::Engine>::G2Affine,
-    ) -> ((String, String), (String, String)) {
+    ) -> G2Affine {
         let raw_e = e.to_string();
         let captures = G2_REGEX.captures(&raw_e).unwrap();
-        (
-            (
+        G2Affine(
+            G1Affine(
                 captures.name(&"x1").unwrap().as_str().to_string(),
                 captures.name(&"x0").unwrap().as_str().to_string(),
             ),
-            (
+            G1Affine(
                 captures.name(&"y1").unwrap().as_str().to_string(),
                 captures.name(&"y0").unwrap().as_str().to_string(),
             ),
@@ -258,26 +132,6 @@ mod parse {
         let raw_e = e.to_string();
         let captures = FR_REGEX.captures(&raw_e).unwrap();
         captures.name(&"x").unwrap().as_str().to_string()
-    }
-
-    pub fn parse_g1_hex<T: Field>(
-        e: &<T::BellmanEngine as bellman::pairing::Engine>::G1Affine,
-    ) -> String {
-        let parsed = parse_g1::<T>(e);
-        format!("{}, {}", parsed.0, parsed.1)
-    }
-
-    pub fn parse_g2_hex<T: Field>(
-        e: &<T::BellmanEngine as bellman::pairing::Engine>::G2Affine,
-    ) -> String {
-        let parsed = parse_g2::<T>(e);
-        format!(
-            "[{}, {}], [{}, {}]",
-            (parsed.0).0,
-            (parsed.0).1,
-            (parsed.1).0,
-            (parsed.1).1
-        )
     }
 }
 
