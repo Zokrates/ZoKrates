@@ -21,7 +21,7 @@ use zokrates_core::ir::{self, ProgEnum};
 use zokrates_core::proof_system::*;
 use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::{types::Signature, Type};
-use zokrates_field::{Bls12Field, Bn128Field, Field};
+use zokrates_field::{Bls12Field, Bn128Field, Field, BellmanFieldExtensions};
 use zokrates_fs_resolver::FileSystemResolver;
 
 fn main() {
@@ -141,7 +141,7 @@ fn cli_setup<T: Field, P: ProofSystem<T>>(
     Ok(())
 }
 
-fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Result<(), String> {
+fn cli_compute<T: Field + BellmanFieldExtensions>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Result<(), String> {
     println!("Computing witness...");
 
     // print deserialized flattened program
@@ -247,7 +247,7 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
     Ok(())
 }
 
-fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
+fn cli_compile<T: Field + BellmanFieldExtensions>(sub_matches: &ArgMatches) -> Result<(), String> {
     println!("Compiling {}\n", sub_matches.value_of("input").unwrap());
     let path = PathBuf::from(sub_matches.value_of("input").unwrap());
 

@@ -4,10 +4,11 @@ use crate::solvers::Executable;
 use std::collections::BTreeMap;
 use std::fmt;
 use zokrates_field::Field;
+use zokrates_field::BellmanFieldExtensions;
 
 pub type ExecutionResult<T> = Result<Witness<T>, Error>;
 
-impl<T: Field> Prog<T> {
+impl<T: Field + BellmanFieldExtensions> Prog<T> {
     pub fn execute(&self, inputs: &Vec<T>) -> ExecutionResult<T> {
         let main = &self.main;
         self.check_inputs(&inputs)?;

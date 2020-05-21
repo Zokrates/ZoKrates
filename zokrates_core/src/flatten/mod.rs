@@ -59,7 +59,7 @@ impl<'ast, T: Field> Flatten<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> Flatten<'ast, T> for StructExpression<'ast, T> {
+impl<'ast, T: Field > Flatten<'ast, T> for StructExpression<'ast, T> {
     fn flatten(
         self,
         flattener: &mut Flattener<'ast, T>,

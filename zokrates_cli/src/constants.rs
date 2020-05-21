@@ -1,6 +1,7 @@
 pub const BN128: &str = "bn128";
 pub const BLS12_381: &str = "bls12_381";
-pub const CURVES: &[&str] = &[BN128, BLS12_381];
+pub const BLS12_377: &str = "bls12_377";
+pub const CURVES: &[&str] = &[BN128, BLS12_381, BLS12_377];
 
 pub const G16: &str = "g16";
 #[cfg(feature = "libsnark")]

@@ -3,7 +3,7 @@ extern crate serde_derive;
 
 use std::path::PathBuf;
 use zokrates_core::ir;
-use zokrates_field::{Bls12Field, Bn128Field, Field};
+use zokrates_field::{Bls12Field, Bn128Field, Field, BellmanFieldExtensions};
 
 #[derive(Serialize, Deserialize, Clone)]
 enum Curve {
@@ -92,7 +92,7 @@ pub fn test_inner(test_path: &str) {
     }
 }
 
-fn compile_and_run<T: Field>(t: Tests) {
+fn compile_and_run<T: Field + BellmanFieldExtensions>(t: Tests) {
     let code = std::fs::read_to_string(&t.entry_point).unwrap();
 
     let resolver = FileSystemResolver::new();

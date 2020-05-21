@@ -5,6 +5,7 @@ use bellman::groth16::{
 use regex::Regex;
 
 use zokrates_field::Field;
+use zokrates_field::BellmanFieldExtensions;
 
 use crate::ir;
 use crate::proof_system::bn128::utils::bellman::Computation;
@@ -36,7 +37,7 @@ impl G16ProofPoints {
     }
 }
 
-impl<T: Field> ProofSystem<T> for G16 {
+impl<T: Field + BellmanFieldExtensions> ProofSystem<T> for G16 {
     fn setup(program: ir::Prog<T>) -> SetupKeypair {
         #[cfg(not(target_arch = "wasm32"))]
         std::env::set_var("BELLMAN_VERBOSE", "0");
@@ -181,7 +182,7 @@ impl<T: Field> ProofSystem<T> for G16 {
     }
 }
 
-fn serialize_vk<T: Field>(vk: &VerifyingKey<T::BellmanEngine>) -> String {
+fn serialize_vk<T: BellmanFieldExtensions>(vk: &VerifyingKey<T::BellmanEngine>) -> String {
     let mut writer = csv::WriterBuilder::new()
         .delimiter(b'=')
         .from_writer(vec![]);

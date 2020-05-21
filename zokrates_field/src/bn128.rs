@@ -2,9 +2,9 @@ use bellman_ce::pairing::bn256::Bn256;
 
 prime_field!(
     b"21888242871839275222246405745257275088548364400416034343698204186575808495617",
-    Bn256,
     "bn128"
 );
+bellman_extensions!(Bn256);
 
 #[cfg(test)]
 mod tests {

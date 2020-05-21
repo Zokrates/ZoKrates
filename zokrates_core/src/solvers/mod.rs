@@ -1,6 +1,7 @@
 use std::fmt;
 use zokrates_embed::generate_sha256_round_witness;
 use zokrates_field::Field;
+use zokrates_field::BellmanFieldExtensions;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
 pub enum Solver {
@@ -27,7 +28,7 @@ impl Signed for Solver {
     }
 }
 
-impl<T: Field> Executable<T> for Solver {
+impl<T: Field + BellmanFieldExtensions> Executable<T> for Solver {
     fn execute(&self, inputs: &Vec<T>) -> Result<Vec<T>, String> {
         let (expected_input_count, expected_output_count) = self.get_signature();
         assert!(inputs.len() == expected_input_count);
