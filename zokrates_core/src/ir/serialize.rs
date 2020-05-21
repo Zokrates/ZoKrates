@@ -9,8 +9,8 @@ const ZOKRATES_VERSION_1: &[u8; 4] = &[0, 0, 0, 1];
 #[derive(PartialEq, Debug)]
 pub enum ProgEnum {
     Bls12_381Program(Prog<Bls12_381Field>),
-    Bls12_377Program(Prog<Bls12_377Field>),
     Bn128Program(Prog<Bn128Field>),
+    Bls12_377Program(Prog<Bls12_377Field>),
     Bw6_761Program(Prog<Bw6_761Field>),
 }
 
@@ -47,10 +47,10 @@ impl ProgEnum {
                     m if m == Bls12_381Field::id() => Ok(ProgEnum::Bls12_381Program(
                         deserialize_from(&mut r, Infinite).unwrap(),
                     )),
-                    m if m == Bls12_377Field::id() => Ok(ProgEnum::Bls12_377Program(
+                    m if m == Bn128Field::id() => Ok(ProgEnum::Bn128Program(
                         deserialize_from(&mut r, Infinite).unwrap(),
                     )),
-                    m if m == Bn128Field::id() => Ok(ProgEnum::Bn128Program(
+                    m if m == Bls12_377Field::id() => Ok(ProgEnum::Bls12_377Program(
                         deserialize_from(&mut r, Infinite).unwrap(),
                     )),
                     m if m == Bw6_761Field::id() => Ok(ProgEnum::Bw6_761Program(
@@ -72,7 +72,7 @@ mod tests {
     use super::*;
     use ir;
     use std::io::{Cursor, Seek, SeekFrom};
-    use zokrates_field::{Bls12_381Field, Bn128Field, Bls12_377Field, Bw6_761Field};
+    use zokrates_field::{Bls12_381Field, Bn128Field};
 
     #[test]
     fn ser_deser_v1() {
@@ -117,47 +117,5 @@ mod tests {
         let deserialized_p = ProgEnum::deserialize(buffer).unwrap();
 
         assert_eq!(ProgEnum::Bls12_381Program(p), deserialized_p);
-
-        let p: ir::Prog<Bls12_377Field> = ir::Prog {
-            main: ir::Function {
-                arguments: vec![],
-                id: "something".to_string(),
-                returns: vec![],
-                statements: vec![],
-            },
-            private: vec![],
-        };
-
-        let mut buffer = Cursor::new(vec![]);
-        p.serialize(&mut buffer);
-
-        // rewind back to the beginning of the file
-        buffer.seek(SeekFrom::Start(0)).unwrap();
-
-        // deserialize
-        let deserialized_p = ProgEnum::deserialize(buffer).unwrap();
-
-        assert_eq!(ProgEnum::Bls12_377Program(p), deserialized_p);
-
-        let p: ir::Prog<Bw6_761Field> = ir::Prog {
-            main: ir::Function {
-                arguments: vec![],
-                id: "something".to_string(),
-                returns: vec![],
-                statements: vec![],
-            },
-            private: vec![],
-        };
-
-        let mut buffer = Cursor::new(vec![]);
-        p.serialize(&mut buffer);
-
-        // rewind back to the beginning of the file
-        buffer.seek(SeekFrom::Start(0)).unwrap();
-
-        // deserialize
-        let deserialized_p = ProgEnum::deserialize(buffer).unwrap();
-
-        assert_eq!(ProgEnum::Bw6_761Program(p), deserialized_p);
     }
 }

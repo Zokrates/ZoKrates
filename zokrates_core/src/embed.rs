@@ -6,26 +6,27 @@ use flat_absy::{
 };
 use std::collections::HashMap;
 use typed_absy::types::{FunctionKey, Signature, Type};
-use zokrates_embed::{generate_sha256_round_constraints, BellmanConstraint};
+use zokrates_embed::{BellmanConstraint};
 use zokrates_field::Field;
+use zokrates_field::BellmanFieldExtensions;
 
 /// A low level function that contains non-deterministic introduction of variables. It is carried out as is until
 /// the flattening step when it can be inlined.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum FlatEmbed {
-    Sha256Round,
+    //Sha256Round,
     Unpack,
 }
 
 impl FlatEmbed {
     pub fn signature<T: Field>(&self) -> Signature {
         match self {
-            FlatEmbed::Sha256Round => Signature::new()
-                .inputs(vec![
-                    Type::array(Type::FieldElement, 512),
-                    Type::array(Type::FieldElement, 256),
-                ])
-                .outputs(vec![Type::array(Type::FieldElement, 256)]),
+            //FlatEmbed::Sha256Round => Signature::new()
+            //    .inputs(vec![
+            //        Type::array(Type::FieldElement, 512),
+            //        Type::array(Type::FieldElement, 256),
+            //    ])
+            //    .outputs(vec![Type::array(Type::FieldElement, 256)]),
             FlatEmbed::Unpack => Signature::new()
                 .inputs(vec![Type::FieldElement])
                 .outputs(vec![Type::array(
@@ -41,7 +42,7 @@ impl FlatEmbed {
 
     pub fn id(&self) -> &'static str {
         match self {
-            FlatEmbed::Sha256Round => "_SHA256_ROUND",
+            //FlatEmbed::Sha256Round => "_SHA256_ROUND",
             FlatEmbed::Unpack => "_UNPACK",
         }
     }
@@ -49,7 +50,7 @@ impl FlatEmbed {
     /// Actually get the `FlatFunction` that this `FlatEmbed` represents
     pub fn synthetize<T: Field>(&self) -> FlatFunction<T> {
         match self {
-            FlatEmbed::Sha256Round => sha256_round(),
+            //FlatEmbed::Sha256Round => sha256_round(),
             FlatEmbed::Unpack => unpack(),
         }
     }
@@ -57,8 +58,8 @@ impl FlatEmbed {
 
 // util to convert a vector of `(variable_id, coefficient)` to a flat_expression
 // we build a binary tree of additions by splitting the vector recursively
-fn flat_expression_from_vec<T: Field>(
-    v: &[(usize, <<T as Field>::BellmanEngine as ScalarEngine>::Fr)],
+fn flat_expression_from_vec<T: BellmanFieldExtensions + Field>(
+    v: &[(usize, <<T as BellmanFieldExtensions>::BellmanEngine as ScalarEngine>::Fr)],
 ) -> FlatExpression<T> {
     match v.len() {
         0 => FlatExpression::Number(T::zero()),
@@ -79,7 +80,7 @@ fn flat_expression_from_vec<T: Field>(
     }
 }
 
-impl<T: Field> From<BellmanConstraint<T::BellmanEngine>> for FlatStatement<T> {
+impl<T: BellmanFieldExtensions + Field> From<BellmanConstraint<T::BellmanEngine>> for FlatStatement<T> {
     fn from(c: zokrates_embed::BellmanConstraint<T::BellmanEngine>) -> FlatStatement<T> {
         let rhs_a = flat_expression_from_vec(&c.a);
         let rhs_b = flat_expression_from_vec(&c.b);
@@ -96,6 +97,7 @@ impl<T: Field> From<BellmanConstraint<T::BellmanEngine>> for FlatStatement<T> {
 /// The variables inside the function are set in this order:
 /// - constraint system variables
 /// - arguments
+/*
 pub fn sha256_round<T: Field>() -> FlatFunction<T> {
     // Define iterators for all indices at hand
     let (r1cs, input_indices, current_hash_indices, output_indices) =
@@ -185,7 +187,7 @@ pub fn sha256_round<T: Field>() -> FlatFunction<T> {
         statements,
     }
 }
-
+*/
 fn use_variable(
     layout: &mut HashMap<String, FlatVariable>,
     name: String,

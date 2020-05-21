@@ -8,8 +8,8 @@ use zokrates_embed::{generate_sha256_round_constraints, BellmanConstraint};
 use zokrates_field::Field;
 
 // util to convert a vector of `(variable_id, coefficient)` to a flat_expression
-fn flat_expression_from_vec<T: Field>(
-    v: Vec<(usize, <<T as Field>::BellmanEngine as ScalarEngine>::Fr)>,
+fn flat_expression_from_vec<T: BellmanFieldExtensions>(
+    v: Vec<(usize, <<T as BellmanFieldExtensions>::BellmanEngine as ScalarEngine>::Fr)>,
 ) -> FlatExpression<T> {
     match v
         .into_iter()
@@ -29,7 +29,7 @@ fn flat_expression_from_vec<T: Field>(
     }
 }
 
-impl<T: Field> From<BellmanConstraint<T::BellmanEngine>> for FlatStatement<T> {
+impl<T: BellmanFieldExtensions> From<BellmanConstraint<T::BellmanEngine>> for FlatStatement<T> {
     fn from(c: zokrates_embed::BellmanConstraint<T::BellmanEngine>) -> FlatStatement<T> {
         let rhs_a = flat_expression_from_vec(c.a);
         let rhs_b = flat_expression_from_vec(c.b);
@@ -46,7 +46,7 @@ impl<T: Field> From<BellmanConstraint<T::BellmanEngine>> for FlatStatement<T> {
 /// The variables inside the function are set in this order:
 /// - constraint system variables
 /// - arguments
-pub fn sha_round<T: Field>() -> FlatFunction<T> {
+pub fn sha_round<T: BellmanFieldExtensions>() -> FlatFunction<T> {
     // Define iterators for all indices at hand
     let (r1cs, input_indices, current_hash_indices, output_indices) =
         generate_sha256_round_constraints::<T::BellmanEngine>();

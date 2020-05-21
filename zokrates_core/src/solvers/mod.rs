@@ -1,5 +1,5 @@
 use std::fmt;
-use zokrates_embed::generate_sha256_round_witness;
+//use zokrates_embed::generate_sha256_round_witness;
 use zokrates_field::Field;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
@@ -7,7 +7,7 @@ pub enum Solver {
     ConditionEq,
     Bits(usize),
     Div,
-    Sha256Round,
+    //Sha256Round,
 }
 
 impl fmt::Display for Solver {
@@ -22,7 +22,7 @@ impl Signed for Solver {
             Solver::ConditionEq => (1, 2),
             Solver::Bits(bit_width) => (1, *bit_width),
             Solver::Div => (2, 1),
-            Solver::Sha256Round => (768, 26935),
+            //Solver::Sha256Round => (768, 26935),
         }
     }
 }
@@ -53,17 +53,17 @@ impl<T: Field> Executable<T> for Solver {
                 res
             }
             Solver::Div => vec![inputs[0].clone() / inputs[1].clone()],
-            Solver::Sha256Round => {
-                let i = &inputs[0..512];
-                let h = &inputs[512..];
-                let i: Vec<_> = i.iter().map(|x| x.clone().into_bellman()).collect();
-                let h: Vec<_> = h.iter().map(|x| x.clone().into_bellman()).collect();
-                assert!(h.len() == 256);
-                generate_sha256_round_witness::<T::BellmanEngine>(&i, &h)
-                    .into_iter()
-                    .map(|x| T::from_bellman(x))
-                    .collect()
-            }
+//            Solver::Sha256Round => {
+//                let i = &inputs[0..512];
+//                let h = &inputs[512..];
+//                let i: Vec<_> = i.iter().map(|x| x.clone().into_bellman()).collect();
+//                let h: Vec<_> = h.iter().map(|x| x.clone().into_bellman()).collect();
+//                assert!(h.len() == 256);
+//                generate_sha256_round_witness::<T::BellmanEngine>(&i, &h)
+//                    .into_iter()
+//                    .map(|x| T::from_bellman(x))
+//                    .collect()
+//            }
         };
 
         assert_eq!(res.len(), expected_output_count);

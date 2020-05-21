@@ -5,6 +5,7 @@ use bellman::groth16::{
 use regex::Regex;
 
 use zokrates_field::Field;
+use zokrates_field::BellmanFieldExtensions;
 
 use crate::ir;
 use crate::proof_system::bellman::Computation;
@@ -35,7 +36,7 @@ pub struct VerificationKey {
     raw: String,
 }
 
-impl<T: Field> ProofSystem<T> for G16 {
+impl<T: Field + BellmanFieldExtensions> ProofSystem<T> for G16 {
     type VerificationKey = VerificationKey;
     type ProofPoints = ProofPoints;
 
