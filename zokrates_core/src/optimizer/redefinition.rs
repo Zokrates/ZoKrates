@@ -36,14 +36,14 @@ use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::folder::{fold_function, Folder};
 use crate::ir::LinComb;
 use crate::ir::*;
-use std::collections::HashMap;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use zokrates_field::Field;
 
 #[derive(Debug)]
 pub struct RedefinitionOptimizer<T: Field> {
     /// Map of renamings for reassigned variables while processing the program.
     substitution: HashMap<FlatVariable, LinComb<T>>,
+    /// Set of variables that should not be substituted
     ignore: HashSet<FlatVariable>,
 }
 
@@ -81,6 +81,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                         // if the right side is a single variable
                         Some((variable, coefficient)) => {
                             match self.ignore.contains(&variable) {
+                                // if the variable isn't tagged as ignored
                                 false => match self.substitution.get(&variable) {
                                     // if the variable is already defined
                                     Some(_) => (true, None, None),
@@ -100,6 +101,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                         None => (true, None, None),
                     };
 
+                    // insert into the ignored set
                     match to_ignore {
                         Some(v) => {
                             self.ignore.insert(v);
