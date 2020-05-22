@@ -56,16 +56,7 @@ impl<T: Field> RedefinitionOptimizer<T> {
     }
 
     pub fn optimize(p: Prog<T>) -> Prog<T> {
-        let mut p = p;
-
-        loop {
-            let size_before = p.main.statements.len();
-            p = RedefinitionOptimizer::new().fold_module(p);
-            let size_after = p.main.statements.len();
-            if size_after == size_before {
-                return p;
-            }
-        }
+        RedefinitionOptimizer::new().fold_module(p)
     }
 }
 
@@ -76,54 +67,48 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                 let quad = self.fold_quadratic_combination(quad);
                 let lin = self.fold_linear_combination(lin);
 
-                if self.substitution.len() < 150000 {
-                    let (keep_constraint, to_insert, to_ignore) = match lin.try_summand() {
-                        // if the right side is a single variable
-                        Some((variable, coefficient)) => {
-                            match self.ignore.contains(&variable) {
-                                // if the variable isn't tagged as ignored
-                                false => match self.substitution.get(&variable) {
-                                    // if the variable is already defined
-                                    Some(_) => (true, None, None),
-                                    // if the variable is not defined yet
-                                    None => match quad.try_linear() {
-                                        // if the left side is linear
-                                        Some(l) => {
-                                            (false, Some((variable, l / &coefficient)), None)
-                                        }
-                                        // if the left side isn't linear
-                                        None => (true, None, Some(variable)),
-                                    },
+                let (keep_constraint, to_insert, to_ignore) = match lin.try_summand() {
+                    // if the right side is a single variable
+                    Some((variable, coefficient)) => {
+                        match self.ignore.contains(&variable) {
+                            // if the variable isn't tagged as ignored
+                            false => match self.substitution.get(&variable) {
+                                // if the variable is already defined
+                                Some(_) => (true, None, None),
+                                // if the variable is not defined yet
+                                None => match quad.try_linear() {
+                                    // if the left side is linear
+                                    Some(l) => (false, Some((variable, l / &coefficient)), None),
+                                    // if the left side isn't linear
+                                    None => (true, None, Some(variable)),
                                 },
-                                true => (true, None, None),
-                            }
+                            },
+                            true => (true, None, None),
                         }
-                        None => (true, None, None),
-                    };
-
-                    // insert into the ignored set
-                    match to_ignore {
-                        Some(v) => {
-                            self.ignore.insert(v);
-                        }
-                        None => {}
                     }
+                    None => (true, None, None),
+                };
 
-                    // insert into the substitution map
-                    match to_insert {
-                        Some((k, v)) => {
-                            self.substitution.insert(k, v);
-                        }
-                        None => {}
-                    };
-
-                    // decide whether the constraint should be kept
-                    match keep_constraint {
-                        false => vec![],
-                        true => vec![Statement::Constraint(quad, lin)],
+                // insert into the ignored set
+                match to_ignore {
+                    Some(v) => {
+                        self.ignore.insert(v);
                     }
-                } else {
-                    vec![Statement::Constraint(quad, lin)]
+                    None => {}
+                }
+
+                // insert into the substitution map
+                match to_insert {
+                    Some((k, v)) => {
+                        self.substitution.insert(k, v);
+                    }
+                    None => {}
+                };
+
+                // decide whether the constraint should be kept
+                match keep_constraint {
+                    false => vec![],
+                    true => vec![Statement::Constraint(quad, lin)],
                 }
             }
             Statement::Directive(d) => {
@@ -139,20 +124,14 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
 
     fn fold_linear_combination(&mut self, lc: LinComb<T>) -> LinComb<T> {
         // for each summand, check if it is equal to a linear term in our substitution, otherwise keep it as is
-        let res =
-            lc.0.into_iter()
-                .map(|(variable, coefficient)| {
-                    (
-                        self.substitution
-                            .get(&variable)
-                            .map(|l| l.clone())
-                            .unwrap_or(variable.into()),
-                        coefficient,
-                    )
-                })
-                .fold(LinComb::zero(), |acc, (l, coeff)| acc + l * &coeff);
-
-        res
+        lc.0.into_iter()
+            .map(|(variable, coefficient)| {
+                self.substitution
+                    .get(&variable)
+                    .map(|l| l.clone() * &coefficient)
+                    .unwrap_or(LinComb::summand(coefficient, variable))
+            })
+            .fold(LinComb::zero(), |acc, x| acc + x)
     }
 
     fn fold_argument(&mut self, a: FlatVariable) -> FlatVariable {
