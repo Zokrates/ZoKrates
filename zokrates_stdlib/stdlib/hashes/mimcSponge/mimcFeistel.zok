@@ -2,7 +2,7 @@
 
 import "./IVconstants" as IVconstants
 def main(field xL_in, field xR_in, field k) -> (field[2]):
-	IV = IVconstants()
+	field[220] IV = IVconstants()
 
 	field t = 0
 	field nRounds = 220
