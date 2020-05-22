@@ -22,14 +22,15 @@
 
 // ## Optimization rules
 
-// We maintain, `s` a set of substitutions as a mapping of `(variable => linear_combination)`. It starts empty.
+// We maintain `s`, a set of substitutions as a mapping of `(variable => linear_combination)`. It starts empty.
+// We also maintaint `i`, a set of variables that should be ignored when trying to substitute. It starts empty.
 
-// - input variables are inserted in the substitution as `(v, [(1, v)])`
-// - the `~one` variable is inserted as `(~one, [(1, ~one)])`
-// - For each directive, for each variable `v` introduced, insert `(v, [(1, v)])`
+// - input variables are inserted into `i`
+// - the `~one` variable is inserted into `i`
+// - For each directive, for each variable `v` introduced, insert `v` into `i`
 // - For each constraint `c`, we replace all variables by their value in `s` if any, otherwise leave them unchanged. Let's call `c_0` the resulting constraint. We either return `c_0` or nothing based on the form of `c_0`:
-//     - `~one * lin == k * v if v isn't defined`: insert `(v, lin / k)` and return nothing
-//     - `q == k * v if v isn't defined`: insert `(v, [(1, v)])` and return `c_0`
+//     - `~one * lin == k * v if v isn't in i`: insert `(v, lin / k)` into `s` and return nothing
+//     - `q == k * v if v isn't in i`: insert `v` into `i` and return `c_0`
 //     - otherwise return `c_0`
 
 use crate::flat_absy::flat_variable::FlatVariable;
