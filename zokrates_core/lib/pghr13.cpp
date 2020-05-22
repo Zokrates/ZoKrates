@@ -188,9 +188,7 @@ proof_result_t pghr13_bn128_generate_proof(buffer_t* pk_buf,
         private_inputs_length);
 }
 
-bool pghr13_bn128_verify(buffer_t* vk_buf, buffer_t* proof_buf,
-    const uint8_t* public_inputs,
-    int32_t public_inputs_length)
+bool pghr13_bn128_verify(buffer_t* vk_buf, buffer_t* proof_buf, const uint8_t* public_inputs, int32_t public_inputs_length)
 {
     return pghr13::verify<libff::alt_bn128_r_limbs,
         libff::alt_bn128_pp>(vk_buf, proof_buf, public_inputs, public_inputs_length);
