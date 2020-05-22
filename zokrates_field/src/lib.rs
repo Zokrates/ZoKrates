@@ -6,6 +6,7 @@
 
 use bellman_ce::pairing::ff::ScalarEngine;
 use bellman_ce::pairing::Engine;
+use algebra_core::PairingEngine;
 use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
 use std::convert::From;
@@ -23,6 +24,13 @@ pub trait BellmanFieldExtensions {
     type BellmanEngine: Engine;
     fn from_bellman(e: <Self::BellmanEngine as ScalarEngine>::Fr) -> Self;
     fn into_bellman(self) -> <Self::BellmanEngine as ScalarEngine>::Fr;
+}
+
+pub trait ZexeFieldExtensions {
+    /// An associated type to be able to operate with zexe ff traits
+    type ZexeEngine: PairingEngine;
+    fn from_zexe(e: <Self::ZexeEngine>::Fr) -> Self;
+    fn into_zexe(self) -> <Self::ZexeEngine>::Fr;
 }
 
 pub trait Field:
@@ -393,6 +401,7 @@ mod prime_field {
             }
         };
     }
+
     macro_rules! bellman_extensions {
         ($bellman_type:ty) => {
             use crate::BellmanFieldExtensions;
@@ -416,7 +425,32 @@ mod prime_field {
             }
         }
     }
+
+    macro_rules! zexe_extensions {
+        ($zexe_type:ty) => {
+            use crate::ZexeFieldExtensions;
+
+            impl ZexeFieldExtensions for FieldPrime {
+                type ZexeEngine = $zexe_type;
+
+                fn from_zexe(e: <Self::ZexeEngine>::Fr) -> Self {
+                    use algebra_core::{PrimeField, BigInteger};
+                    let mut res: Vec<u8> = vec![];
+                    e.into_repr().write_le(&mut res).unwrap();
+                    Self::from_byte_vector(res)
+                }
+
+                fn into_zexe(self) -> <Self::ZexeEngine>::Fr {
+                    use algebra_core::{PrimeField}; //FromStr
+                    let s = self.to_dec_string();
+                    <Self::ZexeEngine>::Fr::from_str(&s).unwrap()
+                }
+            }
+        }
+    }
 }
+
+
 
 pub mod bls12_381;
 pub mod bn128;

@@ -8,9 +8,9 @@ use zexe_gm17::{
     create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof,
     Parameters,
 };
-use bellman::pairing::ff::ScalarEngine;
+use algebra_core::PairingEngine;
 use zokrates_field::Field;
-use zokrates_field::BellmanFieldExtensions;
+use zokrates_field::ZexeFieldExtensions;
 
 use self::rand::ChaChaRng;
 
@@ -38,8 +38,8 @@ impl<T: Field> Computation<T> {
     }
 }
 
-impl<T: Field + BellmanFieldExtensions> Computation<T> {
-    pub fn prove(self, params: &Parameters<T::BellmanEngine>) -> Proof<T::BellmanEngine> {
+impl<T: Field + ZexeFieldExtensions> Computation<T> {
+    pub fn prove(self, params: &Parameters<T::ZexeEngine>) -> Proof<T::ZexeEngine> {
         let rng = &mut ChaChaRng::new_unseeded();
 
         let proof = create_random_proof(self.clone(), params, rng).unwrap();
@@ -54,7 +54,7 @@ impl<T: Field + BellmanFieldExtensions> Computation<T> {
         proof
     }
 
-    pub fn public_inputs_values(&self) -> Vec<<T::BellmanEngine as ScalarEngine>::Fr> {
+    pub fn public_inputs_values(&self) -> Vec<<T::ZexeEngine>::Fr> {
         self.program
             .main
             .arguments
@@ -65,11 +65,11 @@ impl<T: Field + BellmanFieldExtensions> Computation<T> {
             .map(|(a, _)| a)
             .map(|v| self.witness.clone().unwrap().0.get(v).unwrap().clone())
             .chain(self.witness.clone().unwrap().return_values())
-            .map(|v| v.clone().into_bellman())
+            .map(|v| v.clone().into_zexe())
             .collect()
     }
 
-    pub fn setup(self) -> Parameters<T::BellmanEngine> {
+    pub fn setup(self) -> Parameters<T::ZexeEngine> {
         let rng = &mut ChaChaRng::new_unseeded();
         // run setup phase
         generate_random_parameters(self, rng).unwrap()
@@ -98,8 +98,8 @@ mod parse {
         static ref FR_REGEX: Regex = Regex::new(r"Fr\((?P<x>0[xX][0-9a-fA-F]*)\)").unwrap();
     }
 
-    pub fn parse_g1<T: BellmanFieldExtensions>(
-        e: &<T::BellmanEngine as bellman::pairing::Engine>::G1Affine,
+    pub fn parse_g1<T: ZexeFieldExtensions>(
+        e: &<T::ZexeEngine as algebra_core::curves::PairingEngine>::G1Affine,
     ) -> G1Affine {
         let raw_e = e.to_string();
         let captures = G1_REGEX.captures(&raw_e).unwrap();
@@ -109,8 +109,9 @@ mod parse {
         )
     }
 
-    pub fn parse_g2<T: BellmanFieldExtensions>(
-        e: &<T::BellmanEngine as bellman::pairing::Engine>::G2Affine,
+
+    pub fn parse_g2<T: ZexeFieldExtensions>(
+        e: &<T::ZexeEngine as algebra_core::curves::PairingEngine>::G2Affine,
     ) -> G2Affine {
         let raw_e = e.to_string();
         let captures = G2_REGEX.captures(&raw_e).unwrap();
@@ -126,7 +127,7 @@ mod parse {
         )
     }
 
-    pub fn parse_fr<T: BellmanFieldExtensions>(e: &<T::BellmanEngine as ScalarEngine>::Fr) -> String {
+    pub fn parse_fr<T: ZexeFieldExtensions>(e: &<T::ZexeEngine>::Fr) -> String {
         let raw_e = e.to_string();
         let captures = FR_REGEX.captures(&raw_e).unwrap();
         captures.name(&"x").unwrap().as_str().to_string()

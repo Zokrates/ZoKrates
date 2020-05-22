@@ -6,7 +6,8 @@ use zexe_gm17::{
 use regex::Regex;
 
 use zokrates_field::Field;
-use zokrates_field::BellmanFieldExtensions;
+use zokrates_field::ZexeFieldExtensions;
+use algebra_core::PairingEngine;
 
 use crate::ir;
 use crate::proof_system::zexe::Computation;
@@ -36,7 +37,7 @@ pub struct VerificationKey {
     raw: String,
 }
 
-impl<T: Field + BellmanFieldExtensions> ProofSystem<T> for GM17 {
+impl<T: Field + ZexeFieldExtensions> ProofSystem<T> for GM17 {
     type VerificationKey = VerificationKey;
     type ProofPoints = ProofPoints;
 
@@ -175,11 +176,11 @@ impl<T: Field + BellmanFieldExtensions> ProofSystem<T> for GM17 {
         let vk_raw = hex::decode(vk.raw.clone()).unwrap();
         let proof_raw = hex::decode(proof.raw.clone()).unwrap();
 
-        let vk: VerifyingKey<T::BellmanEngine> = VerifyingKey::read(vk_raw.as_slice()).unwrap();
+        let vk: VerifyingKey<T::ZexeEngine> = VerifyingKey::read(vk_raw.as_slice()).unwrap();
 
-        let pvk: PreparedVerifyingKey<T::BellmanEngine> = prepare_verifying_key(&vk);
+        let pvk: PreparedVerifyingKey<T::ZexeEngine> = prepare_verifying_key(&vk);
 
-        let zexe_proof: ZexeProof<T::BellmanEngine> =
+        let zexe_proof: ZexeProof<T::ZexeEngine> =
             ZexeProof::read(proof_raw.as_slice()).unwrap();
 
         let public_inputs: Vec<_> = proof
@@ -188,7 +189,7 @@ impl<T: Field + BellmanFieldExtensions> ProofSystem<T> for GM17 {
             .map(|s| {
                 T::try_from_str(s.trim_start_matches("0x"), 16)
                     .expect(format!("Invalid {} value: {}", T::name(), s).as_str())
-                    .into_bellman()
+                    .into_zexe()
             })
             .collect::<Vec<_>>();
 
