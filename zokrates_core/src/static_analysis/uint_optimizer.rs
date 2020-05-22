@@ -25,20 +25,28 @@ impl<'ast, T: Field> UintOptimizer<'ast, T> {
 }
 
 fn force_reduce<'ast, T: Field>(e: UExpression<'ast, T>) -> UExpression<'ast, T> {
+    let metadata = e.metadata.unwrap();
+
+    let should_reduce = metadata.should_reduce.make_true();
+
     UExpression {
         metadata: Some(UMetadata {
-            should_reduce: Some(true),
-            ..e.metadata.unwrap()
+            should_reduce,
+            ..metadata
         }),
         ..e
     }
 }
 
 fn force_no_reduce<'ast, T: Field>(e: UExpression<'ast, T>) -> UExpression<'ast, T> {
+    let metadata = e.metadata.unwrap();
+
+    let should_reduce = metadata.should_reduce.make_false();
+
     UExpression {
         metadata: Some(UMetadata {
-            should_reduce: Some(false),
-            ..e.metadata.unwrap()
+            should_reduce,
+            ..metadata
         }),
         ..e
     }
@@ -97,12 +105,12 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 let left = if should_reduce_left {
                     force_reduce(left)
                 } else {
-                    left
+                    force_no_reduce(left)
                 };
                 let right = if should_reduce_right {
                     force_reduce(right)
                 } else {
-                    right
+                    force_no_reduce(right)
                 };
 
                 UExpression::add(left, right).with_max(max)
@@ -156,12 +164,12 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 let left = if should_reduce_left {
                     force_reduce(left)
                 } else {
-                    left
+                    force_no_reduce(left)
                 };
                 let right = if should_reduce_right {
                     force_reduce(right)
                 } else {
-                    right
+                    force_no_reduce(right)
                 };
 
                 UExpression::sub(left, right).with_max(max)
@@ -214,12 +222,12 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 let left = if should_reduce_left {
                     force_reduce(left)
                 } else {
-                    left
+                    force_no_reduce(left)
                 };
                 let right = if should_reduce_right {
                     force_reduce(right)
                 } else {
-                    right
+                    force_no_reduce(right)
                 };
 
                 UExpression::mult(left, right).with_max(max)
@@ -257,7 +265,12 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     alternative_max.into_big_uint(),
                 );
 
-                UExpression::if_else(condition, consequence, alternative).with_max(max)
+                UExpression::if_else(
+                    condition,
+                    force_no_reduce(consequence),
+                    force_no_reduce(alternative),
+                )
+                .with_max(max)
             }
         };
 
@@ -305,7 +318,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                             lhs[0].clone(),
                             UMetadata {
                                 max: T::from(2).pow(32) - T::from(1),
-                                should_reduce: Some(false),
+                                should_reduce: ShouldReduce::False,
                             },
                         );
                         vec![ZirStatement::MultipleDefinition(
@@ -345,13 +358,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
     fn fold_parameter(&mut self, p: Parameter<'ast>) -> Parameter<'ast> {
         let id = match p.id.get_type() {
             Type::Uint(bitwidth) => {
-                self.register(
-                    p.id.clone(),
-                    UMetadata {
-                        max: T::from(2_u32).pow(bitwidth) - T::from(1),
-                        should_reduce: Some(false),
-                    },
-                );
+                self.register(p.id.clone(), UMetadata::parameter(bitwidth));
                 p.id
             }
             _ => p.id,

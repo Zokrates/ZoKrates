@@ -64,22 +64,69 @@ impl<'ast, T: Field> From<&'ast str> for UExpressionInner<'ast, T> {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+pub enum ShouldReduce {
+    Unknown,
+    True,
+    False,
+}
+
+impl ShouldReduce {
+    pub fn to_bool(&self) -> bool {
+        match self {
+            ShouldReduce::Unknown => {
+                unreachable!("should_reduce should be convertible to a bool but it's unknown")
+            }
+            ShouldReduce::True => true,
+            ShouldReduce::False => false,
+        }
+    }
+
+    pub fn is_unknown(&self) -> bool {
+        match self {
+            ShouldReduce::Unknown => true,
+            _ => false,
+        }
+    }
+
+    // we can always enable a reduction
+    pub fn make_true(self) -> Self {
+        ShouldReduce::True
+    }
+
+    // we cannot disable a reduction that was enabled
+    pub fn make_false(self) -> Self {
+        match self {
+            ShouldReduce::True => unreachable!("Attempt to disable a required reduction"),
+            _ => ShouldReduce::False,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct UMetadata<T> {
     pub max: T,
-    pub should_reduce: Option<bool>,
+    pub should_reduce: ShouldReduce,
 }
 
 impl<T: Field> UMetadata<T> {
     pub fn with_max<U: Into<T>>(max: U) -> Self {
         UMetadata {
             max: max.into(),
-            should_reduce: None,
+            should_reduce: ShouldReduce::Unknown,
         }
     }
 
     pub fn bitwidth(&self) -> u32 {
         self.max.bits() as u32
+    }
+
+    // issue the metadata for a parameter of a given bitwidth
+    pub fn parameter(bitwidth: Bitwidth) -> Self {
+        Self {
+            should_reduce: ShouldReduce::False,
+            max: T::from(2_u32).pow(bitwidth) - T::from(1),
+        }
     }
 }
 

@@ -796,9 +796,9 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let metadata = expr.metadata.clone().unwrap().clone();
 
         let actual_bitwidth = metadata.bitwidth() as usize;
-        let should_reduce = metadata.should_reduce.unwrap();
+        let should_reduce = metadata.should_reduce;
 
-        let should_reduce = should_reduce && actual_bitwidth > target_bitwidth;
+        let should_reduce = should_reduce.to_bool() && actual_bitwidth > target_bitwidth;
 
         let res = match expr.into_inner() {
             UExpressionInner::Value(x) => {
