@@ -20,10 +20,18 @@ For each command, you can get the list of expected arguments using `--help`.
 zokrates compile -i /path/to/add.zok
 ```
 
-Compiles a `.zok` source code file into ZoKrates internal representation of arithmetic circuits.
+Compiles a `.zok` source code file and its dependencies into ZoKrates internal representation of arithmetic circuits.
 
 Creates a compiled binary file at `./out`.
 Unless the `--light` flag is set, a human-readable `.ztf` file is generated, which displays the compilation output in ZoKrates Text Format.
+
+## `check`
+
+```sh
+zokrates check -i /path/to/add.zok
+```
+
+Checks a `.zok` source code file and its dependencies for errors.
 
 ## `compute-witness`
 
