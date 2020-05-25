@@ -44,7 +44,7 @@ jobs:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Check format if rustfmt is available
-          command: if rustup component add rustfmt; then cargo fmt --all -- --check; else true; fi 
+          command: ! rustup component add rustfmt || cargo fmt --all -- --check
       - run:
           name: Install libsnark prerequisites
           command: ./scripts/install_libsnark_prerequisites.sh
