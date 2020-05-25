@@ -88,7 +88,7 @@ impl TryFrom<(&str, &str, &str)> for Dimensions {
             }
             #[cfg(feature = "libsnark")]
             _ => Err(format!(
-                "Unsupported combination of dimensions (backend: {}, curve: {}, proof system: {})",
+                "Unsupported combination of dimensions (backend: {}, curve: {}, proving scheme: {})",
                 s.0, s.1, s.2
             )),
         }
