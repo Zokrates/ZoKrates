@@ -17,6 +17,7 @@ use std::fmt;
 use std::io;
 use std::path::PathBuf;
 use typed_absy::abi::Abi;
+use typed_absy::TypedProgram;
 use typed_arena::Arena;
 use zokrates_common::Resolver;
 use zokrates_field::Field;
@@ -149,18 +150,9 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
 ) -> Result<CompilationArtifacts<T>, CompileErrors> {
     let arena = Arena::new();
 
-    let source = arena.alloc(source);
-    let compiled = compile_program(source, location.clone(), resolver, &arena)?;
-
-    // check semantics
-    let typed_ast = Checker::check(compiled).map_err(|errors| {
-        CompileErrors(errors.into_iter().map(|e| CompileError::from(e)).collect())
-    })?;
+    let typed_ast = check_with_arena(source, location, resolver, &arena)?;
 
     let abi = typed_ast.abi();
-
-    // analyse (unroll and constant propagation)
-    let typed_ast = typed_ast.analyse();
 
     // flatten input program
     let program_flattened = Flattener::flatten(typed_ast);
@@ -181,6 +173,36 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
         prog: optimized_ir_prog,
         abi,
     })
+}
+
+pub fn check<'ast, T: Field, E: Into<imports::Error>>(
+    source: String,
+    location: FilePath,
+    resolver: Option<&dyn Resolver<E>>,
+) -> Result<(), CompileErrors> {
+    let arena = Arena::new();
+
+    check_with_arena::<T, _>(source, location, resolver, &arena).map(|_| ())
+}
+
+fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
+    source: String,
+    location: FilePath,
+    resolver: Option<&dyn Resolver<E>>,
+    arena: &'ast Arena<String>,
+) -> Result<TypedProgram<'ast, T>, CompileErrors> {
+    let source = arena.alloc(source);
+    let compiled = compile_program(source, location.clone(), resolver, &arena)?;
+
+    // check semantics
+    let typed_ast = Checker::check(compiled).map_err(|errors| {
+        CompileErrors(errors.into_iter().map(|e| CompileError::from(e)).collect())
+    })?;
+
+    // analyse (unroll and constant propagation)
+    let typed_ast = typed_ast.analyse();
+
+    Ok(typed_ast)
 }
 
 pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(
