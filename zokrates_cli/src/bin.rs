@@ -19,7 +19,7 @@ use std::io::{stdin, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::string::String;
 use zokrates_abi::Encode;
-use zokrates_core::compile::{compile, CompilationArtifacts, CompileError};
+use zokrates_core::compile::{check, compile, CompilationArtifacts, CompileError};
 use zokrates_core::ir::{self, ProgEnum};
 use zokrates_core::proof_system::bellman::groth16::G16;
 #[cfg(feature = "libsnark")]
@@ -355,6 +355,46 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     Ok(())
 }
 
+fn cli_check<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
+    println!("Checking {}\n", sub_matches.value_of("input").unwrap());
+    let path = PathBuf::from(sub_matches.value_of("input").unwrap());
+
+    let file = File::open(path.clone())
+        .map_err(|why| format!("Couldn't open input file {}: {}", path.display(), why))?;
+
+    let mut reader = BufReader::new(file);
+    let mut source = String::new();
+    reader.read_to_string(&mut source).unwrap();
+
+    let fmt_error = |e: &CompileError| {
+        format!(
+            "{}:{}",
+            e.file()
+                .canonicalize()
+                .unwrap()
+                .strip_prefix(std::env::current_dir().unwrap())
+                .unwrap()
+                .display(),
+            e.value()
+        )
+    };
+
+    let resolver = FileSystemResolver::new();
+    let _ = check::<T, _>(source, path, Some(&resolver)).map_err(|e| {
+        format!(
+            "Check failed:\n\n{}",
+            e.0.iter()
+                .map(|e| fmt_error(e))
+                .collect::<Vec<_>>()
+                .join("\n\n")
+        )
+    })?;
+
+    println!("Program checked, no errors found.");
+
+    Ok(())
+}
+
 fn cli_verify<T: Field, P: ProofSystem<T>>(sub_matches: &ArgMatches) -> Result<(), String> {
     let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
     let vk_file = File::open(&vk_path)
@@ -440,6 +480,25 @@ fn cli() -> Result<(), String> {
             .long("light")
             .help("Skip logs and human readable output")
             .required(false)
+        )
+     )
+    .subcommand(SubCommand::with_name("check")
+        .about("Checks a program for errors")
+        .arg(Arg::with_name("input")
+            .short("i")
+            .long("input")
+            .help("Path of the source code")
+            .value_name("FILE")
+            .takes_value(true)
+            .required(true)
+        ).arg(Arg::with_name("curve")
+            .short("c")
+            .long("curve")
+            .help("Curve to be used in the compilation")
+            .takes_value(true)
+            .required(false)
+            .possible_values(CURVES)
+            .default_value(&default_curve)
         )
      )
     .subcommand(SubCommand::with_name("setup")
@@ -716,6 +775,15 @@ fn cli() -> Result<(), String> {
             match curve {
                 Curve::Bn128 => cli_compile::<Bn128Field>(sub_matches)?,
                 Curve::Bls12 => cli_compile::<Bls12Field>(sub_matches)?,
+            }
+        }
+        ("check", Some(sub_matches)) => {
+            let curve = sub_matches.value_of("curve").unwrap();
+
+            match curve {
+                constants::BN128 => cli_check::<Bn128Field>(sub_matches)?,
+                constants::BLS12_381 => cli_check::<Bls12Field>(sub_matches)?,
+                _ => unreachable!(),
             }
         }
         ("compute-witness", Some(sub_matches)) => {
