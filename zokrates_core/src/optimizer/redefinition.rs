@@ -114,7 +114,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
             }
             Statement::Directive(d) => {
                 let d = self.fold_directive(d);
-                // to prevent the optimiser from replacing variables introduced by directives, add them to the substitution
+                // to prevent the optimiser from replacing variables introduced by directives, add them to the ignored set
                 for o in d.outputs.iter().cloned() {
                     self.ignore.insert(o);
                 }
@@ -136,7 +136,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
     }
 
     fn fold_argument(&mut self, a: FlatVariable) -> FlatVariable {
-        // to prevent the optimiser from replacing user input, add it to the substitution
+        // to prevent the optimiser from replacing user input, add it to the ignored set
         self.ignore.insert(a);
         a
     }
@@ -145,10 +145,10 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
         self.substitution.drain();
         self.ignore.drain();
 
-        // to prevent the optimiser from replacing outputs, add them to the substitution
+        // to prevent the optimiser from replacing outputs, add them to the ignored set
         self.ignore.extend(fun.returns.iter().cloned());
 
-        // to prevent the optimiser from replacing ~one, add it to the substitution
+        // to prevent the optimiser from replacing ~one, add it to the ignored set
         self.ignore.insert(FlatVariable::one());
 
         fold_function(self, fun)
