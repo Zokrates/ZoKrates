@@ -82,9 +82,9 @@ dependencies = [
 
 [[package]]
 name = "bellman_ce"
-version = "0.3.3"
+version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0300152b8d0c0220c70a39d6da08adff84352f5dd28d91944bc60e9dc8cbebb9"
+checksum = "7e1a2edf80a8ed042463f8888946f70fcd901f1615711bb253b7dc32b9c9fe73"
 dependencies = [
  "bit-vec",
  "byteorder",
@@ -447,7 +447,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83c0a6a2c53b0bd6d8cae976816dc8a171e0554c03f304e3dac110473e0219fd"
 dependencies = [
  "byteorder",
- "ff_derive_ce",
+ "ff_derive_ce 0.7.0",
+ "hex",
+ "rand 0.4.6",
+]
+
+[[package]]
+name = "ff_ce"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "40ced6646e4e98a53da162e38ffe9c865edbd7a2f9ff197067b0a8bf1114bf8a"
+dependencies = [
+ "byteorder",
+ "ff_derive_ce 0.8.0",
  "hex",
  "rand 0.4.6",
 ]
@@ -457,6 +469,20 @@ name = "ff_derive_ce"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7543567f0c51910363eb5706ee2f5368a64e79a8ae607d0332aa60bae03a1bb1"
+dependencies = [
+ "num-bigint",
+ "num-integer",
+ "num-traits 0.2.11",
+ "proc-macro2 1.0.12",
+ "quote 1.0.5",
+ "syn 1.0.21",
+]
+
+[[package]]
+name = "ff_derive_ce"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "50c052fa6d4c2f12305ec364bfb8ef884836f3f61ea015b202372ff996d1ac4b"
 dependencies = [
  "num-bigint",
  "num-integer",
@@ -892,12 +918,12 @@ dependencies = [
 
 [[package]]
 name = "pairing_ce"
-version = "0.20.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c7b23aa7f0489d9a5e8e15cc5b7cb4f3e9b9d64812b8875fb91d25b640b0939"
+checksum = "f55ca3bd80245b5d43dd4467bc9ab5daf869bd76c6cd3ca54c4499b41923657d"
 dependencies = [
  "byteorder",
- "ff_ce",
+ "ff_ce 0.10.2",
  "rand 0.4.6",
 ]
 
@@ -1116,30 +1142,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rayon"
-version = "1.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db6ce3297f9c85e16621bb8cca38a06779ffc31bb8184e1be4bed2be4678a098"
-dependencies = [
- "crossbeam-deque",
- "either",
- "rayon-core",
-]
-
-[[package]]
-name = "rayon-core"
-version = "1.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08a89b46efaf957e52b18062fb2f4660f8b8a4dde1807ca002690868ef2c85a9"
-dependencies = [
- "crossbeam-deque",
- "crossbeam-queue",
- "crossbeam-utils",
- "lazy_static",
- "num_cpus",
-]
-
-[[package]]
 name = "rdrand"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1223,9 +1225,9 @@ dependencies = [
 
 [[package]]
 name = "sapling-crypto_ce"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec318b68765114e578fe42446b6861565b302bc93089aa01669d19417a6de993"
+checksum = "1c4ff5309ec3e4bd800ad4ab3f71e9b76e9ea81c9f0eda6efa16008afbe440b3"
 dependencies = [
  "bellman_ce",
  "blake2-rfc_bellman_edition",
@@ -1747,7 +1749,7 @@ dependencies = [
  "cc",
  "cmake",
  "csv",
- "ff_ce",
+ "ff_ce 0.9.0",
  "git2",
  "glob 0.2.11",
  "hex",
@@ -1756,7 +1758,6 @@ dependencies = [
  "num-bigint",
  "pairing_ce",
  "rand 0.4.6",
- "rayon",
  "reduce",
  "regex",
  "serde",
@@ -1793,7 +1794,7 @@ version = "0.3.5"
 dependencies = [
  "bellman_ce",
  "bincode",
- "ff_ce",
+ "ff_ce 0.9.0",
  "lazy_static",
  "num-bigint",
  "num-integer",

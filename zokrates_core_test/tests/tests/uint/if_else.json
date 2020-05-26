@@ -1,0 +1,26 @@
+{
+	"entry_point": "./tests/tests/uint/if_else.zok",
+	"max_constraint_count": 28,
+	"tests": [
+		{
+			"input": {
+				"values": ["1", "0x00", "0xff"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["0x00"]
+				}
+			}
+		},
+		{
+			"input": {
+				"values": ["0", "0x00", "0xff"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["0xff"]
+				}
+			}
+		}
+	]
+}

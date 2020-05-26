@@ -41,34 +41,25 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
     pub fn analyse(self) -> ZirProgram<'ast, T> {
         // propagated unrolling
         let r = PropagatedUnroller::unroll(self).unwrap_or_else(|e| panic!(e));
-        println!("propagated");
         // return binding
         let r = ReturnBinder::bind(r);
-        println!("bound");
 
         // inline
         let r = Inliner::inline(r);
-        println!("inlined");
 
         // propagate
         let r = Propagator::propagate(r);
-        println!("propagated");
 
         let r = RedefinitionOptimizer::optimize(r);
-        println!("redefined");
 
         let r = VariableAccessRemover::apply(r);
-        println!("removed");
 
         let zir = Flattener::flatten(r.clone());
-        println!("flattened");
         // constrain inputs
         let zir = InputConstrainer::constrain(zir);
-        println!("constrained");
 
         // optimize uint expressions
         let zir = UintOptimizer::optimize(zir);
-        println!("optimized");
 
         zir
     }

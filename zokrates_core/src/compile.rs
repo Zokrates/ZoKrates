@@ -18,6 +18,7 @@ use std::io;
 use std::path::PathBuf;
 use typed_absy::abi::Abi;
 use typed_arena::Arena;
+use zir::ZirProgram;
 use zokrates_common::Resolver;
 use zokrates_field::Field;
 use zokrates_pest_ast as pest;
@@ -149,6 +150,45 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
 ) -> Result<CompilationArtifacts<T>, CompileErrors> {
     let arena = Arena::new();
 
+    let (typed_ast, abi) = check_with_arena(source, location, resolver, &arena)?;
+
+    // flatten input program
+    let program_flattened = Flattener::flatten(typed_ast);
+
+    // analyse (constant propagation after call resolution)
+    let program_flattened = program_flattened.analyse();
+
+    // convert to ir
+    let ir_prog = ir::Prog::from(program_flattened);
+
+    // optimize
+    let optimized_ir_prog = ir_prog.optimize();
+
+    // analyse (check for unused constraints)
+    let optimized_ir_prog = optimized_ir_prog.analyse();
+
+    Ok(CompilationArtifacts {
+        prog: optimized_ir_prog,
+        abi,
+    })
+}
+
+pub fn check<'ast, T: Field, E: Into<imports::Error>>(
+    source: String,
+    location: FilePath,
+    resolver: Option<&dyn Resolver<E>>,
+) -> Result<(), CompileErrors> {
+    let arena = Arena::new();
+
+    check_with_arena::<T, _>(source, location, resolver, &arena).map(|_| ())
+}
+
+fn check_with_arena<'ast, T: Field, E: Into<imports::Error>>(
+    source: String,
+    location: FilePath,
+    resolver: Option<&dyn Resolver<E>>,
+    arena: &'ast Arena<String>,
+) -> Result<(ZirProgram<'ast, T>, Abi), CompileErrors> {
     let source = arena.alloc(source);
     let compiled = compile_program(source, location.clone(), resolver, &arena)?;
 
@@ -161,32 +201,8 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
 
     // analyse (unroll and constant propagation)
     let typed_ast = typed_ast.analyse();
-    println!("analysed");
 
-    // flatten input program
-    let program_flattened = Flattener::flatten(typed_ast);
-    println!("flattened");
-
-    // analyse (constant propagation after call resolution)
-    let program_flattened = program_flattened.analyse();
-    println!("analysed");
-
-    // convert to ir
-    let ir_prog = ir::Prog::from(program_flattened);
-    println!("converted");
-
-    // optimize
-    let optimized_ir_prog = ir_prog.optimize();
-    println!("optimized");
-
-    // analyse (check for unused constraints)
-    let optimized_ir_prog = optimized_ir_prog.analyse();
-    println!("analysed");
-
-    Ok(CompilationArtifacts {
-        prog: optimized_ir_prog,
-        abi,
-    })
+    Ok((typed_ast, abi))
 }
 
 pub fn compile_program<'ast, T: Field, E: Into<imports::Error>>(

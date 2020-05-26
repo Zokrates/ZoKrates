@@ -25,16 +25,12 @@ impl<T: Field> Optimize for Prog<T> {
     fn optimize(self) -> Self {
         // remove redefinitions
         let r = RedefinitionOptimizer::optimize(self);
-        println!("redefined",);
         // remove constraints that are always satisfied
         let r = TautologyOptimizer::optimize(r);
-        println!("tautologied");
         // // deduplicate directives which take the same input
         let r = DirectiveOptimizer::optimize(r);
-        println!("directived");
         // remove duplicate constraints
         let r = DuplicateOptimizer::optimize(r);
-        println!("duplicated");
         r
     }
 }

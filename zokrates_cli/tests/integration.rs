@@ -81,6 +81,17 @@ mod integration {
         fs::create_dir(test_case_path).unwrap();
 
         // prepare compile arguments
+        let check = vec![
+            "../target/release/zokrates",
+            "check",
+            "-i",
+            program_path.to_str().unwrap(),
+        ];
+
+        // check
+        assert_cli::Assert::command(&check).succeeds().unwrap();
+
+        // prepare compile arguments
         let compile = vec![
             "../target/release/zokrates",
             "compile",

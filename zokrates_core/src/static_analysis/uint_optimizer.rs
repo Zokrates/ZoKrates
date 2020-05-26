@@ -25,20 +25,28 @@ impl<'ast, T: Field> UintOptimizer<'ast, T> {
 }
 
 fn force_reduce<'ast, T: Field>(e: UExpression<'ast, T>) -> UExpression<'ast, T> {
+    let metadata = e.metadata.unwrap();
+
+    let should_reduce = metadata.should_reduce.make_true();
+
     UExpression {
         metadata: Some(UMetadata {
-            should_reduce: Some(true),
-            ..e.metadata.unwrap()
+            should_reduce,
+            ..metadata
         }),
         ..e
     }
 }
 
 fn force_no_reduce<'ast, T: Field>(e: UExpression<'ast, T>) -> UExpression<'ast, T> {
+    let metadata = e.metadata.unwrap();
+
+    let should_reduce = metadata.should_reduce.make_false();
+
     UExpression {
         metadata: Some(UMetadata {
-            should_reduce: Some(false),
-            ..e.metadata.unwrap()
+            should_reduce,
+            ..metadata
         }),
         ..e
     }
@@ -63,10 +71,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
         use self::UExpressionInner::*;
 
         let res = match inner {
-            Value(v) => Value(v).annotate(range).metadata(UMetadata {
-                max: v.into(),
-                should_reduce: Some(false),
-            }),
+            Value(v) => Value(v).annotate(range).with_max(v),
             Identifier(id) => Identifier(id.clone()).annotate(range).metadata(
                 self.ids
                     .get(&Variable::uint(id.clone(), range))
@@ -100,19 +105,15 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 let left = if should_reduce_left {
                     force_reduce(left)
                 } else {
-                    left
+                    force_no_reduce(left)
                 };
                 let right = if should_reduce_right {
                     force_reduce(right)
                 } else {
-                    right
+                    force_no_reduce(right)
                 };
 
-                UExpression::add(left, right).metadata(UMetadata {
-                    max,
-
-                    should_reduce: Some(false),
-                })
+                UExpression::add(left, right).with_max(max)
             }
             Sub(box left, box right) => {
                 // let `target` the target bitwidth of `left` and `right`
@@ -163,48 +164,36 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 let left = if should_reduce_left {
                     force_reduce(left)
                 } else {
-                    left
+                    force_no_reduce(left)
                 };
                 let right = if should_reduce_right {
                     force_reduce(right)
                 } else {
-                    right
+                    force_no_reduce(right)
                 };
 
-                UExpression::sub(left, right).metadata(UMetadata {
-                    max,
-                    should_reduce: Some(false),
-                })
+                UExpression::sub(left, right).with_max(max)
             }
             Xor(box left, box right) => {
                 // reduce the two terms
                 let left = self.fold_uint_expression(left);
                 let right = self.fold_uint_expression(right);
 
-                UExpression::xor(force_reduce(left), force_reduce(right)).metadata(UMetadata {
-                    max: range_max.clone(),
-                    should_reduce: Some(false),
-                })
+                UExpression::xor(force_reduce(left), force_reduce(right)).with_max(range_max)
             }
             And(box left, box right) => {
                 // reduce the two terms
                 let left = self.fold_uint_expression(left);
                 let right = self.fold_uint_expression(right);
 
-                UExpression::and(force_reduce(left), force_reduce(right)).metadata(UMetadata {
-                    max: range_max.clone(),
-                    should_reduce: Some(false),
-                })
+                UExpression::and(force_reduce(left), force_reduce(right)).with_max(range_max)
             }
             Or(box left, box right) => {
                 // reduce the two terms
                 let left = self.fold_uint_expression(left);
                 let right = self.fold_uint_expression(right);
 
-                UExpression::or(force_reduce(left), force_reduce(right)).metadata(UMetadata {
-                    max: range_max.clone(),
-                    should_reduce: Some(false),
-                })
+                UExpression::or(force_reduce(left), force_reduce(right)).with_max(range_max)
             }
             Mult(box left, box right) => {
                 // reduce the two terms
@@ -233,48 +222,36 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 let left = if should_reduce_left {
                     force_reduce(left)
                 } else {
-                    left
+                    force_no_reduce(left)
                 };
                 let right = if should_reduce_right {
                     force_reduce(right)
                 } else {
-                    right
+                    force_no_reduce(right)
                 };
 
-                UExpression::mult(left, right).metadata(UMetadata {
-                    max,
-                    should_reduce: Some(false),
-                })
+                UExpression::mult(left, right).with_max(max)
             }
             Not(box e) => {
                 let e = self.fold_uint_expression(e);
 
                 UExpressionInner::Not(box force_reduce(e))
                     .annotate(range)
-                    .metadata(UMetadata {
-                        max: range_max.clone(),
-                        should_reduce: Some(false),
-                    })
+                    .with_max(range_max)
             }
             LeftShift(box e, box by) => {
                 // reduce the two terms
                 let e = self.fold_uint_expression(e);
                 let by = self.fold_field_expression(by);
 
-                UExpression::left_shift(force_reduce(e), by).metadata(UMetadata {
-                    max: range_max.clone(),
-                    should_reduce: Some(true),
-                })
+                UExpression::left_shift(force_reduce(e), by).with_max(range_max)
             }
             RightShift(box e, box by) => {
                 // reduce the two terms
                 let e = self.fold_uint_expression(e);
                 let by = self.fold_field_expression(by);
 
-                UExpression::right_shift(force_reduce(e), by).metadata(UMetadata {
-                    max: range_max.clone(),
-                    should_reduce: Some(false),
-                })
+                UExpression::right_shift(force_reduce(e), by).with_max(range_max)
             }
             IfElse(box condition, box consequence, box alternative) => {
                 let consequence = self.fold_uint_expression(consequence);
@@ -288,10 +265,12 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     alternative_max.into_big_uint(),
                 );
 
-                UExpression::if_else(condition, consequence, alternative).metadata(UMetadata {
-                    max: max.into(),
-                    should_reduce: Some(false),
-                })
+                UExpression::if_else(
+                    condition,
+                    force_no_reduce(consequence),
+                    force_no_reduce(alternative),
+                )
+                .with_max(max)
             }
         };
 
@@ -323,13 +302,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                         ZirExpression::Uint(e) => {
                             let e = self.fold_uint_expression(e);
 
-                            let e = UExpression {
-                                metadata: Some(UMetadata {
-                                    should_reduce: Some(true),
-                                    ..e.metadata.unwrap()
-                                }),
-                                ..e
-                            };
+                            let e = force_reduce(e);
 
                             ZirExpression::Uint(e)
                         }
@@ -345,7 +318,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                             lhs[0].clone(),
                             UMetadata {
                                 max: T::from(2).pow(32) - T::from(1),
-                                should_reduce: Some(false),
+                                should_reduce: ShouldReduce::False,
                             },
                         );
                         vec![ZirStatement::MultipleDefinition(
@@ -370,19 +343,9 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
             ZirStatement::Condition(lhs, rhs) => {
                 match (self.fold_expression(lhs), self.fold_expression(rhs)) {
                     (ZirExpression::Uint(lhs), ZirExpression::Uint(rhs)) => {
-                        let lhs_metadata = lhs.metadata.clone().unwrap();
-                        let rhs_metadata = rhs.metadata.clone().unwrap();
                         vec![ZirStatement::Condition(
-                            lhs.metadata(UMetadata {
-                                should_reduce: Some(true),
-                                ..lhs_metadata
-                            })
-                            .into(),
-                            rhs.metadata(UMetadata {
-                                should_reduce: Some(true),
-                                ..rhs_metadata
-                            })
-                            .into(),
+                            force_reduce(lhs).into(),
+                            force_reduce(rhs).into(),
                         )]
                     }
                     (lhs, rhs) => vec![ZirStatement::Condition(lhs, rhs)],
@@ -395,13 +358,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
     fn fold_parameter(&mut self, p: Parameter<'ast>) -> Parameter<'ast> {
         let id = match p.id.get_type() {
             Type::Uint(bitwidth) => {
-                self.register(
-                    p.id.clone(),
-                    UMetadata {
-                        max: T::from(2_u32).pow(bitwidth) - T::from(1),
-                        should_reduce: Some(false),
-                    },
-                );
+                self.register(p.id.clone(), UMetadata::parameter(bitwidth));
                 p.id
             }
             _ => p.id,

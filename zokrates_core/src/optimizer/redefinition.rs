@@ -22,29 +22,30 @@
 
 // ## Optimization rules
 
-// We maintain, `s` a set of substitutions as a mapping of `(variable => linear_combination)`. It starts empty.
+// We maintain `s`, a set of substitutions as a mapping of `(variable => linear_combination)`. It starts empty.
+// We also maintaint `i`, a set of variables that should be ignored when trying to substitute. It starts empty.
 
-// - input variables are inserted in the substitution as `(v, [(1, v)])`
-// - the `~one` variable is inserted as `(~one, [(1, ~one)])`
-// - For each directive, for each variable `v` introduced, insert `(v, [(1, v)])`
+// - input variables are inserted into `i`
+// - the `~one` variable is inserted into `i`
+// - For each directive, for each variable `v` introduced, insert `v` into `i`
 // - For each constraint `c`, we replace all variables by their value in `s` if any, otherwise leave them unchanged. Let's call `c_0` the resulting constraint. We either return `c_0` or nothing based on the form of `c_0`:
-//     - `~one * lin == k * v if v isn't defined`: insert `(v, lin / k)` and return nothing
-//     - `q == k * v if v isn't defined`: insert `(v, [(1, v)])` and return `c_0`
+//     - `~one * lin == k * v if v isn't in i`: insert `(v, lin / k)` into `s` and return nothing
+//     - `q == k * v if v isn't in i`: insert `v` into `i` and return `c_0`
 //     - otherwise return `c_0`
 
-use std::collections::HashSet;
 use crate::flat_absy::flat_variable::FlatVariable;
 use crate::ir::folder::{fold_function, fold_statement, Folder};
 use crate::ir::LinComb;
 use crate::ir::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use zokrates_field::Field;
 
 #[derive(Debug)]
 pub struct RedefinitionOptimizer<T: Field> {
     /// Map of renamings for reassigned variables while processing the program.
     substitution: HashMap<FlatVariable, LinComb<T>>,
-    ignore: HashSet<FlatVariable>
+    /// Set of variables that should not be substituted
+    ignore: HashSet<FlatVariable>,
 }
 
 impl<T: Field> RedefinitionOptimizer<T> {
@@ -70,7 +71,7 @@ impl<T: Field> RedefinitionOptimizer<T> {
 }
 
 impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
-    fn fold_statement(&mut self, s: Statement<T>) -> Option<Statement<T>> {
+    fn fold_statement(&mut self, s: Statement<T>) -> Vec<Statement<T>> {
         match s {
             Statement::Constraint(quad, lin) => {
                 let quad = self.fold_quadratic_combination(quad);
@@ -81,27 +82,31 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                         // if the right side is a single variable
                         Some((variable, coefficient)) => {
                             match self.ignore.contains(&variable) {
+                                // if the variable isn't tagged as ignored
                                 false => match self.substitution.get(&variable) {
                                     // if the variable is already defined
                                     Some(_) => (true, None, None),
                                     // if the variable is not defined yet
                                     None => match quad.try_linear() {
                                         // if the left side is linear
-                                        Some(l) => (false, Some((variable, l / &coefficient)), None),
+                                        Some(l) => {
+                                            (false, Some((variable, l / &coefficient)), None)
+                                        }
                                         // if the left side isn't linear
                                         None => (true, None, Some(variable)),
                                     },
                                 },
-                                true => (true, None, None)
+                                true => (true, None, None),
                             }
                         }
                         None => (true, None, None),
                     };
 
+                    // insert into the ignored set
                     match to_ignore {
                         Some(v) => {
                             self.ignore.insert(v);
-                        },
+                        }
                         None => {}
                     }
 
@@ -115,43 +120,39 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
 
                     // decide whether the constraint should be kept
                     match keep_constraint {
-                        false => None,
-                        true => Some(Statement::Constraint(quad, lin)),
+                        false => vec![],
+                        true => vec![Statement::Constraint(quad, lin)],
                     }
                 } else {
-                    Some(Statement::Constraint(quad, lin))
+                    vec![Statement::Constraint(quad, lin)]
                 }
             }
             Statement::Directive(d) => {
                 let d = self.fold_directive(d);
-                // to prevent the optimiser from replacing variables introduced by directives, add them to the substitution
+                // to prevent the optimiser from replacing variables introduced by directives, add them to the ignored set
                 for o in d.outputs.iter().cloned() {
                     self.ignore.insert(o);
                 }
-                Some(Statement::Directive(d))
+                vec![Statement::Directive(d)]
             }
             s => fold_statement(self, s),
         }
     }
 
     fn fold_linear_combination(&mut self, lc: LinComb<T>) -> LinComb<T> {
-        println!("fold");
         // for each summand, check if it is equal to a linear term in our substitution, otherwise keep it as is
-        let res = lc.0.into_iter()
+        lc.0.into_iter()
             .map(|(variable, coefficient)| {
-                (self.substitution
+                self.substitution
                     .get(&variable)
-                    .map(|l| l.clone())
-                    .unwrap_or(variable.into()), coefficient)
+                    .map(|l| l.clone() * &coefficient)
+                    .unwrap_or(LinComb::summand(coefficient, variable))
             })
-            .fold(LinComb::zero(), |acc, (l, coeff)| acc + l * &coeff);
-
-        println!("folded");
-        res
+            .fold(LinComb::zero(), |acc, x| acc + x)
     }
 
     fn fold_argument(&mut self, a: FlatVariable) -> FlatVariable {
-        // to prevent the optimiser from replacing user input, add it to the substitution
+        // to prevent the optimiser from replacing user input, add it to the ignored set
         self.ignore.insert(a);
         a
     }
@@ -160,13 +161,11 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
         self.substitution.drain();
         self.ignore.drain();
 
-        // to prevent the optimiser from replacing outputs, add them to the substitution
-        self.ignore
-            .extend(fun.returns.iter().cloned());
+        // to prevent the optimiser from replacing outputs, add them to the ignored set
+        self.ignore.extend(fun.returns.iter().cloned());
 
-        // to prevent the optimiser from replacing ~one, add it to the substitution
-        self.ignore
-            .insert(FlatVariable::one());
+        // to prevent the optimiser from replacing ~one, add it to the ignored set
+        self.ignore.insert(FlatVariable::one());
 
         fold_function(self, fun)
     }

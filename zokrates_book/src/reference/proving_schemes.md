@@ -26,6 +26,7 @@ When not using the default, the CLI flag has to be provided for the following co
 - `setup`
 - `export-verifier`
 - `generate-proof`
+- `verify`
 
 ## Supporting backends
 
