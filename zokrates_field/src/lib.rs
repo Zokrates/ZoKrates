@@ -79,7 +79,10 @@ pub trait Field:
     fn min_value() -> Self;
     /// Returns the largest value that can be represented by this field type.
     fn max_value() -> Self;
-    /// Returns the number of required bits to represent this field type.
+    /// Returns the largest value `m` such that there exist a number of bits `n` so that any value smaller or equal to
+    /// m` has a single `n`-bit decomposition
+    fn max_unique_value() -> Self;
+    /// Returns the number of bits required to represent any element of this field type.
     fn get_required_bits() -> usize;
     /// Tries to parse a string into this representation
     fn try_from_dec_str<'a>(s: &'a str) -> Result<Self, ()>;
@@ -165,6 +168,13 @@ mod prime_field {
                 fn max_value() -> FieldPrime {
                     FieldPrime {
                         value: &*P - ToBigInt::to_bigint(&1).unwrap(),
+                    }
+                }
+                fn max_unique_value() -> FieldPrime {
+                    use num_traits::Pow;
+
+                    FieldPrime {
+                        value: BigInt::from(2u32).pow(Self::get_required_bits() - 1) - 1,
                     }
                 }
                 fn get_required_bits() -> usize {
@@ -414,29 +424,35 @@ mod prime_field {
 
             impl num_traits::CheckedAdd for FieldPrime {
                 fn checked_add(&self, other: &Self) -> Option<Self> {
-                    use num_traits::Pow;
-                    let res = self.value.clone() + other.value.clone();
+                    let bound = Self::max_unique_value();
 
-                    let bound = BigInt::from(2u32).pow(Self::get_required_bits() - 1);
+                    assert!(self <= &bound);
+                    assert!(other <= &bound);
 
-                    // we only go up to 2**(bitwidth - 1) because after that we lose uniqueness of bit decomposition
-                    if res >= bound {
+                    let big_res = self.value.clone() + other.value.clone();
+
+                    if big_res > bound.value {
                         None
                     } else {
-                        Some(FieldPrime { value: res })
+                        Some(FieldPrime { value: big_res })
                     }
                 }
             }
 
             impl num_traits::CheckedMul for FieldPrime {
                 fn checked_mul(&self, other: &Self) -> Option<Self> {
-                    use num_traits::Pow;
-                    let res = self.value.clone() * other.value.clone();
+                    let bound = Self::max_unique_value();
+
+                    assert!(self <= &bound);
+                    assert!(other <= &bound);
+
+                    let big_res = self.value.clone() * other.value.clone();
+
                     // we only go up to 2**(bitwidth - 1) because after that we lose uniqueness of bit decomposition
-                    if res >= BigInt::from(2u32).pow(Self::get_required_bits() - 1) {
+                    if big_res > bound.value {
                         None
                     } else {
-                        Some(FieldPrime { value: res })
+                        Some(FieldPrime { value: big_res })
                     }
                 }
             }

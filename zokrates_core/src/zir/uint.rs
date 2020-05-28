@@ -29,6 +29,11 @@ impl<'ast, T: Field> UExpression<'ast, T> {
         UExpressionInner::Xor(box self, box other).annotate(bitwidth)
     }
 
+    pub fn not(self) -> UExpression<'ast, T> {
+        let bitwidth = self.bitwidth;
+        UExpressionInner::Not(box self).annotate(bitwidth)
+    }
+
     pub fn or(self, other: Self) -> UExpression<'ast, T> {
         let bitwidth = self.bitwidth;
         assert_eq!(bitwidth, other.bitwidth);

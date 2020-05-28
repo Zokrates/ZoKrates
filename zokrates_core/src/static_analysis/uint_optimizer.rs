@@ -126,7 +126,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
                 // `2**n - max_left <= a - b + 2 ** n <= bound  where  bound = max_left + offset`
 
-                // If ´bound < N´, we set we return `bound` as the max of ´left - right`
+                // If ´bound < N´, we return `bound` as the max of ´left - right`
                 // Else we start again, reducing `left`. In this case `max_left` becomes `2**target - 1`
                 // Else we start again, reducing `right`. In this case `offset` becomes `2**target`
                 // Else we start again reducing both. In this case `bound` becomes `2**(target+1) - 1` which is always
@@ -141,25 +141,33 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
                 let offset =
                     T::from(2u32).pow(std::cmp::max(right_bitwidth, range as u32) as usize);
+
                 let target_offset = T::from(2u32).pow(range);
 
-                let (should_reduce_left, should_reduce_right, max) = left_max
-                    .checked_add(&offset)
-                    .map(|max| (false, false, max))
-                    .unwrap_or_else(|| {
-                        range_max
-                            .clone()
+                let (should_reduce_left, should_reduce_right, max) =
+                    if right_bitwidth as usize == T::get_required_bits() - 1 {
+                        // if and only if `right_bitwidth` is `T::get_required_bits() - 1`, then `offset` is out of the interval
+                        // [0, 2**(max_bitwidth)[, therefore we need to reduce `right`
+                        left_max
+                            .checked_add(&target_offset.clone())
+                            .map(|max| (false, true, max))
+                            .unwrap_or_else(|| (true, true, range_max.clone() + target_offset))
+                    } else {
+                        left_max
                             .checked_add(&offset)
-                            .map(|max| (true, false, max))
+                            .map(|max| (false, false, max))
                             .unwrap_or_else(|| {
-                                left_max
-                                    .checked_add(&target_offset.clone())
-                                    .map(|max| (false, true, max))
-                                    .unwrap_or_else(|| {
-                                        (true, true, range_max.clone() + target_offset)
-                                    })
+                                range_max
+                                    .clone()
+                                    .checked_add(&offset)
+                                    .map(|max| (true, false, max))
+                                    .unwrap_or_else(
+                                        // this is unreachable because the max value for `range_max + offset` is
+                                        // 2**32 + 2**(T::get_required_bits() - 2) < 2**(T::get_required_bits() - 1)
+                                        || unreachable!(),
+                                    )
                             })
-                    });
+                    };
 
                 let left = if should_reduce_left {
                     force_reduce(left)
@@ -244,14 +252,39 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 let e = self.fold_uint_expression(e);
                 let by = self.fold_field_expression(by);
 
-                UExpression::left_shift(force_reduce(e), by).with_max(range_max)
+                let by_u = match by {
+                    FieldElementExpression::Number(ref by) => {
+                        by.to_dec_string().parse::<usize>().unwrap()
+                    }
+                    _ => unreachable!(),
+                };
+
+                let bitwidth = e.metadata.clone().unwrap().bitwidth();
+
+                let max =
+                    T::from(2).pow(std::cmp::min(bitwidth as usize + by_u, range)) - T::from(1);
+
+                UExpression::left_shift(force_reduce(e), by).with_max(max)
             }
             RightShift(box e, box by) => {
                 // reduce the two terms
                 let e = self.fold_uint_expression(e);
                 let by = self.fold_field_expression(by);
 
-                UExpression::right_shift(force_reduce(e), by).with_max(range_max)
+                let by_u = match by {
+                    FieldElementExpression::Number(ref by) => {
+                        by.to_dec_string().parse::<usize>().unwrap()
+                    }
+                    _ => unreachable!(),
+                };
+
+                let bitwidth = e.metadata.clone().unwrap().bitwidth();
+
+                let max = T::from(2)
+                    .pow(bitwidth as usize - std::cmp::min(by_u, bitwidth as usize))
+                    - T::from(1);
+
+                UExpression::right_shift(force_reduce(e), by).with_max(max)
             }
             IfElse(box condition, box consequence, box alternative) => {
                 let consequence = self.fold_uint_expression(consequence);
@@ -375,99 +408,227 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 mod tests {
     use super::*;
     use zokrates_field::Bn128Field;
-    use zokrates_field::Pow;
 
-    // #[should_panic]
-    // #[test]
-    // fn existing_metadata() {
-    //     let e = UExpressionInner::Identifier("foo".into())
-    //         .annotate(32)
-    //         .metadata(UMetadata::with_max(2_u32.pow(33_u32) - 1));
+    extern crate pretty_assertions;
+    use self::pretty_assertions::assert_eq;
 
-    //     let mut optimizer: UintOptimizer<Bn128Field> = UintOptimizer::new();
+    macro_rules! uint_test {
+        ( $left_max:expr, $left_reduce:expr, $right_max:expr, $right_reduce:expr, $method:ident, $res_max:expr  ) => {{
+            let left = e_with_max($left_max);
 
-    //     let _ = optimizer.fold_uint_expression(e.clone());
-    // }
+            let right = e_with_max($right_max);
+
+            let left_expected = if $left_reduce {
+                force_reduce(left.clone())
+            } else {
+                force_no_reduce(left.clone())
+            };
+
+            let right_expected = if $right_reduce {
+                force_reduce(right.clone())
+            } else {
+                force_no_reduce(right.clone())
+            };
+
+            assert_eq!(
+                UintOptimizer::new()
+                    .fold_uint_expression(UExpression::$method(left.clone(), right.clone())),
+                UExpression::$method(left_expected, right_expected).with_max($res_max)
+            );
+        }};
+    }
+
+    fn e_with_max<'a, U: Into<Bn128Field>>(max: U) -> UExpression<'a, Bn128Field> {
+        UExpressionInner::Identifier("foo".into())
+            .annotate(32)
+            .metadata(UMetadata::with_max(max))
+    }
 
     #[test]
     fn add() {
-        // max(left + right) = max(left) + max(right)
-
-        let left: UExpression<Bn128Field> = UExpressionInner::Identifier("foo".into())
-            .annotate(32)
-            .metadata(UMetadata::with_max(42u32));
-
-        let right = UExpressionInner::Identifier("foo".into())
-            .annotate(32)
-            .metadata(UMetadata::with_max(33u32));
-
-        assert_eq!(
-            UintOptimizer::new()
-                .fold_uint_expression(UExpression::add(left, right))
-                .metadata
-                .unwrap()
-                .max,
-            75u32.into()
+        // no reduction
+        uint_test!(42, false, 33, false, add, 75);
+        // left reduction
+        uint_test!(
+            Bn128Field::max_unique_value(),
+            true,
+            1,
+            false,
+            add,
+            0x100000000_u128
+        );
+        // right reduction
+        uint_test!(
+            1,
+            false,
+            Bn128Field::max_unique_value(),
+            true,
+            add,
+            0x100000000_u128
+        );
+        // right and left reductions
+        uint_test!(
+            Bn128Field::max_unique_value(),
+            true,
+            Bn128Field::max_unique_value(),
+            true,
+            add,
+            0x1fffffffe_u128
         );
     }
 
     #[test]
     fn sub() {
-        // `left` and `right` are smaller than the target
-        let left: UExpression<Bn128Field> = UExpressionInner::Identifier("a".into())
-            .annotate(32)
-            .metadata(UMetadata::with_max(42u32));
+        // no reduction
+        uint_test!(42, false, 33, false, sub, 0x100000000_u128 + 42);
+        // left reduction
+        uint_test!(
+            Bn128Field::max_unique_value(),
+            true,
+            1,
+            false,
+            sub,
+            0x1ffffffff_u128
+        );
+        // right reduction
+        uint_test!(
+            1,
+            false,
+            Bn128Field::max_unique_value(),
+            true,
+            sub,
+            0x100000001_u128
+        );
+        // right and left reductions
+        uint_test!(
+            Bn128Field::max_unique_value(),
+            true,
+            Bn128Field::max_unique_value(),
+            true,
+            sub,
+            0x1ffffffff_u128
+        );
+    }
 
-        let right = UExpressionInner::Identifier("b".into())
-            .annotate(32)
-            .metadata(UMetadata::with_max(33u32));
+    #[test]
+    fn mult() {
+        // no reduction
+        uint_test!(42, false, 33, false, mult, 1386);
+        // left reduction
+        uint_test!(
+            Bn128Field::max_unique_value(),
+            true,
+            2,
+            false,
+            mult,
+            0x1fffffffe_u128
+        );
+        // right reduction
+        uint_test!(
+            2,
+            false,
+            Bn128Field::max_unique_value(),
+            true,
+            mult,
+            0x1fffffffe_u128
+        );
+        // right and left reductions
+        uint_test!(
+            Bn128Field::max_unique_value(),
+            true,
+            Bn128Field::max_unique_value(),
+            true,
+            mult,
+            0xfffffffe00000001_u128
+        );
+    }
+
+    #[test]
+    fn bitwise() {
+        // xor
+        uint_test!(42, true, 33, true, xor, 0xffffffff_u32);
+        // or
+        uint_test!(42, true, 33, true, or, 0xffffffff_u32);
+        // and
+        uint_test!(42, true, 33, true, and, 0xffffffff_u32);
+        // not
+        let e = e_with_max(255);
+
+        let e_expected = force_reduce(e.clone());
 
         assert_eq!(
-            UintOptimizer::new()
-                .fold_uint_expression(UExpression::sub(left, right))
-                .metadata
-                .unwrap()
-                .max,
-            Bn128Field::from(2u32).pow(32) + Bn128Field::from(42)
+            UintOptimizer::new().fold_uint_expression(UExpression::not(e)),
+            UExpression::not(e_expected).with_max(0xffffffff_u32)
+        );
+    }
+
+    #[test]
+    fn right_shift() {
+        let e = e_with_max(255);
+
+        let e_expected = force_reduce(e.clone());
+
+        assert_eq!(
+            UintOptimizer::new().fold_uint_expression(UExpression::right_shift(
+                e,
+                FieldElementExpression::Number(Bn128Field::from(2))
+            )),
+            UExpression::right_shift(
+                e_expected,
+                FieldElementExpression::Number(Bn128Field::from(2))
+            )
+            .with_max(63)
         );
 
-        // `left` and `right` are larger than the target but no readjustment is required
-        let left: UExpression<Bn128Field> = UExpressionInner::Identifier("a".into())
-            .annotate(32)
-            .metadata(UMetadata::with_max(u64::MAX as u128));
+        let e = e_with_max(2);
 
-        let right = UExpressionInner::Identifier("b".into())
-            .annotate(32)
-            .metadata(UMetadata::with_max(u64::MAX as u128));
+        let e_expected = force_reduce(e.clone());
 
         assert_eq!(
-            UintOptimizer::new()
-                .fold_uint_expression(UExpression::sub(left, right))
-                .metadata
-                .unwrap()
-                .max,
-            Bn128Field::from(2).pow(64) + Bn128Field::from(u64::MAX as u128)
+            UintOptimizer::new().fold_uint_expression(UExpression::right_shift(
+                e,
+                FieldElementExpression::Number(Bn128Field::from(2))
+            )),
+            UExpression::right_shift(
+                e_expected,
+                FieldElementExpression::Number(Bn128Field::from(2))
+            )
+            .with_max(0)
+        );
+    }
+
+    #[test]
+    fn left_shift() {
+        let e = e_with_max(255);
+
+        let e_expected = force_reduce(e.clone());
+
+        assert_eq!(
+            UintOptimizer::new().fold_uint_expression(UExpression::left_shift(
+                e,
+                FieldElementExpression::Number(Bn128Field::from(2))
+            )),
+            UExpression::left_shift(
+                e_expected,
+                FieldElementExpression::Number(Bn128Field::from(2))
+            )
+            .with_max(1023)
         );
 
-        // `left` and `right` are larger than the target and needs to be readjusted
-        let left: UExpression<Bn128Field> = UExpressionInner::Identifier("a".into())
-            .annotate(32)
-            .metadata(UMetadata::with_max(
-                Bn128Field::from(2u32).pow(Bn128Field::get_required_bits() - 1)
-                    - Bn128Field::from(1),
-            ));
+        let e = e_with_max(0xffffffff_u32);
 
-        let right = UExpressionInner::Identifier("b".into())
-            .annotate(32)
-            .metadata(UMetadata::with_max(42u32));
+        let e_expected = force_reduce(e.clone());
 
         assert_eq!(
-            UintOptimizer::new()
-                .fold_uint_expression(UExpression::sub(left, right))
-                .metadata
-                .unwrap()
-                .max,
-            Bn128Field::from(2u32).pow(32) * Bn128Field::from(2) - Bn128Field::from(1)
+            UintOptimizer::new().fold_uint_expression(UExpression::left_shift(
+                e,
+                FieldElementExpression::Number(Bn128Field::from(2))
+            )),
+            UExpression::left_shift(
+                e_expected,
+                FieldElementExpression::Number(Bn128Field::from(2))
+            )
+            .with_max(0xffffffff_u32)
         );
     }
 
