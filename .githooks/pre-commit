@@ -12,7 +12,7 @@ fi
 
 files=()
 
-for file in $(git diff --name-only --cached); do
+for file in $(git diff --diff-filter=d --name-only --cached); do
     if [ ${file: -3} == ".rs" ]; then
         rustfmt +nightly --check $file &>/dev/null
         if [ $? != 0 ]; then
