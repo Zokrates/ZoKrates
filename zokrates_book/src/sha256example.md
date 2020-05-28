@@ -115,7 +115,7 @@ In the example we're considering, all inputs are private and there is a single r
 
 Peggy can then submit her proof by calling `verifyTx`.
 
-Victor monitors the verification smart contract for the `Verified` event, which is emitted upon successful verification of a transaction. As soon as he observes the event triggered by a transaction from Peggy's public address, he can be sure that Peggy has a valid pre-image for the hash he set in the smart contract.
+Victor monitors the verification smart contract for the return value of Peggy's transaction. As soon as he observes a transaction from Peggy's public address with a `true` return value, he can be sure that she has a valid pre-image for the hash he set in the smart contract.
 
 ## Conclusion
 
