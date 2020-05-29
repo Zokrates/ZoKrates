@@ -142,7 +142,15 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                             .collect();
 
                         if arguments.iter().all(|a| is_constant(a))
-                            && (key.id == "_U32_FROM_BITS" || key.id == "_U32_TO_BITS")
+                            && [
+                                "_U32_FROM_BITS",
+                                "_U16_FROM_BITS",
+                                "_U8_FROM_BITS",
+                                "_U32_TO_BITS",
+                                "_U16_TO_BITS",
+                                "_U8_TO_BITS",
+                            ]
+                            .contains(&key.id)
                         {
                             let expr: TypedExpression<'ast, T> = if key.id == "_U32_FROM_BITS" {
                                 assert_eq!(variables.len(), 1);
@@ -180,6 +188,78 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                     },
                                     _ => unreachable!("should be an array"),
                                 }
+                            } else if key.id == "_U16_FROM_BITS" {
+                                assert_eq!(variables.len(), 1);
+                                assert_eq!(arguments.len(), 1);
+
+                                use std::convert::TryInto;
+
+                                match arguments[0].clone() {
+                                    TypedExpression::Array(a) => match a.into_inner() {
+                                        ArrayExpressionInner::Value(v) => {
+                                            assert_eq!(v.len(), 16);
+                                            UExpressionInner::Value(
+                                                v.into_iter()
+                                                    .map(|v| match v {
+                                                        TypedExpression::Boolean(
+                                                            BooleanExpression::Value(v),
+                                                        ) => v,
+                                                        _ => unreachable!("should be a boolean"),
+                                                    })
+                                                    .enumerate()
+                                                    .fold(0, |acc, (i, v)| {
+                                                        if v {
+                                                            acc + 2u128.pow(
+                                                                (16 - i - 1).try_into().unwrap(),
+                                                            )
+                                                        } else {
+                                                            acc
+                                                        }
+                                                    }),
+                                            )
+                                            .annotate(16)
+                                            .into()
+                                        }
+                                        _ => unreachable!("should be an array value"),
+                                    },
+                                    _ => unreachable!("should be an array"),
+                                }
+                            } else if key.id == "_U8_FROM_BITS" {
+                                assert_eq!(variables.len(), 1);
+                                assert_eq!(arguments.len(), 1);
+
+                                use std::convert::TryInto;
+
+                                match arguments[0].clone() {
+                                    TypedExpression::Array(a) => match a.into_inner() {
+                                        ArrayExpressionInner::Value(v) => {
+                                            assert_eq!(v.len(), 8);
+                                            UExpressionInner::Value(
+                                                v.into_iter()
+                                                    .map(|v| match v {
+                                                        TypedExpression::Boolean(
+                                                            BooleanExpression::Value(v),
+                                                        ) => v,
+                                                        _ => unreachable!("should be a boolean"),
+                                                    })
+                                                    .enumerate()
+                                                    .fold(0, |acc, (i, v)| {
+                                                        if v {
+                                                            acc + 2u128.pow(
+                                                                (8 - i - 1).try_into().unwrap(),
+                                                            )
+                                                        } else {
+                                                            acc
+                                                        }
+                                                    }),
+                                            )
+                                            .annotate(8)
+                                            .into()
+                                        }
+                                        _ => unreachable!("should be an array value"),
+                                    },
+                                    _ => unreachable!("should be an array"),
+                                }
                             } else if key.id == "_U32_TO_BITS" {
                                 assert_eq!(variables.len(), 1);
                                 assert_eq!(arguments.len(), 1);
@@ -206,6 +286,70 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                                     .collect(),
                                             )
                                             .annotate(Type::Boolean, 32)
+                                            .into()
+                                        }
+                                        _ => unreachable!("should be a uint value"),
+                                    },
+                                    _ => unreachable!("should be a uint"),
+                                }
+                            } else if key.id == "_U16_TO_BITS" {
+                                assert_eq!(variables.len(), 1);
+                                assert_eq!(arguments.len(), 1);
+
+                                match arguments[0].clone() {
+                                    TypedExpression::Uint(a) => match a.into_inner() {
+                                        UExpressionInner::Value(v) => {
+                                            let mut num = v;
+                                            let mut res = vec![];
+
+                                            for i in (0..16).rev() {
+                                                if 2u128.pow(i) <= num {
+                                                    num = num - 2u128.pow(i);
+                                                    res.push(true);
+                                                } else {
+                                                    res.push(false);
+                                                }
+                                            }
+                                            assert_eq!(num, 0);
+
+                                            ArrayExpressionInner::Value(
+                                                res.into_iter()
+                                                    .map(|v| BooleanExpression::Value(v).into())
+                                                    .collect(),
+                                            )
+                                            .annotate(Type::Boolean, 16)
+                                            .into()
+                                        }
+                                        _ => unreachable!("should be a uint value"),
+                                    },
+                                    _ => unreachable!("should be a uint"),
+                                }
+                            } else if key.id == "_U8_TO_BITS" {
+                                assert_eq!(variables.len(), 1);
+                                assert_eq!(arguments.len(), 1);
+
+                                match arguments[0].clone() {
+                                    TypedExpression::Uint(a) => match a.into_inner() {
+                                        UExpressionInner::Value(v) => {
+                                            let mut num = v;
+                                            let mut res = vec![];
+
+                                            for i in (0..8).rev() {
+                                                if 2u128.pow(i) <= num {
+                                                    num = num - 2u128.pow(i);
+                                                    res.push(true);
+                                                } else {
+                                                    res.push(false);
+                                                }
+                                            }
+                                            assert_eq!(num, 0);
+
+                                            ArrayExpressionInner::Value(
+                                                res.into_iter()
+                                                    .map(|v| BooleanExpression::Value(v).into())
+                                                    .collect(),
+                                            )
+                                            .annotate(Type::Boolean, 8)
                                             .into()
                                         }
                                         _ => unreachable!("should be a uint value"),

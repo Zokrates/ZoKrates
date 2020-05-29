@@ -108,25 +108,36 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         let sha256_round = crate::embed::FlatEmbed::Sha256Round;
         let sha256_round_key = sha256_round.key::<T>();
 
-        // define a function in the main module for the `check_u8` embed
-        let check_u8 = crate::embed::FlatEmbed::CheckU8;
-        let check_u8_key = check_u8.key::<T>();
-
-        // define a function in the main module for the `check_u8` embed
-        let check_u16 = crate::embed::FlatEmbed::CheckU16;
-        let check_u16_key = check_u16.key::<T>();
-
-        // define a function in the main module for the `check_u8` embed
-        let check_u32 = crate::embed::FlatEmbed::CheckU32;
-        let check_u32_key = check_u32.key::<T>();
-
         // define a function in the main module for the `u32_to_bits` embed
         let u32_to_bits = crate::embed::FlatEmbed::U32ToBits;
         let u32_to_bits_key = u32_to_bits.key::<T>();
 
-        // define a function in the main module for the `u32_to_bits` embed
+        // define a function in the main module for the `u16_to_bits` embed
+        let u16_to_bits = crate::embed::FlatEmbed::U16ToBits;
+        let u16_to_bits_key = u16_to_bits.key::<T>();
+
+        // define a function in the main module for the `u8_to_bits` embed
+        let u8_to_bits = crate::embed::FlatEmbed::U8ToBits;
+        let u8_to_bits_key = u8_to_bits.key::<T>();
+
+        // define a function in the main module for the `u32_from_bits` embed
         let u32_from_bits = crate::embed::FlatEmbed::U32FromBits;
         let u32_from_bits_key = u32_from_bits.key::<T>();
+
+        // define a function in the main module for the `u16_from_bits` embed
+        let u16_from_bits = crate::embed::FlatEmbed::U16FromBits;
+        let u16_from_bits_key = u16_from_bits.key::<T>();
+
+        // define a function in the main module for the `u8_from_bits` embed
+        let u8_from_bits = crate::embed::FlatEmbed::U8FromBits;
+        let u8_from_bits_key = u8_from_bits.key::<T>();
+
+        println!("{:?}", unpack_key);
+        println!(
+            "{:?}",
+            crate::embed::FlatEmbed::Unpack(T::get_required_bits()).signature()
+        );
+        println!("{:?}", crate::embed::FlatEmbed::U32FromBits.signature());
 
         // return a program with a single module containing `main`, `_UNPACK`, and `_SHA256_ROUND
         TypedProgram {
@@ -137,11 +148,12 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                     functions: vec![
                         (unpack_key, TypedFunctionSymbol::Flat(unpack)),
                         (sha256_round_key, TypedFunctionSymbol::Flat(sha256_round)),
-                        (check_u8_key, TypedFunctionSymbol::Flat(check_u8)),
-                        (check_u16_key, TypedFunctionSymbol::Flat(check_u16)),
-                        (check_u32_key, TypedFunctionSymbol::Flat(check_u32)),
-                        (u32_to_bits_key, TypedFunctionSymbol::Flat(u32_to_bits)),
                         (u32_from_bits_key, TypedFunctionSymbol::Flat(u32_from_bits)),
+                        (u16_from_bits_key, TypedFunctionSymbol::Flat(u16_from_bits)),
+                        (u8_from_bits_key, TypedFunctionSymbol::Flat(u8_from_bits)),
+                        (u32_to_bits_key, TypedFunctionSymbol::Flat(u32_to_bits)),
+                        (u16_to_bits_key, TypedFunctionSymbol::Flat(u16_to_bits)),
+                        (u8_to_bits_key, TypedFunctionSymbol::Flat(u8_to_bits)),
                         (main_key, main),
                     ]
                     .into_iter()

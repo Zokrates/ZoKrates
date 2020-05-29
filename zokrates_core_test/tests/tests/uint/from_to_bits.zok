@@ -1,6 +1,12 @@
-import "EMBED/u32_to_bits" as to_bits
-import "EMBED/u32_from_bits" as from_bits
+import "EMBED/u32_to_bits" as to_bits_32
+import "EMBED/u32_from_bits" as from_bits_32
+import "EMBED/u16_to_bits" as to_bits_16
+import "EMBED/u16_from_bits" as from_bits_16
+import "EMBED/u8_to_bits" as to_bits_8
+import "EMBED/u8_from_bits" as from_bits_8
 
-def main(u32 e) -> (u32):
-	bool[32] f = to_bits(e)
-	return from_bits(f)
+def main(u32 e, u16 f, u8 g) -> (u32, u16, u8):
+	bool[32] e_bits = to_bits_32(e)
+	bool[16] f_bits = to_bits_16(f)
+	bool[8] g_bits = to_bits_8(g)
+	return from_bits_32(e_bits), from_bits_16(f_bits), from_bits_8(g_bits)

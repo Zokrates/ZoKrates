@@ -359,6 +359,34 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                             ZirExpressionList::FunctionCall(key, arguments, ty),
                         )]
                     }
+                    "_U16_FROM_BITS" => {
+                        assert_eq!(lhs.len(), 1);
+                        self.register(
+                            lhs[0].clone(),
+                            UMetadata {
+                                max: T::from(2).pow(16) - T::from(1),
+                                should_reduce: ShouldReduce::False,
+                            },
+                        );
+                        vec![ZirStatement::MultipleDefinition(
+                            lhs,
+                            ZirExpressionList::FunctionCall(key, arguments, ty),
+                        )]
+                    }
+                    "_U8_FROM_BITS" => {
+                        assert_eq!(lhs.len(), 1);
+                        self.register(
+                            lhs[0].clone(),
+                            UMetadata {
+                                max: T::from(2).pow(8) - T::from(1),
+                                should_reduce: ShouldReduce::False,
+                            },
+                        );
+                        vec![ZirStatement::MultipleDefinition(
+                            lhs,
+                            ZirExpressionList::FunctionCall(key, arguments, ty),
+                        )]
+                    }
                     _ => vec![ZirStatement::MultipleDefinition(
                         lhs,
                         ZirExpressionList::FunctionCall(

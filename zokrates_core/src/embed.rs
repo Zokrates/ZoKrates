@@ -15,12 +15,11 @@ use zokrates_field::Field;
 pub enum FlatEmbed {
     Sha256Round,
     Unpack(usize),
-    CheckU8,
-    CheckU16,
-    CheckU32,
     U8ToBits,
     U16ToBits,
     U32ToBits,
+    U8FromBits,
+    U16FromBits,
     U32FromBits,
 }
 
@@ -36,15 +35,6 @@ impl FlatEmbed {
             FlatEmbed::Unpack(bitwidth) => Signature::new()
                 .inputs(vec![Type::FieldElement])
                 .outputs(vec![Type::array(Type::FieldElement, *bitwidth)]),
-            FlatEmbed::CheckU8 => Signature::new()
-                .inputs(vec![Type::Uint(8)])
-                .outputs(vec![Type::array(Type::FieldElement, 8)]),
-            FlatEmbed::CheckU16 => Signature::new()
-                .inputs(vec![Type::Uint(16)])
-                .outputs(vec![Type::array(Type::FieldElement, 16)]),
-            FlatEmbed::CheckU32 => Signature::new()
-                .inputs(vec![Type::Uint(32)])
-                .outputs(vec![Type::array(Type::FieldElement, 32)]),
             FlatEmbed::U8ToBits => Signature::new()
                 .inputs(vec![Type::Uint(8)])
                 .outputs(vec![Type::array(Type::Boolean, 8)]),
@@ -54,6 +44,12 @@ impl FlatEmbed {
             FlatEmbed::U32ToBits => Signature::new()
                 .inputs(vec![Type::Uint(32)])
                 .outputs(vec![Type::array(Type::Boolean, 32)]),
+            FlatEmbed::U8FromBits => Signature::new()
+                .outputs(vec![Type::Uint(8)])
+                .inputs(vec![Type::array(Type::Boolean, 8)]),
+            FlatEmbed::U16FromBits => Signature::new()
+                .outputs(vec![Type::Uint(16)])
+                .inputs(vec![Type::array(Type::Boolean, 16)]),
             FlatEmbed::U32FromBits => Signature::new()
                 .outputs(vec![Type::Uint(32)])
                 .inputs(vec![Type::array(Type::Boolean, 32)]),
@@ -68,12 +64,11 @@ impl FlatEmbed {
         match self {
             FlatEmbed::Sha256Round => "_SHA256_ROUND",
             FlatEmbed::Unpack(_) => "_UNPACK",
-            FlatEmbed::CheckU8 => "_CHECK_U8",
-            FlatEmbed::CheckU16 => "_CHECK_U16",
-            FlatEmbed::CheckU32 => "_CHECK_U32",
             FlatEmbed::U8ToBits => "_U8_TO_BITS",
             FlatEmbed::U16ToBits => "_U16_TO_BITS",
             FlatEmbed::U32ToBits => "_U32_TO_BITS",
+            FlatEmbed::U8FromBits => "_U8_FROM_BITS",
+            FlatEmbed::U16FromBits => "_U16_FROM_BITS",
             FlatEmbed::U32FromBits => "_U32_FROM_BITS",
         }
     }
@@ -83,13 +78,7 @@ impl FlatEmbed {
         match self {
             FlatEmbed::Sha256Round => sha256_round(),
             FlatEmbed::Unpack(bitwidth) => unpack_to_bitwidth(*bitwidth),
-            FlatEmbed::CheckU8 => unpack_to_bitwidth(8),
-            FlatEmbed::CheckU16 => unpack_to_bitwidth(16),
-            FlatEmbed::CheckU32 => unpack_to_bitwidth(32),
-            FlatEmbed::U8ToBits => unreachable!(),
-            FlatEmbed::U16ToBits => unreachable!(),
-            FlatEmbed::U32ToBits => unreachable!(),
-            FlatEmbed::U32FromBits => unreachable!(),
+            _ => unreachable!(),
         }
     }
 }

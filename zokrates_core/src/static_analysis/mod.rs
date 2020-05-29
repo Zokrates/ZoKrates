@@ -55,6 +55,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         let r = VariableAccessRemover::apply(r);
 
         let zir = Flattener::flatten(r.clone());
+
         // constrain inputs
         let zir = InputConstrainer::constrain(zir);
 

@@ -5,6 +5,10 @@
 //! @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 //! @date 2017
 
+mod utils;
+
+use self::utils::flat_expression_from_bits;
+
 use crate::flat_absy::*;
 use crate::solvers::Solver;
 use crate::zir::types::{FunctionIdentifier, FunctionKey, Signature, Type};
@@ -49,48 +53,16 @@ pub struct Flattener<'ast, T: Field> {
 }
 
 trait FlattenOutput<T: Field>: Sized {
-    // fn branches(self, other: Self) -> (Self, Self);
-
     fn flat(&self) -> FlatExpression<T>;
 }
 
 impl<T: Field> FlattenOutput<T> for FlatExpression<T> {
-    // fn branches(self, other: Self) -> (Self, Self) {
-    //     (self, other)
-    // }
-
     fn flat(&self) -> FlatExpression<T> {
         self.clone()
     }
 }
 
 impl<T: Field> FlattenOutput<T> for FlatUExpression<T> {
-    // fn branches(self, other: Self) -> (Self, Self) {
-    //     let left_bits = self.bits.unwrap();
-    //     let right_bits = other.bits.unwrap();
-    //     let size = std::cmp::max(left_bits.len(), right_bits.len());
-
-    //     let left_bits = (0..size - left_bits.len())
-    //         .map(|_| FlatExpression::Number(T::from(0)))
-    //         .chain(left_bits)
-    //         .collect();
-    //     let right_bits = (0..size - right_bits.len())
-    //         .map(|_| FlatExpression::Number(T::from(0)))
-    //         .chain(right_bits)
-    //         .collect();
-
-    //     (
-    //         FlatUExpression {
-    //             bits: Some(left_bits),
-    //             ..self
-    //         },
-    //         FlatUExpression {
-    //             bits: Some(right_bits),
-    //             ..other
-    //         },
-    //     )
-    // }
-
     fn flat(&self) -> FlatExpression<T> {
         self.clone().get_field_unchecked()
     }
@@ -186,21 +158,7 @@ impl<T: Field> FlatUExpression<T> {
         match self.field {
             Some(f) => f,
             None => match self.bits {
-                Some(bits) => {
-                    //assert_eq!(bits.len(), 32);
-                    bits.into_iter().rev().enumerate().fold(
-                        FlatExpression::Number(T::from(0)),
-                        |acc, (index, bit)| {
-                            FlatExpression::Add(
-                                box acc,
-                                box FlatExpression::Mult(
-                                    box FlatExpression::Number(T::from(2).pow(index)),
-                                    box bit,
-                                ),
-                            )
-                        },
-                    )
-                }
+                Some(bits) => flat_expression_from_bits(bits),
                 None => unreachable!(),
             },
         }
@@ -668,117 +626,179 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         let funct = self.get_embed(&key, &symbols);
 
-        if funct == crate::embed::FlatEmbed::U32ToBits {
-            assert_eq!(param_expressions.len(), 1);
-            let mut param_expressions = param_expressions;
-            let p = param_expressions.pop().unwrap();
-            let p = match p {
-                ZirExpression::Uint(e) => e,
-                _ => unreachable!(),
-            };
-            let from = p.metadata.clone().unwrap().bitwidth();
-            let p = self.flatten_uint_expression(symbols, statements_flattened, p);
-            let bits = self
-                .get_bits(p, from as usize, 32, statements_flattened)
-                .into_iter()
-                .map(|b| FlatUExpression::with_field(b))
-                .collect();
-            return bits;
-        }
-
-        if funct == crate::embed::FlatEmbed::U32FromBits {
-            assert_eq!(param_expressions.len(), 32);
-            let param_expressions: Vec<_> = param_expressions
-                .into_iter()
-                .map(|p| {
-                    self.flatten_expression(symbols, statements_flattened, p)
-                        .get_field_unchecked()
-                })
-                .collect();
-
-            return vec![FlatUExpression::with_bits(param_expressions)];
-        }
-
-        let funct = funct.synthetize();
-
-        let mut replacement_map = HashMap::new();
-
-        // Handle complex parameters and assign values:
-        // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions
-        let params_flattened = param_expressions
-            .into_iter()
-            .map(|param_expr| self.flatten_expression(symbols, statements_flattened, param_expr))
-            .into_iter()
-            .map(|x| x.get_field_unchecked())
-            .collect::<Vec<_>>();
-
-        for (concrete_argument, formal_argument) in
-            params_flattened.into_iter().zip(funct.arguments)
-        {
-            let new_var = self.define(concrete_argument, statements_flattened);
-            replacement_map.insert(formal_argument.id, new_var);
-        }
-
-        // Ensure renaming and correct returns:
-        // add all flattened statements, adapt return statements
-
-        let (mut return_statements, statements): (Vec<_>, Vec<_>) =
-            funct.statements.into_iter().partition(|s| match s {
-                FlatStatement::Return(..) => true,
-                _ => false,
-            });
-
-        let statements: Vec<_> = statements
-            .into_iter()
-            .map(|stat| match stat {
-                // set return statements as expression result
-                FlatStatement::Return(..) => unreachable!(),
-                FlatStatement::Definition(var, rhs) => {
-                    let new_var = self.use_sym();
-                    replacement_map.insert(var, new_var);
-                    let new_rhs = rhs.apply_substitution(&replacement_map);
-                    FlatStatement::Definition(new_var, new_rhs)
-                }
-                FlatStatement::Condition(lhs, rhs) => {
-                    let new_lhs = lhs.apply_substitution(&replacement_map);
-                    let new_rhs = rhs.apply_substitution(&replacement_map);
-                    FlatStatement::Condition(new_lhs, new_rhs)
-                }
-                FlatStatement::Directive(d) => {
-                    let new_outputs = d
-                        .outputs
-                        .into_iter()
-                        .map(|o| {
-                            let new_o = self.use_sym();
-                            replacement_map.insert(o, new_o);
-                            new_o
-                        })
-                        .collect();
-                    let new_inputs = d
-                        .inputs
-                        .into_iter()
-                        .map(|i| i.apply_substitution(&replacement_map))
-                        .collect();
-                    FlatStatement::Directive(FlatDirective {
-                        outputs: new_outputs,
-                        solver: d.solver,
-                        inputs: new_inputs,
+        match funct {
+            crate::embed::FlatEmbed::U32ToBits => {
+                assert_eq!(param_expressions.len(), 1);
+                let mut param_expressions = param_expressions;
+                let p = param_expressions.pop().unwrap();
+                let p = match p {
+                    ZirExpression::Uint(e) => e,
+                    _ => unreachable!(),
+                };
+                let from = p.metadata.clone().unwrap().bitwidth();
+                let p = self.flatten_uint_expression(symbols, statements_flattened, p);
+                let bits = self
+                    .get_bits(p, from as usize, 32, statements_flattened)
+                    .into_iter()
+                    .map(|b| FlatUExpression::with_field(b))
+                    .collect();
+                bits
+            }
+            crate::embed::FlatEmbed::U16ToBits => {
+                assert_eq!(param_expressions.len(), 1);
+                let mut param_expressions = param_expressions;
+                let p = param_expressions.pop().unwrap();
+                let p = match p {
+                    ZirExpression::Uint(e) => e,
+                    _ => unreachable!(),
+                };
+                let from = p.metadata.clone().unwrap().bitwidth();
+                let p = self.flatten_uint_expression(symbols, statements_flattened, p);
+                let bits = self
+                    .get_bits(p, from as usize, 16, statements_flattened)
+                    .into_iter()
+                    .map(|b| FlatUExpression::with_field(b))
+                    .collect();
+                bits
+            }
+            crate::embed::FlatEmbed::U8ToBits => {
+                assert_eq!(param_expressions.len(), 1);
+                let mut param_expressions = param_expressions;
+                let p = param_expressions.pop().unwrap();
+                let p = match p {
+                    ZirExpression::Uint(e) => e,
+                    _ => unreachable!(),
+                };
+                let from = p.metadata.clone().unwrap().bitwidth();
+                let p = self.flatten_uint_expression(symbols, statements_flattened, p);
+                let bits = self
+                    .get_bits(p, from as usize, 8, statements_flattened)
+                    .into_iter()
+                    .map(|b| FlatUExpression::with_field(b))
+                    .collect();
+                bits
+            }
+            crate::embed::FlatEmbed::U32FromBits => {
+                assert_eq!(param_expressions.len(), 32);
+                let param_expressions: Vec<_> = param_expressions
+                    .into_iter()
+                    .map(|p| {
+                        self.flatten_expression(symbols, statements_flattened, p)
+                            .get_field_unchecked()
                     })
+                    .collect();
+
+                vec![FlatUExpression::with_bits(param_expressions)]
+            }
+            crate::embed::FlatEmbed::U16FromBits => {
+                assert_eq!(param_expressions.len(), 16);
+                let param_expressions: Vec<_> = param_expressions
+                    .into_iter()
+                    .map(|p| {
+                        self.flatten_expression(symbols, statements_flattened, p)
+                            .get_field_unchecked()
+                    })
+                    .collect();
+
+                vec![FlatUExpression::with_bits(param_expressions)]
+            }
+            crate::embed::FlatEmbed::U8FromBits => {
+                assert_eq!(param_expressions.len(), 8);
+                let param_expressions: Vec<_> = param_expressions
+                    .into_iter()
+                    .map(|p| {
+                        self.flatten_expression(symbols, statements_flattened, p)
+                            .get_field_unchecked()
+                    })
+                    .collect();
+
+                vec![FlatUExpression::with_bits(param_expressions)]
+            }
+            funct => {
+                let funct = funct.synthetize();
+
+                let mut replacement_map = HashMap::new();
+
+                // Handle complex parameters and assign values:
+                // Rename Parameters, assign them to values in call. Resolve complex expressions with definitions
+                let params_flattened = param_expressions
+                    .into_iter()
+                    .map(|param_expr| {
+                        self.flatten_expression(symbols, statements_flattened, param_expr)
+                    })
+                    .into_iter()
+                    .map(|x| x.get_field_unchecked())
+                    .collect::<Vec<_>>();
+
+                for (concrete_argument, formal_argument) in
+                    params_flattened.into_iter().zip(funct.arguments)
+                {
+                    let new_var = self.define(concrete_argument, statements_flattened);
+                    replacement_map.insert(formal_argument.id, new_var);
                 }
-                FlatStatement::Log(s) => FlatStatement::Log(s),
-            })
-            .collect();
 
-        statements_flattened.extend(statements);
+                // Ensure renaming and correct returns:
+                // add all flattened statements, adapt return statements
 
-        match return_statements.pop().unwrap() {
-            FlatStatement::Return(list) => list
-                .expressions
-                .into_iter()
-                .map(|x| x.apply_substitution(&replacement_map))
-                .map(|x| FlatUExpression::with_field(x))
-                .collect(),
-            _ => unreachable!(),
+                let (mut return_statements, statements): (Vec<_>, Vec<_>) =
+                    funct.statements.into_iter().partition(|s| match s {
+                        FlatStatement::Return(..) => true,
+                        _ => false,
+                    });
+
+                let statements: Vec<_> = statements
+                    .into_iter()
+                    .map(|stat| match stat {
+                        // set return statements as expression result
+                        FlatStatement::Return(..) => unreachable!(),
+                        FlatStatement::Definition(var, rhs) => {
+                            let new_var = self.use_sym();
+                            replacement_map.insert(var, new_var);
+                            let new_rhs = rhs.apply_substitution(&replacement_map);
+                            FlatStatement::Definition(new_var, new_rhs)
+                        }
+                        FlatStatement::Condition(lhs, rhs) => {
+                            let new_lhs = lhs.apply_substitution(&replacement_map);
+                            let new_rhs = rhs.apply_substitution(&replacement_map);
+                            FlatStatement::Condition(new_lhs, new_rhs)
+                        }
+                        FlatStatement::Directive(d) => {
+                            let new_outputs = d
+                                .outputs
+                                .into_iter()
+                                .map(|o| {
+                                    let new_o = self.use_sym();
+                                    replacement_map.insert(o, new_o);
+                                    new_o
+                                })
+                                .collect();
+                            let new_inputs = d
+                                .inputs
+                                .into_iter()
+                                .map(|i| i.apply_substitution(&replacement_map))
+                                .collect();
+                            FlatStatement::Directive(FlatDirective {
+                                outputs: new_outputs,
+                                solver: d.solver,
+                                inputs: new_inputs,
+                            })
+                        }
+                        FlatStatement::Log(s) => FlatStatement::Log(s),
+                    })
+                    .collect();
+
+                statements_flattened.extend(statements);
+
+                match return_statements.pop().unwrap() {
+                    FlatStatement::Return(list) => list
+                        .expressions
+                        .into_iter()
+                        .map(|x| x.apply_substitution(&replacement_map))
+                        .map(|x| FlatUExpression::with_field(x))
+                        .collect(),
+                    _ => unreachable!(),
+                }
+            }
         }
     }
 
@@ -1293,12 +1313,17 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         vec![e.field.clone().unwrap()],
                     )));
 
+                    let bits: Vec<_> = bits
+                        .into_iter()
+                        .map(|b| FlatExpression::Identifier(b))
+                        .collect();
+
                     // decompose to the actual bitwidth
 
                     // bit checks
                     statements_flattened.extend((0..from).map(|i| {
                         FlatStatement::Condition(
-                            bits[i].clone().into(),
+                            bits[i].clone(),
                             FlatExpression::Mult(
                                 box bits[i].clone().into(),
                                 box bits[i].clone().into(),
@@ -1306,18 +1331,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         )
                     }));
 
-                    let sum = bits.iter().enumerate().fold(
-                        FlatExpression::Number(T::from(0)),
-                        |acc, (index, bit)| {
-                            FlatExpression::Add(
-                                box acc,
-                                box FlatExpression::Mult(
-                                    box FlatExpression::Number(T::from(2).pow(from - index - 1)),
-                                    box bit.clone().into(),
-                                ),
-                            )
-                        },
-                    );
+                    let sum = flat_expression_from_bits(bits.clone());
 
                     // sum check
                     statements_flattened.push(FlatStatement::Condition(
@@ -1325,14 +1339,10 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         sum.clone(),
                     ));
 
+                    // truncate to the `to` lowest bits
                     let bits = bits[from - to..].to_vec();
 
                     assert_eq!(bits.len(), to);
-
-                    let bits: Vec<_> = bits
-                        .into_iter()
-                        .map(|b| FlatExpression::Identifier(b))
-                        .collect();
 
                     self.bits_cache.insert(e.field.unwrap(), bits.clone());
                     self.bits_cache.insert(sum, bits.clone());
@@ -1681,7 +1691,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             })
                             .collect();
 
-                        if key.id == "_U32_FROM_BITS" {
+                        if ["_U32_FROM_BITS", "_U16_FROM_BITS", "_U8_FROM_BITS"].contains(&key.id) {
                             let bits = exprs
                                 .into_iter()
                                 .map(|e| {

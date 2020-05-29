@@ -4,31 +4,31 @@
 	"tests": [
 		{
 			"input": {
-				"values": ["0x00000000"]
+				"values": ["0x00000000", "0x0000", "0x00"]
 			},
 			"output": {
 				"Ok": {
-					"values": ["0x00000000"]
+					"values": ["0x00000000", "0x0000", "0x00"]
 				}
 			}
 		},
 		{
 			"input": {
-				"values": ["0x00000002"]
+				"values": ["0xffffffff", "0xffff", "0xff"]
 			},
 			"output": {
 				"Ok": {
-					"values": ["0x00000002"]
+					"values": ["0xffffffff", "0xffff", "0xff"]
 				}
 			}
 		},
 		{
 			"input": {
-				"values": ["0x12345678"]
+				"values": ["0x12345678", "0x1234", "0x12"]
 			},
 			"output": {
 				"Ok": {
-					"values": ["0x12345678"]
+					"values": ["0x12345678", "0x1234", "0x12"]
 				}
 			}
 		}
