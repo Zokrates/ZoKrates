@@ -1,6 +1,6 @@
 pub mod groth16;
 
-extern crate rand;
+// extern crate rand;
 
 use crate::ir::{CanonicalLinComb, Prog, Statement, Witness};
 use bellman::groth16::Proof;
@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 use zokrates_field::Field;
 use zokrates_field::BellmanFieldExtensions;
 
-use self::rand::ChaChaRng;
+use rand_0_4::ChaChaRng;
 use crate::flat_absy::FlatVariable;
 
 pub use self::parse::*;

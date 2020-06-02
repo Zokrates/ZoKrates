@@ -1,20 +1,30 @@
 pub mod gm17;
 
-extern crate rand;
-
-use crate::ir::{Prog, Witness};
+use crate::ir::{CanonicalLinComb, Prog, Statement, Witness};
 use zexe_gm17::Proof;
 use zexe_gm17::{
     create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof,
     Parameters,
 };
-use algebra_core::PairingEngine;
-use zokrates_field::Field;
-use zokrates_field::ZexeFieldExtensions;
 
-use self::rand::ChaChaRng;
+use r1cs_core::{ConstraintSynthesizer, ConstraintSystem, LinearCombination, SynthesisError, Variable};
+use std::collections::BTreeMap;
+// use rand::rngs::StdRng;
+use zokrates_field::{Field, ZexeFieldExtensions, ZexeFieldOnly};
+use crate::flat_absy::FlatVariable;
 
 pub use self::parse::*;
+
+pub fn test_rng() -> rand_0_7::rngs::StdRng {
+    use rand_0_7::SeedableRng;
+
+    // arbitrary seed
+    let seed = [
+        1, 0, 0, 0, 23, 0, 0, 0, 200, 1, 0, 0, 210, 30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0,
+    ];
+    rand_0_7::rngs::StdRng::from_seed(seed)
+}
 
 #[derive(Clone)]
 pub struct Computation<T> {
@@ -38,9 +48,130 @@ impl<T: Field> Computation<T> {
     }
 }
 
-impl<T: Field + ZexeFieldExtensions> Computation<T> {
+fn zexe_combination<T: Field + ZexeFieldExtensions + ZexeFieldOnly + algebra_core::Field, CS: ConstraintSystem<T>>(
+    l: CanonicalLinComb<T>,
+    cs: &mut CS,
+    symbols: &mut BTreeMap<FlatVariable, Variable>,
+    witness: &mut Witness<T>,
+) -> LinearCombination<T> {
+    l.0.into_iter()
+        .map(|(k, v)| {
+            (
+                v.into_zexe(),
+                symbols
+                    .entry(k)
+                    .or_insert_with(|| {
+                        match k.is_output() {
+                            true => cs.alloc_input(
+                                || format!("{}", k),
+                                || {
+                                    Ok(witness
+                                        .0
+                                        .remove(&k)
+                                        .ok_or(SynthesisError::AssignmentMissing)?
+                                        .into_zexe())
+                                },
+                            ),
+                            false => cs.alloc(
+                                || format!("{}", k),
+                                || {
+                                    Ok(witness
+                                        .0
+                                        .remove(&k)
+                                        .ok_or(SynthesisError::AssignmentMissing)?
+                                        .into_zexe())
+                                },
+                            ),
+                        }
+                        .unwrap()
+                    })
+                    .clone(),
+            )
+        })
+        .fold(LinearCombination::zero(), |acc, e| acc + e)
+}
+
+impl<T: Field + ZexeFieldExtensions + ZexeFieldOnly + algebra_core::Field> Prog<T> {
+    pub fn generate_constraints<CS: ConstraintSystem<T>>(
+        self,
+        cs: &mut CS,
+        witness: Option<Witness<T>>,
+    ) -> Result<(), SynthesisError> {
+        // mapping from IR variables
+        let mut symbols = BTreeMap::new();
+
+        let mut witness = witness.unwrap_or(Witness::empty());
+
+        assert!(symbols.insert(FlatVariable::one(), CS::one()).is_none());
+
+        symbols.extend(
+            self.main
+                .arguments
+                .iter()
+                .zip(self.private)
+                .enumerate()
+                .map(|(index, (var, private))| {
+                    let wire = match private {
+                        true => cs.alloc(
+                            || format!("PRIVATE_INPUT_{}", index),
+                            || {
+                                Ok(witness
+                                    .0
+                                    .remove(&var)
+                                    .ok_or(SynthesisError::AssignmentMissing)?
+                                    .into_zexe())
+                            },
+                        ),
+                        false => cs.alloc_input(
+                            || format!("PUBLIC_INPUT_{}", index),
+                            || {
+                                Ok(witness
+                                    .0
+                                    .remove(&var)
+                                    .ok_or(SynthesisError::AssignmentMissing)?
+                                    .into_zexe())
+                            },
+                        ),
+                    }
+                    .unwrap();
+                    (var.clone(), wire)
+                }),
+        );
+
+        let main = self.main;
+
+        for statement in main.statements {
+            match statement {
+                Statement::Constraint(quad, lin) => {
+                    let a = &zexe_combination(
+                        quad.left.clone().as_canonical(),
+                        cs,
+                        &mut symbols,
+                        &mut witness,
+                    );
+                    let b = &zexe_combination(
+                        quad.right.clone().as_canonical(),
+                        cs,
+                        &mut symbols,
+                        &mut witness,
+                    );
+                    let c =
+                        &zexe_combination(lin.as_canonical(), cs, &mut symbols, &mut witness);
+
+                    cs.enforce(|| "Constraint", |lc| lc + a, |lc| lc + b, |lc| lc + c);
+                }
+                _ => {}
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl<T: Field + ZexeFieldExtensions + ZexeFieldOnly + algebra_core::Field + algebra_core::BigInteger> Computation<T> {
     pub fn prove(self, params: &Parameters<T::ZexeEngine>) -> Proof<T::ZexeEngine> {
-        let rng = &mut ChaChaRng::new_unseeded();
+        let rng = &mut test_rng();
+        // let rng = &mut ChaChaRng::new_unseeded();
 
         let proof = create_random_proof(self.clone(), params, rng).unwrap();
 
@@ -54,7 +185,7 @@ impl<T: Field + ZexeFieldExtensions> Computation<T> {
         proof
     }
 
-    pub fn public_inputs_values(&self) -> Vec<<T::ZexeEngine>::Fr> {
+    pub fn public_inputs_values(&self) -> Vec<<T::ZexeEngine as algebra_core::PairingEngine>::Fr> {
         self.program
             .main
             .arguments
@@ -70,9 +201,19 @@ impl<T: Field + ZexeFieldExtensions> Computation<T> {
     }
 
     pub fn setup(self) -> Parameters<T::ZexeEngine> {
-        let rng = &mut ChaChaRng::new_unseeded();
+        let rng = &mut test_rng();
+        // let rng = &mut ChaChaRng::new_unseeded();
         // run setup phase
         generate_random_parameters(self, rng).unwrap()
+    }
+}
+
+impl<T: Field + ZexeFieldExtensions + ZexeFieldOnly + algebra_core::Field + algebra_core::BigInteger> ConstraintSynthesizer<T> for Computation<T> {
+    fn generate_constraints<CS: ConstraintSystem<T>>(
+        self,
+        cs: &mut CS,
+    ) -> Result<(), SynthesisError> {
+        self.program.generate_constraints(cs, self.witness)
     }
 }
 
@@ -98,8 +239,9 @@ mod parse {
         static ref FR_REGEX: Regex = Regex::new(r"Fr\((?P<x>0[xX][0-9a-fA-F]*)\)").unwrap();
     }
 
+//ZexeEngine as algebra_core::curves::PairingEngine
     pub fn parse_g1<T: ZexeFieldExtensions>(
-        e: &<T::ZexeEngine as algebra_core::curves::PairingEngine>::G1Affine,
+        e: &<T::ZexeEngine as algebra_core::PairingEngine>::G1Affine,
     ) -> G1Affine {
         let raw_e = e.to_string();
         let captures = G1_REGEX.captures(&raw_e).unwrap();
@@ -109,9 +251,8 @@ mod parse {
         )
     }
 
-
     pub fn parse_g2<T: ZexeFieldExtensions>(
-        e: &<T::ZexeEngine as algebra_core::curves::PairingEngine>::G2Affine,
+        e: &<T::ZexeEngine as algebra_core::PairingEngine>::G2Affine,
     ) -> G2Affine {
         let raw_e = e.to_string();
         let captures = G2_REGEX.captures(&raw_e).unwrap();
@@ -127,7 +268,7 @@ mod parse {
         )
     }
 
-    pub fn parse_fr<T: ZexeFieldExtensions>(e: &<T::ZexeEngine>::Fr) -> String {
+    pub fn parse_fr<T: ZexeFieldExtensions>(e: &<T::ZexeEngine as algebra_core::PairingEngine>::Fr) -> String {
         let raw_e = e.to_string();
         let captures = FR_REGEX.captures(&raw_e).unwrap();
         captures.name(&"x").unwrap().as_str().to_string()

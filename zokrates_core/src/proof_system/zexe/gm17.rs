@@ -3,18 +3,17 @@ use zexe_gm17::{
     VerifyingKey,
 };
 
-use regex::Regex;
+// use regex::Regex;
 
-use zokrates_field::Field;
-use zokrates_field::ZexeFieldExtensions;
-use algebra_core::PairingEngine;
+use zokrates_field::{Field, ZexeFieldExtensions, ZexeFieldOnly};
+// use algebra_core::PairingEngine;
 
 use crate::ir;
 use crate::proof_system::zexe::Computation;
 use crate::proof_system::zexe::{parse_fr, parse_g1, parse_g2};
-use crate::proof_system::solidity::{
-    SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
-};
+// use crate::proof_system::solidity::{
+//     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
+// };
 use proof_system::{G1Affine, G2Affine, Proof, ProofSystem, SetupKeypair, SolidityAbi};
 
 pub struct GM17 {}
@@ -37,7 +36,7 @@ pub struct VerificationKey {
     raw: String,
 }
 
-impl<T: Field + ZexeFieldExtensions> ProofSystem<T> for GM17 {
+impl<T: Field + ZexeFieldExtensions + ZexeFieldOnly + algebra_core::Field> ProofSystem<T> for GM17 {
     type VerificationKey = VerificationKey;
     type ProofPoints = ProofPoints;
 
@@ -97,79 +96,82 @@ impl<T: Field + ZexeFieldExtensions> ProofSystem<T> for GM17 {
     }
 
     fn export_solidity_verifier(vk: VerificationKey, abi: SolidityAbi) -> String {
-        let (mut template_text, solidity_pairing_lib) = match abi {
-            SolidityAbi::V1 => (
-                String::from(CONTRACT_TEMPLATE),
-                String::from(SOLIDITY_PAIRING_LIB),
-            ),
-            SolidityAbi::V2 => (
-                String::from(CONTRACT_TEMPLATE_V2),
-                String::from(SOLIDITY_PAIRING_LIB_V2),
-            ),
-        };
-
-        let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
-        let vk_gamma_abc_len_regex = Regex::new(r#"(<%vk_gamma_abc_length%>)"#).unwrap();
-        let vk_gamma_abc_repeat_regex = Regex::new(r#"(<%vk_gamma_abc_pts%>)"#).unwrap();
-        let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
-
-        template_text = vk_regex
-            .replace(template_text.as_str(), vk.alpha.to_string().as_str())
-            .into_owned();
-
-        template_text = vk_regex
-            .replace(template_text.as_str(), vk.beta.to_string().as_str())
-            .into_owned();
-
-        template_text = vk_regex
-            .replace(template_text.as_str(), vk.gamma.to_string().as_str())
-            .into_owned();
-
-        template_text = vk_regex
-            .replace(template_text.as_str(), vk.delta.to_string().as_str())
-            .into_owned();
-
-        let gamma_abc_count: usize = vk.gamma_abc.len();
-        template_text = vk_gamma_abc_len_regex
-            .replace(
-                template_text.as_str(),
-                format!("{}", gamma_abc_count).as_str(),
-            )
-            .into_owned();
-
-        template_text = vk_input_len_regex
-            .replace(
-                template_text.as_str(),
-                format!("{}", gamma_abc_count - 1).as_str(),
-            )
-            .into_owned();
-
-        let mut gamma_abc_repeat_text = String::new();
-        for (i, g1) in vk.gamma_abc.iter().enumerate() {
-            gamma_abc_repeat_text.push_str(
-                format!(
-                    "vk.gamma_abc[{}] = Pairing.G1Point({});",
-                    i,
-                    g1.to_string().as_str()
-                )
-                .as_str(),
-            );
-            if i < gamma_abc_count - 1 {
-                gamma_abc_repeat_text.push_str("\n        ");
-            }
-        }
-
-        template_text = vk_gamma_abc_repeat_regex
-            .replace(template_text.as_str(), gamma_abc_repeat_text.as_str())
-            .into_owned();
-
-        let re = Regex::new(r"(?P<v>0[xX][0-9a-fA-F]{64})").unwrap();
-        template_text = re.replace_all(&template_text, "uint256($v)").to_string();
+        // let (mut template_text, solidity_pairing_lib) = match abi {
+        //     SolidityAbi::V1 => (
+        //         String::from(CONTRACT_TEMPLATE),
+        //         String::from(SOLIDITY_PAIRING_LIB),
+        //     ),
+        //     SolidityAbi::V2 => (
+        //         String::from(CONTRACT_TEMPLATE_V2),
+        //         String::from(SOLIDITY_PAIRING_LIB_V2),
+        //     ),
+        // };
+        //
+        // let vk_regex = Regex::new(r#"(<%vk_[^i%]*%>)"#).unwrap();
+        // let vk_gamma_abc_len_regex = Regex::new(r#"(<%vk_gamma_abc_length%>)"#).unwrap();
+        // let vk_gamma_abc_repeat_regex = Regex::new(r#"(<%vk_gamma_abc_pts%>)"#).unwrap();
+        // let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
+        //
+        // template_text = vk_regex
+        //     .replace(template_text.as_str(), vk.alpha.to_string().as_str())
+        //     .into_owned();
+        //
+        // template_text = vk_regex
+        //     .replace(template_text.as_str(), vk.beta.to_string().as_str())
+        //     .into_owned();
+        //
+        // template_text = vk_regex
+        //     .replace(template_text.as_str(), vk.gamma.to_string().as_str())
+        //     .into_owned();
+        //
+        // template_text = vk_regex
+        //     .replace(template_text.as_str(), vk.delta.to_string().as_str())
+        //     .into_owned();
+        //
+        // let gamma_abc_count: usize = vk.gamma_abc.len();
+        // template_text = vk_gamma_abc_len_regex
+        //     .replace(
+        //         template_text.as_str(),
+        //         format!("{}", gamma_abc_count).as_str(),
+        //     )
+        //     .into_owned();
+        //
+        // template_text = vk_input_len_regex
+        //     .replace(
+        //         template_text.as_str(),
+        //         format!("{}", gamma_abc_count - 1).as_str(),
+        //     )
+        //     .into_owned();
+        //
+        // let mut gamma_abc_repeat_text = String::new();
+        // for (i, g1) in vk.gamma_abc.iter().enumerate() {
+        //     gamma_abc_repeat_text.push_str(
+        //         format!(
+        //             "vk.gamma_abc[{}] = Pairing.G1Point({});",
+        //             i,
+        //             g1.to_string().as_str()
+        //         )
+        //         .as_str(),
+        //     );
+        //     if i < gamma_abc_count - 1 {
+        //         gamma_abc_repeat_text.push_str("\n        ");
+        //     }
+        // }
+        //
+        // template_text = vk_gamma_abc_repeat_regex
+        //     .replace(template_text.as_str(), gamma_abc_repeat_text.as_str())
+        //     .into_owned();
+        //
+        // let re = Regex::new(r"(?P<v>0[xX][0-9a-fA-F]{64})").unwrap();
+        // template_text = re.replace_all(&template_text, "uint256($v)").to_string();
+        //
+        // format!(
+        //     "{}{}{}",
+        //     SOLIDITY_G2_ADDITION_LIB, solidity_pairing_lib, template_text
+        // )
 
         format!(
-            "{}{}{}",
-            SOLIDITY_G2_ADDITION_LIB, solidity_pairing_lib, template_text
-        )
+            "TODO remove")
     }
 
     fn verify(vk: VerificationKey, proof: Proof<ProofPoints>) -> bool {

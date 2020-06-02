@@ -21,7 +21,10 @@ extern crate zokrates_embed;
 extern crate zokrates_field;
 extern crate zokrates_pest_ast;
 extern crate gm17 as zexe_gm17;
-extern crate algebra-core as algebra_core;
+extern crate algebra_core;
+extern crate r1cs_core;
+extern crate rand_0_4;
+extern crate rand_0_7;
 
 
 mod embed;

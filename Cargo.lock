@@ -19,6 +19,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "algebra"
+version = "0.1.0"
+source = "git+https://github.com/scipr-lab/zexe.git#51b7b3027e09dfd8aa91f471849055e82d6a8269"
+dependencies = [
+ "algebra-core",
+]
+
+[[package]]
 name = "algebra-core"
 version = "0.1.0"
 source = "git+https://github.com/scipr-lab/zexe.git#51b7b3027e09dfd8aa91f471849055e82d6a8269"
@@ -1861,6 +1869,7 @@ version = "0.1.0"
 name = "zokrates_core"
 version = "0.4.2"
 dependencies = [
+ "algebra-core",
  "assert_cli",
  "bellman_ce",
  "bincode",
@@ -1876,7 +1885,9 @@ dependencies = [
  "num",
  "num-bigint 0.1.44",
  "pairing_ce",
+ "r1cs-core",
  "rand 0.4.6",
+ "rand 0.7.3",
  "reduce",
  "regex",
  "serde",
@@ -1911,6 +1922,7 @@ dependencies = [
 name = "zokrates_field"
 version = "0.3.5"
 dependencies = [
+ "algebra",
  "algebra-core",
  "bellman_ce",
  "bincode",

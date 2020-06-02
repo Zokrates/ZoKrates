@@ -6,7 +6,9 @@
 
 use bellman_ce::pairing::ff::ScalarEngine;
 use bellman_ce::pairing::Engine;
+extern crate algebra_core;
 use algebra_core::PairingEngine;
+use algebra_core::fields::{PrimeField, SquareRootField};
 use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
 use std::convert::From;
@@ -29,9 +31,19 @@ pub trait BellmanFieldExtensions {
 pub trait ZexeFieldExtensions {
     /// An associated type to be able to operate with zexe ff traits
     type ZexeEngine: PairingEngine;
-    fn from_zexe(e: <Self::ZexeEngine>::Fr) -> Self;
-    fn into_zexe(self) -> <Self::ZexeEngine>::Fr;
+    fn from_zexe(e: <Self::ZexeEngine as algebra_core::PairingEngine>::Fr) -> Self;
+    fn into_zexe(self) -> <Self::ZexeEngine as algebra_core::PairingEngine>::Fr;
 }
+
+pub trait ZexeFieldOnly {
+    type ZexeField: PrimeField + SquareRootField;
+}
+
+// pub type G1Affine<P> = GroupAffine<<P as Bls12Parameters>::G1Parameters>;
+// pub type Bls12_377 = Bls12<Parameters>;
+// bls12_377::PairingGadget as Bls12_377PairingGadget, boolean::Boolean,
+// use algebra::{bls12_381::Fr, PrimeField, UniformRand};
+
 
 pub trait Field:
     From<i32>
@@ -427,24 +439,28 @@ mod prime_field {
     }
 
     macro_rules! zexe_extensions {
-        ($zexe_type:ty) => {
-            use crate::ZexeFieldExtensions;
+        ($zexe_type:ty, $zexe_field:ty) => {
+            use crate::{ZexeFieldExtensions, ZexeFieldOnly};
 
             impl ZexeFieldExtensions for FieldPrime {
                 type ZexeEngine = $zexe_type;
 
-                fn from_zexe(e: <Self::ZexeEngine>::Fr) -> Self {
+                fn from_zexe(e: <Self::ZexeEngine as algebra_core::PairingEngine>::Fr) -> Self { 
                     use algebra_core::{PrimeField, BigInteger};
                     let mut res: Vec<u8> = vec![];
                     e.into_repr().write_le(&mut res).unwrap();
                     Self::from_byte_vector(res)
                 }
 
-                fn into_zexe(self) -> <Self::ZexeEngine>::Fr {
-                    use algebra_core::{PrimeField}; //FromStr
+                fn into_zexe(self) -> <Self::ZexeEngine as algebra_core::PairingEngine>::Fr {
+                    use core::str::FromStr;
                     let s = self.to_dec_string();
-                    <Self::ZexeEngine>::Fr::from_str(&s).unwrap()
+                    <Self::ZexeEngine as algebra_core::PairingEngine>::Fr::from_str(&s).unwrap()
                 }
+            }
+
+            impl ZexeFieldOnly for FieldPrime {
+                type ZexeField = $zexe_field;
             }
         }
     }
