@@ -99,10 +99,12 @@ pub trait Field:
                 .flat_map(|&v| (0..8).rev().map(move |i| (v >> i) & 1 == 1))
                 .collect()
         }
+
         let field_bytes_le = Self::into_byte_vector(&Self::max_value());
-        // reverse for for big-endianess
+        // reverse for big-endianess
         let field_bytes_be = field_bytes_le.into_iter().rev().collect::<Vec<u8>>();
         let field_bits_be = bytes_to_bits(&field_bytes_be);
+
         let field_bits_be = &field_bits_be[field_bits_be.len() - Self::get_required_bits()..];
         field_bits_be.to_vec()
     }
@@ -412,7 +414,7 @@ mod tests {
             let bits = FieldPrime::max_value_bit_vector_be();
             assert_eq!(
                 bits[0..10].to_vec(),
-                vec![false, false, true, true, false, false, false, false, false, true]
+                vec![true, true, false, false, false, false, false, true, true, false]
             );
         }
 
