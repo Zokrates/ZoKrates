@@ -3,10 +3,10 @@ extern crate zokrates_field;
 
 use std::io;
 use zokrates_core::{
-    compile::{compile, CompilationArtifacts, CompileErrors, Resolve},
+    compile::{compile, CompilationArtifacts, Resolve},
     ir::Interpreter,
 };
-use zokrates_field::field::{Field, FieldPrime};
+use zokrates_field::field::FieldPrime;
 
 #[test]
 fn out_of_range() {

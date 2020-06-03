@@ -4,13 +4,13 @@
 // @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 // @date 2017
 
+use bellman::pairing::bn256::Bn256;
+use bellman::pairing::ff::ScalarEngine;
+use bellman::pairing::Engine;
 use lazy_static::lazy_static;
 use num_bigint::{BigInt, BigUint, Sign, ToBigInt};
 use num_integer::Integer;
 use num_traits::{One, Zero};
-use bellman::pairing::bn256::Bn256;
-use bellman::pairing::ff::ScalarEngine;
-use bellman::pairing::Engine;
 use serde_derive::{Deserialize, Serialize};
 use std::convert::From;
 use std::fmt;
@@ -763,10 +763,10 @@ mod tests {
     mod bellman {
         use super::*;
 
-        use ff::Field as FField;
+        use ::bellman::pairing::ff::Field as FField;
 
         extern crate rand;
-        use pairing::bn256::Fr;
+        use ::bellman::pairing::bn256::Fr;
         use rand::{thread_rng, Rng};
         use Field;
 
