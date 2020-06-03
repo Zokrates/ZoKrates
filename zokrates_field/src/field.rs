@@ -8,9 +8,9 @@ use lazy_static::lazy_static;
 use num_bigint::{BigInt, BigUint, Sign, ToBigInt};
 use num_integer::Integer;
 use num_traits::{One, Zero};
-use pairing::bn256::Bn256;
-use pairing::ff::ScalarEngine;
-use pairing::Engine;
+use bellman::pairing::bn256::Bn256;
+use bellman::pairing::ff::ScalarEngine;
+use bellman::pairing::Engine;
 use serde_derive::{Deserialize, Serialize};
 use std::convert::From;
 use std::fmt;
@@ -60,14 +60,14 @@ pub trait Field:
     type BellmanEngine: Engine;
 
     fn from_bellman(e: <Self::BellmanEngine as ScalarEngine>::Fr) -> Self {
-        use ff::{PrimeField, PrimeFieldRepr};
+        use bellman::pairing::ff::{PrimeField, PrimeFieldRepr};
         let mut res: Vec<u8> = vec![];
         e.into_repr().write_le(&mut res).unwrap();
         Self::from_byte_vector(res)
     }
 
     fn into_bellman(self) -> <Self::BellmanEngine as ScalarEngine>::Fr {
-        use ff::PrimeField;
+        use bellman::pairing::ff::PrimeField;
         let s = self.to_dec_string();
         <Self::BellmanEngine as ScalarEngine>::Fr::from_str(&s).unwrap()
     }
