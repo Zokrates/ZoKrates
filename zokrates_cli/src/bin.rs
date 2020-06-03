@@ -458,8 +458,10 @@ fn cli() -> Result<(), String> {
             }
             .map_err(|e| format!("Could not parse argument: {}", e))?;
 
-            let witness = ir_prog
-                .execute(&arguments.encode())
+            let interpreter = ir::Interpreter::default();
+
+            let witness = interpreter
+                .execute(&ir_prog, &arguments.encode())
                 .map_err(|e| format!("Execution failed: {}", e))?;
 
             use zokrates_abi::Decode;
@@ -705,9 +707,10 @@ mod tests {
             let artifacts: CompilationArtifacts<FieldPrime> =
                 compile(source, path, Some(&fs_resolve)).unwrap();
 
-            let _ = artifacts
-                .prog()
-                .execute(&vec![FieldPrime::from(0)])
+            let interpreter = ir::Interpreter::default();
+
+            let _ = interpreter
+                .execute(&artifacts.prog(), &vec![FieldPrime::from(0)])
                 .unwrap();
         }
     }
@@ -732,9 +735,10 @@ mod tests {
             let artifacts: CompilationArtifacts<FieldPrime> =
                 compile(source, path, Some(&fs_resolve)).unwrap();
 
-            let _ = artifacts
-                .prog()
-                .execute(&vec![FieldPrime::from(0)])
+            let interpreter = ir::Interpreter::default();
+
+            let _ = interpreter
+                .execute(&artifacts.prog(), &vec![FieldPrime::from(0)])
                 .unwrap();
         }
     }

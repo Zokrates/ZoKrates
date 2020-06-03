@@ -368,9 +368,10 @@ mod tests {
                     private: vec![false],
                 };
 
-                let witness = program
-                    .clone()
-                    .execute(&vec![FieldPrime::from(42)])
+                let interpreter = Interpreter::default();
+
+                let witness = interpreter
+                    .execute(&program, &vec![FieldPrime::from(42)])
                     .unwrap();
                 let computation = Computation::with_witness(program, witness);
 

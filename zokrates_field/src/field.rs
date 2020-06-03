@@ -106,6 +106,8 @@ pub trait Field:
         let field_bits_be = &field_bits_be[field_bits_be.len() - Self::get_required_bits()..];
         field_bits_be.to_vec()
     }
+    /// Returns the value as a BigUint
+    fn to_biguint(&self) -> BigUint;
 }
 
 #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Serialize, Deserialize)]
@@ -115,6 +117,10 @@ pub struct FieldPrime {
 
 impl Field for FieldPrime {
     type BellmanEngine = Bn256;
+
+    fn to_biguint(&self) -> BigUint {
+        self.value.to_biguint().unwrap()
+    }
 
     fn into_byte_vector(&self) -> Vec<u8> {
         match self.value.to_biguint() {
