@@ -11,7 +11,6 @@ default = []
 libsnark = ["cc", "cmake", "git2"]
 wasm = ["bellman_ce/wasm", "zokrates_embed/wasm"]
 multicore = ["bellman_ce/multicore"]
-enable-zexe = ["gm17"]
 
 [dependencies]
 num = {version = "0.1.36", default-features = false}
@@ -37,7 +36,7 @@ rand_0_4 = { version = "0.4", package = "rand" }
 rand_0_7 = { version = "0.7", package = "rand" }
 csv = "1"
 bellman_ce = { version = "=0.3.3", default-features = false}
-gm17 = { git = "https://github.com/scipr-lab/zexe.git", version = "0.1.0", optional = true }
+gm17 = { git = "https://github.com/scipr-lab/zexe.git", version = "0.1.0" }
 algebra-core = { git = "https://github.com/scipr-lab/zexe.git", version = "0.1.0"}
 r1cs-core = { git = "https://github.com/scipr-lab/zexe.git", version = "0.1.0"}
 

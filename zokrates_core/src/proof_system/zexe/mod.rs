@@ -7,11 +7,14 @@ use zexe_gm17::{
     Parameters,
 };
 
-use r1cs_core::{ConstraintSynthesizer, ConstraintSystem, LinearCombination, SynthesisError, Variable};
+use r1cs_core::{
+    ConstraintSynthesizer, ConstraintSystem, LinearCombination, SynthesisError, Variable,
+};
 use std::collections::BTreeMap;
 // use rand::rngs::StdRng;
-use zokrates_field::{Field, ZexeFieldExtensions, ZexeFieldOnly};
 use crate::flat_absy::FlatVariable;
+use algebra_core::PairingEngine;
+use zokrates_field::{Field, ZexeFieldExtensions};
 
 pub use self::parse::*;
 
@@ -48,12 +51,15 @@ impl<T: Field> Computation<T> {
     }
 }
 
-fn zexe_combination<T: Field + ZexeFieldExtensions + ZexeFieldOnly + algebra_core::Field, CS: ConstraintSystem<T>>(
+fn zexe_combination<
+    T: Field + ZexeFieldExtensions,
+    CS: ConstraintSystem<<<T as ZexeFieldExtensions>::ZexeEngine as PairingEngine>::Fr>,
+>(
     l: CanonicalLinComb<T>,
     cs: &mut CS,
     symbols: &mut BTreeMap<FlatVariable, Variable>,
     witness: &mut Witness<T>,
-) -> LinearCombination<T> {
+) -> LinearCombination<<<T as ZexeFieldExtensions>::ZexeEngine as PairingEngine>::Fr> {
     l.0.into_iter()
         .map(|(k, v)| {
             (
@@ -91,8 +97,10 @@ fn zexe_combination<T: Field + ZexeFieldExtensions + ZexeFieldOnly + algebra_cor
         .fold(LinearCombination::zero(), |acc, e| acc + e)
 }
 
-impl<T: Field + ZexeFieldExtensions + ZexeFieldOnly + algebra_core::Field> Prog<T> {
-    pub fn generate_constraints<CS: ConstraintSystem<T>>(
+impl<T: Field + ZexeFieldExtensions> Prog<T> {
+    pub fn generate_constraints<
+        CS: ConstraintSystem<<<T as ZexeFieldExtensions>::ZexeEngine as PairingEngine>::Fr>,
+    >(
         self,
         cs: &mut CS,
         witness: Option<Witness<T>>,
@@ -155,8 +163,7 @@ impl<T: Field + ZexeFieldExtensions + ZexeFieldOnly + algebra_core::Field> Prog<
                         &mut symbols,
                         &mut witness,
                     );
-                    let c =
-                        &zexe_combination(lin.as_canonical(), cs, &mut symbols, &mut witness);
+                    let c = &zexe_combination(lin.as_canonical(), cs, &mut symbols, &mut witness);
 
                     cs.enforce(|| "Constraint", |lc| lc + a, |lc| lc + b, |lc| lc + c);
                 }
@@ -168,7 +175,7 @@ impl<T: Field + ZexeFieldExtensions + ZexeFieldOnly + algebra_core::Field> Prog<
     }
 }
 
-impl<T: Field + ZexeFieldExtensions + ZexeFieldOnly + algebra_core::Field + algebra_core::BigInteger> Computation<T> {
+impl<T: Field + ZexeFieldExtensions> Computation<T> {
     pub fn prove(self, params: &Parameters<T::ZexeEngine>) -> Proof<T::ZexeEngine> {
         let rng = &mut test_rng();
         // let rng = &mut ChaChaRng::new_unseeded();
@@ -185,7 +192,7 @@ impl<T: Field + ZexeFieldExtensions + ZexeFieldOnly + algebra_core::Field + alge
         proof
     }
 
-    pub fn public_inputs_values(&self) -> Vec<<T::ZexeEngine as algebra_core::PairingEngine>::Fr> {
+    pub fn public_inputs_values(&self) -> Vec<<T::ZexeEngine as PairingEngine>::Fr> {
         self.program
             .main
             .arguments
@@ -208,15 +215,19 @@ impl<T: Field + ZexeFieldExtensions + ZexeFieldOnly + algebra_core::Field + alge
     }
 }
 
-impl<T: Field + ZexeFieldExtensions + ZexeFieldOnly + algebra_core::Field + algebra_core::BigInteger> ConstraintSynthesizer<T> for Computation<T> {
-    fn generate_constraints<CS: ConstraintSystem<T>>(
+impl<T: Field + ZexeFieldExtensions>
+    ConstraintSynthesizer<<<T as ZexeFieldExtensions>::ZexeEngine as PairingEngine>::Fr>
+    for Computation<T>
+{
+    fn generate_constraints<
+        CS: ConstraintSystem<<<T as ZexeFieldExtensions>::ZexeEngine as PairingEngine>::Fr>,
+    >(
         self,
         cs: &mut CS,
     ) -> Result<(), SynthesisError> {
         self.program.generate_constraints(cs, self.witness)
     }
 }
-
 
 mod parse {
     use lazy_static::lazy_static;
@@ -239,9 +250,9 @@ mod parse {
         static ref FR_REGEX: Regex = Regex::new(r"Fr\((?P<x>0[xX][0-9a-fA-F]*)\)").unwrap();
     }
 
-//ZexeEngine as algebra_core::curves::PairingEngine
+    //ZexeEngine as algebra_core::curves::PairingEngine
     pub fn parse_g1<T: ZexeFieldExtensions>(
-        e: &<T::ZexeEngine as algebra_core::PairingEngine>::G1Affine,
+        e: &<T::ZexeEngine as PairingEngine>::G1Affine,
     ) -> G1Affine {
         let raw_e = e.to_string();
         let captures = G1_REGEX.captures(&raw_e).unwrap();
@@ -252,7 +263,7 @@ mod parse {
     }
 
     pub fn parse_g2<T: ZexeFieldExtensions>(
-        e: &<T::ZexeEngine as algebra_core::PairingEngine>::G2Affine,
+        e: &<T::ZexeEngine as PairingEngine>::G2Affine,
     ) -> G2Affine {
         let raw_e = e.to_string();
         let captures = G2_REGEX.captures(&raw_e).unwrap();
@@ -268,191 +279,9 @@ mod parse {
         )
     }
 
-    pub fn parse_fr<T: ZexeFieldExtensions>(e: &<T::ZexeEngine as algebra_core::PairingEngine>::Fr) -> String {
+    pub fn parse_fr<T: ZexeFieldExtensions>(e: &<T::ZexeEngine as PairingEngine>::Fr) -> String {
         let raw_e = e.to_string();
         let captures = FR_REGEX.captures(&raw_e).unwrap();
         captures.name(&"x").unwrap().as_str().to_string()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::ir::{Function, LinComb};
-    use zokrates_field::Bn128Field;
-
-    mod prove {
-        use super::*;
-
-        #[test]
-        fn empty() {
-            let program: Prog<Bn128Field> = Prog {
-                main: Function {
-                    id: String::from("main"),
-                    arguments: vec![],
-                    returns: vec![],
-                    statements: vec![],
-                },
-                private: vec![],
-            };
-
-            let witness = program.clone().execute(&vec![]).unwrap();
-            let computation = Computation::with_witness(program, witness);
-
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
-        }
-
-        #[test]
-        fn identity() {
-            let program: Prog<Bn128Field> = Prog {
-                main: Function {
-                    id: String::from("main"),
-                    arguments: vec![FlatVariable::new(0)],
-                    returns: vec![FlatVariable::public(0)],
-                    statements: vec![Statement::Constraint(
-                        FlatVariable::new(0).into(),
-                        FlatVariable::public(0).into(),
-                    )],
-                },
-                private: vec![true],
-            };
-
-            let witness = program.clone().execute(&vec![Bn128Field::from(0)]).unwrap();
-            let computation = Computation::with_witness(program, witness);
-
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
-        }
-
-        #[test]
-        fn public_identity() {
-            let program: Prog<Bn128Field> = Prog {
-                main: Function {
-                    id: String::from("main"),
-                    arguments: vec![FlatVariable::new(0)],
-                    returns: vec![FlatVariable::public(0)],
-                    statements: vec![Statement::Constraint(
-                        FlatVariable::new(0).into(),
-                        FlatVariable::public(0).into(),
-                    )],
-                },
-                private: vec![false],
-            };
-
-            let witness = program.clone().execute(&vec![Bn128Field::from(0)]).unwrap();
-            let computation = Computation::with_witness(program, witness);
-
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
-        }
-
-        #[test]
-        fn no_arguments() {
-            let program: Prog<Bn128Field> = Prog {
-                main: Function {
-                    id: String::from("main"),
-                    arguments: vec![],
-                    returns: vec![FlatVariable::public(0)],
-                    statements: vec![Statement::Constraint(
-                        FlatVariable::one().into(),
-                        FlatVariable::public(0).into(),
-                    )],
-                },
-                private: vec![],
-            };
-
-            let witness = program.clone().execute(&vec![]).unwrap();
-            let computation = Computation::with_witness(program, witness);
-
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
-        }
-
-        #[test]
-        fn unordered_variables() {
-            // public variables must be ordered from 0
-            // private variables can be unordered
-            let program: Prog<Bn128Field> = Prog {
-                main: Function {
-                    id: String::from("main"),
-                    arguments: vec![FlatVariable::new(42), FlatVariable::new(51)],
-                    returns: vec![FlatVariable::public(0), FlatVariable::public(1)],
-                    statements: vec![
-                        Statement::Constraint(
-                            (LinComb::from(FlatVariable::new(42))
-                                + LinComb::from(FlatVariable::new(51)))
-                            .into(),
-                            FlatVariable::public(0).into(),
-                        ),
-                        Statement::Constraint(
-                            (LinComb::from(FlatVariable::one())
-                                + LinComb::from(FlatVariable::new(42)))
-                            .into(),
-                            FlatVariable::public(1).into(),
-                        ),
-                    ],
-                },
-                private: vec![true, false],
-            };
-
-            let witness = program
-                .clone()
-                .execute(&vec![Bn128Field::from(3), Bn128Field::from(4)])
-                .unwrap();
-            let computation = Computation::with_witness(program, witness);
-
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
-        }
-
-        #[test]
-        fn one() {
-            let program: Prog<Bn128Field> = Prog {
-                main: Function {
-                    id: String::from("main"),
-                    arguments: vec![FlatVariable::new(42)],
-                    returns: vec![FlatVariable::public(0)],
-                    statements: vec![Statement::Constraint(
-                        (LinComb::from(FlatVariable::new(42)) + LinComb::one()).into(),
-                        FlatVariable::public(0).into(),
-                    )],
-                },
-                private: vec![false],
-            };
-
-            let witness = program.clone().execute(&vec![Bn128Field::from(3)]).unwrap();
-            let computation = Computation::with_witness(program, witness);
-
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
-        }
-
-        #[test]
-        fn with_directives() {
-            let program: Prog<Bn128Field> = Prog {
-                main: Function {
-                    id: String::from("main"),
-                    arguments: vec![FlatVariable::new(42), FlatVariable::new(51)],
-                    returns: vec![FlatVariable::public(0)],
-                    statements: vec![Statement::Constraint(
-                        (LinComb::from(FlatVariable::new(42))
-                            + LinComb::from(FlatVariable::new(51)))
-                        .into(),
-                        FlatVariable::public(0).into(),
-                    )],
-                },
-                private: vec![true, false],
-            };
-
-            let witness = program
-                .clone()
-                .execute(&vec![Bn128Field::from(3), Bn128Field::from(4)])
-                .unwrap();
-            let computation = Computation::with_witness(program, witness);
-
-            let params = computation.clone().setup();
-            let _proof = computation.prove(&params);
-        }
     }
 }

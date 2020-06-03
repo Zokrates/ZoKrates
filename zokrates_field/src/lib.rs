@@ -439,8 +439,8 @@ mod prime_field {
     }
 
     macro_rules! zexe_extensions {
-        ($zexe_type:ty, $zexe_field:ty) => {
-            use crate::{ZexeFieldExtensions, ZexeFieldOnly};
+        ($zexe_type:ty) => {
+            use crate::ZexeFieldExtensions;
 
             impl ZexeFieldExtensions for FieldPrime {
                 type ZexeEngine = $zexe_type;
@@ -458,15 +458,9 @@ mod prime_field {
                     <Self::ZexeEngine as algebra_core::PairingEngine>::Fr::from_str(&s).unwrap()
                 }
             }
-
-            impl ZexeFieldOnly for FieldPrime {
-                type ZexeField = $zexe_field;
-            }
         }
     }
 }
-
-
 
 pub mod bls12_381;
 pub mod bn128;

@@ -6,6 +6,7 @@ prime_field!(
 );
 bellman_extensions!(Bn256);
 
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -11,11 +11,11 @@ use bellman::groth16::{
 use bellman::pairing::ff::ScalarEngine;
 use bellman::{Circuit, ConstraintSystem, LinearCombination, SynthesisError, Variable};
 use std::collections::BTreeMap;
-use zokrates_field::Field;
 use zokrates_field::BellmanFieldExtensions;
+use zokrates_field::Field;
 
-use rand_0_4::ChaChaRng;
 use crate::flat_absy::FlatVariable;
+use rand_0_4::ChaChaRng;
 
 pub use self::parse::*;
 
@@ -257,7 +257,9 @@ mod parse {
         )
     }
 
-    pub fn parse_fr<T: BellmanFieldExtensions>(e: &<T::BellmanEngine as ScalarEngine>::Fr) -> String {
+    pub fn parse_fr<T: BellmanFieldExtensions>(
+        e: &<T::BellmanEngine as ScalarEngine>::Fr,
+    ) -> String {
         let raw_e = e.to_string();
         let captures = FR_REGEX.captures(&raw_e).unwrap();
         captures.name(&"x").unwrap().as_str().to_string()

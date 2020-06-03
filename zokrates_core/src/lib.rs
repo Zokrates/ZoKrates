@@ -8,24 +8,23 @@ extern crate serde_json;
 extern crate typed_arena;
 #[macro_use]
 extern crate serde_derive;
+extern crate algebra_core;
 extern crate bellman_ce as bellman;
 extern crate bincode;
 extern crate csv;
 extern crate ff_ce as ff;
+extern crate gm17 as zexe_gm17;
 extern crate hex;
 extern crate lazy_static;
 extern crate pairing_ce as pairing;
+extern crate r1cs_core;
+extern crate rand_0_4;
+extern crate rand_0_7;
 extern crate regex;
 extern crate zokrates_common;
 extern crate zokrates_embed;
 extern crate zokrates_field;
 extern crate zokrates_pest_ast;
-extern crate gm17 as zexe_gm17;
-extern crate algebra_core;
-extern crate r1cs_core;
-extern crate rand_0_4;
-extern crate rand_0_7;
-
 
 mod embed;
 mod flatten;

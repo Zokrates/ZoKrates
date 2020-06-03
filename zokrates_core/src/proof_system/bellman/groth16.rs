@@ -4,8 +4,8 @@ use bellman::groth16::{
 };
 use regex::Regex;
 
-use zokrates_field::Field;
 use zokrates_field::BellmanFieldExtensions;
+use zokrates_field::Field;
 
 use crate::ir;
 use crate::proof_system::bellman::Computation;

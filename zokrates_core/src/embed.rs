@@ -6,9 +6,9 @@ use flat_absy::{
 };
 use std::collections::HashMap;
 use typed_absy::types::{FunctionKey, Signature, Type};
-use zokrates_embed::{BellmanConstraint};
-use zokrates_field::Field;
+use zokrates_embed::BellmanConstraint;
 use zokrates_field::BellmanFieldExtensions;
+use zokrates_field::Field;
 
 /// A low level function that contains non-deterministic introduction of variables. It is carried out as is until
 /// the flattening step when it can be inlined.
@@ -59,7 +59,10 @@ impl FlatEmbed {
 // util to convert a vector of `(variable_id, coefficient)` to a flat_expression
 // we build a binary tree of additions by splitting the vector recursively
 fn flat_expression_from_vec<T: BellmanFieldExtensions + Field>(
-    v: &[(usize, <<T as BellmanFieldExtensions>::BellmanEngine as ScalarEngine>::Fr)],
+    v: &[(
+        usize,
+        <<T as BellmanFieldExtensions>::BellmanEngine as ScalarEngine>::Fr,
+    )],
 ) -> FlatExpression<T> {
     match v.len() {
         0 => FlatExpression::Number(T::zero()),
@@ -80,7 +83,9 @@ fn flat_expression_from_vec<T: BellmanFieldExtensions + Field>(
     }
 }
 
-impl<T: BellmanFieldExtensions + Field> From<BellmanConstraint<T::BellmanEngine>> for FlatStatement<T> {
+impl<T: BellmanFieldExtensions + Field> From<BellmanConstraint<T::BellmanEngine>>
+    for FlatStatement<T>
+{
     fn from(c: zokrates_embed::BellmanConstraint<T::BellmanEngine>) -> FlatStatement<T> {
         let rhs_a = flat_expression_from_vec(&c.a);
         let rhs_b = flat_expression_from_vec(&c.b);
@@ -329,6 +334,7 @@ mod tests {
         }
     }
 
+    /*
     #[cfg(test)]
     mod sha256 {
         use super::*;
@@ -406,5 +412,5 @@ mod tests {
 
             prog.execute(&input).unwrap();
         }
-    }
+    }*/
 }

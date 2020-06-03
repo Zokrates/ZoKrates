@@ -8,7 +8,6 @@ edition = "2018"
 [features]
 default = []
 libsnark = ["zokrates_core/libsnark"]
-enable-zexe = ["zokrates_core/gm17"]
 
 [dependencies]
 clap = "2.26.2"
