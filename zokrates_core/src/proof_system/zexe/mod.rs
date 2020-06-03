@@ -7,13 +7,12 @@ use zexe_gm17::{
     Parameters,
 };
 
+use crate::flat_absy::FlatVariable;
+use algebra_core::PairingEngine;
 use r1cs_core::{
     ConstraintSynthesizer, ConstraintSystem, LinearCombination, SynthesisError, Variable,
 };
 use std::collections::BTreeMap;
-// use rand::rngs::StdRng;
-use crate::flat_absy::FlatVariable;
-use algebra_core::PairingEngine;
 use zokrates_field::{Field, ZexeFieldExtensions};
 
 pub use self::parse::*;
@@ -178,7 +177,6 @@ impl<T: Field + ZexeFieldExtensions> Prog<T> {
 impl<T: Field + ZexeFieldExtensions> Computation<T> {
     pub fn prove(self, params: &Parameters<T::ZexeEngine>) -> Proof<T::ZexeEngine> {
         let rng = &mut test_rng();
-        // let rng = &mut ChaChaRng::new_unseeded();
 
         let proof = create_random_proof(self.clone(), params, rng).unwrap();
 
@@ -209,7 +207,7 @@ impl<T: Field + ZexeFieldExtensions> Computation<T> {
 
     pub fn setup(self) -> Parameters<T::ZexeEngine> {
         let rng = &mut test_rng();
-        // let rng = &mut ChaChaRng::new_unseeded();
+
         // run setup phase
         generate_random_parameters(self, rng).unwrap()
     }
@@ -250,7 +248,6 @@ mod parse {
         static ref FR_REGEX: Regex = Regex::new(r"Fr\((?P<x>0[xX][0-9a-fA-F]*)\)").unwrap();
     }
 
-    //ZexeEngine as algebra_core::curves::PairingEngine
     pub fn parse_g1<T: ZexeFieldExtensions>(
         e: &<T::ZexeEngine as PairingEngine>::G1Affine,
     ) -> G1Affine {

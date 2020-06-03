@@ -39,6 +39,9 @@ bellman_ce = { version = "=0.3.3", default-features = false}
 gm17 = { git = "https://github.com/scipr-lab/zexe.git", version = "0.1.0" }
 algebra-core = { git = "https://github.com/scipr-lab/zexe.git", version = "0.1.0"}
 r1cs-core = { git = "https://github.com/scipr-lab/zexe.git", version = "0.1.0"}
+# gm17 = { git = "https://github.com/ChaitanyaKonda/zexe.git", version = "0.1.0" }
+# algebra-core = { git = "https://github.com/ChaitanyaKonda/zexe.git", version = "0.1.0"}
+# r1cs-core = { git = "https://github.com/ChaitanyaKonda/zexe.git", version = "0.1.0"}
 
 [dev-dependencies]
 glob = "0.2.11"

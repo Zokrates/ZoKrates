@@ -7,8 +7,8 @@
 use bellman_ce::pairing::ff::ScalarEngine;
 use bellman_ce::pairing::Engine;
 extern crate algebra_core;
-use algebra_core::PairingEngine;
 use algebra_core::fields::{PrimeField, SquareRootField};
+use algebra_core::PairingEngine;
 use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
 use std::convert::From;
@@ -38,12 +38,6 @@ pub trait ZexeFieldExtensions {
 pub trait ZexeFieldOnly {
     type ZexeField: PrimeField + SquareRootField;
 }
-
-// pub type G1Affine<P> = GroupAffine<<P as Bls12Parameters>::G1Parameters>;
-// pub type Bls12_377 = Bls12<Parameters>;
-// bls12_377::PairingGadget as Bls12_377PairingGadget, boolean::Boolean,
-// use algebra::{bls12_381::Fr, PrimeField, UniformRand};
-
 
 pub trait Field:
     From<i32>
@@ -124,7 +118,6 @@ mod prime_field {
             }
 
             impl Field for FieldPrime {
-
                 fn into_byte_vector(&self) -> Vec<u8> {
                     match self.value.to_biguint() {
                         Option::Some(val) => val.to_bytes_le(),
@@ -435,7 +428,7 @@ mod prime_field {
                     <Self::BellmanEngine as ScalarEngine>::Fr::from_str(&s).unwrap()
                 }
             }
-        }
+        };
     }
 
     macro_rules! zexe_extensions {
@@ -445,8 +438,8 @@ mod prime_field {
             impl ZexeFieldExtensions for FieldPrime {
                 type ZexeEngine = $zexe_type;
 
-                fn from_zexe(e: <Self::ZexeEngine as algebra_core::PairingEngine>::Fr) -> Self { 
-                    use algebra_core::{PrimeField, BigInteger};
+                fn from_zexe(e: <Self::ZexeEngine as algebra_core::PairingEngine>::Fr) -> Self {
+                    use algebra_core::{BigInteger, PrimeField};
                     let mut res: Vec<u8> = vec![];
                     e.into_repr().write_le(&mut res).unwrap();
                     Self::from_byte_vector(res)
@@ -458,16 +451,16 @@ mod prime_field {
                     <Self::ZexeEngine as algebra_core::PairingEngine>::Fr::from_str(&s).unwrap()
                 }
             }
-        }
+        };
     }
 }
 
+pub mod bls12_377;
 pub mod bls12_381;
 pub mod bn128;
-pub mod bls12_377;
 pub mod bw6_761;
 
+pub use bls12_377::FieldPrime as Bls12_377Field;
 pub use bls12_381::FieldPrime as Bls12_381Field;
 pub use bn128::FieldPrime as Bn128Field;
-pub use bls12_377::FieldPrime as Bls12_377Field;
 pub use bw6_761::FieldPrime as Bw6_761Field;

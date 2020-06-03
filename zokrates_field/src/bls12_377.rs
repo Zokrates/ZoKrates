@@ -1,4 +1,3 @@
-// use algebra_core::curves::bls12::Bls12;
 use algebra::bls12_377::Bls12_377;
 
 prime_field!(
