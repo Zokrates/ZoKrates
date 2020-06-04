@@ -1,4 +1,3 @@
-extern crate ff_ce as ff;
-extern crate pairing_ce as pairing;
+extern crate bellman_ce as bellman;
 
 pub mod field;

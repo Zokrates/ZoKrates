@@ -330,6 +330,7 @@ mod tests {
     #[cfg(test)]
     mod sha256 {
         use super::*;
+        use ir::Interpreter;
 
         #[test]
         fn generate_sha256_constraints() {
@@ -401,7 +402,9 @@ mod tests {
                 .chain((0..256).map(|_| FieldPrime::from(1)))
                 .collect();
 
-            prog.execute(&input).unwrap();
+            let interpreter = Interpreter::default();
+
+            interpreter.execute(&prog, &input).unwrap();
         }
     }
 }

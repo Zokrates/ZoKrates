@@ -13,7 +13,7 @@ mod witness;
 pub use self::expression::QuadComb;
 pub use self::expression::{CanonicalLinComb, LinComb};
 
-pub use self::interpreter::{Error, ExecutionResult};
+pub use self::interpreter::{Error, ExecutionResult, Interpreter};
 pub use self::witness::Witness;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Hash, Eq)]

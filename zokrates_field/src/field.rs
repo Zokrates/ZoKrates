@@ -4,13 +4,13 @@
 // @author Jacob Eberhardt <jacob.eberhardt@tu-berlin.de>
 // @date 2017
 
+use bellman::pairing::bn256::Bn256;
+use bellman::pairing::ff::ScalarEngine;
+use bellman::pairing::Engine;
 use lazy_static::lazy_static;
 use num_bigint::{BigInt, BigUint, Sign, ToBigInt};
 use num_integer::Integer;
 use num_traits::{One, Zero};
-use pairing::bn256::Bn256;
-use pairing::ff::ScalarEngine;
-use pairing::Engine;
 use serde_derive::{Deserialize, Serialize};
 use std::convert::From;
 use std::fmt;
@@ -60,14 +60,14 @@ pub trait Field:
     type BellmanEngine: Engine;
 
     fn from_bellman(e: <Self::BellmanEngine as ScalarEngine>::Fr) -> Self {
-        use ff::{PrimeField, PrimeFieldRepr};
+        use bellman::pairing::ff::{PrimeField, PrimeFieldRepr};
         let mut res: Vec<u8> = vec![];
         e.into_repr().write_le(&mut res).unwrap();
         Self::from_byte_vector(res)
     }
 
     fn into_bellman(self) -> <Self::BellmanEngine as ScalarEngine>::Fr {
-        use ff::PrimeField;
+        use bellman::pairing::ff::PrimeField;
         let s = self.to_dec_string();
         <Self::BellmanEngine as ScalarEngine>::Fr::from_str(&s).unwrap()
     }
@@ -91,6 +91,25 @@ pub trait Field:
     /// Returns a decimal string representing the member of the equivalence class of this `Field` in Z/pZ
     /// which lies in [-(p-1)/2, (p-1)/2]
     fn to_compact_dec_string(&self) -> String;
+    /// Returns this `Field`'s largest value as a big-endian bit vector
+    fn max_value_bit_vector_be() -> Vec<bool> {
+        fn bytes_to_bits(bytes: &[u8]) -> Vec<bool> {
+            bytes
+                .iter()
+                .flat_map(|&v| (0..8).rev().map(move |i| (v >> i) & 1 == 1))
+                .collect()
+        }
+
+        let field_bytes_le = Self::into_byte_vector(&Self::max_value());
+        // reverse for big-endianess
+        let field_bytes_be = field_bytes_le.into_iter().rev().collect::<Vec<u8>>();
+        let field_bits_be = bytes_to_bits(&field_bytes_be);
+
+        let field_bits_be = &field_bits_be[field_bits_be.len() - Self::get_required_bits()..];
+        field_bits_be.to_vec()
+    }
+    /// Returns the value as a BigUint
+    fn to_biguint(&self) -> BigUint;
 }
 
 #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Serialize, Deserialize)]
@@ -100,6 +119,10 @@ pub struct FieldPrime {
 
 impl Field for FieldPrime {
     type BellmanEngine = Bn256;
+
+    fn to_biguint(&self) -> BigUint {
+        self.value.to_biguint().unwrap()
+    }
 
     fn into_byte_vector(&self) -> Vec<u8> {
         match self.value.to_biguint() {
@@ -385,6 +408,15 @@ mod tests {
     mod field_prime {
         use super::*;
         use bincode::{deserialize, serialize, Infinite};
+
+        #[test]
+        fn max_value_bits() {
+            let bits = FieldPrime::max_value_bit_vector_be();
+            assert_eq!(
+                bits[0..10].to_vec(),
+                vec![true, true, false, false, false, false, false, true, true, false]
+            );
+        }
 
         #[test]
         fn positive_number() {
@@ -733,10 +765,10 @@ mod tests {
     mod bellman {
         use super::*;
 
-        use ff::Field as FField;
+        use ::bellman::pairing::ff::Field as FField;
 
         extern crate rand;
-        use pairing::bn256::Fr;
+        use ::bellman::pairing::bn256::Fr;
         use rand::{thread_rng, Rng};
         use Field;
 
