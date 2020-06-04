@@ -10,6 +10,7 @@ mod utils;
 use self::utils::flat_expression_from_bits;
 
 use crate::flat_absy::*;
+use crate::ir;
 use crate::solvers::Solver;
 use crate::zir::types::{FunctionIdentifier, FunctionKey, Signature, Type};
 use crate::zir::*;
@@ -193,6 +194,108 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 let res = self.use_sym();
                 statements_flattened.push(FlatStatement::Definition(res, e));
                 res
+            }
+        }
+    }
+
+    // Let's assume b = [1, 1, 1, 0]
+    //
+    // 1. Init `sizeUnknown = true`
+    //    As long as `sizeUnknown` is `true` we don't yet know if a is <= than b.
+    // 2. Loop over `b`:
+    //     * b[0] = 1
+    //       when `b` is 1 we check wether `a` is 0 in that particular run and update
+    //       `sizeUnknown` accordingly:
+    //       `sizeUnknown = sizeUnknown && a[0]`
+    //     * b[1] = 1
+    //       `sizrUnknown = sizeUnknown && a[1]`
+    //     * b[2] = 1
+    //       `sizeUnknown = sizeUnknown && a[2]`
+    //     * b[3] = 0
+    //       we need to enforce that `a` is 0 in case `sizeUnknown`is still `true`,
+    //       otherwise `a` can be {0,1}:
+    //      `true == (!sizeUnknown || !a[3])`
+    //      ```
+    //                     **true => a -> 0
+    //         sizeUnkown *
+    //                     **false => a -> {0,1}
+    //      ```
+    fn strict_le_check(
+        &mut self,
+        statements_flattened: &mut FlatStatements<T>,
+        b: &[bool],
+        a: Vec<FlatVariable>,
+    ) {
+        let len = b.len();
+        assert_eq!(a.len(), T::get_required_bits());
+        assert_eq!(a.len(), b.len());
+
+        let mut is_not_smaller_run = vec![];
+        let mut size_unknown = vec![];
+
+        for _ in 0..len {
+            is_not_smaller_run.push(self.use_sym());
+            size_unknown.push(self.use_sym());
+        }
+
+        // init size_unknown = true
+        statements_flattened.push(FlatStatement::Definition(
+            size_unknown[0],
+            FlatExpression::Number(T::from(1)),
+        ));
+
+        for (i, b) in b.iter().enumerate() {
+            if *b {
+                statements_flattened.push(FlatStatement::Definition(
+                    is_not_smaller_run[i],
+                    a[i].clone().into(),
+                ));
+
+                // don't need to update size_unknown in the last round
+                if i < len - 1 {
+                    statements_flattened.push(FlatStatement::Definition(
+                        size_unknown[i + 1],
+                        FlatExpression::Mult(
+                            box size_unknown[i].into(),
+                            box is_not_smaller_run[i].into(),
+                        ),
+                    ));
+                }
+            } else {
+                // don't need to update size_unknown in the last round
+                if i < len - 1 {
+                    statements_flattened.push(
+                        // sizeUnknown is not changing in this case
+                        // We sill have to assign the old value to the variable of the current run
+                        // This trivial definition will later be removed by the optimiser
+                        FlatStatement::Definition(
+                            size_unknown[i + 1].into(),
+                            size_unknown[i].into(),
+                        ),
+                    );
+                }
+
+                let or_left = FlatExpression::Sub(
+                    box FlatExpression::Number(T::from(1)),
+                    box size_unknown[i].clone().into(),
+                );
+                let or_right: FlatExpression<_> = FlatExpression::Sub(
+                    box FlatExpression::Number(T::from(1)),
+                    box a[i].clone().into(),
+                );
+
+                let and_name = self.use_sym();
+                let and = FlatExpression::Mult(box or_left.clone(), box or_right.clone());
+                statements_flattened.push(FlatStatement::Definition(and_name, and));
+                let or = FlatExpression::Sub(
+                    box FlatExpression::Add(box or_left, box or_right),
+                    box and_name.into(),
+                );
+
+                statements_flattened.push(FlatStatement::Condition(
+                    FlatExpression::Number(T::from(1)),
+                    or,
+                ));
             }
         }
     }
@@ -433,6 +536,13 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                         ),
                     ));
                 }
+
+                // check that the decomposition is in the field with a strict `< p` checks
+                self.strict_le_check(
+                    statements_flattened,
+                    &T::max_value_bit_vector_be(),
+                    sub_bits_be.clone(),
+                );
 
                 // sum(sym_b{i} * 2**i)
                 let mut expr = FlatExpression::Number(T::from(0));
@@ -1285,8 +1395,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         // constants do not require directives!
         match e.field.clone() {
             Some(FlatExpression::Number(x)) => {
-                let bits: Vec<_> = Solver::bits(to)
-                    .execute(&vec![x])
+                let bits: Vec<_> = ir::Interpreter::default()
+                    .execute_solver(&Solver::bits(to), &vec![x])
                     .unwrap()
                     .into_iter()
                     .map(|x| FlatExpression::Number(x))

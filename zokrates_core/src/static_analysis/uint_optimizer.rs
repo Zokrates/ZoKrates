@@ -293,10 +293,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 let consequence_max = consequence.metadata.clone().unwrap().max;
                 let alternative_max = alternative.metadata.clone().unwrap().max;
 
-                let max = std::cmp::max(
-                    consequence_max.into_big_uint(),
-                    alternative_max.into_big_uint(),
-                );
+                let max = std::cmp::max(consequence_max.to_biguint(), alternative_max.to_biguint());
 
                 UExpression::if_else(
                     condition,
