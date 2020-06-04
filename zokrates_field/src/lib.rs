@@ -6,6 +6,7 @@
 
 use bellman_ce::pairing::ff::ScalarEngine;
 use bellman_ce::pairing::Engine;
+use num_bigint::BigUint;
 use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
 use std::convert::From;
@@ -86,6 +87,25 @@ pub trait Field:
     fn id() -> [u8; 4];
     /// the name of the curve associated with this field
     fn name() -> &'static str;
+    /// Returns this `Field`'s largest value as a big-endian bit vector
+    fn max_value_bit_vector_be() -> Vec<bool> {
+        fn bytes_to_bits(bytes: &[u8]) -> Vec<bool> {
+            bytes
+                .iter()
+                .flat_map(|&v| (0..8).rev().map(move |i| (v >> i) & 1 == 1))
+                .collect()
+        }
+
+        let field_bytes_le = Self::into_byte_vector(&Self::max_value());
+        // reverse for big-endianess
+        let field_bytes_be = field_bytes_le.into_iter().rev().collect::<Vec<u8>>();
+        let field_bits_be = bytes_to_bits(&field_bytes_be);
+
+        let field_bits_be = &field_bits_be[field_bits_be.len() - Self::get_required_bits()..];
+        field_bits_be.to_vec()
+    }
+    /// Returns the value as a BigUint
+    fn to_biguint(&self) -> BigUint;
 }
 
 #[macro_use]
@@ -114,6 +134,10 @@ mod prime_field {
 
             impl Field for FieldPrime {
                 type BellmanEngine = $bellman_type;
+
+                fn to_biguint(&self) -> BigUint {
+                    self.value.to_biguint().unwrap()
+                }
 
                 fn into_byte_vector(&self) -> Vec<u8> {
                     match self.value.to_biguint() {

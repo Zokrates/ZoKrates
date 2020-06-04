@@ -330,6 +330,7 @@ mod tests {
     #[cfg(test)]
     mod sha256 {
         use super::*;
+        use ir::Interpreter;
 
         #[test]
         fn generate_sha256_constraints() {
@@ -402,7 +403,9 @@ mod tests {
                 .map(|i| Bn128Field::from(i))
                 .collect();
 
-            prog.execute(&input).unwrap();
+            let interpreter = Interpreter::default();
+
+            interpreter.execute(&prog, &input).unwrap();
         }
     }
 }

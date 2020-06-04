@@ -138,8 +138,10 @@ pub fn compute_witness(artifacts: JsValue, args: JsValue) -> Result<JsValue, JsV
         .map(|parsed| Inputs::Abi(parsed))
         .map_err(|why| JsValue::from_str(&format!("{}", why.to_string())))?;
 
-    let witness = program_flattened
-        .execute(&inputs.encode())
+    let interpreter = ir::Interpreter::default();
+
+    let witness = interpreter
+        .execute(&program_flattened, &inputs.encode())
         .map_err(|err| JsValue::from_str(&format!("Execution failed: {}", err)))?;
 
     let return_values: serde_json::Value =
