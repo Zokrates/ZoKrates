@@ -175,7 +175,10 @@ impl<T: Field + ZexeFieldExtensions> Prog<T> {
 }
 
 impl<T: Field + ZexeFieldExtensions> Computation<T> {
-    pub fn prove(self, params: &Parameters<T::ZexeEngine>) -> Proof<T::ZexeEngine> {
+    pub fn prove(self, params: &Parameters<T::ZexeEngine>) -> Proof<T::ZexeEngine>
+// where
+    //     <T as zokrates_field::ZexeFieldExtensions>::ZexeEngine: algebra_core::curves::PairingEngine,
+    {
         let rng = &mut test_rng();
 
         let proof = create_random_proof(self.clone(), params, rng).unwrap();
@@ -205,7 +208,10 @@ impl<T: Field + ZexeFieldExtensions> Computation<T> {
             .collect()
     }
 
-    pub fn setup(self) -> Parameters<T::ZexeEngine> {
+    pub fn setup(self) -> Parameters<T::ZexeEngine>
+// where
+    //     <T as zokrates_field::ZexeFieldExtensions>::ZexeEngine: algebra_core::curves::PairingEngine,
+    {
         let rng = &mut test_rng();
 
         // run setup phase
@@ -235,17 +241,17 @@ mod parse {
     use regex::Regex;
 
     lazy_static! {
-        static ref G2_REGEX: Regex = Regex::new(r"G2\(x=Fq2\(Fq\((?P<x0>0[xX][0-9a-fA-F]*)\) \+ Fq\((?P<x1>0[xX][0-9a-fA-F]*)\) \* u\), y=Fq2\(Fq\((?P<y0>0[xX][0-9a-fA-F]*)\) \+ Fq\((?P<y1>0[xX][0-9a-fA-F]*)\) \* u\)\)").unwrap();
+        static ref G2_REGEX: Regex = Regex::new(r#"GroupAffine\(x=Fp2\(Fp\d{3} "\((?P<x0>[0-9a-fA-F]*)\)" \+ Fp\d{3} "\((?P<x1>[0-9a-fA-F]*)\)" \* u\), y=Fp2\(Fp\d{3} "\((?P<y0>[0-9a-fA-F]*)\)" \+ Fp\d{3} "\((?P<y1>[0-9a-fA-F]*)\)" \* u\)\)"#).unwrap();
     }
 
     lazy_static! {
         static ref G1_REGEX: Regex =
-            Regex::new(r"G1\(x=Fq\((?P<x>0[xX][0-9a-fA-F]*)\), y=Fq\((?P<y>0[xX][0-9a-fA-F]*)\)\)")
+            Regex::new(r#"GroupAffine\(x=Fp\d{3} "\((?P<x>[0-9a-fA-F]*)\)", y=Fp\d{3} "\((?P<y>[0-9a-fA-F]*)\)"\)"#)
                 .unwrap();
     }
 
     lazy_static! {
-        static ref FR_REGEX: Regex = Regex::new(r"Fr\((?P<x>0[xX][0-9a-fA-F]*)\)").unwrap();
+        static ref FR_REGEX: Regex = Regex::new(r#"Fp\d{3} "\((?P<x>[0-9a-fA-F]*)\)""#).unwrap();
     }
 
     pub fn parse_g1<T: ZexeFieldExtensions>(
@@ -254,8 +260,8 @@ mod parse {
         let raw_e = e.to_string();
         let captures = G1_REGEX.captures(&raw_e).unwrap();
         G1Affine(
-            captures.name(&"x").unwrap().as_str().to_string(),
-            captures.name(&"y").unwrap().as_str().to_string(),
+            ("0x".to_string() + captures.name(&"x").unwrap().as_str()).to_string(),
+            ("0x".to_string() + captures.name(&"y").unwrap().as_str()).to_string(),
         )
     }
 
@@ -266,12 +272,12 @@ mod parse {
         let captures = G2_REGEX.captures(&raw_e).unwrap();
         G2Affine(
             G1Affine(
-                captures.name(&"x1").unwrap().as_str().to_string(),
-                captures.name(&"x0").unwrap().as_str().to_string(),
+                ("0x".to_string() + captures.name(&"x1").unwrap().as_str()).to_string(),
+                ("0x".to_string() + captures.name(&"x0").unwrap().as_str()).to_string(),
             ),
             G1Affine(
-                captures.name(&"y1").unwrap().as_str().to_string(),
-                captures.name(&"y0").unwrap().as_str().to_string(),
+                ("0x".to_string() + captures.name(&"y1").unwrap().as_str()).to_string(),
+                ("0x".to_string() + captures.name(&"y0").unwrap().as_str()).to_string(),
             ),
         )
     }
@@ -279,6 +285,6 @@ mod parse {
     pub fn parse_fr<T: ZexeFieldExtensions>(e: &<T::ZexeEngine as PairingEngine>::Fr) -> String {
         let raw_e = e.to_string();
         let captures = FR_REGEX.captures(&raw_e).unwrap();
-        captures.name(&"x").unwrap().as_str().to_string()
+        ("0x".to_string() + captures.name(&"x").unwrap().as_str()).to_string()
     }
 }

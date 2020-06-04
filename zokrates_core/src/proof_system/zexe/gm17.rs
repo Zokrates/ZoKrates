@@ -5,6 +5,8 @@ use zexe_gm17::{
 
 use zokrates_field::{Field, ZexeFieldExtensions};
 
+use algebra_core::serialize::{CanonicalDeserialize, CanonicalSerialize};
+
 use crate::ir;
 use crate::proof_system::zexe::Computation;
 use crate::proof_system::zexe::{parse_fr, parse_g1, parse_g2};
@@ -40,11 +42,9 @@ impl<T: Field + ZexeFieldExtensions> ProofSystem<T> for GM17 {
         let mut pk: Vec<u8> = Vec::new();
         let mut vk_raw: Vec<u8> = Vec::new();
 
-        // TODO: implement parameters serialization, this will panic atm
-        parameters.write(&mut pk).unwrap();
-
-        // TODO: same here as above
-        parameters.vk.write(&mut vk_raw).unwrap();
+        // parameters.write(&mut pk).unwrap();
+        parameters.serialize_uncompressed(&mut pk).unwrap();
+        parameters.vk.serialize_uncompressed(&mut vk_raw).unwrap();
 
         let vk = VerificationKey {
             h: parse_g2::<T>(&parameters.vk.h_g2),
@@ -70,7 +70,9 @@ impl<T: Field + ZexeFieldExtensions> ProofSystem<T> for GM17 {
         proving_key: Vec<u8>,
     ) -> Proof<ProofPoints> {
         let computation = Computation::with_witness(program, witness);
-        let params = Parameters::read(proving_key.as_slice(), true).unwrap();
+        let params =
+            Parameters::<T::ZexeEngine>::deserialize_uncompressed(&mut proving_key.as_slice())
+                .unwrap();
 
         let proof = computation.clone().prove(&params);
 
@@ -87,7 +89,7 @@ impl<T: Field + ZexeFieldExtensions> ProofSystem<T> for GM17 {
             .collect::<Vec<_>>();
 
         let mut raw: Vec<u8> = Vec::new();
-        proof.write(&mut raw).unwrap();
+        proof.serialize_uncompressed(&mut raw).unwrap();
 
         Proof::<ProofPoints>::new(proof_points, inputs, hex::encode(&raw))
     }
@@ -100,10 +102,13 @@ impl<T: Field + ZexeFieldExtensions> ProofSystem<T> for GM17 {
         let vk_raw = hex::decode(vk.raw.clone()).unwrap();
         let proof_raw = hex::decode(proof.raw.clone()).unwrap();
 
-        let vk: VerifyingKey<T::ZexeEngine> = VerifyingKey::read(vk_raw.as_slice()).unwrap();
+        let vk: VerifyingKey<T::ZexeEngine> =
+            VerifyingKey::deserialize_uncompressed(&mut vk_raw.as_slice()).unwrap();
+
         let pvk: PreparedVerifyingKey<T::ZexeEngine> = prepare_verifying_key(&vk);
 
-        let zexe_proof: ZexeProof<T::ZexeEngine> = ZexeProof::read(proof_raw.as_slice()).unwrap();
+        let zexe_proof: ZexeProof<T::ZexeEngine> =
+            ZexeProof::deserialize_uncompressed(&mut proof_raw.as_slice()).unwrap();
 
         let public_inputs: Vec<_> = proof
             .inputs

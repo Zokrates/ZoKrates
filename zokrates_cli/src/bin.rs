@@ -868,24 +868,21 @@ fn cli() -> Result<(), String> {
                         proof_system, backend
                     )),
                 }?,
-                constants::ZEXE => {
-                    println!("Heere");
-                    match proof_system {
-                        constants::GM17 => match prog {
-                            ProgEnum::Bls12_377Program(p) => {
-                                cli_generate_proof::<_, GM17>(p, sub_matches)
-                            }
-                            ProgEnum::Bw6_761Program(p) => {
-                                cli_generate_proof::<_, GM17>(p, sub_matches)
-                            }
-                            _ => unimplemented!(),
-                        },
-                        _ => Err(format!(
-                            "Proving scheme {} is not supported by {} backend",
-                            proof_system, backend
-                        )),
-                    }?
-                }
+                constants::ZEXE => match proof_system {
+                    constants::GM17 => match prog {
+                        ProgEnum::Bls12_377Program(p) => {
+                            cli_generate_proof::<_, GM17>(p, sub_matches)
+                        }
+                        ProgEnum::Bw6_761Program(p) => {
+                            cli_generate_proof::<_, GM17>(p, sub_matches)
+                        }
+                        _ => unimplemented!(),
+                    },
+                    _ => Err(format!(
+                        "Proving scheme {} is not supported by {} backend",
+                        proof_system, backend
+                    )),
+                }?,
                 _ => unreachable!(),
             }
         }
@@ -956,12 +953,8 @@ fn cli() -> Result<(), String> {
                 }?,
                 constants::ZEXE => match proof_system {
                     constants::GM17 => match curve {
-                        constants::BLS12_377 => {
-                            cli_export_verifier::<Bls12_377Field, GM17>(sub_matches)
-                        }
-                        constants::BW6_761 => {
-                            cli_export_verifier::<Bw6_761Field, GM17>(sub_matches)
-                        }
+                        constants::BLS12_377 => cli_verify::<Bls12_377Field, GM17>(sub_matches),
+                        constants::BW6_761 => cli_verify::<Bw6_761Field, GM17>(sub_matches),
                         _ => unimplemented!(),
                     },
                     _ => Err(format!(
