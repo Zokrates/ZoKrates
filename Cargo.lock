@@ -1730,7 +1730,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_cli"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "assert_cli",
  "bincode",
@@ -1748,7 +1748,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_core"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "assert_cli",
  "bellman_ce",
@@ -1779,7 +1779,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_core_test"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "fs_extra",
  "zokrates_test",
@@ -1795,7 +1795,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_field"
-version = "0.3.5"
+version = "0.3.6"
 dependencies = [
  "bellman_ce",
  "bincode",
