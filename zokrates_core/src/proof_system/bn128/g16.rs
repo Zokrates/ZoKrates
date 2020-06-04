@@ -347,7 +347,7 @@ contract Verifier {
 #[cfg(test)]
 mod tests {
     use crate::flat_absy::FlatVariable;
-    use crate::ir::{Function, Prog, Statement};
+    use crate::ir::{Function, Interpreter, Prog, Statement};
 
     use super::*;
     use zokrates_field::Bn128Field;
@@ -368,12 +368,14 @@ mod tests {
         };
 
         let keypair = G16::setup(program.clone());
-        let witness = program
-            .clone()
-            .execute(&vec![Bn128Field::from(42)])
+
+        let interpreter = Interpreter::default();
+
+        let witness = interpreter
+            .execute(&program, &vec![Bn128Field::from(42)])
             .unwrap();
 
-        let proof = G16::generate_proof(program.clone(), witness, keypair.pk);
+        let proof = G16::generate_proof(program, witness, keypair.pk);
         let ans = <G16 as ProofSystem<Bn128Field>>::verify(keypair.vk, proof);
 
         assert!(ans);

@@ -22,6 +22,15 @@ mod tests {
         use bincode::{deserialize, serialize, Infinite};
 
         #[test]
+        fn max_value_bits() {
+            let bits = FieldPrime::max_value_bit_vector_be();
+            assert_eq!(
+                bits[0..10].to_vec(),
+                vec![true, true, false, false, false, false, false, true, true, false]
+            );
+        }
+
+        #[test]
         fn positive_number() {
             assert_eq!(
                 "1234245612".parse::<BigInt>().unwrap(),
@@ -372,6 +381,7 @@ mod tests {
 
         extern crate rand;
         use bellman_ce::pairing::bn256::Fr;
+
         use rand::{thread_rng, Rng};
         use Field;
 
