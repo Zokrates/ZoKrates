@@ -1,0 +1,4 @@
+def main()->(field):
+field a = 2
+field b = 3
+return a * b

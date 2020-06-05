@@ -55,8 +55,13 @@ impl<T: Serialize + DeserializeOwned> Proof<T> {
 #[derive(Serialize, Deserialize)]
 pub struct G1Affine(String, String);
 
+// When G2 is defined on Fq2 field
 #[derive(Serialize, Deserialize)]
 pub struct G2Affine(G1Affine, G1Affine);
+
+// When G2 is defined on Fq field. For BW6_761 curve
+#[derive(Serialize, Deserialize)]
+pub struct G2affineG2Fq(String, String);
 
 impl ToString for G1Affine {
     fn to_string(&self) -> String {
@@ -67,6 +72,12 @@ impl ToString for G1Affine {
 impl ToString for G2Affine {
     fn to_string(&self) -> String {
         format!("[{}], [{}]", self.0.to_string(), self.1.to_string())
+    }
+}
+
+impl ToString for G2affineG2Fq {
+    fn to_string(&self) -> String {
+        format!("{}, {}", self.0, self.1)
     }
 }
 
