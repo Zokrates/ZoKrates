@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 use typed_absy;
+use typed_absy::types::StructType;
 use zir;
 use zokrates_field::Field;
 
@@ -201,7 +202,7 @@ impl<'ast, T: Field> Flattener<T> {
     }
     fn fold_struct_expression_inner(
         &mut self,
-        ty: &Vec<(typed_absy::types::MemberId, typed_absy::Type)>,
+        ty: &StructType,
         e: typed_absy::StructExpressionInner<'ast, T>,
     ) -> Vec<zir::ZirExpression<'ast, T>> {
         fold_struct_expression_inner(self, ty, e)
@@ -360,7 +361,7 @@ pub fn fold_array_expression_inner<'ast, T: Field>(
 
 pub fn fold_struct_expression_inner<'ast, T: Field>(
     f: &mut Flattener<T>,
-    t: &Vec<(typed_absy::types::MemberId, typed_absy::Type)>,
+    t: &StructType,
     e: typed_absy::StructExpressionInner<'ast, T>,
 ) -> Vec<zir::ZirExpression<'ast, T>> {
     match e {
@@ -427,9 +428,9 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
             // we also need the size of this member
             let size = t
                 .iter()
-                .find(|(id, _)| id == id)
+                .find(|member| member.id == id)
                 .unwrap()
-                .1
+                .ty
                 .get_primitive_count();
 
             s[offset..offset + size].to_vec()
@@ -442,7 +443,7 @@ pub fn fold_struct_expression_inner<'ast, T: Field>(
                 zir::FieldElementExpression::Number(i) => {
                     let size = t
                         .iter()
-                        .map(|(_, t)| t.get_primitive_count())
+                        .map(|m| m.ty.get_primitive_count())
                         .fold(0, |acc, current| acc + current);
                     let start = i.to_dec_string().parse::<usize>().unwrap() * size;
                     let end = start + size;
@@ -777,10 +778,7 @@ pub fn fold_struct_expression<'ast, T: Field>(
     f: &mut Flattener<T>,
     e: typed_absy::StructExpression<'ast, T>,
 ) -> Vec<zir::ZirExpression<'ast, T>> {
-    f.fold_struct_expression_inner(
-        &e.ty().clone().into_iter().map(|m| (m.id, *m.ty)).collect(),
-        e.into_inner(),
-    )
+    f.fold_struct_expression_inner(&e.ty().clone(), e.into_inner())
 }
 
 pub fn fold_function_symbol<'ast, T: Field>(

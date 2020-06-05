@@ -16,7 +16,7 @@ mod variable;
 
 pub use self::identifier::CoreIdentifier;
 pub use self::parameter::Parameter;
-pub use self::types::{Signature, Type};
+pub use self::types::{Signature, StructType, Type};
 pub use self::variable::Variable;
 use std::path::PathBuf;
 pub use typed_absy::uint::{bitwidth, UExpression, UExpressionInner, UMetadata};
@@ -30,7 +30,6 @@ use zokrates_field::Field;
 
 pub use self::folder::Folder;
 use typed_absy::abi::{Abi, AbiInput};
-use typed_absy::types::StructMember;
 
 pub use self::identifier::Identifier;
 
@@ -729,12 +728,12 @@ impl<'ast, T> ArrayExpression<'ast, T> {
 
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub struct StructExpression<'ast, T> {
-    ty: Vec<StructMember>,
+    ty: StructType,
     inner: StructExpressionInner<'ast, T>,
 }
 
 impl<'ast, T> StructExpression<'ast, T> {
-    pub fn ty(&self) -> &Vec<StructMember> {
+    pub fn ty(&self) -> &StructType {
         &self.ty
     }
 
@@ -765,7 +764,7 @@ pub enum StructExpressionInner<'ast, T> {
 }
 
 impl<'ast, T> StructExpressionInner<'ast, T> {
-    pub fn annotate(self, ty: Vec<StructMember>) -> StructExpression<'ast, T> {
+    pub fn annotate(self, ty: StructType) -> StructExpression<'ast, T> {
         StructExpression { ty, inner: self }
     }
 }

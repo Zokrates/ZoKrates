@@ -1,4 +1,3 @@
-use typed_absy::types::StructMember;
 use typed_absy::{folder::*, *};
 use zokrates_field::Field;
 
@@ -103,14 +102,14 @@ impl<'ast, T: Field> Folder<'ast, T> for VariableAccessRemover<'ast, T> {
 
     fn fold_struct_expression_inner(
         &mut self,
-        members: &Vec<StructMember>,
+        ty: &StructType,
         e: StructExpressionInner<'ast, T>,
     ) -> StructExpressionInner<'ast, T> {
         match e {
             StructExpressionInner::Select(box a, box i) => {
                 self.select::<StructExpression<'ast, T>>(a, i).into_inner()
             }
-            e => fold_struct_expression_inner(self, members, e),
+            e => fold_struct_expression_inner(self, ty, e),
         }
     }
 

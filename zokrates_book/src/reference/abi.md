@@ -5,17 +5,7 @@ In order to interact programatically with compiled ZoKrates programs, ZoKrates s
 To illustrate this, we'll use the following example program:
 
 ```
-struct Bar {
-    field a
-}
-
-struct Foo {
-    field a
-    Bar b
-}
-
-def main(private Foo foo, bool[2] bar, field num) -> (field):
-	return 42
+{{#include ../../../zokrates_cli/examples/book/abi.zok}}
 ```
 
 ## ABI specification
@@ -26,48 +16,54 @@ In this example, the ABI specification is:
 
 ```json
 {
-    "inputs": [
-        {
-            "name": "foo",
-            "public": false,
-            "type": "struct",
-            "components": [ 
-                {
-                    "name": "a",
-                    "type": "field"
-                },
-                {
-                    "name": "b",
-                    "type": "struct",
-                    "components": [
+   "inputs":[
+      {
+         "name":"foo",
+         "public":true,
+         "type":"struct",
+         "components":{
+            "name":"Foo",
+            "members":[
+               {
+                  "name":"a",
+                  "type":"field"
+               },
+               {
+                  "name":"b",
+                  "type":"struct",
+                  "components":{
+                     "name":"Bar",
+                     "members":[
                         {
-                            "name": "a",
-                            "type": "field"
+                           "name":"a",
+                           "type":"field"
                         }
-                    ]
-                }
+                     ]
+                  }
+               }
             ]
-        },
-        { 
-            "name": "bar",
-            "public": "true",
-            "type": "array",
-            "components": {
-                "size": 2,
-                "type": "bool"
-            }
-        },
-        { 
-            "name": "num",
-            "public": "true",
-            "type": "field"
-        }
-    ],
-    "outputs": [
-        {
-            "type": "field"
-        }
-    ]
+         }
+      },
+      {
+         "name":"bar",
+         "public":true,
+         "type":"array",
+         "components":{
+            "size":2,
+            "type":"bool"
+         }
+      },
+      {
+         "name":"num",
+         "public":true,
+         "type":"field"
+      }
+   ],
+   "outputs":[
+      {
+         "type":"field"
+      }
+   ]
 }
 ```
 
@@ -78,19 +74,20 @@ When executing a program, arguments can be passed as a JSON object of the follow
 
 ```json
 [
-    {
-        "a": "42",
-        "b": 
-        {
-            "a": "42"
-        }
-    },
-    [
-        true,
-        false
-    ],
-    "42"
+   {
+      "a":"42",
+      "b":{
+         "a":"42"
+      }
+   },
+   [
+      true,
+      false
+   ],
+   "42"
 ]
 ```
 
-Note that field elements are passed as JSON strings in order to support arbitrary large numbers.
+Note the following:
+- Field elements are passed as JSON strings in order to support arbitrary large numbers.
+- Structs are passed as JSON objects, ignoring the struct name

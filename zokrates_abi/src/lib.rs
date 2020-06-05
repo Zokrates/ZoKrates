@@ -404,7 +404,7 @@ mod tests {
 
     mod strict {
         use super::*;
-        use zokrates_core::typed_absy::types::StructMember;
+        use zokrates_core::typed_absy::types::{StructMember, StructType};
 
         #[test]
         fn fields() {
@@ -449,10 +449,11 @@ mod tests {
             assert_eq!(
                 parse_strict::<Bn128Field>(
                     s,
-                    vec![Type::Struct(vec![StructMember::new(
-                        "a".into(),
-                        Type::FieldElement
-                    )])]
+                    vec![Type::Struct(StructType::new(
+                        "".into(),
+                        "".into(),
+                        vec![StructMember::new("a".into(), Type::FieldElement)]
+                    ))]
                 )
                 .unwrap(),
                 CheckedValues(vec![CheckedValue::Struct(
@@ -466,10 +467,11 @@ mod tests {
             assert_eq!(
                 parse_strict::<Bn128Field>(
                     s,
-                    vec![Type::Struct(vec![StructMember::new(
-                        "a".into(),
-                        Type::FieldElement
-                    )])]
+                    vec![Type::Struct(StructType::new(
+                        "".into(),
+                        "".into(),
+                        vec![StructMember::new("a".into(), Type::FieldElement)]
+                    ))]
                 )
                 .unwrap_err(),
                 Error::Type("Member with id `a` not found".into())
@@ -479,10 +481,11 @@ mod tests {
             assert_eq!(
                 parse_strict::<Bn128Field>(
                     s,
-                    vec![Type::Struct(vec![StructMember::new(
-                        "a".into(),
-                        Type::FieldElement
-                    )])]
+                    vec![Type::Struct(StructType::new(
+                        "".into(),
+                        "".into(),
+                        vec![StructMember::new("a".into(), Type::FieldElement)]
+                    ))]
                 )
                 .unwrap_err(),
                 Error::Type("Expected 1 member(s), found 0".into())
@@ -492,10 +495,11 @@ mod tests {
             assert_eq!(
                 parse_strict::<Bn128Field>(
                     s,
-                    vec![Type::Struct(vec![StructMember::new(
-                        "a".into(),
-                        Type::FieldElement
-                    )])]
+                    vec![Type::Struct(StructType::new(
+                        "".into(),
+                        "".into(),
+                        vec![StructMember::new("a".into(), Type::FieldElement)]
+                    ))]
                 )
                 .unwrap_err(),
                 Error::Type("Value `false` doesn't match expected type `field`".into())

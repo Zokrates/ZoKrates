@@ -285,4 +285,111 @@ mod test {
         );
         assert!(res.is_ok());
     }
+
+    mod abi {
+        use super::*;
+        use typed_absy::abi::*;
+        use typed_absy::types::*;
+
+        #[test]
+        fn use_struct_declaration_types() {
+            // when importing types and renaming them, we use the top-most renaming in the ABI
+
+            // // main.zok
+            // from foo import Foo as FooMain
+            //
+            // // foo.zok
+            // from bar import Bar as BarFoo
+            // struct Foo { BarFoo b }
+            //
+            // // bar.zok
+            // struct Bar { field a }
+
+            // Expected resolved type for FooMain:
+            // FooMain { BarFoo b }
+
+            let main = r#"
+from "foo" import Foo as FooMain
+def main(FooMain f) -> ():
+    return
+"#;
+
+            struct CustomResolver;
+
+            impl<E> Resolver<E> for CustomResolver {
+                fn resolve(
+                    &self,
+                    _: PathBuf,
+                    import_location: PathBuf,
+                ) -> Result<(String, PathBuf), E> {
+                    let loc = import_location.display().to_string();
+                    if loc == "main" {
+                        Ok((
+                            r#"
+from "foo" import Foo as FooMain
+def main(FooMain f) -> ():
+    return
+"#
+                            .into(),
+                            "main".into(),
+                        ))
+                    } else if loc == "foo" {
+                        Ok((
+                            r#"
+from "bar" import Bar as BarFoo
+struct Foo {
+    BarFoo b
+}
+"#
+                            .into(),
+                            "foo".into(),
+                        ))
+                    } else if loc == "bar" {
+                        Ok((
+                            r#"
+struct Bar { field a }
+"#
+                            .into(),
+                            "bar".into(),
+                        ))
+                    } else {
+                        unreachable!()
+                    }
+                }
+            }
+
+            let artifacts = compile::<Bn128Field, io::Error>(
+                main.to_string(),
+                "main".into(),
+                Some(&CustomResolver),
+            )
+            .unwrap();
+
+            assert_eq!(
+                artifacts.abi,
+                Abi {
+                    inputs: vec![AbiInput {
+                        name: "f".into(),
+                        public: true,
+                        ty: Type::Struct(StructType {
+                            module: "main".into(),
+                            name: "FooMain".into(),
+                            members: vec![StructMember {
+                                id: "b".into(),
+                                ty: box Type::Struct(StructType {
+                                    module: "foo".into(),
+                                    name: "BarFoo".into(),
+                                    members: vec![StructMember {
+                                        id: "a".into(),
+                                        ty: box Type::FieldElement
+                                    }]
+                                })
+                            }]
+                        })
+                    }],
+                    outputs: vec![]
+                }
+            );
+        }
+    }
 }

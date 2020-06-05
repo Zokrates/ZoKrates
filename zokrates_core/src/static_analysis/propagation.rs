@@ -14,7 +14,7 @@ use crate::typed_absy::folder::*;
 use crate::typed_absy::*;
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use typed_absy::types::{StructMember, Type};
+use typed_absy::types::Type;
 use zokrates_field::Field;
 
 pub struct Propagator<'ast, T: Field> {
@@ -816,7 +816,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 
     fn fold_struct_expression_inner(
         &mut self,
-        ty: &Vec<StructMember>,
+        ty: &StructType,
         e: StructExpressionInner<'ast, T>,
     ) -> StructExpressionInner<'ast, T> {
         match e {

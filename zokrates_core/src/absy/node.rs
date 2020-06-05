@@ -82,8 +82,8 @@ impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Assignee<'ast
 impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Statement<'ast, T> {}
 impl<'ast, T: Field> NodeValue for SymbolDeclaration<'ast, T> {}
 impl NodeValue for UnresolvedType {}
-impl<'ast> NodeValue for StructType<'ast> {}
-impl<'ast> NodeValue for StructField<'ast> {}
+impl<'ast> NodeValue for StructDefinition<'ast> {}
+impl<'ast> NodeValue for StructDefinitionField<'ast> {}
 impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Function<'ast, T> {}
 impl<'ast, T: Field> NodeValue for Module<'ast, T> {}
 impl<'ast> NodeValue for SymbolImport<'ast> {}

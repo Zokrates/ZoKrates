@@ -51,7 +51,7 @@ pub struct SymbolDeclaration<'ast, T> {
 
 #[derive(PartialEq, Clone)]
 pub enum Symbol<'ast, T> {
-    HereType(StructTypeNode<'ast>),
+    HereType(StructDefinitionNode<'ast>),
     HereFunction(FunctionNode<'ast, T>),
     There(SymbolImportNode<'ast>),
     Flat(FlatEmbed),
@@ -109,11 +109,11 @@ pub type UnresolvedTypeNode = Node<UnresolvedType>;
 
 /// A struct type definition
 #[derive(Debug, Clone, PartialEq)]
-pub struct StructType<'ast> {
-    pub fields: Vec<StructFieldNode<'ast>>,
+pub struct StructDefinition<'ast> {
+    pub fields: Vec<StructDefinitionFieldNode<'ast>>,
 }
 
-impl<'ast> fmt::Display for StructType<'ast> {
+impl<'ast> fmt::Display for StructDefinition<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -127,22 +127,22 @@ impl<'ast> fmt::Display for StructType<'ast> {
     }
 }
 
-pub type StructTypeNode<'ast> = Node<StructType<'ast>>;
+pub type StructDefinitionNode<'ast> = Node<StructDefinition<'ast>>;
 
 /// A struct type definition
 #[derive(Debug, Clone, PartialEq)]
-pub struct StructField<'ast> {
+pub struct StructDefinitionField<'ast> {
     pub id: Identifier<'ast>,
     pub ty: UnresolvedTypeNode,
 }
 
-impl<'ast> fmt::Display for StructField<'ast> {
+impl<'ast> fmt::Display for StructDefinitionField<'ast> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}: {},", self.id, self.ty)
     }
 }
 
-type StructFieldNode<'ast> = Node<StructField<'ast>>;
+type StructDefinitionFieldNode<'ast> = Node<StructDefinitionField<'ast>>;
 
 /// An import
 #[derive(Debug, Clone, PartialEq)]
