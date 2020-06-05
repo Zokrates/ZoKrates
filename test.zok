@@ -1,7 +1,0 @@
-struct Foo {
-	u32 a
-	u8 b
-}
-
-def main(Foo f) -> (u8):
-	return f.b
