@@ -16,7 +16,7 @@ from "ecc/babyjubjubParams" import BabyJubJubParams
 // print(hasher.dsl_code)
 
 // 512bit to 256bit Pedersen hash using compression of the field elements
-def main(field[512] e) -> (field[256]):
+def main(bool[512] e) -> (bool[256]):
 	BabyJubJubParams context = context()
 	field[2] a = context.INFINITY //Infinity
 	//Round 0
@@ -704,5 +704,5 @@ def main(field[512] e) -> (field[256]):
 	cy = sel2([e[510], e[511]], [2329094643034533408459502544740928833981119919633412709248656884170940780093 , 3216329736050668550647765981020076413548845117352735257893224753954595290363, 18710403072495673647060422294369054840513840567808020912157404388689648711093, 9785201456176703812798077455183487364035650707229293534561747881523562553649])
 	a = add(a, [cx, cy], context)
 
-	field[256] aC = edwardsCompress(a)
+	bool[256] aC = edwardsCompress(a)
 	return aC

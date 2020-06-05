@@ -4,7 +4,7 @@ import "ecc/babyjubjubParams" as context
 from "ecc/babyjubjubParams" import BabyJubJubParams
 import "ecc/edwardsAdd" as add
 
-def main(field[6] e) -> (field[2]):
+def main(bool[6] e) -> (field[2]):
 	BabyJubJubParams context = context()
 
 	field[2] a = context.INFINITY //Infinity

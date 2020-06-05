@@ -1,4 +1,0 @@
-// XOR
-
-def main(field x, field y) -> (field):
-	return x + y - 2 * x * y

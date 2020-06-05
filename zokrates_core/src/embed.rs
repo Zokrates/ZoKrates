@@ -22,16 +22,13 @@ impl FlatEmbed {
         match self {
             FlatEmbed::Sha256Round => Signature::new()
                 .inputs(vec![
-                    Type::array(Type::FieldElement, 512),
-                    Type::array(Type::FieldElement, 256),
+                    Type::array(Type::Boolean, 512),
+                    Type::array(Type::Boolean, 256),
                 ])
-                .outputs(vec![Type::array(Type::FieldElement, 256)]),
+                .outputs(vec![Type::array(Type::Boolean, 256)]),
             FlatEmbed::Unpack => Signature::new()
                 .inputs(vec![Type::FieldElement])
-                .outputs(vec![Type::array(
-                    Type::FieldElement,
-                    T::get_required_bits(),
-                )]),
+                .outputs(vec![Type::array(Type::Boolean, T::get_required_bits())]),
         }
     }
 
