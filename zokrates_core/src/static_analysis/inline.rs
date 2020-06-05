@@ -132,13 +132,6 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         let u8_from_bits = crate::embed::FlatEmbed::U8FromBits;
         let u8_from_bits_key = u8_from_bits.key::<T>();
 
-        println!("{:?}", unpack_key);
-        println!(
-            "{:?}",
-            crate::embed::FlatEmbed::Unpack(T::get_required_bits()).signature()
-        );
-        println!("{:?}", crate::embed::FlatEmbed::U32FromBits.signature());
-
         // return a program with a single module containing `main`, `_UNPACK`, and `_SHA256_ROUND
         TypedProgram {
             main: "main".into(),

@@ -711,6 +711,43 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
+    fn flatten_u_to_bits(
+        &mut self,
+        symbols: &ZirFunctionSymbols<'ast, T>,
+        statements_flattened: &mut FlatStatements<T>,
+        expression: ZirExpression<'ast, T>,
+        bitwidth: usize,
+    ) -> Vec<FlatUExpression<T>> {
+        let expression = UExpression::try_from(expression).unwrap();
+        let from = expression.metadata.clone().unwrap().bitwidth();
+        let p = self.flatten_uint_expression(symbols, statements_flattened, expression);
+        let bits = self
+            .get_bits(p, from as usize, bitwidth, statements_flattened)
+            .into_iter()
+            .map(|b| FlatUExpression::with_field(b))
+            .collect();
+        bits
+    }
+
+    fn flatten_bits_to_u(
+        &mut self,
+        symbols: &ZirFunctionSymbols<'ast, T>,
+        statements_flattened: &mut FlatStatements<T>,
+        bits: Vec<ZirExpression<'ast, T>>,
+        bitwidth: usize,
+    ) -> FlatUExpression<T> {
+        assert_eq!(bits.len(), bitwidth);
+        let bits: Vec<_> = bits
+            .into_iter()
+            .map(|p| {
+                self.flatten_expression(symbols, statements_flattened, p)
+                    .get_field_unchecked()
+            })
+            .collect();
+
+        FlatUExpression::with_bits(bits)
+    }
+
     /// Flattens a function call
     ///
     /// # Arguments
@@ -737,92 +774,32 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let funct = self.get_embed(&key, &symbols);
 
         match funct {
-            crate::embed::FlatEmbed::U32ToBits => {
-                assert_eq!(param_expressions.len(), 1);
-                let mut param_expressions = param_expressions;
-                let p = param_expressions.pop().unwrap();
-                let p = match p {
-                    ZirExpression::Uint(e) => e,
-                    _ => unreachable!(),
-                };
-                let from = p.metadata.clone().unwrap().bitwidth();
-                let p = self.flatten_uint_expression(symbols, statements_flattened, p);
-                let bits = self
-                    .get_bits(p, from as usize, 32, statements_flattened)
-                    .into_iter()
-                    .map(|b| FlatUExpression::with_field(b))
-                    .collect();
-                bits
-            }
-            crate::embed::FlatEmbed::U16ToBits => {
-                assert_eq!(param_expressions.len(), 1);
-                let mut param_expressions = param_expressions;
-                let p = param_expressions.pop().unwrap();
-                let p = match p {
-                    ZirExpression::Uint(e) => e,
-                    _ => unreachable!(),
-                };
-                let from = p.metadata.clone().unwrap().bitwidth();
-                let p = self.flatten_uint_expression(symbols, statements_flattened, p);
-                let bits = self
-                    .get_bits(p, from as usize, 16, statements_flattened)
-                    .into_iter()
-                    .map(|b| FlatUExpression::with_field(b))
-                    .collect();
-                bits
-            }
-            crate::embed::FlatEmbed::U8ToBits => {
-                assert_eq!(param_expressions.len(), 1);
-                let mut param_expressions = param_expressions;
-                let p = param_expressions.pop().unwrap();
-                let p = match p {
-                    ZirExpression::Uint(e) => e,
-                    _ => unreachable!(),
-                };
-                let from = p.metadata.clone().unwrap().bitwidth();
-                let p = self.flatten_uint_expression(symbols, statements_flattened, p);
-                let bits = self
-                    .get_bits(p, from as usize, 8, statements_flattened)
-                    .into_iter()
-                    .map(|b| FlatUExpression::with_field(b))
-                    .collect();
-                bits
-            }
+            crate::embed::FlatEmbed::U32ToBits => self.flatten_u_to_bits(
+                symbols,
+                statements_flattened,
+                param_expressions[0].clone(),
+                32,
+            ),
+            crate::embed::FlatEmbed::U16ToBits => self.flatten_u_to_bits(
+                symbols,
+                statements_flattened,
+                param_expressions[0].clone(),
+                16,
+            ),
+            crate::embed::FlatEmbed::U8ToBits => self.flatten_u_to_bits(
+                symbols,
+                statements_flattened,
+                param_expressions[0].clone(),
+                8,
+            ),
             crate::embed::FlatEmbed::U32FromBits => {
-                assert_eq!(param_expressions.len(), 32);
-                let param_expressions: Vec<_> = param_expressions
-                    .into_iter()
-                    .map(|p| {
-                        self.flatten_expression(symbols, statements_flattened, p)
-                            .get_field_unchecked()
-                    })
-                    .collect();
-
-                vec![FlatUExpression::with_bits(param_expressions)]
+                vec![self.flatten_bits_to_u(symbols, statements_flattened, param_expressions, 32)]
             }
             crate::embed::FlatEmbed::U16FromBits => {
-                assert_eq!(param_expressions.len(), 16);
-                let param_expressions: Vec<_> = param_expressions
-                    .into_iter()
-                    .map(|p| {
-                        self.flatten_expression(symbols, statements_flattened, p)
-                            .get_field_unchecked()
-                    })
-                    .collect();
-
-                vec![FlatUExpression::with_bits(param_expressions)]
+                vec![self.flatten_bits_to_u(symbols, statements_flattened, param_expressions, 16)]
             }
             crate::embed::FlatEmbed::U8FromBits => {
-                assert_eq!(param_expressions.len(), 8);
-                let param_expressions: Vec<_> = param_expressions
-                    .into_iter()
-                    .map(|p| {
-                        self.flatten_expression(symbols, statements_flattened, p)
-                            .get_field_unchecked()
-                    })
-                    .collect();
-
-                vec![FlatUExpression::with_bits(param_expressions)]
+                vec![self.flatten_bits_to_u(symbols, statements_flattened, param_expressions, 8)]
             }
             funct => {
                 let funct = funct.synthetize();

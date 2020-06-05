@@ -141,239 +141,190 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                             .map(|a| self.fold_expression(a))
                             .collect();
 
-                        if arguments.iter().all(|a| is_constant(a))
-                            && [
-                                "_U32_FROM_BITS",
-                                "_U16_FROM_BITS",
-                                "_U8_FROM_BITS",
-                                "_U32_TO_BITS",
-                                "_U16_TO_BITS",
-                                "_U8_TO_BITS",
-                            ]
-                            .contains(&key.id)
-                        {
-                            let expr: TypedExpression<'ast, T> = if key.id == "_U32_FROM_BITS" {
-                                assert_eq!(variables.len(), 1);
-                                assert_eq!(arguments.len(), 1);
+                        fn process_u_from_bits<'ast, T: Field>(
+                            variables: Vec<Variable<'ast>>,
+                            arguments: Vec<TypedExpression<'ast, T>>,
+                            bitwidth: usize,
+                        ) -> TypedExpression<'ast, T> {
+                            assert_eq!(variables.len(), 1);
+                            assert_eq!(arguments.len(), 1);
 
-                                use std::convert::TryInto;
+                            use std::convert::TryInto;
 
-                                match arguments[0].clone() {
-                                    TypedExpression::Array(a) => match a.into_inner() {
-                                        ArrayExpressionInner::Value(v) => {
-                                            assert_eq!(v.len(), 32);
-                                            UExpressionInner::Value(
-                                                v.into_iter()
-                                                    .map(|v| match v {
-                                                        TypedExpression::Boolean(
-                                                            BooleanExpression::Value(v),
-                                                        ) => v,
-                                                        _ => unreachable!("should be a boolean"),
-                                                    })
-                                                    .enumerate()
-                                                    .fold(0, |acc, (i, v)| {
-                                                        if v {
-                                                            acc + 2u128.pow(
-                                                                (32 - i - 1).try_into().unwrap(),
-                                                            )
-                                                        } else {
-                                                            acc
-                                                        }
-                                                    }),
-                                            )
-                                            .annotate(32)
-                                            .into()
-                                        }
-                                        _ => unreachable!("should be an array value"),
-                                    },
-                                    _ => unreachable!("should be an array"),
-                                }
-                            } else if key.id == "_U16_FROM_BITS" {
-                                assert_eq!(variables.len(), 1);
-                                assert_eq!(arguments.len(), 1);
-
-                                use std::convert::TryInto;
-
-                                match arguments[0].clone() {
-                                    TypedExpression::Array(a) => match a.into_inner() {
-                                        ArrayExpressionInner::Value(v) => {
-                                            assert_eq!(v.len(), 16);
-                                            UExpressionInner::Value(
-                                                v.into_iter()
-                                                    .map(|v| match v {
-                                                        TypedExpression::Boolean(
-                                                            BooleanExpression::Value(v),
-                                                        ) => v,
-                                                        _ => unreachable!("should be a boolean"),
-                                                    })
-                                                    .enumerate()
-                                                    .fold(0, |acc, (i, v)| {
-                                                        if v {
-                                                            acc + 2u128.pow(
-                                                                (16 - i - 1).try_into().unwrap(),
-                                                            )
-                                                        } else {
-                                                            acc
-                                                        }
-                                                    }),
-                                            )
-                                            .annotate(16)
-                                            .into()
-                                        }
-                                        _ => unreachable!("should be an array value"),
-                                    },
-                                    _ => unreachable!("should be an array"),
-                                }
-                            } else if key.id == "_U8_FROM_BITS" {
-                                assert_eq!(variables.len(), 1);
-                                assert_eq!(arguments.len(), 1);
-
-                                use std::convert::TryInto;
-
-                                match arguments[0].clone() {
-                                    TypedExpression::Array(a) => match a.into_inner() {
-                                        ArrayExpressionInner::Value(v) => {
-                                            assert_eq!(v.len(), 8);
-                                            UExpressionInner::Value(
-                                                v.into_iter()
-                                                    .map(|v| match v {
-                                                        TypedExpression::Boolean(
-                                                            BooleanExpression::Value(v),
-                                                        ) => v,
-                                                        _ => unreachable!("should be a boolean"),
-                                                    })
-                                                    .enumerate()
-                                                    .fold(0, |acc, (i, v)| {
-                                                        if v {
-                                                            acc + 2u128.pow(
-                                                                (8 - i - 1).try_into().unwrap(),
-                                                            )
-                                                        } else {
-                                                            acc
-                                                        }
-                                                    }),
-                                            )
-                                            .annotate(8)
-                                            .into()
-                                        }
-                                        _ => unreachable!("should be an array value"),
-                                    },
-                                    _ => unreachable!("should be an array"),
-                                }
-                            } else if key.id == "_U32_TO_BITS" {
-                                assert_eq!(variables.len(), 1);
-                                assert_eq!(arguments.len(), 1);
-
-                                match arguments[0].clone() {
-                                    TypedExpression::Uint(a) => match a.into_inner() {
-                                        UExpressionInner::Value(v) => {
-                                            let mut num = v;
-                                            let mut res = vec![];
-
-                                            for i in (0..32).rev() {
-                                                if 2u128.pow(i) <= num {
-                                                    num = num - 2u128.pow(i);
-                                                    res.push(true);
+                            match ArrayExpression::try_from(arguments[0].clone())
+                                .unwrap()
+                                .into_inner()
+                            {
+                                ArrayExpressionInner::Value(v) => {
+                                    assert_eq!(v.len(), bitwidth);
+                                    UExpressionInner::Value(
+                                        v.into_iter()
+                                            .map(|v| match v {
+                                                TypedExpression::Boolean(
+                                                    BooleanExpression::Value(v),
+                                                ) => v,
+                                                _ => unreachable!("should be a boolean value"),
+                                            })
+                                            .enumerate()
+                                            .fold(0, |acc, (i, v)| {
+                                                if v {
+                                                    acc + 2u128
+                                                        .pow((bitwidth - i - 1).try_into().unwrap())
                                                 } else {
-                                                    res.push(false);
+                                                    acc
                                                 }
-                                            }
-                                            assert_eq!(num, 0);
-
-                                            ArrayExpressionInner::Value(
-                                                res.into_iter()
-                                                    .map(|v| BooleanExpression::Value(v).into())
-                                                    .collect(),
-                                            )
-                                            .annotate(Type::Boolean, 32)
-                                            .into()
-                                        }
-                                        _ => unreachable!("should be a uint value"),
-                                    },
-                                    _ => unreachable!("should be a uint"),
+                                            }),
+                                    )
+                                    .annotate(bitwidth)
+                                    .into()
                                 }
-                            } else if key.id == "_U16_TO_BITS" {
-                                assert_eq!(variables.len(), 1);
-                                assert_eq!(arguments.len(), 1);
-
-                                match arguments[0].clone() {
-                                    TypedExpression::Uint(a) => match a.into_inner() {
-                                        UExpressionInner::Value(v) => {
-                                            let mut num = v;
-                                            let mut res = vec![];
-
-                                            for i in (0..16).rev() {
-                                                if 2u128.pow(i) <= num {
-                                                    num = num - 2u128.pow(i);
-                                                    res.push(true);
-                                                } else {
-                                                    res.push(false);
-                                                }
-                                            }
-                                            assert_eq!(num, 0);
-
-                                            ArrayExpressionInner::Value(
-                                                res.into_iter()
-                                                    .map(|v| BooleanExpression::Value(v).into())
-                                                    .collect(),
-                                            )
-                                            .annotate(Type::Boolean, 16)
-                                            .into()
-                                        }
-                                        _ => unreachable!("should be a uint value"),
-                                    },
-                                    _ => unreachable!("should be a uint"),
-                                }
-                            } else if key.id == "_U8_TO_BITS" {
-                                assert_eq!(variables.len(), 1);
-                                assert_eq!(arguments.len(), 1);
-
-                                match arguments[0].clone() {
-                                    TypedExpression::Uint(a) => match a.into_inner() {
-                                        UExpressionInner::Value(v) => {
-                                            let mut num = v;
-                                            let mut res = vec![];
-
-                                            for i in (0..8).rev() {
-                                                if 2u128.pow(i) <= num {
-                                                    num = num - 2u128.pow(i);
-                                                    res.push(true);
-                                                } else {
-                                                    res.push(false);
-                                                }
-                                            }
-                                            assert_eq!(num, 0);
-
-                                            ArrayExpressionInner::Value(
-                                                res.into_iter()
-                                                    .map(|v| BooleanExpression::Value(v).into())
-                                                    .collect(),
-                                            )
-                                            .annotate(Type::Boolean, 8)
-                                            .into()
-                                        }
-                                        _ => unreachable!("should be a uint value"),
-                                    },
-                                    _ => unreachable!("should be a uint"),
-                                }
-                            } else {
-                                unreachable!()
-                            };
-
-                            self.constants.insert(
-                                TypedAssignee::Identifier(variables[0].clone()),
-                                expr.clone(),
-                            );
-                            match self.verbose {
-                                true => Some(TypedStatement::MultipleDefinition(
-                                    variables,
-                                    TypedExpressionList::FunctionCall(key, arguments, types),
-                                )),
-                                false => None,
+                                _ => unreachable!("should be an array value"),
                             }
-                        } else {
-                            let l = TypedExpressionList::FunctionCall(key, arguments, types);
-                            Some(TypedStatement::MultipleDefinition(variables, l))
+                        }
+
+                        fn process_u_to_bits<'ast, T: Field>(
+                            variables: Vec<Variable<'ast>>,
+                            arguments: Vec<TypedExpression<'ast, T>>,
+                            bitwidth: usize,
+                        ) -> TypedExpression<'ast, T> {
+                            assert_eq!(variables.len(), 1);
+                            assert_eq!(arguments.len(), 1);
+
+                            match UExpression::try_from(arguments[0].clone())
+                                .unwrap()
+                                .into_inner()
+                            {
+                                UExpressionInner::Value(v) => {
+                                    let mut num = v;
+                                    let mut res = vec![];
+
+                                    for i in (0..bitwidth as u32).rev() {
+                                        if 2u128.pow(i) <= num {
+                                            num = num - 2u128.pow(i);
+                                            res.push(true);
+                                        } else {
+                                            res.push(false);
+                                        }
+                                    }
+                                    assert_eq!(num, 0);
+
+                                    ArrayExpressionInner::Value(
+                                        res.into_iter()
+                                            .map(|v| BooleanExpression::Value(v).into())
+                                            .collect(),
+                                    )
+                                    .annotate(Type::Boolean, bitwidth)
+                                    .into()
+                                }
+                                _ => unreachable!("should be a uint value"),
+                            }
+                        }
+
+                        match arguments.iter().all(|a| is_constant(a)) {
+                            true => {
+                                let r: Option<TypedExpression<'ast, T>> = match key.id {
+                                    "_U32_FROM_BITS" => Some(process_u_from_bits(
+                                        variables.clone(),
+                                        arguments.clone(),
+                                        32,
+                                    )),
+                                    "_U16_FROM_BITS" => Some(process_u_from_bits(
+                                        variables.clone(),
+                                        arguments.clone(),
+                                        16,
+                                    )),
+                                    "_U8_FROM_BITS" => Some(process_u_from_bits(
+                                        variables.clone(),
+                                        arguments.clone(),
+                                        8,
+                                    )),
+                                    "_U32_TO_BITS" => Some(process_u_to_bits(
+                                        variables.clone(),
+                                        arguments.clone(),
+                                        32,
+                                    )),
+                                    "_U16_TO_BITS" => Some(process_u_to_bits(
+                                        variables.clone(),
+                                        arguments.clone(),
+                                        16,
+                                    )),
+                                    "_U8_TO_BITS" => Some(process_u_to_bits(
+                                        variables.clone(),
+                                        arguments.clone(),
+                                        8,
+                                    )),
+                                    "_UNPACK" => {
+                                        assert_eq!(variables.len(), 1);
+                                        assert_eq!(arguments.len(), 1);
+
+                                        match FieldElementExpression::try_from(arguments[0].clone())
+                                            .unwrap()
+                                        {
+                                            FieldElementExpression::Number(num) => {
+                                                let mut num = num;
+                                                let mut res = vec![];
+
+                                                for i in (0..T::get_required_bits()).rev() {
+                                                    if T::from(2).pow(i) <= num {
+                                                        num = num - T::from(2).pow(i);
+                                                        res.push(T::from(1));
+                                                    } else {
+                                                        res.push(T::from(0));
+                                                    }
+                                                }
+                                                assert_eq!(num, T::zero());
+
+                                                Some(
+                                                    ArrayExpressionInner::Value(
+                                                        res.into_iter()
+                                                            .map(|v| {
+                                                                FieldElementExpression::Number(v)
+                                                                    .into()
+                                                            })
+                                                            .collect(),
+                                                    )
+                                                    .annotate(
+                                                        Type::FieldElement,
+                                                        T::get_required_bits(),
+                                                    )
+                                                    .into(),
+                                                )
+                                            }
+                                            _ => unreachable!("should be a field value"),
+                                        }
+                                    }
+                                    "_SHA256_ROUND" => None,
+                                    k => unreachable!(k),
+                                };
+
+                                match r {
+                                    Some(expr) => {
+                                        self.constants.insert(
+                                            TypedAssignee::Identifier(variables[0].clone()),
+                                            expr.clone(),
+                                        );
+                                        match self.verbose {
+                                            true => Some(TypedStatement::MultipleDefinition(
+                                                variables,
+                                                TypedExpressionList::FunctionCall(
+                                                    key, arguments, types,
+                                                ),
+                                            )),
+                                            false => None,
+                                        }
+                                    }
+                                    None => {
+                                        let l = TypedExpressionList::FunctionCall(
+                                            key, arguments, types,
+                                        );
+                                        Some(TypedStatement::MultipleDefinition(variables, l))
+                                    }
+                                }
+                            }
+                            false => {
+                                let l = TypedExpressionList::FunctionCall(key, arguments, types);
+                                Some(TypedStatement::MultipleDefinition(variables, l))
+                            }
                         }
                     }
                 }
