@@ -10,7 +10,7 @@ import "hashes/pedersen/6bit" as pedersen
 
 def main() -> (field):
 	
-	field[6] e = [true, true, false, false, false, false]
+	bool[6] e = [true, true, false, false, false, false]
 	field[2] d = pedersen(e)
 
 	5483803361072598088157572477433311028290255512997784196805059543720485966024 == d[0]

@@ -1,7 +1,7 @@
 import "EMBED/unpack"
 
-def main(field a) -> (field[255]):
+def main(field a) -> (bool[255]):
 	
-	field[255] b = unpack(a)
+	bool[255] b = unpack(a)
 
 	return b
