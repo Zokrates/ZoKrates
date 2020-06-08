@@ -267,9 +267,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                                 for i in (0..T::get_required_bits()).rev() {
                                                     if T::from(2).pow(i) <= num {
                                                         num = num - T::from(2).pow(i);
-                                                        res.push(T::from(1));
+                                                        res.push(true);
                                                     } else {
-                                                        res.push(T::from(0));
+                                                        res.push(false);
                                                     }
                                                 }
                                                 assert_eq!(num, T::zero());
@@ -278,15 +278,11 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                                     ArrayExpressionInner::Value(
                                                         res.into_iter()
                                                             .map(|v| {
-                                                                FieldElementExpression::Number(v)
-                                                                    .into()
+                                                                BooleanExpression::Value(v).into()
                                                             })
                                                             .collect(),
                                                     )
-                                                    .annotate(
-                                                        Type::FieldElement,
-                                                        T::get_required_bits(),
-                                                    )
+                                                    .annotate(Type::Boolean, T::get_required_bits())
                                                     .into(),
                                                 )
                                             }

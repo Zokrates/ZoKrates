@@ -6,15 +6,15 @@ import "./512bitPadded" as sha256
 // It then returns an array of two field elements, each representing 128 bits of the result.
 def main(field[4] preimage) -> (field[2]):
 
-    field[128] a = unpack128(preimage[0])
-    field[128] b = unpack128(preimage[1])
-    field[128] c = unpack128(preimage[2])
-    field[128] d = unpack128(preimage[3])
+    bool[128] a = unpack128(preimage[0])
+    bool[128] b = unpack128(preimage[1])
+    bool[128] c = unpack128(preimage[2])
+    bool[128] d = unpack128(preimage[3])
 
-    field[256] lhs = [...a, ...b]
-    field[256] rhs = [...c, ...d]
+    bool[256] lhs = [...a, ...b]
+    bool[256] rhs = [...c, ...d]
 
-    field[256] r = sha256(lhs, rhs)
+    bool[256] r = sha256(lhs, rhs)
 
     field res0 = pack128(r[..128])
     field res1 = pack128(r[128..])
