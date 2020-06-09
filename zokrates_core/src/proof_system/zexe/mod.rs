@@ -175,10 +175,7 @@ impl<T: Field + ZexeFieldExtensions> Prog<T> {
 }
 
 impl<T: Field + ZexeFieldExtensions> Computation<T> {
-    pub fn prove(self, params: &Parameters<T::ZexeEngine>) -> Proof<T::ZexeEngine>
-// where
-    //     <T as zokrates_field::ZexeFieldExtensions>::ZexeEngine: algebra_core::curves::PairingEngine,
-    {
+    pub fn prove(self, params: &Parameters<T::ZexeEngine>) -> Proof<T::ZexeEngine> {
         let rng = &mut test_rng();
 
         let proof = create_random_proof(self.clone(), params, rng).unwrap();
@@ -208,10 +205,7 @@ impl<T: Field + ZexeFieldExtensions> Computation<T> {
             .collect()
     }
 
-    pub fn setup(self) -> Parameters<T::ZexeEngine>
-// where
-    //     <T as zokrates_field::ZexeFieldExtensions>::ZexeEngine: algebra_core::curves::PairingEngine,
-    {
+    pub fn setup(self) -> Parameters<T::ZexeEngine> {
         let rng = &mut test_rng();
 
         // run setup phase

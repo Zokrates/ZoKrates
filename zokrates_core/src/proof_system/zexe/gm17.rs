@@ -3,7 +3,9 @@ use zexe_gm17::{
     VerifyingKey,
 };
 
-use zokrates_field::{Bls12_377Field, Bw6_761Field, Field, ZexeFieldExtensions};
+use zokrates_field::{
+    Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field, ZexeFieldExtensions,
+};
 
 use algebra_core::serialize::{CanonicalDeserialize, CanonicalSerialize};
 
@@ -15,6 +17,11 @@ use proof_system::{
 };
 
 pub struct GM17 {}
+
+pub trait NotBw6_761Field {}
+impl NotBw6_761Field for Bls12_377Field {}
+impl NotBw6_761Field for Bls12_381Field {}
+impl NotBw6_761Field for Bn128Field {}
 
 #[derive(Serialize, Deserialize)]
 pub struct ProofPoints {
@@ -52,6 +59,100 @@ pub struct VerificationKeyG2Fq {
     raw: String,
 }
 
+impl<T: NotBw6_761Field + Field + ZexeFieldExtensions> ProofSystem<T> for GM17 {
+    type VerificationKey = VerificationKey;
+    type ProofPoints = ProofPoints;
+
+    fn setup(program: ir::Prog<T>) -> SetupKeypair<VerificationKey> {
+        let parameters = Computation::without_witness(program).setup();
+
+        let mut pk: Vec<u8> = Vec::new();
+        let mut vk_raw: Vec<u8> = Vec::new();
+
+        parameters.serialize_uncompressed(&mut pk).unwrap();
+        parameters.vk.serialize_uncompressed(&mut vk_raw).unwrap();
+
+        let vk = VerificationKey {
+            h: parse_g2::<T>(&parameters.vk.h_g2),
+            g_alpha: parse_g1::<T>(&parameters.vk.g_alpha_g1),
+            h_beta: parse_g2::<T>(&parameters.vk.h_beta_g2),
+            g_gamma: parse_g1::<T>(&parameters.vk.g_gamma_g1),
+            h_gamma: parse_g2::<T>(&parameters.vk.h_gamma_g2),
+            query: parameters
+                .vk
+                .query
+                .iter()
+                .map(|g1| parse_g1::<T>(g1))
+                .collect(),
+            raw: hex::encode(vk_raw),
+        };
+
+        SetupKeypair::new(vk, pk)
+    }
+
+    fn generate_proof(
+        program: ir::Prog<T>,
+        witness: ir::Witness<T>,
+        proving_key: Vec<u8>,
+    ) -> Proof<ProofPoints> {
+        let computation = Computation::with_witness(program, witness);
+        let params =
+            Parameters::<<T as ZexeFieldExtensions>::ZexeEngine>::deserialize_uncompressed(
+                &mut proving_key.as_slice(),
+            )
+            .unwrap();
+
+        let proof = computation.clone().prove(&params);
+
+        let proof_points = ProofPoints {
+            a: parse_g1::<T>(&proof.a),
+            b: parse_g2::<T>(&proof.b),
+            c: parse_g1::<T>(&proof.c),
+        };
+
+        let inputs = computation
+            .public_inputs_values()
+            .iter()
+            .map(parse_fr::<T>)
+            .collect::<Vec<_>>();
+
+        let mut raw: Vec<u8> = Vec::new();
+        proof.serialize_uncompressed(&mut raw).unwrap();
+
+        Proof::<ProofPoints>::new(proof_points, inputs, hex::encode(&raw))
+    }
+
+    fn export_solidity_verifier(_vk: VerificationKey, _abi: SolidityAbi) -> String {
+        unimplemented!()
+    }
+
+    fn verify(vk: VerificationKey, proof: Proof<ProofPoints>) -> bool {
+        let vk_raw = hex::decode(vk.raw.clone()).unwrap();
+        let proof_raw = hex::decode(proof.raw.clone()).unwrap();
+
+        let vk: VerifyingKey<<T as ZexeFieldExtensions>::ZexeEngine> =
+            VerifyingKey::deserialize_uncompressed(&mut vk_raw.as_slice()).unwrap();
+
+        let pvk: PreparedVerifyingKey<<T as ZexeFieldExtensions>::ZexeEngine> =
+            prepare_verifying_key(&vk);
+
+        let zexe_proof: ZexeProof<<T as ZexeFieldExtensions>::ZexeEngine> =
+            ZexeProof::deserialize_uncompressed(&mut proof_raw.as_slice()).unwrap();
+
+        let public_inputs: Vec<_> = proof
+            .inputs
+            .iter()
+            .map(|s| {
+                T::try_from_str(s.trim_start_matches("0x"), 16)
+                    .expect(format!("Invalid {} value: {}", T::name(), s).as_str())
+                    .into_zexe()
+            })
+            .collect::<Vec<_>>();
+
+        verify_proof(&pvk, &zexe_proof, &public_inputs).unwrap()
+    }
+}
+
 impl ProofSystem<Bw6_761Field> for GM17 {
     type VerificationKey = VerificationKeyG2Fq;
     type ProofPoints = ProofPointsG2Fq;
@@ -62,7 +163,6 @@ impl ProofSystem<Bw6_761Field> for GM17 {
         let mut pk: Vec<u8> = Vec::new();
         let mut vk_raw: Vec<u8> = Vec::new();
 
-        // parameters.write(&mut pk).unwrap();
         parameters.serialize_uncompressed(&mut pk).unwrap();
         parameters.vk.serialize_uncompressed(&mut vk_raw).unwrap();
 
@@ -90,7 +190,6 @@ impl ProofSystem<Bw6_761Field> for GM17 {
         proving_key: Vec<u8>,
     ) -> Proof<ProofPointsG2Fq> {
         let computation = Computation::with_witness(program, witness);
-        // let params = Parameters::<Bw6_761Field::ZexeEngine>::deserialize_uncompressed(
         let params = Parameters::<<Bw6_761Field as ZexeFieldExtensions>::ZexeEngine>::deserialize_uncompressed(
             &mut proving_key.as_slice(),
         )
@@ -147,110 +246,16 @@ impl ProofSystem<Bw6_761Field> for GM17 {
     }
 }
 
-impl ProofSystem<Bls12_377Field> for GM17 {
-    type VerificationKey = VerificationKey;
-    type ProofPoints = ProofPoints;
-
-    fn setup(program: ir::Prog<Bls12_377Field>) -> SetupKeypair<VerificationKey> {
-        let parameters = Computation::without_witness(program).setup();
-
-        let mut pk: Vec<u8> = Vec::new();
-        let mut vk_raw: Vec<u8> = Vec::new();
-
-        // parameters.write(&mut pk).unwrap();
-        parameters.serialize_uncompressed(&mut pk).unwrap();
-        parameters.vk.serialize_uncompressed(&mut vk_raw).unwrap();
-
-        let vk = VerificationKey {
-            h: parse_g2::<Bls12_377Field>(&parameters.vk.h_g2),
-            g_alpha: parse_g1::<Bls12_377Field>(&parameters.vk.g_alpha_g1),
-            h_beta: parse_g2::<Bls12_377Field>(&parameters.vk.h_beta_g2),
-            g_gamma: parse_g1::<Bls12_377Field>(&parameters.vk.g_gamma_g1),
-            h_gamma: parse_g2::<Bls12_377Field>(&parameters.vk.h_gamma_g2),
-            query: parameters
-                .vk
-                .query
-                .iter()
-                .map(|g1| parse_g1::<Bls12_377Field>(g1))
-                .collect(),
-            raw: hex::encode(vk_raw),
-        };
-
-        SetupKeypair::new(vk, pk)
-    }
-
-    fn generate_proof(
-        program: ir::Prog<Bls12_377Field>,
-        witness: ir::Witness<Bls12_377Field>,
-        proving_key: Vec<u8>,
-    ) -> Proof<ProofPoints> {
-        let computation = Computation::with_witness(program, witness);
-        let params = Parameters::<<Bls12_377Field as ZexeFieldExtensions>::ZexeEngine>::deserialize_uncompressed(
-            &mut proving_key.as_slice(),
-        )
-        .unwrap();
-
-        let proof = computation.clone().prove(&params);
-
-        let proof_points = ProofPoints {
-            a: parse_g1::<Bls12_377Field>(&proof.a),
-            b: parse_g2::<Bls12_377Field>(&proof.b),
-            c: parse_g1::<Bls12_377Field>(&proof.c),
-        };
-
-        let inputs = computation
-            .public_inputs_values()
-            .iter()
-            .map(parse_fr::<Bls12_377Field>)
-            .collect::<Vec<_>>();
-
-        let mut raw: Vec<u8> = Vec::new();
-        proof.serialize_uncompressed(&mut raw).unwrap();
-
-        Proof::<ProofPoints>::new(proof_points, inputs, hex::encode(&raw))
-    }
-
-    fn export_solidity_verifier(_vk: VerificationKey, _abi: SolidityAbi) -> String {
-        unimplemented!()
-    }
-
-    fn verify(vk: VerificationKey, proof: Proof<ProofPoints>) -> bool {
-        let vk_raw = hex::decode(vk.raw.clone()).unwrap();
-        let proof_raw = hex::decode(proof.raw.clone()).unwrap();
-
-        let vk: VerifyingKey<<Bls12_377Field as ZexeFieldExtensions>::ZexeEngine> =
-            VerifyingKey::deserialize_uncompressed(&mut vk_raw.as_slice()).unwrap();
-
-        let pvk: PreparedVerifyingKey<<Bls12_377Field as ZexeFieldExtensions>::ZexeEngine> =
-            prepare_verifying_key(&vk);
-
-        let zexe_proof: ZexeProof<<Bls12_377Field as ZexeFieldExtensions>::ZexeEngine> =
-            ZexeProof::deserialize_uncompressed(&mut proof_raw.as_slice()).unwrap();
-
-        let public_inputs: Vec<_> = proof
-            .inputs
-            .iter()
-            .map(|s| {
-                Bls12_377Field::try_from_str(s.trim_start_matches("0x"), 16)
-                    .expect(format!("Invalid {} value: {}", Bls12_377Field::name(), s).as_str())
-                    .into_zexe()
-            })
-            .collect::<Vec<_>>();
-
-        verify_proof(&pvk, &zexe_proof, &public_inputs).unwrap()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::flat_absy::FlatVariable;
     use crate::ir::{Function, Prog, Statement};
 
     use super::*;
-    use zokrates_field::Bls12_377Field;
+    use zokrates_field::{Bls12_377Field, Bw6_761Field};
 
     #[test]
-    fn verify() {
+    fn verify_bls12_377_field() {
         let program: Prog<Bls12_377Field> = Prog {
             main: Function {
                 id: String::from("main"),
@@ -272,6 +277,33 @@ mod tests {
 
         let proof = GM17::generate_proof(program.clone(), witness, keypair.pk);
         let ans = <GM17 as ProofSystem<Bls12_377Field>>::verify(keypair.vk, proof);
+
+        assert!(ans);
+    }
+
+    #[test]
+    fn verify_bw6_761_field() {
+        let program: Prog<Bw6_761Field> = Prog {
+            main: Function {
+                id: String::from("main"),
+                arguments: vec![FlatVariable::new(0)],
+                returns: vec![FlatVariable::public(0)],
+                statements: vec![Statement::Constraint(
+                    FlatVariable::new(0).into(),
+                    FlatVariable::public(0).into(),
+                )],
+            },
+            private: vec![false],
+        };
+
+        let keypair = GM17::setup(program.clone());
+        let witness = program
+            .clone()
+            .execute(&vec![Bw6_761Field::from(42)])
+            .unwrap();
+
+        let proof = GM17::generate_proof(program.clone(), witness, keypair.pk);
+        let ans = <GM17 as ProofSystem<Bw6_761Field>>::verify(keypair.vk, proof);
 
         assert!(ans);
     }
