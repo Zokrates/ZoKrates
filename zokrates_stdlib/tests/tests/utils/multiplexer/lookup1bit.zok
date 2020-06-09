@@ -1,7 +1,7 @@
 import "utils/multiplexer/lookup1bit" as lookup
 
 def left() -> (field):
-	field sel = 0  //left
+	bool sel = false  //left
 	field[2] t  = [0, 1]
 	
 	0 == lookup(sel, t)
@@ -9,7 +9,7 @@ def left() -> (field):
 	return 1
 	
 def right() -> (field):
-	field sel = 1  //right
+	bool sel = true  //right
 	field[2] t = [0, 1]
 	
 	1 == lookup(sel, t)
