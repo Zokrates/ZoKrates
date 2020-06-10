@@ -1883,6 +1883,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     statements_flattened,
                 );
             }
+            Type::Boolean => {
+                statements_flattened.push(FlatStatement::Condition(
+                    variable.into(),
+                    FlatExpression::Mult(box variable.into(), box variable.into()),
+                ));
+            }
             _ => {}
         }
 

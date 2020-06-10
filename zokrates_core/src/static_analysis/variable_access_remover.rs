@@ -1,3 +1,15 @@
+//! Module containing removal of variable access to complex types
+//!
+//! For example:
+//! ```zokrates
+//! a[index]
+//! ```
+//!
+//! Would become
+//! ```zokrates
+//! if(index == 0, a[0], if(index == 1, a[1], ...))
+//! ```
+
 use typed_absy::{folder::*, *};
 use zokrates_field::Field;
 

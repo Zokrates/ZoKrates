@@ -4,7 +4,6 @@
 //! @author Thibaut Schaeffer <thibaut@schaeff.fr>
 //! @date 2018
 
-mod constrain_inputs;
 mod flat_propagation;
 mod flatten_complex_types;
 mod inline;
@@ -17,7 +16,6 @@ mod unconstrained_vars;
 mod unroll;
 mod variable_access_remover;
 
-use self::constrain_inputs::InputConstrainer;
 use self::flatten_complex_types::Flattener;
 use self::inline::Inliner;
 use self::propagate_unroll::PropagatedUnroller;
@@ -50,14 +48,14 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         // propagate
         let r = Propagator::propagate(r);
 
+        // optimize redefinitions
         let r = RedefinitionOptimizer::optimize(r);
 
+        // remove variable access to complex types
         let r = VariableAccessRemover::apply(r);
 
+        // convert to zir, removing complex types
         let zir = Flattener::flatten(r.clone());
-
-        // constrain inputs
-        let zir = InputConstrainer::constrain(zir);
 
         // optimize uint expressions
         let zir = UintOptimizer::optimize(zir);

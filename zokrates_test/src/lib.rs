@@ -111,13 +111,6 @@ fn compile_and_run<T: Field>(t: Tests) {
     match t.max_constraint_count {
         Some(target_count) => {
             let count = bin.constraint_count();
-            // assert!(
-            // count <= target_count,
-            // "Expected at the most {} constraints, found {}:\n{}",
-            // target_count,
-            // count,
-            // bin
-            // );
 
             println!(
                 "{} at {}% of max",
