@@ -270,7 +270,7 @@ impl<T: Field> TryFrom<serde_json::Value> for Value<T> {
                         .map_err(|_| format!("Expected u16 value, found {}", s)),
                     10 => u32::from_str_radix(&s[2..], 16)
                         .map(|v| Value::U32(v))
-                        .map_err(|e| format!("Expected u32 value, found {} {}", s, e)),
+                        .map_err(|_| format!("Expected u32 value, found {}", s)),
                     _ => Err(format!("Cannot parse {} to any type", s)),
                 }),
             serde_json::Value::Bool(b) => Ok(Value::Boolean(b)),

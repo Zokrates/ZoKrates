@@ -34,7 +34,7 @@
 //     - otherwise return `c_0`
 
 use crate::flat_absy::flat_variable::FlatVariable;
-use crate::ir::folder::{fold_function, fold_statement, Folder};
+use crate::ir::folder::{fold_function, Folder};
 use crate::ir::LinComb;
 use crate::ir::*;
 use std::collections::{HashMap, HashSet};
@@ -120,7 +120,6 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                 }
                 vec![Statement::Directive(d)]
             }
-            s => fold_statement(self, s),
         }
     }
 

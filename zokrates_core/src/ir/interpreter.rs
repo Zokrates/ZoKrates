@@ -88,7 +88,6 @@ impl Interpreter {
                         }
                     }
                 }
-                _ => {}
             }
         }
 

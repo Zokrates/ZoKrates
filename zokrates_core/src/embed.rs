@@ -225,11 +225,19 @@ fn use_variable(
     var
 }
 
-/// A `FlatFunction` which checks a u8
-pub fn unpack_to_bitwidth<T: Field>(width: usize) -> FlatFunction<T> {
+/// A `FlatFunction` which returns a bit decomposition of a field element
+///
+/// # Inputs
+/// * bit_width the number of bits we want to decompose to
+///
+/// # Remarks
+/// * the return value of the `FlatFunction` is not deterministic if `bit_width == T::get_required_bits()`
+///   as we decompose over `log_2(p) + 1 bits, some
+///   elements can have multiple representations: For example, `unpack(0)` is `[0, ..., 0]` but also `unpack(p)`
+pub fn unpack_to_bitwidth<T: Field>(bit_width: usize) -> FlatFunction<T> {
     let nbits = T::get_required_bits();
 
-    assert!(width <= nbits);
+    assert!(bit_width <= nbits);
 
     let mut counter = 0;
 
@@ -248,11 +256,11 @@ pub fn unpack_to_bitwidth<T: Field>(width: usize) -> FlatFunction<T> {
         &mut counter,
     ))];
 
-    let directive_outputs: Vec<FlatVariable> = (0..width)
+    let directive_outputs: Vec<FlatVariable> = (0..bit_width)
         .map(|index| use_variable(&mut layout, format!("o{}", index), &mut counter))
         .collect();
 
-    let solver = Solver::bits(width);
+    let solver = Solver::bits(bit_width);
 
     let outputs = directive_outputs
         .iter()
@@ -260,10 +268,10 @@ pub fn unpack_to_bitwidth<T: Field>(width: usize) -> FlatFunction<T> {
         .map(|(_, o)| FlatExpression::Identifier(o.clone()))
         .collect::<Vec<_>>();
 
-    // o253, o252, ... o{253 - (width - 1)} are bits
-    let mut statements: Vec<FlatStatement<T>> = (0..width)
+    // o253, o252, ... o{253 - (bit_width - 1)} are bits
+    let mut statements: Vec<FlatStatement<T>> = (0..bit_width)
         .map(|index| {
-            let bit = FlatExpression::Identifier(FlatVariable::new(width - index));
+            let bit = FlatExpression::Identifier(FlatVariable::new(bit_width - index));
             FlatStatement::Condition(
                 bit.clone(),
                 FlatExpression::Mult(box bit.clone(), box bit.clone()),
@@ -271,14 +279,14 @@ pub fn unpack_to_bitwidth<T: Field>(width: usize) -> FlatFunction<T> {
         })
         .collect();
 
-    // sum check: o253 + o252 * 2 + ... + o{253 - (width - 1)} * 2**(width - 1)
+    // sum check: o253 + o252 * 2 + ... + o{253 - (bit_width - 1)} * 2**(bit_width - 1)
     let mut lhs_sum = FlatExpression::Number(T::from(0));
 
-    for i in 0..width {
+    for i in 0..bit_width {
         lhs_sum = FlatExpression::Add(
             box lhs_sum,
             box FlatExpression::Mult(
-                box FlatExpression::Identifier(FlatVariable::new(width - i)),
+                box FlatExpression::Identifier(FlatVariable::new(bit_width - i)),
                 box FlatExpression::Number(T::from(2).pow(i)),
             ),
         );

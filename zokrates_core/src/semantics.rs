@@ -2100,7 +2100,7 @@ impl<'ast> Checker<'ast> {
                                 pos: Some(pos),
 
                                 message: format!(
-                                    "Cannot apply `&` to {}, {}",
+                                    "Cannot apply `|` to {}, {}",
                                     e1.get_type(),
                                     e2.get_type()
                                 ),
@@ -2110,7 +2110,11 @@ impl<'ast> Checker<'ast> {
                     (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
 
-                        message: format!("cannot shift {} by {}", e1.get_type(), e2.get_type()),
+                        message: format!(
+                            "Cannot apply `|` to {}, {}",
+                            e1.get_type(),
+                            e2.get_type()
+                        ),
                     }),
                 }
             }
@@ -2136,7 +2140,11 @@ impl<'ast> Checker<'ast> {
                     (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
 
-                        message: format!("cannot shift {} by {}", e1.get_type(), e2.get_type()),
+                        message: format!(
+                            "Cannot apply `&` to {}, {}",
+                            e1.get_type(),
+                            e2.get_type()
+                        ),
                     }),
                 }
             }
