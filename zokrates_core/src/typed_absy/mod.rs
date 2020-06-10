@@ -16,7 +16,7 @@ mod variable;
 
 pub use self::identifier::CoreIdentifier;
 pub use self::parameter::Parameter;
-pub use self::types::{Signature, StructType, Type};
+pub use self::types::{Signature, StructType, Type, UBitwidth};
 pub use self::variable::Variable;
 use std::path::PathBuf;
 pub use typed_absy::uint::{bitwidth, UExpression, UExpressionInner, UMetadata};

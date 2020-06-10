@@ -777,7 +777,7 @@ impl<'ast> Checker<'ast> {
         match ty {
             UnresolvedType::FieldElement => Ok(Type::FieldElement),
             UnresolvedType::Boolean => Ok(Type::Boolean),
-            UnresolvedType::Uint(bitwidth) => Ok(Type::Uint(bitwidth)),
+            UnresolvedType::Uint(bitwidth) => Ok(Type::uint(bitwidth)),
             UnresolvedType::Array(t, size) => Ok(Type::Array(ArrayType::new(
                 self.check_type(*t, module_id, types)?,
                 size,

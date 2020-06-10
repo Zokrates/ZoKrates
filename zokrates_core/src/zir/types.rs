@@ -8,7 +8,44 @@ pub type MemberId = String;
 pub enum Type {
     FieldElement,
     Boolean,
-    Uint(usize),
+    Uint(UBitwidth),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy)]
+pub enum UBitwidth {
+    #[serde(rename = "8")]
+    B8 = 8,
+    #[serde(rename = "16")]
+    B16 = 16,
+    #[serde(rename = "32")]
+    B32 = 32,
+}
+
+impl UBitwidth {
+    pub fn to_usize(&self) -> usize {
+        match self {
+            UBitwidth::B8 => 8,
+            UBitwidth::B16 => 16,
+            UBitwidth::B32 => 32,
+        }
+    }
+}
+
+impl From<usize> for UBitwidth {
+    fn from(b: usize) -> Self {
+        match b {
+            8 => UBitwidth::B8,
+            16 => UBitwidth::B16,
+            32 => UBitwidth::B32,
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl fmt::Display for UBitwidth {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.to_usize())
+    }
 }
 
 impl fmt::Display for Type {
@@ -38,6 +75,10 @@ impl Type {
             Type::Boolean => String::from("b"),
             Type::Uint(bitwidth) => format!("u{}", bitwidth),
         }
+    }
+
+    pub fn uint<W: Into<UBitwidth>>(b: W) -> Self {
+        Type::Uint(b.into())
     }
 
     // the number of field elements the type maps to

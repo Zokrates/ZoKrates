@@ -17,7 +17,7 @@ impl<T: From<usize>> Encode<T> for Inputs<T> {
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use std::fmt;
-use zokrates_core::typed_absy::Type;
+use zokrates_core::typed_absy::{Type, UBitwidth};
 
 use zokrates_field::Field;
 
@@ -97,9 +97,9 @@ impl<T: Field> Value<T> {
     fn check(self, ty: Type) -> Result<CheckedValue<T>, String> {
         match (self, ty) {
             (Value::Field(f), Type::FieldElement) => Ok(CheckedValue::Field(f)),
-            (Value::U8(f), Type::Uint(8)) => Ok(CheckedValue::U8(f)),
-            (Value::U16(f), Type::Uint(16)) => Ok(CheckedValue::U16(f)),
-            (Value::U32(f), Type::Uint(32)) => Ok(CheckedValue::U32(f)),
+            (Value::U8(f), Type::Uint(UBitwidth::B8)) => Ok(CheckedValue::U8(f)),
+            (Value::U16(f), Type::Uint(UBitwidth::B16)) => Ok(CheckedValue::U16(f)),
+            (Value::U32(f), Type::Uint(UBitwidth::B32)) => Ok(CheckedValue::U32(f)),
             (Value::Boolean(b), Type::Boolean) => Ok(CheckedValue::Boolean(b)),
             (Value::Array(a), Type::Array(array_type)) => {
                 if a.len() != array_type.size {
@@ -192,13 +192,13 @@ impl<T: Field> Decode<T> for CheckedValue<T> {
 
         match expected {
             Type::FieldElement => CheckedValue::Field(raw.pop().unwrap()),
-            Type::Uint(8) => CheckedValue::U8(
+            Type::Uint(UBitwidth::B8) => CheckedValue::U8(
                 u8::from_str_radix(&raw.pop().unwrap().to_dec_string(), 10).unwrap(),
             ),
-            Type::Uint(16) => CheckedValue::U16(
+            Type::Uint(UBitwidth::B16) => CheckedValue::U16(
                 u16::from_str_radix(&raw.pop().unwrap().to_dec_string(), 10).unwrap(),
             ),
-            Type::Uint(32) => CheckedValue::U32(
+            Type::Uint(UBitwidth::B32) => CheckedValue::U32(
                 u32::from_str_radix(&raw.pop().unwrap().to_dec_string(), 10).unwrap(),
             ),
             Type::Boolean => {
@@ -227,7 +227,6 @@ impl<T: Field> Decode<T> for CheckedValue<T> {
                     })
                     .collect(),
             ),
-            _ => unreachable!(),
         }
     }
 }

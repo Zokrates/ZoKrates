@@ -1,7 +1,7 @@
 use crate::typed_absy::types::Type;
 use crate::typed_absy::Identifier;
 use std::fmt;
-use typed_absy::types::StructType;
+use typed_absy::types::{StructType, UBitwidth};
 
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub struct Variable<'ast> {
@@ -18,8 +18,11 @@ impl<'ast> Variable<'ast> {
         Self::with_id_and_type(id, Type::Boolean)
     }
 
-    pub fn uint<I: Into<Identifier<'ast>>>(id: I, bitwidth: usize) -> Variable<'ast> {
-        Self::with_id_and_type(id, Type::Uint(bitwidth))
+    pub fn uint<I: Into<Identifier<'ast>>, W: Into<UBitwidth>>(
+        id: I,
+        bitwidth: W,
+    ) -> Variable<'ast> {
+        Self::with_id_and_type(id, Type::uint(bitwidth))
     }
 
     #[cfg(test)]

@@ -115,7 +115,7 @@ impl<'ast, T: Field> Folder<'ast, T> for VariableAccessRemover<'ast, T> {
 
     fn fold_uint_expression_inner(
         &mut self,
-        bitwidth: usize,
+        bitwidth: UBitwidth,
         e: UExpressionInner<'ast, T>,
     ) -> UExpressionInner<'ast, T> {
         match e {

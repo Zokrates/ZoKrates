@@ -1,5 +1,5 @@
 use std::fmt;
-use zir::types::Type;
+use zir::types::{Type, UBitwidth};
 use zir::Identifier;
 
 #[derive(Clone, PartialEq, Hash, Eq)]
@@ -17,8 +17,8 @@ impl<'ast> Variable<'ast> {
         Self::with_id_and_type(id, Type::Boolean)
     }
 
-    pub fn uint(id: Identifier<'ast>, bitwidth: usize) -> Variable<'ast> {
-        Self::with_id_and_type(id, Type::Uint(bitwidth))
+    pub fn uint<W: Into<UBitwidth>>(id: Identifier<'ast>, bitwidth: W) -> Variable<'ast> {
+        Self::with_id_and_type(id, Type::uint(bitwidth))
     }
 
     pub fn with_id_and_type<I: Into<Identifier<'ast>>>(id: I, _type: Type) -> Variable<'ast> {

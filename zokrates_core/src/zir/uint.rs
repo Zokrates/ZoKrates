@@ -1,8 +1,7 @@
 use zir::identifier::Identifier;
+use zir::types::UBitwidth;
 use zir::{BooleanExpression, FieldElementExpression};
 use zokrates_field::Field;
-
-type Bitwidth = usize;
 
 impl<'ast, T: Field> UExpression<'ast, T> {
     pub fn add(self, other: Self) -> UExpression<'ast, T> {
@@ -127,17 +126,17 @@ impl<T: Field> UMetadata<T> {
     }
 
     // issue the metadata for a parameter of a given bitwidth
-    pub fn parameter(bitwidth: Bitwidth) -> Self {
+    pub fn parameter<W: Into<UBitwidth>>(bitwidth: W) -> Self {
         Self {
             should_reduce: ShouldReduce::False,
-            max: T::from(2_u32).pow(bitwidth) - T::from(1),
+            max: T::from(2_u32).pow(bitwidth.into().to_usize()) - T::from(1),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct UExpression<'ast, T> {
-    pub bitwidth: Bitwidth,
+    pub bitwidth: UBitwidth,
     pub metadata: Option<UMetadata<T>>,
     pub inner: UExpressionInner<'ast, T>,
 }
@@ -169,10 +168,10 @@ pub enum UExpressionInner<'ast, T> {
 }
 
 impl<'ast, T> UExpressionInner<'ast, T> {
-    pub fn annotate(self, bitwidth: Bitwidth) -> UExpression<'ast, T> {
+    pub fn annotate<W: Into<UBitwidth>>(self, bitwidth: W) -> UExpression<'ast, T> {
         UExpression {
             metadata: None,
-            bitwidth,
+            bitwidth: bitwidth.into(),
             inner: self,
         }
     }
@@ -195,7 +194,7 @@ impl<'ast, T: Field> UExpression<'ast, T> {
 }
 
 impl<'ast, T> UExpression<'ast, T> {
-    pub fn bitwidth(&self) -> Bitwidth {
+    pub fn bitwidth(&self) -> UBitwidth {
         self.bitwidth
     }
 

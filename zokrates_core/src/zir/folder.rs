@@ -1,5 +1,6 @@
 // Generic walk through a typed AST. Not mutating in place
 
+use crate::zir::types::UBitwidth;
 use crate::zir::*;
 use zokrates_field::Field;
 
@@ -93,7 +94,7 @@ pub trait Folder<'ast, T: Field>: Sized {
 
     fn fold_uint_expression_inner(
         &mut self,
-        bitwidth: usize,
+        bitwidth: UBitwidth,
         e: UExpressionInner<'ast, T>,
     ) -> UExpressionInner<'ast, T> {
         fold_uint_expression_inner(self, bitwidth, e)
@@ -255,7 +256,7 @@ pub fn fold_uint_expression<'ast, T: Field, F: Folder<'ast, T>>(
 
 pub fn fold_uint_expression_inner<'ast, T: Field, F: Folder<'ast, T>>(
     f: &mut F,
-    _: usize,
+    _: UBitwidth,
     e: UExpressionInner<'ast, T>,
 ) -> UExpressionInner<'ast, T> {
     match e {

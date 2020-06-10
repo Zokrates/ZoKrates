@@ -1,4 +1,4 @@
-use typed_absy::types::FunctionKey;
+use typed_absy::types::{FunctionKey, UBitwidth};
 use typed_absy::*;
 use zokrates_field::Field;
 
@@ -77,7 +77,7 @@ pub struct UMetadata {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct UExpression<'ast, T> {
-    pub bitwidth: Bitwidth,
+    pub bitwidth: UBitwidth,
     pub metadata: Option<UMetadata>,
     pub inner: UExpressionInner<'ast, T>,
 }
@@ -115,10 +115,10 @@ pub enum UExpressionInner<'ast, T> {
 }
 
 impl<'ast, T> UExpressionInner<'ast, T> {
-    pub fn annotate(self, bitwidth: Bitwidth) -> UExpression<'ast, T> {
+    pub fn annotate<W: Into<UBitwidth>>(self, bitwidth: W) -> UExpression<'ast, T> {
         UExpression {
             metadata: None,
-            bitwidth,
+            bitwidth: bitwidth.into(),
             inner: self,
         }
     }
@@ -138,7 +138,7 @@ pub fn bitwidth(a: u128) -> Bitwidth {
 }
 
 impl<'ast, T: Field> UExpression<'ast, T> {
-    pub fn bitwidth(&self) -> Bitwidth {
+    pub fn bitwidth(&self) -> UBitwidth {
         self.bitwidth
     }
 

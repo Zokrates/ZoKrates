@@ -60,7 +60,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
 
         let max_bitwidth = T::get_required_bits() - 1;
 
-        let range = e.bitwidth;
+        let range = e.bitwidth.to_usize();
 
         let range_max: T = (2_usize.pow(range as u32) - 1).into();
 

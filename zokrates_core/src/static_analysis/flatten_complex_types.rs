@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 use typed_absy;
-use typed_absy::types::StructType;
+use typed_absy::types::{StructType, UBitwidth};
 use zir;
 use zokrates_field::Field;
 
@@ -23,7 +23,7 @@ fn flatten_identifier_rec<'a>(
         }],
         typed_absy::Type::Uint(bitwidth) => vec![zir::Variable {
             id: zir::Identifier::Source(id),
-            _type: zir::Type::Uint(bitwidth),
+            _type: zir::Type::uint(bitwidth.to_usize()),
         }],
         typed_absy::Type::Array(array_type) => (0..array_type.size)
             .flat_map(|i| {
@@ -186,7 +186,7 @@ impl<'ast, T: Field> Flattener<T> {
 
     fn fold_uint_expression_inner(
         &mut self,
-        bitwidth: usize,
+        bitwidth: UBitwidth,
         e: typed_absy::UExpressionInner<'ast, T>,
     ) -> zir::UExpressionInner<'ast, T> {
         fold_uint_expression_inner(self, bitwidth, e)
@@ -634,12 +634,12 @@ pub fn fold_uint_expression<'ast, T: Field>(
     e: typed_absy::UExpression<'ast, T>,
 ) -> zir::UExpression<'ast, T> {
     f.fold_uint_expression_inner(e.bitwidth, e.inner)
-        .annotate(e.bitwidth)
+        .annotate(e.bitwidth.to_usize())
 }
 
 pub fn fold_uint_expression_inner<'ast, T: Field>(
     f: &mut Flattener<T>,
-    bitwidth: usize,
+    bitwidth: UBitwidth,
     e: typed_absy::UExpressionInner<'ast, T>,
 ) -> zir::UExpressionInner<'ast, T> {
     match e {

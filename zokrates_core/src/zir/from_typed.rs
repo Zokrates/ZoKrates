@@ -22,7 +22,7 @@ fn from_type(t: typed_absy::types::Type) -> Vec<zir::types::Type> {
     match t {
         typed_absy::Type::FieldElement => vec![zir::Type::FieldElement],
         typed_absy::Type::Boolean => vec![zir::Type::Boolean],
-        typed_absy::Type::Uint(bitwidth) => vec![zir::Type::Uint(bitwidth)],
+        typed_absy::Type::Uint(bitwidth) => vec![zir::Type::uint(bitwidth.to_usize())],
         typed_absy::Type::Array(array_type) => {
             let inner = from_type(*array_type.ty);
             (0..array_type.size).flat_map(|_| inner.clone()).collect()

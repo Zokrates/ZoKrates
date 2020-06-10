@@ -930,7 +930,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
     ) -> FlatUExpression<T> {
         self.depth += 1;
 
-        let target_bitwidth = expr.bitwidth;
+        let target_bitwidth = expr.bitwidth.to_usize();
 
         let metadata = expr.metadata.clone().unwrap().clone();
 
@@ -1885,8 +1885,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             Type::Uint(bitwidth) => {
                 self.get_bits(
                     FlatUExpression::with_field(FlatExpression::Identifier(variable)),
-                    bitwidth,
-                    bitwidth,
+                    bitwidth.to_usize(),
+                    bitwidth.to_usize(),
                     statements_flattened,
                 );
             }

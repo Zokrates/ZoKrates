@@ -144,7 +144,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                         fn process_u_from_bits<'ast, T: Field>(
                             variables: Vec<Variable<'ast>>,
                             arguments: Vec<TypedExpression<'ast, T>>,
-                            bitwidth: usize,
+                            bitwidth: UBitwidth,
                         ) -> TypedExpression<'ast, T> {
                             assert_eq!(variables.len(), 1);
                             assert_eq!(arguments.len(), 1);
@@ -156,7 +156,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                 .into_inner()
                             {
                                 ArrayExpressionInner::Value(v) => {
-                                    assert_eq!(v.len(), bitwidth);
+                                    assert_eq!(v.len(), bitwidth.to_usize());
                                     UExpressionInner::Value(
                                         v.into_iter()
                                             .map(|v| match v {
@@ -168,8 +168,11 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                             .enumerate()
                                             .fold(0, |acc, (i, v)| {
                                                 if v {
-                                                    acc + 2u128
-                                                        .pow((bitwidth - i - 1).try_into().unwrap())
+                                                    acc + 2u128.pow(
+                                                        (bitwidth.to_usize() - i - 1)
+                                                            .try_into()
+                                                            .unwrap(),
+                                                    )
                                                 } else {
                                                     acc
                                                 }
@@ -185,7 +188,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                         fn process_u_to_bits<'ast, T: Field>(
                             variables: Vec<Variable<'ast>>,
                             arguments: Vec<TypedExpression<'ast, T>>,
-                            bitwidth: usize,
+                            bitwidth: UBitwidth,
                         ) -> TypedExpression<'ast, T> {
                             assert_eq!(variables.len(), 1);
                             assert_eq!(arguments.len(), 1);
@@ -213,7 +216,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                             .map(|v| BooleanExpression::Value(v).into())
                                             .collect(),
                                     )
-                                    .annotate(Type::Boolean, bitwidth)
+                                    .annotate(Type::Boolean, bitwidth.to_usize())
                                     .into()
                                 }
                                 _ => unreachable!("should be a uint value"),
@@ -226,32 +229,32 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                     "_U32_FROM_BITS" => Some(process_u_from_bits(
                                         variables.clone(),
                                         arguments.clone(),
-                                        32,
+                                        UBitwidth::B32,
                                     )),
                                     "_U16_FROM_BITS" => Some(process_u_from_bits(
                                         variables.clone(),
                                         arguments.clone(),
-                                        16,
+                                        UBitwidth::B16,
                                     )),
                                     "_U8_FROM_BITS" => Some(process_u_from_bits(
                                         variables.clone(),
                                         arguments.clone(),
-                                        8,
+                                        UBitwidth::B8,
                                     )),
                                     "_U32_TO_BITS" => Some(process_u_to_bits(
                                         variables.clone(),
                                         arguments.clone(),
-                                        32,
+                                        UBitwidth::B32,
                                     )),
                                     "_U16_TO_BITS" => Some(process_u_to_bits(
                                         variables.clone(),
                                         arguments.clone(),
-                                        16,
+                                        UBitwidth::B16,
                                     )),
                                     "_U8_TO_BITS" => Some(process_u_to_bits(
                                         variables.clone(),
                                         arguments.clone(),
-                                        8,
+                                        UBitwidth::B8,
                                     )),
                                     "_UNPACK" => {
                                         assert_eq!(variables.len(), 1);
@@ -338,7 +341,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
 
     fn fold_uint_expression_inner(
         &mut self,
-        bitwidth: usize,
+        bitwidth: UBitwidth,
         e: UExpressionInner<'ast, T>,
     ) -> UExpressionInner<'ast, T> {
         match e {
@@ -362,7 +365,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
                     use std::convert::TryInto;
-                    UExpressionInner::Value((v1 + v2) % 2_u128.pow(bitwidth.try_into().unwrap()))
+                    UExpressionInner::Value(
+                        (v1 + v2) % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
+                    )
                 }
                 (e, UExpressionInner::Value(v)) | (UExpressionInner::Value(v), e) => match v {
                     0 => e,
@@ -382,7 +387,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
                     use std::convert::TryInto;
                     UExpressionInner::Value(
-                        (v1.wrapping_sub(v2)) % 2_u128.pow(bitwidth.try_into().unwrap()),
+                        (v1.wrapping_sub(v2)) % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
                     )
                 }
                 (e, UExpressionInner::Value(v)) | (UExpressionInner::Value(v), e) => match v {
@@ -402,7 +407,9 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
             ) {
                 (UExpressionInner::Value(v1), UExpressionInner::Value(v2)) => {
                     use std::convert::TryInto;
-                    UExpressionInner::Value((v1 * v2) % 2_u128.pow(bitwidth.try_into().unwrap()))
+                    UExpressionInner::Value(
+                        (v1 * v2) % 2_u128.pow(bitwidth.to_usize().try_into().unwrap()),
+                    )
                 }
                 (e, UExpressionInner::Value(v)) | (UExpressionInner::Value(v), e) => match v {
                     0 => UExpressionInner::Value(0),

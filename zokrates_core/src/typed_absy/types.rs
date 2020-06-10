@@ -63,6 +63,39 @@ impl IntoIterator for StructType {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy)]
+pub enum UBitwidth {
+    #[serde(rename = "8")]
+    B8 = 8,
+    #[serde(rename = "16")]
+    B16 = 16,
+    #[serde(rename = "32")]
+    B32 = 32,
+}
+
+impl UBitwidth {
+    pub fn to_usize(&self) -> usize {
+        *self as u32 as usize
+    }
+}
+
+impl From<usize> for UBitwidth {
+    fn from(b: usize) -> Self {
+        match b {
+            8 => UBitwidth::B8,
+            16 => UBitwidth::B16,
+            32 => UBitwidth::B32,
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl fmt::Display for UBitwidth {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.to_usize())
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 #[serde(tag = "type", content = "components")]
 pub enum Type {
@@ -75,7 +108,7 @@ pub enum Type {
     #[serde(rename = "struct")]
     Struct(StructType),
     #[serde(rename = "u")]
-    Uint(usize),
+    Uint(UBitwidth),
 }
 
 impl ArrayType {
@@ -147,6 +180,10 @@ impl Type {
 
     pub fn struc(struct_ty: StructType) -> Self {
         Type::Struct(struct_ty)
+    }
+
+    pub fn uint<W: Into<UBitwidth>>(b: W) -> Self {
+        Type::Uint(b.into())
     }
 
     fn to_slug(&self) -> String {

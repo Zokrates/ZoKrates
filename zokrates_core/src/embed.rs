@@ -36,22 +36,22 @@ impl FlatEmbed {
                 .inputs(vec![Type::FieldElement])
                 .outputs(vec![Type::array(Type::Boolean, *bitwidth)]),
             FlatEmbed::U8ToBits => Signature::new()
-                .inputs(vec![Type::Uint(8)])
+                .inputs(vec![Type::uint(8)])
                 .outputs(vec![Type::array(Type::Boolean, 8)]),
             FlatEmbed::U16ToBits => Signature::new()
-                .inputs(vec![Type::Uint(16)])
+                .inputs(vec![Type::uint(16)])
                 .outputs(vec![Type::array(Type::Boolean, 16)]),
             FlatEmbed::U32ToBits => Signature::new()
-                .inputs(vec![Type::Uint(32)])
+                .inputs(vec![Type::uint(32)])
                 .outputs(vec![Type::array(Type::Boolean, 32)]),
             FlatEmbed::U8FromBits => Signature::new()
-                .outputs(vec![Type::Uint(8)])
+                .outputs(vec![Type::uint(8)])
                 .inputs(vec![Type::array(Type::Boolean, 8)]),
             FlatEmbed::U16FromBits => Signature::new()
-                .outputs(vec![Type::Uint(16)])
+                .outputs(vec![Type::uint(16)])
                 .inputs(vec![Type::array(Type::Boolean, 16)]),
             FlatEmbed::U32FromBits => Signature::new()
-                .outputs(vec![Type::Uint(32)])
+                .outputs(vec![Type::uint(32)])
                 .inputs(vec![Type::array(Type::Boolean, 32)]),
         }
     }

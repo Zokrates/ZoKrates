@@ -17,7 +17,7 @@
 //! where any call in `main` must be to `_SHA_256_ROUND` or `_UNPACK`
 
 use std::collections::HashMap;
-use typed_absy::types::{FunctionKey, Type};
+use typed_absy::types::{FunctionKey, Type, UBitwidth};
 use typed_absy::{folder::*, *};
 use zokrates_field::Field;
 
@@ -521,7 +521,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
 
     fn fold_uint_expression_inner(
         &mut self,
-        size: usize,
+        size: UBitwidth,
         e: UExpressionInner<'ast, T>,
     ) -> UExpressionInner<'ast, T> {
         match e {
