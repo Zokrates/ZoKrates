@@ -703,7 +703,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         let from = expression.metadata.clone().unwrap().bitwidth();
         let p = self.flatten_uint_expression(symbols, statements_flattened, expression);
         let bits = self
-            .get_bits(p, from as usize, bitwidth.to_usize(), statements_flattened)
+            .get_bits(p, from as usize, bitwidth, statements_flattened)
             .into_iter()
             .map(|b| FlatUExpression::with_field(b))
             .collect();
@@ -918,17 +918,17 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         expr: UExpression<'ast, T>,
     ) -> FlatUExpression<T> {
         // the bitwidth for this type of uint (8, 16 or 32)
-        let target_bitwidth = expr.bitwidth.to_usize();
+        let target_bitwidth = expr.bitwidth;
 
         let metadata = expr.metadata.clone().unwrap().clone();
 
         // the bitwidth on which this value is currently represented
         let actual_bitwidth = metadata.bitwidth() as usize;
+
         // whether this value should be reduced, for example if it is then used in a bitwidth operation
         let should_reduce = metadata.should_reduce;
 
-        // reduction can be ignored if the actual bitwidth is smaller than the target bitwidth
-        let should_reduce = should_reduce.to_bool() && actual_bitwidth > target_bitwidth;
+        let should_reduce = should_reduce.to_bool();
 
         let res = match expr.into_inner() {
             UExpressionInner::Value(x) => {
@@ -937,24 +937,17 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             UExpressionInner::Identifier(x) => {
                 let field = FlatExpression::Identifier(self.layout.get(&x).unwrap().clone());
                 let bits = self.bits_cache.get(&field).map(|bits| {
-                    assert_eq!(bits.len(), target_bitwidth);
+                    assert_eq!(bits.len(), target_bitwidth.to_usize());
                     bits.clone()
                 });
                 FlatUExpression::with_field(field).bits(bits)
             }
             UExpressionInner::Not(box e) => {
-                let from = e.metadata.clone().unwrap().bitwidth();
+                let e = self.flatten_uint_expression(symbols, statements_flattened, e);
 
-                let e_flattened = self.flatten_uint_expression(symbols, statements_flattened, e);
+                let e_bits = e.bits.unwrap();
 
-                let e_bits = self.get_bits(
-                    e_flattened,
-                    from as usize,
-                    target_bitwidth,
-                    statements_flattened,
-                );
-
-                assert_eq!(e_bits.len(), target_bitwidth);
+                assert_eq!(e_bits.len(), target_bitwidth.to_usize());
 
                 let name_not: Vec<_> = e_bits
                     .into_iter()
@@ -1028,8 +1021,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 ))
             }
             UExpressionInner::LeftShift(box e, box by) => {
-                let from = e.metadata.clone().unwrap().bitwidth();
-
                 let e = self.flatten_uint_expression(symbols, statements_flattened, e);
 
                 let by = match by {
@@ -1039,24 +1030,22 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     _ => unreachable!(),
                 };
 
-                let e_bits = self.get_bits(e, from as usize, target_bitwidth, statements_flattened);
+                let e_bits = e.bits.unwrap();
 
-                assert_eq!(e_bits.len(), target_bitwidth);
+                assert_eq!(e_bits.len(), target_bitwidth.to_usize());
 
                 FlatUExpression::with_bits(
                     e_bits
                         .into_iter()
                         .skip(by)
                         .chain(
-                            (0..std::cmp::min(by, target_bitwidth))
+                            (0..std::cmp::min(by, target_bitwidth.to_usize()))
                                 .map(|_| FlatExpression::Number(T::from(0))),
                         )
                         .collect::<Vec<_>>(),
                 )
             }
             UExpressionInner::RightShift(box e, box by) => {
-                let from = e.metadata.clone().unwrap().bitwidth();
-
                 let e = self.flatten_uint_expression(symbols, statements_flattened, e);
 
                 let by = match by {
@@ -1066,18 +1055,17 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     _ => unreachable!(),
                 };
 
-                let e_bits = self.get_bits(e, from as usize, target_bitwidth, statements_flattened);
+                let e_bits = e.bits.unwrap();
 
-                assert_eq!(e_bits.len(), target_bitwidth);
+                assert_eq!(e_bits.len(), target_bitwidth.to_usize());
 
                 FlatUExpression::with_bits(
-                    (0..std::cmp::min(by, target_bitwidth))
+                    (0..std::cmp::min(by, target_bitwidth.to_usize()))
                         .map(|_| FlatExpression::Number(T::from(0)))
-                        .chain(
-                            e_bits
-                                .into_iter()
-                                .take(target_bitwidth - std::cmp::min(by, target_bitwidth)),
-                        )
+                        .chain(e_bits.into_iter().take(
+                            target_bitwidth.to_usize()
+                                - std::cmp::min(by, target_bitwidth.to_usize()),
+                        ))
                         .collect::<Vec<_>>(),
                 )
             }
@@ -1122,29 +1110,18 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 )
                 .clone(),
             UExpressionInner::Xor(box left, box right) => {
-                let left_from = left.metadata.clone().unwrap().bitwidth();
-                let right_from = right.metadata.clone().unwrap().bitwidth();
-
                 let left_flattened =
                     self.flatten_uint_expression(symbols, statements_flattened, left);
                 let right_flattened =
                     self.flatten_uint_expression(symbols, statements_flattened, right);
 
-                let left_bits = self.get_bits(
-                    left_flattened,
-                    left_from as usize,
-                    target_bitwidth,
-                    statements_flattened,
-                );
-                let right_bits = self.get_bits(
-                    right_flattened,
-                    right_from as usize,
-                    target_bitwidth,
-                    statements_flattened,
-                );
+                // `left` and `right` were reduced to the target bitwidth, hence their bits are available
 
-                assert_eq!(left_bits.len(), target_bitwidth);
-                assert_eq!(right_bits.len(), target_bitwidth);
+                let left_bits = left_flattened.bits.unwrap();
+                let right_bits = right_flattened.bits.unwrap();
+
+                assert_eq!(left_bits.len(), target_bitwidth.to_usize());
+                assert_eq!(right_bits.len(), target_bitwidth.to_usize());
 
                 let xor: Vec<FlatExpression<T>> = left_bits
                     .into_iter()
@@ -1198,30 +1175,17 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 FlatUExpression::with_bits(xor)
             }
             UExpressionInner::And(box left, box right) => {
-                let left_from = left.metadata.clone().unwrap().bitwidth();
-                let right_from = right.metadata.clone().unwrap().bitwidth();
-
                 let left_flattened =
                     self.flatten_uint_expression(symbols, statements_flattened, left);
 
                 let right_flattened =
                     self.flatten_uint_expression(symbols, statements_flattened, right);
 
-                let left_bits = self.get_bits(
-                    left_flattened,
-                    left_from as usize,
-                    target_bitwidth,
-                    statements_flattened,
-                );
-                let right_bits = self.get_bits(
-                    right_flattened,
-                    right_from as usize,
-                    target_bitwidth,
-                    statements_flattened,
-                );
+                let left_bits = left_flattened.bits.unwrap();
+                let right_bits = right_flattened.bits.unwrap();
 
-                assert_eq!(left_bits.len(), target_bitwidth);
-                assert_eq!(right_bits.len(), target_bitwidth);
+                assert_eq!(left_bits.len(), target_bitwidth.to_usize());
+                assert_eq!(right_bits.len(), target_bitwidth.to_usize());
 
                 let and: Vec<_> = left_bits
                     .into_iter()
@@ -1248,29 +1212,19 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 FlatUExpression::with_bits(and)
             }
             UExpressionInner::Or(box left, box right) => {
-                let left_from = left.metadata.clone().unwrap().bitwidth();
-                let right_from = right.metadata.clone().unwrap().bitwidth();
-
                 let left_flattened =
                     self.flatten_uint_expression(symbols, statements_flattened, left);
                 let right_flattened =
                     self.flatten_uint_expression(symbols, statements_flattened, right);
 
-                let left_bits = self.get_bits(
-                    left_flattened,
-                    left_from as usize,
-                    target_bitwidth,
-                    statements_flattened,
-                );
-                let right_bits = self.get_bits(
-                    right_flattened,
-                    right_from as usize,
-                    target_bitwidth,
-                    statements_flattened,
-                );
+                let left_bits = left_flattened.bits.unwrap();
+                let right_bits = right_flattened.bits.unwrap();
 
-                assert_eq!(left_bits.len(), target_bitwidth);
-                assert_eq!(right_bits.len(), target_bitwidth);
+                assert_eq!(left_bits.len(), target_bitwidth.to_usize());
+                assert_eq!(right_bits.len(), target_bitwidth.to_usize());
+
+                assert_eq!(left_bits.len(), target_bitwidth.to_usize());
+                assert_eq!(right_bits.len(), target_bitwidth.to_usize());
 
                 let or: Vec<FlatExpression<T>> = left_bits
                     .into_iter()
@@ -1330,7 +1284,7 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                             box acc,
                             box FlatExpression::Mult(
                                 box FlatExpression::Number(
-                                    T::from(2).pow(target_bitwidth - index - 1),
+                                    T::from(2).pow(target_bitwidth.to_usize() - index - 1),
                                 ),
                                 box bit.clone().into(),
                             ),
@@ -1350,13 +1304,15 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         &mut self,
         e: FlatUExpression<T>,
         from: usize,
-        to: usize,
+        to: UBitwidth,
         statements_flattened: &mut FlatStatements<T>,
     ) -> Vec<FlatExpression<T>> {
-        assert!(from < T::get_required_bits());
-        assert!(to < from);
+        let to = to.to_usize();
 
-        // constants do not require directives!
+        assert!(from < T::get_required_bits());
+        assert!(to < T::get_required_bits());
+
+        // constants do not require directives
         match e.field.clone() {
             Some(FlatExpression::Number(x)) => {
                 let bits: Vec<_> = ir::Interpreter::default()
@@ -1366,6 +1322,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     .map(|x| FlatExpression::Number(x))
                     .collect();
 
+                assert_eq!(bits.len(), to);
+
                 self.bits_cache
                     .insert(e.field.clone().unwrap(), bits.clone());
                 return bits;
@@ -1373,11 +1331,17 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             _ => {}
         };
 
-        e.bits
-            .clone()
-            .unwrap_or_else(|| match self.bits_cache.entry(e.field.clone().unwrap()) {
+        e.bits.clone().unwrap_or_else(|| {
+            // we are not reducing a constant, therefore the result should always have a smaller bitwidth:
+            // `to` is the target bitwidth, and `from` cannot be smaller than that unless we're looking at a
+            // constant
+            assert!(to <= from);
+            match self.bits_cache.entry(e.field.clone().unwrap()) {
                 Entry::Occupied(entry) => {
-                    entry.get().clone().into_iter().map(|e| e.into()).collect()
+                    let res: Vec<_> = entry.get().clone().into_iter().map(|e| e.into()).collect();
+                    // if we already know a decomposition, it has to be of the size of the target bitwidth
+                    assert_eq!(res.len(), to);
+                    res
                 }
                 Entry::Vacant(_) => {
                     let bits = (0..from).map(|_| self.use_sym()).collect::<Vec<_>>();
@@ -1423,7 +1387,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
                     bits.into_iter().map(|v| v.into()).collect()
                 }
-            })
+            }
+        })
     }
 
     /// Flattens a field expression
@@ -1876,10 +1841,12 @@ impl<'ast, T: Field> Flattener<'ast, T> {
 
         match parameter.id.get_type() {
             Type::Uint(bitwidth) => {
+                // to constrain unsigned integer inputs to be in range, we get their bit decomposition.
+                // it will be cached
                 self.get_bits(
                     FlatUExpression::with_field(FlatExpression::Identifier(variable)),
                     bitwidth.to_usize(),
-                    bitwidth.to_usize(),
+                    bitwidth,
                     statements_flattened,
                 );
             }
@@ -2328,31 +2295,14 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
     fn next_variable() {
         let mut flattener: Flattener<Bn128Field> = Flattener::new();
         assert_eq!(
             FlatVariable::new(0),
             flattener.use_variable(&Variable::field_element("a"))
         );
-        assert_eq!(
-            flattener.layout.get(&"a".into()),
-            Some(&FlatVariable::new(0))
-        );
-        assert_eq!(
-            FlatVariable::new(1),
-            flattener.use_variable(&Variable::field_element("a"))
-        );
-        assert_eq!(
-            flattener.layout.get(&"a".into()),
-            Some(&FlatVariable::new(1))
-        );
-        assert_eq!(
-            FlatVariable::new(2),
-            flattener.use_variable(&Variable::field_element("a"))
-        );
-        assert_eq!(
-            flattener.layout.get(&"a".into()),
-            Some(&FlatVariable::new(2))
-        );
+        // using the same variable a second time should panic
+        flattener.use_variable(&Variable::field_element("a"));
     }
 }
