@@ -32,9 +32,13 @@ zokrates_field = { version = "0.3.0", path = "../zokrates_field" }
 zokrates_pest_ast = { version = "0.1.0", path = "../zokrates_pest_ast" }
 zokrates_embed = { path = "../zokrates_embed" }
 zokrates_common = { path = "../zokrates_common" }
-rand = "0.4"
+rand_0_4 = { version = "0.4", package = "rand" }
+rand_0_7 = { version = "0.7", package = "rand" }
 csv = "1"
-bellman_ce = { version = "^0.3", default-features = false }
+bellman_ce = { version = "=0.3.3", default-features = false}
+gm17 = { git = "https://github.com/scipr-lab/zexe.git", version = "0.1.0" }
+algebra-core = { git = "https://github.com/scipr-lab/zexe.git", version = "0.1.0"}
+r1cs-core = { git = "https://github.com/scipr-lab/zexe.git", version = "0.1.0"}
 
 [dev-dependencies]
 glob = "0.2.11"

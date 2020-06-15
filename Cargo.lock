@@ -19,6 +19,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "algebra"
+version = "0.1.0"
+source = "git+https://github.com/scipr-lab/zexe.git#4b3f08c6c0a08c5392ed8aa3fd3c32f28da402c4"
+dependencies = [
+ "algebra-core",
+]
+
+[[package]]
+name = "algebra-core"
+version = "0.1.0"
+source = "git+https://github.com/scipr-lab/zexe.git#4b3f08c6c0a08c5392ed8aa3fd3c32f28da402c4"
+dependencies = [
+ "algebra-core-derive",
+ "derivative",
+ "field-assembly",
+ "num-traits 0.2.11",
+ "rand 0.7.3",
+ "rayon",
+ "rustc_version",
+ "unroll",
+]
+
+[[package]]
+name = "algebra-core-derive"
+version = "0.1.0"
+source = "git+https://github.com/scipr-lab/zexe.git#4b3f08c6c0a08c5392ed8aa3fd3c32f28da402c4"
+dependencies = [
+ "proc-macro2 1.0.18",
+ "quote 1.0.6",
+ "syn 1.0.30",
+]
+
+[[package]]
 name = "ansi_term"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -82,9 +115,9 @@ dependencies = [
 
 [[package]]
 name = "bellman_ce"
-version = "0.3.4"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e1a2edf80a8ed042463f8888946f70fcd901f1615711bb253b7dc32b9c9fe73"
+checksum = "0300152b8d0c0220c70a39d6da08adff84352f5dd28d91944bc60e9dc8cbebb9"
 dependencies = [
  "bit-vec",
  "byteorder",
@@ -92,10 +125,15 @@ dependencies = [
  "crossbeam",
  "futures",
  "num_cpus",
- "pairing_ce",
+ "pairing_ce 0.20.0",
  "rand 0.4.6",
  "web-sys",
 ]
+
+[[package]]
+name = "bench-utils"
+version = "0.1.0"
+source = "git+https://github.com/scipr-lab/zexe.git#4b3f08c6c0a08c5392ed8aa3fd3c32f28da402c4"
 
 [[package]]
 name = "bincode"
@@ -367,6 +405,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "derivative"
+version = "2.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb582b60359da160a9477ee80f15c8d784c477e69c217ef2cdd4169c24ea380f"
+dependencies = [
+ "proc-macro2 1.0.18",
+ "quote 1.0.6",
+ "syn 1.0.30",
+]
+
+[[package]]
 name = "difference"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -441,12 +490,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
 
 [[package]]
+name = "ff-fft"
+version = "0.1.0"
+source = "git+https://github.com/scipr-lab/zexe.git#4b3f08c6c0a08c5392ed8aa3fd3c32f28da402c4"
+dependencies = [
+ "algebra-core",
+ "rand 0.7.3",
+ "rayon",
+]
+
+[[package]]
 name = "ff_ce"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83c0a6a2c53b0bd6d8cae976816dc8a171e0554c03f304e3dac110473e0219fd"
 dependencies = [
  "byteorder",
+ "ff_derive_ce 0.7.0",
  "hex",
  "rand 0.4.6",
 ]
@@ -458,9 +518,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40ced6646e4e98a53da162e38ffe9c865edbd7a2f9ff197067b0a8bf1114bf8a"
 dependencies = [
  "byteorder",
- "ff_derive_ce",
+ "ff_derive_ce 0.8.0",
  "hex",
  "rand 0.4.6",
+]
+
+[[package]]
+name = "ff_derive_ce"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7543567f0c51910363eb5706ee2f5368a64e79a8ae607d0332aa60bae03a1bb1"
+dependencies = [
+ "num-bigint 0.2.6",
+ "num-integer",
+ "num-traits 0.2.11",
+ "proc-macro2 1.0.18",
+ "quote 1.0.6",
+ "syn 1.0.30",
 ]
 
 [[package]]
@@ -475,6 +549,14 @@ dependencies = [
  "proc-macro2 1.0.18",
  "quote 1.0.6",
  "syn 1.0.30",
+]
+
+[[package]]
+name = "field-assembly"
+version = "0.1.0"
+source = "git+https://github.com/scipr-lab/zexe.git#4b3f08c6c0a08c5392ed8aa3fd3c32f28da402c4"
+dependencies = [
+ "mince",
 ]
 
 [[package]]
@@ -634,6 +716,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 
 [[package]]
+name = "gm17"
+version = "0.1.0"
+source = "git+https://github.com/scipr-lab/zexe.git#4b3f08c6c0a08c5392ed8aa3fd3c32f28da402c4"
+dependencies = [
+ "algebra-core",
+ "bench-utils",
+ "ff-fft",
+ "r1cs-core",
+ "rand 0.7.3",
+ "rayon",
+ "smallvec",
+]
+
+[[package]]
 name = "hermit-abi"
 version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -787,6 +883,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "mince"
+version = "0.1.0"
+source = "git+https://github.com/scipr-lab/zexe.git#4b3f08c6c0a08c5392ed8aa3fd3c32f28da402c4"
+dependencies = [
+ "quote 1.0.6",
+ "syn 1.0.30",
+]
+
+[[package]]
 name = "nodrop"
 version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -909,6 +1014,17 @@ dependencies = [
  "libc",
  "pkg-config",
  "vcpkg",
+]
+
+[[package]]
+name = "pairing_ce"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c7b23aa7f0489d9a5e8e15cc5b7cb4f3e9b9d64812b8875fb91d25b640b0939"
+dependencies = [
+ "byteorder",
+ "ff_ce 0.9.0",
+ "rand 0.4.6",
 ]
 
 [[package]]
@@ -1068,6 +1184,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "r1cs-core"
+version = "0.1.0"
+source = "git+https://github.com/scipr-lab/zexe.git#4b3f08c6c0a08c5392ed8aa3fd3c32f28da402c4"
+dependencies = [
+ "algebra-core",
+ "smallvec",
+]
+
+[[package]]
 name = "rand"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1137,6 +1262,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "rayon"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db6ce3297f9c85e16621bb8cca38a06779ffc31bb8184e1be4bed2be4678a098"
+dependencies = [
+ "crossbeam-deque",
+ "either",
+ "rayon-core",
+]
+
+[[package]]
+name = "rayon-core"
+version = "1.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08a89b46efaf957e52b18062fb2f4660f8b8a4dde1807ca002690868ef2c85a9"
+dependencies = [
+ "crossbeam-deque",
+ "crossbeam-queue",
+ "crossbeam-utils",
+ "lazy_static",
+ "num_cpus",
+]
+
+[[package]]
 name = "rdrand"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1202,6 +1351,15 @@ name = "rustc-demangle"
 version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4c691c0e608126e00913e33f0ccf3727d5fc84573623b8d65b2df340b5201783"
+
+[[package]]
+name = "rustc_version"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
+dependencies = [
+ "semver",
+]
 
 [[package]]
 name = "ryu"
@@ -1513,6 +1671,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "826e7639553986605ec5979c7dd957c7895e93eabed50ab2ffa7f6128a75097c"
 
 [[package]]
+name = "unroll"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85890b49d9724df33edc575c4bacd5b0081977da22c4c4984d0c62ec44ed6e09"
+dependencies = [
+ "quote 0.6.13",
+ "syn 0.15.44",
+]
+
+[[package]]
 name = "url"
 version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1738,6 +1906,7 @@ version = "0.1.0"
 name = "zokrates_core"
 version = "0.4.3"
 dependencies = [
+ "algebra-core",
  "assert_cli",
  "bellman_ce",
  "bincode",
@@ -1747,12 +1916,15 @@ dependencies = [
  "ff_ce 0.9.0",
  "git2",
  "glob 0.2.11",
+ "gm17",
  "hex",
  "lazy_static",
  "num",
  "num-bigint 0.1.44",
- "pairing_ce",
+ "pairing_ce 0.21.0",
+ "r1cs-core",
  "rand 0.4.6",
+ "rand 0.7.3",
  "reduce",
  "regex",
  "serde",
@@ -1787,6 +1959,8 @@ dependencies = [
 name = "zokrates_field"
 version = "0.3.6"
 dependencies = [
+ "algebra",
+ "algebra-core",
  "bellman_ce",
  "bincode",
  "lazy_static",

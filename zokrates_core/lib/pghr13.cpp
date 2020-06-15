@@ -87,22 +87,25 @@ r1cs_ppzksnark_keypair<libff::alt_bn128_pp> generateKeypair(const r1cs_ppzksnark
 std::string serializeVerificationKey(r1cs_ppzksnark_verification_key<libff::alt_bn128_pp>* vk)
 {
     std::stringstream ss;
-    unsigned icLength = vk->encoded_IC_query.rest.indices.size() + 1;
+    unsigned icLength = vk->encoded_IC_query.rest.indices.size();
 
-    ss << "vk.a=" << outputPointG2AffineAsHex(vk->alphaA_g2) << endl;
-    ss << "vk.b=" << outputPointG1AffineAsHex(vk->alphaB_g1) << endl;
-    ss << "vk.c=" << outputPointG2AffineAsHex(vk->alphaC_g2) << endl;
-    ss << "vk.gamma=" << outputPointG2AffineAsHex(vk->gamma_g2) << endl;
-    ss << "vk.gamma_beta_1=" << outputPointG1AffineAsHex(vk->gamma_beta_g1) << endl;
-    ss << "vk.gamma_beta_2=" << outputPointG2AffineAsHex(vk->gamma_beta_g2) << endl;
-    ss << "vk.z=" << outputPointG2AffineAsHex(vk->rC_Z_g2) << endl;
-    ss << "vk.ic.len()=" << icLength << endl;
-    ss << "vk.ic[0]=" << outputPointG1AffineAsHex(vk->encoded_IC_query.first) << endl;
-    for (size_t i = 1; i < icLength; ++i) {
-        auto vk_ic_i = outputPointG1AffineAsHex(vk->encoded_IC_query.rest.values[i - 1]);
-        ss << "vk.ic[" << i << "]=" << vk_ic_i << endl;
+    ss << "{";
+    ss << "\"a\":" << outputPointG2AffineAsHexJson(vk->alphaA_g2) << ",";
+    ss << "\"b\":" << outputPointG1AffineAsHexJson(vk->alphaB_g1) << ",";
+    ss << "\"c\":" << outputPointG2AffineAsHexJson(vk->alphaC_g2) << ",";
+    ss << "\"gamma\":" << outputPointG2AffineAsHexJson(vk->gamma_g2) << ",";
+    ss << "\"gamma_beta_1\":" << outputPointG1AffineAsHexJson(vk->gamma_beta_g1) << ",";
+    ss << "\"gamma_beta_2\":" << outputPointG2AffineAsHexJson(vk->gamma_beta_g2) << ",";
+    ss << "\"z\":" << outputPointG2AffineAsHexJson(vk->rC_Z_g2) << ",";
+    ss << "\"ic\":[";
+    ss << outputPointG1AffineAsHexJson(vk->encoded_IC_query.first);
+    for (size_t i = 0; i < icLength; ++i) {
+        ss << ",";
+        ss << outputPointG1AffineAsHexJson(vk->encoded_IC_query.rest.values[i]);
     }
-    ss << "vk.raw=" << toHexString(serialize(*vk)) << endl;
+    ss << "],";
+    ss << "\"raw\":\"" << toHexString(serialize(*vk)) << "\"";
+    ss << "}";
     std::string str = ss.str();
     return str;
 }
@@ -110,32 +113,27 @@ std::string serializeVerificationKey(r1cs_ppzksnark_verification_key<libff::alt_
 std::string serializeProof(r1cs_ppzksnark_proof<libff::alt_bn128_pp>* proof, const uint8_t* public_inputs, int public_inputs_length)
 {
     std::stringstream ss;
-    ss << "{"
-       << "\n";
-    ss << "\t\"proof\": {"
-       << "\n";
-    ss << "\t\t\"a\": " << outputPointG1AffineAsHexJson(proof->g_A.g) << ",\n";
-    ss << "\t\t\"a_p\": " << outputPointG1AffineAsHexJson(proof->g_A.h) << ",\n";
-    ss << "\t\t\"b\": " << outputPointG2AffineAsHexJson(proof->g_B.g) << ",\n";
-    ss << "\t\t\"b_p\": " << outputPointG1AffineAsHexJson(proof->g_B.h) << ",\n";
-    ss << "\t\t\"c\": " << outputPointG1AffineAsHexJson(proof->g_C.g) << ",\n";
-    ss << "\t\t\"c_p\": " << outputPointG1AffineAsHexJson(proof->g_C.h) << ",\n";
-    ss << "\t\t\"h\": " << outputPointG1AffineAsHexJson(proof->g_H) << ",\n";
-    ss << "\t\t\"k\": " << outputPointG1AffineAsHexJson(proof->g_K) << "\n";
-    ss << "\t},"
-       << "\n";
-    ss << "\t\"inputs\": "
-       << "[";
+    ss << "{";
+    ss << "\"proof\":{";
+    ss << "\"a\":" << outputPointG1AffineAsHexJson(proof->g_A.g) << ",";
+    ss << "\"a_p\":" << outputPointG1AffineAsHexJson(proof->g_A.h) << ",";
+    ss << "\"b\":" << outputPointG2AffineAsHexJson(proof->g_B.g) << ",";
+    ss << "\"b_p\":" << outputPointG1AffineAsHexJson(proof->g_B.h) << ",";
+    ss << "\"c\":" << outputPointG1AffineAsHexJson(proof->g_C.g) << ",";
+    ss << "\"c_p\":" << outputPointG1AffineAsHexJson(proof->g_C.h) << ",";
+    ss << "\"h\":" << outputPointG1AffineAsHexJson(proof->g_H) << ",";
+    ss << "\"k\":" << outputPointG1AffineAsHexJson(proof->g_K);
+    ss << "},";
+    ss << "\"inputs\":[";
     for (int i = 1; i < public_inputs_length; i++) {
         if (i != 1) {
             ss << ",";
         }
         ss << outputInputAsHex(libsnarkBigintFromBytes(public_inputs + i * 32));
     }
-    ss << "],\n";
-    ss << "\t\"raw\": \"" << toHexString(serialize(*proof)) << "\"\n";
-    ss << "}"
-       << "\n";
+    ss << "],";
+    ss << "\"raw\":\"" << toHexString(serialize(*proof)) << "\"";
+    ss << "}";
     std::string str = ss.str();
     return str;
 }

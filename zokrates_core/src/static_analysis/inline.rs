@@ -105,8 +105,8 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         let unpack_key = unpack.key::<T>();
 
         // define a function in the main module for the `sha256_round` embed
-        let sha256_round = crate::embed::FlatEmbed::Sha256Round;
-        let sha256_round_key = sha256_round.key::<T>();
+        //let sha256_round = crate::embed::FlatEmbed::Sha256Round;
+        //let sha256_round_key = sha256_round.key::<T>();
 
         // return a program with a single module containing `main`, `_UNPACK`, and `_SHA256_ROUND
         TypedProgram {
@@ -116,7 +116,7 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                 TypedModule {
                     functions: vec![
                         (unpack_key, TypedFunctionSymbol::Flat(unpack)),
-                        (sha256_round_key, TypedFunctionSymbol::Flat(sha256_round)),
+                        //(sha256_round_key, TypedFunctionSymbol::Flat(sha256_round)),
                         (main_key, main),
                     ]
                     .into_iter()

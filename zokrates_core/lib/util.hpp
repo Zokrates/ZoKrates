@@ -14,9 +14,7 @@ libff::bigint<libff::alt_bn128_r_limbs> libsnarkBigintFromBytes(const uint8_t* _
 std::string toHexString(const std::string& s);
 std::string HexStringFromLibsnarkBigint(libff::bigint<libff::alt_bn128_r_limbs> _x);
 std::string outputInputAsHex(libff::bigint<libff::alt_bn128_r_limbs> _x);
-std::string outputPointG1AffineAsHex(libff::alt_bn128_G1 _p);
 std::string outputPointG1AffineAsHexJson(libff::alt_bn128_G1 _p);
-std::string outputPointG2AffineAsHex(libff::alt_bn128_G2 _p);
 std::string outputPointG2AffineAsHexJson(libff::alt_bn128_G2 _p);
 
 template <typename T>

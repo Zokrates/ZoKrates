@@ -1,4 +1,5 @@
 use std::fmt;
+//use zokrates_embed::generate_sha256_round_witness;
 use zokrates_field::Field;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
@@ -6,7 +7,7 @@ pub enum Solver {
     ConditionEq,
     Bits(usize),
     Div,
-    Sha256Round,
+    //Sha256Round,
 }
 
 impl fmt::Display for Solver {
@@ -21,8 +22,53 @@ impl Signed for Solver {
             Solver::ConditionEq => (1, 2),
             Solver::Bits(bit_width) => (1, *bit_width),
             Solver::Div => (2, 1),
-            Solver::Sha256Round => (768, 26935),
+            //Solver::Sha256Round => (768, 26935),
         }
+    }
+}
+
+impl<T: Field> Executable<T> for Solver {
+    fn execute(&self, inputs: &Vec<T>) -> Result<Vec<T>, String> {
+        let (expected_input_count, expected_output_count) = self.get_signature();
+        assert!(inputs.len() == expected_input_count);
+
+        let res = match self {
+            Solver::ConditionEq => match inputs[0].is_zero() {
+                true => vec![T::zero(), T::one()],
+                false => vec![T::one(), T::one() / inputs[0].clone()],
+            },
+            Solver::Bits(bit_width) => {
+                let mut num = inputs[0].clone();
+                let mut res = vec![];
+
+                for i in (0..*bit_width).rev() {
+                    if T::from(2).pow(i) <= num {
+                        num = num - T::from(2).pow(i);
+                        res.push(T::one());
+                    } else {
+                        res.push(T::zero());
+                    }
+                }
+                assert_eq!(num, T::zero());
+                res
+            }
+            Solver::Div => vec![inputs[0].clone() / inputs[1].clone()],
+            //            Solver::Sha256Round => {
+            //                let i = &inputs[0..512];
+            //                let h = &inputs[512..];
+            //                let i: Vec<_> = i.iter().map(|x| x.clone().into_bellman()).collect();
+            //                let h: Vec<_> = h.iter().map(|x| x.clone().into_bellman()).collect();
+            //                assert!(h.len() == 256);
+            //                generate_sha256_round_witness::<T::BellmanEngine>(&i, &h)
+            //                    .into_iter()
+            //                    .map(|x| T::from_bellman(x))
+            //                    .collect()
+            //            }
+        };
+
+        assert_eq!(res.len(), expected_output_count);
+
+        Ok(res)
     }
 }
 

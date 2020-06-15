@@ -1,14 +1,10 @@
 use ir;
-use proof_system::bn128::utils::ffi::{Buffer, ProofResult, SetupResult};
-use proof_system::bn128::utils::libsnark::{
-    prepare_generate_proof, prepare_public_inputs, prepare_setup,
-};
-use proof_system::bn128::utils::parser::parse_vk;
-use proof_system::bn128::utils::solidity::{
+use proof_system::libsnark::ffi::{Buffer, ProofResult, SetupResult};
+use proof_system::libsnark::{prepare_generate_proof, prepare_public_inputs, prepare_setup};
+use proof_system::solidity::{
     SOLIDITY_G2_ADDITION_LIB, SOLIDITY_PAIRING_LIB, SOLIDITY_PAIRING_LIB_V2,
 };
-use proof_system::bn128::{G1PairingPoint, G2PairingPoint, Proof};
-use proof_system::{ProofSystem, SetupKeypair, SolidityAbi};
+use proof_system::{G1Affine, G2Affine, Proof, ProofSystem, SetupKeypair, SolidityAbi};
 use regex::Regex;
 
 use zokrates_field::Bn128Field;
@@ -17,10 +13,21 @@ use zokrates_field::Field;
 pub struct GM17 {}
 
 #[derive(Serialize, Deserialize)]
-struct GM17ProofPoints {
-    a: G1PairingPoint,
-    b: G2PairingPoint,
-    c: G1PairingPoint,
+pub struct VerificationKey {
+    h: G2Affine,
+    g_alpha: G1Affine,
+    h_beta: G2Affine,
+    g_gamma: G1Affine,
+    h_gamma: G2Affine,
+    query: Vec<G1Affine>,
+    raw: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ProofPoints {
+    a: G1Affine,
+    b: G2Affine,
+    c: G1Affine,
 }
 
 extern "C" {
@@ -53,7 +60,10 @@ extern "C" {
 }
 
 impl ProofSystem<Bn128Field> for GM17 {
-    fn setup(program: ir::Prog<Bn128Field>) -> SetupKeypair {
+    type VerificationKey = VerificationKey;
+    type ProofPoints = ProofPoints;
+
+    fn setup(program: ir::Prog<Bn128Field>) -> SetupKeypair<VerificationKey> {
         let (a_arr, b_arr, c_arr, a_vec, b_vec, c_vec, num_constraints, num_variables, num_inputs) =
             prepare_setup(program);
 
@@ -83,14 +93,15 @@ impl ProofSystem<Bn128Field> for GM17 {
             (vk, pk)
         };
 
-        SetupKeypair::from(String::from_utf8(keypair.0).unwrap(), keypair.1)
+        let vk = serde_json::from_str(String::from_utf8(keypair.0).unwrap().as_str()).unwrap();
+        SetupKeypair::new(vk, keypair.1)
     }
 
     fn generate_proof(
         program: ir::Prog<Bn128Field>,
         witness: ir::Witness<Bn128Field>,
         proving_key: Vec<u8>,
-    ) -> String {
+    ) -> Proof<ProofPoints> {
         let (public_inputs_arr, public_inputs_length, private_inputs_arr, private_inputs_length) =
             prepare_generate_proof(program, witness);
 
@@ -118,11 +129,10 @@ impl ProofSystem<Bn128Field> for GM17 {
             proof
         };
 
-        String::from_utf8(proof).unwrap()
+        serde_json::from_str(String::from_utf8(proof).unwrap().as_str()).unwrap()
     }
 
-    fn export_solidity_verifier(vk: String, abi: SolidityAbi) -> String {
-        let vk_map = parse_vk(vk).unwrap();
+    fn export_solidity_verifier(vk: VerificationKey, abi: SolidityAbi) -> String {
         let (mut template_text, solidity_pairing_lib) = match abi {
             SolidityAbi::V1 => (
                 String::from(CONTRACT_TEMPLATE),
@@ -140,21 +150,27 @@ impl ProofSystem<Bn128Field> for GM17 {
         let vk_query_repeat_regex = Regex::new(r#"(<%vk_query_pts%>)"#).unwrap();
         let vk_input_len_regex = Regex::new(r#"(<%vk_input_length%>)"#).unwrap();
 
-        let keys = vec![
-            "vk.h",
-            "vk.g_alpha",
-            "vk.h_beta",
-            "vk.g_gamma",
-            "vk.h_gamma",
-        ];
+        template_text = vk_regex
+            .replace(template_text.as_str(), vk.h.to_string().as_str())
+            .into_owned();
 
-        for key in keys.iter() {
-            template_text = vk_regex
-                .replace(template_text.as_str(), vk_map.get(*key).unwrap().as_str())
-                .into_owned();
-        }
+        template_text = vk_regex
+            .replace(template_text.as_str(), vk.g_alpha.to_string().as_str())
+            .into_owned();
 
-        let query_count: usize = vk_map.get("vk.query.len()").unwrap().parse().unwrap();
+        template_text = vk_regex
+            .replace(template_text.as_str(), vk.h_beta.to_string().as_str())
+            .into_owned();
+
+        template_text = vk_regex
+            .replace(template_text.as_str(), vk.g_gamma.to_string().as_str())
+            .into_owned();
+
+        template_text = vk_regex
+            .replace(template_text.as_str(), vk.h_gamma.to_string().as_str())
+            .into_owned();
+
+        let query_count: usize = vk.query.len();
         template_text = vk_query_len_regex
             .replace(template_text.as_str(), format!("{}", query_count).as_str())
             .into_owned();
@@ -167,19 +183,16 @@ impl ProofSystem<Bn128Field> for GM17 {
             .into_owned();
 
         let mut query_repeat_text = String::new();
-        for x in 0..query_count {
+        for (i, g1) in vk.query.iter().enumerate() {
             query_repeat_text.push_str(
                 format!(
                     "vk.query[{}] = Pairing.G1Point({});",
-                    x,
-                    vk_map
-                        .get(format!("vk.query[{}]", x).as_str())
-                        .unwrap()
-                        .as_str()
+                    i,
+                    g1.to_string().as_str()
                 )
                 .as_str(),
             );
-            if x < query_count - 1 {
+            if i < query_count - 1 {
                 query_repeat_text.push_str("\n        ");
             }
         }
@@ -197,12 +210,9 @@ impl ProofSystem<Bn128Field> for GM17 {
         )
     }
 
-    fn verify(vk: String, proof: String) -> bool {
-        let map = parse_vk(vk).unwrap();
-        let vk_raw = hex::decode(map.get("vk.raw").unwrap()).unwrap();
-
-        let proof = Proof::<GM17ProofPoints>::from_str(proof.as_str());
-        let proof_raw = hex::decode(proof.raw).unwrap();
+    fn verify(vk: VerificationKey, proof: Proof<ProofPoints>) -> bool {
+        let vk_raw = hex::decode(vk.raw.clone()).unwrap();
+        let proof_raw = hex::decode(proof.raw.clone()).unwrap();
 
         let public_inputs: Vec<_> = proof
             .inputs
