@@ -235,8 +235,10 @@ fn cli_compute<T: Field>(ir_prog: ir::Prog<T>, sub_matches: &ArgMatches) -> Resu
     }
     .map_err(|e| format!("Could not parse argument: {}", e))?;
 
-    let witness = ir_prog
-        .execute(&arguments.encode())
+    let interpreter = ir::Interpreter::default();
+
+    let witness = interpreter
+        .execute(&ir_prog, &arguments.encode())
         .map_err(|e| format!("Execution failed: {}", e))?;
 
     use zokrates_abi::Decode;
@@ -1024,9 +1026,10 @@ mod tests {
             let artifacts: CompilationArtifacts<Bn128Field> =
                 compile(source, path, Some(&resolver)).unwrap();
 
-            let _ = artifacts
-                .prog()
-                .execute(&vec![Bn128Field::from(0)])
+            let interpreter = ir::Interpreter::default();
+
+            let _ = interpreter
+                .execute(&artifacts.prog(), &vec![Bn128Field::from(0)])
                 .unwrap();
         }
     }
@@ -1052,9 +1055,10 @@ mod tests {
             let artifacts: CompilationArtifacts<Bn128Field> =
                 compile(source, path, Some(&resolver)).unwrap();
 
-            let _ = artifacts
-                .prog()
-                .execute(&vec![Bn128Field::from(0)])
+            let interpreter = ir::Interpreter::default();
+
+            let _ = interpreter
+                .execute(&artifacts.prog(), &vec![Bn128Field::from(0)])
                 .unwrap();
         }
     }

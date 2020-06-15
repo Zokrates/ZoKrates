@@ -289,7 +289,7 @@ const CONTRACT_TEMPLATE_V2: &str = r#"contract Verifier {
         vk.ic = new Pairing.G1Point[](<%vk_ic_length%>);
         <%vk_ic_pts%>
     }
-    function verify(uint[] memory input, Proof memory proof) internal returns (uint) {
+    function verify(uint[] memory input, Proof memory proof) internal view returns (uint) {
         uint256 snark_scalar_field = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
         VerifyingKey memory vk = verifyingKey();
         require(input.length + 1 == vk.ic.length);
@@ -315,17 +315,15 @@ const CONTRACT_TEMPLATE_V2: &str = r#"contract Verifier {
         )) return 5;
         return 0;
     }
-    event Verified(string s);
     function verifyTx(
             Proof memory proof,
             uint[<%vk_input_length%>] memory input
-        ) public returns (bool r) {
+        ) public view returns (bool r) {
         uint[] memory inputValues = new uint[](input.length);
         for(uint i = 0; i < input.length; i++){
             inputValues[i] = input[i];
         }
         if (verify(inputValues, proof) == 0) {
-            emit Verified("Transaction successfully verified.");
             return true;
         } else {
             return false;
@@ -367,7 +365,7 @@ const CONTRACT_TEMPLATE: &str = r#"contract Verifier {
         vk.ic = new Pairing.G1Point[](<%vk_ic_length%>);
         <%vk_ic_pts%>
     }
-    function verify(uint[] memory input, Proof memory proof) internal returns (uint) {
+    function verify(uint[] memory input, Proof memory proof) internal view returns (uint) {
         uint256 snark_scalar_field = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
         VerifyingKey memory vk = verifyingKey();
         require(input.length + 1 == vk.ic.length);
@@ -393,7 +391,6 @@ const CONTRACT_TEMPLATE: &str = r#"contract Verifier {
         )) return 5;
         return 0;
     }
-    event Verified(string s);
     function verifyTx(
             uint[2] memory a,
             uint[2] memory a_p,
@@ -404,7 +401,7 @@ const CONTRACT_TEMPLATE: &str = r#"contract Verifier {
             uint[2] memory h,
             uint[2] memory k,
             uint[<%vk_input_length%>] memory input
-        ) public returns (bool r) {
+        ) public view returns (bool r) {
         Proof memory proof;
         proof.a = Pairing.G1Point(a[0], a[1]);
         proof.a_p = Pairing.G1Point(a_p[0], a_p[1]);
@@ -419,7 +416,6 @@ const CONTRACT_TEMPLATE: &str = r#"contract Verifier {
             inputValues[i] = input[i];
         }
         if (verify(inputValues, proof) == 0) {
-            emit Verified("Transaction successfully verified.");
             return true;
         } else {
             return false;

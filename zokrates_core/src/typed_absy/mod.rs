@@ -13,7 +13,7 @@ pub mod types;
 mod variable;
 
 pub use crate::typed_absy::parameter::Parameter;
-pub use crate::typed_absy::types::{Signature, Type};
+pub use crate::typed_absy::types::{Signature, StructType, Type};
 pub use crate::typed_absy::variable::Variable;
 use std::path::PathBuf;
 
@@ -27,7 +27,6 @@ use zokrates_field::Field;
 pub use self::folder::Folder;
 use typed_absy::abi::{Abi, AbiInput};
 pub use typed_absy::identifier::Identifier;
-use typed_absy::types::StructMember;
 
 /// An identifier for a `TypedModule`. Typically a path or uri.
 pub type TypedModuleId = PathBuf;
@@ -708,12 +707,12 @@ impl<'ast, T> ArrayExpression<'ast, T> {
 
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub struct StructExpression<'ast, T> {
-    ty: Vec<StructMember>,
+    ty: StructType,
     inner: StructExpressionInner<'ast, T>,
 }
 
 impl<'ast, T> StructExpression<'ast, T> {
-    pub fn ty(&self) -> &Vec<StructMember> {
+    pub fn ty(&self) -> &StructType {
         &self.ty
     }
 
@@ -744,7 +743,7 @@ pub enum StructExpressionInner<'ast, T> {
 }
 
 impl<'ast, T> StructExpressionInner<'ast, T> {
-    pub fn annotate(self, ty: Vec<StructMember>) -> StructExpression<'ast, T> {
+    pub fn annotate(self, ty: StructType) -> StructExpression<'ast, T> {
         StructExpression { ty, inner: self }
     }
 }

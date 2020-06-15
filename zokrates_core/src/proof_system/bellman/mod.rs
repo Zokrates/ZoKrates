@@ -267,6 +267,7 @@ mod parse {
 mod tests {
     use super::*;
     use crate::ir::{Function, LinComb};
+    use ir::Interpreter;
     use zokrates_field::Bn128Field;
 
     mod prove {
@@ -284,7 +285,9 @@ mod tests {
                 private: vec![],
             };
 
-            let witness = program.clone().execute(&vec![]).unwrap();
+            let interpreter = Interpreter::default();
+
+            let witness = interpreter.execute(&program, &vec![]).unwrap();
             let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
@@ -306,7 +309,12 @@ mod tests {
                 private: vec![true],
             };
 
-            let witness = program.clone().execute(&vec![Bn128Field::from(0)]).unwrap();
+            let interpreter = Interpreter::default();
+
+            let witness = interpreter
+                .execute(&program, &vec![Bn128Field::from(0)])
+                .unwrap();
+
             let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
@@ -328,7 +336,12 @@ mod tests {
                 private: vec![false],
             };
 
-            let witness = program.clone().execute(&vec![Bn128Field::from(0)]).unwrap();
+            let interpreter = Interpreter::default();
+
+            let witness = interpreter
+                .execute(&program, &vec![Bn128Field::from(0)])
+                .unwrap();
+
             let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
@@ -350,7 +363,9 @@ mod tests {
                 private: vec![],
             };
 
-            let witness = program.clone().execute(&vec![]).unwrap();
+            let interpreter = Interpreter::default();
+
+            let witness = interpreter.execute(&program, &vec![]).unwrap();
             let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
@@ -384,9 +399,10 @@ mod tests {
                 private: vec![true, false],
             };
 
-            let witness = program
-                .clone()
-                .execute(&vec![Bn128Field::from(3), Bn128Field::from(4)])
+            let interpreter = Interpreter::default();
+
+            let witness = interpreter
+                .execute(&program, &vec![Bn128Field::from(3), Bn128Field::from(4)])
                 .unwrap();
             let computation = Computation::with_witness(program, witness);
 
@@ -409,7 +425,12 @@ mod tests {
                 private: vec![false],
             };
 
-            let witness = program.clone().execute(&vec![Bn128Field::from(3)]).unwrap();
+            let interpreter = Interpreter::default();
+
+            let witness = interpreter
+                .execute(&program, &vec![Bn128Field::from(3)])
+                .unwrap();
+
             let computation = Computation::with_witness(program, witness);
 
             let params = computation.clone().setup();
@@ -433,9 +454,10 @@ mod tests {
                 private: vec![true, false],
             };
 
-            let witness = program
-                .clone()
-                .execute(&vec![Bn128Field::from(3), Bn128Field::from(4)])
+            let interpreter = Interpreter::default();
+
+            let witness = interpreter
+                .execute(&program, &vec![Bn128Field::from(3), Bn128Field::from(4)])
                 .unwrap();
             let computation = Computation::with_witness(program, witness);
 

@@ -1,4 +1,5 @@
 use std::fmt;
+use std::path::PathBuf;
 
 pub type Identifier<'ast> = &'ast str;
 
@@ -19,6 +20,49 @@ pub struct ArrayType {
     pub ty: Box<Type>,
 }
 
+#[derive(Clone, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+pub struct StructType {
+    #[serde(skip)]
+    pub module: PathBuf,
+    pub name: String,
+    pub members: Vec<StructMember>,
+}
+
+impl PartialEq for StructType {
+    fn eq(&self, other: &Self) -> bool {
+        self.members.eq(&other.members)
+    }
+}
+
+impl Eq for StructType {}
+
+impl StructType {
+    pub fn new(module: PathBuf, name: String, members: Vec<StructMember>) -> Self {
+        StructType {
+            module,
+            name,
+            members,
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.members.len()
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<StructMember> {
+        self.members.iter()
+    }
+}
+
+impl IntoIterator for StructType {
+    type Item = StructMember;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.members.into_iter()
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 #[serde(tag = "type", content = "components")]
 pub enum Type {
@@ -29,7 +73,7 @@ pub enum Type {
     #[serde(rename = "array")]
     Array(ArrayType),
     #[serde(rename = "struct")]
-    Struct(Vec<StructMember>),
+    Struct(StructType),
 }
 
 impl ArrayType {
@@ -56,10 +100,12 @@ impl fmt::Display for Type {
             Type::FieldElement => write!(f, "field"),
             Type::Boolean => write!(f, "bool"),
             Type::Array(ref array_type) => write!(f, "{}[{}]", array_type.ty, array_type.size),
-            Type::Struct(ref members) => write!(
+            Type::Struct(ref struct_type) => write!(
                 f,
-                "{{{}}}",
-                members
+                "{} {{{}}}",
+                struct_type.name,
+                struct_type
+                    .members
                     .iter()
                     .map(|member| format!("{}: {}", member.id, member.ty))
                     .collect::<Vec<_>>()
@@ -75,10 +121,12 @@ impl fmt::Debug for Type {
             Type::FieldElement => write!(f, "field"),
             Type::Boolean => write!(f, "bool"),
             Type::Array(ref array_type) => write!(f, "{}[{}]", array_type.ty, array_type.size),
-            Type::Struct(ref members) => write!(
+            Type::Struct(ref struct_type) => write!(
                 f,
-                "{{{}}}",
-                members
+                "{} {{{}}}",
+                struct_type.name,
+                struct_type
+                    .members
                     .iter()
                     .map(|member| format!("{}: {}", member.id, member.ty))
                     .collect::<Vec<_>>()
@@ -98,9 +146,9 @@ impl Type {
             Type::FieldElement => String::from("f"),
             Type::Boolean => String::from("b"),
             Type::Array(array_type) => format!("{}[{}]", array_type.ty.to_slug(), array_type.size),
-            Type::Struct(members) => format!(
+            Type::Struct(struct_type) => format!(
                 "{{{}}}",
-                members
+                struct_type
                     .iter()
                     .map(|member| format!("{}:{}", member.id, member.ty))
                     .collect::<Vec<_>>()
@@ -115,7 +163,7 @@ impl Type {
             Type::FieldElement => 1,
             Type::Boolean => 1,
             Type::Array(array_type) => array_type.size * array_type.ty.get_primitive_count(),
-            Type::Struct(members) => members
+            Type::Struct(struct_type) => struct_type
                 .iter()
                 .map(|member| member.ty.get_primitive_count())
                 .sum(),

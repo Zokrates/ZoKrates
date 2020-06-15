@@ -1,10 +1,18 @@
 # Verification
 
-Passed to the verifier contract, this proof can be checked.
+Passed to the verifier contract, a proof can be checked.
 For example, using `web3`, a call would look like the following:
 
-```
-Verifier.at(<verifier contract address>).verifyTx(A, A_p, B, B_p, C, C_p, H, K, [...publicInputs, ...outputs])
-```
+```javascript
+const accounts = await web3.eth.getAccounts();
+const address = '0x456...'; // verifier contract address
 
-Where `A, ..., K` are defined as above (adding brackets and quotes: `A = ["0x123", "0x345"]`), `publicInputs` are the public inputs supplied to witness generation and `outputs` are the results of the computation.
+let verifier = new web3.eth.Contract(abi, address, {
+    from: accounts[0], // default from address
+    gasPrice: '20000000000000'; // default gas price in wei
+});
+
+let result = await verifier.methods
+    .verifyTx(proof.proof, proof.inputs)
+    .call({ from: accounts[0] });
+```

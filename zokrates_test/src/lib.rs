@@ -111,10 +111,12 @@ fn compile_and_run<T: Field>(t: Tests) {
         _ => {}
     };
 
+    let interpreter = zokrates_core::ir::Interpreter::default();
+
     for test in t.tests.into_iter() {
         let input = &test.input.values;
 
-        let output = bin.execute(&(input.iter().cloned().map(parse_val).collect()));
+        let output = interpreter.execute(bin, &(input.iter().cloned().map(parse_val).collect()));
 
         match compare(output, test.output) {
             Err(e) => {

@@ -5,7 +5,7 @@ extern crate zokrates_core;
 extern crate zokrates_field;
 use wasm_bindgen_test::*;
 use zokrates_core::flat_absy::FlatVariable;
-use zokrates_core::ir::{Function, Prog, Statement};
+use zokrates_core::ir::{Function, Interpreter, Prog, Statement};
 use zokrates_core::proof_system::ProofSystem;
 use zokrates_field::Bn128Field;
 
@@ -26,9 +26,10 @@ fn generate_proof() {
         private: vec![false],
     };
 
-    let witness = program
-        .clone()
-        .execute(&vec![Bn128Field::from(42)])
+    let interpreter = Interpreter::default();
+
+    let witness = interpreter
+        .execute(&program, &vec![Bn128Field::from(42)])
         .unwrap();
 
     let keys = G16::setup(program.clone());

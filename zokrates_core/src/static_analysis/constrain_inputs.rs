@@ -83,7 +83,7 @@ impl<'ast, T: Field> InputConstrainer<'ast, T> {
                 }
             }
             TypedExpression::Struct(s) => {
-                for member in s.ty() {
+                for member in s.ty().iter() {
                     let e = match *member.ty {
                         Type::FieldElement => {
                             FieldElementExpression::member(s.clone(), member.id.clone()).into()

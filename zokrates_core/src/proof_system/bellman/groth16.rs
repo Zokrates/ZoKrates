@@ -226,7 +226,7 @@ contract Verifier {
         vk.gamma_abc = new Pairing.G1Point[](<%vk_gamma_abc_length%>);
         <%vk_gamma_abc_pts%>
     }
-    function verify(uint[] memory input, Proof memory proof) internal returns (uint) {
+    function verify(uint[] memory input, Proof memory proof) internal view returns (uint) {
         uint256 snark_scalar_field = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
         VerifyingKey memory vk = verifyingKey();
         require(input.length + 1 == vk.gamma_abc.length);
@@ -244,17 +244,15 @@ contract Verifier {
              Pairing.negate(vk.alpha), vk.beta)) return 1;
         return 0;
     }
-    event Verified(string s);
     function verifyTx(
             Proof memory proof,
             uint[<%vk_input_length%>] memory input
-        ) public returns (bool r) {
+        ) public view returns (bool r) {
         uint[] memory inputValues = new uint[](input.length);
         for(uint i = 0; i < input.length; i++){
             inputValues[i] = input[i];
         }
         if (verify(inputValues, proof) == 0) {
-            emit Verified("Transaction successfully verified.");
             return true;
         } else {
             return false;
@@ -286,7 +284,7 @@ contract Verifier {
         vk.gamma_abc = new Pairing.G1Point[](<%vk_gamma_abc_length%>);
         <%vk_gamma_abc_pts%>
     }
-    function verify(uint[] memory input, Proof memory proof) internal returns (uint) {
+    function verify(uint[] memory input, Proof memory proof) internal view returns (uint) {
         uint256 snark_scalar_field = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
         VerifyingKey memory vk = verifyingKey();
         require(input.length + 1 == vk.gamma_abc.length);
@@ -304,13 +302,12 @@ contract Verifier {
              Pairing.negate(vk.alpha), vk.beta)) return 1;
         return 0;
     }
-    event Verified(string s);
     function verifyTx(
             uint[2] memory a,
             uint[2][2] memory b,
             uint[2] memory c,
             uint[<%vk_input_length%>] memory input
-        ) public returns (bool r) {
+        ) public view returns (bool r) {
         Proof memory proof;
         proof.a = Pairing.G1Point(a[0], a[1]);
         proof.b = Pairing.G2Point([b[0][0], b[0][1]], [b[1][0], b[1][1]]);
@@ -320,7 +317,6 @@ contract Verifier {
             inputValues[i] = input[i];
         }
         if (verify(inputValues, proof) == 0) {
-            emit Verified("Transaction successfully verified.");
             return true;
         } else {
             return false;
@@ -332,7 +328,7 @@ contract Verifier {
 #[cfg(test)]
 mod tests {
     use crate::flat_absy::FlatVariable;
-    use crate::ir::{Function, Prog, Statement};
+    use crate::ir::{Function, Interpreter, Prog, Statement};
 
     use super::*;
     use zokrates_field::Bn128Field;
@@ -353,12 +349,14 @@ mod tests {
         };
 
         let keypair = G16::setup(program.clone());
-        let witness = program
-            .clone()
-            .execute(&vec![Bn128Field::from(42)])
+
+        let interpreter = Interpreter::default();
+
+        let witness = interpreter
+            .execute(&program, &vec![Bn128Field::from(42)])
             .unwrap();
 
-        let proof = G16::generate_proof(program.clone(), witness, keypair.pk);
+        let proof = G16::generate_proof(program, witness, keypair.pk);
         let ans = <G16 as ProofSystem<Bn128Field>>::verify(keypair.vk, proof);
 
         assert!(ans);
