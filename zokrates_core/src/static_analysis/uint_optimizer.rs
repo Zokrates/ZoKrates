@@ -397,18 +397,6 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     )],
                 },
             },
-            // we need to put back in range to assert
-            ZirStatement::Condition(lhs, rhs) => {
-                match (self.fold_expression(lhs), self.fold_expression(rhs)) {
-                    (ZirExpression::Uint(lhs), ZirExpression::Uint(rhs)) => {
-                        vec![ZirStatement::Condition(
-                            force_reduce(lhs).into(),
-                            force_reduce(rhs).into(),
-                        )]
-                    }
-                    (lhs, rhs) => vec![ZirStatement::Condition(lhs, rhs)],
-                }
-            }
             s => fold_statement(self, s),
         }
     }

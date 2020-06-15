@@ -300,7 +300,7 @@ pub enum TypedStatement<'ast, T> {
     Return(Vec<TypedExpression<'ast, T>>),
     Definition(TypedAssignee<'ast, T>, TypedExpression<'ast, T>),
     Declaration(Variable<'ast>),
-    Condition(TypedExpression<'ast, T>, TypedExpression<'ast, T>),
+    Assertion(BooleanExpression<'ast, T>),
     For(
         Variable<'ast>,
         FieldElementExpression<'ast, T>,
@@ -327,9 +327,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedStatement<'ast, T> {
             TypedStatement::Definition(ref lhs, ref rhs) => {
                 write!(f, "Definition({:?}, {:?})", lhs, rhs)
             }
-            TypedStatement::Condition(ref lhs, ref rhs) => {
-                write!(f, "Condition({:?}, {:?})", lhs, rhs)
-            }
+            TypedStatement::Assertion(ref e) => write!(f, "Assertion({:?})", e),
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {
                 write!(f, "for {:?} in {:?}..{:?} do\n", var, start, stop)?;
                 for l in list {
@@ -376,7 +374,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
             }
             TypedStatement::Declaration(ref var) => write!(f, "{}", var),
             TypedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
-            TypedStatement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            TypedStatement::Assertion(ref e) => write!(f, "{}", e),
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {
                 write!(f, "for {} in {}..{} do\n", var, start, stop)?;
                 for l in list {
@@ -638,6 +636,11 @@ pub enum BooleanExpression<'ast, T> {
     BoolEq(
         Box<BooleanExpression<'ast, T>>,
         Box<BooleanExpression<'ast, T>>,
+    ),
+    ArrayEq(Box<ArrayExpression<'ast, T>>, Box<ArrayExpression<'ast, T>>),
+    StructEq(
+        Box<StructExpression<'ast, T>>,
+        Box<StructExpression<'ast, T>>,
     ),
     Ge(
         Box<FieldElementExpression<'ast, T>>,
@@ -906,6 +909,8 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
             BooleanExpression::Le(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
             BooleanExpression::FieldEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::BoolEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            BooleanExpression::ArrayEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            BooleanExpression::StructEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
             BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
             BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
@@ -984,6 +989,12 @@ impl<'ast, T: fmt::Debug> fmt::Debug for BooleanExpression<'ast, T> {
             }
             BooleanExpression::BoolEq(ref lhs, ref rhs) => {
                 write!(f, "BoolEq({:?}, {:?})", lhs, rhs)
+            }
+            BooleanExpression::ArrayEq(ref lhs, ref rhs) => {
+                write!(f, "ArrayEq({:?}, {:?})", lhs, rhs)
+            }
+            BooleanExpression::StructEq(ref lhs, ref rhs) => {
+                write!(f, "StructEq({:?}, {:?})", lhs, rhs)
             }
             BooleanExpression::Ge(ref lhs, ref rhs) => write!(f, "Ge({:?}, {:?})", lhs, rhs),
             BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "Gt({:?}, {:?})", lhs, rhs),

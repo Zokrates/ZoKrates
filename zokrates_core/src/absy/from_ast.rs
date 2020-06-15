@@ -262,23 +262,8 @@ impl<'ast, T: Field> From<pest::AssertionStatement<'ast>> for absy::StatementNod
     fn from(statement: pest::AssertionStatement<'ast>) -> absy::StatementNode<T> {
         use absy::NodeValue;
 
-        match statement.expression {
-            pest::Expression::Binary(e) => match e.op {
-                pest::BinaryOperator::Eq => absy::Statement::Condition(
-                    absy::ExpressionNode::from(*e.left),
-                    absy::ExpressionNode::from(*e.right),
-                ),
-                _ => unimplemented!(
-                    "Assertion statements should be an equality check, found {}",
-                    statement.span.as_str()
-                ),
-            },
-            _ => unimplemented!(
-                "Assertion statements should be an equality check, found {}",
-                statement.span.as_str()
-            ),
-        }
-        .span(statement.span)
+        absy::Statement::Assertion(absy::ExpressionNode::from(statement.expression))
+            .span(statement.span)
     }
 }
 

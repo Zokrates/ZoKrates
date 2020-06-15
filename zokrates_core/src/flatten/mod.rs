@@ -1674,24 +1674,22 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     None => {}
                 }
             }
-            ZirStatement::Condition(lhs, rhs) => {
-                // flatten expr1 and expr2 to n flattened expressions with n the number of primitive types for expr1
-                // add n conditions to check equality of the n expressions
+            ZirStatement::Assertion(e) => {
+                // naive approach: flatten the boolean to a single field element and constrain it to 1
 
-                let lhs = self
-                    .flatten_expression(symbols, statements_flattened, lhs)
-                    .get_field_unchecked();
-                let rhs = self
-                    .flatten_expression(symbols, statements_flattened, rhs)
-                    .get_field_unchecked();
+                let e = self.flatten_boolean_expression(symbols, statements_flattened, e);
 
-                if lhs.is_linear() {
-                    statements_flattened.push(FlatStatement::Condition(lhs, rhs));
-                } else if rhs.is_linear() {
-                    // swap so that left side is linear
-                    statements_flattened.push(FlatStatement::Condition(rhs, lhs));
+                if e.is_linear() {
+                    statements_flattened.push(FlatStatement::Condition(
+                        e,
+                        FlatExpression::Number(T::from(1)),
+                    ));
                 } else {
-                    unreachable!()
+                    // swap so that left side is linear
+                    statements_flattened.push(FlatStatement::Condition(
+                        FlatExpression::Number(T::from(1)),
+                        e,
+                    ));
                 }
             }
             ZirStatement::MultipleDefinition(vars, rhs) => {

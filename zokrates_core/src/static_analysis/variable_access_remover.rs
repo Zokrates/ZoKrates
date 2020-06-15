@@ -39,7 +39,7 @@ impl<'ast, T: Field> VariableAccessRemover<'ast, T> {
                     _ => unreachable!(),
                 };
 
-                self.statements.push(TypedStatement::Condition(
+                self.statements.push(TypedStatement::Assertion(
                     (0..size)
                         .map(|index| {
                             BooleanExpression::FieldEq(
@@ -53,7 +53,6 @@ impl<'ast, T: Field> VariableAccessRemover<'ast, T> {
                         })
                         .unwrap()
                         .into(),
-                    BooleanExpression::Value(true).into(),
                 ));
 
                 (0..size)

@@ -875,27 +875,21 @@ impl<'ast> Checker<'ast> {
                 }
                 .map_err(|e| vec![e])
             }
-            Statement::Condition(lhs, rhs) => {
-                let checked_lhs = self
-                    .check_expression(lhs, module_id, &types)
-                    .map_err(|e| vec![e])?;
-                let checked_rhs = self
-                    .check_expression(rhs, module_id, &types)
+            Statement::Assertion(e) => {
+                let e = self
+                    .check_expression(e, module_id, &types)
                     .map_err(|e| vec![e])?;
 
-                if checked_lhs.get_type() == checked_rhs.get_type() {
-                    Ok(TypedStatement::Condition(checked_lhs, checked_rhs))
-                } else {
-                    Err(ErrorInner {
+                match e {
+                    TypedExpression::Boolean(e) => Ok(TypedStatement::Assertion(e)),
+                    e => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
-                            "Cannot compare {} of type {:?} to {} of type {:?}",
-                            checked_lhs,
-                            checked_lhs.get_type(),
-                            checked_rhs,
-                            checked_rhs.get_type(),
+                            "Expected {} to be of type bool, found {}",
+                            e,
+                            e.get_type(),
                         ),
-                    })
+                    }),
                 }
                 .map_err(|e| vec![e])
             }
@@ -1542,6 +1536,38 @@ impl<'ast> Checker<'ast> {
                     }
                     (TypedExpression::Boolean(e1), TypedExpression::Boolean(e2)) => {
                         Ok(BooleanExpression::BoolEq(box e1, box e2).into())
+                    }
+                    (TypedExpression::Array(e1), TypedExpression::Array(e2)) => {
+                        if e1.get_type() == e2.get_type() {
+                            Ok(BooleanExpression::ArrayEq(box e1, box e2).into())
+                        } else {
+                            Err(ErrorInner {
+                                pos: Some(pos),
+                                message: format!(
+                                    "Cannot compare {} of type {} to {} of type {}",
+                                    e1,
+                                    e1.get_type(),
+                                    e2,
+                                    e2.get_type()
+                                ),
+                            })
+                        }
+                    }
+                    (TypedExpression::Struct(e1), TypedExpression::Struct(e2)) => {
+                        if e1.get_type() == e2.get_type() {
+                            Ok(BooleanExpression::StructEq(box e1, box e2).into())
+                        } else {
+                            Err(ErrorInner {
+                                pos: Some(pos),
+                                message: format!(
+                                    "Cannot compare {} of type {} to {} of type {}",
+                                    e1,
+                                    e1.get_type(),
+                                    e2,
+                                    e2.get_type()
+                                ),
+                            })
+                        }
                     }
                     (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
@@ -3136,9 +3162,12 @@ mod tests {
         // def bar():
         //   2 == foo()
         // should fail
-        let bar_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Condition(
-            Expression::FieldConstant(Bn128Field::from(2)).mock(),
-            Expression::FunctionCall("foo", vec![]).mock(),
+        let bar_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Assertion(
+            Expression::Eq(
+                box Expression::FieldConstant(Bn128Field::from(2)).mock(),
+                box Expression::FunctionCall("foo", vec![]).mock(),
+            )
+            .mock(),
         )
         .mock()];
 
@@ -3535,9 +3564,12 @@ mod tests {
         // def bar():
         //   1 == foo()
         // should fail
-        let bar_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Condition(
-            Expression::FieldConstant(Bn128Field::from(1)).mock(),
-            Expression::FunctionCall("foo", vec![]).mock(),
+        let bar_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Assertion(
+            Expression::Eq(
+                box Expression::FieldConstant(Bn128Field::from(1)).mock(),
+                box Expression::FunctionCall("foo", vec![]).mock(),
+            )
+            .mock(),
         )
         .mock()];
 
