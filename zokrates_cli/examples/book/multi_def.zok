@@ -2,5 +2,8 @@ def foo() -> (field, field):
     return 21, 42
 
 def main() -> (field):
-    field a, field b = foo()
-    return 1
+	// a is declared here
+	field a = 1
+	// b is declared here
+	a, field b = foo()
+	return 1
