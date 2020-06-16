@@ -169,7 +169,7 @@ mod tests {
         assert_eq!(
             VariableAccessRemover::new().fold_statement(access),
             vec![
-                TypedStatement::Condition(
+                TypedStatement::Assertion(
                     BooleanExpression::Or(
                         box BooleanExpression::FieldEq(
                             box FieldElementExpression::Identifier("i".into()),
@@ -181,7 +181,6 @@ mod tests {
                         )
                     )
                     .into(),
-                    BooleanExpression::Value(true).into()
                 ),
                 TypedStatement::Definition(
                     TypedAssignee::Identifier(Variable::field_element("b")),
