@@ -397,6 +397,18 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     )],
                 },
             },
+            ZirStatement::Assertion(BooleanExpression::UintEq(box left, box right)) => {
+                let left = self.fold_uint_expression(left);
+                let right = self.fold_uint_expression(right);
+
+                // we can only compare two unsigned integers if they are in range
+                let left = force_reduce(left);
+                let right = force_reduce(right);
+
+                vec![ZirStatement::Assertion(BooleanExpression::UintEq(
+                    box left, box right,
+                ))]
+            }
             s => fold_statement(self, s),
         }
     }

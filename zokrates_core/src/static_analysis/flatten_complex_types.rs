@@ -583,6 +583,12 @@ pub fn fold_boolean_expression<'ast, T: Field>(
 
             unimplemented!()
         }
+        typed_absy::BooleanExpression::UintEq(box e1, box e2) => {
+            let e1 = f.fold_uint_expression(e1);
+            let e2 = f.fold_uint_expression(e2);
+
+            zir::BooleanExpression::UintEq(box e1, box e2)
+        }
         typed_absy::BooleanExpression::Lt(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
             let e2 = f.fold_field_expression(e2);

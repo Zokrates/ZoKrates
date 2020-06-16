@@ -575,9 +575,6 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 )
             }
             BooleanExpression::FieldEq(box lhs, box rhs) => {
-                // We know from semantic checking that lhs and rhs have the same type
-                // What the expression will flatten to depends on that type
-
                 // Wanted: (Y = (X != 0) ? 1 : 0)
                 // X = a - b
                 // # Y = if X == 0 then 0 else 1 fi
@@ -593,6 +590,53 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                     statements_flattened,
                     FieldElementExpression::Sub(box lhs, box rhs),
                 );
+
+                statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
+                    vec![name_y, name_m],
+                    Solver::ConditionEq,
+                    vec![x.clone()],
+                )));
+                statements_flattened.push(FlatStatement::Condition(
+                    FlatExpression::Identifier(name_y),
+                    FlatExpression::Mult(box x.clone(), box FlatExpression::Identifier(name_m)),
+                ));
+
+                let res = FlatExpression::Sub(
+                    box FlatExpression::Number(T::one()),
+                    box FlatExpression::Identifier(name_y),
+                );
+
+                statements_flattened.push(FlatStatement::Condition(
+                    FlatExpression::Number(T::zero()),
+                    FlatExpression::Mult(box res.clone(), box x),
+                ));
+
+                res
+            }
+            BooleanExpression::UintEq(box lhs, box rhs) => {
+                // We reduce each side into range and apply the same approach as for field elements
+
+                // Wanted: (Y = (X != 0) ? 1 : 0)
+                // X = a - b
+                // # Y = if X == 0 then 0 else 1 fi
+                // # M = if X == 0 then 1 else 1/X fi
+                // Y == X * M
+                // 0 == (1-Y) * X
+
+                let name_y = self.use_sym();
+                let name_m = self.use_sym();
+
+                assert!(lhs.metadata.clone().unwrap().should_reduce.to_bool());
+                assert!(rhs.metadata.clone().unwrap().should_reduce.to_bool());
+
+                let lhs = self
+                    .flatten_uint_expression(symbols, statements_flattened, lhs)
+                    .get_field_unchecked();
+                let rhs = self
+                    .flatten_uint_expression(symbols, statements_flattened, rhs)
+                    .get_field_unchecked();
+
+                let x = FlatExpression::Sub(box lhs, box rhs);
 
                 statements_flattened.push(FlatStatement::Directive(FlatDirective::new(
                     vec![name_y, name_m],

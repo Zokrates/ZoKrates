@@ -1569,6 +1569,22 @@ impl<'ast> Checker<'ast> {
                             })
                         }
                     }
+                    (TypedExpression::Uint(e1), TypedExpression::Uint(e2)) => {
+                        if e1.get_type() == e2.get_type() {
+                            Ok(BooleanExpression::UintEq(box e1, box e2).into())
+                        } else {
+                            Err(ErrorInner {
+                                pos: Some(pos),
+                                message: format!(
+                                    "Cannot compare {} of type {} to {} of type {}",
+                                    e1,
+                                    e1.get_type(),
+                                    e2,
+                                    e2.get_type()
+                                ),
+                            })
+                        }
+                    }
                     (e1, e2) => Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
