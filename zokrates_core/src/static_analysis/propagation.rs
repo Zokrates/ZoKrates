@@ -923,6 +923,11 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
         &mut self,
         e: BooleanExpression<'ast, T>,
     ) -> BooleanExpression<'ast, T> {
+        // Note: we only propagate when we see constants, as comparing of arbitrary expressions would lead to
+        // a lot of false negatives due to expressions not being in a canonical form
+        // For example, `2 * a` is equivalent to `a + a`, but our notion of equality would not detect that here
+        // These kind of reduction rules are easier to apply later in the process, when we have canonical representations
+        // of expressions, ie `a + a` would always be written `2 * a`
         match e {
             BooleanExpression::Identifier(id) => match self
                 .constants
@@ -954,6 +959,39 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                         BooleanExpression::Value(n1 == n2)
                     }
                     (e1, e2) => BooleanExpression::BoolEq(box e1, box e2),
+                }
+            }
+            BooleanExpression::StructEq(box e1, box e2) => {
+                let e1 = self.fold_struct_expression(e1);
+                let e2 = self.fold_struct_expression(e2);
+
+                let ty = e1.ty().clone();
+
+                match (e1.into_inner(), e2.into_inner()) {
+                    (StructExpressionInner::Value(n1), StructExpressionInner::Value(n2)) => {
+                        BooleanExpression::Value(n1 == n2)
+                    }
+                    (e1, e2) => BooleanExpression::StructEq(
+                        box e1.annotate(ty.clone()),
+                        box e2.annotate(ty),
+                    ),
+                }
+            }
+            BooleanExpression::ArrayEq(box e1, box e2) => {
+                let e1 = self.fold_array_expression(e1);
+                let e2 = self.fold_array_expression(e2);
+
+                let ty = e1.inner_type().clone();
+                let size = e1.size();
+
+                match (e1.into_inner(), e2.into_inner()) {
+                    (ArrayExpressionInner::Value(n1), ArrayExpressionInner::Value(n2)) => {
+                        BooleanExpression::Value(n1 == n2)
+                    }
+                    (e1, e2) => BooleanExpression::ArrayEq(
+                        box e1.annotate(ty.clone(), size),
+                        box e2.annotate(ty, size),
+                    ),
                 }
             }
             BooleanExpression::Lt(box e1, box e2) => {
