@@ -549,7 +549,17 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     (a, i) => UExpressionInner::Select(box a.annotate(inner_type, size), box i),
                 }
             }
-            //UintExpressionInner::FunctionCall(key, arguments) => unreachable!("Function call outside of multidef"),
+            UExpressionInner::FunctionCall(key, arguments) => {
+                assert!(
+                    self.verbose,
+                    "function calls should only exist out of multidef in verbose mode"
+                );
+                fold_uint_expression_inner(
+                    self,
+                    bitwidth,
+                    UExpressionInner::FunctionCall(key, arguments),
+                )
+            }
             e => fold_uint_expression_inner(self, bitwidth, e),
         }
     }
@@ -705,8 +715,12 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     inner => FieldElementExpression::Member(box inner.annotate(members), m),
                 }
             }
-            FieldElementExpression::FunctionCall(..) => {
-                unreachable!("Function call outside of multidef")
+            FieldElementExpression::FunctionCall(key, inputs) => {
+                assert!(
+                    self.verbose,
+                    "function calls should only exist out of multidef in verbose mode"
+                );
+                fold_field_expression(self, FieldElementExpression::FunctionCall(key, inputs))
             }
             e => fold_field_expression(self, e),
         }
@@ -810,8 +824,17 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     inner => ArrayExpressionInner::Member(box inner.annotate(members), m),
                 }
             }
-            ArrayExpressionInner::FunctionCall(..) => {
-                unreachable!("Function call outside of multidef")
+            ArrayExpressionInner::FunctionCall(key, inputs) => {
+                assert!(
+                    self.verbose,
+                    "function calls should only exist out of multidef in verbose mode"
+                );
+                fold_array_expression_inner(
+                    self,
+                    ty,
+                    size,
+                    ArrayExpressionInner::FunctionCall(key, inputs),
+                )
             }
             e => fold_array_expression_inner(self, ty, size, e),
         }
@@ -915,8 +938,16 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     inner => StructExpressionInner::Member(box inner.annotate(members), m),
                 }
             }
-            StructExpressionInner::FunctionCall(..) => {
-                unreachable!("Function call outside of multidef")
+            StructExpressionInner::FunctionCall(key, inputs) => {
+                assert!(
+                    self.verbose,
+                    "function calls should only exist out of multidef in verbose mode"
+                );
+                fold_struct_expression_inner(
+                    self,
+                    ty,
+                    StructExpressionInner::FunctionCall(key, inputs),
+                )
             }
             e => fold_struct_expression_inner(self, ty, e),
         }
@@ -1122,8 +1153,12 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     inner => BooleanExpression::Member(box inner.annotate(members), m),
                 }
             }
-            BooleanExpression::FunctionCall(..) => {
-                unreachable!("Function call outside of multidef")
+            BooleanExpression::FunctionCall(key, inputs) => {
+                assert!(
+                    self.verbose,
+                    "function calls should only exist out of multidef in verbose mode"
+                );
+                fold_boolean_expression(self, BooleanExpression::FunctionCall(key, inputs))
             }
             e => fold_boolean_expression(self, e),
         }
