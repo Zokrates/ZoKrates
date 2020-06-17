@@ -293,7 +293,7 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                                         }
                                     }
                                     "_SHA256_ROUND" => None,
-                                    k => unreachable!(k),
+                                    k => None,
                                 };
 
                                 match r {
