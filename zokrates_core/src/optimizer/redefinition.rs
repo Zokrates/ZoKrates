@@ -114,56 +114,11 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
             }
             Statement::Directive(d) => {
                 let d = self.fold_directive(d);
-
-                let inputs = d
-                    .inputs
-                    .iter()
-                    .map(|i| QuadComb::from(i.as_canonical()))
-                    .map(|i| {
-                        i.try_linear()
-                            .map(|l| match l.0.len() {
-                                0 => Ok(T::from(0)),
-                                _ => l
-                                    .try_summand()
-                                    .map(|(variable, coefficient)| match variable {
-                                        v if v == FlatVariable::one() => Ok(coefficient),
-                                        _ => Err(LinComb::summand(coefficient, variable).into()),
-                                    })
-                                    .unwrap_or(Err(l.into())),
-                            })
-                            .unwrap_or(Err(i.clone().into()))
-                    })
-                    .collect::<Vec<Result<T, QuadComb<T>>>>();
-
-                match inputs.iter().all(|r| r.is_ok()) {
-                    true => {
-                        let inputs = inputs.into_iter().map(|i| i.unwrap()).collect();
-                        let outputs = Interpreter::default()
-                            .execute_solver(&d.solver, &inputs)
-                            .unwrap();
-
-                        assert_eq!(outputs.len(), d.outputs.len());
-
-                        for (output, value) in d.outputs.into_iter().zip(outputs.into_iter()) {
-                            self.substitution.insert(output, value.into());
-                        }
-                        vec![]
-                    }
-                    false => {
-                        let inputs = inputs
-                            .into_iter()
-                            .map(|i| {
-                                i.map(|v| LinComb::summand(v, FlatVariable::one()).into())
-                                    .unwrap_or_else(|q| q)
-                            })
-                            .collect();
-                        // to prevent the optimiser from replacing variables introduced by directives, add them to the ignored set
-                        for o in d.outputs.iter().cloned() {
-                            self.ignore.insert(o);
-                        }
-                        vec![Statement::Directive(Directive { inputs, ..d })]
-                    }
+                // to prevent the optimiser from replacing variables introduced by directives, add them to the ignored set
+                for o in d.outputs.iter().cloned() {
+                    self.ignore.insert(o);
                 }
+                vec![Statement::Directive(d)]
             }
         }
     }
