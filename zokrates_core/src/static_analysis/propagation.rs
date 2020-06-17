@@ -961,39 +961,6 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
                     (e1, e2) => BooleanExpression::BoolEq(box e1, box e2),
                 }
             }
-            BooleanExpression::StructEq(box e1, box e2) => {
-                let e1 = self.fold_struct_expression(e1);
-                let e2 = self.fold_struct_expression(e2);
-
-                let ty = e1.ty().clone();
-
-                match (e1.into_inner(), e2.into_inner()) {
-                    (StructExpressionInner::Value(n1), StructExpressionInner::Value(n2)) => {
-                        BooleanExpression::Value(n1 == n2)
-                    }
-                    (e1, e2) => BooleanExpression::StructEq(
-                        box e1.annotate(ty.clone()),
-                        box e2.annotate(ty),
-                    ),
-                }
-            }
-            BooleanExpression::ArrayEq(box e1, box e2) => {
-                let e1 = self.fold_array_expression(e1);
-                let e2 = self.fold_array_expression(e2);
-
-                let ty = e1.inner_type().clone();
-                let size = e1.size();
-
-                match (e1.into_inner(), e2.into_inner()) {
-                    (ArrayExpressionInner::Value(n1), ArrayExpressionInner::Value(n2)) => {
-                        BooleanExpression::Value(n1 == n2)
-                    }
-                    (e1, e2) => BooleanExpression::ArrayEq(
-                        box e1.annotate(ty.clone(), size),
-                        box e2.annotate(ty, size),
-                    ),
-                }
-            }
             BooleanExpression::Lt(box e1, box e2) => {
                 let e1 = self.fold_field_expression(e1);
                 let e2 = self.fold_field_expression(e2);
