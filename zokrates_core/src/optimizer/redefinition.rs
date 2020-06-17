@@ -23,7 +23,7 @@
 // ## Optimization rules
 
 // We maintain `s`, a set of substitutions as a mapping of `(variable => linear_combination)`. It starts empty.
-// We also maintaint `i`, a set of variables that should be ignored when trying to substitute. It starts empty.
+// We also maintain `i`, a set of variables that should be ignored when trying to substitute. It starts empty.
 
 // - input variables are inserted into `i`
 // - the `~one` variable is inserted into `i`
@@ -114,25 +114,77 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
             }
             Statement::Directive(d) => {
                 let d = self.fold_directive(d);
-                // to prevent the optimiser from replacing variables introduced by directives, add them to the ignored set
-                for o in d.outputs.iter().cloned() {
-                    self.ignore.insert(o);
+
+                let inputs = d
+                    .inputs
+                    .iter()
+                    .map(|i| LinComb::from(i.as_canonical()))
+                    .map(|l| match l.0.len() {
+                        0 => Ok(T::from(0)),
+                        _ => l
+                            .try_summand()
+                            .map(|(variable, coefficient)| match variable {
+                                v if v == FlatVariable::one() => Ok(coefficient),
+                                _ => Err(LinComb::summand(coefficient, variable).into()),
+                            })
+                            .unwrap_or(Err(l.into())),
+                    })
+                    .collect::<Vec<Result<T, LinComb<T>>>>();
+
+                match inputs.iter().all(|r| r.is_ok()) {
+                    true => {
+                        let inputs = inputs.into_iter().map(|i| i.unwrap()).collect();
+                        let outputs = Interpreter::default()
+                            .execute_solver(&d.solver, &inputs)
+                            .unwrap();
+
+                        assert_eq!(outputs.len(), d.outputs.len());
+
+                        for (output, value) in d.outputs.into_iter().zip(outputs.into_iter()) {
+                            self.substitution.insert(output, value.into());
+                        }
+                        vec![]
+                    }
+                    false => {
+                        let inputs = inputs
+                            .into_iter()
+                            .map(|i| {
+                                i.map(|v| LinComb::summand(v, FlatVariable::one()))
+                                    .unwrap_or_else(|q| q)
+                            })
+                            .collect();
+                        // to prevent the optimiser from replacing variables introduced by directives, add them to the ignored set
+                        for o in d.outputs.iter().cloned() {
+                            self.ignore.insert(o);
+                        }
+                        vec![Statement::Directive(Directive { inputs, ..d })]
+                    }
                 }
-                vec![Statement::Directive(d)]
             }
         }
     }
 
     fn fold_linear_combination(&mut self, lc: LinComb<T>) -> LinComb<T> {
-        // for each summand, check if it is equal to a linear term in our substitution, otherwise keep it as is
-        lc.0.into_iter()
-            .map(|(variable, coefficient)| {
-                self.substitution
-                    .get(&variable)
-                    .map(|l| l.clone() * &coefficient)
-                    .unwrap_or(LinComb::summand(coefficient, variable))
-            })
-            .fold(LinComb::zero(), |acc, x| acc + x)
+        match lc
+            .0
+            .iter()
+            .find(|(variable, _)| self.substitution.get(&variable).is_some())
+            .is_some()
+        {
+            true =>
+            // for each summand, check if it is equal to a linear term in our substitution, otherwise keep it as is
+            {
+                lc.0.into_iter()
+                    .map(|(variable, coefficient)| {
+                        self.substitution
+                            .get(&variable)
+                            .map(|l| l.clone() * &coefficient)
+                            .unwrap_or(LinComb::summand(coefficient, variable))
+                    })
+                    .fold(LinComb::zero(), |acc, x| acc + x)
+            }
+            false => lc,
+        }
     }
 
     fn fold_argument(&mut self, a: FlatVariable) -> FlatVariable {
