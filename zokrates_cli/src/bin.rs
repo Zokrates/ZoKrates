@@ -4,8 +4,9 @@
 // @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
 // @date 2017
 
-mod constants;
+extern crate dirs;
 
+mod constants;
 use constants::*;
 
 use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
@@ -281,7 +282,7 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         )
     };
 
-    let resolver = FileSystemResolver::new();
+    let resolver = FileSystemResolver::new(sub_matches.value_of("stdlib-path").unwrap());
     let artifacts: CompilationArtifacts<T> =
         compile(source, path, Some(&resolver)).map_err(|e| {
             format!(
@@ -368,7 +369,7 @@ fn cli_check<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         )
     };
 
-    let resolver = FileSystemResolver::new();
+    let resolver = FileSystemResolver::new(sub_matches.value_of("stdlib-path").unwrap());
     let _ = check::<T, _>(source, path, Some(&resolver)).map_err(|e| {
         format!(
             "Check failed:\n\n{}",
@@ -413,6 +414,8 @@ fn cli() -> Result<(), String> {
     const VERIFICATION_CONTRACT_DEFAULT_PATH: &str = "verifier.sol";
     const WITNESS_DEFAULT_PATH: &str = "witness";
     const JSON_PROOF_PATH: &str = "proof.json";
+
+    let default_stdlib_path: PathBuf = dirs::home_dir().unwrap().join(".zokrates/stdlib");
     let default_curve = env::var("ZOKRATES_CURVE").unwrap_or(constants::BN128.into());
     let default_scheme = env::var("ZOKRATES_PROVING_SCHEME").unwrap_or(constants::G16.into());
     let default_solidity_abi = "v1";
@@ -432,6 +435,13 @@ fn cli() -> Result<(), String> {
             .value_name("FILE")
             .takes_value(true)
             .required(true)
+        ).arg(Arg::with_name("stdlib-path")
+            .long("stdlib-path")
+            .help("Path to the standard library")
+            .value_name("PATH")
+            .takes_value(true)
+            .required(true)
+            .default_value(default_stdlib_path.to_str().unwrap())
         ).arg(Arg::with_name("abi_spec")
             .short("s")
             .long("abi_spec")
@@ -932,7 +942,8 @@ mod tests {
             let mut source = String::new();
             reader.read_to_string(&mut source).unwrap();
 
-            let resolver = FileSystemResolver::new();
+            let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
+            let resolver = FileSystemResolver::new(stdlib.to_str().unwrap());
             let _: CompilationArtifacts<Bn128Field> =
                 compile(source, path, Some(&resolver)).unwrap();
         }
@@ -954,7 +965,9 @@ mod tests {
             let mut source = String::new();
             reader.read_to_string(&mut source).unwrap();
 
-            let resolver = FileSystemResolver::new();
+            let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
+            let resolver = FileSystemResolver::new(stdlib.to_str().unwrap());
+
             let artifacts: CompilationArtifacts<Bn128Field> =
                 compile(source, path, Some(&resolver)).unwrap();
 
@@ -983,7 +996,9 @@ mod tests {
             let mut source = String::new();
             reader.read_to_string(&mut source).unwrap();
 
-            let resolver = FileSystemResolver::new();
+            let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
+            let resolver = FileSystemResolver::new(stdlib.to_str().unwrap());
+
             let artifacts: CompilationArtifacts<Bn128Field> =
                 compile(source, path, Some(&resolver)).unwrap();
 

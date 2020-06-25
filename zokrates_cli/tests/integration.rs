@@ -80,12 +80,16 @@ mod integration {
         // create a tmp folder to store artifacts
         fs::create_dir(test_case_path).unwrap();
 
+        let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
+
         // prepare compile arguments
         let compile = vec![
             "../target/release/zokrates",
             "compile",
             "-i",
             program_path.to_str().unwrap(),
+            "--stdlib-path",
+            stdlib.to_str().unwrap(),
             "-s",
             abi_spec_path.to_str().unwrap(),
             "-o",

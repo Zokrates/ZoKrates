@@ -5,17 +5,17 @@ use std::path::Path;
 use std::path::{Component, PathBuf};
 use zokrates_common::Resolver;
 
-const ZOKRATES_HOME: &str = &"ZOKRATES_HOME";
+pub struct FileSystemResolver<'a> {
+    stdlib_root_path: &'a str,
+}
 
-pub struct FileSystemResolver;
-
-impl FileSystemResolver {
-    pub fn new() -> Self {
-        FileSystemResolver {}
+impl<'a> FileSystemResolver<'a> {
+    pub fn new(stdlib_root_path: &'a str) -> Self {
+        FileSystemResolver { stdlib_root_path }
     }
 }
 
-impl Resolver<io::Error> for FileSystemResolver {
+impl<'a> Resolver<io::Error> for FileSystemResolver<'a> {
     fn resolve(
         &self,
         current_location: PathBuf,
@@ -31,20 +31,13 @@ impl Resolver<io::Error> for FileSystemResolver {
         }
 
         // paths starting with `./` or `../` are interpreted relative to the current file
-        // other paths `abc/def` are interpreted relative to $ZOKRATES_HOME
+        // other paths `abc/def` are interpreted relative to standard library root path
         let base = match source.components().next() {
             Some(Component::CurDir) | Some(Component::ParentDir) => {
-                Ok(PathBuf::from(current_location).parent().unwrap().into())
+                PathBuf::from(current_location).parent().unwrap().into()
             }
-            _ => std::env::var(ZOKRATES_HOME)
-                .map_err(|_| {
-                    io::Error::new(
-                        io::ErrorKind::Other,
-                        "$ZOKRATES_HOME is not set, please set it",
-                    )
-                })
-                .map(PathBuf::from),
-        }?;
+            _ => PathBuf::from(self.stdlib_root_path),
+        };
 
         let path_owned = base
             .join(PathBuf::from(import_location.clone()))
@@ -74,7 +67,7 @@ mod tests {
         let file_path = folder.path().join("bar.zok");
         File::create(file_path.clone()).unwrap();
 
-        let fs_resolver = FileSystemResolver::new();
+        let fs_resolver = FileSystemResolver::new("");
         let (_, next_location) = fs_resolver
             .resolve(file_path.clone(), "./bar.zok".into())
             .unwrap();
@@ -83,14 +76,14 @@ mod tests {
 
     #[test]
     fn non_existing_file() {
-        let fs_resolver = FileSystemResolver::new();
+        let fs_resolver = FileSystemResolver::new("");
         let res = fs_resolver.resolve("./source.zok".into(), "./rubbish".into());
         assert!(res.is_err());
     }
 
     #[test]
     fn invalid_location() {
-        let fs_resolver = FileSystemResolver::new();
+        let fs_resolver = FileSystemResolver::new("");
         let res = fs_resolver.resolve(",8!-$2abc".into(), "./foo".into());
         assert!(res.is_err());
     }
@@ -102,7 +95,7 @@ mod tests {
         let dir_path = folder.path().join("dir");
         std::fs::create_dir(dir_path.clone()).unwrap();
 
-        let fs_resolver = FileSystemResolver::new();
+        let fs_resolver = FileSystemResolver::new("");
         let res = fs_resolver.resolve(".".into(), "./dir/".into());
         assert!(res.is_err());
     }
@@ -114,7 +107,7 @@ mod tests {
         let file_path = folder.path().join("foo.zok");
         File::create(file_path.clone()).unwrap();
 
-        let fs_resolver = FileSystemResolver::new();
+        let fs_resolver = FileSystemResolver::new("");
         let res = fs_resolver.resolve(file_path, ".".into());
         assert!(res.is_err());
     }
@@ -135,10 +128,8 @@ mod tests {
         let mut file = File::create(file_path.clone()).unwrap();
         writeln!(file, "<user code>").unwrap();
 
-        // assign HOME folder to ZOKRATES_HOME
-        std::env::set_var(ZOKRATES_HOME, zokrates_home_folder.path());
-
-        let fs_resolver = FileSystemResolver::new();
+        let stdlib_root_path = zokrates_home_folder.path().to_owned();
+        let fs_resolver = FileSystemResolver::new(stdlib_root_path.to_str().unwrap());
         let result = fs_resolver.resolve(file_path, "./bar.zok".into());
         assert!(result.is_ok());
         // the imported file should be the user's
@@ -161,10 +152,8 @@ mod tests {
         let mut file = File::create(file_path.clone()).unwrap();
         writeln!(file, "<user code>").unwrap();
 
-        // assign HOME folder to ZOKRATES_HOME
-        std::env::set_var(ZOKRATES_HOME, zokrates_home_folder.path());
-
-        let fs_resolver = FileSystemResolver::new();
+        let stdlib_root_path = zokrates_home_folder.path().to_owned();
+        let fs_resolver = FileSystemResolver::new(stdlib_root_path.to_str().unwrap());
         let result = fs_resolver.resolve(file_path.clone(), "bar.zok".into());
         assert!(result.is_ok());
         // the imported file should be the user's
@@ -184,7 +173,7 @@ mod tests {
         let origin_path = source_subfolder.path().join("foo.zok");
         File::create(origin_path).unwrap();
 
-        let fs_resolver = FileSystemResolver::new();
+        let fs_resolver = FileSystemResolver::new("");
         let result = fs_resolver.resolve(
             source_subfolder.path().to_path_buf().join("foo.zok"),
             "../bar.zok".into(),
@@ -204,26 +193,15 @@ mod tests {
         let mut file = File::create(file_path).unwrap();
         writeln!(file, "<stdlib code>").unwrap();
 
-        // assign HOME folder to ZOKRATES_HOME
-        std::env::set_var(ZOKRATES_HOME, zokrates_home_folder.path());
-
-        let fs_resolver = FileSystemResolver::new();
+        let stdlib_root_path = zokrates_home_folder.path().to_owned();
+        let fs_resolver = FileSystemResolver::new(stdlib_root_path.to_str().unwrap());
         let result = fs_resolver.resolve("/path/to/source.zok".into(), "./bar.zok".into());
         assert!(result.is_err());
     }
 
     #[test]
     fn fail_if_not_found_in_std() {
-        std::env::set_var(ZOKRATES_HOME, "");
-        let fs_resolver = FileSystemResolver::new();
-        let result = fs_resolver.resolve("/path/to/source.zok".into(), "bar.zok".into());
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn panic_if_home_not_set() {
-        std::env::remove_var(ZOKRATES_HOME);
-        let fs_resolver = FileSystemResolver::new();
+        let fs_resolver = FileSystemResolver::new("");
         let result = fs_resolver.resolve("/path/to/source.zok".into(), "bar.zok".into());
         assert!(result.is_err());
     }
