@@ -440,7 +440,7 @@ fn cli() -> Result<(), String> {
             .help("Path to the standard library")
             .value_name("PATH")
             .takes_value(true)
-            .required(true)
+            .required(false)
             .default_value(default_stdlib_path.to_str().unwrap())
         ).arg(Arg::with_name("abi_spec")
             .short("s")
