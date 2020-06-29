@@ -27,7 +27,10 @@
 
 // - input variables are inserted into `i`
 // - the `~one` variable is inserted into `i`
-// - For each directive, for each variable `v` introduced, insert `v` into `i`
+// - For each directive
+//      - if all directive inputs are of the form as `coeff * ~one`, execute the solver with all `coeff` as inputs, introducing `res`
+//        as the output, and insert `(v, o)` into `s` for `(v, o)` in `(d.outputs, res)`
+//      - else, for each variable `v` introduced, insert `v` into `i`
 // - For each constraint `c`, we replace all variables by their value in `s` if any, otherwise leave them unchanged. Let's call `c_0` the resulting constraint. We either return `c_0` or nothing based on the form of `c_0`:
 //     - `~one * lin == k * v if v isn't in i`: insert `(v, lin / k)` into `s` and return nothing
 //     - `q == k * v if v isn't in i`: insert `v` into `i` and return `c_0`
@@ -114,11 +117,64 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
             }
             Statement::Directive(d) => {
                 let d = self.fold_directive(d);
-                // to prevent the optimiser from replacing variables introduced by directives, add them to the ignored set
-                for o in d.outputs.iter().cloned() {
-                    self.ignore.insert(o);
+
+                // check if the inputs are constants, ie reduce to the form `coeff * ~one`
+                let inputs = d
+                    .inputs
+                    .iter()
+                    // we need to reduce to the canonical form to interpret `a + 1 - a` as `1`
+                    .map(|i| QuadComb::from(i.as_canonical()))
+                    .map(|q| match q.try_linear() {
+                        Some(l) => match l.0.len() {
+                            // 0 is constant and can be represented by an empty lincomb
+                            0 => Ok(T::from(0)),
+                            _ => l
+                                // try to match to a single summand `coeff * v`
+                                .try_summand()
+                                .map(|(variable, coefficient)| match variable {
+                                    // v must be ~one
+                                    v if v == FlatVariable::one() => Ok(coefficient),
+                                    _ => Err(LinComb::summand(coefficient, variable).into()),
+                                })
+                                .unwrap_or(Err(l.into())),
+                        },
+                        None => Err(q),
+                    })
+                    .collect::<Vec<Result<T, QuadComb<T>>>>();
+
+                match inputs.iter().all(|r| r.is_ok()) {
+                    true => {
+                        // unwrap inputs to their constant value
+                        let inputs = inputs.into_iter().map(|i| i.unwrap()).collect();
+                        // run the interpereter
+                        let outputs = Interpreter::default()
+                            .execute_solver(&d.solver, &inputs)
+                            .unwrap();
+
+                        assert_eq!(outputs.len(), d.outputs.len());
+
+                        // insert the results in the substitution
+                        for (output, value) in d.outputs.into_iter().zip(outputs.into_iter()) {
+                            self.substitution.insert(output, value.into());
+                        }
+                        vec![]
+                    }
+                    false => {
+                        // reconstruct the input expressions
+                        let inputs = inputs
+                            .into_iter()
+                            .map(|i| {
+                                i.map(|v| LinComb::summand(v, FlatVariable::one()).into())
+                                    .unwrap_or_else(|q| q)
+                            })
+                            .collect();
+                        // to prevent the optimiser from replacing variables introduced by directives, add them to the ignored set
+                        for o in d.outputs.iter().cloned() {
+                            self.ignore.insert(o);
+                        }
+                        vec![Statement::Directive(Directive { inputs, ..d })]
+                    }
                 }
-                vec![Statement::Directive(d)]
             }
         }
     }

@@ -125,7 +125,8 @@ impl<T: Field> fmt::Display for Function<T> {
             self.returns.len(),
             self.statements
                 .iter()
-                .map(|s| format!("\t{}", s))
+                .enumerate()
+                .map(|(i, s)| format!("{}\t{}", i, s))
                 .collect::<Vec<_>>()
                 .join("\n"),
             self.returns

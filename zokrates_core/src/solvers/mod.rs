@@ -9,6 +9,8 @@ pub enum Solver {
     Sha256Round,
     Xor,
     Or,
+    ShaAndXorAndXorAnd,
+    ShaCh,
 }
 
 impl fmt::Display for Solver {
@@ -26,6 +28,8 @@ impl Solver {
             Solver::Sha256Round => (768, 26935),
             Solver::Xor => (2, 1),
             Solver::Or => (2, 1),
+            Solver::ShaAndXorAndXorAnd => (3, 1),
+            Solver::ShaCh => (3, 1),
         }
     }
 }

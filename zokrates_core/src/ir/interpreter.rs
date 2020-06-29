@@ -171,6 +171,20 @@ impl Interpreter {
 
                 vec![x.clone() + y.clone() - x * y]
             }
+            // res = b * c - (2b * c - b - c) * (a)
+            Solver::ShaAndXorAndXorAnd => {
+                let a = inputs[0].clone();
+                let b = inputs[1].clone();
+                let c = inputs[2].clone();
+                vec![b.clone() * c.clone() - (T::from(2) * b.clone() * c.clone() - b - c) * a]
+            }
+            // res = a(b - c) + c
+            Solver::ShaCh => {
+                let a = inputs[0].clone();
+                let b = inputs[1].clone();
+                let c = inputs[2].clone();
+                vec![a * (b - c.clone()) + c]
+            }
             Solver::Div => vec![inputs[0].clone() / inputs[1].clone()],
             Solver::Sha256Round => {
                 let i = &inputs[0..512];
