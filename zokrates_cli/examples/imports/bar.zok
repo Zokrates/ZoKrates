@@ -1,2 +1,5 @@
+struct Bar {
+}
+
 def main() -> (field):
 	return 21
