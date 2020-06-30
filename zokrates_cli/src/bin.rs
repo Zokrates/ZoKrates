@@ -4,8 +4,6 @@
 // @author Dennis Kuhnert <dennis.kuhnert@campus.tu-berlin.de>
 // @date 2017
 
-extern crate dirs;
-
 mod constants;
 use constants::*;
 
@@ -417,7 +415,6 @@ fn cli() -> Result<(), String> {
     const WITNESS_DEFAULT_PATH: &str = "witness";
     const JSON_PROOF_PATH: &str = "proof.json";
 
-    let default_stdlib_path: PathBuf = dirs::home_dir().unwrap().join(".zokrates/stdlib");
     let default_curve = env::var("ZOKRATES_CURVE").unwrap_or(constants::BN128.into());
     let default_scheme = env::var("ZOKRATES_PROVING_SCHEME").unwrap_or(constants::G16.into());
     let default_solidity_abi = "v1";
@@ -442,8 +439,7 @@ fn cli() -> Result<(), String> {
             .help("Path to the standard library")
             .value_name("PATH")
             .takes_value(true)
-            .required(false)
-            .default_value(default_stdlib_path.to_str().unwrap())
+            .required(true)
         ).arg(Arg::with_name("abi_spec")
             .short("s")
             .long("abi_spec")
