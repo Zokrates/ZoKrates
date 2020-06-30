@@ -1,6 +1,6 @@
 ## Standard library
 
-ZoKrates comes with a number of reusable components which are defined at `./stdlib/` in the ZoKrates root repository. In order to import the standard library as described in the [imports](./imports.html) section the `$ZOKRATES_HOME` environment variable needs to be set to the `stdlib` folder.  The standard library is solely based on the ZoKrates DSL and can be easily extended.
+ZoKrates comes with a number of reusable components which are defined at `./stdlib/` in the ZoKrates root repository. In order to import the standard library as described in the [imports](./imports.html) section, the `--stdlib-path` argument needs to be set to the `stdlib` folder in the compilation step. The standard library is solely based on the ZoKrates DSL and can be easily extended.
 
 The following section highlights a subset of available imports:
 
