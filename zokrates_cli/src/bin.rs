@@ -282,7 +282,8 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         )
     };
 
-    let resolver = FileSystemResolver::new(sub_matches.value_of("stdlib-path").unwrap());
+    let resolver =
+        FileSystemResolver::with_stdlib_root(sub_matches.value_of("stdlib-path").unwrap());
     let artifacts: CompilationArtifacts<T> =
         compile(source, path, Some(&resolver)).map_err(|e| {
             format!(
@@ -369,7 +370,8 @@ fn cli_check<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         )
     };
 
-    let resolver = FileSystemResolver::new(sub_matches.value_of("stdlib-path").unwrap());
+    let resolver =
+        FileSystemResolver::with_stdlib_root(sub_matches.value_of("stdlib-path").unwrap());
     let _ = check::<T, _>(source, path, Some(&resolver)).map_err(|e| {
         format!(
             "Check failed:\n\n{}",
@@ -943,7 +945,7 @@ mod tests {
             reader.read_to_string(&mut source).unwrap();
 
             let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
-            let resolver = FileSystemResolver::new(stdlib.to_str().unwrap());
+            let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
             let _: CompilationArtifacts<Bn128Field> =
                 compile(source, path, Some(&resolver)).unwrap();
         }
@@ -966,7 +968,7 @@ mod tests {
             reader.read_to_string(&mut source).unwrap();
 
             let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
-            let resolver = FileSystemResolver::new(stdlib.to_str().unwrap());
+            let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
 
             let artifacts: CompilationArtifacts<Bn128Field> =
                 compile(source, path, Some(&resolver)).unwrap();
@@ -997,7 +999,7 @@ mod tests {
             reader.read_to_string(&mut source).unwrap();
 
             let stdlib = std::fs::canonicalize("../zokrates_stdlib/stdlib").unwrap();
-            let resolver = FileSystemResolver::new(stdlib.to_str().unwrap());
+            let resolver = FileSystemResolver::with_stdlib_root(stdlib.to_str().unwrap());
 
             let artifacts: CompilationArtifacts<Bn128Field> =
                 compile(source, path, Some(&resolver)).unwrap();
