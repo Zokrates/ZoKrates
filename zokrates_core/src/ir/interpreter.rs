@@ -133,7 +133,7 @@ impl Interpreter {
         }
     }
 
-    fn execute_solver<T: Field>(&self, s: &Solver, inputs: &Vec<T>) -> Result<Vec<T>, String> {
+    pub fn execute_solver<T: Field>(&self, s: &Solver, inputs: &Vec<T>) -> Result<Vec<T>, String> {
         use solvers::Signed;
         let (expected_input_count, expected_output_count) = s.get_signature();
         assert!(inputs.len() == expected_input_count);
