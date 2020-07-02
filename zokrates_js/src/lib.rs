@@ -5,11 +5,13 @@ use std::path::PathBuf;
 use wasm_bindgen::prelude::*;
 use zokrates_abi::{parse_strict, Decode, Encode, Inputs};
 use zokrates_common::Resolver;
-use zokrates_core::compile::{compile as core_compile, CompilationArtifacts, CompileError};
+use zokrates_core::compile::{
+    compile as core_compile, CompilationArtifacts, CompileConfig, CompileError,
+};
 use zokrates_core::imports::Error;
 use zokrates_core::ir;
-use zokrates_core::proof_system::{ProofSystem, SolidityAbi};
 use zokrates_core::proof_system::bellman::groth16::G16;
+use zokrates_core::proof_system::{ProofSystem, SolidityAbi};
 use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::types::Signature;
 use zokrates_field::Bn128Field;
@@ -105,6 +107,7 @@ pub fn compile(
         source.as_string().unwrap(),
         PathBuf::from(location.as_string().unwrap()),
         Some(&resolver),
+        &CompileConfig::default().with_is_release(true),
     )
     .map_err(|ce| {
         JsValue::from_str(&format!(

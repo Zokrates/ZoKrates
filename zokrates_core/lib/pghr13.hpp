@@ -13,7 +13,7 @@ extern "C" {
 
 #include "ffi.hpp"
 
-setup_result_t pghr13_setup(
+setup_result_t pghr13_bn128_setup(
     const uint8_t* a,
     const uint8_t* b,
     const uint8_t* c,
@@ -24,14 +24,14 @@ setup_result_t pghr13_setup(
     int32_t variables,
     int32_t inputs);
 
-proof_result_t pghr13_generate_proof(
+proof_result_t pghr13_bn128_generate_proof(
     buffer_t* pk_buf,
     const uint8_t* public_inputs,
     int32_t public_inputs_length,
     const uint8_t* private_inputs,
     int32_t private_inputs_length);
 
-bool pghr13_verify(
+bool pghr13_bn128_verify(
     buffer_t* vk_buf,
     buffer_t* proof_buf,
     const uint8_t* public_inputs,

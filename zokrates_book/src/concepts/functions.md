@@ -15,14 +15,8 @@ Functions can return many values by providing them as a comma-separated list.
 
 ### Inference
 
-When defining a variable as the return value of a function, types are optional:
+When defining a variable as the return value of a function, types are provided when the variable needs to be declared:
 
 ```zokrates
 {{#include ../../../zokrates_cli/examples/book/multi_def.zok}}
-```
-
-If there is any ambiguity, providing the types of some of the assigned variables is necessary.
-
-```zokrates
-{{#include ../../../zokrates_cli/examples/book/type_annotations.zok}}
 ```

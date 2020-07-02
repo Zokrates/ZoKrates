@@ -5,21 +5,32 @@
 // @date 2017
 
 mod constants;
+mod helpers;
 
 use constants::*;
+use helpers::*;
 
 use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
 use serde_json::{from_reader, to_writer_pretty, Value};
+use std::convert::TryFrom;
 use std::env;
 use std::fs::File;
 use std::io::{stdin, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::string::String;
 use zokrates_abi::Encode;
-use zokrates_core::compile::{check, compile, CompilationArtifacts, CompileError};
+use zokrates_core::compile::{check, compile, CompilationArtifacts, CompileConfig, CompileError};
 use zokrates_core::ir::{self, ProgEnum};
+use zokrates_core::proof_system::bellman::Bellman;
+use zokrates_core::proof_system::libsnark::Libsnark;
+use zokrates_core::proof_system::schemes::gm17::GM17;
+use zokrates_core::proof_system::schemes::groth16::G16;
+use zokrates_core::proof_system::schemes::pghr13::PGHR13;
+use zokrates_core::proof_system::schemes::Scheme;
+use zokrates_core::proof_system::solidity::SolidityAbi;
+use zokrates_core::proof_system::zexe::Zexe;
 #[cfg(feature = "libsnark")]
-use zokrates_core::proof_system::*;
+use zokrates_core::proof_system::Backend;
 use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::{types::Signature, Type};
 use zokrates_field::{Bls12_377Field, Bls12_381Field, Bn128Field, Bw6_761Field, Field};
@@ -32,7 +43,7 @@ fn main() {
     })
 }
 
-fn cli_generate_proof<T: Field, P: ProofSystem<T>>(
+fn cli_generate_proof<T: Field, S: Scheme<T, ProvingKey = Vec<u8>>, B: Backend<T, S>>(
     program: ir::Prog<T>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
@@ -60,7 +71,7 @@ fn cli_generate_proof<T: Field, P: ProofSystem<T>>(
         .read_to_end(&mut pk)
         .map_err(|why| format!("Couldn't read {}: {}", pk_path.display(), why))?;
 
-    let proof = P::generate_proof(program, witness, pk);
+    let proof = B::generate_proof(program, witness, pk);
     let mut proof_file = File::create(proof_path).unwrap();
 
     let proof = serde_json::to_string_pretty(&proof).unwrap();
@@ -73,9 +84,7 @@ fn cli_generate_proof<T: Field, P: ProofSystem<T>>(
     Ok(())
 }
 
-fn cli_export_verifier<T: Field, P: ProofSystem<T>>(
-    sub_matches: &ArgMatches,
-) -> Result<(), String> {
+fn cli_export_verifier<T: Field, S: Scheme<T>>(sub_matches: &ArgMatches) -> Result<(), String> {
     println!("Exporting verifier...");
 
     // read vk file
@@ -89,7 +98,7 @@ fn cli_export_verifier<T: Field, P: ProofSystem<T>>(
 
     let abi = SolidityAbi::from(sub_matches.value_of("solidity-abi").unwrap())?;
 
-    let verifier = P::export_solidity_verifier(vk, abi);
+    let verifier = S::export_solidity_verifier(vk, abi);
 
     //write output file
     let output_path = Path::new(sub_matches.value_of("output").unwrap());
@@ -106,7 +115,7 @@ fn cli_export_verifier<T: Field, P: ProofSystem<T>>(
     Ok(())
 }
 
-fn cli_setup<T: Field, P: ProofSystem<T>>(
+fn cli_setup<T: Field, S: Scheme<T, ProvingKey = Vec<u8>>, B: Backend<T, S>>(
     program: ir::Prog<T>,
     sub_matches: &ArgMatches,
 ) -> Result<(), String> {
@@ -122,24 +131,20 @@ fn cli_setup<T: Field, P: ProofSystem<T>>(
     let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
 
     // run setup phase
-    let keypair = P::setup(program);
+    let (pk, vk) = B::setup(program);
 
     // write verification key
     let mut vk_file = File::create(vk_path)
         .map_err(|why| format!("couldn't create {}: {}", vk_path.display(), why))?;
     vk_file
-        .write(
-            serde_json::to_string_pretty(&keypair.vk)
-                .unwrap()
-                .as_bytes(),
-        )
+        .write(serde_json::to_string_pretty(&vk).unwrap().as_bytes())
         .map_err(|why| format!("couldn't write to {}: {}", vk_path.display(), why))?;
 
     // write proving key
     let mut pk_file = File::create(pk_path)
         .map_err(|why| format!("couldn't create {}: {}", pk_path.display(), why))?;
     pk_file
-        .write(keypair.pk.as_ref())
+        .write(pk.as_ref())
         .map_err(|why| format!("couldn't write to {}: {}", pk_path.display(), why))?;
 
     println!("Setup completed.");
@@ -267,6 +272,8 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
     let hr_output_path = bin_output_path.to_path_buf().with_extension("ztf");
 
+    let is_release = sub_matches.occurrences_of("release") > 0;
+
     let file = File::open(path.clone())
         .map_err(|why| format!("Couldn't open input file {}: {}", path.display(), why))?;
 
@@ -287,9 +294,11 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
         )
     };
 
+    let compilation_config = CompileConfig::default().with_is_release(is_release);
+
     let resolver = FileSystemResolver::new();
     let artifacts: CompilationArtifacts<T> =
-        compile(source, path, Some(&resolver)).map_err(|e| {
+        compile(source, path, Some(&resolver), &compilation_config).map_err(|e| {
             format!(
                 "Compilation failed:\n\n{}",
                 e.0.iter()
@@ -390,7 +399,9 @@ fn cli_check<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     Ok(())
 }
 
-fn cli_verify<T: Field, P: ProofSystem<T>>(sub_matches: &ArgMatches) -> Result<(), String> {
+fn cli_verify<T: Field, S: Scheme<T>, B: Backend<T, S>>(
+    sub_matches: &ArgMatches,
+) -> Result<(), String> {
     let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
     let vk_file = File::open(&vk_path)
         .map_err(|why| format!("Couldn't open {}: {}", vk_path.display(), why))?;
@@ -410,7 +421,7 @@ fn cli_verify<T: Field, P: ProofSystem<T>>(sub_matches: &ArgMatches) -> Result<(
     println!("Performing verification...");
     println!(
         "The verification result is: {}",
-        match P::verify(vk, proof) {
+        match B::verify(vk, proof) {
             true => "PASS",
             false => "FAIL",
         }
@@ -570,14 +581,6 @@ fn cli() -> Result<(), String> {
             .required(false)
             .possible_values(CURVES)
             .default_value(&default_curve)
-        ).arg(Arg::with_name("backend")
-            .short("b")
-            .long("backend")
-            .help("Backend to use")
-            .takes_value(true)
-            .required(false)
-            .possible_values(BACKENDS)
-            .default_value(&default_backend)
         ).arg(Arg::with_name("proving-scheme")
             .short("s")
             .long("proving-scheme")
@@ -766,25 +769,21 @@ fn cli() -> Result<(), String> {
 
     match matches.subcommand() {
         ("compile", Some(sub_matches)) => {
-            let curve = sub_matches.value_of("curve").unwrap();
-
+            let curve = CurveDimension::try_from(sub_matches.value_of("curve").unwrap())?;
             match curve {
-                constants::BN128 => cli_compile::<Bn128Field>(sub_matches)?,
-                constants::BLS12_381 => cli_compile::<Bls12_381Field>(sub_matches)?,
-                constants::BLS12_377 => cli_compile::<Bls12_377Field>(sub_matches)?,
-                constants::BW6_761 => cli_compile::<Bw6_761Field>(sub_matches)?,
-                _ => unreachable!(),
+                CurveDimension::Bn128 => cli_compile::<Bn128Field>(sub_matches)?,
+                CurveDimension::Bls12_377 => cli_compile::<Bls12_377Field>(sub_matches)?,
+                CurveDimension::Bls12_381 => cli_compile::<Bls12_381Field>(sub_matches)?,
+                CurveDimension::Bw6_761 => cli_compile::<Bw6_761Field>(sub_matches)?,
             }
         }
         ("check", Some(sub_matches)) => {
-            let curve = sub_matches.value_of("curve").unwrap();
-
+            let curve = CurveDimension::try_from(sub_matches.value_of("curve").unwrap())?;
             match curve {
-                constants::BN128 => cli_check::<Bn128Field>(sub_matches)?,
-                constants::BLS12_377 => cli_check::<Bls12_377Field>(sub_matches)?,
-                constants::BLS12_381 => cli_check::<Bls12_381Field>(sub_matches)?,
-                constants::BW6_761 => cli_check::<Bw6_761Field>(sub_matches)?,
-                _ => unreachable!(),
+                CurveDimension::Bn128 => cli_check::<Bn128Field>(sub_matches)?,
+                CurveDimension::Bls12_377 => cli_check::<Bls12_377Field>(sub_matches)?,
+                CurveDimension::Bls12_381 => cli_check::<Bls12_381Field>(sub_matches)?,
+                CurveDimension::Bw6_761 => cli_check::<Bw6_761Field>(sub_matches)?,
             }
         }
         ("compute-witness", Some(sub_matches)) => {
@@ -803,9 +802,6 @@ fn cli() -> Result<(), String> {
             }
         }
         ("setup", Some(sub_matches)) => {
-            let backend = sub_matches.value_of("backend").unwrap();
-            let proof_system = sub_matches.value_of("proving-scheme").unwrap();
-
             // read compiled program
             let path = Path::new(sub_matches.value_of("input").unwrap());
             let file = File::open(&path)
@@ -814,103 +810,66 @@ fn cli() -> Result<(), String> {
             let mut reader = BufReader::new(file);
             let prog = ProgEnum::deserialize(&mut reader)?;
 
-            match backend {
-                constants::BELLMAN => match proof_system {
-                    constants::G16 => match prog {
-                        ProgEnum::Bn128Program(p) => cli_setup::<_, bellman::groth16::G16>(p, sub_matches),
-                        ProgEnum::Bls12_381Program(p) => cli_setup::<_, bellman::groth16::G16>(p, sub_matches),
-                        _ => unimplemented!(),
-                    },
-                    _ => Err(format!(
-                        "Proving scheme {} is not supported by {} backend",
-                        proof_system, backend
-                    )),
-                }?,
+            let dimensions = Dimensions::try_from((
+                sub_matches.value_of("backend").unwrap(),
+                match prog {
+                    ProgEnum::Bn128Program(_) => constants::BN128,
+                    ProgEnum::Bls12_381Program(_) => constants::BLS12_381,
+                    ProgEnum::Bls12_377Program(_) => constants::BLS12_377,
+                    ProgEnum::Bw6_761Program(_) => constants::BW6_761,
+                },
+                sub_matches.value_of("proving-scheme").unwrap(),
+            ))?;
+
+            match dimensions {
+                Dimensions(BackendDimension::Bellman, _, SchemeDimension::G16) => match prog {
+                    ProgEnum::Bn128Program(p) => cli_setup::<_, G16, Bellman>(p, sub_matches),
+                    ProgEnum::Bls12_381Program(p) => cli_setup::<_, G16, Bellman>(p, sub_matches),
+                    _ => unreachable!(),
+                },
+                Dimensions(BackendDimension::Zexe, _, SchemeDimension::GM17) => match prog {
+                    ProgEnum::Bls12_377Program(p) => cli_setup::<_, GM17, Zexe>(p, sub_matches),
+                    ProgEnum::Bw6_761Program(p) => cli_setup::<_, GM17, Zexe>(p, sub_matches),
+                    _ => unreachable!(),
+                },
                 #[cfg(feature = "libsnark")]
-                constants::LIBSNARK => match proof_system {
-                    constants::GM17 => match prog {
-                        ProgEnum::Bn128Program(p) => cli_setup::<_, libsnark::gm17::GM17>(p, sub_matches),
-                        _ => unimplemented!(),
-                    },
-                    constants::PGHR13 => match prog {
-                        ProgEnum::Bn128Program(p) => cli_setup::<_, libsnark::pghr13::PGHR13>(p, sub_matches),
-                        _ => unimplemented!(),
-                    },
-                    _ => Err(format!(
-                        "Proving scheme {} is not supported by {} backend",
-                        proof_system, backend
-                    )),
-                }?,
-                constants::ZEXE => match proof_system {
-                    constants::GM17 => match prog {
-                        ProgEnum::Bls12_377Program(p) => cli_setup::<_, zexe::gm17::GM17>(p, sub_matches),
-                        ProgEnum::Bw6_761Program(p) => cli_setup::<_, zexe::gm17::GM17>(p, sub_matches),
-                        _ => unimplemented!(),
-                    },
-                    _ => Err(format!(
-                        "Proving scheme {} is not supported by {} backend",
-                        proof_system, backend
-                    )),
-                }?,
+                Dimensions(
+                    BackendDimension::Libsnark,
+                    CurveDimension::Bn128,
+                    SchemeDimension::GM17,
+                ) => match prog {
+                    ProgEnum::Bn128Program(p) => cli_setup::<_, GM17, Libsnark>(p, sub_matches),
+                    _ => unreachable!(),
+                },
+                #[cfg(feature = "libsnark")]
+                Dimensions(
+                    BackendDimension::Libsnark,
+                    CurveDimension::Bn128,
+                    SchemeDimension::PGHR13,
+                ) => match prog {
+                    ProgEnum::Bn128Program(p) => cli_setup::<_, PGHR13, Libsnark>(p, sub_matches),
+                    _ => unreachable!(),
+                },
                 _ => unreachable!(),
-            }
+            }?
         }
         ("export-verifier", Some(sub_matches)) => {
             let curve = sub_matches.value_of("curve").unwrap();
-            let backend = sub_matches.value_of("backend").unwrap();
-            let proof_system = sub_matches.value_of("proving-scheme").unwrap();
+            let scheme = sub_matches.value_of("proving-scheme").unwrap();
+            let curve_dimension = CurveDimension::try_from(curve)?;
+            let scheme_dimension = SchemeDimension::try_from(scheme)?;
 
-            match backend {
-                constants::BELLMAN => match proof_system {
-                    constants::G16 => match curve {
-                        constants::BN128 => cli_export_verifier::<Bn128Field, bellman::groth16::G16>(sub_matches),
-                        constants::BLS12_381 => {
-                            cli_export_verifier::<Bls12_381Field, bellman::groth16::G16>(sub_matches)
-                        }
-                        _ => unimplemented!(),
-                    },
-                    _ => Err(format!(
-                        "Proving scheme {} is not supported by {} backend",
-                        proof_system, backend
-                    )),
-                }?,
-                #[cfg(feature = "libsnark")]
-                constants::LIBSNARK => match proof_system {
-                    constants::GM17 => match curve {
-                        constants::BN128 => cli_export_verifier::<Bn128Field, libsnark::gm17::GM17>(sub_matches),
-                        _ => unimplemented!(),
-                    },
-                    constants::PGHR13 => match curve {
-                        constants::BN128 => cli_export_verifier::<Bn128Field, libsnark::pghr13::PGHR13>(sub_matches),
-                        _ => unimplemented!(),
-                    },
-                    _ => Err(format!(
-                        "Proving scheme {} is not supported by {} backend",
-                        proof_system, backend
-                    )),
-                }?,
-                constants::ZEXE => match proof_system {
-                    constants::GM17 => match curve {
-                        constants::BLS12_377 => {
-                            cli_export_verifier::<Bls12_377Field, zexe::gm17::GM17>(sub_matches)
-                        }
-                        constants::BW6_761 => {
-                            cli_export_verifier::<Bw6_761Field, zexe::gm17::GM17>(sub_matches)
-                        }
-                        _ => unimplemented!(),
-                    },
-                    _ => Err(format!(
-                        "Proving scheme {} is not supported by {} backend",
-                        proof_system, backend
-                    )),
-                }?,
-                _ => unreachable!(),
-            }
+            match (curve_dimension, scheme_dimension) {
+                (CurveDimension::Bn128, SchemeDimension::G16) => cli_export_verifier::<Bn128Field, G16>(sub_matches),
+                (CurveDimension::Bn128, SchemeDimension::GM17) => cli_export_verifier::<Bn128Field, GM17>(sub_matches),
+                (CurveDimension::Bn128, SchemeDimension::PGHR13) => cli_export_verifier::<Bn128Field, PGHR13>(sub_matches),
+                (CurveDimension::Bls12_381, SchemeDimension::G16) => cli_export_verifier::<Bls12_381Field, G16>(sub_matches),
+                (CurveDimension::Bls12_381, SchemeDimension::GM17) => cli_export_verifier::<Bls12_381Field, GM17>(sub_matches),
+                (CurveDimension::Bls12_381, SchemeDimension::PGHR13) => cli_export_verifier::<Bls12_381Field, PGHR13>(sub_matches),
+                _ => Err(format!("Verifier is not implemented for given dimensions (curve: {}, proving scheme: {})", curve, scheme))
+            }?
         }
         ("generate-proof", Some(sub_matches)) => {
-            let backend = sub_matches.value_of("backend").unwrap();
-            let proof_system = sub_matches.value_of("proving-scheme").unwrap();
-
             let program_path = Path::new(sub_matches.value_of("input").unwrap());
             let program_file = File::open(&program_path)
                 .map_err(|why| format!("Couldn't open {}: {}", program_path.display(), why))?;
@@ -918,60 +877,63 @@ fn cli() -> Result<(), String> {
             let mut reader = BufReader::new(program_file);
             let prog = ProgEnum::deserialize(&mut reader)?;
 
-            match backend {
-                constants::BELLMAN => match proof_system {
-                    constants::G16 => match prog {
-                        ProgEnum::Bn128Program(p) => cli_generate_proof::<_, bellman::groth16::G16>(p, sub_matches),
-                        ProgEnum::Bls12_381Program(p) => {
-                            cli_generate_proof::<_, bellman::groth16::G16>(p, sub_matches)
-                        }
-                        _ => unimplemented!(),
-                    },
-                    _ => Err(format!(
-                        "Proving scheme {} is not supported by {} backend",
-                        proof_system, backend
-                    )),
-                }?,
+            let dimensions = Dimensions::try_from((
+                sub_matches.value_of("backend").unwrap(),
+                match prog {
+                    ProgEnum::Bn128Program(_) => constants::BN128,
+                    ProgEnum::Bls12_381Program(_) => constants::BLS12_381,
+                    ProgEnum::Bls12_377Program(_) => constants::BLS12_377,
+                    ProgEnum::Bw6_761Program(_) => constants::BW6_761,
+                },
+                sub_matches.value_of("proving-scheme").unwrap(),
+            ))?;
+
+            match dimensions {
+                Dimensions(BackendDimension::Bellman, _, SchemeDimension::G16) => match prog {
+                    ProgEnum::Bn128Program(p) => {
+                        cli_generate_proof::<_, G16, Bellman>(p, sub_matches)
+                    }
+                    ProgEnum::Bls12_381Program(p) => {
+                        cli_generate_proof::<_, G16, Bellman>(p, sub_matches)
+                    }
+                    _ => unreachable!(),
+                },
+                Dimensions(BackendDimension::Zexe, _, SchemeDimension::GM17) => match prog {
+                    ProgEnum::Bls12_377Program(p) => {
+                        cli_generate_proof::<_, GM17, Zexe>(p, sub_matches)
+                    }
+                    ProgEnum::Bw6_761Program(p) => {
+                        cli_generate_proof::<_, GM17, Zexe>(p, sub_matches)
+                    }
+                    _ => unreachable!(),
+                },
                 #[cfg(feature = "libsnark")]
-                constants::LIBSNARK => match proof_system {
-                    constants::GM17 => match prog {
-                        ProgEnum::Bn128Program(p) => {
-                            cli_generate_proof::<_, libsnark::gm17::GM17>(p, sub_matches)
-                        }
-                        _ => unimplemented!(),
-                    },
-                    constants::PGHR13 => match prog {
-                        ProgEnum::Bn128Program(p) => {
-                            cli_generate_proof::<_, libsnark::pghr13::PGHR13>(p, sub_matches)
-                        }
-                        _ => unimplemented!(),
-                    },
-                    _ => Err(format!(
-                        "Proving scheme {} is not supported by {} backend",
-                        proof_system, backend
-                    )),
-                }?,
-                constants::ZEXE => match proof_system {
-                    constants::GM17 => match prog {
-                        ProgEnum::Bls12_377Program(p) => {
-                            cli_generate_proof::<_, zexe::gm17::GM17>(p, sub_matches)
-                        }
-                        ProgEnum::Bw6_761Program(p) => {
-                            cli_generate_proof::<_, zexe::gm17::GM17>(p, sub_matches)
-                        }
-                        _ => unimplemented!(),
-                    },
-                    _ => Err(format!(
-                        "Proving scheme {} is not supported by {} backend",
-                        proof_system, backend
-                    )),
-                }?,
+                Dimensions(
+                    BackendDimension::Libsnark,
+                    CurveDimension::Bn128,
+                    SchemeDimension::GM17,
+                ) => match prog {
+                    ProgEnum::Bn128Program(p) => {
+                        cli_generate_proof::<_, GM17, Libsnark>(p, sub_matches)
+                    }
+                    _ => unreachable!(),
+                },
+                #[cfg(feature = "libsnark")]
+                Dimensions(
+                    BackendDimension::Libsnark,
+                    CurveDimension::Bn128,
+                    SchemeDimension::PGHR13,
+                ) => match prog {
+                    ProgEnum::Bn128Program(p) => {
+                        cli_generate_proof::<_, PGHR13, Libsnark>(p, sub_matches)
+                    }
+                    _ => unreachable!(),
+                },
                 _ => unreachable!(),
-            }
+            }?
         }
         ("print-proof", Some(sub_matches)) => {
             let format = sub_matches.value_of("format").unwrap();
-
             let path = Path::new(sub_matches.value_of("proof-path").unwrap());
 
             let file = File::open(&path)
@@ -1007,50 +969,47 @@ fn cli() -> Result<(), String> {
             }
         }
         ("verify", Some(sub_matches)) => {
-            let curve = sub_matches.value_of("curve").unwrap();
-            let backend = sub_matches.value_of("backend").unwrap();
-            let proof_system = sub_matches.value_of("proving-scheme").unwrap();
+            let dimensions = Dimensions::try_from((
+                sub_matches.value_of("backend").unwrap(),
+                sub_matches.value_of("curve").unwrap(),
+                sub_matches.value_of("proving-scheme").unwrap(),
+            ))?;
 
-            match backend {
-                constants::BELLMAN => match proof_system {
-                    constants::G16 => match curve {
-                        constants::BN128 => cli_verify::<Bn128Field, bellman::groth16::G16>(sub_matches),
-                        constants::BLS12_381 => cli_verify::<Bls12_381Field, bellman::groth16::G16>(sub_matches),
-                        _ => unimplemented!(),
-                    },
-                    _ => Err(format!(
-                        "Proving scheme {} is not supported by {} backend",
-                        proof_system, backend
-                    )),
-                }?,
+            match dimensions {
+                Dimensions(
+                    BackendDimension::Bellman,
+                    CurveDimension::Bn128,
+                    SchemeDimension::G16,
+                ) => cli_verify::<Bn128Field, G16, Bellman>(sub_matches),
+                Dimensions(
+                    BackendDimension::Bellman,
+                    CurveDimension::Bls12_381,
+                    SchemeDimension::G16,
+                ) => cli_verify::<Bls12_381Field, G16, Bellman>(sub_matches),
+                Dimensions(
+                    BackendDimension::Zexe,
+                    CurveDimension::Bls12_377,
+                    SchemeDimension::GM17,
+                ) => cli_verify::<Bls12_377Field, GM17, Zexe>(sub_matches),
+                Dimensions(
+                    BackendDimension::Zexe,
+                    CurveDimension::Bw6_761,
+                    SchemeDimension::GM17,
+                ) => cli_verify::<Bw6_761Field, GM17, Zexe>(sub_matches),
                 #[cfg(feature = "libsnark")]
-                constants::LIBSNARK => match proof_system {
-                    constants::GM17 => match curve {
-                        constants::BN128 => cli_verify::<Bn128Field, libsnark::gm17::GM17>(sub_matches),
-                        _ => unimplemented!(),
-                    },
-                    constants::PGHR13 => match curve {
-                        constants::BN128 => cli_verify::<Bn128Field, libsnark::pghr13::PGHR13>(sub_matches),
-                        _ => unimplemented!(),
-                    },
-                    _ => Err(format!(
-                        "Proving scheme {} is not supported by {} backend",
-                        proof_system, backend
-                    )),
-                }?,
-                constants::ZEXE => match proof_system {
-                    constants::GM17 => match curve {
-                        constants::BLS12_377 => cli_verify::<Bls12_377Field, zexe::gm17::GM17>(sub_matches),
-                        constants::BW6_761 => cli_verify::<Bw6_761Field, zexe::gm17::GM17>(sub_matches),
-                        _ => unimplemented!(),
-                    },
-                    _ => Err(format!(
-                        "Proving scheme {} is not supported by {} backend",
-                        proof_system, backend
-                    )),
-                }?,
+                Dimensions(
+                    BackendDimension::Libsnark,
+                    CurveDimension::Bn128,
+                    SchemeDimension::GM17,
+                ) => cli_verify::<Bn128Field, GM17, Libsnark>(sub_matches),
+                #[cfg(feature = "libsnark")]
+                Dimensions(
+                    BackendDimension::Libsnark,
+                    CurveDimension::Bn128,
+                    SchemeDimension::PGHR13,
+                ) => cli_verify::<Bn128Field, PGHR13, Libsnark>(sub_matches),
                 _ => unreachable!(),
-            }
+            }?
         }
         _ => unreachable!(),
     }
@@ -1092,7 +1051,7 @@ mod tests {
 
             let resolver = FileSystemResolver::new();
             let _: CompilationArtifacts<Bn128Field> =
-                compile(source, path, Some(&resolver)).unwrap();
+                compile(source, path, Some(&resolver), &CompileConfig::default()).unwrap();
         }
     }
 
@@ -1114,7 +1073,7 @@ mod tests {
 
             let resolver = FileSystemResolver::new();
             let artifacts: CompilationArtifacts<Bn128Field> =
-                compile(source, path, Some(&resolver)).unwrap();
+                compile(source, path, Some(&resolver), &CompileConfig::default()).unwrap();
 
             let interpreter = ir::Interpreter::default();
 
@@ -1143,7 +1102,7 @@ mod tests {
 
             let resolver = FileSystemResolver::new();
             let artifacts: CompilationArtifacts<Bn128Field> =
-                compile(source, path, Some(&resolver)).unwrap();
+                compile(source, path, Some(&resolver), &CompileConfig::default()).unwrap();
 
             let interpreter = ir::Interpreter::default();
 

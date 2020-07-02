@@ -1,2 +1,5 @@
+struct Baz {
+}
+
 def main() -> (field):
 	return 123

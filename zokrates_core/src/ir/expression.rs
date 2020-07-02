@@ -79,6 +79,27 @@ impl<T: Field> Eq for LinComb<T> {}
 #[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Debug, Serialize, Deserialize)]
 pub struct CanonicalLinComb<T>(pub BTreeMap<FlatVariable, T>);
 
+#[derive(PartialEq, PartialOrd, Clone, Eq, Ord, Hash, Debug, Serialize, Deserialize)]
+pub struct CanonicalQuadComb<T> {
+    left: CanonicalLinComb<T>,
+    right: CanonicalLinComb<T>,
+}
+
+impl<T> From<CanonicalQuadComb<T>> for QuadComb<T> {
+    fn from(q: CanonicalQuadComb<T>) -> Self {
+        QuadComb {
+            left: q.left.into(),
+            right: q.right.into(),
+        }
+    }
+}
+
+impl<T> From<CanonicalLinComb<T>> for LinComb<T> {
+    fn from(l: CanonicalLinComb<T>) -> Self {
+        LinComb(l.0.into_iter().collect())
+    }
+}
+
 impl<T> LinComb<T> {
     pub fn summand<U: Into<T>>(mult: U, var: FlatVariable) -> LinComb<T> {
         let res = vec![(var, mult.into())];
@@ -157,6 +178,15 @@ impl<T: Field> LinComb<T> {
                 acc
             },
         ))
+    }
+}
+
+impl<T: Field> QuadComb<T> {
+    pub fn as_canonical(&self) -> CanonicalQuadComb<T> {
+        CanonicalQuadComb {
+            left: self.left.as_canonical(),
+            right: self.right.as_canonical(),
+        }
     }
 }
 

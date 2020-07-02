@@ -1,3 +1,4 @@
+// pub mod groth16_old;
 pub mod groth16;
 
 // extern crate rand;
@@ -18,6 +19,8 @@ use crate::flat_absy::FlatVariable;
 use rand_0_4::ChaChaRng;
 
 pub use self::parse::*;
+
+pub struct Bellman;
 
 #[derive(Clone)]
 pub struct Computation<T> {

@@ -95,7 +95,7 @@ The contained variables can be of any type.
 The following code shows an example of how to use structs.
 
 ```zokrates
-{{#include ../../../zokrates_cli/examples/book/structs.code}}
+{{#include ../../../zokrates_cli/examples/book/structs.zok}}
 ```
 
 #### Definition
@@ -116,12 +116,12 @@ Initialization of a variable of a struct type always needs to happen in the same
 The following example shows declaration and initialization of a variable of the `Point` struct type:
 
 ```zokrates
-{{#include ../../../zokrates_cli/examples/book/struct_init.code}}
+{{#include ../../../zokrates_cli/examples/book/struct_init.zok}}
 ```
 
 #### Assignment
 The variables within a struct instance, the so called members, can be accessed through the `.` operator as shown in the following extended example:
 
 ```zokrates
-{{#include ../../../zokrates_cli/examples/book/struct_assign.code}}
+{{#include ../../../zokrates_cli/examples/book/struct_assign.zok}}
 ```

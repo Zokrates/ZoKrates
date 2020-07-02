@@ -1,10 +1,9 @@
 pub mod gm17;
 
 use crate::ir::{CanonicalLinComb, Prog, Statement, Witness};
-use zexe_gm17::Proof;
 use zexe_gm17::{
     create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof,
-    Parameters,
+    Parameters, Proof,
 };
 
 use crate::flat_absy::FlatVariable;
@@ -16,6 +15,8 @@ use std::collections::BTreeMap;
 use zokrates_field::{Field, ZexeFieldExtensions};
 
 pub use self::parse::*;
+
+pub struct Zexe;
 
 pub fn test_rng() -> rand_0_7::rngs::StdRng {
     use rand_0_7::SeedableRng;
@@ -230,7 +231,7 @@ mod parse {
     use lazy_static::lazy_static;
 
     use super::*;
-    use proof_system::{G1Affine, G2Affine, G2affineG2Fq};
+    use proof_system::{G1Affine, G2Affine, G2AffineFq};
     use regex::Regex;
 
     lazy_static! {
@@ -313,10 +314,10 @@ mod parse {
 
     pub fn parse_g2_fq<T: Field + ZexeFieldExtensions>(
         e: &<T::ZexeEngine as PairingEngine>::G2Affine,
-    ) -> G2affineG2Fq {
+    ) -> G2AffineFq {
         let raw_e = e.to_string();
         let captures = G1_G2_REGEX_FQ.captures(&raw_e).unwrap();
-        G2affineG2Fq(
+        G2AffineFq(
             ("0x".to_string() + captures.name(&"x").unwrap().as_str())
                 .to_string()
                 .to_lowercase(),
