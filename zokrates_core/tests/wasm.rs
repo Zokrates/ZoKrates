@@ -9,7 +9,7 @@ use zokrates_core::ir::{Function, Interpreter, Prog, Statement};
 use zokrates_core::proof_system::ProofSystem;
 use zokrates_field::Bn128Field;
 
-use zokrates_core::proof_system::G16;
+use zokrates_core::proof_system::bellman::groth16::G16;
 
 #[wasm_bindgen_test]
 fn generate_proof() {

@@ -56,7 +56,6 @@ fn main() {
             .include(libsnark_source_path.join("depends/libfqfft"))
             .define("CURVE_ALT_BN128", None)
             .file("lib/ffi.cpp")
-            .file("lib/util.cpp")
             .file("lib/gm17.cpp")
             .file("lib/pghr13.cpp")
             .compile("libsnark_wrapper.a");
