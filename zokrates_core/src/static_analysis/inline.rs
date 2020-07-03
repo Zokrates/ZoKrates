@@ -104,10 +104,6 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         let unpack = crate::embed::FlatEmbed::Unpack(T::get_required_bits());
         let unpack_key = unpack.key::<T>();
 
-        // define a function in the main module for the `sha256_round` embed
-        let sha256_round = crate::embed::FlatEmbed::Sha256Round;
-        let sha256_round_key = sha256_round.key::<T>();
-
         // define a function in the main module for the `u32_to_bits` embed
         let u32_to_bits = crate::embed::FlatEmbed::U32ToBits;
         let u32_to_bits_key = u32_to_bits.key::<T>();
@@ -140,7 +136,6 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                 TypedModule {
                     functions: vec![
                         (unpack_key, TypedFunctionSymbol::Flat(unpack)),
-                        (sha256_round_key, TypedFunctionSymbol::Flat(sha256_round)),
                         (u32_from_bits_key, TypedFunctionSymbol::Flat(u32_from_bits)),
                         (u16_from_bits_key, TypedFunctionSymbol::Flat(u16_from_bits)),
                         (u8_from_bits_key, TypedFunctionSymbol::Flat(u8_from_bits)),

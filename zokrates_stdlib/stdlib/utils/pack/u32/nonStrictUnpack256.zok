@@ -1,0 +1,12 @@
+#pragma curve bn128
+
+// Non-strict version:
+// Note that this does not strongly enforce that the commitment is
+// in the field.
+
+import "../bool/nonStrictUnpack256" as unpack
+import "../../casts/bool_256_to_u32_8" as from_bits
+
+def main(field i) -> (u32[8]):
+
+	return from_bits(unpack(i))

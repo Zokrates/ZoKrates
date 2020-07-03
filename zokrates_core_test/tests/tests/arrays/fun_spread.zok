@@ -1,4 +1,4 @@
-import "utils/pack/nonStrictUnpack256.zok" as unpack256
+import "utils/pack/bool/nonStrictUnpack256.zok" as unpack256
 
 def main(field[2] inputs) -> (bool[512]):
 
