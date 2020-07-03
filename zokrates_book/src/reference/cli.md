@@ -30,7 +30,7 @@ Computes a witness for the compiled program found at `./out` and computes argume
 A witness is a valid assignment of the variables, including the results of the computation.
 Arguments of the program are passed as a space-separated list with the `-a` flag, or over `stdin` with the `--stdin` flag.
 
-With the `--abi` flag, arguments are passed in the ZoKrates JSON ABI format described [here](reference/abi.md):
+With the `--abi` flag, arguments are passed in the ZoKrates JSON ABI format described [here](abi.md):
 
 ```sh
 cat arguments.json | zokrates compute-witness --stdin --abi
