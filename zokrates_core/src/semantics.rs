@@ -396,8 +396,6 @@ impl<'ast> Checker<'ast> {
 
                 match Checker::new().check_module(&import.module_id, state) {
                     Ok(()) => {
-                        println!("{:?} {:#?}", import.module_id, state.typed_modules.keys());
-
                         // find candidates in the checked module
                         let function_candidates: Vec<_> = state
                             .typed_modules
