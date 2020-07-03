@@ -5,7 +5,7 @@ extern crate zokrates_field;
 use std::io;
 use zokrates_common::Resolver;
 use zokrates_core::{
-    compile::{compile, CompilationArtifacts},
+    compile::{compile, CompilationArtifacts, CompileConfig},
     ir::Interpreter,
 };
 use zokrates_field::Bn128Field;
@@ -28,6 +28,7 @@ fn out_of_range() {
         source,
         "./path/to/file".into(),
         None::<&dyn Resolver<io::Error>>,
+        &CompileConfig::default(),
     )
     .unwrap();
 
