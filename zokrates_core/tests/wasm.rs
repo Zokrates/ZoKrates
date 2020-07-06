@@ -3,13 +3,14 @@ wasm_bindgen_test_configure!(run_in_browser);
 extern crate wasm_bindgen_test;
 extern crate zokrates_core;
 extern crate zokrates_field;
+
 use wasm_bindgen_test::*;
 use zokrates_core::flat_absy::FlatVariable;
 use zokrates_core::ir::{Function, Interpreter, Prog, Statement};
-use zokrates_core::proof_system::ProofSystem;
+use zokrates_core::proof_system::Backend;
 use zokrates_field::Bn128Field;
 
-use zokrates_core::proof_system::bellman::groth16_old::G16;
+use zokrates_core::proof_system::bellman::Bellman;
 
 #[wasm_bindgen_test]
 fn generate_proof() {
@@ -32,6 +33,6 @@ fn generate_proof() {
         .execute(&program, &vec![Bn128Field::from(42)])
         .unwrap();
 
-    let keys = G16::setup(program.clone());
-    let _proof = G16::generate_proof(program, witness, keys.pk);
+    let keys = Bellman::setup(program.clone());
+    let _proof = Bellman::generate_proof(program, witness, keys.0);
 }

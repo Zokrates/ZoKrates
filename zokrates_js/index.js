@@ -40,11 +40,11 @@ const initialize = async () => {
         }
     },
     setup: (program) => {
-      let result = zokrates.setup(program);
-      return { 
-        vk: result.vk,
-        pk: Array.from(result.pk)
-      };
+      const [pk, vk] = zokrates.setup(program);
+      return {
+        pk: Array.from(pk),
+        vk: vk
+      }
     },
     computeWitness: (artifacts, args) => {
       return zokrates.compute_witness(artifacts, JSON.stringify(Array.from(args)));

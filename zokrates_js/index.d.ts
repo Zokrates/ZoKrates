@@ -39,10 +39,10 @@ declare module 'zokrates-js' {
     program: Uint8Array,
     abi: string,
   }
-  
+
   export interface SetupKeypair {
-    vk: VerificationKey,
     pk: ProvingKey,
+    vk: VerificationKey
   }
 
   export type SolidityAbi = "v1" | "v2";
