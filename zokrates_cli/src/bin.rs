@@ -283,13 +283,11 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     reader.read_to_string(&mut source).unwrap();
 
     let fmt_error = |e: &CompileError| {
+        let file = e.file().canonicalize().unwrap();
         format!(
             "{}:{}",
-            e.file()
-                .canonicalize()
-                .unwrap()
-                .strip_prefix(std::env::current_dir().unwrap())
-                .unwrap()
+            file.strip_prefix(std::env::current_dir().unwrap())
+                .unwrap_or(file.as_path())
                 .display(),
             e.value()
         )
@@ -372,13 +370,11 @@ fn cli_check<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     reader.read_to_string(&mut source).unwrap();
 
     let fmt_error = |e: &CompileError| {
+        let file = e.file().canonicalize().unwrap();
         format!(
             "{}:{}",
-            e.file()
-                .canonicalize()
-                .unwrap()
-                .strip_prefix(std::env::current_dir().unwrap())
-                .unwrap()
+            file.strip_prefix(std::env::current_dir().unwrap())
+                .unwrap_or(file.as_path())
                 .display(),
             e.value()
         )
