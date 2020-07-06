@@ -6,7 +6,7 @@ describe('stdlib', function() {
 
     it('should resolve module from stdlib (1)', function() {
         let basePath = 'hashes/sha256/512bitPacked.zok';
-        let relativePath = '../../utils/pack/pack128';
+        let relativePath = '../../utils/pack/u32/pack128';
 
         let absolutePath = utils.appendExtension(utils.getAbsolutePath(basePath, relativePath), '.zok');
         assert.notEqual(stdlib[absolutePath], undefined);
