@@ -22,14 +22,15 @@ use zokrates_abi::Encode;
 use zokrates_core::compile::{check, compile, CompilationArtifacts, CompileConfig, CompileError};
 use zokrates_core::ir::{self, ProgEnum};
 use zokrates_core::proof_system::bellman::Bellman;
+#[cfg(feature = "libsnark")]
 use zokrates_core::proof_system::libsnark::Libsnark;
 use zokrates_core::proof_system::schemes::gm17::GM17;
 use zokrates_core::proof_system::schemes::groth16::G16;
+#[cfg(feature = "libsnark")]
 use zokrates_core::proof_system::schemes::pghr13::PGHR13;
 use zokrates_core::proof_system::schemes::Scheme;
 use zokrates_core::proof_system::solidity::SolidityAbi;
 use zokrates_core::proof_system::zexe::Zexe;
-#[cfg(feature = "libsnark")]
 use zokrates_core::proof_system::Backend;
 use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::{types::Signature, Type};
@@ -861,10 +862,12 @@ fn cli() -> Result<(), String> {
 
             match (curve_dimension, scheme_dimension) {
                 (CurveDimension::Bn128, SchemeDimension::G16) => cli_export_verifier::<Bn128Field, G16>(sub_matches),
-                (CurveDimension::Bn128, SchemeDimension::GM17) => cli_export_verifier::<Bn128Field, GM17>(sub_matches),
-                (CurveDimension::Bn128, SchemeDimension::PGHR13) => cli_export_verifier::<Bn128Field, PGHR13>(sub_matches),
                 (CurveDimension::Bls12_381, SchemeDimension::G16) => cli_export_verifier::<Bls12_381Field, G16>(sub_matches),
+                (CurveDimension::Bn128, SchemeDimension::GM17) => cli_export_verifier::<Bn128Field, GM17>(sub_matches),
                 (CurveDimension::Bls12_381, SchemeDimension::GM17) => cli_export_verifier::<Bls12_381Field, GM17>(sub_matches),
+                #[cfg(feature = "libsnark")]
+                (CurveDimension::Bn128, SchemeDimension::PGHR13) => cli_export_verifier::<Bn128Field, PGHR13>(sub_matches),
+                #[cfg(feature = "libsnark")]
                 (CurveDimension::Bls12_381, SchemeDimension::PGHR13) => cli_export_verifier::<Bls12_381Field, PGHR13>(sub_matches),
                 _ => Err(format!("Verifier is not implemented for given dimensions (curve: {}, proving scheme: {})", curve, scheme))
             }?
