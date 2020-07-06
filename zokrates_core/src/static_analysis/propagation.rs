@@ -112,13 +112,10 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
             TypedStatement::Definition(TypedAssignee::Member(..), _) => {
                 unreachable!("struct update should have been replaced with full struct redef")
             }
-            // propagate lhs and rhs for conditions
-            TypedStatement::Condition(e1, e2) => {
+            // propagate the boolean
+            TypedStatement::Assertion(e) => {
                 // could stop execution here if condition is known to fail
-                Some(TypedStatement::Condition(
-                    self.fold_expression(e1),
-                    self.fold_expression(e2),
-                ))
+                Some(TypedStatement::Assertion(self.fold_boolean_expression(e)))
             }
             // only loops with variable bounds are expected here
             // we stop propagation here as constants maybe be modified inside the loop body
@@ -957,6 +954,11 @@ impl<'ast, T: Field> Folder<'ast, T> for Propagator<'ast, T> {
         &mut self,
         e: BooleanExpression<'ast, T>,
     ) -> BooleanExpression<'ast, T> {
+        // Note: we only propagate when we see constants, as comparing of arbitrary expressions would lead to
+        // a lot of false negatives due to expressions not being in a canonical form
+        // For example, `2 * a` is equivalent to `a + a`, but our notion of equality would not detect that here
+        // These kind of reduction rules are easier to apply later in the process, when we have canonical representations
+        // of expressions, ie `a + a` would always be written `2 * a`
         match e {
             BooleanExpression::Identifier(id) => match self
                 .constants

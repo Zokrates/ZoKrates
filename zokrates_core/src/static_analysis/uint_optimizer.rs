@@ -397,17 +397,17 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     )],
                 },
             },
-            // we need to put back in range to assert
-            ZirStatement::Condition(lhs, rhs) => {
-                match (self.fold_expression(lhs), self.fold_expression(rhs)) {
-                    (ZirExpression::Uint(lhs), ZirExpression::Uint(rhs)) => {
-                        vec![ZirStatement::Condition(
-                            force_reduce(lhs).into(),
-                            force_reduce(rhs).into(),
-                        )]
-                    }
-                    (lhs, rhs) => vec![ZirStatement::Condition(lhs, rhs)],
-                }
+            ZirStatement::Assertion(BooleanExpression::UintEq(box left, box right)) => {
+                let left = self.fold_uint_expression(left);
+                let right = self.fold_uint_expression(right);
+
+                // we can only compare two unsigned integers if they are in range
+                let left = force_reduce(left);
+                let right = force_reduce(right);
+
+                vec![ZirStatement::Assertion(BooleanExpression::UintEq(
+                    box left, box right,
+                ))]
             }
             s => fold_statement(self, s),
         }

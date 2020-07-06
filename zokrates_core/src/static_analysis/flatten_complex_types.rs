@@ -248,14 +248,9 @@ pub fn fold_statement<'ast, T: Field>(
                 .map(|v| zir::ZirStatement::Declaration(v))
                 .collect()
         }
-        typed_absy::TypedStatement::Condition(left, right) => {
-            let left = f.fold_expression(left);
-            let right = f.fold_expression(right);
-            assert_eq!(left.len(), right.len());
-            left.into_iter()
-                .zip(right.into_iter())
-                .map(|(left, right)| zir::ZirStatement::Condition(left, right))
-                .collect()
+        typed_absy::TypedStatement::Assertion(e) => {
+            let e = f.fold_boolean_expression(e);
+            vec![zir::ZirStatement::Assertion(e)]
         }
         typed_absy::TypedStatement::For(..) => unreachable!(),
         typed_absy::TypedStatement::MultipleDefinition(variables, elist) => {
@@ -554,6 +549,45 @@ pub fn fold_boolean_expression<'ast, T: Field>(
             let e1 = f.fold_boolean_expression(e1);
             let e2 = f.fold_boolean_expression(e2);
             zir::BooleanExpression::BoolEq(box e1, box e2)
+        }
+        typed_absy::BooleanExpression::ArrayEq(box e1, box e2) => {
+            let e1 = f.fold_array_expression(e1);
+            let e2 = f.fold_array_expression(e2);
+
+            assert_eq!(e1.len(), e2.len());
+
+            e1.into_iter().zip(e2.into_iter()).fold(
+                zir::BooleanExpression::Value(true),
+                |acc, (e1, e2)| {
+                    zir::BooleanExpression::And(
+                        box acc,
+                        box match (e1, e2) {
+                            (
+                                zir::ZirExpression::FieldElement(e1),
+                                zir::ZirExpression::FieldElement(e2),
+                            ) => zir::BooleanExpression::FieldEq(box e1, box e2),
+                            (zir::ZirExpression::Boolean(e1), zir::ZirExpression::Boolean(e2)) => {
+                                zir::BooleanExpression::BoolEq(box e1, box e2)
+                            }
+                            _ => unimplemented!(),
+                        },
+                    )
+                },
+            )
+        }
+        typed_absy::BooleanExpression::StructEq(box e1, box e2) => {
+            let e1 = f.fold_struct_expression(e1);
+            let e2 = f.fold_struct_expression(e2);
+
+            assert_eq!(e1.len(), e2.len());
+
+            unimplemented!()
+        }
+        typed_absy::BooleanExpression::UintEq(box e1, box e2) => {
+            let e1 = f.fold_uint_expression(e1);
+            let e2 = f.fold_uint_expression(e2);
+
+            zir::BooleanExpression::UintEq(box e1, box e2)
         }
         typed_absy::BooleanExpression::Lt(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);
