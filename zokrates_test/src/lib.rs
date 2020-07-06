@@ -108,11 +108,13 @@ fn compile_and_run<T: Field>(t: Tests) {
         code,
         t.entry_point.clone(),
         Some(&resolver),
-        &CompileConfig::default().with_is_release(true),
+        &CompileConfig::default(),
     )
     .unwrap();
 
     let bin = artifacts.prog();
+
+    println!("NOTE: We do not compile in release mode here, so the metrics below are conservative");
 
     match t.max_constraint_count {
         Some(target_count) => {

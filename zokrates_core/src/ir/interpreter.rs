@@ -4,7 +4,6 @@ use ir::Directive;
 use solvers::Solver;
 use std::collections::BTreeMap;
 use std::fmt;
-use zokrates_embed::generate_sha256_round_witness;
 use zokrates_field::Field;
 
 pub type ExecutionResult<T> = Result<Witness<T>, Error>;
@@ -186,17 +185,6 @@ impl Interpreter {
                 vec![a * (b - c.clone()) + c]
             }
             Solver::Div => vec![inputs[0].clone() / inputs[1].clone()],
-            Solver::Sha256Round => {
-                let i = &inputs[0..512];
-                let h = &inputs[512..];
-                let i: Vec<_> = i.iter().map(|x| x.clone().into_bellman()).collect();
-                let h: Vec<_> = h.iter().map(|x| x.clone().into_bellman()).collect();
-                assert!(h.len() == 256);
-                generate_sha256_round_witness::<T::BellmanEngine>(&i, &h)
-                    .into_iter()
-                    .map(|x| T::from_bellman(x))
-                    .collect()
-            }
         };
 
         assert_eq!(res.len(), expected_output_count);

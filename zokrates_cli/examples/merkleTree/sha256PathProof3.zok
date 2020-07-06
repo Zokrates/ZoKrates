@@ -3,17 +3,17 @@ import "utils/multiplexer/256bit" as multiplex
 
 // Merkle-Tree inclusion proof for tree depth 3
 
-def main(field treeDepth, bool[256] rootDigest, private bool[256] leafDigest, private bool[2] directionSelector, bool[256] PathDigest0, private bool[256] PathDigest1) -> (field):
+def main(field treeDepth, u32[8] rootDigest, private u32[8] leafDigest, private bool[2] directionSelector, u32[8] PathDigest0, private u32[8] PathDigest1) -> (field):
 
 	//Setup
-	bool[256] currentDigest = leafDigest
+	u32[8] currentDigest = leafDigest
 	field counter = 1
 	bool currentDirection = false
 	
 	//Loop up the tree
 	currentDirection = directionSelector[0]
-	bool[256] lhs = multiplex(currentDirection, currentDigest, PathDigest0)
-	bool[256] rhs = multiplex(!currentDirection, currentDigest, PathDigest0)
+	u32[8] lhs = multiplex(currentDirection, currentDigest, PathDigest0)
+	u32[8] rhs = multiplex(!currentDirection, currentDigest, PathDigest0)
 	currentDigest = sha256(lhs, rhs)
 	counter = counter + 1
 

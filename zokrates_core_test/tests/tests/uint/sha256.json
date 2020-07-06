@@ -1,6 +1,6 @@
 {
 	"entry_point": "./tests/tests/uint/sha256.zok",
-	"max_constraint_count": 43000,
+	"max_constraint_count": 30000,
 	"tests": [
 		{
 			"input": {

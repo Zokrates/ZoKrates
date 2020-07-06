@@ -13,10 +13,10 @@ describe('absolute path resolving', function() {
 
     it('should resolve valid absolute path (../)', function() {
         let basePath = 'hashes/sha256/512bitPacked';
-        let relativePath = '../../utils/pack/pack128';
+        let relativePath = '../../utils/pack/u32/pack128';
 
         let absolutePath = utils.getAbsolutePath(basePath, relativePath);
-        assert.equal(absolutePath, 'utils/pack/pack128');
+        assert.equal(absolutePath, 'utils/pack/u32/pack128');
     });
 
     it('should resolve valid absolute path (./)', function() {

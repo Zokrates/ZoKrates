@@ -1,2 +1,2 @@
-def main(bool selector, bool[256] lhs, bool[256] rhs) -> (bool[256]):
+def main(bool selector, u32[8] lhs, u32[8] rhs) -> (u32[8]):
 	return if selector then rhs else lhs fi

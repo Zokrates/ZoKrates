@@ -1,0 +1,33 @@
+import "utils/pack/u32/unpack128" as unpack128
+
+def testFive() -> (field):
+
+	u32[4] b = unpack128(5)
+
+	b == [0x00000000, 0x00000000, 0x00000000, 0x00000005]
+
+	return 1
+
+def testZero() -> (field):
+
+	u32[4] b = unpack128(0)
+
+	b == [0x00000000, 0x00000000, 0x00000000, 0x00000000]
+
+	return 1
+
+def testMax() -> (field):
+
+	u32[4] b = unpack128(2**128 - 1)
+
+	b == [0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff]
+
+	return 1
+
+ def main() -> (field):
+
+	1 == testFive()
+	1 == testMax()
+	1 == testZero()
+
+	return 1
