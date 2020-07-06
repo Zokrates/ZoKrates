@@ -53,6 +53,24 @@ fn force_no_reduce<'ast, T: Field>(e: UExpression<'ast, T>) -> UExpression<'ast,
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
+    fn fold_boolean_expression(
+        &mut self,
+        e: BooleanExpression<'ast, T>,
+    ) -> BooleanExpression<'ast, T> {
+        match e {
+            BooleanExpression::UintEq(box left, box right) => {
+                let left = self.fold_uint_expression(left);
+                let right = self.fold_uint_expression(right);
+
+                let left = force_reduce(left);
+                let right = force_reduce(right);
+
+                BooleanExpression::UintEq(box left, box right)
+            }
+            e => fold_boolean_expression(self, e),
+        }
+    }
+
     fn fold_uint_expression(&mut self, e: UExpression<'ast, T>) -> UExpression<'ast, T> {
         if e.metadata.is_some() {
             return e;
