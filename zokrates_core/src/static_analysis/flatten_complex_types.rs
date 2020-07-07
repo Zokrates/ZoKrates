@@ -569,7 +569,10 @@ pub fn fold_boolean_expression<'ast, T: Field>(
                             (zir::ZirExpression::Boolean(e1), zir::ZirExpression::Boolean(e2)) => {
                                 zir::BooleanExpression::BoolEq(box e1, box e2)
                             }
-                            _ => unimplemented!(),
+                            (zir::ZirExpression::Uint(e1), zir::ZirExpression::Uint(e2)) => {
+                                zir::BooleanExpression::UintEq(box e1, box e2)
+                            }
+                            _ => unreachable!(),
                         },
                     )
                 },
@@ -581,7 +584,27 @@ pub fn fold_boolean_expression<'ast, T: Field>(
 
             assert_eq!(e1.len(), e2.len());
 
-            unimplemented!()
+            e1.into_iter().zip(e2.into_iter()).fold(
+                zir::BooleanExpression::Value(true),
+                |acc, (e1, e2)| {
+                    zir::BooleanExpression::And(
+                        box acc,
+                        box match (e1, e2) {
+                            (
+                                zir::ZirExpression::FieldElement(e1),
+                                zir::ZirExpression::FieldElement(e2),
+                            ) => zir::BooleanExpression::FieldEq(box e1, box e2),
+                            (zir::ZirExpression::Boolean(e1), zir::ZirExpression::Boolean(e2)) => {
+                                zir::BooleanExpression::BoolEq(box e1, box e2)
+                            }
+                            (zir::ZirExpression::Uint(e1), zir::ZirExpression::Uint(e2)) => {
+                                zir::BooleanExpression::UintEq(box e1, box e2)
+                            }
+                            _ => unreachable!(),
+                        },
+                    )
+                },
+            )
         }
         typed_absy::BooleanExpression::UintEq(box e1, box e2) => {
             let e1 = f.fold_uint_expression(e1);
