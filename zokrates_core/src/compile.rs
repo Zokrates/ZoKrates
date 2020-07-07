@@ -140,7 +140,7 @@ impl fmt::Display for CompileErrorInner {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct CompileConfig {
     is_release: bool,
 }

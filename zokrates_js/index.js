@@ -3,47 +3,31 @@ import stdlib from './stdlib.json';
 
 const initialize = async () => {
 
-  const EXTENSION_ZOK  = '.zok';
-  const RESERVED_PATHS = [
-    'ecc/',
-    'signature/',
-    'hashes/',
-    'utils/'
-  ];
-
   // load web assembly module
   const zokrates = await import('./pkg/index.js');
 
-  const resolveModule = (currentLocation, importLocation, callback) => {
-    if (isReserved(currentLocation) || isReserved(importLocation)) {
-        return resolveFromStandardLibrary(currentLocation, importLocation);
-    }
-    return callback(currentLocation, importLocation);
-  }
-
-  const isReserved = (path) => RESERVED_PATHS.some(p => path.startsWith(p));
-
-  const resolveFromStandardLibrary = (currentLocation, importLocation) => {
-    let key = appendExtension(getAbsolutePath(currentLocation, importLocation), EXTENSION_ZOK);
+  const resolveFromStdlib = (currentLocation, importLocation) => {
+    let key = appendExtension(getAbsolutePath(currentLocation, importLocation), '.zok');
     let source = stdlib[key];
     return source ? { source, location: key } : null;
   }
 
   return {
-    compile: (source, location, callback) => {
-        let result = zokrates.compile(source, location, (currentLocation, importLocation) =>
-          resolveModule(currentLocation, importLocation, callback)
-        );
+    compile: (source, location, callback, config) => {
+        let importCallback = (currentLocation, importLocation) => {
+            return resolveFromStdlib(currentLocation, importLocation) || callback(currentLocation, importLocation);
+        };
+        const { program, abi } = zokrates.compile(source, location, importCallback, config);
         return {
-            program: Array.from(result.program),
-            abi: result.abi
+            program: Array.from(program),
+            abi
         }
     },
     setup: (program) => {
-      let result = zokrates.setup(program);
+      const { vk, pk } = zokrates.setup(program);
       return { 
-        vk: result.vk,
-        pk: Array.from(result.pk)
+        vk,
+        pk: Array.from(pk)
       };
     },
     computeWitness: (artifacts, args) => {

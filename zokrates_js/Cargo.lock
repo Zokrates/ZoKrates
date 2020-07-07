@@ -273,7 +273,7 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "50c052fa6d4c2f12305ec364bfb8ef884836f3f61ea015b202372ff996d1ac4b"
 dependencies = [
- "num-bigint 0.2.6",
+ "num-bigint",
  "num-integer",
  "num-traits 0.2.12",
  "proc-macro2 1.0.18",
@@ -478,16 +478,6 @@ checksum = "4703ad64153382334aa8db57c637364c322d3372e097840c72000dabdcf6156e"
 dependencies = [
  "num-integer",
  "num-iter",
- "num-traits 0.2.12",
-]
-
-[[package]]
-name = "num-bigint"
-version = "0.1.44"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e63899ad0da84ce718c14936262a41cee2c79c981fc0a0e7c7beb47d5a07e8c1"
-dependencies = [
- "num-integer",
  "num-traits 0.2.12",
 ]
 
@@ -1095,7 +1085,7 @@ dependencies = [
  "hex",
  "lazy_static",
  "num",
- "num-bigint 0.1.44",
+ "num-bigint",
  "pairing_ce",
  "rand",
  "reduce",
@@ -1126,7 +1116,7 @@ dependencies = [
  "bellman_ce",
  "bincode 0.8.0",
  "lazy_static",
- "num-bigint 0.2.6",
+ "num-bigint",
  "num-integer",
  "num-traits 0.2.12",
  "serde",
