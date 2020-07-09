@@ -32,21 +32,22 @@ mod ast {
         static ref PREC_CLIMBER: PrecClimber<Rule> = build_precedence_climber();
     }
 
+    // based on https://docs.python.org/3/reference/expressions.html#operator-precedence
     fn build_precedence_climber() -> PrecClimber<Rule> {
         PrecClimber::new(vec![
             Operator::new(Rule::op_or, Assoc::Left),
             Operator::new(Rule::op_and, Assoc::Left),
-            Operator::new(Rule::op_equal, Assoc::Left)
-                | Operator::new(Rule::op_not_equal, Assoc::Left)
+            Operator::new(Rule::op_lt, Assoc::Left)
                 | Operator::new(Rule::op_lte, Assoc::Left)
+                | Operator::new(Rule::op_gt, Assoc::Left)
                 | Operator::new(Rule::op_gte, Assoc::Left)
-                | Operator::new(Rule::op_lt, Assoc::Left)
-                | Operator::new(Rule::op_gt, Assoc::Left),
+                | Operator::new(Rule::op_not_equal, Assoc::Left)
+                | Operator::new(Rule::op_equal, Assoc::Left),
             Operator::new(Rule::op_bit_or, Assoc::Left),
             Operator::new(Rule::op_bit_xor, Assoc::Left),
             Operator::new(Rule::op_bit_and, Assoc::Left),
-            Operator::new(Rule::op_right_shift, Assoc::Left)
-                | Operator::new(Rule::op_left_shift, Assoc::Left),
+            Operator::new(Rule::op_left_shift, Assoc::Left)
+                | Operator::new(Rule::op_right_shift, Assoc::Left),
             Operator::new(Rule::op_add, Assoc::Left) | Operator::new(Rule::op_sub, Assoc::Left),
             Operator::new(Rule::op_mul, Assoc::Left) | Operator::new(Rule::op_div, Assoc::Left),
             Operator::new(Rule::op_pow, Assoc::Left),
