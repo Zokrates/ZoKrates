@@ -1,4 +1,4 @@
-# zokrates-js
+# zokrates.js
 
 JavaScript bindings for [ZoKrates](https://github.com/Zokrates/ZoKrates) project.
 
