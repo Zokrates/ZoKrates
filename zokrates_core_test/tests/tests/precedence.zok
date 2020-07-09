@@ -11,6 +11,8 @@ def main(field g) -> (field):
   field e = if 2 >= 1 && 4 > 5 || 1 == 1 then 1 else 0 fi
   field f = if 1 < 2 && false || 4 < 5 && 2 >= 1 then 1 else 0 fi
 
+  0x00 ^ 0x00 == 0x00
+
   //check if all statements have evalutated to true
   a * b * c * d * e * f == 1
   return g
