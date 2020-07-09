@@ -36,15 +36,15 @@ mod ast {
         PrecClimber::new(vec![
             Operator::new(Rule::op_or, Assoc::Left),
             Operator::new(Rule::op_and, Assoc::Left),
-            Operator::new(Rule::op_bit_or, Assoc::Left),
-            Operator::new(Rule::op_bit_xor, Assoc::Left),
-            Operator::new(Rule::op_bit_and, Assoc::Left),
             Operator::new(Rule::op_equal, Assoc::Left)
-                | Operator::new(Rule::op_not_equal, Assoc::Left),
-            Operator::new(Rule::op_lte, Assoc::Left)
+                | Operator::new(Rule::op_not_equal, Assoc::Left)
+                | Operator::new(Rule::op_lte, Assoc::Left)
                 | Operator::new(Rule::op_gte, Assoc::Left)
                 | Operator::new(Rule::op_lt, Assoc::Left)
                 | Operator::new(Rule::op_gt, Assoc::Left),
+            Operator::new(Rule::op_bit_or, Assoc::Left),
+            Operator::new(Rule::op_bit_xor, Assoc::Left),
+            Operator::new(Rule::op_bit_and, Assoc::Left),
             Operator::new(Rule::op_right_shift, Assoc::Left)
                 | Operator::new(Rule::op_left_shift, Assoc::Left),
             Operator::new(Rule::op_add, Assoc::Left) | Operator::new(Rule::op_sub, Assoc::Left),
