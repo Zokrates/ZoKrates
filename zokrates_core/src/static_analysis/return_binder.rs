@@ -1,7 +1,7 @@
 use typed_absy::folder::fold_statement;
 use typed_absy::identifier::CoreIdentifier;
 use typed_absy::*;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub struct ReturnBinder;
 

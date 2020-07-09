@@ -6,7 +6,7 @@
 
 use crate::flat_absy::*;
 use std::collections::HashMap;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub trait Propagate<T: Field> {
     fn propagate(self) -> Self;
@@ -111,7 +111,7 @@ impl<T: Field> FlatProg<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[cfg(test)]
     mod expression {
@@ -124,39 +124,39 @@ mod tests {
             #[test]
             fn add() {
                 let e = FlatExpression::Add(
-                    box FlatExpression::Number(FieldPrime::from(2)),
-                    box FlatExpression::Number(FieldPrime::from(3)),
+                    box FlatExpression::Number(Bn128Field::from(2)),
+                    box FlatExpression::Number(Bn128Field::from(3)),
                 );
 
                 assert_eq!(
                     e.propagate(&mut HashMap::new()),
-                    FlatExpression::Number(FieldPrime::from(5))
+                    FlatExpression::Number(Bn128Field::from(5))
                 );
             }
 
             #[test]
             fn sub() {
                 let e = FlatExpression::Sub(
-                    box FlatExpression::Number(FieldPrime::from(3)),
-                    box FlatExpression::Number(FieldPrime::from(2)),
+                    box FlatExpression::Number(Bn128Field::from(3)),
+                    box FlatExpression::Number(Bn128Field::from(2)),
                 );
 
                 assert_eq!(
                     e.propagate(&mut HashMap::new()),
-                    FlatExpression::Number(FieldPrime::from(1))
+                    FlatExpression::Number(Bn128Field::from(1))
                 );
             }
 
             #[test]
             fn mult() {
                 let e = FlatExpression::Mult(
-                    box FlatExpression::Number(FieldPrime::from(3)),
-                    box FlatExpression::Number(FieldPrime::from(2)),
+                    box FlatExpression::Number(Bn128Field::from(3)),
+                    box FlatExpression::Number(Bn128Field::from(2)),
                 );
 
                 assert_eq!(
                     e.propagate(&mut HashMap::new()),
-                    FlatExpression::Number(FieldPrime::from(6))
+                    FlatExpression::Number(Bn128Field::from(6))
                 );
             }
         }

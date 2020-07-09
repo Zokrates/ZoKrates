@@ -1,7 +1,14 @@
 ## Variables
 
-Variables can have any name which does not start with a number. Underscores are not allowed in variable names.
+Variables can have any name which does not start with a number.
 Variables are mutable, and always passed by value to functions.
+
+### Declaration
+
+Variables need to be declared to be used. Declaration and definition are always combined, so that undefined variables do not exist.
+```zokrates
+{{#include ../../../zokrates_cli/examples/book/declaration.zok}}
+```
 
 ### Shadowing
 

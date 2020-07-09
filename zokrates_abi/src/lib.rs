@@ -19,7 +19,7 @@ use std::convert::TryFrom;
 use std::fmt;
 use zokrates_core::typed_absy::Type;
 
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 type Map<K, V> = BTreeMap<K, V>;
 
@@ -307,13 +307,13 @@ pub fn parse_strict<T: Field>(s: &str, types: Vec<Type>) -> Result<CheckedValues
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[test]
     fn numbers() {
         let s = "[1, 2]";
         assert_eq!(
-            parse::<FieldPrime>(s).unwrap_err(),
+            parse::<Bn128Field>(s).unwrap_err(),
             Error::Conversion(String::from(
                 "Value `1` isn't allowed, did you mean `\"1\"`?"
             ))
@@ -324,7 +324,7 @@ mod tests {
     fn fields() {
         let s = r#"["1", "2"]"#;
         assert_eq!(
-            parse::<FieldPrime>(s).unwrap(),
+            parse::<Bn128Field>(s).unwrap(),
             Values(vec![Value::Field(1.into()), Value::Field(2.into())])
         );
     }
@@ -333,7 +333,7 @@ mod tests {
     fn bools() {
         let s = "[true, false]";
         assert_eq!(
-            parse::<FieldPrime>(s).unwrap(),
+            parse::<Bn128Field>(s).unwrap(),
             Values(vec![Value::Boolean(true), Value::Boolean(false)])
         );
     }
@@ -342,7 +342,7 @@ mod tests {
     fn array() {
         let s = "[[true, false]]";
         assert_eq!(
-            parse::<FieldPrime>(s).unwrap(),
+            parse::<Bn128Field>(s).unwrap(),
             Values(vec![Value::Array(vec![
                 Value::Boolean(true),
                 Value::Boolean(false)
@@ -354,7 +354,7 @@ mod tests {
     fn struc() {
         let s = r#"[{"a": "42"}]"#;
         assert_eq!(
-            parse::<FieldPrime>(s).unwrap(),
+            parse::<Bn128Field>(s).unwrap(),
             Values(vec![Value::Struct(
                 vec![("a".to_string(), Value::Field(42.into()))]
                     .into_iter()
@@ -365,13 +365,13 @@ mod tests {
 
     mod strict {
         use super::*;
-        use zokrates_core::typed_absy::types::StructMember;
+        use zokrates_core::typed_absy::types::{StructMember, StructType};
 
         #[test]
         fn fields() {
             let s = r#"["1", "2"]"#;
             assert_eq!(
-                parse_strict::<FieldPrime>(s, vec![Type::FieldElement, Type::FieldElement])
+                parse_strict::<Bn128Field>(s, vec![Type::FieldElement, Type::FieldElement])
                     .unwrap(),
                 CheckedValues(vec![
                     CheckedValue::Field(1.into()),
@@ -384,7 +384,7 @@ mod tests {
         fn bools() {
             let s = "[true, false]";
             assert_eq!(
-                parse_strict::<FieldPrime>(s, vec![Type::Boolean, Type::Boolean]).unwrap(),
+                parse_strict::<Bn128Field>(s, vec![Type::Boolean, Type::Boolean]).unwrap(),
                 CheckedValues(vec![
                     CheckedValue::Boolean(true),
                     CheckedValue::Boolean(false)
@@ -396,7 +396,7 @@ mod tests {
         fn array() {
             let s = "[[true, false]]";
             assert_eq!(
-                parse_strict::<FieldPrime>(s, vec![Type::array(Type::Boolean, 2)]).unwrap(),
+                parse_strict::<Bn128Field>(s, vec![Type::array(Type::Boolean, 2)]).unwrap(),
                 CheckedValues(vec![CheckedValue::Array(vec![
                     CheckedValue::Boolean(true),
                     CheckedValue::Boolean(false)
@@ -408,12 +408,13 @@ mod tests {
         fn struc() {
             let s = r#"[{"a": "42"}]"#;
             assert_eq!(
-                parse_strict::<FieldPrime>(
+                parse_strict::<Bn128Field>(
                     s,
-                    vec![Type::Struct(vec![StructMember::new(
-                        "a".into(),
-                        Type::FieldElement
-                    )])]
+                    vec![Type::Struct(StructType::new(
+                        "".into(),
+                        "".into(),
+                        vec![StructMember::new("a".into(), Type::FieldElement)]
+                    ))]
                 )
                 .unwrap(),
                 CheckedValues(vec![CheckedValue::Struct(
@@ -425,12 +426,13 @@ mod tests {
 
             let s = r#"[{"b": "42"}]"#;
             assert_eq!(
-                parse_strict::<FieldPrime>(
+                parse_strict::<Bn128Field>(
                     s,
-                    vec![Type::Struct(vec![StructMember::new(
-                        "a".into(),
-                        Type::FieldElement
-                    )])]
+                    vec![Type::Struct(StructType::new(
+                        "".into(),
+                        "".into(),
+                        vec![StructMember::new("a".into(), Type::FieldElement)]
+                    ))]
                 )
                 .unwrap_err(),
                 Error::Type("Member with id `a` not found".into())
@@ -438,12 +440,13 @@ mod tests {
 
             let s = r#"[{}]"#;
             assert_eq!(
-                parse_strict::<FieldPrime>(
+                parse_strict::<Bn128Field>(
                     s,
-                    vec![Type::Struct(vec![StructMember::new(
-                        "a".into(),
-                        Type::FieldElement
-                    )])]
+                    vec![Type::Struct(StructType::new(
+                        "".into(),
+                        "".into(),
+                        vec![StructMember::new("a".into(), Type::FieldElement)]
+                    ))]
                 )
                 .unwrap_err(),
                 Error::Type("Expected 1 member(s), found 0".into())
@@ -451,12 +454,13 @@ mod tests {
 
             let s = r#"[{"a": false}]"#;
             assert_eq!(
-                parse_strict::<FieldPrime>(
+                parse_strict::<Bn128Field>(
                     s,
-                    vec![Type::Struct(vec![StructMember::new(
-                        "a".into(),
-                        Type::FieldElement
-                    )])]
+                    vec![Type::Struct(StructType::new(
+                        "".into(),
+                        "".into(),
+                        vec![StructMember::new("a".into(), Type::FieldElement)]
+                    ))]
                 )
                 .unwrap_err(),
                 Error::Type("Value `false` doesn't match expected type `field`".into())

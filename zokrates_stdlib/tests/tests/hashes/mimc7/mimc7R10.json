@@ -1,0 +1,17 @@
+{
+    "entry_point": "./tests/tests/hashes/mimc7/mimc7R10.zok",
+    "tests": [
+        {
+            "input": {
+                "values": []
+            },
+            "output": {
+                "Ok": {
+                    "values": [
+                        "1"
+                    ]
+                }
+            }
+        }
+    ]
+}

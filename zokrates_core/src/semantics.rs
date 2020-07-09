@@ -11,7 +11,7 @@ use crate::typed_absy::{Parameter, Variable};
 use std::collections::{hash_map::Entry, BTreeSet, HashMap, HashSet};
 use std::fmt;
 use std::path::PathBuf;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 use crate::parser::Position;
 
@@ -268,7 +268,8 @@ impl<'ast> Checker<'ast> {
 
     fn check_struct_type_declaration(
         &mut self,
-        s: StructTypeNode<'ast>,
+        id: String,
+        s: StructDefinitionNode<'ast>,
         module_id: &ModuleId,
         types: &TypeMap,
     ) -> Result<Type, Vec<ErrorInner>> {
@@ -302,12 +303,14 @@ impl<'ast> Checker<'ast> {
             return Err(errors);
         }
 
-        Ok(Type::Struct(
+        Ok(Type::Struct(StructType::new(
+            module_id.into(),
+            id,
             fields
                 .iter()
                 .map(|f| StructMember::new(f.0.clone(), f.1.clone()))
                 .collect(),
-        ))
+        )))
     }
 
     fn check_symbol_declaration<T: Field>(
@@ -323,9 +326,14 @@ impl<'ast> Checker<'ast> {
         let pos = declaration.pos();
         let declaration = declaration.value;
 
-        match declaration.symbol {
+        match declaration.symbol.clone() {
             Symbol::HereType(t) => {
-                match self.check_struct_type_declaration(t.clone(), module_id, &state.types) {
+                match self.check_struct_type_declaration(
+                    declaration.id.to_string(),
+                    t.clone(),
+                    module_id,
+                    &state.types,
+                ) {
                     Ok(ty) => {
                         match symbol_unifier.insert_type(declaration.id) {
                             false => errors.push(
@@ -412,6 +420,17 @@ impl<'ast> Checker<'ast> {
 
                         match (function_candidates.len(), type_candidate) {
                             (0, Some(t)) => {
+
+                                // rename the type to the declared symbol
+                                let t = match t {
+                                    Type::Struct(t) => Type::Struct(StructType {
+                                        module: module_id.clone(),
+                                        name: declaration.id.into(),
+                                        ..t
+                                    }),
+                                    _ => unreachable!()
+                                };
+
                                 // we imported a type, so the symbol it gets bound to should not already exist
                                 match symbol_unifier.insert_type(declaration.id) {
                                     false => {
@@ -431,7 +450,7 @@ impl<'ast> Checker<'ast> {
                                     .types
                                     .entry(module_id.clone())
                                     .or_default()
-                                    .insert(import.symbol_id.to_string(), t.clone());
+                                    .insert(declaration.id.to_string(), t.clone());
                             }
                             (0, None) => {
                                 errors.push(ErrorInner {
@@ -795,7 +814,6 @@ impl<'ast> Checker<'ast> {
         module_id: &ModuleId,
         types: &TypeMap,
     ) -> Result<TypedStatement<'ast, T>, Vec<ErrorInner>> {
-
         let pos = stat.pos();
 
         match stat.value {
@@ -1298,12 +1316,8 @@ impl<'ast> Checker<'ast> {
                                     Ok(ArrayExpressionInner::IfElse(box condition, box consequence, box alternative).annotate(inner_type, size).into())
                                 },
                                 (TypedExpression::Struct(consequence), TypedExpression::Struct(alternative)) => {
-                                    if consequence.get_type() == alternative.get_type() {
-                                        let ty = consequence.ty().clone();
-                                        Ok(StructExpressionInner::IfElse(box condition, box consequence, box alternative).annotate(ty).into())
-                                    } else {
-                                        unimplemented!("handle consequence alternative inner type mismatch")
-                                    }
+                                    let ty = consequence.ty().clone();
+                                    Ok(StructExpressionInner::IfElse(box condition, box consequence, box alternative).annotate(ty).into())
                                 },
                                 _ => unreachable!("types should match here as we checked them explicitly")
                             }
@@ -1825,21 +1839,20 @@ impl<'ast> Checker<'ast> {
                     module_id,
                     &types,
                 )?;
-                let members = match ty {
-                    Type::Struct(members) => members,
+                let struct_type = match ty {
+                    Type::Struct(struct_type) => struct_type,
                     _ => unreachable!(),
                 };
 
                 // check that we provided the required number of values
 
-                if members.len() != inline_members.len() {
+                if struct_type.len() != inline_members.len() {
                     return Err(ErrorInner {
                         pos: Some(pos),
                         message: format!(
-                            "Inline struct {} does not match {} : {}",
+                            "Inline struct {} does not match {}",
                             Expression::InlineStruct(id.clone(), inline_members),
-                            id,
-                            Type::Struct(members)
+                            Type::Struct(struct_type)
                         ),
                     });
                 }
@@ -1854,7 +1867,7 @@ impl<'ast> Checker<'ast> {
                     .collect::<HashMap<_, _>>();
                 let mut result: Vec<TypedExpression<'ast, T>> = vec![];
 
-                for member in &members {
+                for member in struct_type.iter() {
                     match inline_members_map.remove(member.id.as_str()) {
                         Some(value) => {
                             let expression_checked =
@@ -1880,10 +1893,9 @@ impl<'ast> Checker<'ast> {
                             return Err(ErrorInner {
                                 pos: Some(pos),
                                 message: format!(
-                                    "Member {} of struct {} : {} not found in value {}",
+                                    "Member {} of struct {} not found in value {}",
                                     member.id,
-                                    id.clone(),
-                                    Type::Struct(members.clone()),
+                                    Type::Struct(struct_type.clone()),
                                     Expression::InlineStruct(id.clone(), inline_members),
                                 ),
                             })
@@ -1892,7 +1904,7 @@ impl<'ast> Checker<'ast> {
                 }
 
                 Ok(StructExpressionInner::Value(result)
-                    .annotate(members)
+                    .annotate(struct_type)
                     .into())
             }
             Expression::And(box e1, box e2) => {
@@ -1979,7 +1991,7 @@ mod tests {
     use super::*;
     use absy;
     use typed_absy;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     const MODULE_ID: &str = "";
 
@@ -1992,7 +2004,7 @@ mod tests {
             let module_id = "".into();
             // [3, true]
             let a = Expression::InlineArray(vec![
-                Expression::FieldConstant(FieldPrime::from(3)).mock().into(),
+                Expression::FieldConstant(Bn128Field::from(3)).mock().into(),
                 Expression::BooleanConstant(true).mock().into(),
             ])
             .mock();
@@ -2002,14 +2014,14 @@ mod tests {
 
             // [[0], [0, 0]]
             let a = Expression::InlineArray(vec![
-                Expression::InlineArray(vec![Expression::FieldConstant(FieldPrime::from(0))
+                Expression::InlineArray(vec![Expression::FieldConstant(Bn128Field::from(0))
                     .mock()
                     .into()])
                 .mock()
                 .into(),
                 Expression::InlineArray(vec![
-                    Expression::FieldConstant(FieldPrime::from(0)).mock().into(),
-                    Expression::FieldConstant(FieldPrime::from(0)).mock().into(),
+                    Expression::FieldConstant(Bn128Field::from(0)).mock().into(),
+                    Expression::FieldConstant(Bn128Field::from(0)).mock().into(),
                 ])
                 .mock()
                 .into(),
@@ -2021,7 +2033,7 @@ mod tests {
 
             // [[0], true]
             let a = Expression::InlineArray(vec![
-                Expression::InlineArray(vec![Expression::FieldConstant(FieldPrime::from(0))
+                Expression::InlineArray(vec![Expression::FieldConstant(Bn128Field::from(0))
                     .mock()
                     .into()])
                 .mock()
@@ -2040,9 +2052,9 @@ mod tests {
     mod symbols {
         use super::*;
 
-        /// solver function to create (() -> (): return)
-        fn function0() -> FunctionNode<'static, FieldPrime> {
-            let statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+        /// Helper function to create (() -> (): return)
+        fn function0() -> FunctionNode<'static, Bn128Field> {
+            let statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
                 ExpressionList {
                     expressions: vec![],
                 }
@@ -2062,9 +2074,9 @@ mod tests {
             .mock()
         }
 
-        /// solver function to create ((private field a) -> (): return)
-        fn function1() -> FunctionNode<'static, FieldPrime> {
-            let statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+        /// Helper function to create ((private field a) -> (): return)
+        fn function1() -> FunctionNode<'static, Bn128Field> {
+            let statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
                 ExpressionList {
                     expressions: vec![],
                 }
@@ -2089,13 +2101,13 @@ mod tests {
             .mock()
         }
 
-        fn struct0() -> StructTypeNode<'static> {
-            StructType { fields: vec![] }.mock()
+        fn struct0() -> StructDefinitionNode<'static> {
+            StructDefinition { fields: vec![] }.mock()
         }
 
-        fn struct1() -> StructTypeNode<'static> {
-            StructType {
-                fields: vec![StructField {
+        fn struct1() -> StructDefinitionNode<'static> {
+            StructDefinition {
+                fields: vec![StructDefinitionField {
                     id: "foo".into(),
                     ty: UnresolvedType::FieldElement.mock(),
                 }
@@ -2132,7 +2144,7 @@ mod tests {
 
             // after semantic check, `bar` should import a checked function
 
-            let foo: Module<FieldPrime> = Module {
+            let foo: Module<Bn128Field> = Module {
                 symbols: vec![SymbolDeclaration {
                     id: "main",
                     symbol: Symbol::HereFunction(function0()),
@@ -2141,7 +2153,7 @@ mod tests {
                 imports: vec![],
             };
 
-            let bar: Module<FieldPrime> = Module {
+            let bar: Module<Bn128Field> = Module {
                 symbols: vec![SymbolDeclaration {
                     id: "main",
                     symbol: Symbol::There(SymbolImport::with_id_in_module("main", "foo").mock()),
@@ -2277,7 +2289,7 @@ mod tests {
             //
             // should fail
 
-            let module: Module<FieldPrime> = Module {
+            let module: Module<Bn128Field> = Module {
                 symbols: vec![
                     SymbolDeclaration {
                         id: "foo",
@@ -2323,7 +2335,7 @@ mod tests {
                     .mock(),
                     SymbolDeclaration {
                         id: "foo",
-                        symbol: Symbol::HereType(StructType { fields: vec![] }.mock()),
+                        symbol: Symbol::HereType(StructDefinition { fields: vec![] }.mock()),
                     }
                     .mock(),
                 ],
@@ -2465,7 +2477,7 @@ mod tests {
     fn undefined_variable_in_statement() {
         // a = b
         // b undefined
-        let statement: StatementNode<FieldPrime> = Statement::Definition(
+        let statement: StatementNode<Bn128Field> = Statement::Definition(
             Assignee::Identifier("a").mock(),
             Expression::Identifier("b").mock(),
         )
@@ -2488,7 +2500,7 @@ mod tests {
     fn defined_variable_in_statement() {
         // a = b
         // b defined
-        let statement: StatementNode<FieldPrime> = Statement::Definition(
+        let statement: StatementNode<Bn128Field> = Statement::Definition(
             Assignee::Identifier("a").mock(),
             Expression::Identifier("b").mock(),
         )
@@ -2531,7 +2543,7 @@ mod tests {
             .mock(),
             Statement::Definition(
                 Assignee::Identifier("a").mock(),
-                Expression::FieldConstant(FieldPrime::from(1)).mock(),
+                Expression::FieldConstant(Bn128Field::from(1)).mock(),
             )
             .mock(),
         ];
@@ -2614,7 +2626,7 @@ mod tests {
             .mock(),
             Statement::Definition(
                 Assignee::Identifier("a").mock(),
-                Expression::FieldConstant(FieldPrime::from(1)).mock(),
+                Expression::FieldConstant(Bn128Field::from(1)).mock(),
             )
             .mock(),
         ];
@@ -2637,7 +2649,7 @@ mod tests {
             .mock(),
             Statement::Definition(
                 Assignee::Identifier("a").mock(),
-                Expression::FieldConstant(FieldPrime::from(2)).mock(),
+                Expression::FieldConstant(Bn128Field::from(2)).mock(),
             )
             .mock(),
             Statement::Return(
@@ -2661,7 +2673,7 @@ mod tests {
         let main_args = vec![];
         let main_statements = vec![Statement::Return(
             ExpressionList {
-                expressions: vec![Expression::FieldConstant(FieldPrime::from(1)).mock()],
+                expressions: vec![Expression::FieldConstant(Bn128Field::from(1)).mock()],
             }
             .mock(),
         )
@@ -2715,8 +2727,8 @@ mod tests {
         let foo_statements = vec![
             Statement::For(
                 absy::Variable::new("i", UnresolvedType::FieldElement.mock()).mock(),
-                Expression::FieldConstant(FieldPrime::from(0)).mock(),
-                Expression::FieldConstant(FieldPrime::from(10)).mock(),
+                Expression::FieldConstant(Bn128Field::from(0)).mock(),
+                Expression::FieldConstant(Bn128Field::from(10)).mock(),
                 vec![],
             )
             .mock(),
@@ -2773,8 +2785,8 @@ mod tests {
 
         let foo_statements = vec![Statement::For(
             absy::Variable::new("i", UnresolvedType::FieldElement.mock()).mock(),
-            Expression::FieldConstant(FieldPrime::from(0)).mock(),
-            Expression::FieldConstant(FieldPrime::from(10)).mock(),
+            Expression::FieldConstant(Bn128Field::from(0)).mock(),
+            Expression::FieldConstant(Bn128Field::from(10)).mock(),
             for_statements,
         )
         .mock()];
@@ -2789,8 +2801,8 @@ mod tests {
 
         let foo_statements_checked = vec![TypedStatement::For(
             typed_absy::Variable::field_element("i".into()),
-            FieldElementExpression::Number(FieldPrime::from(0)),
-            FieldElementExpression::Number(FieldPrime::from(10)),
+            FieldElementExpression::Number(Bn128Field::from(0)),
+            FieldElementExpression::Number(Bn128Field::from(10)),
             for_statements_checked,
         )];
 
@@ -2830,7 +2842,7 @@ mod tests {
         // def bar():
         //   field a = foo()
         // should fail
-        let bar_statements: Vec<StatementNode<FieldPrime>> = vec![
+        let bar_statements: Vec<StatementNode<Bn128Field>> = vec![
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
@@ -2884,8 +2896,8 @@ mod tests {
         // def bar():
         //   2 == foo()
         // should fail
-        let bar_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Condition(
-            Expression::FieldConstant(FieldPrime::from(2)).mock(),
+        let bar_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Condition(
+            Expression::FieldConstant(Bn128Field::from(2)).mock(),
             Expression::FunctionCall("foo", vec![]).mock(),
         )
         .mock()];
@@ -2929,7 +2941,7 @@ mod tests {
         // def bar():
         //   field a = foo()
         // should fail
-        let bar_statements: Vec<StatementNode<FieldPrime>> = vec![
+        let bar_statements: Vec<StatementNode<Bn128Field>> = vec![
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
@@ -2976,11 +2988,11 @@ mod tests {
         // 	return 1
         // should fail
 
-        let foo_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+        let foo_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
             ExpressionList {
                 expressions: vec![
-                    Expression::FieldConstant(FieldPrime::from(1)).mock(),
-                    Expression::FieldConstant(FieldPrime::from(2)).mock(),
+                    Expression::FieldConstant(Bn128Field::from(1)).mock(),
+                    Expression::FieldConstant(Bn128Field::from(2)).mock(),
                 ],
             }
             .mock(),
@@ -3004,7 +3016,7 @@ mod tests {
         }
         .mock();
 
-        let main_statements: Vec<StatementNode<FieldPrime>> = vec![
+        let main_statements: Vec<StatementNode<Bn128Field>> = vec![
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
@@ -3023,7 +3035,7 @@ mod tests {
             .mock(),
             Statement::Return(
                 ExpressionList {
-                    expressions: vec![Expression::FieldConstant(FieldPrime::from(1)).mock()],
+                    expressions: vec![Expression::FieldConstant(Bn128Field::from(1)).mock()],
                 }
                 .mock(),
             )
@@ -3080,11 +3092,11 @@ mod tests {
         //  return 1
         // should fail
 
-        let foo_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+        let foo_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
             ExpressionList {
                 expressions: vec![
-                    Expression::FieldConstant(FieldPrime::from(1)).mock(),
-                    Expression::FieldConstant(FieldPrime::from(2)).mock(),
+                    Expression::FieldConstant(Bn128Field::from(1)).mock(),
+                    Expression::FieldConstant(Bn128Field::from(2)).mock(),
                 ],
             }
             .mock(),
@@ -3104,7 +3116,7 @@ mod tests {
         }
         .mock();
 
-        let main_statements: Vec<StatementNode<FieldPrime>> = vec![
+        let main_statements: Vec<StatementNode<Bn128Field>> = vec![
             Statement::MultipleDefinition(
                 vec![
                     Assignee::Identifier("a").mock(),
@@ -3182,11 +3194,9 @@ mod tests {
         //  return
         // should fail
 
-        let foo_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+        let foo_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
             ExpressionList {
-                expressions: vec![
-                    Expression::FieldConstant(FieldPrime::from(1)).mock(),
-                ],
+                expressions: vec![Expression::FieldConstant(Bn128Field::from(1)).mock()],
             }
             .mock(),
         )
@@ -3197,20 +3207,36 @@ mod tests {
             statements: foo_statements,
             signature: UnresolvedSignature {
                 inputs: vec![],
-                outputs: vec![
-                    UnresolvedType::FieldElement.mock(),
-                ],
+                outputs: vec![UnresolvedType::FieldElement.mock()],
             },
         }
         .mock();
 
-        let main_statements: Vec<StatementNode<FieldPrime>> = vec![
-            Statement::Declaration(absy::Variable::new("a", UnresolvedType::array(UnresolvedType::FieldElement.mock(), 1).mock()).mock()).mock(),
-            Statement::Definition(Assignee::Identifier("a".into()).mock(), Expression::InlineArray(vec![absy::SpreadOrExpression::Expression(Expression::FieldConstant(FieldPrime::from(0)).mock())]).mock()).mock(),
+        let main_statements: Vec<StatementNode<Bn128Field>> = vec![
+            Statement::Declaration(
+                absy::Variable::new(
+                    "a",
+                    UnresolvedType::array(UnresolvedType::FieldElement.mock(), 1).mock(),
+                )
+                .mock(),
+            )
+            .mock(),
+            Statement::Definition(
+                Assignee::Identifier("a".into()).mock(),
+                Expression::InlineArray(vec![absy::SpreadOrExpression::Expression(
+                    Expression::FieldConstant(Bn128Field::from(0)).mock(),
+                )])
+                .mock(),
+            )
+            .mock(),
             Statement::MultipleDefinition(
-                vec![
-                    Assignee::Select(box Assignee::Identifier("a").mock(), box RangeOrExpression::Expression(absy::Expression::FieldConstant(FieldPrime::from(0)).mock())).mock(),
-                ],
+                vec![Assignee::Select(
+                    box Assignee::Identifier("a").mock(),
+                    box RangeOrExpression::Expression(
+                        absy::Expression::FieldConstant(Bn128Field::from(0)).mock(),
+                    ),
+                )
+                .mock()],
                 Expression::FunctionCall("foo", vec![]).mock(),
             )
             .mock(),
@@ -3254,15 +3280,13 @@ mod tests {
         let mut checker = new_with_args(HashSet::new(), 0, HashSet::new());
         assert_eq!(
             checker.check_module(&"main".into(), &mut state),
-            Err(vec![
-                Error {
-                    inner: ErrorInner {
-                        pos: Some((Position::mock(), Position::mock())),
-                        message: "Only assignment to identifiers is supported, found a[0]".into()
-                    },
-                    module_id: "main".into()
-                }
-            ])
+            Err(vec![Error {
+                inner: ErrorInner {
+                    pos: Some((Position::mock(), Position::mock())),
+                    message: "Only assignment to identifiers is supported, found a[0]".into()
+                },
+                module_id: "main".into()
+            }])
         );
     }
 
@@ -3271,8 +3295,8 @@ mod tests {
         // def bar():
         //   1 == foo()
         // should fail
-        let bar_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Condition(
-            Expression::FieldConstant(FieldPrime::from(1)).mock(),
+        let bar_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Condition(
+            Expression::FieldConstant(Bn128Field::from(1)).mock(),
             Expression::FunctionCall("foo", vec![]).mock(),
         )
         .mock()];
@@ -3307,7 +3331,7 @@ mod tests {
         // def bar():
         //   return a, b
         // should fail
-        let bar_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+        let bar_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
             ExpressionList {
                 expressions: vec![
                     Expression::Identifier("a").mock(),
@@ -3353,7 +3377,7 @@ mod tests {
         //   return a + b
         //
         // should pass
-        let bar_statements: Vec<StatementNode<FieldPrime>> = vec![
+        let bar_statements: Vec<StatementNode<Bn128Field>> = vec![
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
@@ -3383,7 +3407,7 @@ mod tests {
             .mock(),
         ];
 
-        let bar_statements_checked: Vec<TypedStatement<FieldPrime>> = vec![
+        let bar_statements_checked: Vec<TypedStatement<Bn128Field>> = vec![
             TypedStatement::Declaration(typed_absy::Variable::field_element("a".into())),
             TypedStatement::Declaration(typed_absy::Variable::field_element("b".into())),
             TypedStatement::MultipleDefinition(
@@ -3454,9 +3478,9 @@ mod tests {
         //   return 1
         //
         // should fail
-        let main1_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+        let main1_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
             ExpressionList {
-                expressions: vec![Expression::FieldConstant(FieldPrime::from(1)).mock()],
+                expressions: vec![Expression::FieldConstant(Bn128Field::from(1)).mock()],
             }
             .mock(),
         )
@@ -3468,9 +3492,9 @@ mod tests {
         }
         .mock()];
 
-        let main2_statements: Vec<StatementNode<FieldPrime>> = vec![Statement::Return(
+        let main2_statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
             ExpressionList {
-                expressions: vec![Expression::FieldConstant(FieldPrime::from(1)).mock()],
+                expressions: vec![Expression::FieldConstant(Bn128Field::from(1)).mock()],
             }
             .mock(),
         )
@@ -3544,7 +3568,7 @@ mod tests {
         let types = HashMap::new();
         let module_id = "".into();
         let mut checker = Checker::new();
-        let _: Result<TypedStatement<FieldPrime>, Vec<ErrorInner>> = checker.check_statement(
+        let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
@@ -3552,7 +3576,7 @@ mod tests {
             &module_id,
             &types,
         );
-        let s2_checked: Result<TypedStatement<FieldPrime>, Vec<ErrorInner>> = checker
+        let s2_checked: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker
             .check_statement(
                 Statement::Declaration(
                     absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
@@ -3581,7 +3605,7 @@ mod tests {
         let module_id = "".into();
 
         let mut checker = Checker::new();
-        let _: Result<TypedStatement<FieldPrime>, Vec<ErrorInner>> = checker.check_statement(
+        let _: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker.check_statement(
             Statement::Declaration(
                 absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
             )
@@ -3589,7 +3613,7 @@ mod tests {
             &module_id,
             &types,
         );
-        let s2_checked: Result<TypedStatement<FieldPrime>, Vec<ErrorInner>> = checker
+        let s2_checked: Result<TypedStatement<Bn128Field>, Vec<ErrorInner>> = checker
             .check_statement(
                 Statement::Declaration(
                     absy::Variable::new("a", UnresolvedType::Boolean.mock()).mock(),
@@ -3612,11 +3636,11 @@ mod tests {
 
         /// solver function to create a module at location "" with a single symbol `Foo { foo: field }`
         fn create_module_with_foo(
-            s: StructType<'static>,
-        ) -> (Checker<'static>, State<'static, FieldPrime>) {
+            s: StructDefinition<'static>,
+        ) -> (Checker<'static>, State<'static, Bn128Field>) {
             let module_id: PathBuf = "".into();
 
-            let module: Module<FieldPrime> = Module {
+            let module: Module<Bn128Field> = Module {
                 imports: vec![],
                 symbols: vec![SymbolDeclaration {
                     id: "Foo",
@@ -3643,12 +3667,17 @@ mod tests {
                 // an empty struct should be allowed to be defined
                 let module_id = "".into();
                 let types = HashMap::new();
-                let declaration = StructType { fields: vec![] }.mock();
+                let declaration = StructDefinition { fields: vec![] }.mock();
 
-                let expected_type = Type::Struct(vec![]);
+                let expected_type = Type::Struct(StructType::new("".into(), "Foo".into(), vec![]));
 
                 assert_eq!(
-                    Checker::new().check_struct_type_declaration(declaration, &module_id, &types),
+                    Checker::new().check_struct_type_declaration(
+                        "Foo".into(),
+                        declaration,
+                        &module_id,
+                        &types
+                    ),
                     Ok(expected_type)
                 );
             }
@@ -3658,14 +3687,14 @@ mod tests {
                 // a valid struct should be allowed to be defined
                 let module_id = "".into();
                 let types = HashMap::new();
-                let declaration = StructType {
+                let declaration = StructDefinition {
                     fields: vec![
-                        StructField {
+                        StructDefinitionField {
                             id: "foo",
                             ty: UnresolvedType::FieldElement.mock(),
                         }
                         .mock(),
-                        StructField {
+                        StructDefinitionField {
                             id: "bar",
                             ty: UnresolvedType::Boolean.mock(),
                         }
@@ -3674,13 +3703,22 @@ mod tests {
                 }
                 .mock();
 
-                let expected_type = Type::Struct(vec![
-                    StructMember::new("foo".into(), Type::FieldElement),
-                    StructMember::new("bar".into(), Type::Boolean),
-                ]);
+                let expected_type = Type::Struct(StructType::new(
+                    "".into(),
+                    "Foo".into(),
+                    vec![
+                        StructMember::new("foo".into(), Type::FieldElement),
+                        StructMember::new("bar".into(), Type::Boolean),
+                    ],
+                ));
 
                 assert_eq!(
-                    Checker::new().check_struct_type_declaration(declaration, &module_id, &types),
+                    Checker::new().check_struct_type_declaration(
+                        "Foo".into(),
+                        declaration,
+                        &module_id,
+                        &types
+                    ),
                     Ok(expected_type)
                 );
             }
@@ -3691,14 +3729,14 @@ mod tests {
                 let module_id = "".into();
                 let types = HashMap::new();
 
-                let declaration0 = StructType {
+                let declaration0 = StructDefinition {
                     fields: vec![
-                        StructField {
+                        StructDefinitionField {
                             id: "foo",
                             ty: UnresolvedType::FieldElement.mock(),
                         }
                         .mock(),
-                        StructField {
+                        StructDefinitionField {
                             id: "bar",
                             ty: UnresolvedType::Boolean.mock(),
                         }
@@ -3707,14 +3745,14 @@ mod tests {
                 }
                 .mock();
 
-                let declaration1 = StructType {
+                let declaration1 = StructDefinition {
                     fields: vec![
-                        StructField {
+                        StructDefinitionField {
                             id: "bar",
                             ty: UnresolvedType::Boolean.mock(),
                         }
                         .mock(),
-                        StructField {
+                        StructDefinitionField {
                             id: "foo",
                             ty: UnresolvedType::FieldElement.mock(),
                         }
@@ -3724,8 +3762,18 @@ mod tests {
                 .mock();
 
                 assert_ne!(
-                    Checker::new().check_struct_type_declaration(declaration0, &module_id, &types),
-                    Checker::new().check_struct_type_declaration(declaration1, &module_id, &types)
+                    Checker::new().check_struct_type_declaration(
+                        "Foo".into(),
+                        declaration0,
+                        &module_id,
+                        &types
+                    ),
+                    Checker::new().check_struct_type_declaration(
+                        "Foo".into(),
+                        declaration1,
+                        &module_id,
+                        &types
+                    )
                 );
             }
 
@@ -3735,14 +3783,14 @@ mod tests {
                 let module_id = "".into();
                 let types = HashMap::new();
 
-                let declaration = StructType {
+                let declaration = StructDefinition {
                     fields: vec![
-                        StructField {
+                        StructDefinitionField {
                             id: "foo",
                             ty: UnresolvedType::FieldElement.mock(),
                         }
                         .mock(),
-                        StructField {
+                        StructDefinitionField {
                             id: "foo",
                             ty: UnresolvedType::Boolean.mock(),
                         }
@@ -3753,7 +3801,12 @@ mod tests {
 
                 assert_eq!(
                     Checker::new()
-                        .check_struct_type_declaration(declaration, &module_id, &types)
+                        .check_struct_type_declaration(
+                            "Foo".into(),
+                            declaration,
+                            &module_id,
+                            &types
+                        )
                         .unwrap_err()[0]
                         .message,
                     "Duplicate key foo in struct definition"
@@ -3769,14 +3822,14 @@ mod tests {
 
                 let module_id: PathBuf = "".into();
 
-                let module: Module<FieldPrime> = Module {
+                let module: Module<Bn128Field> = Module {
                     imports: vec![],
                     symbols: vec![
                         SymbolDeclaration {
                             id: "Foo",
                             symbol: Symbol::HereType(
-                                StructType {
-                                    fields: vec![StructField {
+                                StructDefinition {
+                                    fields: vec![StructDefinitionField {
                                         id: "foo",
                                         ty: UnresolvedType::FieldElement.mock(),
                                     }
@@ -3789,8 +3842,8 @@ mod tests {
                         SymbolDeclaration {
                             id: "Bar",
                             symbol: Symbol::HereType(
-                                StructType {
-                                    fields: vec![StructField {
+                                StructDefinition {
+                                    fields: vec![StructDefinitionField {
                                         id: "foo",
                                         ty: UnresolvedType::User("Foo".into()).mock(),
                                     }
@@ -3813,10 +3866,18 @@ mod tests {
                         .unwrap()
                         .get(&"Bar".to_string())
                         .unwrap(),
-                    &Type::Struct(vec![StructMember::new(
-                        "foo".into(),
-                        Type::Struct(vec![StructMember::new("foo".into(), Type::FieldElement)])
-                    )])
+                    &Type::Struct(StructType::new(
+                        module_id.clone(),
+                        "Bar".into(),
+                        vec![StructMember::new(
+                            "foo".into(),
+                            Type::Struct(StructType::new(
+                                module_id,
+                                "Foo".into(),
+                                vec![StructMember::new("foo".into(), Type::FieldElement)]
+                            ))
+                        )]
+                    ))
                 );
             }
 
@@ -3828,13 +3889,13 @@ mod tests {
 
                 let module_id: PathBuf = "".into();
 
-                let module: Module<FieldPrime> = Module {
+                let module: Module<Bn128Field> = Module {
                     imports: vec![],
                     symbols: vec![SymbolDeclaration {
                         id: "Bar",
                         symbol: Symbol::HereType(
-                            StructType {
-                                fields: vec![StructField {
+                            StructDefinition {
+                                fields: vec![StructDefinitionField {
                                     id: "foo",
                                     ty: UnresolvedType::User("Foo".into()).mock(),
                                 }
@@ -3859,13 +3920,13 @@ mod tests {
 
                 let module_id: PathBuf = "".into();
 
-                let module: Module<FieldPrime> = Module {
+                let module: Module<Bn128Field> = Module {
                     imports: vec![],
                     symbols: vec![SymbolDeclaration {
                         id: "Foo",
                         symbol: Symbol::HereType(
-                            StructType {
-                                fields: vec![StructField {
+                            StructDefinition {
+                                fields: vec![StructDefinitionField {
                                     id: "foo",
                                     ty: UnresolvedType::User("Foo".into()).mock(),
                                 }
@@ -3891,14 +3952,14 @@ mod tests {
 
                 let module_id: PathBuf = "".into();
 
-                let module: Module<FieldPrime> = Module {
+                let module: Module<Bn128Field> = Module {
                     imports: vec![],
                     symbols: vec![
                         SymbolDeclaration {
                             id: "Foo",
                             symbol: Symbol::HereType(
-                                StructType {
-                                    fields: vec![StructField {
+                                StructDefinition {
+                                    fields: vec![StructDefinitionField {
                                         id: "bar",
                                         ty: UnresolvedType::User("Bar".into()).mock(),
                                     }
@@ -3911,8 +3972,8 @@ mod tests {
                         SymbolDeclaration {
                             id: "Bar",
                             symbol: Symbol::HereType(
-                                StructType {
-                                    fields: vec![StructField {
+                                StructDefinition {
+                                    fields: vec![StructDefinitionField {
                                         id: "foo",
                                         ty: UnresolvedType::User("Foo".into()).mock(),
                                     }
@@ -3944,8 +4005,8 @@ mod tests {
                 // an undefined type cannot be checked
                 // Bar
 
-                let (checker, state) = create_module_with_foo(StructType {
-                    fields: vec![StructField {
+                let (checker, state) = create_module_with_foo(StructDefinition {
+                    fields: vec![StructDefinitionField {
                         id: "foo",
                         ty: UnresolvedType::FieldElement.mock(),
                     }
@@ -3958,10 +4019,11 @@ mod tests {
                         &PathBuf::from(MODULE_ID).into(),
                         &state.types
                     ),
-                    Ok(Type::Struct(vec![StructMember::new(
-                        "foo".into(),
-                        Type::FieldElement
-                    )]))
+                    Ok(Type::Struct(StructType::new(
+                        "".into(),
+                        "Foo".into(),
+                        vec![StructMember::new("foo".into(), Type::FieldElement)]
+                    )))
                 );
 
                 assert_eq!(
@@ -3983,8 +4045,8 @@ mod tests {
 
                 // an undefined type cannot be used as parameter
 
-                let (checker, state) = create_module_with_foo(StructType {
-                    fields: vec![StructField {
+                let (checker, state) = create_module_with_foo(StructDefinition {
+                    fields: vec![StructDefinitionField {
                         id: "foo",
                         ty: UnresolvedType::FieldElement.mock(),
                     }
@@ -4006,7 +4068,11 @@ mod tests {
                     Ok(Parameter {
                         id: Variable::with_id_and_type(
                             "a".into(),
-                            Type::Struct(vec![StructMember::new("foo".into(), Type::FieldElement)])
+                            Type::Struct(StructType::new(
+                                "".into(),
+                                "Foo".into(),
+                                vec![StructMember::new("foo".into(), Type::FieldElement)]
+                            ))
                         ),
                         private: true
                     })
@@ -4039,8 +4105,8 @@ mod tests {
 
                 // an undefined type cannot be used in a variable declaration
 
-                let (mut checker, state) = create_module_with_foo(StructType {
-                    fields: vec![StructField {
+                let (mut checker, state) = create_module_with_foo(StructDefinition {
+                    fields: vec![StructDefinitionField {
                         id: "foo",
                         ty: UnresolvedType::FieldElement.mock(),
                     }
@@ -4048,7 +4114,7 @@ mod tests {
                 });
 
                 assert_eq!(
-                    checker.check_statement::<FieldPrime>(
+                    checker.check_statement::<Bn128Field>(
                         Statement::Declaration(
                             absy::Variable::new("a", UnresolvedType::User("Foo".into()).mock(),)
                                 .mock()
@@ -4059,7 +4125,11 @@ mod tests {
                     ),
                     Ok(TypedStatement::Declaration(Variable::with_id_and_type(
                         "a".into(),
-                        Type::Struct(vec![StructMember::new("foo".into(), Type::FieldElement)])
+                        Type::Struct(StructType::new(
+                            "".into(),
+                            "Foo".into(),
+                            vec![StructMember::new("foo".into(), Type::FieldElement)]
+                        ))
                     )))
                 );
 
@@ -4096,8 +4166,8 @@ mod tests {
                 // struct Foo = { foo: field }
                 // Foo { foo: 42 }.foo
 
-                let (mut checker, state) = create_module_with_foo(StructType {
-                    fields: vec![StructField {
+                let (mut checker, state) = create_module_with_foo(StructDefinition {
+                    fields: vec![StructDefinitionField {
                         id: "foo",
                         ty: UnresolvedType::FieldElement.mock(),
                     }
@@ -4111,7 +4181,7 @@ mod tests {
                                 "Foo".into(),
                                 vec![(
                                     "foo",
-                                    Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                    Expression::FieldConstant(Bn128Field::from(42)).mock()
                                 )]
                             )
                             .mock(),
@@ -4123,10 +4193,14 @@ mod tests {
                     ),
                     Ok(FieldElementExpression::Member(
                         box StructExpressionInner::Value(vec![FieldElementExpression::Number(
-                            FieldPrime::from(42)
+                            Bn128Field::from(42)
                         )
                         .into()])
-                        .annotate(vec![StructMember::new("foo".into(), Type::FieldElement)]),
+                        .annotate(StructType::new(
+                            "".into(),
+                            "Foo".into(),
+                            vec![StructMember::new("foo".into(), Type::FieldElement)]
+                        )),
                         "foo".into()
                     )
                     .into())
@@ -4140,8 +4214,8 @@ mod tests {
                 // struct Foo = { foo: field }
                 // Foo { foo: 42 }.bar
 
-                let (mut checker, state) = create_module_with_foo(StructType {
-                    fields: vec![StructField {
+                let (mut checker, state) = create_module_with_foo(StructDefinition {
+                    fields: vec![StructDefinitionField {
                         id: "foo",
                         ty: UnresolvedType::FieldElement.mock(),
                     }
@@ -4156,7 +4230,7 @@ mod tests {
                                     "Foo".into(),
                                     vec![(
                                         "foo",
-                                        Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                        Expression::FieldConstant(Bn128Field::from(42)).mock()
                                     )]
                                 )
                                 .mock(),
@@ -4168,7 +4242,7 @@ mod tests {
                         )
                         .unwrap_err()
                         .message,
-                    "{foo: field} doesn\'t have member bar"
+                    "Foo {foo: field} doesn\'t have member bar"
                 );
             }
         }
@@ -4181,8 +4255,8 @@ mod tests {
             fn wrong_name() {
                 // a A value cannot be defined with B as id, even if A and B have the same members
 
-                let (mut checker, state) = create_module_with_foo(StructType {
-                    fields: vec![StructField {
+                let (mut checker, state) = create_module_with_foo(StructDefinition {
+                    fields: vec![StructDefinitionField {
                         id: "foo",
                         ty: UnresolvedType::FieldElement.mock(),
                     }
@@ -4196,7 +4270,7 @@ mod tests {
                                 "Bar".into(),
                                 vec![(
                                     "foo",
-                                    Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                    Expression::FieldConstant(Bn128Field::from(42)).mock()
                                 )]
                             )
                             .mock(),
@@ -4216,14 +4290,14 @@ mod tests {
                 // struct Foo = { foo: field, bar: bool }
                 // Foo foo = Foo { foo: 42, bar: true }
 
-                let (mut checker, state) = create_module_with_foo(StructType {
+                let (mut checker, state) = create_module_with_foo(StructDefinition {
                     fields: vec![
-                        StructField {
+                        StructDefinitionField {
                             id: "foo",
                             ty: UnresolvedType::FieldElement.mock(),
                         }
                         .mock(),
-                        StructField {
+                        StructDefinitionField {
                             id: "bar",
                             ty: UnresolvedType::Boolean.mock(),
                         }
@@ -4238,7 +4312,7 @@ mod tests {
                             vec![
                                 (
                                     "foo",
-                                    Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                    Expression::FieldConstant(Bn128Field::from(42)).mock()
                                 ),
                                 ("bar", Expression::BooleanConstant(true).mock())
                             ]
@@ -4248,13 +4322,17 @@ mod tests {
                         &state.types
                     ),
                     Ok(StructExpressionInner::Value(vec![
-                        FieldElementExpression::Number(FieldPrime::from(42)).into(),
+                        FieldElementExpression::Number(Bn128Field::from(42)).into(),
                         BooleanExpression::Value(true).into()
                     ])
-                    .annotate(vec![
-                        StructMember::new("foo".into(), Type::FieldElement),
-                        StructMember::new("bar".into(), Type::Boolean)
-                    ])
+                    .annotate(StructType::new(
+                        "".into(),
+                        "Foo".into(),
+                        vec![
+                            StructMember::new("foo".into(), Type::FieldElement),
+                            StructMember::new("bar".into(), Type::Boolean)
+                        ]
+                    ))
                     .into())
                 );
             }
@@ -4266,14 +4344,14 @@ mod tests {
                 // struct Foo = { foo: field, bar: bool }
                 // Foo foo = Foo { bar: true, foo: 42 }
 
-                let (mut checker, state) = create_module_with_foo(StructType {
+                let (mut checker, state) = create_module_with_foo(StructDefinition {
                     fields: vec![
-                        StructField {
+                        StructDefinitionField {
                             id: "foo",
                             ty: UnresolvedType::FieldElement.mock(),
                         }
                         .mock(),
-                        StructField {
+                        StructDefinitionField {
                             id: "bar",
                             ty: UnresolvedType::Boolean.mock(),
                         }
@@ -4289,7 +4367,7 @@ mod tests {
                                 ("bar", Expression::BooleanConstant(true).mock()),
                                 (
                                     "foo",
-                                    Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                    Expression::FieldConstant(Bn128Field::from(42)).mock()
                                 )
                             ]
                         )
@@ -4298,13 +4376,17 @@ mod tests {
                         &state.types
                     ),
                     Ok(StructExpressionInner::Value(vec![
-                        FieldElementExpression::Number(FieldPrime::from(42)).into(),
+                        FieldElementExpression::Number(Bn128Field::from(42)).into(),
                         BooleanExpression::Value(true).into()
                     ])
-                    .annotate(vec![
-                        StructMember::new("foo".into(), Type::FieldElement),
-                        StructMember::new("bar".into(), Type::Boolean)
-                    ])
+                    .annotate(StructType::new(
+                        "".into(),
+                        "Foo".into(),
+                        vec![
+                            StructMember::new("foo".into(), Type::FieldElement),
+                            StructMember::new("bar".into(), Type::Boolean)
+                        ]
+                    ))
                     .into())
                 );
             }
@@ -4316,14 +4398,14 @@ mod tests {
                 // struct Foo = { foo: field, bar: bool }
                 // Foo foo = Foo { foo: 42 }
 
-                let (mut checker, state) = create_module_with_foo(StructType {
+                let (mut checker, state) = create_module_with_foo(StructDefinition {
                     fields: vec![
-                        StructField {
+                        StructDefinitionField {
                             id: "foo",
                             ty: UnresolvedType::FieldElement.mock(),
                         }
                         .mock(),
-                        StructField {
+                        StructDefinitionField {
                             id: "bar",
                             ty: UnresolvedType::Boolean.mock(),
                         }
@@ -4338,7 +4420,7 @@ mod tests {
                                 "Foo".into(),
                                 vec![(
                                     "foo",
-                                    Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                    Expression::FieldConstant(Bn128Field::from(42)).mock()
                                 )]
                             )
                             .mock(),
@@ -4347,7 +4429,7 @@ mod tests {
                         )
                         .unwrap_err()
                         .message,
-                    "Inline struct Foo {foo: 42} does not match Foo : {foo: field, bar: bool}"
+                    "Inline struct Foo {foo: 42} does not match Foo {foo: field, bar: bool}"
                 );
             }
 
@@ -4360,14 +4442,14 @@ mod tests {
                 // Foo { foo: 42, baz: bool } // error
                 // Foo { foo: 42, baz: 42 } // error
 
-                let (mut checker, state) = create_module_with_foo(StructType {
+                let (mut checker, state) = create_module_with_foo(StructDefinition {
                     fields: vec![
-                        StructField {
+                        StructDefinitionField {
                             id: "foo",
                             ty: UnresolvedType::FieldElement.mock(),
                         }
                         .mock(),
-                        StructField {
+                        StructDefinitionField {
                             id: "bar",
                             ty: UnresolvedType::Boolean.mock(),
                         }
@@ -4385,7 +4467,7 @@ mod tests {
                                     Expression::BooleanConstant(true).mock()
                                 ),(
                                     "foo",
-                                    Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                    Expression::FieldConstant(Bn128Field::from(42)).mock()
                                 )]
                             )
                             .mock(),
@@ -4393,7 +4475,7 @@ mod tests {
                             &state.types
                         ).unwrap_err()
                         .message,
-                    "Member bar of struct Foo : {foo: field, bar: bool} not found in value Foo {baz: true, foo: 42}"
+                    "Member bar of struct Foo {foo: field, bar: bool} not found in value Foo {baz: true, foo: 42}"
                 );
 
                 assert_eq!(
@@ -4404,11 +4486,11 @@ mod tests {
                                 vec![
                                     (
                                         "bar",
-                                        Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                        Expression::FieldConstant(Bn128Field::from(42)).mock()
                                     ),
                                     (
                                         "foo",
-                                        Expression::FieldConstant(FieldPrime::from(42)).mock()
+                                        Expression::FieldConstant(Bn128Field::from(42)).mock()
                                     )
                                 ]
                             )
@@ -4430,13 +4512,13 @@ mod tests {
         #[test]
         fn identifier() {
             // a = 42
-            let a = Assignee::Identifier::<FieldPrime>("a").mock();
+            let a = Assignee::Identifier::<Bn128Field>("a").mock();
 
             let types = HashMap::new();
             let module_id = "".into();
             let mut checker: Checker = Checker::new();
             checker
-                .check_statement::<FieldPrime>(
+                .check_statement::<Bn128Field>(
                     Statement::Declaration(
                         absy::Variable::new("a", UnresolvedType::FieldElement.mock()).mock(),
                     )
@@ -4461,7 +4543,7 @@ mod tests {
             let a = Assignee::Select(
                 box Assignee::Identifier("a").mock(),
                 box RangeOrExpression::Expression(
-                    Expression::FieldConstant(FieldPrime::from(2)).mock(),
+                    Expression::FieldConstant(Bn128Field::from(2)).mock(),
                 ),
             )
             .mock();
@@ -4471,7 +4553,7 @@ mod tests {
 
             let mut checker: Checker = Checker::new();
             checker
-                .check_statement::<FieldPrime>(
+                .check_statement::<Bn128Field>(
                     Statement::Declaration(
                         absy::Variable::new(
                             "a",
@@ -4492,7 +4574,7 @@ mod tests {
                         "a".into(),
                         33
                     )),
-                    box FieldElementExpression::Number(FieldPrime::from(2)).into()
+                    box FieldElementExpression::Number(Bn128Field::from(2)).into()
                 ))
             );
         }
@@ -4505,12 +4587,12 @@ mod tests {
                 box Assignee::Select(
                     box Assignee::Identifier("a").mock(),
                     box RangeOrExpression::Expression(
-                        Expression::FieldConstant(FieldPrime::from(1)).mock(),
+                        Expression::FieldConstant(Bn128Field::from(1)).mock(),
                     ),
                 )
                 .mock(),
                 box RangeOrExpression::Expression(
-                    Expression::FieldConstant(FieldPrime::from(2)).mock(),
+                    Expression::FieldConstant(Bn128Field::from(2)).mock(),
                 ),
             )
             .mock();
@@ -4519,7 +4601,7 @@ mod tests {
             let module_id = "".into();
             let mut checker: Checker = Checker::new();
             checker
-                .check_statement::<FieldPrime>(
+                .check_statement::<Bn128Field>(
                     Statement::Declaration(
                         absy::Variable::new(
                             "a",
@@ -4547,9 +4629,9 @@ mod tests {
                             Type::array(Type::FieldElement, 33),
                             42
                         )),
-                        box FieldElementExpression::Number(FieldPrime::from(1)).into()
+                        box FieldElementExpression::Number(Bn128Field::from(1)).into()
                     ),
-                    box FieldElementExpression::Number(FieldPrime::from(2)).into()
+                    box FieldElementExpression::Number(Bn128Field::from(2)).into()
                 ))
             );
         }

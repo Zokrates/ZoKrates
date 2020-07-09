@@ -2,7 +2,7 @@
   "name": "zokrates-js",
   "main": "index.js",
   "author": "Darko Macesic <darem966@gmail.com>",
-  "version": "1.0.21",
+  "version": "1.0.23",
   "keywords": [
     "zokrates",
     "wasm-bindgen",
@@ -10,22 +10,24 @@
   ],
   "license": "GPLv3",
   "files": [
+    "node",
     "pkg",
     "index.js",
     "index.d.ts",
-    "utils.js",
+    "wrapper.js",
     "stdlib.json",
     "README.md"
   ],
   "types": "index.d.ts",
   "scripts": {
-    "wasm-pack": "wasm-pack build --out-name index --release --target $1",
-    "prewasm-pack": "rimraf pkg && npm run setup",
-    "postwasm-pack": "rimraf pkg/README.md",
+    "wasm-pack": "wasm-pack build --out-name index --release",
     "setup": "npm install && gulp stdlib",
-    "build": "npm run wasm-pack bundler",
-    "build:node": "rimraf dist-node && npm run wasm-pack nodejs && gulp node:build",
-    "pretest": "npm run setup",
+    "prebuild": "npm run setup",
+    "build": "npm run build:bundler && npm run build:node",
+    "build:bundler": "rimraf pkg && npm run wasm-pack -- --target bundler && npm run clean-pkg",
+    "build:node": "rimraf node/pkg && npm run wasm-pack -- --target nodejs -d node/pkg && npm run clean-node-pkg",
+    "clean-pkg": "find pkg/* | grep -P \"^.*\\.(md|d\\.ts)$\" | xargs rm",
+    "clean-node-pkg": "find node/pkg/* | grep -P \"^.*\\.(md|d\\.ts)$\" | xargs rm",
     "test": "mocha --require esm --recursive tests"
   },
   "devDependencies": {

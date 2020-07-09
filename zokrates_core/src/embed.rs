@@ -7,7 +7,7 @@ use flat_absy::{
 use std::collections::HashMap;
 use typed_absy::types::{FunctionKey, Signature, Type};
 use zokrates_embed::{generate_sha256_round_constraints, BellmanConstraint};
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 /// A low level function that contains non-deterministic introduction of variables. It is carried out as is until
 /// the flattening step when it can be inlined.
@@ -22,16 +22,13 @@ impl FlatEmbed {
         match self {
             FlatEmbed::Sha256Round => Signature::new()
                 .inputs(vec![
-                    Type::array(Type::FieldElement, 512),
-                    Type::array(Type::FieldElement, 256),
+                    Type::array(Type::Boolean, 512),
+                    Type::array(Type::Boolean, 256),
                 ])
-                .outputs(vec![Type::array(Type::FieldElement, 256)]),
+                .outputs(vec![Type::array(Type::Boolean, 256)]),
             FlatEmbed::Unpack => Signature::new()
                 .inputs(vec![Type::FieldElement])
-                .outputs(vec![Type::array(
-                    Type::FieldElement,
-                    T::get_required_bits(),
-                )]),
+                .outputs(vec![Type::array(Type::Boolean, T::get_required_bits())]),
         }
     }
 
@@ -288,7 +285,7 @@ pub fn unpack<T: Field>() -> FlatFunction<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zokrates_field::field::FieldPrime;
+    use zokrates_field::Bn128Field;
 
     #[cfg(test)]
     mod split {
@@ -296,7 +293,7 @@ mod tests {
 
         #[test]
         fn split254() {
-            let unpack: FlatFunction<FieldPrime> = unpack();
+            let unpack: FlatFunction<Bn128Field> = unpack();
 
             assert_eq!(
                 unpack.arguments,
@@ -304,22 +301,22 @@ mod tests {
             );
             assert_eq!(
                 unpack.statements.len(),
-                FieldPrime::get_required_bits() + 1 + 1 + 1
+                Bn128Field::get_required_bits() + 1 + 1 + 1
             ); // 128 bit checks, 1 directive, 1 sum check, 1 return
             assert_eq!(
                 unpack.statements[0],
                 FlatStatement::Directive(FlatDirective::new(
-                    (0..FieldPrime::get_required_bits())
+                    (0..Bn128Field::get_required_bits())
                         .map(|i| FlatVariable::new(i + 1))
                         .collect(),
-                    Solver::bits(FieldPrime::get_required_bits()),
+                    Solver::bits(Bn128Field::get_required_bits()),
                     vec![FlatVariable::new(0)]
                 ))
             );
             assert_eq!(
                 *unpack.statements.last().unwrap(),
                 FlatStatement::Return(FlatExpressionList {
-                    expressions: (0..FieldPrime::get_required_bits())
+                    expressions: (0..Bn128Field::get_required_bits())
                         .map(|i| FlatExpression::Identifier(FlatVariable::new(i + 1)))
                         .collect()
                 })
@@ -330,6 +327,7 @@ mod tests {
     #[cfg(test)]
     mod sha256 {
         use super::*;
+        use ir::Interpreter;
 
         #[test]
         fn generate_sha256_constraints() {
@@ -377,7 +375,7 @@ mod tests {
                 compiled.statements[1],
                 FlatStatement::Condition(
                     FlatVariable::new(0).into(),
-                    FlatExpression::Number(FieldPrime::from(1))
+                    FlatExpression::Number(Bn128Field::from(1))
                 )
             );
 
@@ -397,11 +395,14 @@ mod tests {
             };
 
             let input = (0..512)
-                .map(|_| FieldPrime::from(0))
-                .chain((0..256).map(|_| FieldPrime::from(1)))
+                .map(|_| 0)
+                .chain((0..256).map(|_| 1))
+                .map(|i| Bn128Field::from(i))
                 .collect();
 
-            prog.execute(&input).unwrap();
+            let interpreter = Interpreter::default();
+
+            interpreter.execute(&prog, &input).unwrap();
         }
     }
 }

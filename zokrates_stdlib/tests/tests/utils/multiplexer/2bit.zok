@@ -1,21 +1,21 @@
 import "utils/multiplexer/2bit" as multiplex
 
 def left() -> (field):
-	field bit = 0  //left
-	field[2] a  = [0, 1]
-	field[2] b = [1, 0]
+	bool bit = false  //left
+	bool[2] a  = [false, true]
+	bool[2] b = [true, false]
 	
-	field[2] output = [0, 1]
+	bool[2] output = [false, true]
 	output == multiplex(bit, a, b)
 	
 	return 1
 	
 def right() -> (field):
-	field bit = 1  //right
-	field[2] a  = [0, 1]
-	field[2] b = [1, 0]
+	bool bit = true  //right
+	bool[2] a  = [false, true]
+	bool[2] b = [true, false]
 	
-	field[2] output = [1, 0]
+	bool[2] output = [true, false]
 	output == multiplex(bit, a, b)
 	
 	return 1

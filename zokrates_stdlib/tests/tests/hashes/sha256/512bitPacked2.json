@@ -1,5 +1,6 @@
 {
 	"entry_point": "./tests/tests/hashes/sha256/512bitPacked.zok",
+	"curves": ["Bn128"],
 	"tests": [
 		{
 			"input": {

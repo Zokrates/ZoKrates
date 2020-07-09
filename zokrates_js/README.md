@@ -20,7 +20,7 @@ npm install zokrates-js
 ## Usage
 
 ```js
-import { initialize } from 'zokrates-js';
+import { initialize } from 'zokrates-js'; // for node: const { initialize } = require('zokrates-js/node');
 
 function importResolver(location, path) {
   // implement your resolving logic here
@@ -31,7 +31,7 @@ function importResolver(location, path) {
 }
 
 initialize().then((zokratesProvider) => {
-    // we have to initialize the wasm module before calling api functions
-    zokratesProvider.compile("def main(private field a) -> (field): return a", "main", importResolver)
+    let artifacts = zokratesProvider.compile("def main(private field a) -> (field): return a", "main", importResolver);
+    console.log(artifacts);
 });
 ```

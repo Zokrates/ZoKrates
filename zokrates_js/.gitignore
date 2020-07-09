@@ -1,6 +1,5 @@
 node_modules
 dist
-dist-node
 target
 pkg
 wasm-pack.log

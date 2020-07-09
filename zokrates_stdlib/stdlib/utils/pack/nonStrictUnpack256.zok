@@ -1,11 +1,13 @@
+#pragma curve bn128
+
 // Non-strict version:
 // Note that this does not strongly enforce that the commitment is
 // in the field.
 
 import "EMBED/unpack" as unpack
 
-def main(field i) -> (field[256]):
+def main(field i) -> (bool[256]):
 
-    field[254] b = unpack(i)
+    bool[254] b = unpack(i)
 
-	return [0, 0, ...b]
+	return [false, false, ...b]

@@ -30,7 +30,7 @@
 use crate::typed_absy::folder::Folder;
 use crate::typed_absy::types::Type;
 use crate::typed_absy::*;
-use zokrates_field::field::Field;
+use zokrates_field::Field;
 
 pub struct InputConstrainer<'ast, T: Field> {
     constraints: Vec<TypedStatement<'ast, T>>,
@@ -83,7 +83,7 @@ impl<'ast, T: Field> InputConstrainer<'ast, T> {
                 }
             }
             TypedExpression::Struct(s) => {
-                for member in s.ty() {
+                for member in s.ty().iter() {
                     let e = match *member.ty {
                         Type::FieldElement => {
                             FieldElementExpression::member(s.clone(), member.id.clone()).into()

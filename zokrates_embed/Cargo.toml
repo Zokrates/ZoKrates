@@ -10,5 +10,5 @@ wasm = ["bellman_ce/nolog"]
 multicore = ["bellman_ce/multicore", "sapling-crypto_ce/multicore"]
 
 [dependencies]
-bellman_ce = { version = "=0.3.3", default-features = false}
-sapling-crypto_ce = { version = "0.1.1", default-features = false }
+bellman_ce = { version = "^0.3", default-features = false}
+sapling-crypto_ce = { version = "0.1.3", default-features = false }
