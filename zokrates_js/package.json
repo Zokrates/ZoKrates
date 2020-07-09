@@ -28,7 +28,7 @@
     "build:node": "rimraf node/pkg && npm run wasm-pack -- --target nodejs -d node/pkg && npm run clean-node-pkg",
     "clean-pkg": "find pkg/* | grep -P \"^.*\\.(md|d\\.ts)$\" | xargs rm",
     "clean-node-pkg": "find node/pkg/* | grep -P \"^.*\\.(md|d\\.ts)$\" | xargs rm",
-    "pretest": "npm run setup",
+    "pretest": "npm run setup && npm run build:node",
     "test": "mocha --require esm --recursive tests"
   },
   "devDependencies": {
