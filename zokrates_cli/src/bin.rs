@@ -5,10 +5,14 @@
 // @date 2017
 
 mod constants;
+mod helpers;
+
 use constants::*;
+use helpers::*;
 
 use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
 use serde_json::{from_reader, to_writer_pretty, Value};
+use std::convert::TryFrom;
 use std::env;
 use std::fs::File;
 use std::io::{stdin, BufReader, BufWriter, Read, Write};
@@ -17,6 +21,11 @@ use std::string::String;
 use zokrates_abi::Encode;
 use zokrates_core::compile::{check, compile, CompilationArtifacts, CompileConfig, CompileError};
 use zokrates_core::ir::{self, ProgEnum};
+use zokrates_core::proof_system::bellman::groth16::G16;
+#[cfg(feature = "libsnark")]
+use zokrates_core::proof_system::libsnark::gm17::GM17;
+#[cfg(feature = "libsnark")]
+use zokrates_core::proof_system::libsnark::pghr13::PGHR13;
 use zokrates_core::proof_system::*;
 use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::{types::Signature, Type};
@@ -61,8 +70,11 @@ fn cli_generate_proof<T: Field, P: ProofSystem<T>>(
     let proof = P::generate_proof(program, witness, pk);
     let mut proof_file = File::create(proof_path).unwrap();
 
+    let proof = serde_json::to_string_pretty(&proof).unwrap();
+    println!("Proof:\n{}", format!("{}", proof));
+
     proof_file
-        .write(proof.as_ref())
+        .write(proof.as_bytes())
         .map_err(|why| format!("Couldn't write to {}: {}", proof_path.display(), why))?;
 
     println!("Proof:\n{}", format!("{}", proof));
@@ -79,14 +91,13 @@ fn cli_export_verifier<T: Field, P: ProofSystem<T>>(
     let input_path = Path::new(sub_matches.value_of("input").unwrap());
     let input_file = File::open(&input_path)
         .map_err(|why| format!("Couldn't open {}: {}", input_path.display(), why))?;
-    let mut reader = BufReader::new(input_file);
+    let reader = BufReader::new(input_file);
 
-    let mut vk = String::new();
-    reader
-        .read_to_string(&mut vk)
-        .map_err(|why| format!("Couldn't read {}: {}", input_path.display(), why))?;
+    let vk = serde_json::from_reader(reader)
+        .map_err(|why| format!("Couldn't deserialize verifying key: {}", why))?;
 
     let abi = SolidityAbi::from(sub_matches.value_of("solidity-abi").unwrap())?;
+
     let verifier = P::export_solidity_verifier(vk, abi);
 
     //write output file
@@ -99,6 +110,7 @@ fn cli_export_verifier<T: Field, P: ProofSystem<T>>(
     writer
         .write_all(&verifier.as_bytes())
         .map_err(|_| "Failed writing output to file.".to_string())?;
+
     println!("Finished exporting verifier.");
     Ok(())
 }
@@ -125,7 +137,11 @@ fn cli_setup<T: Field, P: ProofSystem<T>>(
     let mut vk_file = File::create(vk_path)
         .map_err(|why| format!("couldn't create {}: {}", vk_path.display(), why))?;
     vk_file
-        .write(keypair.vk.as_ref())
+        .write(
+            serde_json::to_string_pretty(&keypair.vk)
+                .unwrap()
+                .as_bytes(),
+        )
         .map_err(|why| format!("couldn't write to {}: {}", vk_path.display(), why))?;
 
     // write proving key
@@ -270,13 +286,11 @@ fn cli_compile<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     reader.read_to_string(&mut source).unwrap();
 
     let fmt_error = |e: &CompileError| {
+        let file = e.file().canonicalize().unwrap();
         format!(
             "{}:{}",
-            e.file()
-                .canonicalize()
-                .unwrap()
-                .strip_prefix(std::env::current_dir().unwrap())
-                .unwrap()
+            file.strip_prefix(std::env::current_dir().unwrap())
+                .unwrap_or(file.as_path())
                 .display(),
             e.value()
         )
@@ -360,13 +374,11 @@ fn cli_check<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
     reader.read_to_string(&mut source).unwrap();
 
     let fmt_error = |e: &CompileError| {
+        let file = e.file().canonicalize().unwrap();
         format!(
             "{}:{}",
-            e.file()
-                .canonicalize()
-                .unwrap()
-                .strip_prefix(std::env::current_dir().unwrap())
-                .unwrap()
+            file.strip_prefix(std::env::current_dir().unwrap())
+                .unwrap_or(file.as_path())
                 .display(),
             e.value()
         )
@@ -391,12 +403,20 @@ fn cli_check<T: Field>(sub_matches: &ArgMatches) -> Result<(), String> {
 
 fn cli_verify<T: Field, P: ProofSystem<T>>(sub_matches: &ArgMatches) -> Result<(), String> {
     let vk_path = Path::new(sub_matches.value_of("verification-key-path").unwrap());
-    let vk = std::fs::read_to_string(vk_path)
-        .map_err(|why| format!("Couldn't read {}: {}", vk_path.display(), why))?;
+    let vk_file = File::open(&vk_path)
+        .map_err(|why| format!("Couldn't open {}: {}", vk_path.display(), why))?;
+
+    let vk_reader = BufReader::new(vk_file);
+    let vk = serde_json::from_reader(vk_reader)
+        .map_err(|why| format!("Couldn't deserialize verification key: {}", why))?;
 
     let proof_path = Path::new(sub_matches.value_of("proof-path").unwrap());
-    let proof = std::fs::read_to_string(proof_path)
-        .map_err(|why| format!("Couldn't read {}: {}", proof_path.display(), why))?;
+    let proof_file = File::open(&proof_path)
+        .map_err(|why| format!("Couldn't open {}: {}", proof_path.display(), why))?;
+
+    let proof_reader = BufReader::new(proof_file);
+    let proof = serde_json::from_reader(proof_reader)
+        .map_err(|why| format!("Couldn't deserialize proof: {}", why))?;
 
     println!("Performing verification...");
     println!(
@@ -419,6 +439,7 @@ fn cli() -> Result<(), String> {
     const WITNESS_DEFAULT_PATH: &str = "witness";
     const JSON_PROOF_PATH: &str = "proof.json";
     let default_curve = env::var("ZOKRATES_CURVE").unwrap_or(constants::BN128.into());
+    let default_backend = env::var("ZOKRATES_BACKEND").unwrap_or(constants::BELLMAN.into());
     let default_scheme = env::var("ZOKRATES_PROVING_SCHEME").unwrap_or(constants::G16.into());
     let default_solidity_abi = "v1";
 
@@ -530,11 +551,18 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(VERIFICATION_KEY_DEFAULT_PATH)
+        ).arg(Arg::with_name("backend")
+            .short("b")
+            .long("backend")
+            .help("Backend to use")
+            .takes_value(true)
+            .required(false)
+            .possible_values(BACKENDS)
+            .default_value(&default_backend)
         ).arg(Arg::with_name("proving-scheme")
             .short("s")
             .long("proving-scheme")
             .help("Proving scheme to use in the setup")
-            .value_name("FILE")
             .takes_value(true)
             .required(false)
             .possible_values(SCHEMES)
@@ -571,6 +599,14 @@ fn cli() -> Result<(), String> {
             .required(false)
             .possible_values(CURVES)
             .default_value(&default_curve)
+        ).arg(Arg::with_name("backend")
+            .short("b")
+            .long("backend")
+            .help("Backend to use")
+            .takes_value(true)
+            .required(false)
+            .possible_values(BACKENDS)
+            .default_value(&default_backend)
         ).arg(Arg::with_name("proving-scheme")
             .short("s")
             .long("proving-scheme")
@@ -672,6 +708,14 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(FLATTENED_CODE_DEFAULT_PATH)
+        ).arg(Arg::with_name("backend")
+            .short("b")
+            .long("backend")
+            .help("Backend to use")
+            .takes_value(true)
+            .required(false)
+            .possible_values(BACKENDS)
+            .default_value(&default_backend)
         ).arg(Arg::with_name("proving-scheme")
             .short("s")
             .long("proving-scheme")
@@ -721,6 +765,14 @@ fn cli() -> Result<(), String> {
             .takes_value(true)
             .required(false)
             .default_value(VERIFICATION_KEY_DEFAULT_PATH)
+        ).arg(Arg::with_name("backend")
+            .short("b")
+            .long("backend")
+            .help("Backend to use")
+            .takes_value(true)
+            .required(false)
+            .possible_values(BACKENDS)
+            .default_value(&default_backend)
         ).arg(Arg::with_name("proving-scheme")
             .short("s")
             .long("proving-scheme")
@@ -743,12 +795,10 @@ fn cli() -> Result<(), String> {
 
     match matches.subcommand() {
         ("compile", Some(sub_matches)) => {
-            let curve = sub_matches.value_of("curve").unwrap();
-
+            let curve = Curve::try_from(sub_matches.value_of("curve").unwrap())?;
             match curve {
-                constants::BN128 => cli_compile::<Bn128Field>(sub_matches)?,
-                constants::BLS12_381 => cli_compile::<Bls12Field>(sub_matches)?,
-                _ => unreachable!(),
+                Curve::Bn128 => cli_compile::<Bn128Field>(sub_matches)?,
+                Curve::Bls12 => cli_compile::<Bls12Field>(sub_matches)?,
             }
         }
         ("check", Some(sub_matches)) => {
@@ -761,8 +811,6 @@ fn cli() -> Result<(), String> {
             }
         }
         ("compute-witness", Some(sub_matches)) => {
-            println!("Computing witness...");
-
             // read compiled program
             let path = Path::new(sub_matches.value_of("input").unwrap());
             let file = File::open(&path)
@@ -776,90 +824,106 @@ fn cli() -> Result<(), String> {
             }
         }
         ("setup", Some(sub_matches)) => {
-            let proof_system = sub_matches.value_of("proving-scheme").unwrap();
-
             // read compiled program
             let path = Path::new(sub_matches.value_of("input").unwrap());
             let file = File::open(&path)
                 .map_err(|why| format!("Couldn't open {}: {}", path.display(), why))?;
 
             let mut reader = BufReader::new(file);
-
             let prog = ProgEnum::deserialize(&mut reader)?;
 
-            match proof_system {
-                constants::G16 => match prog {
-                    ProgEnum::Bn128Program(p) => cli_setup::<_, G16>(p, sub_matches)?,
-                    ProgEnum::Bls12Program(p) => cli_setup::<_, G16>(p, sub_matches)?,
+            let dimensions = Dimensions::try_from((
+                sub_matches.value_of("backend").unwrap(),
+                match prog {
+                    ProgEnum::Bn128Program(_) => constants::BN128,
+                    ProgEnum::Bls12Program(_) => constants::BLS12_381,
+                },
+                sub_matches.value_of("proving-scheme").unwrap(),
+            ))?;
+
+            match dimensions {
+                Dimensions(Backend::Bellman, _, ProvingScheme::G16) => match prog {
+                    ProgEnum::Bn128Program(p) => cli_setup::<_, G16>(p, sub_matches),
+                    ProgEnum::Bls12Program(p) => cli_setup::<_, G16>(p, sub_matches),
                 },
                 #[cfg(feature = "libsnark")]
-                constants::PGHR13 => match prog {
-                    ProgEnum::Bn128Program(p) => cli_setup::<_, PGHR13>(p, sub_matches)?,
-                    _ => unimplemented!(),
+                Dimensions(Backend::Libsnark, Curve::Bn128, ProvingScheme::GM17) => match prog {
+                    ProgEnum::Bn128Program(p) => cli_setup::<_, GM17>(p, sub_matches),
+                    _ => unreachable!(),
                 },
                 #[cfg(feature = "libsnark")]
-                constants::GM17 => match prog {
-                    ProgEnum::Bn128Program(p) => cli_setup::<_, GM17>(p, sub_matches)?,
-                    _ => unimplemented!(),
+                Dimensions(Backend::Libsnark, Curve::Bn128, ProvingScheme::PGHR13) => match prog {
+                    ProgEnum::Bn128Program(p) => cli_setup::<_, PGHR13>(p, sub_matches),
+                    _ => unreachable!(),
                 },
+                #[cfg(feature = "libsnark")]
                 _ => unreachable!(),
-            }
+            }?
         }
         ("export-verifier", Some(sub_matches)) => {
-            let curve = sub_matches.value_of("curve").unwrap();
-            let proof_system = sub_matches.value_of("proving-scheme").unwrap();
+            let dimensions = Dimensions::try_from((
+                sub_matches.value_of("backend").unwrap(),
+                sub_matches.value_of("curve").unwrap(),
+                sub_matches.value_of("proving-scheme").unwrap(),
+            ))?;
 
-            match proof_system {
-                constants::G16 => match curve {
-                    constants::BN128 => cli_export_verifier::<Bn128Field, G16>(sub_matches)?,
-                    constants::BLS12_381 => cli_export_verifier::<Bls12Field, G16>(sub_matches)?,
-                    _ => unimplemented!(),
-                },
+            match dimensions {
+                Dimensions(Backend::Bellman, Curve::Bn128, ProvingScheme::G16) => {
+                    cli_export_verifier::<Bn128Field, G16>(sub_matches)
+                }
+                Dimensions(Backend::Bellman, Curve::Bls12, ProvingScheme::G16) => {
+                    cli_export_verifier::<Bls12Field, G16>(sub_matches)
+                }
                 #[cfg(feature = "libsnark")]
-                constants::PGHR13 => match curve {
-                    constants::BN128 => cli_export_verifier::<Bn128Field, PGHR13>(sub_matches)?,
-                    _ => unimplemented!(),
-                },
+                Dimensions(Backend::Libsnark, Curve::Bn128, ProvingScheme::GM17) => {
+                    cli_export_verifier::<Bn128Field, GM17>(sub_matches)
+                }
                 #[cfg(feature = "libsnark")]
-                constants::GM17 => match curve {
-                    constants::BN128 => cli_export_verifier::<Bn128Field, GM17>(sub_matches)?,
-                    _ => unimplemented!(),
-                },
+                Dimensions(Backend::Libsnark, Curve::Bn128, ProvingScheme::PGHR13) => {
+                    cli_export_verifier::<Bn128Field, PGHR13>(sub_matches)
+                }
+                #[cfg(feature = "libsnark")]
                 _ => unreachable!(),
-            }
+            }?
         }
         ("generate-proof", Some(sub_matches)) => {
-            let proof_system = sub_matches.value_of("proving-scheme").unwrap();
-
             let program_path = Path::new(sub_matches.value_of("input").unwrap());
             let program_file = File::open(&program_path)
                 .map_err(|why| format!("Couldn't open {}: {}", program_path.display(), why))?;
 
             let mut reader = BufReader::new(program_file);
-
             let prog = ProgEnum::deserialize(&mut reader)?;
 
-            match proof_system {
-                constants::G16 => match prog {
-                    ProgEnum::Bn128Program(p) => cli_generate_proof::<_, G16>(p, sub_matches)?,
-                    ProgEnum::Bls12Program(p) => cli_generate_proof::<_, G16>(p, sub_matches)?,
+            let dimensions = Dimensions::try_from((
+                sub_matches.value_of("backend").unwrap(),
+                match prog {
+                    ProgEnum::Bn128Program(_) => constants::BN128,
+                    ProgEnum::Bls12Program(_) => constants::BLS12_381,
+                },
+                sub_matches.value_of("proving-scheme").unwrap(),
+            ))?;
+
+            match dimensions {
+                Dimensions(Backend::Bellman, _, ProvingScheme::G16) => match prog {
+                    ProgEnum::Bn128Program(p) => cli_generate_proof::<_, G16>(p, sub_matches),
+                    ProgEnum::Bls12Program(p) => cli_generate_proof::<_, G16>(p, sub_matches),
                 },
                 #[cfg(feature = "libsnark")]
-                constants::PGHR13 => match prog {
-                    ProgEnum::Bn128Program(p) => cli_generate_proof::<_, PGHR13>(p, sub_matches)?,
-                    _ => unimplemented!(),
+                Dimensions(Backend::Libsnark, Curve::Bn128, ProvingScheme::GM17) => match prog {
+                    ProgEnum::Bn128Program(p) => cli_generate_proof::<_, GM17>(p, sub_matches),
+                    _ => unreachable!(),
                 },
                 #[cfg(feature = "libsnark")]
-                constants::GM17 => match prog {
-                    ProgEnum::Bn128Program(p) => cli_generate_proof::<_, GM17>(p, sub_matches)?,
-                    _ => unimplemented!(),
+                Dimensions(Backend::Libsnark, Curve::Bn128, ProvingScheme::PGHR13) => match prog {
+                    ProgEnum::Bn128Program(p) => cli_generate_proof::<_, PGHR13>(p, sub_matches),
+                    _ => unreachable!(),
                 },
+                #[cfg(feature = "libsnark")]
                 _ => unreachable!(),
-            }
+            }?
         }
         ("print-proof", Some(sub_matches)) => {
             let format = sub_matches.value_of("format").unwrap();
-
             let path = Path::new(sub_matches.value_of("proof-path").unwrap());
 
             let file = File::open(&path)
@@ -895,27 +959,30 @@ fn cli() -> Result<(), String> {
             }
         }
         ("verify", Some(sub_matches)) => {
-            let curve = sub_matches.value_of("curve").unwrap();
-            let proof_system = sub_matches.value_of("proving-scheme").unwrap();
+            let dimensions = Dimensions::try_from((
+                sub_matches.value_of("backend").unwrap(),
+                sub_matches.value_of("curve").unwrap(),
+                sub_matches.value_of("proving-scheme").unwrap(),
+            ))?;
 
-            match proof_system {
-                constants::G16 => match curve {
-                    constants::BN128 => cli_verify::<Bn128Field, G16>(sub_matches)?,
-                    constants::BLS12_381 => cli_verify::<Bls12Field, G16>(sub_matches)?,
-                    _ => unimplemented!(),
-                },
+            match dimensions {
+                Dimensions(Backend::Bellman, Curve::Bn128, ProvingScheme::G16) => {
+                    cli_verify::<Bn128Field, G16>(sub_matches)
+                }
+                Dimensions(Backend::Bellman, Curve::Bls12, ProvingScheme::G16) => {
+                    cli_verify::<Bls12Field, G16>(sub_matches)
+                }
                 #[cfg(feature = "libsnark")]
-                constants::PGHR13 => match curve {
-                    constants::BN128 => cli_verify::<Bn128Field, PGHR13>(sub_matches)?,
-                    _ => unimplemented!(),
-                },
+                Dimensions(Backend::Libsnark, Curve::Bn128, ProvingScheme::GM17) => {
+                    cli_verify::<Bn128Field, GM17>(sub_matches)
+                }
                 #[cfg(feature = "libsnark")]
-                constants::GM17 => match curve {
-                    constants::BN128 => cli_verify::<Bn128Field, GM17>(sub_matches)?,
-                    _ => unimplemented!(),
-                },
+                Dimensions(Backend::Libsnark, Curve::Bn128, ProvingScheme::PGHR13) => {
+                    cli_verify::<Bn128Field, PGHR13>(sub_matches)
+                }
+                #[cfg(feature = "libsnark")]
                 _ => unreachable!(),
-            }
+            }?
         }
         _ => unreachable!(),
     }
