@@ -32,9 +32,6 @@
     "test": "mocha --require esm --recursive tests"
   },
   "devDependencies": {
-    "@babel/cli": "^7.8.4",
-    "@babel/core": "^7.9.0",
-    "@babel/preset-env": "^7.9.5",
     "dree": "^2.4.14",
     "esm": "^3.2.25",
     "gulp": "^4.0.2",
