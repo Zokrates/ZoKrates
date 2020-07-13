@@ -44,7 +44,6 @@ fn main() {
             .define("USE_PT_COMPRESSION", "OFF")
             .define("MONTGOMERY_OUTPUT", "ON")
             .define("BINARY_OUTPUT", "ON")
-            .define("DMULTICORE", "ON")
             .build();
 
         // build backends
