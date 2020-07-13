@@ -22,6 +22,6 @@ def main(bool[256] exponent, field[2] pt, BabyJubJubParams context) -> (field[2]
         doubledP = add(doubledP, doubledP, context)
     endfor
 
-    1 == assertOnCurve(accumulatedP, context)
+    true == assertOnCurve(accumulatedP, context)
 
     return accumulatedP
