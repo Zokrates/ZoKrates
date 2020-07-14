@@ -19,19 +19,42 @@ npm install zokrates-js
 
 ## Usage
 
-```js
-import { initialize } from 'zokrates-js'; // for node: const { initialize } = require('zokrates-js/node');
+### Importing
 
-function importResolver(location, path) {
+Bundlers
+```js
+import { initialize } from 'zokrates-js';
+```
+
+Node
+```js
+const { initialize } = require('zokrates-js/node');
+```
+
+### Example
+```js
+function importResolver(currentLocation, importLocation) {
   // implement your resolving logic here
-  return { 
-    source: "def main() -> (): return", 
-    location: path 
+  return {
+    source: "def main() -> (): return",
+    location: importLocation
   };
 }
 
 initialize().then((zokratesProvider) => {
-    let artifacts = zokratesProvider.compile("def main(private field a) -> (field): return a", "main", importResolver);
-    console.log(artifacts);
+    // compilation
+    const artifacts = zokratesProvider.compile("def main(private field a) -> (field): return a * a", "main", importResolver);
+
+    // computation
+    const { witness, output } = zokratesProvider.computeWitness(artifacts, ["2"]);
+
+    // run setup
+    const keypair = zokratesProvider.setup(artifacts.program);
+
+    // generate proof
+    const proof = zokratesProvider.generateProof(artifacts.program, witness, keypair.pk);
+
+    // export solidity verifier
+    const verifier = zokratesProvider.exportSolidityVerifier(keypair.vk, "v1");
 });
 ```
