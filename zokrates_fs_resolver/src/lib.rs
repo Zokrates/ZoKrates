@@ -5,13 +5,16 @@ use std::path::Path;
 use std::path::{Component, PathBuf};
 use zokrates_common::Resolver;
 
+#[derive(Debug, Default)]
 pub struct FileSystemResolver<'a> {
-    stdlib_root_path: &'a str,
+    stdlib_root_path: Option<&'a str>,
 }
 
 impl<'a> FileSystemResolver<'a> {
     pub fn with_stdlib_root(stdlib_root_path: &'a str) -> Self {
-        FileSystemResolver { stdlib_root_path }
+        FileSystemResolver {
+            stdlib_root_path: Some(stdlib_root_path),
+        }
     }
 }
 
@@ -36,7 +39,7 @@ impl<'a> Resolver<io::Error> for FileSystemResolver<'a> {
             Some(Component::CurDir) | Some(Component::ParentDir) => {
                 PathBuf::from(current_location).parent().unwrap().into()
             }
-            _ => PathBuf::from(self.stdlib_root_path),
+            _ => PathBuf::from(self.stdlib_root_path.unwrap_or("")),
         };
 
         let path_owned = base
@@ -67,7 +70,7 @@ mod tests {
         let file_path = folder.path().join("bar.zok");
         File::create(file_path.clone()).unwrap();
 
-        let fs_resolver = FileSystemResolver::with_stdlib_root("");
+        let fs_resolver = FileSystemResolver::default();
         let (_, next_location) = fs_resolver
             .resolve(file_path.clone(), "./bar.zok".into())
             .unwrap();
@@ -76,14 +79,14 @@ mod tests {
 
     #[test]
     fn non_existing_file() {
-        let fs_resolver = FileSystemResolver::with_stdlib_root("");
+        let fs_resolver = FileSystemResolver::default();
         let res = fs_resolver.resolve("./source.zok".into(), "./rubbish".into());
         assert!(res.is_err());
     }
 
     #[test]
     fn invalid_location() {
-        let fs_resolver = FileSystemResolver::with_stdlib_root("");
+        let fs_resolver = FileSystemResolver::default();
         let res = fs_resolver.resolve(",8!-$2abc".into(), "./foo".into());
         assert!(res.is_err());
     }
@@ -95,7 +98,7 @@ mod tests {
         let dir_path = folder.path().join("dir");
         std::fs::create_dir(dir_path.clone()).unwrap();
 
-        let fs_resolver = FileSystemResolver::with_stdlib_root("");
+        let fs_resolver = FileSystemResolver::default();
         let res = fs_resolver.resolve(".".into(), "./dir/".into());
         assert!(res.is_err());
     }
@@ -107,7 +110,7 @@ mod tests {
         let file_path = folder.path().join("foo.zok");
         File::create(file_path.clone()).unwrap();
 
-        let fs_resolver = FileSystemResolver::with_stdlib_root("");
+        let fs_resolver = FileSystemResolver::default();
         let res = fs_resolver.resolve(file_path, ".".into());
         assert!(res.is_err());
     }
@@ -173,7 +176,7 @@ mod tests {
         let origin_path = source_subfolder.path().join("foo.zok");
         File::create(origin_path).unwrap();
 
-        let fs_resolver = FileSystemResolver::with_stdlib_root("");
+        let fs_resolver = FileSystemResolver::default();
         let result = fs_resolver.resolve(
             source_subfolder.path().to_path_buf().join("foo.zok"),
             "../bar.zok".into(),
@@ -201,7 +204,7 @@ mod tests {
 
     #[test]
     fn fail_if_not_found_in_std() {
-        let fs_resolver = FileSystemResolver::with_stdlib_root("");
+        let fs_resolver = FileSystemResolver::default();
         let result = fs_resolver.resolve("/path/to/source.zok".into(), "bar.zok".into());
         assert!(result.is_err());
     }
