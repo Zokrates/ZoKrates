@@ -3,6 +3,7 @@ const { initialize } = require('../node/index.js');
 
 describe('tests', function() {
 
+    // initialize once before running tests
     before(function (done) {
         initialize().then(zokrates => {
             this.zokrates = zokrates;

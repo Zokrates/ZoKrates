@@ -7,9 +7,9 @@ readme = "README.md"
 build = "build.rs"
 
 [features]
-default = []
+default = ["bellman_ce/nolog"]
 libsnark = ["cc", "cmake", "git2"]
-wasm = ["bellman_ce/nolog", "bellman_ce/wasm", "zokrates_embed/wasm"]
+wasm = ["bellman_ce/wasm", "zokrates_embed/wasm"]
 multicore = ["bellman_ce/multicore"]
 
 [dependencies]
