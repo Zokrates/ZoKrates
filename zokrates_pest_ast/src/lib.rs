@@ -1177,7 +1177,7 @@ mod tests {
         for field i in 0..3 do
                assert(a == 1 + 2 + 3+ 4+ 5+ 6+ 6+ 7+ 8 + 4+ 5+ 3+ 4+ 2+ 3)
         endfor
-        a.member == 1
+        assert(a.member == 1)
         return a
 "#;
         let res = generate_ast(&source);
