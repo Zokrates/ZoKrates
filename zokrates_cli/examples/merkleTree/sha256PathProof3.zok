@@ -23,7 +23,7 @@ def main(field treeDepth, bool[256] rootDigest, private bool[256] leafDigest, pr
 	currentDigest = sha256(lhs, rhs)
 	counter = counter + 1
 
-	counter == treeDepth 
-	rootDigest == currentDigest
+	assert(counter == treeDepth)
+	assert(rootDigest == currentDigest)
 
 	return

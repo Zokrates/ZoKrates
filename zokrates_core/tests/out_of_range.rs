@@ -15,7 +15,7 @@ fn out_of_range() {
     let source = r#"
 		def main(private field a) -> (field):
 	        field x = if a < 5555 then 3333 else 4444 fi
-	        x == 3333
+	        assert(x == 3333)
 			return 1
 	"#
     .to_string();

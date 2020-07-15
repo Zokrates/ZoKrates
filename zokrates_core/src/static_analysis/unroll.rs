@@ -84,13 +84,12 @@ impl<'ast> Unroller<'ast> {
 
                     match head {
                         Access::Select(head) => {
-                            statements.insert(TypedStatement::Condition(
+                            statements.insert(TypedStatement::Assertion(
                                 BooleanExpression::Lt(
                                     box head.clone(),
                                     box FieldElementExpression::Number(T::from(size)),
                                 )
                                 .into(),
-                                BooleanExpression::Value(true).into(),
                             ));
 
                             ArrayExpressionInner::Value(
@@ -1089,13 +1088,12 @@ mod tests {
             assert_eq!(
                 u.fold_statement(s),
                 vec![
-                    TypedStatement::Condition(
+                    TypedStatement::Assertion(
                         BooleanExpression::Lt(
                             box FieldElementExpression::Number(Bn128Field::from(1)),
                             box FieldElementExpression::Number(Bn128Field::from(2))
                         )
                         .into(),
-                        BooleanExpression::Value(true).into()
                     ),
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::field_array(
@@ -1227,13 +1225,12 @@ mod tests {
             assert_eq!(
                 u.fold_statement(s),
                 vec![
-                    TypedStatement::Condition(
+                    TypedStatement::Assertion(
                         BooleanExpression::Lt(
                             box FieldElementExpression::Number(Bn128Field::from(1)),
                             box FieldElementExpression::Number(Bn128Field::from(2))
                         )
                         .into(),
-                        BooleanExpression::Value(true).into()
                     ),
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::with_id_and_type(

@@ -22,7 +22,7 @@ def main(bool[256] rootDigest, private bool[256] leafDigest, private bool[3] dir
 	preimage = multiplex(directionSelector[2], currentDigest, PathDigest2)
 	currentDigest = hash(preimage)
 
-	rootDigest == currentDigest
+	assert(rootDigest == currentDigest)
 
 	return
 

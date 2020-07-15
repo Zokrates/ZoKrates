@@ -24,6 +24,6 @@ def main(field[2] pk, field sk, BabyJubJubParams context) -> (bool):
     bool[256] skBits = unpack256(sk)
     field[2] ptExp = multiply(skBits, G, context)
 
-    bool out =	ptExp[0] == pk[0] && ptExp[1] == pk[1]
+    bool out = ptExp[0] == pk[0] && ptExp[1] == pk[1]
 
     return out
