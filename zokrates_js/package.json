@@ -10,21 +10,25 @@
   ],
   "license": "GPLv3",
   "files": [
+    "node",
     "pkg",
     "index.js",
     "index.d.ts",
-    "utils.js",
+    "wrapper.js",
     "stdlib.json",
     "README.md"
   ],
   "types": "index.d.ts",
   "scripts": {
-    "cargo:build": "cargo build --target=wasm32-unknown-unknown",
-    "wasm-pack:build": "wasm-pack build --out-name index --release --target bundler",
+    "wasm-pack": "wasm-pack build --out-name index --release",
     "setup": "npm install && gulp stdlib",
     "prebuild": "npm run setup",
-    "build": "rimraf pkg && npm run wasm-pack:build",
-    "pretest": "npm run setup",
+    "build": "npm run build:bundler && npm run build:node",
+    "build:bundler": "rimraf pkg && npm run wasm-pack -- --target bundler && npm run clean-pkg",
+    "build:node": "rimraf node/pkg && npm run wasm-pack -- --target nodejs -d node/pkg && npm run clean-node-pkg",
+    "clean-pkg": "find pkg/* | grep -P \"^.*\\.(md|d\\.ts)$\" | xargs rm",
+    "clean-node-pkg": "find node/pkg/* | grep -P \"^.*\\.(md|d\\.ts)$\" | xargs rm",
+    "pretest": "npm run setup && npm run build:node",
     "test": "mocha --require esm --recursive tests"
   },
   "devDependencies": {
