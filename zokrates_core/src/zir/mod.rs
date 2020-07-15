@@ -233,7 +233,7 @@ impl<'ast, T: fmt::Display> fmt::Display for ZirStatement<'ast, T> {
                 }
                 write!(f, "")
             }
-            ZirStatement::Declaration(ref var) => write!(f, "{}", var),
+            ZirStatement::Declaration(ref var) => write!(f, "assert({})", var),
             ZirStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
             ZirStatement::Assertion(ref e) => write!(f, "{}", e),
             ZirStatement::MultipleDefinition(ref ids, ref rhs) => {

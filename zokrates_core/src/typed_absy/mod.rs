@@ -374,7 +374,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
             }
             TypedStatement::Declaration(ref var) => write!(f, "{}", var),
             TypedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
-            TypedStatement::Assertion(ref e) => write!(f, "{}", e),
+            TypedStatement::Assertion(ref e) => write!(f, "assert({})", e),
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {
                 write!(f, "for {} in {}..{} do\n", var, start, stop)?;
                 for l in list {

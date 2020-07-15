@@ -317,7 +317,7 @@ impl<'ast, T: fmt::Display> fmt::Display for Statement<'ast, T> {
             Statement::Return(ref expr) => write!(f, "return {}", expr),
             Statement::Declaration(ref var) => write!(f, "{}", var),
             Statement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
-            Statement::Assertion(ref e) => write!(f, "{}", e),
+            Statement::Assertion(ref e) => write!(f, "assert({})", e),
             Statement::For(ref var, ref start, ref stop, ref list) => {
                 write!(f, "for {} in {}..{} do\n", var, start, stop)?;
                 for l in list {
