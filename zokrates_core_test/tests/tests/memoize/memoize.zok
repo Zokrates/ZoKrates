@@ -6,9 +6,9 @@ def local(field a) -> (field): // this costs 3 constraints per call
 
 def main(field a) -> ():
 	// calling a local function many times with the same arg should cost only once
-	local(a) + local(a) + local(a) + local(a) + local(a) == 5 * (a ** 8)
+	assert(local(a) + local(a) + local(a) + local(a) + local(a) == 5 * (a ** 8))
 
 	// calling an imported function many times with the same arg should cost only once
-	dep(a) + dep(a) + dep(a) + dep(a) + dep(a) == 5 * (a ** 4)
+	assert(dep(a) + dep(a) + dep(a) + dep(a) + dep(a) == 5 * (a ** 4))
 
 	return

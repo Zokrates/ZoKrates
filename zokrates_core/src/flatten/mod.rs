@@ -948,6 +948,70 @@ impl<'ast, T: Field> Flattener<'ast, T> {
         }
     }
 
+    fn default_xor(
+        &mut self,
+        symbols: &ZirFunctionSymbols<'ast, T>,
+        statements_flattened: &mut FlatStatements<T>,
+        left: UExpression<'ast, T>,
+        right: UExpression<'ast, T>,
+    ) -> FlatUExpression<T> {
+        let left_flattened = self.flatten_uint_expression(symbols, statements_flattened, left);
+        let right_flattened = self.flatten_uint_expression(symbols, statements_flattened, right);
+
+        // `left` and `right` were reduced to the target bitwidth, hence their bits are available
+
+        let left_bits = left_flattened.bits.unwrap();
+        let right_bits = right_flattened.bits.unwrap();
+
+        let xor: Vec<FlatExpression<T>> = left_bits
+            .into_iter()
+            .zip(right_bits.into_iter())
+            .map(|(x, y)| match (x, y) {
+                (FlatExpression::Number(n), e) | (e, FlatExpression::Number(n)) => {
+                    if n == T::from(0) {
+                        self.define(e, statements_flattened).into()
+                    } else if n == T::from(1) {
+                        self.define(
+                            FlatExpression::Sub(
+                                box FlatExpression::Number(T::from(1)),
+                                box e.clone(),
+                            ),
+                            statements_flattened,
+                        )
+                        .into()
+                    } else {
+                        unreachable!()
+                    }
+                }
+                (x, y) => {
+                    let name = self.use_sym();
+
+                    statements_flattened.extend(vec![
+                        FlatStatement::Directive(FlatDirective::new(
+                            vec![name.clone()],
+                            Solver::Xor,
+                            vec![x.clone(), y.clone()],
+                        )),
+                        FlatStatement::Condition(
+                            FlatExpression::Add(
+                                box x.clone(),
+                                box FlatExpression::Sub(box y.clone(), box name.clone().into()),
+                            ),
+                            FlatExpression::Mult(
+                                box FlatExpression::Add(box x.clone(), box x.clone()),
+                                box y.clone(),
+                            ),
+                        ),
+                    ]);
+
+                    name.into()
+                }
+            })
+            .collect();
+
+        FlatUExpression::with_bits(xor)
+    }
+
     /// Flattens a uint expression
     ///
     /// # Arguments
@@ -1154,69 +1218,181 @@ impl<'ast, T: Field> Flattener<'ast, T> {
                 )
                 .clone(),
             UExpressionInner::Xor(box left, box right) => {
-                let left_flattened =
-                    self.flatten_uint_expression(symbols, statements_flattened, left);
-                let right_flattened =
-                    self.flatten_uint_expression(symbols, statements_flattened, right);
+                let left_metadata = left.metadata.clone().unwrap();
+                let right_metadata = right.metadata.clone().unwrap();
 
-                // `left` and `right` were reduced to the target bitwidth, hence their bits are available
+                match (left.into_inner(), right.into_inner()) {
+                    (UExpressionInner::And(box a, box b), UExpressionInner::And(box aa, box c)) => {
+                        if aa.clone().into_inner() == UExpressionInner::Not(box a.clone()) {
+                            let a_flattened =
+                                self.flatten_uint_expression(symbols, statements_flattened, a);
+                            let b_flattened =
+                                self.flatten_uint_expression(symbols, statements_flattened, b);
+                            let c_flattened =
+                                self.flatten_uint_expression(symbols, statements_flattened, c);
 
-                let left_bits = left_flattened.bits.unwrap();
-                let right_bits = right_flattened.bits.unwrap();
+                            let a_bits = a_flattened.bits.unwrap();
+                            let b_bits = b_flattened.bits.unwrap();
+                            let c_bits = c_flattened.bits.unwrap();
 
-                assert_eq!(left_bits.len(), target_bitwidth.to_usize());
-                assert_eq!(right_bits.len(), target_bitwidth.to_usize());
+                            let res: Vec<FlatExpression<T>> = a_bits
+                                .into_iter()
+                                .zip(b_bits.into_iter())
+                                .zip(c_bits.into_iter())
+                                .map(|((a, b), c)| {
+                                    // a(b - c) = ch - c
 
-                let xor: Vec<FlatExpression<T>> = left_bits
-                    .into_iter()
-                    .zip(right_bits.into_iter())
-                    .map(|(x, y)| match (x, y) {
-                        (FlatExpression::Number(n), e) | (e, FlatExpression::Number(n)) => {
-                            if n == T::from(0) {
-                                self.define(e, statements_flattened).into()
-                            } else if n == T::from(1) {
-                                self.define(
-                                    FlatExpression::Sub(
-                                        box FlatExpression::Number(T::from(1)),
-                                        box e.clone(),
-                                    ),
-                                    statements_flattened,
-                                )
-                                .into()
-                            } else {
-                                unreachable!()
-                            }
-                        }
-                        (x, y) => {
-                            let name = self.use_sym();
+                                    let ch = self.use_sym();
 
-                            statements_flattened.extend(vec![
-                                FlatStatement::Directive(FlatDirective::new(
-                                    vec![name.clone()],
-                                    Solver::Xor,
-                                    vec![x.clone(), y.clone()],
-                                )),
-                                FlatStatement::Condition(
-                                    FlatExpression::Add(
-                                        box x.clone(),
-                                        box FlatExpression::Sub(
-                                            box y.clone(),
-                                            box name.clone().into(),
+                                    statements_flattened.extend(vec![
+                                        FlatStatement::Directive(FlatDirective::new(
+                                            vec![ch.clone()],
+                                            Solver::ShaCh,
+                                            vec![a.clone(), b.clone(), c.clone()],
+                                        )),
+                                        FlatStatement::Condition(
+                                            FlatExpression::Sub(box ch.into(), box c.clone()),
+                                            FlatExpression::Mult(
+                                                box a,
+                                                box FlatExpression::Sub(box b, box c),
+                                            ),
                                         ),
-                                    ),
-                                    FlatExpression::Mult(
-                                        box FlatExpression::Add(box x.clone(), box x.clone()),
-                                        box y.clone(),
-                                    ),
-                                ),
-                            ]);
+                                    ]);
+                                    ch.into()
+                                })
+                                .collect();
 
-                            name.into()
+                            FlatUExpression::with_bits(res)
+                        } else {
+                            self.default_xor(
+                                symbols,
+                                statements_flattened,
+                                UExpressionInner::And(box a, box b)
+                                    .annotate(target_bitwidth)
+                                    .metadata(left_metadata),
+                                UExpressionInner::And(box aa, box c)
+                                    .annotate(target_bitwidth)
+                                    .metadata(right_metadata),
+                            )
                         }
-                    })
-                    .collect();
+                    }
+                    (UExpressionInner::Xor(box a, box b), c) => {
+                        let a_metadata = a.metadata.clone().unwrap();
+                        let b_metadata = b.metadata.clone().unwrap();
 
-                FlatUExpression::with_bits(xor)
+                        match (a.into_inner(), b.into_inner(), c) {
+                            (
+                                UExpressionInner::And(box a, box b),
+                                UExpressionInner::And(box aa, box c),
+                                UExpressionInner::And(box bb, box cc),
+                            ) => {
+                                if (aa == a) && (bb == b) && (cc == c) {
+                                    let a_flattened = self.flatten_uint_expression(
+                                        symbols,
+                                        statements_flattened,
+                                        a,
+                                    );
+                                    let b_flattened = self.flatten_uint_expression(
+                                        symbols,
+                                        statements_flattened,
+                                        b,
+                                    );
+                                    let c_flattened = self.flatten_uint_expression(
+                                        symbols,
+                                        statements_flattened,
+                                        c,
+                                    );
+
+                                    let a_bits = a_flattened.bits.unwrap();
+                                    let b_bits = b_flattened.bits.unwrap();
+                                    let c_bits = c_flattened.bits.unwrap();
+
+                                    let res: Vec<FlatExpression<T>> = a_bits
+                                        .into_iter()
+                                        .zip(b_bits.into_iter())
+                                        .zip(c_bits.into_iter())
+                                        .map(|((a, b), c)| {
+                                            // (b) * (c) = (bc)
+                                            // (2bc - b - c) * (a) = bc - maj
+
+                                            let maj = self.use_sym();
+                                            let bc = self.use_sym();
+
+                                            statements_flattened.extend(vec![
+                                                FlatStatement::Directive(FlatDirective::new(
+                                                    vec![maj.clone()],
+                                                    Solver::ShaAndXorAndXorAnd,
+                                                    vec![a.clone(), b.clone(), c.clone()],
+                                                )),
+                                                FlatStatement::Condition(
+                                                    bc.clone().into(),
+                                                    FlatExpression::Mult(
+                                                        box b.clone(),
+                                                        box c.clone(),
+                                                    ),
+                                                ),
+                                                FlatStatement::Condition(
+                                                    FlatExpression::Sub(
+                                                        box bc.clone().into(),
+                                                        box maj.into(),
+                                                    ),
+                                                    FlatExpression::Mult(
+                                                        box FlatExpression::Sub(
+                                                            box FlatExpression::Add(
+                                                                box bc.clone().into(),
+                                                                box bc.clone().into(),
+                                                            ),
+                                                            box FlatExpression::Add(box b, box c),
+                                                        ),
+                                                        box a,
+                                                    ),
+                                                ),
+                                            ]);
+                                            maj.into()
+                                        })
+                                        .collect();
+
+                                    FlatUExpression::with_bits(res)
+                                } else {
+                                    self.default_xor(
+                                        symbols,
+                                        statements_flattened,
+                                        UExpressionInner::Xor(
+                                            box UExpressionInner::And(box a, box b)
+                                                .annotate(target_bitwidth)
+                                                .metadata(a_metadata),
+                                            box UExpressionInner::And(box aa, box c)
+                                                .annotate(target_bitwidth)
+                                                .metadata(b_metadata),
+                                        )
+                                        .annotate(target_bitwidth)
+                                        .metadata(left_metadata),
+                                        UExpressionInner::And(box bb, box cc)
+                                            .annotate(target_bitwidth)
+                                            .metadata(right_metadata),
+                                    )
+                                }
+                            }
+                            (a, b, c) => self.default_xor(
+                                symbols,
+                                statements_flattened,
+                                UExpressionInner::Xor(
+                                    box a.annotate(target_bitwidth).metadata(a_metadata),
+                                    box b.annotate(target_bitwidth).metadata(b_metadata),
+                                )
+                                .annotate(target_bitwidth)
+                                .metadata(left_metadata),
+                                c.annotate(target_bitwidth).metadata(right_metadata),
+                            ),
+                        }
+                    }
+                    (left_i, right_i) => self.default_xor(
+                        symbols,
+                        statements_flattened,
+                        left_i.annotate(target_bitwidth).metadata(left_metadata),
+                        right_i.annotate(target_bitwidth).metadata(right_metadata),
+                    ),
+                }
             }
             UExpressionInner::And(box left, box right) => {
                 let left_flattened =
@@ -1379,7 +1555,8 @@ impl<'ast, T: Field> Flattener<'ast, T> {
             // we are not reducing a constant, therefore the result should always have a smaller bitwidth:
             // `to` is the target bitwidth, and `from` cannot be smaller than that unless we're looking at a
             // constant
-            assert!(to <= from);
+
+            let from = std::cmp::max(from, to);
             match self.bits_cache.entry(e.field.clone().unwrap()) {
                 Entry::Occupied(entry) => {
                     let res: Vec<_> = entry.get().clone().into_iter().map(|e| e.into()).collect();

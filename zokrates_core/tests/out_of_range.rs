@@ -5,7 +5,7 @@ extern crate zokrates_field;
 use std::io;
 use zokrates_common::Resolver;
 use zokrates_core::{
-    compile::{compile, CompilationArtifacts},
+    compile::{compile, CompilationArtifacts, CompileConfig},
     ir::Interpreter,
 };
 use zokrates_field::Bn128Field;
@@ -15,7 +15,7 @@ fn out_of_range() {
     let source = r#"
 		def main(private field a) -> (field):
 	        field x = if a < 5555 then 3333 else 4444 fi
-	        x == 3333
+	        assert(x == 3333)
 			return 1
 	"#
     .to_string();
@@ -28,6 +28,7 @@ fn out_of_range() {
         source,
         "./path/to/file".into(),
         None::<&dyn Resolver<io::Error>>,
+        &CompileConfig::default(),
     )
     .unwrap();
 

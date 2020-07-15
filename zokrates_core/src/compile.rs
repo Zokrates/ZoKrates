@@ -9,7 +9,6 @@ use imports::{self, Importer};
 use ir;
 use macros;
 use macros::process_macros;
-use optimizer::Optimize;
 use semantics::{self, Checker};
 use static_analysis::Analyse;
 use std::collections::HashMap;
@@ -141,12 +140,29 @@ impl fmt::Display for CompileErrorInner {
     }
 }
 
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct CompileConfig {
+    is_release: bool,
+}
+
+impl CompileConfig {
+    pub fn with_is_release(mut self, is_release: bool) -> Self {
+        self.is_release = is_release;
+        self
+    }
+
+    pub fn is_release(&self) -> bool {
+        self.is_release
+    }
+}
+
 type FilePath = PathBuf;
 
 pub fn compile<T: Field, E: Into<imports::Error>>(
     source: String,
     location: FilePath,
     resolver: Option<&dyn Resolver<E>>,
+    config: &CompileConfig,
 ) -> Result<CompilationArtifacts<T>, CompileErrors> {
     let arena = Arena::new();
 
@@ -162,7 +178,7 @@ pub fn compile<T: Field, E: Into<imports::Error>>(
     let ir_prog = ir::Prog::from(program_flattened);
 
     // optimize
-    let optimized_ir_prog = ir_prog.optimize();
+    let optimized_ir_prog = ir_prog.optimize(config);
 
     // analyse (check for unused constraints)
     let optimized_ir_prog = optimized_ir_prog.analyse();
@@ -264,6 +280,7 @@ mod test {
             source,
             "./path/to/file".into(),
             None::<&dyn Resolver<io::Error>>,
+            &CompileConfig::default(),
         );
         assert!(res.unwrap_err().0[0]
             .value()
@@ -282,6 +299,7 @@ mod test {
             source,
             "./path/to/file".into(),
             None::<&dyn Resolver<io::Error>>,
+            &CompileConfig::default(),
         );
         assert!(res.is_ok());
     }
@@ -362,6 +380,7 @@ struct Bar { field a }
                 main.to_string(),
                 "main".into(),
                 Some(&CustomResolver),
+                &CompileConfig::default(),
             )
             .unwrap();
 

@@ -374,7 +374,14 @@ impl<'ast, T: Field> From<pest::BinaryExpression<'ast>> for absy::ExpressionNode
                 box absy::ExpressionNode::from(*expression.left),
                 box absy::ExpressionNode::from(*expression.right),
             ),
-            o => unimplemented!("Operator {:?} not implemented", o),
+            // rewrite (a != b)` as `!(a == b)`
+            pest::BinaryOperator::NotEq => absy::Expression::Not(
+                box absy::Expression::Eq(
+                    box absy::ExpressionNode::from(*expression.left),
+                    box absy::ExpressionNode::from(*expression.right),
+                )
+                .span(expression.span.clone()),
+            ),
         }
         .span(expression.span)
     }

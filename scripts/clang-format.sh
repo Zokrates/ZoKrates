@@ -3,6 +3,6 @@
 
 dir=$1
 
-for file in $dir/*.cpp $dir/*.hpp; do
+for file in $dir/*.cpp $dir/*.hpp $dir/*.tcc; do
   clang-format -i -style=WebKit -verbose $file
 done

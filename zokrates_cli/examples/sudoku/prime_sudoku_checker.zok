@@ -1,0 +1,58 @@
+// Sudoku of format
+
+// | a11 | a12 || b11 | b12 |
+// --------------------------
+// | a21 | a22 || b21 | b22 |
+// ==========================
+// | c11 | c12 || d11 | d12 |
+// --------------------------
+// | c21 | c22 || d21 | d22 |
+
+// We encode values in the following way:
+// 1 -> 2
+// 2 -> 3
+// 3 -> 5
+// 4 -> 7
+
+// returns true if there are no duplicates
+// assumption: `a, b, c, d` are all in `{ 2, 3, 5, 7 }`
+def checkNoDuplicates(field a, field b, field c, field d) -> (bool):
+  // as `{ 2, 3, 5, 7 }` are primes, the set `{ a, b, c, d }` is equal to the set `{ 2, 3, 5, 7}` if and only if the products match
+  return a * b * c * d == 2 * 3 * 5 * 7
+
+// returns `0` if and only if `x` in `{ 2, 3, 5, 7 }`
+def validateInput(field x) -> (bool):
+  return (x-2) * (x-3) * (x-5) * (x-7) == 0
+
+// variables naming: box'row''column'
+def main(field a21, field b11, field b22, field c11, field c22, field d21, private field a11, private field a12, private field a22, private field b12, private field b21, private field c12, private field c21, private field d11, private field d12, private field d22) -> (bool):
+
+  field[4][4] a = [[a11, a12, b11, b12], [a21, a22, b21, b22], [c11, c12, d11, d12], [c21, c22, d21, d22]]
+
+  bool res = true
+
+  // go through the whole grid and check that all elements are valid
+  for field i in 0..4 do
+    for field j in 0..4 do
+      res = res && validateInput(a[i][j])
+    endfor
+  endfor
+
+  // go through the 4 2x2 boxes and check that they do not contain duplicates
+  for field i in 0..1 do
+    for field j in 0..1 do
+      res = res && checkNoDuplicates(a[2*i][2*i], a[2*i][2*i + 1], a[2*i + 1][2*i], a[2*i + 1][2*i + 1])
+    endfor
+  endfor
+
+  // go through the 4 rows and check that they do not contain duplicates
+  for field i in 0..4 do
+      res = res && checkNoDuplicates(a[i][0], a[i][1], a[i][2], a[i][3])
+  endfor
+
+  // go through the 4 columns and check that they do not contain duplicates
+  for field j in 0..4 do
+      res = res && checkNoDuplicates(a[0][j], a[1][j], a[2][j], a[3][j])
+  endfor
+
+  return res

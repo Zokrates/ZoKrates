@@ -32,9 +32,8 @@ def main(private field[2] R, private field S, field[2] A, bool[256] M0, bool[256
     field[2] G = [context.Gu, context.Gv]
 
     // Check if R is on curve and if it is not in a small subgroup. A is public input and can be checked offline
-    field isOnCurve = onCurve(R, context) // throws if R is not on curve
-    field isPrimeOrder = orderCheck(R, context)
-    1 == isPrimeOrder	
+    assert(onCurve(R, context)) // throws if R is not on curve
+    assert(orderCheck(R, context))
 
     bool[256] Rx = unpack256(R[0])
     bool[256] Ax = unpack256(A[0])

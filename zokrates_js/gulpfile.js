@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 /** stdlib constants */
-const stdlibRoot  = '../zokrates_stdlib/stdlib';
+const stdlibRoot = '../zokrates_stdlib/stdlib';
 const output = 'stdlib.json';
 
 const options = {
@@ -15,7 +15,7 @@ const options = {
 /**
  * Serializes standard library directory tree to a json file.
  */
-gulp.task('stdlib', function (done) {
+gulp.task('stdlib', (done) => {
     var stdlib = {};
     dree.scan(stdlibRoot, options, function (file) {
         const content = fs.readFileSync(file.path).toString();

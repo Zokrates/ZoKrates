@@ -1,5 +1,5 @@
 import "ecc/edwardsAdd" as add
-import "ecc/edwardsOnCurve" as assertOnCurve
+import "ecc/edwardsOnCurve" as onCurve
 from "ecc/babyjubjubParams" import BabyJubJubParams
 
 // Function that implements scalar multiplication for a fixed base point
@@ -22,6 +22,6 @@ def main(bool[256] exponent, field[2] pt, BabyJubJubParams context) -> (field[2]
         doubledP = add(doubledP, doubledP, context)
     endfor
 
-    1 == assertOnCurve(accumulatedP, context)
+    assert(onCurve(accumulatedP, context))
 
     return accumulatedP

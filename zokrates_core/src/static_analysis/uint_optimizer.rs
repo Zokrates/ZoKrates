@@ -305,6 +305,7 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                 UExpression::right_shift(force_reduce(e), by).with_max(max)
             }
             IfElse(box condition, box consequence, box alternative) => {
+                let condition = self.fold_boolean_expression(condition);
                 let consequence = self.fold_uint_expression(consequence);
                 let alternative = self.fold_uint_expression(alternative);
 
