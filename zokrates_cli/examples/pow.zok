@@ -1,4 +1,4 @@
-def main() -> (field):
+def main() -> ():
   field x = 2**4
   x == 16
   x = x**2
@@ -13,4 +13,4 @@ def main() -> (field):
   a == 625
   a = 5**5
   a == 3125
-  return 1
+  return
