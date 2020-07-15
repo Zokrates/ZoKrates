@@ -5,7 +5,7 @@ authors = ["schaeff <thibaut@schaeff.fr>"]
 edition = "2018"
 
 [features]
-default = []
+default = ["bellman_ce/nolog"]
 wasm = ["bellman_ce/wasm", "sapling-crypto_ce/wasm"]
 multicore = ["bellman_ce/multicore", "sapling-crypto_ce/multicore"]
 

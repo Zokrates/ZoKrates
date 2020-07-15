@@ -10,8 +10,8 @@ use zokrates_core::compile::{
 };
 use zokrates_core::imports::Error;
 use zokrates_core::ir;
-use zokrates_core::proof_system::{ProofSystem, SolidityAbi};
 use zokrates_core::proof_system::bellman::groth16::G16;
+use zokrates_core::proof_system::{ProofSystem, SolidityAbi};
 use zokrates_core::typed_absy::abi::Abi;
 use zokrates_core::typed_absy::types::Signature;
 use zokrates_field::Bn128Field;
