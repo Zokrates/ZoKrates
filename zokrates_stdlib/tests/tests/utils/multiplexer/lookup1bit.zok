@@ -1,24 +1,24 @@
 import "utils/multiplexer/lookup1bit" as lookup
 
-def left() -> (field):
+def left() -> (bool):
 	bool sel = false  //left
 	field[2] t  = [0, 1]
 	
-	0 == lookup(sel, t)
+	assert(0 == lookup(sel, t))
 	
-	return 1
+	return true
 	
-def right() -> (field):
+def right() -> (bool):
 	bool sel = true  //right
 	field[2] t = [0, 1]
 	
-	1 == lookup(sel, t)
+	assert(1 == lookup(sel, t))
 	
-	return 1
+	return true
 	
-def main() -> (field):
+def main() -> ():
 
-	1 == left()
-	1 == right()
+	assert(left())
+	assert(right())
 
-	return 1
+	return

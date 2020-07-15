@@ -46,7 +46,7 @@ statement = { (return_statement // does not require subsequent newline
 iteration_statement = { "for" ~ ty ~ identifier ~ "in" ~ expression ~ ".." ~ expression ~ "do" ~ NEWLINE* ~ statement* ~ "endfor"}
 return_statement = { "return" ~ expression_list}
 definition_statement = { optionally_typed_assignee_list ~ "=" ~ expression } // declare and assign, so only identifiers are allowed, unlike `assignment_statement`
-expression_statement = {expression}
+expression_statement = {"assert" ~ "(" ~ expression ~ ")"}
 
 optionally_typed_assignee_list = _{ optionally_typed_assignee ~ ("," ~ optionally_typed_assignee)* }
 optionally_typed_assignee = { (ty ~ assignee) | (assignee) } // we don't use { ty? ~ identifier } as with a single token, it gets parsed as `ty` but we want `identifier`
@@ -124,6 +124,8 @@ op_unary = { op_not }
 WHITESPACE = _{ " " | "\t" | "\\" ~ NEWLINE}
 COMMENT = _{ ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!NEWLINE ~ ANY)*) }
 
-keyword = @{"as"|"bool"|"byte"|"def"|"do"|"else"|"endfor"|"export"|"false"|"field"|"for"|"if"|"then"|"fi"|"import"|"from"|
+// the ordering of reserved keywords matters: if "as" is before "assert", then "assert" gets parsed as (as)(sert) and incorrectly
+// accepted
+keyword = @{"assert"|"as"|"bool"|"byte"|"def"|"do"|"else"|"endfor"|"export"|"false"|"field"|"for"|"if"|"then"|"fi"|"import"|"from"|
             "in"|"private"|"public"|"return"|"struct"|"true"|"u8"|"u16"|"u32"
             }

@@ -55,7 +55,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
         let r = VariableAccessRemover::apply(r);
 
         // convert to zir, removing complex types
-        let zir = Flattener::flatten(r.clone());
+        let zir = Flattener::flatten(r);
 
         // optimize uint expressions
         let zir = UintOptimizer::optimize(zir);

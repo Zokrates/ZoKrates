@@ -1,16 +1,16 @@
-def main() -> (field):
+def main() -> ():
   field x = 2**4
-  x == 16
+  assert(x == 16)
   x = x**2
-  x == 256
+  assert(x == 256)
   field y = 3**3
-  y == 27
+  assert(y == 27)
   field z = y**2
-  z == 729
+  assert(z == 729)
   field a = 5**2
-  a == 25
+  assert(a == 25)
   a = a**2
-  a == 625
+  assert(a == 625)
   a = 5**5
-  a == 3125
-  return 1
+  assert(a == 3125)
+  return

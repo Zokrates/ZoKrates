@@ -1,32 +1,42 @@
 import "utils/multiplexer/256bit" as multiplex
 
-def left() -> (field):
+def left() -> (bool):
 	bool bit = false  //left
 
 	u32[8] a = [0x1b19dea8, 0xba4e3c16, 0x43eb67a4, 0x2667fd3c, 0xc50a189f, 0x54977e2f, 0x8ab0beee, 0x332b2a38]
 
 	u32[8] b = [0x03f3f628, 0xe067520d, 0x9a36f714, 0xa5ba86cd, 0x2dbcae1d, 0x37e034b3, 0x84786de3, 0xedb8b557]
 
+<<<<<<< HEAD
 	u32[8] output = [0x1b19dea8, 0xba4e3c16, 0x43eb67a4, 0x2667fd3c, 0xc50a189f, 0x54977e2f, 0x8ab0beee, 0x332b2a38]
 	output == multiplex(bit, a, b)
+=======
+	bool[256] output = [false, false, false, true, true, false, true, true, false, false, false, true, true, false, false, true, true, true, false, true, true, true, true, false, true, false, true, false, true, false, false, false, true, false, true, true, true, false, true, false, false, true, false, false, true, true, true, false, false, false, true, true, true, true, false, false, false, false, false, true, false, true, true, false, false, true, false, false, false, false, true, true, true, true, true, false, true, false, true, true, false, true, true, false, false, true, true, true, true, false, true, false, false, true, false, false, false, false, true, false, false, true, true, false, false, true, true, false, false, true, true, true, true, true, true, true, true, true, false, true, false, false, true, true, true, true, false, false, true, true, false, false, false, true, false, true, false, false, false, false, true, false, true, false, false, false, false, true, true, false, false, false, true, false, false, true, true, true, true, true, false, true, false, true, false, true, false, false, true, false, false, true, false, true, true, true, false, true, true, true, true, true, true, false, false, false, true, false, true, true, true, true, true, false, false, false, true, false, true, false, true, false, true, true, false, false, false, false, true, false, true, true, true, true, true, false, true, true, true, false, true, true, true, false, false, false, true, true, false, false, true, true, false, false, true, false, true, false, true, true, false, false, true, false, true, false, true, false, false, false, true, true, true, false, false, false]
+	assert(output == multiplex(bit, a, b))
+>>>>>>> 26f4d72ee6e0c802823cf145fbd11a372586eb28
 	
-	return 1
+	return true
 	
-def right() -> (field):
+def right() -> (bool):
 	bool bit = true  //right
 
 	u32[8] a = [0x1b19dea8, 0xba4e3c16, 0x43eb67a4, 0x2667fd3c, 0xc50a189f, 0x54977e2f, 0x8ab0beee, 0x332b2a38]
 
 	u32[8] b = [0x03f3f628, 0xe067520d, 0x9a36f714, 0xa5ba86cd, 0x2dbcae1d, 0x37e034b3, 0x84786de3, 0xedb8b557]
 	
+<<<<<<< HEAD
 	u32[8] output = [0x03f3f628, 0xe067520d, 0x9a36f714, 0xa5ba86cd, 0x2dbcae1d, 0x37e034b3, 0x84786de3, 0xedb8b557]
 	output == multiplex(bit, a, b)
+=======
+	bool[256] output = [false, false, false, false, false, false, true, true, true, true, true, true, false, false, true, true, true, true, true, true, false, true, true, false, false, false, true, false, true, false, false, false, true, true, true, false, false, false, false, false, false, true, true, false, false, true, true, true, false, true, false, true, false, false, true, false, false, false, false, false, true, true, false, true, true, false, false, true, true, false, true, false, false, false, true, true, false, true, true, false, true, true, true, true, false, true, true, true, false, false, false, true, false, true, false, false, true, false, true, false, false, true, false, true, true, false, true, true, true, false, true, false, true, false, false, false, false, true, true, false, true, true, false, false, true, true, false, true, false, false, true, false, true, true, false, true, true, false, true, true, true, true, false, false, true, false, true, false, true, true, true, false, false, false, false, true, true, true, false, true, false, false, true, true, false, true, true, true, true, true, true, false, false, false, false, false, false, false, true, true, false, true, false, false, true, false, true, true, false, false, true, true, true, false, false, false, false, true, false, false, false, true, true, true, true, false, false, false, false, true, true, false, true, true, false, true, true, true, true, false, false, false, true, true, true, true, true, false, true, true, false, true, true, false, true, true, true, false, false, false, true, false, true, true, false, true, false, true, false, true, false, true, false, true, true, true]
+	assert(output == multiplex(bit, a, b))
+>>>>>>> 26f4d72ee6e0c802823cf145fbd11a372586eb28
 	
-	return 1
+	return true
 	
-def main() -> (field):
+def main() -> ():
 
-	1 == left()
-	1 == right()
+	assert(left())
+	assert(right())
 
-	return 1
+	return

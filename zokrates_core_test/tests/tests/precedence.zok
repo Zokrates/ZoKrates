@@ -1,8 +1,8 @@
-def main(field g) -> (field):
-  9 == 1 + 2 * 2 ** 2                                              // Checks precedence of arithmetic operators (expecting transitive behaviour)
-  9 == 2 ** 2 * 2 + 1
-  7 == 2 ** 2 * 2 - 1
-  3 == 2 ** 2 / 2 + 1
+def main() -> ():
+  assert(9 == 1 + 2 * 2 ** 2)                                      // Checks precedence of arithmetic operators (expecting transitive behaviour)
+  assert(9 == 2 ** 2 * 2 + 1)
+  assert(7 == 2 ** 2 * 2 - 1)
+  assert(3 == 2 ** 2 / 2 + 1)
 
   field a = if 3 == 2 ** 2 / 2 + 1 && true then 1 else 0 fi        // combines arithmetic with boolean operators
   field b = if 3 == 3 && 4 < 5 then 1 else 0 fi                    // checks precedence of boolean operators
@@ -11,6 +11,8 @@ def main(field g) -> (field):
   field e = if 2 >= 1 && 4 > 5 || 1 == 1 then 1 else 0 fi
   field f = if 1 < 2 && false || 4 < 5 && 2 >= 1 then 1 else 0 fi
 
+  assert(0x00 ^ 0x00 == 0x00)
+
   //check if all statements have evalutated to true
-  a * b * c * d * e * f == 1
-  return g
+  assert(a * b * c * d * e * f == 1)
+  return
