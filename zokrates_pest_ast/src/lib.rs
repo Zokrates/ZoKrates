@@ -1175,7 +1175,7 @@ mod tests {
         field a = 1
         a[32 + x][55] = y
         for field i in 0..3 do
-               a == 1 + 2 + 3+ 4+ 5+ 6+ 6+ 7+ 8 + 4+ 5+ 3+ 4+ 2+ 3
+               assert(a == 1 + 2 + 3+ 4+ 5+ 6+ 6+ 7+ 8 + 4+ 5+ 3+ 4+ 2+ 3)
         endfor
         a.member == 1
         return a

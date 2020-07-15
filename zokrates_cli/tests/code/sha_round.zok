@@ -1,6 +1,6 @@
 import "EMBED/sha256round" as sha256
 
-def main(private bool[256] expected) -> ():
+def main(private bool[256] expected) -> (field):
 
 	bool[256] a = [false; 256]
  	bool[256] b = [false; 256]
@@ -11,4 +11,4 @@ def main(private bool[256] expected) -> ():
 
 	assert(expected == sha256([...a, ...b], IV))
 
-	return
+	return 1
