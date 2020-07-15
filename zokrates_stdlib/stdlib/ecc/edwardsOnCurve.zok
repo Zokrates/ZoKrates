@@ -4,7 +4,7 @@ from "ecc/babyjubjubParams" import BabyJubJubParams
 // Curve parameters are defined with the last argument
 // See appendix 3.3.1 of Zcash protocol specification:
 // https://github.com/zcash/zips/blob/master/protocol/protocol.pdf
-def main(field[2] pt, BabyJubJubParams context) -> (field):
+def main(field[2] pt, BabyJubJubParams context) -> (bool):
 
     field a = context.JUBJUBA
     field d = context.JUBJUBD
@@ -15,4 +15,4 @@ def main(field[2] pt, BabyJubJubParams context) -> (field):
 
     a * uu + vv == 1 + d * uuvv
 
-    return 1
+    return true
