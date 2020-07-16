@@ -54,11 +54,14 @@ impl VerificationKey {
             gamma_g2: serialization::to_g2::<T>(self.gamma),
             delta_g1: <T::BellmanEngine as Engine>::G1Affine::one(), // not used during verification
             delta_g2: serialization::to_g2::<T>(self.delta),
-            ic: self.gamma_abc.into_iter().map(|g1| serialization::to_g1::<T>(g1)).collect()
+            ic: self
+                .gamma_abc
+                .into_iter()
+                .map(|g1| serialization::to_g1::<T>(g1))
+                .collect(),
         }
     }
 }
-
 
 impl<T: Field> ProofSystem<T> for G16 {
     type VerificationKey = VerificationKey;
@@ -222,19 +225,22 @@ impl<T: Field> ProofSystem<T> for G16 {
 }
 
 mod serialization {
+    use pairing::{from_hex, CurveAffine, Engine};
     use proof_system::{G1Affine, G2Affine};
     use zokrates_field::Field;
-    use pairing::{CurveAffine, Engine, from_hex};
 
     pub fn to_g1<T: Field>(g1: G1Affine) -> <T::BellmanEngine as Engine>::G1Affine {
-        <T::BellmanEngine as Engine>::G1Affine::from_xy_checked(from_hex(&g1.0).unwrap(), from_hex(&g1.1).unwrap())
-            .unwrap()
+        <T::BellmanEngine as Engine>::G1Affine::from_xy_checked(
+            from_hex(&g1.0).unwrap(),
+            from_hex(&g1.1).unwrap(),
+        )
+        .unwrap()
     }
     pub fn to_g2<T: Field>(g2: G2Affine) -> <T::BellmanEngine as Engine>::G2Affine {
         // apparently the order is reversed
         let x = T::new_fq2(&(g2.0).1, &(g2.0).0);
         let y = T::new_fq2(&(g2.1).1, &(g2.1).0);
-        <T::BellmanEngine as Engine>::G2Affine::from_xy_checked(x,y).unwrap()
+        <T::BellmanEngine as Engine>::G2Affine::from_xy_checked(x, y).unwrap()
     }
 }
 

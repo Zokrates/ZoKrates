@@ -123,21 +123,24 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                     .inputs
                     .iter()
                     // we need to reduce to the canonical form to interpret `a + 1 - a` as `1`
-                    .map(|i| LinComb::from(i.as_canonical()))
-                    .map(|l| match l.0.len() {
-                        // 0 is constant and can be represented by an empty lincomb
-                        0 => Ok(T::from(0)),
-                        _ => l
-                            // try to match to a single summand `coeff * v`
-                            .try_summand()
-                            .map(|(variable, coefficient)| match variable {
-                                // v must be ~one
-                                v if v == FlatVariable::one() => Ok(coefficient),
-                                _ => Err(LinComb::summand(coefficient, variable).into()),
-                            })
-                            .unwrap_or(Err(l.into())),
+                    .map(|i| QuadComb::from(i.as_canonical()))
+                    .map(|q| match q.try_linear() {
+                        Some(l) => match l.0.len() {
+                            // 0 is constant and can be represented by an empty lincomb
+                            0 => Ok(T::from(0)),
+                            _ => l
+                                // try to match to a single summand `coeff * v`
+                                .try_summand()
+                                .map(|(variable, coefficient)| match variable {
+                                    // v must be ~one
+                                    v if v == FlatVariable::one() => Ok(coefficient),
+                                    _ => Err(LinComb::summand(coefficient, variable).into()),
+                                })
+                                .unwrap_or(Err(l.into())),
+                        },
+                        None => Err(q),
                     })
-                    .collect::<Vec<Result<T, LinComb<T>>>>();
+                    .collect::<Vec<Result<T, QuadComb<T>>>>();
 
                 match inputs.iter().all(|r| r.is_ok()) {
                     true => {
@@ -161,7 +164,7 @@ impl<T: Field> Folder<T> for RedefinitionOptimizer<T> {
                         let inputs = inputs
                             .into_iter()
                             .map(|i| {
-                                i.map(|v| LinComb::summand(v, FlatVariable::one()))
+                                i.map(|v| LinComb::summand(v, FlatVariable::one()).into())
                                     .unwrap_or_else(|q| q)
                             })
                             .collect();

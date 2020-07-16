@@ -5,5 +5,5 @@ def incr(field a) -> (field):
 def main() -> ():
     field x = 1
     field res = incr(x)
-    x == 1 // x has not changed
+    assert(x == 1) // x has not changed
     return

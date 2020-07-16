@@ -4,7 +4,6 @@ use ir::Directive;
 use solvers::Solver;
 use std::collections::BTreeMap;
 use std::fmt;
-use zokrates_embed::generate_sha256_round_witness;
 use zokrates_field::Field;
 
 pub type ExecutionResult<T> = Result<Witness<T>, Error>;
@@ -43,7 +42,7 @@ impl Interpreter {
             witness.insert(arg.clone(), value.clone().into());
         }
 
-        for statement in &main.statements {
+        for statement in main.statements.iter() {
             match statement {
                 Statement::Constraint(quad, lin) => match lin.is_assignee(&witness) {
                     true => {
@@ -64,7 +63,9 @@ impl Interpreter {
                 Statement::Directive(ref d) => {
                     match (&d.solver, &d.inputs, self.should_try_out_of_range) {
                         (Solver::Bits(bitwidth), inputs, true)
-                            if inputs[0].0.len() > 1 && *bitwidth == T::get_required_bits() =>
+                            if inputs[0].left.0.len() > 1
+                                || inputs[0].right.0.len() > 1
+                                    && *bitwidth == T::get_required_bits() =>
                         {
                             Self::try_solve_out_of_range(&d, &mut witness)
                         }
@@ -134,7 +135,6 @@ impl Interpreter {
     }
 
     pub fn execute_solver<T: Field>(&self, s: &Solver, inputs: &Vec<T>) -> Result<Vec<T>, String> {
-        use solvers::Signed;
         let (expected_input_count, expected_output_count) = s.get_signature();
         assert!(inputs.len() == expected_input_count);
 
@@ -158,18 +158,33 @@ impl Interpreter {
                 assert_eq!(num, T::zero());
                 res
             }
-            Solver::Div => vec![inputs[0].clone() / inputs[1].clone()],
-            Solver::Sha256Round => {
-                let i = &inputs[0..512];
-                let h = &inputs[512..];
-                let i: Vec<_> = i.iter().map(|x| x.clone().into_bellman()).collect();
-                let h: Vec<_> = h.iter().map(|x| x.clone().into_bellman()).collect();
-                assert!(h.len() == 256);
-                generate_sha256_round_witness::<T::BellmanEngine>(&i, &h)
-                    .into_iter()
-                    .map(|x| T::from_bellman(x))
-                    .collect()
+            Solver::Xor => {
+                let x = inputs[0].clone();
+                let y = inputs[1].clone();
+
+                vec![x.clone() + y.clone() - T::from(2) * x * y]
             }
+            Solver::Or => {
+                let x = inputs[0].clone();
+                let y = inputs[1].clone();
+
+                vec![x.clone() + y.clone() - x * y]
+            }
+            // res = b * c - (2b * c - b - c) * (a)
+            Solver::ShaAndXorAndXorAnd => {
+                let a = inputs[0].clone();
+                let b = inputs[1].clone();
+                let c = inputs[2].clone();
+                vec![b.clone() * c.clone() - (T::from(2) * b.clone() * c.clone() - b - c) * a]
+            }
+            // res = a(b - c) + c
+            Solver::ShaCh => {
+                let a = inputs[0].clone();
+                let b = inputs[1].clone();
+                let c = inputs[2].clone();
+                vec![a * (b - c.clone()) + c]
+            }
+            Solver::Div => vec![inputs[0].clone() / inputs[1].clone()],
         };
 
         assert_eq!(res.len(), expected_output_count);

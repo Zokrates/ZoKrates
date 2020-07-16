@@ -262,23 +262,8 @@ impl<'ast, T: Field> From<pest::AssertionStatement<'ast>> for absy::StatementNod
     fn from(statement: pest::AssertionStatement<'ast>) -> absy::StatementNode<T> {
         use absy::NodeValue;
 
-        match statement.expression {
-            pest::Expression::Binary(e) => match e.op {
-                pest::BinaryOperator::Eq => absy::Statement::Condition(
-                    absy::ExpressionNode::from(*e.left),
-                    absy::ExpressionNode::from(*e.right),
-                ),
-                _ => unimplemented!(
-                    "Assertion statements should be an equality check, found {}",
-                    statement.span.as_str()
-                ),
-            },
-            _ => unimplemented!(
-                "Assertion statements should be an equality check, found {}",
-                statement.span.as_str()
-            ),
-        }
-        .span(statement.span)
+        absy::Statement::Assertion(absy::ExpressionNode::from(statement.expression))
+            .span(statement.span)
     }
 }
 
@@ -369,7 +354,34 @@ impl<'ast, T: Field> From<pest::BinaryExpression<'ast>> for absy::ExpressionNode
                 box absy::ExpressionNode::from(*expression.left),
                 box absy::ExpressionNode::from(*expression.right),
             ),
-            o => unimplemented!("Operator {:?} not implemented", o),
+            pest::BinaryOperator::BitXor => absy::Expression::BitXor(
+                box absy::ExpressionNode::from(*expression.left),
+                box absy::ExpressionNode::from(*expression.right),
+            ),
+            pest::BinaryOperator::LeftShift => absy::Expression::LeftShift(
+                box absy::ExpressionNode::from(*expression.left),
+                box absy::ExpressionNode::from(*expression.right),
+            ),
+            pest::BinaryOperator::RightShift => absy::Expression::RightShift(
+                box absy::ExpressionNode::from(*expression.left),
+                box absy::ExpressionNode::from(*expression.right),
+            ),
+            pest::BinaryOperator::BitAnd => absy::Expression::BitAnd(
+                box absy::ExpressionNode::from(*expression.left),
+                box absy::ExpressionNode::from(*expression.right),
+            ),
+            pest::BinaryOperator::BitOr => absy::Expression::BitOr(
+                box absy::ExpressionNode::from(*expression.left),
+                box absy::ExpressionNode::from(*expression.right),
+            ),
+            // rewrite (a != b)` as `!(a == b)`
+            pest::BinaryOperator::NotEq => absy::Expression::Not(
+                box absy::Expression::Eq(
+                    box absy::ExpressionNode::from(*expression.left),
+                    box absy::ExpressionNode::from(*expression.right),
+                )
+                .span(expression.span.clone()),
+            ),
         }
         .span(expression.span)
     }
@@ -556,6 +568,18 @@ impl<'ast, T: Field> From<pest::ConstantExpression<'ast>> for absy::ExpressionNo
             pest::ConstantExpression::DecimalNumber(n) => {
                 absy::Expression::FieldConstant(T::try_from_dec_str(&n.value).unwrap()).span(n.span)
             }
+            pest::ConstantExpression::U8(n) => absy::Expression::U8Constant(
+                u8::from_str_radix(&n.value.trim_start_matches("0x"), 16).unwrap(),
+            )
+            .span(n.span),
+            pest::ConstantExpression::U16(n) => absy::Expression::U16Constant(
+                u16::from_str_radix(&n.value.trim_start_matches("0x"), 16).unwrap(),
+            )
+            .span(n.span),
+            pest::ConstantExpression::U32(n) => absy::Expression::U32Constant(
+                u32::from_str_radix(&n.value.trim_start_matches("0x"), 16).unwrap(),
+            )
+            .span(n.span),
         }
     }
 }
@@ -604,6 +628,9 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode {
             pest::Type::Basic(t) => match t {
                 pest::BasicType::Field(t) => absy::UnresolvedType::FieldElement.span(t.span),
                 pest::BasicType::Boolean(t) => absy::UnresolvedType::Boolean.span(t.span),
+                pest::BasicType::U8(t) => absy::UnresolvedType::Uint(8).span(t.span),
+                pest::BasicType::U16(t) => absy::UnresolvedType::Uint(16).span(t.span),
+                pest::BasicType::U32(t) => absy::UnresolvedType::Uint(32).span(t.span),
             },
             pest::Type::Array(t) => {
                 let inner_type = match t.ty {
@@ -612,6 +639,9 @@ impl<'ast> From<pest::Type<'ast>> for absy::UnresolvedTypeNode {
                             absy::UnresolvedType::FieldElement.span(t.span)
                         }
                         pest::BasicType::Boolean(t) => absy::UnresolvedType::Boolean.span(t.span),
+                        pest::BasicType::U8(t) => absy::UnresolvedType::Uint(8).span(t.span),
+                        pest::BasicType::U16(t) => absy::UnresolvedType::Uint(16).span(t.span),
+                        pest::BasicType::U32(t) => absy::UnresolvedType::Uint(32).span(t.span),
                     },
                     pest::BasicOrStructType::Struct(t) => {
                         absy::UnresolvedType::User(t.span.as_str().to_string()).span(t.span)

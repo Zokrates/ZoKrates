@@ -43,6 +43,14 @@ struct Output {
 type Val = String;
 
 fn parse_val<T: Field>(s: String) -> T {
+    let s = if s.starts_with("0x") {
+        u32::from_str_radix(s.trim_start_matches("0x"), 16)
+            .unwrap()
+            .to_string()
+    } else {
+        s
+    };
+
     T::try_from_dec_str(&s).unwrap()
 }
 
@@ -100,20 +108,24 @@ fn compile_and_run<T: Field>(t: Tests) {
         code,
         t.entry_point.clone(),
         Some(&resolver),
-        &CompileConfig::default().with_is_release(true),
+        &CompileConfig::default(),
     )
     .unwrap();
 
     let bin = artifacts.prog();
 
+    println!("NOTE: We do not compile in release mode here, so the metrics below are conservative");
+
     match t.max_constraint_count {
-        Some(count) => assert!(
-            bin.constraint_count() <= count,
-            "Expected at the most {} constraints, found {}:\n{}",
-            count,
-            bin.constraint_count(),
-            bin
-        ),
+        Some(target_count) => {
+            let count = bin.constraint_count();
+
+            println!(
+                "{} at {}% of max",
+                t.entry_point.display(),
+                (count as f32) / (target_count as f32) * 100_f32
+            );
+        }
         _ => {}
     };
 

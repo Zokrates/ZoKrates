@@ -77,7 +77,7 @@ impl<'a> Resolver<Error> for JsResolver<'a> {
             )
             .map_err(|_| {
                 Error::new(format!(
-                    "Error thrown in callback: could not resolve {}",
+                    "Error thrown in JS callback: could not resolve {}",
                     import_location.display()
                 ))
             })?;
@@ -99,15 +99,26 @@ pub fn compile(
     source: JsValue,
     location: JsValue,
     resolve: &js_sys::Function,
+    config: JsValue,
 ) -> Result<JsValue, JsValue> {
     let fmt_error = |e: &CompileError| format!("{}:{}", e.file().display(), e.value());
     let resolver = JsResolver::new(resolve);
+
+    let config: CompileConfig = {
+        if config.is_object() {
+            config
+                .into_serde()
+                .map_err(|e| JsValue::from_str(&format!("Invalid config format: {}", e)))?
+        } else {
+            CompileConfig::default()
+        }
+    };
 
     let artifacts: CompilationArtifacts<Bn128Field> = core_compile(
         source.as_string().unwrap(),
         PathBuf::from(location.as_string().unwrap()),
         Some(&resolver),
-        &CompileConfig::default().with_is_release(true),
+        &config,
     )
     .map_err(|ce| {
         JsValue::from_str(&format!(

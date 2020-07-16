@@ -63,6 +63,39 @@ impl IntoIterator for StructType {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash, Copy)]
+pub enum UBitwidth {
+    #[serde(rename = "8")]
+    B8 = 8,
+    #[serde(rename = "16")]
+    B16 = 16,
+    #[serde(rename = "32")]
+    B32 = 32,
+}
+
+impl UBitwidth {
+    pub fn to_usize(&self) -> usize {
+        *self as u32 as usize
+    }
+}
+
+impl From<usize> for UBitwidth {
+    fn from(b: usize) -> Self {
+        match b {
+            8 => UBitwidth::B8,
+            16 => UBitwidth::B16,
+            32 => UBitwidth::B32,
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl fmt::Display for UBitwidth {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.to_usize())
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 #[serde(tag = "type", content = "components")]
 pub enum Type {
@@ -74,6 +107,8 @@ pub enum Type {
     Array(ArrayType),
     #[serde(rename = "struct")]
     Struct(StructType),
+    #[serde(rename = "u")]
+    Uint(UBitwidth),
 }
 
 impl ArrayType {
@@ -99,6 +134,7 @@ impl fmt::Display for Type {
         match self {
             Type::FieldElement => write!(f, "field"),
             Type::Boolean => write!(f, "bool"),
+            Type::Uint(ref bitwidth) => write!(f, "u{}", bitwidth),
             Type::Array(ref array_type) => write!(f, "{}[{}]", array_type.ty, array_type.size),
             Type::Struct(ref struct_type) => write!(
                 f,
@@ -120,6 +156,7 @@ impl fmt::Debug for Type {
         match self {
             Type::FieldElement => write!(f, "field"),
             Type::Boolean => write!(f, "bool"),
+            Type::Uint(ref bitwidth) => write!(f, "u{}", bitwidth),
             Type::Array(ref array_type) => write!(f, "{}[{}]", array_type.ty, array_type.size),
             Type::Struct(ref struct_type) => write!(
                 f,
@@ -141,10 +178,19 @@ impl Type {
         Type::Array(ArrayType::new(ty, size))
     }
 
+    pub fn struc(struct_ty: StructType) -> Self {
+        Type::Struct(struct_ty)
+    }
+
+    pub fn uint<W: Into<UBitwidth>>(b: W) -> Self {
+        Type::Uint(b.into())
+    }
+
     fn to_slug(&self) -> String {
         match self {
             Type::FieldElement => String::from("f"),
             Type::Boolean => String::from("b"),
+            Type::Uint(bitwidth) => format!("u{}", bitwidth),
             Type::Array(array_type) => format!("{}[{}]", array_type.ty.to_slug(), array_type.size),
             Type::Struct(struct_type) => format!(
                 "{{{}}}",
@@ -162,6 +208,7 @@ impl Type {
         match self {
             Type::FieldElement => 1,
             Type::Boolean => 1,
+            Type::Uint(_) => 1,
             Type::Array(array_type) => array_type.size * array_type.ty.get_primitive_count(),
             Type::Struct(struct_type) => struct_type
                 .iter()

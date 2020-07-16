@@ -84,13 +84,12 @@ impl<'ast> Unroller<'ast> {
 
                     match head {
                         Access::Select(head) => {
-                            statements.insert(TypedStatement::Condition(
+                            statements.insert(TypedStatement::Assertion(
                                 BooleanExpression::Lt(
                                     box head.clone(),
                                     box FieldElementExpression::Number(T::from(size)),
                                 )
                                 .into(),
-                                BooleanExpression::Value(true).into(),
                             ));
 
                             ArrayExpressionInner::Value(
@@ -204,6 +203,33 @@ impl<'ast> Unroller<'ast> {
                                             ),
                                         )
                                         .into(),
+                                        Type::Uint(..) => UExpression::if_else(
+                                            BooleanExpression::FieldEq(
+                                                box FieldElementExpression::Number(T::from(i)),
+                                                box head.clone(),
+                                            ),
+                                            match Self::choose_many(
+                                                UExpression::select(
+                                                    base.clone(),
+                                                    FieldElementExpression::Number(T::from(i)),
+                                                )
+                                                .into(),
+                                                tail.clone(),
+                                                new_expression.clone(),
+                                                statements,
+                                            ) {
+                                                TypedExpression::Uint(e) => e,
+                                                e => unreachable!(
+                                            "the interior was expected to be a uint, was {}",
+                                            e.get_type()
+                                        ),
+                                            },
+                                            UExpression::select(
+                                                base.clone(),
+                                                FieldElementExpression::Number(T::from(i)),
+                                            ),
+                                        )
+                                        .into(),
                                     })
                                     .collect(),
                             )
@@ -246,6 +272,20 @@ impl<'ast> Unroller<'ast> {
                                                 member.id.clone(),
                                             )
                                             .into()
+                                        }
+                                    }
+                                    Type::Uint(..) => {
+                                        if member.id == head {
+                                            Self::choose_many(
+                                                UExpression::member(base.clone(), head.clone())
+                                                    .into(),
+                                                tail.clone(),
+                                                new_expression.clone(),
+                                                statements,
+                                            )
+                                        } else {
+                                            UExpression::member(base.clone(), member.id.clone())
+                                                .into()
                                         }
                                     }
                                     Type::Boolean => {
@@ -355,6 +395,11 @@ impl<'ast, T: Field> Folder<'ast, T> for Unroller<'ast> {
                     }
                     Type::Boolean => {
                         BooleanExpression::Identifier(variable.id.clone().into()).into()
+                    }
+                    Type::Uint(bitwidth) => {
+                        UExpressionInner::Identifier(variable.id.clone().into())
+                            .annotate(bitwidth)
+                            .into()
                     }
                     Type::Array(array_type) => {
                         ArrayExpressionInner::Identifier(variable.id.clone().into())
@@ -724,13 +769,13 @@ mod tests {
             // foo_2 = i_2
 
             let s = TypedStatement::For(
-                Variable::field_element("i".into()),
+                Variable::field_element("i"),
                 FieldElementExpression::Number(Bn128Field::from(2)),
                 FieldElementExpression::Number(Bn128Field::from(5)),
                 vec![
-                    TypedStatement::Declaration(Variable::field_element("foo".into())),
+                    TypedStatement::Declaration(Variable::field_element("foo")),
                     TypedStatement::Definition(
-                        TypedAssignee::Identifier(Variable::field_element("foo".into())),
+                        TypedAssignee::Identifier(Variable::field_element("foo")),
                         FieldElementExpression::Identifier("i".into()).into(),
                     ),
                 ],
@@ -835,11 +880,11 @@ mod tests {
             let mut u = Unroller::new();
 
             let s: TypedStatement<Bn128Field> =
-                TypedStatement::Declaration(Variable::field_element("a".into()));
+                TypedStatement::Declaration(Variable::field_element("a"));
             assert_eq!(u.fold_statement(s), vec![]);
 
             let s = TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element("a".into())),
+                TypedAssignee::Identifier(Variable::field_element("a")),
                 FieldElementExpression::Number(Bn128Field::from(5)).into(),
             );
             assert_eq!(
@@ -853,7 +898,7 @@ mod tests {
             );
 
             let s = TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element("a".into())),
+                TypedAssignee::Identifier(Variable::field_element("a")),
                 FieldElementExpression::Number(Bn128Field::from(6)).into(),
             );
             assert_eq!(
@@ -887,11 +932,11 @@ mod tests {
             let mut u = Unroller::new();
 
             let s: TypedStatement<Bn128Field> =
-                TypedStatement::Declaration(Variable::field_element("a".into()));
+                TypedStatement::Declaration(Variable::field_element("a"));
             assert_eq!(u.fold_statement(s), vec![]);
 
             let s = TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element("a".into())),
+                TypedAssignee::Identifier(Variable::field_element("a")),
                 FieldElementExpression::Number(Bn128Field::from(5)).into(),
             );
             assert_eq!(
@@ -905,7 +950,7 @@ mod tests {
             );
 
             let s = TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element("a".into())),
+                TypedAssignee::Identifier(Variable::field_element("a")),
                 FieldElementExpression::Add(
                     box FieldElementExpression::Identifier("a".into()),
                     box FieldElementExpression::Number(Bn128Field::from(1)),
@@ -942,11 +987,11 @@ mod tests {
             let mut u = Unroller::new();
 
             let s: TypedStatement<Bn128Field> =
-                TypedStatement::Declaration(Variable::field_element("a".into()));
+                TypedStatement::Declaration(Variable::field_element("a"));
             assert_eq!(u.fold_statement(s), vec![]);
 
             let s = TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_element("a".into())),
+                TypedAssignee::Identifier(Variable::field_element("a")),
                 FieldElementExpression::Number(Bn128Field::from(2)).into(),
             );
             assert_eq!(
@@ -960,7 +1005,7 @@ mod tests {
             );
 
             let s: TypedStatement<Bn128Field> = TypedStatement::MultipleDefinition(
-                vec![Variable::field_element("a".into())],
+                vec![Variable::field_element("a")],
                 TypedExpressionList::FunctionCall(
                     FunctionKey::with_id("foo").signature(
                         Signature::new()
@@ -1003,11 +1048,11 @@ mod tests {
             let mut u = Unroller::new();
 
             let s: TypedStatement<Bn128Field> =
-                TypedStatement::Declaration(Variable::field_array("a".into(), 2));
+                TypedStatement::Declaration(Variable::field_array("a", 2));
             assert_eq!(u.fold_statement(s), vec![]);
 
             let s = TypedStatement::Definition(
-                TypedAssignee::Identifier(Variable::field_array("a".into(), 2)),
+                TypedAssignee::Identifier(Variable::field_array("a", 2)),
                 ArrayExpressionInner::Value(vec![
                     FieldElementExpression::Number(Bn128Field::from(1)).into(),
                     FieldElementExpression::Number(Bn128Field::from(1)).into(),
@@ -1034,7 +1079,7 @@ mod tests {
 
             let s: TypedStatement<Bn128Field> = TypedStatement::Definition(
                 TypedAssignee::Select(
-                    box TypedAssignee::Identifier(Variable::field_array("a".into(), 2)),
+                    box TypedAssignee::Identifier(Variable::field_array("a", 2)),
                     box FieldElementExpression::Number(Bn128Field::from(1)),
                 ),
                 FieldElementExpression::Number(Bn128Field::from(2)).into(),
@@ -1043,13 +1088,12 @@ mod tests {
             assert_eq!(
                 u.fold_statement(s),
                 vec![
-                    TypedStatement::Condition(
+                    TypedStatement::Assertion(
                         BooleanExpression::Lt(
                             box FieldElementExpression::Number(Bn128Field::from(1)),
                             box FieldElementExpression::Number(Bn128Field::from(2))
                         )
                         .into(),
-                        BooleanExpression::Value(true).into()
                     ),
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::field_array(
@@ -1109,13 +1153,13 @@ mod tests {
             let array_of_array_ty = Type::array(Type::array(Type::FieldElement, 2), 2);
 
             let s: TypedStatement<Bn128Field> = TypedStatement::Declaration(
-                Variable::with_id_and_type("a".into(), array_of_array_ty.clone()),
+                Variable::with_id_and_type("a", array_of_array_ty.clone()),
             );
             assert_eq!(u.fold_statement(s), vec![]);
 
             let s = TypedStatement::Definition(
                 TypedAssignee::Identifier(Variable::with_id_and_type(
-                    "a".into(),
+                    "a",
                     array_of_array_ty.clone(),
                 )),
                 ArrayExpressionInner::Value(vec![
@@ -1165,7 +1209,7 @@ mod tests {
             let s: TypedStatement<Bn128Field> = TypedStatement::Definition(
                 TypedAssignee::Select(
                     box TypedAssignee::Identifier(Variable::with_id_and_type(
-                        "a".into(),
+                        "a",
                         array_of_array_ty.clone(),
                     )),
                     box FieldElementExpression::Number(Bn128Field::from(1)),
@@ -1181,13 +1225,12 @@ mod tests {
             assert_eq!(
                 u.fold_statement(s),
                 vec![
-                    TypedStatement::Condition(
+                    TypedStatement::Assertion(
                         BooleanExpression::Lt(
                             box FieldElementExpression::Number(Bn128Field::from(1)),
                             box FieldElementExpression::Number(Bn128Field::from(2))
                         )
                         .into(),
-                        BooleanExpression::Value(true).into()
                     ),
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::with_id_and_type(

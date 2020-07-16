@@ -17,7 +17,7 @@
 //! where any call in `main` must be to `_SHA_256_ROUND` or `_UNPACK`
 
 use std::collections::HashMap;
-use typed_absy::types::{FunctionKey, Type};
+use typed_absy::types::{FunctionKey, Type, UBitwidth};
 use typed_absy::{folder::*, *};
 use zokrates_field::Field;
 
@@ -101,12 +101,32 @@ impl<'ast, T: Field> Inliner<'ast, T> {
         let main = inliner.fold_function_symbol(main);
 
         // define a function in the main module for the `unpack` embed
-        let unpack = crate::embed::FlatEmbed::Unpack;
+        let unpack = crate::embed::FlatEmbed::Unpack(T::get_required_bits());
         let unpack_key = unpack.key::<T>();
 
-        // define a function in the main module for the `sha256_round` embed
-        let sha256_round = crate::embed::FlatEmbed::Sha256Round;
-        let sha256_round_key = sha256_round.key::<T>();
+        // define a function in the main module for the `u32_to_bits` embed
+        let u32_to_bits = crate::embed::FlatEmbed::U32ToBits;
+        let u32_to_bits_key = u32_to_bits.key::<T>();
+
+        // define a function in the main module for the `u16_to_bits` embed
+        let u16_to_bits = crate::embed::FlatEmbed::U16ToBits;
+        let u16_to_bits_key = u16_to_bits.key::<T>();
+
+        // define a function in the main module for the `u8_to_bits` embed
+        let u8_to_bits = crate::embed::FlatEmbed::U8ToBits;
+        let u8_to_bits_key = u8_to_bits.key::<T>();
+
+        // define a function in the main module for the `u32_from_bits` embed
+        let u32_from_bits = crate::embed::FlatEmbed::U32FromBits;
+        let u32_from_bits_key = u32_from_bits.key::<T>();
+
+        // define a function in the main module for the `u16_from_bits` embed
+        let u16_from_bits = crate::embed::FlatEmbed::U16FromBits;
+        let u16_from_bits_key = u16_from_bits.key::<T>();
+
+        // define a function in the main module for the `u8_from_bits` embed
+        let u8_from_bits = crate::embed::FlatEmbed::U8FromBits;
+        let u8_from_bits_key = u8_from_bits.key::<T>();
 
         // return a program with a single module containing `main`, `_UNPACK`, and `_SHA256_ROUND
         TypedProgram {
@@ -116,7 +136,12 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                 TypedModule {
                     functions: vec![
                         (unpack_key, TypedFunctionSymbol::Flat(unpack)),
-                        (sha256_round_key, TypedFunctionSymbol::Flat(sha256_round)),
+                        (u32_from_bits_key, TypedFunctionSymbol::Flat(u32_from_bits)),
+                        (u16_from_bits_key, TypedFunctionSymbol::Flat(u16_from_bits)),
+                        (u8_from_bits_key, TypedFunctionSymbol::Flat(u8_from_bits)),
+                        (u32_to_bits_key, TypedFunctionSymbol::Flat(u32_to_bits)),
+                        (u16_to_bits_key, TypedFunctionSymbol::Flat(u16_to_bits)),
+                        (u8_to_bits_key, TypedFunctionSymbol::Flat(u8_to_bits)),
                         (main_key, main),
                     ]
                     .into_iter()
@@ -209,7 +234,15 @@ impl<'ast, T: Field> Inliner<'ast, T> {
                 Ok(res)
             }
             // if the function is a flat symbol, replace the call with a call to the local function we provide so it can be inlined in flattening
-            TypedFunctionSymbol::Flat(embed) => Err((embed.key::<T>(), expressions.clone())),
+            TypedFunctionSymbol::Flat(embed) => {
+                // increase the number of calls for this function by one
+                let _ = self
+                    .call_count
+                    .entry((self.module_id().clone(), embed.key::<T>().clone()))
+                    .and_modify(|i| *i += 1)
+                    .or_insert(1);
+                Err((embed.key::<T>(), expressions.clone()))
+            }
         };
 
         res.map(|exprs| {
@@ -316,7 +349,21 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         _ => unreachable!(),
                     },
                     Err((key, expressions)) => {
-                        FieldElementExpression::FunctionCall(key, expressions)
+                        let tys = key.signature.outputs.clone();
+                        let id = Identifier {
+                            id: CoreIdentifier::Call(key.clone()),
+                            version: *self
+                                .call_count
+                                .get(&(self.module_id().clone(), key.clone()))
+                                .unwrap(),
+                            stack: self.stack.clone(),
+                        };
+                        self.statement_buffer
+                            .push(TypedStatement::MultipleDefinition(
+                                vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
+                                TypedExpressionList::FunctionCall(key, expressions, tys),
+                            ));
+                        FieldElementExpression::Identifier(id)
                     }
                 }
             }
@@ -338,7 +385,36 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         TypedExpression::Boolean(e) => e,
                         _ => unreachable!(),
                     },
-                    Err((key, expressions)) => BooleanExpression::FunctionCall(key, expressions),
+                    Err((key, expressions)) => {
+                        let tys = key.signature.outputs.clone();
+                        let id = Identifier {
+                            id: CoreIdentifier::Call(key.clone()),
+                            version: *self
+                                .call_count
+                                .get(&(self.module_id().clone(), key.clone()))
+                                .unwrap(),
+                            stack: self.stack.clone(),
+                        };
+                        self.statement_buffer
+                            .push(TypedStatement::MultipleDefinition(
+                                vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
+                                TypedExpressionList::FunctionCall(
+                                    key.clone(),
+                                    expressions.clone(),
+                                    tys,
+                                ),
+                            ));
+
+                        self.call_cache_mut()
+                            .entry(key.clone())
+                            .or_insert_with(|| HashMap::new())
+                            .insert(
+                                expressions,
+                                vec![BooleanExpression::Identifier(id.clone()).into()],
+                            );
+
+                        BooleanExpression::Identifier(id)
+                    }
                 }
             }
             e => fold_boolean_expression(self, e),
@@ -361,7 +437,38 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         TypedExpression::Array(e) => e.into_inner(),
                         _ => unreachable!(),
                     },
-                    Err((key, expressions)) => ArrayExpressionInner::FunctionCall(key, expressions),
+                    Err((embed_key, expressions)) => {
+                        let tys = key.signature.outputs.clone();
+                        let id = Identifier {
+                            id: CoreIdentifier::Call(key.clone()),
+                            version: *self
+                                .call_count
+                                .get(&(self.module_id().clone(), embed_key.clone()))
+                                .unwrap(),
+                            stack: self.stack.clone(),
+                        };
+                        self.statement_buffer
+                            .push(TypedStatement::MultipleDefinition(
+                                vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
+                                TypedExpressionList::FunctionCall(
+                                    embed_key.clone(),
+                                    expressions.clone(),
+                                    tys,
+                                ),
+                            ));
+
+                        let out = ArrayExpressionInner::Identifier(id);
+
+                        self.call_cache_mut()
+                            .entry(key.clone())
+                            .or_insert_with(|| HashMap::new())
+                            .insert(
+                                expressions,
+                                vec![out.clone().annotate(ty.clone(), size).into()],
+                            );
+
+                        out
+                    }
                 }
             }
             // default
@@ -384,12 +491,76 @@ impl<'ast, T: Field> Folder<'ast, T> for Inliner<'ast, T> {
                         _ => unreachable!(),
                     },
                     Err((key, expressions)) => {
-                        StructExpressionInner::FunctionCall(key, expressions)
+                        let tys = key.signature.outputs.clone();
+                        let id = Identifier {
+                            id: CoreIdentifier::Call(key.clone()),
+                            version: *self
+                                .call_count
+                                .get(&(self.module_id().clone(), key.clone()))
+                                .unwrap(),
+                            stack: self.stack.clone(),
+                        };
+                        self.statement_buffer
+                            .push(TypedStatement::MultipleDefinition(
+                                vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
+                                TypedExpressionList::FunctionCall(key, expressions, tys),
+                            ));
+                        StructExpressionInner::Identifier(id)
                     }
                 }
             }
             // default
             e => fold_struct_expression_inner(self, ty, e),
+        }
+    }
+
+    fn fold_uint_expression_inner(
+        &mut self,
+        size: UBitwidth,
+        e: UExpressionInner<'ast, T>,
+    ) -> UExpressionInner<'ast, T> {
+        match e {
+            UExpressionInner::FunctionCall(key, exps) => {
+                let exps: Vec<_> = exps.into_iter().map(|e| self.fold_expression(e)).collect();
+
+                match self.try_inline_call(&key, exps) {
+                    Ok(mut ret) => match ret.pop().unwrap() {
+                        TypedExpression::Uint(e) => e.into_inner(),
+                        _ => unreachable!(),
+                    },
+                    Err((embed_key, expressions)) => {
+                        let tys = key.signature.outputs.clone();
+                        let id = Identifier {
+                            id: CoreIdentifier::Call(key.clone()),
+                            version: *self
+                                .call_count
+                                .get(&(self.module_id().clone(), embed_key.clone()))
+                                .unwrap(),
+                            stack: self.stack.clone(),
+                        };
+                        self.statement_buffer
+                            .push(TypedStatement::MultipleDefinition(
+                                vec![Variable::with_id_and_type(id.clone(), tys[0].clone())],
+                                TypedExpressionList::FunctionCall(
+                                    embed_key.clone(),
+                                    expressions.clone(),
+                                    tys,
+                                ),
+                            ));
+
+                        let out = UExpressionInner::Identifier(id);
+
+                        self.call_cache_mut()
+                            .entry(key.clone())
+                            .or_insert_with(|| HashMap::new())
+                            .insert(expressions, vec![out.clone().annotate(size).into()]);
+
+                        out
+                    }
+                }
+            }
+            // default
+            e => fold_uint_expression_inner(self, size, e),
         }
     }
 }
@@ -524,7 +695,7 @@ mod tests {
                             .outputs(vec![Type::FieldElement]),
                     ),
                     TypedFunctionSymbol::Here(TypedFunction {
-                        arguments: vec![Parameter::private(Variable::field_element("a".into()))],
+                        arguments: vec![Parameter::private(Variable::field_element("a"))],
                         statements: vec![TypedStatement::Return(vec![
                             FieldElementExpression::Mult(
                                 box FieldElementExpression::Identifier("a".into()),
@@ -572,7 +743,7 @@ mod tests {
                         .outputs(vec![Type::FieldElement]),
                 ),
                 TypedFunctionSymbol::Here(TypedFunction {
-                    arguments: vec![Parameter::private(Variable::field_element("a".into()))],
+                    arguments: vec![Parameter::private(Variable::field_element("a"))],
                     statements: vec![TypedStatement::Return(vec![FieldElementExpression::Mult(
                         box FieldElementExpression::Identifier("a".into()),
                         box FieldElementExpression::Identifier("a".into()),
@@ -625,7 +796,7 @@ mod tests {
                 )
                 .unwrap(),
             &TypedFunctionSymbol::Here(TypedFunction {
-                arguments: vec![Parameter::private(Variable::field_element("a".into()))],
+                arguments: vec![Parameter::private(Variable::field_element("a"))],
                 statements: vec![
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::field_element(
@@ -679,12 +850,12 @@ mod tests {
                     FunctionKey::with_id("main").signature(signature.clone()),
                     TypedFunctionSymbol::Here(TypedFunction {
                         arguments: vec![Parameter {
-                            id: Variable::field_element("a".into()),
+                            id: Variable::field_element("a"),
                             private: true,
                         }],
                         statements: vec![
                             TypedStatement::Definition(
-                                TypedAssignee::Identifier(Variable::field_element("b".into())),
+                                TypedAssignee::Identifier(Variable::field_element("b")),
                                 FieldElementExpression::Add(
                                     box FieldElementExpression::FunctionCall(
                                         FunctionKey::with_id("foo").signature(signature.clone()),
@@ -722,7 +893,7 @@ mod tests {
                 FunctionKey::with_id("foo").signature(signature.clone()),
                 TypedFunctionSymbol::Here(TypedFunction {
                     arguments: vec![Parameter {
-                        id: Variable::field_element("a".into()),
+                        id: Variable::field_element("a"),
                         private: true,
                     }],
                     statements: vec![TypedStatement::Return(vec![
@@ -757,7 +928,7 @@ mod tests {
                 .unwrap(),
             &TypedFunctionSymbol::Here(TypedFunction {
                 arguments: vec![Parameter {
-                    id: Variable::field_element("a".into()),
+                    id: Variable::field_element("a"),
                     private: true,
                 }],
                 statements: vec![
@@ -772,7 +943,7 @@ mod tests {
                         FieldElementExpression::Identifier("a".into()).into()
                     ),
                     TypedStatement::Definition(
-                        TypedAssignee::Identifier(Variable::field_element("b".into())),
+                        TypedAssignee::Identifier(Variable::field_element("b")),
                         FieldElementExpression::Add(
                             box FieldElementExpression::Identifier(Identifier::from("a").stack(
                                 vec![(
@@ -833,12 +1004,12 @@ mod tests {
                     ),
                     TypedFunctionSymbol::Here(TypedFunction {
                         arguments: vec![Parameter {
-                            id: Variable::field_element("a".into()),
+                            id: Variable::field_element("a"),
                             private: true,
                         }],
                         statements: vec![
                             TypedStatement::Definition(
-                                TypedAssignee::Identifier(Variable::field_element("b".into())),
+                                TypedAssignee::Identifier(Variable::field_element("b")),
                                 FieldElementExpression::Add(
                                     box FieldElementExpression::FunctionCall(
                                         FunctionKey::with_id("foo").signature(signature.clone()),
@@ -863,7 +1034,7 @@ mod tests {
                     FunctionKey::with_id("bar").signature(signature.clone()),
                     TypedFunctionSymbol::Here(TypedFunction {
                         arguments: vec![Parameter {
-                            id: Variable::field_element("a".into()),
+                            id: Variable::field_element("a"),
                             private: true,
                         }],
                         statements: vec![TypedStatement::Return(vec![
@@ -893,7 +1064,7 @@ mod tests {
                 FunctionKey::with_id("foo").signature(signature.clone()),
                 TypedFunctionSymbol::Here(TypedFunction {
                     arguments: vec![Parameter {
-                        id: Variable::field_element("a".into()),
+                        id: Variable::field_element("a"),
                         private: true,
                     }],
                     statements: vec![TypedStatement::Return(vec![
@@ -928,7 +1099,7 @@ mod tests {
                 .unwrap(),
             &TypedFunctionSymbol::Here(TypedFunction {
                 arguments: vec![Parameter {
-                    id: Variable::field_element("a".into()),
+                    id: Variable::field_element("a"),
                     private: true,
                 }],
                 statements: vec![
@@ -975,7 +1146,7 @@ mod tests {
                         .into()
                     ),
                     TypedStatement::Definition(
-                        TypedAssignee::Identifier(Variable::field_element("b".into())),
+                        TypedAssignee::Identifier(Variable::field_element("b")),
                         FieldElementExpression::Add(
                             box FieldElementExpression::Identifier(Identifier::from("a").stack(
                                 vec![(
@@ -1035,7 +1206,7 @@ mod tests {
                         arguments: vec![],
                         statements: vec![
                             TypedStatement::MultipleDefinition(
-                                vec![Variable::field_element("a".into())],
+                                vec![Variable::field_element("a")],
                                 TypedExpressionList::FunctionCall(
                                     FunctionKey::with_id("foo").signature(
                                         Signature::new().outputs(vec![Type::FieldElement]),
@@ -1109,7 +1280,7 @@ mod tests {
                 arguments: vec![],
                 statements: vec![
                     TypedStatement::Definition(
-                        TypedAssignee::Identifier(Variable::field_element("a".into())),
+                        TypedAssignee::Identifier(Variable::field_element("a")),
                         FieldElementExpression::Number(Bn128Field::from(42)).into()
                     ),
                     TypedStatement::Return(vec![
@@ -1144,7 +1315,7 @@ mod tests {
                         arguments: vec![],
                         statements: vec![
                             TypedStatement::MultipleDefinition(
-                                vec![Variable::field_element("a".into())],
+                                vec![Variable::field_element("a")],
                                 TypedExpressionList::FunctionCall(
                                     FunctionKey::with_id("foo").signature(
                                         Signature::new().outputs(vec![Type::FieldElement]),
@@ -1202,7 +1373,7 @@ mod tests {
                 arguments: vec![],
                 statements: vec![
                     TypedStatement::Definition(
-                        TypedAssignee::Identifier(Variable::field_element("a".into())),
+                        TypedAssignee::Identifier(Variable::field_element("a")),
                         FieldElementExpression::Number(Bn128Field::from(42)).into()
                     ),
                     TypedStatement::Return(vec![
@@ -1239,7 +1410,7 @@ mod tests {
                             .outputs(vec![Type::FieldElement]),
                     ),
                     TypedFunctionSymbol::Here(TypedFunction {
-                        arguments: vec![Parameter::private(Variable::field_element("a".into()))],
+                        arguments: vec![Parameter::private(Variable::field_element("a"))],
                         statements: vec![TypedStatement::Return(vec![
                             FieldElementExpression::FunctionCall(
                                 FunctionKey::with_id("id").signature(
@@ -1292,7 +1463,7 @@ mod tests {
                         .outputs(vec![Type::FieldElement]),
                 ),
                 TypedFunctionSymbol::Here(TypedFunction {
-                    arguments: vec![Parameter::private(Variable::field_element("a".into()))],
+                    arguments: vec![Parameter::private(Variable::field_element("a"))],
                     statements: vec![TypedStatement::Return(vec![
                         FieldElementExpression::Identifier("a".into()).into(),
                     ])],
@@ -1351,7 +1522,7 @@ mod tests {
                 )
                 .unwrap(),
             &TypedFunctionSymbol::Here(TypedFunction {
-                arguments: vec![Parameter::private(Variable::field_element("a".into()))],
+                arguments: vec![Parameter::private(Variable::field_element("a"))],
                 statements: vec![
                     TypedStatement::Definition(
                         TypedAssignee::Identifier(Variable::field_element(

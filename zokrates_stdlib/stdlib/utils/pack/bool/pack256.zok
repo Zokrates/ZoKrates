@@ -1,0 +1,14 @@
+#pragma curve bn128
+
+def main(bool[256] input) -> (field):
+
+	field out = 0
+
+	field len = 256
+
+	for field j in 0..len do
+		field i = len - (j + 1)
+		out = out + if bits[i] then (2 ** j) else 0 fi
+	endfor
+
+    return out

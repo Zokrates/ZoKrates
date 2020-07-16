@@ -91,7 +91,7 @@ impl<T: Field> From<FlatExpression<T>> for LinComb<T> {
                 box FlatExpression::Identifier(v1),
                 box FlatExpression::Number(n1),
             ) => LinComb::summand(n1, v1),
-            e => unimplemented!("{}", e),
+            e => unreachable!("{}", e),
         }
     }
 }
@@ -122,7 +122,11 @@ impl<T: Field> From<FlatStatement<T>> for Statement<T> {
 impl<T: Field> From<FlatDirective<T>> for Directive<T> {
     fn from(ds: FlatDirective<T>) -> Directive<T> {
         Directive {
-            inputs: ds.inputs.into_iter().map(|i| i.into()).collect(),
+            inputs: ds
+                .inputs
+                .into_iter()
+                .map(|i| QuadComb::from_flat_expression(i))
+                .collect(),
             solver: ds.solver,
             outputs: ds.outputs,
         }

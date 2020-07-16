@@ -8,14 +8,18 @@
 pub mod abi;
 pub mod folder;
 pub mod identifier;
+
 mod parameter;
 pub mod types;
+mod uint;
 mod variable;
 
-pub use crate::typed_absy::parameter::Parameter;
-pub use crate::typed_absy::types::{Signature, StructType, Type};
-pub use crate::typed_absy::variable::Variable;
+pub use self::identifier::CoreIdentifier;
+pub use self::parameter::Parameter;
+pub use self::types::{Signature, StructType, Type, UBitwidth};
+pub use self::variable::Variable;
 use std::path::PathBuf;
+pub use typed_absy::uint::{bitwidth, UExpression, UExpressionInner, UMetadata};
 
 use crate::typed_absy::types::{FunctionKey, MemberId};
 use embed::FlatEmbed;
@@ -26,7 +30,8 @@ use zokrates_field::Field;
 
 pub use self::folder::Folder;
 use typed_absy::abi::{Abi, AbiInput};
-pub use typed_absy::identifier::Identifier;
+
+pub use self::identifier::Identifier;
 
 /// An identifier for a `TypedModule`. Typically a path or uri.
 pub type TypedModuleId = PathBuf;
@@ -41,7 +46,7 @@ pub type TypedModules<'ast, T> = HashMap<TypedModuleId, TypedModule<'ast, T>>;
 pub type TypedFunctionSymbols<'ast, T> = HashMap<FunctionKey<'ast>, TypedFunctionSymbol<'ast, T>>;
 
 /// A typed program as a collection of modules, one of them being the main
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct TypedProgram<'ast, T> {
     pub modules: TypedModules<'ast, T>,
     pub main: TypedModuleId,
@@ -75,7 +80,7 @@ impl<'ast, T: Field> TypedProgram<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> fmt::Display for TypedProgram<'ast, T> {
+impl<'ast, T: fmt::Display> fmt::Display for TypedProgram<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (module_id, module) in &self.modules {
             writeln!(
@@ -134,12 +139,12 @@ impl<'ast, T: Field> TypedFunctionSymbol<'ast, T> {
                 .unwrap()
                 .signature(&modules)
                 .clone(),
-            TypedFunctionSymbol::Flat(flat_fun) => flat_fun.signature::<T>(),
+            TypedFunctionSymbol::Flat(flat_fun) => flat_fun.signature(),
         }
     }
 }
 
-impl<'ast, T: Field> fmt::Display for TypedModule<'ast, T> {
+impl<'ast, T: fmt::Display> fmt::Display for TypedModule<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let res = self
             .functions
@@ -154,7 +159,7 @@ impl<'ast, T: Field> fmt::Display for TypedModule<'ast, T> {
                     key.signature
                 ),
                 TypedFunctionSymbol::Flat(ref flat_fun) => {
-                    format!("def {}{}:\n\t// hidden", key.id, flat_fun.signature::<T>())
+                    format!("def {}{}:\n\t// hidden", key.id, flat_fun.signature())
                 }
             })
             .collect::<Vec<_>>();
@@ -295,7 +300,7 @@ pub enum TypedStatement<'ast, T> {
     Return(Vec<TypedExpression<'ast, T>>),
     Definition(TypedAssignee<'ast, T>, TypedExpression<'ast, T>),
     Declaration(Variable<'ast>),
-    Condition(TypedExpression<'ast, T>, TypedExpression<'ast, T>),
+    Assertion(BooleanExpression<'ast, T>),
     For(
         Variable<'ast>,
         FieldElementExpression<'ast, T>,
@@ -322,9 +327,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedStatement<'ast, T> {
             TypedStatement::Definition(ref lhs, ref rhs) => {
                 write!(f, "Definition({:?}, {:?})", lhs, rhs)
             }
-            TypedStatement::Condition(ref lhs, ref rhs) => {
-                write!(f, "Condition({:?}, {:?})", lhs, rhs)
-            }
+            TypedStatement::Assertion(ref e) => write!(f, "Assertion({:?})", e),
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {
                 write!(f, "for {:?} in {:?}..{:?} do\n", var, start, stop)?;
                 for l in list {
@@ -371,7 +374,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedStatement<'ast, T> {
             }
             TypedStatement::Declaration(ref var) => write!(f, "{}", var),
             TypedStatement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
-            TypedStatement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            TypedStatement::Assertion(ref e) => write!(f, "assert({})", e),
             TypedStatement::For(ref var, ref start, ref stop, ref list) => {
                 write!(f, "for {} in {}..{} do\n", var, start, stop)?;
                 for l in list {
@@ -401,6 +404,7 @@ pub trait Typed {
 pub enum TypedExpression<'ast, T> {
     Boolean(BooleanExpression<'ast, T>),
     FieldElement(FieldElementExpression<'ast, T>),
+    Uint(UExpression<'ast, T>),
     Array(ArrayExpression<'ast, T>),
     Struct(StructExpression<'ast, T>),
 }
@@ -414,6 +418,12 @@ impl<'ast, T> From<BooleanExpression<'ast, T>> for TypedExpression<'ast, T> {
 impl<'ast, T> From<FieldElementExpression<'ast, T>> for TypedExpression<'ast, T> {
     fn from(e: FieldElementExpression<'ast, T>) -> TypedExpression<T> {
         TypedExpression::FieldElement(e)
+    }
+}
+
+impl<'ast, T> From<UExpression<'ast, T>> for TypedExpression<'ast, T> {
+    fn from(e: UExpression<'ast, T>) -> TypedExpression<T> {
+        TypedExpression::Uint(e)
     }
 }
 
@@ -434,6 +444,7 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedExpression<'ast, T> {
         match *self {
             TypedExpression::Boolean(ref e) => write!(f, "{}", e),
             TypedExpression::FieldElement(ref e) => write!(f, "{}", e),
+            TypedExpression::Uint(ref e) => write!(f, "{}", e),
             TypedExpression::Array(ref e) => write!(f, "{}", e),
             TypedExpression::Struct(ref s) => write!(f, "{}", s),
         }
@@ -445,6 +456,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for TypedExpression<'ast, T> {
         match *self {
             TypedExpression::Boolean(ref e) => write!(f, "{:?}", e),
             TypedExpression::FieldElement(ref e) => write!(f, "{:?}", e),
+            TypedExpression::Uint(ref e) => write!(f, "{:?}", e),
             TypedExpression::Array(ref e) => write!(f, "{:?}", e),
             TypedExpression::Struct(ref s) => write!(f, "{:?}", s),
         }
@@ -513,6 +525,7 @@ impl<'ast, T> Typed for TypedExpression<'ast, T> {
             TypedExpression::Boolean(ref e) => e.get_type(),
             TypedExpression::FieldElement(ref e) => e.get_type(),
             TypedExpression::Array(ref e) => e.get_type(),
+            TypedExpression::Uint(ref e) => e.get_type(),
             TypedExpression::Struct(ref s) => s.get_type(),
         }
     }
@@ -533,6 +546,12 @@ impl<'ast, T> Typed for StructExpression<'ast, T> {
 impl<'ast, T> Typed for FieldElementExpression<'ast, T> {
     fn get_type(&self) -> Type {
         Type::FieldElement
+    }
+}
+
+impl<'ast, T> Typed for UExpression<'ast, T> {
+    fn get_type(&self) -> Type {
+        Type::Uint(self.bitwidth)
     }
 }
 
@@ -618,6 +637,12 @@ pub enum BooleanExpression<'ast, T> {
         Box<BooleanExpression<'ast, T>>,
         Box<BooleanExpression<'ast, T>>,
     ),
+    ArrayEq(Box<ArrayExpression<'ast, T>>, Box<ArrayExpression<'ast, T>>),
+    StructEq(
+        Box<StructExpression<'ast, T>>,
+        Box<StructExpression<'ast, T>>,
+    ),
+    UintEq(Box<UExpression<'ast, T>>, Box<UExpression<'ast, T>>),
     Ge(
         Box<FieldElementExpression<'ast, T>>,
         Box<FieldElementExpression<'ast, T>>,
@@ -776,6 +801,17 @@ impl<'ast, T> TryFrom<TypedExpression<'ast, T>> for BooleanExpression<'ast, T> {
     }
 }
 
+impl<'ast, T> TryFrom<TypedExpression<'ast, T>> for UExpression<'ast, T> {
+    type Error = ();
+
+    fn try_from(te: TypedExpression<'ast, T>) -> Result<UExpression<'ast, T>, Self::Error> {
+        match te {
+            TypedExpression::Uint(e) => Ok(e),
+            _ => Err(()),
+        }
+    }
+}
+
 impl<'ast, T> TryFrom<TypedExpression<'ast, T>> for ArrayExpression<'ast, T> {
     type Error = ();
 
@@ -831,6 +867,41 @@ impl<'ast, T: fmt::Display> fmt::Display for FieldElementExpression<'ast, T> {
     }
 }
 
+impl<'ast, T: fmt::Display> fmt::Display for UExpression<'ast, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.inner {
+            UExpressionInner::Value(ref v) => write!(f, "0x{:x}", v),
+            UExpressionInner::Identifier(ref var) => write!(f, "{}", var),
+            UExpressionInner::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
+            UExpressionInner::And(ref lhs, ref rhs) => write!(f, "({} & {})", lhs, rhs),
+            UExpressionInner::Or(ref lhs, ref rhs) => write!(f, "({} | {})", lhs, rhs),
+            UExpressionInner::Xor(ref lhs, ref rhs) => write!(f, "({} ^ {})", lhs, rhs),
+            UExpressionInner::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
+            UExpressionInner::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
+            UExpressionInner::RightShift(ref e, ref by) => write!(f, "({} >> {})", e, by),
+            UExpressionInner::LeftShift(ref e, ref by) => write!(f, "({} << {})", e, by),
+            UExpressionInner::Not(ref e) => write!(f, "!{}", e),
+            UExpressionInner::Select(ref id, ref index) => write!(f, "{}[{}]", id, index),
+            UExpressionInner::FunctionCall(ref k, ref p) => {
+                write!(f, "{}(", k.id,)?;
+                for (i, param) in p.iter().enumerate() {
+                    write!(f, "{}", param)?;
+                    if i < p.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, ")")
+            }
+            UExpressionInner::IfElse(ref condition, ref consequent, ref alternative) => write!(
+                f,
+                "if {} then {} else {} fi",
+                condition, consequent, alternative
+            ),
+            UExpressionInner::Member(ref struc, ref id) => write!(f, "{}.{}", struc, id),
+        }
+    }
+}
+
 impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -839,6 +910,9 @@ impl<'ast, T: fmt::Display> fmt::Display for BooleanExpression<'ast, T> {
             BooleanExpression::Le(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
             BooleanExpression::FieldEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::BoolEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            BooleanExpression::ArrayEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            BooleanExpression::StructEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            BooleanExpression::UintEq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
             BooleanExpression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
             BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
             BooleanExpression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
@@ -917,6 +991,15 @@ impl<'ast, T: fmt::Debug> fmt::Debug for BooleanExpression<'ast, T> {
             }
             BooleanExpression::BoolEq(ref lhs, ref rhs) => {
                 write!(f, "BoolEq({:?}, {:?})", lhs, rhs)
+            }
+            BooleanExpression::ArrayEq(ref lhs, ref rhs) => {
+                write!(f, "ArrayEq({:?}, {:?})", lhs, rhs)
+            }
+            BooleanExpression::StructEq(ref lhs, ref rhs) => {
+                write!(f, "StructEq({:?}, {:?})", lhs, rhs)
+            }
+            BooleanExpression::UintEq(ref lhs, ref rhs) => {
+                write!(f, "UintEq({:?}, {:?})", lhs, rhs)
             }
             BooleanExpression::Ge(ref lhs, ref rhs) => write!(f, "Ge({:?}, {:?})", lhs, rhs),
             BooleanExpression::Gt(ref lhs, ref rhs) => write!(f, "Gt({:?}, {:?})", lhs, rhs),
@@ -1080,6 +1163,18 @@ impl<'ast, T> IfElse<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
+impl<'ast, T> IfElse<'ast, T> for UExpression<'ast, T> {
+    fn if_else(
+        condition: BooleanExpression<'ast, T>,
+        consequence: Self,
+        alternative: Self,
+    ) -> Self {
+        let bitwidth = consequence.bitwidth;
+
+        UExpressionInner::IfElse(box condition, box consequence, box alternative).annotate(bitwidth)
+    }
+}
+
 impl<'ast, T> IfElse<'ast, T> for ArrayExpression<'ast, T> {
     fn if_else(
         condition: BooleanExpression<'ast, T>,
@@ -1120,6 +1215,17 @@ impl<'ast, T> Select<'ast, T> for BooleanExpression<'ast, T> {
     }
 }
 
+impl<'ast, T> Select<'ast, T> for UExpression<'ast, T> {
+    fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
+        let bitwidth = match array.inner_type().clone() {
+            Type::Uint(bitwidth) => bitwidth,
+            _ => unreachable!(),
+        };
+
+        UExpressionInner::Select(box array, box index).annotate(bitwidth)
+    }
+}
+
 impl<'ast, T> Select<'ast, T> for ArrayExpression<'ast, T> {
     fn select(array: ArrayExpression<'ast, T>, index: FieldElementExpression<'ast, T>) -> Self {
         let (ty, size) = match array.inner_type() {
@@ -1155,6 +1261,25 @@ impl<'ast, T> Member<'ast, T> for FieldElementExpression<'ast, T> {
 impl<'ast, T> Member<'ast, T> for BooleanExpression<'ast, T> {
     fn member(s: StructExpression<'ast, T>, member_id: MemberId) -> Self {
         BooleanExpression::Member(box s, member_id)
+    }
+}
+
+impl<'ast, T> Member<'ast, T> for UExpression<'ast, T> {
+    fn member(s: StructExpression<'ast, T>, member_id: MemberId) -> Self {
+        let members = s.ty().clone();
+
+        let ty = members
+            .into_iter()
+            .find(|member| *member.id == member_id)
+            .unwrap()
+            .ty;
+
+        let bitwidth = match *ty {
+            Type::Uint(bitwidth) => bitwidth,
+            _ => unreachable!(),
+        };
+
+        UExpressionInner::Member(box s, member_id).annotate(bitwidth)
     }
 }
 

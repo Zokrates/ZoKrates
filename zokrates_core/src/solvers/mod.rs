@@ -6,7 +6,10 @@ pub enum Solver {
     ConditionEq,
     Bits(usize),
     Div,
-    Sha256Round,
+    Xor,
+    Or,
+    ShaAndXorAndXorAnd,
+    ShaCh,
 }
 
 impl fmt::Display for Solver {
@@ -15,13 +18,16 @@ impl fmt::Display for Solver {
     }
 }
 
-impl Signed for Solver {
-    fn get_signature(&self) -> (usize, usize) {
+impl Solver {
+    pub fn get_signature(&self) -> (usize, usize) {
         match self {
             Solver::ConditionEq => (1, 2),
             Solver::Bits(bit_width) => (1, *bit_width),
             Solver::Div => (2, 1),
-            Solver::Sha256Round => (768, 26935),
+            Solver::Xor => (2, 1),
+            Solver::Or => (2, 1),
+            Solver::ShaAndXorAndXorAnd => (3, 1),
+            Solver::ShaCh => (3, 1),
         }
     }
 }

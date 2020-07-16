@@ -4,15 +4,11 @@
 	"tests": [
         {
             "input": {
-                "values": [
-                    "12"
-                ]
+                "values": []
             },
             "output": {
                 "Ok": {
-                    "values": [
-                        "12"
-                    ]
+                    "values": []
                 }
             }
         }

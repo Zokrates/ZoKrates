@@ -1,0 +1,36 @@
+{
+	"entry_point": "./tests/tests/uint/from_to_bits.zok",
+	"max_constraint_count": 34,
+	"tests": [
+		{
+			"input": {
+				"values": ["0x00000000", "0x0000", "0x00"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["0x00000000", "0x0000", "0x00"]
+				}
+			}
+		},
+		{
+			"input": {
+				"values": ["0xffffffff", "0xffff", "0xff"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["0xffffffff", "0xffff", "0xff"]
+				}
+			}
+		},
+		{
+			"input": {
+				"values": ["0x12345678", "0x1234", "0x12"]
+			},
+			"output": {
+				"Ok": {
+					"values": ["0x12345678", "0x1234", "0x12"]
+				}
+			}
+		}
+	]
+}

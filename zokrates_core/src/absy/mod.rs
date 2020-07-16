@@ -68,18 +68,15 @@ impl<'ast, T: fmt::Debug> fmt::Debug for Symbol<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> fmt::Display for SymbolDeclaration<'ast, T> {
+impl<'ast, T: fmt::Display> fmt::Display for SymbolDeclaration<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.symbol {
             Symbol::HereType(ref t) => write!(f, "struct {} {}", self.id, t),
             Symbol::HereFunction(ref fun) => write!(f, "def {}{}", self.id, fun),
             Symbol::There(ref import) => write!(f, "import {} as {}", import, self.id),
-            Symbol::Flat(ref flat_fun) => write!(
-                f,
-                "def {}{}:\n\t// hidden",
-                self.id,
-                flat_fun.signature::<T>()
-            ),
+            Symbol::Flat(ref flat_fun) => {
+                write!(f, "def {}{}:\n\t// hidden", self.id, flat_fun.signature())
+            }
         }
     }
 }
@@ -302,7 +299,7 @@ pub enum Statement<'ast, T> {
     Return(ExpressionListNode<'ast, T>),
     Declaration(VariableNode<'ast>),
     Definition(AssigneeNode<'ast, T>, ExpressionNode<'ast, T>),
-    Condition(ExpressionNode<'ast, T>, ExpressionNode<'ast, T>),
+    Assertion(ExpressionNode<'ast, T>),
     For(
         VariableNode<'ast>,
         ExpressionNode<'ast, T>,
@@ -320,7 +317,7 @@ impl<'ast, T: fmt::Display> fmt::Display for Statement<'ast, T> {
             Statement::Return(ref expr) => write!(f, "return {}", expr),
             Statement::Declaration(ref var) => write!(f, "{}", var),
             Statement::Definition(ref lhs, ref rhs) => write!(f, "{} = {}", lhs, rhs),
-            Statement::Condition(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
+            Statement::Assertion(ref e) => write!(f, "assert({})", e),
             Statement::For(ref var, ref start, ref stop, ref list) => {
                 write!(f, "for {} in {}..{} do\n", var, start, stop)?;
                 for l in list {
@@ -349,7 +346,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for Statement<'ast, T> {
             Statement::Definition(ref lhs, ref rhs) => {
                 write!(f, "Definition({:?}, {:?})", lhs, rhs)
             }
-            Statement::Condition(ref lhs, ref rhs) => write!(f, "Condition({:?}, {:?})", lhs, rhs),
+            Statement::Assertion(ref e) => write!(f, "Assertion({:?})", e),
             Statement::For(ref var, ref start, ref stop, ref list) => {
                 write!(f, "for {:?} in {:?}..{:?} do\n", var, start, stop)?;
                 for l in list {
@@ -477,6 +474,9 @@ impl<'ast, T: fmt::Debug> fmt::Debug for Range<T> {
 pub enum Expression<'ast, T> {
     FieldConstant(T),
     BooleanConstant(bool),
+    U8Constant(u8),
+    U16Constant(u16),
+    U32Constant(u32),
     Identifier(Identifier<'ast>),
     Add(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
     Sub(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
@@ -504,6 +504,11 @@ pub enum Expression<'ast, T> {
     ),
     Member(Box<ExpressionNode<'ast, T>>, Box<Identifier<'ast>>),
     Or(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
+    BitXor(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
+    BitAnd(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
+    BitOr(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
+    LeftShift(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
+    RightShift(Box<ExpressionNode<'ast, T>>, Box<ExpressionNode<'ast, T>>),
 }
 
 pub type ExpressionNode<'ast, T> = Node<Expression<'ast, T>>;
@@ -512,12 +517,15 @@ impl<'ast, T: fmt::Display> fmt::Display for Expression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Expression::FieldConstant(ref i) => write!(f, "{}", i),
+            Expression::U8Constant(ref i) => write!(f, "{}", i),
+            Expression::U16Constant(ref i) => write!(f, "{}", i),
+            Expression::U32Constant(ref i) => write!(f, "{}", i),
             Expression::Identifier(ref var) => write!(f, "{}", var),
             Expression::Add(ref lhs, ref rhs) => write!(f, "({} + {})", lhs, rhs),
             Expression::Sub(ref lhs, ref rhs) => write!(f, "({} - {})", lhs, rhs),
             Expression::Mult(ref lhs, ref rhs) => write!(f, "({} * {})", lhs, rhs),
             Expression::Div(ref lhs, ref rhs) => write!(f, "({} / {})", lhs, rhs),
-            Expression::Pow(ref lhs, ref rhs) => write!(f, "{}**{}", lhs, rhs),
+            Expression::Pow(ref lhs, ref rhs) => write!(f, "({}**{})", lhs, rhs),
             Expression::BooleanConstant(b) => write!(f, "{}", b),
             Expression::IfElse(ref condition, ref consequent, ref alternative) => write!(
                 f,
@@ -534,12 +542,12 @@ impl<'ast, T: fmt::Display> fmt::Display for Expression<'ast, T> {
                 }
                 write!(f, ")")
             }
-            Expression::Lt(ref lhs, ref rhs) => write!(f, "{} < {}", lhs, rhs),
-            Expression::Le(ref lhs, ref rhs) => write!(f, "{} <= {}", lhs, rhs),
-            Expression::Eq(ref lhs, ref rhs) => write!(f, "{} == {}", lhs, rhs),
-            Expression::Ge(ref lhs, ref rhs) => write!(f, "{} >= {}", lhs, rhs),
-            Expression::Gt(ref lhs, ref rhs) => write!(f, "{} > {}", lhs, rhs),
-            Expression::And(ref lhs, ref rhs) => write!(f, "{} && {}", lhs, rhs),
+            Expression::Lt(ref lhs, ref rhs) => write!(f, "({} < {})", lhs, rhs),
+            Expression::Le(ref lhs, ref rhs) => write!(f, "({} <= {})", lhs, rhs),
+            Expression::Eq(ref lhs, ref rhs) => write!(f, "({} == {})", lhs, rhs),
+            Expression::Ge(ref lhs, ref rhs) => write!(f, "({} >= {})", lhs, rhs),
+            Expression::Gt(ref lhs, ref rhs) => write!(f, "({} > {})", lhs, rhs),
+            Expression::And(ref lhs, ref rhs) => write!(f, "({} && {})", lhs, rhs),
             Expression::Not(ref exp) => write!(f, "!{}", exp),
             Expression::InlineArray(ref exprs) => {
                 write!(f, "[")?;
@@ -563,7 +571,12 @@ impl<'ast, T: fmt::Display> fmt::Display for Expression<'ast, T> {
             }
             Expression::Select(ref array, ref index) => write!(f, "{}[{}]", array, index),
             Expression::Member(ref struc, ref id) => write!(f, "{}.{}", struc, id),
-            Expression::Or(ref lhs, ref rhs) => write!(f, "{} || {}", lhs, rhs),
+            Expression::Or(ref lhs, ref rhs) => write!(f, "({} || {})", lhs, rhs),
+            Expression::BitXor(ref lhs, ref rhs) => write!(f, "({} ^ {})", lhs, rhs),
+            Expression::BitAnd(ref lhs, ref rhs) => write!(f, "({} & {})", lhs, rhs),
+            Expression::BitOr(ref lhs, ref rhs) => write!(f, "({} | {})", lhs, rhs),
+            Expression::LeftShift(ref lhs, ref rhs) => write!(f, "({} << {})", lhs, rhs),
+            Expression::RightShift(ref lhs, ref rhs) => write!(f, "({} >> {})", lhs, rhs),
         }
     }
 }
@@ -571,6 +584,9 @@ impl<'ast, T: fmt::Display> fmt::Display for Expression<'ast, T> {
 impl<'ast, T: fmt::Debug> fmt::Debug for Expression<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Expression::U8Constant(ref i) => write!(f, "{:x}", i),
+            Expression::U16Constant(ref i) => write!(f, "{:x}", i),
+            Expression::U32Constant(ref i) => write!(f, "{:x}", i),
             Expression::FieldConstant(ref i) => write!(f, "Num({:?})", i),
             Expression::Identifier(ref var) => write!(f, "Ide({})", var),
             Expression::Add(ref lhs, ref rhs) => write!(f, "Add({:?}, {:?})", lhs, rhs),
@@ -609,8 +625,15 @@ impl<'ast, T: fmt::Debug> fmt::Debug for Expression<'ast, T> {
             Expression::Select(ref array, ref index) => {
                 write!(f, "Select({:?}, {:?})", array, index)
             }
-            Expression::Member(ref struc, ref id) => write!(f, "Access({:?}, {:?})", struc, id),
+            Expression::Member(ref struc, ref id) => write!(f, "Member({:?}, {:?})", struc, id),
             Expression::Or(ref lhs, ref rhs) => write!(f, "Or({:?}, {:?})", lhs, rhs),
+            Expression::BitXor(ref lhs, ref rhs) => write!(f, "BitXor({:?}, {:?})", lhs, rhs),
+            Expression::BitAnd(ref lhs, ref rhs) => write!(f, "BitAnd({:?}, {:?})", lhs, rhs),
+            Expression::BitOr(ref lhs, ref rhs) => write!(f, "BitOr({:?}, {:?})", lhs, rhs),
+            Expression::LeftShift(ref lhs, ref rhs) => write!(f, "LeftShift({:?}, {:?})", lhs, rhs),
+            Expression::RightShift(ref lhs, ref rhs) => {
+                write!(f, "RightShift({:?}, {:?})", lhs, rhs)
+            }
         }
     }
 }

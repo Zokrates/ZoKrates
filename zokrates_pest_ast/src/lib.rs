@@ -32,17 +32,22 @@ mod ast {
         static ref PREC_CLIMBER: PrecClimber<Rule> = build_precedence_climber();
     }
 
+    // based on https://docs.python.org/3/reference/expressions.html#operator-precedence
     fn build_precedence_climber() -> PrecClimber<Rule> {
         PrecClimber::new(vec![
-            Operator::new(Rule::op_inclusive_or, Assoc::Left),
-            Operator::new(Rule::op_exclusive_or, Assoc::Left),
+            Operator::new(Rule::op_or, Assoc::Left),
             Operator::new(Rule::op_and, Assoc::Left),
-            Operator::new(Rule::op_equal, Assoc::Left)
-                | Operator::new(Rule::op_not_equal, Assoc::Left),
-            Operator::new(Rule::op_lte, Assoc::Left)
+            Operator::new(Rule::op_lt, Assoc::Left)
+                | Operator::new(Rule::op_lte, Assoc::Left)
+                | Operator::new(Rule::op_gt, Assoc::Left)
                 | Operator::new(Rule::op_gte, Assoc::Left)
-                | Operator::new(Rule::op_lt, Assoc::Left)
-                | Operator::new(Rule::op_gt, Assoc::Left),
+                | Operator::new(Rule::op_not_equal, Assoc::Left)
+                | Operator::new(Rule::op_equal, Assoc::Left),
+            Operator::new(Rule::op_bit_or, Assoc::Left),
+            Operator::new(Rule::op_bit_xor, Assoc::Left),
+            Operator::new(Rule::op_bit_and, Assoc::Left),
+            Operator::new(Rule::op_left_shift, Assoc::Left)
+                | Operator::new(Rule::op_right_shift, Assoc::Left),
             Operator::new(Rule::op_add, Assoc::Left) | Operator::new(Rule::op_sub, Assoc::Left),
             Operator::new(Rule::op_mul, Assoc::Left) | Operator::new(Rule::op_div, Assoc::Left),
             Operator::new(Rule::op_pow, Assoc::Left),
@@ -73,9 +78,13 @@ mod ast {
             Rule::op_lt => Expression::binary(BinaryOperator::Lt, lhs, rhs, span),
             Rule::op_gte => Expression::binary(BinaryOperator::Gte, lhs, rhs, span),
             Rule::op_gt => Expression::binary(BinaryOperator::Gt, lhs, rhs, span),
-            Rule::op_inclusive_or => Expression::binary(BinaryOperator::Or, lhs, rhs, span),
-            Rule::op_exclusive_or => Expression::binary(BinaryOperator::Xor, lhs, rhs, span),
+            Rule::op_or => Expression::binary(BinaryOperator::Or, lhs, rhs, span),
             Rule::op_and => Expression::binary(BinaryOperator::And, lhs, rhs, span),
+            Rule::op_bit_xor => Expression::binary(BinaryOperator::BitXor, lhs, rhs, span),
+            Rule::op_bit_and => Expression::binary(BinaryOperator::BitAnd, lhs, rhs, span),
+            Rule::op_bit_or => Expression::binary(BinaryOperator::BitOr, lhs, rhs, span),
+            Rule::op_right_shift => Expression::binary(BinaryOperator::RightShift, lhs, rhs, span),
+            Rule::op_left_shift => Expression::binary(BinaryOperator::LeftShift, lhs, rhs, span),
             _ => unreachable!(),
         })
     }
@@ -261,6 +270,9 @@ mod ast {
     pub enum BasicType<'ast> {
         Field(FieldType<'ast>),
         Boolean(BooleanType<'ast>),
+        U8(U8Type<'ast>),
+        U16(U16Type<'ast>),
+        U32(U32Type<'ast>),
     }
 
     #[derive(Debug, FromPest, PartialEq, Clone)]
@@ -289,6 +301,27 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::ty_bool))]
     pub struct BooleanType<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::ty_u8))]
+    pub struct U8Type<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::ty_u16))]
+    pub struct U16Type<'ast> {
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::ty_u32))]
+    pub struct U32Type<'ast> {
         #[pest_ast(outer())]
         pub span: Span<'ast>,
     }
@@ -374,7 +407,11 @@ mod ast {
 
     #[derive(Debug, PartialEq, Clone)]
     pub enum BinaryOperator {
-        Xor,
+        BitXor,
+        BitAnd,
+        BitOr,
+        RightShift,
+        LeftShift,
         Or,
         And,
         Add,
@@ -646,6 +683,9 @@ mod ast {
     pub enum ConstantExpression<'ast> {
         DecimalNumber(DecimalNumberExpression<'ast>),
         BooleanLiteral(BooleanLiteralExpression<'ast>),
+        U8(U8NumberExpression<'ast>),
+        U16(U16NumberExpression<'ast>),
+        U32(U32NumberExpression<'ast>),
     }
 
     impl<'ast> ConstantExpression<'ast> {
@@ -653,6 +693,9 @@ mod ast {
             match self {
                 ConstantExpression::DecimalNumber(n) => &n.span,
                 ConstantExpression::BooleanLiteral(c) => &c.span,
+                ConstantExpression::U8(c) => &c.span,
+                ConstantExpression::U16(c) => &c.span,
+                ConstantExpression::U32(c) => &c.span,
             }
         }
     }
@@ -669,6 +712,33 @@ mod ast {
     #[derive(Debug, FromPest, PartialEq, Clone)]
     #[pest_ast(rule(Rule::boolean_literal))]
     pub struct BooleanLiteralExpression<'ast> {
+        #[pest_ast(outer(with(span_into_str)))]
+        pub value: String,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::hex_number_8))]
+    pub struct U8NumberExpression<'ast> {
+        #[pest_ast(outer(with(span_into_str)))]
+        pub value: String,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::hex_number_16))]
+    pub struct U16NumberExpression<'ast> {
+        #[pest_ast(outer(with(span_into_str)))]
+        pub value: String,
+        #[pest_ast(outer())]
+        pub span: Span<'ast>,
+    }
+
+    #[derive(Debug, FromPest, PartialEq, Clone)]
+    #[pest_ast(rule(Rule::hex_number_32))]
+    pub struct U32NumberExpression<'ast> {
         #[pest_ast(outer(with(span_into_str)))]
         pub value: String,
         #[pest_ast(outer())]
@@ -1105,9 +1175,9 @@ mod tests {
         field a = 1
         a[32 + x][55] = y
         for field i in 0..3 do
-               a == 1 + 2 + 3+ 4+ 5+ 6+ 6+ 7+ 8 + 4+ 5+ 3+ 4+ 2+ 3
+               assert(a == 1 + 2 + 3+ 4+ 5+ 6+ 6+ 7+ 8 + 4+ 5+ 3+ 4+ 2+ 3)
         endfor
-        a.member == 1
+        assert(a.member == 1)
         return a
 "#;
         let res = generate_ast(&source);
