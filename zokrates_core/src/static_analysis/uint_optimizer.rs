@@ -53,6 +53,24 @@ fn force_no_reduce<'ast, T: Field>(e: UExpression<'ast, T>) -> UExpression<'ast,
 }
 
 impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
+    fn fold_boolean_expression(
+        &mut self,
+        e: BooleanExpression<'ast, T>,
+    ) -> BooleanExpression<'ast, T> {
+        match e {
+            BooleanExpression::UintEq(box left, box right) => {
+                let left = self.fold_uint_expression(left);
+                let right = self.fold_uint_expression(right);
+
+                let left = force_reduce(left);
+                let right = force_reduce(right);
+
+                BooleanExpression::UintEq(box left, box right)
+            }
+            e => fold_boolean_expression(self, e),
+        }
+    }
+
     fn fold_uint_expression(&mut self, e: UExpression<'ast, T>) -> UExpression<'ast, T> {
         if e.metadata.is_some() {
             return e;
@@ -398,17 +416,17 @@ impl<'ast, T: Field> Folder<'ast, T> for UintOptimizer<'ast, T> {
                     )],
                 },
             },
-            // we need to put back in range to assert
-            ZirStatement::Condition(lhs, rhs) => {
-                match (self.fold_expression(lhs), self.fold_expression(rhs)) {
-                    (ZirExpression::Uint(lhs), ZirExpression::Uint(rhs)) => {
-                        vec![ZirStatement::Condition(
-                            force_reduce(lhs).into(),
-                            force_reduce(rhs).into(),
-                        )]
-                    }
-                    (lhs, rhs) => vec![ZirStatement::Condition(lhs, rhs)],
-                }
+            ZirStatement::Assertion(BooleanExpression::UintEq(box left, box right)) => {
+                let left = self.fold_uint_expression(left);
+                let right = self.fold_uint_expression(right);
+
+                // we can only compare two unsigned integers if they are in range
+                let left = force_reduce(left);
+                let right = force_reduce(right);
+
+                vec![ZirStatement::Assertion(BooleanExpression::UintEq(
+                    box left, box right,
+                ))]
             }
             s => fold_statement(self, s),
         }

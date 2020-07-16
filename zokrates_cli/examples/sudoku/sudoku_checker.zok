@@ -20,32 +20,32 @@ def countDuplicates(field e11,field e12,field e21,field e22) -> (field):
   return duplicates
 
 // returns 0 for x in (1..4)
-def validateInput(field x) -> (field):
-  return (x-1)*(x-2)*(x-3)*(x-4)
+def validateInput(field x) -> (bool):
+  return (x-1)*(x-2)*(x-3)*(x-4) == 0
 
 // variables naming: box'row''column'
 def main(field a21, field b11, field b22, field c11, field c22, field d21, private field a11, private field a12, private field a22, private field b12, private field b21, private field c12, private field c21, private field d11, private field d12, private field d22) -> (bool):
 
   // validate inputs
-  0 == validateInput(a11)
-  0 == validateInput(a12)
-  0 == validateInput(a21)
-  0 == validateInput(a22)
+  assert(validateInput(a11))
+  assert(validateInput(a12))
+  assert(validateInput(a21))
+  assert(validateInput(a22))
 
-  0 == validateInput(b11)
-  0 == validateInput(b12)
-  0 == validateInput(b21)
-  0 == validateInput(b22)
+  assert(validateInput(b11))
+  assert(validateInput(b12))
+  assert(validateInput(b21))
+  assert(validateInput(b22))
 
-  0 == validateInput(c11)
-  0 == validateInput(c12)
-  0 == validateInput(c21)
-  0 == validateInput(c22)
+  assert(validateInput(c11))
+  assert(validateInput(c12))
+  assert(validateInput(c21))
+  assert(validateInput(c22))
 
-  0 == validateInput(d11)
-  0 == validateInput(d12)
-  0 == validateInput(d21)
-  0 == validateInput(d22)
+  assert(validateInput(d11))
+  assert(validateInput(d12))
+  assert(validateInput(d21))
+  assert(validateInput(d22))
 
   field duplicates = 0 // globally counts duplicate entries in boxes, rows and columns
 

@@ -60,47 +60,47 @@ def main(u32 e, u32 f, u32[4] terms) -> ():
 
 	// rotate
 	u32 rotated = right_rotate_4(e)
-	rotated == 0x81234567
+	assert(rotated == 0x81234567)
 
 	// and
-	(e & f) == 0x00204460
+	assert((e & f) == 0x00204460)
 
 	// xor
-	(e ^ f) == 0x1317131f
+	assert((e ^ f) == 0x1317131f)
 
 	// shift
-	e >> 12 == 0x00012345
-	e << 12 == 0x45678000
+	assert(e >> 12 == 0x00012345)
+	assert(e << 12 == 0x45678000)
 
 	// not
-	!e == 0xedcba987
+	assert(!e == 0xedcba987)
 
 	// add
-	terms[0] + terms[1] + terms[2] + terms[3] == 0xddddddda
+	assert(terms[0] + terms[1] + terms[2] + terms[3] == 0xddddddda)
 
 	// to_bits
 	bool[32] bits1 = to_bits(e)
 	bool[32] expected1 = [false, false, false, true, false, false, true, false, false, false, true, true, false, true,  false, false, false, true, false, true, false, true, true, false, false, true, true,  true, true, false, false, false]
-	bits1 == expected1
-	e == from_bits(expected1)
+	assert(bits1 == expected1)
+	assert(e == from_bits(expected1))
 
 	bool[32] bits2 = to_bits(f)
 	bool[32] expected2 = [false, false, false, false, false, false, false, true, false, false, true, false, false, false, true, true, false, true, false, false, false, true,  false, true, false, true, true, false, false, true, true, true]
-	bits2 == expected2
-	f == from_bits(expected2)
+	assert(bits2 == expected2)
+	assert(f == from_bits(expected2))
 
 	// S0
 	u32 e2 = right_rotate_2(e)
 	u32 e13 = right_rotate_13(e)
 	u32 e22 = right_rotate_22(e)
 	u32 S0 = e2 ^ e13 ^ e22
-	S0 == 0x66146474
+	assert(S0 == 0x66146474)
 
 	// S1
 	u32 e6 = right_rotate_6(e)
 	u32 e11 = right_rotate_11(e)
 	u32 e25 = right_rotate_25(e)
 	u32 S1 = e6 ^ e11 ^ e25
-	S1 == 0x3561abda
+	assert(S1 == 0x3561abda)
 
 	return

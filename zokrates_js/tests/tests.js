@@ -26,8 +26,6 @@ describe('tests', function() {
         it('should resolve stdlib module', function() {
             assert.doesNotThrow(() => {
                 const code = `
-                    import "hashes/sha256/512bit" as sha256
-                    import "ecc/edwardsAdd" as edwardsAdd
                     def main() -> ():
                         return
                 `;

@@ -4,7 +4,7 @@ import "ecc/edwardsScalarMult" as mul
 
 // Code to create test cases:
 // https://github.com/Zokrates/pycrypto
-def testCyclic() -> (field):
+def testCyclic() -> (bool):
 	BabyJubJubParams context = context()
 	field[2] G = [context.Gu, context.Gv]
 
@@ -13,11 +13,11 @@ def testCyclic() -> (field):
 
 	field[2] out = mul(exp, G, context)
 	
-	G == out
+	assert(G == out)
 	
-	return 1
+	return true
 
-def testMul2() -> (field):
+def testMul2() -> (bool):
 	BabyJubJubParams context = context()
 	field[2] G = [context.Gu, context.Gv]
 	
@@ -25,12 +25,12 @@ def testMul2() -> (field):
 	bool[256] exp = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, false]
 	field[2] out = mul(exp, G, context)
 	
-	out[0] == 17324563846726889236817837922625232543153115346355010501047597319863650987830
-	out[1] == 20022170825455209233733649024450576091402881793145646502279487074566492066831
+	assert(out[0] == 17324563846726889236817837922625232543153115346355010501047597319863650987830)
+	assert(out[1] == 20022170825455209233733649024450576091402881793145646502279487074566492066831)
 
-	return 1
+	return true
 
-def testAssociativity() -> (field):
+def testAssociativity() -> (bool):
 	BabyJubJubParams context = context()
 	field[2] G = [context.Gu, context.Gv]
 
@@ -55,13 +55,13 @@ def testAssociativity() -> (field):
 	field[2] Gca = mul(a, Gc, context)
 	field[2] Gcab = mul(b, Gca, context)
 	
-	Gabc == Gbca
-	Gbca == Gcab
-	Gabc == Gcab
+	assert(Gabc == Gbca)
+	assert(Gbca == Gcab)
+	assert(Gabc == Gcab)
 
-	return 1
+	return true
 
-def testMultiplicative() -> (field):
+def testMultiplicative() -> (bool):
 	BabyJubJubParams context = context()
 	field[2] G = [context.Gu, context.Gv]
 
@@ -81,16 +81,16 @@ def testMultiplicative() -> (field):
 
 	field[2] Gmab = mul(ab, G, context)
 
-	Gab == Gba
-	Gba == Gmab
-	Gab == Gmab
+	assert(Gab == Gba)
+	assert(Gba == Gmab)
+	assert(Gab == Gmab)
 
-	return 1
+	return true
 	
-def main() -> (field):
-	1 == testMul2()
-	1 == testCyclic()
-	1 == testAssociativity()
-	1 == testMultiplicative()
+def main() -> ():
+	assert(testMul2())
+	assert(testCyclic())
+	assert(testAssociativity())
+	assert(testMultiplicative())
 
-	return 1
+	return

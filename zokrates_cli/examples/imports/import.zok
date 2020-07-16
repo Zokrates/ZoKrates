@@ -7,5 +7,5 @@ import "./bar"
 def main() -> (field):
 	MyBar my_bar = MyBar {}
 	Bar bar = Bar {}
-	my_bar == bar
+	assert(my_bar == bar)
 	return foo() + bar()

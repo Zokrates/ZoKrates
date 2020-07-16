@@ -130,9 +130,7 @@ pub fn fold_statement<'ast, T: Field, F: Folder<'ast, T>>(
             ZirStatement::Definition(f.fold_assignee(a), f.fold_expression(e))
         }
         ZirStatement::Declaration(v) => ZirStatement::Declaration(f.fold_variable(v)),
-        ZirStatement::Condition(left, right) => {
-            ZirStatement::Condition(f.fold_expression(left), f.fold_expression(right))
-        }
+        ZirStatement::Assertion(e) => ZirStatement::Assertion(f.fold_boolean_expression(e)),
         ZirStatement::MultipleDefinition(variables, elist) => ZirStatement::MultipleDefinition(
             variables.into_iter().map(|v| f.fold_variable(v)).collect(),
             f.fold_expression_list(elist),
@@ -200,6 +198,11 @@ pub fn fold_boolean_expression<'ast, T: Field, F: Folder<'ast, T>>(
             let e1 = f.fold_boolean_expression(e1);
             let e2 = f.fold_boolean_expression(e2);
             BooleanExpression::BoolEq(box e1, box e2)
+        }
+        BooleanExpression::UintEq(box e1, box e2) => {
+            let e1 = f.fold_uint_expression(e1);
+            let e2 = f.fold_uint_expression(e2);
+            BooleanExpression::UintEq(box e1, box e2)
         }
         BooleanExpression::Lt(box e1, box e2) => {
             let e1 = f.fold_field_expression(e1);

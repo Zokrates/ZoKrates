@@ -1,6 +1,19 @@
+struct Foo {
+	field a
+}
+
+struct Bar {
+	Foo[1] foo
+}
+
+def isEqual(field a, field b) -> (bool):
+	return a == b
+
 def main(field a) -> (field):
   field b = (a + 5) * 6
-  2 * b == a * 12 + 60
+  assert(2 * b == a * 12 + 60)
   field c = 7 * (b + a)
-  c == 7 * b + 7 * a
+  assert(isEqual(c, 7 * b + 7 * a))
+  field k = if [1, 2] == [3, 4] then 1 else 3 fi
+  assert([Bar { foo : [Foo { a: 42 }]}] == [Bar { foo : [Foo { a: 42 }]}])
   return b + c

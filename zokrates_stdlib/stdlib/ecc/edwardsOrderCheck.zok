@@ -1,19 +1,19 @@
 import "ecc/edwardsAdd" as add
 import "ecc/edwardsScalarMult" as multiply
-import "utils/pack/nonStrictUnpack256" as unpack256
+import "utils/pack/bool/nonStrictUnpack256" as unpack256
 from "ecc/babyjubjubParams" import BabyJubJubParams
 
 // Verifies that the point is not one of the low-order points.
 // If any of the points is multiplied by the cofactor, the resulting point
 // will be infinity.
-// Returns 1 if the point is not one of the low-order points, 0 otherwise.
+// Returns true if the point is not one of the low-order points, false otherwise.
 // Curve parameters are defined with the last argument
 // https://github.com/zcash-hackworks/sapling-crypto/blob/master/src/jubjub/edwards.rs#L166
-def main(field[2] pt, BabyJubJubParams context) -> (field):
+def main(field[2] pt, BabyJubJubParams context) -> (bool):
 
     field cofactor = context.JUBJUBC
 
-    cofactor == 8
+    assert(cofactor == 8)
 
     // Co-factor currently hard-coded to 8 for efficiency reasons
     // See discussion here: https://github.com/Zokrates/ZoKrates/pull/301#discussion_r267203391
@@ -24,6 +24,4 @@ def main(field[2] pt, BabyJubJubParams context) -> (field):
     ptExp = add(ptExp, ptExp, context)    // 4*pt
     ptExp = add(ptExp, ptExp, context)    // 8*pt
 
-    field out = if ptExp[0] == 0 && ptExp[1] == 1 then 0 else 1 fi
-
-    return out
+    return !(ptExp[0] == 0 && ptExp[1] == 1)

@@ -4,6 +4,8 @@ import "ecc/babyjubjubParams" as context
 import "ecc/edwardsAdd" as add
 import "ecc/edwardsCompress" as edwardsCompress
 from "ecc/babyjubjubParams" import BabyJubJubParams
+import "EMBED/u32_to_bits" as to_bits
+import "EMBED/u32_from_bits" as from_bits
 
 // Code to export generators used in this example:
 // import bitstring
@@ -16,7 +18,27 @@ from "ecc/babyjubjubParams" import BabyJubJubParams
 // print(hasher.dsl_code)
 
 // 512bit to 256bit Pedersen hash using compression of the field elements
-def main(bool[512] e) -> (bool[256]):
+def main(u32[16] input) -> (u32[8]):
+
+	bool[512] e = [ \
+		...to_bits(input[0]),
+		...to_bits(input[1]),
+		...to_bits(input[2]),
+		...to_bits(input[3]),
+		...to_bits(input[4]),
+		...to_bits(input[5]),
+		...to_bits(input[6]),
+		...to_bits(input[7]),
+		...to_bits(input[8]),
+		...to_bits(input[9]),
+		...to_bits(input[10]),
+		...to_bits(input[11]),
+		...to_bits(input[12]),
+		...to_bits(input[13]),
+		...to_bits(input[14]),
+		...to_bits(input[15])
+	]
+
 	BabyJubJubParams context = context()
 	field[2] a = context.INFINITY //Infinity
 	//Round 0
@@ -705,4 +727,14 @@ def main(bool[512] e) -> (bool[256]):
 	a = add(a, [cx, cy], context)
 
 	bool[256] aC = edwardsCompress(a)
-	return aC
+
+	return [\
+		from_bits(aC[0..32]), 
+		from_bits(aC[32..64]), 
+		from_bits(aC[64..96]), 
+		from_bits(aC[96..128]), 
+		from_bits(aC[128..160]), 
+		from_bits(aC[160..192]), 
+		from_bits(aC[192..224]), 
+		from_bits(aC[224..256])
+	]
