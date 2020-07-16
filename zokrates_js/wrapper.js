@@ -20,7 +20,7 @@ const getAbsolutePath = (basePath, relativePath) => {
 
 const getImportPath = (currentLocation, importLocation) => {
     let path = getAbsolutePath(currentLocation, importLocation);
-    const extension = importLocation.slice((path.lastIndexOf(".") - 1 >>> 0) + 2);
+    const extension = path.slice((path.lastIndexOf(".") - 1 >>> 0) + 2);
     return extension ? path : path.concat('.zok');
 }
 
