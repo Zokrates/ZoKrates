@@ -1,4 +1,7 @@
 const getAbsolutePath = (basePath, relativePath) => {
+    if (relativePath[0] !== '.') {
+        return relativePath;
+    }
     var stack = basePath.split('/');
     var chunks = relativePath.split('/');
     stack.pop();
