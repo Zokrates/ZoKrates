@@ -2,6 +2,7 @@ use bellman::groth16::{
     prepare_verifying_key, verify_proof, Parameters, PreparedVerifyingKey, Proof as BellmanProof,
     VerifyingKey,
 };
+use pairing::{CurveAffine, Engine};
 use regex::Regex;
 
 use zokrates_field::Field;
@@ -25,6 +26,16 @@ pub struct ProofPoints {
     c: G1Affine,
 }
 
+impl ProofPoints {
+    fn into_bellman<T: Field>(self) -> BellmanProof<T::BellmanEngine> {
+        BellmanProof {
+            a: serialization::to_g1::<T>(self.a),
+            b: serialization::to_g2::<T>(self.b),
+            c: serialization::to_g1::<T>(self.c),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct VerificationKey {
     alpha: G1Affine,
@@ -32,8 +43,22 @@ pub struct VerificationKey {
     gamma: G2Affine,
     delta: G2Affine,
     gamma_abc: Vec<G1Affine>,
-    raw: String,
 }
+
+impl VerificationKey {
+    fn into_bellman<T: Field>(self) -> VerifyingKey<T::BellmanEngine> {
+        VerifyingKey {
+            alpha_g1: serialization::to_g1::<T>(self.alpha),
+            beta_g1: <T::BellmanEngine as Engine>::G1Affine::one(), // not used during verification
+            beta_g2: serialization::to_g2::<T>(self.beta),
+            gamma_g2: serialization::to_g2::<T>(self.gamma),
+            delta_g1: <T::BellmanEngine as Engine>::G1Affine::one(), // not used during verification
+            delta_g2: serialization::to_g2::<T>(self.delta),
+            ic: self.gamma_abc.into_iter().map(|g1| serialization::to_g1::<T>(g1)).collect()
+        }
+    }
+}
+
 
 impl<T: Field> ProofSystem<T> for G16 {
     type VerificationKey = VerificationKey;
@@ -47,10 +72,8 @@ impl<T: Field> ProofSystem<T> for G16 {
         let parameters = Computation::without_witness(program).setup();
 
         let mut pk: Vec<u8> = Vec::new();
-        let mut vk_raw: Vec<u8> = Vec::new();
 
         parameters.write(&mut pk).unwrap();
-        parameters.vk.write(&mut vk_raw).unwrap();
 
         let vk = VerificationKey {
             alpha: parse_g1::<T>(&parameters.vk.alpha_g1),
@@ -63,7 +86,6 @@ impl<T: Field> ProofSystem<T> for G16 {
                 .iter()
                 .map(|g1| parse_g1::<T>(g1))
                 .collect(),
-            raw: hex::encode(vk_raw),
         };
 
         SetupKeypair::new(vk, pk)
@@ -179,15 +201,11 @@ impl<T: Field> ProofSystem<T> for G16 {
     }
 
     fn verify(vk: VerificationKey, proof: Proof<ProofPoints>) -> bool {
-        let vk_raw = hex::decode(vk.raw.clone()).unwrap();
-        let proof_raw = hex::decode(proof.raw.clone()).unwrap();
-
-        let vk: VerifyingKey<T::BellmanEngine> = VerifyingKey::read(vk_raw.as_slice()).unwrap();
+        let vk: VerifyingKey<T::BellmanEngine> = vk.into_bellman::<T>();
 
         let pvk: PreparedVerifyingKey<T::BellmanEngine> = prepare_verifying_key(&vk);
 
-        let bellman_proof: BellmanProof<T::BellmanEngine> =
-            BellmanProof::read(proof_raw.as_slice()).unwrap();
+        let bellman_proof: BellmanProof<T::BellmanEngine> = proof.proof.into_bellman::<T>();
 
         let public_inputs: Vec<_> = proof
             .inputs
@@ -200,6 +218,23 @@ impl<T: Field> ProofSystem<T> for G16 {
             .collect::<Vec<_>>();
 
         verify_proof(&pvk, &bellman_proof, &public_inputs).unwrap()
+    }
+}
+
+mod serialization {
+    use proof_system::{G1Affine, G2Affine};
+    use zokrates_field::Field;
+    use pairing::{CurveAffine, Engine, from_hex};
+
+    pub fn to_g1<T: Field>(g1: G1Affine) -> <T::BellmanEngine as Engine>::G1Affine {
+        <T::BellmanEngine as Engine>::G1Affine::from_xy_checked(from_hex(&g1.0).unwrap(), from_hex(&g1.1).unwrap())
+            .unwrap()
+    }
+    pub fn to_g2<T: Field>(g2: G2Affine) -> <T::BellmanEngine as Engine>::G2Affine {
+        // apparently the order is reversed
+        let x = T::new_fq2(&(g2.0).1, &(g2.0).0);
+        let y = T::new_fq2(&(g2.1).1, &(g2.1).0);
+        <T::BellmanEngine as Engine>::G2Affine::from_xy_checked(x,y).unwrap()
     }
 }
 
