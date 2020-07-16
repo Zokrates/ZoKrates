@@ -2,7 +2,6 @@ import "ecc/babyjubjubParams" as context
 from "ecc/babyjubjubParams" import BabyJubJubParams
 import "ecc/proofOfOwnership" as proofOfOwnership
 import "ecc/edwardsScalarMult" as multiply
-import "utils/pack/nonStrictUnpack256" as unpack256
 
 // Code to create test cases:
 // https://github.com/Zokrates/pycrypto

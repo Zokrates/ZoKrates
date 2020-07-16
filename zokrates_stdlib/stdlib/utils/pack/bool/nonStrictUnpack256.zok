@@ -10,4 +10,4 @@ def main(field i) -> (bool[256]):
 
     bool[254] b = unpack(i)
 
-	return [false, false, ...b]
+    return [false, false, ...b]

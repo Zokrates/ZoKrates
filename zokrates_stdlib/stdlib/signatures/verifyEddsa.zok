@@ -1,10 +1,12 @@
 import "hashes/sha256/1024bitPadded" as sha256
 import "ecc/edwardsScalarMult" as scalarMult
 import "ecc/edwardsAdd" as add
-import "utils/pack/nonStrictUnpack256" as unpack256
+import "utils/pack/bool/nonStrictUnpack256" as unpack256bool
+import "utils/pack/u32/nonStrictUnpack256" as unpack256u
 import "ecc/edwardsOnCurve" as onCurve
 import "ecc/edwardsOrderCheck" as orderCheck
 from "ecc/babyjubjubParams" import BabyJubJubParams
+import "utils/casts/u32_8_to_bool_256"
 
 /// Verifies an EdDSA Signature.
 ///
@@ -27,7 +29,7 @@ from "ecc/babyjubjubParams" import BabyJubJubParams
 ///
 /// Returns:
 ///     Return true for S being a valid EdDSA Signature, false otherwise.
-def main(private field[2] R, private field S, field[2] A, bool[256] M0, bool[256] M1, BabyJubJubParams context) -> (bool):
+def main(private field[2] R, private field S, field[2] A, u32[8] M0, u32[8] M1, BabyJubJubParams context) -> (bool):
 
     field[2] G = [context.Gu, context.Gv]
 
@@ -35,11 +37,11 @@ def main(private field[2] R, private field S, field[2] A, bool[256] M0, bool[256
     assert(onCurve(R, context)) // throws if R is not on curve
     assert(orderCheck(R, context))
 
-    bool[256] Rx = unpack256(R[0])
-    bool[256] Ax = unpack256(A[0])
-    bool[256] hRAM = sha256(Rx, Ax, M0, M1)
+    u32[8] Rx = unpack256u(R[0])
+    u32[8] Ax = unpack256u(A[0])
+    bool[256] hRAM = u32_8_to_bool_256(sha256(Rx, Ax, M0, M1))
 
-    bool[256] sBits = unpack256(S)
+    bool[256] sBits = unpack256bool(S)
     field[2] lhs = scalarMult(sBits, G, context)
 
     field[2] AhRAM = scalarMult(hRAM, A, context)

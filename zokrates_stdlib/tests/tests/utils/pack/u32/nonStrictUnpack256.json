@@ -1,5 +1,5 @@
 {
-	"entry_point": "./tests/tests/utils/pack/nonStrictUnpack256.zok",
+	"entry_point": "./tests/tests/utils/pack/u32/nonStrictUnpack256.zok",
 	"curves": ["Bn128"],
 	"tests": [
 		{

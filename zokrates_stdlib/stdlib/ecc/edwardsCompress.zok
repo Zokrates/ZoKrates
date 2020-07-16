@@ -1,4 +1,4 @@
-import "utils/pack/nonStrictUnpack256" as unpack256
+import "utils/pack/bool/nonStrictUnpack256" as unpack256
 
 // Compress JubJub Curve Point to 256bit array using big endianness bit order
 // Python reference code from pycrypto:

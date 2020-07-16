@@ -42,8 +42,10 @@ function importResolver(currentLocation, importLocation) {
 }
 
 initialize().then((zokratesProvider) => {
+    const source = "def main(private field a) -> (field): return a * a";
+
     // compilation
-    const artifacts = zokratesProvider.compile("def main(private field a) -> (field): return a * a", "main", importResolver);
+    const artifacts = zokratesProvider.compile(source, "main", importResolver);
 
     // computation
     const { witness, output } = zokratesProvider.computeWitness(artifacts, ["2"]);
