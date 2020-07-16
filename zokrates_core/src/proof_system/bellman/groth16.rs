@@ -29,9 +29,9 @@ pub struct ProofPoints {
 impl ProofPoints {
     fn into_bellman<T: Field>(self) -> BellmanProof<T::BellmanEngine> {
         BellmanProof {
-            a: serialization::to_g1::<T::BellmanEngine>(self.a),
+            a: serialization::to_g1::<T>(self.a),
             b: serialization::to_g2::<T>(self.b),
-            c: serialization::to_g1::<T::BellmanEngine>(self.c),
+            c: serialization::to_g1::<T>(self.c),
         }
     }
 }
@@ -48,13 +48,13 @@ pub struct VerificationKey {
 impl VerificationKey {
     fn into_bellman<T: Field>(self) -> VerifyingKey<T::BellmanEngine> {
         VerifyingKey {
-            alpha_g1: serialization::to_g1::<T::BellmanEngine>(self.alpha),
+            alpha_g1: serialization::to_g1::<T>(self.alpha),
             beta_g1: <T::BellmanEngine as Engine>::G1Affine::one(), // not used during verification
             beta_g2: serialization::to_g2::<T>(self.beta),
             gamma_g2: serialization::to_g2::<T>(self.gamma),
             delta_g1: <T::BellmanEngine as Engine>::G1Affine::one(), // not used during verification
             delta_g2: serialization::to_g2::<T>(self.delta),
-            ic: self.gamma_abc.into_iter().map(|g1| serialization::to_g1::<T::BellmanEngine>(g1)).collect()
+            ic: self.gamma_abc.into_iter().map(|g1| serialization::to_g1::<T>(g1)).collect()
         }
     }
 }
@@ -226,8 +226,8 @@ mod serialization {
     use zokrates_field::Field;
     use pairing::{CurveAffine, Engine, from_hex};
 
-    pub fn to_g1<E: Engine>(g1: G1Affine) -> E::G1Affine {
-        E::G1Affine::from_xy_checked(from_hex(&g1.0).unwrap(), from_hex(&g1.1).unwrap())
+    pub fn to_g1<T: Field>(g1: G1Affine) -> <T::BellmanEngine as Engine>::G1Affine {
+        <T::BellmanEngine as Engine>::G1Affine::from_xy_checked(from_hex(&g1.0).unwrap(), from_hex(&g1.1).unwrap())
             .unwrap()
     }
     pub fn to_g2<T: Field>(g2: G2Affine) -> <T::BellmanEngine as Engine>::G2Affine {
