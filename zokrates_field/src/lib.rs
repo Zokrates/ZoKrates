@@ -67,6 +67,8 @@ pub trait Field:
         <Self::BellmanEngine as ScalarEngine>::Fr::from_str(&s).unwrap()
     }
 
+    fn new_fq2(c0: &str, c1: &str) -> <Self::BellmanEngine as Engine>::Fqe;
+
     /// Returns this `Field`'s contents as little-endian byte vector
     fn into_byte_vector(&self) -> Vec<u8>;
     /// Returns an element of this `Field` from a little-endian byte vector
@@ -120,7 +122,7 @@ pub trait Field:
 #[macro_use]
 mod prime_field {
     macro_rules! prime_field {
-        ($modulus:expr, $bellman_type:ty, $name:expr) => {
+        ($modulus:expr, $bellman_type:ty, $fq2_type: ident, $name:expr) => {
             use crate::{Field, Pow};
             use lazy_static::lazy_static;
             use num_bigint::{BigInt, BigUint, Sign, ToBigInt};
@@ -146,6 +148,13 @@ mod prime_field {
 
                 fn bits(&self) -> u32 {
                     self.value.bits() as u32
+                }
+
+                fn new_fq2(c0: &str, c1: &str) -> $fq2_type {
+                    $fq2_type {
+                        c0: bellman_ce::pairing::from_hex(c0).unwrap(),
+                        c1: bellman_ce::pairing::from_hex(c1).unwrap(),
+                    }
                 }
 
                 fn to_biguint(&self) -> BigUint {

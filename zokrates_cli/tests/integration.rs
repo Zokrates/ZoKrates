@@ -269,8 +269,23 @@ mod integration {
                 .succeeds()
                 .unwrap();
 
-                // TEST VERIFIER
+                // CLI VERIFICATION
+                assert_cli::Assert::command(&[
+                    "../target/release/zokrates",
+                    "verify",
+                    "--backend",
+                    backend,
+                    "--proving-scheme",
+                    scheme,
+                    "-j",
+                    proof_path.to_str().unwrap(),
+                    "-v",
+                    verification_key_path.to_str().unwrap(),
+                ])
+                .succeeds()
+                .unwrap();
 
+                // TEST VERIFIER
                 assert_cli::Assert::command(&[
                     "node",
                     "test.js",
