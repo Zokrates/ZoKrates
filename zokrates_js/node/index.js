@@ -1,5 +1,6 @@
 const wrapper = require('../wrapper.js');
 const stdlib = require('../stdlib.json');
+const metadata = require('../metadata.json');
 
 const initialize = async () => {
     return wrapper({ 
@@ -8,4 +9,4 @@ const initialize = async () => {
     });
 }
 
-module.exports = { initialize };
+module.exports = { initialize, metadata };

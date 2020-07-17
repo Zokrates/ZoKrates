@@ -16,12 +16,13 @@
     "index.d.ts",
     "wrapper.js",
     "stdlib.json",
+    "metadata.json",
     "README.md"
   ],
   "types": "index.d.ts",
   "scripts": {
     "wasm-pack": "wasm-pack build --out-name index --release",
-    "setup": "npm install && gulp stdlib",
+    "setup": "npm install && gulp setup",
     "prebuild": "npm run setup",
     "build": "npm run build:bundler && npm run build:node",
     "build:bundler": "rimraf pkg && npm run wasm-pack -- --target bundler && npm run clean-pkg",
@@ -39,7 +40,8 @@
     "mocha": "^7.1.1",
     "rimraf": "^3.0.2",
     "serve": "^11.3.0",
-    "text-encoding": "^0.7.0"
+    "text-encoding": "^0.7.0",
+    "toml": "^3.0.0"
   },
   "dependencies": {}
 }
