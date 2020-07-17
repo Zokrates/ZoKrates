@@ -53,12 +53,7 @@ You can import a resource in the same folder directly, like this:
 from "./mycode" import foo
 ```
 
-There also is a handy syntax to import from the parent directory:
-```zokrates
-from "../mycode" import foo
-```
-
-Also, imports further up the file-system are supported:
+Imports up the file-system tree are supported:
 ```zokrates
 from "../../../mycode" import foo
 ```

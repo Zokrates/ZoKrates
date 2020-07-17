@@ -1,6 +1,6 @@
 ## Standard library
 
-ZoKrates comes with a number of reusable components which are defined at `./stdlib/` in the ZoKrates root repository. In order to import the standard library as described in the [imports](./imports.html) section the `$ZOKRATES_HOME` environment variable needs to be set to the `stdlib` folder.  The standard library is solely based on the ZoKrates DSL and can be easily extended.
+ZoKrates comes with a number of reusable components which are defined at `./stdlib/` in the ZoKrates root repository. In order to import the standard library as described in the [imports](./imports.html) section the `$ZOKRATES_HOME` environment variable needs to be set to the `stdlib` folder.
 
 The following section highlights a subset of available imports:
 
@@ -12,7 +12,7 @@ The following section highlights a subset of available imports:
 import "hashes/sha256/512Padded.zok"
 ```
 
-A function that takes 2 `bool[256]` arrays as inputs and returns their sha256 compression function as an array of 256 booleans.
+A function that takes 2 `u32[8]` arrays as inputs and returns their sha256 compression function as a `u32[8]`.
 
 #### sha256compression
 
@@ -20,8 +20,8 @@ A function that takes 2 `bool[256]` arrays as inputs and returns their sha256 co
 import "hashes/sha256/512bit.zok"
 ```
 
-A function that takes 2 `bool[256]` arrays as inputs and returns their sha256 compression function as an array of 256 booleans.
-The difference with `sha256` is that no padding is added at the end of the message, which makes it more efficient but also less compatible with Solidity.
+A function that takes 2 `u32[8]` arrays as inputs and returns their sha256 compression function as a `u32[8]`.
+The difference with `512Padded` is that no padding is added at the end of the message, which makes it more efficient but also less compatible with Solidity.
 
 There also is support for 2-round (1024-bit input) and 3-round (1536-bit input) variants, using  `hashes/1024bit.zok` and `hashes/1536bit.zok` respectively.
 
@@ -58,10 +58,10 @@ Verifies an EdDSA Signature. Checks the correctness of a given EdDSA Signature `
 #### pack128
 
 ```zokrates
-import "utils/pack/pack128"
+import "utils/pack/u32/pack128"
 ```
 
-Packs 128 booleans as one field element.
+Packs a `u32[4]` as one field element.
 
 #### unpack128
 
@@ -69,21 +69,29 @@ Packs 128 booleans as one field element.
 import "utils/pack/unpack128"
 ```
 
-Unpacks a field element to 128 booleans.
+Unpacks a field element to a `u32[4]`, throwing if it doesn't fit.
 
 #### pack256
 
 ```zokrates
-import "utils/pack/pack256"
+import "utils/pack/u32/pack256"
 ```
 
-Packs 256 booleans as one. Overflows can occur.
+Packs a `u32[8]` as one field element. Overflows can occur.
 
 #### nonStrictUnpack256
 
 ```zokrates
-import "utils/pack/nonStrictUnpack256"
+import "utils/pack/u32/nonStrictUnpack256"
 ```
 
-Unpacks a field element into 256 booleans. Uniqueness of the output is not guaranteed.
+Unpacks a field element to a `u32[4]`. Uniqueness of the output is not guaranteed.
+
+### Casts
+
+Different helpers to convert between types.
+
+```zokrates
+import "utils/casts/bool_128_to_u32_4"
+```
 

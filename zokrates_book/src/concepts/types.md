@@ -18,11 +18,11 @@ While `field` values mostly behave like unsigned integers, one should keep in mi
 
 ### `bool`
 
-ZoKrates has limited support for booleans, to the extent that they can only be used as the condition in `if ... else ... endif` expressions.
+Booleans are available in ZoKrates. When a boolean is used as a parameter of the main function, the program is constrained to only accept `0` or `1` for that parameter. A boolean can be asserted to be true using an `assert(bool)` statement.
 
-You can use them for equality and inequality checks between `field` values.
+### `u8/u16/u32`
 
-Note that while equality checks are cheap, inequality checks should be used wisely as they are orders of magnitude more expensive.
+Unsigned integers enable implementing programs which rely bit strings, such as hash functions.
 
 ## Complex Types
 
@@ -47,7 +47,7 @@ Initialization always needs to happen in the same statement as a declaration, un
 For initialization, a list of comma-separated values is provided within brackets `[]`.
 
 ZoKrates offers a special shorthand syntax to initialize an array with a constant value:
-`[value;repetitions]`
+`[value; repetitions]`
 
 
 The following code provides examples for declaration and initialization:

@@ -63,6 +63,7 @@ Creates a proving key and a verification key at `./proving.key` and `./verificat
 These keys are derived from a source of randomness, commonly referred to as "toxic waste". Anyone having access to the source of randomness can produce fake proofs that will be accepted by a verifier following the protocol.
 
 The [proving scheme](proving_schemes.md) and curve can be chosen with the `proving-scheme` and `curve` flags.
+The backend can be chosen with the `backend` flag.
 
 ## `export-verifier`
 

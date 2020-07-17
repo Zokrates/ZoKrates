@@ -7,6 +7,7 @@
 - [Programming Concepts](./concepts.md)
 	- [Variables](./concepts/variables.md)
 	- [Types](./concepts/types.md)
+	- [Operators](./concepts/operators.md)
 	- [Functions](./concepts/functions.md)
 	- [Control flow](./concepts/control_flow.md)
 	- [Imports](./concepts/imports.md)
