@@ -1,2 +1,0 @@
-def main(bool selector, bool[2] lhs, bool[2] rhs) -> (bool[2]):
-	return if selector then rhs else lhs fi

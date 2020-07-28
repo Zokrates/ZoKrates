@@ -1,2 +1,0 @@
-def main(bool selector, u32[8] lhs, u32[8] rhs) -> (u32[8]):
-	return if selector then rhs else lhs fi

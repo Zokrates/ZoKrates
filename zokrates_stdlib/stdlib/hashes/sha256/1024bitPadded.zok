@@ -1,6 +1,7 @@
 import "./1536bit" as sha256
-// Take two bool[256] arrays as input
-// and returns their sha256 full round output as an array of 256 bool.
+
+// A function that takes four u32[8] array as input, concatenates them, pads the result,
+// and returns the sha256 output as a u32[8]
 def main(u32[8] a, u32[8] b, u32[8] c, u32[8] d) -> (u32[8]):
 
     // Hash is computed on the full 1024bit block size

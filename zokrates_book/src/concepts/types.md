@@ -8,7 +8,7 @@ ZoKrates currently exposes two primitive types and two complex types:
 
 This is the most basic type in ZoKrates, and it represents a positive integer in `[0,  p - 1]` where `p` is a (large) prime number.
 
-The prime `p` is set to `21888242871839275222246405745257275088548364400416034343698204186575808495617` as imposed by the pairing curve supported by Ethereum.
+As an example, `p` is set to `21888242871839275222246405745257275088548364400416034343698204186575808495617` when working with the [ALT_BN128](/reference/proving_schemes.html#alt_bn128) curve supported by Ethereum.
 
 While `field` values mostly behave like unsigned integers, one should keep in mind that they overflow at `p` and not some power of 2, so that we have:
 
@@ -26,11 +26,11 @@ Unsigned integers enable implementing programs which rely bit strings, such as h
 
 ## Complex Types
 
-ZoKrates provides two complex types, Arrays and Structs.
+ZoKrates provides two complex types: arrays and structs.
 
 ### Arrays
 
-ZoKrates supports static arrays, i.e., their length needs to be known at compile time.
+ZoKrates supports static arrays, i.e., whose length needs to be known at compile time.
 Arrays can contain elements of any type and have arbitrary dimensions.
 
 The following example code shows examples of how to use arrays:

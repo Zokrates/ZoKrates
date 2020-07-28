@@ -1,5 +1,6 @@
 #pragma curve bn128
 
+// pack 128 big-endian bits into one field element
 def main(bool[128] bits) -> (field):
 
 	field out = 0
