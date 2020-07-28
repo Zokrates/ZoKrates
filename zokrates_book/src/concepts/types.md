@@ -22,7 +22,7 @@ Booleans are available in ZoKrates. When a boolean is used as a parameter of the
 
 ### `u8/u16/u32`
 
-Unsigned integers enable implementing programs which rely bit strings, such as hash functions.
+Unsigned integers enable implementing programs which rely bit strings, such as hash functions. Similarly to booleans, unsigned integer inputs of the main function only accept values of the appropriate range.
 
 ## Complex Types
 
