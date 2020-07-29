@@ -26,7 +26,11 @@ From there on, you can use the `zokrates` CLI.
 
 ### From source
 
-You can build ZoKrates from [source](https://github.com/ZoKrates/ZoKrates/) with the following commands:
+First, install the Rust Programming Language for your computer using the Rust preferred installation method or an existing package manager on your machine.
+
+Next you will need to somehow set up Rust Nightly.
+
+Then you can build ZoKrates from [source](https://github.com/ZoKrates/ZoKrates/) with the following commands:
 
 ```bash
 git clone https://github.com/ZoKrates/ZoKrates
