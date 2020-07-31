@@ -1655,7 +1655,10 @@ impl<'ast> Checker<'ast> {
                                 .value
                                 .to
                                 .map(|e| self.check_expression(e, module_id, &types))
-                                .unwrap_or(Ok(FieldElementExpression::Number(T::from(0)).into()))?;
+                                .unwrap_or(Ok(FieldElementExpression::Number(T::from(
+                                    array_size,
+                                ))
+                                .into()))?;
 
                             // check the bounds are field constants
                             // Note: it would be nice to allow any field expression, and check it's a constant after constant propagation,
