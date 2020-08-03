@@ -36,4 +36,4 @@ gulp.task('metadata', (done) => {
     done();
 });
 
-gulp.task('setup', gulp.series('stdlib', 'metadata'));
+gulp.task('setup', gulp.parallel('stdlib', 'metadata'));

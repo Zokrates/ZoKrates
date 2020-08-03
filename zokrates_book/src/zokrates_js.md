@@ -1,6 +1,6 @@
 # zokrates.js
 
-You can get JavaScript bindings for ZoKrates by running
+JavaScript bindings for [ZoKrates](https://github.com/Zokrates/ZoKrates).
 
 ```bash
 npm install zokrates-js
@@ -55,20 +55,49 @@ initialize().then((zokratesProvider) => {
 ## API
 
 ##### initialize()
-Loads binding wasm module and returns a promise with ZoKrates provider.
+Dynamically loads binding wasm module containing Rust-generated wasm functions and returns a promise with a ZoKrates provider. 
+The resolved provider can be used to call exported functions.
 
 Returns: `Promise<ZoKratesProvider>`
 
-##### compile(source, location, resolveCallback[, config])
+##### compile(source[, options])
 Compiles source code into ZoKrates internal representation of arithmetic circuits.
 
 Parameters:
 * `source` - Source code to compile
-* `location` - Root location of the module which is being compiled
-* `resolveCallback` - User-defined callback used to resolve imports
-* `config` - Compilation config
+* `options` - Compilation options
 
 Returns: `CompilationArtifacts`
+
+**Examples:**
+
+Compilation:
+```js
+zokratesProvider.compile("def main() -> (): return");
+```
+
+Compilation with custom options:
+```js
+const source = "...";
+const options = {
+    location: "main.zok", // root module location
+    resolveCallback: (currentLocation, importLocation) => {
+        console.log(currentLocation + ' is importing ' + importLocation);
+        return { 
+            source: "def main() -> (): return", 
+            location: importLocation 
+        };
+    }
+    config: {
+        is_release: true
+    }
+};
+zokratesProvider.compile(source, options);
+```
+
+**Note:** The `resolveCallback` function is used to resolve unmet dependencies. 
+This callback receives the current module location and the import location of the module which is being imported. 
+The callback must synchronously return either an error, `null` or a valid `ResolverResult` object like shown in the example above.
 
 ##### computeWitness(artifacts, args)
 Computes a valid assignment of the variables, which include the results of the computation.
@@ -78,6 +107,18 @@ Parameters:
 * `args` - Array of arguments (eg. `["1", "2", true]`)
 
 Returns: `ComputationResult`
+
+**Example:**
+
+```js
+const code = 'def main(private field a) -> (field): return a * a';
+const artifacts = zokratesProvider.compile(code);
+
+const { witness, output } = zokratesProvider.computeWitness(artifacts, ["2"]);
+
+console.log(witness); // Resulting witness which can be used to generate a proof
+console.log(output); // Computation output: ["4"]
+```
 
 ##### setup(program)
 Generates a trusted setup for the compiled program.
@@ -101,7 +142,7 @@ Generates a proof for a computation of the compiled program.
 
 Parameters:
 * `program` - Compiled program
-* `witness` - Witness (valid assignment of the variables)
+* `witness` - Witness (valid assignment of the variables) from the computation result
 * `provingKey` - Proving key from the setup keypair
 
 Returns: `Proof`
