@@ -23,20 +23,11 @@ const { initialize } = require('zokrates-js/node');
 
 ## Example
 ```js
-function importResolver(currentLocation, importLocation) {
-  console.log(currentLocation + ' is importing ' + importLocation);
-  // implement your resolving logic here
-  return {
-    source: "def main() -> (): return",
-    location: importLocation
-  };
-}
-
 initialize().then((zokratesProvider) => {
     const source = "def main(private field a) -> (field): return a * a";
 
     // compilation
-    const artifacts = zokratesProvider.compile(source, "main", importResolver);
+    const artifacts = zokratesProvider.compile(source);
 
     // computation
     const { witness, output } = zokratesProvider.computeWitness(artifacts, ["2"]);
@@ -73,26 +64,26 @@ Returns: `CompilationArtifacts`
 
 Compilation:
 ```js
-zokratesProvider.compile("def main() -> (): return");
+const artifacts = zokratesProvider.compile("def main() -> (): return");
 ```
 
 Compilation with custom options:
 ```js
 const source = "...";
 const options = {
-    location: "main.zok", // root module location
+    location: "main.zok", // location of the root module
     resolveCallback: (currentLocation, importLocation) => {
         console.log(currentLocation + ' is importing ' + importLocation);
         return { 
             source: "def main() -> (): return", 
             location: importLocation 
         };
-    }
+    },
     config: {
         is_release: true
     }
 };
-zokratesProvider.compile(source, options);
+const artifacts = zokratesProvider.compile(source, options);
 ```
 
 **Note:** The `resolveCallback` function is used to resolve unmet dependencies. 
