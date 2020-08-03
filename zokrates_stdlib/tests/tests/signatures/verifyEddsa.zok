@@ -4,7 +4,7 @@ from "ecc/babyjubjubParams" import BabyJubJubParams
 
 // Code to create test case:
 // https://github.com/Zokrates/pycrypto
-def main() -> ():
+def main():
 
 	BabyJubJubParams context = context()
 

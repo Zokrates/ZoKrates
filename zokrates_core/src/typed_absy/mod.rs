@@ -196,18 +196,30 @@ impl<'ast, T: fmt::Display> fmt::Display for TypedFunction<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "({}) -> ({}):",
+            "({})",
             self.arguments
                 .iter()
                 .map(|x| format!("{}", x))
                 .collect::<Vec<_>>()
                 .join(", "),
-            self.signature
-                .outputs
-                .iter()
-                .map(|x| format!("{}", x))
-                .collect::<Vec<_>>()
-                .join(", "),
+        )?;
+
+        write!(
+            f,
+            "{}:",
+            match self.signature.outputs.len() {
+                0 => "".into(),
+                1 => format!(" -> {}", self.signature.outputs[0]),
+                _ => format!(
+                    "{}",
+                    self.signature
+                        .outputs
+                        .iter()
+                        .map(|x| format!("{}", x))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+            }
         )?;
 
         writeln!(f, "")?;

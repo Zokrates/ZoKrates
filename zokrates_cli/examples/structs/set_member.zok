@@ -8,7 +8,7 @@ struct Foo {
 	bool b
 }
 
-def main() -> (Foo):
+def main() -> Foo:
 	Foo[2] f = [
 		Foo {
 			a: Bar {

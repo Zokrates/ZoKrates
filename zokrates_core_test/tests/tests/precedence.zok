@@ -1,4 +1,4 @@
-def main() -> ():
+def main():
   assert(9 == 1 + 2 * 2 ** 2)                                      // Checks precedence of arithmetic operators (expecting transitive behaviour)
   assert(9 == 2 ** 2 * 2 + 1)
   assert(7 == 2 ** 2 * 2 - 1)

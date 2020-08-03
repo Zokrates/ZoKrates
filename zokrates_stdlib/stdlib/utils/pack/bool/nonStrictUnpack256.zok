@@ -6,7 +6,7 @@
 
 import "EMBED/unpack" as unpack
 
-def main(field i) -> (bool[256]):
+def main(field i) -> bool[256]:
 
     bool[254] b = unpack(i)
 

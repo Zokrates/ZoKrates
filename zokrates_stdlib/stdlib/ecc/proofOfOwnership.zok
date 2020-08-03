@@ -17,7 +17,7 @@ from "ecc/babyjubjubParams" import BabyJubJubParams
 ///
 /// Returns:
 ///     Return true for pk/sk being a valid keypair, false otherwise.
-def main(field[2] pk, field sk, BabyJubJubParams context) -> (bool):
+def main(field[2] pk, field sk, BabyJubJubParams context) -> bool:
 
     field[2] G = [context.Gu, context.Gv]
 

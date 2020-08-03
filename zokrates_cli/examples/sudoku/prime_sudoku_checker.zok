@@ -16,16 +16,16 @@
 
 // returns true if there are no duplicates
 // assumption: `a, b, c, d` are all in `{ 2, 3, 5, 7 }`
-def checkNoDuplicates(field a, field b, field c, field d) -> (bool):
+def checkNoDuplicates(field a, field b, field c, field d) -> bool:
   // as `{ 2, 3, 5, 7 }` are primes, the set `{ a, b, c, d }` is equal to the set `{ 2, 3, 5, 7}` if and only if the products match
   return a * b * c * d == 2 * 3 * 5 * 7
 
 // returns `0` if and only if `x` in `{ 2, 3, 5, 7 }`
-def validateInput(field x) -> (bool):
+def validateInput(field x) -> bool:
   return (x-2) * (x-3) * (x-5) * (x-7) == 0
 
 // variables naming: box'row''column'
-def main(field a21, field b11, field b22, field c11, field c22, field d21, private field a11, private field a12, private field a22, private field b12, private field b21, private field c12, private field c21, private field d11, private field d12, private field d22) -> (bool):
+def main(field a21, field b11, field b22, field c11, field c22, field d21, private field a11, private field a12, private field a22, private field b12, private field b21, private field c12, private field c21, private field d11, private field d12, private field d22) -> bool:
 
   field[4][4] a = [[a11, a12, b11, b12], [a21, a22, b21, b22], [c11, c12, d11, d12], [c21, c22, d21, d22]]
 

@@ -18,7 +18,7 @@ import "EMBED/u32_from_bits" as from_bits
 // print(hasher.dsl_code)
 
 // 512bit to 256bit Pedersen hash using compression of the field elements
-def main(u32[16] input) -> (u32[8]):
+def main(u32[16] input) -> u32[8]:
 
 	bool[512] e = [ \
 		...to_bits(input[0]),

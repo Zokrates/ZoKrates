@@ -7,7 +7,7 @@ import "utils/pack/bool/nonStrictUnpack256" as unpack256
 // 	y = self.y.n
 // 	return int.to_bytes(y | ((x & 1) << 255), 32, "big")
 
-def main(field[2] pt)  -> (bool[256]):
+def main(field[2] pt)  -> bool[256]:
 	field x = pt[0]
 	field y = pt[1]
 

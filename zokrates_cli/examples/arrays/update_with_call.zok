@@ -1,4 +1,4 @@
-def foo(field a) -> (field):
+def foo(field a) -> field:
 	return 2
 
 def main(field a) -> (field, field):

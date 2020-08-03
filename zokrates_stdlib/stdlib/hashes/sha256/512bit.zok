@@ -4,6 +4,6 @@ import "./shaRound" as sha256
 // A function that takes 2 u32[8] arrays as inputs
 // and returns their sha256 compression function as an array of 8 u32.
 
-def main(u32[8] a, u32[8] b) -> (u32[8]):
+def main(u32[8] a, u32[8] b) -> u32[8]:
 
     return sha256([...a, ...b], IVconstants())

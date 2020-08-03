@@ -1,6 +1,6 @@
 import "utils/multiplexer/lookup1bit" as lookup
 
-def left() -> (bool):
+def left() -> bool:
 	bool sel = false  //left
 	field[2] t  = [0, 1]
 	
@@ -8,7 +8,7 @@ def left() -> (bool):
 	
 	return true
 	
-def right() -> (bool):
+def right() -> bool:
 	bool sel = true  //right
 	field[2] t = [0, 1]
 	
@@ -16,7 +16,7 @@ def right() -> (bool):
 	
 	return true
 	
-def main() -> ():
+def main():
 
 	assert(left())
 	assert(right())

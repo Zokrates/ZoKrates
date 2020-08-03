@@ -140,17 +140,32 @@ impl<'ast> fmt::Display for FunctionQuery<'ast> {
                 write!(f, ", ")?;
             }
         }
-        write!(f, ") -> (")?;
-        for (i, t) in self.outputs.iter().enumerate() {
-            match t {
-                Some(t) => write!(f, "{}", t)?,
-                None => write!(f, "_")?,
-            }
-            if i < self.outputs.len() - 1 {
-                write!(f, ", ")?;
+        write!(f, ")")?;
+
+        match self.outputs.len() {
+            0 => write!(f, ""),
+            1 => write!(
+                f,
+                " -> {}",
+                match &self.outputs[0] {
+                    Some(t) => format!("{}", t),
+                    None => format!("_"),
+                }
+            ),
+            _ => {
+                write!(f, " -> (")?;
+                for (i, t) in self.outputs.iter().enumerate() {
+                    match t {
+                        Some(t) => write!(f, "{}", t)?,
+                        None => write!(f, "_")?,
+                    }
+                    if i < self.outputs.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, ")")
             }
         }
-        write!(f, ")")
     }
 }
 
@@ -2256,11 +2271,11 @@ impl<'ast> Checker<'ast> {
         query.match_funcs(&self.functions)
     }
 
-    fn enter_scope(&mut self) -> () {
+    fn enter_scope(&mut self) {
         self.level += 1;
     }
 
-    fn exit_scope(&mut self) -> () {
+    fn exit_scope(&mut self) {
         let current_level = self.level;
         self.scope
             .retain(|ref scoped_variable| scoped_variable.level < current_level);
@@ -2334,7 +2349,7 @@ mod tests {
     mod symbols {
         use super::*;
 
-        /// Helper function to create (() -> (): return)
+        /// Helper function to create ((): return)
         fn function0() -> FunctionNode<'static, Bn128Field> {
             let statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
                 ExpressionList {
@@ -2356,7 +2371,7 @@ mod tests {
             .mock()
         }
 
-        /// Helper function to create ((private field a) -> (): return)
+        /// Helper function to create ((private field a): return)
         fn function1() -> FunctionNode<'static, Bn128Field> {
             let statements: Vec<StatementNode<Bn128Field>> = vec![Statement::Return(
                 ExpressionList {
@@ -2418,7 +2433,7 @@ mod tests {
         #[test]
         fn imported_function() {
             // foo.zok
-            // def main() -> ():
+            // def main():
             // 		return
 
             // bar.zok
@@ -2642,7 +2657,7 @@ mod tests {
             // import first
 
             // // bar.code
-            // def main() -> (): return
+            // def main(): return
             //
             // // main.code
             // import main from "bar" as foo
@@ -2693,7 +2708,7 @@ mod tests {
             // type declaration first
 
             // // bar.code
-            // def main() -> (): return
+            // def main(): return
             //
             // // main.code
             // struct foo {}
@@ -3165,7 +3180,7 @@ mod tests {
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
                 message:
-                    "Function definition for function foo with signature () -> (field) not found."
+                    "Function definition for function foo with signature () -> field not found."
                         .into()
             }])
         );
@@ -3173,7 +3188,7 @@ mod tests {
 
     #[test]
     fn multi_return_outside_multidef() {
-        // def foo():
+        // def foo() -> (field, field):
         //   return 1, 2
         // def bar():
         //   2 == foo()
@@ -3215,7 +3230,7 @@ mod tests {
             checker.check_function(bar, &module_id, &types),
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
-                message: "Function definition for function foo with signature () -> (_) not found."
+                message: "Function definition for function foo with signature () -> _ not found."
                     .into()
             }])
         );
@@ -3258,7 +3273,7 @@ mod tests {
                 pos: Some((Position::mock(), Position::mock())),
 
                 message:
-                    "Function definition for function foo with signature () -> (field) not found."
+                    "Function definition for function foo with signature () -> field not found."
                         .into()
             }])
         );
@@ -3471,7 +3486,7 @@ mod tests {
 
     #[test]
     fn assign_to_non_variable() {
-        // def foo() -> (field):
+        // def foo() -> field:
         //  return 1
         // def main():
         //  field[1] a = [0]
@@ -3608,7 +3623,7 @@ mod tests {
             Err(vec![ErrorInner {
                 pos: Some((Position::mock(), Position::mock())),
 
-                message: "Function definition for function foo with signature () -> (_) not found."
+                message: "Function definition for function foo with signature () -> _ not found."
                     .into()
             }])
         );

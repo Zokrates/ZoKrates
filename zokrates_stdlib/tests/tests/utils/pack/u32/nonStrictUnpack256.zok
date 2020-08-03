@@ -1,6 +1,6 @@
 import "utils/pack/u32/nonStrictUnpack256" as unpack256
 
-def testFive() -> (bool):
+def testFive() -> bool:
 
 	u32[8] b = unpack256(5)
 
@@ -8,7 +8,7 @@ def testFive() -> (bool):
 
 	return true
 
-def testZero() -> (bool):
+def testZero() -> bool:
 
 	u32[8] b = unpack256(0)
 
@@ -16,7 +16,7 @@ def testZero() -> (bool):
 
 	return true
 
-def testLarge() -> (bool):
+def testLarge() -> bool:
 
 	u32[8] b = unpack256(14474011154664524427946373126085988481658748083205070504932198000989141204991)
 
@@ -24,7 +24,7 @@ def testLarge() -> (bool):
 
 	return true
 
-def testMax() -> (bool):
+def testMax() -> bool:
 
 	u32[8] b = unpack256(21888242871839275222246405745257275088548364400416034343698204186575808495616)
 
@@ -32,7 +32,7 @@ def testMax() -> (bool):
 
 	return true
 
- def main() -> ():
+ def main():
 
 	assert(testFive())
 	assert(testMax())

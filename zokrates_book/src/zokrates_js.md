@@ -36,13 +36,13 @@ const { initialize } = require('zokrates-js/node');
 function importResolver(currentLocation, importLocation) {
   // implement your resolving logic here
   return {
-    source: "def main() -> (): return",
+    source: "def main(): return",
     location: importLocation
   };
 }
 
 initialize().then((zokratesProvider) => {
-    const source = "def main(private field a) -> (field): return a * a";
+    const source = "def main(private field a) -> field: return a * a";
 
     // compilation
     const artifacts = zokratesProvider.compile(source, "main", importResolver);

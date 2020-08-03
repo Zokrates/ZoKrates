@@ -2,6 +2,6 @@ def foo(field a, field b) -> (field, field):
 	assert(a == b + 2)
 	return a, b
 
-def main() -> (field):
+def main() -> field:
 	field a, field b = foo(1, 1)
 	return a + b

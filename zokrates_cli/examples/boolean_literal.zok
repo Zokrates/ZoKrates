@@ -1,2 +1,2 @@
-def main(bool a) -> (bool):
+def main(bool a) -> bool:
 	return (false || true) && false

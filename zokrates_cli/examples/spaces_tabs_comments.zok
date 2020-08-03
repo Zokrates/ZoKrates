@@ -2,7 +2,7 @@
 
 // comment
 
-def main(field x) -> (field):
+def main(field x) -> field:
   // comment
   field y = x**3
   field b = x**5
