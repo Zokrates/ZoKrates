@@ -91,7 +91,7 @@ impl<'ast> NodeValue for Variable<'ast> {}
 impl<'ast> NodeValue for Parameter<'ast> {}
 impl<'ast> NodeValue for Import<'ast> {}
 impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Spread<'ast, T> {}
-impl<T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Range<T> {}
+impl<'ast, T: fmt::Display + fmt::Debug + PartialEq> NodeValue for Range<'ast, T> {}
 
 impl<T: PartialEq> PartialEq for Node<T> {
     fn eq(&self, other: &Node<T>) -> bool {
