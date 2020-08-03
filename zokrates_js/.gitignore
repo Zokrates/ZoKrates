@@ -5,3 +5,4 @@ pkg
 wasm-pack.log
 stdlib
 stdlib.json
+metadata.json

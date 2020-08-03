@@ -60,5 +60,10 @@ declare module 'zokrates-js' {
     generateProof(program: Uint8Array, witness: string, provingKey: Uint8Array): Proof;
   }
 
+  export interface Metadata {
+    version: string
+  }
+
   export function initialize(): Promise<ZoKratesProvider>;
+  export var metadata: Metadata;
 }
