@@ -46,8 +46,13 @@ initialize().then((zokratesProvider) => {
 ## API
 
 ##### initialize()
-Dynamically loads binding wasm module containing Rust-generated wasm functions and returns a promise with a ZoKrates provider. 
-The resolved provider can be used to call exported functions.
+Returns an initialized `ZoKratesProvider` as a promise.
+
+```js
+initialize().then(zokratesProvider => { 
+    // call api functions here
+});
+```
 
 Returns: `Promise<ZoKratesProvider>`
 
