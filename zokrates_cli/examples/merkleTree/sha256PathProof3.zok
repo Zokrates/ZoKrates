@@ -5,7 +5,7 @@ def multiplex(bool selector, u32[8] left, u32[8] right) -> (u32[8]):
 
 // Merkle-Tree inclusion proof for tree depth 3
 
-def main(field treeDepth, u32[8] rootDigest, private u32[8] leafDigest, private bool[2] directionSelector, u32[8] PathDigest0, private u32[8] PathDigest1) -> ():
+def main(field treeDepth, u32[8] rootDigest, private u32[8] leafDigest, private bool[2] directionSelector, u32[8] PathDigest0, private u32[8] PathDigest1):
 
 	//Setup
 	u32[8] currentDigest = leafDigest

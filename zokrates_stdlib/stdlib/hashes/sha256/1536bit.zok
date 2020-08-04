@@ -5,7 +5,7 @@ import "./shaRound" as sha256
 // and returns their sha256 compression as a u32[8].
 // Note: no padding is applied
 
-def main(u32[8] a, u32[8] b, u32[8] c, u32[8] d, u32[8] e, u32[8] f) -> (u32[8]):
+def main(u32[8] a, u32[8] b, u32[8] c, u32[8] d, u32[8] e, u32[8] f) -> u32[8]:
 
     u32[8] IV =  IVconstants()
     u32[8] digest1 =  sha256([...a, ...b], IV)

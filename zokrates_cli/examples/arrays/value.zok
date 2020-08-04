@@ -1,4 +1,4 @@
-def main() -> ():
+def main():
 	field[3] a = [1, 2, 3]
 	bool[3] b = [true, true, false]
 	field[3][2] c = [[1, 2], [3, 4], [5, 6]]

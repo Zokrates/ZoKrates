@@ -1,6 +1,6 @@
 import "utils/multiplexer/lookup3bitSigned" as lookup
 
-def first() -> (bool):
+def first() -> bool:
 	bool[3] sel = [false,false,false]
 	field[4] t  = [0, 1, 2 , 3]
 	
@@ -8,7 +8,7 @@ def first() -> (bool):
 	
 	return true
 
-def firstNeg() -> (bool):
+def firstNeg() -> bool:
 	bool[3] sel = [false,false,true]
 	field[4] t  = [0, 1, 2 , 3]
 	
@@ -16,7 +16,7 @@ def firstNeg() -> (bool):
 	
 	return true
 
-def second() -> (bool):
+def second() -> bool:
 	bool[3] sel = [true,false,false]
 	field[4] t  = [0, 1, 2 , 3]
 	
@@ -24,7 +24,7 @@ def second() -> (bool):
 	
 	return true
 
-def secondNeg() -> (bool):
+def secondNeg() -> bool:
 	bool[3] sel = [true,false,true]
 	field[4] t  = [0, 1, 2 , 3]
 	
@@ -33,7 +33,7 @@ def secondNeg() -> (bool):
 	
 	return true
 
-def thrid() -> (bool):
+def thrid() -> bool:
 	bool[3] sel = [false,true,false]
 	field[4] t  = [0, 1, 2 , 3]
 	
@@ -41,7 +41,7 @@ def thrid() -> (bool):
 	
 	return true
 
-def thridNeg() -> (bool):
+def thridNeg() -> bool:
 	bool[3] sel = [false,true,true]
 	field[4] t  = [0, 1, 2 , 3]
 	
@@ -50,7 +50,7 @@ def thridNeg() -> (bool):
 	
 	return true
 
-def fourth() -> (bool):
+def fourth() -> bool:
 	bool[3] sel = [true,true,false]
 	field[4] t  = [0, 1, 2 , 3]
 	
@@ -58,7 +58,7 @@ def fourth() -> (bool):
 	
 	return true
 
-def fourthNeg() -> (bool):
+def fourthNeg() -> bool:
 	bool[3] sel = [true,true,true]
 	field[4] t  = [0, 1, 2 , 3]
 	
@@ -67,7 +67,7 @@ def fourthNeg() -> (bool):
 	
 	return true
 	
-def main() -> ():
+def main():
 
 	assert(first())
 	assert(firstNeg())

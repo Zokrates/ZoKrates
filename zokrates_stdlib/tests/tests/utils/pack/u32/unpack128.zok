@@ -1,6 +1,6 @@
 import "utils/pack/u32/unpack128" as unpack128
 
-def testFive() -> (bool):
+def testFive() -> bool:
 
 	u32[4] b = unpack128(5)
 
@@ -8,7 +8,7 @@ def testFive() -> (bool):
 
 	return true
 
-def testZero() -> (bool):
+def testZero() -> bool:
 
 	u32[4] b = unpack128(0)
 
@@ -16,7 +16,7 @@ def testZero() -> (bool):
 
 	return true
 
-def testMax() -> (bool):
+def testMax() -> bool:
 
 	u32[4] b = unpack128(2**128 - 1)
 
@@ -24,7 +24,7 @@ def testMax() -> (bool):
 
 	return true
 
- def main() -> ():
+ def main():
 
 	assert(testFive())
 	assert(testMax())

@@ -9,7 +9,7 @@ from "ecc/babyjubjubParams" import BabyJubJubParams
 // Returns true if the point is not one of the low-order points, false otherwise.
 // Curve parameters are defined with the last argument
 // https://github.com/zcash-hackworks/sapling-crypto/blob/master/src/jubjub/edwards.rs#L166
-def main(field[2] pt, BabyJubJubParams context) -> (bool):
+def main(field[2] pt, BabyJubJubParams context) -> bool:
 
     field cofactor = context.JUBJUBC
 

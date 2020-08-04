@@ -7,5 +7,5 @@ struct Foo {
     Bar b
 }
 
-def main(Foo foo, bool[2] bar, field num) -> (field):
+def main(Foo foo, bool[2] bar, field num) -> field:
 	return 42

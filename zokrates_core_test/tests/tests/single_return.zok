@@ -1,6 +1,6 @@
-def foo() -> (field):
+def foo() -> field:
 	return 42
 
-def main() -> ():
+def main():
 	field a = foo()
 	return

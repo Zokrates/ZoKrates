@@ -272,7 +272,7 @@ mod test {
     fn no_resolver_with_imports() {
         let source = r#"
 			import "./path/to/file" as foo
-			def main() -> (field):
+			def main() -> field:
 			   return foo()
 		"#
         .to_string();
@@ -291,7 +291,7 @@ mod test {
     #[test]
     fn no_resolver_without_imports() {
         let source = r#"
-			def main() -> (field):
+			def main() -> field:
 			   return 1
 		"#
         .to_string();
@@ -328,7 +328,7 @@ mod test {
 
             let main = r#"
 from "foo" import Foo as FooMain
-def main(FooMain f) -> ():
+def main(FooMain f):
     return
 "#;
 
@@ -345,7 +345,7 @@ def main(FooMain f) -> ():
                         Ok((
                             r#"
 from "foo" import Foo as FooMain
-def main(FooMain f) -> ():
+def main(FooMain f):
     return
 "#
                             .into(),

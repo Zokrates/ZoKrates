@@ -426,14 +426,14 @@ mod tests {
 
     #[test]
     fn keep_existing_quadratic_variable() {
-        // def main(x, y) -> ():
+        // def main(x, y):
         //     z = x * y
         //     z = x
         //     return
 
         // ->
 
-        // def main(x, y) -> ():
+        // def main(x, y):
         //     z = x * y
         //     z = x
         //     return

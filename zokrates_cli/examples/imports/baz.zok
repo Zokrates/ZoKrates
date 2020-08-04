@@ -1,5 +1,5 @@
 struct Baz {
 }
 
-def main() -> (field):
+def main() -> field:
 	return 123

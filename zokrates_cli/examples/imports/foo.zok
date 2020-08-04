@@ -3,7 +3,7 @@ from "./baz" import Baz
 import "./baz"
 from "./baz" import main as my_function
 
-def main() -> (field):
+def main() -> field:
 	field a = my_function()
 	Baz b = Baz {}
 	return baz()

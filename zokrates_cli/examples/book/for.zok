@@ -1,4 +1,4 @@
-def main() -> (field):
+def main() -> field:
     field res = 0
     for field i in 0..4 do
     	for field j in i..5 do

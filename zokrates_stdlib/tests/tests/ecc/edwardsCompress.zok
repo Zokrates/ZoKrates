@@ -4,7 +4,7 @@ from "ecc/babyjubjubParams" import BabyJubJubParams
 
 // Code to create test cases:
 // https://github.com/Zokrates/pycrypto
-def testCompress() -> (bool):
+def testCompress() -> bool:
 	BabyJubJubParams context = context()
 
 	field Gu = context.Gu
@@ -16,7 +16,7 @@ def testCompress() -> (bool):
 
 	return true
 
-def main() -> ():
+def main():
 
 	assert(testCompress())
 

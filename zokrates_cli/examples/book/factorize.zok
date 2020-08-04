@@ -1,2 +1,2 @@
-def main(private field a, field b) -> (bool):
+def main(private field a, field b) -> bool:
   return a * a == b

@@ -1,0 +1,15 @@
+// Where's Waldo is a puzzle where the goal is to find Waldo in the picture of a crowd
+// In this example, the crowd is a series of numbers, ideally* all prime but one, and Waldo is a non-prime number
+// * we don't enforce only one number being non-prime, so there could be multiple Waldos
+
+def isWaldo(field a, field p, field q) -> bool:
+  // make sure that p and q are both not one
+  assert(p != 1 && q != 1)
+
+  // we know how to factor a
+  return a == p * q
+
+// define all
+def main(field[3] a, private field index, private field p, private field q) -> bool:
+  // prover provides the index of Waldo
+  return isWaldo(a[index], p, q)

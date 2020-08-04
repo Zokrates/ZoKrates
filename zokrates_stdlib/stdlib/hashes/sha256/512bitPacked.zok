@@ -4,7 +4,7 @@ import "./512bitPadded" as sha256
 // A function that takes an array of 4 field elements as input, unpacks each of them to 128
 // bits (big endian), concatenates them and applies sha256.
 // It then returns an array of two field elements, each representing 128 bits of the result.
-def main(field[4] preimage) -> (field[2]):
+def main(field[4] preimage) -> field[2]:
 
     u32[4] a_bits = unpack128(preimage[0])
     u32[4] b_bits = unpack128(preimage[1])
