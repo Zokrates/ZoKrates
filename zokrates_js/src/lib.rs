@@ -98,22 +98,13 @@ impl<'a> Resolver<Error> for JsResolver<'a> {
 pub fn compile(
     source: JsValue,
     location: JsValue,
-    resolve: &js_sys::Function,
+    resolve_callback: &js_sys::Function,
     config: JsValue,
 ) -> Result<JsValue, JsValue> {
+    let resolver = JsResolver::new(resolve_callback);
+    let config: CompileConfig = config.into_serde().unwrap_or(CompileConfig::default());
+
     let fmt_error = |e: &CompileError| format!("{}:{}", e.file().display(), e.value());
-    let resolver = JsResolver::new(resolve);
-
-    let config: CompileConfig = {
-        if config.is_object() {
-            config
-                .into_serde()
-                .map_err(|e| JsValue::from_str(&format!("Invalid config format: {}", e)))?
-        } else {
-            CompileConfig::default()
-        }
-    };
-
     let artifacts: CompilationArtifacts<Bn128Field> = core_compile(
         source.as_string().unwrap(),
         PathBuf::from(location.as_string().unwrap()),
@@ -208,8 +199,6 @@ pub fn generate_proof(program: JsValue, witness: JsValue, pk: JsValue) -> Result
 
 #[wasm_bindgen(start)]
 pub fn main_js() -> Result<(), JsValue> {
-    #[cfg(debug_assertions)]
     console_error_panic_hook::set_once();
-
     Ok(())
 }

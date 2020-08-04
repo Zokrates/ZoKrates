@@ -1659,17 +1659,50 @@ impl<'ast> Checker<'ast> {
                             let array_size = array.size();
                             let inner_type = array.inner_type().clone();
 
+                            // check that the bounds are valid expressions
                             let from = r
                                 .value
                                 .from
-                                .map(|v| v.to_dec_string().parse::<usize>().unwrap())
-                                .unwrap_or(0);
+                                .map(|e| self.check_expression(e, module_id, &types))
+                                .unwrap_or(Ok(FieldElementExpression::Number(T::from(0)).into()))?;
 
                             let to = r
                                 .value
                                 .to
-                                .map(|v| v.to_dec_string().parse::<usize>().unwrap())
-                                .unwrap_or(array_size);
+                                .map(|e| self.check_expression(e, module_id, &types))
+                                .unwrap_or(Ok(FieldElementExpression::Number(T::from(
+                                    array_size,
+                                ))
+                                .into()))?;
+
+                            // check the bounds are field constants
+                            // Note: it would be nice to allow any field expression, and check it's a constant after constant propagation,
+                            // but it's tricky from a type perspective: the size of the slice changes the type of the resulting array,
+                            // which doesn't work well with our static array approach. Enabling arrays to have unknown size introduces a lot
+                            // of complexity in the compiler, as function selection in inlining requires knowledge of the array size, but
+                            // determining array size potentially requires inlining and propagating. This suggests we would need semantic checking
+                            // to happen iteratively with inlining and propagation, which we can't do now as we go from absy to typed_absy
+                            let from = match from {
+                                TypedExpression::FieldElement(FieldElementExpression::Number(n)) => Ok(n.to_dec_string().parse::<usize>().unwrap()),
+                                e => Err(ErrorInner {
+                                    pos: Some(pos),
+                                    message: format!(
+                                        "Expected the lower bound of the range to be a constant field, found {}",
+                                        e
+                                    ),
+                                })
+                            }?;
+
+                            let to = match to {
+                                TypedExpression::FieldElement(FieldElementExpression::Number(n)) => Ok(n.to_dec_string().parse::<usize>().unwrap()),
+                                e => Err(ErrorInner {
+                                    pos: Some(pos),
+                                    message: format!(
+                                        "Expected the higher bound of the range to be a constant field, found {}",
+                                        e
+                                    ),
+                                })
+                            }?;
 
                             match (from, to, array_size) {
                                 (f, _, s) if f > s => Err(ErrorInner {
