@@ -645,7 +645,7 @@ fn cli() -> Result<(), String> {
             .conflicts_with("stdin")
         ).arg(Arg::with_name("abi")
             .long("abi")
-            .help("Use ABI encoding. Arguments are expected as a JSON object as specified at zokrates.github.io/reference/abi.html#abi-input-format")
+            .help("Use ABI encoding. Arguments are expected as a JSON object as specified at zokrates.github.io/toolbox/abi.html#abi-input-format")
             .conflicts_with("arguments")
             .required(false)
         ).arg(Arg::with_name("stdin")
