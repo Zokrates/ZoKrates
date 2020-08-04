@@ -1,4 +1,4 @@
-def main() -> (field):
+def main() -> field:
 	field a = 1
 	field b = a
 	field c = b

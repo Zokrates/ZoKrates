@@ -16,7 +16,7 @@
 // # 65303172752238645975888084098459749904
 
 import "hashes/sha256/512bitPacked" as sha256packed
-def main() -> ():
+def main():
 
 	field a = 0
 	field b = 0

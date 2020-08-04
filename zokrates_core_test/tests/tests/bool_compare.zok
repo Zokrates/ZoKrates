@@ -1,2 +1,2 @@
-def main(bool a, bool b) -> (bool):
+def main(bool a, bool b) -> bool:
  return a == b

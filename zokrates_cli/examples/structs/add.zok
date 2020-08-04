@@ -3,7 +3,7 @@ struct Point {
 	field y
 }
 
-def main(Point p, Point q) -> (Point):
+def main(Point p, Point q) -> Point:
 
     field a = 42
     field d = 21

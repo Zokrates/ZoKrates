@@ -24,7 +24,7 @@ const { initialize } = require('zokrates-js/node');
 ## Example
 ```js
 initialize().then((zokratesProvider) => {
-    const source = "def main(private field a) -> (field): return a * a";
+    const source = "def main(private field a) -> field: return a * a";
 
     // compilation
     const artifacts = zokratesProvider.compile(source);

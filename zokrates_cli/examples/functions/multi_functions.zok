@@ -1,8 +1,8 @@
-def add(field a, field b) -> (field):
+def add(field a, field b) -> field:
   field v = a + b
   return v + a
 
-def main(field a, field b,field c, field d) -> (field):
+def main(field a, field b,field c, field d) -> field:
   field g = a + b
   field x = add(a,b)
   field y = add(c,d)

@@ -1,6 +1,6 @@
 import "utils/multiplexer/256bit" as multiplex
 
-def left() -> (bool):
+def left() -> bool:
 	bool bit = false  //left
 
 	u32[8] a = [0x1b19dea8, 0xba4e3c16, 0x43eb67a4, 0x2667fd3c, 0xc50a189f, 0x54977e2f, 0x8ab0beee, 0x332b2a38]
@@ -12,7 +12,7 @@ def left() -> (bool):
 	
 	return true
 	
-def right() -> (bool):
+def right() -> bool:
 	bool bit = true  //right
 
 	u32[8] a = [0x1b19dea8, 0xba4e3c16, 0x43eb67a4, 0x2667fd3c, 0xc50a189f, 0x54977e2f, 0x8ab0beee, 0x332b2a38]
@@ -24,7 +24,7 @@ def right() -> (bool):
 	
 	return true
 	
-def main() -> ():
+def main():
 
 	assert(left())
 	assert(right())

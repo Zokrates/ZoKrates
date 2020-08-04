@@ -8,7 +8,7 @@ from "ecc/babyjubjubParams" import BabyJubJubParams
 // curve parameters.
 // Note that the exponent array is not check to be boolean in this gadget
 // Reference: https://github.com/zcash-hackworks/sapling-crypto/blob/master/src/jubjub/fs.rs#L555
-def main(bool[256] exponent, field[2] pt, BabyJubJubParams context) -> (field[2]):
+def main(bool[256] exponent, field[2] pt, BabyJubJubParams context) -> field[2]:
 
     field[2] infinity = context.INFINITY
 

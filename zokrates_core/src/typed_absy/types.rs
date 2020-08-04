@@ -280,14 +280,21 @@ pub mod signature {
                     write!(f, ", ")?;
                 }
             }
-            write!(f, ") -> (")?;
-            for (i, t) in self.outputs.iter().enumerate() {
-                write!(f, "{}", t)?;
-                if i < self.outputs.len() - 1 {
-                    write!(f, ", ")?;
+            write!(f, ")")?;
+            match self.outputs.len() {
+                0 => write!(f, ""),
+                1 => write!(f, " -> {}", self.outputs[0]),
+                _ => {
+                    write!(f, " -> (")?;
+                    for (i, t) in self.outputs.iter().enumerate() {
+                        write!(f, "{}", t)?;
+                        if i < self.outputs.len() - 1 {
+                            write!(f, ", ")?;
+                        }
+                    }
+                    write!(f, ")")
                 }
             }
-            write!(f, ")")
         }
     }
 
@@ -363,7 +370,7 @@ pub mod signature {
                 .inputs(vec![Type::FieldElement, Type::Boolean])
                 .outputs(vec![Type::Boolean]);
 
-            assert_eq!(s.to_string(), String::from("(field, bool) -> (bool)"));
+            assert_eq!(s.to_string(), String::from("(field, bool) -> bool"));
         }
 
         #[test]

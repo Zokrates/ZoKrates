@@ -1,2 +1,2 @@
-def main(u32 a) -> (u32):
+def main(u32 a) -> u32:
 	return a >> 4

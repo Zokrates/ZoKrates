@@ -1,5 +1,5 @@
 // only using sub, no need to flatten
-def main(field x) -> (field):
+def main(field x) -> field:
   field a = 5
   field b = 7
   field c = if a == b then 4 else 3 fi

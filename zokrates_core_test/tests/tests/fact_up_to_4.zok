@@ -1,4 +1,4 @@
-def main(field x) -> (field):
+def main(field x) -> field:
     field f = 1
     field counter = 0
     for field i in 1..5 do

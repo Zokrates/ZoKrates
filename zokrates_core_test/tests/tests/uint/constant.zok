@@ -1,2 +1,2 @@
-def main() -> (u32):
+def main() -> u32:
 	return 0x01234567

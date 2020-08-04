@@ -2,7 +2,7 @@ import "./1024bit" as sha256
 
 // A function that takes 2 bool[256] arrays as inputs
 // and returns their sha256 full round output as an array of 256 bool.
-def main(u32[8] a, u32[8] b) -> (u32[8]):
+def main(u32[8] a, u32[8] b) -> u32[8]:
 
     // Hash is computed on the full 512bit block size
     // padding does not fit in the primary block

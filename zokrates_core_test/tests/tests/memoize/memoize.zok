@@ -1,10 +1,10 @@
 from "./dep.zok" import dep as dep
 
-def local(field a) -> (field): // this costs 3 constraints per call
+def local(field a) -> field: // this costs 3 constraints per call
 	field res = a ** 8
 	return res // currently expressions in the return statement don't get memoized
 
-def main(field a) -> ():
+def main(field a):
 	// calling a local function many times with the same arg should cost only once
 	assert(local(a) + local(a) + local(a) + local(a) + local(a) == 5 * (a ** 8))
 

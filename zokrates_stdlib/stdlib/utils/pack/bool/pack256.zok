@@ -1,6 +1,6 @@
 #pragma curve bn128
 
-def main(bool[256] input) -> (field):
+def main(bool[256] input) -> field:
 
 	field out = 0
 

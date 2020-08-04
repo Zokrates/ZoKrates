@@ -10,9 +10,9 @@
 
 //! The resulting program has a single module of the form
 
-//! def main() -> ():
-//! def _SHA_256_ROUND() -> ():
-//! def _UNPACK() -> ():
+//! def main():
+//! def _SHA_256_ROUND():
+//! def _UNPACK():
 
 //! where any call in `main` must be to `_SHA_256_ROUND` or `_UNPACK`
 
@@ -576,16 +576,16 @@ mod tests {
     fn call_other_module_without_variables() {
         // // main
         // from "foo" import foo
-        // def main() -> (field):
+        // def main() -> field:
         //    return foo()
         //
         // // foo
-        // def foo() -> (field):
+        // def foo() -> field:
         //    return 42
         //
         //
         // // inlined
-        // def main() -> (field):
+        // def main() -> field:
         //    return 42
 
         let main = TypedModule {
@@ -673,16 +673,16 @@ mod tests {
     fn call_other_module_with_variables() {
         // // main
         // from "foo" import foo
-        // def main(field a) -> (field):
+        // def main(field a) -> field:
         //    return a * foo(a)
         //
         // // foo
-        // def foo(field a) -> (field):
+        // def foo(field a) -> field:
         //    return a * a
         //
         //
         // // inlined
-        // def main(a) -> (field):
+        // def main(a) -> field:
         //    field a_0 = a
         //    return a * a_0 * a_0
 
@@ -827,16 +827,16 @@ mod tests {
     #[test]
     fn memoize_local_call() {
         // // foo
-        // def foo(field a) -> (field):
+        // def foo(field a) -> field:
         //     return a
 
         // // main
-        // def main(field a) -> (field):
+        // def main(field a) -> field:
         //     field b = foo(a) + foo(a)
         //     return b
 
         // inlined
-        // def main(field a) -> (field)
+        // def main(field a) -> field
         //     field _0 = a + a
         //     return _0
 
@@ -974,19 +974,19 @@ mod tests {
     #[test]
     fn only_memoize_in_same_function() {
         // // foo
-        // def foo(field a) -> (field):
+        // def foo(field a) -> field:
         //     return a
 
         // // main
-        // def main(field a) -> (field):
+        // def main(field a) -> field:
         //     field b = foo(a) + bar(a)
         //     return b
         //
-        // def bar(field a) -> (field):
+        // def bar(field a) -> field:
         //     return foo(a)
 
         // inlined
-        // def main(field a) -> (field)
+        // def main(field a) -> field
         //     field _0 = a + a
         //     return _0
 
@@ -1184,16 +1184,16 @@ mod tests {
     #[test]
     fn multi_def_from_other_module() {
         // // foo
-        // def foo() -> (field):
+        // def foo() -> field:
         //     return 42
 
         // // main
-        // def main() -> (field):
+        // def main() -> field:
         //     field b = foo()
         //     return b
 
         // inlined
-        // def main() -> (field)
+        // def main() -> field
         //     field _0 = 42
         //     return _0
 
@@ -1295,14 +1295,14 @@ mod tests {
     #[test]
     fn multi_def_from_same_module() {
         // // main
-        // def foo() -> (field):
+        // def foo() -> field:
         //     return 42
-        // def main() -> (field):
+        // def main() -> field:
         //     field a = foo()
         //     return a
 
         // inlined
-        // def main() -> (field)
+        // def main() -> field
         //     field _0 = 42
         //     return _0
 
@@ -1388,15 +1388,15 @@ mod tests {
     #[test]
     fn recursive_call_in_other_module() {
         // // main
-        // def main(field a) -> (field):
+        // def main(field a) -> field:
         //     return id(id(a))
 
         // // id
-        // def main(field a) -> (field)
+        // def main(field a) -> field
         //     return a
 
         // inlined
-        // def main(field a) -> (field)
+        // def main(field a) -> field
         //     id_main_0_a = a
         //     id_main_1_a = id_main_0_a
         //     return id_main_1_a

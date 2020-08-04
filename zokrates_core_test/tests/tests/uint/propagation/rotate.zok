@@ -1,63 +1,63 @@
 import "EMBED/u32_to_bits" as to_bits
 import "EMBED/u32_from_bits" as from_bits
 
-def right_rotate_2(u32 e) -> (u32):
+def right_rotate_2(u32 e) -> u32:
 	bool[32] b = to_bits(e)
 	u32 res = from_bits([...b[30..], ...b[..30]])
 	return res
 
-def right_rotate_4(u32 e) -> (u32):
+def right_rotate_4(u32 e) -> u32:
 	bool[32] b = to_bits(e)
 	u32 res = from_bits([...b[28..], ...b[..28]])
 	return res
 
-def right_rotate_6(u32 e) -> (u32):
+def right_rotate_6(u32 e) -> u32:
 	bool[32] b = to_bits(e)
 	u32 res = from_bits([...b[26..], ...b[..26]])
 	return res
 
-def right_rotate_7(u32 e) -> (u32):
+def right_rotate_7(u32 e) -> u32:
 	bool[32] b = to_bits(e)
 	u32 res = from_bits([...b[25..], ...b[..25]])
 	return res
 
-def right_rotate_11(u32 e) -> (u32):
+def right_rotate_11(u32 e) -> u32:
 	bool[32] b = to_bits(e)
 	u32 res = from_bits([...b[21..], ...b[..21]])
 	return res
 
-def right_rotate_13(u32 e) -> (u32):
+def right_rotate_13(u32 e) -> u32:
 	bool[32] b = to_bits(e)
 	u32 res = from_bits([...b[19..], ...b[..19]])
 	return res
 
-def right_rotate_17(u32 e) -> (u32):
+def right_rotate_17(u32 e) -> u32:
 	bool[32] b = to_bits(e)
 	u32 res = from_bits([...b[15..], ...b[..15]])
 	return res
 
-def right_rotate_18(u32 e) -> (u32):
+def right_rotate_18(u32 e) -> u32:
 	bool[32] b = to_bits(e)
 	u32 res = from_bits([...b[14..], ...b[..14]])
 	return res
 
-def right_rotate_19(u32 e) -> (u32):
+def right_rotate_19(u32 e) -> u32:
 	bool[32] b = to_bits(e)
 	u32 res = from_bits([...b[13..], ...b[..13]])
 	return res
 
-def right_rotate_22(u32 e) -> (u32):
+def right_rotate_22(u32 e) -> u32:
 	bool[32] b = to_bits(e)
 	u32 res = from_bits([...b[10..], ...b[..10]])
 	return res
 
-def right_rotate_25(u32 e) -> (u32):
+def right_rotate_25(u32 e) -> u32:
 	bool[32] b = to_bits(e)
 	u32 res = from_bits([...b[7..], ...b[..7]])
 
 	return res
 
-def main() -> ():
+def main():
 	u32 e = 0x12345678
 	u32 f = 0x01234567
 

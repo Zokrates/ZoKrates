@@ -1,7 +1,7 @@
 // MiMCFeistel configured with 220 rounds
 
 import "./IVconstants" as IVconstants
-def main(field xL_in, field xR_in, field k) -> (field[2]):
+def main(field xL_in, field xR_in, field k) -> field[2]:
 	field[220] IV = IVconstants()
 
 	field t = 0

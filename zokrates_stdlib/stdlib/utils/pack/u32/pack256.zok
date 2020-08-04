@@ -3,7 +3,7 @@
 import "EMBED/u32_to_bits" as to_bits
 import "../bool/pack256"
 
-def main(u32[8] input) -> (field):
+def main(u32[8] input) -> field:
 
 	bool[256] bits = [...to_bits(input[0]), ...to_bits(input[1]), ...to_bits(input[2]), ...to_bits(input[3]), ...to_bits(input[4]), ...to_bits(input[5]), ...to_bits(input[6]), ...to_bits(input[7])]
 
