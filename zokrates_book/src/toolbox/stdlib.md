@@ -13,8 +13,8 @@ SHA256 is available in Ethereum as a pre-compiled contract and thus a hash funct
 
 
 #### Pedersen Hashes
-The pedersen hash function is derived from a commitment scheme published by Pedersen [^2].
-This hash function’s security is based the discrete logarithm problem. 
+The pedersen hash function is inspired by a commitment scheme published by Pedersen [^2].
+This hash function’s security is based on the discrete logarithm problem. 
 Pedersen-hashes cannot be assumed to be pseudorandom and should therefore not be used where a hash function serves as a random oracle.
 
 In the EVM, operations on the BabyJubJub curve are not natively supported. Therefore, Pedersen hashes are expensive to evaluate on-chain and should be avoided.
@@ -23,11 +23,11 @@ By definition, the Pedersen hash function has a fixed-length binary input and ou
 
 #### MiMC
 The MiMC hash function was designed by using the MiMC-Feistel permutation [^3] over a prime field in a sponge construction [^4] to arrive at a secure and efficiently provable hash function.
-The construction is based on established hash function design principles from symmetric cryptography but is still novel and under review by the cryptography community. MiMC hashes are considered to be pseudorandom.
+The construction is based on established hash function design principles from symmetric cryptography but is still novel and should thus be used cautiously. MiMC hashes are considered to be pseudorandom.
 
 Due to its native use of prime field arithmetics, MiMC hash functions are efficient in circuits. At the same time, they can be evaluated by the EVM with comparatively little overhead.
 
-The MiMC hash function maps from field elements to field elements; applying the function to its output again does not introduce overhead.
+The MiMC hash function maps from field elements to field elements; applying the function to its output again does not introduce overhead for packing/unpacking.
 
 ### Elliptic curve cryptography
 
@@ -61,5 +61,4 @@ Optimised tools to branch inside circuits.
 
 [^4]: G. Bertoni, J. Daemen, M. Peeters, and G. Van Assche. “On the indifferentiability of the sponge construction”. In: Annual International Conference on the Theory and Applica-
 tions of Cryptographic Techniques. Springer. 2008, pp. 181–197.
-
 
