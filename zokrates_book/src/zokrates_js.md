@@ -91,7 +91,7 @@ const options = {
 const artifacts = zokratesProvider.compile(source, options);
 ```
 
-**Note:** The `resolveCallback` function is used to resolve unmet dependencies. 
+**Note:** The `resolveCallback` function is used to resolve dependencies. 
 This callback receives the current module location and the import location of the module which is being imported. 
 The callback must synchronously return either an error, `null` or a valid `ResolverResult` object like shown in the example above.
 
@@ -125,7 +125,7 @@ Parameters:
 Returns: `SetupKeypair`
 
 ##### exportSolidityVerifier(verificationKey, abi)
-Generates a Solidity contract which contains the generated verification key and a public function to verify a solution to the compiled program.
+Generates a Solidity contract which contains the generated verification key and a public function to verify proofs of computation of the compiled program.
 
 Parameters:
 * `verificationKey` - Verification key from the setup keypair
