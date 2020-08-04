@@ -395,7 +395,7 @@ impl<'ast, T: fmt::Debug> fmt::Debug for SpreadOrExpression<'ast, T> {
 /// The index in an array selector. Can be a range or an expression.
 #[derive(Clone, PartialEq)]
 pub enum RangeOrExpression<'ast, T> {
-    Range(RangeNode<T>),
+    Range(RangeNode<'ast, T>),
     Expression(ExpressionNode<'ast, T>),
 }
 
@@ -439,14 +439,14 @@ pub struct Spread<'ast, T> {
 
 /// A range
 #[derive(Clone, PartialEq)]
-pub struct Range<T> {
-    pub from: Option<T>,
-    pub to: Option<T>,
+pub struct Range<'ast, T> {
+    pub from: Option<ExpressionNode<'ast, T>>,
+    pub to: Option<ExpressionNode<'ast, T>>,
 }
 
-pub type RangeNode<T> = Node<Range<T>>;
+pub type RangeNode<'ast, T> = Node<Range<'ast, T>>;
 
-impl<'ast, T: fmt::Display> fmt::Display for Range<T> {
+impl<'ast, T: fmt::Display> fmt::Display for Range<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -463,7 +463,7 @@ impl<'ast, T: fmt::Display> fmt::Display for Range<T> {
     }
 }
 
-impl<'ast, T: fmt::Debug> fmt::Debug for Range<T> {
+impl<'ast, T: fmt::Debug> fmt::Debug for Range<'ast, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Range({:?}, {:?})", self.from, self.to)
     }

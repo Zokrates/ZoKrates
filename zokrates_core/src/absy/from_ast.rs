@@ -409,23 +409,13 @@ impl<'ast, T: Field> From<pest::Spread<'ast>> for absy::SpreadNode<'ast, T> {
     }
 }
 
-impl<'ast, T: Field> From<pest::Range<'ast>> for absy::RangeNode<T> {
-    fn from(range: pest::Range<'ast>) -> absy::RangeNode<T> {
+impl<'ast, T: Field> From<pest::Range<'ast>> for absy::RangeNode<'ast, T> {
+    fn from(range: pest::Range<'ast>) -> absy::RangeNode<'ast, T> {
         use absy::NodeValue;
 
-        let from = range
-            .from
-            .map(|e| match absy::ExpressionNode::from(e.0).value {
-                absy::Expression::FieldConstant(n) => n,
-                e => unimplemented!("Range bounds should be constants, found {}", e),
-            });
+        let from = range.from.map(|e| absy::ExpressionNode::from(e.0));
 
-        let to = range
-            .to
-            .map(|e| match absy::ExpressionNode::from(e.0).value {
-                absy::Expression::FieldConstant(n) => n,
-                e => unimplemented!("Range bounds should be constants, found {}", e),
-            });
+        let to = range.to.map(|e| absy::ExpressionNode::from(e.0));
 
         absy::Range { from, to }.span(range.span)
     }
