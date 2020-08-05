@@ -115,7 +115,7 @@ jobs:
           command: cd zokrates_js && npm run build
   zokrates_js_test:
     docker:
-      - image: dark64/zokrates-env:latest
+      - image: zokrates/env:latest
     steps:
       - checkout
       - run:
