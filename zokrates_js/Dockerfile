@@ -1,4 +1,4 @@
-FROM dark64/rust-wasm-env:latest
+FROM zokrates/env:latest
 
 COPY . src
 RUN cd src/zokrates_js && npm run build && rm -rf target/
