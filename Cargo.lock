@@ -1666,7 +1666,7 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "zokrates_abi"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "serde",
  "serde_derive",
@@ -1677,7 +1677,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_cli"
-version = "0.5.3"
+version = "0.6.0"
 dependencies = [
  "assert_cli",
  "bincode",
@@ -1699,7 +1699,7 @@ version = "0.1.0"
 
 [[package]]
 name = "zokrates_core"
-version = "0.4.3"
+version = "0.5.0"
 dependencies = [
  "assert_cli",
  "bellman_ce",
@@ -1732,7 +1732,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_core_test"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "fs_extra",
  "zokrates_test",
@@ -1740,7 +1740,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_field"
-version = "0.3.6"
+version = "0.3.7"
 dependencies = [
  "bellman_ce",
  "bincode",
@@ -1765,7 +1765,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_parser"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "glob 0.2.11",
  "pest",
@@ -1774,7 +1774,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_pest_ast"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "from-pest",
  "glob 0.2.11",
@@ -1787,7 +1787,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_stdlib"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "fs_extra",
  "zokrates_test",
@@ -1795,7 +1795,7 @@ dependencies = [
 
 [[package]]
 name = "zokrates_test"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "fs_extra",
  "glob 0.3.0",

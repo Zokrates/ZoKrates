@@ -15,7 +15,7 @@ bincode = "0.8.0"
 regex = "0.2"
 zokrates_field = { version = "0.3", path = "../zokrates_field" }
 zokrates_abi = { version = "0.1", path = "../zokrates_abi" }
-zokrates_core = { version = "0.4", path = "../zokrates_core" }
+zokrates_core = { version = "0.5", path = "../zokrates_core" }
 zokrates_fs_resolver = { version = "0.5", path = "../zokrates_fs_resolver"}
 serde_json = "1.0"
 
