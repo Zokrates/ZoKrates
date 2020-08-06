@@ -59,9 +59,7 @@ wget -qO- $MDBOOK_TAR | tar xvz
 ./mdbook build
 
 ## Deploy to github.io
-git clone https://github.com/Zokrates/zokrates.github.io.git
-git clone https://github.com/davisp/ghp-import.git
-cd zokrates.github.io
-../ghp-import/ghp_import.py -n -p -f -m "Documentation upload. Version:  $TAG" -b "master" -r https://zokratesbot:"$GH_TOKEN"@github.com/Zokrates/zokrates.github.io.git ../book
+pip3 install ghp-import
+git clone https://github.com/Zokrates/zokrates.github.io.git && cd zokrates.github.io
+ghp-import -n -p -f -m "Documentation upload. Version:  $TAG" -b "master" -r https://zokratesbot:"$GH_TOKEN"@github.com/Zokrates/zokrates.github.io.git ../book
 echo "Published book"
-
